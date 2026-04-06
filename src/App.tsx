@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, isConfigured } from './lib/supabase'
+import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import type { User } from '@supabase/supabase-js'
 

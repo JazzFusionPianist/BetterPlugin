@@ -10,7 +10,7 @@ export default function AuthPage() {
   return (
     <div className="flex h-full flex-col justify-center px-8 py-10">
       <div className="mb-8 text-center">
-        <h1 className="text-xl font-bold text-gray-900">Coop</h1>
+        <h1 className="text-xl font-bold text-gray-900">CoOp</h1>
       </div>
 
       <div className="mb-6 flex rounded-lg bg-gray-100 p-1">

@@ -163,7 +163,7 @@ function CollabPageInner({ user }: Props) {
     <div className={pluginClass} ref={pluginRef}>
       {/* Top bar */}
       <div className="top-bar">
-        <span className="app-title">COOP</span>
+        <span className="app-title">CoOp</span>
 
         {/* Activity icon */}
         <div className="icon-btn">

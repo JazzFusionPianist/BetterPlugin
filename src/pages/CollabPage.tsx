@@ -7,6 +7,7 @@ import { usePresence } from '../hooks/usePresence'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
+import ProfilePanel from '../components/collab/ProfilePanel'
 import type { Profile } from '../types/collab'
 import './collab.css'
 
@@ -36,6 +37,7 @@ function CollabPageInner({ user }: Props) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
@@ -57,7 +59,7 @@ function CollabPageInner({ user }: Props) {
     }
   })
 
-  const { profiles, loading: profilesLoading } = useProfiles(client, user.id)
+  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds = usePresence(client, user.id)
 
@@ -103,6 +105,12 @@ function CollabPageInner({ user }: Props) {
 
   const handleToggleSettings = () => {
     setSettingsOpen(prev => !prev)
+    if (!settingsOpen) setProfileOpen(false)
+  }
+
+  const handleToggleProfile = () => {
+    setProfileOpen(prev => !prev)
+    if (!profileOpen) setSettingsOpen(false)
   }
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
@@ -157,6 +165,7 @@ function CollabPageInner({ user }: Props) {
     selectedId ? 'chat-open' : '',
     isDark ? 'dark' : '',
     settingsOpen ? 'settings-open' : '',
+    profileOpen ? 'profile-open' : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -183,6 +192,26 @@ function CollabPageInner({ user }: Props) {
             <circle cx="6.5" cy="6.5" r="4" />
             <path d="M10 10l3 3" strokeLinecap="round" />
           </svg>
+        </div>
+
+        {/* Profile icon */}
+        <div
+          className={`icon-btn${profileOpen ? ' active' : ''}`}
+          onClick={handleToggleProfile}
+          title="Profile"
+        >
+          {me?.avatar_url ? (
+            <img
+              src={me.avatar_url}
+              alt="me"
+              style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
+              <circle cx="8" cy="6" r="2.6" />
+              <path d="M3 13.2c.8-2.4 2.8-3.4 5-3.4s4.2 1 5 3.4" strokeLinecap="round" />
+            </svg>
+          )}
         </div>
 
         {/* Settings icon */}
@@ -261,6 +290,17 @@ function CollabPageInner({ user }: Props) {
             onToggleDark={handleToggleDark}
             onViewModeChange={handleViewModeChange}
             onClose={() => setSettingsOpen(false)}
+          />
+        </div>
+
+        {/* Profile view */}
+        <div className="view pview">
+          <ProfilePanel
+            supabase={client}
+            user={user}
+            me={me}
+            onClose={() => setProfileOpen(false)}
+            onUpdated={refetchProfiles}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
+import CollabPage from './pages/CollabPage'
 import type { User } from '@supabase/supabase-js'
 
 export default function App() {
@@ -41,10 +42,5 @@ export default function App() {
     return <AuthPage />
   }
 
-  return (
-    <iframe
-      src="/collab.html"
-      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-    />
-  )
+  return <CollabPage user={user} />
 }

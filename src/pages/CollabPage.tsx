@@ -65,7 +65,10 @@ function CollabPageInner({ user }: Props) {
   const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds = usePresence(client, user.id)
-  const { friendIds, addFriend, removeFriend } = useFriends(client, user.id)
+  const {
+    friendIds, pendingOutgoing, pendingIncoming,
+    addFriend, acceptFriend, declineFriend, cancelRequest,
+  } = useFriends(client, user.id)
 
   const profilesWithStatus = useMemo(
     () => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })),
@@ -216,12 +219,14 @@ function CollabPageInner({ user }: Props) {
           className={`icon-btn${addFriendOpen ? ' active' : ''}`}
           onClick={handleToggleAddFriend}
           title="Add Friend"
+          style={{ position: 'relative' }}
         >
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
             <circle cx="5.5" cy="5.5" r="2.4" />
             <path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" />
             <path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
+          {pendingIncoming.length > 0 && <div className="notif-dot" />}
         </div>
 
         {/* Profile icon */}
@@ -331,8 +336,12 @@ function CollabPageInner({ user }: Props) {
           <AddFriendPanel
             allProfiles={profilesWithStatus}
             friendIds={friendIds}
+            pendingOutgoing={pendingOutgoing}
+            pendingIncoming={pendingIncoming}
             onAdd={addFriend}
-            onRemove={removeFriend}
+            onAccept={acceptFriend}
+            onDecline={declineFriend}
+            onCancel={cancelRequest}
             onClose={() => setAddFriendOpen(false)}
           />
         </div>

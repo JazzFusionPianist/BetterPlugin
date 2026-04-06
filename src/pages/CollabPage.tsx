@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
+import { useNotifications } from '../hooks/useNotifications'
 import { useFriends } from '../hooks/useFriends'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
@@ -43,6 +44,7 @@ function CollabPageInner({ user }: Props) {
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -65,6 +67,7 @@ function CollabPageInner({ user }: Props) {
   const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds = usePresence(client, user.id)
+  const { unread, markSeen } = useNotifications(client, user.id)
   const {
     friendIds, pendingOutgoing, pendingIncoming,
     addFriend, acceptFriend, declineFriend, cancelRequest,
@@ -177,6 +180,11 @@ function CollabPageInner({ user }: Props) {
   const handleOpenChat = (id: string) => {
     setTooltip(null)
     setSelectedId(id)
+    markSeen(id)
+  }
+
+  const handleToggleNotif = () => {
+    setNotifOpen(prev => !prev)
   }
 
   // Close search when entering chat
@@ -184,6 +192,7 @@ function CollabPageInner({ user }: Props) {
     if (selectedId) {
       setSearchOpen(false)
       setSearchQuery('')
+      setNotifOpen(false)
     }
   }, [selectedId])
 
@@ -201,6 +210,20 @@ function CollabPageInner({ user }: Props) {
       {/* Top bar */}
       <div className="top-bar">
         <span className="app-title">CoOp</span>
+
+        {/* Notification icon */}
+        <div
+          className={`icon-btn${notifOpen ? ' active' : ''}`}
+          onClick={handleToggleNotif}
+          title="Notifications"
+          style={{ position: 'relative' }}
+        >
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" />
+            <path d="M6.5 12.5a1.5 1.5 0 003 0" />
+          </svg>
+          {unread.size > 0 && <span className="notif-dot" />}
+        </div>
 
         {/* Search icon */}
         <div
@@ -277,6 +300,43 @@ function CollabPageInner({ user }: Props) {
           </svg>
         </button>
       </div>
+
+      {/* Notification panel (overlay) */}
+      {notifOpen && (
+        <div className="notif-panel">
+          {unread.size === 0 ? (
+            <div className="notif-empty">No new messages</div>
+          ) : (
+            Array.from(unread.entries()).map(([senderId, msgs]) => {
+              const profile = profilesWithStatus.find(p => p.id === senderId)
+              const name = profile?.display_name ?? 'Unknown'
+              const count = msgs.length
+              const preview = count === 1 ? msgs[0]!.content : `${count} new messages`
+              return (
+                <div
+                  key={senderId}
+                  className="notif-row"
+                  onClick={() => {
+                    setNotifOpen(false)
+                    handleOpenChat(senderId)
+                  }}
+                >
+                  <div className="av sz32" style={{ background: profile?.avatar_color ?? '#999' }}>
+                    {profile?.avatar_url
+                      ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                      : profile?.initials ?? '?'}
+                  </div>
+                  <div className="notif-info">
+                    <div className="notif-name">{name}</div>
+                    <div className="notif-preview">{preview}</div>
+                  </div>
+                  <div className="notif-count">{count}</div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
 
       {/* Sliding content */}
       <div className="content">

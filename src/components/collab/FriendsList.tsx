@@ -4,8 +4,12 @@ interface Props {
   profiles: Profile[]
   favorites: Set<string>
   loading: boolean
+  viewMode: 'gallery' | 'list'
+  searchQuery: string
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
+  onCellHover: (profile: Profile, el: HTMLDivElement) => void
+  onCellLeave: () => void
 }
 
 function FriendRow({
@@ -22,10 +26,10 @@ function FriendRow({
   return (
     <div className="f-row" onClick={onSelect}>
       <div className="av-wrap">
-        <div className="av" style={{ background: profile.avatar_color }}>
+        <div className="av sz32" style={{ background: profile.avatar_color }}>
           {profile.initials}
         </div>
-        <div className={`av-dot ${profile.isOnline ? 'don' : 'doff'}`} />
+        <div className={`av-dot sm ${profile.isOnline ? 'don' : 'doff'}`} />
       </div>
 
       <div className="f-info">
@@ -51,19 +55,86 @@ function FriendRow({
   )
 }
 
-export default function FriendsList({ profiles, favorites, loading, onSelect, onToggleFav }: Props) {
+function GalleryCell({
+  profile,
+  isFav,
+  onSelect,
+  onHover,
+  onLeave,
+}: {
+  profile: Profile
+  isFav: boolean
+  onSelect: () => void
+  onHover: (el: HTMLDivElement) => void
+  onLeave: () => void
+}) {
+  return (
+    <div
+      className="gcell"
+      onClick={onSelect}
+      onMouseEnter={e => onHover(e.currentTarget)}
+      onMouseLeave={onLeave}
+    >
+      <div className="av-wrap">
+        <div className="av sz48" style={{ background: profile.avatar_color }}>
+          {profile.initials}
+        </div>
+        <div className={`av-dot md ${profile.isOnline ? 'don' : 'doff'}`} />
+        {isFav && <div className="star-badge">★</div>}
+      </div>
+      <div className={`gcell-name ${profile.isOnline ? 'on' : ''}`}>
+        {profile.display_name.split(' ')[0]}
+      </div>
+    </div>
+  )
+}
+
+export default function FriendsList({
+  profiles,
+  favorites,
+  loading,
+  viewMode,
+  searchQuery,
+  onSelect,
+  onToggleFav,
+  onCellHover,
+  onCellLeave,
+}: Props) {
   if (loading) {
     return <div className="collab-loading">Loading...</div>
   }
 
-  if (profiles.length === 0) {
-    return <div className="collab-loading">No users yet</div>
+  const filtered = searchQuery
+    ? profiles.filter(p => p.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : profiles
+
+  if (filtered.length === 0) {
+    return <div className="collab-loading">{searchQuery ? 'No results' : 'No users yet'}</div>
   }
 
-  const favOnline  = profiles.filter(p => favorites.has(p.id) && p.isOnline)
-  const otherOnline = profiles.filter(p => !favorites.has(p.id) && p.isOnline)
-  const offline    = profiles.filter(p => !p.isOnline)
+  const favOnline   = filtered.filter(p =>  favorites.has(p.id) &&  p.isOnline)
+  const otherOnline = filtered.filter(p => !favorites.has(p.id) &&  p.isOnline)
+  const offline     = filtered.filter(p => !p.isOnline)
 
+  if (viewMode === 'gallery') {
+    const sorted = [...favOnline, ...otherOnline, ...offline]
+    return (
+      <div className="fgallery gallery-mode">
+        {sorted.map(p => (
+          <GalleryCell
+            key={p.id}
+            profile={p}
+            isFav={favorites.has(p.id)}
+            onSelect={() => onSelect(p.id)}
+            onHover={el => onCellHover(p, el)}
+            onLeave={onCellLeave}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  // List mode
   const rows = (list: Profile[]) =>
     list.map(p => (
       <FriendRow
@@ -76,7 +147,7 @@ export default function FriendsList({ profiles, favorites, loading, onSelect, on
     ))
 
   return (
-    <div className="fscroll">
+    <div className="fscroll list-mode">
       {rows(favOnline)}
       {favOnline.length > 0 && otherOnline.length > 0 && <div className="sep" />}
       {rows(otherOnline)}

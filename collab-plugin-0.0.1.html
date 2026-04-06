@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<title>COLLAB – DAW Chat Plugin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#2a2a2a;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'DM Sans',sans-serif}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   CSS Theme Variables
+   .plugin        = light mode (default)
+   .plugin.dark   = dark mode
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.plugin{
+  --bg:#ffffff;
+  --bg2:#fafafa;
+  --bg3:#f2f2f2;
+  --border:#eeeeee;
+  --border2:#dddddd;
+  --t1:#111111;
+  --t2:#555555;
+  --t3:#aaaaaa;
+  --t4:#bbbbbb;
+  --mine-bg:#1A1A1A;
+  --mine-t:#F5F5F5;
+  --inp-bg:#1A1A1A;
+  --inp-ph:rgba(255,255,255,.32);
+  --star:#F4B942;
+  --ob-bg:#E6F5EF;
+  --ob-t:#2D8B70;
+}
+.plugin.dark{
+  --bg:#1C1C1E;
+  --bg2:#2C2C2E;
+  --bg3:#3A3A3C;
+  --border:#38383A;
+  --border2:#48484A;
+  --t1:#F2F2F7;
+  --t2:#AEAEB2;
+  --t3:#8E8E93;
+  --t4:#636366;
+  --mine-bg:#0A84FF;
+  --mine-t:#ffffff;
+  --inp-bg:#3A3A3C;
+  --inp-ph:rgba(255,255,255,.28);
+  --ob-bg:rgba(52,199,89,.15);
+  --ob-t:#34C759;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Plugin Shell (300×500)
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.plugin{
+  width:300px;height:500px;
+  background:var(--bg);
+  border:0.5px solid var(--border2);
+  border-radius:10px;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 4px 32px rgba(0,0,0,.25);
+  position:relative;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Top Bar — always visible
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.top-bar{
+  display:flex;align-items:center;
+  height:44px;padding:0 14px;
+  border-bottom:0.5px solid var(--border);
+  flex-shrink:0;background:var(--bg);gap:8px;z-index:10;
+}
+.app-title{
+  font-family:'DM Mono',monospace;font-size:12px;font-weight:500;
+  letter-spacing:.08em;color:var(--t1);flex:1;
+}
+.icon-btn{
+  width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;opacity:.3;cursor:pointer;flex-shrink:0;
+  border-radius:4px;transition:opacity .15s,background .15s;
+}
+.icon-btn:hover{opacity:.7;background:var(--bg3)}
+.icon-btn.active{opacity:1;background:var(--bg3)}
+.icon-btn svg{width:14px;height:14px;stroke:var(--t1);fill:none}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Sliding Content Area
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.content{flex:1;position:relative;overflow:hidden}
+
+.view{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  background:var(--bg);
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+}
+#fview{transform:translateX(0)}
+#cview{transform:translateX(100%)}
+#sview{transform:translateX(100%);z-index:15}
+
+.plugin.chat-open     #fview{transform:translateX(-100%)}
+.plugin.chat-open     #cview{transform:translateX(0)}
+.plugin.settings-open #sview{transform:translateX(0)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Search Bar
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.search-bar{
+  display:flex;align-items:center;gap:8px;
+  height:0;overflow:hidden;
+  padding:0 14px;
+  border-bottom:0px solid var(--border);
+  background:var(--bg);
+  transition:height .2s ease, padding .2s ease, border-bottom-width .2s ease;
+  flex-shrink:0;
+}
+.search-bar.open{
+  height:36px;
+  padding:0 14px;
+  border-bottom-width:0.5px;
+}
+.search-input{
+  flex:1;outline:none;
+  font-family:'DM Sans',sans-serif;font-size:12px;
+  color:var(--t1);background:transparent;
+  border:none;line-height:1;
+  white-space:nowrap;overflow:hidden;
+  caret-color:var(--t1);
+}
+.search-input:empty::before{
+  content:attr(data-ph);color:var(--t3);pointer-events:none;
+}
+.search-clear{
+  width:18px;height:18px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;flex-shrink:0;
+  border-radius:50%;opacity:0;transition:opacity .15s;
+}
+.search-clear.visible{opacity:1}
+.search-clear:hover{background:var(--bg3)}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Shared Avatar Styles
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.av-wrap{position:relative;flex-shrink:0}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:500;color:#fff}
+.av.sz32{width:32px;height:32px;font-size:11px}
+.av.sz48{width:44px;height:44px;font-size:13px}
+.av-dot{position:absolute;border-radius:50%;border:2px solid var(--bg)}
+.av-dot.sm{width:9px; height:9px; bottom:0;right:0}
+.av-dot.md{width:11px;height:11px;bottom:0;right:0}
+.don{background:#3CC97A}
+.doff{background:#888}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Friends List  (list mode)
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.fscroll{flex:1;overflow-y:auto;display:none}  /* hidden by default (gallery is default) */
+.fscroll::-webkit-scrollbar{width:3px}
+.fscroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.f-row{display:flex;align-items:center;gap:10px;padding:7px 14px;cursor:pointer}
+.f-row:hover{background:var(--bg2)}
+
+.f-info{flex:1;min-width:0}
+.f-name{font-size:12px;color:var(--t1);line-height:1.2}
+.f-name.bold{font-weight:500}
+.f-sub{font-size:10px;color:var(--t3);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.badges{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.star{font-size:11px;color:var(--star)}
+.ob{font-family:'DM Mono',monospace;font-size:8px;font-weight:500;color:var(--ob-t);background:var(--ob-bg);padding:2px 6px;border-radius:4px}
+
+.sep{height:0.5px;background:var(--border);margin:4px 14px}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Gallery Mode
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.fgallery{
+  display:grid;                          /* shown by default */
+  grid-template-columns:repeat(5,1fr);
+  padding:8px 4px;gap:0px;
+  overflow-y:auto;align-content:start;flex:1;
+}
+.fgallery::-webkit-scrollbar{width:3px}
+.fgallery::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.gcell{
+  display:flex;flex-direction:column;align-items:center;
+  gap:4px;padding:6px 2px;cursor:pointer;
+  border-radius:8px;transition:background .12s;
+}
+.gcell:hover{background:var(--bg2)}
+
+.gcell-name{
+  font-size:9px;color:var(--t3);text-align:center;
+  line-height:1.2;width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;
+}
+.gcell-name.on{color:var(--t1);font-weight:500}
+
+/* Favorite star badge on gallery avatar */
+.star-badge{
+  position:absolute;top:-3px;left:-3px;
+  font-size:9px;line-height:1;color:var(--star);
+  background:var(--bg);border-radius:50%;
+  width:14px;height:14px;display:flex;align-items:center;justify-content:center;
+}
+
+/* Group separator in gallery grid */
+.gsep{grid-column:1/-1;height:0.5px;background:var(--border);margin:2px 4px}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Hover Tooltip
+   — lives inside .plugin (above .content) so it's never clipped
+   — 180ms hide-delay prevents overlap flicker between cells
+━━━━━━━━━━━━━━━━━━━━━━━ */
+#tooltip{
+  position:absolute;
+  width:162px;
+  background:#1C1C1E;
+  border-radius:10px;padding:10px;
+  z-index:50;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .12s ease;
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
+}
+#tooltip.visible{opacity:1;pointer-events:auto}
+
+.tt-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tt-info{flex:1;min-width:0}
+.tt-name{font-size:11px;font-weight:500;color:#F2F2F7;line-height:1.2}
+.tt-sub{font-size:9px;color:#8E8E93;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.tt-btn{
+  width:100%;height:26px;
+  background:#2C2C2E;border:none;border-radius:6px;
+  font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;
+  color:#F2F2F7;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  transition:background .12s;
+}
+.tt-btn:hover{background:#3A3A3C}
+
+/* Tooltip arrow */
+.tt-arrow{
+  position:absolute;
+  width:0;height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+}
+.tt-arrow.down{
+  bottom:-5px;
+  border-top:6px solid #1C1C1E;
+  border-bottom:none;
+}
+.tt-arrow.up{
+  top:-5px;
+  border-bottom:6px solid #1C1C1E;
+  border-top:none;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Chat Sub-Bar
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.csub{
+  display:flex;align-items:center;height:40px;
+  padding:0 12px;border-bottom:0.5px solid var(--border);
+  flex-shrink:0;gap:8px;
+}
+.back{
+  width:26px;height:26px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;border-radius:50%;
+  font-size:20px;color:var(--t2);line-height:1;flex-shrink:0;
+  margin-top:-1px;transition:background .12s;
+}
+.back:hover{background:var(--bg2)}
+.chdr-av{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:500;color:#fff;flex-shrink:0;position:relative;
+}
+.chdr-dot{
+  position:absolute;bottom:-1px;right:-1px;
+  width:8px;height:8px;border-radius:50%;border:2px solid var(--bg);
+}
+.chdr-info{flex:1;min-width:0}
+.chdr-name{font-size:12px;font-weight:500;color:var(--t1);line-height:1.2}
+.chdr-sub{font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Chat Messages
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.chat-area{
+  flex:1;overflow-y:auto;padding:12px 14px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.chat-area::-webkit-scrollbar{width:3px}
+.chat-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.mg{display:flex;flex-direction:column;gap:3px}
+.mm{font-size:9px;color:var(--t4);font-weight:500;margin-bottom:2px}
+.mb{
+  display:inline-block;max-width:200px;
+  padding:7px 10px;border-radius:10px;
+  font-size:12px;line-height:1.5;
+  color:var(--t1);background:var(--bg3);
+}
+.mg.mine{align-items:flex-end}
+.mg.mine .mm{text-align:right}
+.mg.mine .mb{background:var(--mine-bg);color:var(--mine-t);border-radius:10px 10px 2px 10px}
+.mg.theirs .mb{border-radius:10px 10px 10px 2px}
+.ts{font-size:8.5px;color:var(--t4);text-align:center;margin:4px 0}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Input Bar
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.input-bar{
+  padding:8px 14px 10px;border-top:0.5px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.mi-wrap{
+  flex:1;height:30px;display:flex;align-items:center;
+  background:var(--inp-bg);border-radius:15px;
+  padding:0 14px;cursor:text;overflow:hidden;
+}
+.mi{
+  flex:1;outline:none;
+  font-family:'DM Sans',sans-serif;font-size:12px;
+  line-height:1;color:#fff;
+  background:transparent;border:none;
+  white-space:nowrap;overflow:hidden;min-width:0;caret-color:#fff;
+}
+.mi:empty::before{content:attr(data-ph);color:var(--inp-ph);pointer-events:none}
+.send-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;width:20px;height:20px;opacity:.65}
+.send-btn:hover{opacity:1}
+.send-btn img{width:16px;height:16px;display:block}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Settings Panel
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.s-header{
+  display:flex;align-items:center;height:40px;
+  padding:0 12px;border-bottom:0.5px solid var(--border);
+  flex-shrink:0;gap:8px;
+}
+.s-close{
+  width:26px;height:26px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;border-radius:50%;
+  font-size:20px;color:var(--t2);line-height:1;flex-shrink:0;
+  margin-top:-1px;transition:background .12s;
+}
+.s-close:hover{background:var(--bg2)}
+.s-title{
+  font-family:'DM Mono',monospace;font-size:12px;font-weight:500;
+  letter-spacing:.06em;color:var(--t1);
+}
+
+.s-body{flex:1;overflow-y:auto;padding:18px 14px}
+.s-section{margin-bottom:24px}
+.s-section-label{
+  font-size:9px;font-weight:500;letter-spacing:.12em;
+  color:var(--t3);text-transform:uppercase;margin-bottom:12px;
+}
+.s-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.s-row-label{font-size:13px;color:var(--t1)}
+
+/* iOS-style pill toggle (dark mode) */
+.pill-toggle{
+  width:44px;height:26px;border-radius:13px;
+  background:#D1D1D6;position:relative;cursor:pointer;
+  transition:background .2s;flex-shrink:0;
+}
+.pill-toggle.on{background:#34C759}
+.pill-toggle::after{
+  content:'';position:absolute;
+  width:20px;height:20px;border-radius:50%;background:#fff;
+  top:3px;left:3px;
+  transition:transform .2s;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);
+}
+.pill-toggle.on::after{transform:translateX(18px)}
+
+/* Segmented control (view mode) */
+.seg{
+  display:flex;align-items:center;
+  background:var(--bg3);border-radius:8px;padding:2px;gap:2px;
+}
+.seg-opt{
+  flex:1;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--t3);border-radius:6px;cursor:pointer;
+  transition:all .15s;font-weight:400;
+}
+.seg-opt.active{
+  background:var(--bg);color:var(--t1);font-weight:500;
+  box-shadow:0 1px 3px rgba(0,0,0,.1);
+}
+
+/* Settings info note */
+.s-note{
+  font-size:10px;color:var(--t3);line-height:1.6;margin-top:4px;
+}
+</style>
+</head>
+<body>
+
+<div class="plugin" id="plugin">
+
+  <!-- ━━━ Always-visible COLLAB Top Bar ━━━ -->
+  <div class="top-bar">
+    <span class="app-title">COLLAB</span>
+
+    <!-- Activity / History icon -->
+    <div class="icon-btn" title="Activity">
+      <svg viewBox="0 0 16 16" stroke-width="1.5">
+        <circle cx="8" cy="8" r="5.5"/>
+        <path d="M8 5.5v3l2 1.5"/>
+      </svg>
+    </div>
+
+    <!-- Search icon -->
+    <div class="icon-btn" id="search-btn" onclick="toggleSearch()" title="Search">
+      <svg viewBox="0 0 16 16" stroke-width="1.5">
+        <circle cx="6.5" cy="6.5" r="4"/>
+        <path d="M10 10l3 3" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Settings icon -->
+    <div class="icon-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">
+      <svg viewBox="0 0 16 16" stroke-width="1.4">
+        <circle cx="8" cy="8" r="2"/>
+        <path d="M8 2v1.2M8 12.8V14M2 8h1.2M12.8 8H14M3.76 3.76l.85.85M11.39 11.39l.85.85M3.76 12.24l.85-.85M11.39 4.61l.85-.85"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ━━━ Search Bar (slides down when active) ━━━ -->
+  <div class="search-bar" id="search-bar">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" stroke-width="1.5" style="flex-shrink:0">
+      <circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3 3" stroke-linecap="round"/>
+    </svg>
+    <div class="search-input" id="search-input"
+         contenteditable="true" spellcheck="false"
+         data-ph="search friends..."
+         oninput="onSearch(this.textContent.trim())"></div>
+    <div class="search-clear" id="search-clear" onclick="clearSearch()">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--t3)" stroke-width="1.8" stroke-linecap="round">
+        <path d="M1 1l8 8M9 1L1 9"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ━━━ Sliding Content Area ━━━ -->
+  <div class="content">
+
+    <!-- ── FRIENDS VIEW ── -->
+    <div class="view" id="fview">
+
+      <!-- List mode (hidden by default, gallery is default) -->
+      <div class="fscroll" id="fscroll"></div>
+
+      <!-- Gallery mode (shown by default) -->
+      <div class="fgallery" id="fgallery"></div>
+
+    </div>
+
+    <!-- ── CHAT VIEW ── -->
+    <div class="view" id="cview">
+
+      <div class="csub">
+        <div class="back" onclick="closeChat()">&#8249;</div>
+        <div class="chdr-av" id="chdr-av">
+          <div class="chdr-dot" id="chdr-dot"></div>
+        </div>
+        <div class="chdr-info">
+          <div class="chdr-name" id="chdr-name"></div>
+          <div class="chdr-sub"  id="chdr-sub"></div>
+        </div>
+      </div>
+
+      <div class="chat-area">
+        <div class="ts">today &nbsp; 2:14 PM</div>
+        <div class="mg theirs">
+          <div class="mm" id="chat-meta"></div>
+          <div class="mb">야 뭐 작업하냐?</div>
+        </div>
+        <div class="mg mine">
+          <div class="mm">나</div>
+          <div class="mb">Prism 피치 코렉션 마무리 중. 어제 코드 문제 고쳤어</div>
+        </div>
+        <div class="mg theirs"><div class="mb">ㅋㅋ 오 드디어? 언제 테스트해봄?</div></div>
+        <div class="mg mine"><div class="mb">오늘 저녁에 올려줄게 한번 써봐</div></div>
+        <div class="ts">2:18 PM</div>
+        <div class="mg theirs"><div class="mb">ㅇㅋ 기다릴게 👍</div></div>
+      </div>
+
+      <div class="input-bar">
+        <div class="mi-wrap" onclick="this.querySelector('.mi').focus()">
+          <div class="mi" id="msg-input"
+               contenteditable="true" spellcheck="false"
+               data-ph="message..."></div>
+        </div>
+        <div class="send-btn">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23333' d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/%3E%3C/svg%3E" alt="send"/>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── SETTINGS VIEW ── -->
+    <div class="view" id="sview">
+
+      <div class="s-header">
+        <div class="s-close" onclick="toggleSettings()">&#8249;</div>
+        <span class="s-title">SETTINGS</span>
+      </div>
+
+      <div class="s-body">
+
+        <!-- Appearance -->
+        <div class="s-section">
+          <div class="s-section-label">appearance</div>
+          <div class="s-row">
+            <span class="s-row-label">Dark mode</span>
+            <div class="pill-toggle" id="dark-toggle" onclick="toggleDark()"></div>
+          </div>
+        </div>
+
+        <!-- View mode -->
+        <div class="s-section">
+          <div class="s-section-label">view mode</div>
+          <div class="seg">
+            <div class="seg-opt active" id="btn-gallery" onclick="setViewMode('gallery')">Gallery</div>
+            <div class="seg-opt"        id="btn-list"    onclick="setViewMode('list')">List</div>
+          </div>
+          <p class="s-note" style="margin-top:10px">
+            Gallery shows profile pictures in a grid.<br>
+            List shows names and status at a glance.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- ━━━ Hover Tooltip ━━━
+       Placed directly inside .plugin (NOT inside .content)
+       so it never gets clipped by .content's overflow:hidden.
+
+       Overlap fix strategy:
+       — 180ms hide delay on mouseleave lets the user
+         move from an avatar into the tooltip without it vanishing.
+       — Entering a new avatar immediately updates the tooltip
+         content and cancels any pending hide.
+  ━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <div id="tooltip">
+    <div class="tt-row">
+      <div class="av sz32" id="tt-av"></div>
+      <div class="tt-info">
+        <div class="tt-name" id="tt-name"></div>
+        <div class="tt-sub"  id="tt-sub"></div>
+      </div>
+    </div>
+    <button class="tt-btn" id="tt-btn">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F2F2F7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      </svg>
+      message
+    </button>
+    <div class="tt-arrow down" id="tt-arrow"></div>
+  </div>
+
+</div><!-- /plugin -->
+
+<script>
+/* ══════════════════════════════════════════════
+   FRIEND DATA
+   Priority order when rendering:
+     G1 — fav && on   → top    (fav + online)
+     G2 — !fav && on  → middle (online only)
+     G3 — !on         → bottom (all offline)
+══════════════════════════════════════════════ */
+const FRIENDS = [
+  {id:1,  name:'Alex Kim',          ini:'AK', col:'#E05555', on:true,  fav:true,  sub:'mixing bass lines'},
+  {id:2,  name:'Sarah Chen',        ini:'SC', col:'#4A8FE7', on:false, fav:true,  sub:'last seen 2h ago'},
+  {id:3,  name:'Marcus Johnson',    ini:'MJ', col:'#2D8B70', on:true,  fav:false, sub:'working on a beat'},
+  {id:4,  name:'Yuki Tanaka',       ini:'YT', col:'#9C59B6', on:true,  fav:true,  sub:'recording vocals'},
+  {id:5,  name:'Emma Williams',     ini:'EW', col:'#E67E22', on:false, fav:true,  sub:'last seen yesterday'},
+  {id:6,  name:'Diego Rivera',      ini:'DR', col:'#1ABC9C', on:true,  fav:false, sub:'mixing session'},
+  {id:7,  name:'Priya Patel',       ini:'PP', col:'#E91E8C', on:true,  fav:true,  sub:'composing strings'},
+  {id:8,  name:'Noah Thompson',     ini:'NT', col:'#3F51B5', on:false, fav:false, sub:'last seen 4h ago'},
+  {id:9,  name:'Zara Ahmed',        ini:'ZA', col:'#FF5722', on:true,  fav:true,  sub:'online'},
+  {id:10, name:'Lucas Martin',      ini:'LM', col:'#78909C', on:false, fav:false, sub:'offline'},
+  {id:11, name:'Mia Nguyen',        ini:'MN', col:'#D81B60', on:false, fav:true,  sub:'last seen 1h ago'},
+  {id:12, name:'Ethan Park',        ini:'EP', col:'#00897B', on:true,  fav:false, sub:'mastering'},
+  {id:13, name:'Sofia Garcia',      ini:'SG', col:'#C62828', on:false, fav:true,  sub:'offline'},
+  {id:14, name:'James Lee',         ini:'JL', col:'#1565C0', on:false, fav:false, sub:'offline'},
+  {id:15, name:'Aisha Robinson',    ini:'AR', col:'#2E7D32', on:true,  fav:false, sub:'beat making'},
+  {id:16, name:'Oliver Brown',      ini:'OB', col:'#E65100', on:false, fav:false, sub:'offline'},
+  {id:17, name:'Hana Yamamoto',     ini:'HY', col:'#6A1B9A', on:true,  fav:true,  sub:'mixing drums'},
+  {id:18, name:'Ryan Mitchell',     ini:'RM', col:'#006064', on:false, fav:false, sub:'offline'},
+  {id:19, name:'Leila Hassan',      ini:'LH', col:'#558B2F', on:false, fav:true,  sub:'last seen 3h ago'},
+  {id:20, name:'David Wilson',      ini:'DW', col:'#B8860B', on:true,  fav:false, sub:'online'},
+  {id:21, name:'Nina Kovač',        ini:'NK', col:'#AD1457', on:false, fav:false, sub:'offline'},
+  {id:22, name:'Tom Anderson',      ini:'TA', col:'#4DB6AC', on:true,  fav:false, sub:'sound design'},
+  {id:23, name:'Fatima Al-Rashid',  ini:'FA', col:'#7B1FA2', on:false, fav:false, sub:'offline'},
+  {id:24, name:'Max Schmidt',       ini:'MS', col:'#B71C1C', on:false, fav:false, sub:'offline'},
+  {id:25, name:'Chloe Taylor',      ini:'CT', col:'#1976D2', on:true,  fav:false, sub:'synth work'},
+  {id:26, name:'Raj Sharma',        ini:'RS', col:'#33691E', on:false, fav:false, sub:'offline'},
+  {id:27, name:'Isabella Costa',    ini:'IC', col:'#BF360C', on:false, fav:false, sub:'offline'},
+  {id:28, name:"Kevin O'Brien",     ini:'KO', col:'#880E4F', on:true,  fav:false, sub:'online'},
+  {id:29, name:'Mei Lin',           ini:'ML', col:'#00695C', on:false, fav:false, sub:'offline'},
+  {id:30, name:'Carlos Mendez',     ini:'CM', col:'#4527A0', on:true,  fav:false, sub:'producing'},
+];
+
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+const state = { dark: false, gallery: true, query: '' };
+
+/* ══════════════════════════════════════════════
+   SEARCH
+══════════════════════════════════════════════ */
+function toggleSearch() {
+  const bar = document.getElementById('search-bar');
+  const btn = document.getElementById('search-btn');
+  const isOpen = bar.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+  if (isOpen) {
+    setTimeout(() => document.getElementById('search-input').focus(), 200);
+  } else {
+    clearSearch();
+  }
+}
+
+function onSearch(q) {
+  state.query = q.toLowerCase();
+  document.getElementById('search-clear').classList.toggle('visible', q.length > 0);
+  renderList();
+  renderGallery();
+}
+
+function clearSearch() {
+  state.query = '';
+  const si = document.getElementById('search-input');
+  si.textContent = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  renderList();
+  renderGallery();
+}
+
+function filteredFriends() {
+  if (!state.query) return FRIENDS;
+  return FRIENDS.filter(f => f.name.toLowerCase().includes(state.query));
+}
+
+/* ══════════════════════════════════════════════
+   THEME — dark / light
+══════════════════════════════════════════════ */
+function applyDark() {
+  document.getElementById('plugin').classList.toggle('dark', state.dark);
+  document.getElementById('dark-toggle').classList.toggle('on', state.dark);
+}
+function toggleDark() {
+  state.dark = !state.dark;
+  applyDark();
+}
+
+/* ══════════════════════════════════════════════
+   VIEW MODE — gallery / list
+══════════════════════════════════════════════ */
+function setViewMode(mode) {
+  state.gallery = (mode === 'gallery');
+  document.getElementById('fscroll').style.display  = state.gallery ? 'none'  : 'block';
+  document.getElementById('fgallery').style.display = state.gallery ? 'grid'  : 'none';
+  document.getElementById('btn-gallery').classList.toggle('active',  state.gallery);
+  document.getElementById('btn-list').classList.toggle('active',    !state.gallery);
+}
+
+/* ══════════════════════════════════════════════
+   RENDER — list mode
+══════════════════════════════════════════════ */
+function makeListRow(f) {
+  const d = document.createElement('div');
+  d.className = 'f-row';
+  d.onclick = () => openChat(f.id);
+  d.innerHTML = `
+    <div class="av-wrap">
+      <div class="av sz32" style="background:${f.col}">${f.ini}</div>
+      <div class="av-dot sm ${f.on ? 'don' : 'doff'}"></div>
+    </div>
+    <div class="f-info">
+      <div class="f-name ${f.on ? 'bold' : ''}">${f.name}</div>
+      <div class="f-sub">${f.sub}</div>
+    </div>
+    <div class="badges">
+      ${f.fav ? '<span class="star">★</span>' : ''}
+      ${f.on  ? '<span class="ob">online</span>' : ''}
+    </div>`;
+  return d;
+}
+
+function renderList() {
+  const sc = document.getElementById('fscroll');
+  sc.innerHTML = '';
+  const src = filteredFriends();
+  const g1 = src.filter(f =>  f.fav &&  f.on);
+  const g2 = src.filter(f => !f.fav &&  f.on);
+  const g3 = src.filter(f => !f.on);
+  const sep = () => { const d = document.createElement('div'); d.className = 'sep'; return d; };
+  g1.forEach(f => sc.appendChild(makeListRow(f)));
+  if (g1.length && g2.length) sc.appendChild(sep());
+  g2.forEach(f => sc.appendChild(makeListRow(f)));
+  if ((g1.length || g2.length) && g3.length) sc.appendChild(sep());
+  g3.forEach(f => sc.appendChild(makeListRow(f)));
+}
+
+/* ══════════════════════════════════════════════
+   RENDER — gallery mode
+══════════════════════════════════════════════ */
+function makeGalleryCell(f) {
+  const d = document.createElement('div');
+  d.className = 'gcell';
+  d.innerHTML = `
+    <div class="av-wrap">
+      <div class="av sz48" style="background:${f.col}">${f.ini}</div>
+      <div class="av-dot md ${f.on ? 'don' : 'doff'}"></div>
+      ${f.fav ? '<div class="star-badge">★</div>' : ''}
+    </div>
+    <div class="gcell-name ${f.on ? 'on' : ''}">${f.name.split(' ')[0]}</div>`;
+  d.addEventListener('mouseenter', () => showTooltip(f, d));
+  d.addEventListener('mouseleave', () => scheduleHide());
+  return d;
+}
+
+function renderGallery() {
+  const gc = document.getElementById('fgallery');
+  gc.innerHTML = '';
+  const src = filteredFriends();
+  const sorted = [
+    ...src.filter(f =>  f.fav &&  f.on),
+    ...src.filter(f => !f.fav &&  f.on),
+    ...src.filter(f => !f.on),
+  ];
+  sorted.forEach(f => gc.appendChild(makeGalleryCell(f)));
+}
+
+/* ══════════════════════════════════════════════
+   TOOLTIP
+   Overlap fix:
+   - On avatar mouseleave → set 180ms timer to hide
+   - On tooltip mouseenter → cancel that timer (stay visible)
+   - On new avatar mouseenter → cancel timer, update content instantly
+   This creates an invisible "grace period" bridge so the
+   pointer can move from avatar → tooltip without flickering.
+══════════════════════════════════════════════ */
+const TT = document.getElementById('tooltip');
+let hideTimer = null;
+
+TT.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+TT.addEventListener('mouseleave', () => scheduleHide());
+
+function showTooltip(f, el) {
+  clearTimeout(hideTimer);
+
+  // Update content
+  const ttAv = document.getElementById('tt-av');
+  ttAv.style.background = f.col;
+  ttAv.textContent = f.ini;
+  document.getElementById('tt-name').textContent = f.name;
+  document.getElementById('tt-sub').textContent  = f.on ? f.sub : 'offline';
+  document.getElementById('tt-btn').onclick = () => { hideTooltipNow(); openChat(f.id); };
+
+  // Calculate position relative to .plugin
+  const pR = document.getElementById('plugin').getBoundingClientRect();
+  const eR = el.getBoundingClientRect();
+  const TW = 162, TH = 86;
+
+  const relL = eR.left - pR.left;
+  const relT = eR.top  - pR.top;
+
+  let left = relL + eR.width / 2 - TW / 2;
+  let top  = relT - TH - 10;
+
+  const arrowEl = document.getElementById('tt-arrow');
+
+  // Flip to below if too close to the top bar (44px)
+  if (top < 50) {
+    top = relT + eR.height + 10;
+    arrowEl.className = 'tt-arrow up';
+  } else {
+    arrowEl.className = 'tt-arrow down';
+  }
+
+  // Clamp horizontally within plugin
+  left = Math.max(8, Math.min(left, 300 - TW - 8));
+
+  // Position arrow horizontally to point at the avatar
+  const arrowX = (relL + eR.width / 2) - left - 6;
+  arrowEl.style.left = Math.max(12, Math.min(arrowX, TW - 24)) + 'px';
+
+  TT.style.left = left + 'px';
+  TT.style.top  = top  + 'px';
+  TT.classList.add('visible');
+}
+
+function scheduleHide() {
+  hideTimer = setTimeout(hideTooltipNow, 180);
+}
+
+function hideTooltipNow() {
+  TT.classList.remove('visible');
+}
+
+/* ══════════════════════════════════════════════
+   NAVIGATION — chat
+══════════════════════════════════════════════ */
+function openChat(id) {
+  hideTooltipNow();
+  const f = FRIENDS.find(x => x.id === id);
+
+  // Update chat sub-bar
+  const av = document.getElementById('chdr-av');
+  av.firstChild.textContent   = f.ini;
+  av.style.background          = f.col;
+  document.getElementById('chdr-dot').className  = 'chdr-dot ' + (f.on ? 'don' : 'doff');
+  document.getElementById('chdr-name').textContent = f.name;
+  document.getElementById('chdr-sub').textContent  = f.on ? f.sub : 'offline';
+  document.getElementById('chat-meta').textContent  = f.name.split(' ')[0];
+  document.getElementById('msg-input').dataset.ph   = 'message ' + f.name.split(' ')[0] + '...';
+
+  document.getElementById('plugin').classList.add('chat-open');
+  document.getElementById('plugin').classList.remove('settings-open');
+  document.getElementById('settings-btn').classList.remove('active');
+}
+
+function closeChat() {
+  document.getElementById('plugin').classList.remove('chat-open');
+}
+
+/* ══════════════════════════════════════════════
+   NAVIGATION — settings
+══════════════════════════════════════════════ */
+function toggleSettings() {
+  const p   = document.getElementById('plugin');
+  const btn = document.getElementById('settings-btn');
+  const open = p.classList.toggle('settings-open');
+  btn.classList.toggle('active', open);
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+(function init() {
+  // Wire up chdr-av: text node + dot element
+  const av = document.getElementById('chdr-av');
+  av.innerHTML = '';
+  av.appendChild(document.createTextNode(''));
+  const dot = document.createElement('div');
+  dot.className = 'chdr-dot';
+  dot.id = 'chdr-dot';
+  av.appendChild(dot);
+
+  renderList();
+  renderGallery();
+  setViewMode('gallery');   // gallery is the default view
+  applyDark();              // apply initial (light) theme
+})();
+</script>
+</body>
+</html>

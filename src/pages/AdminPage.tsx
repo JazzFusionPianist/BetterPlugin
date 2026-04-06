@@ -75,6 +75,7 @@ function DetailPanel({
 }) {
   const [details, setDetails] = useState<UserDetails | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(true)
+  const [photoZoom, setPhotoZoom] = useState(false)
 
   useEffect(() => {
     setLoadingDetails(true)
@@ -123,12 +124,16 @@ function DetailPanel({
 
         {/* Avatar + name */}
         <div style={{ padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderBottom: '1px solid #f5f5f5' }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: avatarBg, overflow: 'hidden',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, fontWeight: 700, color: '#fff',
-          }}>
+          <div
+            onClick={() => profile.avatar_url && setPhotoZoom(true)}
+            style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: avatarBg, overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, fontWeight: 700, color: '#fff',
+              cursor: profile.avatar_url ? 'zoom-in' : 'default',
+            }}
+          >
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initials(profile.display_name)}
@@ -210,6 +215,25 @@ function DetailPanel({
           )}
         </div>
       </div>
+
+      {/* Photo zoom modal */}
+      {photoZoom && profile.avatar_url && (
+        <div
+          onClick={() => setPhotoZoom(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,.8)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'zoom-out', animation: 'fadeIn .15s ease',
+          }}
+        >
+          <img
+            src={profile.avatar_url}
+            alt=""
+            style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: 12, objectFit: 'contain', boxShadow: '0 8px 40px rgba(0,0,0,.5)' }}
+          />
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }

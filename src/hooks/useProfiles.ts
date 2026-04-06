@@ -32,15 +32,18 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
       .from('profiles')
       .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin')
 
-    // Fall back if some columns don't exist yet
+    // Fall back to basic columns if newer columns don't exist yet
     if (error) {
       const res = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin')
-      data = res.data
+        .select('id, display_name, avatar_color')
+      data = res.data as typeof data
     }
 
-    if (!data) return
+    if (!data) {
+      setLoading(false)
+      return
+    }
 
     const all = (data as RawProfile[]).map(p => ({
       id: p.id,

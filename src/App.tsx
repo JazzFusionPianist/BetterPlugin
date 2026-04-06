@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
+import AdminPage from './pages/AdminPage'
 import type { User } from '@supabase/supabase-js'
 
 export default function App() {
+  if (window.location.pathname === '/admin') {
+    return <AdminPage />
+  }
+
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 

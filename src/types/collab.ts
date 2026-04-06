@@ -4,6 +4,8 @@ export interface Profile {
   avatar_color: string
   initials: string
   isOnline: boolean
+  is_verified: boolean
+  is_admin: boolean
 }
 
 export interface Message {

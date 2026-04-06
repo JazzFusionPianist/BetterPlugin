@@ -66,7 +66,15 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
           <div className={`chdr-dot ${otherProfile.isOnline ? 'don' : 'doff'}`} />
         </div>
         <div className="chdr-info">
-          <div className="chdr-name">{otherProfile.display_name}</div>
+          <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            {otherProfile.display_name}
+            {otherProfile.is_verified && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
+                <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
           <div className="chdr-sub">{otherProfile.isOnline ? 'online' : 'offline'}</div>
         </div>
       </div>

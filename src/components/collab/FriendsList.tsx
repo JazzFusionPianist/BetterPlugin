@@ -1,5 +1,14 @@
 import type { Profile } from '../../types/collab'
 
+function VerifiedBadge() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginLeft: 2 }}>
+      <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
+      <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 interface Props {
   profiles: Profile[]
   favorites: Set<string>
@@ -33,8 +42,9 @@ function FriendRow({
       </div>
 
       <div className="f-info">
-        <div className={`f-name ${profile.isOnline ? 'bold' : ''}`}>
+        <div className={`f-name ${profile.isOnline ? 'bold' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {profile.display_name}
+          {profile.is_verified && <VerifiedBadge />}
         </div>
         <div className="f-sub">
           {profile.isOnline ? 'online' : 'offline'}
@@ -82,8 +92,9 @@ function GalleryCell({
         <div className={`av-dot md ${profile.isOnline ? 'don' : 'doff'}`} />
         {isFav && <div className="star-badge">★</div>}
       </div>
-      <div className={`gcell-name ${profile.isOnline ? 'on' : ''}`}>
+      <div className={`gcell-name ${profile.isOnline ? 'on' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
         {profile.display_name.split(' ')[0]}
+        {profile.is_verified && <VerifiedBadge />}
       </div>
     </div>
   )

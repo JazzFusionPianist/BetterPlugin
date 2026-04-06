@@ -17,6 +17,8 @@ interface RawProfile {
   id: string
   display_name: string
   avatar_color: string
+  is_verified: boolean
+  is_admin: boolean
 }
 
 export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
@@ -26,7 +28,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
   const fetch = useCallback(async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_color')
+      .select('id, display_name, avatar_color, is_verified, is_admin')
 
     if (!data) return
 
@@ -38,6 +40,8 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
         avatar_color: p.avatar_color || colorForId(p.id),
         initials: getInitials(p.display_name || 'U'),
         isOnline: false,
+        is_verified: p.is_verified ?? false,
+        is_admin: p.is_admin ?? false,
       }))
 
     setProfiles(list)

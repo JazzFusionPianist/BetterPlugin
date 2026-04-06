@@ -8,7 +8,7 @@ export default function AuthPage() {
   const [tab, setTab] = useState<Tab>('login')
 
   return (
-    <div className="flex h-full flex-col justify-center px-8 py-10">
+    <div className="flex flex-col justify-center px-8 py-10" style={{ width: 300, height: 500, overflow: 'hidden' }}>
       <div className="mb-8 text-center">
         <h1 className="text-xl font-bold text-gray-900">CoOp</h1>
       </div>

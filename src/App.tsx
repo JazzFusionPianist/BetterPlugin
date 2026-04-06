@@ -44,8 +44,16 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthPage />
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
+        <AuthPage />
+      </div>
+    )
   }
 
-  return <CollabPage user={user} />
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
+      <CollabPage user={user} />
+    </div>
+  )
 }

@@ -12,6 +12,18 @@ interface AdminProfile {
   updated_at: string
 }
 
+interface UserDetails {
+  id: string
+  email: string
+  created_at: string
+  last_sign_in_at: string | null
+  display_name: string
+  avatar_color: string
+  is_verified: boolean
+  is_admin: boolean
+  updated_at: string
+}
+
 const AVATAR_COLORS = [
   '#E05555', '#4A8FE7', '#2D8B70', '#9C59B6', '#E67E22',
   '#1ABC9C', '#E91E8C', '#3F51B5', '#FF5722', '#78909C',
@@ -22,21 +34,196 @@ function colorForId(id: string) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]!
 }
 
-function VerifiedIcon() {
+function initials(name: string) {
+  return (name || '?').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+}
+
+function fmt(iso: string | null) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+function VerifiedIcon({ size = 13 }: { size?: number }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
       <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
+/* ── Detail Panel ── */
+function DetailPanel({
+  client,
+  profileId,
+  currentUserId,
+  profiles,
+  onClose,
+  onToggleVerified,
+  onDelete,
+  deletingId,
+}: {
+  client: SupabaseClient
+  profileId: string
+  currentUserId: string
+  profiles: AdminProfile[]
+  onClose: () => void
+  onToggleVerified: (p: AdminProfile) => void
+  onDelete: (p: AdminProfile) => void
+  deletingId: string | null
+}) {
+  const [details, setDetails] = useState<UserDetails | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState(true)
+
+  useEffect(() => {
+    setLoadingDetails(true)
+    client.rpc('admin_get_user_details', { target_user_id: profileId })
+      .then(({ data }) => {
+        setDetails(data as UserDetails)
+        setLoadingDetails(false)
+      })
+  }, [client, profileId])
+
+  const profile = profiles.find(p => p.id === profileId)
+  if (!profile) return null
+
+  const avatarBg = profile.avatar_color || colorForId(profile.id)
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.25)', zIndex: 40,
+          animation: 'fadeIn .15s ease',
+        }}
+      />
+
+      {/* Panel */}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0,
+        width: 320, background: '#fff', zIndex: 50,
+        boxShadow: '-4px 0 24px rgba(0,0,0,.1)',
+        display: 'flex', flexDirection: 'column',
+        animation: 'slideIn .2s ease',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}>
+        {/* Panel header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#aaa', padding: 0, lineHeight: 1, marginTop: -1 }}
+          >
+            ×
+          </button>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>회원 정보</span>
+        </div>
+
+        {/* Avatar + name */}
+        <div style={{ padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderBottom: '1px solid #f5f5f5' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: avatarBg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 700, color: '#fff',
+          }}>
+            {initials(profile.display_name)}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{profile.display_name || '(no name)'}</span>
+              {profile.is_verified && <VerifiedIcon size={15} />}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
+              {profile.is_admin && (
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '2px 6px', borderRadius: 4 }}>ADMIN</span>
+              )}
+              {profile.id === currentUserId && (
+                <span style={{ fontSize: 9, fontWeight: 500, color: '#999', background: '#f0f0f0', padding: '2px 6px', borderRadius: 4 }}>나</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Details */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+          {loadingDetails ? (
+            <div style={{ color: '#bbb', fontSize: 12, textAlign: 'center', marginTop: 32 }}>Loading...</div>
+          ) : details ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {[
+                { label: '이메일', value: details.email },
+                { label: '가입일', value: fmt(details.created_at) },
+                { label: '마지막 로그인', value: fmt(details.last_sign_in_at) },
+                { label: '프로필 업데이트', value: fmt(details.updated_at) },
+                { label: '인증 상태', value: details.is_verified ? '인증됨 ✓' : '미인증' },
+                { label: '관리자', value: details.is_admin ? '예' : '아니오' },
+                { label: 'ID', value: details.id, mono: true },
+              ].map(row => (
+                <div key={row.label} style={{ padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                  <div style={{ fontSize: 10, color: '#aaa', fontWeight: 500, marginBottom: 2 }}>{row.label}</div>
+                  <div style={{ fontSize: 12, color: '#333', fontFamily: row.mono ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>
+                    {row.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#bbb', fontSize: 12, textAlign: 'center', marginTop: 32 }}>불러오기 실패</div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ padding: '16px 20px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button
+            onClick={() => onToggleVerified(profile)}
+            style={{
+              padding: '8px 0', border: '1px solid',
+              borderColor: profile.is_verified ? '#1D9BF0' : '#ddd',
+              background: profile.is_verified ? '#E8F5FD' : '#fff',
+              borderRadius: 8, cursor: 'pointer', fontSize: 12,
+              color: profile.is_verified ? '#1D9BF0' : '#555',
+              fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <VerifiedIcon />
+            {profile.is_verified ? '인증 해제' : '인증 부여'}
+          </button>
+
+          {profile.id !== currentUserId && (
+            <button
+              onClick={() => onDelete(profile)}
+              disabled={deletingId === profile.id}
+              style={{
+                padding: '8px 0', border: '1px solid #fecaca',
+                background: '#fff5f5', borderRadius: 8, cursor: 'pointer',
+                fontSize: 12, color: '#ef4444', fontWeight: 500,
+                opacity: deletingId === profile.id ? 0.5 : 1,
+              }}
+            >
+              {deletingId === profile.id ? '삭제 중...' : '회원 탈퇴'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes slideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }
+      `}</style>
+    </>
+  )
+}
+
+/* ── Main ── */
 function AdminPageInner({ client, currentUser }: { client: SupabaseClient; currentUser: User }) {
   const [profiles, setProfiles] = useState<AdminProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const fetchProfiles = useCallback(async () => {
     const { data } = await client
@@ -76,6 +263,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
       alert('삭제 실패: ' + error.message)
     } else {
       setProfiles(prev => prev.filter(p => p.id !== profile.id))
+      if (selectedId === profile.id) setSelectedId(null)
     }
     setDeletingId(null)
   }
@@ -114,7 +302,6 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
       </div>
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
-        {/* Search */}
         <input
           type="text"
           placeholder="Search members..."
@@ -127,7 +314,6 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
           }}
         />
 
-        {/* Table */}
         <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #eee', overflow: 'hidden' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: '#bbb', fontSize: 13 }}>No members found</div>
@@ -135,11 +321,17 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
             filtered.map((profile, i) => (
               <div
                 key={profile.id}
+                onClick={() => setSelectedId(profile.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '10px 16px',
                   borderBottom: i < filtered.length - 1 ? '1px solid #f5f5f5' : 'none',
+                  cursor: 'pointer',
+                  background: selectedId === profile.id ? '#f8f9ff' : '#fff',
+                  transition: 'background .1s',
                 }}
+                onMouseEnter={e => { if (selectedId !== profile.id) (e.currentTarget as HTMLDivElement).style.background = '#fafafa' }}
+                onMouseLeave={e => { if (selectedId !== profile.id) (e.currentTarget as HTMLDivElement).style.background = '#fff' }}
               >
                 {/* Avatar */}
                 <div style={{
@@ -148,7 +340,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 600, color: '#fff',
                 }}>
-                  {(profile.display_name || '?').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()}
+                  {initials(profile.display_name)}
                 </div>
 
                 {/* Name + badges */}
@@ -159,53 +351,43 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
                     </span>
                     {profile.is_verified && <VerifiedIcon />}
                     {profile.is_admin && (
-                      <span style={{ fontSize: 9, fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: 4 }}>
-                        ADMIN
-                      </span>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '1px 5px', borderRadius: 4 }}>ADMIN</span>
                     )}
                     {profile.id === currentUser.id && (
-                      <span style={{ fontSize: 9, fontWeight: 500, color: '#999', background: '#f0f0f0', padding: '1px 5px', borderRadius: 4 }}>
-                        나
-                      </span>
+                      <span style={{ fontSize: 9, fontWeight: 500, color: '#999', background: '#f0f0f0', padding: '1px 5px', borderRadius: 4 }}>나</span>
                     )}
                   </div>
                   <div style={{ fontSize: 10, color: '#bbb', marginTop: 1 }}>
-                    {new Date(profile.updated_at).toLocaleDateString('ko-KR')} 업데이트
+                    {new Date(profile.updated_at).toLocaleDateString('ko-KR')}
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  {/* Verified toggle */}
+                {/* Actions — stop propagation so row click doesn't fire */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => toggleVerified(profile)}
-                    title={profile.is_verified ? '인증 해제' : '인증 부여'}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 4,
                       padding: '4px 8px', border: '1px solid',
                       borderColor: profile.is_verified ? '#1D9BF0' : '#ddd',
                       background: profile.is_verified ? '#E8F5FD' : '#fff',
                       borderRadius: 6, cursor: 'pointer', fontSize: 11,
-                      color: profile.is_verified ? '#1D9BF0' : '#888',
-                      fontWeight: 500, transition: 'all .15s',
+                      color: profile.is_verified ? '#1D9BF0' : '#888', fontWeight: 500,
                     }}
                   >
                     <VerifiedIcon />
                     {profile.is_verified ? '인증됨' : '인증'}
                   </button>
 
-                  {/* Delete button — disabled for self */}
                   {profile.id !== currentUser.id && (
                     <button
                       onClick={() => deleteUser(profile)}
                       disabled={deletingId === profile.id}
-                      title="회원 탈퇴"
                       style={{
                         padding: '4px 8px', border: '1px solid #fecaca',
                         background: '#fff5f5', borderRadius: 6, cursor: 'pointer',
                         fontSize: 11, color: '#ef4444', fontWeight: 500,
                         opacity: deletingId === profile.id ? 0.5 : 1,
-                        transition: 'all .15s',
                       }}
                     >
                       {deletingId === profile.id ? '삭제중...' : '탈퇴'}
@@ -217,6 +399,20 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
           )}
         </div>
       </div>
+
+      {/* Detail panel */}
+      {selectedId && (
+        <DetailPanel
+          client={client}
+          profileId={selectedId}
+          currentUserId={currentUser.id}
+          profiles={profiles}
+          onClose={() => setSelectedId(null)}
+          onToggleVerified={toggleVerified}
+          onDelete={deleteUser}
+          deletingId={deletingId}
+        />
+      )}
     </div>
   )
 }

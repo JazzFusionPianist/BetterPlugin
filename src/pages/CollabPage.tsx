@@ -114,18 +114,27 @@ function CollabPageInner({ user }: Props) {
   }
 
   const handleToggleSettings = () => {
-    setSettingsOpen(prev => !prev)
-    if (!settingsOpen) { setProfileOpen(false); setAddFriendOpen(false) }
+    setSettingsOpen(prev => {
+      if (!prev) { setProfileOpen(false); setAddFriendOpen(false) }
+      return !prev
+    })
   }
 
   const handleToggleProfile = () => {
-    setProfileOpen(prev => !prev)
-    if (!profileOpen) { setSettingsOpen(false); setAddFriendOpen(false) }
+    setProfileOpen(prev => {
+      if (!prev) { setSettingsOpen(false); setAddFriendOpen(false) }
+      return !prev
+    })
   }
 
   const handleToggleAddFriend = () => {
-    setAddFriendOpen(prev => !prev)
-    if (!addFriendOpen) { setSettingsOpen(false); setProfileOpen(false) }
+    setAddFriendOpen(prev => {
+      if (!prev) {
+        setSettingsOpen(false)
+        setProfileOpen(false)
+      }
+      return !prev
+    })
   }
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {

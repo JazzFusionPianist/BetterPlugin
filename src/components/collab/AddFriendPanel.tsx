@@ -51,7 +51,6 @@ export default function AddFriendPanel({ allProfiles, friendIds, onAdd, onRemove
           placeholder="search by name..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          autoFocus
         />
         {query && (
           <button className="search-clear visible" onClick={() => setQuery('')}>

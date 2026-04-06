@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COLLAB – DAW Chat Plugin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #2a2a2a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Plugin shell  (300 × 500 px)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .plugin {
+      width: 300px;
+      height: 500px;
+      background: #fff;
+      border: 0.5px solid #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 24px rgba(0, 0, 0, .18);
+    }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Top bar — always visible
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      height: 44px;
+      padding: 0 14px;
+      border-bottom: 0.5px solid #eee;
+      flex-shrink: 0;
+      background: #fff;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .app-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .08em;
+      color: #111;
+      flex: 1;
+    }
+
+    .icon-btn {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: .3;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .icon-btn svg { width: 14px; height: 14px; stroke: #111; fill: none; }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Sliding content area
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .content {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    /* Friends view: default position */
+    #fview  { transform: translateX(0); }
+    /* Chat view: starts off-screen right */
+    #cview  { transform: translateX(100%); }
+
+    /* When chat is open */
+    .plugin.chat-open #fview { transform: translateX(-100%); }
+    .plugin.chat-open #cview { transform: translateX(0); }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Friends list
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .fscroll {
+      flex: 1;
+      overflow-y: auto;
+      height: 100%;
+    }
+    .fscroll::-webkit-scrollbar { width: 3px; }
+    .fscroll::-webkit-scrollbar-thumb { background: #eee; border-radius: 2px; }
+
+    .f-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      cursor: pointer;
+    }
+    .f-row:hover { background: #fafafa; }
+
+    /* Avatar */
+    .av-wrap { position: relative; flex-shrink: 0; }
+    .av {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: #fff;
+    }
+    .av-dot {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
+    .don  { background: #3CC97A; }
+    .doff { background: #D8D8D8; }
+
+    /* Friend info */
+    .f-info { flex: 1; min-width: 0; }
+    .f-name { font-size: 12px; color: #111; line-height: 1.2; }
+    .f-name.bold { font-weight: 500; }
+    .f-sub  { font-size: 10px; color: #bbb; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Badges */
+    .badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .star   { font-size: 11px; line-height: 1; color: #F4B942; }
+    .ob     { font-family: 'DM Mono', monospace; font-size: 8px; font-weight: 500; color: #2D8B70; background: #E6F5EF; padding: 2px 6px; border-radius: 4px; }
+
+    /* Group separator */
+    .sep { height: 0.5px; background: #f2f2f2; margin: 4px 14px; }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Chat view — sub-bar
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .csub {
+      display: flex;
+      align-items: center;
+      height: 40px;
+      padding: 0 12px;
+      border-bottom: 0.5px solid #eee;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    .back {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+      font-size: 20px;
+      color: #666;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: -1px;
+    }
+    .back:hover { background: #f5f5f5; }
+
+    .chdr-av {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 500;
+      color: #fff;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .chdr-dot {
+      position: absolute;
+      bottom: -1px; right: -1px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
+
+    .chdr-info { flex: 1; min-width: 0; }
+    .chdr-name { font-size: 12px; font-weight: 500; color: #111; line-height: 1.2; }
+    .chdr-sub  { font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Chat messages
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chat-area::-webkit-scrollbar { width: 3px; }
+    .chat-area::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 2px; }
+
+    .mg { display: flex; flex-direction: column; gap: 3px; }
+    .mm { font-size: 9px; color: #bbb; font-weight: 500; margin-bottom: 2px; }
+    .mb {
+      display: inline-block;
+      max-width: 200px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #111;
+      background: #f2f2f2;
+    }
+    .mg.mine { align-items: flex-end; }
+    .mg.mine .mm { text-align: right; }
+    .mg.mine .mb { background: #1A1A1A; color: #F5F5F5; border-radius: 10px 10px 2px 10px; }
+    .mg.theirs .mb { border-radius: 10px 10px 10px 2px; }
+    .ts { font-size: 8.5px; color: #bbb; text-align: center; margin: 4px 0; }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Input bar
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    .input-bar {
+      padding: 8px 14px 10px;
+      border-top: 0.5px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    /* contenteditable wrapper — centers text perfectly */
+    .mi-wrap {
+      flex: 1;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      background: #1A1A1A;
+      border-radius: 15px;
+      padding: 0 14px;
+      cursor: text;
+      overflow: hidden;
+    }
+
+    .mi {
+      flex: 1;
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      line-height: 1;
+      color: #fff;
+      background: transparent;
+      border: none;
+      white-space: nowrap;
+      overflow: hidden;
+      min-width: 0;
+      caret-color: #fff;
+    }
+    .mi:empty::before {
+      content: attr(data-ph);
+      color: rgba(255, 255, 255, .32);
+      pointer-events: none;
+    }
+
+    .send-btn {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      opacity: .65;
+    }
+    .send-btn:hover { opacity: 1; }
+    .send-btn img { width: 16px; height: 16px; display: block; }
+  </style>
+</head>
+<body>
+
+<div class="plugin" id="plugin">
+
+  <!-- ── Always-visible COLLAB top bar ── -->
+  <div class="top-bar">
+    <span class="app-title">COLLAB</span>
+    <div class="icon-btn">
+      <svg viewBox="0 0 16 16" stroke-width="1.5">
+        <circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3l2 1.5"/>
+      </svg>
+    </div>
+    <div class="icon-btn">
+      <svg viewBox="0 0 16 16" stroke-width="1.5">
+        <circle cx="6" cy="5" r="2"/><circle cx="10" cy="11" r="2"/>
+        <path d="M8 5h4M4 11H2M8 11h-2M12 5h2"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── Sliding content area ── -->
+  <div class="content">
+
+    <!-- Friends list view -->
+    <div class="view" id="fview">
+      <div class="fscroll" id="fscroll"></div>
+    </div>
+
+    <!-- Chat view -->
+    <div class="view" id="cview">
+      <!-- Sub-bar: back button + friend info -->
+      <div class="csub">
+        <div class="back" onclick="closeChat()">&#8249;</div>
+        <div class="chdr-av" id="chdr-av">
+          <div class="chdr-dot" id="chdr-dot"></div>
+        </div>
+        <div class="chdr-info">
+          <div class="chdr-name" id="chdr-name"></div>
+          <div class="chdr-sub"  id="chdr-sub"></div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-area">
+        <div class="ts">today &nbsp; 2:14 PM</div>
+        <div class="mg theirs">
+          <div class="mm" id="chat-meta"></div>
+          <div class="mb">야 뭐 작업하냐?</div>
+        </div>
+        <div class="mg mine">
+          <div class="mm">나</div>
+          <div class="mb">Prism 피치 코렉션 마무리 중. 어제 코드 문제 고쳤어</div>
+        </div>
+        <div class="mg theirs">
+          <div class="mb">ㅋㅋ 오 드디어? 언제 테스트해봄?</div>
+        </div>
+        <div class="mg mine">
+          <div class="mb">오늘 저녁에 올려줄게 한번 써봐</div>
+        </div>
+        <div class="ts">2:18 PM</div>
+        <div class="mg theirs">
+          <div class="mb">ㅇㅋ 기다릴게 👍</div>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="input-bar">
+        <div class="mi-wrap" onclick="this.querySelector('.mi').focus()">
+          <div class="mi" id="msg-input"
+               contenteditable="true"
+               spellcheck="false"
+               data-ph="message...">
+          </div>
+        </div>
+        <div class="send-btn">
+          <!--
+            Send icon: data-URI SVG (paper-plane / material send icon).
+            Always renders regardless of dark mode or browser quirks.
+          -->
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23333' d='M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'/%3E%3C/svg%3E" alt="send" />
+        </div>
+      </div>
+    </div><!-- /cview -->
+
+  </div><!-- /content -->
+</div><!-- /plugin -->
+
+<script>
+  /* ══════════════════════════════════════
+     Friend data
+     Priority groups:
+       G1 — fav && on   (favorites + online)  → top
+       G2 — !fav && on  (online only)          → middle
+       G3 — !on         (all offline)           → bottom
+  ══════════════════════════════════════ */
+  const FRIENDS = [
+    { id:1,  name:'Alex Kim',          ini:'AK', col:'#E05555', on:true,  fav:true,  sub:'mixing bass lines'   },
+    { id:2,  name:'Sarah Chen',        ini:'SC', col:'#4A8FE7', on:false, fav:true,  sub:'last seen 2h ago'    },
+    { id:3,  name:'Marcus Johnson',    ini:'MJ', col:'#2D8B70', on:true,  fav:false, sub:'working on a beat'   },
+    { id:4,  name:'Yuki Tanaka',       ini:'YT', col:'#9C59B6', on:true,  fav:true,  sub:'recording vocals'    },
+    { id:5,  name:'Emma Williams',     ini:'EW', col:'#E67E22', on:false, fav:true,  sub:'last seen yesterday' },
+    { id:6,  name:'Diego Rivera',      ini:'DR', col:'#1ABC9C', on:true,  fav:false, sub:'mixing session'      },
+    { id:7,  name:'Priya Patel',       ini:'PP', col:'#E91E8C', on:true,  fav:true,  sub:'composing strings'   },
+    { id:8,  name:'Noah Thompson',     ini:'NT', col:'#3F51B5', on:false, fav:false, sub:'last seen 4h ago'    },
+    { id:9,  name:'Zara Ahmed',        ini:'ZA', col:'#FF5722', on:true,  fav:true,  sub:'online'              },
+    { id:10, name:'Lucas Martin',      ini:'LM', col:'#78909C', on:false, fav:false, sub:'offline'             },
+    { id:11, name:'Mia Nguyen',        ini:'MN', col:'#D81B60', on:false, fav:true,  sub:'last seen 1h ago'    },
+    { id:12, name:'Ethan Park',        ini:'EP', col:'#00897B', on:true,  fav:false, sub:'mastering'           },
+    { id:13, name:'Sofia Garcia',      ini:'SG', col:'#C62828', on:false, fav:true,  sub:'offline'             },
+    { id:14, name:'James Lee',         ini:'JL', col:'#1565C0', on:false, fav:false, sub:'offline'             },
+    { id:15, name:'Aisha Robinson',    ini:'AR', col:'#2E7D32', on:true,  fav:false, sub:'beat making'         },
+    { id:16, name:'Oliver Brown',      ini:'OB', col:'#E65100', on:false, fav:false, sub:'offline'             },
+    { id:17, name:'Hana Yamamoto',     ini:'HY', col:'#6A1B9A', on:true,  fav:true,  sub:'mixing drums'        },
+    { id:18, name:'Ryan Mitchell',     ini:'RM', col:'#006064', on:false, fav:false, sub:'offline'             },
+    { id:19, name:'Leila Hassan',      ini:'LH', col:'#558B2F', on:false, fav:true,  sub:'last seen 3h ago'    },
+    { id:20, name:'David Wilson',      ini:'DW', col:'#B8860B', on:true,  fav:false, sub:'online'              },
+    { id:21, name:'Nina Kovač',        ini:'NK', col:'#AD1457', on:false, fav:false, sub:'offline'             },
+    { id:22, name:'Tom Anderson',      ini:'TA', col:'#4DB6AC', on:true,  fav:false, sub:'sound design'        },
+    { id:23, name:'Fatima Al-Rashid',  ini:'FA', col:'#7B1FA2', on:false, fav:false, sub:'offline'             },
+    { id:24, name:'Max Schmidt',       ini:'MS', col:'#B71C1C', on:false, fav:false, sub:'offline'             },
+    { id:25, name:'Chloe Taylor',      ini:'CT', col:'#1976D2', on:true,  fav:false, sub:'synth work'          },
+    { id:26, name:'Raj Sharma',        ini:'RS', col:'#33691E', on:false, fav:false, sub:'offline'             },
+    { id:27, name:'Isabella Costa',    ini:'IC', col:'#BF360C', on:false, fav:false, sub:'offline'             },
+    { id:28, name:"Kevin O'Brien",     ini:'KO', col:'#880E4F', on:true,  fav:false, sub:'online'              },
+    { id:29, name:'Mei Lin',           ini:'ML', col:'#00695C', on:false, fav:false, sub:'offline'             },
+    { id:30, name:'Carlos Mendez',     ini:'CM', col:'#4527A0', on:true,  fav:false, sub:'producing'           },
+  ];
+
+  /* ── Build a single friend row element ── */
+  function makeRow(f) {
+    const row = document.createElement('div');
+    row.className = 'f-row';
+    row.onclick = () => openChat(f.id);
+    row.innerHTML = `
+      <div class="av-wrap">
+        <div class="av" style="background:${f.col}">${f.ini}</div>
+        <div class="av-dot ${f.on ? 'don' : 'doff'}"></div>
+      </div>
+      <div class="f-info">
+        <div class="f-name ${f.on ? 'bold' : ''}">${f.name}</div>
+        <div class="f-sub">${f.sub}</div>
+      </div>
+      <div class="badges">
+        ${f.fav ? '<span class="star">★</span>' : ''}
+        ${f.on  ? '<span class="ob">online</span>' : ''}
+      </div>`;
+    return row;
+  }
+
+  /* ── Thin separator line between groups ── */
+  function addSep(parent) {
+    const d = document.createElement('div');
+    d.className = 'sep';
+    parent.appendChild(d);
+  }
+
+  /* ── Render full friends list ── */
+  function renderFriends() {
+    const sc = document.getElementById('fscroll');
+    sc.innerHTML = '';
+
+    const g1 = FRIENDS.filter(f =>  f.fav &&  f.on);   // fav + online
+    const g2 = FRIENDS.filter(f => !f.fav &&  f.on);   // online only
+    const g3 = FRIENDS.filter(f => !f.on);              // all offline
+
+    g1.forEach(f => sc.appendChild(makeRow(f)));
+    if (g1.length && g2.length) addSep(sc);
+    g2.forEach(f => sc.appendChild(makeRow(f)));
+    if ((g1.length || g2.length) && g3.length) addSep(sc);
+    g3.forEach(f => sc.appendChild(makeRow(f)));
+  }
+
+  /* ── Open chat panel ── */
+  function openChat(id) {
+    const f = FRIENDS.find(x => x.id === id);
+
+    // Update chat sub-bar
+    const av = document.getElementById('chdr-av');
+    av.style.background = f.col;
+    av.firstChild.textContent = f.ini;
+    document.getElementById('chdr-dot').className  = 'chdr-dot ' + (f.on ? 'don' : 'doff');
+    document.getElementById('chdr-name').textContent = f.name;
+    document.getElementById('chdr-sub').textContent  = f.on ? f.sub : 'offline';
+    document.getElementById('chat-meta').textContent = f.name.split(' ')[0];
+    document.getElementById('msg-input').dataset.ph  = 'message ' + f.name.split(' ')[0] + '...';
+
+    document.getElementById('plugin').classList.add('chat-open');
+  }
+
+  /* ── Close chat panel ── */
+  function closeChat() {
+    document.getElementById('plugin').classList.remove('chat-open');
+  }
+
+  /* ── Init chdr-av (text node + dot element) ── */
+  (function initChatAvatar() {
+    const av = document.getElementById('chdr-av');
+    av.innerHTML = '';
+    av.appendChild(document.createTextNode(''));
+    const dot = document.createElement('div');
+    dot.className = 'chdr-dot';
+    dot.id = 'chdr-dot';
+    av.appendChild(dot);
+  })();
+
+  /* ── Boot ── */
+  renderFriends();
+</script>
+</body>
+</html>

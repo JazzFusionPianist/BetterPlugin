@@ -90,6 +90,7 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
           ) : (
             <div key={g.msg.id} className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}`}>
               <div className="mb">{g.msg.content}</div>
+              <div className="mtime">{formatTime(g.msg.created_at)}</div>
             </div>
           )
         )}

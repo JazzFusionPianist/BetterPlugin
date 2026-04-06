@@ -1,0 +1,53 @@
+name: Sync main into frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          ref: frontend
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into frontend
+        id: merge
+        run: |
+          git fetch origin main
+          if git merge origin/main --no-edit -m "auto: sync main into frontend"; then
+            echo "status=merged" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=conflict" >> "$GITHUB_OUTPUT"
+            git merge --abort || true
+          fi
+
+      - name: Push merged frontend
+        if: steps.merge.outputs.status == 'merged'
+        run: git push origin frontend
+
+      - name: Open issue on conflict
+        if: steps.merge.outputs.status == 'conflict'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ frontend ↔ main merge conflict',
+              body: `Auto-merge of \`main\` into \`frontend\` failed due to conflicts.\n\nCommit on main: ${context.sha}\n\nResolve manually:\n\`\`\`\ngit checkout frontend\ngit pull origin main\n# resolve conflicts\ngit push origin frontend\n\`\`\``
+            })

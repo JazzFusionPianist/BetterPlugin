@@ -43,12 +43,9 @@ function CollabPageInner({ user }: Props) {
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [addFriendOpen, setAddFriendOpen] = useState(false)
-  const [addFriendQuery, setAddFriendQuery] = useState('')
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const addFriendInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [viewMode, setViewMode] = useState<'gallery' | 'list'>(() =>
@@ -110,22 +107,7 @@ function CollabPageInner({ user }: Props) {
       if (prev) {
         setSearchQuery('')
       } else {
-        setAddFriendOpen(false)
-        setAddFriendQuery('')
         setTimeout(() => searchInputRef.current?.focus(), 200)
-      }
-      return !prev
-    })
-  }
-
-  const handleToggleAddFriend = () => {
-    setAddFriendOpen(prev => {
-      if (prev) {
-        setAddFriendQuery('')
-      } else {
-        setSearchOpen(false)
-        setSearchQuery('')
-        setTimeout(() => addFriendInputRef.current?.focus(), 200)
       }
       return !prev
     })
@@ -190,8 +172,6 @@ function CollabPageInner({ user }: Props) {
     if (selectedId) {
       setSearchOpen(false)
       setSearchQuery('')
-      setAddFriendOpen(false)
-      setAddFriendQuery('')
     }
   }, [selectedId])
 
@@ -209,19 +189,6 @@ function CollabPageInner({ user }: Props) {
       {/* Top bar */}
       <div className="top-bar">
         <span className="app-title">CoOp</span>
-
-        {/* Add Friend icon */}
-        <div
-          className={`icon-btn${addFriendOpen ? ' active' : ''}`}
-          onClick={handleToggleAddFriend}
-          title="Add Friend"
-        >
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
-            <circle cx="6" cy="5.5" r="2.4" />
-            <path d="M1.5 13c.7-2.2 2.6-3.1 4.5-3.1s3.8.9 4.5 3.1" strokeLinecap="round" />
-            <path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
-          </svg>
-        </div>
 
         {/* Search icon */}
         <div
@@ -241,10 +208,10 @@ function CollabPageInner({ user }: Props) {
           onClick={handleToggleAddFriend}
           title="Add Friend"
         >
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" strokeLinecap="round">
-            <circle cx="6" cy="6" r="2.6" />
-            <path d="M1.5 13c.7-2.2 2.4-3.2 4.5-3.2s3.8 1 4.5 3.2" />
-            <path d="M12.5 8v4M10.5 10h4" />
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
+            <circle cx="5.5" cy="5.5" r="2.4" />
+            <path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" />
+            <path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -297,31 +264,6 @@ function CollabPageInner({ user }: Props) {
         </button>
       </div>
 
-      {/* Add Friend bar */}
-      <div className={`search-bar${addFriendOpen ? ' open' : ''}`}>
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="2.6" />
-          <path d="M1.5 13c.7-2.2 2.4-3.2 4.5-3.2s3.8 1 4.5 3.2" />
-          <path d="M12.5 8v4M10.5 10h4" />
-        </svg>
-        <input
-          ref={addFriendInputRef}
-          className="search-input"
-          type="text"
-          placeholder="find by display name..."
-          value={addFriendQuery}
-          onChange={e => setAddFriendQuery(e.target.value)}
-        />
-        <button
-          className={`search-clear${addFriendQuery ? ' visible' : ''}`}
-          onClick={() => setAddFriendQuery('')}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--t3)" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M1 1l8 8M9 1L1 9" />
-          </svg>
-        </button>
-      </div>
-
       {/* Sliding content */}
       <div className="content">
         {/* Friends view */}
@@ -331,7 +273,7 @@ function CollabPageInner({ user }: Props) {
             favorites={favorites}
             loading={profilesLoading}
             viewMode={viewMode}
-            searchQuery={addFriendOpen ? addFriendQuery : searchQuery}
+            searchQuery={searchQuery}
             onSelect={handleOpenChat}
             onToggleFav={handleToggleFav}
             onCellHover={handleCellHover}

@@ -7,6 +7,7 @@ interface AdminProfile {
   id: string
   display_name: string
   avatar_color: string
+  avatar_url?: string | null
   is_verified: boolean
   is_admin: boolean
   updated_at: string
@@ -124,11 +125,13 @@ function DetailPanel({
         <div style={{ padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderBottom: '1px solid #f5f5f5' }}>
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: avatarBg,
+            background: avatarBg, overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 20, fontWeight: 700, color: '#fff',
           }}>
-            {initials(profile.display_name)}
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials(profile.display_name)}
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -228,7 +231,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
   const fetchProfiles = useCallback(async () => {
     const { data } = await client
       .from('profiles')
-      .select('id, display_name, avatar_color, is_verified, is_admin, updated_at')
+      .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin, updated_at')
       .order('updated_at', { ascending: false })
     if (data) setProfiles(data as AdminProfile[])
     setLoading(false)
@@ -338,9 +341,11 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
                   width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
                   background: profile.avatar_color || colorForId(profile.id),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 600, color: '#fff',
+                  fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden',
                 }}>
-                  {initials(profile.display_name)}
+                  {profile.avatar_url
+                    ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : initials(profile.display_name)}
                 </div>
 
                 {/* Name + badges */}

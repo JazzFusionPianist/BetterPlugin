@@ -4,32 +4,67 @@ import type { Profile } from '../../types/collab'
 interface Props {
   allProfiles: Profile[]
   friendIds: Set<string>
+  pendingOutgoing: Set<string>
+  pendingIncoming: string[]
   onAdd: (id: string) => Promise<void>
-  onRemove: (id: string) => Promise<void>
+  onAccept: (id: string) => Promise<void>
+  onDecline: (id: string) => Promise<void>
+  onCancel: (id: string) => Promise<void>
   onClose: () => void
 }
 
-export default function AddFriendPanel({ allProfiles, friendIds, onAdd, onRemove, onClose }: Props) {
+function Avatar({ profile }: { profile: Profile }) {
+  return (
+    <div className="av-wrap">
+      <div className="av sz32" style={{ background: profile.avatar_color }}>
+        {profile.avatar_url
+          ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          : profile.initials}
+      </div>
+      <div className={`av-dot sm ${profile.isOnline ? 'don' : 'doff'}`} />
+    </div>
+  )
+}
+
+function VerifiedBadge() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
+      <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export default function AddFriendPanel({
+  allProfiles,
+  friendIds,
+  pendingOutgoing,
+  pendingIncoming,
+  onAdd,
+  onAccept,
+  onDecline,
+  onCancel,
+  onClose,
+}: Props) {
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<Set<string>>(new Set())
 
-  const filtered = query.trim()
-    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase()))
-    : allProfiles
-
-  const handleToggle = async (id: string, isFriend: boolean) => {
+  const withPending = async (id: string, fn: () => Promise<void>) => {
     setPending(prev => new Set([...prev, id]))
-    if (isFriend) {
-      await onRemove(id)
-    } else {
-      await onAdd(id)
-    }
-    setPending(prev => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
+    await fn()
+    setPending(prev => { const n = new Set(prev); n.delete(id); return n })
   }
+
+  // Incoming request profiles
+  const incomingProfiles = allProfiles.filter(p => pendingIncoming.includes(p.id))
+
+  // Search results (exclude users who sent me requests — shown above)
+  const searchResults = query.trim()
+    ? allProfiles.filter(
+        p => p.display_name.toLowerCase().includes(query.toLowerCase())
+          && !pendingIncoming.includes(p.id)
+      )
+    : allProfiles.filter(p => !pendingIncoming.includes(p.id))
 
   return (
     <>
@@ -37,7 +72,46 @@ export default function AddFriendPanel({ allProfiles, friendIds, onAdd, onRemove
       <div className="s-header">
         <div className="s-close" onClick={onClose}>&#8249;</div>
         <span className="s-title">Add Friend</span>
+        {pendingIncoming.length > 0 && (
+          <span className="af-req-badge">{pendingIncoming.length}</span>
+        )}
       </div>
+
+      {/* Incoming requests */}
+      {incomingProfiles.length > 0 && (
+        <div className="af-requests">
+          <div className="af-section-label">Friend Requests</div>
+          {incomingProfiles.map(p => (
+            <div key={p.id} className="af-row">
+              <Avatar profile={p} />
+              <div className="f-info">
+                <div className="f-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  {p.display_name}
+                  {p.is_verified && <VerifiedBadge />}
+                </div>
+                <div className="f-sub">wants to be friends</div>
+              </div>
+              <div className="af-req-actions">
+                <button
+                  className="af-btn af-btn-accept"
+                  disabled={pending.has(p.id)}
+                  onClick={() => withPending(p.id, () => onAccept(p.id))}
+                >
+                  {pending.has(p.id) ? '...' : 'Accept'}
+                </button>
+                <button
+                  className="af-btn af-btn-decline"
+                  disabled={pending.has(p.id)}
+                  onClick={() => withPending(p.id, () => onDecline(p.id))}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="af-divider" />
+        </div>
+      )}
 
       {/* Search */}
       <div className="af-search">
@@ -61,47 +135,56 @@ export default function AddFriendPanel({ allProfiles, friendIds, onAdd, onRemove
         )}
       </div>
 
-      {/* Results */}
+      {/* Search results */}
       <div className="af-list">
-        {filtered.length === 0 && (
+        {searchResults.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 32 }}>
             {query ? 'No results' : 'No users found'}
           </div>
         )}
-        {filtered.map(p => {
+        {searchResults.map(p => {
           const isFriend = friendIds.has(p.id)
+          const isRequested = pendingOutgoing.has(p.id)
           const isLoading = pending.has(p.id)
+
           return (
             <div key={p.id} className="af-row">
-              <div className="av-wrap">
-                <div className="av sz32" style={{ background: p.avatar_color }}>
-                  {p.avatar_url
-                    ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : p.initials}
-                </div>
-                <div className={`av-dot sm ${p.isOnline ? 'don' : 'doff'}`} />
-              </div>
-
+              <Avatar profile={p} />
               <div className="f-info">
                 <div className="f-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   {p.display_name}
-                  {p.is_verified && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                      <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
-                      <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
+                  {p.is_verified && <VerifiedBadge />}
                 </div>
                 <div className="f-sub">{p.isOnline ? 'online' : 'offline'}</div>
               </div>
 
-              <button
-                className={`af-btn ${isFriend ? 'af-btn-added' : ''}`}
-                onClick={() => handleToggle(p.id, isFriend)}
-                disabled={isLoading}
-              >
-                {isLoading ? '...' : isFriend ? 'Added' : '+ Add'}
-              </button>
+              {isFriend ? (
+                <button
+                  className="af-btn af-btn-added"
+                  disabled={isLoading}
+                  title="Remove friend"
+                  onClick={() => {/* remove is not exposed here, just show status */}}
+                >
+                  Friends ✓
+                </button>
+              ) : isRequested ? (
+                <button
+                  className="af-btn af-btn-requested"
+                  disabled={isLoading}
+                  title="Cancel request"
+                  onClick={() => withPending(p.id, () => onCancel(p.id))}
+                >
+                  {isLoading ? '...' : 'Requested'}
+                </button>
+              ) : (
+                <button
+                  className="af-btn"
+                  disabled={isLoading}
+                  onClick={() => withPending(p.id, () => onAdd(p.id))}
+                >
+                  {isLoading ? '...' : '+ Add'}
+                </button>
+              )}
             </div>
           )
         })}

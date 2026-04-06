@@ -781,6 +781,19 @@
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
+   Notification Dot
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.notif-dot {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #FF3B30;
+  border: 1.5px solid var(--bg);
+  pointer-events: none;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
    Add Friend Panel
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .af-search {
@@ -842,8 +855,72 @@
   background: transparent;
   border-color: var(--border);
   color: var(--t3);
+  cursor: default;
 }
-.af-btn.af-btn-added:hover { background: var(--bg3); color: var(--t2); }
+.af-btn.af-btn-requested {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--t3);
+}
+.af-btn.af-btn-requested:hover { background: var(--bg3); color: var(--t2); }
+.af-btn.af-btn-accept {
+  background: #4A8FE7;
+  border-color: #4A8FE7;
+  color: #fff;
+}
+.af-btn.af-btn-accept:hover { opacity: .85; }
+.af-btn.af-btn-decline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--t3);
+  padding: 0;
+  width: 24px;
+  font-size: 10px;
+}
+.af-btn.af-btn-decline:hover { background: var(--bg3); color: var(--t2); }
+
+.af-req-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.af-req-badge {
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: #FF3B30;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.af-requests {
+  flex-shrink: 0;
+}
+
+.af-section-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  color: var(--t3);
+  text-transform: uppercase;
+  padding: 10px 14px 6px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.af-divider {
+  height: 0.5px;
+  background: var(--border);
+  margin: 4px 0;
+}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Loading / Empty States

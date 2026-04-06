@@ -62,7 +62,9 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
       <div className="csub">
         <div className="back" onClick={onBack}>&#8249;</div>
         <div className="chdr-av" style={{ background: otherProfile.avatar_color }}>
-          {otherProfile.initials}
+          {otherProfile.avatar_url
+            ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            : otherProfile.initials}
           <div className={`chdr-dot ${otherProfile.isOnline ? 'don' : 'doff'}`} />
         </div>
         <div className="chdr-info">

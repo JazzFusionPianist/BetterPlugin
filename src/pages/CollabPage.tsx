@@ -315,7 +315,9 @@ function CollabPageInner({ user }: Props) {
         >
           <div className="tt-row">
             <div className="av sz32" style={{ background: tooltip.profile.avatar_color }}>
-              {tooltip.profile.initials}
+              {tooltip.profile.avatar_url
+                ? <img src={tooltip.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                : tooltip.profile.initials}
             </div>
             <div className="tt-info">
               <div className="tt-name">{tooltip.profile.display_name}</div>

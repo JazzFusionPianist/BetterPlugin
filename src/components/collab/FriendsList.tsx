@@ -36,7 +36,9 @@ function FriendRow({
     <div className="f-row" onClick={onSelect}>
       <div className="av-wrap">
         <div className="av sz32" style={{ background: profile.avatar_color }}>
-          {profile.initials}
+          {profile.avatar_url
+            ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            : profile.initials}
         </div>
         <div className={`av-dot sm ${profile.isOnline ? 'don' : 'doff'}`} />
       </div>
@@ -87,7 +89,9 @@ function GalleryCell({
     >
       <div className="av-wrap">
         <div className="av sz48" style={{ background: profile.avatar_color }}>
-          {profile.initials}
+          {profile.avatar_url
+            ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            : profile.initials}
         </div>
         <div className={`av-dot md ${profile.isOnline ? 'don' : 'doff'}`} />
         {isFav && <div className="star-badge">★</div>}

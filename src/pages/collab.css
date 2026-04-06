@@ -166,11 +166,13 @@
 .cview { transform: translateX(100%); }
 .sview { transform: translateX(100%); z-index: 15; }
 .pview { transform: translateX(100%); z-index: 16; }
+.afview { transform: translateX(100%); z-index: 17; }
 
-.plugin.chat-open     .fview { transform: translateX(-100%); }
-.plugin.chat-open     .cview { transform: translateX(0); }
-.plugin.settings-open .sview { transform: translateX(0); }
-.plugin.profile-open  .pview { transform: translateX(0); }
+.plugin.chat-open      .fview  { transform: translateX(-100%); }
+.plugin.chat-open      .cview  { transform: translateX(0); }
+.plugin.settings-open  .sview  { transform: translateX(0); }
+.plugin.profile-open   .pview  { transform: translateX(0); }
+.plugin.addfriend-open .afview { transform: translateX(0); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Shared Avatar Styles
@@ -703,6 +705,71 @@
   text-align: center;
   font-family: 'DM Sans', sans-serif;
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Add Friend Panel
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.af-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.af-search-input {
+  flex: 1;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--t1);
+  background: transparent;
+  border: none;
+  line-height: 1;
+  caret-color: var(--t1);
+}
+.af-search-input::placeholder { color: var(--t3); }
+
+.af-list {
+  flex: 1;
+  overflow-y: auto;
+}
+.af-list::-webkit-scrollbar { width: 3px; }
+.af-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.af-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+}
+
+.af-btn {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border2);
+  background: var(--bg3);
+  color: var(--t1);
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .12s, opacity .12s;
+  white-space: nowrap;
+}
+.af-btn:hover { background: var(--border2); }
+.af-btn:disabled { opacity: .4; cursor: not-allowed; }
+.af-btn.af-btn-added {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--t3);
+}
+.af-btn.af-btn-added:hover { background: var(--bg3); color: var(--t2); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Loading / Empty States

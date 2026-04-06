@@ -4,10 +4,12 @@ import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
+import { useFriends } from '../hooks/useFriends'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
+import AddFriendPanel from '../components/collab/AddFriendPanel'
 import type { Profile } from '../types/collab'
 import './collab.css'
 
@@ -38,6 +40,7 @@ function CollabPageInner({ user }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [addFriendOpen, setAddFriendOpen] = useState(false)
@@ -65,10 +68,17 @@ function CollabPageInner({ user }: Props) {
   const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds = usePresence(client, user.id)
+  const { friendIds, addFriend, removeFriend } = useFriends(client, user.id)
 
   const profilesWithStatus = useMemo(
     () => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })),
     [profiles, onlineIds]
+  )
+
+  // Only show friends in the main list
+  const friendProfiles = useMemo(
+    () => profilesWithStatus.filter(p => friendIds.has(p.id)),
+    [profilesWithStatus, friendIds]
   )
 
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
@@ -123,12 +133,17 @@ function CollabPageInner({ user }: Props) {
 
   const handleToggleSettings = () => {
     setSettingsOpen(prev => !prev)
-    if (!settingsOpen) setProfileOpen(false)
+    if (!settingsOpen) { setProfileOpen(false); setAddFriendOpen(false) }
   }
 
   const handleToggleProfile = () => {
     setProfileOpen(prev => !prev)
-    if (!profileOpen) setSettingsOpen(false)
+    if (!profileOpen) { setSettingsOpen(false); setAddFriendOpen(false) }
+  }
+
+  const handleToggleAddFriend = () => {
+    setAddFriendOpen(prev => !prev)
+    if (!addFriendOpen) { setSettingsOpen(false); setProfileOpen(false) }
   }
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
@@ -186,6 +201,7 @@ function CollabPageInner({ user }: Props) {
     isDark ? 'dark' : '',
     settingsOpen ? 'settings-open' : '',
     profileOpen ? 'profile-open' : '',
+    addFriendOpen ? 'addfriend-open' : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -194,11 +210,16 @@ function CollabPageInner({ user }: Props) {
       <div className="top-bar">
         <span className="app-title">CoOp</span>
 
-        {/* Activity icon */}
-        <div className="icon-btn">
-          <svg viewBox="0 0 16 16" strokeWidth="1.5">
-            <circle cx="8" cy="8" r="5.5" />
-            <path d="M8 5.5v3l2 1.5" />
+        {/* Add Friend icon */}
+        <div
+          className={`icon-btn${addFriendOpen ? ' active' : ''}`}
+          onClick={handleToggleAddFriend}
+          title="Add Friend"
+        >
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
+            <circle cx="6" cy="5.5" r="2.4" />
+            <path d="M1.5 13c.7-2.2 2.6-3.1 4.5-3.1s3.8.9 4.5 3.1" strokeLinecap="round" />
+            <path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -306,7 +327,7 @@ function CollabPageInner({ user }: Props) {
         {/* Friends view */}
         <div className="view fview">
           <FriendsList
-            profiles={profilesWithStatus}
+            profiles={friendProfiles}
             favorites={favorites}
             loading={profilesLoading}
             viewMode={viewMode}
@@ -351,6 +372,17 @@ function CollabPageInner({ user }: Props) {
             me={me}
             onClose={() => setProfileOpen(false)}
             onUpdated={refetchProfiles}
+          />
+        </div>
+
+        {/* Add Friend view */}
+        <div className="view afview">
+          <AddFriendPanel
+            allProfiles={profilesWithStatus}
+            friendIds={friendIds}
+            onAdd={addFriend}
+            onRemove={removeFriend}
+            onClose={() => setAddFriendOpen(false)}
           />
         </div>
       </div>

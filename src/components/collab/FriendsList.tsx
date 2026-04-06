@@ -124,7 +124,12 @@ export default function FriendsList({
     : profiles
 
   if (filtered.length === 0) {
-    return <div className="collab-loading">{searchQuery ? 'No results' : 'No users yet'}</div>
+    return (
+      <div className="collab-loading" style={{ flexDirection: 'column', gap: 6, textAlign: 'center', padding: '0 24px' }}>
+        <span>{searchQuery ? 'No results' : 'No friends yet'}</span>
+        {!searchQuery && <span style={{ fontSize: 10, opacity: 0.7 }}>Use the + button above to add friends</span>}
+      </div>
+    )
   }
 
   const favOnline   = filtered.filter(p =>  favorites.has(p.id) &&  p.isOnline)

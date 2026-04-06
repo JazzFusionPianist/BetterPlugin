@@ -9,7 +9,7 @@ interface AdminProfile {
   avatar_color: string
   is_verified: boolean
   is_admin: boolean
-  created_at: string
+  updated_at: string
 }
 
 const AVATAR_COLORS = [
@@ -41,8 +41,8 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
   const fetchProfiles = useCallback(async () => {
     const { data } = await client
       .from('profiles')
-      .select('id, display_name, avatar_color, is_verified, is_admin, created_at')
-      .order('created_at', { ascending: false })
+      .select('id, display_name, avatar_color, is_verified, is_admin, updated_at')
+      .order('updated_at', { ascending: false })
     if (data) setProfiles(data as AdminProfile[])
     setLoading(false)
   }, [client])
@@ -170,7 +170,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
                     )}
                   </div>
                   <div style={{ fontSize: 10, color: '#bbb', marginTop: 1 }}>
-                    {new Date(profile.created_at).toLocaleDateString('ko-KR')} 가입
+                    {new Date(profile.updated_at).toLocaleDateString('ko-KR')} 업데이트
                   </div>
                 </div>
 

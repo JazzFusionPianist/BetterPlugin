@@ -200,18 +200,10 @@ function CollabPageInner({ user }: Props) {
           onClick={handleToggleProfile}
           title="Profile"
         >
-          {me?.avatar_url ? (
-            <img
-              src={me.avatar_url}
-              alt="me"
-              style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }}
-            />
-          ) : (
-            <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
-              <circle cx="8" cy="6" r="2.6" />
-              <path d="M3 13.2c.8-2.4 2.8-3.4 5-3.4s4.2 1 5 3.4" strokeLinecap="round" />
-            </svg>
-          )}
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
+            <circle cx="8" cy="6" r="2.6" />
+            <path d="M3 13.2c.8-2.4 2.8-3.4 5-3.4s4.2 1 5 3.4" strokeLinecap="round" />
+          </svg>
         </div>
 
         {/* Settings icon */}

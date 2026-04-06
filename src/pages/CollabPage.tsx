@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
+import { usePresence } from '../hooks/usePresence'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import './collab.css'
@@ -35,8 +36,14 @@ function CollabPageInner({ user }: Props) {
 
   const { profiles, loading: profilesLoading } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
+  const onlineIds = usePresence(client, user.id)
 
-  const selectedProfile = profiles.find(p => p.id === selectedId) ?? null
+  const profilesWithStatus = useMemo(
+    () => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })),
+    [profiles, onlineIds]
+  )
+
+  const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   const handleToggleFav = (id: string) => {
     setFavorites(prev => {
@@ -70,7 +77,7 @@ function CollabPageInner({ user }: Props) {
         {/* Friends list view */}
         <div className="view fview">
           <FriendsList
-            profiles={profiles}
+            profiles={profilesWithStatus}
             favorites={favorites}
             loading={profilesLoading}
             onSelect={setSelectedId}

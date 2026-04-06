@@ -424,9 +424,11 @@
   font-family: 'DM Sans', sans-serif;
 }
 .mg.mine { align-items: flex-end; }
+.mg.theirs { align-items: flex-start; }
 .mg.mine .mm { text-align: right; }
 .mg.mine .mb { background: var(--mine-bg); color: var(--mine-t); border-radius: 10px 10px 2px 10px; }
 .mg.theirs .mb { border-radius: 10px 10px 10px 2px; }
+.mg .mtime { font-size: 8.5px; color: var(--t4); font-family: 'DM Sans', sans-serif; margin-top: 2px; }
 .ts { font-size: 8.5px; color: var(--t4); text-align: center; margin: 4px 0; font-family: 'DM Sans', sans-serif; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━

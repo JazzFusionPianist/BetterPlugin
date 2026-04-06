@@ -5,10 +5,12 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
 import { useNotifications } from '../hooks/useNotifications'
+import { useFriends } from '../hooks/useFriends'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
+import AddFriendPanel from '../components/collab/AddFriendPanel'
 import type { Profile } from '../types/collab'
 import './collab.css'
 
@@ -39,15 +41,13 @@ function CollabPageInner({ user }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [addFriendOpen, setAddFriendOpen] = useState(false)
-  const [addFriendQuery, setAddFriendQuery] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const addFriendInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [viewMode, setViewMode] = useState<'gallery' | 'list'>(() =>
@@ -68,10 +68,17 @@ function CollabPageInner({ user }: Props) {
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
+  const { friendIds, addFriend, removeFriend } = useFriends(client, user.id)
 
   const profilesWithStatus = useMemo(
     () => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })),
     [profiles, onlineIds]
+  )
+
+  // Only show friends in the main list
+  const friendProfiles = useMemo(
+    () => profilesWithStatus.filter(p => friendIds.has(p.id)),
+    [profilesWithStatus, friendIds]
   )
 
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
@@ -103,35 +110,34 @@ function CollabPageInner({ user }: Props) {
       if (prev) {
         setSearchQuery('')
       } else {
-        setAddFriendOpen(false)
-        setAddFriendQuery('')
         setTimeout(() => searchInputRef.current?.focus(), 200)
       }
       return !prev
     })
   }
 
-  const handleToggleAddFriend = () => {
-    setAddFriendOpen(prev => {
-      if (prev) {
-        setAddFriendQuery('')
-      } else {
-        setSearchOpen(false)
-        setSearchQuery('')
-        setTimeout(() => addFriendInputRef.current?.focus(), 200)
-      }
+  const handleToggleSettings = () => {
+    setSettingsOpen(prev => {
+      if (!prev) { setProfileOpen(false); setAddFriendOpen(false) }
       return !prev
     })
   }
 
-  const handleToggleSettings = () => {
-    setSettingsOpen(prev => !prev)
-    if (!settingsOpen) setProfileOpen(false)
+  const handleToggleProfile = () => {
+    setProfileOpen(prev => {
+      if (!prev) { setSettingsOpen(false); setAddFriendOpen(false) }
+      return !prev
+    })
   }
 
-  const handleToggleProfile = () => {
-    setProfileOpen(prev => !prev)
-    if (!profileOpen) setSettingsOpen(false)
+  const handleToggleAddFriend = () => {
+    setAddFriendOpen(prev => {
+      if (!prev) {
+        setSettingsOpen(false)
+        setProfileOpen(false)
+      }
+      return !prev
+    })
   }
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
@@ -183,8 +189,6 @@ function CollabPageInner({ user }: Props) {
     if (selectedId) {
       setSearchOpen(false)
       setSearchQuery('')
-      setAddFriendOpen(false)
-      setAddFriendQuery('')
       setNotifOpen(false)
     }
   }, [selectedId])
@@ -195,6 +199,7 @@ function CollabPageInner({ user }: Props) {
     isDark ? 'dark' : '',
     settingsOpen ? 'settings-open' : '',
     profileOpen ? 'profile-open' : '',
+    addFriendOpen ? 'addfriend-open' : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -235,10 +240,10 @@ function CollabPageInner({ user }: Props) {
           onClick={handleToggleAddFriend}
           title="Add Friend"
         >
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" strokeLinecap="round">
-            <circle cx="6" cy="6" r="2.6" />
-            <path d="M1.5 13c.7-2.2 2.4-3.2 4.5-3.2s3.8 1 4.5 3.2" />
-            <path d="M12.5 8v4M10.5 10h4" />
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
+            <circle cx="5.5" cy="5.5" r="2.4" />
+            <path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" />
+            <path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -291,31 +296,6 @@ function CollabPageInner({ user }: Props) {
         </button>
       </div>
 
-      {/* Add Friend bar */}
-      <div className={`search-bar${addFriendOpen ? ' open' : ''}`}>
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="2.6" />
-          <path d="M1.5 13c.7-2.2 2.4-3.2 4.5-3.2s3.8 1 4.5 3.2" />
-          <path d="M12.5 8v4M10.5 10h4" />
-        </svg>
-        <input
-          ref={addFriendInputRef}
-          className="search-input"
-          type="text"
-          placeholder="find by display name..."
-          value={addFriendQuery}
-          onChange={e => setAddFriendQuery(e.target.value)}
-        />
-        <button
-          className={`search-clear${addFriendQuery ? ' visible' : ''}`}
-          onClick={() => setAddFriendQuery('')}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--t3)" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M1 1l8 8M9 1L1 9" />
-          </svg>
-        </button>
-      </div>
-
       {/* Notification panel (overlay) */}
       {notifOpen && (
         <div className="notif-panel">
@@ -358,11 +338,11 @@ function CollabPageInner({ user }: Props) {
         {/* Friends view */}
         <div className="view fview">
           <FriendsList
-            profiles={profilesWithStatus}
+            profiles={friendProfiles}
             favorites={favorites}
             loading={profilesLoading}
             viewMode={viewMode}
-            searchQuery={addFriendOpen ? addFriendQuery : searchQuery}
+            searchQuery={searchQuery}
             onSelect={handleOpenChat}
             onToggleFav={handleToggleFav}
             onCellHover={handleCellHover}
@@ -403,6 +383,17 @@ function CollabPageInner({ user }: Props) {
             me={me}
             onClose={() => setProfileOpen(false)}
             onUpdated={refetchProfiles}
+          />
+        </div>
+
+        {/* Add Friend view */}
+        <div className="view afview">
+          <AddFriendPanel
+            allProfiles={profilesWithStatus}
+            friendIds={friendIds}
+            onAdd={addFriend}
+            onRemove={removeFriend}
+            onClose={() => setAddFriendOpen(false)}
           />
         </div>
       </div>

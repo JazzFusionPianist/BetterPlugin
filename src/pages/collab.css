@@ -152,6 +152,19 @@
   text-overflow: ellipsis;
   margin-top: 1px;
 }
+.notif-unread { background: var(--bg2); }
+.notif-action-btn {
+  width: 24px; height: 24px;
+  border-radius: 6px; border: none;
+  font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: opacity .12s;
+}
+.notif-accept { background: #4A8FE7; color: #fff; font-weight: 700; }
+.notif-decline { background: var(--bg3); color: var(--t2); }
+.notif-dismiss-btn { background: transparent; color: var(--t3); }
+.notif-action-btn:hover { opacity: .75; }
+
 .notif-count {
   min-width: 18px;
   height: 18px;

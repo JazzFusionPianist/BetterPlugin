@@ -17,6 +17,19 @@ export interface Message {
   created_at: string
 }
 
+export interface AppNotification {
+  id: string
+  type: 'friend_request' | 'friend_accepted'
+  read: boolean
+  created_at: string
+  actor: {
+    id: string
+    display_name: string
+    avatar_color: string
+    avatar_url?: string | null
+  }
+}
+
 export function getInitials(name: string): string {
   return name
     .split(' ')

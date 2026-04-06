@@ -2,10 +2,15 @@
 
 html, body, #root {
   width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Plugin shell constraint — applied only to the CoOp plugin view */
+body:not(.admin) #root {
   max-width: 300px;
   height: 500px;
   overflow: hidden;
   background-color: #ffffff;
   color: #1f2937;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }

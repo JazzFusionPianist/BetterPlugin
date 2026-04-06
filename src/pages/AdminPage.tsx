@@ -226,6 +226,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    document.body.classList.add('admin')
+    return () => document.body.classList.remove('admin')
+  }, [])
+
+  useEffect(() => {
     if (!supabase) { setLoading(false); return }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)

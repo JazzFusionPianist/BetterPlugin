@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 .claude
+tsconfig.tsbuildinfo
+.DS_Store

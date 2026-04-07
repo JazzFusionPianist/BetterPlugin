@@ -631,6 +631,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.msg-att-download {
+  display: flex;
+  align-items: center;
+  color: var(--t3);
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.msg-att-download:hover { color: var(--t1); }
 .msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
 .msg-att-audio-player {
   display: flex;

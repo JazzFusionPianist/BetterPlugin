@@ -105,6 +105,27 @@
 }
 
 /* Notification panel */
+/* ── Swipe-to-dismiss ──────────────────────────────── */
+.swipe-row-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.swipe-row-inner {
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+}
+.swipe-hint {
+  position: absolute;
+  inset: 0;
+  background: #FF3B30;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.05s;
+}
+
 .notif-panel {
   position: absolute;
   top: 44px;

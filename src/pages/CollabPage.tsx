@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
@@ -25,6 +25,63 @@ interface TooltipInfo { profile: Profile; x: number; y: number; arrowX: number; 
 export default function CollabPage({ user }: Props) {
   if (!supabase) return <div style={{ padding: 20, fontSize: 12, fontFamily: 'sans-serif', color: '#999' }}>Supabase not configured.</div>
   return <CollabPageInner user={user} />
+}
+
+const SWIPE_THRESHOLD = 72
+
+function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
+  const [dx, setDx] = useState(0)
+  const [leaving, setLeaving] = useState(false)
+  const startX = useRef<number | null>(null)
+  const active = useRef(false)
+  const dxRef  = useRef(0)
+
+  const dismiss = useCallback(() => {
+    setLeaving(true)
+    setTimeout(onDismiss, 220)
+  }, [onDismiss])
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    startX.current = e.clientX
+    active.current = true
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!active.current || startX.current === null) return
+    const d = e.clientX - startX.current
+    dxRef.current = d
+    setDx(d)
+  }
+  const onPointerUp = () => {
+    if (!active.current) return
+    active.current = false
+    startX.current = null
+    if (Math.abs(dxRef.current) > SWIPE_THRESHOLD) dismiss()
+    else { setDx(0); dxRef.current = 0 }
+  }
+
+  const style: React.CSSProperties = leaving
+    ? { transform: `translateX(${dxRef.current >= 0 ? '110%' : '-110%'})`, opacity: 0, transition: 'transform 0.22s ease-in, opacity 0.22s ease-in' }
+    : dx !== 0
+      ? { transform: `translateX(${dx}px)`, transition: 'none' }
+      : { transform: 'translateX(0)', transition: 'transform 0.18s ease-out' }
+
+  return (
+    <div className="swipe-row-wrap">
+      <div
+        className="swipe-row-inner"
+        style={{ ...style, touchAction: 'pan-y', userSelect: 'none', cursor: active.current ? 'grabbing' : 'grab' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {children}
+      </div>
+      {/* 스와이프 방향 힌트 배경 */}
+      <div className="swipe-hint" style={{ opacity: Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1) * 0.6 }} />
+    </div>
+  )
 }
 
 function CollabPageInner({ user }: Props) {
@@ -195,35 +252,36 @@ function CollabPageInner({ user }: Props) {
 
           {/* Follow 알림 */}
           {visibleEvents.map(ev => (
-            <div key={ev.id} className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
-              <div className="av sz32" style={{ background: ev.actor.avatar_color, flexShrink: 0 }}>
-                {ev.actor.avatar_url
-                  ? <img src={ev.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  : ev.actor.display_name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="notif-info">
-                <div className="notif-name">{ev.actor.display_name}</div>
-                <div className="notif-preview">followed you</div>
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                {/* 아직 팔로우 안 한 경우 Follow back 버튼 */}
-                {!followingIds.has(ev.actor.id) && (
+            <SwipeRow key={ev.id} onDismiss={() => dismissFriendEvent(ev.id)}>
+              <div className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
+                <div className="av sz32" style={{ background: ev.actor.avatar_color, flexShrink: 0 }}>
+                  {ev.actor.avatar_url
+                    ? <img src={ev.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    : ev.actor.display_name.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="notif-info">
+                  <div className="notif-name">{ev.actor.display_name}</div>
+                  <div className="notif-preview">followed you</div>
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {!followingIds.has(ev.actor.id) && (
+                    <button
+                      className="notif-action-btn notif-accept"
+                      onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
+                      title="Follow back"
+                    >
+                      Follow
+                    </button>
+                  )}
                   <button
-                    className="notif-action-btn notif-accept"
-                    onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
-                    title="Follow back"
+                    className="notif-action-btn notif-dismiss-btn"
+                    onClick={e => { e.stopPropagation(); dismissFriendEvent(ev.id) }}
                   >
-                    Follow
+                    ✕
                   </button>
-                )}
-                <button
-                  className="notif-action-btn notif-dismiss-btn"
-                  onClick={e => { e.stopPropagation(); dismissFriendEvent(ev.id) }}
-                >
-                  ✕
-                </button>
+                </div>
               </div>
-            </div>
+            </SwipeRow>
           ))}
 
           {/* 읽지 않은 메시지 알림 */}
@@ -231,18 +289,20 @@ function CollabPageInner({ user }: Props) {
             const profile = profilesWithStatus.find(p => p.id === senderId)
             const count   = msgs.length
             return (
-              <div key={senderId} className="notif-row notif-unread" onClick={() => { setNotifOpen(false); handleOpenChat(senderId) }}>
-                <div className="av sz32" style={{ background: profile?.avatar_color ?? '#999' }}>
-                  {profile?.avatar_url
-                    ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : profile?.initials ?? '?'}
+              <SwipeRow key={senderId} onDismiss={() => markSeen(senderId)}>
+                <div className="notif-row notif-unread" onClick={() => { setNotifOpen(false); handleOpenChat(senderId) }}>
+                  <div className="av sz32" style={{ background: profile?.avatar_color ?? '#999' }}>
+                    {profile?.avatar_url
+                      ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                      : profile?.initials ?? '?'}
+                  </div>
+                  <div className="notif-info">
+                    <div className="notif-name">{profile?.display_name ?? 'Unknown'}</div>
+                    <div className="notif-preview">{count === 1 ? msgs[0]!.content : `${count} new messages`}</div>
+                  </div>
+                  <div className="notif-count">{count}</div>
                 </div>
-                <div className="notif-info">
-                  <div className="notif-name">{profile?.display_name ?? 'Unknown'}</div>
-                  <div className="notif-preview">{count === 1 ? msgs[0]!.content : `${count} new messages`}</div>
-                </div>
-                <div className="notif-count">{count}</div>
-              </div>
+              </SwipeRow>
             )
           })}
         </div>

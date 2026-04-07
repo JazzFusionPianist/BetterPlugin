@@ -58,7 +58,7 @@ function CollabPageInner({ user }: Props) {
   const onlineIds = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
-  const { friendIds, pendingOutgoing, pendingIncoming, addFriend, acceptFriend, declineFriend, cancelRequest } = useFriends(client, user.id)
+  const { friendIds, pendingOutgoing, pendingIncoming, addFriend, acceptFriend, declineFriend, cancelRequest, removeFriend } = useFriends(client, user.id)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   const friendProfiles = useMemo(() => profilesWithStatus.filter(p => friendIds.has(p.id)), [profilesWithStatus, friendIds])
@@ -209,7 +209,7 @@ function CollabPageInner({ user }: Props) {
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} />
         </div>
         <div className="view pview">
-          <ProfilePanel supabase={client} user={user} me={me} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} />
+          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} onOpenChat={(id) => { setProfileOpen(false); handleOpenChat(id) }} onRemoveFriend={removeFriend} />
         </div>
         <div className="view afview">
           <AddFriendPanel allProfiles={profilesWithStatus} friendIds={friendIds} pendingOutgoing={pendingOutgoing} pendingIncoming={pendingIncoming} onAdd={addFriend} onAccept={acceptFriend} onDecline={declineFriend} onCancel={cancelRequest} onClose={() => setAddFriendOpen(false)} />

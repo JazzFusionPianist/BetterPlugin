@@ -149,6 +149,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadErrMsg, setUploadErrMsg] = useState('')
   const chatAreaRef = useRef<HTMLDivElement>(null)
   const imgRef  = useRef<HTMLInputElement>(null)
   const vidRef  = useRef<HTMLInputElement>(null)
@@ -170,13 +171,25 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
 
+  const MAX_SIZE_MB = 50
+  const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024
+
+  const showErr = (msg: string) => {
+    setUploadErrMsg(msg)
+    setSendError(true)
+    setTimeout(() => { setSendError(false); setUploadErrMsg('') }, 3000)
+  }
+
   const uploadFile = async (file: File, type: AttachType): Promise<Attachment | null> => {
     const ext  = file.name.split('.').pop() ?? 'bin'
     const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
     const { error } = await supabase.storage
       .from('attachments')
       .upload(path, file, { contentType: file.type })
-    if (error) return null
+    if (error) {
+      console.error('[upload error]', error.message, error)
+      return null
+    }
     const { data } = supabase.storage.from('attachments').getPublicUrl(path)
     return { url: data.publicUrl, type, name: file.name }
   }
@@ -185,12 +198,18 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     const file = e.target.files?.[0]
     if (!file) return
     setMenuOpen(false)
+
+    if (file.size > MAX_SIZE) {
+      showErr(`File too large (max ${MAX_SIZE_MB}MB)`)
+      if (e.target) e.target.value = ''
+      return
+    }
+
     setUploading(true)
     const att = await uploadFile(file, type)
     setUploading(false)
     if (!att) {
-      setSendError(true)
-      setTimeout(() => setSendError(false), 2500)
+      showErr('Upload failed. Check file size or connection.')
     } else {
       await onSend('', att)
     }
@@ -282,7 +301,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
       {/* 전송/업로드 실패 토스트 */}
       {sendError && (
         <div className="send-error-toast">
-          {uploading ? 'Upload failed. Try again.' : 'Failed to send. Please try again.'}
+          {uploadErrMsg || 'Failed to send. Please try again.'}
         </div>
       )}
 

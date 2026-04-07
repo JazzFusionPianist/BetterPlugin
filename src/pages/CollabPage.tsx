@@ -244,7 +244,7 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={onlineFriendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} />
+          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
         </div>
         <div className="view cview">
           {selectedProfile && <ChatView currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}

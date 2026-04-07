@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useLayoutEffect } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { getInitials } from '../../types/collab'
@@ -12,6 +12,8 @@ interface Props {
   onUpdated: () => void
   onOpenChat: (id: string) => void
   onRemoveFriend: (id: string) => Promise<void>
+  favorites: Set<string>
+  onToggleFav: (id: string) => void
 }
 
 interface Orb {
@@ -20,12 +22,13 @@ interface Orb {
   vx: number
   vy: number
   r: number
+  frozen: boolean
   el: HTMLDivElement | null
 }
 
 const SELF_RADIUS = 38
 
-export default function ProfilePanel({ supabase, user, me, friendProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend }: Props) {
+export default function ProfilePanel({ supabase, user, me, friendProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
@@ -33,6 +36,14 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const [, forceRender] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; below: boolean } | null>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const displayProfiles = useMemo(
+    () => friendProfiles.filter(p => p.isOnline),
+    [friendProfiles]
+  )
 
   const showMsg = (m: string) => {
     setMsg(m)
@@ -66,7 +77,7 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const color = me?.avatar_color ?? '#4A8FE7'
   const photo = me?.avatar_url
 
-  // Initialize orbs whenever friend list or container size changes
+  // Initialize orbs whenever display list changes
   useLayoutEffect(() => {
     const c = containerRef.current
     if (!c) return
@@ -75,7 +86,7 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     const H = rect.height
     sizeRef.current = { w: W, h: H }
 
-    const N = friendProfiles.length
+    const N = displayProfiles.length
     if (N === 0) {
       orbsRef.current = []
       forceRender(v => v + 1)
@@ -84,13 +95,15 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
 
     const cx = W / 2
     const cy = H / 2
-    const reservedBottom = 36 // space for the name
+    const reservedBottom = 36
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
-    const r = Math.max(8, Math.min(26, rRaw))
+    const baseR = Math.max(8, Math.min(22, rRaw))
+    const favR = Math.max(baseR * 1.5, baseR + 6)
 
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
+      const r = favorites.has(displayProfiles[i]!.id) ? favR : baseR
       let placed = false
       for (let attempt = 0; attempt < 300 && !placed; attempt++) {
         const x = r + Math.random() * (W - 2 * r)
@@ -103,23 +116,20 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         if (!ok) continue
         const angle = Math.random() * Math.PI * 2
         const speed = 0.2 + Math.random() * 0.2
-        orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, el: null })
+        orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
         placed = true
       }
       if (!placed) {
-        // Fallback ring placement
         const angle = (i / N) * Math.PI * 2
         const ringR = SELF_RADIUS + r + 8
-        orbs.push({
-          x: cx + Math.cos(angle) * ringR,
-          y: cy + Math.sin(angle) * ringR,
-          vx: 0.1, vy: 0.1, r, el: null,
-        })
+        orbs.push({ x: cx + Math.cos(angle) * ringR, y: cy + Math.sin(angle) * ringR, vx: 0.1, vy: 0.1, r, frozen: false, el: null })
       }
     }
     orbsRef.current = orbs
+    setHoveredIdx(null)
+    setTooltipPos(null)
     forceRender(v => v + 1)
-  }, [friendProfiles])
+  }, [displayProfiles, favorites])
 
   // Animation loop
   useEffect(() => {
@@ -130,11 +140,10 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
       const cx = W / 2, cy = H / 2
       const reservedBottom = 36
 
-      // Move + small random drift
       for (const o of orbs) {
+        if (o.frozen) continue
         o.vx += (Math.random() - 0.5) * 0.04
         o.vy += (Math.random() - 0.5) * 0.04
-        // clamp speed
         const sp = Math.hypot(o.vx, o.vy)
         const maxSp = 0.55
         const minSp = 0.22
@@ -144,7 +153,6 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         o.y += o.vy
       }
 
-      // Wall bounce
       for (const o of orbs) {
         if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
         if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
@@ -152,7 +160,6 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
       }
 
-      // Self-avatar collision
       for (const o of orbs) {
         const dx = o.x - cx, dy = o.y - cy
         const d = Math.hypot(dx, dy) || 0.001
@@ -169,7 +176,6 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         }
       }
 
-      // Pairwise collision
       for (let i = 0; i < orbs.length; i++) {
         for (let j = i + 1; j < orbs.length; j++) {
           const a = orbs[i]!, b = orbs[j]!
@@ -190,7 +196,6 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         }
       }
 
-      // Apply
       for (const o of orbs) {
         if (o.el) o.el.style.transform = `translate(${o.x - o.r}px, ${o.y - o.r}px)`
       }
@@ -201,17 +206,54 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  const handleOrbEnter = (idx: number) => {
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
+    const orb = orbsRef.current[idx]
+    if (!orb) return
+    orb.frozen = true
+    setHoveredIdx(idx)
+    const below = orb.y - orb.r < 90
+    setTooltipPos({ x: orb.x, y: below ? orb.y + orb.r : orb.y - orb.r, below })
+  }
+
+  const handleOrbLeave = (idx: number) => {
+    hoverTimerRef.current = setTimeout(() => {
+      const orb = orbsRef.current[idx]
+      if (orb) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = 0.3
+        orb.vx = Math.cos(angle) * speed
+        orb.vy = Math.sin(angle) * speed
+        orb.frozen = false
+      }
+      setHoveredIdx(null)
+      setTooltipPos(null)
+    }, 200)
+  }
+
+  const handleTooltipEnter = () => {
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
+  }
+
+  const handleUnfollow = async (id: string) => {
+    await onRemoveFriend(id)
+    setHoveredIdx(null)
+    setTooltipPos(null)
+  }
+
+  const hoveredProfile = hoveredIdx !== null ? displayProfiles[hoveredIdx] : null
+
   return (
     <>
       <div className="s-body profile-orbit-body">
         <div className="profile-orbit" ref={containerRef}>
-          {friendProfiles.map((p, i) => {
+          {displayProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
             return (
               <div
                 key={p.id}
-                className="orbit-orb"
+                className={`orbit-orb${p.isOnline ? '' : ' offline'}`}
                 ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
                 style={{
                   width: r * 2,
@@ -220,12 +262,15 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
                   fontSize: Math.max(8, r * 0.55),
                   cursor: 'pointer',
                 }}
-                title={p.display_name}
+                onMouseEnter={() => handleOrbEnter(i)}
+                onMouseLeave={() => handleOrbLeave(i)}
                 onClick={() => onOpenChat(p.id)}
               >
                 {p.avatar_url
                   ? <img src={p.avatar_url} alt="" />
                   : <span>{p.initials}</span>}
+                {p.isOnline && <div className="orbit-orb-dot" />}
+                {favorites.has(p.id) && <div className="orbit-orb-fav">★</div>}
               </div>
             )
           })}
@@ -238,11 +283,7 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
             style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}
           >
             <div className="av profile-av" style={{ background: color, width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}>
-              {photo ? (
-                <img src={photo} alt="avatar" />
-              ) : (
-                <span>{initials}</span>
-              )}
+              {photo ? <img src={photo} alt="avatar" /> : <span>{initials}</span>}
             </div>
             <div className="profile-av-overlay">
               {uploading ? '...' : (
@@ -254,9 +295,31 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
             </div>
           </button>
 
+          {hoveredProfile && tooltipPos && (
+            <div
+              className={`orbit-tooltip${tooltipPos.below ? ' below' : ''}`}
+              style={{ left: tooltipPos.x, top: tooltipPos.y }}
+              onMouseEnter={handleTooltipEnter}
+              onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
+            >
+              <div className="orbit-tt-name-row">
+                <div className="orbit-tt-name">{hoveredProfile.display_name}</div>
+                <button
+                  className={`orbit-tt-star${favorites.has(hoveredProfile.id) ? ' on' : ''}`}
+                  onClick={() => onToggleFav(hoveredProfile.id)}
+                  title={favorites.has(hoveredProfile.id) ? 'Unfavorite' : 'Favorite'}
+                >
+                  ★
+                </button>
+              </div>
+              <button className="orbit-tt-btn" onClick={() => handleUnfollow(hoveredProfile.id)}>following</button>
+            </div>
+          )}
+
           <div className="orbit-bottom">
             <div className="orbit-name">{displayName}</div>
           </div>
+
         </div>
 
         <input

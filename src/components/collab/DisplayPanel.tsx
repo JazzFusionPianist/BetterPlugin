@@ -2,10 +2,10 @@ import { useRef } from 'react'
 
 interface Props {
   isDark: boolean
-  viewMode: 'gallery' | 'list'
+  viewMode: 'default' | 'gallery' | 'list'
   wallpaper: string | null
   onToggleDark: () => void
-  onViewModeChange: (mode: 'gallery' | 'list') => void
+  onViewModeChange: (mode: 'default' | 'gallery' | 'list') => void
   onSetWallpaper: (url: string | null) => void
   onClose: () => void
 }
@@ -62,6 +62,12 @@ export default function DisplayPanel({ isDark, viewMode, wallpaper, onToggleDark
           <div className="s-section-label">view mode</div>
           <div className="seg">
             <button
+              className={`seg-opt${viewMode === 'default' ? ' active' : ''}`}
+              onClick={() => onViewModeChange('default')}
+            >
+              Default
+            </button>
+            <button
               className={`seg-opt${viewMode === 'gallery' ? ' active' : ''}`}
               onClick={() => onViewModeChange('gallery')}
             >
@@ -75,6 +81,7 @@ export default function DisplayPanel({ isDark, viewMode, wallpaper, onToggleDark
             </button>
           </div>
           <p className="s-note" style={{ marginTop: 10 }}>
+            Default shows online friends as floating orbs.<br />
             Gallery shows profile pictures in a grid.<br />
             List shows names and status at a glance.
           </p>

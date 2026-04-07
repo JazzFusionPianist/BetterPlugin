@@ -7,7 +7,10 @@ import { usePresence } from '../hooks/usePresence'
 import { useNotifications } from '../hooks/useNotifications'
 import { useFriendEvents } from '../hooks/useFriendEvents'
 import { useFollows } from '../hooks/useFollows'
+import { useConversations } from '../hooks/useConversations'
 import ChatView from '../components/collab/ChatView'
+import ConversationsPanel from '../components/collab/ConversationsPanel'
+import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
 import InformationPanel from '../components/collab/InformationPanel'
@@ -31,9 +34,9 @@ const SWIPE_THRESHOLD = 72
 function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
-  const startX = useRef<number | null>(null)
-  const active = useRef(false)
-  const dxRef  = useRef(0)
+  const startX   = useRef<number | null>(null)
+  const dragging  = useRef(false)   // 실제 스와이프 중인지 (5px 초과 이동)
+  const dxRef    = useRef(0)
 
   const dismiss = useCallback(() => {
     setLeaving(true)
@@ -42,19 +45,23 @@ function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismis
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startX.current = e.clientX
-    active.current = true
-    e.currentTarget.setPointerCapture(e.pointerId)
+    dragging.current = false
+    dxRef.current = 0
   }
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!active.current || startX.current === null) return
+    if (startX.current === null) return
     const d = e.clientX - startX.current
-    dxRef.current = d
-    setDx(d)
+    // 5px 이상 움직여야 스와이프로 인식 (작은 떨림으로 클릭 방해 방지)
+    if (Math.abs(d) > 5) {
+      dragging.current = true
+      dxRef.current = d
+      setDx(d)
+    }
   }
   const onPointerUp = () => {
-    if (!active.current) return
-    active.current = false
     startX.current = null
+    if (!dragging.current) return   // 탭(클릭)이면 그냥 통과
+    dragging.current = false
     if (Math.abs(dxRef.current) > SWIPE_THRESHOLD) dismiss()
     else { setDx(0); dxRef.current = 0 }
   }
@@ -69,15 +76,14 @@ function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismis
     <div className="swipe-row-wrap">
       <div
         className="swipe-row-inner"
-        style={{ ...style, touchAction: 'pan-y', userSelect: 'none', cursor: active.current ? 'grabbing' : 'grab' }}
+        style={{ ...style, userSelect: 'none' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
       >
         {children}
       </div>
-      {/* 스와이프 방향 힌트 배경 */}
       <div className="swipe-hint" style={{ opacity: Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1) * 0.6 }} />
     </div>
   )
@@ -96,6 +102,7 @@ function CollabPageInner({ user }: Props) {
   const [searchOpen, setSearchOpen]             = useState(false)
   const [searchQuery, setSearchQuery]           = useState('')
   const [notifOpen, setNotifOpen]               = useState(false)
+  const [convOpen, setConvOpen]                 = useState(false)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -107,8 +114,8 @@ function CollabPageInner({ user }: Props) {
     else localStorage.removeItem('collab_wallpaper')
     setWallpaper(url)
   }
-  const [viewMode, setViewMode] = useState<'gallery' | 'list'>(() =>
-    (localStorage.getItem('collab_view') as 'gallery' | 'list') ?? 'gallery'
+  const [viewMode, setViewMode] = useState<'default' | 'gallery' | 'list'>(() =>
+    (localStorage.getItem('collab_view_v2') as 'default' | 'gallery' | 'list') ?? 'default'
   )
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
@@ -124,13 +131,13 @@ function CollabPageInner({ user }: Props) {
   const { unread, markSeen } = useNotifications(client, user.id)
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
+  const { conversations } = useConversations(client, user.id)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
   const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
   const followingProfiles = useMemo(() => profilesWithStatus.filter(p => followingIds.has(p.id)), [profilesWithStatus, followingIds])
   const followerProfiles  = useMemo(() => profilesWithStatus.filter(p => followerIds.has(p.id)), [profilesWithStatus, followerIds])
-  const onlineFriendProfiles = useMemo(() => friendProfiles.filter(p => p.isOnline), [friendProfiles])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   // 알림 설정에 따라 보이는 알림 필터링
@@ -148,48 +155,36 @@ function CollabPageInner({ user }: Props) {
     })
   }
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
-  const handleViewModeChange  = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
+  const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view_v2', mode) }
 
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
       setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-      setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+      setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
       setTimeout(() => searchInputRef.current?.focus(), 200)
     }
     return !prev
   })
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
+    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); closeSearch() } return !prev })
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
 
-  const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    const pluginEl = pluginRef.current; if (!pluginEl) return
-    const pR = pluginEl.getBoundingClientRect(); const eR = el.getBoundingClientRect()
-    const TW = 162, TH = 86
-    const relL = eR.left - pR.left; const relT = eR.top - pR.top
-    let left = relL + eR.width / 2 - TW / 2; let top = relT - TH - 10; let arrowUp = false
-    if (top < 50) { top = relT + eR.height + 10; arrowUp = true }
-    left = Math.max(8, Math.min(left, 300 - TW - 8))
-    const arrowX = Math.max(12, Math.min((relL + eR.width / 2) - left - 6, TW - 24))
-    setTooltip({ profile, x: left, y: top, arrowX, arrowUp })
-  }
-  const handleCellLeave    = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
 
-  useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
+  useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
 
   const handleGoHome = () => {
     setSelectedId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-    setAddFriendOpen(false); setNotifOpen(false)
+    setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
     closeSearch()
   }
 
@@ -201,6 +196,7 @@ function CollabPageInner({ user }: Props) {
     infoOpen          ? 'info-open'          : '',
     notifSettingsOpen ? 'notifsettings-open' : '',
     addFriendOpen     ? 'addfriend-open'     : '',
+    convOpen          ? 'conv-open'          : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -214,6 +210,13 @@ function CollabPageInner({ user }: Props) {
             <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" /><path d="M6.5 12.5a1.5 1.5 0 003 0" />
           </svg>
           {bellCount > 0 && <span className="notif-dot" />}
+        </div>
+
+        {/* Chat list */}
+        <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7A1.5 1.5 0 0112.5 12H9.5l-3 2.5c-.3.25-.5.1-.5-.25V12H3.5A1.5 1.5 0 012 10.5v-7z"/>
+          </svg>
         </div>
 
         {/* Search */}
@@ -311,7 +314,10 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
+          {viewMode === 'default'
+            ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
+            : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={() => {}} onCellLeave={() => {}} />
+          }
         </div>
         <div className="view cview">
           {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
@@ -333,6 +339,15 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view nsview">
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
+        </div>
+        <div className="view convview">
+          <ConversationsPanel
+            conversations={conversations}
+            profiles={profilesWithStatus}
+            favorites={favorites}
+            currentUserId={user.id}
+            onOpenChat={handleOpenChat}
+          />
         </div>
         <div className="view afview">
           <AddFriendPanel

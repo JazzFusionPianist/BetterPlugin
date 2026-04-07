@@ -107,11 +107,21 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // JUCE C++ bridge: WKWebView message handler
+    const webkit = (window as unknown as { webkit?: { messageHandlers?: { importAudio?: { postMessage: (d: unknown) => void } } } }).webkit
+    if (webkit?.messageHandlers?.importAudio) {
+      webkit.messageHandlers.importAudio.postMessage({ url, name })
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      return
+    }
+
+    // Fallback: clipboard copy
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }).catch(() => {
-      // fallback: try window.open
       window.open(url, '_blank')
     })
   }
@@ -147,7 +157,13 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
             : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
           }
         </button>
-        {copied && <span className="msg-att-copied">Link copied!</span>}
+        {copied && (
+          <span className="msg-att-copied">
+            {(window as unknown as { webkit?: { messageHandlers?: { importAudio?: unknown } } }).webkit?.messageHandlers?.importAudio
+              ? 'Importing…'
+              : 'Link copied!'}
+          </span>
+        )}
         <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (

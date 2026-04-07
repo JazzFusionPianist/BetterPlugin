@@ -32,9 +32,9 @@ const SWIPE_THRESHOLD = 72
 function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState(false)
-  const startX = useRef<number | null>(null)
-  const active = useRef(false)
-  const dxRef  = useRef(0)
+  const startX   = useRef<number | null>(null)
+  const dragging  = useRef(false)   // 실제 스와이프 중인지 (5px 초과 이동)
+  const dxRef    = useRef(0)
 
   const dismiss = useCallback(() => {
     setLeaving(true)
@@ -43,19 +43,23 @@ function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismis
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startX.current = e.clientX
-    active.current = true
-    e.currentTarget.setPointerCapture(e.pointerId)
+    dragging.current = false
+    dxRef.current = 0
   }
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!active.current || startX.current === null) return
+    if (startX.current === null) return
     const d = e.clientX - startX.current
-    dxRef.current = d
-    setDx(d)
+    // 5px 이상 움직여야 스와이프로 인식 (작은 떨림으로 클릭 방해 방지)
+    if (Math.abs(d) > 5) {
+      dragging.current = true
+      dxRef.current = d
+      setDx(d)
+    }
   }
   const onPointerUp = () => {
-    if (!active.current) return
-    active.current = false
     startX.current = null
+    if (!dragging.current) return   // 탭(클릭)이면 그냥 통과
+    dragging.current = false
     if (Math.abs(dxRef.current) > SWIPE_THRESHOLD) dismiss()
     else { setDx(0); dxRef.current = 0 }
   }
@@ -70,15 +74,14 @@ function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismis
     <div className="swipe-row-wrap">
       <div
         className="swipe-row-inner"
-        style={{ ...style, touchAction: 'pan-y', userSelect: 'none', cursor: active.current ? 'grabbing' : 'grab' }}
+        style={{ ...style, userSelect: 'none' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
       >
         {children}
       </div>
-      {/* 스와이프 방향 힌트 배경 */}
       <div className="swipe-hint" style={{ opacity: Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1) * 0.6 }} />
     </div>
   )
@@ -103,7 +106,7 @@ function CollabPageInner({ user }: Props) {
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [viewMode, setViewMode] = useState<'default' | 'gallery' | 'list'>(() =>
-    (localStorage.getItem('collab_view') as 'default' | 'gallery' | 'list') ?? 'default'
+    (localStorage.getItem('collab_view_v2') as 'default' | 'gallery' | 'list') ?? 'default'
   )
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
@@ -140,7 +143,7 @@ function CollabPageInner({ user }: Props) {
     })
   }
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
-  const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
+  const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view_v2', mode) }
 
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {

@@ -314,7 +314,7 @@ function CollabPageInner({ user }: Props) {
           <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={handleCellHover} onCellLeave={handleCellLeave} />
         </div>
         <div className="view cview">
-          {selectedProfile && <ChatView currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
+          {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
         </div>
         <div className="view sview">
           <SettingsPanel

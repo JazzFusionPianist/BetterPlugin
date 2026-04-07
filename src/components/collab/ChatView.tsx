@@ -121,13 +121,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   const juceBackend = window.__JUCE__?.backend
 
-  // 마우스 올리면 파일 프리패치 시작 (JUCE 환경일 때만)
+  // 마우스 올리면 조용히 파일 프리패치 (UI 상태 변화 없음)
   const handleMouseEnter = () => {
     if (!juceBackend || dragState !== 'idle') return
-    setDragState('fetching')
-    juceBackend.prefetchAudio(url, name)
-      .then(() => setDragState('ready'))
-      .catch(() => setDragState('idle'))
+    juceBackend.prefetchAudio(url, name).catch(() => {})
   }
 
   // 마우스 누르면 OS 레벨 드래그 시작
@@ -136,9 +133,9 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     e.preventDefault()
 
     if (juceBackend) {
-      setDragState('dragging')
+      setDragState('fetching')
       juceBackend.startAudioDrag(url, name)
-        .then(() => { setDragState('idle') })
+        .then(result => { setDragState(result === 'armed' ? 'dragging' : 'idle') })
         .catch(() => { setDragState('idle') })
       return
     }

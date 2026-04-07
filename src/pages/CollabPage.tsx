@@ -95,14 +95,15 @@ function CollabPageInner({ user }: Props) {
     }
     return !prev
   })
-  const handleToggleSettings = () => setSettingsOpen(prev => {
-    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) }
+  const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
+  const handleToggleSettings  = () => setSettingsOpen(prev => {
+    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const handleToggleProfile    = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleAddFriend  = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleNotif      = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleProfile   = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)

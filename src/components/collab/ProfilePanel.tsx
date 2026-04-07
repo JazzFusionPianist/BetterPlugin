@@ -138,7 +138,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const rRaw = Math.sqrt(usable / (N * Math.PI))
     const baseR = Math.max(4, Math.min(14, rRaw))
     const favR = Math.max(baseR * 1.4, baseR + 5)
-    const exclusionPad = Math.max(10, 40 - Math.sqrt(N) * 1.5)
+    const exclusionPad = Math.max(18, 48 - Math.sqrt(N) * 1.5)
     const speedFactor = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
     speedFactorRef.current = speedFactor
     exclusionPadRef.current = exclusionPad
@@ -146,21 +146,26 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
-      let placed = false
-      for (let attempt = 0; attempt < 300 && !placed; attempt++) {
-        const x = r + Math.random() * (W - 2 * r)
-        const y = r + Math.random() * (H - reservedBottom - 2 * r)
-        if (Math.hypot(x - cx, y - cy) < SELF_RADIUS + r + exclusionPad) continue
-        const angle = Math.random() * Math.PI * 2
-        const speed = (0.06 + Math.random() * 0.08) * speedFactor
-        orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
-        placed = true
+      const rMin = SELF_RADIUS + r + exclusionPad
+      // Pick an angle + sqrt-biased radius to distribute uniformly in area
+      let x = 0, y = 0
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const theta = Math.random() * Math.PI * 2
+        // Max distance along this direction to the rectangle edge
+        const cosA = Math.cos(theta), sinA = Math.sin(theta)
+        const maxByX = cosA > 0 ? (W - r - cx) / cosA : (r - cx) / cosA
+        const maxByY = sinA > 0 ? (H - reservedBottom - r - cy) / sinA : (r - cy) / sinA
+        const rMax = Math.min(maxByX, maxByY)
+        if (rMax <= rMin + 2) continue
+        const u = Math.random()
+        const dist = Math.sqrt(u * (rMax * rMax - rMin * rMin) + rMin * rMin)
+        x = cx + cosA * dist
+        y = cy + sinA * dist
+        break
       }
-      if (!placed) {
-        const angle = (i / N) * Math.PI * 2
-        const ringR = SELF_RADIUS + r + 8
-        orbs.push({ x: cx + Math.cos(angle) * ringR, y: cy + Math.sin(angle) * ringR, vx: 0.1, vy: 0.1, r, frozen: false, el: null })
-      }
+      const angle = Math.random() * Math.PI * 2
+      const speed = (0.06 + Math.random() * 0.08) * speedFactor
+      orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
     }
     if (enterFromOutsideRef.current) {
       // Each orb already has a random interior target (its initial x,y from placement).

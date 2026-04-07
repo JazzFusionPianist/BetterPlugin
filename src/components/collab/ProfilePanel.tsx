@@ -25,6 +25,8 @@ interface Orb {
   r: number
   frozen: boolean
   el: HTMLDivElement | null
+  tx?: number
+  ty?: number
 }
 
 const SELF_RADIUS = 38
@@ -53,6 +55,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   )
   const [renderProfiles, setRenderProfiles] = useState<Profile[]>(displayProfiles)
   const [transitionTick, setTransitionTick] = useState(0)
+  const [exiting, setExiting] = useState(false)
 
   useEffect(() => {
     if (prevModeRef.current === mode) {
@@ -60,24 +63,12 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       return
     }
     prevModeRef.current = mode
-    // Phase 1: send existing orbs flying outward
-    const c = containerRef.current
-    if (!c) { setRenderProfiles(displayProfiles); return }
-    const rect = c.getBoundingClientRect()
-    const cx = rect.width / 2, cy = rect.height / 2
-    for (const o of orbsRef.current) {
-      const dx = o.x - cx, dy = o.y - cy
-      const d = Math.hypot(dx, dy) || 0.001
-      o.vx = dx / d * 6
-      o.vy = dy / d * 6
-      o.frozen = false
-    }
-    wallBounceRef.current = false
+    setExiting(true)
     const t = setTimeout(() => {
-      enterFromOutsideRef.current = true
+      setExiting(false)
       setRenderProfiles(displayProfiles)
       setTransitionTick(v => v + 1)
-    }, 380)
+    }, 400)
     return () => clearTimeout(t)
   }, [mode, displayProfiles])
 
@@ -146,41 +137,19 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
-      const rMin = SELF_RADIUS + r + exclusionPad
-      // Uniform rectangle sampling with rejection inside the self exclusion
-      let x = r + Math.random() * (W - 2 * r)
-      let y = r + Math.random() * (H - reservedBottom - 2 * r)
-      for (let attempt = 0; attempt < 40; attempt++) {
-        if (Math.hypot(x - cx, y - cy) >= rMin) break
+      const rMin = SELF_RADIUS + r + exclusionPad + 4
+      // Uniform rectangle sampling with guaranteed rejection inside the self exclusion
+      let x = 0, y = 0
+      for (let attempt = 0; attempt < 500; attempt++) {
         x = r + Math.random() * (W - 2 * r)
         y = r + Math.random() * (H - reservedBottom - 2 * r)
+        if (Math.hypot(x - cx, y - cy) >= rMin) break
       }
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
       orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
     }
-    if (enterFromOutsideRef.current) {
-      // Each orb already has a random interior target (its initial x,y from placement).
-      // Move it to the outside along the same direction from center, then give it a
-      // velocity that lands it back at the target in ~24 frames.
-      const startDist = Math.max(W, H) * 0.65
-      const frames = 24
-      for (const orb of orbs) {
-        const dx = orb.x - cx, dy = orb.y - cy
-        const d = Math.hypot(dx, dy) || 0.001
-        const nx = dx / d, ny = dy / d
-        orb.x = cx + nx * startDist
-        orb.y = cy + ny * startDist
-        const travel = startDist - d
-        const speed = travel / frames
-        orb.vx = -nx * speed
-        orb.vy = -ny * speed
-      }
-      setTimeout(() => { wallBounceRef.current = true }, 420)
-      enterFromOutsideRef.current = false
-    } else {
-      wallBounceRef.current = true
-    }
+    wallBounceRef.current = true
     orbsRef.current = orbs
     setHoveredIdx(null)
     setTooltipPos(null)
@@ -303,8 +272,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
             const r = orb?.r ?? 14
             return (
               <div
-                key={p.id}
-                className={`orbit-orb${p.isOnline ? '' : ' offline'}`}
+                key={`${mode}-${p.id}`}
+                className={`orbit-orb${p.isOnline ? '' : ' offline'}${exiting ? ' fading-out' : ''}`}
                 ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
                 style={{
                   width: r * 2,

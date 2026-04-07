@@ -1102,7 +1102,16 @@
   pointer-events: none;
 }
 .orbit-orb > * { pointer-events: none; }
-.orbit-orb { opacity: 0.8; }
+.orbit-orb {
+  opacity: 0.8;
+  transition: opacity 400ms ease-out;
+  animation: orbit-orb-fade 450ms ease-out;
+}
+.orbit-orb.fading-out { opacity: 0; animation: none; }
+@keyframes orbit-orb-fade {
+  from { opacity: 0; }
+  to { opacity: 0.8; }
+}
 .orbit-orb.offline { filter: grayscale(0.5); }
 .orbit-orb-dot {
   position: absolute;

@@ -95,14 +95,15 @@ function CollabPageInner({ user }: Props) {
     }
     return !prev
   })
-  const handleToggleSettings = () => setSettingsOpen(prev => {
-    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) }
+  const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
+  const handleToggleSettings  = () => setSettingsOpen(prev => {
+    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const handleToggleProfile    = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleAddFriend  = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleNotif      = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleProfile   = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
@@ -123,6 +124,13 @@ function CollabPageInner({ user }: Props) {
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
 
+  const handleGoHome = () => {
+    setSelectedId(null)
+    setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
+    setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+    closeSearch()
+  }
+
   const pluginClass = ['plugin',
     selectedId        ? 'chat-open'          : '',
     isDark            ? 'dark'               : '',
@@ -137,7 +145,7 @@ function CollabPageInner({ user }: Props) {
   return (
     <div className={pluginClass} ref={pluginRef}>
       <div className="top-bar">
-        <span className="app-title">CoOp</span>
+        <span className="app-title" onClick={handleGoHome} style={{ cursor: 'pointer' }}>CoOp</span>
 
         {/* Notification */}
         <div className={`icon-btn${notifOpen ? ' active' : ''}`} onClick={handleToggleNotif} title="Notifications" style={{ position: 'relative' }}>
@@ -255,6 +263,7 @@ function CollabPageInner({ user }: Props) {
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenNotifSettings={() => setNotifSettingsOpen(true)}
+            onSignOut={() => client.auth.signOut()}
           />
         </div>
         <div className="view dview">

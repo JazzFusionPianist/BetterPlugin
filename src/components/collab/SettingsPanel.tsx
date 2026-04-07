@@ -3,9 +3,10 @@ interface Props {
   onOpenDisplay: () => void
   onOpenInfo: () => void
   onOpenNotifSettings: () => void
+  onSignOut: () => void
 }
 
-export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo, onOpenNotifSettings }: Props) {
+export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo, onOpenNotifSettings, onSignOut }: Props) {
   return (
     <>
       <div className="s-body" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
@@ -21,6 +22,12 @@ export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpen
           <div className="s-nav-row" onClick={onOpenNotifSettings}>
             <span className="s-row-label">Notifications</span>
             <span className="s-nav-chev">&#8250;</span>
+          </div>
+        </div>
+
+        <div className="s-section" style={{ marginBottom: 0, marginTop: 'auto', paddingTop: 8 }}>
+          <div className="s-nav-row s-signout-row" onClick={onSignOut}>
+            <span className="s-row-label" style={{ color: '#FF3B30' }}>Sign out</span>
           </div>
         </div>
       </div>

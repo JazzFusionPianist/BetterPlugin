@@ -256,6 +256,7 @@ function CollabPageInner({ user }: Props) {
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenNotifSettings={() => setNotifSettingsOpen(true)}
+            onSignOut={() => client.auth.signOut()}
           />
         </div>
         <div className="view dview">

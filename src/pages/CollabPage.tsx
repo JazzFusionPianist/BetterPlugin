@@ -7,7 +7,6 @@ import { usePresence } from '../hooks/usePresence'
 import { useNotifications } from '../hooks/useNotifications'
 import { useFriendEvents } from '../hooks/useFriendEvents'
 import { useFollows } from '../hooks/useFollows'
-import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
@@ -36,7 +35,6 @@ function CollabPageInner({ user }: Props) {
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [notifSettingsOpen, setNotifSettingsOpen] = useState(false)
-  const [profileOpen, setProfileOpen]           = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
   const [searchOpen, setSearchOpen]             = useState(false)
   const [searchQuery, setSearchQuery]           = useState('')
@@ -67,6 +65,7 @@ function CollabPageInner({ user }: Props) {
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
   const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
+  const onlineFriendProfiles = useMemo(() => friendProfiles.filter(p => p.isOnline), [friendProfiles])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   // 알림 설정에 따라 보이는 알림 필터링
@@ -97,13 +96,12 @@ function CollabPageInner({ user }: Props) {
   })
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
+    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const handleToggleProfile   = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false); closeSearch() } return !prev })
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
@@ -127,7 +125,7 @@ function CollabPageInner({ user }: Props) {
   const handleGoHome = () => {
     setSelectedId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-    setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+    setAddFriendOpen(false); setNotifOpen(false)
     closeSearch()
   }
 
@@ -138,7 +136,6 @@ function CollabPageInner({ user }: Props) {
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',
     notifSettingsOpen ? 'notifsettings-open' : '',
-    profileOpen       ? 'profile-open'       : '',
     addFriendOpen     ? 'addfriend-open'     : '',
   ].filter(Boolean).join(' ')
 
@@ -165,11 +162,6 @@ function CollabPageInner({ user }: Props) {
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
             <circle cx="5.5" cy="5.5" r="2.4" /><path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" /><path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
-        </div>
-
-        {/* Profile */}
-        <div className={`icon-btn${profileOpen ? ' active' : ''}`} onClick={handleToggleProfile} title="Profile">
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none"><circle cx="8" cy="6" r="2.6" /><path d="M3 13.2c.8-2.4 2.8-3.4 5-3.4s4.2 1 5 3.4" strokeLinecap="round" /></svg>
         </div>
 
         {/* Settings */}
@@ -252,7 +244,7 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={handleCellHover} onCellLeave={handleCellLeave} />
+          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={onlineFriendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} />
         </div>
         <div className="view cview">
           {selectedProfile && <ChatView currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
@@ -274,9 +266,6 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view nsview">
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
-        </div>
-        <div className="view pview">
-          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} onOpenChat={(id) => { handleOpenChat(id); setProfileOpen(false) }} onRemoveFriend={unfollow} />
         </div>
         <div className="view afview">
           <AddFriendPanel

@@ -33,7 +33,6 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const [, forceRender] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const [partyOpen, setPartyOpen] = useState(false)
 
   const showMsg = (m: string) => {
     setMsg(m)
@@ -257,46 +256,7 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
 
           <div className="orbit-bottom">
             <div className="orbit-name">{displayName}</div>
-            <div className="orbit-party" onClick={() => setPartyOpen(true)} style={{ cursor: 'pointer' }}>
-              <div className="orbit-party-label">party<br />member</div>
-              <div className="orbit-party-count">{friendProfiles.length}</div>
-            </div>
           </div>
-
-          {partyOpen && (
-            <div className="party-list-overlay" onClick={() => setPartyOpen(false)}>
-              <div className="party-list" onClick={e => e.stopPropagation()}>
-                <div className="party-list-header">
-                  <span>Party Members</span>
-                  <span className="party-list-close" onClick={() => setPartyOpen(false)}>&times;</span>
-                </div>
-                <div className="party-list-body">
-                  {friendProfiles.length === 0 && <div className="party-list-empty">No party members yet.</div>}
-                  {friendProfiles.map(p => (
-                    <div
-                      key={p.id}
-                      className="party-list-row"
-                      onClick={() => { setPartyOpen(false); onOpenChat(p.id) }}
-                    >
-                      <div className="av sz32" style={{ background: p.avatar_color, width: 28, height: 28, fontSize: 11, overflow: 'hidden' }}>
-                        {p.avatar_url
-                          ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : p.initials}
-                      </div>
-                      <span className="party-list-name">{p.display_name}</span>
-                      <button
-                        className="party-list-remove"
-                        onClick={(e) => { e.stopPropagation(); onRemoveFriend(p.id) }}
-                        title="Remove friend"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <input

@@ -339,7 +339,6 @@ function CollabPageInner({ user }: Props) {
             favorites={favorites}
             currentUserId={user.id}
             onOpenChat={handleOpenChat}
-            onBack={() => setConvOpen(false)}
           />
         </div>
         <div className="view afview">

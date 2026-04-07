@@ -18,10 +18,9 @@ interface Props {
   favorites: Set<string>
   currentUserId: string
   onOpenChat: (id: string) => void
-  onBack: () => void
 }
 
-export default function ConversationsPanel({ conversations, profiles, favorites, currentUserId, onOpenChat, onBack }: Props) {
+export default function ConversationsPanel({ conversations, profiles, favorites, currentUserId, onOpenChat }: Props) {
   const [tab, setTab] = useState<'all' | 'favorites'>('all')
 
   const filtered = tab === 'favorites'

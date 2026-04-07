@@ -4,3 +4,6 @@ dist
 .claude
 tsconfig.tsbuildinfo
 .DS_Store
+
+# JUCE plugin build artifacts
+Plugin/build/

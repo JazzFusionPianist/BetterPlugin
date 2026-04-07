@@ -45,38 +45,20 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      showMsg('max 5MB')
-      return
-    }
+    if (file.size > 5 * 1024 * 1024) { showMsg('max 5MB'); return }
     setUploading(true)
     const ext = file.name.split('.').pop() || 'png'
     const path = `${user.id}/avatar-${Date.now()}.${ext}`
     const { error: upErr } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true, contentType: file.type })
-
-    if (upErr) {
-      setUploading(false)
-      showMsg('upload failed: ' + upErr.message)
-      return
-    }
-
+    if (upErr) { setUploading(false); showMsg('upload failed: ' + upErr.message); return }
     const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-    const url = pub.publicUrl
-
     const { error: dbErr } = await supabase
-      .from('profiles')
-      .update({ avatar_url: url })
-      .eq('id', user.id)
-
+      .from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id)
     setUploading(false)
-    if (dbErr) {
-      showMsg('db update failed: ' + dbErr.message)
-    } else {
-      showMsg('photo updated')
-      onUpdated()
-    }
+    if (dbErr) showMsg('db update failed: ' + dbErr.message)
+    else { showMsg('photo updated'); onUpdated() }
     if (fileRef.current) fileRef.current.value = ''
   }
 

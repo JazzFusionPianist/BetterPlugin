@@ -274,7 +274,8 @@
 /* Hide underlying view content when an overlay panel is open */
 .plugin.settings-open      .fview > *,
 .plugin.addfriend-open     .fview > *,
-.plugin.notifsettings-open .fview > * { visibility: hidden; }
+.plugin.notifsettings-open .fview > *,
+.plugin.conv-open          .fview > * { visibility: hidden; }
 .plugin.display-open       .sview > *,
 .plugin.info-open          .sview > *,
 .plugin.notifsettings-open .sview > * { visibility: hidden; }
@@ -289,7 +290,7 @@
 .dview  { transform: translateX(100%); z-index: 18; }
 .iview  { transform: translateX(100%); z-index: 18; }
 .nsview { transform: translateX(100%); z-index: 19; }
-.convview { transform: translateX(100%); z-index: 14; }
+.convview { transform: translateX(100%); z-index: 20; }
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
 .plugin.chat-open           .cview    { transform: translateX(0); }

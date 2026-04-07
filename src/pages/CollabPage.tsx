@@ -10,6 +10,8 @@ import { useFriends } from '../hooks/useFriends'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
+import DisplayPanel from '../components/collab/DisplayPanel'
+import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import type { Profile } from '../types/collab'
@@ -29,6 +31,8 @@ function CollabPageInner({ user }: Props) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [displayOpen, setDisplayOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -71,7 +75,7 @@ function CollabPageInner({ user }: Props) {
   const handleToggleDark = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
   const handleViewModeChange = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
   const handleToggleSearch = () => setSearchOpen(prev => { if (prev) setSearchQuery(''); else setTimeout(() => searchInputRef.current?.focus(), 200); return !prev })
-  const handleToggleSettings = () => setSettingsOpen(prev => { if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
+  const handleToggleSettings = () => setSettingsOpen(prev => { if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) } else { setDisplayOpen(false); setInfoOpen(false) } return !prev })
   const handleToggleProfile = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
   const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })
   const handleToggleNotif = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
@@ -95,7 +99,7 @@ function CollabPageInner({ user }: Props) {
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
 
-  const pluginClass = ['plugin', selectedId ? 'chat-open' : '', isDark ? 'dark' : '', settingsOpen ? 'settings-open' : '', profileOpen ? 'profile-open' : '', addFriendOpen ? 'addfriend-open' : ''].filter(Boolean).join(' ')
+  const pluginClass = ['plugin', selectedId ? 'chat-open' : '', isDark ? 'dark' : '', settingsOpen ? 'settings-open' : '', displayOpen ? 'display-open' : '', infoOpen ? 'info-open' : '', profileOpen ? 'profile-open' : '', addFriendOpen ? 'addfriend-open' : ''].filter(Boolean).join(' ')
 
   return (
     <div className={pluginClass} ref={pluginRef}>
@@ -196,7 +200,13 @@ function CollabPageInner({ user }: Props) {
           {selectedProfile && <ChatView currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
         </div>
         <div className="view sview">
-          <SettingsPanel isDark={isDark} viewMode={viewMode} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onClose={() => setSettingsOpen(false)} />
+          <SettingsPanel onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false) }} onOpenDisplay={() => setDisplayOpen(true)} onOpenInfo={() => setInfoOpen(true)} />
+        </div>
+        <div className="view dview">
+          <DisplayPanel isDark={isDark} viewMode={viewMode} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onClose={() => setDisplayOpen(false)} />
+        </div>
+        <div className="view iview">
+          <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} />
         </div>
         <div className="view pview">
           <ProfilePanel supabase={client} user={user} me={me} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} />

@@ -117,9 +117,16 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
   const [dragState, setDragState] = useState<DragState>('idle')
+  const [progress, setProgress]   = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const juceBackend = window.__JUCE__?.backend
+
+  // C++에서 진행률 업데이트 수신 (0~100)
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__juceProgress = (pct: number) => setProgress(pct)
+    return () => { delete (window as unknown as Record<string, unknown>).__juceProgress }
+  }, [])
 
   // 마우스 올리면 조용히 파일 프리패치 (UI 상태 변화 없음)
   const handleMouseEnter = () => {
@@ -133,6 +140,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     e.preventDefault()
 
     if (juceBackend) {
+      setProgress(0)
       setDragState('fetching')
       juceBackend.startAudioDrag(url, name)
         .then(result => { setDragState(result === 'armed' ? 'dragging' : 'idle') })
@@ -149,7 +157,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   const dragLabel: Record<DragState, string> = {
     idle:     'Import to DAW',
-    fetching: 'Preparing…',
+    fetching: progress > 0 ? `${progress}%` : 'Preparing…',
     ready:    'Drag to track',
     dragging: 'Drop on track!',
     fallback: 'Link copied!',

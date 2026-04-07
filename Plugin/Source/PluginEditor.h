@@ -35,7 +35,7 @@ private:
     static constexpr int kWidth  = 300;
     static constexpr int kHeight = 500;
 
-    static juce::File downloadToTemp (const juce::String& url, const juce::String& name);
+    juce::File downloadToTemp (const juce::String& url, const juce::String& name);
 
     void handlePrefetch  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleStartDrag (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);

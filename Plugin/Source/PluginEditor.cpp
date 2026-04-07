@@ -22,7 +22,35 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
     juce::FileOutputStream out (tmp);
     if (! out.openedOk()) return juce::File{};
 
-    out.writeFromInputStream (*stream, -1);
+    const juce::int64 total = stream->getTotalLength();
+    juce::int64 downloaded  = 0;
+    int         lastPct     = -1;
+
+    constexpr int chunkSize = 16384;
+    juce::HeapBlock<char> buf (chunkSize);
+
+    while (! stream->isExhausted())
+    {
+        const int bytesRead = stream->read (buf.getData(), chunkSize);
+        if (bytesRead <= 0) break;
+
+        out.write (buf.getData(), (size_t) bytesRead);
+        downloaded += bytesRead;
+
+        if (total > 0)
+        {
+            const int pct = (int) (downloaded * 100 / total);
+            if (pct != lastPct)
+            {
+                lastPct = pct;
+                juce::String script = "if(window.__juceProgress)window.__juceProgress(" + juce::String (pct) + ")";
+                juce::MessageManager::callAsync ([this, script] {
+                    browser.evaluateJavascript (script, {});
+                });
+            }
+        }
+    }
+
     return tmp;
 }
 

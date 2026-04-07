@@ -136,7 +136,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const reservedBottom = 36
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
-    const baseR = Math.max(6, Math.min(14, rRaw))
+    const baseR = Math.max(4, Math.min(14, rRaw))
     const favR = Math.max(baseR * 1.4, baseR + 5)
     const exclusionPad = Math.max(10, 40 - Math.sqrt(N) * 1.5)
     const speedFactor = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
@@ -151,13 +151,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
         const x = r + Math.random() * (W - 2 * r)
         const y = r + Math.random() * (H - reservedBottom - 2 * r)
         if (Math.hypot(x - cx, y - cy) < SELF_RADIUS + r + exclusionPad) continue
-        let ok = true
-        for (const o of orbs) {
-          if (Math.hypot(x - o.x, y - o.y) < r + o.r + 4) { ok = false; break }
-        }
-        if (!ok) continue
         const angle = Math.random() * Math.PI * 2
-        const speed = (0.2 + Math.random() * 0.2) * speedFactor
+        const speed = (0.06 + Math.random() * 0.08) * speedFactor
         orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
         placed = true
       }
@@ -206,12 +201,12 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       for (const o of orbs) {
         if (o.frozen) continue
         if (!transitioning) {
-          o.vx += (Math.random() - 0.5) * 0.04 * sf
-          o.vy += (Math.random() - 0.5) * 0.04 * sf
+          o.vx += (Math.random() - 0.5) * 0.012 * sf
+          o.vy += (Math.random() - 0.5) * 0.012 * sf
         }
         const sp = Math.hypot(o.vx, o.vy)
-        const maxSp = transitioning ? 8 : 0.55 * sf
-        const minSp = transitioning ? 0 : 0.22 * sf
+        const maxSp = transitioning ? 8 : 0.18 * sf
+        const minSp = transitioning ? 0 : 0.06 * sf
         if (sp > maxSp) { o.vx = o.vx / sp * maxSp; o.vy = o.vy / sp * maxSp }
         else if (sp < minSp && sp > 0) { o.vx = o.vx / sp * minSp; o.vy = o.vy / sp * minSp }
         o.x += o.vx
@@ -239,26 +234,6 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
           if (dot < 0) {
             o.vx -= 2 * dot * nx
             o.vy -= 2 * dot * ny
-          }
-        }
-      }
-
-      for (let i = 0; i < orbs.length; i++) {
-        for (let j = i + 1; j < orbs.length; j++) {
-          const a = orbs[i]!, b = orbs[j]!
-          const dx = b.x - a.x, dy = b.y - a.y
-          const d = Math.hypot(dx, dy) || 0.001
-          const min = a.r + b.r + 2
-          if (d < min) {
-            const nx = dx / d, ny = dy / d
-            const overlap = (min - d) / 2
-            a.x -= nx * overlap; a.y -= ny * overlap
-            b.x += nx * overlap; b.y += ny * overlap
-            const va = a.vx * nx + a.vy * ny
-            const vb = b.vx * nx + b.vy * ny
-            const diff = vb - va
-            a.vx += diff * nx; a.vy += diff * ny
-            b.vx -= diff * nx; b.vy -= diff * ny
           }
         }
       }

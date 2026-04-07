@@ -69,8 +69,8 @@ export function useMessages(
     }
   }, [supabase, currentUserId, otherUserId, fetchHistory])
 
-  const send = useCallback(async (content: string) => {
-    if (!otherUserId || !content.trim()) return
+  const send = useCallback(async (content: string): Promise<boolean> => {
+    if (!otherUserId || !content.trim()) return false
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
@@ -89,9 +89,11 @@ export function useMessages(
     })
 
     if (error) {
-      // Remove optimistic message on failure
+      // 전송 실패 시 optimistic 메시지 제거
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+      return false
     }
+    return true
   }, [supabase, currentUserId, otherUserId])
 
   return { messages, loading, send }

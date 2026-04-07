@@ -6,7 +6,7 @@ interface Props {
   otherProfile: Profile
   messages: Message[]
   loading: boolean
-  onSend: (content: string) => Promise<void>
+  onSend: (content: string) => Promise<boolean>
   onBack: () => void
 }
 
@@ -23,6 +23,7 @@ function formatDate(iso: string): string {
 
 export default function ChatView({ currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
   const [input, setInput] = useState('')
+  const [sendError, setSendError] = useState(false)
   const chatAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,7 +35,11 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
     if (!input.trim()) return
     const val = input
     setInput('')
-    await onSend(val)
+    const ok = await onSend(val)
+    if (!ok) {
+      setSendError(true)
+      setTimeout(() => setSendError(false), 2500)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -50,7 +55,7 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
   for (const msg of messages) {
     const dateLabel = formatDate(msg.created_at)
     if (dateLabel !== lastDate) {
-      groups.push({ type: 'ts', label: `${dateLabel}  ${formatTime(msg.created_at)}` })
+      groups.push({ type: 'ts', label: dateLabel })
       lastDate = dateLabel
     }
     groups.push({ type: 'msg', msg })
@@ -100,6 +105,11 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
           </div>
         )}
       </div>
+
+      {/* 전송 실패 토스트 */}
+      {sendError && (
+        <div className="send-error-toast">Failed to send. Please try again.</div>
+      )}
 
       {/* Input bar */}
       <div className="input-bar">

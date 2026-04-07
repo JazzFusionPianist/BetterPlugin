@@ -72,8 +72,7 @@ function CollabPageInner({ user }: Props) {
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []
   const visibleUnread   = notifSettings.message ? unread       : new Map()
-  const hasUnread       = visibleUnread.size > 0 || visibleEvents.some(e => !e.read)
-  // 알림 벨 카운트 (설정 무시하고 실제 카운트 — 읽지 않은 알림 안내용)
+  // 알림 벨 카운트 (설정에 따라 필터링)
   const bellCount       = (notifSettings.follow ? friendEventCount : 0) + (notifSettings.message ? unread.size : 0)
 
   const handleToggleFav = (id: string) => {
@@ -152,7 +151,7 @@ function CollabPageInner({ user }: Props) {
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" /><path d="M6.5 12.5a1.5 1.5 0 003 0" />
           </svg>
-          {hasUnread && bellCount > 0 && <span className="notif-dot" />}
+          {bellCount > 0 && <span className="notif-dot" />}
         </div>
 
         {/* Search */}
@@ -276,7 +275,7 @@ function CollabPageInner({ user }: Props) {
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
         </div>
         <div className="view pview">
-          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} onOpenChat={(id) => { setProfileOpen(false); handleOpenChat(id) }} onRemoveFriend={unfollow} />
+          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} onOpenChat={(id) => { setProfileOpen(false); handleOpenChat(id) }} onRemoveFriend={unfollow} />
         </div>
         <div className="view afview">
           <AddFriendPanel

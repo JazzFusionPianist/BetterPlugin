@@ -8,6 +8,7 @@ interface Props {
   user: User
   me: Profile | null
   friendProfiles: Profile[]
+  isOpen: boolean
   onClose: () => void
   onUpdated: () => void
   onOpenChat: (id: string) => void
@@ -25,7 +26,7 @@ interface Orb {
 
 const SELF_RADIUS = 38
 
-export default function ProfilePanel({ supabase, user, me, friendProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend }: Props) {
+export default function ProfilePanel({ supabase, user, me, friendProfiles, isOpen, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
@@ -34,6 +35,11 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [partyOpen, setPartyOpen] = useState(false)
+
+  // 패널이 닫힐 때 party list 오버레이 자동 리셋
+  useEffect(() => {
+    if (!isOpen) setPartyOpen(false)
+  }, [isOpen])
 
   const showMsg = (m: string) => {
     setMsg(m)

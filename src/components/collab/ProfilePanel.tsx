@@ -147,21 +147,13 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
       const rMin = SELF_RADIUS + r + exclusionPad
-      // Pick an angle + sqrt-biased radius to distribute uniformly in area
-      let x = 0, y = 0
-      for (let attempt = 0; attempt < 50; attempt++) {
-        const theta = Math.random() * Math.PI * 2
-        // Max distance along this direction to the rectangle edge
-        const cosA = Math.cos(theta), sinA = Math.sin(theta)
-        const maxByX = cosA > 0 ? (W - r - cx) / cosA : (r - cx) / cosA
-        const maxByY = sinA > 0 ? (H - reservedBottom - r - cy) / sinA : (r - cy) / sinA
-        const rMax = Math.min(maxByX, maxByY)
-        if (rMax <= rMin + 2) continue
-        const u = Math.random()
-        const dist = Math.sqrt(u * (rMax * rMax - rMin * rMin) + rMin * rMin)
-        x = cx + cosA * dist
-        y = cy + sinA * dist
-        break
+      // Uniform rectangle sampling with rejection inside the self exclusion
+      let x = r + Math.random() * (W - 2 * r)
+      let y = r + Math.random() * (H - reservedBottom - 2 * r)
+      for (let attempt = 0; attempt < 40; attempt++) {
+        if (Math.hypot(x - cx, y - cy) >= rMin) break
+        x = r + Math.random() * (W - 2 * r)
+        y = r + Math.random() * (H - reservedBottom - 2 * r)
       }
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor

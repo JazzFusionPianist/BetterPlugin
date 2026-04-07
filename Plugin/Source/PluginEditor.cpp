@@ -37,11 +37,11 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
         out.write (buf.getData(), (size_t) bytesRead);
         downloaded += bytesRead;
 
-        // Report progress regardless of whether total length is known.
-        // Pass both downloaded and total; JS shows % when total>0, else KB.
+        // Report at most 10 progress updates to avoid flooding the message
+        // thread with synchronous evaluateJavascript round-trips to WKWebView.
         const int reportVal = total > 0
-            ? (int) (downloaded * 100 / total)
-            : (int) (downloaded / 1024);
+            ? (int) (downloaded * 10 / total)          // 10 steps (0–9)
+            : (int) (downloaded / (512 * 1024));        // every 512 KB
         if (reportVal != lastReported)
         {
             lastReported = reportVal;

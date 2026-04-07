@@ -124,6 +124,13 @@ function CollabPageInner({ user }: Props) {
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
 
+  const handleGoHome = () => {
+    setSelectedId(null)
+    setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
+    setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+    closeSearch()
+  }
+
   const pluginClass = ['plugin',
     selectedId        ? 'chat-open'          : '',
     isDark            ? 'dark'               : '',
@@ -138,7 +145,7 @@ function CollabPageInner({ user }: Props) {
   return (
     <div className={pluginClass} ref={pluginRef}>
       <div className="top-bar">
-        <span className="app-title">CoOp</span>
+        <span className="app-title" onClick={handleGoHome} style={{ cursor: 'pointer' }}>CoOp</span>
 
         {/* Notification */}
         <div className={`icon-btn${notifOpen ? ' active' : ''}`} onClick={handleToggleNotif} title="Notifications" style={{ position: 'relative' }}>

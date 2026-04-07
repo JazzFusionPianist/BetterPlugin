@@ -7,7 +7,9 @@ import { usePresence } from '../hooks/usePresence'
 import { useNotifications } from '../hooks/useNotifications'
 import { useFriendEvents } from '../hooks/useFriendEvents'
 import { useFollows } from '../hooks/useFollows'
+import { useConversations } from '../hooks/useConversations'
 import ChatView from '../components/collab/ChatView'
+import ConversationsPanel from '../components/collab/ConversationsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
@@ -100,6 +102,7 @@ function CollabPageInner({ user }: Props) {
   const [searchOpen, setSearchOpen]             = useState(false)
   const [searchQuery, setSearchQuery]           = useState('')
   const [notifOpen, setNotifOpen]               = useState(false)
+  const [convOpen, setConvOpen]                 = useState(false)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -122,6 +125,7 @@ function CollabPageInner({ user }: Props) {
   const { unread, markSeen } = useNotifications(client, user.id)
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
+  const { conversations } = useConversations(client, user.id)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
@@ -148,30 +152,31 @@ function CollabPageInner({ user }: Props) {
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
       setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-      setAddFriendOpen(false); setNotifOpen(false)
+      setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
       setTimeout(() => searchInputRef.current?.focus(), 200)
     }
     return !prev
   })
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); closeSearch() }
+    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); closeSearch() } return !prev })
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
 
-  useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
+  useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
 
   const handleGoHome = () => {
     setSelectedId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-    setAddFriendOpen(false); setNotifOpen(false)
+    setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
     closeSearch()
   }
 
@@ -183,6 +188,7 @@ function CollabPageInner({ user }: Props) {
     infoOpen          ? 'info-open'          : '',
     notifSettingsOpen ? 'notifsettings-open' : '',
     addFriendOpen     ? 'addfriend-open'     : '',
+    convOpen          ? 'conv-open'          : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -196,6 +202,14 @@ function CollabPageInner({ user }: Props) {
             <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" /><path d="M6.5 12.5a1.5 1.5 0 003 0" />
           </svg>
           {bellCount > 0 && <span className="notif-dot" />}
+        </div>
+
+        {/* Chat list */}
+        <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">
+          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 3h12a1 1 0 011 1v6a1 1 0 01-1 1H9l-3 2.5V11H3a1 1 0 01-1-1V4a1 1 0 011-1z" />
+            <path d="M5 7h6M5 9.5h4" strokeLinecap="round" />
+          </svg>
         </div>
 
         {/* Search */}
@@ -318,6 +332,16 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view nsview">
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
+        </div>
+        <div className="view convview">
+          <ConversationsPanel
+            conversations={conversations}
+            profiles={profilesWithStatus}
+            favorites={favorites}
+            currentUserId={user.id}
+            onOpenChat={handleOpenChat}
+            onBack={() => setConvOpen(false)}
+          />
         </div>
         <div className="view afview">
           <AddFriendPanel

@@ -176,16 +176,18 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 
 // ── 메인 ChatView ─────────────────────────────────────────────
 export default function ChatView({ supabase, currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
-  const [input, setInput]       = useState('')
+  const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
+  const [dragOver, setDragOver]   = useState(false)
   const chatAreaRef = useRef<HTMLDivElement>(null)
   const imgRef  = useRef<HTMLInputElement>(null)
   const vidRef  = useRef<HTMLInputElement>(null)
   const audRef  = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const dragCounter = useRef(0)
 
   useEffect(() => {
     const el = chatAreaRef.current
@@ -265,6 +267,47 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     }
   }
 
+  const processDroppedFile = async (file: File) => {
+    const mime = file.type
+    let type: AttachType
+    if (mime.startsWith('image/')) type = 'image'
+    else if (mime.startsWith('video/')) type = 'video'
+    else if (mime.startsWith('audio/')) type = 'audio'
+    else { showErr('Only image, video, or audio files supported.'); return }
+
+    if (file.size > MAX_SIZE) { showErr(`File too large (max ${MAX_SIZE_MB}MB)`); return }
+
+    setUploading(true)
+    const att = await uploadFile(file, type)
+    setUploading(false)
+    if (!att) showErr('Upload failed. Check file size or connection.')
+    else await onSend('', att)
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounter.current++
+    setDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounter.current--
+    if (dragCounter.current === 0) setDragOver(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounter.current = 0
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await processDroppedFile(file)
+  }
+
   // 날짜별 그룹 구분선
   const groups: Array<{ type: 'ts'; label: string } | { type: 'msg'; msg: Message }> = []
   let lastDate = ''
@@ -278,7 +321,25 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   }
 
   return (
-    <>
+    <div
+      className="chat-drop-zone"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {dragOver && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Drop to attach</span>
+          </div>
+        </div>
+      )}
       {/* Sub-bar */}
       <div className="csub">
         <div className="back" onClick={onBack}>&#8249;</div>
@@ -399,6 +460,6 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
           </svg>
         </button>
       </div>
-    </>
+    </div>
   )
 }

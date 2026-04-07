@@ -1,9 +1,12 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-// Helpers
+// DragMouseListener
 //==============================================================================
+void DragMouseListener::mouseDrag (const juce::MouseEvent& e) { owner.onMouseDrag (e); }
+void DragMouseListener::mouseUp   (const juce::MouseEvent& e) { owner.onMouseUp   (e); }
 
+//==============================================================================
 juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
                                                       const juce::String& name)
 {
@@ -14,21 +17,16 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
         juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
             .withConnectionTimeoutMs (15000));
 
-    if (stream == nullptr)
-        return {};
+    if (stream == nullptr) return juce::File{};
 
     juce::FileOutputStream out (tmp);
-    if (! out.openedOk())
-        return {};
+    if (! out.openedOk()) return juce::File{};
 
     out.writeFromInputStream (*stream, -1);
     return tmp;
 }
 
 //==============================================================================
-// Constructor
-//==============================================================================
-
 CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     : AudioProcessorEditor (&p),
       browser (juce::WebBrowserComponent::Options{}
@@ -49,45 +47,38 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     addAndMakeVisible (browser);
     setSize (kWidth, kHeight);
     setResizable (false, false);
+
+    // Global listener captures mouse events from the native WKWebView layer
+    juce::Desktop::getInstance().addGlobalMouseListener (&dragListener);
+
     browser.goToURL (COOP_APP_URL);
 }
 
-//==============================================================================
-// Native function: prefetchAudio(url, name)
-// Called on mouseenter — downloads file to temp in background so drag is instant
-//==============================================================================
+CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
+{
+    juce::Desktop::getInstance().removeGlobalMouseListener (&dragListener);
+}
 
+//==============================================================================
+// prefetchAudio — hover → background download
+//==============================================================================
 void CoOpAudioProcessorEditor::handlePrefetch (const juce::var& args,
                                                 juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    // JS: window.__JUCE__.backend.prefetchAudio(url, name)
-    // args is an Array var: args[0] = url, args[1] = name
-    if (! args.isArray() || args.size() < 2)
-    {
-        completion (juce::var ("error: bad args"));
-        return;
-    }
+    if (! args.isArray() || args.size() < 2) { completion (juce::var ("error")); return; }
 
     juce::String url  = args[0].toString();
     juce::String name = args[1].toString();
 
-    // Already cached
-    if (cacheReady && cachedName == name)
-    {
-        completion (juce::var ("cached"));
-        return;
-    }
+    if (cacheReady && cachedName == name) { completion (juce::var ("cached")); return; }
 
     cacheReady = false;
     cachedName = name;
 
-    // Download in background thread, update cache on main thread
-    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (
-                       std::move (completion));
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
 
     std::thread ([this, url, name, compPtr] {
         auto file = downloadToTemp (url, name);
-
         juce::MessageManager::callAsync ([this, file, name, compPtr] {
             if (file.existsAsFile() && cachedName == name)
             {
@@ -97,83 +88,82 @@ void CoOpAudioProcessorEditor::handlePrefetch (const juce::var& args,
             }
             else
             {
-                (*compPtr) (juce::var ("error: download failed"));
+                (*compPtr) (juce::var ("error"));
             }
         });
     }).detach();
 }
 
 //==============================================================================
-// Native function: startAudioDrag(url, name)
-// Called on mousedown — uses cached file or downloads then drags
+// startAudioDrag — mousedown → arm the drag (actual drag fires in onMouseDrag)
 //==============================================================================
-
 void CoOpAudioProcessorEditor::handleStartDrag (const juce::var& args,
                                                  juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    if (! args.isArray() || args.size() < 2)
-    {
-        completion (juce::var ("error: bad args"));
-        return;
-    }
+    if (! args.isArray() || args.size() < 2) { completion (juce::var ("error")); return; }
 
     juce::String url  = args[0].toString();
     juce::String name = args[1].toString();
 
-    // File already prefetched on hover — start drag immediately
+    auto armDrag = [this] (juce::File f) {
+        pendingDragFile = f;
+        dragArmed       = true;
+    };
+
     if (cacheReady && cachedName == name)
     {
-        doDrag (cachedFile, std::move (completion));
+        armDrag (cachedFile);
+        completion (juce::var ("armed"));
         return;
     }
 
-    // Not cached yet — download then drag
+    // Not cached — download then arm
     cacheReady = false;
     cachedName = name;
-
-    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (
-                       std::move (completion));
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
 
     std::thread ([this, url, name, compPtr] {
         auto file = downloadToTemp (url, name);
-
         juce::MessageManager::callAsync ([this, file, name, compPtr] {
             if (file.existsAsFile())
             {
-                cachedFile = file;
-                cacheReady = true;
-                cachedName = name;
-                doDrag (file, std::move (*compPtr));
+                cachedFile      = file;
+                cacheReady      = true;
+                cachedName      = name;
+                pendingDragFile = file;
+                dragArmed       = true;
+                (*compPtr) (juce::var ("armed"));
             }
             else
             {
-                (*compPtr) (juce::var ("error: download failed"));
+                (*compPtr) (juce::var ("error"));
             }
         });
     }).detach();
 }
 
 //==============================================================================
-// Initiates OS-level file drag — Logic Pro (and any DAW) can receive it
+// onMouseDrag — fires during real mouse motion → correct moment for OS drag
 //==============================================================================
-
-void CoOpAudioProcessorEditor::doDrag (const juce::File& file,
-                                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+void CoOpAudioProcessorEditor::onMouseDrag (const juce::MouseEvent& e)
 {
-    // performExternalDragDropOfFiles uses NSDraggingSession on macOS.
-    // The callback fires when the user releases the mouse (drop or cancel).
-    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (
-                       std::move (completion));
+    if (! dragArmed || ! pendingDragFile.existsAsFile()) return;
+    if (e.getDistanceFromDragStart() < 8) return;
 
-    performExternalDragDropOfFiles (
-        { file.getFullPathName() },
-        /*canMoveFiles=*/ false,
-        /*sourceComponent=*/ &browser,
-        /*callback=*/ [compPtr] { (*compPtr) (juce::var ("dropped")); });
+    dragArmed = false;
+    juce::File file  = pendingDragFile;
+    pendingDragFile  = juce::File{};
+
+    performExternalDragDropOfFiles ({ file.getFullPathName() }, /*canMove=*/ false, this);
+}
+
+void CoOpAudioProcessorEditor::onMouseUp (const juce::MouseEvent&)
+{
+    dragArmed       = false;
+    pendingDragFile = juce::File{};
 }
 
 //==============================================================================
-
 void CoOpAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff1a1a1a));

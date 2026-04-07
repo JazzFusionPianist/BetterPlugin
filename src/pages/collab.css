@@ -254,16 +254,18 @@
 .sview { transform: translateX(100%); z-index: 15; }
 .pview { transform: translateX(100%); z-index: 16; }
 .afview { transform: translateX(100%); z-index: 17; }
-.dview { transform: translateX(100%); z-index: 18; }
-.iview { transform: translateX(100%); z-index: 18; }
+.dview  { transform: translateX(100%); z-index: 18; }
+.iview  { transform: translateX(100%); z-index: 18; }
+.nsview { transform: translateX(100%); z-index: 19; }
 
-.plugin.chat-open      .fview  { transform: translateX(-100%); }
-.plugin.chat-open      .cview  { transform: translateX(0); }
-.plugin.settings-open  .sview  { transform: translateX(0); }
-.plugin.profile-open   .pview  { transform: translateX(0); }
-.plugin.addfriend-open .afview { transform: translateX(0); }
-.plugin.display-open   .dview  { transform: translateX(0); }
-.plugin.info-open      .iview  { transform: translateX(0); }
+.plugin.chat-open           .fview  { transform: translateX(-100%); }
+.plugin.chat-open           .cview  { transform: translateX(0); }
+.plugin.settings-open       .sview  { transform: translateX(0); }
+.plugin.profile-open        .pview  { transform: translateX(0); }
+.plugin.addfriend-open      .afview { transform: translateX(0); }
+.plugin.display-open        .dview  { transform: translateX(0); }
+.plugin.info-open           .iview  { transform: translateX(0); }
+.plugin.notifsettings-open  .nsview { transform: translateX(0); }
 
 .s-nav-row {
   display: flex;
@@ -1016,3 +1018,49 @@
   font-size: 11px;
   color: var(--t3);
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Notification Settings
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.notif-setting-row {
+  cursor: default;
+  padding: 10px 14px;
+}
+.notif-setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notif-setting-desc {
+  font-size: 10px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* iOS-style toggle switch */
+.notif-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--border2);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s;
+}
+.notif-toggle::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.notif-toggle.on { background: #4A8FE7; }
+.notif-toggle.on::after { transform: translateX(18px); }

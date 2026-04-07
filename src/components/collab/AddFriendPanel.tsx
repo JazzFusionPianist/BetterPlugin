@@ -3,13 +3,11 @@ import type { Profile } from '../../types/collab'
 
 interface Props {
   allProfiles: Profile[]
-  friendIds: Set<string>
-  pendingOutgoing: Set<string>
-  pendingIncoming: string[]
-  onAdd: (id: string) => Promise<void>
-  onAccept: (id: string) => Promise<void>
-  onDecline: (id: string) => Promise<void>
-  onCancel: (id: string) => Promise<void>
+  followingIds: Set<string>
+  followerIds: Set<string>
+  mutualIds: Set<string>
+  onFollow: (id: string) => Promise<void>
+  onUnfollow: (id: string) => Promise<void>
   onClose: () => void
 }
 
@@ -37,13 +35,11 @@ function VerifiedBadge() {
 
 export default function AddFriendPanel({
   allProfiles,
-  friendIds,
-  pendingOutgoing,
-  pendingIncoming,
-  onAdd,
-  onAccept,
-  onDecline,
-  onCancel,
+  followingIds,
+  followerIds,
+  mutualIds,
+  onFollow,
+  onUnfollow,
   onClose: _onClose,
 }: Props) {
   const [query, setQuery] = useState('')
@@ -55,60 +51,16 @@ export default function AddFriendPanel({
     setPending(prev => { const n = new Set(prev); n.delete(id); return n })
   }
 
-  // Incoming request profiles
-  const incomingProfiles = allProfiles.filter(p => pendingIncoming.includes(p.id))
-
-  // Search results (exclude users who sent me requests — shown above)
-  const searchResults = query.trim()
-    ? allProfiles.filter(
-        p => p.display_name.toLowerCase().includes(query.toLowerCase())
-          && !pendingIncoming.includes(p.id)
-      )
-    : allProfiles.filter(p => !pendingIncoming.includes(p.id))
+  const results = query.trim()
+    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase()))
+    : allProfiles
 
   return (
     <>
-      {/* Incoming requests */}
-      {incomingProfiles.length > 0 && (
-        <div className="af-requests">
-          <div className="af-section-label">Friend Requests</div>
-          {incomingProfiles.map(p => (
-            <div key={p.id} className="af-row">
-              <Avatar profile={p} />
-              <div className="f-info">
-                <div className="f-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  {p.display_name}
-                  {p.is_verified && <VerifiedBadge />}
-                </div>
-                <div className="f-sub">wants to be friends</div>
-              </div>
-              <div className="af-req-actions">
-                <button
-                  className="af-btn af-btn-accept"
-                  disabled={pending.has(p.id)}
-                  onClick={() => withPending(p.id, () => onAccept(p.id))}
-                >
-                  {pending.has(p.id) ? '...' : 'Accept'}
-                </button>
-                <button
-                  className="af-btn af-btn-decline"
-                  disabled={pending.has(p.id)}
-                  onClick={() => withPending(p.id, () => onDecline(p.id))}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
-          <div className="af-divider" />
-        </div>
-      )}
-
       {/* Search */}
       <div className="af-search">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1.5" style={{ flexShrink: 0 }}>
-          <circle cx="6.5" cy="6.5" r="4" />
-          <path d="M10 10l3 3" strokeLinecap="round" />
+          <circle cx="6.5" cy="6.5" r="4" /><path d="M10 10l3 3" strokeLinecap="round" />
         </svg>
         <input
           className="af-search-input"
@@ -126,17 +78,18 @@ export default function AddFriendPanel({
         )}
       </div>
 
-      {/* Search results */}
+      {/* Results */}
       <div className="af-list">
-        {searchResults.length === 0 && (
+        {results.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 32 }}>
             {query ? 'No results' : 'No users found'}
           </div>
         )}
-        {searchResults.map(p => {
-          const isFriend = friendIds.has(p.id)
-          const isRequested = pendingOutgoing.has(p.id)
-          const isLoading = pending.has(p.id)
+        {results.map(p => {
+          const isMutual    = mutualIds.has(p.id)
+          const isFollowing = followingIds.has(p.id)
+          const isFollower  = followerIds.has(p.id)
+          const isLoading   = pending.has(p.id)
 
           return (
             <div key={p.id} className="af-row">
@@ -146,34 +99,39 @@ export default function AddFriendPanel({
                   {p.display_name}
                   {p.is_verified && <VerifiedBadge />}
                 </div>
-                <div className="f-sub">{p.isOnline ? 'online' : 'offline'}</div>
+                <div className="f-sub">
+                  {isMutual ? 'mutual' : isFollower ? 'follows you' : p.isOnline ? 'online' : 'offline'}
+                </div>
               </div>
 
-              {isFriend ? (
+              {isMutual ? (
+                /* 서로 팔로우 = 친구 */
                 <button
                   className="af-btn af-btn-added"
                   disabled={isLoading}
-                  title="Remove friend"
-                  onClick={() => {/* remove is not exposed here, just show status */}}
+                  onClick={() => withPending(p.id, () => onUnfollow(p.id))}
+                  title="Unfollow"
                 >
-                  Friends ✓
+                  {isLoading ? '...' : 'Mutual ✓'}
                 </button>
-              ) : isRequested ? (
+              ) : isFollowing ? (
+                /* 내가 팔로우 중 */
                 <button
                   className="af-btn af-btn-requested"
                   disabled={isLoading}
-                  title="Cancel request"
-                  onClick={() => withPending(p.id, () => onCancel(p.id))}
+                  onClick={() => withPending(p.id, () => onUnfollow(p.id))}
+                  title="Unfollow"
                 >
-                  {isLoading ? '...' : 'Requested'}
+                  {isLoading ? '...' : 'Following'}
                 </button>
               ) : (
+                /* 팔로우 안 함 */
                 <button
                   className="af-btn"
                   disabled={isLoading}
-                  onClick={() => withPending(p.id, () => onAdd(p.id))}
+                  onClick={() => withPending(p.id, () => onFollow(p.id))}
                 >
-                  {isLoading ? '...' : '+ Add'}
+                  {isLoading ? '...' : isFollower ? '+ Follow back' : '+ Follow'}
                 </button>
               )}
             </div>

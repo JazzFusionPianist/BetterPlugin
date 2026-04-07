@@ -19,7 +19,7 @@ export interface Message {
 
 export interface AppNotification {
   id: string
-  type: 'friend_request' | 'friend_accepted'
+  type: 'follow'
   read: boolean
   created_at: string
   actor: {

@@ -6,7 +6,7 @@ import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
 import { useNotifications } from '../hooks/useNotifications'
 import { useFriendEvents } from '../hooks/useFriendEvents'
-import { useFriends } from '../hooks/useFriends'
+import { useFollows } from '../hooks/useFollows'
 import FriendsList from '../components/collab/FriendsList'
 import ChatView from '../components/collab/ChatView'
 import SettingsPanel from '../components/collab/SettingsPanel'
@@ -14,6 +14,8 @@ import DisplayPanel from '../components/collab/DisplayPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
+import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
+import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { Profile } from '../types/collab'
 import './collab.css'
 
@@ -29,23 +31,25 @@ function CollabPageInner({ user }: Props) {
   const client = supabase!
   const pluginRef = useRef<HTMLDivElement>(null)
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [displayOpen, setDisplayOpen] = useState(false)
-  const [infoOpen, setInfoOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [addFriendOpen, setAddFriendOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [selectedId, setSelectedId]             = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen]         = useState(false)
+  const [displayOpen, setDisplayOpen]           = useState(false)
+  const [infoOpen, setInfoOpen]                 = useState(false)
+  const [notifSettingsOpen, setNotifSettingsOpen] = useState(false)
+  const [profileOpen, setProfileOpen]           = useState(false)
+  const [addFriendOpen, setAddFriendOpen]       = useState(false)
+  const [searchOpen, setSearchOpen]             = useState(false)
+  const [searchQuery, setSearchQuery]           = useState('')
+  const [notifOpen, setNotifOpen]               = useState(false)
+  const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
+  const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [viewMode, setViewMode] = useState<'gallery' | 'list'>(() =>
     (localStorage.getItem('collab_view') as 'gallery' | 'list') ?? 'gallery'
   )
+  const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
   const favKey = `collab_favorites_${user.id}`
   const [favorites, setFavorites] = useState<Set<string>>(() => {
@@ -55,14 +59,22 @@ function CollabPageInner({ user }: Props) {
 
   const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
-  const onlineIds = usePresence(client, user.id)
+  const onlineIds  = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
-  const { friendIds, pendingOutgoing, pendingIncoming, addFriend, acceptFriend, declineFriend, cancelRequest } = useFriends(client, user.id)
+  const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
-  const friendProfiles = useMemo(() => profilesWithStatus.filter(p => friendIds.has(p.id)), [profilesWithStatus, friendIds])
+  // 친구 목록 = 서로 팔로우한 유저만
+  const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
+
+  // 알림 설정에 따라 보이는 알림 필터링
+  const visibleEvents   = notifSettings.follow  ? friendEvents : []
+  const visibleUnread   = notifSettings.message ? unread       : new Map()
+  const hasUnread       = visibleUnread.size > 0 || visibleEvents.some(e => !e.read)
+  // 알림 벨 카운트 (설정 무시하고 실제 카운트 — 읽지 않은 알림 안내용)
+  const bellCount       = (notifSettings.follow ? friendEventCount : 0) + (notifSettings.message ? unread.size : 0)
 
   const handleToggleFav = (id: string) => {
     setFavorites(prev => {
@@ -72,20 +84,25 @@ function CollabPageInner({ user }: Props) {
       return next
     })
   }
-  const handleToggleDark = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
-  const handleViewModeChange = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
+  const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
+  const handleViewModeChange  = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
+
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
-      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
+      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
       setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
       setTimeout(() => searchInputRef.current?.focus(), 200)
     }
     return !prev
   })
-  const handleToggleSettings = () => setSettingsOpen(prev => { if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) } else { setDisplayOpen(false); setInfoOpen(false) } return !prev })
-  const handleToggleProfile = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })
-  const handleToggleNotif = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleSettings = () => setSettingsOpen(prev => {
+    if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) }
+    else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
+    return !prev
+  })
+  const handleToggleProfile    = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
+  const handleToggleAddFriend  = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })
+  const handleToggleNotif      = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setAddFriendOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
 
   const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
@@ -99,14 +116,23 @@ function CollabPageInner({ user }: Props) {
     const arrowX = Math.max(12, Math.min((relL + eR.width / 2) - left - 6, TW - 24))
     setTooltip({ profile, x: left, y: top, arrowX, arrowUp })
   }
-  const handleCellLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
+  const handleCellLeave    = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
-  const handleOpenChat = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
+  const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false) } }, [selectedId])
 
-  const pluginClass = ['plugin', selectedId ? 'chat-open' : '', isDark ? 'dark' : '', settingsOpen ? 'settings-open' : '', displayOpen ? 'display-open' : '', infoOpen ? 'info-open' : '', profileOpen ? 'profile-open' : '', addFriendOpen ? 'addfriend-open' : ''].filter(Boolean).join(' ')
+  const pluginClass = ['plugin',
+    selectedId        ? 'chat-open'          : '',
+    isDark            ? 'dark'               : '',
+    settingsOpen      ? 'settings-open'      : '',
+    displayOpen       ? 'display-open'       : '',
+    infoOpen          ? 'info-open'          : '',
+    notifSettingsOpen ? 'notifsettings-open' : '',
+    profileOpen       ? 'profile-open'       : '',
+    addFriendOpen     ? 'addfriend-open'     : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div className={pluginClass} ref={pluginRef}>
@@ -118,7 +144,7 @@ function CollabPageInner({ user }: Props) {
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" /><path d="M6.5 12.5a1.5 1.5 0 003 0" />
           </svg>
-          {(unread.size > 0 || friendEventCount > 0) && <span className="notif-dot" />}
+          {hasUnread && bellCount > 0 && <span className="notif-dot" />}
         </div>
 
         {/* Search */}
@@ -127,11 +153,10 @@ function CollabPageInner({ user }: Props) {
         </div>
 
         {/* Add Friend */}
-        <div className={`icon-btn${addFriendOpen ? ' active' : ''}`} onClick={handleToggleAddFriend} title="Add Friend" style={{ position: 'relative' }}>
+        <div className={`icon-btn${addFriendOpen ? ' active' : ''}`} onClick={handleToggleAddFriend} title="Find People" style={{ position: 'relative' }}>
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
             <circle cx="5.5" cy="5.5" r="2.4" /><path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" /><path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
-          {pendingIncoming.length > 0 && <div className="notif-dot" />}
         </div>
 
         {/* Profile */}
@@ -157,35 +182,53 @@ function CollabPageInner({ user }: Props) {
       {/* Notification panel */}
       {notifOpen && (
         <div className="notif-panel">
-          {friendEvents.length === 0 && unread.size === 0 && <div className="notif-empty">No notifications</div>}
+          {visibleEvents.length === 0 && visibleUnread.size === 0 && (
+            <div className="notif-empty">No notifications</div>
+          )}
 
-          {friendEvents.map(ev => (
+          {/* Follow 알림 */}
+          {visibleEvents.map(ev => (
             <div key={ev.id} className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
               <div className="av sz32" style={{ background: ev.actor.avatar_color, flexShrink: 0 }}>
-                {ev.actor.avatar_url ? <img src={ev.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : ev.actor.display_name.slice(0, 2).toUpperCase()}
+                {ev.actor.avatar_url
+                  ? <img src={ev.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  : ev.actor.display_name.slice(0, 2).toUpperCase()}
               </div>
               <div className="notif-info">
                 <div className="notif-name">{ev.actor.display_name}</div>
-                <div className="notif-preview">{ev.type === 'friend_request' ? 'wants to be friends' : 'accepted your request 🎉'}</div>
+                <div className="notif-preview">followed you</div>
               </div>
-              {ev.type === 'friend_request' ? (
-                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button className="notif-action-btn notif-accept" onClick={async e => { e.stopPropagation(); await acceptFriend(ev.actor.id); await dismissFriendEvent(ev.id) }}>✓</button>
-                  <button className="notif-action-btn notif-decline" onClick={async e => { e.stopPropagation(); await declineFriend(ev.actor.id); await dismissFriendEvent(ev.id) }}>✕</button>
-                </div>
-              ) : (
-                <button className="notif-action-btn notif-dismiss-btn" onClick={e => { e.stopPropagation(); dismissFriendEvent(ev.id) }}>✕</button>
-              )}
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                {/* 아직 팔로우 안 한 경우 Follow back 버튼 */}
+                {!followingIds.has(ev.actor.id) && (
+                  <button
+                    className="notif-action-btn notif-accept"
+                    onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
+                    title="Follow back"
+                  >
+                    Follow
+                  </button>
+                )}
+                <button
+                  className="notif-action-btn notif-dismiss-btn"
+                  onClick={e => { e.stopPropagation(); dismissFriendEvent(ev.id) }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ))}
 
-          {Array.from(unread.entries()).map(([senderId, msgs]) => {
+          {/* 읽지 않은 메시지 알림 */}
+          {Array.from(visibleUnread.entries()).map(([senderId, msgs]) => {
             const profile = profilesWithStatus.find(p => p.id === senderId)
-            const count = msgs.length
+            const count   = msgs.length
             return (
               <div key={senderId} className="notif-row notif-unread" onClick={() => { setNotifOpen(false); handleOpenChat(senderId) }}>
                 <div className="av sz32" style={{ background: profile?.avatar_color ?? '#999' }}>
-                  {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : profile?.initials ?? '?'}
+                  {profile?.avatar_url
+                    ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    : profile?.initials ?? '?'}
                 </div>
                 <div className="notif-info">
                   <div className="notif-name">{profile?.display_name ?? 'Unknown'}</div>
@@ -207,7 +250,12 @@ function CollabPageInner({ user }: Props) {
           {selectedProfile && <ChatView currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
         </div>
         <div className="view sview">
-          <SettingsPanel onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false) }} onOpenDisplay={() => setDisplayOpen(true)} onOpenInfo={() => setInfoOpen(true)} />
+          <SettingsPanel
+            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }}
+            onOpenDisplay={() => setDisplayOpen(true)}
+            onOpenInfo={() => setInfoOpen(true)}
+            onOpenNotifSettings={() => setNotifSettingsOpen(true)}
+          />
         </div>
         <div className="view dview">
           <DisplayPanel isDark={isDark} viewMode={viewMode} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onClose={() => setDisplayOpen(false)} />
@@ -215,11 +263,22 @@ function CollabPageInner({ user }: Props) {
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} />
         </div>
+        <div className="view nsview">
+          <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
+        </div>
         <div className="view pview">
           <ProfilePanel supabase={client} user={user} me={me} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} />
         </div>
         <div className="view afview">
-          <AddFriendPanel allProfiles={profilesWithStatus} friendIds={friendIds} pendingOutgoing={pendingOutgoing} pendingIncoming={pendingIncoming} onAdd={addFriend} onAccept={acceptFriend} onDecline={declineFriend} onCancel={cancelRequest} onClose={() => setAddFriendOpen(false)} />
+          <AddFriendPanel
+            allProfiles={profilesWithStatus}
+            followingIds={followingIds}
+            followerIds={followerIds}
+            mutualIds={mutualIds}
+            onFollow={follow}
+            onUnfollow={unfollow}
+            onClose={() => setAddFriendOpen(false)}
+          />
         </div>
       </div>
 
@@ -227,7 +286,9 @@ function CollabPageInner({ user }: Props) {
         <div className="tooltip visible" style={{ left: tooltip.x, top: tooltip.y }} onMouseEnter={handleTooltipEnter} onMouseLeave={handleTooltipLeave}>
           <div className="tt-row">
             <div className="av sz32" style={{ background: tooltip.profile.avatar_color }}>
-              {tooltip.profile.avatar_url ? <img src={tooltip.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : tooltip.profile.initials}
+              {tooltip.profile.avatar_url
+                ? <img src={tooltip.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                : tooltip.profile.initials}
             </div>
             <div className="tt-info"><div className="tt-name">{tooltip.profile.display_name}</div><div className="tt-sub">{tooltip.profile.isOnline ? 'online' : 'offline'}</div></div>
           </div>

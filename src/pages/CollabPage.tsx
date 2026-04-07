@@ -8,6 +8,7 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useFriendEvents } from '../hooks/useFriendEvents'
 import { useFollows } from '../hooks/useFollows'
 import ChatView from '../components/collab/ChatView'
+import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
 import InformationPanel from '../components/collab/InformationPanel'
@@ -101,8 +102,8 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
-  const [viewMode, setViewMode] = useState<'gallery' | 'list'>(() =>
-    (localStorage.getItem('collab_view') as 'gallery' | 'list') ?? 'gallery'
+  const [viewMode, setViewMode] = useState<'default' | 'gallery' | 'list'>(() =>
+    (localStorage.getItem('collab_view') as 'default' | 'gallery' | 'list') ?? 'default'
   )
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
@@ -112,7 +113,7 @@ function CollabPageInner({ user }: Props) {
     catch { return new Set() }
   })
 
-  const { profiles, me, refetch: refetchProfiles } = useProfiles(client, user.id)
+  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds  = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
@@ -139,7 +140,7 @@ function CollabPageInner({ user }: Props) {
     })
   }
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
-  const handleViewModeChange  = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
+  const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
 
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
@@ -289,7 +290,10 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
+          {viewMode === 'default'
+            ? <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
+            : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={() => {}} onCellLeave={() => {}} />
+          }
         </div>
         <div className="view cview">
           {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}

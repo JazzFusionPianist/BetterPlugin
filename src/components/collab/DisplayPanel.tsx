@@ -1,8 +1,8 @@
 interface Props {
   isDark: boolean
-  viewMode: 'gallery' | 'list'
+  viewMode: 'default' | 'gallery' | 'list'
   onToggleDark: () => void
-  onViewModeChange: (mode: 'gallery' | 'list') => void
+  onViewModeChange: (mode: 'default' | 'gallery' | 'list') => void
   onClose: () => void
 }
 
@@ -30,6 +30,12 @@ export default function DisplayPanel({ isDark, viewMode, onToggleDark, onViewMod
           <div className="s-section-label">view mode</div>
           <div className="seg">
             <button
+              className={`seg-opt${viewMode === 'default' ? ' active' : ''}`}
+              onClick={() => onViewModeChange('default')}
+            >
+              Default
+            </button>
+            <button
               className={`seg-opt${viewMode === 'gallery' ? ' active' : ''}`}
               onClick={() => onViewModeChange('gallery')}
             >
@@ -43,6 +49,7 @@ export default function DisplayPanel({ isDark, viewMode, onToggleDark, onViewMod
             </button>
           </div>
           <p className="s-note" style={{ marginTop: 10 }}>
+            Default shows online friends as floating orbs.<br />
             Gallery shows profile pictures in a grid.<br />
             List shows names and status at a glance.
           </p>

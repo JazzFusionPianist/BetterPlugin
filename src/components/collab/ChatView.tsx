@@ -96,34 +96,66 @@ function VideoAttachment({ url }: { url: string }) {
   )
 }
 
+// ── JUCE 네이티브 함수 타입 선언 ──────────────────────────────
+declare global {
+  interface Window {
+    __JUCE__?: {
+      backend: {
+        prefetchAudio: (url: string, name: string) => Promise<string>
+        startAudioDrag: (url: string, name: string) => Promise<string>
+      }
+    }
+  }
+}
+
+type DragState = 'idle' | 'fetching' | 'ready' | 'dragging' | 'fallback'
+
 // ── 오디오 첨부 ──────────────────────────────────────────────
 function AudioAttachment({ url, name }: { url: string; name: string }) {
-  const [expanded, setExpanded] = useState(false)
-  const [playing, setPlaying]   = useState(false)
-  const [current, setCurrent]   = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [copied, setCopied]     = useState(false)
+  const [expanded, setExpanded]   = useState(false)
+  const [playing, setPlaying]     = useState(false)
+  const [current, setCurrent]     = useState(0)
+  const [duration, setDuration]   = useState(0)
+  const [dragState, setDragState] = useState<DragState>('idle')
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation()
+  const juceBackend = window.__JUCE__?.backend
 
-    // JUCE C++ bridge: WKWebView message handler
-    const webkit = (window as unknown as { webkit?: { messageHandlers?: { importAudio?: { postMessage: (d: unknown) => void } } } }).webkit
-    if (webkit?.messageHandlers?.importAudio) {
-      webkit.messageHandlers.importAudio.postMessage({ url, name })
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  // 마우스 올리면 파일 프리패치 시작 (JUCE 환경일 때만)
+  const handleMouseEnter = () => {
+    if (!juceBackend || dragState !== 'idle') return
+    setDragState('fetching')
+    juceBackend.prefetchAudio(url, name)
+      .then(() => setDragState('ready'))
+      .catch(() => setDragState('idle'))
+  }
+
+  // 마우스 누르면 OS 레벨 드래그 시작
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+
+    if (juceBackend) {
+      setDragState('dragging')
+      juceBackend.startAudioDrag(url, name)
+        .then(() => { setDragState('idle') })
+        .catch(() => { setDragState('idle') })
       return
     }
 
-    // Fallback: clipboard copy
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {
-      window.open(url, '_blank')
-    })
+    // JUCE 없는 환경 폴백: 클립보드 복사
+    setDragState('fallback')
+    navigator.clipboard.writeText(url)
+      .catch(() => window.open(url, '_blank'))
+    setTimeout(() => setDragState('idle'), 2000)
+  }
+
+  const dragLabel: Record<DragState, string> = {
+    idle:     'Import to DAW',
+    fetching: 'Preparing…',
+    ready:    'Drag to track',
+    dragging: 'Drop on track!',
+    fallback: 'Link copied!',
   }
 
   const toggle = () => {
@@ -147,23 +179,33 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
         <span className="msg-att-audio-name">{name}</span>
+
+        {/* Import / Drag 버튼 */}
         <button
-          className="msg-att-download"
-          onClick={handleDownload}
-          title="Copy link to download"
+          className={`msg-att-import-btn${dragState === 'ready' || dragState === 'dragging' ? ' ready' : ''}`}
+          onMouseEnter={handleMouseEnter}
+          onMouseDown={handleMouseDown}
+          onClick={e => e.stopPropagation()}
+          title={dragLabel[dragState]}
         >
-          {copied
-            ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-            : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
-          }
+          {dragState === 'fetching' && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+            </svg>
+          )}
+          {(dragState === 'idle' || dragState === 'fallback') && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
+            </svg>
+          )}
+          {(dragState === 'ready' || dragState === 'dragging') && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
+            </svg>
+          )}
+          <span>{dragLabel[dragState]}</span>
         </button>
-        {copied && (
-          <span className="msg-att-copied">
-            {(window as unknown as { webkit?: { messageHandlers?: { importAudio?: unknown } } }).webkit?.messageHandlers?.importAudio
-              ? 'Importing…'
-              : 'Link copied!'}
-          </span>
-        )}
+
         <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (

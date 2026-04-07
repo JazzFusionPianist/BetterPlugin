@@ -645,21 +645,31 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.msg-att-download {
+.msg-att-import-btn {
   display: flex;
   align-items: center;
-  color: var(--t3);
+  gap: 4px;
   flex-shrink: 0;
-  padding: 2px;
-  border-radius: 4px;
-  transition: color 0.15s;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--bg2);
+  border: 0.5px solid var(--border2);
+  color: var(--t2);
+  font-size: 9.5px;
+  font-weight: 500;
+  cursor: grab;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
 }
-.msg-att-download:hover { color: var(--t1); }
-.msg-att-copied {
-  font-size: 9px;
-  color: #34C759;
-  flex-shrink: 0;
+.msg-att-import-btn:hover { background: var(--bg3); color: var(--t1); }
+.msg-att-import-btn.ready {
+  background: rgba(74,143,231,0.12);
+  border-color: #4A8FE7;
+  color: #4A8FE7;
+  cursor: grabbing;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.9s linear infinite; }
 .msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
 .msg-att-audio-player {
   display: flex;

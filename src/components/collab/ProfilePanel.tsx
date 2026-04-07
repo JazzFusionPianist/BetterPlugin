@@ -272,7 +272,6 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     if (!orb) return
     orb.frozen = true
     setHoveredIdx(idx)
-    const below = orb.y - orb.r < 90
     const W = sizeRef.current.w
     const halfTT = 70
     const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))

@@ -206,9 +206,8 @@ function CollabPageInner({ user }: Props) {
 
         {/* Chat list */}
         <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 3h12a1 1 0 011 1v6a1 1 0 01-1 1H9l-3 2.5V11H3a1 1 0 01-1-1V4a1 1 0 011-1z" />
-            <path d="M5 7h6M5 9.5h4" strokeLinecap="round" />
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7A1.5 1.5 0 0112.5 12H9.5l-3 2.5c-.3.25-.5.1-.5-.25V12H3.5A1.5 1.5 0 012 10.5v-7z"/>
           </svg>
         </div>
 

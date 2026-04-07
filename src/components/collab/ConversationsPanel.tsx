@@ -30,12 +30,7 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
 
   return (
     <>
-      <div className="s-header">
-        <div className="s-close" onClick={onBack}>&#8249;</div>
-        <span className="s-title">MESSAGES</span>
-      </div>
-
-      <div className="conv-tabs">
+      <div className="conv-tabs" style={{ marginTop: 12 }}>
         <button className={`conv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>
         <button className={`conv-tab${tab === 'favorites' ? ' active' : ''}`} onClick={() => setTab('favorites')}>Favorites</button>
       </div>

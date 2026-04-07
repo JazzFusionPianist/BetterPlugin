@@ -46,32 +46,52 @@ function ImageAttachment({ url, name }: { url: string; name: string }) {
 // ── 동영상 첨부 ──────────────────────────────────────────────
 function VideoAttachment({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const thumbRef = useRef<HTMLVideoElement>(null)
+  const playRef  = useRef<HTMLVideoElement>(null)
+
+  // WKWebView에서 첫 프레임 썸네일 강제 표시
+  const handleMetadata = () => {
+    if (thumbRef.current) thumbRef.current.currentTime = 0.1
+  }
 
   const start = () => {
     setPlaying(true)
-    setTimeout(() => videoRef.current?.play(), 50)
+    setTimeout(() => playRef.current?.play(), 50)
+  }
+
+  if (playing) {
+    return (
+      <div className="msg-att-video-wrap">
+        <video
+          ref={playRef}
+          src={url}
+          className="msg-att-video"
+          controls
+          autoPlay
+          playsInline
+        />
+      </div>
+    )
   }
 
   return (
-    <div className="msg-att-video-wrap">
+    <div className="msg-att-video-wrap" onClick={start}>
       <video
-        ref={videoRef}
+        ref={thumbRef}
         src={url}
         className="msg-att-video"
         preload="metadata"
-        controls={playing}
-        onClick={!playing ? start : undefined}
+        muted
+        playsInline
+        onLoadedMetadata={handleMetadata}
       />
-      {!playing && (
-        <div className="msg-att-video-overlay" onClick={start}>
-          <div className="msg-att-play-btn">
-            <svg viewBox="0 0 24 24" fill="white" width="28" height="28">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
+      <div className="msg-att-video-overlay">
+        <div className="msg-att-play-btn">
+          <svg viewBox="0 0 24 24" fill="white" width="28" height="28">
+            <path d="M8 5v14l11-7z" />
+          </svg>
         </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -43,13 +43,13 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
 
           <div className="s-nav-row notif-setting-row">
             <div className="notif-setting-info">
-              <span className="s-row-label">New invite</span>
-              <span className="notif-setting-desc">When someone invites you</span>
+              <span className="s-row-label">New follower</span>
+              <span className="notif-setting-desc">When someone follows you</span>
             </div>
             <button
               className={`notif-toggle${settings.follow ? ' on' : ''}`}
               onClick={() => toggle('follow')}
-              aria-label="Toggle invite notifications"
+              aria-label="Toggle follow notifications"
             />
           </div>
 

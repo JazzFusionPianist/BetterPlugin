@@ -100,7 +100,7 @@ export default function AddFriendPanel({
                   {p.is_verified && <VerifiedBadge />}
                 </div>
                 <div className="f-sub">
-                  {isMutual ? 'friends' : isFollower ? 'invited you' : p.isOnline ? 'online' : 'offline'}
+                  {isMutual ? 'mutual' : isFollower ? 'follows you' : p.isOnline ? 'online' : 'offline'}
                 </div>
               </div>
 
@@ -110,9 +110,9 @@ export default function AddFriendPanel({
                   className="af-btn af-btn-added"
                   disabled={isLoading}
                   onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                  title="Cancel invite"
+                  title="Unfollow"
                 >
-                  {isLoading ? '...' : 'Friends ✓'}
+                  {isLoading ? '...' : 'Mutual ✓'}
                 </button>
               ) : isFollowing ? (
                 /* 내가 팔로우 중 */
@@ -120,9 +120,9 @@ export default function AddFriendPanel({
                   className="af-btn af-btn-requested"
                   disabled={isLoading}
                   onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                  title="Cancel invite"
+                  title="Unfollow"
                 >
-                  {isLoading ? '...' : 'Invited'}
+                  {isLoading ? '...' : 'Following'}
                 </button>
               ) : (
                 /* 팔로우 안 함 */
@@ -131,7 +131,7 @@ export default function AddFriendPanel({
                   disabled={isLoading}
                   onClick={() => withPending(p.id, () => onFollow(p.id))}
                 >
-                  {isLoading ? '...' : isFollower ? '+ Invite back' : '+ Invite'}
+                  {isLoading ? '...' : isFollower ? '+ Follow back' : '+ Follow'}
                 </button>
               )}
             </div>

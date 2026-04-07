@@ -187,7 +187,7 @@ function CollabPageInner({ user }: Props) {
             <div className="notif-empty">No notifications</div>
           )}
 
-          {/* Invite 알림 */}
+          {/* Follow 알림 */}
           {visibleEvents.map(ev => (
             <div key={ev.id} className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
               <div className="av sz32" style={{ background: ev.actor.avatar_color, flexShrink: 0 }}>
@@ -197,17 +197,17 @@ function CollabPageInner({ user }: Props) {
               </div>
               <div className="notif-info">
                 <div className="notif-name">{ev.actor.display_name}</div>
-                <div className="notif-preview">invited you</div>
+                <div className="notif-preview">followed you</div>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                {/* 아직 인바이트 안 한 경우 Invite back 버튼 */}
+                {/* 아직 팔로우 안 한 경우 Follow back 버튼 */}
                 {!followingIds.has(ev.actor.id) && (
                   <button
                     className="notif-action-btn notif-accept"
                     onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
-                    title="Invite back"
+                    title="Follow back"
                   >
-                    Invite
+                    Follow
                   </button>
                 )}
                 <button

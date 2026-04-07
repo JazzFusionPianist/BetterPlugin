@@ -655,6 +655,11 @@
   transition: color 0.15s;
 }
 .msg-att-download:hover { color: var(--t1); }
+.msg-att-copied {
+  font-size: 9px;
+  color: #34C759;
+  flex-shrink: 0;
+}
 .msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
 .msg-att-audio-player {
   display: flex;

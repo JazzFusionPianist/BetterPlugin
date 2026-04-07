@@ -102,7 +102,19 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [playing, setPlaying]   = useState(false)
   const [current, setCurrent]   = useState(0)
   const [duration, setDuration] = useState(0)
+  const [copied, setCopied]     = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      // fallback: try window.open
+      window.open(url, '_blank')
+    })
+  }
 
   const toggle = () => {
     if (!audioRef.current) return
@@ -127,13 +139,15 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
         <span className="msg-att-audio-name">{name}</span>
         <button
           className="msg-att-download"
-          onClick={e => { e.stopPropagation(); window.open(url, '_blank') }}
-          title="Open in browser to download"
+          onClick={handleDownload}
+          title="Copy link to download"
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
-          </svg>
+          {copied
+            ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
+          }
         </button>
+        {copied && <span className="msg-att-copied">Link copied!</span>}
         <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (

@@ -163,19 +163,23 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       }
     }
     if (enterFromOutsideRef.current) {
-      // Place each new orb just outside the container along its angle from center,
-      // moving inward toward the computed final position
+      // Each orb already has a random interior target (its initial x,y from placement).
+      // Move it to the outside along the same direction from center, then give it a
+      // velocity that lands it back at the target in ~24 frames.
+      const startDist = Math.max(W, H) * 0.65
+      const frames = 24
       for (const orb of orbs) {
         const dx = orb.x - cx, dy = orb.y - cy
         const d = Math.hypot(dx, dy) || 0.001
         const nx = dx / d, ny = dy / d
-        const startDist = Math.max(W, H) * 0.65
         orb.x = cx + nx * startDist
         orb.y = cy + ny * startDist
-        orb.vx = -nx * 0.7
-        orb.vy = -ny * 0.7
+        const travel = startDist - d
+        const speed = travel / frames
+        orb.vx = -nx * speed
+        orb.vy = -ny * speed
       }
-      setTimeout(() => { wallBounceRef.current = true }, 120)
+      setTimeout(() => { wallBounceRef.current = true }, 420)
       enterFromOutsideRef.current = false
     } else {
       wallBounceRef.current = true
@@ -316,9 +320,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                 onMouseLeave={() => handleOrbLeave(i)}
                 onClick={() => onOpenChat(p.id)}
               >
-                {p.avatar_url
-                  ? <img src={p.avatar_url} alt="" />
-                  : <span>{p.initials}</span>}
+                {p.avatar_url && <img src={p.avatar_url} alt="" />}
                 {p.isOnline && <div className="orbit-orb-dot" />}
                 {favorites.has(p.id) && <div className="orbit-orb-fav">★</div>}
               </div>

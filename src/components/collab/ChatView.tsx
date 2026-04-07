@@ -125,17 +125,15 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
         <span className="msg-att-audio-name">{name}</span>
-        <a
+        <button
           className="msg-att-download"
-          href={url}
-          download={name}
-          onClick={e => e.stopPropagation()}
-          title="Download"
+          onClick={e => { e.stopPropagation(); window.open(url, '_blank') }}
+          title="Open in browser to download"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
           </svg>
-        </a>
+        </button>
         <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (

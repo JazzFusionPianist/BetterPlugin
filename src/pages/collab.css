@@ -793,6 +793,53 @@
   font-family: 'DM Sans', sans-serif;
 }
 
+/* 비밀번호 변경 / 회원탈퇴 */
+.profile-danger-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.profile-danger-row:hover { background: var(--bg3); }
+.profile-danger-red { color: #FF3B30; }
+.profile-danger-red:hover { background: rgba(255,59,48,.08); }
+.profile-chevron {
+  font-size: 10px;
+  color: var(--t3);
+}
+.profile-sub {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.profile-danger-desc {
+  font-size: 11px;
+  color: var(--t2);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.profile-danger-desc strong { color: var(--t1); }
+.profile-input-danger {
+  border-color: rgba(255,59,48,.4) !important;
+}
+.profile-input-danger:focus { border-color: #FF3B30 !important; }
+.profile-save-danger {
+  background: #FF3B30 !important;
+  color: #fff !important;
+}
+.profile-save-danger:hover:not(:disabled) { background: #e02d20 !important; }
+.profile-save-danger:disabled { background: rgba(255,59,48,.3) !important; }
+
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Notification Dot
 ━━━━━━━━━━━━━━━━━━━━━━━ */

@@ -44,7 +44,7 @@ export default function AddFriendPanel({
   onAccept,
   onDecline,
   onCancel,
-  onClose,
+  onClose: _onClose,
 }: Props) {
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<Set<string>>(new Set())
@@ -68,15 +68,6 @@ export default function AddFriendPanel({
 
   return (
     <>
-      {/* Sub-bar */}
-      <div className="s-header">
-        <div className="s-close" onClick={onClose}>&#8249;</div>
-        <span className="s-title">Add Friend</span>
-        {pendingIncoming.length > 0 && (
-          <span className="af-req-badge">{pendingIncoming.length}</span>
-        )}
-      </div>
-
       {/* Incoming requests */}
       {incomingProfiles.length > 0 && (
         <div className="af-requests">

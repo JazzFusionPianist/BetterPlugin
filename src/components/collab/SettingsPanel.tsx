@@ -1,51 +1,22 @@
 interface Props {
-  isDark: boolean
-  viewMode: 'gallery' | 'list'
-  onToggleDark: () => void
-  onViewModeChange: (mode: 'gallery' | 'list') => void
   onClose: () => void
+  onOpenDisplay: () => void
+  onOpenInfo: () => void
 }
 
-export default function SettingsPanel({ isDark, viewMode, onToggleDark, onViewModeChange, onClose }: Props) {
+export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo }: Props) {
   return (
     <>
-      <div className="s-header">
-        <div className="s-close" onClick={onClose}>&#8249;</div>
-        <span className="s-title">SETTINGS</span>
-      </div>
-
-      <div className="s-body">
-        <div className="s-section">
-          <div className="s-section-label">appearance</div>
-          <div className="s-row">
-            <span className="s-row-label">Dark mode</span>
-            <button
-              className={`pill-toggle${isDark ? ' on' : ''}`}
-              onClick={onToggleDark}
-            />
+      <div className="s-body" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
+        <div className="s-section" style={{ marginBottom: 0 }}>
+          <div className="s-nav-row" onClick={onOpenDisplay}>
+            <span className="s-row-label">Display</span>
+            <span className="s-nav-chev">&#8250;</span>
           </div>
-        </div>
-
-        <div className="s-section">
-          <div className="s-section-label">view mode</div>
-          <div className="seg">
-            <button
-              className={`seg-opt${viewMode === 'gallery' ? ' active' : ''}`}
-              onClick={() => onViewModeChange('gallery')}
-            >
-              Gallery
-            </button>
-            <button
-              className={`seg-opt${viewMode === 'list' ? ' active' : ''}`}
-              onClick={() => onViewModeChange('list')}
-            >
-              List
-            </button>
+          <div className="s-nav-row" onClick={onOpenInfo}>
+            <span className="s-row-label">User info</span>
+            <span className="s-nav-chev">&#8250;</span>
           </div>
-          <p className="s-note" style={{ marginTop: 10 }}>
-            Gallery shows profile pictures in a grid.<br />
-            List shows names and status at a glance.
-          </p>
         </div>
       </div>
     </>

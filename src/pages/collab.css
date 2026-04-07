@@ -254,12 +254,27 @@
 .sview { transform: translateX(100%); z-index: 15; }
 .pview { transform: translateX(100%); z-index: 16; }
 .afview { transform: translateX(100%); z-index: 17; }
+.dview { transform: translateX(100%); z-index: 18; }
+.iview { transform: translateX(100%); z-index: 18; }
 
 .plugin.chat-open      .fview  { transform: translateX(-100%); }
 .plugin.chat-open      .cview  { transform: translateX(0); }
 .plugin.settings-open  .sview  { transform: translateX(0); }
 .plugin.profile-open   .pview  { transform: translateX(0); }
 .plugin.addfriend-open .afview { transform: translateX(0); }
+.plugin.display-open   .dview  { transform: translateX(0); }
+.plugin.info-open      .iview  { transform: translateX(0); }
+
+.s-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.s-nav-row:hover { background: var(--bg2); }
+.s-nav-chev { color: var(--t3); font-size: 18px; line-height: 1; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Shared Avatar Styles

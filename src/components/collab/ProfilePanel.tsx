@@ -18,13 +18,13 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
-  // ── 비밀번호 변경 ─────────────────────────────────────────────────────────
+  // ── 비밀번호 변경 ──────────────────────────────────────────────────────────
   const [pwOpen, setPwOpen] = useState(false)
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [savingPw, setSavingPw] = useState(false)
 
-  // ── 회원탈퇴 ─────────────────────────────────────────────────────────────
+  // ── 회원탈퇴 ──────────────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -38,60 +38,36 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
     setTimeout(() => setMsg(null), 2400)
   }
 
-  const handleSaveName = async () => {
-    if (!name.trim() || name === me?.display_name) return
-    setSaving(true)
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: name.trim() })
-      .eq('id', user.id)
-    setSaving(false)
-    if (error) {
-      showMsg('failed: ' + error.message)
-    } else {
-      showMsg('saved')
-      onUpdated()
-    }
-  }
-
   const handlePickFile = () => fileRef.current?.click()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      showMsg('max 5MB')
-      return
-    }
+    if (file.size > 5 * 1024 * 1024) { showMsg('max 5MB'); return }
     setUploading(true)
     const ext = file.name.split('.').pop() || 'png'
     const path = `${user.id}/avatar-${Date.now()}.${ext}`
     const { error: upErr } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true, contentType: file.type })
-
-    if (upErr) {
-      setUploading(false)
-      showMsg('upload failed: ' + upErr.message)
-      return
-    }
-
+    if (upErr) { setUploading(false); showMsg('upload failed: ' + upErr.message); return }
     const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-    const url = pub.publicUrl
-
     const { error: dbErr } = await supabase
-      .from('profiles')
-      .update({ avatar_url: url })
-      .eq('id', user.id)
-
+      .from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id)
     setUploading(false)
-    if (dbErr) {
-      showMsg('db update failed: ' + dbErr.message)
-    } else {
-      showMsg('photo updated')
-      onUpdated()
-    }
+    if (dbErr) showMsg('db update failed: ' + dbErr.message)
+    else { showMsg('photo updated'); onUpdated() }
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const handleSaveName = async () => {
+    if (!name.trim() || name === me?.display_name) return
+    setSaving(true)
+    const { error } = await supabase
+      .from('profiles').update({ display_name: name.trim() }).eq('id', user.id)
+    setSaving(false)
+    if (error) showMsg('failed: ' + error.message)
+    else { showMsg('saved'); onUpdated() }
   }
 
   const handleChangePassword = async () => {
@@ -100,25 +76,15 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
     setSavingPw(true)
     const { error } = await supabase.auth.updateUser({ password: newPw })
     setSavingPw(false)
-    if (error) {
-      showMsg('error: ' + error.message)
-    } else {
-      showMsg('password changed')
-      setNewPw('')
-      setConfirmPw('')
-      setPwOpen(false)
-    }
+    if (error) showMsg('error: ' + error.message)
+    else { showMsg('password changed'); setNewPw(''); setConfirmPw(''); setPwOpen(false) }
   }
 
   const handleDeleteAccount = async () => {
     if (deleteInput !== 'DELETE') { showMsg('type DELETE to confirm'); return }
     setDeleting(true)
     const { error } = await supabase.rpc('delete_my_account')
-    if (error) {
-      setDeleting(false)
-      showMsg('error: ' + error.message)
-      return
-    }
+    if (error) { setDeleting(false); showMsg('error: ' + error.message); return }
     await supabase.auth.signOut()
   }
 
@@ -134,20 +100,10 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
       </div>
 
       <div className="s-body">
-        {/* ── 아바타 ── */}
         <div className="profile-top">
-          <button
-            className="profile-av-btn"
-            onClick={handlePickFile}
-            disabled={uploading}
-            title="Change photo"
-          >
+          <button className="profile-av-btn" onClick={handlePickFile} disabled={uploading} title="Change photo">
             <div className="av profile-av" style={{ background: color }}>
-              {photo ? (
-                <img src={photo} alt="avatar" />
-              ) : (
-                <span>{initials}</span>
-              )}
+              {photo ? <img src={photo} alt="avatar" /> : <span>{initials}</span>}
             </div>
             <div className="profile-av-overlay">
               {uploading ? '...' : (
@@ -158,17 +114,10 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
               )}
             </div>
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
           <div className="profile-email">{user.email}</div>
         </div>
 
-        {/* ── Display Name ── */}
         <div className="s-section">
           <div className="s-section-label">display name</div>
           <div className="profile-name-row">
@@ -190,56 +139,33 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
           </div>
         </div>
 
-        {/* ── Email ── */}
         <div className="s-section">
           <div className="s-section-label">email</div>
           <div className="profile-readonly">{user.email}</div>
         </div>
 
-        {/* ── 비밀번호 변경 ── */}
         <div className="s-section">
-          <button
-            className="profile-danger-row"
-            onClick={() => { setPwOpen(v => !v); setDeleteOpen(false) }}
-          >
+          <button className="profile-danger-row" onClick={() => { setPwOpen(v => !v); setDeleteOpen(false) }}>
             <span>Change Password</span>
             <span className="profile-chevron">{pwOpen ? '▲' : '▷'}</span>
           </button>
           {pwOpen && (
             <div className="profile-sub">
-              <input
-                className="profile-input"
-                type="password"
-                placeholder="new password"
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-              />
-              <input
-                className="profile-input"
-                type="password"
-                placeholder="confirm password"
-                value={confirmPw}
-                onChange={e => setConfirmPw(e.target.value)}
-                style={{ marginTop: 6 }}
-              />
-              <button
-                className="profile-save"
-                style={{ marginTop: 8, width: '100%' }}
-                onClick={handleChangePassword}
-                disabled={savingPw || !newPw || !confirmPw}
-              >
+              <input className="profile-input" type="password" placeholder="new password"
+                value={newPw} onChange={e => setNewPw(e.target.value)} />
+              <input className="profile-input" type="password" placeholder="confirm password"
+                value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ marginTop: 6 }} />
+              <button className="profile-save" style={{ marginTop: 8, width: '100%' }}
+                onClick={handleChangePassword} disabled={savingPw || !newPw || !confirmPw}>
                 {savingPw ? '...' : 'update password'}
               </button>
             </div>
           )}
         </div>
 
-        {/* ── 회원탈퇴 ── */}
         <div className="s-section">
-          <button
-            className="profile-danger-row profile-danger-red"
-            onClick={() => { setDeleteOpen(v => !v); setPwOpen(false) }}
-          >
+          <button className="profile-danger-row profile-danger-red"
+            onClick={() => { setDeleteOpen(v => !v); setPwOpen(false) }}>
             <span>Delete Account</span>
             <span className="profile-chevron">{deleteOpen ? '▲' : '▷'}</span>
           </button>
@@ -248,19 +174,12 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
               <p className="profile-danger-desc">
                 This will permanently delete your account and all data. Type <strong>DELETE</strong> to confirm.
               </p>
-              <input
-                className="profile-input profile-input-danger"
-                type="text"
-                placeholder="DELETE"
-                value={deleteInput}
-                onChange={e => setDeleteInput(e.target.value)}
-              />
-              <button
-                className="profile-save profile-save-danger"
+              <input className="profile-input profile-input-danger" type="text" placeholder="DELETE"
+                value={deleteInput} onChange={e => setDeleteInput(e.target.value)} />
+              <button className="profile-save profile-save-danger"
                 style={{ marginTop: 8, width: '100%' }}
                 onClick={handleDeleteAccount}
-                disabled={deleting || deleteInput !== 'DELETE'}
-              >
+                disabled={deleting || deleteInput !== 'DELETE'}>
                 {deleting ? 'deleting...' : 'delete my account'}
               </button>
             </div>

@@ -49,7 +49,7 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
                                   + juce::String (downloaded) + ","
                                   + juce::String (total) + ")";
             juce::MessageManager::callAsync ([this, script] {
-                browser.evaluateJavascript (script, {});
+                browser.evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});
             });
         }
     }

@@ -44,6 +44,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const wallBounceRef = useRef(true)
   const enterFromOutsideRef = useRef(false)
   const prevModeRef = useRef(mode)
+  const speedFactorRef = useRef(1)
+  const exclusionPadRef = useRef(6)
 
   const displayProfiles = useMemo(
     () => mode === 'main' ? followingProfiles.filter(p => p.isOnline) : followerProfiles,
@@ -134,8 +136,12 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const reservedBottom = 36
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
-    const baseR = Math.max(8, Math.min(16, rRaw))
+    const baseR = Math.max(6, Math.min(14, rRaw))
     const favR = Math.max(baseR * 1.4, baseR + 5)
+    const exclusionPad = Math.max(10, 40 - Math.sqrt(N) * 1.5)
+    const speedFactor = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
+    speedFactorRef.current = speedFactor
+    exclusionPadRef.current = exclusionPad
 
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
@@ -144,14 +150,14 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       for (let attempt = 0; attempt < 300 && !placed; attempt++) {
         const x = r + Math.random() * (W - 2 * r)
         const y = r + Math.random() * (H - reservedBottom - 2 * r)
-        if (Math.hypot(x - cx, y - cy) < SELF_RADIUS + r + 6) continue
+        if (Math.hypot(x - cx, y - cy) < SELF_RADIUS + r + exclusionPad) continue
         let ok = true
         for (const o of orbs) {
           if (Math.hypot(x - o.x, y - o.y) < r + o.r + 4) { ok = false; break }
         }
         if (!ok) continue
         const angle = Math.random() * Math.PI * 2
-        const speed = 0.2 + Math.random() * 0.2
+        const speed = (0.2 + Math.random() * 0.2) * speedFactor
         orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
         placed = true
       }
@@ -196,15 +202,16 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       const reservedBottom = 36
 
       const transitioning = !wallBounceRef.current
+      const sf = speedFactorRef.current
       for (const o of orbs) {
         if (o.frozen) continue
         if (!transitioning) {
-          o.vx += (Math.random() - 0.5) * 0.04
-          o.vy += (Math.random() - 0.5) * 0.04
+          o.vx += (Math.random() - 0.5) * 0.04 * sf
+          o.vy += (Math.random() - 0.5) * 0.04 * sf
         }
         const sp = Math.hypot(o.vx, o.vy)
-        const maxSp = transitioning ? 8 : 0.55
-        const minSp = transitioning ? 0 : 0.22
+        const maxSp = transitioning ? 8 : 0.55 * sf
+        const minSp = transitioning ? 0 : 0.22 * sf
         if (sp > maxSp) { o.vx = o.vx / sp * maxSp; o.vy = o.vy / sp * maxSp }
         else if (sp < minSp && sp > 0) { o.vx = o.vx / sp * minSp; o.vy = o.vy / sp * minSp }
         o.x += o.vx
@@ -223,7 +230,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       for (const o of orbs) {
         const dx = o.x - cx, dy = o.y - cy
         const d = Math.hypot(dx, dy) || 0.001
-        const min = SELF_RADIUS + o.r + 2
+        const min = SELF_RADIUS + o.r + exclusionPadRef.current
         if (d < min) {
           const nx = dx / d, ny = dy / d
           o.x = cx + nx * min

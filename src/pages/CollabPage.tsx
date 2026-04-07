@@ -112,7 +112,7 @@ function CollabPageInner({ user }: Props) {
     catch { return new Set() }
   })
 
-  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
+  const { profiles, me, refetch: refetchProfiles } = useProfiles(client, user.id)
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds  = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
@@ -122,7 +122,6 @@ function CollabPageInner({ user }: Props) {
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
   const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
-  const onlineFriendProfiles = useMemo(() => friendProfiles.filter(p => p.isOnline), [friendProfiles])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   // 알림 설정에 따라 보이는 알림 필터링
@@ -145,7 +144,7 @@ function CollabPageInner({ user }: Props) {
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
       setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-      setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+      setAddFriendOpen(false); setNotifOpen(false)
       setTimeout(() => searchInputRef.current?.focus(), 200)
     }
     return !prev
@@ -159,19 +158,6 @@ function CollabPageInner({ user }: Props) {
   const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setNotifOpen(false); closeSearch() } return !prev })
   const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
 
-  const handleCellHover = (profile: Profile, el: HTMLDivElement) => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    const pluginEl = pluginRef.current; if (!pluginEl) return
-    const pR = pluginEl.getBoundingClientRect(); const eR = el.getBoundingClientRect()
-    const TW = 162, TH = 86
-    const relL = eR.left - pR.left; const relT = eR.top - pR.top
-    let left = relL + eR.width / 2 - TW / 2; let top = relT - TH - 10; let arrowUp = false
-    if (top < 50) { top = relT + eR.height + 10; arrowUp = true }
-    left = Math.max(8, Math.min(left, 300 - TW - 8))
-    const arrowX = Math.max(12, Math.min((relL + eR.width / 2) - left - 6, TW - 24))
-    setTooltip({ profile, x: left, y: top, arrowX, arrowUp })
-  }
-  const handleCellLeave    = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { getInitials } from '../../types/collab'
@@ -11,36 +11,14 @@ interface Props {
   onUpdated: () => void
 }
 
-export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }: Props) {
+export default function ProfilePanel({ supabase, user, me, onClose: _onClose, onUpdated }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState(me?.display_name ?? '')
-  const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-
-  useEffect(() => {
-    setName(me?.display_name ?? '')
-  }, [me?.display_name])
 
   const showMsg = (m: string) => {
     setMsg(m)
     setTimeout(() => setMsg(null), 2400)
-  }
-
-  const handleSaveName = async () => {
-    if (!name.trim() || name === me?.display_name) return
-    setSaving(true)
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: name.trim() })
-      .eq('id', user.id)
-    setSaving(false)
-    if (error) {
-      showMsg('failed: ' + error.message)
-    } else {
-      showMsg('saved')
-      onUpdated()
-    }
   }
 
   const handlePickFile = () => fileRef.current?.click()
@@ -83,17 +61,13 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const initials = me?.initials ?? getInitials(name || 'U')
+  const displayName = me?.display_name ?? ''
+  const initials = me?.initials ?? getInitials(displayName || 'U')
   const color = me?.avatar_color ?? '#4A8FE7'
   const photo = me?.avatar_url
 
   return (
     <>
-      <div className="s-header">
-        <div className="s-close" onClick={onClose}>&#8249;</div>
-        <span className="s-title">PROFILE</span>
-      </div>
-
       <div className="s-body">
         <div className="profile-top">
           <button
@@ -125,33 +99,7 @@ export default function ProfilePanel({ supabase, user, me, onClose, onUpdated }:
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
-          <div className="profile-email">{user.email}</div>
-        </div>
-
-        <div className="s-section">
-          <div className="s-section-label">display name</div>
-          <div className="profile-name-row">
-            <input
-              className="profile-input"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="your name"
-              maxLength={40}
-            />
-            <button
-              className="profile-save"
-              onClick={handleSaveName}
-              disabled={saving || !name.trim() || name === me?.display_name}
-            >
-              {saving ? '...' : 'save'}
-            </button>
-          </div>
-        </div>
-
-        <div className="s-section">
-          <div className="s-section-label">email</div>
-          <div className="profile-readonly">{user.email}</div>
+          <div className="profile-email">{displayName}</div>
         </div>
 
         {msg && <div className="profile-msg">{msg}</div>}

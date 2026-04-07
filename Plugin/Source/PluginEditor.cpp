@@ -24,7 +24,7 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
 
     const juce::int64 total = stream->getTotalLength();
     juce::int64 downloaded  = 0;
-    int         lastPct     = -1;
+    int         lastReported = -1;
 
     constexpr int chunkSize = 16384;
     juce::HeapBlock<char> buf (chunkSize);
@@ -37,17 +37,20 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
         out.write (buf.getData(), (size_t) bytesRead);
         downloaded += bytesRead;
 
-        if (total > 0)
+        // Report progress regardless of whether total length is known.
+        // Pass both downloaded and total; JS shows % when total>0, else KB.
+        const int reportVal = total > 0
+            ? (int) (downloaded * 100 / total)
+            : (int) (downloaded / 1024);
+        if (reportVal != lastReported)
         {
-            const int pct = (int) (downloaded * 100 / total);
-            if (pct != lastPct)
-            {
-                lastPct = pct;
-                juce::String script = "if(window.__juceProgress)window.__juceProgress(" + juce::String (pct) + ")";
-                juce::MessageManager::callAsync ([this, script] {
-                    browser.evaluateJavascript (script, {});
-                });
-            }
+            lastReported = reportVal;
+            juce::String script = "if(window.__juceProgress)window.__juceProgress("
+                                  + juce::String (downloaded) + ","
+                                  + juce::String (total) + ")";
+            juce::MessageManager::callAsync ([this, script] {
+                browser.evaluateJavascript (script, {});
+            });
         }
     }
 

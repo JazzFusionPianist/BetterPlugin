@@ -117,14 +117,18 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
   const [dragState, setDragState] = useState<DragState>('idle')
-  const [progress, setProgress]   = useState(0)
+  const [dlBytes, setDlBytes]     = useState(0)
+  const [totalBytes, setTotalBytes] = useState(-1)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const juceBackend = window.__JUCE__?.backend
 
-  // C++에서 진행률 업데이트 수신 (0~100)
+  // C++에서 진행률 업데이트 수신: (downloaded bytes, total bytes or -1)
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__juceProgress = (pct: number) => setProgress(pct)
+    (window as unknown as Record<string, unknown>).__juceProgress = (dl: number, tot: number) => {
+      setDlBytes(dl)
+      setTotalBytes(tot)
+    }
     return () => { delete (window as unknown as Record<string, unknown>).__juceProgress }
   }, [])
 
@@ -140,7 +144,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     e.preventDefault()
 
     if (juceBackend) {
-      setProgress(0)
+      setDlBytes(0)
+      setTotalBytes(-1)
       setDragState('fetching')
       juceBackend.startAudioDrag(url, name)
         .then(result => { setDragState(result === 'armed' ? 'dragging' : 'idle') })
@@ -155,9 +160,12 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     setTimeout(() => setDragState('idle'), 2000)
   }
 
+  const fetchingLabel = dlBytes > 0
+    ? (totalBytes > 0 ? `${Math.round(dlBytes * 100 / totalBytes)}%` : `${Math.round(dlBytes / 1024)} KB`)
+    : 'Preparing…'
   const dragLabel: Record<DragState, string> = {
     idle:     'Import to DAW',
-    fetching: progress > 0 ? `${progress}%` : 'Preparing…',
+    fetching: fetchingLabel,
     ready:    'Drag to track',
     dragging: 'Drop on track!',
     fallback: 'Link copied!',

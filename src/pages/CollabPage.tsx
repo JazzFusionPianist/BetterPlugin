@@ -74,7 +74,14 @@ function CollabPageInner({ user }: Props) {
   }
   const handleToggleDark = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
   const handleViewModeChange = (mode: 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view', mode) }
-  const handleToggleSearch = () => setSearchOpen(prev => { if (prev) setSearchQuery(''); else setTimeout(() => searchInputRef.current?.focus(), 200); return !prev })
+  const handleToggleSearch = () => setSearchOpen(prev => {
+    if (prev) { setSearchQuery('') } else {
+      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
+      setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false)
+      setTimeout(() => searchInputRef.current?.focus(), 200)
+    }
+    return !prev
+  })
   const handleToggleSettings = () => setSettingsOpen(prev => { if (!prev) { setProfileOpen(false); setAddFriendOpen(false); setNotifOpen(false) } else { setDisplayOpen(false); setInfoOpen(false) } return !prev })
   const handleToggleProfile = () => setProfileOpen(prev => { if (!prev) { setSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false) } return !prev })
   const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false) } return !prev })

@@ -61,9 +61,8 @@
   align-items: center;
   height: 44px;
   padding: 0 14px;
-  border-bottom: 0.5px solid var(--border);
   flex-shrink: 0;
-  background: var(--bg);
+  background: transparent;
   gap: 8px;
   position: relative;
   z-index: 100;
@@ -267,11 +266,22 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: transparent;
   transition: transform .22s cubic-bezier(.4, 0, .2, 1);
 }
+.view .s-body, .view .s-header { background: transparent; }
 
-.fview { transform: translateX(0); }
+/* Hide underlying view content when an overlay panel is open */
+.plugin.settings-open      .fview > *,
+.plugin.addfriend-open     .fview > *,
+.plugin.notifsettings-open .fview > * { visibility: hidden; }
+.plugin.display-open       .sview > *,
+.plugin.info-open          .sview > *,
+.plugin.notifsettings-open .sview > * { visibility: hidden; }
+
+.fview { transform: translateX(0); background: transparent; }
+.fview .s-body { background: transparent; }
+.profile-orbit-body { background: transparent !important; }
 .cview { transform: translateX(100%); }
 .sview { transform: translateX(100%); z-index: 15; }
 .pview { transform: translateX(100%); z-index: 16; }
@@ -1177,6 +1187,25 @@
   z-index: 4;
 }
 .orbit-inactive-toggle:hover { color: var(--t1); background: var(--bg2); }
+
+.orbit-mode-toggle-btn {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: none;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--t1);
+  cursor: pointer;
+  padding: 2px 10px;
+  border-radius: 6px;
+  z-index: 4;
+  transition: background .12s;
+}
+.orbit-mode-toggle-btn:hover { background: var(--bg2); }
 .party-list-overlay {
   position: absolute;
   inset: 0;

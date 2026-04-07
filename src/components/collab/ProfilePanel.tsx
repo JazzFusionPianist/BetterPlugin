@@ -7,7 +7,8 @@ interface Props {
   supabase: SupabaseClient
   user: User
   me: Profile | null
-  friendProfiles: Profile[]
+  followingProfiles: Profile[]
+  followerProfiles: Profile[]
   onClose: () => void
   onUpdated: () => void
   onOpenChat: (id: string) => void
@@ -28,7 +29,8 @@ interface Orb {
 
 const SELF_RADIUS = 38
 
-export default function ProfilePanel({ supabase, user, me, friendProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav }: Props) {
+export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav }: Props) {
+  const [mode, setMode] = useState<'main' | 'party'>('main')
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
@@ -39,11 +41,43 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; below: boolean } | null>(null)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wallBounceRef = useRef(true)
+  const enterFromOutsideRef = useRef(false)
+  const prevModeRef = useRef(mode)
 
   const displayProfiles = useMemo(
-    () => friendProfiles.filter(p => p.isOnline),
-    [friendProfiles]
+    () => mode === 'main' ? followingProfiles.filter(p => p.isOnline) : followerProfiles,
+    [mode, followingProfiles, followerProfiles]
   )
+  const [renderProfiles, setRenderProfiles] = useState<Profile[]>(displayProfiles)
+  const [transitionTick, setTransitionTick] = useState(0)
+
+  useEffect(() => {
+    if (prevModeRef.current === mode) {
+      setRenderProfiles(displayProfiles)
+      return
+    }
+    prevModeRef.current = mode
+    // Phase 1: send existing orbs flying outward
+    const c = containerRef.current
+    if (!c) { setRenderProfiles(displayProfiles); return }
+    const rect = c.getBoundingClientRect()
+    const cx = rect.width / 2, cy = rect.height / 2
+    for (const o of orbsRef.current) {
+      const dx = o.x - cx, dy = o.y - cy
+      const d = Math.hypot(dx, dy) || 0.001
+      o.vx = dx / d * 6
+      o.vy = dy / d * 6
+      o.frozen = false
+    }
+    wallBounceRef.current = false
+    const t = setTimeout(() => {
+      enterFromOutsideRef.current = true
+      setRenderProfiles(displayProfiles)
+      setTransitionTick(v => v + 1)
+    }, 380)
+    return () => clearTimeout(t)
+  }, [mode, displayProfiles])
 
   const showMsg = (m: string) => {
     setMsg(m)
@@ -86,9 +120,11 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     const H = rect.height
     sizeRef.current = { w: W, h: H }
 
-    const N = displayProfiles.length
+    const N = renderProfiles.length
     if (N === 0) {
       orbsRef.current = []
+      wallBounceRef.current = true
+      enterFromOutsideRef.current = false
       forceRender(v => v + 1)
       return
     }
@@ -98,12 +134,12 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     const reservedBottom = 36
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
-    const baseR = Math.max(8, Math.min(22, rRaw))
-    const favR = Math.max(baseR * 1.5, baseR + 6)
+    const baseR = Math.max(8, Math.min(16, rRaw))
+    const favR = Math.max(baseR * 1.4, baseR + 5)
 
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
-      const r = favorites.has(displayProfiles[i]!.id) ? favR : baseR
+      const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
       let placed = false
       for (let attempt = 0; attempt < 300 && !placed; attempt++) {
         const x = r + Math.random() * (W - 2 * r)
@@ -125,11 +161,30 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
         orbs.push({ x: cx + Math.cos(angle) * ringR, y: cy + Math.sin(angle) * ringR, vx: 0.1, vy: 0.1, r, frozen: false, el: null })
       }
     }
+    if (enterFromOutsideRef.current) {
+      // Place each new orb just outside the container along its angle from center,
+      // moving inward toward the computed final position
+      for (const orb of orbs) {
+        const dx = orb.x - cx, dy = orb.y - cy
+        const d = Math.hypot(dx, dy) || 0.001
+        const nx = dx / d, ny = dy / d
+        const startDist = Math.max(W, H) * 0.65
+        orb.x = cx + nx * startDist
+        orb.y = cy + ny * startDist
+        orb.vx = -nx * 0.7
+        orb.vy = -ny * 0.7
+      }
+      setTimeout(() => { wallBounceRef.current = true }, 120)
+      enterFromOutsideRef.current = false
+    } else {
+      wallBounceRef.current = true
+    }
     orbsRef.current = orbs
     setHoveredIdx(null)
     setTooltipPos(null)
     forceRender(v => v + 1)
-  }, [displayProfiles, favorites])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderProfiles.map(p => p.id).join('|'), Array.from(favorites).sort().join('|'), transitionTick])
 
   // Animation loop
   useEffect(() => {
@@ -140,24 +195,29 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
       const cx = W / 2, cy = H / 2
       const reservedBottom = 36
 
+      const transitioning = !wallBounceRef.current
       for (const o of orbs) {
         if (o.frozen) continue
-        o.vx += (Math.random() - 0.5) * 0.04
-        o.vy += (Math.random() - 0.5) * 0.04
+        if (!transitioning) {
+          o.vx += (Math.random() - 0.5) * 0.04
+          o.vy += (Math.random() - 0.5) * 0.04
+        }
         const sp = Math.hypot(o.vx, o.vy)
-        const maxSp = 0.55
-        const minSp = 0.22
+        const maxSp = transitioning ? 8 : 0.55
+        const minSp = transitioning ? 0 : 0.22
         if (sp > maxSp) { o.vx = o.vx / sp * maxSp; o.vy = o.vy / sp * maxSp }
         else if (sp < minSp && sp > 0) { o.vx = o.vx / sp * minSp; o.vy = o.vy / sp * minSp }
         o.x += o.vx
         o.y += o.vy
       }
 
-      for (const o of orbs) {
-        if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
-        if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
-        if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
-        if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
+      if (wallBounceRef.current) {
+        for (const o of orbs) {
+          if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
+          if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
+          if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
+          if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
+        }
       }
 
       for (const o of orbs) {
@@ -213,7 +273,10 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     orb.frozen = true
     setHoveredIdx(idx)
     const below = orb.y - orb.r < 90
-    setTooltipPos({ x: orb.x, y: below ? orb.y + orb.r : orb.y - orb.r, below })
+    const W = sizeRef.current.w
+    const halfTT = 70
+    const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))
+    setTooltipPos({ x: clampedX, y: orb.y - orb.r, below: false })
   }
 
   const handleOrbLeave = (idx: number) => {
@@ -241,13 +304,19 @@ export default function ProfilePanel({ supabase, user, me, friendProfiles, onClo
     setTooltipPos(null)
   }
 
-  const hoveredProfile = hoveredIdx !== null ? displayProfiles[hoveredIdx] : null
+  const hoveredProfile = hoveredIdx !== null ? renderProfiles[hoveredIdx] : null
 
   return (
     <>
       <div className="s-body profile-orbit-body">
         <div className="profile-orbit" ref={containerRef}>
-          {displayProfiles.map((p, i) => {
+          <button
+            className="orbit-mode-toggle-btn"
+            onClick={() => setMode(m => m === 'main' ? 'party' : 'main')}
+          >
+            {mode}
+          </button>
+          {renderProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
             return (

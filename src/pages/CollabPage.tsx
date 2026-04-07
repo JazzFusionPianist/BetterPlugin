@@ -108,6 +108,12 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
+  const [wallpaper, setWallpaper] = useState<string | null>(() => localStorage.getItem('collab_wallpaper'))
+  const handleSetWallpaper = (url: string | null) => {
+    if (url) localStorage.setItem('collab_wallpaper', url)
+    else localStorage.removeItem('collab_wallpaper')
+    setWallpaper(url)
+  }
   const [viewMode, setViewMode] = useState<'default' | 'gallery' | 'list'>(() =>
     (localStorage.getItem('collab_view_v2') as 'default' | 'gallery' | 'list') ?? 'default'
   )
@@ -130,6 +136,8 @@ function CollabPageInner({ user }: Props) {
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
   const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
+  const followingProfiles = useMemo(() => profilesWithStatus.filter(p => followingIds.has(p.id)), [profilesWithStatus, followingIds])
+  const followerProfiles  = useMemo(() => profilesWithStatus.filter(p => followerIds.has(p.id)), [profilesWithStatus, followerIds])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   // 알림 설정에 따라 보이는 알림 필터링
@@ -192,7 +200,7 @@ function CollabPageInner({ user }: Props) {
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={pluginClass} ref={pluginRef}>
+    <div className={pluginClass} ref={pluginRef} style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
       <div className="top-bar">
         <span className="app-title" onClick={handleGoHome} style={{ cursor: 'pointer' }}>CoOp</span>
 
@@ -307,7 +315,7 @@ function CollabPageInner({ user }: Props) {
       <div className="content">
         <div className="view fview">
           {viewMode === 'default'
-            ? <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
+            ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
             : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={() => {}} onCellLeave={() => {}} />
           }
         </div>
@@ -324,7 +332,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} viewMode={viewMode} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} viewMode={viewMode} wallpaper={wallpaper} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onSetWallpaper={handleSetWallpaper} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} />

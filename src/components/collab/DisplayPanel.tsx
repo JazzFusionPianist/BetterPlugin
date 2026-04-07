@@ -1,12 +1,29 @@
+import { useRef } from 'react'
+
 interface Props {
   isDark: boolean
   viewMode: 'default' | 'gallery' | 'list'
+  wallpaper: string | null
   onToggleDark: () => void
   onViewModeChange: (mode: 'default' | 'gallery' | 'list') => void
+  onSetWallpaper: (url: string | null) => void
   onClose: () => void
 }
 
-export default function DisplayPanel({ isDark, viewMode, onToggleDark, onViewModeChange, onClose }: Props) {
+export default function DisplayPanel({ isDark, viewMode, wallpaper, onToggleDark, onViewModeChange, onSetWallpaper, onClose }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handlePick = () => fileRef.current?.click()
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('max 5MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => onSetWallpaper(reader.result as string)
+    reader.readAsDataURL(file)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   return (
     <>
       <div className="s-header">
@@ -24,6 +41,21 @@ export default function DisplayPanel({ isDark, viewMode, onToggleDark, onViewMod
               onClick={onToggleDark}
             />
           </div>
+        </div>
+
+        <div className="s-section">
+          <div className="s-section-label">wallpaper</div>
+          <div className="s-row">
+            <span className="s-row-label">Set wallpaper</span>
+            <button className="seg-opt" style={{ flex: 'none', padding: '0 12px' }} onClick={handlePick}>Choose</button>
+          </div>
+          {wallpaper && (
+            <div className="s-row">
+              <span className="s-row-label" style={{ color: 'var(--t3)', fontSize: 10 }}>Current wallpaper set</span>
+              <button className="seg-opt" style={{ flex: 'none', padding: '0 12px' }} onClick={() => onSetWallpaper(null)}>Remove</button>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
         </div>
 
         <div className="s-section">

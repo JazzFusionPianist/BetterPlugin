@@ -9,7 +9,7 @@ interface Props {
 export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo, onOpenNotifSettings, onSignOut }: Props) {
   return (
     <>
-      <div className="s-body" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
+      <div className="s-body" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="s-section" style={{ marginBottom: 0 }}>
           <div className="s-nav-row" onClick={onOpenDisplay}>
             <span className="s-row-label">Display</span>

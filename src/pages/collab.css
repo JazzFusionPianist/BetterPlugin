@@ -1102,6 +1102,7 @@
   pointer-events: none;
 }
 .orbit-orb > * { pointer-events: none; }
+.orbit-orb { opacity: 0.8; }
 .orbit-orb.offline { filter: grayscale(0.5); }
 .orbit-orb-dot {
   position: absolute;

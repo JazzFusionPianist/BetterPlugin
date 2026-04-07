@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Profile, Message } from '../../types/collab'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Profile, Message, AttachType } from '../../types/collab'
+
+interface Attachment { url: string; type: AttachType; name: string }
 
 interface Props {
+  supabase: SupabaseClient
   currentUserId: string
   otherProfile: Profile
   messages: Message[]
   loading: boolean
-  onSend: (content: string) => Promise<void>
+  onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
 }
 
@@ -21,20 +25,206 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-export default function ChatView({ currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
-  const [input, setInput] = useState('')
+function formatDur(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+// ── 이미지 첨부 ──────────────────────────────────────────────
+function ImageAttachment({ url, name }: { url: string; name: string }) {
+  return (
+    <img
+      src={url}
+      alt={name}
+      className="msg-att-img"
+      onClick={() => window.open(url, '_blank')}
+    />
+  )
+}
+
+// ── 동영상 첨부 ──────────────────────────────────────────────
+function VideoAttachment({ url }: { url: string }) {
+  const [playing, setPlaying] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  const start = () => {
+    setPlaying(true)
+    setTimeout(() => videoRef.current?.play(), 50)
+  }
+
+  return (
+    <div className="msg-att-video-wrap">
+      <video
+        ref={videoRef}
+        src={url}
+        className="msg-att-video"
+        preload="metadata"
+        controls={playing}
+        onClick={!playing ? start : undefined}
+      />
+      {!playing && (
+        <div className="msg-att-video-overlay" onClick={start}>
+          <div className="msg-att-play-btn">
+            <svg viewBox="0 0 24 24" fill="white" width="28" height="28">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 오디오 첨부 ──────────────────────────────────────────────
+function AudioAttachment({ url, name }: { url: string; name: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [playing, setPlaying]   = useState(false)
+  const [current, setCurrent]   = useState(0)
+  const [duration, setDuration] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  const toggle = () => {
+    if (!audioRef.current) return
+    if (playing) { audioRef.current.pause(); setPlaying(false) }
+    else { audioRef.current.play(); setPlaying(true) }
+  }
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = (e.clientX - rect.left) / rect.width
+    audioRef.current.currentTime = ratio * duration
+  }
+
+  return (
+    <div className="msg-att-audio">
+      <div className="msg-att-audio-header" onClick={() => setExpanded(v => !v)}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+        </svg>
+        <span className="msg-att-audio-name">{name}</span>
+        <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
+      </div>
+      {expanded && (
+        <div className="msg-att-audio-player">
+          <audio
+            ref={audioRef}
+            src={url}
+            onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
+            onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+            onEnded={() => setPlaying(false)}
+          />
+          <button className="msg-att-play-pause" onClick={toggle}>
+            {playing
+              ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+            }
+          </button>
+          <div className="msg-att-progress-track" onClick={seek}>
+            <div
+              className="msg-att-progress-fill"
+              style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }}
+            />
+          </div>
+          <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 첨부 렌더러 ──────────────────────────────────────────────
+function AttachmentView({ url, type, name }: { url: string; type: AttachType; name: string }) {
+  if (type === 'image') return <ImageAttachment url={url} name={name} />
+  if (type === 'video') return <VideoAttachment url={url} />
+  if (type === 'audio') return <AudioAttachment url={url} name={name} />
+  return null
+}
+
+// ── 메인 ChatView ─────────────────────────────────────────────
+export default function ChatView({ supabase, currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
+  const [input, setInput]       = useState('')
+  const [sendError, setSendError] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadErrMsg, setUploadErrMsg] = useState('')
   const chatAreaRef = useRef<HTMLDivElement>(null)
+  const imgRef  = useRef<HTMLInputElement>(null)
+  const vidRef  = useRef<HTMLInputElement>(null)
+  const audRef  = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = chatAreaRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  const MAX_SIZE_MB = 50
+  const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024
+
+  const showErr = (msg: string) => {
+    setUploadErrMsg(msg)
+    setSendError(true)
+    setTimeout(() => { setSendError(false); setUploadErrMsg('') }, 3000)
+  }
+
+  const uploadFile = async (file: File, type: AttachType): Promise<Attachment | null> => {
+    const ext  = file.name.split('.').pop() ?? 'bin'
+    const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage
+      .from('attachments')
+      .upload(path, file, { contentType: file.type })
+    if (error) {
+      console.error('[upload error]', error.message, error)
+      return null
+    }
+    const { data } = supabase.storage.from('attachments').getPublicUrl(path)
+    return { url: data.publicUrl, type, name: file.name }
+  }
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>, type: AttachType) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMenuOpen(false)
+
+    if (file.size > MAX_SIZE) {
+      showErr(`File too large (max ${MAX_SIZE_MB}MB)`)
+      if (e.target) e.target.value = ''
+      return
+    }
+
+    setUploading(true)
+    const att = await uploadFile(file, type)
+    setUploading(false)
+    if (!att) {
+      showErr('Upload failed. Check file size or connection.')
+    } else {
+      await onSend('', att)
+    }
+    if (e.target) e.target.value = ''
+  }
+
   const handleSend = async () => {
     if (!input.trim()) return
     const val = input
     setInput('')
-    await onSend(val)
+    const ok = await onSend(val)
+    if (!ok) {
+      setSendError(true)
+      setTimeout(() => setSendError(false), 2500)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -44,13 +234,13 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
     }
   }
 
-  // Group messages with timestamp separators
+  // 날짜별 그룹 구분선
   const groups: Array<{ type: 'ts'; label: string } | { type: 'msg'; msg: Message }> = []
   let lastDate = ''
   for (const msg of messages) {
     const dateLabel = formatDate(msg.created_at)
     if (dateLabel !== lastDate) {
-      groups.push({ type: 'ts', label: `${dateLabel}  ${formatTime(msg.created_at)}` })
+      groups.push({ type: 'ts', label: dateLabel })
       lastDate = dateLabel
     }
     groups.push({ type: 'msg', msg })
@@ -89,7 +279,14 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
             <div key={i} className="ts">{g.label}</div>
           ) : (
             <div key={g.msg.id} className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}`}>
-              <div className="mb">{g.msg.content}</div>
+              {g.msg.attachment_url && g.msg.attachment_type && (
+                <AttachmentView
+                  url={g.msg.attachment_url}
+                  type={g.msg.attachment_type}
+                  name={g.msg.attachment_name ?? ''}
+                />
+              )}
+              {g.msg.content && <div className="mb">{g.msg.content}</div>}
               <div className="mtime">{formatTime(g.msg.created_at)}</div>
             </div>
           )
@@ -101,8 +298,60 @@ export default function ChatView({ currentUserId, otherProfile, messages, loadin
         )}
       </div>
 
+      {/* 전송/업로드 실패 토스트 */}
+      {sendError && (
+        <div className="send-error-toast">
+          {uploadErrMsg || 'Failed to send. Please try again.'}
+        </div>
+      )}
+
+      {/* + 메뉴 팝업 */}
+      {menuOpen && (
+        <div className="attach-menu" ref={menuRef}>
+          <button className="attach-menu-item" onClick={() => { imgRef.current?.click() }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            Photo
+          </button>
+          <button className="attach-menu-item" onClick={() => { vidRef.current?.click() }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 9l5-3v12l-5-3V9z"/>
+            </svg>
+            Video
+          </button>
+          <button className="attach-menu-item" onClick={() => { audRef.current?.click() }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+            Audio
+          </button>
+        </div>
+      )}
+
       {/* Input bar */}
       <div className="input-bar">
+        {/* 숨겨진 파일 입력들 */}
+        <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'image')} />
+        <input ref={vidRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'video')} />
+        <input ref={audRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'audio')} />
+
+        {/* + 버튼 */}
+        <button
+          className={`attach-btn${menuOpen ? ' active' : ''}`}
+          onClick={() => setMenuOpen(v => !v)}
+          disabled={uploading}
+          title="Attach file"
+        >
+          {uploading
+            ? <span style={{ fontSize: 10, color: 'var(--t3)' }}>...</span>
+            : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" width="16" height="16">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+          }
+        </button>
+
         <div className="mi-wrap">
           <input
             className="mi"

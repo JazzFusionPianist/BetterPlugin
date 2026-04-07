@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Message } from '../types/collab'
+import type { Message, AttachType } from '../types/collab'
 
 export function useMessages(
   supabase: SupabaseClient,
@@ -69,8 +69,11 @@ export function useMessages(
     }
   }, [supabase, currentUserId, otherUserId, fetchHistory])
 
-  const send = useCallback(async (content: string) => {
-    if (!otherUserId || !content.trim()) return
+  const send = useCallback(async (
+    content: string,
+    attachment?: { url: string; type: AttachType; name: string },
+  ): Promise<boolean> => {
+    if (!otherUserId || (!content.trim() && !attachment)) return false
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
@@ -78,6 +81,9 @@ export function useMessages(
       receiver_id: otherUserId,
       content: content.trim(),
       created_at: new Date().toISOString(),
+      attachment_url: attachment?.url ?? null,
+      attachment_type: attachment?.type ?? null,
+      attachment_name: attachment?.name ?? null,
     }
 
     setMessages(prev => [...prev, optimistic])
@@ -86,12 +92,16 @@ export function useMessages(
       sender_id: currentUserId,
       receiver_id: otherUserId,
       content: content.trim(),
+      attachment_url: attachment?.url ?? null,
+      attachment_type: attachment?.type ?? null,
+      attachment_name: attachment?.name ?? null,
     })
 
     if (error) {
-      // Remove optimistic message on failure
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+      return false
     }
+    return true
   }, [supabase, currentUserId, otherUserId])
 
   return { messages, loading, send }

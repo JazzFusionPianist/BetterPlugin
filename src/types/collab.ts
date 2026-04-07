@@ -9,12 +9,17 @@ export interface Profile {
   is_admin: boolean
 }
 
+export type AttachType = 'image' | 'video' | 'audio'
+
 export interface Message {
   id: string
   sender_id: string
   receiver_id: string
   content: string
   created_at: string
+  attachment_url?: string | null
+  attachment_type?: AttachType | null
+  attachment_name?: string | null
 }
 
 export interface AppNotification {

@@ -269,7 +269,7 @@ function CollabPageInner({ user }: Props) {
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
         </div>
         <div className="view pview">
-          <ProfilePanel supabase={client} user={user} me={me} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} />
+          <ProfilePanel supabase={client} user={user} me={me} friendProfiles={friendProfiles} onClose={() => setProfileOpen(false)} onUpdated={refetchProfiles} onOpenChat={(id) => { setProfileOpen(false); handleOpenChat(id) }} onRemoveFriend={unfollow} />
         </div>
         <div className="view afview">
           <AddFriendPanel

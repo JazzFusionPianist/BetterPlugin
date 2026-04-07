@@ -779,6 +779,13 @@
   outline: none;
 }
 .profile-input:focus { border-color: var(--t3); }
+.profile-input-tall { height: 40px; }
+.profile-field-error {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #FF3B30;
+  font-family: 'DM Sans', sans-serif;
+}
 .profile-save {
   height: 30px;
   padding: 0 12px;

@@ -779,7 +779,7 @@
   outline: none;
 }
 .profile-input:focus { border-color: var(--t3); }
-.profile-input-tall { flex: none; width: 100%; height: 52px; }
+.profile-input-tall { flex: none; width: 100%; height: 30px; }
 .profile-field-error {
   margin-top: 6px;
   font-size: 11px;

@@ -179,9 +179,9 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     const onCancel = (e: Event) => {
       const evUrl = (e as CustomEvent<{ url: string }>).detail?.url
       if (evUrl !== url) return
-      // 15s 타이머 취소 후 즉시 idle 복원
       if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setDragState('idle')
+      // 캐시가 있으면 imported 유지 (바로 재드래그 가능), 없으면 idle
+      setDragState(cachedBase64.current ? 'imported' : 'idle')
     }
     window.addEventListener('__juceImported',      onImported)
     window.addEventListener('__juceOutDragCancel', onCancel)

@@ -618,7 +618,15 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     e.preventDefault()
     dragCounter.current++
     // If C++ is already managing the overlay type, don't override it.
-    if (!juceDragIsActive.current) setDragType('attach')
+    // Otherwise: if our own drag is "out" (Logic returned it as plain URL),
+    // show the cancel overlay; for all other cases show attach.
+    if (!juceDragIsActive.current) {
+      if (outDragActive.current) {
+        setDragType('cancel')
+      } else {
+        setDragType('attach')
+      }
+    }
     setDragOver(true)
   }
 

@@ -19,6 +19,9 @@ static constexpr float kMinDragPx = 4.0f;
 // Weak global so the C-level swizzle functions can check drag-out state.
 static __weak JuceDragHelper* gDragHelper = nil;
 
+// Forward declaration — defined below with the timer globals.
+static void stopDragTimer (void);
+
 //==============================================================================
 // JuceDragHelper — NSDraggingSource + NSEvent monitor for drag-OUT
 //==============================================================================
@@ -47,6 +50,7 @@ static __weak JuceDragHelper* gDragHelper = nil;
 {
     (void)session; (void)screenPoint;
     self.isDragging = NO;
+    stopDragTimer();
     if (self.wkView) {
         // Pass whether the drag was accepted by a target ('copy') or cancelled
         // ('none').  React uses this to decide how long to keep outDragActive:
@@ -221,24 +225,69 @@ static const char kDropCallbackKey = 0;
 static const char kWKViewRefKey    = 0;   // ASSIGN ref to the WKWebView
 
 // ── Global swizzle state ──────────────────────────────────────────────────────
-static IMP            gOrigPerformDragOp   = nil;
-static IMP            gOrigDraggingEntered = nil;
-static IMP            gOrigDraggingExited  = nil;
-static IMP            gOrigDraggingUpdated = nil;
-static BOOL           gSwizzleInstalled    = NO;
-static NSTimeInterval gLastDragUpdateFire  = 0;   // throttle for draggingUpdated:
+static IMP  gOrigPerformDragOp   = nil;
+static IMP  gOrigDraggingEntered = nil;
+static IMP  gOrigDraggingExited  = nil;
+static IMP  gOrigDraggingUpdated = nil;
+static BOOL gSwizzleInstalled    = NO;
 
-// Pending deferred __juceDragExit dispatch_block.  Cancelled whenever
-// draggingEntered: or draggingUpdated: fires, so spurious draggingExited:
-// calls caused by sub-view boundaries don't flicker the overlay.
-static dispatch_block_t gPendingDragExitBlock = nil;
+// ── Mouse-position overlay timer ─────────────────────────────────────────────
+//
+// AppKit's draggingExited: fires whenever a drag crosses an internal sub-view
+// boundary (not just when it truly leaves the WKWebView).  Nested sub-views
+// of different classes also intercept draggingUpdated:, so no swizzle-based
+// heartbeat is reliable.
+//
+// Instead: once a drag enters the WKWebView we start an 80 ms repeating timer
+// that checks the actual mouse position against the WKWebView screen frame.
+// While the mouse is inside → fire __juceDragEnter / __juceDragEnterCancel.
+// When the mouse leaves    → fire __juceDragExit and stop the timer.
+// The timer also stops when performDragOperation: or endedAtPoint: fires.
+//
+static NSTimer*          gDragPositionTimer = nil;
+static __weak WKWebView* gDragTimerWkv      = nil;
 
-static void cancelPendingDragExit (void)
+static void stopDragTimer (void)
 {
-    if (gPendingDragExitBlock) {
-        dispatch_block_cancel (gPendingDragExitBlock);
-        gPendingDragExitBlock = nil;
-    }
+    [gDragPositionTimer invalidate];
+    gDragPositionTimer = nil;
+    gDragTimerWkv      = nil;
+}
+
+static void startDragTimerIfNeeded (WKWebView* wkv)
+{
+    gDragTimerWkv = wkv;
+    if (gDragPositionTimer) return;   // already running
+
+    gDragPositionTimer = [NSTimer scheduledTimerWithTimeInterval:0.08
+                                                         repeats:YES
+                                                           block:^(NSTimer* t)
+    {
+        WKWebView* w = gDragTimerWkv;
+        if (!w || !w.window) { stopDragTimer(); return; }
+
+        NSPoint mousePos = [NSEvent mouseLocation];
+        NSRect  viewRect = [w.window
+                            convertRectToScreen:[w convertRect:w.bounds toView:nil]];
+
+        if (NSPointInRect (mousePos, viewRect))
+        {
+            // Mouse is still inside WKWebView — fire keep-alive heartbeat.
+            BOOL      isCancel = (gDragHelper && gDragHelper.isDragging);
+            NSString* evt      = isCancel ? @"__juceDragEnterCancel" : @"__juceDragEnter";
+            NSString* js       = [NSString stringWithFormat:
+                @"window.dispatchEvent(new Event('%@'))", evt];
+            [w evaluateJavaScript:js completionHandler:nil];
+        }
+        else
+        {
+            // Mouse left the WKWebView — hide the overlay and stop.
+            [w evaluateJavaScript:
+                @"window.dispatchEvent(new Event('__juceDragExit'))"
+             completionHandler:nil];
+            stopDragTimer();
+        }
+    }];
 }
 
 // ── View search helpers ───────────────────────────────────────────────────────
@@ -292,6 +341,7 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
         if (gDragHelper && gDragHelper.isDragging)
         {
             NSLog (@"[DragMonitor] own drag returning — rejecting drop");
+            stopDragTimer();
             WKWebView* wkv = gDragHelper.wkView;
             if (wkv)
                 [wkv evaluateJavaScript:
@@ -307,6 +357,7 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
         {
             // Dismiss the drag overlay immediately (Logic file promises never
             // fire a JS 'drop' event, so React can't do it itself).
+            stopDragTimer();
             WKWebView* wkv = objc_getAssociatedObject (selfView, &kWKViewRefKey);
             if (wkv)
                 [wkv evaluateJavaScript:
@@ -364,26 +415,19 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
-    // A (re-)entry always cancels any pending deferred exit.
-    cancelPendingDragExit();
-
     WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
+    BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
 
-    if (gDragHelper && gDragHelper.isDragging)
+    if ((ownDrag || logicDrag) && wkv)
     {
-        // Our own audio drag is coming back home — show cancel overlay.
-        if (wkv)
-            [wkv evaluateJavaScript:
-                @"window.dispatchEvent(new Event('__juceDragEnterCancel'))"
-             completionHandler:nil];
-    }
-    else if (isLogicRegionDrag (info.draggingPasteboard))
-    {
-        // Logic region drag entering — show attach overlay.
-        if (wkv)
-            [wkv evaluateJavaScript:
-                @"window.dispatchEvent(new Event('__juceDragEnter'))"
-             completionHandler:nil];
+        // Fire the initial overlay event immediately, then start the position
+        // timer which keeps it alive and detects when the drag truly leaves.
+        NSString* evt = ownDrag ? @"__juceDragEnterCancel" : @"__juceDragEnter";
+        NSString* js  = [NSString stringWithFormat:
+            @"window.dispatchEvent(new Event('%@'))", evt];
+        [wkv evaluateJavaScript:js completionHandler:nil];
+        startDragTimerIfNeeded (wkv);
     }
 
     if (gOrigDraggingEntered)
@@ -392,36 +436,13 @@ static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
     return NSDragOperationCopy;
 }
 
-// draggingExited: — schedules a deferred __juceDragExit (250 ms).
-//
-// draggingExited: fires spuriously when the drag crosses internal sub-view
-// boundaries within WKContentView — the drag hasn't actually left the web
-// view, it just entered a child view.  By deferring the JS event, we give
-// draggingEntered: / draggingUpdated: a chance to cancel it before it fires.
+// draggingExited: — no-op for overlay purposes.
+// The position timer (started by draggingEntered:) already fires __juceDragExit
+// when the mouse truly leaves the WKWebView bounds.  We no longer rely on
+// this delegate for overlay management because it fires spuriously on every
+// internal sub-view boundary crossing.
 static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 {
-    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
-
-    BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
-    BOOL logicDrag = info && isLogicRegionDrag (info.draggingPasteboard);
-
-    cancelPendingDragExit();   // reset any previous deferred exit
-
-    if ((ownDrag || logicDrag) && wkv)
-    {
-        __weak WKWebView* weakWkv = wkv;
-        gPendingDragExitBlock = dispatch_block_create (
-            DISPATCH_BLOCK_INHERIT_QOS_CLASS, ^{
-                [weakWkv evaluateJavaScript:
-                    @"window.dispatchEvent(new Event('__juceDragExit'))"
-                 completionHandler:nil];
-                gPendingDragExitBlock = nil;
-            });
-        dispatch_after (dispatch_time (DISPATCH_TIME_NOW,
-                                       (int64_t)(250 * NSEC_PER_MSEC)),
-                        dispatch_get_main_queue(), gPendingDragExitBlock);
-    }
-
     if (gOrigDraggingExited)
         ((void(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingExited)
             (selfView, _cmd, info);
@@ -437,26 +458,10 @@ static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation coopDraggingUpdated (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
-    // Any movement cancels the deferred exit — drag is still over the view.
-    cancelPendingDragExit();
-
-    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-    if (now - gLastDragUpdateFire >= 0.10)   // 10 Hz throttle for JS events
-    {
-        gLastDragUpdateFire = now;
-        WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
-
-        if (wkv) {
-            if (gDragHelper && gDragHelper.isDragging)
-                [wkv evaluateJavaScript:
-                    @"window.dispatchEvent(new Event('__juceDragEnterCancel'))"
-                 completionHandler:nil];
-            else if (isLogicRegionDrag (info.draggingPasteboard))
-                [wkv evaluateJavaScript:
-                    @"window.dispatchEvent(new Event('__juceDragEnter'))"
-                 completionHandler:nil];
-        }
-    }
+    // Ensure the timer is running (it may have been stopped if draggingEntered:
+    // fired before draggingUpdated: was swizzled, or after a re-entry).
+    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    if (wkv) startDragTimerIfNeeded (wkv);
 
     if (gOrigDraggingUpdated)
         return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingUpdated)

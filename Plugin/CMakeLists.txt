@@ -55,6 +55,12 @@ juce_add_plugin(CoOpPlugin
 target_sources(CoOpPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
+)
+
+# DragMonitor.mm requires ARC (rest of the project uses MRC)
+set_source_files_properties(Source/DragMonitor.mm
+    PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
 target_compile_definitions(CoOpPlugin

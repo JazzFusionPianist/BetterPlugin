@@ -57,11 +57,6 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
     return out.getSize() > 0;
 }
 
-//==============================================================================
-// DragMouseListener
-//==============================================================================
-void DragMouseListener::mouseDrag (const juce::MouseEvent& e) { owner.onMouseDrag (e); }
-void DragMouseListener::mouseUp   (const juce::MouseEvent& e) { owner.onMouseUp   (e); }
 
 //==============================================================================
 juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
@@ -147,15 +142,12 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     setSize (kWidth, kHeight);
     setResizable (false, false);
 
-    // Global listener captures mouse events from the native WKWebView layer
-    juce::Desktop::getInstance().addGlobalMouseListener (&dragListener);
-
     browser.goToURL (COOP_APP_URL);
 }
 
 CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
 {
-    juce::Desktop::getInstance().removeGlobalMouseListener (&dragListener);
+    dragMonitor.disarm();
 }
 
 //==============================================================================
@@ -291,23 +283,6 @@ void CoOpAudioProcessorEditor::handleStartDrag (const juce::var& args,
 //==============================================================================
 // onMouseDrag — fires during real mouse motion → correct moment for OS drag
 //==============================================================================
-void CoOpAudioProcessorEditor::onMouseDrag (const juce::MouseEvent& e)
-{
-    if (! dragArmed || ! pendingDragFile.existsAsFile()) return;
-    if (e.getDistanceFromDragStart() < 8) return;
-
-    dragArmed = false;
-    juce::File file  = pendingDragFile;
-    pendingDragFile  = juce::File{};
-
-    performExternalDragDropOfFiles ({ file.getFullPathName() }, /*canMove=*/ false, this);
-}
-
-void CoOpAudioProcessorEditor::onMouseUp (const juce::MouseEvent&)
-{
-    dragArmed       = false;
-    pendingDragFile = juce::File{};
-}
 
 //==============================================================================
 // writeAudioFile — JS downloads via fetch(), sends base64, C++ writes to disk
@@ -373,6 +348,7 @@ void CoOpAudioProcessorEditor::handleWriteAudioFile (const juce::var& args,
             isDownloading   = false;
             pendingDragFile = tmp;
             dragArmed       = true;
+            dragMonitor.arm (tmp.getFullPathName().toStdString());
 
             (*compPtr) (juce::var ("armed"));
             browser.evaluateJavascript (
@@ -380,6 +356,65 @@ void CoOpAudioProcessorEditor::handleWriteAudioFile (const juce::var& args,
                 [] (juce::WebBrowserComponent::EvaluationResult) {});
         });
     }).detach();
+}
+
+//==============================================================================
+// parentHierarchyChanged — fires once the editor is added to the host window.
+// Starts the drop-handler setup retry loop (WKWebView may not exist yet).
+//==============================================================================
+void CoOpAudioProcessorEditor::parentHierarchyChanged()
+{
+    dropSetupRetryCount = 0;
+    trySetupDropHandling();
+}
+
+//==============================================================================
+// trySetupDropHandling — attempts to install the drop handler.
+// Retries up to 6 times (at 300 ms, 600 ms, … 1800 ms) until WKWebView is
+// available.  Uses SafePointer so a destroyed editor won't be accessed.
+//==============================================================================
+void CoOpAudioProcessorEditor::trySetupDropHandling()
+{
+    if (auto* peer = getPeer())
+    {
+        // Capture a safe pointer for the callback — editor may be destroyed
+        // before Logic finishes exporting the file.
+        juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+
+        dragMonitor.setupDropHandling (
+            peer->getNativeHandle(),
+            [safe] (std::string name, std::string base64)
+            {
+                if (auto* c = safe.getComponent())
+                {
+                    // Escape filename for JS (replace ' with \').
+                    juce::String jsName   = juce::String (name.c_str())
+                                                .replace ("'", "\\'");
+                    juce::String jsBase64 = juce::String (base64.c_str());
+
+                    juce::String script =
+                        "window.dispatchEvent(new CustomEvent('__juceFileDrop',"
+                        "{detail:{name:'" + jsName + "',data:'" + jsBase64 + "'}}))";
+
+                    c->browser.evaluateJavascript (
+                        script, [] (juce::WebBrowserComponent::EvaluationResult) {});
+                }
+            });
+    }
+
+    // If setup didn't succeed yet (WKWebView not loaded), schedule a retry.
+    if (! dragMonitor.isDropSetupDone() && dropSetupRetryCount < 6)
+    {
+        ++dropSetupRetryCount;
+        const int delayMs = 300 * dropSetupRetryCount;   // 300, 600, … 1800 ms
+
+        juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+        juce::Timer::callAfterDelay (delayMs, [safe]
+        {
+            if (auto* c = safe.getComponent())
+                c->trySetupDropHandling();
+        });
+    }
 }
 
 //==============================================================================

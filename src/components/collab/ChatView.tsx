@@ -189,6 +189,14 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       // Direct JS callback so C++ can also signal completion
       ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
 
+      // Verify writeAudioFile is registered on this plugin build
+      const backendKeys = Object.keys(juceBackend as Record<string, unknown>).join(', ')
+      if (typeof juceBackend.writeAudioFile !== 'function') {
+        alert(`Plugin outdated — writeAudioFile missing.\nBackend has: ${backendKeys}`)
+        finish('error')
+        return
+      }
+
       ;(async () => {
         try {
           const res = await fetch(url, { signal: controller.signal })

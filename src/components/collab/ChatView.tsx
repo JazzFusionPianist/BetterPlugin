@@ -148,7 +148,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [duration, setDuration]   = useState(0)
   const [dragState, setDragState] = useState<DragState>('idle')
   const [dlBytes, setDlBytes]     = useState(0)
-  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const armedResetTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cachedBase64     = useRef<string | null>(null)   // 다운로드된 base64 캐시 (재드래그용)
   const [totalBytes, setTotalBytes] = useState(-1)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -201,10 +202,37 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
     if (juceBackend) {
       // 이미 armed: C++가 준비돼있음 — 그냥 드래그하면 됨 (re-arm 불필요)
-      // 'imported' / 'idle' / 'fallback': 처음부터 다운로드+arm 시작
       if (dragState === 'armed') return
       if (dragState === 'fetching') return   // 이미 진행 중
 
+      // 공통 arm 완료 처리
+      const onArmed = () => {
+        window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url } }))
+        setDragState('armed')
+        if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
+        armedResetTimer.current = setTimeout(() => {
+          armedResetTimer.current = null
+          setDragState(s => s === 'armed' ? 'idle' : s)
+        }, 15_000)
+      }
+
+      // ── 'imported': 이미 base64 캐시 있음 → 재다운로드 없이 바로 re-arm ──
+      if (dragState === 'imported' && cachedBase64.current) {
+        setDragState('fetching')
+        ;(async () => {
+          try {
+            if (!window.__JUCE__?.backend) { setDragState('imported'); return }
+            const result = await callJuceNative('writeAudioFile', [cachedBase64.current!, name])
+            if (result === 'armed') onArmed()
+            else setDragState('imported')   // 실패시 imported 상태 유지
+          } catch {
+            setDragState('imported')
+          }
+        })()
+        return
+      }
+
+      // ── 최초 다운로드 + arm ───────────────────────────────────────────────
       setDlBytes(0)
       setTotalBytes(-1)
       setDragState('fetching')
@@ -215,17 +243,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
         if (result === 'armed') {
-          // Tell ChatView's drop zone that a drag-out is imminent.
-          // Fires in JS context (synchronous) — more reliable than the C++
-          // evaluateJavaScript: path which may be deferred during drag run loop.
-          window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url } }))
-          setDragState('armed')
-          // 15초 후 자동 리셋 (드래그 안 했을 경우) — ref로 관리해서 취소 가능
-          if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
-          armedResetTimer.current = setTimeout(() => {
-            armedResetTimer.current = null
-            setDragState(s => s === 'armed' ? 'idle' : s)
-          }, 15_000)
+          onArmed()
         } else {
           setDragState('idle')
         }
@@ -269,8 +287,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
             b64 += String.fromCharCode(...merged.subarray(i, i + CHUNK))
           const base64 = btoa(b64)
 
+          // base64 캐시 저장 (이후 재드래그 시 재다운로드 없이 사용)
+          cachedBase64.current = base64
+
           // Hand off to C++: decode + write to temp file + arm drag
-          // Uses the JUCE event bridge (emitEvent/__juce__invoke) — NOT named methods on backend
           if (!window.__JUCE__?.backend) { finish('error:no-juce'); return }
           const result = await callJuceNative('writeAudioFile', [base64, name])
           finish(result)

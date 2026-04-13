@@ -42,7 +42,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
     if (!name.trim() || name === me?.display_name) return
     setSaving(true)
     const { error } = await supabase
-      .from('profiles').update({ display_name: name.trim() }).eq('id', user.id)
+      .from('profiles').upsert({ id: user.id, display_name: name.trim() }, { onConflict: 'id' })
     setSaving(false)
     if (error) showMsg('failed: ' + error.message)
     else { onNameSaved?.(name.trim()); showMsg('saved'); onUpdated() }

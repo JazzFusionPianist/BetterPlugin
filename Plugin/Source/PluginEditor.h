@@ -47,6 +47,11 @@ private:
     juce::File   cachedFile;
     juce::String cachedName;
     bool         cacheReady     { false };
+    bool         isDownloading  { false };   // true while any download thread runs
+
+    // If startAudioDrag arrives while prefetch is in progress, park the
+    // completion here so prefetch can arm the drag when it finishes.
+    std::shared_ptr<juce::WebBrowserComponent::NativeFunctionCompletion> pendingDragComp;
 
     // Set by handleStartDrag, consumed by onMouseDrag
     juce::File   pendingDragFile;

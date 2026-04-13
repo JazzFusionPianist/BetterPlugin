@@ -103,12 +103,13 @@ declare global {
       backend: {
         prefetchAudio: (url: string, name: string) => Promise<string>
         startAudioDrag: (url: string, name: string) => Promise<string>
+        writeAudioFile: (base64: string, name: string) => Promise<string>
       }
     }
   }
 }
 
-type DragState = 'idle' | 'fetching' | 'ready' | 'dragging' | 'fallback'
+type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback'
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
 function AudioAttachment({ url, name }: { url: string; name: string }) {
@@ -123,19 +124,34 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   const juceBackend = window.__JUCE__?.backend
 
-  // C++에서 진행률 업데이트 수신: (downloaded bytes, total bytes or -1)
+  // C++에서 진행률 업데이트 수신 (CustomEvent → 여러 컴포넌트 동시 수신 가능)
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__juceProgress = (dl: number, tot: number) => {
+    const onProgress = (e: Event) => {
+      const { dl, tot } = (e as CustomEvent<{ dl: number; tot: number }>).detail
       setDlBytes(dl)
       setTotalBytes(tot)
     }
-    return () => { delete (window as unknown as Record<string, unknown>).__juceProgress }
+    window.addEventListener('__juceProgress', onProgress)
+    return () => window.removeEventListener('__juceProgress', onProgress)
   }, [])
 
-  // 마우스 올리면 조용히 파일 프리패치 (UI 상태 변화 없음)
-  const handleMouseEnter = () => {
-    if (!juceBackend || dragState !== 'idle') return
-    juceBackend.prefetchAudio(url, name).catch(() => {})
+  // Prefetch disabled: causes a second simultaneous download that Supabase
+  // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
+  const handleMouseEnter = () => {}
+
+  // 다운로드 완료 후 마우스를 떼면 'idle'로 리셋
+  const armResetRef = useRef<(() => void) | null>(null)
+
+  const scheduleResetOnMouseUp = () => {
+    // 이전 리스너 제거
+    armResetRef.current?.()
+    const handler = () => {
+      setDragState('idle')
+      window.removeEventListener('mouseup', handler)
+      armResetRef.current = null
+    }
+    window.addEventListener('mouseup', handler)
+    armResetRef.current = () => window.removeEventListener('mouseup', handler)
   }
 
   // 마우스 누르면 OS 레벨 드래그 시작
@@ -144,12 +160,74 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     e.preventDefault()
 
     if (juceBackend) {
+      // 이미 armed: C++ 이미 준비됨 — 드래그만 하면 됨, 재다운로드 안 함
+      if (dragState === 'armed') {
+        scheduleResetOnMouseUp()
+        return
+      }
+
       setDlBytes(0)
       setTotalBytes(-1)
       setDragState('fetching')
-      juceBackend.startAudioDrag(url, name)
-        .then(result => { setDragState(result === 'armed' ? 'dragging' : 'idle') })
-        .catch(() => { setDragState('idle') })
+
+      const controller = new AbortController()
+
+      const finish = (result: string) => {
+        clearTimeout(timer)
+        delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
+        if (result === 'armed') {
+          setDragState('armed')
+          scheduleResetOnMouseUp()
+        } else {
+          setDragState('idle')
+        }
+      }
+
+      // 60s hard timeout
+      const timer = setTimeout(() => { controller.abort(); finish('error') }, 60_000)
+
+      // Direct JS callback so C++ can also signal completion
+      ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
+
+      ;(async () => {
+        try {
+          const res = await fetch(url, { signal: controller.signal })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+          const contentLength = Number(res.headers.get('content-length') ?? -1)
+          setTotalBytes(contentLength)
+
+          const reader = res.body!.getReader()
+          const chunks: Uint8Array[] = []
+          let received = 0
+
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+            received += value.length
+            setDlBytes(received)
+          }
+
+          // Merge chunks into one buffer
+          const merged = new Uint8Array(received)
+          let pos = 0
+          for (const chunk of chunks) { merged.set(chunk, pos); pos += chunk.length }
+
+          // Base64 encode in 32 KB slices to avoid call-stack overflow
+          const CHUNK = 0x8000
+          let b64 = ''
+          for (let i = 0; i < merged.length; i += CHUNK)
+            b64 += String.fromCharCode(...merged.subarray(i, i + CHUNK))
+          const base64 = btoa(b64)
+
+          // Hand off to C++: decode + write to temp file + arm drag
+          const result = await juceBackend.writeAudioFile(base64, name)
+          finish(result)
+        } catch {
+          finish('error')
+        }
+      })()
       return
     }
 
@@ -166,8 +244,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const dragLabel: Record<DragState, string> = {
     idle:     'Import to DAW',
     fetching: fetchingLabel,
-    ready:    'Drag to track',
-    dragging: 'Drop on track!',
+    armed:    'Drag to track ↗',
+    dragging: 'Dragging…',
     fallback: 'Link copied!',
   }
 
@@ -195,7 +273,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
         {/* Import / Drag 버튼 */}
         <button
-          className={`msg-att-import-btn${dragState === 'ready' || dragState === 'dragging' ? ' ready' : ''}`}
+          className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' ? ' ready' : ''}`}
           onMouseEnter={handleMouseEnter}
           onMouseDown={handleMouseDown}
           onClick={e => e.stopPropagation()}
@@ -211,7 +289,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
               <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
             </svg>
           )}
-          {(dragState === 'ready' || dragState === 'dragging') && (
+          {(dragState === 'armed' || dragState === 'dragging') && (
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
             </svg>

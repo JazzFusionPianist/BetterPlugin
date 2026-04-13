@@ -139,32 +139,14 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
   const handleMouseEnter = () => {}
 
-  // 다운로드 완료 후 마우스를 떼면 'idle'로 리셋
-  const armResetRef = useRef<(() => void) | null>(null)
-
-  const scheduleResetOnMouseUp = () => {
-    // 이전 리스너 제거
-    armResetRef.current?.()
-    const handler = () => {
-      setDragState('idle')
-      window.removeEventListener('mouseup', handler)
-      armResetRef.current = null
-    }
-    window.addEventListener('mouseup', handler)
-    armResetRef.current = () => window.removeEventListener('mouseup', handler)
-  }
-
   // 마우스 누르면 OS 레벨 드래그 시작
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
 
     if (juceBackend) {
-      // 이미 armed: C++ 이미 준비됨 — 드래그만 하면 됨, 재다운로드 안 함
-      if (dragState === 'armed') {
-        scheduleResetOnMouseUp()
-        return
-      }
+      // 이미 armed: C++가 준비돼있음 — 그냥 드래그하면 됨
+      if (dragState === 'armed') return
 
       setDlBytes(0)
       setTotalBytes(-1)
@@ -177,7 +159,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
         if (result === 'armed') {
           setDragState('armed')
-          scheduleResetOnMouseUp()
+          // 15초 후 자동 리셋 (드래그 안 했을 경우)
+          setTimeout(() => setDragState(s => s === 'armed' ? 'idle' : s), 15_000)
         } else {
           setDragState('idle')
         }

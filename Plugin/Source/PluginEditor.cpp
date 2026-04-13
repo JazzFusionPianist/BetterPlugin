@@ -49,6 +49,7 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
         {
             bits -= 8;
             const uint8_t byte = (uint8_t) (acc >> bits);
+            acc &= (1u << bits) - 1u;   // mask out the extracted byte's bits
             out.append (&byte, 1);
         }
     }

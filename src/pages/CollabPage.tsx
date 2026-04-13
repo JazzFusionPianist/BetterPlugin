@@ -152,18 +152,11 @@ function CollabPageInner({ user }: Props) {
 
   // Friend orbit viewing
   const [friendFollowerIds, setFriendFollowerIds] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    if (!viewingProfileId) { setFriendFollowerIds(new Set()); return }
-    client.from('follows').select('follower_id').eq('following_id', viewingProfileId)
-      .then(({ data }) => {
-        if (data) setFriendFollowerIds(new Set(data.map((r: { follower_id: string }) => r.follower_id)))
-      })
-  }, [viewingProfileId, client])
   const viewingProfile = viewingProfileId ? profilesWithStatus.find(p => p.id === viewingProfileId) ?? null : null
-  const viewingFollowerProfiles = useMemo(
-    () => profilesWithStatus.filter(p => friendFollowerIds.has(p.id)),
-    [profilesWithStatus, friendFollowerIds]
-  )
+  const viewingFollowerProfiles = useMemo(() => {
+    const pool = me ? [...profilesWithStatus, { ...me, isOnline: true }] : profilesWithStatus
+    return pool.filter(p => friendFollowerIds.has(p.id))
+  }, [profilesWithStatus, friendFollowerIds, me])
 
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []
@@ -204,7 +197,20 @@ function CollabPageInner({ user }: Props) {
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
-  const handleViewProfile  = (id: string) => { setViewingProfileId(id) }
+  const handleViewProfile  = async (id: string) => {
+    const all: string[] = []
+    let from = 0
+    const PAGE = 1000
+    while (true) {
+      const { data } = await client.from('follows').select('follower_id').eq('following_id', id).range(from, from + PAGE - 1)
+      if (!data || data.length === 0) break
+      all.push(...data.map((r: { follower_id: string }) => r.follower_id))
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    setFriendFollowerIds(new Set(all))
+    setViewingProfileId(id)
+  }
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
 

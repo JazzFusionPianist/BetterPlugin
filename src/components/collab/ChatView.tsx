@@ -157,6 +157,12 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       const finish = (result: string) => {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
+        // Visible debug banner — shows exact result for 5 s
+        const banner = document.createElement('div')
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#cc0000;color:#fff;padding:8px;text-align:center;font-size:12px;z-index:999999;pointer-events:none'
+        banner.textContent = 'writeAudioFile result: ' + result
+        document.body.appendChild(banner)
+        setTimeout(() => banner.remove(), 5000)
         if (result === 'armed') {
           setDragState('armed')
           // 15초 후 자동 리셋 (드래그 안 했을 경우)
@@ -208,13 +214,13 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           // Re-read backend at call time (may have been injected after first render)
           const backend = window.__JUCE__?.backend
           if (!backend || typeof backend.writeAudioFile !== 'function') {
-            finish('error')
+            finish('error:no-backend')
             return
           }
           const result = await backend.writeAudioFile(base64, name)
           finish(result)
-        } catch {
-          finish('error')
+        } catch (err) {
+          finish('error:exception:' + String(err).slice(0, 60))
         }
       })()
       return

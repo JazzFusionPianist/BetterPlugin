@@ -97,16 +97,45 @@ function VideoAttachment({ url }: { url: string }) {
 }
 
 // ── JUCE 네이티브 함수 타입 선언 ──────────────────────────────
+// window.__JUCE__.backend is an event emitter, NOT an object with named methods.
+// Use callJuceNative() to invoke registered C++ functions.
 declare global {
   interface Window {
     __JUCE__?: {
+      initialisationData: {
+        __juce__functions: string[]
+        __juce__platform: string[]
+      }
       backend: {
-        prefetchAudio: (url: string, name: string) => Promise<string>
-        startAudioDrag: (url: string, name: string) => Promise<string>
-        writeAudioFile: (base64: string, name: string) => Promise<string>
+        addEventListener:    (event: string, handler: (data: unknown) => void) => void
+        removeEventListener: (event: string, handler: (data: unknown) => void) => void
+        emitEvent:           (event: string, data: unknown) => void
       }
     }
   }
+}
+
+// ── JUCE native function bridge ───────────────────────────────
+// Mirrors the promiseHandler pattern from JUCE's own index.js.
+let _juceNextId = 0
+function callJuceNative(name: string, params: unknown[]): Promise<string> {
+  return new Promise<string>((resolve) => {
+    const backend = window.__JUCE__?.backend
+    if (!backend) { resolve('error:no-juce'); return }
+
+    const promiseId = _juceNextId++
+
+    const handler = (data: unknown) => {
+      const d = data as { promiseId: number; result: string }
+      if (d.promiseId === promiseId) {
+        backend.removeEventListener('__juce__complete', handler)
+        resolve(d.result)
+      }
+    }
+
+    backend.addEventListener('__juce__complete', handler)
+    backend.emitEvent('__juce__invoke', { name, params, resultId: promiseId })
+  })
 }
 
 type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback'
@@ -122,7 +151,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [totalBytes, setTotalBytes] = useState(-1)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  const juceBackend = window.__JUCE__?.backend
+  const juceBackend = !!window.__JUCE__?.backend
 
   // C++에서 진행률 업데이트 수신 (CustomEvent → 여러 컴포넌트 동시 수신 가능)
   useEffect(() => {
@@ -211,18 +240,9 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           const base64 = btoa(b64)
 
           // Hand off to C++: decode + write to temp file + arm drag
-          // Re-read backend at call time (may have been injected after first render)
-          const juce    = window.__JUCE__
-          const backend = juce?.backend
-          const be = backend as Record<string, unknown> | undefined
-          const wafType = typeof be?.writeAudioFile
-          const paType  = typeof be?.prefetchAudio
-          const sadType = typeof be?.startAudioDrag
-          if (!backend || wafType !== 'function') {
-            finish(`no-backend juce=${!!juce} be=${!!backend} waf=${wafType} pa=${paType} sad=${sadType}`)
-            return
-          }
-          const result = await backend.writeAudioFile(base64, name)
+          // Uses the JUCE event bridge (emitEvent/__juce__invoke) — NOT named methods on backend
+          if (!window.__JUCE__?.backend) { finish('error:no-juce'); return }
+          const result = await callJuceNative('writeAudioFile', [base64, name])
           finish(result)
         } catch (err) {
           finish('error:exception:' + String(err).slice(0, 60))

@@ -370,9 +370,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const dragCounter          = useRef(0)
   const outDragActive        = useRef(false)  // true while our own drag is "out"
   const isCancelDrag         = useRef(false)  // set by C++ __juceDragEnterCancel
+  const juceDragIsActive     = useRef(false)  // true while C++ is managing the overlay
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Note: JS-level drag-exit debounce removed — C++ now does dispatch_after(250ms)
-  // on draggingExited: and cancels it from draggingEntered:/draggingUpdated:
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -385,6 +384,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // immediately so the UI doesn't stay frozen while Logic exports the region.
   useEffect(() => {
     const handler = () => {
+      juceDragIsActive.current = false
+      isCancelDrag.current = false
       dragCounter.current = 0
       setDragOver(false)
     }
@@ -435,6 +436,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // Also fired every 100 ms from draggingUpdated: as a keep-alive heartbeat.
   useEffect(() => {
     const handler = () => {
+      juceDragIsActive.current = true
       isCancelDrag.current = true
       setDragType('cancel')
       dragCounter.current = 1
@@ -449,6 +451,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // Also fired every 100 ms from draggingUpdated: as a keep-alive heartbeat.
   useEffect(() => {
     const handler = () => {
+      juceDragIsActive.current = true
       // If we recently dragged something out (Logic took it and started its
       // own session), treat the returning drag as a cancel.
       if (outDragActive.current) {
@@ -470,7 +473,12 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // so spurious sub-view crossings never reach JS.  When this event arrives
   // in JS, the drag has truly left — hide the overlay immediately.
   useEffect(() => {
-    const handler = () => { dragCounter.current = 0; setDragOver(false) }
+    const handler = () => {
+      juceDragIsActive.current = false
+      isCancelDrag.current = false
+      dragCounter.current = 0
+      setDragOver(false)
+    }
     window.addEventListener('__juceDragExit', handler)
     return () => window.removeEventListener('__juceDragExit', handler)
   }, [])
@@ -609,15 +617,18 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     dragCounter.current++
-    // Only set 'attach' if C++ hasn't already marked this as a cancel drag.
-    // (isCancelDrag is set by __juceDragEnterCancel which fires before JS dragenter)
-    if (!isCancelDrag.current) setDragType('attach')
+    // If C++ is already managing the overlay type, don't override it.
+    if (!juceDragIsActive.current) setDragType('attach')
     setDragOver(true)
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    // Ignore events where the drag is moving between child elements inside the drop zone
+    // When C++ is managing the overlay (Logic or own drag), JS dragleave events
+    // are unreliable (relatedTarget=null for NSFilePromise drags) and must be
+    // ignored.  C++ dispatch_after(250ms) handles the actual exit timing.
+    if (juceDragIsActive.current) return
+    // For regular file drags (Finder etc.): ignore if still inside the zone
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
     dragCounter.current = 0
     setDragOver(false)

@@ -376,8 +376,25 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const processDroppedFileRef = useRef(processDroppedFile)
   useEffect(() => { processDroppedFileRef.current = processDroppedFile })
 
+  // __juceDragComplete: fired by C++ the instant performDragOperation: is
+  // called, before the async file export finishes.  Dismisses the overlay
+  // immediately so the UI doesn't stay frozen while Logic exports the region.
+  useEffect(() => {
+    const handler = () => {
+      dragCounter.current = 0
+      setDragOver(false)
+    }
+    window.addEventListener('__juceDragComplete', handler)
+    return () => window.removeEventListener('__juceDragComplete', handler)
+  }, [])
+
   useEffect(() => {
     const handler = async (e: Event) => {
+      // Belt-and-suspenders: also clear drag state here in case
+      // __juceDragComplete was missed for any reason.
+      dragCounter.current = 0
+      setDragOver(false)
+
       const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
       // Decode base64 → Uint8Array → File
       const binary = atob(data)

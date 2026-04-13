@@ -12,10 +12,11 @@ set(CMAKE_OSX_ARCHITECTURES    "arm64;x86_64" CACHE STRING "Universal binary")
 # ── JUCE ─────────────────────────────────────────────────────────────────────
 add_subdirectory(/Applications/JUCE JUCE)
 
-# ── AAX SDK ──────────────────────────────────────────────────────────────────
-set(AAX_SDK_PATH "/Users/jasonpark/Documents/Coding/BetterPlugin/aax-sdk-2-9-0"
-    CACHE PATH "Path to the Avid AAX SDK")
-juce_set_aax_sdk_path("${AAX_SDK_PATH}")
+# ── AAX SDK (optional) ───────────────────────────────────────────────────────
+set(AAX_SDK_PATH "" CACHE PATH "Path to the Avid AAX SDK (leave empty to skip AAX)")
+if(AAX_SDK_PATH AND EXISTS "${AAX_SDK_PATH}")
+  juce_set_aax_sdk_path("${AAX_SDK_PATH}")
+endif()
 
 # ── Vercel URL ────────────────────────────────────────────────────────────────
 set(COOP_APP_URL "https://better-plugin.vercel.app" CACHE STRING "CoOp web app URL")
@@ -29,7 +30,7 @@ juce_add_plugin(CoOpPlugin
     PLUGIN_MANUFACTURER_CODE    CoOp   # 4 chars
     PLUGIN_CODE                 CoAp   # 4 chars, unique per plugin
 
-    FORMATS                     AU VST3 AAX
+    FORMATS                     AU VST3
 
     PRODUCT_NAME                "CoOp"
     BUNDLE_ID                   "com.coop.plugin"

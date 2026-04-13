@@ -103,6 +103,7 @@ function CollabPageInner({ user }: Props) {
   const [searchQuery, setSearchQuery]           = useState('')
   const [notifOpen, setNotifOpen]               = useState(false)
   const [convOpen, setConvOpen]                 = useState(false)
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -125,7 +126,7 @@ function CollabPageInner({ user }: Props) {
     catch { return new Set() }
   })
 
-  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
+  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles, updateMyAvatar, updateMe } = useProfiles(client, user.id)
 
   // Ensure a profile row exists for the current user (in case signup trigger didn't run)
   useEffect(() => {
@@ -148,6 +149,21 @@ function CollabPageInner({ user }: Props) {
   const followingProfiles = useMemo(() => profilesWithStatus.filter(p => followingIds.has(p.id)), [profilesWithStatus, followingIds])
   const followerProfiles  = useMemo(() => profilesWithStatus.filter(p => followerIds.has(p.id)), [profilesWithStatus, followerIds])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
+
+  // Friend orbit viewing
+  const [friendFollowerIds, setFriendFollowerIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!viewingProfileId) { setFriendFollowerIds(new Set()); return }
+    client.from('follows').select('follower_id').eq('following_id', viewingProfileId)
+      .then(({ data }) => {
+        if (data) setFriendFollowerIds(new Set(data.map((r: { follower_id: string }) => r.follower_id)))
+      })
+  }, [viewingProfileId, client])
+  const viewingProfile = viewingProfileId ? profilesWithStatus.find(p => p.id === viewingProfileId) ?? null : null
+  const viewingFollowerProfiles = useMemo(
+    () => profilesWithStatus.filter(p => friendFollowerIds.has(p.id)),
+    [profilesWithStatus, friendFollowerIds]
+  )
 
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []
@@ -188,11 +204,12 @@ function CollabPageInner({ user }: Props) {
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
+  const handleViewProfile  = (id: string) => { setViewingProfileId(id) }
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
 
   const handleGoHome = () => {
-    setSelectedId(null)
+    setSelectedId(null); setViewingProfileId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
     setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
     closeSearch()
@@ -324,9 +341,11 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          {viewMode === 'default'
-            ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} />
-            : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={() => {}} onCellLeave={() => {}} />
+          {viewingProfileId && viewingProfile
+            ? <ProfilePanel supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} viewOnly />
+            : viewMode === 'default'
+              ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} />
+              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onCellHover={() => {}} onCellLeave={() => {}} />
           }
         </div>
         <div className="view cview">
@@ -345,7 +364,7 @@ function CollabPageInner({ user }: Props) {
           <DisplayPanel isDark={isDark} viewMode={viewMode} wallpaper={wallpaper} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onSetWallpaper={handleSetWallpaper} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
-          <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} />
+          <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />
         </div>
         <div className="view nsview">
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />

@@ -8,9 +8,10 @@ interface Props {
   me: Profile | null
   onClose: () => void
   onUpdated: () => void
+  onNameSaved?: (name: string) => void
 }
 
-export default function InformationPanel({ supabase, user, me, onClose, onUpdated }: Props) {
+export default function InformationPanel({ supabase, user, me, onClose, onUpdated, onNameSaved }: Props) {
   const [name, setName] = useState(me?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -44,7 +45,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
       .from('profiles').upsert({ id: user.id, display_name: name.trim() }, { onConflict: 'id' })
     setSaving(false)
     if (error) showMsg('failed: ' + error.message)
-    else { showMsg('saved'); onUpdated() }
+    else { onNameSaved?.(name.trim()); showMsg('saved'); onUpdated() }
   }
 
   const handleChangePassword = async () => {

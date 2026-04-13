@@ -625,6 +625,45 @@
   border: 1.5px solid rgba(255,255,255,0.5);
 }
 
+/* 멀티 트랙 그룹 */
+.msg-att-audio-group {
+  min-width: 160px;
+  max-width: 200px;
+  background: var(--bg3);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 2px;
+  font-family: 'DM Sans', sans-serif;
+}
+.msg-att-audio-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--t1);
+}
+.msg-att-group-chevron {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 8px;
+  color: var(--t3);
+  flex-shrink: 0;
+}
+.msg-att-group-tracks {
+  border-top: 0.5px solid var(--border);
+}
+.msg-att-group-tracks .msg-att-audio {
+  border-radius: 0;
+  margin-bottom: 0;
+  background: transparent;
+  max-width: none;
+}
+.msg-att-group-tracks .msg-att-audio + .msg-att-audio {
+  border-top: 0.5px solid var(--border);
+}
+
 /* 오디오 */
 .msg-att-audio {
   min-width: 160px;

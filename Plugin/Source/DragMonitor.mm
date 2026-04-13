@@ -26,7 +26,7 @@ static void stopDragTimer (void);
 // JuceDragHelper — NSDraggingSource + NSEvent monitor for drag-OUT
 //==============================================================================
 @interface JuceDragHelper : NSObject <NSDraggingSource>
-@property (nonatomic, strong) NSString*  filePath;
+@property (nonatomic, strong) NSArray<NSString*>* filePaths;  // one or more file paths
 @property (nonatomic, assign) NSPoint    mouseDownPos;
 @property (nonatomic, assign) BOOL       sessionStarted;
 @property (nonatomic, strong) id         monitor;      // NSEvent monitor token
@@ -64,11 +64,11 @@ static void stopDragTimer (void);
     [self disarm];
 }
 
-- (void) armWithPath:(NSString*)path
+- (void) armWithPaths:(NSArray<NSString*>*)paths
 {
     [self disarm];
 
-    self.filePath       = path;
+    self.filePaths      = paths;
     self.sessionStarted = NO;
     self.isDragging     = NO;   // explicit reset for a fresh arm
     self.mouseDownPos   = [NSEvent mouseLocation];
@@ -93,7 +93,7 @@ static void stopDragTimer (void);
                 break;
 
             case NSEventTypeLeftMouseDragged: {
-                if (s.sessionStarted || !s.filePath) break;
+                if (s.sessionStarted || s.filePaths.count == 0) break;
 
                 NSPoint cur = [NSEvent mouseLocation];
                 CGFloat dx  = cur.x - s.mouseDownPos.x;
@@ -109,29 +109,38 @@ static void stopDragTimer (void);
                 NSView* view = win.contentView;
                 if (!view) break;
 
-                NSURL*   url  = [NSURL fileURLWithPath:s.filePath];
-                NSImage* icon = [[NSWorkspace sharedWorkspace] iconForFile:s.filePath];
-                if (!icon) icon = [NSImage imageNamed:NSImageNameMultipleDocuments];
-                if (!icon) icon = [[NSImage alloc] initWithSize:NSMakeSize(32,32)];
-                [icon setSize:NSMakeSize(32, 32)];
+                NSPoint lp = [view convertPoint:[ev locationInWindow] fromView:nil];
 
-                NSPoint lp    = [view convertPoint:[ev locationInWindow] fromView:nil];
-                NSRect  frame = NSMakeRect(lp.x - 16.0, lp.y - 16.0, 32.0, 32.0);
+                // Build one NSDraggingItem per file, slightly cascaded.
+                NSMutableArray<NSDraggingItem*>* items = [NSMutableArray array];
+                for (NSUInteger i = 0; i < s.filePaths.count; i++) {
+                    NSString* fp  = s.filePaths[i];
+                    NSURL*    url = [NSURL fileURLWithPath:fp];
+                    NSImage*  ico = [[NSWorkspace sharedWorkspace] iconForFile:fp];
+                    if (!ico) ico = [NSImage imageNamed:NSImageNameMultipleDocuments];
+                    if (!ico) ico = [[NSImage alloc] initWithSize:NSMakeSize(32,32)];
+                    [ico setSize:NSMakeSize(32, 32)];
 
-                NSDraggingItem* item = [[NSDraggingItem alloc] initWithPasteboardWriter:url];
-                [item setDraggingFrame:frame contents:icon];
+                    CGFloat offsetX = (CGFloat)i * 4.0;
+                    CGFloat offsetY = (CGFloat)i * (-4.0);
+                    NSRect  frame   = NSMakeRect(lp.x - 16.0 + offsetX,
+                                                 lp.y - 16.0 + offsetY,
+                                                 32.0, 32.0);
+                    NSDraggingItem* item = [[NSDraggingItem alloc] initWithPasteboardWriter:url];
+                    [item setDraggingFrame:frame contents:ico];
+                    [items addObject:item];
+                }
 
-                // Mark session live before starting (so JS receives the event
-                // before any immediate drop event could fire).
+                // Mark session live before starting.
                 s.isDragging = YES;
                 if (s.wkView)
                     [s.wkView evaluateJavaScript:
                         @"window.dispatchEvent(new Event('__juceOutDragStart'))"
                      completionHandler:nil];
 
-                [view beginDraggingSessionWithItems:@[item] event:ev source:s];
+                [view beginDraggingSessionWithItems:items event:ev source:s];
 
-                s.filePath = nil;
+                s.filePaths = @[];
                 break;
             }
 
@@ -146,19 +155,24 @@ static void stopDragTimer (void);
     }];
 }
 
+- (void) armWithPath:(NSString*)path
+{
+    [self armWithPaths:path ? @[path] : @[]];
+}
+
 - (void) disarm
 {
     if (self.monitor) {
         [NSEvent removeMonitor:self.monitor];
         self.monitor = nil;
     }
-    self.filePath       = nil;
+    self.filePaths      = @[];
     self.sessionStarted = NO;
     // NOTE: do NOT clear isDragging here.  disarm() is called from the
     // NSEvent mouseUp handler which can fire during an active NSDraggingSession,
     // prematurely clearing the flag before the session actually ends.
     // isDragging is set NO only in draggingSession:endedAtPoint:operation: and
-    // in armWithPath: (at the start of a fresh arm).
+    // in armWithPaths: (at the start of a fresh arm).
 }
 
 @end
@@ -195,6 +209,14 @@ void DragMonitor::arm (const std::string& filePath)
 {
     NSString* path = [NSString stringWithUTF8String:filePath.c_str()];
     [(__bridge JuceDragHelper*) helper armWithPath:path];
+}
+
+void DragMonitor::armMultiple (const std::vector<std::string>& filePaths)
+{
+    NSMutableArray<NSString*>* paths = [NSMutableArray array];
+    for (const auto& p : filePaths)
+        [paths addObject:[NSString stringWithUTF8String:p.c_str()]];
+    [(__bridge JuceDragHelper*) helper armWithPaths:paths];
 }
 
 void DragMonitor::disarm()

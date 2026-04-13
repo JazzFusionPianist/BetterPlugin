@@ -9,7 +9,7 @@ export interface Profile {
   is_admin: boolean
 }
 
-export type AttachType = 'image' | 'video' | 'audio'
+export type AttachType = 'image' | 'video' | 'audio' | 'multi-audio'
 
 export interface Message {
   id: string

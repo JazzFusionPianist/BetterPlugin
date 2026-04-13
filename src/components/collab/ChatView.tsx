@@ -399,10 +399,170 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 }
 
 // ── 첨부 렌더러 ──────────────────────────────────────────────
+// ── 멀티 트랙 그룹 첨부 ──────────────────────────────────────
+interface TrackInfo { url: string; name: string }
+type GroupDragState = 'idle' | 'fetching' | 'armed' | 'imported'
+
+function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; groupUrl: string }) {
+  const [expanded, setExpanded]     = useState(false)
+  const [dragState, setDragState]   = useState<GroupDragState>('idle')
+  const [fetchedCount, setFetchedCount] = useState(0)
+  const cachedBase64s   = useRef<string[]>([])
+  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const juceBackend     = !!window.__JUCE__?.backend
+
+  // import 성공 / 취소 이벤트 수신
+  useEffect(() => {
+    const onImported = (e: Event) => {
+      if ((e as CustomEvent<{url:string}>).detail?.url !== groupUrl) return
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setDragState('imported')
+    }
+    const onCancel = (e: Event) => {
+      if ((e as CustomEvent<{url:string}>).detail?.url !== groupUrl) return
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setDragState(cachedBase64s.current.length === tracks.length ? 'imported' : 'idle')
+    }
+    window.addEventListener('__juceImported',      onImported)
+    window.addEventListener('__juceOutDragCancel', onCancel)
+    return () => {
+      window.removeEventListener('__juceImported',      onImported)
+      window.removeEventListener('__juceOutDragCancel', onCancel)
+    }
+  }, [groupUrl, tracks.length])
+
+  const armDone = () => {
+    window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url: groupUrl } }))
+    setDragState('armed')
+    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
+    armedResetTimer.current = setTimeout(() => {
+      armedResetTimer.current = null
+      setDragState(s => s === 'armed' ? 'imported' : s)
+    }, 15_000)
+  }
+
+  const handleGroupMouseDown = async (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault()
+    if (!juceBackend || dragState === 'armed' || dragState === 'fetching') return
+
+    setDragState('fetching')
+
+    // 캐시가 있으면 재다운로드 없이 바로 re-arm
+    if (dragState === 'imported' && cachedBase64s.current.length === tracks.length) {
+      const args = tracks.flatMap((t, i) => [cachedBase64s.current[i], t.name])
+      try {
+        const r = await callJuceNative('writeAudioFiles', args)
+        if (r === 'armed') armDone()
+        else setDragState('imported')
+      } catch { setDragState('imported') }
+      return
+    }
+
+    // 처음: 순차 다운로드
+    const CHUNK = 0x8000
+    const b64s: string[] = []
+    setFetchedCount(0)
+
+    for (let i = 0; i < tracks.length; i++) {
+      try {
+        const res = await fetch(tracks[i].url)
+        if (!res.ok) { setDragState('idle'); return }
+        const chunks: Uint8Array[] = []
+        let received = 0
+        const reader = res.body!.getReader()
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value); received += value.length
+        }
+        const merged = new Uint8Array(received)
+        let pos = 0
+        for (const c of chunks) { merged.set(c, pos); pos += c.length }
+        let b64 = ''
+        for (let j = 0; j < merged.length; j += CHUNK)
+          b64 += String.fromCharCode(...merged.subarray(j, j + CHUNK))
+        b64s.push(btoa(b64))
+        setFetchedCount(i + 1)
+      } catch { setDragState('idle'); return }
+    }
+
+    cachedBase64s.current = b64s
+    const args = tracks.flatMap((t, i) => [b64s[i], t.name])
+    try {
+      const r = await callJuceNative('writeAudioFiles', args)
+      if (r === 'armed') armDone()
+      else setDragState('idle')
+    } catch { setDragState('idle') }
+  }
+
+  const isReady    = dragState === 'armed' || dragState === 'imported'
+  const isFetching = dragState === 'fetching'
+  const btnLabel   = isFetching
+    ? (fetchedCount > 0 ? `${fetchedCount}/${tracks.length}…` : 'Preparing…')
+    : (isReady ? 'Drag to track ↗' : 'Import to DAW')
+
+  return (
+    <div className="msg-att-audio-group">
+      <div className="msg-att-audio-group-header">
+        {/* 음표 아이콘 */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+        <span className="msg-att-audio-name">{tracks.length} Tracks</span>
+
+        {juceBackend && (
+          <button
+            className={`msg-att-import-btn${isReady ? ' ready' : ''}`}
+            onMouseDown={handleGroupMouseDown}
+            onClick={e => e.stopPropagation()}
+          >
+            {isFetching && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+              </svg>
+            )}
+            {!isFetching && !isReady && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
+              </svg>
+            )}
+            {isReady && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
+              </svg>
+            )}
+            <span>{btnLabel}</span>
+          </button>
+        )}
+
+        <button
+          className="msg-att-group-chevron"
+          onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
+        >
+          {expanded ? '▲' : '▼'}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="msg-att-group-tracks">
+          {tracks.map(t => (
+            <AudioAttachment key={t.url} url={t.url} name={t.name} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AttachmentView({ url, type, name }: { url: string; type: AttachType; name: string }) {
   if (type === 'image') return <ImageAttachment url={url} name={name} />
   if (type === 'video') return <VideoAttachment url={url} />
   if (type === 'audio') return <AudioAttachment url={url} name={name} />
+  if (type === 'multi-audio') {
+    let tracks: TrackInfo[] = []
+    try { tracks = JSON.parse(url) } catch {}
+    if (tracks.length > 0) return <AudioGroupAttachment tracks={tracks} groupUrl={url} />
+  }
   return null
 }
 
@@ -624,10 +784,35 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   }
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>, type: AttachType) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
     setMenuOpen(false)
 
+    // 오디오 여러 개 선택 → 멀티 트랙 메시지
+    if (type === 'audio' && files.length > 1) {
+      setUploading(true)
+      const uploaded: TrackInfo[] = []
+      for (const file of files) {
+        if (file.size > MAX_SIZE) { showErr(`${file.name}: too large (max ${MAX_SIZE_MB}MB)`); continue }
+        const att = await uploadFile(file, 'audio')
+        if (att) uploaded.push({ url: att.url, name: att.name })
+      }
+      setUploading(false)
+      if (uploaded.length === 1) {
+        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
+      } else if (uploaded.length > 1) {
+        await onSend('', {
+          url:  JSON.stringify(uploaded),
+          type: 'multi-audio',
+          name: `${uploaded.length} Tracks`,
+        })
+      }
+      if (e.target) e.target.value = ''
+      return
+    }
+
+    // 단일 파일
+    const file = files[0]
     if (file.size > MAX_SIZE) {
       showErr(`File too large (max ${MAX_SIZE_MB}MB)`)
       if (e.target) e.target.value = ''
@@ -719,11 +904,40 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     isCancelDrag.current = false
     setDragOver(false)
 
-    // C++ returns NO from performDragOperation: for own drag returning, so JS
-    // 'drop' should never fire.  Belt-and-suspenders: bail out if cancel was set.
     if (wasCancel || outDragActive.current) return
 
-    const file = e.dataTransfer.files?.[0]
+    const files = Array.from(e.dataTransfer.files ?? [])
+    if (files.length === 0) return
+
+    const audioFiles = files.filter(f => f.type.startsWith('audio/'))
+    const otherFiles = files.filter(f => !f.type.startsWith('audio/'))
+
+    // 오디오 여러 개 → 멀티 트랙 메시지 하나로
+    if (audioFiles.length > 1) {
+      setUploading(true)
+      const uploaded: TrackInfo[] = []
+      for (const file of audioFiles) {
+        if (file.size > MAX_SIZE) { showErr(`${file.name}: too large (max ${MAX_SIZE_MB}MB)`); continue }
+        const att = await uploadFile(file, 'audio')
+        if (att) uploaded.push({ url: att.url, name: att.name })
+      }
+      setUploading(false)
+      if (uploaded.length === 1) {
+        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
+      } else if (uploaded.length > 1) {
+        await onSend('', {
+          url:  JSON.stringify(uploaded),
+          type: 'multi-audio',
+          name: `${uploaded.length} Tracks`,
+        })
+      }
+      // 오디오 외 파일이 섞여 있으면 각각 처리
+      for (const f of otherFiles) await processDroppedFile(f)
+      return
+    }
+
+    // 단일 파일 (기존 동작)
+    const file = files[0]
     if (file) await processDroppedFile(file)
   }
 
@@ -858,7 +1072,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
         {/* 숨겨진 파일 입력들 */}
         <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'image')} />
         <input ref={vidRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'video')} />
-        <input ref={audRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'audio')} />
+        <input ref={audRef} type="file" accept="audio/*" multiple style={{ display: 'none' }} onChange={e => handleFile(e, 'audio')} />
 
         {/* + 버튼 */}
         <button

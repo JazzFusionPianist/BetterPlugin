@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <functional>
 
 //==============================================================================
@@ -25,8 +26,9 @@ public:
     ~DragMonitor();
 
     // ── drag-out ─────────────────────────────────────────────────────────────
-    void arm    (const std::string& filePath);
-    void disarm ();
+    void arm         (const std::string& filePath);
+    void armMultiple (const std::vector<std::string>& filePaths);
+    void disarm      ();
 
     // ── drop-in + keyboard ───────────────────────────────────────────────────
     // Pass the root NSView of the JUCE component peer.

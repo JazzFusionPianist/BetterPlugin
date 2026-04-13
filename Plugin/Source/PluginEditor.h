@@ -23,9 +23,10 @@ private:
 
     juce::File downloadToTemp (const juce::String& url, const juce::String& name);
 
-    void handlePrefetch      (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
-    void handleStartDrag     (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
-    void handleWriteAudioFile(const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handlePrefetch       (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleStartDrag      (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleWriteAudioFile (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleWriteAudioFiles(const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     // Retries setupDropHandling until WKWebView is available (lazy init).
     void trySetupDropHandling();

@@ -136,6 +136,12 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
                                juce::WebBrowserComponent::NativeFunctionCompletion completion)
                        {
                            handleWriteAudioFile (args, std::move (completion));
+                       })
+                   .withNativeFunction ("writeAudioFiles",
+                       [this] (const juce::var& args,
+                               juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                       {
+                           handleWriteAudioFiles (args, std::move (completion));
                        }))
 {
     addAndMakeVisible (browser);
@@ -350,6 +356,67 @@ void CoOpAudioProcessorEditor::handleWriteAudioFile (const juce::var& args,
             dragArmed       = true;
             dragMonitor.arm (tmp.getFullPathName().toStdString());
 
+            (*compPtr) (juce::var ("armed"));
+            browser.evaluateJavascript (
+                "if(window.__juceStartDragComplete)window.__juceStartDragComplete('armed')",
+                [] (juce::WebBrowserComponent::EvaluationResult) {});
+        });
+    }).detach();
+}
+
+//==============================================================================
+// writeAudioFiles — multi-track version: JS passes [b64_0, name_0, b64_1, name_1, …]
+//                   Decodes all files, writes them, arms multi-file drag.
+//==============================================================================
+void CoOpAudioProcessorEditor::handleWriteAudioFiles (const juce::var& args,
+                                                       juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    // Must be a flat array with an even number of elements (pairs of base64, name)
+    if (! args.isArray() || args.size() < 2 || (args.size() % 2) != 0)
+    {
+        completion (juce::var ("error:args"));
+        return;
+    }
+
+    struct Entry { juce::String base64; juce::String name; };
+    std::vector<Entry> entries;
+    for (int i = 0; i + 1 < args.size(); i += 2)
+        entries.push_back ({ args[i].toString(), args[i + 1].toString() });
+
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+
+    std::thread ([this, entries, compPtr]
+    {
+        std::vector<juce::File> files;
+
+        for (const auto& e : entries)
+        {
+            juce::MemoryBlock data;
+            if (! decodeBase64 (e.base64, data))
+            {
+                juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error:decode")); });
+                return;
+            }
+
+            juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                 .getChildFile ("CoOp_" + e.name);
+            if (! tmp.replaceWithData (data.getData(), data.getSize()))
+            {
+                juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error:write")); });
+                return;
+            }
+
+            files.push_back (tmp);
+        }
+
+        juce::MessageManager::callAsync ([this, files, compPtr]
+        {
+            std::vector<std::string> paths;
+            paths.reserve (files.size());
+            for (const auto& f : files)
+                paths.push_back (f.getFullPathName().toStdString());
+
+            dragMonitor.armMultiple (paths);
             (*compPtr) (juce::var ("armed"));
             browser.evaluateJavascript (
                 "if(window.__juceStartDragComplete)window.__juceStartDragComplete('armed')",

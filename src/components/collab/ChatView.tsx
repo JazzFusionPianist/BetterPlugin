@@ -138,7 +138,7 @@ function callJuceNative(name: string, params: unknown[]): Promise<string> {
   })
 }
 
-type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback'
+type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback' | 'imported'
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
 function AudioAttachment({ url, name }: { url: string; name: string }) {
@@ -148,6 +148,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const [duration, setDuration]   = useState(0)
   const [dragState, setDragState] = useState<DragState>('idle')
   const [dlBytes, setDlBytes]     = useState(0)
+  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [totalBytes, setTotalBytes] = useState(-1)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -164,6 +165,31 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     return () => window.removeEventListener('__juceProgress', onProgress)
   }, [])
 
+  // DAW 임포트 성공 → 'imported' 상태 유지 (재드래그 가능)
+  // 드래그 취소 → 즉시 'idle' 복원 (바로 재드래그 가능)
+  useEffect(() => {
+    const onImported = (e: Event) => {
+      const evUrl = (e as CustomEvent<{ url: string }>).detail?.url
+      if (evUrl !== url) return
+      // 15s 자동 리셋 타이머 취소 — imported 상태는 영구 유지
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setDragState('imported')
+    }
+    const onCancel = (e: Event) => {
+      const evUrl = (e as CustomEvent<{ url: string }>).detail?.url
+      if (evUrl !== url) return
+      // 15s 타이머 취소 후 즉시 idle 복원
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setDragState('idle')
+    }
+    window.addEventListener('__juceImported',      onImported)
+    window.addEventListener('__juceOutDragCancel', onCancel)
+    return () => {
+      window.removeEventListener('__juceImported',      onImported)
+      window.removeEventListener('__juceOutDragCancel', onCancel)
+    }
+  }, [url])
+
   // Prefetch disabled: causes a second simultaneous download that Supabase
   // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
   const handleMouseEnter = () => {}
@@ -174,8 +200,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     e.preventDefault()
 
     if (juceBackend) {
-      // 이미 armed: C++가 준비돼있음 — 그냥 드래그하면 됨
+      // 이미 armed: C++가 준비돼있음 — 그냥 드래그하면 됨 (re-arm 불필요)
+      // 'imported' / 'idle' / 'fallback': 처음부터 다운로드+arm 시작
       if (dragState === 'armed') return
+      if (dragState === 'fetching') return   // 이미 진행 중
 
       setDlBytes(0)
       setTotalBytes(-1)
@@ -190,10 +218,14 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           // Tell ChatView's drop zone that a drag-out is imminent.
           // Fires in JS context (synchronous) — more reliable than the C++
           // evaluateJavaScript: path which may be deferred during drag run loop.
-          window.dispatchEvent(new Event('__localDragArmed'))
+          window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url } }))
           setDragState('armed')
-          // 15초 후 자동 리셋 (드래그 안 했을 경우)
-          setTimeout(() => setDragState(s => s === 'armed' ? 'idle' : s), 15_000)
+          // 15초 후 자동 리셋 (드래그 안 했을 경우) — ref로 관리해서 취소 가능
+          if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
+          armedResetTimer.current = setTimeout(() => {
+            armedResetTimer.current = null
+            setDragState(s => s === 'armed' ? 'idle' : s)
+          }, 15_000)
         } else {
           setDragState('idle')
         }
@@ -265,6 +297,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     armed:    'Drag to track ↗',
     dragging: 'Dragging…',
     fallback: 'Link copied!',
+    imported: 'Drag to track ↗',
   }
 
   const toggle = () => {
@@ -291,7 +324,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
         {/* Import / Drag 버튼 */}
         <button
-          className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' ? ' ready' : ''}`}
+          className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' || dragState === 'imported' ? ' ready' : ''}`}
           onMouseEnter={handleMouseEnter}
           onMouseDown={handleMouseDown}
           onClick={e => e.stopPropagation()}
@@ -307,7 +340,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
               <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
             </svg>
           )}
-          {(dragState === 'armed' || dragState === 'dragging') && (
+          {(dragState === 'armed' || dragState === 'dragging' || dragState === 'imported') && (
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
             </svg>
@@ -369,6 +402,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const menuRef = useRef<HTMLDivElement>(null)
   const dragCounter          = useRef(0)
   const outDragActive        = useRef(false)  // true while our own drag is "out"
+  const outDragArmedUrl      = useRef<string | null>(null)  // URL of the currently armed drag
   const isCancelDrag         = useRef(false)  // set by C++ __juceDragEnterCancel
   const juceDragIsActive     = useRef(false)  // true while C++ is managing the overlay
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -426,7 +460,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // (which fires via evaluateJavaScript: during a drag run-loop mode and may
   // be deferred).  Sets outDragActive immediately in JS context.
   useEffect(() => {
-    const handler = () => { outDragActive.current = true }
+    const handler = (e: Event) => {
+      outDragActive.current = true
+      outDragArmedUrl.current = (e as CustomEvent<{ url: string }>).detail?.url ?? null
+    }
     window.addEventListener('__localDragArmed', handler)
     return () => window.removeEventListener('__localDragArmed', handler)
   }, [])
@@ -494,22 +531,31 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   //  op='none'  → user released without a target → clear outDragActive immediately
   //  op='copy'  → Logic (or other target) accepted the file.  Logic may immediately
   //               start its own NSDraggingSession with our audio, so keep
-  //               outDragActive=true for 5 s to catch it coming back.
+  //               outDragActive=true for 30 s to catch it coming back.
   useEffect(() => {
     const handler = (e: Event) => {
-      const op = (e as CustomEvent<{ op: string }>).detail?.op ?? 'none'
+      const op  = (e as CustomEvent<{ op: string }>).detail?.op ?? 'none'
+      const armedUrl = outDragArmedUrl.current
       isCancelDrag.current = false
       dragCounter.current  = 0
       setDragOver(false)
 
       if (op === 'none') {
-        outDragActive.current = false
+        // 취소: outDragActive 즉시 해제, 해당 AudioAttachment를 idle로 복원
+        outDragActive.current    = false
+        outDragArmedUrl.current  = null
         if (outDragCooldownTimer.current) { clearTimeout(outDragCooldownTimer.current); outDragCooldownTimer.current = null }
+        if (armedUrl)
+          window.dispatchEvent(new CustomEvent('__juceOutDragCancel', { detail: { url: armedUrl } }))
       } else {
-        // Keep outDragActive for 5 s — user might drag Logic's copy back to cancel
+        // 성공: outDragActive를 30s 유지(Logic이 바로 drag를 시작할 수 있음)
+        // 해당 AudioAttachment를 'imported' 상태로 전환 (버튼 유지)
+        if (armedUrl)
+          window.dispatchEvent(new CustomEvent('__juceImported', { detail: { url: armedUrl } }))
         if (outDragCooldownTimer.current) clearTimeout(outDragCooldownTimer.current)
         outDragCooldownTimer.current = setTimeout(() => {
-          outDragActive.current = false
+          outDragActive.current   = false
+          outDragArmedUrl.current = null
           outDragCooldownTimer.current = null
         }, 30_000)   // 30 s: Logic may start its own drag and the user can take time
       }

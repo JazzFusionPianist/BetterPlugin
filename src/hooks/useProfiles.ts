@@ -31,12 +31,14 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
     let { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin')
+      .limit(10000)
 
     // Fall back to basic columns if newer columns don't exist yet
     if (error) {
       const res = await supabase
         .from('profiles')
         .select('id, display_name, avatar_color')
+        .limit(10000)
       data = res.data as typeof data
     }
 

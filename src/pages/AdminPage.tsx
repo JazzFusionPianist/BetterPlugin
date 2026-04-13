@@ -257,6 +257,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
       .from('profiles')
       .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin, updated_at')
       .order('updated_at', { ascending: false })
+      .limit(10000)
     if (data) setProfiles(data as AdminProfile[])
     setLoading(false)
   }, [client])

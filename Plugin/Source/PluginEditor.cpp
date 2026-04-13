@@ -22,15 +22,20 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
     juce::FileOutputStream out (tmp);
     if (! out.openedOk()) return juce::File{};
 
-    const juce::int64 total = stream->getTotalLength();
-    juce::int64 downloaded  = 0;
-    int         lastReported = -1;
+    const juce::int64 total      = stream->getTotalLength();
+    juce::int64       downloaded = 0;
+    int               lastReported = -1;
+    const juce::int64 deadline   = juce::Time::currentTimeMillis() + 45000; // 45s hard limit
 
     constexpr int chunkSize = 16384;
     juce::HeapBlock<char> buf (chunkSize);
 
     while (! stream->isExhausted())
     {
+        // Abort if total download time exceeds 45 seconds
+        if (juce::Time::currentTimeMillis() > deadline)
+            return juce::File{};
+
         const int bytesRead = stream->read (buf.getData(), chunkSize);
         if (bytesRead <= 0) break;
 
@@ -156,6 +161,7 @@ void CoOpAudioProcessorEditor::handleStartDrag (const juce::var& args,
     std::thread ([this, url, name, compPtr] {
         auto file = downloadToTemp (url, name);
         juce::MessageManager::callAsync ([this, file, name, compPtr] {
+            juce::String result;
             if (file.existsAsFile())
             {
                 cachedFile      = file;
@@ -163,12 +169,21 @@ void CoOpAudioProcessorEditor::handleStartDrag (const juce::var& args,
                 cachedName      = name;
                 pendingDragFile = file;
                 dragArmed       = true;
-                (*compPtr) (juce::var ("armed"));
+                result          = "armed";
             }
             else
             {
-                (*compPtr) (juce::var ("error"));
+                result = "error";
             }
+
+            // Primary path: call NativeFunctionCompletion to resolve the JS Promise
+            (*compPtr) (juce::var (result));
+
+            // Fallback path: directly invoke JS callback in case the Promise
+            // resolution is dropped by JUCE internals (observed in some builds)
+            juce::String script = "if(window.__juceStartDragComplete)"
+                                  "window.__juceStartDragComplete('" + result + "')";
+            browser.evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});
         });
     }).detach();
 }

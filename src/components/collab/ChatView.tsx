@@ -149,10 +149,23 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       setDlBytes(0)
       setTotalBytes(-1)
       setDragState('fetching')
-      const timer = setTimeout(() => setDragState('idle'), 60_000)
+
+      const finish = (result: string) => {
+        clearTimeout(timer)
+        delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
+        setDragState(result === 'armed' ? 'dragging' : 'idle')
+      }
+
+      // 60s fallback: reset if C++ never responds
+      const timer = setTimeout(() => finish('error'), 60_000)
+
+      // Direct callback: C++ calls this via evaluateJavascript (more reliable than Promise)
+      ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
+
+      // Also listen via Promise in case direct callback isn't needed
       juceBackend.startAudioDrag(url, name)
-        .then(result => { clearTimeout(timer); setDragState(result === 'armed' ? 'dragging' : 'idle') })
-        .catch(() => { clearTimeout(timer); setDragState('idle') })
+        .then(result => finish(result))
+        .catch(() => finish('error'))
       return
     }
 

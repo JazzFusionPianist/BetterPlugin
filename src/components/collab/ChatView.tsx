@@ -363,8 +363,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const vidRef  = useRef<HTMLInputElement>(null)
   const audRef  = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const dragCounter  = useRef(0)
-  const outDragActive = useRef(false)
+  const dragCounter    = useRef(0)
+  const outDragActive  = useRef(false)   // set by __juceOutDragStart (belt-and-suspenders)
+  const isCancelDrag   = useRef(false)   // set by __juceDragEnterCancel (reliable path)
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -409,10 +410,29 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceFileDrop', handler)
   }, [])
 
+  // __juceDragEnterCancel: C++ fires this when our OWN audio drag-out re-enters
+  // the chat view (NSDraggingSession returning home).  JS dragenter timing is
+  // unreliable during a drag session, so C++ is the authoritative source here.
+  useEffect(() => {
+    const handler = () => {
+      isCancelDrag.current = true
+      setDragType('cancel')
+      dragCounter.current = 1
+      setDragOver(true)
+    }
+    window.addEventListener('__juceDragEnterCancel', handler)
+    return () => window.removeEventListener('__juceDragEnterCancel', handler)
+  }, [])
+
   // __juceDragEnter: C++ fires this when a Logic region drag enters WKWebView
   // (JS dragenter never fires for NSFilePromise drags)
   useEffect(() => {
-    const handler = () => { setDragType('attach'); dragCounter.current = 1; setDragOver(true) }
+    const handler = () => {
+      isCancelDrag.current = false
+      setDragType('attach')
+      dragCounter.current = 1
+      setDragOver(true)
+    }
     window.addEventListener('__juceDragEnter', handler)
     return () => window.removeEventListener('__juceDragEnter', handler)
   }, [])
@@ -433,7 +453,12 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
 
   // __juceOutDragEnd: NSDraggingSession ended (dropped or cancelled)
   useEffect(() => {
-    const handler = () => { outDragActive.current = false; dragCounter.current = 0; setDragOver(false) }
+    const handler = () => {
+      outDragActive.current = false
+      isCancelDrag.current  = false
+      dragCounter.current   = 0
+      setDragOver(false)
+    }
     window.addEventListener('__juceOutDragEnd', handler)
     return () => window.removeEventListener('__juceOutDragEnd', handler)
   }, [])
@@ -537,7 +562,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     dragCounter.current++
-    setDragType(outDragActive.current ? 'cancel' : 'attach')
+    // Only set 'attach' if C++ hasn't already marked this as a cancel drag.
+    // (isCancelDrag is set by __juceDragEnterCancel which fires before JS dragenter)
+    if (!isCancelDrag.current) setDragType('attach')
     setDragOver(true)
   }
 
@@ -556,10 +583,13 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     dragCounter.current = 0
+    const wasCancel = isCancelDrag.current
+    isCancelDrag.current = false
     setDragOver(false)
 
-    // If this is our own drag-out returning home, treat as cancel — don't attach
-    if (outDragActive.current) return
+    // C++ returns NO from performDragOperation: for own drag returning, so JS
+    // 'drop' should never fire.  Belt-and-suspenders: bail out if cancel was set.
+    if (wasCancel || outDragActive.current) return
 
     const file = e.dataTransfer.files?.[0]
     if (file) await processDroppedFile(file)

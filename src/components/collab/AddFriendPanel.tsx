@@ -53,7 +53,7 @@ export default function AddFriendPanel({
 
   const results = query.trim()
     ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase()))
-    : allProfiles
+    : []
 
   return (
     <>
@@ -82,7 +82,7 @@ export default function AddFriendPanel({
       <div className="af-list">
         {results.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 32 }}>
-            {query ? 'No results' : 'No users found'}
+            {query.trim() ? 'No results' : 'Search for someone to follow'}
           </div>
         )}
         {results.map(p => {

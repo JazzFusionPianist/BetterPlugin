@@ -219,7 +219,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           let b64 = ''
           for (let i = 0; i < merged.length; i += CHUNK)
             b64 += String.fromCharCode(...merged.subarray(i, i + CHUNK))
-          const base64 = btoa(b64)
+          // JUCE's convertFromBase64 returns false on '=' padding — strip it
+          const base64 = btoa(b64).replace(/=/g, '')
 
           // Hand off to C++: decode + write to temp file + arm drag
           const result = await juceBackend.writeAudioFile(base64, name)

@@ -314,7 +314,20 @@ void CoOpAudioProcessorEditor::onMouseUp (const juce::MouseEvent&)
 void CoOpAudioProcessorEditor::handleWriteAudioFile (const juce::var& args,
                                                       juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    if (! args.isArray() || args.size() < 2) { completion (juce::var ("error")); return; }
+    // ── Arg check ──────────────────────────────────────────────
+    if (! args.isArray() || args.size() < 2)
+    {
+        juce::String msg = "writeAudioFile bad args: isArray="
+                         + juce::String (args.isArray() ? 1 : 0)
+                         + " size=" + juce::String (args.isArray() ? (int) args.size() : -1);
+        auto compPtr2 = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+        juce::MessageManager::callAsync ([this, msg, compPtr2] {
+            browser.evaluateJavascript ("alert(" + msg.quoted() + ")",
+                                        [] (juce::WebBrowserComponent::EvaluationResult) {});
+            (*compPtr2) (juce::var ("error:args"));
+        });
+        return;
+    }
 
     juce::String base64 = args[0].toString();
     juce::String name   = args[1].toString();
@@ -322,22 +335,36 @@ void CoOpAudioProcessorEditor::handleWriteAudioFile (const juce::var& args,
     auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
 
     std::thread ([this, base64, name, compPtr] {
+        // ── Decode ─────────────────────────────────────────────
         juce::MemoryBlock data;
         if (! decodeBase64 (base64, data))
         {
-            juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error")); });
+            juce::String msg = "writeAudioFile decode failed: b64len=" + juce::String (base64.length());
+            juce::MessageManager::callAsync ([this, msg, compPtr] {
+                browser.evaluateJavascript ("alert(" + msg.quoted() + ")",
+                                            [] (juce::WebBrowserComponent::EvaluationResult) {});
+                (*compPtr) (juce::var ("error:decode"));
+            });
             return;
         }
 
+        // ── Write ──────────────────────────────────────────────
         juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
                              .getChildFile ("CoOp_" + name);
 
         if (! tmp.replaceWithData (data.getData(), data.getSize()))
         {
-            juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error")); });
+            juce::String msg = "writeAudioFile write failed: dataSize=" + juce::String ((int) data.getSize())
+                             + " path=" + tmp.getFullPathName();
+            juce::MessageManager::callAsync ([this, msg, compPtr] {
+                browser.evaluateJavascript ("alert(" + msg.quoted() + ")",
+                                            [] (juce::WebBrowserComponent::EvaluationResult) {});
+                (*compPtr) (juce::var ("error:write"));
+            });
             return;
         }
 
+        // ── Success ────────────────────────────────────────────
         juce::MessageManager::callAsync ([this, tmp, name, compPtr] {
             cachedFile      = tmp;
             cachedName      = name;

@@ -367,11 +367,12 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const vidRef  = useRef<HTMLInputElement>(null)
   const audRef  = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const dragCounter         = useRef(0)
-  const outDragActive       = useRef(false)  // true while our own drag is "out"
-  const isCancelDrag        = useRef(false)  // set by C++ __juceDragEnterCancel
-  const dragExitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dragCounter          = useRef(0)
+  const outDragActive        = useRef(false)  // true while our own drag is "out"
+  const isCancelDrag         = useRef(false)  // set by C++ __juceDragEnterCancel
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Note: JS-level drag-exit debounce removed — C++ now does dispatch_after(250ms)
+  // on draggingExited: and cancels it from draggingEntered:/draggingUpdated:
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -430,11 +431,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   }, [])
 
   // __juceDragEnterCancel: C++ fires this when our OWN audio drag-out re-enters
-  // the chat view (NSDraggingSession returning home).  JS dragenter timing is
-  // unreliable during a drag session, so C++ is the authoritative source here.
+  // the chat view (NSDraggingSession still active, gDragHelper.isDragging=YES).
+  // Also fired every 100 ms from draggingUpdated: as a keep-alive heartbeat.
   useEffect(() => {
     const handler = () => {
-      if (dragExitTimer.current) { clearTimeout(dragExitTimer.current); dragExitTimer.current = null }
       isCancelDrag.current = true
       setDragType('cancel')
       dragCounter.current = 1
@@ -444,13 +444,20 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceDragEnterCancel', handler)
   }, [])
 
-  // __juceDragEnter: C++ fires this when a Logic region drag enters WKWebView
-  // (JS dragenter never fires for NSFilePromise drags)
+  // __juceDragEnter: C++ fires this for Logic region drags (or when our drag
+  // was taken over by Logic — isDragging=NO but outDragActive still true).
+  // Also fired every 100 ms from draggingUpdated: as a keep-alive heartbeat.
   useEffect(() => {
     const handler = () => {
-      if (dragExitTimer.current) { clearTimeout(dragExitTimer.current); dragExitTimer.current = null }
-      isCancelDrag.current = false
-      setDragType('attach')
+      // If we recently dragged something out (Logic took it and started its
+      // own session), treat the returning drag as a cancel.
+      if (outDragActive.current) {
+        isCancelDrag.current = true
+        setDragType('cancel')
+      } else {
+        isCancelDrag.current = false
+        setDragType('attach')
+      }
       dragCounter.current = 1
       setDragOver(true)
     }
@@ -458,21 +465,12 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceDragEnter', handler)
   }, [])
 
-  // __juceDragExit: C++ fires this when a Logic region (or own) drag leaves.
-  // Debounced 150 ms: draggingExited: can fire spuriously as the drag moves
-  // between nested WKContentView subviews, causing a momentary flicker.
-  // __juceDragEnter / __juceDragEnterCancel cancels the timer if it fires
-  // before the delay expires, keeping the overlay visible.
+  // __juceDragExit: C++ fires this after a 250 ms dispatch_after delay.
+  // The delay is cancelled at the C++ level by draggingEntered:/draggingUpdated:
+  // so spurious sub-view crossings never reach JS.  When this event arrives
+  // in JS, the drag has truly left — hide the overlay immediately.
   useEffect(() => {
-    const handler = () => {
-      if (dragExitTimer.current) clearTimeout(dragExitTimer.current)
-      dragExitTimer.current = setTimeout(() => {
-        dragCounter.current = 0
-        setDragOver(false)
-        dragExitTimer.current = null
-      }, 200)  // 200 ms: draggingUpdated: keep-alive fires every 100 ms, so
-               // if no update arrives within 200 ms the drag has truly left
-    }
+    const handler = () => { dragCounter.current = 0; setDragOver(false) }
     window.addEventListener('__juceDragExit', handler)
     return () => window.removeEventListener('__juceDragExit', handler)
   }, [])

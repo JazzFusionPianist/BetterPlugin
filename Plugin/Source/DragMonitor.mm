@@ -228,6 +228,19 @@ static IMP            gOrigDraggingUpdated = nil;
 static BOOL           gSwizzleInstalled    = NO;
 static NSTimeInterval gLastDragUpdateFire  = 0;   // throttle for draggingUpdated:
 
+// Pending deferred __juceDragExit dispatch_block.  Cancelled whenever
+// draggingEntered: or draggingUpdated: fires, so spurious draggingExited:
+// calls caused by sub-view boundaries don't flicker the overlay.
+static dispatch_block_t gPendingDragExitBlock = nil;
+
+static void cancelPendingDragExit (void)
+{
+    if (gPendingDragExitBlock) {
+        dispatch_block_cancel (gPendingDragExitBlock);
+        gPendingDragExitBlock = nil;
+    }
+}
+
 // ── View search helpers ───────────────────────────────────────────────────────
 static WKWebView* findWKWebView (NSView* view)
 {
@@ -351,6 +364,9 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
+    // A (re-)entry always cancels any pending deferred exit.
+    cancelPendingDragExit();
+
     WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
 
     if (gDragHelper && gDragHelper.isDragging)
@@ -376,7 +392,12 @@ static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
     return NSDragOperationCopy;
 }
 
-// draggingExited: — hides the overlay when any recognised drag leaves.
+// draggingExited: — schedules a deferred __juceDragExit (250 ms).
+//
+// draggingExited: fires spuriously when the drag crosses internal sub-view
+// boundaries within WKContentView — the drag hasn't actually left the web
+// view, it just entered a child view.  By deferring the JS event, we give
+// draggingEntered: / draggingUpdated: a chance to cancel it before it fires.
 static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 {
     WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
@@ -384,10 +405,22 @@ static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
     BOOL logicDrag = info && isLogicRegionDrag (info.draggingPasteboard);
 
+    cancelPendingDragExit();   // reset any previous deferred exit
+
     if ((ownDrag || logicDrag) && wkv)
-        [wkv evaluateJavaScript:
-            @"window.dispatchEvent(new Event('__juceDragExit'))"
-         completionHandler:nil];
+    {
+        __weak WKWebView* weakWkv = wkv;
+        gPendingDragExitBlock = dispatch_block_create (
+            DISPATCH_BLOCK_INHERIT_QOS_CLASS, ^{
+                [weakWkv evaluateJavaScript:
+                    @"window.dispatchEvent(new Event('__juceDragExit'))"
+                 completionHandler:nil];
+                gPendingDragExitBlock = nil;
+            });
+        dispatch_after (dispatch_time (DISPATCH_TIME_NOW,
+                                       (int64_t)(250 * NSEC_PER_MSEC)),
+                        dispatch_get_main_queue(), gPendingDragExitBlock);
+    }
 
     if (gOrigDraggingExited)
         ((void(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingExited)
@@ -404,8 +437,11 @@ static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation coopDraggingUpdated (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
+    // Any movement cancels the deferred exit — drag is still over the view.
+    cancelPendingDragExit();
+
     NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-    if (now - gLastDragUpdateFire >= 0.10)   // 10 Hz throttle
+    if (now - gLastDragUpdateFire >= 0.10)   // 10 Hz throttle for JS events
     {
         gLastDragUpdateFire = now;
         WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;

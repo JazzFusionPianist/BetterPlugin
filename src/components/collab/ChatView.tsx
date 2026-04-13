@@ -123,13 +123,15 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   const juceBackend = window.__JUCE__?.backend
 
-  // C++에서 진행률 업데이트 수신: (downloaded bytes, total bytes or -1)
+  // C++에서 진행률 업데이트 수신 (CustomEvent → 여러 컴포넌트 동시 수신 가능)
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__juceProgress = (dl: number, tot: number) => {
+    const onProgress = (e: Event) => {
+      const { dl, tot } = (e as CustomEvent<{ dl: number; tot: number }>).detail
       setDlBytes(dl)
       setTotalBytes(tot)
     }
-    return () => { delete (window as unknown as Record<string, unknown>).__juceProgress }
+    window.addEventListener('__juceProgress', onProgress)
+    return () => window.removeEventListener('__juceProgress', onProgress)
   }, [])
 
   // 마우스 올리면 조용히 파일 프리패치 (UI 상태 변화 없음)
@@ -147,9 +149,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       setDlBytes(0)
       setTotalBytes(-1)
       setDragState('fetching')
+      const timer = setTimeout(() => setDragState('idle'), 60_000)
       juceBackend.startAudioDrag(url, name)
-        .then(result => { setDragState(result === 'armed' ? 'dragging' : 'idle') })
-        .catch(() => { setDragState('idle') })
+        .then(result => { clearTimeout(timer); setDragState(result === 'armed' ? 'dragging' : 'idle') })
+        .catch(() => { clearTimeout(timer); setDragState('idle') })
       return
     }
 

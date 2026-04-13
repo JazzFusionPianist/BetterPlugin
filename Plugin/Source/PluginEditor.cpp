@@ -45,9 +45,9 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
         if (reportVal != lastReported)
         {
             lastReported = reportVal;
-            juce::String script = "if(window.__juceProgress)window.__juceProgress("
-                                  + juce::String (downloaded) + ","
-                                  + juce::String (total) + ")";
+            juce::String script = "window.dispatchEvent(new CustomEvent('__juceProgress',"
+                                  "{detail:{dl:" + juce::String (downloaded)
+                                  + ",tot:" + juce::String (total) + "}}))";
             juce::MessageManager::callAsync ([this, script] {
                 browser.evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});
             });

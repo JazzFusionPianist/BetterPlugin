@@ -180,10 +180,10 @@ function CollabPageInner({ user }: Props) {
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const closeAllPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() }
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeAllPanels(); setAddFriendOpen(false) } return !prev })
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeAllPanels(); setNotifOpen(false); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
-  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeAllPanels(); setConvOpen(false) } return !prev })
+  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }

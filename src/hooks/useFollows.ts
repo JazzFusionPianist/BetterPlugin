@@ -1,17 +1,49 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+const PAGE_SIZE = 1000
+
+async function fetchAllRows<T>(
+  query: () => ReturnType<ReturnType<SupabaseClient['from']>['select']>,
+  supabase: SupabaseClient,
+  table: string,
+  selectCol: string,
+  filterCol: string,
+  filterVal: string,
+): Promise<T[]> {
+  const all: T[] = []
+  let from = 0
+  while (true) {
+    const { data } = await supabase
+      .from(table)
+      .select(selectCol)
+      .eq(filterCol, filterVal)
+      .range(from, from + PAGE_SIZE - 1)
+    if (!data || data.length === 0) break
+    all.push(...(data as T[]))
+    if (data.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
 export function useFollows(supabase: SupabaseClient, currentUserId: string) {
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set())
   const [followerIds, setFollowerIds]   = useState<Set<string>>(new Set())
 
   const fetchAll = useCallback(async () => {
-    const [{ data: following }, { data: followers }] = await Promise.all([
-      supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
-      supabase.from('follows').select('follower_id').eq('following_id', currentUserId),
+    const [following, followers] = await Promise.all([
+      fetchAllRows<{ following_id: string }>(
+        () => supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
+        supabase, 'follows', 'following_id', 'follower_id', currentUserId,
+      ),
+      fetchAllRows<{ follower_id: string }>(
+        () => supabase.from('follows').select('follower_id').eq('following_id', currentUserId),
+        supabase, 'follows', 'follower_id', 'following_id', currentUserId,
+      ),
     ])
-    setFollowingIds(new Set((following ?? []).map((r: { following_id: string }) => r.following_id)))
-    setFollowerIds(new Set((followers ?? []).map((r: { follower_id: string }) => r.follower_id)))
+    setFollowingIds(new Set(following.map(r => r.following_id)))
+    setFollowerIds(new Set(followers.map(r => r.follower_id)))
   }, [supabase, currentUserId])
 
   useEffect(() => {

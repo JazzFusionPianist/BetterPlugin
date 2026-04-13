@@ -36,6 +36,7 @@ const SELF_RADIUS = 38
 
 export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly }: Props) {
   const [mode, setMode] = useState<'main' | 'party'>(viewOnly ? 'party' : 'main')
+  useEffect(() => { if (viewOnly) setMode('party') }, [viewOnly])
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])

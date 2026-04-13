@@ -850,10 +850,12 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
 
   const processDroppedFile = async (file: File) => {
     const mime = file.type
+    const ext  = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const AUDIO_EXTS = new Set(['mp3','wav','aif','aiff','m4a','ogg','flac','caf','opus','aac'])
     let type: AttachType
-    if (mime.startsWith('image/')) type = 'image'
-    else if (mime.startsWith('video/')) type = 'video'
-    else if (mime.startsWith('audio/')) type = 'audio'
+    if      (mime.startsWith('image/'))                            type = 'image'
+    else if (mime.startsWith('video/'))                            type = 'video'
+    else if (mime.startsWith('audio/') || AUDIO_EXTS.has(ext))    type = 'audio'
     else { showErr('Only image, video, or audio files supported.'); return }
 
     if (file.size > MAX_SIZE) { showErr(`File too large (max ${MAX_SIZE_MB}MB)`); return }
@@ -909,8 +911,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     const files = Array.from(e.dataTransfer.files ?? [])
     if (files.length === 0) return
 
-    const audioFiles = files.filter(f => f.type.startsWith('audio/'))
-    const otherFiles = files.filter(f => !f.type.startsWith('audio/'))
+    // macOS Finder 드래그 시 MIME type이 비어있거나 잘못 올 수 있어서 확장자도 함께 체크
+    const AUDIO_EXTS = new Set(['mp3','wav','aif','aiff','m4a','ogg','flac','caf','opus','aac'])
+    const isAudioFile = (f: File) =>
+      f.type.startsWith('audio/') ||
+      AUDIO_EXTS.has(f.name.split('.').pop()?.toLowerCase() ?? '')
+
+    const audioFiles = files.filter(isAudioFile)
+    const otherFiles = files.filter(f => !isAudioFile(f))
 
     // 오디오 여러 개 → 멀티 트랙 메시지 하나로
     if (audioFiles.length > 1) {

@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 const PAGE_SIZE = 1000
 
 async function fetchAllRows<T>(
-  query: () => ReturnType<ReturnType<SupabaseClient['from']>['select']>,
   supabase: SupabaseClient,
   table: string,
   selectCol: string,
@@ -34,11 +33,9 @@ export function useFollows(supabase: SupabaseClient, currentUserId: string) {
   const fetchAll = useCallback(async () => {
     const [following, followers] = await Promise.all([
       fetchAllRows<{ following_id: string }>(
-        () => supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
         supabase, 'follows', 'following_id', 'follower_id', currentUserId,
       ),
       fetchAllRows<{ follower_id: string }>(
-        () => supabase.from('follows').select('follower_id').eq('following_id', currentUserId),
         supabase, 'follows', 'follower_id', 'following_id', currentUserId,
       ),
     ])

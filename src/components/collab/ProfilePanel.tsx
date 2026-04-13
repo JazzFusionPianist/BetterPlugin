@@ -15,6 +15,9 @@ interface Props {
   onRemoveFriend: (id: string) => Promise<void>
   favorites: Set<string>
   onToggleFav: (id: string) => void
+  onViewProfile?: (id: string) => void
+  onAvatarUpdated?: (url: string) => void
+  viewOnly?: boolean
 }
 
 interface Orb {
@@ -31,8 +34,8 @@ interface Orb {
 
 const SELF_RADIUS = 38
 
-export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose: _onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav }: Props) {
-  const [mode, setMode] = useState<'main' | 'party'>('main')
+export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly }: Props) {
+  const [mode, setMode] = useState<'main' | 'party'>(viewOnly ? 'party' : 'main')
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
@@ -95,20 +98,14 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       .from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id)
     setUploading(false)
     if (dbErr) showMsg('db update failed: ' + dbErr.message)
-    else { setLocalPhoto(pub.publicUrl); showMsg('photo updated'); onUpdated() }
+    else { onAvatarUpdated?.(pub.publicUrl); showMsg('photo updated'); onUpdated() }
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const [localPhoto, setLocalPhoto] = useState<string | null>(null)
   const displayName = me?.display_name ?? ''
   const initials = me?.initials ?? getInitials(displayName || 'Unknown')
   const color = me?.avatar_color ?? '#4A8FE7'
-  const photo = localPhoto ?? me?.avatar_url
-
-  // Clear local override once me prop catches up
-  useEffect(() => {
-    if (me?.avatar_url && localPhoto && me.avatar_url !== localPhoto) setLocalPhoto(null)
-  }, [me?.avatar_url, localPhoto])
+  const photo = me?.avatar_url
 
   // Initialize orbs whenever display list changes
   useLayoutEffect(() => {
@@ -269,12 +266,18 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     <>
       <div className="s-body profile-orbit-body">
         <div className="profile-orbit" ref={containerRef}>
-          <button
-            className="orbit-mode-toggle-btn"
-            onClick={() => setMode(m => m === 'main' ? 'party' : 'main')}
-          >
-            {mode}
-          </button>
+          {viewOnly ? (
+            <button className="orbit-mode-toggle-btn" onClick={onClose}>
+              ← back
+            </button>
+          ) : (
+            <button
+              className="orbit-mode-toggle-btn"
+              onClick={() => setMode(m => m === 'main' ? 'party' : 'main')}
+            >
+              {mode}
+            </button>
+          )}
           {renderProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
@@ -303,22 +306,24 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
           <button
             className="profile-av-btn orbit-self"
-            onClick={handlePickFile}
-            disabled={uploading}
-            title="Change photo"
-            style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}
+            onClick={viewOnly ? undefined : handlePickFile}
+            disabled={uploading || viewOnly}
+            title={viewOnly ? displayName : 'Change photo'}
+            style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2, cursor: viewOnly ? 'default' : undefined }}
           >
             <div className="av profile-av" style={{ background: color, width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}>
               {photo ? <img src={photo} alt="avatar" /> : <span>{initials}</span>}
             </div>
-            <div className="profile-av-overlay">
-              {uploading ? '...' : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-              )}
-            </div>
+            {viewOnly ? null : (
+              <div className="profile-av-overlay">
+                {uploading ? '...' : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                )}
+              </div>
+            )}
           </button>
 
           {hoveredProfile && tooltipPos && (
@@ -339,6 +344,10 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                 </button>
               </div>
               <button className="orbit-tt-btn" onClick={() => handleUnfollow(hoveredProfile.id)}>following</button>
+              <div className="orbit-tt-btn-row">
+                <button className="orbit-tt-btn orbit-tt-msg" onClick={() => onOpenChat(hoveredProfile.id)}>message</button>
+                {onViewProfile && <button className="orbit-tt-btn orbit-tt-prof" onClick={() => onViewProfile(hoveredProfile.id)}>profile</button>}
+              </div>
             </div>
           )}
 

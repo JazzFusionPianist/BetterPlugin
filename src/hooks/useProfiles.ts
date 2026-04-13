@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { type Profile, getInitials } from '../types/collab'
 
@@ -26,6 +26,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [me, setMe] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const avatarOverrideRef = useRef<string | null>(null)
 
   const fetch = useCallback(async () => {
     let { data, error } = await supabase
@@ -57,7 +58,16 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
     }))
 
     setProfiles(all.filter(p => p.id !== currentUserId))
-    setMe(all.find(p => p.id === currentUserId) ?? null)
+    const myProfile = all.find(p => p.id === currentUserId) ?? null
+    if (myProfile && avatarOverrideRef.current) {
+      // If DB has caught up, clear the override; otherwise keep it
+      if (myProfile.avatar_url === avatarOverrideRef.current) {
+        avatarOverrideRef.current = null
+      } else {
+        myProfile.avatar_url = avatarOverrideRef.current
+      }
+    }
+    setMe(myProfile)
     setLoading(false)
   }, [supabase, currentUserId])
 
@@ -67,5 +77,14 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
     return () => clearInterval(timer)
   }, [fetch])
 
-  return { profiles, me, loading, refetch: fetch }
+  const updateMyAvatar = useCallback((url: string) => {
+    avatarOverrideRef.current = url
+    setMe(prev => prev ? { ...prev, avatar_url: url } : prev)
+  }, [])
+
+  const updateMe = useCallback((updates: Partial<Profile>) => {
+    setMe(prev => prev ? { ...prev, ...updates } : prev)
+  }, [])
+
+  return { profiles, me, loading, refetch: fetch, updateMyAvatar, updateMe }
 }

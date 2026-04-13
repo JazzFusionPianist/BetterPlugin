@@ -52,7 +52,7 @@ export default function AddFriendPanel({
   }
 
   const results = query.trim()
-    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase()))
+    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
     : []
 
   return (

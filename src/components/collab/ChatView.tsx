@@ -189,11 +189,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       // Direct JS callback so C++ can also signal completion
       ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
 
-      // Verify writeAudioFile is registered on this plugin build
-      const backendKeys = Object.keys(juceBackend as Record<string, unknown>).join(', ')
-      if (typeof juceBackend.writeAudioFile !== 'function') {
-        alert(`Plugin outdated — writeAudioFile missing.\nBackend has: ${backendKeys}`)
-        finish('error')
+      // writeAudioFile not in this build — show label and bail
+      if (!hasWriteAudioFile) {
+        clearTimeout(timer)
+        setDragState('idle')
         return
       }
 
@@ -249,8 +248,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const fetchingLabel = dlBytes > 0
     ? (totalBytes > 0 ? `${Math.round(dlBytes * 100 / totalBytes)}%` : `${Math.round(dlBytes / 1024)} KB`)
     : 'Preparing…'
+  const hasWriteAudioFile = typeof juceBackend?.writeAudioFile === 'function'
+
   const dragLabel: Record<DragState, string> = {
-    idle:     'Import to DAW',
+    idle:     juceBackend && !hasWriteAudioFile ? 'Update plugin' : 'Import to DAW',
     fetching: fetchingLabel,
     armed:    'Drag to track ↗',
     dragging: 'Dragging…',

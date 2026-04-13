@@ -103,6 +103,7 @@ declare global {
       backend: {
         prefetchAudio: (url: string, name: string) => Promise<string>
         startAudioDrag: (url: string, name: string) => Promise<string>
+        writeAudioFile: (base64: string, name: string) => Promise<string>
       }
     }
   }
@@ -148,22 +149,59 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       setTotalBytes(-1)
       setDragState('fetching')
 
+      const controller = new AbortController()
+
       const finish = (result: string) => {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
         setDragState(result === 'armed' ? 'dragging' : 'idle')
       }
 
-      // 60s fallback: reset if C++ never responds
-      const timer = setTimeout(() => finish('error'), 60_000)
+      // 60s hard timeout
+      const timer = setTimeout(() => { controller.abort(); finish('error') }, 60_000)
 
-      // Direct callback: C++ calls this via evaluateJavascript (more reliable than Promise)
+      // Direct JS callback so C++ can also signal completion
       ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
 
-      // Also listen via Promise in case direct callback isn't needed
-      juceBackend.startAudioDrag(url, name)
-        .then(result => finish(result))
-        .catch(() => finish('error'))
+      ;(async () => {
+        try {
+          const res = await fetch(url, { signal: controller.signal })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+          const contentLength = Number(res.headers.get('content-length') ?? -1)
+          setTotalBytes(contentLength)
+
+          const reader = res.body!.getReader()
+          const chunks: Uint8Array[] = []
+          let received = 0
+
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+            received += value.length
+            setDlBytes(received)
+          }
+
+          // Merge chunks into one buffer
+          const merged = new Uint8Array(received)
+          let pos = 0
+          for (const chunk of chunks) { merged.set(chunk, pos); pos += chunk.length }
+
+          // Base64 encode in 32 KB slices to avoid call-stack overflow
+          const CHUNK = 0x8000
+          let b64 = ''
+          for (let i = 0; i < merged.length; i += CHUNK)
+            b64 += String.fromCharCode(...merged.subarray(i, i + CHUNK))
+          const base64 = btoa(b64)
+
+          // Hand off to C++: decode + write to temp file + arm drag
+          const result = await juceBackend.writeAudioFile(base64, name)
+          finish(result)
+        } catch {
+          finish('error')
+        }
+      })()
       return
     }
 

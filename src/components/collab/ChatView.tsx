@@ -187,6 +187,10 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
         if (result === 'armed') {
+          // Tell ChatView's drop zone that a drag-out is imminent.
+          // Fires in JS context (synchronous) — more reliable than the C++
+          // evaluateJavaScript: path which may be deferred during drag run loop.
+          window.dispatchEvent(new Event('__localDragArmed'))
           setDragState('armed')
           // 15초 후 자동 리셋 (드래그 안 했을 경우)
           setTimeout(() => setDragState(s => s === 'armed' ? 'idle' : s), 15_000)
@@ -363,9 +367,11 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const vidRef  = useRef<HTMLInputElement>(null)
   const audRef  = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const dragCounter    = useRef(0)
-  const outDragActive  = useRef(false)   // set by __juceOutDragStart (belt-and-suspenders)
-  const isCancelDrag   = useRef(false)   // set by __juceDragEnterCancel (reliable path)
+  const dragCounter         = useRef(0)
+  const outDragActive       = useRef(false)  // true while our own drag is "out"
+  const isCancelDrag        = useRef(false)  // set by C++ __juceDragEnterCancel
+  const dragExitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -387,10 +393,13 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
 
   useEffect(() => {
     const handler = async (e: Event) => {
-      // Belt-and-suspenders: also clear drag state here in case
-      // __juceDragComplete was missed for any reason.
       dragCounter.current = 0
       setDragOver(false)
+
+      // If outDragActive is still set, this file is our own audio coming back
+      // via Logic's drag (Logic accepted our drag and started its own session).
+      // Treat it as a cancel — don't attach.
+      if (outDragActive.current) return
 
       const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
       // Decode base64 → Uint8Array → File
@@ -410,11 +419,22 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceFileDrop', handler)
   }, [])
 
+  // __localDragArmed: AudioAttachment dispatches this (in JS) the moment a
+  // drag-out file is ready to drag.  More reliable than __juceOutDragStart
+  // (which fires via evaluateJavaScript: during a drag run-loop mode and may
+  // be deferred).  Sets outDragActive immediately in JS context.
+  useEffect(() => {
+    const handler = () => { outDragActive.current = true }
+    window.addEventListener('__localDragArmed', handler)
+    return () => window.removeEventListener('__localDragArmed', handler)
+  }, [])
+
   // __juceDragEnterCancel: C++ fires this when our OWN audio drag-out re-enters
   // the chat view (NSDraggingSession returning home).  JS dragenter timing is
   // unreliable during a drag session, so C++ is the authoritative source here.
   useEffect(() => {
     const handler = () => {
+      if (dragExitTimer.current) { clearTimeout(dragExitTimer.current); dragExitTimer.current = null }
       isCancelDrag.current = true
       setDragType('cancel')
       dragCounter.current = 1
@@ -428,6 +448,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // (JS dragenter never fires for NSFilePromise drags)
   useEffect(() => {
     const handler = () => {
+      if (dragExitTimer.current) { clearTimeout(dragExitTimer.current); dragExitTimer.current = null }
       isCancelDrag.current = false
       setDragType('attach')
       dragCounter.current = 1
@@ -437,9 +458,20 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceDragEnter', handler)
   }, [])
 
-  // __juceDragExit: C++ fires this when a Logic region drag leaves WKWebView
+  // __juceDragExit: C++ fires this when a Logic region (or own) drag leaves.
+  // Debounced 150 ms: draggingExited: can fire spuriously as the drag moves
+  // between nested WKContentView subviews, causing a momentary flicker.
+  // __juceDragEnter / __juceDragEnterCancel cancels the timer if it fires
+  // before the delay expires, keeping the overlay visible.
   useEffect(() => {
-    const handler = () => { dragCounter.current = 0; setDragOver(false) }
+    const handler = () => {
+      if (dragExitTimer.current) clearTimeout(dragExitTimer.current)
+      dragExitTimer.current = setTimeout(() => {
+        dragCounter.current = 0
+        setDragOver(false)
+        dragExitTimer.current = null
+      }, 150)
+    }
     window.addEventListener('__juceDragExit', handler)
     return () => window.removeEventListener('__juceDragExit', handler)
   }, [])
@@ -451,13 +483,29 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceOutDragStart', handler)
   }, [])
 
-  // __juceOutDragEnd: NSDraggingSession ended (dropped or cancelled)
+  // __juceOutDragEnd: NSDraggingSession ended.
+  //  op='none'  → user released without a target → clear outDragActive immediately
+  //  op='copy'  → Logic (or other target) accepted the file.  Logic may immediately
+  //               start its own NSDraggingSession with our audio, so keep
+  //               outDragActive=true for 5 s to catch it coming back.
   useEffect(() => {
-    const handler = () => {
-      outDragActive.current = false
-      isCancelDrag.current  = false
-      dragCounter.current   = 0
+    const handler = (e: Event) => {
+      const op = (e as CustomEvent<{ op: string }>).detail?.op ?? 'none'
+      isCancelDrag.current = false
+      dragCounter.current  = 0
       setDragOver(false)
+
+      if (op === 'none') {
+        outDragActive.current = false
+        if (outDragCooldownTimer.current) { clearTimeout(outDragCooldownTimer.current); outDragCooldownTimer.current = null }
+      } else {
+        // Keep outDragActive for 5 s — user might drag Logic's copy back to cancel
+        if (outDragCooldownTimer.current) clearTimeout(outDragCooldownTimer.current)
+        outDragCooldownTimer.current = setTimeout(() => {
+          outDragActive.current = false
+          outDragCooldownTimer.current = null
+        }, 5000)
+      }
     }
     window.addEventListener('__juceOutDragEnd', handler)
     return () => window.removeEventListener('__juceOutDragEnd', handler)

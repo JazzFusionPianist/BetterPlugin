@@ -45,12 +45,18 @@ static __weak JuceDragHelper* gDragHelper = nil;
          endedAtPoint:(NSPoint)screenPoint
             operation:(NSDragOperation)operation
 {
-    (void)session; (void)screenPoint; (void)operation;
+    (void)session; (void)screenPoint;
     self.isDragging = NO;
-    if (self.wkView)
-        [self.wkView evaluateJavaScript:
-            @"window.dispatchEvent(new Event('__juceOutDragEnd'))"
-         completionHandler:nil];
+    if (self.wkView) {
+        // Pass whether the drag was accepted by a target ('copy') or cancelled
+        // ('none').  React uses this to decide how long to keep outDragActive:
+        // when Logic accepts the file it immediately starts its own drag, so
+        // we need a 5 s cooldown to catch that returning drag.
+        NSString* op = (operation == NSDragOperationNone) ? @"none" : @"copy";
+        NSString* js = [NSString stringWithFormat:
+            @"window.dispatchEvent(new CustomEvent('__juceOutDragEnd',{detail:{op:'%@'}}))", op];
+        [self.wkView evaluateJavaScript:js completionHandler:nil];
+    }
     [self disarm];
 }
 

@@ -134,11 +134,9 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     return () => window.removeEventListener('__juceProgress', onProgress)
   }, [])
 
-  // 마우스 올리면 조용히 파일 프리패치 (UI 상태 변화 없음)
-  const handleMouseEnter = () => {
-    if (!juceBackend || dragState !== 'idle') return
-    juceBackend.prefetchAudio(url, name).catch(() => {})
-  }
+  // Prefetch disabled: causes a second simultaneous download that Supabase
+  // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
+  const handleMouseEnter = () => {}
 
   // 마우스 누르면 OS 레벨 드래그 시작
   const handleMouseDown = (e: React.MouseEvent) => {

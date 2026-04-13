@@ -108,23 +108,49 @@ void CoOpAudioProcessorEditor::handlePrefetch (const juce::var& args,
 
     if (cacheReady && cachedName == name) { completion (juce::var ("cached")); return; }
 
-    cacheReady = false;
-    cachedName = name;
+    // If a download is already running for this file, discard this prefetch request
+    // rather than starting a second simultaneous connection (CDN throttles the second one).
+    if (isDownloading && cachedName == name) { completion (juce::var ("pending")); return; }
+
+    cacheReady     = false;
+    isDownloading  = true;
+    cachedName     = name;
 
     auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
 
     std::thread ([this, url, name, compPtr] {
         auto file = downloadToTemp (url, name);
         juce::MessageManager::callAsync ([this, file, name, compPtr] {
+            isDownloading = false;
             if (file.existsAsFile() && cachedName == name)
             {
                 cachedFile = file;
                 cacheReady = true;
                 (*compPtr) (juce::var ("ok"));
+
+                // If startAudioDrag arrived while we were downloading, arm it now
+                if (pendingDragComp)
+                {
+                    pendingDragFile = file;
+                    dragArmed       = true;
+                    juce::String script = "if(window.__juceStartDragComplete)"
+                                         "window.__juceStartDragComplete('armed')";
+                    browser.evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});
+                    (*pendingDragComp) (juce::var ("armed"));
+                    pendingDragComp.reset();
+                }
             }
             else
             {
                 (*compPtr) (juce::var ("error"));
+                if (pendingDragComp)
+                {
+                    juce::String script = "if(window.__juceStartDragComplete)"
+                                         "window.__juceStartDragComplete('error')";
+                    browser.evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});
+                    (*pendingDragComp) (juce::var ("error"));
+                    pendingDragComp.reset();
+                }
             }
         });
     }).detach();
@@ -153,14 +179,25 @@ void CoOpAudioProcessorEditor::handleStartDrag (const juce::var& args,
         return;
     }
 
+    // If prefetch is already downloading this file, park the completion and
+    // let prefetch arm the drag when it finishes — avoids a second simultaneous
+    // connection that CDNs throttle to 0 bps.
+    if (isDownloading && cachedName == name)
+    {
+        pendingDragComp = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+        return;
+    }
+
     // Not cached — download then arm
-    cacheReady = false;
-    cachedName = name;
+    cacheReady    = false;
+    isDownloading = true;
+    cachedName    = name;
     auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
 
     std::thread ([this, url, name, compPtr] {
         auto file = downloadToTemp (url, name);
         juce::MessageManager::callAsync ([this, file, name, compPtr] {
+            isDownloading = false;
             juce::String result;
             if (file.existsAsFile())
             {

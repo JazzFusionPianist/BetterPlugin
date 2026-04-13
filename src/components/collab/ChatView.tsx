@@ -370,6 +370,33 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const menuRef = useRef<HTMLDivElement>(null)
   const dragCounter = useRef(0)
 
+  // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
+  // C++ resolves the NSFilePromise (Logic's async export), then fires
+  // '__juceFileDrop' with base64-encoded audio data.
+  const processDroppedFileRef = useRef(processDroppedFile)
+  useEffect(() => { processDroppedFileRef.current = processDroppedFile })
+
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
+      // Decode base64 → Uint8Array → File
+      const binary = atob(data)
+      const bytes  = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const ext  = name.split('.').pop()?.toLowerCase() ?? ''
+      const mime: Record<string, string> = {
+        wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
+        mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
+        ogg: 'audio/ogg', flac: 'audio/flac',
+      }
+      const file = new File([bytes], name, { type: mime[ext] ?? 'audio/aiff' })
+      await processDroppedFileRef.current(file)
+    }
+    window.addEventListener('__juceFileDrop', handler)
+    return () => window.removeEventListener('__juceFileDrop', handler)
+  }, [])
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const el = chatAreaRef.current
     if (el) el.scrollTop = el.scrollHeight

@@ -1517,6 +1517,19 @@
 }
 .af-btn.af-btn-decline:hover { background: var(--bg3); color: var(--t2); }
 
+.af-load-more {
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--t3);
+  font-size: 11px;
+  cursor: pointer;
+}
+.af-load-more:hover { background: var(--bg3); color: var(--t2); }
+
 .af-req-actions {
   display: flex;
   gap: 4px;

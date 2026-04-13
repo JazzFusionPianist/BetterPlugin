@@ -43,6 +43,7 @@ export default function AddFriendPanel({
   onClose: _onClose,
 }: Props) {
   const [query, setQuery] = useState('')
+  const [limit, setLimit] = useState(7)
   const [pending, setPending] = useState<Set<string>>(new Set())
 
   const withPending = async (id: string, fn: () => Promise<void>) => {
@@ -51,9 +52,11 @@ export default function AddFriendPanel({
     setPending(prev => { const n = new Set(prev); n.delete(id); return n })
   }
 
-  const results = query.trim()
-    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
+  const filtered = query.trim()
+    ? allProfiles.filter(p => p.display_name.toLowerCase().includes(query.toLowerCase()))
     : []
+  const results = filtered.slice(0, limit)
+  const hasMore = filtered.length > limit
 
   return (
     <>
@@ -67,7 +70,7 @@ export default function AddFriendPanel({
           type="text"
           placeholder="search by name..."
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => { setQuery(e.target.value); setLimit(7) }}
         />
         {query && (
           <button className="search-clear visible" onClick={() => setQuery('')}>
@@ -137,6 +140,11 @@ export default function AddFriendPanel({
             </div>
           )
         })}
+        {hasMore && (
+          <button className="af-load-more" onClick={() => setLimit(l => l + 7)}>
+            Load More
+          </button>
+        )}
       </div>
     </>
   )

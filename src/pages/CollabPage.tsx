@@ -126,6 +126,15 @@ function CollabPageInner({ user }: Props) {
   })
 
   const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(client, user.id)
+
+  // Ensure a profile row exists for the current user (in case signup trigger didn't run)
+  useEffect(() => {
+    if (!profilesLoading && !me) {
+      client.from('profiles').upsert({ id: user.id, display_name: user.email?.split('@')[0] ?? 'User' }, { onConflict: 'id', ignoreDuplicates: true })
+        .then(() => refetchProfiles())
+    }
+  }, [profilesLoading, me, client, user.id, user.email, refetchProfiles])
+
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds  = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)

@@ -266,7 +266,7 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  background: var(--bg);
   transition: transform .22s cubic-bezier(.4, 0, .2, 1);
 }
 .view .s-body, .view .s-header { background: transparent; }

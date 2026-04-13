@@ -470,7 +470,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
         dragCounter.current = 0
         setDragOver(false)
         dragExitTimer.current = null
-      }, 150)
+      }, 200)  // 200 ms: draggingUpdated: keep-alive fires every 100 ms, so
+               // if no update arrives within 200 ms the drag has truly left
     }
     window.addEventListener('__juceDragExit', handler)
     return () => window.removeEventListener('__juceDragExit', handler)
@@ -504,7 +505,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
         outDragCooldownTimer.current = setTimeout(() => {
           outDragActive.current = false
           outDragCooldownTimer.current = null
-        }, 5000)
+        }, 30_000)   // 30 s: Logic may start its own drag and the user can take time
       }
     }
     window.addEventListener('__juceOutDragEnd', handler)

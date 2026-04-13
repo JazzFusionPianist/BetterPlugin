@@ -66,6 +66,7 @@ static __weak JuceDragHelper* gDragHelper = nil;
 
     self.filePath       = path;
     self.sessionStarted = NO;
+    self.isDragging     = NO;   // explicit reset for a fresh arm
     self.mouseDownPos   = [NSEvent mouseLocation];
 
     __weak JuceDragHelper* ws = self;
@@ -149,7 +150,11 @@ static __weak JuceDragHelper* gDragHelper = nil;
     }
     self.filePath       = nil;
     self.sessionStarted = NO;
-    self.isDragging     = NO;
+    // NOTE: do NOT clear isDragging here.  disarm() is called from the
+    // NSEvent mouseUp handler which can fire during an active NSDraggingSession,
+    // prematurely clearing the flag before the session actually ends.
+    // isDragging is set NO only in draggingSession:endedAtPoint:operation: and
+    // in armWithPath: (at the start of a fresh arm).
 }
 
 @end
@@ -216,10 +221,12 @@ static const char kDropCallbackKey = 0;
 static const char kWKViewRefKey    = 0;   // ASSIGN ref to the WKWebView
 
 // ── Global swizzle state ──────────────────────────────────────────────────────
-static IMP  gOrigPerformDragOp   = nil;
-static IMP  gOrigDraggingEntered = nil;
-static IMP  gOrigDraggingExited  = nil;
-static BOOL gSwizzleInstalled    = NO;
+static IMP            gOrigPerformDragOp   = nil;
+static IMP            gOrigDraggingEntered = nil;
+static IMP            gOrigDraggingExited  = nil;
+static IMP            gOrigDraggingUpdated = nil;
+static BOOL           gSwizzleInstalled    = NO;
+static NSTimeInterval gLastDragUpdateFire  = 0;   // throttle for draggingUpdated:
 
 // ── View search helpers ───────────────────────────────────────────────────────
 static WKWebView* findWKWebView (NSView* view)
@@ -387,6 +394,40 @@ static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             (selfView, _cmd, info);
 }
 
+// draggingUpdated: — keep-alive pulse for the JS overlay.
+//
+// draggingEntered:/draggingExited: can mis-fire when the drag crosses internal
+// WKContentView subview boundaries, causing the overlay to flicker.
+// draggingUpdated: fires continuously (every mouse move) while the drag IS over
+// the view.  Throttled to 10 Hz, it acts as a heartbeat:  React shows the
+// overlay while updates arrive and hides it when they stop (200 ms timeout).
+static NSDragOperation coopDraggingUpdated (id selfView, SEL _cmd,
+                                             id<NSDraggingInfo> info)
+{
+    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+    if (now - gLastDragUpdateFire >= 0.10)   // 10 Hz throttle
+    {
+        gLastDragUpdateFire = now;
+        WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+
+        if (wkv) {
+            if (gDragHelper && gDragHelper.isDragging)
+                [wkv evaluateJavaScript:
+                    @"window.dispatchEvent(new Event('__juceDragEnterCancel'))"
+                 completionHandler:nil];
+            else if (isLogicRegionDrag (info.draggingPasteboard))
+                [wkv evaluateJavaScript:
+                    @"window.dispatchEvent(new Event('__juceDragEnter'))"
+                 completionHandler:nil];
+        }
+    }
+
+    if (gOrigDraggingUpdated)
+        return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingUpdated)
+                   (selfView, _cmd, info);
+    return NSDragOperationCopy;
+}
+
 // ── Helper: install one swizzle ───────────────────────────────────────────────
 static void installSwizzle (Class cls, SEL sel, IMP newIMP, IMP* origOut)
 {
@@ -440,11 +481,13 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
     {
         Class cls = object_getClass (dropView);
         installSwizzle (cls, @selector(performDragOperation:),
-                        (IMP) coopPerformDragOp,   &gOrigPerformDragOp);
+                        (IMP) coopPerformDragOp,    &gOrigPerformDragOp);
         installSwizzle (cls, @selector(draggingEntered:),
                         (IMP) coopDraggingEntered,  &gOrigDraggingEntered);
         installSwizzle (cls, @selector(draggingExited:),
                         (IMP) coopDraggingExited,   &gOrigDraggingExited);
+        installSwizzle (cls, @selector(draggingUpdated:),
+                        (IMP) coopDraggingUpdated,  &gOrigDraggingUpdated);
         gSwizzleInstalled = YES;
     }
 

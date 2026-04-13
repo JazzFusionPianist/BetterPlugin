@@ -95,14 +95,20 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       .from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id)
     setUploading(false)
     if (dbErr) showMsg('db update failed: ' + dbErr.message)
-    else { showMsg('photo updated'); onUpdated() }
+    else { setLocalPhoto(pub.publicUrl); showMsg('photo updated'); onUpdated() }
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const [localPhoto, setLocalPhoto] = useState<string | null>(null)
   const displayName = me?.display_name ?? ''
-  const initials = me?.initials ?? getInitials(displayName || 'U')
+  const initials = me?.initials ?? getInitials(displayName || 'Unknown')
   const color = me?.avatar_color ?? '#4A8FE7'
-  const photo = me?.avatar_url
+  const photo = localPhoto ?? me?.avatar_url
+
+  // Clear local override once me prop catches up
+  useEffect(() => {
+    if (me?.avatar_url && localPhoto && me.avatar_url !== localPhoto) setLocalPhoto(null)
+  }, [me?.avatar_url, localPhoto])
 
   // Initialize orbs whenever display list changes
   useLayoutEffect(() => {
@@ -124,7 +130,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
     const cx = W / 2
     const cy = H / 2
-    const reservedBottom = 36
+    const reservedBottom = 4
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
     const baseR = Math.max(4, Math.min(14, rRaw))
@@ -164,7 +170,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       const orbs = orbsRef.current
       const { w: W, h: H } = sizeRef.current
       const cx = W / 2, cy = H / 2
-      const reservedBottom = 36
+      const reservedBottom = 4
 
       const transitioning = !wallBounceRef.current
       const sf = speedFactorRef.current
@@ -227,7 +233,9 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const W = sizeRef.current.w
     const halfTT = 70
     const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))
-    setTooltipPos({ x: clampedX, y: orb.y - orb.r, below: false })
+    const tooltipH = 80
+    const below = orb.y - orb.r < tooltipH
+    setTooltipPos({ x: clampedX, y: below ? orb.y + orb.r : orb.y - orb.r, below })
   }
 
   const handleOrbLeave = (idx: number) => {

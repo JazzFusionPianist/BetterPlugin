@@ -50,7 +50,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
       display_name: p.display_name || 'Unknown',
       avatar_color: p.avatar_color || colorForId(p.id),
       avatar_url: p.avatar_url ?? null,
-      initials: getInitials(p.display_name || 'U'),
+      initials: getInitials(p.display_name || 'Unknown'),
       isOnline: false,
       is_verified: p.is_verified ?? false,
       is_admin: p.is_admin ?? false,

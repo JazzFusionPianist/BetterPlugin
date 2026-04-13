@@ -779,6 +779,10 @@
   justify-content: center;
   pointer-events: none;
 }
+.drop-overlay.cancel {
+  background: rgba(231, 74, 74, 0.18);
+  border-color: #E74A4A;
+}
 .drop-overlay-inner {
   display: flex;
   flex-direction: column;
@@ -787,6 +791,9 @@
   color: #4A8FE7;
   font-size: 13px;
   font-weight: 500;
+}
+.drop-overlay.cancel .drop-overlay-inner {
+  color: #E74A4A;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━

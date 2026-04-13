@@ -186,12 +186,6 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       const finish = (result: string) => {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
-        // Visible debug banner — shows exact result for 5 s
-        const banner = document.createElement('div')
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#cc0000;color:#fff;padding:8px;text-align:center;font-size:12px;z-index:999999;pointer-events:none'
-        banner.textContent = 'writeAudioFile result: ' + result
-        document.body.appendChild(banner)
-        setTimeout(() => banner.remove(), 5000)
         if (result === 'armed') {
           setDragState('armed')
           // 15초 후 자동 리셋 (드래그 안 했을 경우)
@@ -363,12 +357,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
   const [dragOver, setDragOver]   = useState(false)
+  const [dragType, setDragType]   = useState<'attach' | 'cancel'>('attach')
   const chatAreaRef = useRef<HTMLDivElement>(null)
   const imgRef  = useRef<HTMLInputElement>(null)
   const vidRef  = useRef<HTMLInputElement>(null)
   const audRef  = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const dragCounter = useRef(0)
+  const dragCounter  = useRef(0)
+  const outDragActive = useRef(false)
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -411,6 +407,35 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     }
     window.addEventListener('__juceFileDrop', handler)
     return () => window.removeEventListener('__juceFileDrop', handler)
+  }, [])
+
+  // __juceDragEnter: C++ fires this when a Logic region drag enters WKWebView
+  // (JS dragenter never fires for NSFilePromise drags)
+  useEffect(() => {
+    const handler = () => { setDragType('attach'); dragCounter.current = 1; setDragOver(true) }
+    window.addEventListener('__juceDragEnter', handler)
+    return () => window.removeEventListener('__juceDragEnter', handler)
+  }, [])
+
+  // __juceDragExit: C++ fires this when a Logic region drag leaves WKWebView
+  useEffect(() => {
+    const handler = () => { dragCounter.current = 0; setDragOver(false) }
+    window.addEventListener('__juceDragExit', handler)
+    return () => window.removeEventListener('__juceDragExit', handler)
+  }, [])
+
+  // __juceOutDragStart: our own audio drag-out has begun (mousedown → NSDraggingSession)
+  useEffect(() => {
+    const handler = () => { outDragActive.current = true }
+    window.addEventListener('__juceOutDragStart', handler)
+    return () => window.removeEventListener('__juceOutDragStart', handler)
+  }, [])
+
+  // __juceOutDragEnd: NSDraggingSession ended (dropped or cancelled)
+  useEffect(() => {
+    const handler = () => { outDragActive.current = false; dragCounter.current = 0; setDragOver(false) }
+    window.addEventListener('__juceOutDragEnd', handler)
+    return () => window.removeEventListener('__juceOutDragEnd', handler)
   }, [])
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -512,13 +537,16 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     dragCounter.current++
+    setDragType(outDragActive.current ? 'cancel' : 'attach')
     setDragOver(true)
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    dragCounter.current--
-    if (dragCounter.current === 0) setDragOver(false)
+    // Ignore events where the drag is moving between child elements inside the drop zone
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    dragCounter.current = 0
+    setDragOver(false)
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -530,15 +558,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     dragCounter.current = 0
     setDragOver(false)
 
-    // ── Debug banner ─────────────────────────────────────────
-    const nFiles = e.dataTransfer.files.length
-    const types  = Array.from(e.dataTransfer.types).join(', ')
-    const banner = document.createElement('div')
-    banner.style.cssText = 'position:fixed;top:40px;left:0;right:0;background:#550055;color:#fff;padding:8px;text-align:center;font-size:11px;z-index:999999;pointer-events:none'
-    banner.textContent = `drop: ${nFiles} file(s) | types: ${types}`
-    document.body.appendChild(banner)
-    setTimeout(() => banner.remove(), 6000)
-    // ─────────────────────────────────────────────────────────
+    // If this is our own drag-out returning home, treat as cancel — don't attach
+    if (outDragActive.current) return
 
     const file = e.dataTransfer.files?.[0]
     if (file) await processDroppedFile(file)
@@ -565,14 +586,26 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
       onDrop={handleDrop}
     >
       {dragOver && (
-        <div className="drop-overlay">
+        <div className={`drop-overlay${dragType === 'cancel' ? ' cancel' : ''}`}>
           <div className="drop-overlay-inner">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <span>Drop to attach</span>
+            {dragType === 'cancel' ? (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M15 9l-6 6M9 9l6 6"/>
+                </svg>
+                <span>Release to cancel</span>
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Drop to attach</span>
+              </>
+            )}
           </div>
         </div>
       )}

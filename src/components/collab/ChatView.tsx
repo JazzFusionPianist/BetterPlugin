@@ -212,9 +212,11 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
           // Hand off to C++: decode + write to temp file + arm drag
           // Re-read backend at call time (may have been injected after first render)
-          const backend = window.__JUCE__?.backend
-          if (!backend || typeof backend.writeAudioFile !== 'function') {
-            finish('error:no-backend')
+          const juce    = window.__JUCE__
+          const backend = juce?.backend
+          const wafType = typeof (backend as Record<string, unknown> | undefined)?.writeAudioFile
+          if (!backend || wafType !== 'function') {
+            finish(`error:no-backend juce=${!!juce} be=${!!backend} waf=${wafType}`)
             return
           }
           const result = await backend.writeAudioFile(base64, name)

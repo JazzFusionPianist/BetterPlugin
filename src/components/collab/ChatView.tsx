@@ -373,7 +373,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
   // '__juceFileDrop' with base64-encoded audio data.
-  const processDroppedFileRef = useRef(processDroppedFile)
+  const processDroppedFileRef = useRef<(file: File) => Promise<void>>(async () => {})
   useEffect(() => { processDroppedFileRef.current = processDroppedFile })
 
   // __juceDragComplete: fired by C++ the instant performDragOperation: is

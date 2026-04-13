@@ -37,8 +37,9 @@ private:
 
     juce::File downloadToTemp (const juce::String& url, const juce::String& name);
 
-    void handlePrefetch  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
-    void handleStartDrag (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handlePrefetch      (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleStartDrag     (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleWriteAudioFile(const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     juce::WebBrowserComponent browser;
     DragMouseListener         dragListener { *this };

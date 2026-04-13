@@ -253,12 +253,21 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const fetchProfiles = useCallback(async () => {
-    const { data } = await client
-      .from('profiles')
-      .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(10000)
-    if (data) setProfiles(data as AdminProfile[])
+    const PAGE_SIZE = 1000
+    const all: AdminProfile[] = []
+    let from = 0
+    while (true) {
+      const { data } = await client
+        .from('profiles')
+        .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin, updated_at')
+        .order('updated_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1)
+      if (!data || data.length === 0) break
+      all.push(...(data as AdminProfile[]))
+      if (data.length < PAGE_SIZE) break
+      from += PAGE_SIZE
+    }
+    setProfiles(all)
     setLoading(false)
   }, [client])
 

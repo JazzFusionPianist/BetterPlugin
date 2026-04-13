@@ -22,32 +22,47 @@ interface RawProfile {
   is_admin?: boolean | null
 }
 
-export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [me, setMe] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+const PAGE_SIZE = 1000
 
-  const fetch = useCallback(async () => {
+async function fetchAllProfiles(supabase: SupabaseClient): Promise<RawProfile[]> {
+  const all: RawProfile[] = []
+  let from = 0
+
+  while (true) {
     let { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin')
-      .limit(10000)
+      .range(from, from + PAGE_SIZE - 1)
 
     // Fall back to basic columns if newer columns don't exist yet
     if (error) {
       const res = await supabase
         .from('profiles')
         .select('id, display_name, avatar_color')
-        .limit(10000)
+        .range(from, from + PAGE_SIZE - 1)
       data = res.data as typeof data
+      if (res.error || !data || data.length === 0) break
+    } else if (!data || data.length === 0) {
+      break
     }
 
-    if (!data) {
-      setLoading(false)
-      return
-    }
+    all.push(...(data as RawProfile[]))
+    if (data.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
 
-    const all = (data as RawProfile[]).map(p => ({
+  return all
+}
+
+export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [me, setMe] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    const data = await fetchAllProfiles(supabase)
+
+    const all = data.map(p => ({
       id: p.id,
       display_name: p.display_name || 'Unknown',
       avatar_color: p.avatar_color || colorForId(p.id),

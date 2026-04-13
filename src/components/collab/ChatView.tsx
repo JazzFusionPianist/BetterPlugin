@@ -485,6 +485,17 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     e.preventDefault()
     dragCounter.current = 0
     setDragOver(false)
+
+    // ── Debug banner ─────────────────────────────────────────
+    const nFiles = e.dataTransfer.files.length
+    const types  = Array.from(e.dataTransfer.types).join(', ')
+    const banner = document.createElement('div')
+    banner.style.cssText = 'position:fixed;top:40px;left:0;right:0;background:#550055;color:#fff;padding:8px;text-align:center;font-size:11px;z-index:999999;pointer-events:none'
+    banner.textContent = `drop: ${nFiles} file(s) | types: ${types}`
+    document.body.appendChild(banner)
+    setTimeout(() => banner.remove(), 6000)
+    // ─────────────────────────────────────────────────────────
+
     const file = e.dataTransfer.files?.[0]
     if (file) await processDroppedFile(file)
   }

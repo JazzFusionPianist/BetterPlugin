@@ -109,7 +109,7 @@ declare global {
   }
 }
 
-type DragState = 'idle' | 'fetching' | 'ready' | 'dragging' | 'fallback'
+type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback'
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
 function AudioAttachment({ url, name }: { url: string; name: string }) {
@@ -139,12 +139,33 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
   const handleMouseEnter = () => {}
 
+  // 다운로드 완료 후 마우스를 떼면 'idle'로 리셋
+  const armResetRef = useRef<(() => void) | null>(null)
+
+  const scheduleResetOnMouseUp = () => {
+    // 이전 리스너 제거
+    armResetRef.current?.()
+    const handler = () => {
+      setDragState('idle')
+      window.removeEventListener('mouseup', handler)
+      armResetRef.current = null
+    }
+    window.addEventListener('mouseup', handler)
+    armResetRef.current = () => window.removeEventListener('mouseup', handler)
+  }
+
   // 마우스 누르면 OS 레벨 드래그 시작
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
 
     if (juceBackend) {
+      // 이미 armed: C++ 이미 준비됨 — 드래그만 하면 됨, 재다운로드 안 함
+      if (dragState === 'armed') {
+        scheduleResetOnMouseUp()
+        return
+      }
+
       setDlBytes(0)
       setTotalBytes(-1)
       setDragState('fetching')
@@ -154,7 +175,12 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
       const finish = (result: string) => {
         clearTimeout(timer)
         delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
-        setDragState(result === 'armed' ? 'dragging' : 'idle')
+        if (result === 'armed') {
+          setDragState('armed')
+          scheduleResetOnMouseUp()
+        } else {
+          setDragState('idle')
+        }
       }
 
       // 60s hard timeout
@@ -218,8 +244,8 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const dragLabel: Record<DragState, string> = {
     idle:     'Import to DAW',
     fetching: fetchingLabel,
-    ready:    'Drag to track',
-    dragging: 'Drop on track!',
+    armed:    'Drag to track ↗',
+    dragging: 'Dragging…',
     fallback: 'Link copied!',
   }
 
@@ -247,7 +273,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
         {/* Import / Drag 버튼 */}
         <button
-          className={`msg-att-import-btn${dragState === 'ready' || dragState === 'dragging' ? ' ready' : ''}`}
+          className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' ? ' ready' : ''}`}
           onMouseEnter={handleMouseEnter}
           onMouseDown={handleMouseDown}
           onClick={e => e.stopPropagation()}
@@ -263,7 +289,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
               <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
             </svg>
           )}
-          {(dragState === 'ready' || dragState === 'dragging') && (
+          {(dragState === 'armed' || dragState === 'dragging') && (
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
             </svg>

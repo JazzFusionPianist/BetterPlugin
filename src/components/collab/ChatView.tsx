@@ -214,9 +214,12 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
           // Re-read backend at call time (may have been injected after first render)
           const juce    = window.__JUCE__
           const backend = juce?.backend
-          const wafType = typeof (backend as Record<string, unknown> | undefined)?.writeAudioFile
+          const be = backend as Record<string, unknown> | undefined
+          const wafType = typeof be?.writeAudioFile
+          const paType  = typeof be?.prefetchAudio
+          const sadType = typeof be?.startAudioDrag
           if (!backend || wafType !== 'function') {
-            finish(`error:no-backend juce=${!!juce} be=${!!backend} waf=${wafType}`)
+            finish(`no-backend juce=${!!juce} be=${!!backend} waf=${wafType} pa=${paType} sad=${sadType}`)
             return
           }
           const result = await backend.writeAudioFile(base64, name)

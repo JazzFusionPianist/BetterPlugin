@@ -25,6 +25,7 @@ import type { VideoSource } from '../types/live'
 import { useLive } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
 import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
+import { useLiveChat } from '../hooks/useLiveChat'
 import './collab.css'
 
 interface Props { user: User }
@@ -183,6 +184,16 @@ function CollabPageInner({ user }: Props) {
   useEffect(() => {
     if (watchingSessionId && !watchingSession) setWatchingSessionId(null)
   }, [watchingSessionId, watchingSession])
+
+  // Live chat — scoped to whichever session we're currently engaged with
+  // (our own broadcast or a friend we're watching).
+  const chatSessionId = mySession?.id ?? watchingSessionId ?? null
+  const chatMe = useMemo(() => me ? {
+    id: user.id,
+    name: me.display_name || (user.email?.split('@')[0] ?? 'user'),
+    color: me.avatar_color || '#4A8FE7',
+  } : null, [me, user.id, user.email])
+  const { messages: chatMessages, sendMessage: sendChat } = useLiveChat(client, chatSessionId, chatMe)
 
   const [liveError, setLiveError] = useState<string | null>(null)
   const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null) => {
@@ -483,6 +494,9 @@ function CollabPageInner({ user }: Props) {
               viewerId={user.id}
               session={watchingSession}
               host={watchingHost}
+              currentUserId={user.id}
+              chatMessages={chatMessages}
+              onSendChat={sendChat}
               onClose={() => setWatchingSessionId(null)}
             />
           ) : (
@@ -497,6 +511,9 @@ function CollabPageInner({ user }: Props) {
               viewerCount={viewerCount}
               mediaError={mediaError || liveError}
               screenCaptureSupported={screenCaptureSupported}
+              currentUserId={user.id}
+              chatMessages={chatMessages}
+              onSendChat={sendChat}
               onStartLive={handleStartLive}
               onEndLive={handleEndLive}
               onWatchLive={(sessionId) => setWatchingSessionId(sessionId)}

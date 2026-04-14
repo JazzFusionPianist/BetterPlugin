@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
 import type { VideoSource } from '../../types/live'
+import type { LiveChatMessage } from '../../hooks/useLiveChat'
+import LiveChat from './LiveChat'
 
 interface MicOption { deviceId: string; label: string }
 
@@ -16,6 +18,9 @@ interface Props {
   viewerCount: number
   mediaError: string | null
   screenCaptureSupported: boolean
+  currentUserId: string
+  chatMessages: LiveChatMessage[]
+  onSendChat: (text: string) => void
   onStartLive: (title: string, source: VideoSource, micDeviceId: string | null) => void
   onEndLive: () => void
   onWatchLive: (sessionId: string, hostId: string) => void
@@ -45,6 +50,7 @@ const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
 export default function LivePanel({
   isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
   mediaError, screenCaptureSupported,
+  currentUserId, chatMessages, onSendChat,
   onStartLive, onEndLive, onWatchLive, onClose,
 }: Props) {
   const [title, setTitle]         = useState('')
@@ -114,7 +120,6 @@ export default function LivePanel({
                   </svg>
                 </div>
               )}
-            <div className="live-stream-title">{mySession.title || 'Live Session'}</div>
             <div className="live-meta-row">
               <span className="live-timer">{duration}</span>
               <span className="live-viewer-count">
@@ -122,6 +127,11 @@ export default function LivePanel({
                 {viewerCount}
               </span>
             </div>
+            <LiveChat
+              messages={chatMessages}
+              currentUserId={currentUserId}
+              onSend={onSendChat}
+            />
             <button className="live-end-btn" onClick={onEndLive}>End Stream</button>
           </div>
         ) : (

@@ -3,16 +3,21 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useLiveViewer } from '../../hooks/useLiveViewer'
 import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
+import type { LiveChatMessage } from '../../hooks/useLiveChat'
+import LiveChat from './LiveChat'
 
 interface Props {
   supabase: SupabaseClient
   viewerId: string
   session: LiveSession
   host: Profile | null
+  currentUserId: string
+  chatMessages: LiveChatMessage[]
+  onSendChat: (text: string) => void
   onClose: () => void
 }
 
-export default function LiveViewer({ supabase, viewerId, session, host, onClose }: Props) {
+export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, onSendChat, onClose }: Props) {
   const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -30,7 +35,6 @@ export default function LiveViewer({ supabase, viewerId, session, host, onClose 
 
   const statusLabel =
     status === 'connecting' ? 'Connecting…'
-    : status === 'connected' ? ''
     : status === 'ended'     ? 'Stream ended'
     : status === 'error'     ? 'Connection error'
     : ''
@@ -66,13 +70,15 @@ export default function LiveViewer({ supabase, viewerId, session, host, onClose 
           </div>
         )}
 
-        {session.title && (
-          <div className="live-viewer-stream-title">{session.title}</div>
-        )}
-
         {statusLabel && (
           <div className="live-viewer-status">{statusLabel}</div>
         )}
+
+        <LiveChat
+          messages={chatMessages}
+          currentUserId={currentUserId}
+          onSend={onSendChat}
+        />
       </div>
     </>
   )

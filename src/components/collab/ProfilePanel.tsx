@@ -1,8 +1,9 @@
-import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
+import { useTracks } from '../../hooks/useTracks'
 
 interface Props {
   supabase: SupabaseClient
@@ -57,9 +58,79 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const speedFactorRef = useRef(1)
   const exclusionPadRef = useRef(6)
   const [scrolledUp, setScrolledUp] = useState(false)
+  const [statList, setStatList] = useState<'members' | 'following' | null>(null)
+  const lastListRef = useRef<'members' | 'following'>('members')
+
+  useEffect(() => { if (statList) lastListRef.current = statList }, [statList])
+
+  useEffect(() => { if (!scrolledUp) { setStatList(null); setTrackPanel(false) } }, [scrolledUp])
+  useEffect(() => { setStatList(null); setTrackPanel(false) }, [mode])
+
+  // --- Track upload state ---
+  const { tracks, addTrack } = useTracks(supabase, user.id)
+  const audioInputRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const trackAudioRef = useRef<HTMLAudioElement>(null)
+  const [pendingAudioFiles, setPendingAudioFiles] = useState<File[]>([])
+  const [trackPanel, setTrackPanel] = useState(false)
+  const [trackMeta, setTrackMeta] = useState({ title: '', artist: '', version: '', date: '', description: '' })
+  const [trackCoverFile, setTrackCoverFile] = useState<File | null>(null)
+  const [trackCoverPreview, setTrackCoverPreview] = useState<string | null>(null)
+  const [trackSaving, setTrackSaving] = useState(false)
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
+
+  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setPendingAudioFiles(Array.from(files))
+    setTrackMeta({ title: files[0].name.replace(/\.[^.]+$/, ''), artist: '', version: '1', date: '', description: '' })
+    setTrackCoverFile(null)
+    setTrackCoverPreview(null)
+    setTrackPanel(true)
+    if (audioInputRef.current) audioInputRef.current.value = ''
+  }
+
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setTrackCoverFile(file)
+    const url = URL.createObjectURL(file)
+    setTrackCoverPreview(url)
+    if (coverInputRef.current) coverInputRef.current.value = ''
+  }
+
+  const handleTrackSave = useCallback(async () => {
+    if (!pendingAudioFiles.length || !trackMeta.title) return
+    setTrackSaving(true)
+    try {
+      for (const audioFile of pendingAudioFiles) {
+        await addTrack(audioFile, trackMeta, trackCoverFile || undefined)
+      }
+    } catch (err: any) {
+      console.error('Track upload failed:', err)
+      showMsg('Upload failed: ' + (err?.message || 'unknown error'))
+    }
+    setTrackPanel(false)
+    setPendingAudioFiles([])
+    setTrackSaving(false)
+  }, [pendingAudioFiles, trackMeta, trackCoverFile, addTrack])
+
+  const handleTrackPlay = (track: typeof tracks[0]) => {
+    const audio = trackAudioRef.current
+    if (!audio) return
+    if (playingTrackId === track.id) {
+      audio.pause()
+      setPlayingTrackId(null)
+    } else {
+      audio.src = track.audio_url
+      audio.play()
+      setPlayingTrackId(track.id)
+    }
+  }
 
   const handleWheel = (e: React.WheelEvent) => {
     if (mode !== 'party') return
+    if (statList || trackPanel) return
     if (e.deltaY < 0) setScrolledUp(true)
     else if (e.deltaY > 0) setScrolledUp(false)
   }
@@ -385,17 +456,114 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
           </div>
 
           {scrolledUp && mode === 'party' && (
-            <div className="orbit-stats">
-              <div className="orbit-stat">
-                <span className="orbit-stat-count">{followerProfiles.length}</span>
-                <span className="orbit-stat-label">members</span>
+            <>
+              <div className="orbit-stats">
+                <div
+                  className={`orbit-stat${statList === 'members' ? ' active' : ''}`}
+                  onClick={() => setStatList(s => s === 'members' ? null : 'members')}
+                >
+                  <span className="orbit-stat-count">{followerProfiles.length}</span>
+                  <span className="orbit-stat-label">members</span>
+                </div>
+                <div
+                  className={`orbit-stat${statList === 'following' ? ' active' : ''}`}
+                  onClick={() => setStatList(s => s === 'following' ? null : 'following')}
+                >
+                  <span className="orbit-stat-count">{followingProfiles.length}</span>
+                  <span className="orbit-stat-label">following</span>
+                </div>
               </div>
-              <div className="orbit-stat">
-                <span className="orbit-stat-count">{followingProfiles.length}</span>
-                <span className="orbit-stat-label">following</span>
+              <div className={`orbit-stat-list${statList ? ' open' : ''}`}>
+                {(statList === 'members' ? followerProfiles
+                  : statList === 'following' ? followingProfiles
+                  : lastListRef.current === 'members' ? followerProfiles
+                  : followingProfiles
+                ).map(p => (
+                  <div key={p.id} className="orbit-stat-row" onClick={() => onOpenChat(p.id)}>
+                    <div className="orbit-stat-av" style={{ background: p.avatar_color }}>
+                      {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
+                      {p.isOnline && <div className="orbit-stat-online" />}
+                    </div>
+                    <span className="orbit-stat-row-name">{p.display_name}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* --- Upload circle / Track display --- */}
+          {scrolledUp && mode === 'party' && !statList && (
+            <div className="orbit-track-area">
+              {tracks.length === 0 ? (
+                <div className="orbit-upload-circle" onClick={() => audioInputRef.current?.click()}>
+                  <span className="orbit-upload-plus">+</span>
+                </div>
+              ) : (
+                <div className="orbit-track-list">
+                  {tracks.map(t => (
+                    <div key={t.id} className="orbit-track-item" onClick={() => handleTrackPlay(t)}>
+                      <div className={`orbit-track-cover${t.cover_url ? '' : ' orbit-track-cover-default'}`}>
+                        {t.cover_url && <img src={t.cover_url} alt={t.title} />}
+                      </div>
+                      {playingTrackId === t.id && <div className="orbit-track-playing">▶</div>}
+                      <div className="orbit-track-title">{t.title}</div>
+                    </div>
+                  ))}
+                  <div className="orbit-upload-circle small" onClick={() => audioInputRef.current?.click()}>
+                    <span className="orbit-upload-plus">+</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* --- Track metadata panel --- */}
+          {trackPanel && (
+            <div className="orbit-track-panel">
+              <div className="orbit-track-panel-top">
+                <div className="orbit-track-cover-pick" onClick={() => coverInputRef.current?.click()}>
+                  {trackCoverPreview ? (
+                    <img src={trackCoverPreview} alt="cover" />
+                  ) : (
+                    <span>+</span>
+                  )}
+                </div>
+                <div className="orbit-track-fields">
+                  <input
+                    className="orbit-track-input orbit-track-title"
+                    placeholder="Title"
+                    value={trackMeta.title}
+                    onChange={e => setTrackMeta(m => ({ ...m, title: e.target.value }))}
+                  />
+                  <input
+                    className="orbit-track-input"
+                    placeholder="Artist"
+                    value={trackMeta.artist}
+                    onChange={e => setTrackMeta(m => ({ ...m, artist: e.target.value }))}
+                  />
+                  <select
+                    className="orbit-track-select"
+                    value={trackMeta.version}
+                    onChange={e => setTrackMeta(m => ({ ...m, version: e.target.value }))}
+                  >
+                    {Array.from({ length: 20 }, (_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>v{i + 1}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="orbit-track-btns">
+                <button className="orbit-track-btn cancel" onClick={() => { setTrackPanel(false); setPendingAudioFiles([]) }}>Cancel</button>
+                <button className="orbit-track-btn save" onClick={handleTrackSave} disabled={trackSaving || !trackMeta.title}>
+                  {trackSaving ? 'Saving...' : 'Save'}
+                </button>
               </div>
             </div>
           )}
+
+          <audio ref={trackAudioRef} onEnded={() => setPlayingTrackId(null)} />
+          <input ref={audioInputRef} type="file" accept="audio/*" multiple style={{ display: 'none' }} onChange={handleAudioSelect} />
+          <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverSelect} />
 
         </div>
 

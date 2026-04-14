@@ -381,27 +381,36 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             // fire a JS 'drop' event, so React can't do it itself).
             stopDragTimer();
             WKWebView* wkv = objc_getAssociatedObject (selfView, &kWKViewRefKey);
-            if (wkv)
+            if (wkv) {
+                // Tell JS how many files to expect so it can group them into
+                // one multi-track message instead of separate messages.
+                NSString* startJS = [NSString stringWithFormat:
+                    @"window.dispatchEvent(new CustomEvent('__juceDropGroupStart',"
+                     "{detail:{count:%lu}}))", (unsigned long)rcvs.count];
+                [wkv evaluateJavaScript:startJS completionHandler:nil];
                 [wkv evaluateJavaScript:
                     @"window.dispatchEvent(new Event('__juceDragComplete'))"
                  completionHandler:nil];
+            }
 
             NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
             bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
 
-            [rcvs.firstObject
-                receivePromisedFilesAtDestination:
-                    [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
-                                         options:@{}
-                                 operationQueue:bgQueue
-                                         reader:^(NSURL* fileURL, NSError* err) {
-                if (err) { NSLog (@"[DragMonitor] promise error: %@", err); return; }
-                NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
-                if (!raw) return;
-                NSString* b64  = [raw base64EncodedStringWithOptions:0];
-                NSString* name = fileURL.lastPathComponent;
-                dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64); });
-            }];
+            // Process ALL receivers, not just the first one.
+            for (NSFilePromiseReceiver* rcv in rcvs) {
+                [rcv receivePromisedFilesAtDestination:
+                        [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
+                                             options:@{}
+                                     operationQueue:bgQueue
+                                             reader:^(NSURL* fileURL, NSError* err) {
+                    if (err) { NSLog (@"[DragMonitor] promise error: %@", err); return; }
+                    NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
+                    if (!raw) return;
+                    NSString* b64  = [raw base64EncodedStringWithOptions:0];
+                    NSString* name = fileURL.lastPathComponent;
+                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64); });
+                }];
+            }
             return YES;
         }
 

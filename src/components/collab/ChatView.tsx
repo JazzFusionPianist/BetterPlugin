@@ -592,6 +592,48 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
   // '__juceFileDrop' with base64-encoded audio data.
   const processDroppedFileRef = useRef<(file: File) => Promise<void>>(async () => {})
   useEffect(() => { processDroppedFileRef.current = processDroppedFile })
+  useEffect(() => {
+    processMultiDropRef.current = async (batch: { name: string; data: string }[]) => {
+      const toFile = (n: string, d: string) => {
+        const binary = atob(d)
+        const bytes  = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const ext = n.split('.').pop()?.toLowerCase() ?? ''
+        const mimeMap: Record<string, string> = {
+          wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
+          mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
+          ogg: 'audio/ogg', flac: 'audio/flac',
+        }
+        return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
+      }
+
+      setUploading(true)
+      const uploaded: TrackInfo[] = []
+      for (const { name: n, data: d } of batch) {
+        const file = toFile(n, d)
+        if (file.size > MAX_SIZE) { showErr(`${n}: too large (max ${MAX_SIZE_MB}MB)`); continue }
+        const att = await uploadFile(file, 'audio')
+        if (att) uploaded.push({ url: att.url, name: att.name })
+      }
+      setUploading(false)
+
+      if (uploaded.length === 1) {
+        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
+      } else if (uploaded.length > 1) {
+        await onSend('', {
+          url:  JSON.stringify(uploaded),
+          type: 'multi-audio',
+          name: `${uploaded.length} Tracks`,
+        })
+      }
+    }
+  })
+
+  // Buffer for grouping multiple __juceFileDrop events from a single Logic drag.
+  // C++ fires __juceDropGroupStart{count} first so we know how many to expect.
+  const dropBuffer        = useRef<{ name: string; data: string }[]>([])
+  const dropGroupCount    = useRef(1)
+  const processMultiDropRef = useRef<(files: { name: string; data: string }[]) => Promise<void>>(async () => {})
 
   // __juceDragComplete: fired by C++ the instant performDragOperation: is
   // called, before the async file export finishes.  Dismisses the overlay
@@ -607,29 +649,55 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => window.removeEventListener('__juceDragComplete', handler)
   }, [])
 
+  // __juceDropGroupStart: C++ announces the total file count before delivering
+  // individual __juceFileDrop events, so JS can batch them into one message.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
+      dropBuffer.current = []
+    }
+    window.addEventListener('__juceDropGroupStart', handler)
+    return () => window.removeEventListener('__juceDropGroupStart', handler)
+  }, [])
+
+  // __juceFileDrop: C++ delivers one resolved file per event.
+  // When all expected files have arrived, upload and send as one message.
   useEffect(() => {
     const handler = async (e: Event) => {
-      dragCounter.current = 0
-      setDragOver(false)
-
-      // If outDragActive is still set, this file is our own audio coming back
-      // via Logic's drag (Logic accepted our drag and started its own session).
-      // Treat it as a cancel — don't attach.
       if (outDragActive.current) return
 
       const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
-      // Decode base64 → Uint8Array → File
-      const binary = atob(data)
-      const bytes  = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      const ext  = name.split('.').pop()?.toLowerCase() ?? ''
-      const mime: Record<string, string> = {
-        wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
-        mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
-        ogg: 'audio/ogg', flac: 'audio/flac',
+      dropBuffer.current.push({ name, data })
+
+      // Wait until all files from this drag are collected
+      if (dropBuffer.current.length < dropGroupCount.current) return
+
+      const batch = dropBuffer.current
+      dropBuffer.current = []
+      dropGroupCount.current = 1
+
+      // Helper: base64 string → File object
+      const toFile = (n: string, d: string) => {
+        const binary = atob(d)
+        const bytes  = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const ext  = n.split('.').pop()?.toLowerCase() ?? ''
+        const mimeMap: Record<string, string> = {
+          wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
+          mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
+          ogg: 'audio/ogg', flac: 'audio/flac',
+        }
+        return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
       }
-      const file = new File([bytes], name, { type: mime[ext] ?? 'audio/aiff' })
-      await processDroppedFileRef.current(file)
+
+      if (batch.length === 1) {
+        // Single file — existing path
+        await processDroppedFileRef.current(toFile(batch[0].name, batch[0].data))
+        return
+      }
+
+      // Multiple files — delegate to ref so closures stay fresh
+      await processMultiDropRef.current(batch)
     }
     window.addEventListener('__juceFileDrop', handler)
     return () => window.removeEventListener('__juceFileDrop', handler)

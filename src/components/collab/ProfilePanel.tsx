@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
+import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 
 interface Props {
@@ -18,6 +19,9 @@ interface Props {
   onViewProfile?: (id: string) => void
   onAvatarUpdated?: (url: string) => void
   viewOnly?: boolean
+  liveHostIds?: Set<string>
+  liveSessions?: LiveSession[]
+  onWatchLive?: (sessionId: string) => void
 }
 
 interface Orb {
@@ -34,7 +38,7 @@ interface Orb {
 
 const SELF_RADIUS = 38
 
-export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly }: Props) {
+export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly, liveHostIds, liveSessions, onWatchLive }: Props) {
   const [mode, setMode] = useState<'main' | 'party'>(viewOnly ? 'party' : 'main')
   useEffect(() => { if (viewOnly) setMode('party') }, [viewOnly])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -307,7 +311,9 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                 onClick={() => onOpenChat(p.id)}
               >
                 {p.avatar_url && <img src={p.avatar_url} alt="" />}
-                {p.isOnline && <div className="orbit-orb-dot" />}
+                {liveHostIds?.has(p.id)
+                  ? <div className="orbit-orb-livedot" />
+                  : p.isOnline && <div className="orbit-orb-dot" />}
                 {favorites.has(p.id) && <div className="orbit-orb-fav">★</div>}
               </div>
             )
@@ -358,6 +364,19 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                 <button className="orbit-tt-btn orbit-tt-msg" onClick={() => onOpenChat(hoveredProfile.id)}>message</button>
                 {onViewProfile && <button className="orbit-tt-btn orbit-tt-prof" onClick={() => onViewProfile(hoveredProfile.id)}>profile</button>}
               </div>
+              {(() => {
+                if (!liveHostIds?.has(hoveredProfile.id)) return null
+                const session = liveSessions?.find(s => s.host_id === hoveredProfile.id)
+                if (!session || !onWatchLive) return null
+                return (
+                  <button
+                    className="orbit-tt-btn orbit-tt-join-live"
+                    onClick={() => onWatchLive(session.id)}
+                  >
+                    ● Join Live!
+                  </button>
+                )
+              })()}
             </div>
           )}
 

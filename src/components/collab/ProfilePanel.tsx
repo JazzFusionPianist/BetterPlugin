@@ -52,6 +52,13 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const prevModeRef = useRef(mode)
   const speedFactorRef = useRef(1)
   const exclusionPadRef = useRef(6)
+  const [scrolledUp, setScrolledUp] = useState(false)
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (mode !== 'party') return
+    if (e.deltaY < 0) setScrolledUp(true)
+    else if (e.deltaY > 0) setScrolledUp(false)
+  }
 
   const displayProfiles = useMemo(
     () => mode === 'main' ? followingProfiles.filter(p => p.isOnline) : followerProfiles,
@@ -266,7 +273,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   return (
     <>
       <div className="s-body profile-orbit-body">
-        <div className="profile-orbit" ref={containerRef}>
+        <div className={`profile-orbit${scrolledUp && mode === 'party' ? ' orbit-scrolled' : ''}`} ref={containerRef} onWheel={handleWheel}>
           {viewOnly ? (
             <button className="orbit-mode-toggle-btn" onClick={onClose}>
               ← back
@@ -279,6 +286,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
               {mode}
             </button>
           )}
+          <div className={`orbit-orbs-layer${scrolledUp && mode === 'party' ? ' orbit-orbs-hidden' : ''}`}>
           {renderProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
@@ -304,6 +312,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
               </div>
             )
           })}
+          </div>
 
           <button
             className="profile-av-btn orbit-self"
@@ -355,6 +364,19 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
           <div className="orbit-bottom">
             <div className="orbit-name">{displayName}</div>
           </div>
+
+          {scrolledUp && mode === 'party' && (
+            <div className="orbit-stats">
+              <div className="orbit-stat">
+                <span className="orbit-stat-count">{followerProfiles.length}</span>
+                <span className="orbit-stat-label">members</span>
+              </div>
+              <div className="orbit-stat">
+                <span className="orbit-stat-count">{followingProfiles.length}</span>
+                <span className="orbit-stat-label">following</span>
+              </div>
+            </div>
+          )}
 
         </div>
 

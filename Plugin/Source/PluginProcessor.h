@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <atomic>
 
 //==============================================================================
 /**
@@ -7,6 +8,10 @@
  *
  * This plugin has no audio DSP — it is a pure UI utility plugin.
  * Audio passes through unchanged on all channels.
+ *
+ * For live streaming, processBlock also writes the incoming audio into a
+ * lock-free ring buffer so the editor can poll it on the message thread
+ * and forward it to the embedded WKWebView.
  */
 class CoOpAudioProcessor final : public juce::AudioProcessor
 {
@@ -42,6 +47,21 @@ public:
     void getStateInformation (juce::MemoryBlock&) override  {}
     void setStateInformation (const void*, int) override    {}
 
+    //── Live audio capture ────────────────────────────────────────────────────
+    /** Reads up to `maxFrames` frames of captured audio, interleaving channels
+     *  into `dest`. Caller must provide dest with at least
+     *  `maxFrames * getCaptureNumChannels()` floats. Returns frames actually read. */
+    int readCapturedAudio (float* dest, int maxFrames);
+    int getCaptureSampleRate () const noexcept { return captureSampleRate.load(); }
+    int getCaptureNumChannels() const noexcept { return captureNumChannels.load(); }
+
 private:
+    //── Audio capture ring buffer (mirrors up to 2 channels × 1 s @ 96 kHz) ─
+    static constexpr int kCaptureBufferSize = 96000;
+    juce::AbstractFifo    captureFifo { kCaptureBufferSize };
+    juce::AudioBuffer<float> captureBuffer { 2, kCaptureBufferSize };
+    std::atomic<int>      captureSampleRate  { 0 };
+    std::atomic<int>      captureNumChannels { 0 };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CoOpAudioProcessor)
 };

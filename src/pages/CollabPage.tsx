@@ -151,8 +151,9 @@ function CollabPageInner({ user }: Props) {
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
   const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
-  const { stream: localStream, error: mediaError, startStream, stopStream, listSources, screenCaptureSupported } = useMediaSource()
-  const sources = useMemo(() => listSources(), [listSources])
+  const { stream: localStream, error: mediaError, startStream, stopStream, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
+  const sources     = useMemo(() => listSources(),     [listSources])
+  const microphones = useMemo(() => listMicrophones(), [listMicrophones])
   const { viewerCount } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
   const [watchingSessionId, setWatchingSessionId] = useState<string | null>(null)
 
@@ -184,15 +185,16 @@ function CollabPageInner({ user }: Props) {
   }, [watchingSessionId, watchingSession])
 
   const [liveError, setLiveError] = useState<string | null>(null)
-  const handleStartLive = useCallback(async (title: string, source: VideoSource, withAudio: boolean) => {
+  const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null) => {
     setLiveError(null)
-    const ms = await startStream(source, withAudio)
+    const ms = await startStream(source, micDeviceId)
     if (!ms) return
     const hasVideo = source.kind !== 'none'
+    const hasAudio = ms.getAudioTracks().length > 0
     try {
       await startLive(title, {
         has_video: hasVideo,
-        has_audio: withAudio || source.kind !== 'none',
+        has_audio: hasAudio,
         video_source: source.kind,
       })
     } catch (e) {
@@ -490,6 +492,7 @@ function CollabPageInner({ user }: Props) {
               liveSessions={liveSessions}
               profiles={profilesWithStatus}
               sources={sources}
+              microphones={microphones}
               localStream={localStream}
               viewerCount={viewerCount}
               mediaError={mediaError || liveError}

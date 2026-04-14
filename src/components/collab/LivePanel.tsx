@@ -3,17 +3,20 @@ import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
 import type { VideoSource } from '../../types/live'
 
+interface MicOption { deviceId: string; label: string }
+
 interface Props {
   isOpen: boolean
   mySession: LiveSession | null
   liveSessions: LiveSession[]
   profiles: Profile[]
   sources: VideoSource[]
+  microphones: MicOption[]
   localStream: MediaStream | null
   viewerCount: number
   mediaError: string | null
   screenCaptureSupported: boolean
-  onStartLive: (title: string, source: VideoSource, withAudio: boolean) => void
+  onStartLive: (title: string, source: VideoSource, micDeviceId: string | null) => void
   onEndLive: () => void
   onWatchLive: (sessionId: string, hostId: string) => void
   onClose: () => void
@@ -40,12 +43,12 @@ function useDuration(startedAt: string | null) {
 const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
 
 export default function LivePanel({
-  isOpen, mySession, liveSessions, profiles, sources, localStream, viewerCount,
+  isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
   mediaError, screenCaptureSupported,
   onStartLive, onEndLive, onWatchLive, onClose,
 }: Props) {
   const [title, setTitle]         = useState('')
-  const [withAudio, setWithAudio] = useState(true)
+  const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
   const [selectedKey, setSelectedKey] = useState<string>(() => {
     const first = sources.find(s => s.kind === 'daw') ?? sources[0]
     return first ? sourceKey(first) : 'daw:'
@@ -79,7 +82,7 @@ export default function LivePanel({
 
   const handleGoLive = () => {
     if (!selectedSource) return
-    onStartLive(title.trim(), selectedSource, withAudio)
+    onStartLive(title.trim(), selectedSource, micDeviceId || null)
   }
 
   return (
@@ -161,10 +164,22 @@ export default function LivePanel({
               </select>
             </div>
 
-            <label className="live-audio-row">
-              <input type="checkbox" checked={withAudio} onChange={e => setWithAudio(e.target.checked)} />
-              <span>Include microphone audio</span>
-            </label>
+            <div className="live-field">
+              <label className="live-field-label">Microphone</label>
+              <select
+                className="live-select"
+                value={micDeviceId}
+                onChange={e => setMicDeviceId(e.target.value)}
+              >
+                <option value="">(None)</option>
+                {microphones.map(m => (
+                  <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+                ))}
+              </select>
+              <p className="live-field-hint">
+                DAW audio is always included. Pick a mic to add voice (or keep (None) for DAW only).
+              </p>
+            </div>
 
             {mediaError && <div className="live-error">{mediaError}</div>}
 

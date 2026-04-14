@@ -117,6 +117,7 @@ juce::File CoOpAudioProcessorEditor::downloadToTemp (const juce::String& url,
 //==============================================================================
 CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     : AudioProcessorEditor (&p),
+      processorRef (p),
       browser (juce::WebBrowserComponent::Options{}
                    .withKeepPageLoadedWhenBrowserIsHidden()
                    .withNativeFunction ("prefetchAudio",
@@ -149,11 +150,52 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     setResizable (false, false);
 
     browser.goToURL (COOP_APP_URL);
+
+    // Start polling the processor's capture ring buffer every 20 ms and
+    // forwarding samples to JS via a `__juceDawAudio` CustomEvent.
+    startTimer (20);
 }
 
 CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
 {
+    stopTimer();
     dragMonitor.disarm();
+}
+
+//==============================================================================
+// Live audio streaming: polls processor's capture ring buffer and sends
+// chunks to the embedded WKWebView via CustomEvent.
+//==============================================================================
+void CoOpAudioProcessorEditor::timerCallback()
+{
+    const int sr = processorRef.getCaptureSampleRate();
+    const int ch = processorRef.getCaptureNumChannels();
+    if (sr <= 0 || ch <= 0) return;
+
+    // Poll up to 30 ms worth of audio to stay ahead of the 20 ms timer.
+    const int maxFrames = (sr * 30) / 1000;
+    audioPollBuffer.resize ((size_t) (maxFrames * ch));
+    const int framesRead = processorRef.readCapturedAudio (audioPollBuffer.data(), maxFrames);
+    if (framesRead <= 0) return;
+
+    const int bytes = framesRead * ch * (int) sizeof (float);
+    juce::MemoryBlock mb (audioPollBuffer.data(), (size_t) bytes);
+    const juce::String b64 = mb.toBase64Encoding();
+
+    juce::String script;
+    script << "window.dispatchEvent(new CustomEvent('__juceDawAudio',{detail:{"
+           << "samples:'" << b64 << "',"
+           << "sr:"       << sr << ","
+           << "ch:"       << ch << "}}))";
+
+    const bool changed = (sr != lastReportedSampleRate) || (ch != lastReportedNumChannels);
+    lastReportedSampleRate  = sr;
+    lastReportedNumChannels = ch;
+
+    browser.evaluateJavaScript (script,
+        [] (juce::WebBrowserComponent::EvaluationResult) {});
+
+    juce::ignoreUnused (changed);
 }
 
 //==============================================================================

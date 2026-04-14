@@ -7,7 +7,8 @@
 //==============================================================================
 class CoOpAudioProcessorEditor final
     : public juce::AudioProcessorEditor,
-      public juce::DragAndDropContainer
+      public juce::DragAndDropContainer,
+      private juce::Timer
 {
 public:
     explicit CoOpAudioProcessorEditor (CoOpAudioProcessor&);
@@ -33,6 +34,14 @@ private:
 
     juce::WebBrowserComponent browser;
     DragMonitor               dragMonitor;   // NSEvent-based drag (bypasses WKWebView)
+
+    // ── Live audio streaming ──────────────────────────────────────────────
+    // Timer polls processor.readCapturedAudio() and forwards to JS.
+    void timerCallback() override;
+    std::vector<float> audioPollBuffer;
+    int  lastReportedSampleRate  { 0 };
+    int  lastReportedNumChannels { 0 };
+    CoOpAudioProcessor& processorRef;
 
     // Prefetch cache (main-thread only)
     juce::File   cachedFile;

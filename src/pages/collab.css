@@ -2164,6 +2164,14 @@
 }
 .live-select:focus { border-color: #FF3B30; }
 
+.live-field-hint {
+  font-size: 9px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
 .live-audio-row {
   display: flex;
   align-items: center;

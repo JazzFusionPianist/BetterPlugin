@@ -16,9 +16,11 @@ import DisplayPanel from '../components/collab/DisplayPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
+import LivePanel from '../components/collab/LivePanel'
 import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { Profile } from '../types/collab'
+import { useLive } from '../hooks/useLive'
 import './collab.css'
 
 interface Props { user: User }
@@ -103,6 +105,7 @@ function CollabPageInner({ user }: Props) {
   const [searchQuery, setSearchQuery]           = useState('')
   const [notifOpen, setNotifOpen]               = useState(false)
   const [convOpen, setConvOpen]                 = useState(false)
+  const [liveOpen, setLiveOpen]                 = useState(false)
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -143,6 +146,7 @@ function CollabPageInner({ user }: Props) {
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
+  const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
@@ -194,10 +198,11 @@ function CollabPageInner({ user }: Props) {
   const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
   const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
   const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleLive      = () => setLiveOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
-  const handleOpenChat     = (id: string) => { setTooltip(null); setGalleryPopup(null); setSelectedId(id); markSeen(id) }
+  const handleOpenChat     = (id: string) => { setTooltip(null); setGalleryPopup(null); setLiveOpen(false); setSelectedId(id); markSeen(id) }
 
   const handleGalleryCellClick = (profile: Profile, el: HTMLDivElement) => {
     // Toggle off if same profile already open
@@ -256,6 +261,7 @@ function CollabPageInner({ user }: Props) {
     notifSettingsOpen ? 'notifsettings-open' : '',
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
+    liveOpen          ? 'live-open'          : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -288,6 +294,20 @@ function CollabPageInner({ user }: Props) {
           <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
             <circle cx="5.5" cy="5.5" r="2.4" /><path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" /><path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
+        </div>
+
+        {/* Live */}
+        <div
+          className={`icon-btn${liveOpen ? ' active' : ''}${mySession ? ' live-btn-active' : ''}`}
+          onClick={handleToggleLive}
+          title="Live"
+          style={{ position: 'relative', opacity: mySession ? 1 : undefined }}
+        >
+          <svg viewBox="0 0 16 16" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" stroke={mySession ? '#FF3B30' : 'var(--t1)'}>
+            <path d="M3.5 11.5a6 6 0 019 0" /><path d="M1 9a9 9 0 0114 0" />
+            <circle cx="8" cy="13.5" r="1" fill={mySession ? '#FF3B30' : 'var(--t1)'} stroke="none" />
+          </svg>
+          {mySession && <span className="live-btn-dot" />}
         </div>
 
         {/* Settings */}
@@ -377,7 +397,7 @@ function CollabPageInner({ user }: Props) {
             ? <ProfilePanel supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} viewOnly />
             : viewMode === 'default'
               ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} />
-              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onGalleryCellClick={handleGalleryCellClick} />
+              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
         <div className="view cview">
@@ -410,6 +430,18 @@ function CollabPageInner({ user }: Props) {
             onOpenChat={handleOpenChat}
           />
         </div>
+        <div className="view lvview">
+          <LivePanel
+            mySession={mySession}
+            liveSessions={liveSessions}
+            profiles={profilesWithStatus}
+            onStartLive={startLive}
+            onEndLive={endLive}
+            onWatchLive={id => { setLiveOpen(false); handleOpenChat(id) }}
+            onClose={() => setLiveOpen(false)}
+          />
+        </div>
+
         <div className="view afview">
           <AddFriendPanel
             allProfiles={profilesWithStatus}

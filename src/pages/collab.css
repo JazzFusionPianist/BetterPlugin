@@ -280,7 +280,8 @@
 .plugin.settings-open      .fview > *,
 .plugin.addfriend-open     .fview > *,
 .plugin.notifsettings-open .fview > *,
-.plugin.conv-open          .fview > * { visibility: hidden; }
+.plugin.conv-open          .fview > *,
+.plugin.live-open          .fview > * { visibility: hidden; }
 .plugin.display-open       .sview > *,
 .plugin.info-open          .sview > *,
 .plugin.notifsettings-open .sview > * { visibility: hidden; }
@@ -296,6 +297,7 @@
 .iview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
 .nsview { transform: translateX(100%); z-index: 19; background: var(--bg); }
 .convview { transform: translateX(100%); z-index: 20; background: var(--bg); }
+.lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
 .plugin.chat-open           .cview    { transform: translateX(0); }
@@ -306,6 +308,9 @@
 .plugin.info-open           .iview    { transform: translateX(0); }
 .plugin.notifsettings-open  .nsview   { transform: translateX(0); }
 .plugin.conv-open           .convview { transform: translateX(0); }
+.plugin.live-open           .lvview   { transform: translateX(0); }
+
+.plugin.live-open .fview > * { visibility: hidden; }
 
 .s-nav-row {
   display: flex;
@@ -1823,3 +1828,240 @@
   flex-shrink: 0;
   margin-left: 2px;
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Live – toolbar button
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.live-btn-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #FF3B30;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.4); opacity: .6; }
+}
+
+/* LIVE badge in friends list / gallery */
+.live-badge {
+  font-size: 8px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .06em;
+  color: #fff;
+  background: #FF3B30;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+/* LIVE dot on gallery cell avatar */
+.gcell-live-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FF3B30;
+  border: 1.5px solid var(--bg);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Live Panel
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.live-title-badge {
+  color: #FF3B30;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+
+.live-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+/* Pre-live setup */
+.live-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 20px;
+  gap: 12px;
+}
+.live-setup-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 59, 48, .1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FF3B30;
+}
+.live-setup-icon svg { width: 24px; height: 24px; }
+.live-setup-hint {
+  font-size: 11px;
+  color: var(--t3);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+.live-title-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg2);
+  border: 0.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--t1);
+  outline: none;
+}
+.live-title-input::placeholder { color: var(--t3); }
+.live-title-input:focus { border-color: #FF3B30; }
+.live-go-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #FF3B30;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.live-go-btn:hover { opacity: .85; }
+
+/* Broadcasting mode */
+.live-broadcasting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 24px;
+  gap: 10px;
+}
+.live-pulse-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.live-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 59, 48, .15);
+  animation: live-ring-pulse 2s ease-out infinite;
+}
+.live-pulse-ring2 { animation-delay: 1s; }
+@keyframes live-ring-pulse {
+  0%   { transform: scale(.7); opacity: .8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+.live-icon-svg {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  color: #FF3B30;
+}
+.live-stream-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+}
+.live-timer {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: #FF3B30;
+  letter-spacing: .05em;
+}
+.live-end-btn {
+  margin-top: 4px;
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: 1.5px solid #FF3B30;
+  background: transparent;
+  color: #FF3B30;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.live-end-btn:hover { background: #FF3B30; color: #fff; }
+
+/* Friends live now section */
+.live-others {
+  border-top: 1px solid var(--border);
+  padding: 12px 0 0;
+}
+.live-others-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.live-others-row:hover { background: var(--bg2); }
+.live-av-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #FF3B30;
+  border: 1.5px solid var(--bg);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+.live-others-info {
+  flex: 1;
+  min-width: 0;
+}
+.live-others-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+}
+.live-others-sub {
+  font-size: 10px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-watch-btn {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-family: 'DM Sans', sans-serif;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 0.5px solid var(--border2);
+  background: var(--bg2);
+  color: var(--t1);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.live-watch-btn:hover { background: #FF3B30; color: #fff; border-color: #FF3B30; }

@@ -15,6 +15,7 @@ interface Props {
   loading: boolean
   viewMode: 'gallery' | 'list'
   searchQuery: string
+  liveHostIds?: Set<string>
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
   onViewProfile: (id: string) => void
@@ -24,12 +25,14 @@ interface Props {
 function FriendRow({
   profile,
   isFav,
+  isLive,
   onSelect,
   onToggleFav,
   onViewProfile,
 }: {
   profile: Profile
   isFav: boolean
+  isLive: boolean
   onSelect: () => void
   onToggleFav: () => void
   onViewProfile: () => void
@@ -46,9 +49,10 @@ function FriendRow({
       </div>
 
       <div className="f-info">
-        <div className={`f-name ${profile.isOnline ? 'bold' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <div className={`f-name ${profile.isOnline ? 'bold' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {profile.display_name}
           {profile.is_verified && <VerifiedBadge />}
+          {isLive && <span className="live-badge">LIVE</span>}
         </div>
         <div className="f-sub">
           {profile.isOnline ? 'online' : 'offline'}
@@ -72,10 +76,12 @@ function FriendRow({
 function GalleryCell({
   profile,
   isFav,
+  isLive,
   onCellClick,
 }: {
   profile: Profile
   isFav: boolean
+  isLive: boolean
   onCellClick: (el: HTMLDivElement) => void
 }) {
   return (
@@ -89,7 +95,9 @@ function GalleryCell({
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
             : profile.initials}
         </div>
-        <div className={`av-dot md ${profile.isOnline ? 'don' : 'doff'}`} />
+        {isLive
+          ? <div className="gcell-live-dot" />
+          : <div className={`av-dot md ${profile.isOnline ? 'don' : 'doff'}`} />}
         {isFav && <div className="star-badge">★</div>}
       </div>
       <div className={`gcell-name ${profile.isOnline ? 'on' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
@@ -106,6 +114,7 @@ export default function FriendsList({
   loading,
   viewMode,
   searchQuery,
+  liveHostIds = new Set(),
   onSelect,
   onToggleFav,
   onViewProfile,
@@ -141,6 +150,7 @@ export default function FriendsList({
             key={p.id}
             profile={p}
             isFav={favorites.has(p.id)}
+            isLive={liveHostIds.has(p.id)}
             onCellClick={el => onGalleryCellClick(p, el)}
           />
         ))}
@@ -155,6 +165,7 @@ export default function FriendsList({
         key={p.id}
         profile={p}
         isFav={favorites.has(p.id)}
+        isLive={liveHostIds.has(p.id)}
         onSelect={() => onSelect(p.id)}
         onToggleFav={() => onToggleFav(p.id)}
         onViewProfile={() => onViewProfile(p.id)}

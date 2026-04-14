@@ -2130,6 +2130,34 @@
 }
 .live-watch-btn:hover { background: #FF3B30; color: #fff; border-color: #FF3B30; }
 
+/* Live indicator on small avatars (list view) */
+.av-dot.sm.live {
+  background: #FF3B30;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+/* Live variant of the 'online' badge in list view */
+.ob.live {
+  color: #fff;
+  background: #FF3B30;
+  letter-spacing: .06em;
+}
+
+/* Join Live! button in gallery popup */
+.orbit-tt-btn.orbit-tt-join-live {
+  margin-top: 6px;
+  background: #FF3B30;
+  color: #fff;
+  border-color: #FF3B30;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.orbit-tt-btn.orbit-tt-join-live:hover {
+  background: #E03024;
+  border-color: #E03024;
+  color: #fff;
+}
+
 /* ── Source selector / form fields ── */
 .live-field {
   width: 100%;

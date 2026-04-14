@@ -44,17 +44,18 @@ function FriendRow({
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
             : profile.initials}
         </div>
-        <div className={`av-dot sm ${profile.isOnline ? 'don' : 'doff'}`} />
+        {isLive
+          ? <div className="av-dot sm live" />
+          : <div className={`av-dot sm ${profile.isOnline ? 'don' : 'doff'}`} />}
       </div>
 
       <div className="f-info">
         <div className={`f-name ${profile.isOnline ? 'bold' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {profile.display_name}
           {profile.is_verified && <VerifiedBadge />}
-          {isLive && <span className="live-badge">LIVE</span>}
         </div>
         <div className="f-sub">
-          {profile.isOnline ? 'online' : 'offline'}
+          {isLive ? 'On Live' : profile.isOnline ? 'online' : 'offline'}
         </div>
       </div>
 
@@ -66,7 +67,9 @@ function FriendRow({
         >
           ★
         </span>
-        {profile.isOnline && <span className="ob">online</span>}
+        {isLive
+          ? <span className="ob live">LIVE</span>
+          : profile.isOnline && <span className="ob">online</span>}
       </div>
     </div>
   )

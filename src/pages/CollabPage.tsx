@@ -544,6 +544,18 @@ function CollabPageInner({ user }: Props) {
             <button className="orbit-tt-btn orbit-tt-msg" onClick={() => handleOpenChat(galleryPopup.profile.id)}>message</button>
             <button className="orbit-tt-btn orbit-tt-prof" onClick={() => { setGalleryPopup(null); handleViewProfile(galleryPopup.profile.id) }}>profile</button>
           </div>
+          {(() => {
+            const liveSession = liveSessions.find(s => s.host_id === galleryPopup.profile.id)
+            if (!liveSession) return null
+            return (
+              <button
+                className="orbit-tt-btn orbit-tt-join-live"
+                onClick={() => { setGalleryPopup(null); setWatchingSessionId(liveSession.id); setLiveOpen(true) }}
+              >
+                ● Join Live!
+              </button>
+            )
+          })()}
         </div>
       )}
 

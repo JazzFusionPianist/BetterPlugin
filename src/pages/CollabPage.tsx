@@ -147,6 +147,14 @@ function CollabPageInner({ user }: Props) {
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
   const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
+  const liveRestoredRef = useRef(false)
+  // Auto-open live panel once if a live session is found on load (e.g. app reopened while broadcasting)
+  useEffect(() => {
+    if (mySession && !liveRestoredRef.current) {
+      liveRestoredRef.current = true
+      setLiveOpen(true)
+    }
+  }, [mySession])
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
@@ -248,7 +256,7 @@ function CollabPageInner({ user }: Props) {
   const handleGoHome = () => {
     setSelectedId(null); setViewingProfileId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-    setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
+    setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false)
     closeSearch()
   }
 

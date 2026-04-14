@@ -21,7 +21,9 @@ export function useLive(client: SupabaseClient, userId: string) {
   }, [client, userId])
 
   useEffect(() => {
-    fetchSessions()
+    // Clean up any stale session left from a previous app session
+    client.from('live_sessions').delete().eq('host_id', userId).then(() => fetchSessions())
+
     const channel = client
       .channel('live-sessions-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, () => {
@@ -29,7 +31,7 @@ export function useLive(client: SupabaseClient, userId: string) {
       })
       .subscribe()
     return () => { client.removeChannel(channel) }
-  }, [client, fetchSessions])
+  }, [client, userId, fetchSessions])
 
   const startLive = useCallback(async (title: string) => {
     // End any existing session first (in case of stale row)

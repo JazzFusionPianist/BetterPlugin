@@ -18,8 +18,7 @@ interface Props {
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
   onViewProfile: (id: string) => void
-  onCellHover: (profile: Profile, el: HTMLDivElement) => void
-  onCellLeave: () => void
+  onGalleryCellClick: (profile: Profile, el: HTMLDivElement) => void
 }
 
 function FriendRow({
@@ -73,26 +72,18 @@ function FriendRow({
 function GalleryCell({
   profile,
   isFav,
-  onSelect,
-  onViewProfile,
-  onHover,
-  onLeave,
+  onCellClick,
 }: {
   profile: Profile
   isFav: boolean
-  onSelect: () => void
-  onViewProfile: () => void
-  onHover: (el: HTMLDivElement) => void
-  onLeave: () => void
+  onCellClick: (el: HTMLDivElement) => void
 }) {
   return (
     <div
       className="gcell"
-      onClick={onSelect}
-      onMouseEnter={e => onHover(e.currentTarget)}
-      onMouseLeave={onLeave}
+      onClick={e => onCellClick(e.currentTarget)}
     >
-      <div className="av-wrap" onClick={e => { e.stopPropagation(); onViewProfile() }} style={{ cursor: 'pointer' }}>
+      <div className="av-wrap">
         <div className="av sz48" style={{ background: profile.avatar_color }}>
           {profile.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -118,8 +109,7 @@ export default function FriendsList({
   onSelect,
   onToggleFav,
   onViewProfile,
-  onCellHover,
-  onCellLeave,
+  onGalleryCellClick,
 }: Props) {
   if (loading) {
     return <div className="collab-loading">Loading...</div>
@@ -151,10 +141,7 @@ export default function FriendsList({
             key={p.id}
             profile={p}
             isFav={favorites.has(p.id)}
-            onSelect={() => onSelect(p.id)}
-            onViewProfile={() => onViewProfile(p.id)}
-            onHover={el => onCellHover(p, el)}
-            onLeave={onCellLeave}
+            onCellClick={el => onGalleryCellClick(p, el)}
           />
         ))}
       </div>

@@ -18,7 +18,6 @@ interface Props {
   liveHostIds?: Set<string>
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
-  onViewProfile: (id: string) => void
   onGalleryCellClick: (profile: Profile, el: HTMLDivElement) => void
 }
 
@@ -28,18 +27,18 @@ function FriendRow({
   isLive,
   onSelect,
   onToggleFav,
-  onViewProfile,
+  onAvatarClick,
 }: {
   profile: Profile
   isFav: boolean
   isLive: boolean
   onSelect: () => void
   onToggleFav: () => void
-  onViewProfile: () => void
+  onAvatarClick: (el: HTMLDivElement) => void
 }) {
   return (
     <div className="f-row" onClick={onSelect}>
-      <div className="av-wrap" onClick={e => { e.stopPropagation(); onViewProfile() }} style={{ cursor: 'pointer' }}>
+      <div className="av-wrap" onClick={e => { e.stopPropagation(); onAvatarClick(e.currentTarget) }} style={{ cursor: 'pointer' }}>
         <div className="av sz32" style={{ background: profile.avatar_color }}>
           {profile.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -117,7 +116,6 @@ export default function FriendsList({
   liveHostIds = new Set(),
   onSelect,
   onToggleFav,
-  onViewProfile,
   onGalleryCellClick,
 }: Props) {
   if (loading) {
@@ -168,7 +166,7 @@ export default function FriendsList({
         isLive={liveHostIds.has(p.id)}
         onSelect={() => onSelect(p.id)}
         onToggleFav={() => onToggleFav(p.id)}
-        onViewProfile={() => onViewProfile(p.id)}
+        onAvatarClick={el => onGalleryCellClick(p, el)}
       />
     ))
 

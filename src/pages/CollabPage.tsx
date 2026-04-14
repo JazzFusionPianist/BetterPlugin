@@ -432,6 +432,7 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view lvview">
           <LivePanel
+            isOpen={liveOpen}
             mySession={mySession}
             liveSessions={liveSessions}
             profiles={profilesWithStatus}

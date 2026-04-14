@@ -3,6 +3,7 @@ import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
 
 interface Props {
+  isOpen: boolean
   mySession: LiveSession | null
   liveSessions: LiveSession[]
   profiles: Profile[]
@@ -29,14 +30,16 @@ function useDuration(startedAt: string | null) {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function LivePanel({ mySession, liveSessions, profiles, onStartLive, onEndLive, onWatchLive, onClose }: Props) {
+export default function LivePanel({ isOpen, mySession, liveSessions, profiles, onStartLive, onEndLive, onWatchLive, onClose }: Props) {
   const [title, setTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const duration = useDuration(mySession?.started_at ?? null)
 
   useEffect(() => {
-    if (!mySession) setTimeout(() => inputRef.current?.focus(), 200)
-  }, [mySession])
+    // Only auto-focus when the panel is actually visible; focusing an off-screen
+    // input forces the browser to scroll the container and breaks the layout.
+    if (isOpen && !mySession) setTimeout(() => inputRef.current?.focus(), 200)
+  }, [isOpen, mySession])
 
   const othersLive = liveSessions.filter(s => !mySession || s.host_id !== mySession.host_id)
 

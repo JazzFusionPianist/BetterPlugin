@@ -17,6 +17,7 @@ interface Props {
   searchQuery: string
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
+  onViewProfile: (id: string) => void
   onCellHover: (profile: Profile, el: HTMLDivElement) => void
   onCellLeave: () => void
 }
@@ -26,15 +27,17 @@ function FriendRow({
   isFav,
   onSelect,
   onToggleFav,
+  onViewProfile,
 }: {
   profile: Profile
   isFav: boolean
   onSelect: () => void
   onToggleFav: () => void
+  onViewProfile: () => void
 }) {
   return (
     <div className="f-row" onClick={onSelect}>
-      <div className="av-wrap">
+      <div className="av-wrap" onClick={e => { e.stopPropagation(); onViewProfile() }} style={{ cursor: 'pointer' }}>
         <div className="av sz32" style={{ background: profile.avatar_color }}>
           {profile.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -71,12 +74,14 @@ function GalleryCell({
   profile,
   isFav,
   onSelect,
+  onViewProfile,
   onHover,
   onLeave,
 }: {
   profile: Profile
   isFav: boolean
   onSelect: () => void
+  onViewProfile: () => void
   onHover: (el: HTMLDivElement) => void
   onLeave: () => void
 }) {
@@ -87,7 +92,7 @@ function GalleryCell({
       onMouseEnter={e => onHover(e.currentTarget)}
       onMouseLeave={onLeave}
     >
-      <div className="av-wrap">
+      <div className="av-wrap" onClick={e => { e.stopPropagation(); onViewProfile() }} style={{ cursor: 'pointer' }}>
         <div className="av sz48" style={{ background: profile.avatar_color }}>
           {profile.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
@@ -112,6 +117,7 @@ export default function FriendsList({
   searchQuery,
   onSelect,
   onToggleFav,
+  onViewProfile,
   onCellHover,
   onCellLeave,
 }: Props) {
@@ -146,6 +152,7 @@ export default function FriendsList({
             profile={p}
             isFav={favorites.has(p.id)}
             onSelect={() => onSelect(p.id)}
+            onViewProfile={() => onViewProfile(p.id)}
             onHover={el => onCellHover(p, el)}
             onLeave={onCellLeave}
           />
@@ -163,6 +170,7 @@ export default function FriendsList({
         isFav={favorites.has(p.id)}
         onSelect={() => onSelect(p.id)}
         onToggleFav={() => onToggleFav(p.id)}
+        onViewProfile={() => onViewProfile(p.id)}
       />
     ))
 

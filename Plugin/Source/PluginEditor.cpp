@@ -192,7 +192,7 @@ void CoOpAudioProcessorEditor::timerCallback()
     lastReportedSampleRate  = sr;
     lastReportedNumChannels = ch;
 
-    browser.evaluateJavaScript (script,
+    browser.evaluateJavascript (script,
         [] (juce::WebBrowserComponent::EvaluationResult) {});
 
     juce::ignoreUnused (changed);

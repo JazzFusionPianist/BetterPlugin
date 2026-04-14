@@ -171,14 +171,11 @@ export default function LivePanel({
                 value={micDeviceId}
                 onChange={e => setMicDeviceId(e.target.value)}
               >
-                <option value="">(None)</option>
+                <option value="">None (DAW Only)</option>
                 {microphones.map(m => (
                   <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
                 ))}
               </select>
-              <p className="live-field-hint">
-                DAW audio is always included. Pick a mic to add voice (or keep (None) for DAW only).
-              </p>
             </div>
 
             {mediaError && <div className="live-error">{mediaError}</div>}

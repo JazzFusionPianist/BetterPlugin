@@ -42,11 +42,15 @@ export function useLive(client: SupabaseClient, userId: string) {
   ) => {
     // End any existing session first (in case of stale row)
     await client.from('live_sessions').delete().eq('host_id', userId)
-    const { data } = await client
+    const { data, error } = await client
       .from('live_sessions')
       .insert({ host_id: userId, title, ...opts })
       .select()
       .single()
+    if (error) {
+      console.error('startLive insert failed:', error)
+      throw new Error(error.message)
+    }
     if (data) {
       setMySession(data as LiveSession)
       await fetchSessions()

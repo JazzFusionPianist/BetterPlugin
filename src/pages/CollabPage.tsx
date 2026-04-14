@@ -183,16 +183,24 @@ function CollabPageInner({ user }: Props) {
     if (watchingSessionId && !watchingSession) setWatchingSessionId(null)
   }, [watchingSessionId, watchingSession])
 
+  const [liveError, setLiveError] = useState<string | null>(null)
   const handleStartLive = useCallback(async (title: string, source: VideoSource, withAudio: boolean) => {
+    setLiveError(null)
     const ms = await startStream(source, withAudio)
     if (!ms) return
     const hasVideo = source.kind !== 'none'
-    await startLive(title, {
-      has_video: hasVideo,
-      has_audio: withAudio || source.kind !== 'none',
-      video_source: source.kind,
-    })
-  }, [startStream, startLive])
+    try {
+      await startLive(title, {
+        has_video: hasVideo,
+        has_audio: withAudio || source.kind !== 'none',
+        video_source: source.kind,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setLiveError(`Failed to start live: ${msg}`)
+      stopStream() // release the media since we can't broadcast
+    }
+  }, [startStream, stopStream, startLive])
 
   const handleEndLive = useCallback(async () => {
     stopStream()
@@ -484,7 +492,7 @@ function CollabPageInner({ user }: Props) {
               sources={sources}
               localStream={localStream}
               viewerCount={viewerCount}
-              mediaError={mediaError}
+              mediaError={mediaError || liveError}
               screenCaptureSupported={screenCaptureSupported}
               onStartLive={handleStartLive}
               onEndLive={handleEndLive}

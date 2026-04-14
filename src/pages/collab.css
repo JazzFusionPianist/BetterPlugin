@@ -1093,6 +1093,7 @@
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 2;
+  transition: top 0.5s ease, transform 0.5s ease;
 }
 .orbit-bottom {
   position: absolute;
@@ -1101,6 +1102,7 @@
   bottom: 14px;
   z-index: 4;
   text-align: center;
+  transition: opacity 0.3s ease;
 }
 .orbit-name {
   display: inline-block;
@@ -1118,6 +1120,68 @@
   padding: 2px 12px;
   border-radius: 6px;
 }
+/* --- Scroll-up profile view --- */
+.orbit-orbs-layer {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.5s ease, opacity 0.4s ease;
+}
+.orbit-orbs-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.orbit-scrolled .orbit-self {
+  top: 60px;
+  transform: translate(-50%, 0);
+}
+.orbit-stats {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  height: 76px;
+  z-index: 4;
+  pointer-events: none;
+  animation: orbit-stats-fade 0.5s ease 0.2s both;
+}
+@keyframes orbit-stats-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.orbit-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--t1);
+}
+.orbit-stat:first-child {
+  position: absolute;
+  right: calc(50% + 52px);
+  top: 0;
+  height: 100%;
+  align-items: flex-end;
+}
+.orbit-stat:last-child {
+  position: absolute;
+  left: calc(50% + 51px);
+  top: 0;
+  height: 100%;
+  align-items: flex-start;
+}
+.orbit-stat-count {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.orbit-stat-label {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.5;
+  text-transform: lowercase;
+}
+
 .orbit-party {
   position: absolute;
   left: 75%;

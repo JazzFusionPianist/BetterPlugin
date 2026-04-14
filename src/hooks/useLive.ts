@@ -6,6 +6,9 @@ export interface LiveSession {
   host_id: string
   title: string
   started_at: string
+  has_video: boolean
+  has_audio: boolean
+  video_source: 'daw' | 'screen' | 'camera' | 'none'
 }
 
 export function useLive(client: SupabaseClient, userId: string) {
@@ -33,18 +36,23 @@ export function useLive(client: SupabaseClient, userId: string) {
     return () => { client.removeChannel(channel) }
   }, [client, userId, fetchSessions])
 
-  const startLive = useCallback(async (title: string) => {
+  const startLive = useCallback(async (
+    title: string,
+    opts: { has_video: boolean; has_audio: boolean; video_source: LiveSession['video_source'] }
+  ) => {
     // End any existing session first (in case of stale row)
     await client.from('live_sessions').delete().eq('host_id', userId)
     const { data } = await client
       .from('live_sessions')
-      .insert({ host_id: userId, title })
+      .insert({ host_id: userId, title, ...opts })
       .select()
       .single()
     if (data) {
       setMySession(data as LiveSession)
       await fetchSessions()
+      return data as LiveSession
     }
+    return null
   }, [client, userId, fetchSessions])
 
   const endLive = useCallback(async () => {

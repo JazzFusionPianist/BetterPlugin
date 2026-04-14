@@ -1,15 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
+import type { VideoSource } from '../../types/live'
 
 interface Props {
   isOpen: boolean
   mySession: LiveSession | null
   liveSessions: LiveSession[]
   profiles: Profile[]
-  onStartLive: (title: string) => void
+  sources: VideoSource[]
+  localStream: MediaStream | null
+  viewerCount: number
+  mediaError: string | null
+  screenCaptureSupported: boolean
+  onStartLive: (title: string, source: VideoSource, withAudio: boolean) => void
   onEndLive: () => void
-  onWatchLive: (hostId: string) => void
+  onWatchLive: (sessionId: string, hostId: string) => void
   onClose: () => void
 }
 
@@ -30,18 +36,51 @@ function useDuration(startedAt: string | null) {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function LivePanel({ isOpen, mySession, liveSessions, profiles, onStartLive, onEndLive, onWatchLive, onClose }: Props) {
-  const [title, setTitle] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const duration = useDuration(mySession?.started_at ?? null)
+// Build a key string for comparing VideoSource instances
+const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
+
+export default function LivePanel({
+  isOpen, mySession, liveSessions, profiles, sources, localStream, viewerCount,
+  mediaError, screenCaptureSupported,
+  onStartLive, onEndLive, onWatchLive, onClose,
+}: Props) {
+  const [title, setTitle]         = useState('')
+  const [withAudio, setWithAudio] = useState(true)
+  const [selectedKey, setSelectedKey] = useState<string>(() => {
+    const first = sources.find(s => s.kind === 'daw') ?? sources[0]
+    return first ? sourceKey(first) : 'daw:'
+  })
+  const titleRef   = useRef<HTMLInputElement>(null)
+  const previewRef = useRef<HTMLVideoElement>(null)
+  const duration   = useDuration(mySession?.started_at ?? null)
+
+  // Keep selected source valid even as `sources` list changes (cameras plug in/out)
+  useEffect(() => {
+    if (!sources.find(s => sourceKey(s) === selectedKey) && sources.length > 0) {
+      setSelectedKey(sourceKey(sources[0]))
+    }
+  }, [sources, selectedKey])
+
+  const selectedSource = useMemo(
+    () => sources.find(s => sourceKey(s) === selectedKey) ?? sources[0],
+    [sources, selectedKey],
+  )
 
   useEffect(() => {
-    // Only auto-focus when the panel is actually visible; focusing an off-screen
-    // input forces the browser to scroll the container and breaks the layout.
-    if (isOpen && !mySession) setTimeout(() => inputRef.current?.focus(), 200)
+    if (isOpen && !mySession) setTimeout(() => titleRef.current?.focus(), 200)
   }, [isOpen, mySession])
 
+  // Bind local stream to the preview video element
+  useEffect(() => {
+    if (previewRef.current) previewRef.current.srcObject = localStream
+  }, [localStream, mySession])
+
   const othersLive = liveSessions.filter(s => !mySession || s.host_id !== mySession.host_id)
+
+  const handleGoLive = () => {
+    if (!selectedSource) return
+    onStartLive(title.trim(), selectedSource, withAudio)
+  }
 
   return (
     <>
@@ -56,16 +95,30 @@ export default function LivePanel({ isOpen, mySession, liveSessions, profiles, o
         {mySession ? (
           /* ── Broadcasting mode ── */
           <div className="live-broadcasting">
-            <div className="live-pulse-wrap">
-              <div className="live-pulse-ring" />
-              <div className="live-pulse-ring live-pulse-ring2" />
-              <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
-                <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
-              </svg>
-            </div>
+            {localStream && mySession.has_video
+              ? <video
+                  ref={previewRef}
+                  className="live-preview"
+                  autoPlay muted playsInline
+                />
+              : (
+                <div className="live-pulse-wrap">
+                  <div className="live-pulse-ring" />
+                  <div className="live-pulse-ring live-pulse-ring2" />
+                  <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
+                    <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                  </svg>
+                </div>
+              )}
             <div className="live-stream-title">{mySession.title || 'Live Session'}</div>
-            <div className="live-timer">{duration}</div>
+            <div className="live-meta-row">
+              <span className="live-timer">{duration}</span>
+              <span className="live-viewer-count">
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4 3 1.5 8 1.5 8S4 13 8 13s6.5-5 6.5-5S12 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6z"/></svg>
+                {viewerCount}
+              </span>
+            </div>
             <button className="live-end-btn" onClick={onEndLive}>End Stream</button>
           </div>
         ) : (
@@ -77,20 +130,48 @@ export default function LivePanel({ isOpen, mySession, liveSessions, profiles, o
                 <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
               </svg>
             </div>
-            <p className="live-setup-hint">Start a live session so your friends<br />can see when you're working.</p>
+            <p className="live-setup-hint">Pick a video source and start<br />streaming to your friends.</p>
+
             <input
-              ref={inputRef}
+              ref={titleRef}
               className="live-title-input"
               type="text"
               placeholder="Stream title (optional)"
               maxLength={60}
               value={title}
               onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') onStartLive(title.trim()) }}
             />
+
+            <div className="live-field">
+              <label className="live-field-label">Video source</label>
+              <select
+                className="live-select"
+                value={selectedKey}
+                onChange={e => setSelectedKey(e.target.value)}
+              >
+                {sources.map(s => {
+                  const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
+                  return (
+                    <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
+                      {s.kind === 'daw' ? '🖥  ' : s.kind === 'screen' ? '🖵  ' : '📷 '}
+                      {s.label}{disabled ? ' (unsupported)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            <label className="live-audio-row">
+              <input type="checkbox" checked={withAudio} onChange={e => setWithAudio(e.target.checked)} />
+              <span>Include microphone audio</span>
+            </label>
+
+            {mediaError && <div className="live-error">{mediaError}</div>}
+
             <button
               className="live-go-btn"
-              onClick={() => onStartLive(title.trim())}
+              onClick={handleGoLive}
+              disabled={!selectedSource}
             >
               Go Live
             </button>
@@ -105,7 +186,7 @@ export default function LivePanel({ isOpen, mySession, liveSessions, profiles, o
               const p = profiles.find(pr => pr.id === s.host_id)
               if (!p) return null
               return (
-                <div key={s.id} className="live-others-row" onClick={() => onWatchLive(s.host_id)}>
+                <div key={s.id} className="live-others-row" onClick={() => onWatchLive(s.id, s.host_id)}>
                   <div className="av-wrap" style={{ flexShrink: 0 }}>
                     <div className="av sz32" style={{ background: p.avatar_color }}>
                       {p.avatar_url

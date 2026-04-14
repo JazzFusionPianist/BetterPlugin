@@ -17,10 +17,14 @@ import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
+import LiveViewer from '../components/collab/LiveViewer'
 import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { Profile } from '../types/collab'
+import type { VideoSource } from '../types/live'
 import { useLive } from '../hooks/useLive'
+import { useMediaSource } from '../hooks/useMediaSource'
+import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import './collab.css'
 
 interface Props { user: User }
@@ -147,6 +151,10 @@ function CollabPageInner({ user }: Props) {
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
   const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
+  const { stream: localStream, error: mediaError, startStream, stopStream, listSources, screenCaptureSupported } = useMediaSource()
+  const sources = useMemo(() => listSources(), [listSources])
+  const { viewerCount } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
+  const [watchingSessionId, setWatchingSessionId] = useState<string | null>(null)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
@@ -162,6 +170,34 @@ function CollabPageInner({ user }: Props) {
     const pool = me ? [...profilesWithStatus, { ...me, isOnline: true }] : profilesWithStatus
     return pool.filter(p => friendFollowerIds.has(p.id))
   }, [profilesWithStatus, friendFollowerIds, me])
+
+  // Watching a friend's live
+  const watchingSession = watchingSessionId
+    ? liveSessions.find(s => s.id === watchingSessionId) ?? null
+    : null
+  const watchingHost = watchingSession
+    ? profilesWithStatus.find(p => p.id === watchingSession.host_id) ?? null
+    : null
+  // Auto-close viewer if the session disappears (host ended stream)
+  useEffect(() => {
+    if (watchingSessionId && !watchingSession) setWatchingSessionId(null)
+  }, [watchingSessionId, watchingSession])
+
+  const handleStartLive = useCallback(async (title: string, source: VideoSource, withAudio: boolean) => {
+    const ms = await startStream(source, withAudio)
+    if (!ms) return
+    const hasVideo = source.kind !== 'none'
+    await startLive(title, {
+      has_video: hasVideo,
+      has_audio: withAudio || source.kind !== 'none',
+      video_source: source.kind,
+    })
+  }, [startStream, startLive])
+
+  const handleEndLive = useCallback(async () => {
+    stopStream()
+    await endLive()
+  }, [stopStream, endLive])
 
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []
@@ -261,7 +297,7 @@ function CollabPageInner({ user }: Props) {
     notifSettingsOpen ? 'notifsettings-open' : '',
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
-    liveOpen          ? 'live-open'          : '',
+    (liveOpen || !!watchingSession) ? 'live-open' : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -431,16 +467,31 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view lvview">
-          <LivePanel
-            isOpen={liveOpen}
-            mySession={mySession}
-            liveSessions={liveSessions}
-            profiles={profilesWithStatus}
-            onStartLive={startLive}
-            onEndLive={endLive}
-            onWatchLive={id => { setLiveOpen(false); handleOpenChat(id) }}
-            onClose={() => setLiveOpen(false)}
-          />
+          {watchingSession && watchingHost ? (
+            <LiveViewer
+              supabase={client}
+              viewerId={user.id}
+              session={watchingSession}
+              host={watchingHost}
+              onClose={() => setWatchingSessionId(null)}
+            />
+          ) : (
+            <LivePanel
+              isOpen={liveOpen}
+              mySession={mySession}
+              liveSessions={liveSessions}
+              profiles={profilesWithStatus}
+              sources={sources}
+              localStream={localStream}
+              viewerCount={viewerCount}
+              mediaError={mediaError}
+              screenCaptureSupported={screenCaptureSupported}
+              onStartLive={handleStartLive}
+              onEndLive={handleEndLive}
+              onWatchLive={(sessionId) => setWatchingSessionId(sessionId)}
+              onClose={() => setLiveOpen(false)}
+            />
+          )}
         </div>
 
         <div className="view afview">

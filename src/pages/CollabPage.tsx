@@ -105,6 +105,7 @@ function CollabPageInner({ user }: Props) {
   const [convOpen, setConvOpen]                 = useState(false)
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
+  const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -196,7 +197,20 @@ function CollabPageInner({ user }: Props) {
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
-  const handleOpenChat     = (id: string) => { setTooltip(null); setSelectedId(id); markSeen(id) }
+  const handleOpenChat     = (id: string) => { setTooltip(null); setGalleryPopup(null); setSelectedId(id); markSeen(id) }
+
+  const handleGalleryCellClick = (profile: Profile, el: HTMLDivElement) => {
+    // Toggle off if same profile already open
+    if (galleryPopup?.profile.id === profile.id) { setGalleryPopup(null); return }
+    const rect = el.getBoundingClientRect()
+    const POPUP_W = 160
+    const x = Math.max(4, Math.min(rect.left + rect.width / 2 - POPUP_W / 2, window.innerWidth - POPUP_W - 4))
+    // Prefer above the cell; fall back to below if not enough space
+    const spaceAbove = rect.top - 8
+    const below = spaceAbove <= 120
+    const y = below ? rect.bottom + 8 : rect.top - 8
+    setGalleryPopup({ profile, x, y, below })
+  }
   const handleViewProfile  = async (id: string) => {
     const all: string[] = []
     let from = 0
@@ -213,6 +227,18 @@ function CollabPageInner({ user }: Props) {
   }
 
   useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
+
+  useEffect(() => {
+    if (!galleryPopup) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (!target.closest('.gcell') && !target.closest('.gallery-popup')) {
+        setGalleryPopup(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [galleryPopup])
 
   const handleGoHome = () => {
     setSelectedId(null); setViewingProfileId(null)
@@ -351,7 +377,7 @@ function CollabPageInner({ user }: Props) {
             ? <ProfilePanel supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} viewOnly />
             : viewMode === 'default'
               ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} />
-              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onCellHover={() => {}} onCellLeave={() => {}} />
+              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
         <div className="view cview">
@@ -396,6 +422,35 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
       </div>
+
+      {galleryPopup && (
+        <div
+          className={`orbit-tooltip gallery-popup${galleryPopup.below ? ' below' : ''}`}
+          style={{
+            position: 'fixed',
+            left: galleryPopup.x,
+            top: galleryPopup.y,
+            transform: galleryPopup.below ? 'none' : 'translateY(-100%)',
+            zIndex: 200,
+          }}
+        >
+          <div className="orbit-tt-name-row">
+            <div className="orbit-tt-name">{galleryPopup.profile.display_name}</div>
+            <button
+              className={`orbit-tt-star${favorites.has(galleryPopup.profile.id) ? ' on' : ''}`}
+              onClick={() => handleToggleFav(galleryPopup.profile.id)}
+            >★</button>
+          </div>
+          {followingIds.has(galleryPopup.profile.id)
+            ? <button className="orbit-tt-btn" onClick={() => { unfollow(galleryPopup.profile.id); setGalleryPopup(null) }}>following</button>
+            : <button className="orbit-tt-btn orbit-tt-prof" onClick={() => { follow(galleryPopup.profile.id); setGalleryPopup(null) }}>follow</button>
+          }
+          <div className="orbit-tt-btn-row">
+            <button className="orbit-tt-btn orbit-tt-msg" onClick={() => handleOpenChat(galleryPopup.profile.id)}>message</button>
+            <button className="orbit-tt-btn orbit-tt-prof" onClick={() => { setGalleryPopup(null); handleViewProfile(galleryPopup.profile.id) }}>profile</button>
+          </div>
+        </div>
+      )}
 
       {tooltip && (
         <div className="tooltip visible" style={{ left: tooltip.x, top: tooltip.y }} onMouseEnter={handleTooltipEnter} onMouseLeave={handleTooltipLeave}>

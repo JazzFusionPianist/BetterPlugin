@@ -505,7 +505,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view lvview">
-          {watchingSession && watchingHost ? (
+          {watchingSession ? (
             <LiveViewer
               supabase={client}
               viewerId={user.id}
@@ -513,6 +513,7 @@ function CollabPageInner({ user }: Props) {
               host={watchingHost}
               currentUserId={user.id}
               chatMessages={chatMessages}
+              sessionEnded={!liveSessions.find(s => s.id === watchingSession.id)}
               onSendChat={sendChat}
               onClose={() => setWatchingSession(null)}
             />

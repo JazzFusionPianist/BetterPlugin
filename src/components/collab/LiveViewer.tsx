@@ -13,11 +13,15 @@ interface Props {
   host: Profile | null
   currentUserId: string
   chatMessages: LiveChatMessage[]
+  /** Parent passes true once the session disappears from live_sessions —
+   * a more reliable end-of-stream signal than waiting for our WebRTC peer
+   * to see `closed`/`failed` (which can take 30s of ICE timeout). */
+  sessionEnded: boolean
   onSendChat: (text: string) => void
   onClose: () => void
 }
 
-export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, onSendChat, onClose }: Props) {
+export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, sessionEnded, onSendChat, onClose }: Props) {
   const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -28,9 +32,11 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
     v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
 
+  const ended = sessionEnded || status === 'ended'
+
   // When the stream ends we show a thank-you screen instead of auto-closing
   // — the viewer dismisses it manually via the Back button.
-  if (status === 'ended') {
+  if (ended) {
     return (
       <>
         <div className="s-header live-viewer-header">

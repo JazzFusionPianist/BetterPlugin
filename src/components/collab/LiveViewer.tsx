@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, onSendChat, onClose }: Props) {
-  const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
+  const { remoteStream, status, debug } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -73,6 +73,13 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
         {statusLabel && (
           <div className="live-viewer-status">{statusLabel}</div>
         )}
+
+        {/* Diagnostic — shown always so we can see what's going on */}
+        <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, margin: '4px 8px', fontFamily: 'monospace', lineHeight: 1.5 }}>
+          <div><strong>RTC:</strong> conn={debug.connection} ice={debug.ice} sig={debug.signaling}</div>
+          <div>tracks: total={debug.trackCount} audio={debug.audioTracks} video={debug.videoTracks}</div>
+          {debug.lastError && <div style={{ color: '#ef4444' }}>err: {debug.lastError}</div>}
+        </div>
 
         <LiveChat
           messages={chatMessages}

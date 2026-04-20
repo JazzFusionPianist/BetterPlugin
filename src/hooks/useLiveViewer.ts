@@ -9,6 +9,16 @@ export type ViewerStatus = 'idle' | 'connecting' | 'connected' | 'ended' | 'erro
  * Viewer-side: connects to the host for `sessionId` and receives their
  * live MediaStream. Returns the remote stream to render in a <video>.
  */
+export interface ViewerDebug {
+  connection: RTCPeerConnectionState
+  ice: RTCIceConnectionState
+  signaling: RTCSignalingState
+  trackCount: number
+  audioTracks: number
+  videoTracks: number
+  lastError: string
+}
+
 export function useLiveViewer(
   client: SupabaseClient,
   viewerId: string,
@@ -17,6 +27,10 @@ export function useLiveViewer(
 ) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [status, setStatus] = useState<ViewerStatus>('idle')
+  const [debug, setDebug] = useState<ViewerDebug>({
+    connection: 'new', ice: 'new', signaling: 'stable',
+    trackCount: 0, audioTracks: 0, videoTracks: 0, lastError: '',
+  })
   const pcRef      = useRef<RTCPeerConnection | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
 
@@ -30,15 +44,32 @@ export function useLiveViewer(
     const remote = new MediaStream()
     setRemoteStream(remote)
 
+    const refreshDebug = () => {
+      const tracks = remote.getTracks()
+      setDebug(d => ({
+        ...d,
+        connection: pc.connectionState,
+        ice: pc.iceConnectionState,
+        signaling: pc.signalingState,
+        trackCount: tracks.length,
+        audioTracks: tracks.filter(t => t.kind === 'audio').length,
+        videoTracks: tracks.filter(t => t.kind === 'video').length,
+      }))
+    }
+
     pc.ontrack = (ev) => {
       ev.streams[0]?.getTracks().forEach(t => remote.addTrack(t))
       // Trigger re-render with a fresh stream object so <video> updates
       setRemoteStream(new MediaStream(remote.getTracks()))
+      refreshDebug()
     }
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') setStatus('connected')
       if (['failed', 'closed'].includes(pc.connectionState)) setStatus('ended')
+      refreshDebug()
     }
+    pc.oniceconnectionstatechange = refreshDebug
+    pc.onsignalingstatechange = refreshDebug
 
     const send = (msg: SignalMessage) => {
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })
@@ -62,12 +93,18 @@ export function useLiveViewer(
             await pc.setLocalDescription(answer)
             send({ type: 'answer', from: viewerId, to: hostId, sdp: answer })
           } catch (e) {
+            const err = e instanceof Error ? e.message : String(e)
             console.warn('answer failed', e)
+            setDebug(d => ({ ...d, lastError: `answer: ${err}` }))
             setStatus('error')
           }
         } else if (msg.type === 'ice' && msg.to === viewerId) {
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)) }
-          catch (e) { console.warn('addIceCandidate failed', e) }
+          catch (e) {
+            const err = e instanceof Error ? e.message : String(e)
+            console.warn('addIceCandidate failed', e)
+            setDebug(d => ({ ...d, lastError: `ice: ${err}` }))
+          }
         } else if (msg.type === 'bye') {
           setStatus('ended')
         }
@@ -92,5 +129,5 @@ export function useLiveViewer(
     }
   }, [client, viewerId, sessionId, hostId])
 
-  return { remoteStream, status }
+  return { remoteStream, status, debug }
 }

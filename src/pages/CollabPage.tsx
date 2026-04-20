@@ -155,7 +155,7 @@ function CollabPageInner({ user }: Props) {
   const { stream: localStream, error: mediaError, startStream, stopStream, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
-  const { viewerCount } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
+  const { viewerCount, peerStates } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
   const [watchingSessionId, setWatchingSessionId] = useState<string | null>(null)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
@@ -509,6 +509,7 @@ function CollabPageInner({ user }: Props) {
               microphones={microphones}
               localStream={localStream}
               viewerCount={viewerCount}
+              peerStates={peerStates}
               mediaError={mediaError || liveError}
               screenCaptureSupported={screenCaptureSupported}
               currentUserId={user.id}

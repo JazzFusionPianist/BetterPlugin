@@ -10,6 +10,12 @@ import { rtcConfig, liveSignalingChannel } from '../lib/webrtc'
  *
  * Activates only when both `sessionId` and `localStream` are non-null.
  */
+export interface PeerState {
+  id: string
+  connection: RTCPeerConnectionState
+  ice: RTCIceConnectionState
+}
+
 export function useLiveBroadcaster(
   client: SupabaseClient,
   hostId: string,
@@ -17,8 +23,15 @@ export function useLiveBroadcaster(
   localStream: MediaStream | null,
 ) {
   const [viewerIds, setViewerIds] = useState<Set<string>>(new Set())
+  const [peerStates, setPeerStates] = useState<PeerState[]>([])
   const peersRef    = useRef<Map<string, RTCPeerConnection>>(new Map())
   const channelRef  = useRef<RealtimeChannel | null>(null)
+
+  const refreshPeerStates = () => {
+    setPeerStates(Array.from(peersRef.current.entries()).map(([id, pc]) => ({
+      id, connection: pc.connectionState, ice: pc.iceConnectionState,
+    })))
+  }
 
   useEffect(() => {
     if (!sessionId || !localStream) return
@@ -39,10 +52,12 @@ export function useLiveBroadcaster(
         if (ev.candidate) send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
       }
       pc.onconnectionstatechange = () => {
+        refreshPeerStates()
         if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
           removeViewer(viewerId)
         }
       }
+      pc.oniceconnectionstatechange = refreshPeerStates
 
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
@@ -101,5 +116,5 @@ export function useLiveBroadcaster(
     }
   }, [client, hostId, sessionId, localStream])
 
-  return { viewerCount: viewerIds.size }
+  return { viewerCount: viewerIds.size, peerStates }
 }

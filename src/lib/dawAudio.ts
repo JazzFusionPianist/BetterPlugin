@@ -20,31 +20,39 @@ let destination: MediaStreamAudioDestinationNode | null = null
 let listenerAttached = false
 let lastAudioAt = 0
 let eventCount  = 0   // total __juceDawAudio events received
+let postCount   = 0   // how many made it to the worklet via postMessage
+let lastError   = ''  // last setupPipeline/postMessage error
 
 export interface DawAudioDebug {
   eventCount: number
+  postCount: number
   msSinceLastAudio: number | null
   hasContext: boolean
+  hasWorklet: boolean
   ctxState: AudioContextState | null
   sampleRate: number | null
   trackCount: number
   trackMuted: boolean | null
   trackEnabled: boolean | null
   trackReadyState: MediaStreamTrackState | null
+  lastError: string
 }
 
 export function getDawAudioDebug(): DawAudioDebug {
   const track = destination?.stream.getAudioTracks()[0]
   return {
     eventCount,
+    postCount,
     msSinceLastAudio: lastAudioAt ? Math.round(performance.now() - lastAudioAt) : null,
     hasContext: !!audioCtx,
+    hasWorklet: !!workletNode,
     ctxState: audioCtx?.state ?? null,
     sampleRate: audioCtx?.sampleRate ?? null,
     trackCount: destination?.stream.getAudioTracks().length ?? 0,
     trackMuted: track?.muted ?? null,
     trackEnabled: track?.enabled ?? null,
     trackReadyState: track?.readyState ?? null,
+    lastError,
   }
 }
 
@@ -102,28 +110,35 @@ const workletSource = `
   registerProcessor('daw-audio', DawAudio)
 `
 
+let setupInFlight: Promise<void> | null = null
 async function setupPipeline(sr: number): Promise<void> {
-  if (audioCtx) return
+  if (audioCtx && workletNode) return
+  if (setupInFlight) return setupInFlight
+  setupInFlight = (async () => {
+    try {
+      if (!audioCtx) {
+        try { audioCtx = new AudioContext({ sampleRate: sr }) }
+        catch { audioCtx = new AudioContext() }
+      }
+      const blob = new Blob([workletSource], { type: 'application/javascript' })
+      const url = URL.createObjectURL(blob)
+      await audioCtx.audioWorklet.addModule(url)
+      URL.revokeObjectURL(url)
 
-  try {
-    audioCtx = new AudioContext({ sampleRate: sr })
-  } catch {
-    // Fall back to the device default if the browser refuses a custom rate
-    audioCtx = new AudioContext()
-  }
-
-  const blob = new Blob([workletSource], { type: 'application/javascript' })
-  const url = URL.createObjectURL(blob)
-  await audioCtx.audioWorklet.addModule(url)
-  URL.revokeObjectURL(url)
-
-  workletNode = new AudioWorkletNode(audioCtx, 'daw-audio', {
-    numberOfInputs: 0,
-    numberOfOutputs: 1,
-    outputChannelCount: [2],
-  })
-  destination = audioCtx.createMediaStreamDestination()
-  workletNode.connect(destination)
+      workletNode = new AudioWorkletNode(audioCtx, 'daw-audio', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+      })
+      destination = audioCtx.createMediaStreamDestination()
+      workletNode.connect(destination)
+    } catch (e) {
+      lastError = `setup: ${e instanceof Error ? e.message : String(e)}`
+      throw e
+    }
+  })()
+  try { await setupInFlight }
+  finally { setupInFlight = null }
 }
 
 function attachListener() {
@@ -136,20 +151,27 @@ function attachListener() {
     if (!samples || !sr || !ch) return
 
     eventCount++
-    if (eventCount === 1) console.log('[dawAudio] first event received', { sr, ch, bytes: samples.length })
 
     // Create pipeline on first event if it wasn't pre-initialised. Using the
     // event's sample rate avoids pitch drift when the pipeline is built lazily.
-    if (!audioCtx) await setupPipeline(sr)
+    if (!audioCtx || !workletNode) {
+      try { await setupPipeline(sr) }
+      catch { return }
+    }
     if (!workletNode) return
 
-    const bin = atob(samples)
-    const bytes = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    const floats = new Float32Array(bytes.buffer)
+    try {
+      const bin = atob(samples)
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      const floats = new Float32Array(bytes.buffer)
 
-    workletNode.port.postMessage({ floats, ch }, [floats.buffer])
-    lastAudioAt = performance.now()
+      workletNode.port.postMessage({ floats, ch }, [floats.buffer])
+      postCount++
+      lastAudioAt = performance.now()
+    } catch (e) {
+      lastError = `post: ${e instanceof Error ? e.message : String(e)}`
+    }
   })
 }
 

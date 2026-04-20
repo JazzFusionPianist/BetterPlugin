@@ -74,24 +74,33 @@ API_AVAILABLE(macos(12.3))
     return self;
 }
 
+/** Pick the DAW's main arrange window. In Logic the plugin editor (our
+ *  WebBrowserComponent's host) shows up as a high-layer NSPanel — we avoid
+ *  it by preferring layer-0 windows and ignoring NSApp.mainWindow when the
+ *  plugin editor is focused. */
 - (nullable SCWindow*) pickDawWindow: (NSArray<SCWindow*>*) windows
 {
-    NSWindow* main = [NSApp mainWindow] ?: [NSApp keyWindow];
-    if (main != nil)
-    {
-        const CGWindowID wid = (CGWindowID) [main windowNumber];
-        for (SCWindow* w in windows)
-            if (w.windowID == wid) return w;
-    }
-
     const pid_t myPid = [NSProcessInfo processInfo].processIdentifier;
+
+    // Pass 1: biggest normal-layer on-screen window owned by our host process.
     SCWindow* best = nil;
     CGFloat bestArea = 0;
     for (SCWindow* w in windows)
     {
         if (! w.onScreen) continue;
         if (w.owningApplication.processID != myPid) continue;
+        if (w.windowLayer != 0) continue;              // skip floating panels
         if (w.title.length == 0) continue;
+        const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
+        if (a > bestArea) { bestArea = a; best = w; }
+    }
+    if (best != nil) return best;
+
+    // Pass 2: any on-screen window with area (last-resort fallback).
+    for (SCWindow* w in windows)
+    {
+        if (! w.onScreen) continue;
+        if (w.owningApplication.processID != myPid) continue;
         const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
         if (a > bestArea) { bestArea = a; best = w; }
     }
@@ -117,13 +126,16 @@ API_AVAILABLE(macos(12.3))
         SCContentFilter* filter = nil;
         int outW = 1280, outH = 720;
 
+        NSString* diag = nil;
         if (kind == 1)
         {
             SCWindow* target = [self pickDawWindow: content.windows];
-            if (target == nil) { completion (@"no-daw-window"); return; }
+            if (target == nil) { completion ([NSString stringWithFormat: @"no-daw-window (total=%lu)", (unsigned long) content.windows.count]); return; }
             filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow: target];
             outW = (int) CGRectGetWidth  (target.frame);
             outH = (int) CGRectGetHeight (target.frame);
+            diag = [NSString stringWithFormat: @"window: \"%@\" %dx%d wid=%u",
+                    target.title ?: @"(untitled)", outW, outH, (unsigned) target.windowID];
         }
         else if (kind == 2)
         {
@@ -132,12 +144,14 @@ API_AVAILABLE(macos(12.3))
             filter = [[SCContentFilter alloc] initWithDisplay: display excludingWindows: @[]];
             outW = (int) display.width;
             outH = (int) display.height;
+            diag = [NSString stringWithFormat: @"display: %dx%d", outW, outH];
         }
         else
         {
             completion (@"unknown-kind");
             return;
         }
+        NSLog (@"[CoOp VideoCapture] picked %@", diag);
 
         constexpr int MAX_W = 1280;
         if (outW > MAX_W)
@@ -193,13 +207,32 @@ API_AVAILABLE(macos(12.3))
        didOutputSampleBuffer: (CMSampleBufferRef) sb
                       ofType: (SCStreamOutputType) type
 {
+    (void) stream;
     if (type != SCStreamOutputTypeScreen) return;
     if (! CMSampleBufferIsValid (sb)) return;
     if (! CMSampleBufferDataIsReady (sb)) return;
+
+    // SCK may deliver status-only frames (idle / blank / suspended) without a
+    // usable pixel buffer — skip those. Status 0 (Complete) means there's
+    // new content to consume.
+    CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray (sb, false);
+    if (attachments != NULL && CFArrayGetCount (attachments) > 0)
+    {
+        NSArray* attrs = (__bridge NSArray*) attachments;
+        NSDictionary* attr = attrs.firstObject;
+        NSNumber* status = attr[SCStreamFrameInfoStatus];
+        if (status != nil && [status intValue] != 0) return;
+    }
+
     CVPixelBufferRef pb = CMSampleBufferGetImageBuffer (sb);
     if (pb == NULL) return;
     const int w = (int) CVPixelBufferGetWidth  (pb);
     const int h = (int) CVPixelBufferGetHeight (pb);
+
+    static std::atomic<int> loggedFirst { 0 };
+    if (loggedFirst.fetch_add (1) == 0)
+        NSLog (@"[CoOp VideoCapture] first sample arrived %dx%d", w, h);
+
     if (self.frameCb != nil) self.frameCb (pb, w, h);
 }
 

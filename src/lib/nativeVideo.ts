@@ -40,6 +40,7 @@ function attachListener () {
     const e = ev as CustomEvent<JuceVideoFrameDetail>
     const { jpeg, w, h } = e.detail
     if (!jpeg || !w || !h) return
+    if (frameCount === 0) console.log('[nativeVideo] first frame event', { w, h, bytes: jpeg.length })
     ensureCanvas(w, h)
     const img = imgDecoder!
     img.onload = () => {
@@ -47,7 +48,7 @@ function attachListener () {
       frameCount++
       lastFrameAt = performance.now()
     }
-    img.onerror = () => { /* drop bad frame */ }
+    img.onerror = (err) => { console.warn('[nativeVideo] img decode failed', err) }
     img.src = 'data:image/jpeg;base64,' + jpeg
   })
 }
@@ -73,23 +74,26 @@ export async function startNativeVideo (kind: 'window' | 'screen'): Promise<Medi
   }
 
   const startBefore = frameCount
-  const result = await callJuceNative('startVideoCapture', [kind], 8000)
+  console.log('[nativeVideo] starting', kind)
+  const result = await callJuceNative('startVideoCapture', [kind], 10000)
+  console.log('[nativeVideo] start result:', result)
   if (!result.startsWith('ok')) {
     lastError = result
     return null
   }
 
-  // Wait briefly for the first frame so we hand back a track that's
-  // already producing real content (not a black canvas).
-  const deadline = performance.now() + 2000
+  // Wait for first frame. 5s gives SCK time to warm up on slower systems.
+  const deadline = performance.now() + 5000
   while (frameCount === startBefore && performance.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 100))
   }
   if (frameCount === startBefore) {
     lastError = 'no-frames'
+    console.warn('[nativeVideo] no frames within 5s of start="ok"')
     await stopNativeVideo()
     return null
   }
+  console.log('[nativeVideo] frames flowing, count=', frameCount - startBefore)
 
   if (!stream && canvas) stream = canvas.captureStream(15)
   return stream?.getVideoTracks()[0] ?? null

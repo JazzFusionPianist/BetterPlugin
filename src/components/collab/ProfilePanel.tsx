@@ -67,7 +67,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   useEffect(() => { setStatList(null); setTrackPanel(false) }, [mode])
 
   // --- Track upload state ---
-  const { tracks, addTrack } = useTracks(supabase, user.id)
+  const trackOwnerId = me?.id ?? user.id
+  const { tracks, addTrack, updateTrack, deleteTrack } = useTracks(supabase, trackOwnerId)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const trackAudioRef = useRef<HTMLAudioElement>(null)
@@ -78,6 +79,70 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const [trackCoverPreview, setTrackCoverPreview] = useState<string | null>(null)
   const [trackSaving, setTrackSaving] = useState(false)
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
+  const [editMeta, setEditMeta] = useState({ title: '', version: '', date: '', description: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [viewIndex, setViewIndex] = useState(0)
+  const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
+  const draggedRef = useRef(false)
+  const wheelAccumRef = useRef(0)
+  const wheelStartIdxRef = useRef<number | null>(null)
+  const wheelResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const trackListRef = useRef<HTMLDivElement>(null)
+  const scrollAccumRef = useRef(0)
+  const scrollResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const panelAnimLockRef = useRef(false)
+  const GALLERY_SPACING = 150
+  const DRAG_CLICK_THRESHOLD = 5
+  const PANEL_SCROLL_THRESHOLD = 50
+  const PANEL_ANIM_LOCK_MS = 550
+
+  // During active drag/scroll: write transform directly to the list element (no React re-render).
+  // On release: clear the inline transition override and setViewIndex — React re-renders the
+  // list with transform = viewIndex * SPACING, and the CSS transition smoothly animates from
+  // the current DOM value to the new one. No instant jump at snap time.
+  const setLiveListOffset = (startIdx: number, dragPx: number) => {
+    const el = trackListRef.current
+    if (!el) return
+    el.style.transition = 'none'
+    el.style.transform = `translate3d(${startIdx * GALLERY_SPACING + dragPx}px, 0, 0)`
+  }
+
+  const releaseAndSnap = (startIdx: number, dragPx: number) => {
+    const shift = Math.round(dragPx / GALLERY_SPACING)
+    const clamped = Math.max(0, Math.min(tracks.length - 1, startIdx + shift))
+    // Drop the inline transition override so the CSS default re-applies when React rewrites
+    // transform. The browser will then tween from the current transform to the new one.
+    if (trackListRef.current) trackListRef.current.style.transition = ''
+    setViewIndex(clamped)
+  }
+
+  // Clamp viewIndex when tracks list changes
+  useEffect(() => {
+    if (tracks.length === 0) {
+      setViewIndex(0)
+    } else {
+      setViewIndex(v => Math.max(0, Math.min(v, tracks.length - 1)))
+    }
+  }, [tracks.length])
+
+  const formatTrackDate = (iso: string | null | undefined) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
+  useEffect(() => {
+    if (!playingTrackId) return
+    const t = tracks.find(x => x.id === playingTrackId)
+    if (!t) return
+    setEditMeta({
+      title: t.title || '',
+      version: t.version || '',
+      date: t.date || (t.created_at ? t.created_at.slice(0, 10) : ''),
+      description: t.description || '',
+    })
+  }, [playingTrackId, tracks])
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -128,11 +193,128 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     }
   }
 
+  const handleTrackEditSave = useCallback(async () => {
+    if (!playingTrackId) return
+    setEditSaving(true)
+    try {
+      await updateTrack(playingTrackId, {
+        title: editMeta.title,
+        version: editMeta.version || null as unknown as string,
+        date: editMeta.date || null,
+        description: editMeta.description || null,
+      })
+      showMsg('Saved')
+    } catch (err: any) {
+      console.error('Track update failed:', err)
+      showMsg('Save failed: ' + (err?.message || 'unknown error'))
+    }
+    setEditSaving(false)
+  }, [playingTrackId, editMeta, updateTrack])
+
+  const handleTrackDelete = useCallback(async () => {
+    if (!playingTrackId) return
+    if (!window.confirm('Delete this track?')) return
+    const id = playingTrackId
+    const audio = trackAudioRef.current
+    if (audio) { audio.pause(); audio.currentTime = 0 }
+    setPlayingTrackId(null)
+    try {
+      await deleteTrack(id)
+    } catch (err: any) {
+      console.error('Track delete failed:', err)
+      showMsg('Delete failed: ' + (err?.message || 'unknown error'))
+    }
+  }, [playingTrackId, deleteTrack])
+
   const handleWheel = (e: React.WheelEvent) => {
     if (mode !== 'party') return
     if (statList || trackPanel) return
-    if (e.deltaY < 0) setScrolledUp(true)
-    else if (e.deltaY > 0) setScrolledUp(false)
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+    // Ignore further wheel events while the previous toggle is still animating so
+    // rapid / jittery scrolls don't interrupt the in-flight animation.
+    if (panelAnimLockRef.current) return
+
+    scrollAccumRef.current += e.deltaY
+
+    let toggled = false
+    if (scrollAccumRef.current <= -PANEL_SCROLL_THRESHOLD && !scrolledUp) {
+      setScrolledUp(true)
+      toggled = true
+    } else if (scrollAccumRef.current >= PANEL_SCROLL_THRESHOLD && scrolledUp) {
+      setScrolledUp(false)
+      toggled = true
+    }
+
+    if (toggled) {
+      scrollAccumRef.current = 0
+      panelAnimLockRef.current = true
+      setTimeout(() => { panelAnimLockRef.current = false }, PANEL_ANIM_LOCK_MS)
+    }
+
+    // Drain accumulated delta if the user pauses scrolling
+    if (scrollResetRef.current) clearTimeout(scrollResetRef.current)
+    scrollResetRef.current = setTimeout(() => { scrollAccumRef.current = 0 }, 220)
+  }
+
+  const handleTrackWheel = (e: React.WheelEvent) => {
+    if (tracks.length <= 1 || playingTrackId) return
+    const dx = e.deltaX
+    if (Math.abs(dx) <= Math.abs(e.deltaY)) return
+
+    if (wheelStartIdxRef.current === null) {
+      wheelStartIdxRef.current = viewIndex
+      wheelAccumRef.current = 0
+    }
+    const startIdx = wheelStartIdxRef.current
+
+    wheelAccumRef.current -= dx
+    const minDelta = -startIdx * GALLERY_SPACING
+    const maxDelta = (tracks.length - 1 - startIdx) * GALLERY_SPACING
+    wheelAccumRef.current = Math.max(minDelta, Math.min(maxDelta, wheelAccumRef.current))
+
+    setLiveListOffset(startIdx, wheelAccumRef.current)
+    if (Math.abs(wheelAccumRef.current) > DRAG_CLICK_THRESHOLD) draggedRef.current = true
+
+    if (wheelResetRef.current) clearTimeout(wheelResetRef.current)
+    wheelResetRef.current = setTimeout(() => {
+      releaseAndSnap(startIdx, wheelAccumRef.current)
+      wheelAccumRef.current = 0
+      wheelStartIdxRef.current = null
+      setTimeout(() => { draggedRef.current = false }, 0)
+    }, 130)
+  }
+
+  const handleTrackPointerDown = (e: React.PointerEvent) => {
+    if (tracks.length <= 1 || playingTrackId) return
+    if (e.button !== undefined && e.button !== 0) return
+    const startIdx = viewIndex
+    dragStartRef.current = { startX: e.clientX, startViewIndex: startIdx }
+    draggedRef.current = false
+
+    const minDelta = -startIdx * GALLERY_SPACING
+    const maxDelta = (tracks.length - 1 - startIdx) * GALLERY_SPACING
+
+    const onMove = (ev: PointerEvent) => {
+      if (!dragStartRef.current) return
+      let dx = ev.clientX - dragStartRef.current.startX
+      if (Math.abs(dx) > DRAG_CLICK_THRESHOLD) draggedRef.current = true
+      dx = Math.max(minDelta, Math.min(maxDelta, dx))
+      setLiveListOffset(startIdx, dx)
+    }
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      if (!dragStartRef.current) return
+      let dx = ev.clientX - dragStartRef.current.startX
+      dx = Math.max(minDelta, Math.min(maxDelta, dx))
+      releaseAndSnap(dragStartRef.current.startViewIndex, dx)
+      dragStartRef.current = null
+      setTimeout(() => { draggedRef.current = false }, 0)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   const displayProfiles = useMemo(
@@ -493,25 +675,108 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
           {/* --- Upload circle / Track display --- */}
           {scrolledUp && mode === 'party' && !statList && (
-            <div className="orbit-track-area">
+            <div className="orbit-track-area" onWheel={e => e.stopPropagation()}>
               {tracks.length === 0 ? (
-                <div className="orbit-upload-circle" onClick={() => audioInputRef.current?.click()}>
-                  <span className="orbit-upload-plus">+</span>
-                </div>
+                viewOnly ? (
+                  <div className="orbit-no-tracks">no music just yet, but stay tuned!</div>
+                ) : (
+                  <div className="orbit-upload-circle" onClick={() => audioInputRef.current?.click()}>
+                    <span className="orbit-upload-plus">+</span>
+                  </div>
+                )
               ) : (
-                <div className="orbit-track-list">
-                  {tracks.map(t => (
-                    <div key={t.id} className="orbit-track-item" onClick={() => handleTrackPlay(t)}>
+                <div
+                  ref={trackListRef}
+                  className={`orbit-track-list${playingTrackId ? ' has-playing' : ''}`}
+                  style={{ transform: `translate3d(${(playingTrackId ? 0 : viewIndex * GALLERY_SPACING)}px, 0, 0)` }}
+                  onWheel={handleTrackWheel}
+                  onPointerDown={handleTrackPointerDown}
+                >
+                  {tracks.map((t, i) => (
+                    <div
+                      key={t.id}
+                      className={`orbit-track-item${playingTrackId === t.id ? ' playing' : ''}`}
+                      style={{ ['--track-offset' as any]: `${-i * GALLERY_SPACING}px` }}
+                      onClick={() => {
+                        if (draggedRef.current) return
+                        handleTrackPlay(t)
+                      }}
+                    >
                       <div className={`orbit-track-cover${t.cover_url ? '' : ' orbit-track-cover-default'}`}>
                         {t.cover_url && <img src={t.cover_url} alt={t.title} />}
                       </div>
                       {playingTrackId === t.id && <div className="orbit-track-playing">▶</div>}
-                      <div className="orbit-track-title">{t.title}</div>
+                      <div className="orbit-track-hover-label">
+                        <div className="orbit-track-hover-title">{t.title}</div>
+                        <div className="orbit-track-hover-date">{formatTrackDate(t.date || t.created_at)}</div>
+                      </div>
                     </div>
                   ))}
-                  <div className="orbit-upload-circle small" onClick={() => audioInputRef.current?.click()}>
-                    <span className="orbit-upload-plus">+</span>
-                  </div>
+                  {!viewOnly && (
+                    <div
+                      className={`orbit-upload-circle small${playingTrackId ? ' hidden' : ''}`}
+                      style={{ ['--track-offset' as any]: `${GALLERY_SPACING}px` }}
+                      onClick={() => {
+                        if (draggedRef.current) return
+                        audioInputRef.current?.click()
+                      }}
+                    >
+                      <span className="orbit-upload-plus">+</span>
+                    </div>
+                  )}
+                  {playingTrackId && (viewOnly ? (
+                    <div className="orbit-track-view">
+                      <div className="orbit-track-view-title">{editMeta.title || 'Untitled'}</div>
+                      <div className="orbit-track-view-date">
+                        {formatTrackDate(editMeta.date || (tracks.find(t => t.id === playingTrackId)?.created_at ?? null))}
+                      </div>
+                      {editMeta.description && (
+                        <div className="orbit-track-view-desc">{editMeta.description}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="orbit-track-edit">
+                      <input
+                        className="orbit-track-edit-input orbit-track-edit-title-input"
+                        placeholder="Title"
+                        value={editMeta.title}
+                        onChange={e => setEditMeta(m => ({ ...m, title: e.target.value }))}
+                      />
+                      <div className="orbit-track-edit-row">
+                        <input
+                          className="orbit-track-edit-input"
+                          placeholder="Version"
+                          value={editMeta.version}
+                          onChange={e => setEditMeta(m => ({ ...m, version: e.target.value }))}
+                        />
+                        <input
+                          className="orbit-track-edit-input"
+                          type="date"
+                          value={editMeta.date}
+                          onChange={e => setEditMeta(m => ({ ...m, date: e.target.value }))}
+                        />
+                      </div>
+                      <textarea
+                        className="orbit-track-edit-desc"
+                        placeholder="Description"
+                        rows={3}
+                        value={editMeta.description}
+                        onChange={e => setEditMeta(m => ({ ...m, description: e.target.value }))}
+                      />
+                      <div className="orbit-track-edit-actions">
+                        <button
+                          className="orbit-track-edit-btn delete"
+                          onClick={handleTrackDelete}
+                          disabled={editSaving}
+                        >Delete</button>
+                        <button
+                          className="orbit-track-edit-btn save"
+                          onClick={handleTrackEditSave}
+                          disabled={editSaving || !editMeta.title}
+                        >{editSaving ? '...' : 'Save'}</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -530,16 +795,10 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                 </div>
                 <div className="orbit-track-fields">
                   <input
-                    className="orbit-track-input orbit-track-title"
+                    className="orbit-track-input orbit-track-title orbit-track-title-large"
                     placeholder="Title"
                     value={trackMeta.title}
                     onChange={e => setTrackMeta(m => ({ ...m, title: e.target.value }))}
-                  />
-                  <input
-                    className="orbit-track-input"
-                    placeholder="Artist"
-                    value={trackMeta.artist}
-                    onChange={e => setTrackMeta(m => ({ ...m, artist: e.target.value }))}
                   />
                   <select
                     className="orbit-track-select"

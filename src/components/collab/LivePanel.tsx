@@ -57,15 +57,18 @@ function DawAudioDebug() {
     return () => clearInterval(id)
   }, [])
   const recent = info.msSinceLastAudio !== null && info.msSinceLastAudio < 500
-  const dotColor = recent ? '#22c55e' : info.eventCount > 0 ? '#f59e0b' : '#ef4444'
+  const pipelineOK =
+    info.hasContext && info.ctxState === 'running'
+    && info.trackReadyState === 'live' && !info.trackMuted && info.trackEnabled
+  const dotColor = recent ? '#22c55e' : info.eventCount > 0 && pipelineOK ? '#9ca3af' : '#ef4444'
   const label =
-    info.eventCount === 0       ? 'no events from plugin'
+    info.eventCount === 0       ? 'plugin not sending (play DAW)'
     : !info.hasContext          ? 'no AudioContext'
     : info.ctxState !== 'running' ? `ctx ${info.ctxState}`
-    : !recent                   ? 'events stopped'
     : info.trackMuted           ? 'track muted'
     : info.trackReadyState !== 'live' ? `track ${info.trackReadyState}`
-    : 'OK'
+    : recent                    ? 'streaming ✓'
+    : 'idle (DAW not playing)'
   return (
     <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, marginTop: 4, fontFamily: 'monospace', lineHeight: 1.5 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>

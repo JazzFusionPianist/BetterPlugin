@@ -322,7 +322,13 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#999', fontFamily: 'sans-serif', flexDirection: 'column', gap: 8 }}>
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
         <span style={{ fontSize: 14 }}>관리자 권한이 없습니다</span>
-        <span style={{ fontSize: 12, color: '#bbb' }}>Supabase에서 is_admin을 true로 설정하세요</span>
+        <span style={{ fontSize: 12, color: '#bbb', marginBottom: 8 }}>{currentUser.email}</span>
+        <button
+          onClick={() => client.auth.signOut().then(() => window.location.reload())}
+          style={{ fontSize: 12, color: '#1D9BF0', background: 'none', border: '1px solid #1D9BF0', borderRadius: 6, padding: '5px 14px', cursor: 'pointer' }}
+        >
+          다른 계정으로 로그인
+        </button>
       </div>
     )
   }

@@ -2962,6 +2962,58 @@
 .live-go-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ── Preview video on host side ── */
+.live-preview-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+.live-preview-row .live-preview {
+  flex: 1;
+  min-width: 0;
+  max-width: unset;
+}
+.live-preview-row .live-pulse-wrap {
+  flex: 1;
+}
+
+/* Avatar inside the audio-only pulse animation */
+.live-pulse-avatar {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Vertical audio level meter */
+.live-audio-meter {
+  width: 6px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: var(--bg3);
+  overflow: hidden;
+  position: relative;
+  min-height: 48px;
+}
+.live-audio-meter-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: 3px;
+  /* green at bottom, yellow in mid, red at top */
+  background: linear-gradient(
+    to top,
+    #34C759 0%,
+    #34C759 55%,
+    #FFCC00 70%,
+    #FF9500 85%,
+    #FF3B30 100%
+  );
+  transition: height 60ms linear;
+}
+
 .live-preview {
   width: 100%;
   max-width: 240px;

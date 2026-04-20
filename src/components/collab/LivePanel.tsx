@@ -140,6 +140,56 @@ function formatDuration(totalSecs: number): string {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/** Measure RMS audio level (0–1) from the audio tracks in a MediaStream. */
+function useAudioLevel(stream: MediaStream | null): number {
+  const [level, setLevel] = useState(0)
+  useEffect(() => {
+    const tracks = stream?.getAudioTracks() ?? []
+    if (!stream || tracks.length === 0) { setLevel(0); return }
+    let ctx: AudioContext | null = null
+    let rafId = 0
+    // AudioContext must be created after a user gesture — if it fails, bail.
+    try {
+      ctx = new AudioContext()
+    } catch { return }
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 256
+    analyser.smoothingTimeConstant = 0.6
+    const src = ctx.createMediaStreamSource(stream)
+    src.connect(analyser)
+    const buf = new Uint8Array(analyser.frequencyBinCount)
+    const tick = () => {
+      analyser.getByteTimeDomainData(buf)
+      let sum = 0
+      for (let i = 0; i < buf.length; i++) {
+        const v = (buf[i] - 128) / 128
+        sum += v * v
+      }
+      // Scale: RMS ~0.05–0.3 for typical speech → map to 0–1
+      setLevel(Math.min(1, Math.sqrt(sum / buf.length) * 8))
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      src.disconnect()
+      ctx?.close()
+    }
+  }, [stream])
+  return level
+}
+
+/** Vertical audio level meter (green → yellow → red). */
+function AudioLevelMeter({ level }: { level: number }) {
+  // level: 0–1. The fill grows from the bottom.
+  const pct = Math.round(level * 100)
+  return (
+    <div className="live-audio-meter" title={`Audio level: ${pct}%`}>
+      <div className="live-audio-meter-fill" style={{ height: `${pct}%` }} />
+    </div>
+  )
+}
+
 export default function LivePanel({
   isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
   totalViewers, peakViewers,
@@ -149,13 +199,13 @@ export default function LivePanel({
 }: Props) {
   const [title, setTitle]         = useState('')
   const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
-  const [selectedKey, setSelectedKey] = useState<string>(() => {
-    const first = sources.find(s => s.kind === 'daw' || s.kind === 'native-display' || s.kind === 'native-window') ?? sources[0]
-    return first ? sourceKey(first) : 'daw:'
-  })
+  // Default to (None) — user picks a video source when they want one
+  const [selectedKey, setSelectedKey] = useState<string>('none:')
   const titleRef   = useRef<HTMLInputElement>(null)
   const previewRef = useRef<HTMLVideoElement>(null)
   const duration   = useDuration(mySession?.started_at ?? null)
+  const audioLevel = useAudioLevel(mySession ? localStream : null)
+  const myProfile  = useMemo(() => profiles.find(p => p.id === currentUserId), [profiles, currentUserId])
 
   // Capture stats snapshot when the host's session ends, so we can show a
   // summary screen that persists after mySession becomes null.
@@ -242,22 +292,36 @@ export default function LivePanel({
         ) : mySession ? (
           /* ── Broadcasting mode ── */
           <div className="live-broadcasting">
-            {localStream && mySession.has_video
-              ? <video
-                  ref={previewRef}
-                  className="live-preview"
-                  autoPlay muted playsInline
-                />
-              : (
-                <div className="live-pulse-wrap">
-                  <div className="live-pulse-ring" />
-                  <div className="live-pulse-ring live-pulse-ring2" />
-                  <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
-                    <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
-                  </svg>
-                </div>
-              )}
+            <div className="live-preview-row">
+              {localStream && mySession.has_video
+                ? <video
+                    ref={previewRef}
+                    className="live-preview"
+                    autoPlay muted playsInline
+                  />
+                : (
+                  <div className="live-pulse-wrap">
+                    <div className="live-pulse-ring" />
+                    <div className="live-pulse-ring live-pulse-ring2" />
+                    {myProfile
+                      ? (
+                        <div className="av sz32 live-pulse-avatar" style={{ background: myProfile.avatar_color }}>
+                          {myProfile.avatar_url
+                            ? <img src={myProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                            : myProfile.initials}
+                        </div>
+                      )
+                      : (
+                        <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
+                          <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                        </svg>
+                      )
+                    }
+                  </div>
+                )}
+              <AudioLevelMeter level={audioLevel} />
+            </div>
             <div className="live-meta-row">
               <span className="live-timer">{duration}</span>
               <span className="live-viewer-count">

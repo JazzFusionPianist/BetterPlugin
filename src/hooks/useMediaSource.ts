@@ -215,8 +215,11 @@ export function useMediaSource() {
   const listSources = useCallback((): VideoSource[] => {
     const sources: VideoSource[] = []
 
+    // (None) is always first — audio-only mode, shows host avatar
+    sources.push({ kind: 'none', label: '(None)' })
+
     if (hasJuceBridge) {
-      // First: "Choose window…" uses Apple's system-wide SCContentSharingPicker
+      // "Choose window…" uses Apple's system-wide SCContentSharingPicker
       // which runs out-of-process and can see ANY window (including the host
       // DAW, which the in-sandbox SCShareableContent can't enumerate).
       sources.push({ kind: 'native-picker', label: 'Choose window…' })

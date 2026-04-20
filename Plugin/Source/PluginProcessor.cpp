@@ -97,6 +97,12 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleStopVideoCapture (args, std::move (completion));
+                })
+            .withNativeFunction ("listCaptureSources",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleListCaptureSources (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -540,13 +546,13 @@ void CoOpAudioProcessor::handleStartVideoCapture (const juce::var& args,
     }
 
     const juce::String kind = (args.isArray() && args.size() >= 1) ? args[0].toString() : juce::String();
+    const uint32_t id = (args.isArray() && args.size() >= 2) ? (uint32_t) (int) args[1] : 0u;
 
-    // Shared holder for the completion — SCK's callback invokes it once.
     auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
     auto onDone = [compPtr] (const juce::String& result) { (*compPtr) (juce::var (result)); };
 
-    if (kind == "window")      videoCapture->startWindow (onDone);
-    else if (kind == "screen") videoCapture->startScreen (onDone);
+    if (kind == "window")      videoCapture->startWindow (id, onDone);
+    else if (kind == "screen") videoCapture->startScreen (id, onDone);
     else                       (*compPtr) (juce::var ("error:unknown-kind"));
 }
 
@@ -555,6 +561,14 @@ void CoOpAudioProcessor::handleStopVideoCapture (const juce::var& /*args*/,
 {
     if (videoCapture) videoCapture->stop();
     completion (juce::var ("ok"));
+}
+
+void CoOpAudioProcessor::handleListCaptureSources (const juce::var& /*args*/,
+                                                    juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! videoCapture) { completion (juce::var ("[]")); return; }
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+    videoCapture->listSources ([compPtr] (const juce::String& json) { (*compPtr) (juce::var (json)); });
 }
 
 //==============================================================================

@@ -60,7 +60,11 @@ API_AVAILABLE(macos(12.3))
 @property (strong, nullable) SCStream* stream;
 @property (strong) dispatch_queue_t outputQueue;
 @property (copy, nullable) void (^frameCb)(CVPixelBufferRef, int, int);
-- (void) startWithKind: (int) kind completion: (CompletionBlock) completion;
+- (void) listSourcesWithCompletion: (void (^)(NSString*)) completion;
+- (void) startWithKind: (int) kind
+              windowId: (uint32_t) windowId
+             displayId: (uint32_t) displayId
+            completion: (CompletionBlock) completion;
 - (void) stop;
 @end
 
@@ -198,9 +202,72 @@ static NSSet<NSString*>* knownDawBundles (void)
     return hit;
 }
 
-- (void) startWithKind: (int) kind completion: (CompletionBlock) completion
+- (void) listSourcesWithCompletion: (void (^)(NSString*)) completion
 {
-    // If a previous capture is still live, stop it before starting a new one.
+    [SCShareableContent getShareableContentWithCompletionHandler:
+        ^(SCShareableContent* content, NSError* err)
+    {
+        if (err != nil || content == nil)
+        {
+            completion ([NSString stringWithFormat: @"{\"error\":\"shareable-content: %@\"}",
+                         err ? err.localizedDescription : @"unknown"]);
+            return;
+        }
+
+        NSMutableArray* arr = [NSMutableArray array];
+
+        for (SCDisplay* d in content.displays)
+        {
+            [arr addObject: @{
+                @"kind":  @"display",
+                @"id":    @((unsigned) d.displayID),
+                @"title": @"Entire Screen",
+                @"app":   @"",
+                @"w":     @(d.width),
+                @"h":     @(d.height),
+            }];
+        }
+
+        const pid_t myPid = [NSProcessInfo processInfo].processIdentifier;
+        NSString*   myBundle = [NSBundle mainBundle].bundleIdentifier;
+        NSSet* excludeBundles = [NSSet setWithArray: @[
+            @"com.apple.dock", @"com.apple.WindowManager", @"com.apple.systemuiserver",
+            @"com.apple.controlcenter", @"com.apple.notificationcenterui",
+            myBundle ?: @"",
+        ]];
+
+        for (SCWindow* w in content.windows)
+        {
+            if (! w.onScreen) continue;
+            if (w.windowLayer != 0) continue;
+            if (w.title.length == 0) continue;
+            if (CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame) < 200 * 200) continue;
+            if (w.owningApplication.processID == myPid) continue;
+            NSString* bid = w.owningApplication.bundleIdentifier ?: @"";
+            if ([excludeBundles containsObject: bid]) continue;
+
+            [arr addObject: @{
+                @"kind":  @"window",
+                @"id":    @((unsigned) w.windowID),
+                @"title": w.title ?: @"(untitled)",
+                @"app":   w.owningApplication.applicationName ?: bid,
+                @"bundle":bid,
+                @"w":     @((int) CGRectGetWidth  (w.frame)),
+                @"h":     @((int) CGRectGetHeight (w.frame)),
+            }];
+        }
+
+        NSData* json = [NSJSONSerialization dataWithJSONObject: arr options: 0 error: nil];
+        NSString* jsonStr = [[NSString alloc] initWithData: json encoding: NSUTF8StringEncoding];
+        completion (jsonStr ?: @"[]");
+    }];
+}
+
+- (void) startWithKind: (int) kind
+              windowId: (uint32_t) windowId
+             displayId: (uint32_t) displayId
+            completion: (CompletionBlock) completion
+{
     if (self.stream != nil)
         [self stop];
 
@@ -220,8 +287,14 @@ static NSSet<NSString*>* knownDawBundles (void)
         NSString* diag = nil;
         if (kind == 1)
         {
-            SCWindow* target = [self pickDawWindow: content.windows];
-            if (target == nil) { completion ([NSString stringWithFormat: @"no-daw-window (total=%lu)", (unsigned long) content.windows.count]); return; }
+            SCWindow* target = nil;
+            if (windowId != 0)
+            {
+                for (SCWindow* w in content.windows)
+                    if ((uint32_t) w.windowID == windowId) { target = w; break; }
+            }
+            if (target == nil) target = [self pickDawWindow: content.windows];
+            if (target == nil) { completion ([NSString stringWithFormat: @"no-window (total=%lu)", (unsigned long) content.windows.count]); return; }
             filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow: target];
             outW = (int) CGRectGetWidth  (target.frame);
             outH = (int) CGRectGetHeight (target.frame);
@@ -230,12 +303,18 @@ static NSSet<NSString*>* knownDawBundles (void)
         }
         else if (kind == 2)
         {
-            SCDisplay* display = content.displays.firstObject;
+            SCDisplay* display = nil;
+            if (displayId != 0)
+            {
+                for (SCDisplay* d in content.displays)
+                    if ((uint32_t) d.displayID == displayId) { display = d; break; }
+            }
+            if (display == nil) display = content.displays.firstObject;
             if (display == nil) { completion (@"no-display"); return; }
             filter = [[SCContentFilter alloc] initWithDisplay: display excludingWindows: @[]];
             outW = (int) display.width;
             outH = (int) display.height;
-            diag = [NSString stringWithFormat: @"display: %dx%d", outW, outH];
+            diag = [NSString stringWithFormat: @"display: %dx%d did=%u", outW, outH, (unsigned) display.displayID];
         }
         else
         {
@@ -373,7 +452,8 @@ VideoCapture::~VideoCapture()
     impl->objc = nil;
 }
 
-static void runStart (id objcHandle, int kindNum, VideoCapture::CompleteFn cb)
+static void runStart (id objcHandle, int kindNum, uint32_t wid, uint32_t did,
+                      VideoCapture::CompleteFn cb)
 {
     if (objcHandle == nil)
     {
@@ -384,7 +464,7 @@ static void runStart (id objcHandle, int kindNum, VideoCapture::CompleteFn cb)
     if (@available (macOS 12.3, *))
     {
         CoOpSCKCapture* o = (CoOpSCKCapture*) objcHandle;
-        [o startWithKind: kindNum completion: ^(NSString* err)
+        [o startWithKind: kindNum windowId: wid displayId: did completion: ^(NSString* err)
         {
             juce::String result = (err == nil)
                 ? juce::String ("ok")
@@ -398,16 +478,38 @@ static void runStart (id objcHandle, int kindNum, VideoCapture::CompleteFn cb)
     }
 }
 
-void VideoCapture::startWindow (CompleteFn onComplete)
+void VideoCapture::startWindow (uint32_t windowId, CompleteFn onComplete)
 {
     impl->kind.store (Kind::Window);
-    runStart (impl->objc, 1, std::move (onComplete));
+    runStart (impl->objc, 1, windowId, 0, std::move (onComplete));
 }
 
-void VideoCapture::startScreen (CompleteFn onComplete)
+void VideoCapture::startScreen (uint32_t displayId, CompleteFn onComplete)
 {
     impl->kind.store (Kind::Screen);
-    runStart (impl->objc, 2, std::move (onComplete));
+    runStart (impl->objc, 2, 0, displayId, std::move (onComplete));
+}
+
+void VideoCapture::listSources (ListFn onComplete)
+{
+    if (impl->objc == nil)
+    {
+        juce::MessageManager::callAsync ([onComplete] { onComplete ("[]"); });
+        return;
+    }
+    if (@available (macOS 12.3, *))
+    {
+        CoOpSCKCapture* o = (CoOpSCKCapture*) impl->objc;
+        [o listSourcesWithCompletion: ^(NSString* json)
+        {
+            juce::String s = juce::String::fromUTF8 ([(json ?: @"[]") UTF8String]);
+            juce::MessageManager::callAsync ([onComplete, s] { onComplete (s); });
+        }];
+    }
+    else
+    {
+        juce::MessageManager::callAsync ([onComplete] { onComplete ("[]"); });
+    }
 }
 
 void VideoCapture::stop()

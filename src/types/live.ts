@@ -1,10 +1,12 @@
 // Video source kinds for live streaming
-export type VideoSourceKind = 'daw' | 'screen' | 'camera' | 'none'
+export type VideoSourceKind = 'daw' | 'screen' | 'camera' | 'none' | 'native-window' | 'native-display'
 
 export interface VideoSource {
   kind: VideoSourceKind
-  deviceId?: string    // for camera / virtual camera
+  deviceId?: string    // camera device id, or (for native-*) the SCK id as string
   label: string
+  /** Optional hint for native-* entries — the app name so UI can group. */
+  app?: string
 }
 
 // ── Signaling messages exchanged via Supabase Realtime broadcast ──

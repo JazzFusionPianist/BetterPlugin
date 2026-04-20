@@ -10,6 +10,16 @@ import { callJuceNative, hasJuceBridge, hasJuceNativeFunction } from './juceBrid
 
 interface JuceVideoFrameDetail { jpeg: string; w: number; h: number }
 
+export interface NativeCaptureSource {
+  kind: 'display' | 'window'
+  id: number                // SCDisplay.displayID or SCWindow.windowID
+  title: string             // window title or "Entire Screen"
+  app: string               // empty for display
+  bundle?: string
+  w: number
+  h: number
+}
+
 let canvas:      HTMLCanvasElement | null = null
 let ctx:         CanvasRenderingContext2D | null = null
 let stream:      MediaStream | null = null
@@ -64,7 +74,22 @@ export function initNativeVideo () { attachListener() }
  * Returns null (with lastError populated) in a regular browser, on an
  * older plugin build, or when SCK fails (permission denial, etc.).
  */
-export async function startNativeVideo (kind: 'window' | 'screen'): Promise<MediaStreamTrack | null> {
+/** Enumerate displays + windows the plugin can capture. */
+export async function listNativeSources (): Promise<NativeCaptureSource[]> {
+  if (!hasJuceBridge || !hasJuceNativeFunction('listCaptureSources')) return []
+  try {
+    const json = await callJuceNative('listCaptureSources', [], 10000)
+    const parsed = JSON.parse(json)
+    if (!Array.isArray(parsed)) return []
+    return parsed as NativeCaptureSource[]
+  } catch (e) {
+    console.warn('[nativeVideo] listCaptureSources failed', e)
+    return []
+  }
+}
+
+/** Start capture. `id` = SCDisplay.displayID or SCWindow.windowID (0 = auto). */
+export async function startNativeVideo (kind: 'window' | 'screen', id = 0): Promise<MediaStreamTrack | null> {
   attachListener()
   lastError = ''
 
@@ -74,8 +99,8 @@ export async function startNativeVideo (kind: 'window' | 'screen'): Promise<Medi
   }
 
   const startBefore = frameCount
-  console.log('[nativeVideo] starting', kind)
-  const result = await callJuceNative('startVideoCapture', [kind], 10000)
+  console.log('[nativeVideo] starting', kind, 'id=', id)
+  const result = await callJuceNative('startVideoCapture', [kind, id], 10000)
   console.log('[nativeVideo] start result:', result)
   if (!result.startsWith('ok')) {
     lastError = result

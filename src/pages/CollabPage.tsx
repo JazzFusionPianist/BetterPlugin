@@ -208,10 +208,16 @@ function CollabPageInner({ user }: Props) {
     const hasVideo = source.kind !== 'none'
     const hasAudio = ms.getAudioTracks().length > 0
     try {
+      // DB column is restricted to the legacy enum — map native-* back to
+      // its semantic equivalent for live_sessions storage.
+      const videoSource: 'daw' | 'screen' | 'camera' | 'none' =
+        source.kind === 'native-window'  ? 'daw'
+        : source.kind === 'native-display' ? 'screen'
+        : source.kind
       await startLive(title, {
         has_video: hasVideo,
         has_audio: hasAudio,
-        video_source: source.kind,
+        video_source: videoSource,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

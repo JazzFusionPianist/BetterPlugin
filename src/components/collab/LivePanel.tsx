@@ -94,7 +94,9 @@ function InStreamSourceSwitcher({
             const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
             return (
               <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
-                {s.kind === 'daw' ? '🖥  ' : s.kind === 'screen' ? '🖵  ' : '📷 '}
+                {s.kind === 'daw' || s.kind === 'native-window' ? '🖥  '
+                  : s.kind === 'screen' || s.kind === 'native-display' ? '🖵  '
+                  : '📷 '}
                 {s.label}{disabled ? ' (unsupported)' : ''}
               </option>
             )
@@ -151,7 +153,7 @@ export default function LivePanel({
   const [title, setTitle]         = useState('')
   const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
   const [selectedKey, setSelectedKey] = useState<string>(() => {
-    const first = sources.find(s => s.kind === 'daw') ?? sources[0]
+    const first = sources.find(s => s.kind === 'daw' || s.kind === 'native-display' || s.kind === 'native-window') ?? sources[0]
     return first ? sourceKey(first) : 'daw:'
   })
   const titleRef   = useRef<HTMLInputElement>(null)
@@ -321,7 +323,9 @@ export default function LivePanel({
                   const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
                   return (
                     <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
-                      {s.kind === 'daw' ? '🖥  ' : s.kind === 'screen' ? '🖵  ' : '📷 '}
+                      {s.kind === 'daw' || s.kind === 'native-window' ? '🖥  '
+                  : s.kind === 'screen' || s.kind === 'native-display' ? '🖵  '
+                  : '📷 '}
                       {s.label}{disabled ? ' (unsupported)' : ''}
                     </option>
                   )

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VideoSource, VideoSourceKind } from '../types/live'
 import { ensureDawAudioActive, initDawAudio } from '../lib/dawAudio'
-import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError } from '../lib/nativeVideo'
+import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError, listNativeSources, type NativeCaptureSource } from '../lib/nativeVideo'
 import { hasJuceBridge } from '../lib/juceBridge'
 
 /**
@@ -29,6 +29,7 @@ export const isInJucePlugin = hasJuceBridge
 export function useMediaSource() {
   const [cameras,     setCameras]     = useState<MediaDeviceInfo[]>([])
   const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([])
+  const [nativeSources, setNativeSources] = useState<NativeCaptureSource[]>([])
   const [stream, setStream]           = useState<MediaStream | null>(null)
   const [error,  setError]            = useState<string | null>(null)
   const [permissionsGranted, setPermissionsGranted] = useState(false)
@@ -58,9 +59,19 @@ export function useMediaSource() {
    * reported a problem") and forces Logic to ask for a restart. DAW audio
    * + getDisplayMedia (screen/window) remain available.
    */
+  /** Fetch the plugin's SCK-enumerated displays + windows. No-op in browser. */
+  const refreshNativeSources = useCallback(async () => {
+    if (!hasJuceBridge) return
+    const list = await listNativeSources()
+    setNativeSources(list)
+  }, [])
+
   const requestDevicePermissions = useCallback(async () => {
     if (permissionsGranted) return
-    if (hasJuceBridge) return      // never touch TCC inside the plugin
+    if (hasJuceBridge) {
+      await refreshNativeSources()
+      return                        // never touch TCC inside the plugin
+    }
     const tryGrant = async (constraints: MediaStreamConstraints) => {
       try {
         const s = await navigator.mediaDevices.getUserMedia(constraints)
@@ -97,38 +108,32 @@ export function useMediaSource() {
    * existing peer senders instead of renegotiating.
    */
   const acquireStream = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
-    // If the previous source used native plugin capture and the new one does
-    // NOT, tell the plugin to stop producing frames (the canvas/captureStream
-    // track itself is kept alive module-side — just the producer pauses).
-    const usingNative = hasJuceBridge && (source.kind === 'daw' || source.kind === 'screen')
+    // If we're switching away from a native source, pause the producer first.
+    const usingNative =
+      source.kind === 'native-window' || source.kind === 'native-display'
+      || (hasJuceBridge && (source.kind === 'daw' || source.kind === 'screen'))
     if (!usingNative) await stopNativeVideo()
 
     // Build video
     let newStream: MediaStream
-    if (source.kind === 'daw' || source.kind === 'screen') {
-      // Try plugin native capture first (no picker). If the plugin doesn't
-      // support it or Screen Recording permission isn't granted to the host
-      // DAW, we get null and surface a helpful error instead of silently
-      // falling back.
-      let nativeTrack: MediaStreamTrack | null = null
-      if (hasJuceBridge) {
-        const nativeKind = source.kind === 'daw' ? 'window' : 'screen'
-        nativeTrack = await startNativeVideo(nativeKind)
-      }
-      if (nativeTrack) {
-        newStream = new MediaStream()
-        newStream.addTrack(nativeTrack)
-      } else if (hasJuceBridge) {
+    if (source.kind === 'native-window' || source.kind === 'native-display') {
+      const nativeKind = source.kind === 'native-window' ? 'window' : 'screen'
+      const id = source.deviceId ? Number(source.deviceId) : 0
+      const track = await startNativeVideo(nativeKind, id)
+      if (!track) {
         const err = getNativeVideoLastError()
         throw new Error(err
           ? `Screen capture failed: ${err}. Grant Screen Recording to your DAW in System Settings → Privacy & Security.`
           : 'Screen capture is unavailable. Grant Screen Recording to your DAW in System Settings → Privacy & Security, then try again.')
-      } else {
-        const displaySurface = source.kind === 'daw' ? 'window' : 'monitor'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const constraints: any = { video: { displaySurface }, audio: false }
-        newStream = await navigator.mediaDevices.getDisplayMedia(constraints)
       }
+      newStream = new MediaStream()
+      newStream.addTrack(track)
+    } else if (source.kind === 'daw' || source.kind === 'screen') {
+      // Browser path: getDisplayMedia (picker).
+      const displaySurface = source.kind === 'daw' ? 'window' : 'monitor'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const constraints: any = { video: { displaySurface }, audio: false }
+      newStream = await navigator.mediaDevices.getDisplayMedia(constraints)
     } else if (source.kind === 'camera') {
       if (hasJuceBridge) {
         // Hard block — see requestDevicePermissions() comment.
@@ -198,13 +203,38 @@ export function useMediaSource() {
   useEffect(() => () => { stopEphemeral(stream) }, [stream])
 
   const listSources = useCallback((): VideoSource[] => {
-    const sources: VideoSource[] = [
-      { kind: 'daw',    label: 'DAW Window' },
-      { kind: 'screen', label: 'Entire Screen' },
-    ]
-    // Cameras require getUserMedia → TCC prompt → Logic destabilises.
-    // Keep them out of the picker inside the plugin.
-    if (!hasJuceBridge) {
+    const sources: VideoSource[] = []
+
+    if (hasJuceBridge) {
+      // Inside the plugin we enumerate ScreenCaptureKit sources directly so
+      // the user picks the exact window / display — automatic DAW-window
+      // detection proved unreliable across hosts (AU v3 sandbox hides PID
+      // ownership, bundle IDs drift per major release).
+      nativeSources.forEach((s) => {
+        if (s.kind === 'display') {
+          sources.push({
+            kind:     'native-display',
+            deviceId: String(s.id),
+            label:    'Entire Screen',
+          })
+        } else {
+          sources.push({
+            kind:     'native-window',
+            deviceId: String(s.id),
+            label:    s.app ? `${s.app} — ${s.title}` : s.title,
+            app:      s.app,
+          })
+        }
+      })
+      // Always offer a screen fallback even if the list is empty (permission
+      // not granted yet, etc.) — that path drops into the auto-pick.
+      if (!sources.some(s => s.kind === 'native-display')) {
+        sources.push({ kind: 'screen', label: 'Entire Screen' })
+      }
+    } else {
+      // Regular browser: classic getDisplayMedia picker for window / screen.
+      sources.push({ kind: 'daw',    label: 'DAW Window' })
+      sources.push({ kind: 'screen', label: 'Entire Screen' })
       cameras.forEach((c, i) => {
         sources.push({
           kind: 'camera',
@@ -214,7 +244,7 @@ export function useMediaSource() {
       })
     }
     return sources
-  }, [cameras])
+  }, [cameras, nativeSources])
 
   const listMicrophones = useCallback(
     // Same reasoning as listSources: mic acquisition inside the plugin goes
@@ -240,6 +270,7 @@ export function useMediaSource() {
     listMicrophones,
     screenCaptureSupported,
     requestDevicePermissions,
+    refreshNativeSources,
     permissionsGranted,
   }
 }

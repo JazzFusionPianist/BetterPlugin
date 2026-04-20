@@ -28,8 +28,15 @@ public:
     explicit VideoCapture (FrameFn onFrame);
     ~VideoCapture();
 
-    void startWindow (CompleteFn onComplete);
-    void startScreen (CompleteFn onComplete);
+    /** Async enumerate displays + windows via SCShareableContent. Completion
+     *  receives a JSON array string like [{"kind":"display","id":1,...},
+     *  {"kind":"window","id":42,"app":"Logic Pro","title":"Arrange","w":…}]. */
+    using ListFn = std::function<void (const juce::String& json)>;
+    void listSources (ListFn onComplete);
+
+    /** Capture a specific window by windowID (0 = auto-pick heuristic). */
+    void startWindow (uint32_t windowId, CompleteFn onComplete);
+    void startScreen (uint32_t displayId, CompleteFn onComplete);   // 0 = main
     void stop();
 
     Kind currentKind() const noexcept;

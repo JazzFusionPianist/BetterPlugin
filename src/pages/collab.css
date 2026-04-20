@@ -2459,13 +2459,19 @@
   padding: 8px 24px;
   border-radius: 8px;
   border: 1.5px solid #FF3B30;
-  background: transparent;
+  background: var(--bg, #fff);
   color: #FF3B30;
   font-size: 12px;
   font-weight: 600;
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   transition: background .15s, color .15s;
+  /* Pin to the bottom of the scroll container so the switcher's expanded
+     form can't push End Stream off-screen */
+  position: sticky;
+  bottom: 8px;
+  z-index: 2;
+  width: 100%;
 }
 .live-end-btn:hover { background: #FF3B30; color: #fff; }
 

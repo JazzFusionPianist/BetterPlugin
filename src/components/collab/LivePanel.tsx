@@ -59,7 +59,7 @@ const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
 // Disclosure panel that lets the host change video/mic source while live
 // without ending the session. Applies via RTCRtpSender.replaceTrack.
 function InStreamSourceSwitcher({
-  sources, microphones, currentVideoKey, currentMicId, screenCaptureSupported, onApply, onEndLive,
+  sources, microphones, currentVideoKey, currentMicId, screenCaptureSupported, onApply,
 }: {
   sources: VideoSource[]
   microphones: MicOption[]
@@ -67,7 +67,6 @@ function InStreamSourceSwitcher({
   currentMicId: string
   screenCaptureSupported: boolean
   onApply: (videoKey: string, micDeviceId: string) => Promise<void>
-  onEndLive: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [videoKey, setVideoKey] = useState(currentVideoKey)
@@ -95,9 +94,6 @@ function InStreamSourceSwitcher({
             const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
             return (
               <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
-                {s.kind === 'daw' || s.kind === 'native-window' ? '🖥  '
-                  : s.kind === 'screen' || s.kind === 'native-display' ? '🖵  '
-                  : '📷 '}
                 {s.label}{disabled ? ' (unsupported)' : ''}
               </option>
             )
@@ -110,7 +106,7 @@ function InStreamSourceSwitcher({
           <select className="live-select" value={micId} onChange={e => setMicId(e.target.value)}>
             <option value="">None (DAW Only)</option>
             {microphones.map(m => (
-              <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+              <option key={m.deviceId} value={m.deviceId}>{m.label}</option>
             ))}
           </select>
         </div>
@@ -130,9 +126,6 @@ function InStreamSourceSwitcher({
           {busy ? 'Applying…' : 'Apply'}
         </button>
       </div>
-      <button className="live-end-btn" style={{ marginTop: 4 }} onClick={onEndLive} disabled={busy}>
-        End Stream
-      </button>
     </div>
   )
 }
@@ -286,7 +279,6 @@ export default function LivePanel({
                 setMicDeviceId(mic)
                 await onReplaceSource(src, mic || null)
               }}
-              onEndLive={onEndLive}
             />
 
             <LiveChat
@@ -328,9 +320,6 @@ export default function LivePanel({
                   const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
                   return (
                     <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
-                      {s.kind === 'daw' || s.kind === 'native-window' ? '🖥  '
-                  : s.kind === 'screen' || s.kind === 'native-display' ? '🖵  '
-                  : '📷 '}
                       {s.label}{disabled ? ' (unsupported)' : ''}
                     </option>
                   )
@@ -348,7 +337,7 @@ export default function LivePanel({
                 >
                   <option value="">None (DAW Only)</option>
                   {microphones.map(m => (
-                    <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+                    <option key={m.deviceId} value={m.deviceId}>{m.label}</option>
                   ))}
                 </select>
               </div>

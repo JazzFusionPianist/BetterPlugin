@@ -515,7 +515,7 @@ function CollabPageInner({ user }: Props) {
               chatMessages={chatMessages}
               sessionEnded={!liveSessions.find(s => s.id === watchingSession.id)}
               onSendChat={sendChat}
-              onClose={() => setWatchingSession(null)}
+              onClose={handleGoHome}
             />
           ) : (
             <LivePanel

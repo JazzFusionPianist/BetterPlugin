@@ -74,32 +74,78 @@ API_AVAILABLE(macos(12.3))
     return self;
 }
 
+/** Set of bundle IDs we recognise as audio hosts. Order doesn't matter;
+ *  we pick the largest window across any matching host. Extend as needed. */
+static NSSet<NSString*>* knownDawBundles (void)
+{
+    static NSSet<NSString*>* s = nil;
+    static dispatch_once_t once;
+    dispatch_once (&once, ^{
+        s = [NSSet setWithArray: @[
+            // Apple
+            @"com.apple.logic10",
+            @"com.apple.logic.pro",
+            @"com.apple.garageband10",
+            @"com.apple.garageband",
+            @"com.apple.mainstage",
+            @"com.apple.mainstage3",
+            // Ableton
+            @"com.ableton.live",
+            // Steinberg
+            @"com.steinberg.cubase",
+            @"com.steinberg.cubase13",
+            @"com.steinberg.cubase12",
+            @"com.steinberg.cubase11",
+            @"com.steinberg.nuendo",
+            // Avid
+            @"com.avid.ProTools",
+            // Image-Line
+            @"com.image-line.flstudio",
+            // Cockos
+            @"com.cockos.reaper",
+            // Bitwig
+            @"com.bitwig.BitwigStudio",
+            // PreSonus
+            @"com.presonus.studioone",
+            @"com.presonus.studioone7",
+            @"com.presonus.studioone6",
+            @"com.presonus.studioone5",
+            // MOTU
+            @"com.motu.digital-performer",
+            // Others
+            @"com.cakewalk.sonar",
+            @"com.tracktion.waveform",
+            @"com.apple.GarageBand",
+        ]];
+    });
+    return s;
+}
+
 /** Pick the DAW's main arrange window.
  *
- *  AU v3 plugins run in a sandboxed AUHostingService process — so the
- *  host DAW's windows are NOT owned by our processID. We can't filter by
- *  PID the way one might expect.
+ *  AU v3 plugins run in a sandboxed AUHostingService process separate from
+ *  the host DAW, so PID-based filtering matches nothing. We try in order:
  *
- *  Heuristic:
- *   - Skip windows owned by this process / bundle (our plugin UI).
- *   - Skip known system chrome (Dock, WindowManager, SystemUIServer).
- *   - Skip non-layer-0 windows (floating palettes, notifications, etc.).
- *   - Prefer windows owned by the frontmost regular-activation app
- *     (usually the DAW). Fall back to the largest layer-0 on-screen
- *     window across all processes.
+ *   1. Any window owned by a bundle ID in our known-DAW list (the reliable
+ *      path — covers Logic, Live, Pro Tools, Cubase, Reaper, Bitwig, etc.).
+ *   2. The frontmost regular-activation app (good fallback for lesser-known
+ *      DAWs when it actually has focus).
+ *   3. The largest non-system non-self layer-0 window on screen (last resort).
+ *
+ *  Each pass skips our own UI, system chrome, and tiny / titleless windows.
  */
 - (nullable SCWindow*) pickDawWindow: (NSArray<SCWindow*>*) windows
 {
     const pid_t myPid = [NSProcessInfo processInfo].processIdentifier;
     NSString*   myBundle = [NSBundle mainBundle].bundleIdentifier;
 
-    // Bundle IDs we never want to capture (system chrome / our own UI).
     NSArray<NSString*>* excludeBundles = @[
         @"com.apple.dock",
         @"com.apple.WindowManager",
         @"com.apple.systemuiserver",
         @"com.apple.controlcenter",
         @"com.apple.notificationcenterui",
+        @"com.apple.finder",
         myBundle ?: @"",
     ];
 
@@ -114,32 +160,42 @@ API_AVAILABLE(macos(12.3))
         return YES;
     };
 
-    // Pass 1: the frontmost regular-activation app's biggest window.
-    NSRunningApplication* frontmost = [NSWorkspace sharedWorkspace].frontmostApplication;
-    if (frontmost != nil
-        && frontmost.processIdentifier != myPid
-        && ![frontmost.bundleIdentifier isEqualToString: myBundle])
-    {
+    auto largestByPredicate = ^SCWindow*(BOOL(^pred)(SCWindow*)) {
         SCWindow* best = nil; CGFloat bestArea = 0;
         for (SCWindow* w in windows)
         {
             if (! eligible (w)) continue;
-            if (w.owningApplication.processID != frontmost.processIdentifier) continue;
+            if (! pred (w)) continue;
             const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
             if (a > bestArea) { bestArea = a; best = w; }
         }
-        if (best != nil) return best;
+        return best;
+    };
+
+    // Pass 1: known DAW bundle match.
+    NSSet* daws = knownDawBundles();
+    SCWindow* hit = largestByPredicate (^BOOL (SCWindow* w) {
+        NSString* bid = w.owningApplication.bundleIdentifier;
+        return bid != nil && [daws containsObject: bid];
+    });
+    if (hit != nil) { NSLog (@"[CoOp VideoCapture] matched DAW bundle: %@", hit.owningApplication.bundleIdentifier); return hit; }
+
+    // Pass 2: frontmost regular-activation app.
+    NSRunningApplication* fm = [NSWorkspace sharedWorkspace].frontmostApplication;
+    if (fm != nil
+        && fm.processIdentifier != myPid
+        && ![fm.bundleIdentifier isEqualToString: myBundle])
+    {
+        hit = largestByPredicate (^BOOL (SCWindow* w) {
+            return w.owningApplication.processID == fm.processIdentifier;
+        });
+        if (hit != nil) { NSLog (@"[CoOp VideoCapture] matched frontmost: %@", fm.bundleIdentifier); return hit; }
     }
 
-    // Pass 2: largest eligible window across all apps.
-    SCWindow* best = nil; CGFloat bestArea = 0;
-    for (SCWindow* w in windows)
-    {
-        if (! eligible (w)) continue;
-        const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
-        if (a > bestArea) { bestArea = a; best = w; }
-    }
-    return best;
+    // Pass 3: anything eligible.
+    hit = largestByPredicate (^BOOL (SCWindow* /*w*/) { return YES; });
+    if (hit != nil) NSLog (@"[CoOp VideoCapture] fallback largest: %@", hit.owningApplication.bundleIdentifier);
+    return hit;
 }
 
 - (void) startWithKind: (int) kind completion: (CompletionBlock) completion

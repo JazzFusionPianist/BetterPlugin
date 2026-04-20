@@ -18,29 +18,45 @@ interface Props {
 }
 
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, onSendChat, onClose }: Props) {
-  const { remoteStream, status, debug } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
+  const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const v = videoRef.current
     if (!v || !remoteStream) return
     v.srcObject = remoteStream
-    // Kick off playback — WKWebView / Safari can be finicky about autoplay
-    // even with the autoPlay attribute, especially when audio is present.
     v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
 
-  // Auto-close once the stream ends
-  useEffect(() => {
-    if (status === 'ended') {
-      const t = setTimeout(onClose, 1500)
-      return () => clearTimeout(t)
-    }
-  }, [status, onClose])
+  // When the stream ends we show a thank-you screen instead of auto-closing
+  // — the viewer dismisses it manually via the Back button.
+  if (status === 'ended') {
+    return (
+      <>
+        <div className="s-header live-viewer-header">
+          <div className="s-close" onClick={onClose}>&#8249;</div>
+          <div className="live-viewer-titlebar">
+            <span className="live-viewer-host">{host?.display_name ?? 'Unknown'}</span>
+          </div>
+        </div>
+        <div className="live-viewer-body">
+          <div className="live-ended">
+            <div className="live-ended-icon">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+              </svg>
+            </div>
+            <div className="live-ended-title">Thank you for watching!</div>
+            <div className="live-ended-sub">The stream has ended.</div>
+            <button className="live-go-btn" onClick={onClose}>Back</button>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   const statusLabel =
     status === 'connecting' ? 'Connecting…'
-    : status === 'ended'     ? 'Stream ended'
     : status === 'error'     ? 'Connection error'
     : ''
 
@@ -78,13 +94,6 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
         {statusLabel && (
           <div className="live-viewer-status">{statusLabel}</div>
         )}
-
-        {/* Diagnostic — shown always so we can see what's going on */}
-        <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, margin: '4px 8px', fontFamily: 'monospace', lineHeight: 1.5 }}>
-          <div><strong>RTC:</strong> conn={debug.connection} ice={debug.ice} sig={debug.signaling}</div>
-          <div>tracks: total={debug.trackCount} audio={debug.audioTracks} video={debug.videoTracks}</div>
-          {debug.lastError && <div style={{ color: '#ef4444' }}>err: {debug.lastError}</div>}
-        </div>
 
         <LiveChat
           messages={chatMessages}

@@ -87,7 +87,14 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                     handleWriteAudioFiles (args, std::move (completion));
                 }));
 
-    browser->goToURL (COOP_APP_URL);
+    // Append ?plugin=1 so the web app can tailor UX for in-plugin context
+    // (e.g. hide camera sources that hang WKWebView inside an Audio Unit).
+    {
+        juce::String url (COOP_APP_URL);
+        url += (url.contains ("?") ? "&" : "?");
+        url += "plugin=1";
+        browser->goToURL (url);
+    }
 
     // Start polling the capture ring buffer and forwarding samples to JS.
     startTimer (20);

@@ -19,6 +19,8 @@ interface Props {
   localStream: MediaStream | null
   viewerCount: number
   peerStates: PeerState[]
+  totalViewers: number
+  peakViewers: number
   mediaError: string | null
   screenCaptureSupported: boolean
   currentUserId: string
@@ -26,8 +28,15 @@ interface Props {
   onSendChat: (text: string) => void
   onStartLive: (title: string, source: VideoSource, micDeviceId: string | null) => void
   onEndLive: () => void
+  onReplaceSource: (source: VideoSource, micDeviceId: string | null) => Promise<void>
   onWatchLive: (sessionId: string, hostId: string) => void
   onClose: () => void
+}
+
+interface EndedStats {
+  durationSecs: number
+  totalViewers: number
+  peakViewers: number
 }
 
 function useDuration(startedAt: string | null) {
@@ -86,6 +95,79 @@ function DawAudioDebug() {
   )
 }
 
+// Disclosure panel that lets the host change video/mic source while live
+// without ending the session. Applies via RTCRtpSender.replaceTrack.
+function InStreamSourceSwitcher({
+  sources, microphones, currentVideoKey, currentMicId, screenCaptureSupported, onApply,
+}: {
+  sources: VideoSource[]
+  microphones: MicOption[]
+  currentVideoKey: string
+  currentMicId: string
+  screenCaptureSupported: boolean
+  onApply: (videoKey: string, micDeviceId: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [videoKey, setVideoKey] = useState(currentVideoKey)
+  const [micId, setMicId]       = useState(currentMicId)
+  const [busy, setBusy]         = useState(false)
+
+  useEffect(() => { if (!open) { setVideoKey(currentVideoKey); setMicId(currentMicId) } }, [open, currentVideoKey, currentMicId])
+
+  if (!open) {
+    return (
+      <button className="live-switch-toggle" onClick={() => setOpen(true)}>
+        Change source
+      </button>
+    )
+  }
+
+  const dirty = videoKey !== currentVideoKey || micId !== currentMicId
+
+  return (
+    <div className="live-switch-panel">
+      <div className="live-field">
+        <label className="live-field-label">Video source</label>
+        <select className="live-select" value={videoKey} onChange={e => setVideoKey(e.target.value)}>
+          {sources.map(s => {
+            const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
+            return (
+              <option key={sourceKey(s)} value={sourceKey(s)} disabled={disabled}>
+                {s.kind === 'daw' ? '🖥  ' : s.kind === 'screen' ? '🖵  ' : '📷 '}
+                {s.label}{disabled ? ' (unsupported)' : ''}
+              </option>
+            )
+          })}
+        </select>
+      </div>
+      <div className="live-field">
+        <label className="live-field-label">Microphone</label>
+        <select className="live-select" value={micId} onChange={e => setMicId(e.target.value)}>
+          <option value="">None (DAW Only)</option>
+          {microphones.map(m => (
+            <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+          ))}
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="live-switch-cancel" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+        <button
+          className="live-go-btn"
+          style={{ flex: 1 }}
+          disabled={busy || !dirty}
+          onClick={async () => {
+            setBusy(true)
+            try { await onApply(videoKey, micId); setOpen(false) }
+            finally { setBusy(false) }
+          }}
+        >
+          {busy ? 'Applying…' : 'Apply'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // WebRTC peer connection state — shows whether viewers are actually connecting.
 function PeerDebug({ peerStates }: { peerStates: PeerState[] }) {
   if (peerStates.length === 0) {
@@ -112,11 +194,21 @@ function PeerDebug({ peerStates }: { peerStates: PeerState[] }) {
   )
 }
 
+function formatDuration(totalSecs: number): string {
+  const h = Math.floor(totalSecs / 3600)
+  const m = Math.floor((totalSecs % 3600) / 60)
+  const s = totalSecs % 60
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export default function LivePanel({
   isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount, peerStates,
+  totalViewers, peakViewers,
   mediaError, screenCaptureSupported,
   currentUserId, chatMessages, onSendChat,
-  onStartLive, onEndLive, onWatchLive, onClose,
+  onStartLive, onEndLive, onReplaceSource, onWatchLive, onClose,
 }: Props) {
   const [title, setTitle]         = useState('')
   const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
@@ -127,6 +219,33 @@ export default function LivePanel({
   const titleRef   = useRef<HTMLInputElement>(null)
   const previewRef = useRef<HTMLVideoElement>(null)
   const duration   = useDuration(mySession?.started_at ?? null)
+
+  // Capture stats snapshot when the host's session ends, so we can show a
+  // summary screen that persists after mySession becomes null.
+  const [endedStats, setEndedStats] = useState<EndedStats | null>(null)
+  const wasLiveRef = useRef(false)
+  const statsRef = useRef({ totalViewers: 0, peakViewers: 0, startedAt: null as string | null })
+  useEffect(() => {
+    if (mySession) {
+      wasLiveRef.current = true
+      statsRef.current = {
+        totalViewers,
+        peakViewers,
+        startedAt: mySession.started_at ?? null,
+      }
+      // clear any previous summary
+      if (endedStats) setEndedStats(null)
+    } else if (wasLiveRef.current) {
+      // Just transitioned from live → ended: freeze a snapshot
+      wasLiveRef.current = false
+      const { startedAt } = statsRef.current
+      setEndedStats({
+        durationSecs: startedAt ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000) : 0,
+        totalViewers: statsRef.current.totalViewers,
+        peakViewers:  statsRef.current.peakViewers,
+      })
+    }
+  }, [mySession, totalViewers, peakViewers, endedStats])
 
   // Keep selected source valid even as `sources` list changes (cameras plug in/out)
   useEffect(() => {
@@ -166,7 +285,24 @@ export default function LivePanel({
       </div>
 
       <div className="s-body live-body">
-        {mySession ? (
+        {endedStats ? (
+          /* ── Host summary: shown after End Stream ── */
+          <div className="live-ended">
+            <div className="live-ended-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
+                <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+            </div>
+            <div className="live-ended-title">Stream ended</div>
+            <div className="live-ended-stats">
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{formatDuration(endedStats.durationSecs)}</div><div className="live-ended-stat-lbl">Duration</div></div>
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.totalViewers}</div><div className="live-ended-stat-lbl">Total viewers</div></div>
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.peakViewers}</div><div className="live-ended-stat-lbl">Peak viewers</div></div>
+            </div>
+            <button className="live-go-btn" onClick={() => { setEndedStats(null); onClose() }}>Done</button>
+          </div>
+        ) : mySession ? (
           /* ── Broadcasting mode ── */
           <div className="live-broadcasting">
             {localStream && mySession.has_video
@@ -192,6 +328,22 @@ export default function LivePanel({
                 {viewerCount}
               </span>
             </div>
+
+            <InStreamSourceSwitcher
+              sources={sources}
+              microphones={microphones}
+              currentVideoKey={selectedKey}
+              currentMicId={micDeviceId}
+              screenCaptureSupported={screenCaptureSupported}
+              onApply={async (key, mic) => {
+                const src = sources.find(s => sourceKey(s) === key)
+                if (!src) return
+                setSelectedKey(key)
+                setMicDeviceId(mic)
+                await onReplaceSource(src, mic || null)
+              }}
+            />
+
             <DawAudioDebug />
             <PeerDebug peerStates={peerStates} />
 

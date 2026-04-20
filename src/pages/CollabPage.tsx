@@ -152,10 +152,10 @@ function CollabPageInner({ user }: Props) {
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
   const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
-  const { stream: localStream, error: mediaError, startStream, stopStream, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
+  const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported, requestDevicePermissions } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
-  const { viewerCount, peerStates } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
+  const { viewerCount, peerStates, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
   const [watchingSessionId, setWatchingSessionId] = useState<string | null>(null)
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
@@ -220,6 +220,10 @@ function CollabPageInner({ user }: Props) {
     await endLive()
   }, [stopStream, endLive])
 
+  const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
+    await replaceSource(source, micDeviceId)
+  }, [replaceSource])
+
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []
   const visibleUnread   = notifSettings.message ? unread       : new Map()
@@ -255,7 +259,14 @@ function CollabPageInner({ user }: Props) {
   const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
   const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
   const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
-  const handleToggleLive      = () => setLiveOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
+  const handleToggleLive      = () => setLiveOpen(prev => {
+    if (!prev) {
+      closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch()
+      // Unlock mic labels/IDs so the dropdown is populated when the panel opens
+      requestDevicePermissions()
+    }
+    return !prev
+  })
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
@@ -510,6 +521,9 @@ function CollabPageInner({ user }: Props) {
               localStream={localStream}
               viewerCount={viewerCount}
               peerStates={peerStates}
+              totalViewers={totalViewers}
+              peakViewers={peakViewers}
+              onReplaceSource={handleReplaceSource}
               mediaError={mediaError || liveError}
               screenCaptureSupported={screenCaptureSupported}
               currentUserId={user.id}

@@ -8,7 +8,10 @@ import { rtcConfig, liveSignalingChannel } from '../lib/webrtc'
  * Host-side: accepts viewer join requests, creates a per-viewer
  * RTCPeerConnection, and streams `localStream` to each of them.
  *
- * Activates only when both `sessionId` and `localStream` are non-null.
+ * Peer connections are only torn down when the session ends. When the
+ * localStream's tracks change (e.g. user switches video source mid-stream),
+ * we call RTCRtpSender.replaceTrack on each peer instead of renegotiating,
+ * so viewers experience a seamless source swap.
  */
 export interface PeerState {
   id: string
@@ -24,8 +27,16 @@ export function useLiveBroadcaster(
 ) {
   const [viewerIds, setViewerIds] = useState<Set<string>>(new Set())
   const [peerStates, setPeerStates] = useState<PeerState[]>([])
-  const peersRef    = useRef<Map<string, RTCPeerConnection>>(new Map())
-  const channelRef  = useRef<RealtimeChannel | null>(null)
+  const [totalViewers, setTotalViewers] = useState(0)
+  const [peakViewers,  setPeakViewers]  = useState(0)
+  const peersRef       = useRef<Map<string, RTCPeerConnection>>(new Map())
+  const channelRef     = useRef<RealtimeChannel | null>(null)
+  const localStreamRef = useRef<MediaStream | null>(localStream)
+  const seenViewersRef = useRef<Set<string>>(new Set())
+
+  // Keep the latest stream in a ref so handleJoin / replacement effects can
+  // read the current set of tracks without becoming an effect dependency.
+  useEffect(() => { localStreamRef.current = localStream }, [localStream])
 
   const refreshPeerStates = () => {
     setPeerStates(Array.from(peersRef.current.entries()).map(([id, pc]) => ({
@@ -33,8 +44,9 @@ export function useLiveBroadcaster(
     })))
   }
 
+  // ── Peer setup effect — depends ONLY on sessionId ─────────────────────────
   useEffect(() => {
-    if (!sessionId || !localStream) return
+    if (!sessionId) return
 
     const send = (msg: SignalMessage) => {
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })
@@ -42,11 +54,21 @@ export function useLiveBroadcaster(
 
     const handleJoin = async (viewerId: string) => {
       if (peersRef.current.has(viewerId)) return
+      const stream = localStreamRef.current
+      if (!stream) return   // wait until local stream is ready
       const pc = new RTCPeerConnection(rtcConfig)
       peersRef.current.set(viewerId, pc)
-      setViewerIds(prev => new Set(prev).add(viewerId))
+      setViewerIds(prev => {
+        const n = new Set(prev).add(viewerId)
+        setPeakViewers(pk => Math.max(pk, n.size))
+        return n
+      })
+      if (!seenViewersRef.current.has(viewerId)) {
+        seenViewersRef.current.add(viewerId)
+        setTotalViewers(seenViewersRef.current.size)
+      }
 
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream))
+      stream.getTracks().forEach(track => pc.addTrack(track, stream))
 
       pc.onicecandidate = (ev) => {
         if (ev.candidate) send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
@@ -106,7 +128,6 @@ export function useLiveBroadcaster(
     channelRef.current = channel
 
     return () => {
-      // Notify viewers we're going away, then tear everything down
       send({ type: 'bye', from: hostId })
       peersRef.current.forEach(pc => pc.close())
       peersRef.current.clear()
@@ -114,7 +135,46 @@ export function useLiveBroadcaster(
       client.removeChannel(channel)
       channelRef.current = null
     }
-  }, [client, hostId, sessionId, localStream])
+  }, [client, hostId, sessionId])
 
-  return { viewerCount: viewerIds.size, peerStates }
+  // ── Track replacement — when localStream tracks change, swap them on the
+  // existing senders instead of renegotiating. Also adds NEW kinds (e.g.
+  // audio added for the first time) by calling addTrack.
+  useEffect(() => {
+    if (!localStream) return
+    const tracks = localStream.getTracks()
+    peersRef.current.forEach(pc => {
+      const senders = pc.getSenders()
+      for (const track of tracks) {
+        const existing = senders.find(s => s.track && s.track.kind === track.kind)
+        if (existing) {
+          if (existing.track !== track) existing.replaceTrack(track).catch(e => console.warn('replaceTrack failed', e))
+        } else {
+          // New kind (e.g., mic added after start-with-DAW-only)
+          try { pc.addTrack(track, localStream) }
+          catch (e) { console.warn('addTrack during replacement failed', e) }
+        }
+      }
+      // If the new stream dropped a kind, null the sender so viewers stop receiving it
+      senders.forEach(s => {
+        if (s.track && !tracks.find(t => t.kind === s.track!.kind && t.id === s.track!.id)) {
+          // check: is there any track of this kind in the new list?
+          if (!tracks.find(t => t.kind === s.track!.kind)) {
+            s.replaceTrack(null).catch(() => {})
+          }
+        }
+      })
+    })
+  }, [localStream])
+
+  // Reset stats when a new session starts
+  useEffect(() => {
+    if (sessionId) {
+      seenViewersRef.current = new Set()
+      setTotalViewers(0)
+      setPeakViewers(0)
+    }
+  }, [sessionId])
+
+  return { viewerCount: viewerIds.size, peerStates, totalViewers, peakViewers }
 }

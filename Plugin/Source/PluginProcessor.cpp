@@ -192,8 +192,12 @@ void CoOpAudioProcessor::timerCallback()
     if (framesRead <= 0) return;
 
     const int bytes = framesRead * ch * (int) sizeof (float);
-    juce::MemoryBlock mb (audioPollBuffer.data(), (size_t) bytes);
-    const juce::String b64 = mb.toBase64Encoding();
+    // Use standard Base64 (RFC 4648) so the web side's atob() can decode it.
+    // juce::MemoryBlock::toBase64Encoding() is a NON-standard JUCE format
+    // ("<size>.<hex-of-base64>") and atob() would reject it.
+    juce::MemoryOutputStream b64Stream;
+    juce::Base64::convertToBase64 (b64Stream, audioPollBuffer.data(), (size_t) bytes);
+    const juce::String b64 = b64Stream.toString();
 
     juce::String script;
     script << "window.dispatchEvent(new CustomEvent('__juceDawAudio',{detail:{"

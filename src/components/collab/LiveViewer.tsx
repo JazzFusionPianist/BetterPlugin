@@ -22,7 +22,12 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = remoteStream
+    const v = videoRef.current
+    if (!v || !remoteStream) return
+    v.srcObject = remoteStream
+    // Kick off playback — WKWebView / Safari can be finicky about autoplay
+    // even with the autoPlay attribute, especially when audio is present.
+    v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
 
   // Auto-close once the stream ends

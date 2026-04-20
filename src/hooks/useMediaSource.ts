@@ -66,7 +66,11 @@ export function useMediaSource() {
       // Add DAW audio — ensureDawAudioActive() initialises the pipeline if
       // needed (requires a user-gesture context, which startStream always is).
       const dawTrack = await ensureDawAudioActive()
+      console.log('[useMediaSource] dawTrack', dawTrack && {
+        id: dawTrack.id, enabled: dawTrack.enabled, muted: dawTrack.muted, readyState: dawTrack.readyState,
+      })
       if (dawTrack) newStream.addTrack(dawTrack)
+      console.log('[useMediaSource] final stream tracks', newStream.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled, muted: t.muted })))
 
       // Add mic if user picked one
       if (micDeviceId) {

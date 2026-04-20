@@ -19,6 +19,26 @@ let workletNode: AudioWorkletNode | null = null
 let destination: MediaStreamAudioDestinationNode | null = null
 let listenerAttached = false
 let lastAudioAt = 0
+let eventCount  = 0   // total __juceDawAudio events received
+
+// Expose diagnostic info on window so users can check from DevTools console:
+//   __dawAudioDebug()   → { eventCount, lastAudioAt, hasContext, ctxState, trackCount, muted }
+if (typeof window !== 'undefined') {
+  (window as unknown as { __dawAudioDebug?: () => unknown }).__dawAudioDebug = () => {
+    const track = destination?.stream.getAudioTracks()[0]
+    return {
+      eventCount,
+      msSinceLastAudio: lastAudioAt ? Math.round(performance.now() - lastAudioAt) : null,
+      hasContext: !!audioCtx,
+      ctxState: audioCtx?.state ?? null,
+      sampleRate: audioCtx?.sampleRate ?? null,
+      trackCount: destination?.stream.getAudioTracks().length ?? 0,
+      trackMuted: track?.muted ?? null,
+      trackEnabled: track?.enabled ?? null,
+      trackReadyState: track?.readyState ?? null,
+    }
+  }
+}
 
 // Inline worklet — ring buffer fed via postMessage, read by `process()`
 // The `sampleRate` global inside a worklet equals the AudioContext's rate.
@@ -101,6 +121,9 @@ function attachListener() {
     const e = ev as CustomEvent<JuceDawAudioDetail>
     const { samples, sr, ch } = e.detail
     if (!samples || !sr || !ch) return
+
+    eventCount++
+    if (eventCount === 1) console.log('[dawAudio] first event received', { sr, ch, bytes: samples.length })
 
     // Create pipeline on first event if it wasn't pre-initialised. Using the
     // event's sample rate avoids pitch drift when the pipeline is built lazily.

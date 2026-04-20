@@ -155,7 +155,7 @@ function CollabPageInner({ user }: Props) {
   const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported, requestDevicePermissions } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
-  const { viewerCount, peerStates, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
+  const { viewerCount, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
   // The viewer keeps its own snapshot of the session it's watching so the
   // LiveViewer stays mounted when the host ends the stream (the row drops
   // out of `liveSessions`). The ended screen needs to render until the
@@ -527,7 +527,6 @@ function CollabPageInner({ user }: Props) {
               microphones={microphones}
               localStream={localStream}
               viewerCount={viewerCount}
-              peerStates={peerStates}
               totalViewers={totalViewers}
               peakViewers={peakViewers}
               onReplaceSource={handleReplaceSource}

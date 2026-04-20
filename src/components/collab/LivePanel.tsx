@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { getDawAudioDebug } from '../../lib/dawAudio'
 import type { LiveSession } from '../../hooks/useLive'
-import type { PeerState } from '../../hooks/useLiveBroadcaster'
 import type { Profile } from '../../types/collab'
 import type { VideoSource } from '../../types/live'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
@@ -18,7 +16,6 @@ interface Props {
   microphones: MicOption[]
   localStream: MediaStream | null
   viewerCount: number
-  peerStates: PeerState[]
   totalViewers: number
   peakViewers: number
   mediaError: string | null
@@ -58,42 +55,6 @@ function useDuration(startedAt: string | null) {
 
 // Build a key string for comparing VideoSource instances
 const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
-
-// In-page DAW audio diagnostic (plugin WebView has no DevTools access).
-// Polls every 500ms while visible.
-function DawAudioDebug() {
-  const [info, setInfo] = useState(() => getDawAudioDebug())
-  useEffect(() => {
-    const id = setInterval(() => setInfo(getDawAudioDebug()), 500)
-    return () => clearInterval(id)
-  }, [])
-  const recent = info.msSinceLastAudio !== null && info.msSinceLastAudio < 500
-  const pipelineOK =
-    info.hasContext && info.hasWorklet && info.ctxState === 'running'
-    && info.trackReadyState === 'live' && !info.trackMuted && info.trackEnabled
-  const dotColor = recent ? '#22c55e' : info.eventCount > 0 && pipelineOK ? '#9ca3af' : '#ef4444'
-  const label =
-    info.eventCount === 0       ? 'no events from plugin'
-    : !info.hasContext          ? 'no AudioContext'
-    : !info.hasWorklet          ? 'no worklet'
-    : info.ctxState !== 'running' ? `ctx ${info.ctxState}`
-    : info.trackMuted           ? 'track muted'
-    : info.trackReadyState !== 'live' ? `track ${info.trackReadyState}`
-    : recent                    ? 'streaming ✓'
-    : 'idle'
-  return (
-    <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, marginTop: 4, fontFamily: 'monospace', lineHeight: 1.5 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
-        <strong>DAW: {label}</strong>
-      </div>
-      <div>ev={info.eventCount} post={info.postCount} age={info.msSinceLastAudio ?? '-'}ms</div>
-      <div>ctx={info.ctxState ?? '-'} wn={String(info.hasWorklet)} sr={info.sampleRate ?? '-'}</div>
-      <div>trk: m={String(info.trackMuted)} en={String(info.trackEnabled)} rs={info.trackReadyState ?? '-'}</div>
-      {info.lastError && <div style={{ color: '#ef4444' }}>err: {info.lastError}</div>}
-    </div>
-  )
-}
 
 // Disclosure panel that lets the host change video/mic source while live
 // without ending the session. Applies via RTCRtpSender.replaceTrack.
@@ -170,31 +131,6 @@ function InStreamSourceSwitcher({
   )
 }
 
-// WebRTC peer connection state — shows whether viewers are actually connecting.
-function PeerDebug({ peerStates }: { peerStates: PeerState[] }) {
-  if (peerStates.length === 0) {
-    return (
-      <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, marginTop: 4, fontFamily: 'monospace' }}>
-        <strong>RTC:</strong> no viewers joined yet
-      </div>
-    )
-  }
-  return (
-    <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, marginTop: 4, fontFamily: 'monospace', lineHeight: 1.5 }}>
-      <div style={{ marginBottom: 2 }}><strong>RTC peers ({peerStates.length}):</strong></div>
-      {peerStates.map(p => {
-        const ok = p.connection === 'connected'
-        const color = ok ? '#22c55e' : p.connection === 'failed' ? '#ef4444' : '#f59e0b'
-        return (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
-            <span>{p.id.slice(0, 6)}… conn={p.connection} ice={p.ice}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 function formatDuration(totalSecs: number): string {
   const h = Math.floor(totalSecs / 3600)
@@ -206,7 +142,7 @@ function formatDuration(totalSecs: number): string {
 }
 
 export default function LivePanel({
-  isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount, peerStates,
+  isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
   totalViewers, peakViewers,
   mediaError, screenCaptureSupported,
   currentUserId, chatMessages, onSendChat,
@@ -345,9 +281,6 @@ export default function LivePanel({
                 await onReplaceSource(src, mic || null)
               }}
             />
-
-            <DawAudioDebug />
-            <PeerDebug peerStates={peerStates} />
 
             <LiveChat
               messages={chatMessages}

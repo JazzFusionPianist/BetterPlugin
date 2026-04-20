@@ -91,6 +91,7 @@ private:
     void handleStartVideoCapture (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleStopVideoCapture  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleListCaptureSources(const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handlePickCaptureSource (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     //── Native window / screen capture ───────────────────────────────────────
     std::unique_ptr<VideoCapture> videoCapture;

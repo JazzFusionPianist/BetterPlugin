@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VideoSource, VideoSourceKind } from '../types/live'
 import { ensureDawAudioActive, initDawAudio } from '../lib/dawAudio'
-import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError, listNativeSources, type NativeCaptureSource } from '../lib/nativeVideo'
+import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError, listNativeSources, pickNativeVideoSource, type NativeCaptureSource } from '../lib/nativeVideo'
 import { hasJuceBridge } from '../lib/juceBridge'
 
 /**
@@ -110,13 +110,23 @@ export function useMediaSource() {
   const acquireStream = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
     // If we're switching away from a native source, pause the producer first.
     const usingNative =
-      source.kind === 'native-window' || source.kind === 'native-display'
+      source.kind === 'native-window' || source.kind === 'native-display' || source.kind === 'native-picker'
       || (hasJuceBridge && (source.kind === 'daw' || source.kind === 'screen'))
     if (!usingNative) await stopNativeVideo()
 
     // Build video
     let newStream: MediaStream
-    if (source.kind === 'native-window' || source.kind === 'native-display') {
+    if (source.kind === 'native-picker') {
+      const track = await pickNativeVideoSource()
+      if (!track) {
+        const err = getNativeVideoLastError()
+        throw new Error(err === 'error:picker-cancelled'
+          ? 'Cancelled'
+          : `Screen capture failed: ${err || 'unknown'}`)
+      }
+      newStream = new MediaStream()
+      newStream.addTrack(track)
+    } else if (source.kind === 'native-window' || source.kind === 'native-display') {
       const nativeKind = source.kind === 'native-window' ? 'window' : 'screen'
       const id = source.deviceId ? Number(source.deviceId) : 0
       const track = await startNativeVideo(nativeKind, id)
@@ -206,10 +216,12 @@ export function useMediaSource() {
     const sources: VideoSource[] = []
 
     if (hasJuceBridge) {
-      // Inside the plugin we enumerate ScreenCaptureKit sources directly so
-      // the user picks the exact window / display — automatic DAW-window
-      // detection proved unreliable across hosts (AU v3 sandbox hides PID
-      // ownership, bundle IDs drift per major release).
+      // First: "Choose window…" uses Apple's system-wide SCContentSharingPicker
+      // which runs out-of-process and can see ANY window (including the host
+      // DAW, which the in-sandbox SCShareableContent can't enumerate).
+      sources.push({ kind: 'native-picker', label: 'Choose window…' })
+
+      // Then enumerated displays + non-host windows for one-click selection.
       nativeSources.forEach((s) => {
         if (s.kind === 'display') {
           sources.push({
@@ -226,8 +238,6 @@ export function useMediaSource() {
           })
         }
       })
-      // Always offer a screen fallback even if the list is empty (permission
-      // not granted yet, etc.) — that path drops into the auto-pick.
       if (!sources.some(s => s.kind === 'native-display')) {
         sources.push({ kind: 'screen', label: 'Entire Screen' })
       }

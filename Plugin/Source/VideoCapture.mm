@@ -60,12 +60,57 @@ API_AVAILABLE(macos(12.3))
 @property (strong, nullable) SCStream* stream;
 @property (strong) dispatch_queue_t outputQueue;
 @property (copy, nullable) void (^frameCb)(CVPixelBufferRef, int, int);
+@property (copy, nullable) CompletionBlock pendingPickerCompletion;
 - (void) listSourcesWithCompletion: (void (^)(NSString*)) completion;
 - (void) startWithKind: (int) kind
               windowId: (uint32_t) windowId
              displayId: (uint32_t) displayId
             completion: (CompletionBlock) completion;
+- (void) startWithPickerAndCompletion: (CompletionBlock) completion
+                                 API_AVAILABLE(macos(14.0));
+- (void) startWithFilter: (SCContentFilter*) filter
+               completion: (CompletionBlock) completion
+                        API_AVAILABLE(macos(12.3));
 - (void) stop;
+@end
+
+// Separate delegate for the system picker — introduced in macOS 14.
+API_AVAILABLE(macos(14.0))
+@interface CoOpPickerDelegate : NSObject <SCContentSharingPickerObserver>
+@property (weak) CoOpSCKCapture* owner;
+@end
+
+@implementation CoOpPickerDelegate
+- (void) contentSharingPicker: (SCContentSharingPicker*) picker
+             didUpdateWithFilter: (SCContentFilter*) filter
+                       forStream: (SCStream*) stream
+{
+    (void) picker; (void) stream;
+    if (self.owner == nil) return;
+    [self.owner startWithFilter: filter completion:
+        ^(NSString* err)
+        {
+            CompletionBlock cb = self.owner.pendingPickerCompletion;
+            self.owner.pendingPickerCompletion = nil;
+            if (cb != nil) cb (err);
+        }];
+}
+- (void) contentSharingPicker: (SCContentSharingPicker*) picker
+                didCancelForStream: (SCStream*) stream
+{
+    (void) picker; (void) stream;
+    if (self.owner == nil) return;
+    CompletionBlock cb = self.owner.pendingPickerCompletion;
+    self.owner.pendingPickerCompletion = nil;
+    if (cb != nil) cb (@"picker-cancelled");
+}
+- (void) contentSharingPickerStartDidFailWithError: (NSError*) error
+{
+    if (self.owner == nil) return;
+    CompletionBlock cb = self.owner.pendingPickerCompletion;
+    self.owner.pendingPickerCompletion = nil;
+    if (cb != nil) cb ([NSString stringWithFormat: @"picker: %@", error.localizedDescription]);
+}
 @end
 
 API_AVAILABLE(macos(12.3))
@@ -379,6 +424,79 @@ static NSSet<NSString*>* knownDawBundles (void)
     }];
 }
 
+- (void) startWithFilter: (SCContentFilter*) filter
+                completion: (CompletionBlock) completion
+{
+    if (self.stream != nil) [self stop];
+
+    SCStreamConfiguration* cfg = [SCStreamConfiguration new];
+    int outW = (int) filter.contentRect.size.width;
+    int outH = (int) filter.contentRect.size.height;
+    if (outW <= 0) outW = 1280;
+    if (outH <= 0) outH = 720;
+    constexpr int MAX_W = 1280;
+    if (outW > MAX_W) { outH = (int) (outH * ((double) MAX_W / outW)); outW = MAX_W; }
+    cfg.width  = (size_t) outW;
+    cfg.height = (size_t) outH;
+    cfg.minimumFrameInterval = CMTimeMake (1, 15);
+    cfg.pixelFormat = kCVPixelFormatType_32BGRA;
+    cfg.showsCursor = YES;
+    cfg.queueDepth = 3;
+
+    SCStream* stream = [[SCStream alloc] initWithFilter: filter configuration: cfg delegate: self];
+    NSError* addErr = nil;
+    [stream addStreamOutput: self
+                       type: SCStreamOutputTypeScreen
+         sampleHandlerQueue: self.outputQueue
+                      error: &addErr];
+    if (addErr != nil)
+    {
+        completion ([NSString stringWithFormat: @"addStreamOutput: %@", addErr.localizedDescription]);
+        return;
+    }
+    self.stream = stream;
+    [stream startCaptureWithCompletionHandler: ^(NSError* startErr)
+    {
+        if (startErr != nil)
+        {
+            self.stream = nil;
+            completion ([NSString stringWithFormat: @"startCapture: %@", startErr.localizedDescription]);
+            return;
+        }
+        completion (nil);
+    }];
+}
+
+- (void) startWithPickerAndCompletion: (CompletionBlock) completion
+{
+    if (@available (macOS 14.0, *))
+    {
+        static CoOpPickerDelegate* delegate = nil;
+        static dispatch_once_t once;
+        dispatch_once (&once, ^{ delegate = [CoOpPickerDelegate new]; });
+        delegate.owner = self;
+
+        self.pendingPickerCompletion = completion;
+
+        SCContentSharingPicker* picker = [SCContentSharingPicker sharedPicker];
+        [picker addObserver: delegate];
+
+        // Allow all content kinds. The picker UI lets the user narrow.
+        SCContentSharingPickerConfiguration* cfg = [SCContentSharingPickerConfiguration new];
+        cfg.allowedPickerModes = SCContentSharingPickerModeSingleWindow
+                               | SCContentSharingPickerModeSingleDisplay
+                               | SCContentSharingPickerModeSingleApplication;
+        picker.defaultConfiguration = cfg;
+        picker.active = YES;
+
+        [picker present];
+    }
+    else
+    {
+        completion (@"picker-requires-macos-14");
+    }
+}
+
 - (void) stop
 {
     SCStream* s = self.stream;
@@ -502,6 +620,31 @@ void VideoCapture::startScreen (uint32_t displayId, CompleteFn onComplete)
 {
     impl->kind.store (Kind::Screen);
     runStart (impl->objc, 2, 0, displayId, std::move (onComplete));
+}
+
+void VideoCapture::startWithPicker (CompleteFn onComplete)
+{
+    if (impl->objc == nil)
+    {
+        juce::MessageManager::callAsync ([onComplete] { onComplete ("error:unsupported-os"); });
+        return;
+    }
+    impl->kind.store (Kind::Window);
+    if (@available (macOS 14.0, *))
+    {
+        CoOpSCKCapture* o = (CoOpSCKCapture*) impl->objc;
+        [o startWithPickerAndCompletion: ^(NSString* err)
+        {
+            juce::String result = (err == nil)
+                ? juce::String ("ok")
+                : ("error:" + juce::String::fromUTF8 ([err UTF8String]));
+            juce::MessageManager::callAsync ([onComplete, result] { onComplete (result); });
+        }];
+    }
+    else
+    {
+        juce::MessageManager::callAsync ([onComplete] { onComplete ("error:picker-requires-macos-14"); });
+    }
 }
 
 void VideoCapture::listSources (ListFn onComplete)

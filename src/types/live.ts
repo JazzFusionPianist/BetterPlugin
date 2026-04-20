@@ -1,5 +1,5 @@
 // Video source kinds for live streaming
-export type VideoSourceKind = 'daw' | 'screen' | 'camera' | 'none' | 'native-window' | 'native-display'
+export type VideoSourceKind = 'daw' | 'screen' | 'camera' | 'none' | 'native-window' | 'native-display' | 'native-picker'
 
 export interface VideoSource {
   kind: VideoSourceKind

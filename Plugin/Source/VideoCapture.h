@@ -37,6 +37,10 @@ public:
     /** Capture a specific window by windowID (0 = auto-pick heuristic). */
     void startWindow (uint32_t windowId, CompleteFn onComplete);
     void startScreen (uint32_t displayId, CompleteFn onComplete);   // 0 = main
+    /** Show Apple's system-wide SCContentSharingPicker (macOS 14+) so the
+     *  user can pick any window/display — including the host DAW, which
+     *  the in-sandbox SCShareableContent can't see. */
+    void startWithPicker (CompleteFn onComplete);
     void stop();
 
     Kind currentKind() const noexcept;

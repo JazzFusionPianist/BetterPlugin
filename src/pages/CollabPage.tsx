@@ -213,6 +213,7 @@ function CollabPageInner({ user }: Props) {
       const videoSource: 'daw' | 'screen' | 'camera' | 'none' =
         source.kind === 'native-window'  ? 'daw'
         : source.kind === 'native-display' ? 'screen'
+        : source.kind === 'native-picker'  ? 'daw'
         : source.kind
       await startLive(title, {
         has_video: hasVideo,

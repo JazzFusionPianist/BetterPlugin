@@ -103,6 +103,12 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleListCaptureSources (args, std::move (completion));
+                })
+            .withNativeFunction ("pickCaptureSource",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handlePickCaptureSource (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -569,6 +575,14 @@ void CoOpAudioProcessor::handleListCaptureSources (const juce::var& /*args*/,
     if (! videoCapture) { completion (juce::var ("[]")); return; }
     auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
     videoCapture->listSources ([compPtr] (const juce::String& json) { (*compPtr) (juce::var (json)); });
+}
+
+void CoOpAudioProcessor::handlePickCaptureSource (const juce::var& /*args*/,
+                                                    juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! videoCapture) { completion (juce::var ("error:no-capture")); return; }
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+    videoCapture->startWithPicker ([compPtr] (const juce::String& result) { (*compPtr) (juce::var (result)); });
 }
 
 //==============================================================================

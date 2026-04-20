@@ -88,6 +88,46 @@ export async function listNativeSources (): Promise<NativeCaptureSource[]> {
   }
 }
 
+/**
+ * Launch the system-wide SCContentSharingPicker (macOS 14+) so the user
+ * can pick ANY window — including the host DAW, which the in-sandbox
+ * SCShareableContent can't enumerate. Returns a track once the user picks
+ * and capture starts, or null if they cancelled.
+ */
+export async function pickNativeVideoSource (): Promise<MediaStreamTrack | null> {
+  attachListener()
+  lastError = ''
+
+  if (!hasJuceBridge || !hasJuceNativeFunction('pickCaptureSource')) {
+    lastError = 'plugin-picker-unavailable'
+    return null
+  }
+
+  const startBefore = frameCount
+  console.log('[nativeVideo] opening system picker')
+  // Very long timeout — the user might browse for a while before picking.
+  const result = await callJuceNative('pickCaptureSource', [], 60_000)
+  console.log('[nativeVideo] picker result:', result)
+  if (!result.startsWith('ok')) {
+    lastError = result
+    return null
+  }
+
+  // Wait for first frame.
+  const deadline = performance.now() + 5000
+  while (frameCount === startBefore && performance.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  if (frameCount === startBefore) {
+    lastError = 'no-frames'
+    await stopNativeVideo()
+    return null
+  }
+
+  if (!stream && canvas) stream = canvas.captureStream(15)
+  return stream?.getVideoTracks()[0] ?? null
+}
+
 /** Start capture. `id` = SCDisplay.displayID or SCWindow.windowID (0 = auto). */
 export async function startNativeVideo (kind: 'window' | 'screen', id = 0): Promise<MediaStreamTrack | null> {
   attachListener()

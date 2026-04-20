@@ -21,23 +21,36 @@ let listenerAttached = false
 let lastAudioAt = 0
 let eventCount  = 0   // total __juceDawAudio events received
 
-// Expose diagnostic info on window so users can check from DevTools console:
-//   __dawAudioDebug()   → { eventCount, lastAudioAt, hasContext, ctxState, trackCount, muted }
-if (typeof window !== 'undefined') {
-  (window as unknown as { __dawAudioDebug?: () => unknown }).__dawAudioDebug = () => {
-    const track = destination?.stream.getAudioTracks()[0]
-    return {
-      eventCount,
-      msSinceLastAudio: lastAudioAt ? Math.round(performance.now() - lastAudioAt) : null,
-      hasContext: !!audioCtx,
-      ctxState: audioCtx?.state ?? null,
-      sampleRate: audioCtx?.sampleRate ?? null,
-      trackCount: destination?.stream.getAudioTracks().length ?? 0,
-      trackMuted: track?.muted ?? null,
-      trackEnabled: track?.enabled ?? null,
-      trackReadyState: track?.readyState ?? null,
-    }
+export interface DawAudioDebug {
+  eventCount: number
+  msSinceLastAudio: number | null
+  hasContext: boolean
+  ctxState: AudioContextState | null
+  sampleRate: number | null
+  trackCount: number
+  trackMuted: boolean | null
+  trackEnabled: boolean | null
+  trackReadyState: MediaStreamTrackState | null
+}
+
+export function getDawAudioDebug(): DawAudioDebug {
+  const track = destination?.stream.getAudioTracks()[0]
+  return {
+    eventCount,
+    msSinceLastAudio: lastAudioAt ? Math.round(performance.now() - lastAudioAt) : null,
+    hasContext: !!audioCtx,
+    ctxState: audioCtx?.state ?? null,
+    sampleRate: audioCtx?.sampleRate ?? null,
+    trackCount: destination?.stream.getAudioTracks().length ?? 0,
+    trackMuted: track?.muted ?? null,
+    trackEnabled: track?.enabled ?? null,
+    trackReadyState: track?.readyState ?? null,
   }
+}
+
+// Also expose on window for DevTools access (when available)
+if (typeof window !== 'undefined') {
+  (window as unknown as { __dawAudioDebug?: () => unknown }).__dawAudioDebug = getDawAudioDebug
 }
 
 // Inline worklet — ring buffer fed via postMessage, read by `process()`

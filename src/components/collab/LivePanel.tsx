@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { getDawAudioDebug } from '../../lib/dawAudio'
 import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
 import type { VideoSource } from '../../types/live'
@@ -46,6 +47,36 @@ function useDuration(startedAt: string | null) {
 
 // Build a key string for comparing VideoSource instances
 const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
+
+// In-page DAW audio diagnostic (plugin WebView has no DevTools access).
+// Polls every 500ms while visible.
+function DawAudioDebug() {
+  const [info, setInfo] = useState(() => getDawAudioDebug())
+  useEffect(() => {
+    const id = setInterval(() => setInfo(getDawAudioDebug()), 500)
+    return () => clearInterval(id)
+  }, [])
+  const recent = info.msSinceLastAudio !== null && info.msSinceLastAudio < 500
+  const dotColor = recent ? '#22c55e' : info.eventCount > 0 ? '#f59e0b' : '#ef4444'
+  const label =
+    info.eventCount === 0       ? 'no events from plugin'
+    : !info.hasContext          ? 'no AudioContext'
+    : info.ctxState !== 'running' ? `ctx ${info.ctxState}`
+    : !recent                   ? 'events stopped'
+    : info.trackMuted           ? 'track muted'
+    : info.trackReadyState !== 'live' ? `track ${info.trackReadyState}`
+    : 'OK'
+  return (
+    <div style={{ fontSize: 9, color: '#666', padding: '4px 8px', background: 'rgba(0,0,0,.04)', borderRadius: 6, marginTop: 4, fontFamily: 'monospace', lineHeight: 1.5 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
+        <strong>DAW: {label}</strong>
+      </div>
+      <div>events={info.eventCount} · ctx={info.ctxState ?? '-'} · sr={info.sampleRate ?? '-'}</div>
+      <div>track: muted={String(info.trackMuted)} en={String(info.trackEnabled)} rs={info.trackReadyState ?? '-'}</div>
+    </div>
+  )
+}
 
 export default function LivePanel({
   isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
@@ -127,6 +158,8 @@ export default function LivePanel({
                 {viewerCount}
               </span>
             </div>
+            <DawAudioDebug />
+
             <LiveChat
               messages={chatMessages}
               currentUserId={currentUserId}

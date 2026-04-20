@@ -59,7 +59,7 @@ const sourceKey = (s: VideoSource) => `${s.kind}:${s.deviceId ?? ''}`
 // Disclosure panel that lets the host change video/mic source while live
 // without ending the session. Applies via RTCRtpSender.replaceTrack.
 function InStreamSourceSwitcher({
-  sources, microphones, currentVideoKey, currentMicId, screenCaptureSupported, onApply,
+  sources, microphones, currentVideoKey, currentMicId, screenCaptureSupported, onApply, onEndLive,
 }: {
   sources: VideoSource[]
   microphones: MicOption[]
@@ -67,6 +67,7 @@ function InStreamSourceSwitcher({
   currentMicId: string
   screenCaptureSupported: boolean
   onApply: (videoKey: string, micDeviceId: string) => Promise<void>
+  onEndLive: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [videoKey, setVideoKey] = useState(currentVideoKey)
@@ -129,6 +130,9 @@ function InStreamSourceSwitcher({
           {busy ? 'Applying…' : 'Apply'}
         </button>
       </div>
+      <button className="live-end-btn" style={{ marginTop: 4 }} onClick={onEndLive} disabled={busy}>
+        End Stream
+      </button>
     </div>
   )
 }
@@ -282,6 +286,7 @@ export default function LivePanel({
                 setMicDeviceId(mic)
                 await onReplaceSource(src, mic || null)
               }}
+              onEndLive={onEndLive}
             />
 
             <LiveChat

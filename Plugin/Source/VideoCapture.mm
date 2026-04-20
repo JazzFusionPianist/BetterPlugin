@@ -204,7 +204,13 @@ static NSSet<NSString*>* knownDawBundles (void)
 
 - (void) listSourcesWithCompletion: (void (^)(NSString*)) completion
 {
-    [SCShareableContent getShareableContentWithCompletionHandler:
+    // excludingDesktopWindows: YES drops wallpaper / desktop icons; we keep
+    // onScreenWindowsOnly: NO so minimised / hidden windows still surface
+    // (the user may want to pick a window that's behind others). We filter
+    // further client-side.
+    [SCShareableContent getShareableContentExcludingDesktopWindows: YES
+                                              onScreenWindowsOnly: NO
+                                              completionHandler:
         ^(SCShareableContent* content, NSError* err)
     {
         if (err != nil || content == nil)
@@ -236,26 +242,34 @@ static NSSet<NSString*>* knownDawBundles (void)
             myBundle ?: @"",
         ]];
 
+        // Looser filters than before — we want the user to see every window
+        // they could reasonably want to stream, even if it's offscreen or a
+        // smaller panel. We only drop: no title, tiny (< 60×60), ours, and
+        // system chrome. The UI sorts by app so identical-name entries group.
         for (SCWindow* w in content.windows)
         {
-            if (! w.onScreen) continue;
-            if (w.windowLayer != 0) continue;
             if (w.title.length == 0) continue;
-            if (CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame) < 200 * 200) continue;
+            if (CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame) < 60 * 60) continue;
             if (w.owningApplication.processID == myPid) continue;
             NSString* bid = w.owningApplication.bundleIdentifier ?: @"";
             if ([excludeBundles containsObject: bid]) continue;
 
             [arr addObject: @{
-                @"kind":  @"window",
-                @"id":    @((unsigned) w.windowID),
-                @"title": w.title ?: @"(untitled)",
-                @"app":   w.owningApplication.applicationName ?: bid,
-                @"bundle":bid,
-                @"w":     @((int) CGRectGetWidth  (w.frame)),
-                @"h":     @((int) CGRectGetHeight (w.frame)),
+                @"kind":     @"window",
+                @"id":       @((unsigned) w.windowID),
+                @"title":    w.title ?: @"(untitled)",
+                @"app":      w.owningApplication.applicationName ?: bid,
+                @"bundle":   bid,
+                @"w":        @((int) CGRectGetWidth  (w.frame)),
+                @"h":        @((int) CGRectGetHeight (w.frame)),
+                @"onScreen": @(w.onScreen),
+                @"layer":    @(w.windowLayer),
             }];
         }
+        NSLog (@"[CoOp VideoCapture] listSources: %lu displays, %lu windows returned (filtered from %lu total)",
+               (unsigned long) content.displays.count,
+               (unsigned long) arr.count - content.displays.count,
+               (unsigned long) content.windows.count);
 
         NSData* json = [NSJSONSerialization dataWithJSONObject: arr options: 0 error: nil];
         NSString* jsonStr = [[NSString alloc] initWithData: json encoding: NSUTF8StringEncoding];

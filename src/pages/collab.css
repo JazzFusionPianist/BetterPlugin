@@ -1265,19 +1265,20 @@
 /* --- Track upload area --- */
 .orbit-track-area {
   position: absolute;
-  top: 160px;
+  top: 140px;
   left: 0;
   right: 0;
-  bottom: 50px;
+  bottom: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   z-index: 4;
   animation: orbit-stats-fade 0.5s ease 0.2s both;
 }
 .orbit-upload-circle {
-  width: 80px;
-  height: 80px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   border: 2px dashed rgba(255, 255, 255, 0.25);
   display: flex;
@@ -1291,9 +1292,20 @@
   background: rgba(255, 255, 255, 0.03);
 }
 .orbit-upload-circle.small {
-  width: 50px;
-  height: 50px;
+  width: 140px;
+  height: 140px;
   flex-shrink: 0;
+  position: absolute;
+  top: 50%;
+  left: calc(50% + var(--track-offset, 150px));
+  transform: translate(-50%, -50%);
+  transition: left 0.4s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.4s ease;
+  user-select: none;
+}
+.orbit-upload-circle.small.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition-delay: 0.4s;
 }
 .orbit-upload-plus {
   font-size: 28px;
@@ -1302,31 +1314,49 @@
   line-height: 1;
   font-family: 'DM Sans', sans-serif;
 }
-.orbit-upload-circle.small .orbit-upload-plus { font-size: 20px; }
+.orbit-upload-circle.small .orbit-upload-plus { font-size: 40px; }
 
 /* --- Track list --- */
 .orbit-track-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-  align-items: center;
-  padding: 8px;
-  overflow-y: auto;
-  max-height: 100%;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  will-change: transform;
+  touch-action: pan-y;
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .orbit-track-item {
-  width: 70px;
+  width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: calc(50% + var(--track-offset, 0px));
+  transform: translate(-50%, -50%);
+  transition: left 0.4s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.3s ease;
+  user-select: none;
+}
+.orbit-track-item.playing {
+  left: 0;
+}
+.orbit-track-list.has-playing .orbit-track-item:not(.playing) {
+  opacity: 0;
+  pointer-events: none;
+}
+.orbit-track-item.playing .orbit-track-cover {
+  animation: orbit-cd-spin 6s linear 0.5s infinite;
+}
+@keyframes orbit-cd-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 .orbit-track-cover {
-  width: 60px;
-  height: 60px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   transition: opacity 0.15s;
@@ -1345,12 +1375,12 @@
 .orbit-track-item:hover .orbit-track-cover { opacity: 0.8; }
 .orbit-track-playing {
   position: absolute;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 18px;
+  top: 50%;
+  left: 75%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
   color: #fff;
-  text-shadow: 0 0 6px rgba(0,0,0,.6);
+  text-shadow: 0 0 8px rgba(0,0,0,.7);
   pointer-events: none;
 }
 .orbit-track-title {
@@ -1363,6 +1393,191 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 70px;
+}
+
+/* --- Hover label (title + date) --- */
+.orbit-track-hover-label {
+  position: absolute;
+  top: calc(50% + 82px);
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.orbit-track-item:hover .orbit-track-hover-label {
+  opacity: 1;
+}
+.orbit-track-item.playing .orbit-track-hover-label {
+  opacity: 0;
+}
+.orbit-track-hover-title {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--t1);
+  opacity: 0.75;
+  letter-spacing: 0.01em;
+}
+.orbit-track-hover-date {
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--t1);
+  opacity: 0.4;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+/* --- Track edit panel (shown while playing) --- */
+.orbit-track-edit {
+  position: absolute;
+  top: 50%;
+  left: 90px;
+  right: 20px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: 'DM Sans', sans-serif;
+  opacity: 0;
+  animation: orbit-edit-fade 0.4s ease 0.45s forwards;
+}
+@keyframes orbit-edit-fade {
+  from { opacity: 0; transform: translate(8px, -50%); }
+  to   { opacity: 1; transform: translate(0, -50%); }
+}
+.orbit-track-edit-input,
+.orbit-track-edit-desc {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 5px 0;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.orbit-track-edit-input::placeholder,
+.orbit-track-edit-desc::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+.orbit-track-edit-input:focus,
+.orbit-track-edit-desc:focus {
+  border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+.orbit-track-edit-title-input {
+  font-size: 14px;
+  font-weight: 500;
+}
+.orbit-track-edit-row {
+  display: flex;
+  gap: 10px;
+}
+.orbit-track-edit-row .orbit-track-edit-input {
+  flex: 1;
+  min-width: 0;
+}
+.orbit-track-edit-desc {
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.orbit-track-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.orbit-track-edit-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+.orbit-track-edit-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+.orbit-track-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.orbit-track-edit-btn.delete {
+  color: rgba(255, 120, 120, 0.8);
+  border-color: rgba(255, 120, 120, 0.25);
+}
+.orbit-track-edit-btn.delete:hover:not(:disabled) {
+  color: rgba(255, 140, 140, 1);
+  border-color: rgba(255, 120, 120, 0.5);
+  background: rgba(255, 80, 80, 0.08);
+}
+
+/* --- No tracks placeholder (other users) --- */
+.orbit-no-tracks {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--t1);
+  opacity: 0.45;
+  letter-spacing: 0.01em;
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* --- Track view panel (other users, read-only) --- */
+.orbit-track-view {
+  position: absolute;
+  top: 50%;
+  left: 90px;
+  right: 20px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  opacity: 0;
+  animation: orbit-edit-fade 0.4s ease 0.45s forwards;
+}
+.orbit-track-view-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--t1);
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.orbit-track-view-date {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--t1);
+  opacity: 0.45;
+  letter-spacing: 0.03em;
+}
+.orbit-track-view-desc {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--t1);
+  opacity: 0.7;
+  line-height: 1.5;
+  margin-top: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding-right: 4px;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* --- Track metadata panel --- */
@@ -1445,6 +1660,12 @@
 }
 .orbit-track-input:focus { border-bottom-color: rgba(255, 255, 255, 0.25); }
 .orbit-track-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+.orbit-track-title-large {
+  font-size: 17px;
+  font-weight: 500;
+  padding: 18px 0;
+  letter-spacing: 0.01em;
+}
 .orbit-track-title {
   font-size: 13px;
   font-weight: 600;

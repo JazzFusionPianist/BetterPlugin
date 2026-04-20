@@ -81,5 +81,13 @@ export function useTracks(supabase: SupabaseClient, userId: string) {
     await fetchTracks()
   }, [supabase, fetchTracks])
 
-  return { tracks, addTrack, deleteTrack, refetch: fetchTracks }
+  const updateTrack = useCallback(async (
+    trackId: string,
+    patch: { title?: string; artist?: string; version?: string; date?: string | null; description?: string | null }
+  ) => {
+    await supabase.from('tracks').update(patch).eq('id', trackId)
+    await fetchTracks()
+  }, [supabase, fetchTracks])
+
+  return { tracks, addTrack, updateTrack, deleteTrack, refetch: fetchTracks }
 }

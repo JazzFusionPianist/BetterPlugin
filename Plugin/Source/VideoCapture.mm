@@ -49,23 +49,18 @@ static juce::String jpegBase64FromPixelBuffer (CVPixelBufferRef pb, CGFloat qual
     return b64.toString();
 }
 
-static juce::String nsErrDesc (NSError* e)
-{
-    if (e == nil) return {};
-    return juce::String::fromUTF8 ([[e localizedDescription] UTF8String]);
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // ObjC capture class (SCStreamOutput + SCStreamDelegate)
 // ──────────────────────────────────────────────────────────────────────────
+
+typedef void (^CompletionBlock)(NSString* _Nullable error);
 
 API_AVAILABLE(macos(12.3))
 @interface CoOpSCKCapture : NSObject <SCStreamOutput, SCStreamDelegate>
 @property (strong, nullable) SCStream* stream;
 @property (strong) dispatch_queue_t outputQueue;
 @property (copy, nullable) void (^frameCb)(CVPixelBufferRef, int, int);
-@property (copy, nullable) void (^errorCb)(NSString*);
-- (void) startWithKind: (int) kind;        // 1 = window, 2 = screen
+- (void) startWithKind: (int) kind completion: (CompletionBlock) completion;
 - (void) stop;
 @end
 
@@ -79,14 +74,6 @@ API_AVAILABLE(macos(12.3))
     return self;
 }
 
-- (void) reportError: (NSString*) msg
-{
-    if (self.errorCb != nil) self.errorCb (msg);
-}
-
-/** Find the DAW's main window among the shared content list.
- *  Prefer NSApp.mainWindow by windowID; fall back to the largest on-screen
- *  window owned by our process (excluding any with empty title). */
 - (nullable SCWindow*) pickDawWindow: (NSArray<SCWindow*>*) windows
 {
     NSWindow* main = [NSApp mainWindow] ?: [NSApp keyWindow];
@@ -111,15 +98,19 @@ API_AVAILABLE(macos(12.3))
     return best;
 }
 
-- (void) startWithKind: (int) kind
+- (void) startWithKind: (int) kind completion: (CompletionBlock) completion
 {
+    // If a previous capture is still live, stop it before starting a new one.
+    if (self.stream != nil)
+        [self stop];
+
     [SCShareableContent getShareableContentWithCompletionHandler:
         ^(SCShareableContent* content, NSError* err)
     {
         if (err != nil || content == nil)
         {
-            [self reportError: [NSString stringWithFormat: @"shareable-content: %@",
-                                err ? err.localizedDescription : @"unknown"]];
+            completion ([NSString stringWithFormat: @"shareable-content: %@",
+                         err ? err.localizedDescription : @"unknown"]);
             return;
         }
 
@@ -129,11 +120,7 @@ API_AVAILABLE(macos(12.3))
         if (kind == 1)
         {
             SCWindow* target = [self pickDawWindow: content.windows];
-            if (target == nil)
-            {
-                [self reportError: @"no DAW window found — grant Screen Recording in System Settings"];
-                return;
-            }
+            if (target == nil) { completion (@"no-daw-window"); return; }
             filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow: target];
             outW = (int) CGRectGetWidth  (target.frame);
             outH = (int) CGRectGetHeight (target.frame);
@@ -141,22 +128,17 @@ API_AVAILABLE(macos(12.3))
         else if (kind == 2)
         {
             SCDisplay* display = content.displays.firstObject;
-            if (display == nil)
-            {
-                [self reportError: @"no display — grant Screen Recording in System Settings"];
-                return;
-            }
+            if (display == nil) { completion (@"no-display"); return; }
             filter = [[SCContentFilter alloc] initWithDisplay: display excludingWindows: @[]];
             outW = (int) display.width;
             outH = (int) display.height;
         }
         else
         {
-            [self reportError: @"unknown capture kind"];
+            completion (@"unknown-kind");
             return;
         }
 
-        // Downscale to max 1280px wide to bound JPEG size / CPU.
         constexpr int MAX_W = 1280;
         if (outW > MAX_W)
         {
@@ -167,7 +149,7 @@ API_AVAILABLE(macos(12.3))
         SCStreamConfiguration* cfg = [SCStreamConfiguration new];
         cfg.width  = (size_t) outW;
         cfg.height = (size_t) outH;
-        cfg.minimumFrameInterval = CMTimeMake (1, 15);      // 15 fps cap
+        cfg.minimumFrameInterval = CMTimeMake (1, 15);
         cfg.pixelFormat = kCVPixelFormatType_32BGRA;
         cfg.showsCursor = YES;
         cfg.queueDepth = 3;
@@ -180,7 +162,7 @@ API_AVAILABLE(macos(12.3))
                           error: &addErr];
         if (addErr != nil)
         {
-            [self reportError: [NSString stringWithFormat: @"addStreamOutput: %@", addErr.localizedDescription]];
+            completion ([NSString stringWithFormat: @"addStreamOutput: %@", addErr.localizedDescription]);
             return;
         }
 
@@ -189,7 +171,12 @@ API_AVAILABLE(macos(12.3))
         [stream startCaptureWithCompletionHandler: ^(NSError* startErr)
         {
             if (startErr != nil)
-                [self reportError: [NSString stringWithFormat: @"startCapture: %@", startErr.localizedDescription]];
+            {
+                self.stream = nil;
+                completion ([NSString stringWithFormat: @"startCapture: %@", startErr.localizedDescription]);
+                return;
+            }
+            completion (nil);
         }];
     }];
 }
@@ -199,12 +186,9 @@ API_AVAILABLE(macos(12.3))
     SCStream* s = self.stream;
     if (s == nil) return;
     self.stream = nil;
-    [s stopCaptureWithCompletionHandler: ^(NSError* /*err*/) {
-        // best-effort, nothing to do
-    }];
+    [s stopCaptureWithCompletionHandler: ^(NSError* /*err*/) { /* best-effort */ }];
 }
 
-// ── SCStreamOutput ──────────────────────────────────────────────────────
 - (void) stream: (SCStream*) stream
        didOutputSampleBuffer: (CMSampleBufferRef) sb
                       ofType: (SCStreamOutputType) type
@@ -219,11 +203,11 @@ API_AVAILABLE(macos(12.3))
     if (self.frameCb != nil) self.frameCb (pb, w, h);
 }
 
-// ── SCStreamDelegate ────────────────────────────────────────────────────
 - (void) stream: (SCStream*) stream didStopWithError: (NSError*) error
 {
-    if (error != nil)
-        [self reportError: [NSString stringWithFormat: @"stream stopped: %@", error.localizedDescription]];
+    (void) stream; (void) error;
+    // Capture ended for some reason. Not currently surfaced to JS — the
+    // viewer will notice frames stopping via its RTC stats.
 }
 
 @end
@@ -234,11 +218,11 @@ API_AVAILABLE(macos(12.3))
 
 struct VideoCapture::Impl
 {
-    id                  objc;   // CoOpSCKCapture* (or nil on < 12.3)
+    id                  objc;   // CoOpSCKCapture*  (nil on < 12.3)
     std::atomic<Kind>   kind { Kind::None };
 };
 
-VideoCapture::VideoCapture (FrameFn onFrame, ErrorFn onError)
+VideoCapture::VideoCapture (FrameFn onFrame)
     : impl (std::make_unique<Impl>())
 {
     if (@available (macOS 12.3, *))
@@ -246,36 +230,16 @@ VideoCapture::VideoCapture (FrameFn onFrame, ErrorFn onError)
         CoOpSCKCapture* o = [CoOpSCKCapture new];
 
         FrameFn frame = std::move (onFrame);
-        ErrorFn error = std::move (onError);
-
         o.frameCb = ^(CVPixelBufferRef pb, int w, int h)
         {
-            juce::String b64 = jpegBase64FromPixelBuffer (pb, 0.5);
-            if (b64.isEmpty()) return;
-            // Copy frame payload to the message thread before calling the C++ cb
-            juce::MessageManager::callAsync ([frame, b64 = std::move (b64), w, h]
+            juce::String payload = jpegBase64FromPixelBuffer (pb, 0.5);
+            if (payload.isEmpty()) return;
+            juce::MessageManager::callAsync ([frame, payload, w, h]
             {
-                frame (b64, w, h);
+                frame (payload, w, h);
             });
         };
-        o.errorCb = ^(NSString* msg)
-        {
-            juce::String s = juce::String::fromUTF8 ([msg UTF8String]);
-            juce::MessageManager::callAsync ([error, s]
-            {
-                error (s);
-            });
-        };
-
         impl->objc = o;
-    }
-    else
-    {
-        ErrorFn error = std::move (onError);
-        juce::MessageManager::callAsync ([error]
-        {
-            error ("ScreenCaptureKit requires macOS 12.3 or later");
-        });
     }
 }
 
@@ -285,20 +249,41 @@ VideoCapture::~VideoCapture()
     impl->objc = nil;
 }
 
-void VideoCapture::startWindow()
+static void runStart (id objcHandle, int kindNum, VideoCapture::CompleteFn cb)
 {
-    if (impl->objc == nil) return;
-    impl->kind.store (Kind::Window);
+    if (objcHandle == nil)
+    {
+        juce::MessageManager::callAsync ([cb] { cb ("error:unsupported-os"); });
+        return;
+    }
+
     if (@available (macOS 12.3, *))
-        [(CoOpSCKCapture*) impl->objc startWithKind: 1];
+    {
+        CoOpSCKCapture* o = (CoOpSCKCapture*) objcHandle;
+        [o startWithKind: kindNum completion: ^(NSString* err)
+        {
+            juce::String result = (err == nil)
+                ? juce::String ("ok")
+                : ("error:" + juce::String::fromUTF8 ([err UTF8String]));
+            juce::MessageManager::callAsync ([cb, result] { cb (result); });
+        }];
+    }
+    else
+    {
+        juce::MessageManager::callAsync ([cb] { cb ("error:unsupported-os"); });
+    }
 }
 
-void VideoCapture::startScreen()
+void VideoCapture::startWindow (CompleteFn onComplete)
 {
-    if (impl->objc == nil) return;
+    impl->kind.store (Kind::Window);
+    runStart (impl->objc, 1, std::move (onComplete));
+}
+
+void VideoCapture::startScreen (CompleteFn onComplete)
+{
     impl->kind.store (Kind::Screen);
-    if (@available (macOS 12.3, *))
-        [(CoOpSCKCapture*) impl->objc startWithKind: 2];
+    runStart (impl->objc, 2, std::move (onComplete));
 }
 
 void VideoCapture::stop()

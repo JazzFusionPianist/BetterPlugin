@@ -20,14 +20,16 @@ class VideoCapture
 public:
     enum class Kind { None, Window, Screen };
 
-    using FrameFn = std::function<void (const juce::String& jpegBase64, int w, int h)>;
-    using ErrorFn = std::function<void (const juce::String& message)>;
+    using FrameFn    = std::function<void (const juce::String& jpegBase64, int w, int h)>;
+    /** Completion for start operations — "ok" or "error:<message>". Called on
+     *  the message thread once SCK has either begun capture or failed. */
+    using CompleteFn = std::function<void (const juce::String& result)>;
 
-    VideoCapture (FrameFn onFrame, ErrorFn onError);
+    explicit VideoCapture (FrameFn onFrame);
     ~VideoCapture();
 
-    void startWindow();
-    void startScreen();
+    void startWindow (CompleteFn onComplete);
+    void startScreen (CompleteFn onComplete);
     void stop();
 
     Kind currentKind() const noexcept;

@@ -99,9 +99,9 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                     handleStopVideoCapture (args, std::move (completion));
                 }));
 
-    // Build the video capture helper. Frame callback emits __juceVideoFrame
-    // events; errors go through __juceVideoError so the JS side can surface
-    // "grant Screen Recording in System Settings" to the user.
+    // Build the video capture helper. Frames are dispatched as
+    // __juceVideoFrame CustomEvents; start/stop results come back through
+    // the native-function completion handler (no separate error event).
     videoCapture = std::make_unique<VideoCapture> (
         [this] (const juce::String& b64, int w, int h)
         {
@@ -109,15 +109,6 @@ CoOpAudioProcessor::CoOpAudioProcessor()
             juce::String script;
             script << "window.dispatchEvent(new CustomEvent('__juceVideoFrame',{detail:{"
                    << "jpeg:'" << b64 << "',w:" << w << ",h:" << h << "}}))";
-            browser->evaluateJavascript (script,
-                [] (juce::WebBrowserComponent::EvaluationResult) {});
-        },
-        [this] (const juce::String& msg)
-        {
-            if (browser == nullptr) return;
-            juce::String script;
-            script << "window.dispatchEvent(new CustomEvent('__juceVideoError',{detail:{"
-                   << "message:" << msg.quoted() << "}}))";
             browser->evaluateJavascript (script,
                 [] (juce::WebBrowserComponent::EvaluationResult) {});
         });
@@ -550,11 +541,13 @@ void CoOpAudioProcessor::handleStartVideoCapture (const juce::var& args,
 
     const juce::String kind = (args.isArray() && args.size() >= 1) ? args[0].toString() : juce::String();
 
-    if (kind == "window")      videoCapture->startWindow();
-    else if (kind == "screen") videoCapture->startScreen();
-    else { completion (juce::var ("error:unknown-kind")); return; }
+    // Shared holder for the completion — SCK's callback invokes it once.
+    auto compPtr = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+    auto onDone = [compPtr] (const juce::String& result) { (*compPtr) (juce::var (result)); };
 
-    completion (juce::var ("ok"));
+    if (kind == "window")      videoCapture->startWindow (onDone);
+    else if (kind == "screen") videoCapture->startScreen (onDone);
+    else                       (*compPtr) (juce::var ("error:unknown-kind"));
 }
 
 void CoOpAudioProcessor::handleStopVideoCapture (const juce::var& /*args*/,

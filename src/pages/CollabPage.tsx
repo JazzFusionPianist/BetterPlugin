@@ -22,7 +22,7 @@ import NotificationSettingsPanel, { readNotifSettings } from '../components/coll
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { Profile } from '../types/collab'
 import type { VideoSource } from '../types/live'
-import { useLive } from '../hooks/useLive'
+import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
 import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
@@ -156,7 +156,12 @@ function CollabPageInner({ user }: Props) {
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
   const { viewerCount, peerStates, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
-  const [watchingSessionId, setWatchingSessionId] = useState<string | null>(null)
+  // The viewer keeps its own snapshot of the session it's watching so the
+  // LiveViewer stays mounted when the host ends the stream (the row drops
+  // out of `liveSessions`). The ended screen needs to render until the
+  // viewer clicks Back.
+  const [watchingSession, setWatchingSession] = useState<LiveSession | null>(null)
+  const watchingSessionId = watchingSession?.id ?? null
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
   // 친구 목록 = 서로 팔로우한 유저만
@@ -173,17 +178,17 @@ function CollabPageInner({ user }: Props) {
     return pool.filter(p => friendFollowerIds.has(p.id))
   }, [profilesWithStatus, friendFollowerIds, me])
 
-  // Watching a friend's live
-  const watchingSession = watchingSessionId
-    ? liveSessions.find(s => s.id === watchingSessionId) ?? null
-    : null
+  // Watching a friend's live — host is derived from the captured session so
+  // the avatar/name stay visible on the ended screen even after the row
+  // has been removed from liveSessions.
   const watchingHost = watchingSession
     ? profilesWithStatus.find(p => p.id === watchingSession.host_id) ?? null
     : null
-  // Auto-close viewer if the session disappears (host ended stream)
-  useEffect(() => {
-    if (watchingSessionId && !watchingSession) setWatchingSessionId(null)
-  }, [watchingSessionId, watchingSession])
+
+  const handleOpenWatching = useCallback((sessionId: string) => {
+    const s = liveSessions.find(x => x.id === sessionId)
+    if (s) setWatchingSession(s)
+  }, [liveSessions])
 
   // Live chat — scoped to whichever session we're currently engaged with
   // (our own broadcast or a friend we're watching).
@@ -317,6 +322,7 @@ function CollabPageInner({ user }: Props) {
     setSelectedId(null); setViewingProfileId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
     setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false)
+    setWatchingSession(null)
     closeSearch()
   }
 
@@ -462,9 +468,9 @@ function CollabPageInner({ user }: Props) {
       <div className="content">
         <div className="view fview">
           {viewingProfileId && viewingProfile
-            ? <ProfilePanel supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { setWatchingSessionId(sessionId); setLiveOpen(true) }} viewOnly />
+            ? <ProfilePanel supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} viewOnly />
             : viewMode === 'default'
-              ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { setWatchingSessionId(sessionId); setLiveOpen(true) }} />
+              ? <ProfilePanel supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} />
               : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
@@ -508,7 +514,7 @@ function CollabPageInner({ user }: Props) {
               currentUserId={user.id}
               chatMessages={chatMessages}
               onSendChat={sendChat}
-              onClose={() => setWatchingSessionId(null)}
+              onClose={() => setWatchingSession(null)}
             />
           ) : (
             <LivePanel
@@ -531,7 +537,7 @@ function CollabPageInner({ user }: Props) {
               onSendChat={sendChat}
               onStartLive={handleStartLive}
               onEndLive={handleEndLive}
-              onWatchLive={(sessionId) => setWatchingSessionId(sessionId)}
+              onWatchLive={(sessionId) => handleOpenWatching(sessionId)}
               onClose={() => setLiveOpen(false)}
             />
           )}
@@ -582,7 +588,7 @@ function CollabPageInner({ user }: Props) {
             return (
               <button
                 className="orbit-tt-btn orbit-tt-join-live"
-                onClick={() => { setGalleryPopup(null); setWatchingSessionId(liveSession.id); setLiveOpen(true) }}
+                onClick={() => { setGalleryPopup(null); handleOpenWatching(liveSession.id); setLiveOpen(true) }}
               >
                 ● Join Live!
               </button>

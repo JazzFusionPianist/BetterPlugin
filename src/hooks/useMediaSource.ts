@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { VideoSource, VideoSourceKind } from '../types/live'
-import { getDawAudioTrack, initDawAudio } from '../lib/dawAudio'
+import { ensureDawAudioActive, initDawAudio } from '../lib/dawAudio'
 
 /**
  * Manages local MediaStream creation based on user-selected video source.
@@ -63,8 +63,9 @@ export function useMediaSource() {
         newStream = new MediaStream()
       }
 
-      // Add DAW audio if available (always preferred — it's the plugin's signal)
-      const dawTrack = getDawAudioTrack()
+      // Add DAW audio — ensureDawAudioActive() initialises the pipeline if
+      // needed (requires a user-gesture context, which startStream always is).
+      const dawTrack = await ensureDawAudioActive()
       if (dawTrack) newStream.addTrack(dawTrack)
 
       // Add mic if user picked one

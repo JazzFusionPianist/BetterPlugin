@@ -4,8 +4,8 @@
  * via an AudioWorklet → MediaStreamAudioDestinationNode pipeline.
  *
  * When running in a regular browser (not inside the plugin), no events fire,
- * so `getDawAudioTrack()` returns null and the caller can gracefully fall
- * back to mic-only or silent audio.
+ * so the destination emits silence and the returned track carries an
+ * inaudible stream (which is still fine to publish to peers).
  */
 
 interface JuceDawAudioDetail {
@@ -17,17 +17,16 @@ interface JuceDawAudioDetail {
 let audioCtx:   AudioContext | null = null
 let workletNode: AudioWorkletNode | null = null
 let destination: MediaStreamAudioDestinationNode | null = null
-let currentSR   = 0
-let currentCh   = 0
 let listenerAttached = false
-let lastAudioAt = 0    // for "are we receiving audio?" detection
+let lastAudioAt = 0
 
 // Inline worklet — ring buffer fed via postMessage, read by `process()`
+// The `sampleRate` global inside a worklet equals the AudioContext's rate.
 const workletSource = `
   class DawAudio extends AudioWorkletProcessor {
     constructor() {
       super()
-      this.cap = sampleRate * 2   // ~2s of interleaved stereo headroom
+      this.cap = sampleRate * 2
       this.ring = new Float32Array(this.cap)
       this.r = 0
       this.w = 0
@@ -36,7 +35,6 @@ const workletSource = `
       this.port.onmessage = (e) => {
         const { floats, ch } = e.data
         this.ch = ch
-        // Drop oldest if buffer is full (keeps latency bounded)
         if (this.avail + floats.length > this.cap) {
           const drop = this.avail + floats.length - this.cap
           this.r = (this.r + drop) % this.cap
@@ -55,7 +53,6 @@ const workletSource = `
       const outCh = out.length
       for (let i = 0; i < frames; i++) {
         if (this.avail >= this.ch) {
-          // Read one interleaved frame from ring, distribute to outputs
           for (let c = 0; c < outCh; c++) {
             const src = Math.min(c, this.ch - 1)
             out[c][i] = this.ring[(this.r + src) % this.cap]
@@ -72,20 +69,13 @@ const workletSource = `
   registerProcessor('daw-audio', DawAudio)
 `
 
-async function ensureAudio(sr: number, ch: number): Promise<void> {
-  if (audioCtx && currentSR === sr && currentCh === ch) return
+async function setupPipeline(sr: number): Promise<void> {
+  if (audioCtx) return
 
-  // Tear down existing
-  if (workletNode) { workletNode.disconnect(); workletNode = null }
-  if (destination) { destination.disconnect(); destination = null }
-  if (audioCtx) { await audioCtx.close().catch(() => {}); audioCtx = null }
-
-  // AudioContext sample rate must match to avoid resampling artifacts.
-  // Some browsers/WebKit ignore the rate hint and use device default;
-  // in that case the worklet's output is resampled transparently.
   try {
     audioCtx = new AudioContext({ sampleRate: sr })
   } catch {
+    // Fall back to the device default if the browser refuses a custom rate
     audioCtx = new AudioContext()
   }
 
@@ -97,13 +87,10 @@ async function ensureAudio(sr: number, ch: number): Promise<void> {
   workletNode = new AudioWorkletNode(audioCtx, 'daw-audio', {
     numberOfInputs: 0,
     numberOfOutputs: 1,
-    outputChannelCount: [Math.max(1, Math.min(ch, 2))],
+    outputChannelCount: [2],
   })
   destination = audioCtx.createMediaStreamDestination()
   workletNode.connect(destination)
-
-  currentSR = sr
-  currentCh = ch
 }
 
 function attachListener() {
@@ -115,10 +102,11 @@ function attachListener() {
     const { samples, sr, ch } = e.detail
     if (!samples || !sr || !ch) return
 
-    await ensureAudio(sr, ch)
+    // Create pipeline on first event if it wasn't pre-initialised. Using the
+    // event's sample rate avoids pitch drift when the pipeline is built lazily.
+    if (!audioCtx) await setupPipeline(sr)
     if (!workletNode) return
 
-    // Decode base64 → Float32Array
     const bin = atob(samples)
     const bytes = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
@@ -130,9 +118,28 @@ function attachListener() {
 }
 
 /**
- * Returns a MediaStreamTrack that carries DAW audio, or null if the plugin
- * hasn't produced any audio yet (e.g. running in a browser, or the DAW isn't
- * playing). Call after attachListener(), ideally right before Go Live.
+ * Must be called from a user-gesture context (e.g. the Go Live click).
+ * Guarantees the pipeline exists and the AudioContext is running — so the
+ * returned MediaStreamTrack is valid even if the DAW hasn't played a sample yet.
+ */
+export async function ensureDawAudioActive(): Promise<MediaStreamTrack | null> {
+  if (!audioCtx) {
+    // Default to 48kHz (macOS default; matches most DAW outputs). If a
+    // __juceDawAudio event later arrives at a different rate, the worklet
+    // will play it at the wrong pitch — but this is rare on macOS. We
+    // accept that trade-off rather than invalidating the live track mid-session.
+    try { await setupPipeline(48000) }
+    catch (e) { console.warn('DAW audio setup failed', e); return null }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    try { await audioCtx.resume() } catch (e) { console.warn('resume failed', e) }
+  }
+  return destination?.stream.getAudioTracks()[0] ?? null
+}
+
+/**
+ * Non-async variant — returns the track if the pipeline already exists,
+ * or null otherwise. Prefer `ensureDawAudioActive()` from user gestures.
  */
 export function getDawAudioTrack(): MediaStreamTrack | null {
   return destination?.stream.getAudioTracks()[0] ?? null

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VideoSource, VideoSourceKind } from '../types/live'
 import { ensureDawAudioActive, initDawAudio } from '../lib/dawAudio'
-import { startNativeVideo, stopNativeVideo, initNativeVideo } from '../lib/nativeVideo'
+import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError } from '../lib/nativeVideo'
 import { hasJuceBridge } from '../lib/juceBridge'
 
 /**
@@ -107,8 +107,9 @@ export function useMediaSource() {
     let newStream: MediaStream
     if (source.kind === 'daw' || source.kind === 'screen') {
       // Try plugin native capture first (no picker). If the plugin doesn't
-      // support it (older build, or macOS where SCK isn't integrated yet),
-      // the native call returns null and we fall back to getDisplayMedia.
+      // support it or Screen Recording permission isn't granted to the host
+      // DAW, we get null and surface a helpful error instead of silently
+      // falling back.
       let nativeTrack: MediaStreamTrack | null = null
       if (hasJuceBridge) {
         const nativeKind = source.kind === 'daw' ? 'window' : 'screen'
@@ -117,6 +118,11 @@ export function useMediaSource() {
       if (nativeTrack) {
         newStream = new MediaStream()
         newStream.addTrack(nativeTrack)
+      } else if (hasJuceBridge) {
+        const err = getNativeVideoLastError()
+        throw new Error(err
+          ? `Screen capture failed: ${err}. Grant Screen Recording to your DAW in System Settings → Privacy & Security.`
+          : 'Screen capture is unavailable. Grant Screen Recording to your DAW in System Settings → Privacy & Security, then try again.')
       } else {
         const displaySurface = source.kind === 'daw' ? 'window' : 'monitor'
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

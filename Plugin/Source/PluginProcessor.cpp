@@ -85,7 +85,42 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleWriteAudioFiles (args, std::move (completion));
+                })
+            .withNativeFunction ("startVideoCapture",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleStartVideoCapture (args, std::move (completion));
+                })
+            .withNativeFunction ("stopVideoCapture",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleStopVideoCapture (args, std::move (completion));
                 }));
+
+    // Build the video capture helper. Frame callback emits __juceVideoFrame
+    // events; errors go through __juceVideoError so the JS side can surface
+    // "grant Screen Recording in System Settings" to the user.
+    videoCapture = std::make_unique<VideoCapture> (
+        [this] (const juce::String& b64, int w, int h)
+        {
+            if (browser == nullptr) return;
+            juce::String script;
+            script << "window.dispatchEvent(new CustomEvent('__juceVideoFrame',{detail:{"
+                   << "jpeg:'" << b64 << "',w:" << w << ",h:" << h << "}}))";
+            browser->evaluateJavascript (script,
+                [] (juce::WebBrowserComponent::EvaluationResult) {});
+        },
+        [this] (const juce::String& msg)
+        {
+            if (browser == nullptr) return;
+            juce::String script;
+            script << "window.dispatchEvent(new CustomEvent('__juceVideoError',{detail:{"
+                   << "message:" << msg.quoted() << "}}))";
+            browser->evaluateJavascript (script,
+                [] (juce::WebBrowserComponent::EvaluationResult) {});
+        });
 
     // Append ?plugin=1 so the web app can tailor UX for in-plugin context
     // (e.g. hide camera sources that hang WKWebView inside an Audio Unit).
@@ -499,6 +534,34 @@ void CoOpAudioProcessor::handleWriteAudioFiles (const juce::var& args,
                     [] (juce::WebBrowserComponent::EvaluationResult) {});
         });
     }).detach();
+}
+
+//==============================================================================
+// Video capture — ScreenCaptureKit bridge
+//==============================================================================
+void CoOpAudioProcessor::handleStartVideoCapture (const juce::var& args,
+                                                   juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! videoCapture)
+    {
+        completion (juce::var ("error:no-capture"));
+        return;
+    }
+
+    const juce::String kind = (args.isArray() && args.size() >= 1) ? args[0].toString() : juce::String();
+
+    if (kind == "window")      videoCapture->startWindow();
+    else if (kind == "screen") videoCapture->startScreen();
+    else { completion (juce::var ("error:unknown-kind")); return; }
+
+    completion (juce::var ("ok"));
+}
+
+void CoOpAudioProcessor::handleStopVideoCapture (const juce::var& /*args*/,
+                                                   juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (videoCapture) videoCapture->stop();
+    completion (juce::var ("ok"));
 }
 
 //==============================================================================

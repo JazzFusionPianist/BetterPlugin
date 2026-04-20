@@ -1,41 +1,38 @@
 #pragma once
 #include <juce_gui_extra/juce_gui_extra.h>
-#include <atomic>
 #include <functional>
 #include <memory>
 
 /**
- * Native macOS capture of the DAW's main window or the whole screen.
+ * Native macOS screen/window capture via ScreenCaptureKit (macOS 12.3+).
  *
- * Runs a timer at ~15fps that grabs a CGImage via CGWindowListCreateImage
- * (window mode) or CGDisplayCreateImage (screen mode), encodes as JPEG,
- * and hands the base64 bytes to `onFrame`.
+ * Owns an SCStream that delivers CVPixelBuffer frames on a background queue.
+ * Each frame is JPEG-encoded and handed to `onFrame` via the message thread
+ * as base64 bytes + dimensions. Errors (TCC denial, missing window, etc.)
+ * are reported through `onError`.
  *
- * The web side feeds these frames into an offscreen canvas and exposes
- * `canvas.captureStream()` as a MediaStreamTrack, bypassing the
- * getDisplayMedia picker that's hostile UX inside a plugin WebView.
+ * The web side consumes __juceVideoFrame CustomEvents, decodes via an
+ * offscreen canvas, and exposes canvas.captureStream() as a MediaStreamTrack,
+ * bypassing getDisplayMedia's system picker.
  */
-class VideoCapture : private juce::Timer
+class VideoCapture
 {
 public:
     enum class Kind { None, Window, Screen };
 
-    /** Frame callback: base64 JPEG, width, height. Called on the message thread. */
     using FrameFn = std::function<void (const juce::String& jpegBase64, int w, int h)>;
+    using ErrorFn = std::function<void (const juce::String& message)>;
 
-    explicit VideoCapture (FrameFn cb) : onFrame (std::move (cb)) {}
-    ~VideoCapture() override { stop(); }
+    VideoCapture (FrameFn onFrame, ErrorFn onError);
+    ~VideoCapture();
 
-    void startWindow (int intervalMs = 66);  // ~15fps
-    void startScreen (int intervalMs = 66);
+    void startWindow();
+    void startScreen();
     void stop();
 
-    Kind currentKind() const noexcept { return kind.load(); }
+    Kind currentKind() const noexcept;
 
 private:
-    void timerCallback() override;
-    bool grabAndEmit();
-
-    FrameFn onFrame;
-    std::atomic<Kind> kind { Kind::None };
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };

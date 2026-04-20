@@ -56,12 +56,11 @@ target_sources(CoOpPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
-    # NOTE: Source/VideoCapture.mm disabled until ScreenCaptureKit rewrite —
-    # CGWindowListCreateImage/CGDisplayCreateImage return nil on macOS 14.4+.
+    Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
 
 # ObjC++ files require ARC (rest of the project uses MRC)
-set_source_files_properties(Source/DragMonitor.mm
+set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
@@ -85,9 +84,12 @@ target_link_libraries(CoOpPlugin
         juce::juce_recommended_warning_flags
 )
 
-# macOS frameworks needed for VideoCapture.mm
+# macOS frameworks needed for VideoCapture.mm (ScreenCaptureKit pipeline)
 if(APPLE)
     target_link_libraries(CoOpPlugin PRIVATE
+        "-framework ScreenCaptureKit"
+        "-framework CoreMedia"
+        "-framework CoreImage"
         "-framework ImageIO"
         "-framework UniformTypeIdentifiers"
     )

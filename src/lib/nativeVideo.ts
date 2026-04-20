@@ -1,18 +1,15 @@
 /**
- * Receives JPEG frames from the JUCE plugin (native ScreenCapture via
- * CGWindowListCreateImage / CGDisplayCreateImage) and exposes them as a
- * MediaStreamTrack via an offscreen canvas `captureStream()`.
- *
- * This lets us stream the DAW window or entire screen without the
- * getDisplayMedia system picker, which is a poor UX inside a plugin
- * WebView.
+ * Receives JPEG frames from the JUCE plugin (native ScreenCaptureKit capture)
+ * and exposes them as a MediaStreamTrack via an offscreen canvas
+ * captureStream(). This replaces getDisplayMedia's system picker for DAW
+ * Window / Entire Screen sources inside the plugin — the UX matches OBS:
+ * click Go Live and streaming starts immediately.
  */
 
-interface JuceVideoFrameDetail {
-  jpeg: string   // base64 standard
-  w: number
-  h: number
-}
+import { callJuceNative, hasJuceBridge, hasJuceNativeFunction } from './juceBridge'
+
+interface JuceVideoFrameDetail { jpeg: string; w: number; h: number }
+interface JuceVideoErrorDetail { message: string }
 
 let canvas:      HTMLCanvasElement | null = null
 let ctx:         CanvasRenderingContext2D | null = null
@@ -20,6 +17,7 @@ let stream:      MediaStream | null = null
 let imgDecoder:  HTMLImageElement | null = null
 let frameCount   = 0
 let lastFrameAt  = 0
+let lastError    = ''
 let listenerAttached = false
 
 function ensureCanvas (w: number, h: number) {
@@ -38,14 +36,12 @@ function attachListener () {
   if (listenerAttached) return
   listenerAttached = true
 
-  // Single reusable Image for decoding — avoids allocating one per frame
   imgDecoder = new Image()
 
   window.addEventListener('__juceVideoFrame', (ev: Event) => {
     const e = ev as CustomEvent<JuceVideoFrameDetail>
     const { jpeg, w, h } = e.detail
     if (!jpeg || !w || !h) return
-
     ensureCanvas(w, h)
     const img = imgDecoder!
     img.onload = () => {
@@ -56,40 +52,60 @@ function attachListener () {
     img.onerror = () => { /* drop bad frame */ }
     img.src = 'data:image/jpeg;base64,' + jpeg
   })
+
+  window.addEventListener('__juceVideoError', (ev: Event) => {
+    const e = ev as CustomEvent<JuceVideoErrorDetail>
+    lastError = e.detail?.message ?? 'unknown video error'
+    console.warn('[nativeVideo]', lastError)
+  })
 }
 
-import { callJuceNative, hasJuceBridge } from './juceBridge'
-
-/** Attach listener if needed. Safe to call repeatedly. */
 export function initNativeVideo () { attachListener() }
 
 /**
- * Start native DAW-window or entire-screen capture in the plugin, and
- * return a MediaStreamTrack carrying the resulting video. Resolves
- * immediately — frames start flowing shortly after.
+ * Start plugin-side capture and return a MediaStreamTrack backed by the
+ * decoded frames. Resolves when the first frame arrives OR after a short
+ * timeout — if no frame lands within ~3s the caller can treat it as failed
+ * (typically Screen Recording permission hasn't been granted to the DAW).
  *
- * Returns null if not running in the plugin (no juce bridge available).
+ * Returns null in a regular browser or if the plugin build doesn't register
+ * the native function.
  */
 export async function startNativeVideo (kind: 'window' | 'screen'): Promise<MediaStreamTrack | null> {
   attachListener()
-  if (!hasJuceBridge) return null
+  if (!hasJuceBridge || !hasJuceNativeFunction('startVideoCapture')) return null
+
+  lastError = ''
+  const startBefore = frameCount
 
   const result = await callJuceNative('startVideoCapture', [kind])
   if (!result.startsWith('ok')) {
-    console.warn('startVideoCapture native returned', result)
+    console.warn('startVideoCapture →', result)
     return null
   }
 
-  // Ensure canvas exists before the first frame so captureStream() has
-  // something to pull from (black frame until first paint).
-  ensureCanvas(1280, 720)
+  // Wait for the first frame to arrive (or give up). Without the wait, the
+  // canvas-backed stream would start as a black frame and peers might see
+  // that for a beat before real content lands.
+  const deadline = performance.now() + 3000
+  while (frameCount === startBefore && performance.now() < deadline && !lastError) {
+    await new Promise((r) => setTimeout(r, 50))
+  }
+
+  if (frameCount === startBefore) {
+    // No frames. Either permission denied or something upstream failed.
+    await stopNativeVideo()
+    return null
+  }
+
+  // Build the track from the canvas once; subsequent calls reuse it so
+  // replaceTrack on existing peers is seamless across source switches.
   if (!stream && canvas) stream = canvas.captureStream(15)
   return stream?.getVideoTracks()[0] ?? null
 }
 
-/** Stop native capture. Idempotent. */
 export async function stopNativeVideo () {
-  if (!hasJuceBridge) return
+  if (!hasJuceBridge || !hasJuceNativeFunction('stopVideoCapture')) return
   try { await callJuceNative('stopVideoCapture', []) } catch { /* ignore */ }
 }
 
@@ -101,5 +117,9 @@ export function getNativeVideoDebug () {
     hasStream: !!stream,
     w: canvas?.width ?? 0,
     h: canvas?.height ?? 0,
+    lastError,
   }
 }
+
+/** Last reported error (permission denial, missing window, etc.). */
+export function getNativeVideoLastError () { return lastError }

@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>
+#include "VideoCapture.h"
 #include <atomic>
 #include <memory>
 #include <vector>
@@ -87,6 +88,11 @@ private:
     void handleStartDrag       (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleWriteAudioFile  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleWriteAudioFiles (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleStartVideoCapture (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleStopVideoCapture  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+
+    //── Native window / screen capture ───────────────────────────────────────
+    std::unique_ptr<VideoCapture> videoCapture;
 
     //── Prefetch / drag state (used by handlers above) ───────────────────────
     juce::File   cachedFile;

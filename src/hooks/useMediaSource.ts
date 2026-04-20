@@ -50,13 +50,23 @@ export function useMediaSource() {
     }
   }, [])
 
+  /**
+   * Ask for mic + camera permission once so enumerateDevices() returns real
+   * deviceIds and labels for both kinds. Each kind is requested independently
+   * so a user who denies camera still gets populated mic entries.
+   */
   const requestDevicePermissions = useCallback(async () => {
     if (permissionsGranted) return
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true })
-      s.getTracks().forEach(t => t.stop())
-      setPermissionsGranted(true)
-    } catch { /* ignore */ }
+    const tryGrant = async (constraints: MediaStreamConstraints) => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia(constraints)
+        s.getTracks().forEach(t => t.stop())
+        return true
+      } catch { return false }
+    }
+    const gotAudio = await tryGrant({ audio: true })
+    const gotVideo = await tryGrant({ video: true })
+    if (gotAudio || gotVideo) setPermissionsGranted(true)
     await refreshDevices()
   }, [permissionsGranted, refreshDevices])
 
@@ -178,19 +188,13 @@ export function useMediaSource() {
       { kind: 'daw',    label: 'DAW Window' },
       { kind: 'screen', label: 'Entire Screen' },
     ]
-    // Cameras are excluded inside the JUCE plugin's WebView — in Logic Pro,
-    // getUserMedia({video}) has been observed to destabilise the Audio Unit
-    // host ("plug-in reported a problem"). Use a separate browser session
-    // for camera streaming for now.
-    if (!isInJucePlugin) {
-      cameras.forEach((c, i) => {
-        sources.push({
-          kind: 'camera',
-          deviceId: c.deviceId,
-          label: c.label || `Camera ${i + 1}`,
-        })
+    cameras.forEach((c, i) => {
+      sources.push({
+        kind: 'camera',
+        deviceId: c.deviceId,
+        label: c.label || `Camera ${i + 1}`,
       })
-    }
+    })
     return sources
   }, [cameras])
 

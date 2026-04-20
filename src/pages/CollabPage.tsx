@@ -151,7 +151,7 @@ function CollabPageInner({ user }: Props) {
   const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
-  const { liveSessions, mySession, liveHostIds, startLive, endLive } = useLive(client, user.id)
+  const { liveSessions, mySession, liveHostIds, startLive, endLive, updateLive } = useLive(client, user.id)
   const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported, requestDevicePermissions } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
@@ -234,7 +234,15 @@ function CollabPageInner({ user }: Props) {
 
   const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
     await replaceSource(source, micDeviceId)
-  }, [replaceSource])
+    // Sync has_video into the DB so LiveViewer and LivePanel both update.
+    const hasVideo = source.kind !== 'none'
+    const videoSource: LiveSession['video_source'] =
+      source.kind === 'native-window'  ? 'daw'
+      : source.kind === 'native-display' ? 'screen'
+      : source.kind === 'native-picker'  ? 'daw'
+      : (source.kind as LiveSession['video_source'])
+    await updateLive({ has_video: hasVideo, video_source: videoSource })
+  }, [replaceSource, updateLive])
 
   // 알림 설정에 따라 보이는 알림 필터링
   const visibleEvents   = notifSettings.follow  ? friendEvents : []

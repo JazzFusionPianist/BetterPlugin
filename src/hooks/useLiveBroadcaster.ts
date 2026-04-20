@@ -52,7 +52,7 @@ export function useLiveBroadcaster(
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })
     }
 
-    const handleJoin = async (viewerId: string) => {
+    const handleJoin = (viewerId: string) => {
       if (peersRef.current.has(viewerId)) return
       const stream = localStreamRef.current
       if (!stream) return   // wait until local stream is ready
@@ -68,8 +68,6 @@ export function useLiveBroadcaster(
         setTotalViewers(seenViewersRef.current.size)
       }
 
-      stream.getTracks().forEach(track => pc.addTrack(track, stream))
-
       pc.onicecandidate = (ev) => {
         if (ev.candidate) send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
       }
@@ -81,9 +79,26 @@ export function useLiveBroadcaster(
       }
       pc.oniceconnectionstatechange = refreshPeerStates
 
-      const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      send({ type: 'offer', from: hostId, to: viewerId, sdp: offer })
+      // Auto-renegotiate whenever tracks are added/removed (e.g. switching
+      // from audio-only to video mid-stream). Guard against concurrent offers.
+      let makingOffer = false
+      pc.onnegotiationneeded = async () => {
+        if (makingOffer || pc.signalingState !== 'stable') return
+        makingOffer = true
+        try {
+          const offer = await pc.createOffer()
+          if (pc.signalingState !== 'stable') return   // bail if state changed
+          await pc.setLocalDescription(offer)
+          send({ type: 'offer', from: hostId, to: viewerId, sdp: pc.localDescription! })
+        } catch (e) {
+          console.warn('[broadcaster] renegotiation failed', e)
+        } finally {
+          makingOffer = false
+        }
+      }
+
+      // Adding tracks triggers onnegotiationneeded → offer sent automatically
+      stream.getTracks().forEach(track => pc.addTrack(track, stream))
     }
 
     const handleAnswer = async (viewerId: string, sdp: RTCSessionDescriptionInit) => {

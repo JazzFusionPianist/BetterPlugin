@@ -65,7 +65,19 @@ export function useLive(client: SupabaseClient, userId: string) {
     await fetchSessions()
   }, [client, userId, fetchSessions])
 
+  /** Update fields on the running session (e.g. has_video when source switches). */
+  const updateLive = useCallback(async (
+    opts: Partial<Pick<LiveSession, 'has_video' | 'has_audio' | 'video_source'>>
+  ) => {
+    const { error } = await client
+      .from('live_sessions')
+      .update(opts)
+      .eq('host_id', userId)
+    if (error) console.error('updateLive failed:', error)
+    await fetchSessions()
+  }, [client, userId, fetchSessions])
+
   const liveHostIds = new Set(liveSessions.map(s => s.host_id))
 
-  return { liveSessions, mySession, liveHostIds, startLive, endLive }
+  return { liveSessions, mySession, liveHostIds, startLive, endLive, updateLive }
 }

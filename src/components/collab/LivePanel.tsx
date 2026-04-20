@@ -140,15 +140,17 @@ function InStreamSourceSwitcher({
           })}
         </select>
       </div>
-      <div className="live-field">
-        <label className="live-field-label">Microphone</label>
-        <select className="live-select" value={micId} onChange={e => setMicId(e.target.value)}>
-          <option value="">None (DAW Only)</option>
-          {microphones.map(m => (
-            <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
-          ))}
-        </select>
-      </div>
+      {microphones.length > 0 && (
+        <div className="live-field">
+          <label className="live-field-label">Microphone</label>
+          <select className="live-select" value={micId} onChange={e => setMicId(e.target.value)}>
+            <option value="">None (DAW Only)</option>
+            {microphones.map(m => (
+              <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6 }}>
         <button className="live-switch-cancel" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
         <button
@@ -394,19 +396,21 @@ export default function LivePanel({
               </select>
             </div>
 
-            <div className="live-field">
-              <label className="live-field-label">Microphone</label>
-              <select
-                className="live-select"
-                value={micDeviceId}
-                onChange={e => setMicDeviceId(e.target.value)}
-              >
-                <option value="">None (DAW Only)</option>
-                {microphones.map(m => (
-                  <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
-                ))}
-              </select>
-            </div>
+            {microphones.length > 0 && (
+              <div className="live-field">
+                <label className="live-field-label">Microphone</label>
+                <select
+                  className="live-select"
+                  value={micDeviceId}
+                  onChange={e => setMicDeviceId(e.target.value)}
+                >
+                  <option value="">None (DAW Only)</option>
+                  {microphones.map(m => (
+                    <option key={m.deviceId} value={m.deviceId}>🎙 {m.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {mediaError && <div className="live-error">{mediaError}</div>}
 

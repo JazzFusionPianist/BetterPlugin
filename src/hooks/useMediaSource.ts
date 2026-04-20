@@ -51,12 +51,16 @@ export function useMediaSource() {
   }, [])
 
   /**
-   * Ask for mic + camera permission once so enumerateDevices() returns real
-   * deviceIds and labels for both kinds. Each kind is requested independently
-   * so a user who denies camera still gets populated mic entries.
+   * Ask for mic + camera permission in a regular browser so enumerateDevices
+   * returns real deviceIds + labels. Inside the JUCE plugin we skip this
+   * entirely: any getUserMedia() call made from inside an Audio Unit's
+   * WKWebView triggers a TCC prompt that destabilises the host ("plug-in
+   * reported a problem") and forces Logic to ask for a restart. DAW audio
+   * + getDisplayMedia (screen/window) remain available.
    */
   const requestDevicePermissions = useCallback(async () => {
     if (permissionsGranted) return
+    if (hasJuceBridge) return      // never touch TCC inside the plugin
     const tryGrant = async (constraints: MediaStreamConstraints) => {
       try {
         const s = await navigator.mediaDevices.getUserMedia(constraints)
@@ -120,6 +124,10 @@ export function useMediaSource() {
         newStream = await navigator.mediaDevices.getDisplayMedia(constraints)
       }
     } else if (source.kind === 'camera') {
+      if (hasJuceBridge) {
+        // Hard block — see requestDevicePermissions() comment.
+        throw new Error('Camera capture is disabled inside the plugin. Open the community web app in a browser to stream a camera.')
+      }
       newStream = await navigator.mediaDevices.getUserMedia({
         video: source.deviceId ? { deviceId: { exact: source.deviceId } } : true,
         audio: false,
@@ -132,7 +140,7 @@ export function useMediaSource() {
     dawTrackRef.current = dawTrack
     if (dawTrack) newStream.addTrack(dawTrack)
 
-    if (micDeviceId) {
+    if (micDeviceId && !hasJuceBridge) {
       try {
         const mic = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: { exact: micDeviceId } },
@@ -188,18 +196,24 @@ export function useMediaSource() {
       { kind: 'daw',    label: 'DAW Window' },
       { kind: 'screen', label: 'Entire Screen' },
     ]
-    cameras.forEach((c, i) => {
-      sources.push({
-        kind: 'camera',
-        deviceId: c.deviceId,
-        label: c.label || `Camera ${i + 1}`,
+    // Cameras require getUserMedia → TCC prompt → Logic destabilises.
+    // Keep them out of the picker inside the plugin.
+    if (!hasJuceBridge) {
+      cameras.forEach((c, i) => {
+        sources.push({
+          kind: 'camera',
+          deviceId: c.deviceId,
+          label: c.label || `Camera ${i + 1}`,
+        })
       })
-    })
+    }
     return sources
   }, [cameras])
 
   const listMicrophones = useCallback(
-    () => microphones.map((m, i) => ({
+    // Same reasoning as listSources: mic acquisition inside the plugin goes
+    // through getUserMedia which triggers a TCC prompt that crashes Logic.
+    () => hasJuceBridge ? [] : microphones.map((m, i) => ({
       deviceId: m.deviceId,
       label: m.label || `Microphone ${i + 1}`,
     })),

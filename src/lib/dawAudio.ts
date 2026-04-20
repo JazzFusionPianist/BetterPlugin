@@ -162,8 +162,8 @@ function attachListener() {
 
     try {
       const bin = atob(samples)
-      const bytes = new Uint8Array(bin.length)
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      // Uint8Array.from is JIT-friendly and avoids a manual char loop
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0))
       const floats = new Float32Array(bytes.buffer)
 
       workletNode.port.postMessage({ floats, ch }, [floats.buffer])
@@ -208,7 +208,14 @@ export function isDawAudioActive(): boolean {
   return performance.now() - lastAudioAt < 500
 }
 
-/** Initialise listener. Safe to call multiple times. */
+/**
+ * Initialise listener. Safe to call multiple times.
+ * Also pre-warms the AudioWorklet pipeline so Go Live doesn't pay the
+ * module-load cost at click time (fails silently if no gesture required).
+ */
 export function initDawAudio() {
   attachListener()
+  // Best-effort pre-warm — may be blocked by autoplay policy, but in the
+  // JUCE WKWebView context this typically succeeds without a gesture.
+  setupPipeline(48000).catch(() => {})
 }

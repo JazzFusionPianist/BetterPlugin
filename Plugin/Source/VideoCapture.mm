@@ -74,33 +74,68 @@ API_AVAILABLE(macos(12.3))
     return self;
 }
 
-/** Pick the DAW's main arrange window. In Logic the plugin editor (our
- *  WebBrowserComponent's host) shows up as a high-layer NSPanel — we avoid
- *  it by preferring layer-0 windows and ignoring NSApp.mainWindow when the
- *  plugin editor is focused. */
+/** Pick the DAW's main arrange window.
+ *
+ *  AU v3 plugins run in a sandboxed AUHostingService process — so the
+ *  host DAW's windows are NOT owned by our processID. We can't filter by
+ *  PID the way one might expect.
+ *
+ *  Heuristic:
+ *   - Skip windows owned by this process / bundle (our plugin UI).
+ *   - Skip known system chrome (Dock, WindowManager, SystemUIServer).
+ *   - Skip non-layer-0 windows (floating palettes, notifications, etc.).
+ *   - Prefer windows owned by the frontmost regular-activation app
+ *     (usually the DAW). Fall back to the largest layer-0 on-screen
+ *     window across all processes.
+ */
 - (nullable SCWindow*) pickDawWindow: (NSArray<SCWindow*>*) windows
 {
     const pid_t myPid = [NSProcessInfo processInfo].processIdentifier;
+    NSString*   myBundle = [NSBundle mainBundle].bundleIdentifier;
 
-    // Pass 1: biggest normal-layer on-screen window owned by our host process.
-    SCWindow* best = nil;
-    CGFloat bestArea = 0;
-    for (SCWindow* w in windows)
+    // Bundle IDs we never want to capture (system chrome / our own UI).
+    NSArray<NSString*>* excludeBundles = @[
+        @"com.apple.dock",
+        @"com.apple.WindowManager",
+        @"com.apple.systemuiserver",
+        @"com.apple.controlcenter",
+        @"com.apple.notificationcenterui",
+        myBundle ?: @"",
+    ];
+
+    auto eligible = ^BOOL(SCWindow* w) {
+        if (! w.onScreen) return NO;
+        if (w.windowLayer != 0) return NO;
+        if (w.title.length == 0) return NO;
+        if (CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame) < 200 * 200) return NO;
+        if (w.owningApplication.processID == myPid) return NO;
+        NSString* bid = w.owningApplication.bundleIdentifier;
+        if (bid != nil && [excludeBundles containsObject: bid]) return NO;
+        return YES;
+    };
+
+    // Pass 1: the frontmost regular-activation app's biggest window.
+    NSRunningApplication* frontmost = [NSWorkspace sharedWorkspace].frontmostApplication;
+    if (frontmost != nil
+        && frontmost.processIdentifier != myPid
+        && ![frontmost.bundleIdentifier isEqualToString: myBundle])
     {
-        if (! w.onScreen) continue;
-        if (w.owningApplication.processID != myPid) continue;
-        if (w.windowLayer != 0) continue;              // skip floating panels
-        if (w.title.length == 0) continue;
-        const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
-        if (a > bestArea) { bestArea = a; best = w; }
+        SCWindow* best = nil; CGFloat bestArea = 0;
+        for (SCWindow* w in windows)
+        {
+            if (! eligible (w)) continue;
+            if (w.owningApplication.processID != frontmost.processIdentifier) continue;
+            const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
+            if (a > bestArea) { bestArea = a; best = w; }
+        }
+        if (best != nil) return best;
     }
-    if (best != nil) return best;
 
-    // Pass 2: any on-screen window with area (last-resort fallback).
+    // Pass 2: largest eligible window across all apps.
+    SCWindow* best = nil; CGFloat bestArea = 0;
     for (SCWindow* w in windows)
     {
-        if (! w.onScreen) continue;
-        if (w.owningApplication.processID != myPid) continue;
+        if (! eligible (w)) continue;
         const CGFloat a = CGRectGetWidth (w.frame) * CGRectGetHeight (w.frame);
         if (a > bestArea) { bestArea = a; best = w; }
     }

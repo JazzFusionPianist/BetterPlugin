@@ -20,6 +20,23 @@
   --star: #F4B942;
   --ob-bg: #E6F5EF;
   --ob-t: #2D8B70;
+  /* Music panel circle edges — dark in light mode so they're visible on white */
+  --orbit-ring: rgba(0, 0, 0, 0.28);
+  --orbit-ring-hover: rgba(0, 0, 0, 0.5);
+  --orbit-ring-soft: rgba(0, 0, 0, 0.18);
+  --orbit-ring-tint: rgba(0, 0, 0, 0.04);
+  --orbit-plus-color: rgba(0, 0, 0, 0.4);
+  /* Track upload / edit panel — light theme */
+  --orbit-panel-bg: rgba(255, 255, 255, 0.94);
+  --orbit-panel-border: rgba(0, 0, 0, 0.08);
+  --orbit-panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --orbit-input-ph: rgba(0, 0, 0, 0.3);
+  --orbit-btn-save-bg: #111;
+  --orbit-btn-save-color: #fff;
+  --orbit-danger: rgba(220, 38, 38, 0.85);
+  --orbit-danger-strong: rgba(200, 32, 32, 1);
+  --orbit-danger-soft: rgba(220, 38, 38, 0.3);
+  --orbit-danger-hover-bg: rgba(220, 38, 38, 0.06);
 }
 
 .plugin.dark {
@@ -38,6 +55,23 @@
   --inp-ph: rgba(255,255,255,.28);
   --ob-bg: rgba(52,199,89,.15);
   --ob-t: #34C759;
+  /* Music panel circle edges — light in dark mode */
+  --orbit-ring: rgba(255, 255, 255, 0.25);
+  --orbit-ring-hover: rgba(255, 255, 255, 0.5);
+  --orbit-ring-soft: rgba(255, 255, 255, 0.1);
+  --orbit-ring-tint: rgba(255, 255, 255, 0.03);
+  --orbit-plus-color: rgba(255, 255, 255, 0.35);
+  /* Track upload / edit panel — dark theme */
+  --orbit-panel-bg: rgba(30, 30, 30, 0.85);
+  --orbit-panel-border: rgba(255, 255, 255, 0.06);
+  --orbit-panel-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --orbit-input-ph: rgba(255, 255, 255, 0.25);
+  --orbit-btn-save-bg: #fff;
+  --orbit-btn-save-color: #111;
+  --orbit-danger: rgba(255, 120, 120, 0.8);
+  --orbit-danger-strong: rgba(255, 140, 140, 1);
+  --orbit-danger-soft: rgba(255, 120, 120, 0.25);
+  --orbit-danger-hover-bg: rgba(255, 80, 80, 0.08);
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -69,10 +103,9 @@
 }
 
 .app-title {
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: .08em;
   color: var(--t1);
   flex: 1;
 }
@@ -1280,7 +1313,7 @@
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  border: 2px dashed rgba(255, 255, 255, 0.25);
+  border: 2px dashed var(--orbit-ring);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1288,8 +1321,8 @@
   transition: border-color 0.15s, background 0.15s;
 }
 .orbit-upload-circle:hover {
-  border-color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--orbit-ring-hover);
+  background: var(--orbit-ring-tint);
 }
 .orbit-upload-circle.small {
   width: 140px;
@@ -1310,7 +1343,7 @@
 .orbit-upload-plus {
   font-size: 28px;
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--orbit-plus-color);
   line-height: 1;
   font-family: 'DM Sans', sans-serif;
 }
@@ -1358,7 +1391,7 @@
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--orbit-ring-soft);
   transition: opacity 0.15s;
   overflow: hidden;
   flex-shrink: 0;
@@ -1452,7 +1485,7 @@
 .orbit-track-edit-desc {
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid var(--orbit-ring-soft);
   color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   font-size: 12px;
@@ -1464,11 +1497,11 @@
 }
 .orbit-track-edit-input::placeholder,
 .orbit-track-edit-desc::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--orbit-input-ph);
 }
 .orbit-track-edit-input:focus,
 .orbit-track-edit-desc:focus {
-  border-bottom-color: rgba(255, 255, 255, 0.4);
+  border-bottom-color: var(--orbit-ring);
 }
 .orbit-track-edit-title-input {
   font-size: 14px;
@@ -1484,7 +1517,7 @@
 }
 .orbit-track-edit-desc {
   resize: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--orbit-ring-soft);
   border-radius: 6px;
   padding: 6px 8px;
   font-family: inherit;
@@ -1498,7 +1531,7 @@
 }
 .orbit-track-edit-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--orbit-ring);
   border-radius: 14px;
   color: var(--t1);
   font-family: 'DM Sans', sans-serif;
@@ -1508,21 +1541,21 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 .orbit-track-edit-btn:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--orbit-ring-hover);
+  background: var(--orbit-ring-tint);
 }
 .orbit-track-edit-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .orbit-track-edit-btn.delete {
-  color: rgba(255, 120, 120, 0.8);
-  border-color: rgba(255, 120, 120, 0.25);
+  color: var(--orbit-danger);
+  border-color: var(--orbit-danger-soft);
 }
 .orbit-track-edit-btn.delete:hover:not(:disabled) {
-  color: rgba(255, 140, 140, 1);
-  border-color: rgba(255, 120, 120, 0.5);
-  background: rgba(255, 80, 80, 0.08);
+  color: var(--orbit-danger-strong);
+  border-color: var(--orbit-danger);
+  background: var(--orbit-danger-hover-bg);
 }
 
 /* --- No tracks placeholder (other users) --- */
@@ -1591,11 +1624,12 @@
   flex-direction: column;
   gap: 14px;
   padding: 20px 18px;
-  background: rgba(30, 30, 30, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--orbit-panel-bg);
+  border: 1px solid var(--orbit-panel-border);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border-radius: 16px;
+  box-shadow: var(--orbit-panel-shadow);
   animation: orbit-stats-fade 0.3s ease both;
 }
 .orbit-track-panel-top {
@@ -1607,7 +1641,7 @@
   width: 100px;
   height: 100px;
   border-radius: 12px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border: 1.5px dashed var(--orbit-ring);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1615,11 +1649,11 @@
   overflow: hidden;
   flex-shrink: 0;
   transition: border-color 0.15s, background 0.15s;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--orbit-ring-tint);
 }
 .orbit-track-cover-pick:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--orbit-ring-hover);
+  background: var(--orbit-ring-tint);
 }
 .orbit-track-cover-pick img {
   width: 100%;
@@ -1630,7 +1664,7 @@
 .orbit-track-cover-pick span {
   font-size: 28px;
   font-weight: 200;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--orbit-plus-color);
   font-family: 'DM Sans', sans-serif;
   line-height: 1;
 }
@@ -1646,7 +1680,7 @@
   width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--orbit-ring-soft);
   border-radius: 0;
   padding: 7px 0;
   font-size: 11px;
@@ -1658,8 +1692,8 @@
   box-sizing: border-box;
   text-align: left;
 }
-.orbit-track-input:focus { border-bottom-color: rgba(255, 255, 255, 0.25); }
-.orbit-track-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+.orbit-track-input:focus { border-bottom-color: var(--orbit-ring); }
+.orbit-track-input::placeholder { color: var(--orbit-input-ph); }
 .orbit-track-title-large {
   font-size: 17px;
   font-weight: 500;
@@ -1675,7 +1709,7 @@
   width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--orbit-ring-soft);
   border-radius: 0;
   padding: 7px 0;
   font-size: 11px;
@@ -1687,6 +1721,10 @@
   appearance: none;
   cursor: pointer;
   box-sizing: border-box;
+}
+.orbit-track-select option {
+  background: var(--bg);
+  color: var(--t1);
 }
 .orbit-track-btns {
   display: flex;
@@ -1704,13 +1742,13 @@
   transition: background 0.12s, opacity 0.12s;
 }
 .orbit-track-btn.cancel {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--orbit-ring-tint);
   color: var(--t1);
 }
-.orbit-track-btn.cancel:hover { background: rgba(255, 255, 255, 0.1); }
+.orbit-track-btn.cancel:hover { background: var(--orbit-ring-soft); }
 .orbit-track-btn.save {
-  background: #fff;
-  color: #111;
+  background: var(--orbit-btn-save-bg);
+  color: var(--orbit-btn-save-color);
 }
 .orbit-track-btn.save:hover { opacity: 0.85; }
 .orbit-track-btn.save:disabled { opacity: 0.3; cursor: default; }

@@ -72,18 +72,24 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
   // --- Track upload state ---
   const trackOwnerId = me?.id ?? user.id
-  const { tracks, addTrack, updateTrack, deleteTrack } = useTracks(supabase, trackOwnerId)
+  const { tracks, addTrack, updateTrack, deleteTrack } = useTracks(supabase, trackOwnerId, user.id)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const trackAudioRef = useRef<HTMLAudioElement>(null)
   const [pendingAudioFiles, setPendingAudioFiles] = useState<File[]>([])
   const [trackPanel, setTrackPanel] = useState(false)
-  const [trackMeta, setTrackMeta] = useState({ title: '', artist: '', version: '', date: '', description: '' })
+  const [trackMeta, setTrackMeta] = useState({
+    title: '', artist: '', version: '', date: '', description: '',
+    isPrivate: false, allowedUserIds: [] as string[],
+  })
   const [trackCoverFile, setTrackCoverFile] = useState<File | null>(null)
   const [trackCoverPreview, setTrackCoverPreview] = useState<string | null>(null)
   const [trackSaving, setTrackSaving] = useState(false)
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
-  const [editMeta, setEditMeta] = useState({ title: '', version: '', date: '', description: '' })
+  const [editMeta, setEditMeta] = useState({
+    title: '', version: '', date: '', description: '',
+    isPrivate: false, allowedUserIds: [] as string[],
+  })
   const [editSaving, setEditSaving] = useState(false)
   const [editJustSaved, setEditJustSaved] = useState(false)
   const [viewIndex, setViewIndex] = useState(0)
@@ -146,6 +152,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       version: t.version || '',
       date: t.date || (t.created_at ? t.created_at.slice(0, 10) : ''),
       description: t.description || '',
+      isPrivate: !!t.is_private,
+      allowedUserIds: t.allowed_user_ids ?? [],
     })
   }, [playingTrackId, tracks])
 
@@ -153,7 +161,11 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const files = e.target.files
     if (!files || files.length === 0) return
     setPendingAudioFiles(Array.from(files))
-    setTrackMeta({ title: files[0].name.replace(/\.[^.]+$/, ''), artist: '', version: '1', date: '', description: '' })
+    setTrackMeta({
+      title: files[0].name.replace(/\.[^.]+$/, ''),
+      artist: '', version: '1', date: '', description: '',
+      isPrivate: false, allowedUserIds: [],
+    })
     setTrackCoverFile(null)
     setTrackCoverPreview(null)
     setTrackPanel(true)
@@ -174,7 +186,15 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     setTrackSaving(true)
     try {
       for (const audioFile of pendingAudioFiles) {
-        await addTrack(audioFile, trackMeta, trackCoverFile || undefined)
+        await addTrack(audioFile, {
+          title: trackMeta.title,
+          artist: trackMeta.artist,
+          version: trackMeta.version,
+          date: trackMeta.date,
+          description: trackMeta.description,
+          is_private: trackMeta.isPrivate,
+          allowed_user_ids: trackMeta.isPrivate ? trackMeta.allowedUserIds : [],
+        }, trackCoverFile || undefined)
       }
     } catch (err: any) {
       console.error('Track upload failed:', err)
@@ -195,6 +215,12 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       audio.src = track.audio_url
       audio.play()
       setPlayingTrackId(track.id)
+      // In view-only mode (friend's panel), recenter the gallery on the played track so
+      // when the user closes it the track is at center instead of its prior off-center slot.
+      if (viewOnly) {
+        const idx = tracks.findIndex(t => t.id === track.id)
+        if (idx >= 0) setViewIndex(idx)
+      }
     }
   }
 
@@ -207,6 +233,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
         version: editMeta.version || null as unknown as string,
         date: editMeta.date || null,
         description: editMeta.description || null,
+        is_private: editMeta.isPrivate,
+        allowed_user_ids: editMeta.isPrivate ? editMeta.allowedUserIds : [],
       })
       setEditJustSaved(true)
       setTimeout(() => setEditJustSaved(false), 1500)
@@ -769,6 +797,49 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                         value={editMeta.description}
                         onChange={e => setEditMeta(m => ({ ...m, description: e.target.value }))}
                       />
+                      <div className="orbit-track-privacy">
+                        <div className="orbit-track-privacy-toggle">
+                          <button
+                            type="button"
+                            className={`orbit-track-privacy-opt${!editMeta.isPrivate ? ' active' : ''}`}
+                            onClick={() => setEditMeta(m => ({ ...m, isPrivate: false }))}
+                          >Public</button>
+                          <button
+                            type="button"
+                            className={`orbit-track-privacy-opt${editMeta.isPrivate ? ' active' : ''}`}
+                            onClick={() => setEditMeta(m => ({ ...m, isPrivate: true }))}
+                          >Private</button>
+                        </div>
+                        {editMeta.isPrivate && (
+                          followingProfiles.length === 0 ? (
+                            <div className="orbit-track-followers-empty">You're not following anyone yet — only you can see this track.</div>
+                          ) : (
+                            <div className="orbit-track-followers-list">
+                              {followingProfiles.map(p => {
+                                const selected = editMeta.allowedUserIds.includes(p.id)
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className={`orbit-track-follower-row${selected ? ' selected' : ''}`}
+                                    onClick={() => setEditMeta(m => ({
+                                      ...m,
+                                      allowedUserIds: selected
+                                        ? m.allowedUserIds.filter(id => id !== p.id)
+                                        : [...m.allowedUserIds, p.id]
+                                    }))}
+                                  >
+                                    <div className="orbit-track-follower-av" style={{ background: p.avatar_color }}>
+                                      {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
+                                    </div>
+                                    <span className="orbit-track-follower-name">{p.display_name}</span>
+                                    <span className="orbit-track-follower-check">{selected ? '✓' : ''}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        )}
+                      </div>
                       <div className="orbit-track-edit-actions">
                         <button
                           className="orbit-track-edit-btn delete"
@@ -816,6 +887,49 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                     ))}
                   </select>
                 </div>
+              </div>
+              <div className="orbit-track-privacy">
+                <div className="orbit-track-privacy-toggle">
+                  <button
+                    type="button"
+                    className={`orbit-track-privacy-opt${!trackMeta.isPrivate ? ' active' : ''}`}
+                    onClick={() => setTrackMeta(m => ({ ...m, isPrivate: false }))}
+                  >Public</button>
+                  <button
+                    type="button"
+                    className={`orbit-track-privacy-opt${trackMeta.isPrivate ? ' active' : ''}`}
+                    onClick={() => setTrackMeta(m => ({ ...m, isPrivate: true }))}
+                  >Private</button>
+                </div>
+                {trackMeta.isPrivate && (
+                  followingProfiles.length === 0 ? (
+                    <div className="orbit-track-followers-empty">You're not following anyone yet — only you will be able to see this track.</div>
+                  ) : (
+                    <div className="orbit-track-followers-list">
+                      {followingProfiles.map(p => {
+                        const selected = trackMeta.allowedUserIds.includes(p.id)
+                        return (
+                          <div
+                            key={p.id}
+                            className={`orbit-track-follower-row${selected ? ' selected' : ''}`}
+                            onClick={() => setTrackMeta(m => ({
+                              ...m,
+                              allowedUserIds: selected
+                                ? m.allowedUserIds.filter(id => id !== p.id)
+                                : [...m.allowedUserIds, p.id]
+                            }))}
+                          >
+                            <div className="orbit-track-follower-av" style={{ background: p.avatar_color }}>
+                              {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
+                            </div>
+                            <span className="orbit-track-follower-name">{p.display_name}</span>
+                            <span className="orbit-track-follower-check">{selected ? '✓' : ''}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                )}
               </div>
               <div className="orbit-track-btns">
                 <button className="orbit-track-btn cancel" onClick={() => { setTrackPanel(false); setPendingAudioFiles([]) }}>Cancel</button>

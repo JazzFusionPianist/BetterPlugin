@@ -300,24 +300,27 @@ export default function LivePanel({
                     autoPlay muted playsInline
                   />
                 : (
-                  <div className="live-pulse-wrap">
-                    <div className="live-pulse-ring" />
-                    <div className="live-pulse-ring live-pulse-ring2" />
-                    {myProfile
-                      ? (
-                        <div className="av sz32 live-pulse-avatar" style={{ background: myProfile.avatar_color }}>
-                          {myProfile.avatar_url
-                            ? <img src={myProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                            : myProfile.initials}
-                        </div>
-                      )
-                      : (
-                        <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
-                          <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
-                        </svg>
-                      )
-                    }
+                  /* 16:9 box keeps the pulse rings circular */
+                  <div className="live-preview live-preview-audio">
+                    <div className="live-pulse-wrap">
+                      <div className="live-pulse-ring" />
+                      <div className="live-pulse-ring live-pulse-ring2" />
+                      {myProfile
+                        ? (
+                          <div className="av sz32 live-pulse-avatar" style={{ background: myProfile.avatar_color }}>
+                            {myProfile.avatar_url
+                              ? <img src={myProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                              : myProfile.initials}
+                          </div>
+                        )
+                        : (
+                          <svg className="live-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
+                            <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                          </svg>
+                        )
+                      }
+                    </div>
                   </div>
                 )}
               <AudioLevelMeter level={audioLevel} />

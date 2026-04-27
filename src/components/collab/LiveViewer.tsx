@@ -77,21 +77,31 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
       </div>
 
       <div className="live-viewer-body">
-        {session.has_video ? (
-          <video
-            ref={videoRef}
-            className="live-viewer-video"
-            autoPlay playsInline
-          />
-        ) : (
+        {/* Always mount the video element so WebRTC audio tracks play even in
+            audio-only mode. Hidden via CSS when has_video is false. */}
+        <video
+          ref={videoRef}
+          className="live-viewer-video"
+          autoPlay playsInline
+          style={session.has_video ? undefined : { display: 'none' }}
+        />
+        {!session.has_video && (
           <div className="live-viewer-audio-only">
             <div className="live-pulse-wrap live-pulse-lg">
               <div className="live-pulse-ring" />
               <div className="live-pulse-ring live-pulse-ring2" />
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
-                <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
-              </svg>
+              {host ? (
+                <div className="av live-pulse-avatar live-pulse-avatar-lg" style={{ background: host.avatar_color }}>
+                  {host.avatar_url
+                    ? <img src={host.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    : host.initials}
+                </div>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
+                  <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+              )}
             </div>
             <div className="live-viewer-audio-label">Audio only</div>
           </div>

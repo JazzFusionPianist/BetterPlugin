@@ -2973,8 +2973,19 @@
   min-width: 0;
   max-width: unset;
 }
-.live-preview-row .live-pulse-wrap {
-  flex: 1;
+
+/* Audio-only placeholder — same frame as the video preview, centered pulse */
+.live-preview-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 59, 48, .06);
+}
+.live-preview-audio .live-pulse-wrap {
+  /* Reset flex-stretch from the row container */
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
 }
 
 /* Avatar inside the audio-only pulse animation */
@@ -2984,6 +2995,12 @@
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
+}
+/* Larger avatar for viewer's audio-only screen */
+.live-pulse-avatar-lg {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 18px !important;
 }
 
 /* Vertical audio level meter */

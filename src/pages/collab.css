@@ -91,6 +91,11 @@
    The wallpaper is applied to the .plugin root, so it bleeds through every
    transparent element. In light mode this makes dark icons/text invisible.
    Dark mode already has opaque-enough styling; only light needs the fix.   */
+/* Wallpaper: chat sub-header (.csub) always opaque — matches top-bar.   */
+.plugin.has-wallpaper .csub {
+  background: var(--bg) !important;
+}
+
 /* Light mode + wallpaper: toolbar fully opaque, content areas transparent
    so the wallpaper shows through completely.                             */
 .plugin.has-wallpaper:not(.dark) .top-bar {

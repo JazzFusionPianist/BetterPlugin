@@ -91,17 +91,15 @@
    The wallpaper is applied to the .plugin root, so it bleeds through every
    transparent element. In light mode this makes dark icons/text invisible.
    Dark mode already has opaque-enough styling; only light needs the fix.   */
-/* Light mode + wallpaper: toolbar fully opaque, content areas frosted so
-   the wallpaper shows through but text/icons remain readable.            */
+/* Light mode + wallpaper: toolbar fully opaque, content areas transparent
+   so the wallpaper shows through completely.                             */
 .plugin.has-wallpaper:not(.dark) .top-bar {
   background: rgba(255, 255, 255, 1) !important;
 }
 .plugin.has-wallpaper:not(.dark) .fview .s-body,
 .plugin.has-wallpaper:not(.dark) .fscroll,
 .plugin.has-wallpaper:not(.dark) .cview {
-  background: rgba(255, 255, 255, 0.82) !important;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background: transparent !important;
 }
 
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.

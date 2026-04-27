@@ -1557,6 +1557,14 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+.orbit-track-edit-btn.saved,
+.orbit-track-edit-btn.saved:disabled {
+  color: var(--ob-t);
+  border-color: var(--ob-t);
+  background: var(--ob-bg);
+  opacity: 1;
+  cursor: default;
+}
 .orbit-track-edit-btn.delete {
   color: var(--orbit-danger);
   border-color: var(--orbit-danger-soft);

@@ -269,14 +269,20 @@ static NSSet<NSString*>* knownDawBundles (void)
 
         for (SCDisplay* d in content.displays)
         {
-            // Use the display's localizedName when available (macOS 13+),
-            // otherwise fall back to its resolution so multiple monitors
-            // can be told apart in the UI.
+            // Look up the human-readable name via NSScreen (available macOS 10.15+).
             NSString* displayTitle = nil;
-            if (@available(macOS 13.0, *))
-                displayTitle = d.localizedName;
+            CGDirectDisplayID did = (CGDirectDisplayID) d.displayID;
+            for (NSScreen* screen in [NSScreen screens])
+            {
+                NSNumber* num = screen.deviceDescription[@"NSScreenNumber"];
+                if (num && (CGDirectDisplayID) num.unsignedIntValue == did)
+                {
+                    displayTitle = screen.localizedName;
+                    break;
+                }
+            }
             if (displayTitle.length == 0)
-                displayTitle = [NSString stringWithFormat: @"%d×%d", d.width, d.height];
+                displayTitle = [NSString stringWithFormat: @"%ld×%ld", (long)d.width, (long)d.height];
 
             [arr addObject: @{
                 @"kind":  @"display",

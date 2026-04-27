@@ -1607,6 +1607,105 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* --- Track privacy toggle + follower picker --- */
+.orbit-track-privacy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.orbit-track-privacy-toggle {
+  display: flex;
+  background: var(--orbit-ring-tint);
+  border: 1px solid var(--orbit-ring-soft);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.orbit-track-privacy-opt {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.orbit-track-privacy-opt:hover { color: var(--t1); }
+.orbit-track-privacy-opt.active {
+  background: var(--bg);
+  color: var(--t1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.orbit-track-followers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 110px;
+  overflow-y: auto;
+  border: 1px solid var(--orbit-ring-soft);
+  border-radius: 8px;
+  padding: 4px;
+}
+.orbit-track-followers-empty {
+  font-size: 10px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+  padding: 4px 6px;
+  font-style: italic;
+}
+.orbit-track-follower-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+  font-family: 'DM Sans', sans-serif;
+}
+.orbit-track-follower-row:hover { background: var(--orbit-ring-tint); }
+.orbit-track-follower-row.selected { background: var(--ob-bg); }
+.orbit-track-follower-av {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+}
+.orbit-track-follower-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.orbit-track-follower-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orbit-track-follower-check {
+  font-size: 11px;
+  color: var(--ob-t);
+  width: 12px;
+  text-align: right;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
 .orbit-track-edit-btn.saved,
 .orbit-track-edit-btn.saved:disabled {
   color: var(--ob-t);

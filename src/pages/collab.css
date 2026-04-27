@@ -111,8 +111,13 @@
   color: white !important;
   mix-blend-mode: difference;
 }
-.plugin.has-wallpaper .f-row:hover {
+.plugin.has-wallpaper:not(.dark) .f-row:hover {
   background: transparent !important;
+}
+.plugin.has-wallpaper.dark .f-row:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 /* Orbit labels: same adaptive contrast trick, remove pill backgrounds   */

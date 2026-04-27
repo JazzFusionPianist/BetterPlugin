@@ -102,6 +102,28 @@
   background: transparent !important;
 }
 
+/* Wallpaper: orbit labels (mode toggle + user name) need adaptive contrast.
+   Use a frosted white pill — readable on any wallpaper color (dark or light)
+   with forced dark text. Dark mode already has sufficient contrast.         */
+.plugin.has-wallpaper:not(.dark) .orbit-mode-toggle-btn,
+.plugin.has-wallpaper:not(.dark) .orbit-name {
+  background: rgba(255, 255, 255, 0.82) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #111 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+}
+.plugin.has-wallpaper.dark .orbit-mode-toggle-btn,
+.plugin.has-wallpaper.dark .orbit-name {
+  background: rgba(0, 0, 0, 0.55) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe
    gesture, which conflicts with the party-page vertical navigation. */

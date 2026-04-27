@@ -307,7 +307,7 @@ export default function LivePanel({
                       <div className="live-pulse-ring live-pulse-ring2" />
                       {myProfile
                         ? (
-                          <div className="av sz32 live-pulse-avatar" style={{ background: myProfile.avatar_color }}>
+                          <div className="av live-pulse-avatar live-pulse-avatar-host" style={{ background: myProfile.avatar_color }}>
                             {myProfile.avatar_url
                               ? <img src={myProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                               : myProfile.initials}

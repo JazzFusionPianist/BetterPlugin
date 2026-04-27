@@ -206,6 +206,13 @@ export default function LivePanel({
   const previewRef = useRef<HTMLVideoElement>(null)
   const duration   = useDuration(mySession?.started_at ?? null)
   const audioLevel = useAudioLevel(mySession ? localStream : null)
+  // Derive video visibility from the actual stream tracks, not the DB has_video
+  // flag (which lags behind by a network round-trip). An empty MediaStream is
+  // truthy but has no video tracks → would show a black <video> without this.
+  const hasLiveVideoTrack = useMemo(
+    () => (localStream?.getVideoTracks().filter(t => t.readyState === 'live').length ?? 0) > 0,
+    [localStream],
+  )
 
   // Capture stats snapshot when the host's session ends, so we can show a
   // summary screen that persists after mySession becomes null.
@@ -293,7 +300,7 @@ export default function LivePanel({
           /* ── Broadcasting mode ── */
           <div className="live-broadcasting">
             <div className="live-preview-row">
-              {localStream && mySession.has_video
+              {hasLiveVideoTrack
                 ? <video
                     ref={previewRef}
                     className="live-preview"

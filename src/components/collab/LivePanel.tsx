@@ -12,6 +12,7 @@ interface Props {
   mySession: LiveSession | null
   liveSessions: LiveSession[]
   profiles: Profile[]
+  myProfile: Profile | null
   sources: VideoSource[]
   microphones: MicOption[]
   localStream: MediaStream | null
@@ -191,7 +192,7 @@ function AudioLevelMeter({ level }: { level: number }) {
 }
 
 export default function LivePanel({
-  isOpen, mySession, liveSessions, profiles, sources, microphones, localStream, viewerCount,
+  isOpen, mySession, liveSessions, profiles, myProfile, sources, microphones, localStream, viewerCount,
   totalViewers, peakViewers,
   mediaError, screenCaptureSupported,
   currentUserId, chatMessages, onSendChat,
@@ -205,7 +206,6 @@ export default function LivePanel({
   const previewRef = useRef<HTMLVideoElement>(null)
   const duration   = useDuration(mySession?.started_at ?? null)
   const audioLevel = useAudioLevel(mySession ? localStream : null)
-  const myProfile  = useMemo(() => profiles.find(p => p.id === currentUserId), [profiles, currentUserId])
 
   // Capture stats snapshot when the host's session ends, so we can show a
   // summary screen that persists after mySession becomes null.

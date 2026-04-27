@@ -2974,8 +2974,9 @@
   max-width: unset;
 }
 
-/* Audio-only placeholder — same frame as the video preview, centered pulse */
-.live-preview-audio {
+/* Audio-only placeholder — same frame as the video preview, centered pulse.
+   Use double-class specificity to override .live-preview { background: #000 } */
+.live-preview.live-preview-audio {
   display: flex;
   align-items: center;
   justify-content: center;

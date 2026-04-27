@@ -538,6 +538,7 @@ function CollabPageInner({ user }: Props) {
               mySession={mySession}
               liveSessions={liveSessions}
               profiles={profilesWithStatus}
+              myProfile={me}
               sources={sources}
               microphones={microphones}
               localStream={localStream}

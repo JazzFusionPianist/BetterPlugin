@@ -20,6 +20,8 @@ export interface Message {
   attachment_url?: string | null
   attachment_type?: AttachType | null
   attachment_name?: string | null
+  attachment_expires_at?: string | null   // ISO timestamp, 7 days after upload
+  attachment_expired?: boolean            // true once storage object is deleted
 }
 
 export interface AppNotification {

@@ -75,6 +75,11 @@ export function useMessages(
   ): Promise<boolean> => {
     if (!otherUserId || (!content.trim() && !attachment)) return false
 
+    // Attachments expire 7 days from now
+    const expiresAt = attachment
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      : null
+
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
       sender_id: currentUserId,
@@ -84,6 +89,8 @@ export function useMessages(
       attachment_url: attachment?.url ?? null,
       attachment_type: attachment?.type ?? null,
       attachment_name: attachment?.name ?? null,
+      attachment_expires_at: expiresAt,
+      attachment_expired: false,
     }
 
     setMessages(prev => [...prev, optimistic])
@@ -95,6 +102,7 @@ export function useMessages(
       attachment_url: attachment?.url ?? null,
       attachment_type: attachment?.type ?? null,
       attachment_name: attachment?.name ?? null,
+      attachment_expires_at: expiresAt,
     })
 
     if (error) {

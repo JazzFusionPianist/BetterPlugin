@@ -554,6 +554,16 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
   )
 }
 
+function ExpiredAttachment({ type }: { type: AttachType }) {
+  const icon = type === 'image' ? '🖼️' : type === 'video' ? '🎬' : '🎵'
+  return (
+    <div className="att-expired">
+      <span className="att-expired-icon">{icon}</span>
+      <span className="att-expired-text">파일이 만료되었습니다 (7일)</span>
+    </div>
+  )
+}
+
 function AttachmentView({ url, type, name }: { url: string; type: AttachType; name: string }) {
   if (type === 'image') return <ImageAttachment url={url} name={name} />
   if (type === 'video') return <VideoAttachment url={url} />
@@ -1092,12 +1102,16 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
             <div key={i} className="ts">{g.label}</div>
           ) : (
             <div key={g.msg.id} className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}`}>
-              {g.msg.attachment_url && g.msg.attachment_type && (
-                <AttachmentView
-                  url={g.msg.attachment_url}
-                  type={g.msg.attachment_type}
-                  name={g.msg.attachment_name ?? ''}
-                />
+              {g.msg.attachment_type && (
+                g.msg.attachment_expired
+                  ? <ExpiredAttachment type={g.msg.attachment_type} />
+                  : g.msg.attachment_url
+                    ? <AttachmentView
+                        url={g.msg.attachment_url}
+                        type={g.msg.attachment_type}
+                        name={g.msg.attachment_name ?? ''}
+                      />
+                    : null
               )}
               {g.msg.content && <div className="mb">{g.msg.content}</div>}
               <div className="mtime">{formatTime(g.msg.created_at)}</div>

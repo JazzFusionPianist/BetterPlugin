@@ -723,6 +723,26 @@
 }
 
 /* 멀티 트랙 그룹 */
+/* Expired attachment tombstone */
+.att-expired {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px dashed var(--border);
+  opacity: 0.6;
+  max-width: 200px;
+}
+.att-expired-icon { font-size: 14px; flex-shrink: 0; }
+.att-expired-text {
+  font-size: 10px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.3;
+}
+
 .msg-att-audio-group {
   min-width: 160px;
   max-width: 200px;

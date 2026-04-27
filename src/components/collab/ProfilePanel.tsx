@@ -533,8 +533,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
   return (
     <>
-      <div className="s-body profile-orbit-body">
-        <div className={`profile-orbit${scrolledUp && mode === 'party' ? ' orbit-scrolled' : ''}`} ref={containerRef} onWheel={handleWheel}>
+      <div className="s-body profile-orbit-body" onWheel={handleWheel}>
+        <div className={`profile-orbit${scrolledUp && mode === 'party' ? ' orbit-scrolled' : ''}`} ref={containerRef}>
           {viewOnly ? (
             <button className="orbit-mode-toggle-btn" onClick={onClose}>
               ← back
@@ -679,7 +679,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
           {/* --- party_discography: Upload circle / Track display --- */}
           {scrolledUp && mode === 'party' && !statList && (
-            <div className="orbit-track-area" onWheel={e => e.stopPropagation()}>
+            <div className="orbit-track-area">
               {tracks.length === 0 ? (
                 viewOnly ? (
                   <div className="orbit-no-tracks">no music just yet, but stay tuned!</div>

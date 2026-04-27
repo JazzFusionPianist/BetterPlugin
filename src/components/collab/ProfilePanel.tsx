@@ -40,6 +40,8 @@ interface Orb {
 const SELF_RADIUS = 38
 
 export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly, liveHostIds, liveSessions, onWatchLive }: Props) {
+  // 'main'  → party_main        (orbit / friend bubbles view)
+  // 'party' → party_discography (scrolled-up music gallery view)
   const [mode, setMode] = useState<'main' | 'party'>(viewOnly ? 'party' : 'main')
   useEffect(() => { if (viewOnly) setMode('party') }, [viewOnly])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -57,6 +59,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const prevModeRef = useRef(mode)
   const speedFactorRef = useRef(1)
   const exclusionPadRef = useRef(6)
+  // true  → party_discography page (user scrolled up to reveal music gallery)
+  // false → party_main page (default orbit view)
   const [scrolledUp, setScrolledUp] = useState(false)
   const [statList, setStatList] = useState<'members' | 'following' | null>(null)
   const lastListRef = useRef<'members' | 'following'>('members')
@@ -673,7 +677,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
             </>
           )}
 
-          {/* --- Upload circle / Track display --- */}
+          {/* --- party_discography: Upload circle / Track display --- */}
           {scrolledUp && mode === 'party' && !statList && (
             <div className="orbit-track-area" onWheel={e => e.stopPropagation()}>
               {tracks.length === 0 ? (

@@ -165,6 +165,12 @@ export async function startNativeVideo (kind: 'window' | 'screen', id = 0): Prom
 }
 
 export async function stopNativeVideo () {
+  // Reset the stream reference so the next capture always creates a fresh
+  // canvas.captureStream() track. Without this, stopEphemeral() in
+  // useMediaSource calls t.stop() on the old track, and since the module
+  // reuses the same stream object the new MediaStream ends up with an already-
+  // 'ended' track → hasLiveVideoTrack = false → black screen / avatar stuck.
+  stream = null
   if (!hasJuceBridge || !hasJuceNativeFunction('stopVideoCapture')) return
   try { await callJuceNative('stopVideoCapture', [], 3000) } catch { /* ignore */ }
 }

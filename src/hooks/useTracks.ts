@@ -85,7 +85,8 @@ export function useTracks(supabase: SupabaseClient, userId: string) {
     trackId: string,
     patch: { title?: string; artist?: string; version?: string; date?: string | null; description?: string | null }
   ) => {
-    await supabase.from('tracks').update(patch).eq('id', trackId)
+    const { error } = await supabase.from('tracks').update(patch).eq('id', trackId)
+    if (error) throw error
     await fetchTracks()
   }, [supabase, fetchTracks])
 

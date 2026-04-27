@@ -85,6 +85,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
   const [editMeta, setEditMeta] = useState({ title: '', version: '', date: '', description: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [editJustSaved, setEditJustSaved] = useState(false)
   const [viewIndex, setViewIndex] = useState(0)
   const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
   const draggedRef = useRef(false)
@@ -207,7 +208,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
         date: editMeta.date || null,
         description: editMeta.description || null,
       })
-      showMsg('Saved')
+      setEditJustSaved(true)
+      setTimeout(() => setEditJustSaved(false), 1500)
     } catch (err: any) {
       console.error('Track update failed:', err)
       showMsg('Save failed: ' + (err?.message || 'unknown error'))
@@ -774,10 +776,10 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                           disabled={editSaving}
                         >Delete</button>
                         <button
-                          className="orbit-track-edit-btn save"
+                          className={`orbit-track-edit-btn save${editJustSaved ? ' saved' : ''}`}
                           onClick={handleTrackEditSave}
-                          disabled={editSaving || !editMeta.title}
-                        >{editSaving ? '...' : 'Save'}</button>
+                          disabled={editSaving || editJustSaved || !editMeta.title}
+                        >{editSaving ? '...' : editJustSaved ? 'Saved ✓' : 'Save'}</button>
                       </div>
                     </div>
                   ))}

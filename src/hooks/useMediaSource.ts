@@ -108,11 +108,11 @@ export function useMediaSource() {
    * existing peer senders instead of renegotiating.
    */
   const acquireStream = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
-    // If we're switching away from a native source, pause the producer first.
-    const usingNative =
-      source.kind === 'native-window' || source.kind === 'native-display' || source.kind === 'native-picker'
-      || (hasJuceBridge && (source.kind === 'daw' || source.kind === 'screen'))
-    if (!usingNative) await stopNativeVideo()
+    // Always stop any running native capture before starting a new one.
+    // Leaving an active SCK stream running while opening the picker or starting
+    // a different source causes SCK conflicts → black frames or hung promises.
+    // stopNativeVideo() is a no-op in the browser, so this is always safe.
+    await stopNativeVideo()
 
     // Build video
     let newStream: MediaStream
@@ -225,12 +225,20 @@ export function useMediaSource() {
       sources.push({ kind: 'native-picker', label: 'Choose window…' })
 
       // Then enumerated displays + non-host windows for one-click selection.
+      const displayCount = nativeSources.filter(s => s.kind === 'display').length
+      let displayIdx = 0
       nativeSources.forEach((s) => {
         if (s.kind === 'display') {
+          displayIdx++
+          // C++ now sends localizedName (macOS 13+) or "WxH" as title.
+          // Fall back to "Display N" for single-monitor "Entire Screen" label.
+          const label = s.title && s.title !== 'Entire Screen'
+            ? s.title
+            : displayCount > 1 ? `Display ${displayIdx} (${s.w}×${s.h})` : 'Entire Screen'
           sources.push({
             kind:     'native-display',
             deviceId: String(s.id),
-            label:    'Entire Screen',
+            label,
           })
         } else {
           sources.push({

@@ -232,16 +232,18 @@ function CollabPageInner({ user }: Props) {
     await endLive()
   }, [stopStream, endLive])
 
-  const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
-    await replaceSource(source, micDeviceId)
-    // Sync has_video into the DB so LiveViewer and LivePanel both update.
-    const hasVideo = source.kind !== 'none'
+  const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null): Promise<VideoSource | null> => {
+    const actualSource = await replaceSource(source, micDeviceId)
+    if (!actualSource) return null
+    // Sync the ACTUAL source (may be reverted on picker cancel) into the DB.
+    const hasVideo = actualSource.kind !== 'none'
     const videoSource: LiveSession['video_source'] =
-      source.kind === 'native-window'  ? 'daw'
-      : source.kind === 'native-display' ? 'screen'
-      : source.kind === 'native-picker'  ? 'daw'
-      : (source.kind as LiveSession['video_source'])
+      actualSource.kind === 'native-window'  ? 'daw'
+      : actualSource.kind === 'native-display' ? 'screen'
+      : actualSource.kind === 'native-picker'  ? 'daw'
+      : (actualSource.kind as LiveSession['video_source'])
     await updateLive({ has_video: hasVideo, video_source: videoSource })
+    return actualSource
   }, [replaceSource, updateLive])
 
   // 알림 설정에 따라 보이는 알림 필터링

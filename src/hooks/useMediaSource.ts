@@ -35,6 +35,10 @@ export function useMediaSource() {
   const [permissionsGranted, setPermissionsGranted] = useState(false)
   // Remember the DAW track so we can preserve it across source switches.
   const dawTrackRef = useRef<MediaStreamTrack | null>(null)
+  // Track the last successfully acquired source so we can restore it if the
+  // user cancels the system picker mid-switch.
+  const activeSourceRef = useRef<VideoSource | null>(null)
+  const activeMicRef    = useRef<string | null>(null)
 
   useEffect(() => {
     initDawAudio()
@@ -181,6 +185,8 @@ export function useMediaSource() {
     setError(null)
     try {
       const newStream = await acquireStream(source, micDeviceId)
+      activeSourceRef.current = source
+      activeMicRef.current    = micDeviceId
       refreshDevices()
       setStream(prev => { stopEphemeral(prev); return newStream })
       return newStream
@@ -191,17 +197,36 @@ export function useMediaSource() {
   }, [acquireStream, refreshDevices])
 
   /**
-   * Swap sources while live. Acquires a new stream with the new video/mic
-   * pair, then replaces the state. The broadcaster hook reacts to this by
-   * calling replaceTrack on each peer, avoiding a full renegotiation.
+   * Swap sources while live. Returns the source that ended up active:
+   * - the requested source on success
+   * - the previous source if the user cancelled the system picker (transparent restore)
+   * - null on hard error
    */
-  const replaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null) => {
+  const replaceSource = useCallback(async (
+    source: VideoSource, micDeviceId: string | null
+  ): Promise<VideoSource | null> => {
     setError(null)
+    const prevSource = activeSourceRef.current
+    const prevMic    = activeMicRef.current
     try {
       const newStream = await acquireStream(source, micDeviceId)
+      activeSourceRef.current = source
+      activeMicRef.current    = micDeviceId
       setStream(prev => { stopEphemeral(prev); return newStream })
+      return source
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      // User cancelled the picker: silently restore the previous source so
+      // the stream continues uninterrupted. Don't surface an error.
+      if (msg === 'Cancelled' && prevSource) {
+        try {
+          const restored = await acquireStream(prevSource, prevMic)
+          setStream(prev => { stopEphemeral(prev); return restored })
+          return prevSource   // signal to caller that we reverted
+        } catch { /* restore failed — fall through to show original error */ }
+      }
+      setError(msg)
+      return null
     }
   }, [acquireStream])
 

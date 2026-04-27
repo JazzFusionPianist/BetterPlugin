@@ -26,7 +26,7 @@ interface Props {
   onSendChat: (text: string) => void
   onStartLive: (title: string, source: VideoSource, micDeviceId: string | null) => void
   onEndLive: () => void
-  onReplaceSource: (source: VideoSource, micDeviceId: string | null) => Promise<void>
+  onReplaceSource: (source: VideoSource, micDeviceId: string | null) => Promise<VideoSource | null>
   onWatchLive: (sessionId: string, hostId: string) => void
   onClose: () => void
 }
@@ -342,9 +342,11 @@ export default function LivePanel({
               onApply={async (key, mic) => {
                 const src = sources.find(s => sourceKey(s) === key)
                 if (!src) return
-                setSelectedKey(key)
+                const actual = await onReplaceSource(src, mic || null)
+                // Use the ACTUAL source applied (may differ if picker was cancelled)
+                const actualKey = actual ? sourceKey(actual) : selectedKey
+                setSelectedKey(actualKey)
                 setMicDeviceId(mic)
-                await onReplaceSource(src, mic || null)
               }}
             />
 

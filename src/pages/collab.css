@@ -87,6 +87,15 @@
   position: relative;
 }
 
+/* Disable rubber-band / bounce scrolling everywhere inside the plugin.
+   Vertical overscroll on macOS WebView triggers the parent page's swipe
+   gesture, which conflicts with the party-page vertical navigation. */
+.plugin *,
+.plugin *::before,
+.plugin *::after {
+  overscroll-behavior: none;
+}
+
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Top Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */

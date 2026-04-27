@@ -353,6 +353,7 @@ function CollabPageInner({ user }: Props) {
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
+    wallpaper         ? 'has-wallpaper'      : '',
   ].filter(Boolean).join(' ')
 
   return (

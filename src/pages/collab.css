@@ -87,6 +87,17 @@
   position: relative;
 }
 
+/* ── Wallpaper: opaque backgrounds in light mode ──────────────────────────
+   The wallpaper is applied to the .plugin root, so it bleeds through every
+   transparent element. In light mode this makes dark icons/text invisible.
+   Dark mode already has opaque-enough styling; only light needs the fix.   */
+.plugin.has-wallpaper:not(.dark) .top-bar,
+.plugin.has-wallpaper:not(.dark) .fview,
+.plugin.has-wallpaper:not(.dark) .fview .s-body,
+.plugin.has-wallpaper:not(.dark) .cview {
+  background: var(--bg) !important;
+}
+
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe
    gesture, which conflicts with the party-page vertical navigation. */

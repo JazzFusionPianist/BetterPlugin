@@ -128,9 +128,8 @@ function CollabPageInner({ user }: Props) {
     else localStorage.removeItem('collab_wallpaper')
     setWallpaper(url)
   }
-  const [viewMode, setViewMode] = useState<'default' | 'gallery' | 'list'>(() =>
-    (localStorage.getItem('collab_view_v2') as 'default' | 'gallery' | 'list') ?? 'default'
-  )
+  // viewMode is locked to 'default' — gallery/list views are no longer exposed.
+  const viewMode: 'default' | 'gallery' | 'list' = 'default'
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
   const favKey = `collab_favorites_${user.id}`
@@ -270,7 +269,6 @@ function CollabPageInner({ user }: Props) {
     })
   }
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
-  const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view_v2', mode) }
 
   const handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
@@ -546,7 +544,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} viewMode={viewMode} wallpaper={wallpaper} onToggleDark={handleToggleDark} onViewModeChange={handleViewModeChange} onSetWallpaper={handleSetWallpaper} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} wallpaper={wallpaper} onToggleDark={handleToggleDark} onSetWallpaper={handleSetWallpaper} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

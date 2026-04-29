@@ -1,16 +1,15 @@
 import { useRef } from 'react'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface Props {
   isDark: boolean
-  viewMode: 'default' | 'gallery' | 'list'
   wallpaper: string | null
   onToggleDark: () => void
-  onViewModeChange: (mode: 'default' | 'gallery' | 'list') => void
   onSetWallpaper: (url: string | null) => void
   onClose: () => void
 }
 
-export default function DisplayPanel({ isDark, viewMode, wallpaper, onToggleDark, onViewModeChange, onSetWallpaper, onClose }: Props) {
+export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWallpaper, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handlePick = () => fileRef.current?.click()
@@ -25,68 +24,43 @@ export default function DisplayPanel({ isDark, viewMode, wallpaper, onToggleDark
   }
 
   return (
-    <>
-      <div className="s-header">
-        <div className="s-close" onClick={onClose}>&#8249;</div>
-        <span className="s-title">DISPLAY</span>
+    <div className="settings-panel">
+      <FloatingOrbs count={28} />
+
+      <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
+        <span className="settings-header-back">‹</span>
+        <span className="settings-header-title">Display</span>
       </div>
 
-      <div className="s-body">
-        <div className="s-section">
-          <div className="s-section-label">appearance</div>
-          <div className="s-row">
-            <span className="s-row-label">Dark mode</span>
-            <button
-              className={`pill-toggle${isDark ? ' on' : ''}`}
-              onClick={onToggleDark}
-            />
-          </div>
+      <div className="display-stack">
+        <div className="settings-card settings-row-card" onClick={onToggleDark} role="button" tabIndex={0}>
+          <span>Dark mode</span>
+          <button
+            className={`pill-toggle${isDark ? ' on' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onToggleDark() }}
+            tabIndex={-1}
+          />
         </div>
 
-        <div className="s-section">
-          <div className="s-section-label">wallpaper</div>
-          <div className="s-row">
-            <span className="s-row-label">Set wallpaper</span>
-            <button className="seg-opt" style={{ flex: 'none', padding: '0 12px' }} onClick={handlePick}>Choose</button>
-          </div>
-          {wallpaper && (
-            <div className="s-row">
-              <span className="s-row-label" style={{ color: 'var(--t3)', fontSize: 10 }}>Current wallpaper set</span>
-              <button className="seg-opt" style={{ flex: 'none', padding: '0 12px' }} onClick={() => onSetWallpaper(null)}>Remove</button>
-            </div>
-          )}
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        <div className="settings-card settings-row-card" onClick={handlePick} role="button" tabIndex={0}>
+          <span>Set wallpaper</span>
+          <span className="settings-row-action">Choose</span>
         </div>
 
-        <div className="s-section">
-          <div className="s-section-label">view mode</div>
-          <div className="seg">
-            <button
-              className={`seg-opt${viewMode === 'default' ? ' active' : ''}`}
-              onClick={() => onViewModeChange('default')}
-            >
-              Default
-            </button>
-            <button
-              className={`seg-opt${viewMode === 'gallery' ? ' active' : ''}`}
-              onClick={() => onViewModeChange('gallery')}
-            >
-              Gallery
-            </button>
-            <button
-              className={`seg-opt${viewMode === 'list' ? ' active' : ''}`}
-              onClick={() => onViewModeChange('list')}
-            >
-              List
-            </button>
+        {wallpaper && (
+          <div
+            className="settings-card settings-row-card"
+            onClick={() => onSetWallpaper(null)}
+            role="button"
+            tabIndex={0}
+          >
+            <span>Remove wallpaper</span>
+            <span className="settings-row-action settings-row-action-danger">Remove</span>
           </div>
-          <p className="s-note" style={{ marginTop: 10 }}>
-            Default shows online friends as floating orbs.<br />
-            Gallery shows profile pictures in a grid.<br />
-            List shows names and status at a glance.
-          </p>
-        </div>
+        )}
       </div>
-    </>
+
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+    </div>
   )
 }

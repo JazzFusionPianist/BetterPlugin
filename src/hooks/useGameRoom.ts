@@ -123,6 +123,14 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     setRoom(null)
   }, [])
 
+  // Delete the current room from Supabase. Used when backing out of a
+  // lobby (cancel invite) or a finished game (close instead of rematch).
+  const deleteCurrentRoom = useCallback(async (): Promise<void> => {
+    if (!room) return
+    await supabase.from('game_rooms').delete().eq('id', room.id)
+    setRoom(null)
+  }, [supabase, room])
+
   // Find an active room (lobby or playing) where the current user is host or guest.
   // Used to resume games after closing/reopening the chess view.
   const findActiveRoom = useCallback(async (): Promise<GameRoom | null> => {
@@ -141,5 +149,5 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
 
   const setRoomDirect = useCallback((r: GameRoom | null) => setRoom(r), [])
 
-  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, leaveRoom, toggleReady, findActiveRoom, setRoom: setRoomDirect }
+  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom: setRoomDirect }
 }

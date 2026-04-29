@@ -452,8 +452,19 @@ export default function ChessView({
   onlineIds,
   onClose,
 }: Props) {
-  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, toggleReady, findActiveRoom } =
+  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
     useGameRoom(supabase, currentUserId)
+
+  // Back button: in lobby/finished, delete the room so the next visit starts
+  // fresh. In playing, just unmount locally so the user can resume later.
+  const handleBack = useCallback(() => {
+    if (room && (room.status === 'lobby' || room.status === 'finished')) {
+      deleteCurrentRoom()
+    } else {
+      leaveRoom()
+    }
+    onClose()
+  }, [room, deleteCurrentRoom, leaveRoom, onClose])
 
   // On mount: auto-join from pending invite first, otherwise resume any active room
   useEffect(() => {
@@ -684,7 +695,7 @@ export default function ChessView({
       <div className="chess-header">
         <button
           className="chess-back-btn"
-          onClick={() => { leaveRoom(); onClose() }}
+          onClick={handleBack}
           aria-label="Go back"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

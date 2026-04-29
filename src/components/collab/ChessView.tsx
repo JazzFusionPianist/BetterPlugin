@@ -371,26 +371,22 @@ interface InviteModalProps {
 function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProps) {
   return (
     <div
-      className="chess-invite-modal"
-      role="dialog"
-      aria-label="Invite a friend"
+      className="chess-invite-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="chess-invite-modal-inner">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Invite a Friend</span>
+      <div className="chess-invite-modal" role="dialog" aria-label="Invite a friend">
+        <div className="chess-invite-modal-header">
+          <span className="chess-invite-modal-title">Invite a Friend</span>
           <button
+            className="chess-invite-modal-close"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
             aria-label="Close invite dialog"
           >
             ×
           </button>
         </div>
         {friends.length === 0 ? (
-          <p style={{ color: 'var(--text-muted, #888)', fontSize: 14, margin: 0 }}>
-            No friends to invite.
-          </p>
+          <p className="chess-invite-empty">No friends to invite.</p>
         ) : (
           <div className="chess-invite-list">
             {friends.map(friend => (

@@ -7,15 +7,29 @@ export function useFriendEvents(supabase: SupabaseClient, currentUserId: string)
   const [loading, setLoading] = useState(true)
 
   const fetch = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
-      .select('id, type, read, created_at, actor:profiles!actor_id(id, display_name, avatar_color, avatar_url)')
+      .select('id, type, read, created_at, metadata, actor:profiles!actor_id(id, display_name, avatar_color, avatar_url)')
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: false })
       .limit(50)
 
+    if (error) console.error('[useFriendEvents] fetch error:', error)
+    console.log('[useFriendEvents] fetched', data?.length, 'events for', currentUserId, data)
     if (data) setEvents(data as unknown as AppNotification[])
     setLoading(false)
+  }, [supabase, currentUserId])
+
+  // Debug: log realtime events
+  useEffect(() => {
+    const ch = supabase
+      .channel(`debug_notifs:${currentUserId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${currentUserId}`,
+      }, payload => console.log('[useFriendEvents] realtime INSERT:', payload))
+      .subscribe(status => console.log('[useFriendEvents] subscription status:', status))
+    return () => { supabase.removeChannel(ch) }
   }, [supabase, currentUserId])
 
   useEffect(() => {

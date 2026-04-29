@@ -4517,6 +4517,16 @@
   display: flex; gap: 6px; align-items: stretch; justify-content: center;
   padding: 0 2px;
 }
+/* Wrapper for self board + overlays — sized so width matches the actual
+   board (height/2 from aspect ratio). Cap to leave room for side-info.  */
+.tetris-self-board-wrap {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 10 / 20;
+  flex-shrink: 0;
+  /* If height-based width would exceed available space, allow shrink */
+  max-width: calc(100% - 70px);
+}
 
 /* Board */
 .tetris-board {
@@ -4528,13 +4538,10 @@
   overflow: hidden;
   position: relative;
 }
-/* Self board: fills available height; width derives from aspect ratio. */
+/* Self board fills its wrapper completely (wrap controls aspect ratio). */
 .tetris-board.is-self {
+  width: 100%;
   height: 100%;
-  aspect-ratio: 10 / 20;
-  width: auto;
-  max-width: calc(100% - 70px);   /* leave room for side info */
-  flex-shrink: 0;
 }
 /* Opponent board: fills opponents-row height. */
 .tetris-board.is-opponent {

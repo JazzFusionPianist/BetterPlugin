@@ -763,7 +763,7 @@ export default function TetrisView({
 
         {/* Self row */}
         <div className="tetris-self-row">
-          <div style={{ position: 'relative' }}>
+          <div className="tetris-self-board-wrap">
             <TetrisBoard
               board={selfDisplayBoard}
               currentPiece={isPlaying && !myTopOutServer ? tetris.current : null}

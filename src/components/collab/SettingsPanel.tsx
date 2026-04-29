@@ -1,36 +1,37 @@
+import FloatingOrbs from '../FloatingOrbs'
+
 interface Props {
   onClose: () => void
   onOpenDisplay: () => void
   onOpenInfo: () => void
   onOpenNotifSettings: () => void
+  onOpenFindPeople: () => void
   onSignOut: () => void
 }
 
-export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo, onOpenNotifSettings, onSignOut }: Props) {
+export default function SettingsPanel({ onClose: _onClose, onOpenDisplay, onOpenInfo, onOpenNotifSettings, onOpenFindPeople, onSignOut }: Props) {
   return (
-    <>
-      <div className="s-body" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div className="s-section" style={{ marginBottom: 0 }}>
-          <div className="s-nav-row" onClick={onOpenDisplay}>
-            <span className="s-row-label">Display</span>
-            <span className="s-nav-chev">&#8250;</span>
-          </div>
-          <div className="s-nav-row" onClick={onOpenInfo}>
-            <span className="s-row-label">User info</span>
-            <span className="s-nav-chev">&#8250;</span>
-          </div>
-          <div className="s-nav-row" onClick={onOpenNotifSettings}>
-            <span className="s-row-label">Notifications</span>
-            <span className="s-nav-chev">&#8250;</span>
-          </div>
+    <div className="settings-panel">
+      <FloatingOrbs count={28} />
+      <div className="settings-list">
+        <div className="settings-card" onClick={onOpenFindPeople} role="button" tabIndex={0}>
+          Find people
         </div>
-
-        <div className="s-section" style={{ marginBottom: 0, marginTop: 'auto', paddingTop: 8 }}>
-          <div className="s-nav-row s-signout-row" onClick={onSignOut}>
-            <span className="s-row-label" style={{ color: '#FF3B30' }}>Sign out</span>
-          </div>
+        <div className="settings-card" onClick={onOpenDisplay} role="button" tabIndex={0}>
+          Display
+        </div>
+        <div className="settings-card" onClick={onOpenInfo} role="button" tabIndex={0}>
+          User info
+        </div>
+        <div className="settings-card" onClick={onOpenNotifSettings} role="button" tabIndex={0}>
+          Notifications
         </div>
       </div>
-    </>
+      <div className="settings-list settings-list-bottom">
+        <div className="settings-card settings-signout" onClick={onSignOut} role="button" tabIndex={0}>
+          Sign out
+        </div>
+      </div>
+    </div>
   )
 }

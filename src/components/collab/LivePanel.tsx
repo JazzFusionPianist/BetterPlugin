@@ -4,6 +4,7 @@ import type { Profile } from '../../types/collab'
 import type { VideoSource } from '../../types/live'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
 import LiveChat from './LiveChat'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface MicOption { deviceId: string; label: string }
 
@@ -271,13 +272,6 @@ export default function LivePanel({
 
   return (
     <>
-      <div className="s-header">
-        <div className="s-close" onClick={onClose}>&#8249;</div>
-        <span className="s-title">
-          {mySession ? <span className="live-title-badge">● LIVE</span> : 'LIVE'}
-        </span>
-      </div>
-
       <div className="s-body live-body">
         {endedStats ? (
           /* ── Host summary: shown after End Stream ── */
@@ -367,10 +361,14 @@ export default function LivePanel({
         ) : (
           /* ── Pre-live setup ── */
           <div className="live-setup">
+            <FloatingOrbs count={28} />
             <div className="live-setup-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12.5a7 7 0 0114 0" /><path d="M1 9a11 11 0 0122 0" />
-                <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none" />
+              <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 11a7 7 0 000 10" />
+                <path d="M21 11a7 7 0 010 10" />
+                <path d="M6.5 6.5a13 13 0 000 19" />
+                <path d="M25.5 6.5a13 13 0 010 19" />
+                <circle cx="16" cy="16" r="2.4" fill="currentColor" stroke="none" />
               </svg>
             </div>
             <p className="live-setup-hint">Pick a video source and start<br />streaming to your friends.</p>

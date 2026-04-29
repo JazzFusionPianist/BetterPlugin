@@ -282,17 +282,17 @@ function CollabPageInner({ user }: Props) {
   })
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); closeSearch() }
+    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
   const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); closeSearch() } return !prev })
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
-  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); closeSearch() } return !prev })
+  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch()
+      closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setGameOpen(false); closeSearch()
       // Unlock mic labels/IDs so the dropdown is populated when the panel opens
       requestDevicePermissions()
     }
@@ -370,32 +370,10 @@ function CollabPageInner({ user }: Props) {
   return (
     <div className={pluginClass} ref={pluginRef} style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
       <div className="top-bar">
-        <span className="app-title" onClick={handleGoHome} style={{ cursor: 'pointer' }}>CoOp</span>
-
-        {/* Notification */}
-        <div className={`icon-btn${notifOpen ? ' active' : ''}`} onClick={handleToggleNotif} title="Notifications" style={{ position: 'relative' }}>
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z" /><path d="M6.5 12.5a1.5 1.5 0 003 0" />
-          </svg>
-          {bellCount > 0 && <span className="notif-dot" />}
-        </div>
-
         {/* Chat list */}
         <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">
           <svg viewBox="0 0 16 16" fill="currentColor">
             <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7A1.5 1.5 0 0112.5 12H9.5l-3 2.5c-.3.25-.5.1-.5-.25V12H3.5A1.5 1.5 0 012 10.5v-7z"/>
-          </svg>
-        </div>
-
-        {/* Search */}
-        <div className={`icon-btn${searchOpen ? ' active' : ''}`} onClick={handleToggleSearch} title="Search">
-          <svg viewBox="0 0 16 16" strokeWidth="1.5"><circle cx="6.5" cy="6.5" r="4" /><path d="M10 10l3 3" strokeLinecap="round" /></svg>
-        </div>
-
-        {/* Add Friend */}
-        <div className={`icon-btn${addFriendOpen ? ' active' : ''}`} onClick={handleToggleAddFriend} title="Find People" style={{ position: 'relative' }}>
-          <svg viewBox="0 0 16 16" strokeWidth="1.5" fill="none">
-            <circle cx="5.5" cy="5.5" r="2.4" /><path d="M1.5 13c.6-2.1 2.4-3 4-3s3.4.9 4 3" strokeLinecap="round" /><path d="M12.5 6v4M10.5 8h4" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -404,11 +382,14 @@ function CollabPageInner({ user }: Props) {
           className={`icon-btn${liveOpen ? ' active' : ''}${mySession ? ' live-btn-active' : ''}`}
           onClick={handleToggleLive}
           title="Live"
-          style={{ position: 'relative', opacity: mySession ? 1 : undefined }}
+          style={{ position: 'relative' }}
         >
-          <svg viewBox="0 0 16 16" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" stroke={mySession ? '#FF3B30' : 'var(--t1)'}>
-            <path d="M3.5 11.5a6 6 0 019 0" /><path d="M1 9a9 9 0 0114 0" />
-            <circle cx="8" cy="13.5" r="1" fill={mySession ? '#FF3B30' : 'var(--t1)'} stroke="none" />
+          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" stroke={mySession ? '#FF3B30' : 'var(--t1)'}>
+            <path d="M5.7 5.7a3.3 3.3 0 000 4.6" />
+            <path d="M10.3 5.7a3.3 3.3 0 010 4.6" />
+            <path d="M3.3 3.3a6.7 6.7 0 000 9.4" />
+            <path d="M12.7 3.3a6.7 6.7 0 010 9.4" />
+            <circle cx="8" cy="8" r="1.4" fill={mySession ? '#FF3B30' : 'var(--t1)'} stroke="none" />
           </svg>
           {mySession && <span className="live-btn-dot" />}
         </div>
@@ -418,7 +399,7 @@ function CollabPageInner({ user }: Props) {
           className={`icon-btn${gameOpen ? ' active' : ''}`}
           onClick={() => {
             const next = !gameOpen
-            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() }
+            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch() }
             setGameOpen(next)
             if (next) setGameScreen('list')
           }}
@@ -434,7 +415,10 @@ function CollabPageInner({ user }: Props) {
 
         {/* Settings */}
         <div className={`icon-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">
-          <svg viewBox="0 0 16 16" strokeWidth="1.4"><circle cx="8" cy="8" r="2" /><path d="M8 2v1.2M8 12.8V14M2 8h1.2M12.8 8H14M3.76 3.76l.85.85M11.39 11.39l.85.85M3.76 12.24l.85-.85M11.39 4.61l.85-.85" /></svg>
+          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.2" stroke="var(--t1)" strokeLinejoin="round" strokeLinecap="round">
+            <path d="M8 1.6l.9 1.6 1.8-.4.5 1.8 1.7.7-.5 1.8 1.3 1.3-1.3 1.3.5 1.8-1.7.7-.5 1.8-1.8-.4L8 14.4l-.9-1.6-1.8.4-.5-1.8-1.7-.7.5-1.8L2.3 7.6l1.3-1.3-.5-1.8 1.7-.7.5-1.8 1.8.4z" />
+            <circle cx="8" cy="8" r="2" />
+          </svg>
         </div>
       </div>
 
@@ -447,9 +431,18 @@ function CollabPageInner({ user }: Props) {
         </button>
       </div>
 
-      {/* Notification panel */}
+      {/* Corner glow — pulses when there are unread notifications */}
+      {bellCount > 0 && !notifOpen && (
+        <div
+          className="notif-corner-glow"
+          onClick={handleToggleNotif}
+          title={`${bellCount} new notification${bellCount > 1 ? 's' : ''}`}
+        />
+      )}
+
+      {/* Notification panel — balloons out from the corner */}
       {notifOpen && (
-        <div className="notif-panel">
+        <div className="notif-panel notif-panel-balloon">
           {visibleEvents.length === 0 && visibleUnread.size === 0 && (
             <div className="notif-empty">No notifications</div>
           )}
@@ -548,6 +541,7 @@ function CollabPageInner({ user }: Props) {
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenNotifSettings={() => setNotifSettingsOpen(true)}
+            onOpenFindPeople={() => setAddFriendOpen(true)}
             onSignOut={() => client.auth.signOut()}
           />
         </div>

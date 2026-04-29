@@ -1,4 +1,5 @@
 import React from 'react'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface Props {
   onSelectGame: (game: 'chess') => void
@@ -41,49 +42,25 @@ const GAMES: GameCard[] = [
   },
 ]
 
-export default function GameListView({ onSelectGame, onClose }: Props) {
+export default function GameListView({ onSelectGame }: Props) {
   return (
     <div className="game-list-view">
-      <div className="game-list-header">
-        <button
-          className="game-list-back"
-          onClick={onClose}
-          aria-label="Go back"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M12.5 15L7.5 10L12.5 5"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <h2 className="game-list-title">Games</h2>
-      </div>
-
+      <FloatingOrbs count={28} />
       <div className="game-list-scroll">
         {GAMES.map(game => (
-          <div key={game.id} className="game-card">
+          <div
+            key={game.id}
+            className="game-card"
+            onClick={() => onSelectGame(game.id)}
+            role="button"
+            tabIndex={0}
+          >
             <div className="game-card-icon">{game.icon}</div>
             <div className="game-card-info">
               <div className="game-card-name">{game.name}</div>
               <div className="game-card-desc">{game.description}</div>
             </div>
-            <button
-              className="game-card-play-btn"
-              onClick={() => onSelectGame(game.id)}
-            >
-              Play
-            </button>
+            <span className="game-card-arrow" aria-hidden="true">›</span>
           </div>
         ))}
       </div>

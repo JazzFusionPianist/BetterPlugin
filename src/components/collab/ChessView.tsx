@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, GameRoom } from '../../types/collab'
 import { useGameRoom } from '../../hooks/useGameRoom'
@@ -369,6 +369,25 @@ interface InviteModalProps {
 }
 
 function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProps) {
+  const [query, setQuery] = useState('')
+
+  // Filter + sort: invited last, online first (if available), alphabetical fallback
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = q
+      ? friends.filter(f => f.display_name.toLowerCase().includes(q))
+      : friends
+    return [...list].sort((a, b) => {
+      const aInv = invitedIds.has(a.id) ? 1 : 0
+      const bInv = invitedIds.has(b.id) ? 1 : 0
+      if (aInv !== bInv) return aInv - bInv
+      const aOn = a.isOnline ? 0 : 1
+      const bOn = b.isOnline ? 0 : 1
+      if (aOn !== bOn) return aOn - bOn
+      return a.display_name.localeCompare(b.display_name)
+    })
+  }, [friends, query, invitedIds])
+
   return (
     <div
       className="chess-invite-modal-overlay"
@@ -385,13 +404,40 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
             ×
           </button>
         </div>
+        {friends.length > 0 && (
+          <div className="chess-invite-search-wrap">
+            <svg className="chess-invite-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <circle cx="6.8" cy="6.8" r="4.2" /><path d="M10.2 10.2L13 13" strokeLinecap="round" />
+            </svg>
+            <input
+              className="chess-invite-search-input"
+              type="text"
+              placeholder={`Search ${friends.length} friend${friends.length === 1 ? '' : 's'}…`}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoFocus
+            />
+            {query && (
+              <button
+                className="chess-invite-search-clear"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+              >×</button>
+            )}
+          </div>
+        )}
         {friends.length === 0 ? (
           <p className="chess-invite-empty">No friends to invite.</p>
+        ) : filtered.length === 0 ? (
+          <p className="chess-invite-empty">No friends match "{query}".</p>
         ) : (
           <div className="chess-invite-list">
-            {friends.map(friend => (
+            {filtered.map(friend => (
               <div key={friend.id} className="chess-invite-row">
-                <Avatar profile={friend} size={36} />
+                <div className="chess-invite-av-wrap">
+                  <Avatar profile={friend} size={36} />
+                  {friend.isOnline && <span className="chess-invite-online-dot" />}
+                </div>
                 <span className="chess-invite-name">{friend.display_name}</span>
                 <button
                   className="chess-invite-do-btn"

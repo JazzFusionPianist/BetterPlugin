@@ -19,7 +19,7 @@ import type { TetrisState, Board, Piece, PieceType } from '../../hooks/useTetris
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const GRAVITY_MS = 1100
+const GRAVITY_MS = 1500
 const TICK_MS = 50
 const SYNC_THROTTLE_MS = 250
 
@@ -626,14 +626,17 @@ export default function TetrisView({
       setTetris(prev => {
         if (prev.topOut || !prev.current) return prev
         let next = prev
+        // Gravity step (move piece down) only fires every GRAVITY_MS.
         if (gravityAccum >= GRAVITY_MS) {
           gravityAccum = 0
           next = softDropTick(next, GRAVITY_MS)
-        } else {
-          next = softDropTick(next, dt)
+        } else if (next.lockTimer !== null) {
+          // Between gravity ticks, just decrement the lock-delay timer
+          // when the piece is already resting on the ground.
+          const remaining = next.lockTimer - dt
+          next = { ...next, lockTimer: Math.max(0, remaining) }
         }
         if (next.lockTimer !== null && next.lockTimer <= 0) {
-          // Lock & spawn
           next = handleLockAndSpawn(next)
         }
         return next

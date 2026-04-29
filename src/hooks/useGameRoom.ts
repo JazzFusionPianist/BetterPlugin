@@ -92,13 +92,15 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
   }, [supabase, room])
 
   const inviteFriend = useCallback(async (friendId: string, roomId: string): Promise<void> => {
-    await supabase.from('notifications').insert({
+    const { error } = await supabase.from('notifications').insert({
       user_id: friendId,
       actor_id: currentUserId,
       type: 'game_invite',
       read: false,
       metadata: { room_id: roomId, game_type: 'chess' },
     })
+    if (error) console.error('[inviteFriend] insert error:', error)
+    else console.log('[inviteFriend] sent to', friendId, 'roomId', roomId)
   }, [supabase, currentUserId])
 
   const leaveRoom = useCallback(() => {

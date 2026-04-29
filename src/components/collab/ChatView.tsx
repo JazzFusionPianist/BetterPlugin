@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType } from '../../types/collab'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -1047,6 +1048,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      <FloatingOrbs count={28} />
       {dragOver && (
         <div className={`drop-overlay${dragType === 'cancel' ? ' cancel' : ''}`}>
           <div className="drop-overlay-inner">

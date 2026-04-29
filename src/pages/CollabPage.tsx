@@ -272,7 +272,9 @@ function CollabPageInner({ user }: Props) {
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
   const handleViewModeChange  = (mode: 'default' | 'gallery' | 'list') => { setViewMode(mode); localStorage.setItem('collab_view_v2', mode) }
 
-  const handleToggleSearch = () => setSearchOpen(prev => {
+  // Search/AddFriend toggles kept for re-introduction; redesign removed
+  // their trigger buttons from the toolbar but the panels are still wired up.
+  const _handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
       setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
       setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
@@ -280,6 +282,7 @@ function CollabPageInner({ user }: Props) {
     }
     return !prev
   })
+  void _handleToggleSearch
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
     if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); closeSearch() }
@@ -287,7 +290,8 @@ function CollabPageInner({ user }: Props) {
     return !prev
   })
   const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
-  const handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
+  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
+  void _handleToggleAddFriend
   const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
   const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   const handleToggleLive      = () => setLiveOpen(prev => {

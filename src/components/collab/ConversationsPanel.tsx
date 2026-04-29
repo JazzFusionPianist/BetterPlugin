@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Profile } from '../../types/collab'
 import type { Conversation } from '../../hooks/useConversations'
+import FloatingOrbs from '../FloatingOrbs'
 
 function formatConvTime(iso: string): string {
   const d = new Date(iso)
@@ -29,6 +30,7 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
 
   return (
     <>
+      <FloatingOrbs count={28} />
       <div className="conv-tabs" style={{ marginTop: 12 }}>
         <button className={`conv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>
         <button className={`conv-tab${tab === 'favorites' ? ' active' : ''}`} onClick={() => setTab('favorites')}>Favorites</button>

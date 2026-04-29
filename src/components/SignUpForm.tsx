@@ -41,26 +41,24 @@ export default function SignUpForm() {
 
   if (success) {
     return (
-      <div className="flex flex-col items-center gap-4 py-6 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-          <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      <div className="auth-success">
+        <div className="auth-success-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <p className="text-sm font-medium text-gray-900">Check your email</p>
-        <p className="text-xs text-gray-500">
-          We sent a confirmation link to <span className="text-blue-600 font-medium">{email}</span>
+        <p className="auth-success-title">Check your email</p>
+        <p className="auth-success-body">
+          We sent a confirmation link to <strong>{email}</strong>
         </p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSignUp} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="signup-email" className="text-xs font-medium text-gray-600">
-          Email
-        </label>
+    <form onSubmit={handleSignUp} className="auth-form">
+      <div className="auth-field">
+        <label htmlFor="signup-email" className="auth-label">Email</label>
         <input
           id="signup-email"
           type="email"
@@ -68,14 +66,12 @@ export default function SignUpForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="you@example.com"
-          className="h-10 rounded-lg bg-gray-50 px-3 text-sm text-gray-900 placeholder-gray-400 outline-none ring-1 ring-gray-200 focus:ring-blue-500 transition-colors"
+          className="auth-input"
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="signup-password" className="text-xs font-medium text-gray-600">
-          Password
-        </label>
+      <div className="auth-field">
+        <label htmlFor="signup-password" className="auth-label">Password</label>
         <input
           id="signup-password"
           type="password"
@@ -83,14 +79,12 @@ export default function SignUpForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           placeholder="Min 6 characters"
-          className="h-10 rounded-lg bg-gray-50 px-3 text-sm text-gray-900 placeholder-gray-400 outline-none ring-1 ring-gray-200 focus:ring-blue-500 transition-colors"
+          className="auth-input"
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="signup-confirm" className="text-xs font-medium text-gray-600">
-          Confirm Password
-        </label>
+      <div className="auth-field">
+        <label htmlFor="signup-confirm" className="auth-label">Confirm Password</label>
         <input
           id="signup-confirm"
           type="password"
@@ -98,19 +92,13 @@ export default function SignUpForm() {
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
           placeholder="Repeat password"
-          className="h-10 rounded-lg bg-gray-50 px-3 text-sm text-gray-900 placeholder-gray-400 outline-none ring-1 ring-gray-200 focus:ring-blue-500 transition-colors"
+          className="auth-input"
         />
       </div>
 
-      {error && (
-        <p className="text-xs text-red-500">{error}</p>
-      )}
+      {error && <p className="auth-error">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-2 h-10 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <button type="submit" disabled={loading} className="auth-submit">
         {loading ? 'Creating account...' : 'Create Account'}
       </button>
     </form>

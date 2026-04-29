@@ -19,7 +19,7 @@ import type { TetrisState, Board, Piece, PieceType } from '../../hooks/useTetris
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const GRAVITY_MS = 800
+const GRAVITY_MS = 1100
 const TICK_MS = 50
 const SYNC_THROTTLE_MS = 250
 

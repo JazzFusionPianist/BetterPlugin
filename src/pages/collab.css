@@ -4498,21 +4498,24 @@
 .tetris-btn-forfeit { border-color: rgba(255,59,48,.35); color: #FF3B30; }
 .tetris-btn-forfeit:hover { background: rgba(255,59,48,.08); }
 
-/* Layout */
+/* Layout — sized to fit the small plugin window */
 .tetris-game-layout {
-  flex: 1;
+  flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  padding: 8px; gap: 8px;
+  padding: 6px; gap: 6px;
   overflow: hidden;
   position: relative;
 }
 .tetris-opponents-row {
-  display: flex; gap: 8px; justify-content: center;
+  display: flex; gap: 6px; justify-content: center;
   flex-shrink: 0;
+  /* Cap opponents-row height so the self board gets most of the area */
+  max-height: 28%;
 }
 .tetris-self-row {
   flex: 1; min-height: 0;
-  display: flex; gap: 10px; align-items: center; justify-content: center;
+  display: flex; gap: 6px; align-items: stretch; justify-content: center;
+  padding: 0 2px;
 }
 
 /* Board */
@@ -4525,15 +4528,20 @@
   overflow: hidden;
   position: relative;
 }
+/* Self board: fills available height; width derives from aspect ratio. */
 .tetris-board.is-self {
-  width: min(220px, 60vw);
+  height: 100%;
   aspect-ratio: 10 / 20;
+  width: auto;
+  max-width: calc(100% - 70px);   /* leave room for side info */
   flex-shrink: 0;
 }
+/* Opponent board: fills opponents-row height. */
 .tetris-board.is-opponent {
-  width: 90px;
+  height: 100%;
   aspect-ratio: 10 / 20;
-  flex-shrink: 0;
+  width: auto;
+  flex-shrink: 1; min-width: 0;
 }
 .tetris-cell {
   aspect-ratio: 1;
@@ -4561,17 +4569,18 @@
 
 /* Side info (next pieces, score, lines, garbage) */
 .tetris-side-info {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 5px;
   align-items: stretch;
-  width: 80px; flex-shrink: 0;
+  width: 64px; flex-shrink: 0;
   font-family: 'DM Sans', sans-serif;
+  overflow-y: auto;
 }
 .tetris-next-list {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 3px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 5px 4px;
+  padding: 4px 3px;
 }
 .tetris-next-piece {
   display: grid;
@@ -4583,38 +4592,42 @@
 .tetris-next-piece .tetris-cell { background: transparent; }
 .tetris-stat {
   display: flex; flex-direction: column; gap: 1px;
-  padding: 5px 7px;
+  padding: 4px 6px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
 .tetris-stat-label {
-  font-size: 8px; color: var(--t3);
+  font-size: 7px; color: var(--t3);
   font-family: 'DM Mono', monospace;
-  text-transform: uppercase; letter-spacing: 0.5px;
+  text-transform: uppercase; letter-spacing: 0.4px;
 }
 .tetris-stat-value {
-  font-size: 14px; color: var(--t1); font-weight: 700;
+  font-size: 12px; color: var(--t1); font-weight: 700;
   font-family: 'DM Mono', monospace; line-height: 1;
 }
 .tetris-stat-value.warning {
   color: #FF3B30;
 }
 
-/* Opponent header (above small board) */
+/* Opponent (above small board) */
 .tetris-opponent {
   display: flex; flex-direction: column; align-items: center;
-  gap: 4px; position: relative;
+  gap: 2px; position: relative;
+  height: 100%; min-width: 0;
+  flex: 1 1 0;
+  max-width: 90px;
 }
 .tetris-opponent-header {
   display: flex; align-items: center; gap: 4px;
-  max-width: 90px;
+  max-width: 100%;
+  flex-shrink: 0;
 }
 .tetris-opponent-name {
-  font-size: 9px; font-weight: 500; color: var(--t1);
+  font-size: 8px; font-weight: 500; color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 60px;
+  max-width: 64px;
 }
 .tetris-opponent-score {
   font-size: 8px; color: var(--t3);

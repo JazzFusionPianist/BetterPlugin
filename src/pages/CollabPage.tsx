@@ -621,6 +621,7 @@ function CollabPageInner({ user }: Props) {
                 currentUserId={user.id}
                 currentUserProfile={me}
                 friendProfiles={friendProfiles}
+                onlineIds={onlineIds}
                 onClose={() => setGameScreen('list')}
               />
           }

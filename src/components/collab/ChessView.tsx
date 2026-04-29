@@ -438,6 +438,7 @@ interface Props {
   currentUserId: string
   currentUserProfile: Profile | null
   friendProfiles: Profile[]
+  onlineIds: Set<string>      // for detecting opponent disconnect
   onClose: () => void
 }
 
@@ -448,19 +449,23 @@ export default function ChessView({
   currentUserId,
   currentUserProfile,
   friendProfiles,
+  onlineIds,
   onClose,
 }: Props) {
-  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, toggleReady } =
+  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, toggleReady, findActiveRoom } =
     useGameRoom(supabase, currentUserId)
 
-  // Auto-join room if navigated here from a game_invite notification
+  // On mount: auto-join from pending invite first, otherwise resume any active room
   useEffect(() => {
     const pendingRoomId = sessionStorage.getItem('join_room_id')
     if (pendingRoomId && !room) {
       sessionStorage.removeItem('join_room_id')
       joinRoom(pendingRoomId)
+      return
     }
-  }, [joinRoom, room])
+    // Resume any active room (lobby/playing) where we're a participant
+    if (!room) findActiveRoom()
+  }, [joinRoom, findActiveRoom, room])
 
   // Local chess state (mirrors room, but updated optimistically)
   const [chessState, setChessState] = useState<ChessState>(initialChessState())
@@ -503,6 +508,23 @@ export default function ChessView({
     : null
 
   const isHost = room ? currentUserId === room.host_id : false
+
+  // ── Disconnect detection ─────────────────────────────────────────────────
+  // If opponent goes offline during a playing game, after 30s grace period
+  // the still-connected player wins by abandonment.
+  useEffect(() => {
+    if (!room || room.status !== 'playing') return
+    if (!opponentId) return
+    if (onlineIds.has(opponentId)) return  // opponent online → no action
+
+    const timer = setTimeout(() => {
+      // Re-check state at fire time. The room state isn't re-read inside
+      // this closure but realtime UPDATEs would have replaced it via setRoom.
+      // We pass currentUserId as winner — opponent abandoned.
+      endGame(currentUserId)
+    }, 30_000)
+    return () => clearTimeout(timer)
+  }, [room, opponentId, onlineIds, currentUserId, endGame])
 
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'

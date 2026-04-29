@@ -1,13 +1,15 @@
 import React from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 
+export type GameId = 'chess' | 'tetris'
+
 interface Props {
-  onSelectGame: (game: 'chess') => void
+  onSelectGame: (game: GameId) => void
   onClose: () => void
 }
 
 interface GameCard {
-  id: 'chess'
+  id: GameId
   icon: React.ReactNode
   name: string
   description: string
@@ -39,6 +41,30 @@ const GAMES: GameCard[] = [
     ),
     name: 'Chess',
     description: 'Play vs a friend',
+  },
+  {
+    id: 'tetris',
+    icon: (
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        {/* Stack of tetrominoes */}
+        <rect x="4"  y="20" width="6" height="6" rx="1" fill="currentColor" opacity="0.85" />
+        <rect x="10" y="20" width="6" height="6" rx="1" fill="currentColor" opacity="0.65" />
+        <rect x="16" y="20" width="6" height="6" rx="1" fill="currentColor" opacity="0.85" />
+        <rect x="22" y="20" width="6" height="6" rx="1" fill="currentColor" opacity="0.65" />
+        <rect x="10" y="14" width="6" height="6" rx="1" fill="currentColor" opacity="0.85" />
+        <rect x="16" y="14" width="6" height="6" rx="1" fill="currentColor" opacity="0.65" />
+        <rect x="16" y="8"  width="6" height="6" rx="1" fill="currentColor" opacity="0.85" />
+      </svg>
+    ),
+    name: 'Tetris',
+    description: 'Battle 2-4 players · clear lines, send garbage',
   },
 ]
 

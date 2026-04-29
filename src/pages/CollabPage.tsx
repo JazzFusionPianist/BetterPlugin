@@ -22,6 +22,7 @@ import NotificationSettingsPanel, { readNotifSettings } from '../components/coll
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
+import TetrisView from '../components/collab/TetrisView'
 import type { Profile } from '../types/collab'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
@@ -114,7 +115,7 @@ function CollabPageInner({ user }: Props) {
   const [convOpen, setConvOpen]                 = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'tetris'>('list')
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -461,7 +462,11 @@ function CollabPageInner({ user }: Props) {
                 <div className="notif-info">
                   <div className="notif-name">{ev.actor.display_name}</div>
                   <div className="notif-preview">
-                    {ev.type === 'game_invite' ? '♟ invited you to play Chess' : 'followed you'}
+                    {ev.type === 'game_invite'
+                      ? (ev.metadata?.game_type === 'tetris'
+                          ? '🧱 invited you to play Tetris'
+                          : '♟ invited you to play Chess')
+                      : 'followed you'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -473,8 +478,9 @@ function CollabPageInner({ user }: Props) {
                         dismissFriendEvent(ev.id)
                         setNotifOpen(false)
                         setGameOpen(true)
-                        setGameScreen('chess')
-                        // ChessView will join via room_id stored in sessionStorage
+                        const gameType = ev.metadata?.game_type === 'tetris' ? 'tetris' : 'chess'
+                        setGameScreen(gameType)
+                        // The game view will join via room_id stored in sessionStorage
                         sessionStorage.setItem('join_room_id', ev.metadata!.room_id!)
                       }}
                     >
@@ -607,20 +613,32 @@ function CollabPageInner({ user }: Props) {
 
         {/* Game view */}
         <div className="view gview">
-          {gameScreen === 'list'
-            ? <GameListView
-                onSelectGame={(g) => { if (g === 'chess') setGameScreen('chess') }}
-                onClose={() => setGameOpen(false)}
-              />
-            : <ChessView
-                supabase={client}
-                currentUserId={user.id}
-                currentUserProfile={me}
-                friendProfiles={friendProfiles}
-                onlineIds={onlineIds}
-                onClose={() => setGameScreen('list')}
-              />
-          }
+          {gameScreen === 'list' && (
+            <GameListView
+              onSelectGame={(g) => setGameScreen(g)}
+              onClose={() => setGameOpen(false)}
+            />
+          )}
+          {gameScreen === 'chess' && (
+            <ChessView
+              supabase={client}
+              currentUserId={user.id}
+              currentUserProfile={me}
+              friendProfiles={friendProfiles}
+              onlineIds={onlineIds}
+              onClose={() => setGameScreen('list')}
+            />
+          )}
+          {gameScreen === 'tetris' && (
+            <TetrisView
+              supabase={client}
+              currentUserId={user.id}
+              currentUserProfile={me}
+              friendProfiles={friendProfiles}
+              onlineIds={onlineIds}
+              onClose={() => setGameScreen('list')}
+            />
+          )}
         </div>
 
         <div className="view afview">

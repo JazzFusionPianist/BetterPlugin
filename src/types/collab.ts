@@ -47,6 +47,29 @@ export function getInitials(name: string): string {
     .toUpperCase()
 }
 
+export interface TetrisRoom {
+  id: string
+  host_id: string
+  player_count: 2 | 3 | 4
+  status: 'lobby' | 'playing' | 'finished'
+  player_ids: string[]    // host is always [0]
+  ready_ids: string[]
+  winner_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TetrisPlayerState {
+  room_id: string
+  user_id: string
+  board: (string | null)[][]   // 20 rows × 10 cols, cell holds piece type ('I','O',...) or null
+  score: number
+  lines: number
+  top_out: boolean
+  garbage_pending: number
+  updated_at: string
+}
+
 export interface GameRoom {
   id: string
   game_type: 'chess'

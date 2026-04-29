@@ -131,14 +131,15 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     setRoom(null)
   }, [supabase, room])
 
-  // Find an active room (lobby or playing) where the current user is host or guest.
-  // Used to resume games after closing/reopening the chess view.
+  // Find an active room where the current user is host or guest.
+  // Only resumes 'playing' games — lobby/finished are transient states
+  // that should start fresh on each visit.
   const findActiveRoom = useCallback(async (): Promise<GameRoom | null> => {
     const { data, error } = await supabase
       .from('game_rooms')
       .select('*')
       .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
-      .in('status', ['lobby', 'playing'])
+      .eq('status', 'playing')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()

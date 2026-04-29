@@ -26,7 +26,7 @@ export interface Message {
 
 export interface AppNotification {
   id: string
-  type: 'follow'
+  type: 'follow' | 'game_invite'
   read: boolean
   created_at: string
   actor: {
@@ -35,6 +35,7 @@ export interface AppNotification {
     avatar_color: string
     avatar_url?: string | null
   }
+  metadata?: { room_id?: string; game_type?: string } | null
 }
 
 export function getInitials(name: string): string {
@@ -44,4 +45,24 @@ export function getInitials(name: string): string {
     .map(w => w[0] ?? '')
     .join('')
     .toUpperCase()
+}
+
+export interface GameRoom {
+  id: string
+  game_type: 'chess'
+  host_id: string
+  guest_id: string | null
+  status: 'lobby' | 'playing' | 'finished'
+  board: (string | null)[][] | null   // ChessBoard serialized
+  turn: 'white' | 'black'
+  host_color: 'white' | 'black'
+  winner_id: string | null
+  draw_offered_by: string | null
+  captured: { white: string[]; black: string[] }
+  move_history: string[]   // algebraic notation
+  castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean }
+  en_passant: [number, number] | null
+  halfmove: number
+  created_at: string
+  updated_at: string
 }

@@ -20,6 +20,8 @@ import LivePanel from '../components/collab/LivePanel'
 import LiveViewer from '../components/collab/LiveViewer'
 import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
+import GameListView from '../components/collab/GameListView'
+import ChessView from '../components/collab/ChessView'
 import type { Profile } from '../types/collab'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
@@ -111,6 +113,8 @@ function CollabPageInner({ user }: Props) {
   const [notifOpen, setNotifOpen]               = useState(false)
   const [convOpen, setConvOpen]                 = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
+  const [gameOpen, setGameOpen]                 = useState(false)
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess'>('list')
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -339,6 +343,7 @@ function CollabPageInner({ user }: Props) {
     setSelectedId(null); setViewingProfileId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
     setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false)
+    setGameOpen(false); setGameScreen('list')
     setWatchingSession(null)
     closeSearch()
   }
@@ -353,6 +358,7 @@ function CollabPageInner({ user }: Props) {
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
+    gameOpen          ? 'game-open'          : '',
     wallpaper         ? 'has-wallpaper'      : '',
   ].filter(Boolean).join(' ')
 
@@ -402,6 +408,25 @@ function CollabPageInner({ user }: Props) {
           {mySession && <span className="live-btn-dot" />}
         </div>
 
+        {/* Mini Games */}
+        <div
+          className={`icon-btn${gameOpen ? ' active' : ''}`}
+          onClick={() => {
+            const next = !gameOpen
+            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); closeSearch() }
+            setGameOpen(next)
+            if (next) setGameScreen('list')
+          }}
+          title="Games"
+        >
+          <svg viewBox="0 0 16 16" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1.5" y="4.5" width="13" height="8" rx="2" />
+            <path d="M5.5 8.5h2M6.5 7.5v2" />
+            <circle cx="10.5" cy="8" r=".6" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="9.5" r=".6" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+
         {/* Settings */}
         <div className={`icon-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">
           <svg viewBox="0 0 16 16" strokeWidth="1.4"><circle cx="8" cy="8" r="2" /><path d="M8 2v1.2M8 12.8V14M2 8h1.2M12.8 8H14M3.76 3.76l.85.85M11.39 11.39l.85.85M3.76 12.24l.85-.85M11.39 4.61l.85-.85" /></svg>
@@ -424,7 +449,7 @@ function CollabPageInner({ user }: Props) {
             <div className="notif-empty">No notifications</div>
           )}
 
-          {/* Follow 알림 */}
+          {/* Follow / Game Invite 알림 */}
           {visibleEvents.map(ev => (
             <SwipeRow key={ev.id} onDismiss={() => dismissFriendEvent(ev.id)}>
               <div className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
@@ -435,10 +460,27 @@ function CollabPageInner({ user }: Props) {
                 </div>
                 <div className="notif-info">
                   <div className="notif-name">{ev.actor.display_name}</div>
-                  <div className="notif-preview">followed you</div>
+                  <div className="notif-preview">
+                    {ev.type === 'game_invite' ? '♟ invited you to play Chess' : 'followed you'}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {!followingIds.has(ev.actor.id) && (
+                  {ev.type === 'game_invite' && ev.metadata?.room_id ? (
+                    <button
+                      className="notif-action-btn notif-accept"
+                      onClick={async e => {
+                        e.stopPropagation()
+                        dismissFriendEvent(ev.id)
+                        setNotifOpen(false)
+                        setGameOpen(true)
+                        setGameScreen('chess')
+                        // ChessView will join via room_id stored in sessionStorage
+                        sessionStorage.setItem('join_room_id', ev.metadata!.room_id!)
+                      }}
+                    >
+                      Join
+                    </button>
+                  ) : !followingIds.has(ev.actor.id) && (
                     <button
                       className="notif-action-btn notif-accept"
                       onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
@@ -560,6 +602,23 @@ function CollabPageInner({ user }: Props) {
               onClose={() => setLiveOpen(false)}
             />
           )}
+        </div>
+
+        {/* Game view */}
+        <div className="view gview">
+          {gameScreen === 'list'
+            ? <GameListView
+                onSelectGame={(g) => { if (g === 'chess') setGameScreen('chess') }}
+                onClose={() => setGameOpen(false)}
+              />
+            : <ChessView
+                supabase={client}
+                currentUserId={user.id}
+                currentUserProfile={me}
+                friendProfiles={friendProfiles}
+                onClose={() => setGameScreen('list')}
+              />
+          }
         </div>
 
         <div className="view afview">

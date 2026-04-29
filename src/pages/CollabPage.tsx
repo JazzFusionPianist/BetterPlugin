@@ -152,7 +152,7 @@ function CollabPageInner({ user }: Props) {
   const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
   const onlineIds  = usePresence(client, user.id)
   const { unread, markSeen } = useNotifications(client, user.id)
-  const { events: friendEvents, unreadCount: friendEventCount, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
+  const { events: friendEvents, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
   const { liveSessions, mySession, liveHostIds, startLive, endLive, updateLive } = useLive(client, user.id)

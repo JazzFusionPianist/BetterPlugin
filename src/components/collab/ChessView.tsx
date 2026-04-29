@@ -509,12 +509,22 @@ export default function ChessView({
 
   const isHost = room ? currentUserId === room.host_id : false
 
-  // Note: opponent disconnect detection was removed because closing the plugin
-  // window unmounts the WebView and severs the Supabase Realtime connection,
-  // which would falsely trigger an opponent-abandoned win. A proper presence
-  // system would need to live in the JUCE C++ layer (separate from the editor
-  // window). For now, players resign manually if they want to give up.
-  void onlineIds  // mark as intentionally unused
+  // ── Disconnect detection ─────────────────────────────────────────────────
+  // The plugin keeps its WebView alive in the AudioProcessor across editor
+  // window open/close, so closing the plugin window does NOT drop Supabase
+  // Realtime presence. A real disconnect (DAW closed, plugin removed, etc.)
+  // takes the user offline; if the opponent stays offline for 60s while a
+  // game is playing, the still-connected player wins by abandonment.
+  useEffect(() => {
+    if (!room || room.status !== 'playing') return
+    if (!opponentId) return
+    if (onlineIds.has(opponentId)) return  // opponent online → no action
+
+    const timer = setTimeout(() => {
+      endGame(currentUserId)
+    }, 60_000)
+    return () => clearTimeout(timer)
+  }, [room, opponentId, onlineIds, currentUserId, endGame])
 
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'

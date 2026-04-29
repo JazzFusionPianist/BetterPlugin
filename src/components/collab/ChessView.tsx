@@ -83,8 +83,12 @@ function ChessBoard({
     setValidMoves([])
   }, [state.turn])
 
-  const rows = myColor === 'black' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
-  const cols = myColor === 'black' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7]
+  // Board representation: row 0 = rank 8 (black back), row 7 = rank 1 (white back).
+  // Standard chess display: your pieces at the bottom, opponent at top.
+  // White view: render row 0 first (black at top) → row 7 last (white at bottom).
+  // Black view: render row 7 first (white at top) → row 0 last (black at bottom).
+  const rows = myColor === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
+  const cols = myColor === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
 
   // Find king position for check highlight
   const myKingPos: Pos | null = (() => {
@@ -118,12 +122,10 @@ function ChessBoard({
 
   function handleSquareClick(row: number, col: number) {
     const piece = state.board[row][col]
-    console.log('[chess] click', { row, col, piece, selected, isMyTurn, turn: state.turn, myColor, validMovesCount: validMoves.length })
 
     if (selected) {
       const isValid = validMoves.some(([vr, vc]) => vr === row && vc === col)
       if (isValid) {
-        console.log('[chess] making move', selected, '->', [row, col])
         onMove(selected, [row, col])
         setSelected(null)
         setValidMoves([])
@@ -145,14 +147,53 @@ function ChessBoard({
     }
 
     // No piece selected yet
-    if (!piece) { console.log('[chess] no piece'); return }
-    if (!isMyTurn) { console.log('[chess] not my turn'); return }
-    if (pieceColor(piece) !== myColor) { console.log('[chess] wrong color'); return }
+    if (!piece) return
+    if (!isMyTurn) return
+    if (pieceColor(piece) !== myColor) return
 
     const moves = getValidMoves(state, [row, col])
-    console.log('[chess] selecting piece, valid moves:', moves)
     setSelected([row, col])
     setValidMoves(moves)
+  }
+
+  // Drag handlers: HTML5 drag & drop
+  function handleDragStart(e: React.DragEvent, row: number, col: number) {
+    const piece = state.board[row][col]
+    if (!piece || !isMyTurn || pieceColor(piece) !== myColor) {
+      e.preventDefault()
+      return
+    }
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `${row},${col}`)
+    const moves = getValidMoves(state, [row, col])
+    setSelected([row, col])
+    setValidMoves(moves)
+  }
+
+  function handleDragOver(e: React.DragEvent, row: number, col: number) {
+    if (!selected) return
+    const isValid = validMoves.some(([vr, vc]) => vr === row && vc === col)
+    if (isValid) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  function handleDrop(e: React.DragEvent, row: number, col: number) {
+    e.preventDefault()
+    if (!selected) return
+    const isValid = validMoves.some(([vr, vc]) => vr === row && vc === col)
+    if (isValid) {
+      onMove(selected, [row, col])
+    }
+    setSelected(null)
+    setValidMoves([])
+  }
+
+  function handleDragEnd() {
+    // Clear selection if drop didn't land on a valid square
+    setSelected(null)
+    setValidMoves([])
   }
 
   return (
@@ -187,6 +228,7 @@ function ChessBoard({
             const showFileLabel = rowIdx === 7
             const fileLabel = FILE_LABELS[col]
 
+            const canDragThis = piece !== null && isMyTurn && pieceColor(piece) === myColor
             return (
               <div
                 key={col}
@@ -194,6 +236,8 @@ function ChessBoard({
                 role="gridcell"
                 aria-label={`${FILE_LABELS[col]}${8 - row}${piece ? ' ' + piece : ''}`}
                 onClick={() => handleSquareClick(row, col)}
+                onDragOver={e => handleDragOver(e, row, col)}
+                onDrop={e => handleDrop(e, row, col)}
                 style={{ position: 'relative', cursor: isMyTurn ? 'pointer' : 'default' }}
               >
                 {showRankLabel && (
@@ -242,9 +286,12 @@ function ChessBoard({
                 {piece && (
                   <span
                     className="chess-piece"
+                    draggable={canDragThis}
+                    onDragStart={e => handleDragStart(e, row, col)}
+                    onDragEnd={handleDragEnd}
                     style={{
                       userSelect: 'none',
-                      pointerEvents: 'none',
+                      cursor: canDragThis ? 'grab' : 'default',
                     }}
                   >
                     {PIECES[piece] ?? piece}

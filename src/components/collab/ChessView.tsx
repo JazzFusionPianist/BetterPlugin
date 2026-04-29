@@ -470,7 +470,7 @@ export default function ChessView({
   friendProfiles,
   onClose,
 }: Props) {
-  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom } =
+  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, toggleReady } =
     useGameRoom(supabase, currentUserId)
 
   // Auto-join room if navigated here from a game_invite notification
@@ -554,15 +554,6 @@ export default function ChessView({
     [room, createRoom, inviteFriend],
   )
 
-  const handleStartGame = useCallback(async () => {
-    if (!room) return
-    const initialState = initialChessState()
-    await startGame(initialState.board as (string | null)[][])
-    setChessState(initialState)
-    setLastFrom(null)
-    setLastTo(null)
-  }, [room, startGame])
-
   const handleMove = useCallback(
     async (from: Pos, to: Pos, promoteTo?: string) => {
       if (!room || !isMyTurn) return
@@ -636,65 +627,38 @@ export default function ChessView({
     await makeMove({ draw_offered_by: currentUserId } as Partial<GameRoom>)
   }, [room, currentUserId, endGame, makeMove])
 
-  const handlePlayAgain = useCallback(async () => {
-    leaveRoom()
-    setChessState(initialChessState())
-    setLastFrom(null)
-    setLastTo(null)
-    setInvitedIds(new Set())
-    setPendingPromotion(null)
-    setDrawOffering(false)
-    await createRoom()
-  }, [leaveRoom, createRoom])
-
-  // ── Result UI ──────────────────────────────────────────────
-
-  if (room?.status === 'finished') {
-    let resultTitle = 'Draw'
-    let resultEmoji = '🤝'
-    if (room.winner_id === currentUserId) {
-      resultTitle = 'You won!'
-      resultEmoji = '🏆'
-    } else if (room.winner_id && room.winner_id !== currentUserId) {
-      resultTitle = 'You lost'
-      resultEmoji = '😔'
+  // Auto-start when both players ready (host only triggers to avoid races)
+  const isHostLocal = room ? currentUserId === room.host_id : false
+  useEffect(() => {
+    if (!room || !isHostLocal) return
+    if (room.status === 'lobby' && room.guest_id && room.host_ready && room.guest_ready) {
+      const initialState = initialChessState()
+      startGame(initialState.board as (string | null)[][])
+      setChessState(initialState)
+      setLastFrom(null)
+      setLastTo(null)
     }
+  }, [room, isHostLocal, startGame])
 
-    return (
-      <div className="chess-view chess-result">
-        <div className="chess-header">
-          <button
-            className="chess-back-btn"
-            onClick={() => { leaveRoom(); onClose() }}
-            aria-label="Go back"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <span className="chess-title">Chess</span>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-          <div className="chess-result-title">
-            <span style={{ fontSize: 48 }}>{resultEmoji}</span>
-            <span style={{ fontSize: 28, fontWeight: 700, marginTop: 8 }}>{resultTitle}</span>
-          </div>
-          <button className="chess-result-btn" onClick={handlePlayAgain}>
-            Play Again
-          </button>
-          <button className="chess-result-btn" onClick={() => { leaveRoom(); onClose() }} style={{ opacity: 0.6 }}>
-            Back
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // ── Game UI (handles both 'playing' and 'finished' — finish shows overlay) ──
 
-  // ── Game UI ────────────────────────────────────────────────
-
-  if (room?.status === 'playing') {
+  if (room?.status === 'playing' || room?.status === 'finished') {
+    const isFinished = room.status === 'finished'
     const drawOfferedByOpponent =
       room.draw_offered_by !== null && room.draw_offered_by !== currentUserId
+
+    let resultTitle = 'Draw'
+    let resultEmoji = '🤝'
+    if (isFinished) {
+      if (room.winner_id === currentUserId) {
+        resultTitle = 'You won!'
+        resultEmoji = '🏆'
+      } else if (room.winner_id && room.winner_id !== currentUserId) {
+        resultTitle = 'You lost'
+        resultEmoji = '😔'
+      }
+    }
+    const myReady = isHostLocal ? room.host_ready : room.guest_ready
 
     return (
       <div className="chess-view">
@@ -753,7 +717,7 @@ export default function ChessView({
             </div>
           )}
 
-          {/* Board */}
+          {/* Board (with finish overlay when game is over) */}
           <div className="chess-board-wrap">
             <ChessBoard
               state={chessState}
@@ -761,8 +725,25 @@ export default function ChessView({
               onMove={handleMove}
               lastFrom={lastFrom}
               lastTo={lastTo}
-              isMyTurn={isMyTurn}
+              isMyTurn={isMyTurn && !isFinished}
             />
+            {isFinished && (
+              <div className="chess-finish-overlay">
+                <div className="chess-finish-card">
+                  <div className="chess-finish-emoji">{resultEmoji}</div>
+                  <div className="chess-finish-title">{resultTitle}</div>
+                  <button
+                    className={`chess-ready-btn${myReady ? ' ready' : ''}`}
+                    onClick={toggleReady}
+                  >
+                    {myReady ? '✓ Ready' : 'Ready'}
+                  </button>
+                  <div className="chess-finish-readystate">
+                    {(room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0)} / 2 ready
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* My captured pieces */}
@@ -819,7 +800,7 @@ export default function ChessView({
 
   const hasGuest = room && room.guest_id !== null
   const isWaitingForGuest = room && !room.guest_id
-  const isGuestWaiting = room && room.guest_id === currentUserId
+  const myReadyLobby = room ? (isHost ? room.host_ready : room.guest_ready) : false
 
   return (
     <div className="chess-view chess-lobby">
@@ -841,9 +822,9 @@ export default function ChessView({
       <BoardPreview />
 
       {/* Lobby actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '0 24px', flex: 1 }}>
-        {/* Invite button — only host sees it, or if no room yet */}
-        {(!room || isHost) && (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '0 24px', flex: 1 }}>
+        {/* Invite button — host only, when guest hasn't joined */}
+        {(!room || (isHost && !hasGuest)) && (
           <button
             className="chess-invite-btn"
             onClick={() => setShowInviteModal(true)}
@@ -853,33 +834,36 @@ export default function ChessView({
           </button>
         )}
 
-        {/* Guest info + start button (host only) */}
-        {hasGuest && isHost && (
+        {/* Both players present → show ready system */}
+        {hasGuest && (
           <>
-            <div className="chess-player-row" style={{ width: '100%', maxWidth: 280 }}>
-              {opponentProfile ? (
-                <>
-                  <Avatar profile={opponentProfile} size={32} />
-                  <span className="chess-player-name" style={{ marginLeft: 8 }}>
-                    {opponentProfile.display_name}
-                  </span>
-                </>
-              ) : (
-                <span className="chess-player-name">Friend joined</span>
-              )}
-            </div>
-            <button className="chess-btn" onClick={handleStartGame} disabled={loading}>
-              ▶ Start Game
+            {opponentProfile && (
+              <div className="chess-player-row" style={{ width: '100%', maxWidth: 280 }}>
+                <Avatar profile={opponentProfile} size={28} />
+                <span className="chess-player-name" style={{ marginLeft: 8, flex: 1 }}>
+                  {opponentProfile.display_name}
+                </span>
+                <span className={`chess-ready-badge${(isHost ? room!.guest_ready : room!.host_ready) ? ' ready' : ''}`}>
+                  {(isHost ? room!.guest_ready : room!.host_ready) ? '✓ Ready' : 'Not ready'}
+                </span>
+              </div>
+            )}
+            <button
+              className={`chess-ready-btn${myReadyLobby ? ' ready' : ''}`}
+              onClick={toggleReady}
+              disabled={loading}
+            >
+              {myReadyLobby ? '✓ Ready' : 'Ready'}
             </button>
+            <div className="chess-finish-readystate">
+              {(room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0)} / 2 ready
+            </div>
           </>
         )}
 
-        {/* Waiting states */}
+        {/* Waiting for guest to accept invite */}
         {isWaitingForGuest && isHost && (
           <p className="chess-waiting">Waiting for friend...</p>
-        )}
-        {isGuestWaiting && (
-          <p className="chess-waiting">Waiting for host to start…</p>
         )}
       </div>
 

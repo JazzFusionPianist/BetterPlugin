@@ -63,6 +63,8 @@ export interface GameRoom {
   castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean }
   en_passant: [number, number] | null
   halfmove: number
+  host_ready: boolean
+  guest_ready: boolean
   created_at: string
   updated_at: string
 }

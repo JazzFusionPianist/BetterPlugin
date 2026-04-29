@@ -3668,7 +3668,65 @@
 }
 .chess-promo-choice:hover { background: var(--bg3); }
 
-/* Result screen */
+/* Ready button (lobby + finish overlay) */
+.chess-ready-btn {
+  width: 100%; max-width: 220px; padding: 11px;
+  border-radius: 10px; border: 2px solid var(--border);
+  background: var(--bg2); color: var(--t1);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background .15s, border-color .15s, transform .08s;
+}
+.chess-ready-btn:hover { background: var(--bg3); }
+.chess-ready-btn:active { transform: scale(0.97); }
+.chess-ready-btn.ready {
+  background: #34C759; color: #fff; border-color: #34C759;
+}
+.chess-ready-btn.ready:hover { background: #2bb14d; }
+
+.chess-ready-badge {
+  font-size: 9px; font-weight: 700;
+  padding: 3px 7px; border-radius: 4px;
+  background: var(--bg3); color: var(--t3);
+  font-family: 'DM Mono', monospace;
+}
+.chess-ready-badge.ready {
+  background: rgba(52, 199, 89, 0.18); color: #34C759;
+}
+
+.chess-finish-readystate {
+  font-size: 11px; color: var(--t3);
+  font-family: 'DM Mono', monospace;
+}
+
+/* Finish overlay (over the chess board) */
+.chess-finish-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 4px;
+  animation: chessFinishIn 0.3s ease-out;
+}
+@keyframes chessFinishIn {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(6px); }
+}
+.chess-finish-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 18px 22px;
+  background: var(--bg); border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  min-width: 180px;
+}
+.chess-finish-emoji { font-size: 40px; line-height: 1; }
+.chess-finish-title {
+  font-size: 18px; font-weight: 700; color: var(--t1);
+  font-family: 'DM Sans', sans-serif; text-align: center;
+}
+
+/* Result screen (legacy — kept for any unhandled fallback) */
 .chess-result {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;

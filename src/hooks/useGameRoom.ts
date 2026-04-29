@@ -72,8 +72,25 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       status: 'playing',
       board: initialBoard,
       turn: 'white',
+      captured: { white: [], black: [] },
+      move_history: [],
+      castling: { wK: true, wQ: true, bK: true, bQ: true },
+      en_passant: null,
+      halfmove: 0,
+      winner_id: null,
+      draw_offered_by: null,
+      host_ready: false,
+      guest_ready: false,
     }).eq('id', room.id)
   }, [supabase, room])
+
+  const toggleReady = useCallback(async (): Promise<void> => {
+    if (!room) return
+    const isHost = currentUserId === room.host_id
+    const field = isHost ? 'host_ready' : 'guest_ready'
+    const current = isHost ? room.host_ready : room.guest_ready
+    await supabase.from('game_rooms').update({ [field]: !current }).eq('id', room.id)
+  }, [supabase, room, currentUserId])
 
   const makeMove = useCallback(async (updates: Partial<GameRoom>): Promise<void> => {
     if (!room) return
@@ -108,5 +125,5 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
 
   const setRoomDirect = useCallback((r: GameRoom | null) => setRoom(r), [])
 
-  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, leaveRoom, setRoom: setRoomDirect }
+  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, leaveRoom, toggleReady, setRoom: setRoomDirect }
 }

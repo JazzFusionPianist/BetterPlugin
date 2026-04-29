@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Profile } from '../../types/collab'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface Props {
   allProfiles: Profile[]
@@ -40,7 +41,7 @@ export default function AddFriendPanel({
   mutualIds,
   onFollow,
   onUnfollow,
-  onClose: _onClose,
+  onClose,
 }: Props) {
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(7)
@@ -59,93 +60,98 @@ export default function AddFriendPanel({
   const hasMore = filtered.length > limit
 
   return (
-    <>
-      {/* Search */}
-      <div className="af-search">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1.5" style={{ flexShrink: 0 }}>
-          <circle cx="6.5" cy="6.5" r="4" /><path d="M10 10l3 3" strokeLinecap="round" />
-        </svg>
-        <input
-          className="af-search-input"
-          type="text"
-          placeholder="search by name..."
-          value={query}
-          onChange={e => { setQuery(e.target.value); setLimit(7) }}
-        />
-        {query && (
-          <button className="search-clear visible" onClick={() => setQuery('')}>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--t3)" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M1 1l8 8M9 1L1 9" />
-            </svg>
-          </button>
-        )}
+    <div className="settings-panel">
+      <FloatingOrbs count={28} />
+
+      <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
+        <span className="settings-header-back">‹</span>
+        <span className="settings-header-title">Find people</span>
       </div>
 
-      {/* Results */}
-      <div className="af-list">
-        {results.length === 0 && (
-          <div className="collab-loading" style={{ flex: 'unset', marginTop: 32 }}>
-            {query.trim() ? 'No results' : 'Search for someone to follow'}
-          </div>
-        )}
-        {results.map(p => {
-          const isMutual    = mutualIds.has(p.id)
-          const isFollowing = followingIds.has(p.id)
-          const isFollower  = followerIds.has(p.id)
-          const isLoading   = pending.has(p.id)
+      <div className="af-stack">
+        <div className="settings-card af-search-card">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1.5" style={{ flexShrink: 0 }}>
+            <circle cx="6.5" cy="6.5" r="4" />
+            <path d="M10 10l3 3" strokeLinecap="round" />
+          </svg>
+          <input
+            className="af-search-input"
+            type="text"
+            placeholder="search by name..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setLimit(7) }}
+          />
+          {query && (
+            <button className="af-search-clear" onClick={() => setQuery('')}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--t3)" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M1 1l8 8M9 1L1 9" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-          return (
-            <div key={p.id} className="af-row">
-              <Avatar profile={p} />
-              <div className="f-info">
-                <div className="f-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  {p.display_name}
-                  {p.is_verified && <VerifiedBadge />}
-                </div>
-                <div className="f-sub">
-                  {isMutual ? 'mutual' : isFollower ? 'follows you' : p.isOnline ? 'online' : 'offline'}
-                </div>
-              </div>
-
-              {isMutual ? (
-                /* 서로 팔로우 = 친구 */
-                <button
-                  className="af-btn af-btn-added"
-                  disabled={isLoading}
-                  onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                  title="Unfollow"
-                >
-                  {isLoading ? '...' : 'Mutual ✓'}
-                </button>
-              ) : isFollowing ? (
-                /* 내가 팔로우 중 */
-                <button
-                  className="af-btn af-btn-requested"
-                  disabled={isLoading}
-                  onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                  title="Unfollow"
-                >
-                  {isLoading ? '...' : 'Following'}
-                </button>
-              ) : (
-                /* 팔로우 안 함 */
-                <button
-                  className="af-btn"
-                  disabled={isLoading}
-                  onClick={() => withPending(p.id, () => onFollow(p.id))}
-                >
-                  {isLoading ? '...' : isFollower ? '+ Follow back' : '+ Follow'}
-                </button>
-              )}
+        <div className="af-results">
+          {results.length === 0 && (
+            <div className="settings-card af-empty">
+              {query.trim() ? 'No results' : 'Search for someone to follow'}
             </div>
-          )
-        })}
-        {hasMore && (
-          <button className="af-load-more" onClick={() => setLimit(l => l + 7)}>
-            Load More
-          </button>
-        )}
+          )}
+          {results.map(p => {
+            const isMutual    = mutualIds.has(p.id)
+            const isFollowing = followingIds.has(p.id)
+            const isFollower  = followerIds.has(p.id)
+            const isLoading   = pending.has(p.id)
+
+            return (
+              <div key={p.id} className="settings-card af-result-card">
+                <Avatar profile={p} />
+                <div className="f-info">
+                  <div className="f-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {p.display_name}
+                    {p.is_verified && <VerifiedBadge />}
+                  </div>
+                  <div className="f-sub">
+                    {isMutual ? 'mutual' : isFollower ? 'follows you' : p.isOnline ? 'online' : 'offline'}
+                  </div>
+                </div>
+
+                {isMutual ? (
+                  <button
+                    className="af-btn af-btn-added"
+                    disabled={isLoading}
+                    onClick={() => withPending(p.id, () => onUnfollow(p.id))}
+                    title="Unfollow"
+                  >
+                    {isLoading ? '...' : 'Mutual ✓'}
+                  </button>
+                ) : isFollowing ? (
+                  <button
+                    className="af-btn af-btn-requested"
+                    disabled={isLoading}
+                    onClick={() => withPending(p.id, () => onUnfollow(p.id))}
+                    title="Unfollow"
+                  >
+                    {isLoading ? '...' : 'Following'}
+                  </button>
+                ) : (
+                  <button
+                    className="af-btn"
+                    disabled={isLoading}
+                    onClick={() => withPending(p.id, () => onFollow(p.id))}
+                  >
+                    {isLoading ? '...' : isFollower ? '+ Follow back' : '+ Follow'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {hasMore && (
+            <button className="af-load-more" onClick={() => setLimit(l => l + 7)}>
+              Load More
+            </button>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   )
 }

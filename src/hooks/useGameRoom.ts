@@ -100,7 +100,6 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       metadata: { room_id: roomId, game_type: 'chess' },
     })
     if (error) console.error('[inviteFriend] insert error:', error)
-    else console.log('[inviteFriend] sent to', friendId, 'roomId', roomId)
   }, [supabase, currentUserId])
 
   const leaveRoom = useCallback(() => {

@@ -251,10 +251,15 @@ function CollabPageInner({ user }: Props) {
   }, [replaceSource, updateLive])
 
   // 알림 설정에 따라 보이는 알림 필터링
-  const visibleEvents   = notifSettings.follow  ? friendEvents : []
-  const visibleUnread   = notifSettings.message ? unread       : new Map()
-  // 알림 벨 카운트 (설정에 따라 필터링)
-  const bellCount       = (notifSettings.follow ? friendEventCount : 0) + (notifSettings.message ? unread.size : 0)
+  // game_invite는 follow 설정과 무관하게 항상 표시
+  const gameInviteEvents = friendEvents.filter(e => e.type === 'game_invite')
+  const followEvents     = notifSettings.follow ? friendEvents.filter(e => e.type !== 'game_invite') : []
+  const visibleEvents    = [...gameInviteEvents, ...followEvents]
+  const visibleUnread    = notifSettings.message ? unread : new Map()
+  // 알림 벨 카운트
+  const bellCount = gameInviteEvents.filter(e => !e.read).length
+    + (notifSettings.follow ? friendEvents.filter(e => e.type !== 'game_invite' && !e.read).length : 0)
+    + (notifSettings.message ? unread.size : 0)
 
   const handleToggleFav = (id: string) => {
     setFavorites(prev => {

@@ -509,22 +509,12 @@ export default function ChessView({
 
   const isHost = room ? currentUserId === room.host_id : false
 
-  // ── Disconnect detection ─────────────────────────────────────────────────
-  // If opponent goes offline during a playing game, after 30s grace period
-  // the still-connected player wins by abandonment.
-  useEffect(() => {
-    if (!room || room.status !== 'playing') return
-    if (!opponentId) return
-    if (onlineIds.has(opponentId)) return  // opponent online → no action
-
-    const timer = setTimeout(() => {
-      // Re-check state at fire time. The room state isn't re-read inside
-      // this closure but realtime UPDATEs would have replaced it via setRoom.
-      // We pass currentUserId as winner — opponent abandoned.
-      endGame(currentUserId)
-    }, 30_000)
-    return () => clearTimeout(timer)
-  }, [room, opponentId, onlineIds, currentUserId, endGame])
+  // Note: opponent disconnect detection was removed because closing the plugin
+  // window unmounts the WebView and severs the Supabase Realtime connection,
+  // which would falsely trigger an opponent-abandoned win. A proper presence
+  // system would need to live in the JUCE C++ layer (separate from the editor
+  // window). For now, players resign manually if they want to give up.
+  void onlineIds  // mark as intentionally unused
 
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'

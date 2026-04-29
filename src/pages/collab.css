@@ -3830,18 +3830,16 @@
   user-select: none;
 }
 
-/* Board labels */
-.chess-rank-label {
-  position: absolute; left: 2px; top: 1px;
-  font-size: 7px; font-weight: 700; font-family: 'DM Mono', monospace;
-  line-height: 1; pointer-events: none; z-index: 2;
+/* Board labels — colors are constant (board square colors), independent of
+   light/dark theme since the chess board itself has fixed colors.        */
+.chess-sq-rank, .chess-sq-file,
+.chess-rank-label, .chess-file-label {
+  font-family: 'DM Mono', monospace;
+  pointer-events: none;
 }
-.chess-file-label {
-  position: absolute; right: 2px; bottom: 1px;
-  font-size: 7px; font-weight: 700; font-family: 'DM Mono', monospace;
-  line-height: 1; pointer-events: none; z-index: 2;
-}
+.sq-light .chess-sq-rank, .sq-light .chess-sq-file,
 .sq-light .chess-rank-label, .sq-light .chess-file-label { color: #B58863; }
+.sq-dark  .chess-sq-rank, .sq-dark  .chess-sq-file,
 .sq-dark  .chess-rank-label, .sq-dark  .chess-file-label  { color: #F0D9B5; }
 
 /* Move history */
@@ -3859,6 +3857,15 @@
 .chess-move-item.full-move::before {
   content: attr(data-num) '. ';
   color: var(--t3);
+}
+/* Move-history entries used in JSX (not classed above) — inherit theme */
+.chess-move-entry {
+  font-size: 10px; color: var(--t2);
+  font-family: 'DM Mono', monospace;
+}
+.chess-move-number {
+  color: var(--t3);
+  margin-right: 2px;
 }
 
 /* Promotion modal */
@@ -3933,9 +3940,14 @@
 .chess-finish-card {
   display: flex; flex-direction: column; align-items: center;
   gap: 10px; padding: 18px 22px;
-  background: var(--bg); border-radius: 14px;
+  background: var(--bg); color: var(--t1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   min-width: 180px;
+}
+.plugin.dark .chess-finish-card {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
 .chess-finish-emoji { font-size: 40px; line-height: 1; }
 .chess-finish-title {

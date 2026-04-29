@@ -323,27 +323,7 @@ function ChessBoard({
   )
 }
 
-// ─── Board preview (lobby) ────────────────────────────────────────────────────
-
-function BoardPreview() {
-  const squares: React.ReactNode[] = []
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const isLight = (r + c) % 2 === 0
-      squares.push(
-        <div
-          key={`${r}-${c}`}
-          className={`chess-sq ${isLight ? 'sq-light' : 'sq-dark'}`}
-        />
-      )
-    }
-  }
-  return (
-    <div className="chess-lobby-board-preview chess-board" aria-hidden="true">
-      {squares}
-    </div>
-  )
-}
+// (BoardPreview removed — unified view always renders the actual ChessBoard)
 
 // ─── Promotion modal ──────────────────────────────────────────────────────────
 
@@ -640,40 +620,57 @@ export default function ChessView({
     }
   }, [room, isHostLocal, startGame])
 
-  // ── Game UI (handles both 'playing' and 'finished' — finish shows overlay) ──
+  // ── Unified Game/Lobby UI ─────────────────────────────────────────────────
+  // Single view: chess board always visible. Overlay shows different content
+  // depending on room status:
+  //   - no room                  → "Invite a Friend" overlay
+  //   - lobby, no guest          → "Waiting for friend..." overlay
+  //   - lobby, guest joined      → Ready button overlay
+  //   - playing                  → no overlay (live game)
+  //   - finished                 → result + Ready button overlay
 
-  if (room?.status === 'playing' || room?.status === 'finished') {
-    const isFinished = room.status === 'finished'
-    const drawOfferedByOpponent =
-      room.draw_offered_by !== null && room.draw_offered_by !== currentUserId
+  const status = room?.status ?? 'lobby'
+  const isFinished = status === 'finished'
+  const isLobby = status === 'lobby'
+  const isPlaying = status === 'playing'
 
-    let resultTitle = 'Draw'
-    let resultEmoji = '🤝'
-    if (isFinished) {
-      if (room.winner_id === currentUserId) {
-        resultTitle = 'You won!'
-        resultEmoji = '🏆'
-      } else if (room.winner_id && room.winner_id !== currentUserId) {
-        resultTitle = 'You lost'
-        resultEmoji = '😔'
-      }
+  const hasGuest = !!(room && room.guest_id)
+  const myReady = room ? (isHostLocal ? room.host_ready : room.guest_ready) : false
+  const opponentReady = room ? (isHostLocal ? room.guest_ready : room.host_ready) : false
+
+  // Display board: live state during play/finished, otherwise initial position
+  const displayState = (isPlaying || isFinished) ? chessState : initialChessState()
+
+  const drawOfferedByOpponent =
+    !!(room && room.draw_offered_by !== null && room.draw_offered_by !== currentUserId)
+
+  let resultTitle = 'Draw'
+  let resultEmoji = '🤝'
+  if (isFinished && room) {
+    if (room.winner_id === currentUserId) {
+      resultTitle = 'You won!'
+      resultEmoji = '🏆'
+    } else if (room.winner_id && room.winner_id !== currentUserId) {
+      resultTitle = 'You lost'
+      resultEmoji = '😔'
     }
-    const myReady = isHostLocal ? room.host_ready : room.guest_ready
+  }
 
-    return (
-      <div className="chess-view">
-        {/* Header */}
-        <div className="chess-header">
-          <button
-            className="chess-back-btn"
-            onClick={() => { leaveRoom(); onClose() }}
-            aria-label="Go back"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <span className="chess-title">Chess</span>
+  return (
+    <div className="chess-view">
+      {/* Header */}
+      <div className="chess-header">
+        <button
+          className="chess-back-btn"
+          onClick={() => { leaveRoom(); onClose() }}
+          aria-label="Go back"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span className="chess-title">Chess</span>
+        {isPlaying && (
           <div className="chess-controls">
             <button
               className="chess-btn chess-btn-resign"
@@ -690,191 +687,179 @@ export default function ChessView({
               {drawOfferedByOpponent ? 'Accept Draw' : drawOffering ? 'Draw offered' : 'Draw?'}
             </button>
           </div>
+        )}
+      </div>
+
+      <div className="chess-game-area">
+        {/* Opponent row (top) — always render so layout is stable */}
+        <div className="chess-player-row chess-player-row--opponent">
+          {opponentProfile ? (
+            <>
+              <Avatar profile={opponentProfile} size={28} />
+              <span className="chess-player-name">{opponentProfile.display_name}</span>
+            </>
+          ) : (
+            <span className="chess-player-name chess-player-name--unknown">
+              {hasGuest ? 'Opponent' : 'Waiting…'}
+            </span>
+          )}
+          {isPlaying && chessState.turn !== myColor && (
+            <span className="chess-player-turn">● thinking…</span>
+          )}
+          {isLobby && hasGuest && (
+            <span className={`chess-ready-badge${opponentReady ? ' ready' : ''}`}>
+              {opponentReady ? '✓ Ready' : 'Not ready'}
+            </span>
+          )}
         </div>
 
-        <div className="chess-game-area">
-          {/* Opponent row (top) */}
-          <div className="chess-player-row chess-player-row--opponent">
-            {opponentProfile ? (
-              <>
-                <Avatar profile={opponentProfile} size={28} />
-                <span className="chess-player-name">{opponentProfile.display_name}</span>
-              </>
-            ) : (
-              <span className="chess-player-name chess-player-name--unknown">Opponent</span>
-            )}
-            {chessState.turn !== myColor && room.status === 'playing' && (
-              <span className="chess-player-turn">● thinking…</span>
-            )}
+        {/* Opponent captured pieces */}
+        {opponentCaptured.length > 0 && (
+          <div className="chess-captured">
+            {opponentCaptured.map((p, i) => (
+              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+            ))}
           </div>
+        )}
 
-          {/* Opponent captured pieces */}
-          {opponentCaptured.length > 0 && (
-            <div className="chess-captured">
-              {opponentCaptured.map((p, i) => (
-                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-              ))}
+        {/* Board (with overlay for lobby/finish) */}
+        <div className="chess-board-wrap">
+          <ChessBoard
+            state={displayState}
+            myColor={myColor}
+            onMove={handleMove}
+            lastFrom={isPlaying || isFinished ? lastFrom : null}
+            lastTo={isPlaying || isFinished ? lastTo : null}
+            isMyTurn={isMyTurn && isPlaying}
+          />
+
+          {/* Lobby overlay (no room or no guest) */}
+          {!isPlaying && !isFinished && (!room || !hasGuest) && (
+            <div className="chess-finish-overlay">
+              <div className="chess-finish-card">
+                {!room || (isHost && !hasGuest) ? (
+                  <>
+                    <div className="chess-finish-emoji">♟</div>
+                    <div className="chess-finish-title">Chess</div>
+                    <button
+                      className="chess-invite-btn"
+                      onClick={() => setShowInviteModal(true)}
+                      disabled={loading}
+                    >
+                      🕹 Invite a Friend
+                    </button>
+                    {room && !hasGuest && (
+                      <div className="chess-finish-readystate">Waiting for friend…</div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="chess-finish-emoji">⏳</div>
+                    <div className="chess-finish-title">Joining…</div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Board (with finish overlay when game is over) */}
-          <div className="chess-board-wrap">
-            <ChessBoard
-              state={chessState}
-              myColor={myColor}
-              onMove={handleMove}
-              lastFrom={lastFrom}
-              lastTo={lastTo}
-              isMyTurn={isMyTurn && !isFinished}
-            />
-            {isFinished && (
-              <div className="chess-finish-overlay">
-                <div className="chess-finish-card">
-                  <div className="chess-finish-emoji">{resultEmoji}</div>
-                  <div className="chess-finish-title">{resultTitle}</div>
-                  <button
-                    className={`chess-ready-btn${myReady ? ' ready' : ''}`}
-                    onClick={toggleReady}
-                  >
-                    {myReady ? '✓ Ready' : 'Ready'}
-                  </button>
-                  <div className="chess-finish-readystate">
-                    {(room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0)} / 2 ready
-                  </div>
+          {/* Lobby ready overlay (both players present) */}
+          {isLobby && hasGuest && (
+            <div className="chess-finish-overlay">
+              <div className="chess-finish-card">
+                <div className="chess-finish-emoji">♟</div>
+                <div className="chess-finish-title">Ready to play?</div>
+                <button
+                  className={`chess-ready-btn${myReady ? ' ready' : ''}`}
+                  onClick={toggleReady}
+                  disabled={loading}
+                >
+                  {myReady ? '✓ Ready' : 'Ready'}
+                </button>
+                <div className="chess-finish-readystate">
+                  {(room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0)} / 2 ready
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* My captured pieces */}
-          {myCaptured.length > 0 && (
-            <div className="chess-captured">
-              {myCaptured.map((p, i) => (
-                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-              ))}
             </div>
           )}
 
-          {/* My player row (bottom) */}
-          <div className="chess-player-row chess-player-row--me">
-            {currentUserProfile ? (
-              <>
-                <Avatar profile={currentUserProfile} size={28} />
-                <span className="chess-player-name">{currentUserProfile.display_name}</span>
-              </>
-            ) : (
-              <span className="chess-player-name">Me</span>
-            )}
-            {isMyTurn && (
-              <span className="chess-player-turn">● Your turn</span>
-            )}
-          </div>
-
-          {/* Move history */}
-          {(room.move_history ?? []).length > 0 && (
-            <div className="chess-move-history">
-              {(room.move_history ?? []).map((move, i) => (
-                <span key={i} className="chess-move-entry">
-                  {i % 2 === 0 && (
-                    <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
-                  )}
-                  {move}
-                </span>
-              ))}
+          {/* Finish overlay */}
+          {isFinished && room && (
+            <div className="chess-finish-overlay">
+              <div className="chess-finish-card">
+                <div className="chess-finish-emoji">{resultEmoji}</div>
+                <div className="chess-finish-title">{resultTitle}</div>
+                <button
+                  className={`chess-ready-btn${myReady ? ' ready' : ''}`}
+                  onClick={toggleReady}
+                >
+                  {myReady ? '✓ Ready' : 'Ready'}
+                </button>
+                <div className="chess-finish-readystate">
+                  {(room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0)} / 2 ready
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Promotion modal */}
-        {pendingPromotion && (
-          <PromotionModal
-            color={myColor}
-            onChoose={handlePromotionChoice}
-          />
+        {/* My captured pieces */}
+        {myCaptured.length > 0 && (
+          <div className="chess-captured">
+            {myCaptured.map((p, i) => (
+              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+            ))}
+          </div>
+        )}
+
+        {/* My player row (bottom) */}
+        <div className="chess-player-row chess-player-row--me">
+          {currentUserProfile ? (
+            <>
+              <Avatar profile={currentUserProfile} size={28} />
+              <span className="chess-player-name">{currentUserProfile.display_name}</span>
+            </>
+          ) : (
+            <span className="chess-player-name">Me</span>
+          )}
+          {isPlaying && isMyTurn && (
+            <span className="chess-player-turn">● Your turn</span>
+          )}
+          {isLobby && hasGuest && (
+            <span className={`chess-ready-badge${myReady ? ' ready' : ''}`}>
+              {myReady ? '✓ Ready' : 'Not ready'}
+            </span>
+          )}
+        </div>
+
+        {/* Move history (only during/after a game) */}
+        {room && (room.move_history ?? []).length > 0 && (
+          <div className="chess-move-history">
+            {(room.move_history ?? []).map((move, i) => (
+              <span key={i} className="chess-move-entry">
+                {i % 2 === 0 && (
+                  <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
+                )}
+                {move}
+              </span>
+            ))}
+          </div>
         )}
       </div>
-    )
-  }
 
-  // ── Lobby UI ───────────────────────────────────────────────
-
-  const hasGuest = room && room.guest_id !== null
-  const isWaitingForGuest = room && !room.guest_id
-  const myReadyLobby = room ? (isHost ? room.host_ready : room.guest_ready) : false
-
-  return (
-    <div className="chess-view chess-lobby">
-      {/* Header */}
-      <div className="chess-header">
-        <button
-          className="chess-back-btn"
-          onClick={() => { leaveRoom(); onClose() }}
-          aria-label="Go back"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <span className="chess-title">Chess</span>
-      </div>
-
-      {/* Board preview */}
-      <BoardPreview />
-
-      {/* Lobby actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '0 24px', flex: 1 }}>
-        {/* Invite button — host only, when guest hasn't joined */}
-        {(!room || (isHost && !hasGuest)) && (
-          <button
-            className="chess-invite-btn"
-            onClick={() => setShowInviteModal(true)}
-            disabled={loading}
-          >
-            🕹 Invite a Friend
-          </button>
-        )}
-
-        {/* Both players present → show ready system */}
-        {hasGuest && (
-          <>
-            {opponentProfile && (
-              <div className="chess-player-row" style={{ width: '100%', maxWidth: 280 }}>
-                <Avatar profile={opponentProfile} size={28} />
-                <span className="chess-player-name" style={{ marginLeft: 8, flex: 1 }}>
-                  {opponentProfile.display_name}
-                </span>
-                <span className={`chess-ready-badge${(isHost ? room!.guest_ready : room!.host_ready) ? ' ready' : ''}`}>
-                  {(isHost ? room!.guest_ready : room!.host_ready) ? '✓ Ready' : 'Not ready'}
-                </span>
-              </div>
-            )}
-            <button
-              className={`chess-ready-btn${myReadyLobby ? ' ready' : ''}`}
-              onClick={toggleReady}
-              disabled={loading}
-            >
-              {myReadyLobby ? '✓ Ready' : 'Ready'}
-            </button>
-            <div className="chess-finish-readystate">
-              {(room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0)} / 2 ready
-            </div>
-          </>
-        )}
-
-        {/* Waiting for guest to accept invite */}
-        {isWaitingForGuest && isHost && (
-          <p className="chess-waiting">Waiting for friend...</p>
-        )}
-      </div>
+      {/* Promotion modal */}
+      {pendingPromotion && (
+        <PromotionModal
+          color={myColor}
+          onChoose={handlePromotionChoice}
+        />
+      )}
 
       {/* Invite modal */}
       {showInviteModal && (
         <InviteModal
           friends={friendProfiles}
           invitedIds={invitedIds}
-          onInvite={id => {
-            handleCreateAndInvite(id)
-          }}
+          onInvite={id => { handleCreateAndInvite(id) }}
           onClose={() => setShowInviteModal(false)}
         />
       )}

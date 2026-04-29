@@ -118,10 +118,12 @@ function ChessBoard({
 
   function handleSquareClick(row: number, col: number) {
     const piece = state.board[row][col]
+    console.log('[chess] click', { row, col, piece, selected, isMyTurn, turn: state.turn, myColor, validMovesCount: validMoves.length })
 
     if (selected) {
       const isValid = validMoves.some(([vr, vc]) => vr === row && vc === col)
       if (isValid) {
+        console.log('[chess] making move', selected, '->', [row, col])
         onMove(selected, [row, col])
         setSelected(null)
         setValidMoves([])
@@ -143,11 +145,12 @@ function ChessBoard({
     }
 
     // No piece selected yet
-    if (!piece) return
-    if (!isMyTurn) return
-    if (pieceColor(piece) !== myColor) return
+    if (!piece) { console.log('[chess] no piece'); return }
+    if (!isMyTurn) { console.log('[chess] not my turn'); return }
+    if (pieceColor(piece) !== myColor) { console.log('[chess] wrong color'); return }
 
     const moves = getValidMoves(state, [row, col])
+    console.log('[chess] selecting piece, valid moves:', moves)
     setSelected([row, col])
     setValidMoves(moves)
   }

@@ -11,11 +11,29 @@ import {
 } from '../../hooks/useChess'
 import type { ChessState, Pos } from '../../hooks/useChess'
 
-// ─── Unicode piece map ────────────────────────────────────────────────────────
+// ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
+// Renders identically across all browsers/OSes. Cached via wikimedia CDN.
 
-const PIECES: Record<string, string> = {
-  wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
-  bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
+const PIECE_URLS: Record<string, string> = {
+  wK: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+  wQ: 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+  wR: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+  wB: 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+  wN: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+  wP: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+  bK: 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+  bQ: 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+  bR: 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+  bB: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+  bN: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+  bP: 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+}
+
+const PIECE_NAMES: Record<string, string> = {
+  wK: 'White King', wQ: 'White Queen', wR: 'White Rook',
+  wB: 'White Bishop', wN: 'White Knight', wP: 'White Pawn',
+  bK: 'Black King', bQ: 'Black Queen', bR: 'Black Rook',
+  bB: 'Black Bishop', bN: 'Black Knight', bP: 'Black Pawn',
 }
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -290,11 +308,10 @@ function ChessBoard({
                     onDragStart={e => handleDragStart(e, row, col)}
                     onDragEnd={handleDragEnd}
                     style={{
-                      userSelect: 'none',
                       cursor: canDragThis ? 'grab' : 'default',
                     }}
                   >
-                    {PIECES[piece] ?? piece}
+                    <img src={PIECE_URLS[piece]} alt={PIECE_NAMES[piece] ?? piece} draggable={false} />
                   </span>
                 )}
               </div>
@@ -353,7 +370,7 @@ function PromotionModal({ color, onChoose }: PromotionModalProps) {
               onClick={() => onChoose(pfx + type)}
               aria-label={`Promote to ${type}`}
             >
-              {PIECES[pfx + type]}
+              <img src={PIECE_URLS[pfx + type]} alt={PIECE_NAMES[pfx + type] ?? pfx + type} draggable={false} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
             </button>
           ))}
         </div>
@@ -731,7 +748,7 @@ export default function ChessView({
           {opponentCaptured.length > 0 && (
             <div className="chess-captured">
               {opponentCaptured.map((p, i) => (
-                <span key={i}>{PIECES[p] ?? p}</span>
+                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
               ))}
             </div>
           )}
@@ -752,7 +769,7 @@ export default function ChessView({
           {myCaptured.length > 0 && (
             <div className="chess-captured">
               {myCaptured.map((p, i) => (
-                <span key={i}>{PIECES[p] ?? p}</span>
+                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
               ))}
             </div>
           )}

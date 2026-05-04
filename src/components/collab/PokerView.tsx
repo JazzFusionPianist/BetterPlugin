@@ -467,13 +467,12 @@ export default function PokerView({
           </svg>
         </button>
         <span className="poker-title">Poker</span>
-        {isPlaying && isHandActive && myState && !myState.folded && (
+        {isPlaying && (
           <div className="poker-controls">
             <button
               className="poker-btn poker-btn-forfeit"
               onClick={handleForfeit}
-              disabled={!isMyTurn}
-              title={!isMyTurn ? 'Wait for your turn' : 'Fold'}
+              title="Forfeit (end the game and let the other player win)"
             >
               Forfeit
             </button>
@@ -578,40 +577,50 @@ export default function PokerView({
           </div>
 
           {/* Hand-end banner */}
-          {isHandEnd && (
-            <div className="poker-handend-banner">
-              <div className="poker-handend-winner">
-                Hand {roomState.hand_number ?? ''} complete
-                {roomState.hand_winner_ids && roomState.hand_winner_ids.length > 0 && (
-                  <>
-                    {' — '}
-                    {roomState.hand_winner_ids.map(wid => {
-                      const wp = profileById.get(wid) ?? null
-                      return wp?.display_name ?? wid.slice(0, 6)
-                    }).join(', ')}
-                    {' won '}
-                    +{roomState.hand_winner_amount ?? 0} chips
-                  </>
+          {isHandEnd && (() => {
+            const winners = (roomState.hand_winner_ids ?? [])
+            const amount = roomState.hand_winner_amount ?? 0
+            const winnerNames = winners.map(wid => {
+              const wp = profileById.get(wid) ?? null
+              return wp?.display_name ?? wid.slice(0, 6)
+            })
+            const iWon = winners.includes(currentUserId)
+            const showdown = roomState.showdown ?? []
+            return (
+              <div className="poker-handend-banner">
+                <div className="poker-handend-trophy">{iWon ? '🏆' : winners.length > 0 ? '🪙' : '🤝'}</div>
+                <div className="poker-handend-headline">
+                  {winners.length === 0
+                    ? 'Hand complete'
+                    : iWon
+                      ? `You win +${amount}`
+                      : `${winnerNames.join(' & ')} +${amount}`}
+                </div>
+                <div className="poker-handend-sub">
+                  Hand #{roomState.hand_number ?? ''}
+                </div>
+                {showdown.length > 0 && (
+                  <div className="poker-handend-evals">
+                    {showdown.map(s => {
+                      const wp = profileById.get(s.user_id) ?? null
+                      const isWinner = winners.includes(s.user_id)
+                      return (
+                        <div
+                          key={s.user_id}
+                          className={`poker-handend-eval${isWinner ? ' winner' : ''}`}
+                        >
+                          <span className="poker-handend-eval-name">
+                            {wp?.display_name ?? s.user_id.slice(0, 6)}
+                          </span>
+                          <span className="poker-handend-eval-rank">{s.rank_name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
-              {(roomState.showdown ?? []).length > 0 && (
-                <div>
-                  {(roomState.showdown ?? []).map(s => {
-                    const wp = profileById.get(s.user_id) ?? null
-                    const isWinner = (roomState.hand_winner_ids ?? []).includes(s.user_id)
-                    return (
-                      <div key={s.user_id} className={`poker-handend-eval${isWinner ? ' winner' : ''}`}>
-                        {wp?.display_name ?? s.user_id.slice(0, 6)}: {s.rank_name}
-                        {isWinner && roomState.hand_winner_amount != null && (
-                          <span> +{roomState.hand_winner_amount}</span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+            )
+          })()}
 
           {/* Resolving overlay — covers the brief window before findActiveRoom
               or pending joinRoom finishes, so the user doesn't see the

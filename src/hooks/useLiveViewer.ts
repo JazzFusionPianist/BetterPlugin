@@ -95,9 +95,12 @@ export function useLiveViewer(
     const iceQueue: RTCIceCandidateInit[] = []
     let remoteDescSet = false
 
+    console.log('[viewer] mounting, sessionId=', sessionId, 'hostId=', hostId, 'viewerId=', viewerId)
+
     channel
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         const msg = payload as SignalMessage
+        console.log('[viewer] received signal:', msg.type, 'to=' in msg ? (msg as { to?: string }).to : '-', 'from=', msg.from)
         if (msg.type === 'offer' && msg.to === viewerId) {
           try {
             connected = true
@@ -135,14 +138,13 @@ export function useLiveViewer(
         }
       })
       .subscribe((status) => {
+        console.log('[viewer] channel sub status:', status)
         if (status === 'SUBSCRIBED') {
-          // Announce our presence so the host starts negotiation
+          console.log('[viewer] sending join, from=', viewerId)
           send({ type: 'join', from: viewerId })
-          // Retry every 2.5s until we get an offer back. Handles the race
-          // where the host hasn't yet subscribed to the signaling channel
-          // or didn't yet have a localStream when our first join arrived.
           retryTimer = setInterval(() => {
             if (connected) { if (retryTimer) clearInterval(retryTimer); return }
+            console.log('[viewer] retry join')
             send({ type: 'join', from: viewerId })
           }, 2500)
         }

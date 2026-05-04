@@ -81,12 +81,14 @@ export function useLiveBroadcaster(
       // from audio-only to video mid-stream). Guard against concurrent offers.
       let makingOffer = false
       pc.onnegotiationneeded = async () => {
+        console.log('[broadcaster] onnegotiationneeded for', viewerId, 'signalingState=', pc.signalingState)
         if (makingOffer || pc.signalingState !== 'stable') return
         makingOffer = true
         try {
           const offer = await pc.createOffer()
-          if (pc.signalingState !== 'stable') return   // bail if state changed
+          if (pc.signalingState !== 'stable') return
           await pc.setLocalDescription(offer)
+          console.log('[broadcaster] sending offer to', viewerId)
           send({ type: 'offer', from: hostId, to: viewerId, sdp: pc.localDescription! })
         } catch (e) {
           console.warn('[broadcaster] renegotiation failed', e)
@@ -145,6 +147,8 @@ export function useLiveBroadcaster(
       setViewerIds(prev => { const n = new Set(prev); n.delete(viewerId); return n })
     }
 
+    console.log('[broadcaster] mounting, sessionId=', sessionId, 'hostId=', hostId)
+
     const channel = client.channel(liveSignalingChannel(sessionId), {
       config: { broadcast: { self: false, ack: false } },
     })
@@ -152,7 +156,9 @@ export function useLiveBroadcaster(
     channel
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         const msg = payload as SignalMessage
+        console.log('[broadcaster] received signal:', msg.type, 'from=', msg.from)
         if (msg.type === 'join') {
+          console.log('[broadcaster] handling join for viewer', msg.from, 'localStream?', !!localStreamRef.current)
           handleJoin(msg.from)
         } else if (msg.type === 'answer' && msg.to === hostId) {
           handleAnswer(msg.from, msg.sdp)
@@ -162,7 +168,9 @@ export function useLiveBroadcaster(
           removeViewer(msg.from)
         }
       })
-      .subscribe()
+      .subscribe(status => {
+        console.log('[broadcaster] channel sub status:', status)
+      })
 
     channelRef.current = channel
 

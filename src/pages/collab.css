@@ -4562,14 +4562,14 @@
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.04);
 }
 
-/* Piece colors */
-.tetris-cell--I { background: #00C2D1; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--O { background: #E5C100; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--T { background: #9B4DCA; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--S { background: #4CAF50; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--Z { background: #E53935; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--J { background: #1E88E5; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
-.tetris-cell--L { background: #FB8C00; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.18); }
+/* Piece colors — custom palette (different from standard Tetris) */
+.tetris-cell--I { background: #FF4D88; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* hot pink (was cyan) */
+.tetris-cell--O { background: #14B8A6; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* teal (was yellow) */
+.tetris-cell--T { background: #FBBF24; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* amber (was purple) */
+.tetris-cell--S { background: #6366F1; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* indigo (was green) */
+.tetris-cell--Z { background: #84CC16; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* lime (was red) */
+.tetris-cell--J { background: #F97316; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* orange (was blue) */
+.tetris-cell--L { background: #A855F7; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* violet (was orange) */
 .tetris-cell--G { background: #6E6E73; box-shadow: inset 0 -2px 0 rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.4); }
 .tetris-cell--ghost {
   background: transparent;

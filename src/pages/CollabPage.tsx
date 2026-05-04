@@ -22,6 +22,7 @@ import NotificationSettingsPanel, { readNotifSettings } from '../components/coll
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
+import HoverTooltip from '../components/collab/HoverTooltip'
 import TetrisView from '../components/collab/TetrisView'
 import PokerView from '../components/collab/PokerView'
 import type { Profile } from '../types/collab'
@@ -712,21 +713,21 @@ function CollabPageInner({ user }: Props) {
       )}
 
       {tooltip && (
-        <div className="tooltip visible" style={{ left: tooltip.x, top: tooltip.y }} onMouseEnter={handleTooltipEnter} onMouseLeave={handleTooltipLeave}>
-          <div className="tt-row">
-            <div className="av sz32" style={{ background: tooltip.profile.avatar_color }}>
-              {tooltip.profile.avatar_url
-                ? <img src={tooltip.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                : tooltip.profile.initials}
-            </div>
-            <div className="tt-info"><div className="tt-name">{tooltip.profile.display_name}</div><div className="tt-sub">{tooltip.profile.isOnline ? 'online' : 'offline'}</div></div>
-          </div>
-          <button className="tt-btn" onClick={() => handleOpenChat(tooltip.profile.id)}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t1)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-            message
-          </button>
-          <div className={`tt-arrow ${tooltip.arrowUp ? 'up' : 'down'}`} style={{ left: tooltip.arrowX }} />
-        </div>
+        <HoverTooltip
+          supabase={client}
+          profile={tooltip.profile}
+          x={tooltip.x}
+          y={tooltip.y}
+          arrowX={tooltip.arrowX}
+          arrowUp={tooltip.arrowUp}
+          isMutual={mutualIds.has(tooltip.profile.id)}
+          isFollowing={followingIds.has(tooltip.profile.id)}
+          isFollower={followerIds.has(tooltip.profile.id)}
+          onMessage={() => { setTooltip(null); handleOpenChat(tooltip.profile.id) }}
+          onViewProfile={() => { setTooltip(null); handleViewProfile(tooltip.profile.id) }}
+          onMouseEnter={handleTooltipEnter}
+          onMouseLeave={handleTooltipLeave}
+        />
       )}
     </div>
   )

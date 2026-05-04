@@ -869,7 +869,20 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
   }
 
   // ── Player actions ────────────────────────────────────────────────────
+  // Each action does an OPTIMISTIC local update first (so the UI reflects
+  // the move instantly), then talks to Supabase. The realtime sub will
+  // overwrite local state with the authoritative version once it arrives.
   const fold = useCallback(async (): Promise<void> => {
+    if (!room) return
+    const ps = playerStates.get(currentUserId)
+    if (!ps) return
+    // Optimistic — user sees themselves as folded immediately
+    setPlayerStates(prev => {
+      const next = new Map(prev)
+      next.set(currentUserId, { ...ps, folded: true, acted: true })
+      return next
+    })
+
     const snap = await snapshot()
     if (!snap) return
     const { rm, rmState, states } = snap
@@ -878,13 +891,35 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       console.warn('[usePokerRoom.fold] not your turn')
       return
     }
-    const ps = states.get(currentUserId)
-    if (!ps) return
-    states.set(currentUserId, { ...ps, folded: true, acted: true })
+    const psSnap = states.get(currentUserId)
+    if (!psSnap) return
+    states.set(currentUserId, { ...psSnap, folded: true, acted: true })
     await advanceAfterAction(rm, rmState, states)
-  }, [supabase, room, currentUserId])
+  }, [supabase, room, currentUserId, playerStates])
 
   const callOrCheck = useCallback(async (): Promise<void> => {
+    if (!room) return
+    const rmStateLocal = room.state as PokerRoomState
+    const ps = playerStates.get(currentUserId)
+    if (!ps || !rmStateLocal) return
+    const toCallLocal = Math.max(0, (rmStateLocal.current_bet ?? 0) - ps.current_bet)
+    const payLocal = Math.min(toCallLocal, ps.chips)
+    // Optimistic — instantly reflect chips/current_bet/acted/all-in
+    setPlayerStates(prev => {
+      const next = new Map(prev)
+      next.set(currentUserId, {
+        ...ps,
+        chips: ps.chips - payLocal,
+        current_bet: ps.current_bet + payLocal,
+        all_in: ps.chips - payLocal === 0 && payLocal > 0 ? true : ps.all_in,
+        acted: true,
+      })
+      return next
+    })
+    setRoom(prev => prev
+      ? { ...prev, state: { ...rmStateLocal, pot: (rmStateLocal.pot ?? 0) + payLocal } as PokerRoomState }
+      : prev)
+
     const snap = await snapshot()
     if (!snap) return
     const { rm, rmState, states } = snap
@@ -893,15 +928,15 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       console.warn('[usePokerRoom.callOrCheck] not your turn')
       return
     }
-    const ps = states.get(currentUserId)
-    if (!ps) return
-    const toCall = Math.max(0, rmState.current_bet - ps.current_bet)
-    const pay = Math.min(toCall, ps.chips)
+    const psSnap = states.get(currentUserId)
+    if (!psSnap) return
+    const toCall = Math.max(0, rmState.current_bet - psSnap.current_bet)
+    const pay = Math.min(toCall, psSnap.chips)
     const newPs: PokerPlayerState = {
-      ...ps,
-      chips: ps.chips - pay,
-      current_bet: ps.current_bet + pay,
-      all_in: ps.chips - pay === 0 && pay > 0 ? true : ps.all_in,
+      ...psSnap,
+      chips: psSnap.chips - pay,
+      current_bet: psSnap.current_bet + pay,
+      all_in: psSnap.chips - pay === 0 && pay > 0 ? true : psSnap.all_in,
       acted: true,
     }
     states.set(currentUserId, newPs)
@@ -910,10 +945,55 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       pot: rmState.pot + pay,
     }
     await advanceAfterAction(rm, newRmState, states)
-  }, [supabase, room, currentUserId])
+  }, [supabase, room, currentUserId, playerStates])
 
   const raise = useCallback(
     async (raiseTo: number): Promise<void> => {
+      // Optimistic local update first for snappy UI
+      if (room) {
+        const rmStateLocal = room.state as PokerRoomState
+        const psLocal = playerStates.get(currentUserId)
+        if (psLocal && rmStateLocal) {
+          const minTotal = (rmStateLocal.current_bet ?? 0) + (rmStateLocal.min_raise ?? 0)
+          const maxTotal = psLocal.chips + psLocal.current_bet
+          let targetLocal = Math.floor(raiseTo)
+          if (targetLocal > maxTotal) targetLocal = maxTotal
+          if (targetLocal >= minTotal || targetLocal === maxTotal) {
+            const deltaLocal = targetLocal - psLocal.current_bet
+            if (deltaLocal > 0 && deltaLocal <= psLocal.chips) {
+              setPlayerStates(prev => {
+                const next = new Map(prev)
+                next.set(currentUserId, {
+                  ...psLocal,
+                  chips: psLocal.chips - deltaLocal,
+                  current_bet: targetLocal,
+                  all_in: psLocal.chips - deltaLocal === 0,
+                  acted: true,
+                })
+                // Other live players need to act again
+                for (const uid of room.player_ids) {
+                  if (uid === currentUserId) continue
+                  const other = next.get(uid)
+                  if (!other || other.folded || other.all_in) continue
+                  next.set(uid, { ...other, acted: false })
+                }
+                return next
+              })
+              setRoom(prev => prev ? {
+                ...prev,
+                state: {
+                  ...rmStateLocal,
+                  pot: (rmStateLocal.pot ?? 0) + deltaLocal,
+                  current_bet: targetLocal,
+                  min_raise: Math.max(targetLocal - (rmStateLocal.current_bet ?? 0), rmStateLocal.min_raise ?? 0),
+                  last_aggressor_index: rmStateLocal.current_player_index,
+                } as PokerRoomState
+              } : prev)
+            }
+          }
+        }
+      }
+
       const snap = await snapshot()
       if (!snap) return
       const { rm, rmState, states } = snap
@@ -971,7 +1051,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       }
       await advanceAfterAction(rm, newRmState, states)
     },
-    [supabase, room, currentUserId]
+    [supabase, room, currentUserId, playerStates]
   )
 
   return {

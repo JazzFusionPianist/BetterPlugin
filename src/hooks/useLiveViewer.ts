@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
 import type { SignalMessage } from '../types/live'
-import { rtcConfig, liveSignalingChannel } from '../lib/webrtc'
+import { rtcConfig, liveSignalingChannel, ensureTurnLoaded } from '../lib/webrtc'
 
 export type ViewerStatus = 'idle' | 'connecting' | 'connected' | 'ended' | 'error'
 
@@ -36,7 +36,26 @@ export function useLiveViewer(
 
   useEffect(() => {
     if (!sessionId || !hostId) return
+    let cancelled = false
+    let cleanup: (() => void) | null = null
+
     setStatus('connecting')
+
+    // Ensure TURN credentials are loaded before creating the PC — without
+    // them, symmetric NAT prevents the connection from establishing.
+    ensureTurnLoaded().then(() => {
+      if (cancelled || !sessionId || !hostId) return
+      cleanup = setupConnection()
+    })
+
+    return () => {
+      cancelled = true
+      cleanup?.()
+    }
+
+    function setupConnection(): () => void {
+      // Re-check inside the function so TS narrows the types
+      if (!sessionId || !hostId) throw new Error('unreachable')
 
     const pc = new RTCPeerConnection(rtcConfig)
     pcRef.current = pc
@@ -157,6 +176,7 @@ export function useLiveViewer(
       setRemoteStream(null)
       setStatus('idle')
     }
+    }  // end setupConnection
   }, [client, viewerId, sessionId, hostId])
 
   return { remoteStream, status, debug }

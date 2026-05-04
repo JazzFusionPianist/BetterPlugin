@@ -1,33 +1,67 @@
-// WebRTC configuration. STUN is enough for permissive NATs; symmetric
-// NATs (mobile carriers, restrictive firewalls) require TURN.
+// WebRTC ICE configuration.
 //
-// To enable TURN, set these env vars in Vercel (Project → Settings →
-// Environment Variables) — values come from your TURN provider
-// (metered.ca free tier gives 50GB/month after signup):
-//   VITE_TURN_URL       e.g. "turn:standard.relay.metered.ca:80"
-//   VITE_TURN_USERNAME  e.g. "your-username"
-//   VITE_TURN_CREDENTIAL e.g. "your-credential"
-// Multiple URLs (UDP/TCP/TLS) can be passed as a comma-separated list
-// in VITE_TURN_URL.
+// Base: Google's public STUN servers (sufficient for permissive networks).
+// On top of that, we lazily merge in TURN credentials from two sources:
+//
+//   1. /api/turn-credentials — Vercel Edge Function that proxies Cloudflare
+//      Calls' TURN credential API. Set CLOUDFLARE_CALLS_TURN_TOKEN_ID and
+//      CLOUDFLARE_CALLS_TURN_API_TOKEN in Vercel env vars to enable.
+//
+//   2. VITE_TURN_URL / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL static
+//      env vars (for metered.ca, twilio, self-hosted coturn, etc).
+//
+// The credentials are appended to `rtcConfig.iceServers` once fetched.
+// Hooks should `await ensureTurnLoaded()` before creating an RTCPeerConnection
+// so the very first connection on page load also has TURN.
 
-function buildIceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ]
-  const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined
-  const turnUser = import.meta.env.VITE_TURN_USERNAME as string | undefined
-  const turnCred = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined
-  if (turnUrl && turnUser && turnCred) {
-    const urls = turnUrl.split(',').map(s => s.trim()).filter(Boolean)
-    servers.push({ urls, username: turnUser, credential: turnCred })
-  }
-  return servers
-}
+const baseIceServers: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+]
 
 export const rtcConfig: RTCConfiguration = {
-  iceServers: buildIceServers(),
+  iceServers: [...baseIceServers],
 }
+
+let turnLoaded: Promise<void> | null = null
+
+export function ensureTurnLoaded(): Promise<void> {
+  if (turnLoaded) return turnLoaded
+  turnLoaded = (async () => {
+    // 1. Try Cloudflare Calls TURN proxy
+    try {
+      const res = await fetch('/api/turn-credentials')
+      if (res.ok) {
+        const data = await res.json() as { iceServers?: RTCIceServer | RTCIceServer[] }
+        if (data.iceServers) {
+          const list = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers]
+          rtcConfig.iceServers!.push(...list)
+        }
+      }
+    } catch (e) {
+      console.warn('[webrtc] /api/turn-credentials fetch failed:', e)
+    }
+
+    // 2. Static env-var TURN (fallback / additional)
+    const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined
+    const turnUser = import.meta.env.VITE_TURN_USERNAME as string | undefined
+    const turnCred = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined
+    if (turnUrl && turnUser && turnCred) {
+      rtcConfig.iceServers!.push({
+        urls: turnUrl.split(',').map(s => s.trim()).filter(Boolean),
+        username: turnUser,
+        credential: turnCred,
+      })
+    }
+
+    console.log('[webrtc] iceServers loaded:', rtcConfig.iceServers)
+  })()
+  return turnLoaded
+}
+
+// Kick off the fetch immediately at module import — most of the time it'll
+// be done before the user clicks "Watch Live".
+ensureTurnLoaded()
 
 // Channel name helper — every session gets its own broadcast channel
 export function liveSignalingChannel(sessionId: string) {

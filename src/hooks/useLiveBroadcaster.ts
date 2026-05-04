@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { SignalMessage } from '../types/live'
-import { rtcConfig, liveSignalingChannel } from '../lib/webrtc'
+import { rtcConfig, liveSignalingChannel, ensureTurnLoaded } from '../lib/webrtc'
 
 /**
  * Host-side: accepts viewer join requests, creates a per-viewer
@@ -47,6 +47,24 @@ export function useLiveBroadcaster(
   // ── Peer setup effect — depends ONLY on sessionId ─────────────────────────
   useEffect(() => {
     if (!sessionId) return
+    let cancelled = false
+    let cleanup: (() => void) | null = null
+
+    // Make sure TURN credentials are loaded before we accept any joins.
+    // Without this the very first viewer gets a STUN-only PC and can't
+    // traverse symmetric NATs.
+    ensureTurnLoaded().then(() => {
+      if (cancelled) return
+      cleanup = setupChannel()
+    })
+
+    return () => {
+      cancelled = true
+      cleanup?.()
+    }
+
+    function setupChannel(): () => void {
+    if (!sessionId) throw new Error('unreachable')
 
     const send = (msg: SignalMessage) => {
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })
@@ -184,6 +202,7 @@ export function useLiveBroadcaster(
       client.removeChannel(channel)
       channelRef.current = null
     }
+    }  // end setupChannel
   }, [client, hostId, sessionId])
 
   // ── Track replacement — when localStream tracks change, swap them on the

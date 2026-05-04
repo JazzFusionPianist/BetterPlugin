@@ -63,7 +63,7 @@ const GAMES: GameCard[] = [
         <rect x="16" y="8"  width="6" height="6" rx="1" fill="currentColor" opacity="0.85" />
       </svg>
     ),
-    name: 'Tetris',
+    name: 'Falling Blocks',
     description: 'Battle 2-4 players · clear lines, send garbage',
   },
 ]

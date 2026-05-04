@@ -464,7 +464,7 @@ function CollabPageInner({ user }: Props) {
                   <div className="notif-preview">
                     {ev.type === 'game_invite'
                       ? (ev.metadata?.game_type === 'tetris'
-                          ? '🧱 invited you to play Tetris'
+                          ? '🧱 invited you to play Falling Blocks'
                           : '♟ invited you to play Chess')
                       : 'followed you'}
                   </div>

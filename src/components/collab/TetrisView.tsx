@@ -101,7 +101,7 @@ function TetrisBoard({ board, currentPiece, ghost, topOut, size = 'self' }: Tetr
   const sizeClass = size === 'self' ? 'is-self' : 'is-opponent'
 
   return (
-    <div className={`tetris-board ${sizeClass}`} role="grid" aria-label="Tetris board">
+    <div className={`tetris-board ${sizeClass}`} role="grid" aria-label="Falling Blocks board">
       {display.map((row, r) => (
         <div key={r} className="tetris-board-row" style={{ display: 'contents' }}>
           {row.map((cell, c) => {
@@ -724,7 +724,7 @@ export default function TetrisView({
             />
           </svg>
         </button>
-        <span className="tetris-title">Tetris</span>
+        <span className="tetris-title">Falling Blocks</span>
         {isPlaying && !myTopOutServer && (
           <div className="tetris-controls">
             <button
@@ -779,7 +779,7 @@ export default function TetrisView({
               <div className="tetris-finish-overlay chess-finish-overlay">
                 <div className="tetris-finish-card chess-finish-card">
                   <div className="tetris-finish-emoji">🧱</div>
-                  <div className="tetris-finish-title">Tetris Battle</div>
+                  <div className="tetris-finish-title">Falling Blocks</div>
                   <div className="tetris-player-count-picker">
                     {[2, 3, 4].map(n => (
                       <button

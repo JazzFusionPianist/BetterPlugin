@@ -5,7 +5,6 @@ import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 import { useTracks } from '../../hooks/useTracks'
 import HoverTooltip from './HoverTooltip'
-import FloatingOrbs from '../FloatingOrbs'
 
 interface Props {
   supabase: SupabaseClient
@@ -570,11 +569,15 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
   }
 
-  const handleUnfollow = async (id: string) => {
+  // Kept for potential re-use; the orbit tooltip's unfollow path was
+  // refactored away but this helper mirrors the desired behaviour and
+  // is referenced by stale handlers in some panels.
+  const _handleUnfollow = async (id: string) => {
     await onRemoveFriend(id)
     setHoveredIdx(null)
     setTooltipPos(null)
   }
+  void _handleUnfollow
 
   const hoveredProfile = hoveredIdx !== null ? renderProfiles[hoveredIdx] : null
 

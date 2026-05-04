@@ -4834,18 +4834,19 @@
 .poker-game-layout {
   flex: 1; min-height: 0; position: relative;
   display: flex; flex-direction: column;
-  padding: 8px; gap: 8px;
+  padding: 6px; gap: 6px;
   overflow: hidden;
 }
 .poker-opponents-row {
-  display: flex; gap: 6px; justify-content: center;
+  display: flex; gap: 5px; justify-content: center;
   flex-shrink: 0;
+  width: 100%;
 }
 .poker-opponent {
-  flex: 1 1 0; min-width: 0; max-width: 92px;
+  flex: 0 1 auto; min-width: 0; max-width: 96px;
   display: flex; flex-direction: column; align-items: center;
-  gap: 3px;
-  padding: 5px 4px;
+  gap: 2px;
+  padding: 4px 6px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -4883,7 +4884,8 @@
 
 /* Table area: community + pot info */
 .poker-table-area {
-  flex: 1; min-height: 0;
+  flex: 1; min-height: 80px;
+  width: 100%; box-sizing: border-box;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 8px;
@@ -4891,52 +4893,59 @@
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
-  padding: 12px;
+  padding: 12px 8px;
   position: relative;
 }
 .plugin:not(.dark) .poker-table-area {
   background: linear-gradient(135deg, #1a6e3a 0%, #228547 100%);
 }
 .poker-community {
-  display: flex; gap: 4px; justify-content: center;
-  flex-wrap: wrap;
+  display: flex; gap: 3px; justify-content: center;
+  flex-wrap: nowrap;
 }
 .poker-pot-info {
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
   font-family: 'DM Sans', sans-serif;
 }
 .poker-pot-row {
-  display: flex; gap: 8px;
-  font-size: 11px; color: rgba(255, 255, 255, 0.95);
+  display: flex; gap: 10px; align-items: baseline;
+  font-size: 11px; color: #fff;
   font-family: 'DM Mono', monospace; font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.poker-pot-row span:first-child {
+  font-size: 14px;
+  color: #FFD60A;
+  font-weight: 700;
 }
 .poker-pot-amount { color: #FFD60A; }
 
 /* Self row: hole cards + chips + actions */
 .poker-self-row {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   flex-shrink: 0;
+  padding: 0 4px;
 }
 .poker-self-cards { display: flex; gap: 4px; }
 .poker-self-info {
-  display: flex; gap: 8px; align-items: center;
+  display: flex; gap: 8px; align-items: baseline;
   font-family: 'DM Mono', monospace;
 }
 .poker-self-chips {
   font-size: 12px; color: var(--t1); font-weight: 700;
 }
 .poker-self-bet {
-  font-size: 10px; color: #FFD60A;
+  font-size: 11px; color: #FFD60A; font-weight: 600;
 }
 
 /* Action buttons */
 .poker-actions {
-  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
-  width: 100%; max-width: 280px;
+  display: flex; gap: 4px; justify-content: center;
+  width: 100%; max-width: 290px;
 }
 .poker-action-btn {
-  flex: 1; min-width: 60px;
-  padding: 8px 10px; border-radius: 8px;
+  flex: 1; min-width: 50px;
+  padding: 7px 8px; border-radius: 8px;
   border: none; cursor: pointer;
   font-size: 11px; font-weight: 600;
   font-family: 'DM Sans', sans-serif;
@@ -4953,26 +4962,28 @@
 
 .poker-raise-controls {
   display: flex; flex-direction: column; gap: 4px; width: 100%;
-  max-width: 280px;
+  max-width: 290px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 6px;
 }
 .poker-raise-input {
-  width: 100%; padding: 6px 8px;
+  width: 100%; padding: 5px 8px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 12px;
   font-family: 'DM Mono', monospace;
+  text-align: center;
   outline: none;
+  box-sizing: border-box;
 }
 .poker-raise-quick {
-  display: flex; gap: 4px;
+  display: flex; gap: 3px;
 }
 .poker-raise-quick button {
-  flex: 1; padding: 4px 6px;
+  flex: 1; padding: 4px 4px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -4988,9 +4999,9 @@
   font-family: 'DM Mono', monospace;
 }
 
-/* Playing card rendering */
+/* Playing card rendering — compact for small plugin window */
 .poker-card {
-  width: 32px; height: 44px;
+  width: 30px; height: 42px;
   background: #fff;
   border: 1px solid #d4d4d8;
   border-radius: 4px;
@@ -4999,36 +5010,37 @@
   font-weight: 700;
   position: relative;
   flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   user-select: none;
 }
 .poker-card.red { color: #DC2626; }
 .poker-card.black { color: #18181b; }
-.poker-card.small { width: 20px; height: 28px; }
+.poker-card.small { width: 18px; height: 26px; border-radius: 3px; }
 .poker-card-rank {
-  font-size: 13px; line-height: 1;
+  font-size: 12px; line-height: 1;
 }
-.poker-card.small .poker-card-rank { font-size: 9px; }
+.poker-card.small .poker-card-rank { font-size: 8px; }
 .poker-card-suit {
-  font-size: 14px; line-height: 1; margin-top: 1px;
+  font-size: 13px; line-height: 1; margin-top: 1px;
 }
-.poker-card.small .poker-card-suit { font-size: 10px; }
+.poker-card.small .poker-card-suit { font-size: 9px; }
 .poker-card-back {
-  width: 32px; height: 44px;
+  width: 30px; height: 42px;
   background: linear-gradient(135deg, #4338CA 0%, #6D28D9 100%);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   flex-shrink: 0;
   background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 3px, transparent 3px 6px),
     linear-gradient(135deg, #4338CA 0%, #6D28D9 100%);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
-.poker-card-back.small { width: 20px; height: 28px; }
+.poker-card-back.small { width: 18px; height: 26px; border-radius: 3px; }
 .poker-card-empty {
-  width: 32px; height: 44px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  width: 30px; height: 42px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.22);
   border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
 }
 

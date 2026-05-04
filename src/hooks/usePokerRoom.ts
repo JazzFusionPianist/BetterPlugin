@@ -156,6 +156,30 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     }
   }, [room?.id, supabase, currentUserId])
 
+  // Defensive re-fetch: whenever the room transitions into a new hand
+  // (hand_number or betting_round changes), re-pull our own hole cards
+  // from DB. This protects against missed realtime events for
+  // poker_hole_cards (e.g. if the table isn't in the realtime publication
+  // yet, or events were dropped during a brief disconnect).
+  const handNumber = (room?.state as PokerRoomState | undefined)?.hand_number
+  const bettingRound = (room?.state as PokerRoomState | undefined)?.betting_round
+  useEffect(() => {
+    if (!room) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('poker_hole_cards')
+        .select('*')
+        .eq('room_id', room.id)
+        .eq('user_id', currentUserId)
+        .maybeSingle()
+      if (cancelled) return
+      if (data) setMyHoleCards(((data as PokerHoleCards).cards ?? []) as string[])
+      else setMyHoleCards([])
+    })()
+    return () => { cancelled = true }
+  }, [room, handNumber, bettingRound, supabase, currentUserId])
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
   const createRoom = useCallback(
     async (playerCount: PlayerCount): Promise<PokerRoom | null> => {

@@ -600,12 +600,16 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       holeRows.push({ room_id: room.id, user_id: uid, cards })
     }
     if (holeRows.length > 0) {
-      const { data: hcData, error: hcErr } = await supabase
+      // NOTE: do NOT chain .select() — that forces PostgREST to filter the
+      // RETURNING rows through the SELECT policy (which only allows
+      // auth.uid() = user_id), so the host writing both their own AND the
+      // opponent's cards would get a 403 because they can't SELECT the
+      // opponent's row. Plain upsert without .select() bypasses this.
+      const { error: hcErr } = await supabase
         .from('poker_hole_cards')
         .upsert(holeRows, { onConflict: 'room_id,user_id' })
-        .select()
       if (hcErr) console.warn('[usePokerRoom.startHand] upsert hole_cards error:', hcErr)
-      else console.log('[usePokerRoom.startHand] upserted hole_cards rows:', hcData?.length ?? 0)
+      else console.log('[usePokerRoom.startHand] upserted hole_cards count:', holeRows.length)
     }
 
     // Update room: set status=playing if still in lobby

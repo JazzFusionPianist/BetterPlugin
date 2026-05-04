@@ -285,6 +285,31 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     setRoom(null)
   }, [supabase, room])
 
+  // Forfeit / quit game — sets the room to 'finished'. Winner is the other
+  // player in heads-up; in 3+ player, the player with the most chips wins.
+  const quitGame = useCallback(async (): Promise<void> => {
+    if (!room) return
+    const otherIds = room.player_ids.filter(id => id !== currentUserId)
+    let winnerId: string | null = null
+    if (otherIds.length === 1) {
+      winnerId = otherIds[0]
+    } else if (otherIds.length > 1) {
+      let maxChips = -1
+      for (const id of otherIds) {
+        const ps = playerStates.get(id)
+        if (ps && ps.chips > maxChips) {
+          maxChips = ps.chips
+          winnerId = id
+        }
+      }
+    }
+    const { error } = await supabase
+      .from('poker_rooms')
+      .update({ status: 'finished', winner_id: winnerId })
+      .eq('id', room.id)
+    if (error) console.warn('[usePokerRoom.quitGame]', error)
+  }, [supabase, room, currentUserId, playerStates])
+
   const findActiveRoom = useCallback(async (): Promise<PokerRoom | null> => {
     const { data, error } = await supabase
       .from('poker_rooms')
@@ -946,6 +971,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     joinRoom,
     leaveRoom,
     deleteCurrentRoom,
+    quitGame,
     findActiveRoom,
     toggleReady,
     inviteFriend,

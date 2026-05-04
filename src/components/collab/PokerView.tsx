@@ -205,6 +205,7 @@ export default function PokerView({
     joinRoom,
     leaveRoom,
     deleteCurrentRoom,
+    quitGame,
     findActiveRoom,
     toggleReady,
     inviteFriend,
@@ -351,10 +352,14 @@ export default function PokerView({
     setRaiseAmount(cur + minR)
   }, [isMyTurn, roomState.current_bet, roomState.min_raise])
 
-  // ── Forfeit (fold) ───────────────────────────────────────────────────────
-  const handleForfeit = useCallback(() => {
-    if (isMyTurn) fold()
-  }, [isMyTurn, fold])
+  // ── Forfeit ──────────────────────────────────────────────────────────────
+  // End the game outright (status='finished' with another player as winner).
+  // The user can then exit cleanly — back button will delete the finished
+  // room, so the next session starts fresh.
+  const handleForfeit = useCallback(async () => {
+    if (!confirm('Forfeit this game? The other player will win.')) return
+    await quitGame()
+  }, [quitGame])
 
   // ── Player count change in lobby (host only) ─────────────────────────────
   const handlePlayerCountChange = useCallback(

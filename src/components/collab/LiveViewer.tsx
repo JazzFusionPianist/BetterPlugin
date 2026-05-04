@@ -85,6 +85,38 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
           autoPlay playsInline
           style={session.has_video ? undefined : { display: 'none' }}
         />
+        {session.has_video && (
+          <button
+            className="live-viewer-fullscreen-btn"
+            onClick={() => {
+              const v = videoRef.current
+              if (!v) return
+              const anyV = v as HTMLVideoElement & {
+                webkitEnterFullscreen?: () => void
+                webkitRequestFullscreen?: () => Promise<void>
+              }
+              // iOS Safari (WKWebView) only supports webkitEnterFullscreen on the
+              // video element itself; standard requestFullscreen returns rejected
+              // on the container. Try the most-supported variants in order.
+              if (anyV.webkitEnterFullscreen) {
+                anyV.webkitEnterFullscreen()
+              } else if (anyV.webkitRequestFullscreen) {
+                anyV.webkitRequestFullscreen().catch(e => console.warn('fullscreen failed', e))
+              } else if (v.requestFullscreen) {
+                v.requestFullscreen().catch(e => console.warn('fullscreen failed', e))
+              }
+            }}
+            title="Fullscreen"
+            aria-label="Enter fullscreen"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 6V2.5h3.5" />
+              <path d="M14 6V2.5H10.5" />
+              <path d="M2 10v3.5h3.5" />
+              <path d="M14 10v3.5H10.5" />
+            </svg>
+          </button>
+        )}
         {!session.has_video && (
           <div className="live-viewer-audio-only">
             <div className="live-pulse-wrap live-pulse-lg">

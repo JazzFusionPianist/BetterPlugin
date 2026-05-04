@@ -3592,6 +3592,7 @@
   padding: 12px;
   gap: 10px;
   overflow: hidden;
+  position: relative;
 }
 .live-viewer-video {
   width: 100%;
@@ -3599,6 +3600,33 @@
   background: #000;
   border-radius: 8px;
   object-fit: contain;
+}
+
+/* Fullscreen button overlaid on the video (bottom-right) */
+.live-viewer-fullscreen-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition: background .12s, transform .08s;
+}
+.live-viewer-fullscreen-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+.live-viewer-fullscreen-btn:active { transform: scale(0.94); }
+/* Hide the button itself when the video is in native fullscreen */
+.live-viewer-video:fullscreen ~ .live-viewer-fullscreen-btn,
+.live-viewer-video:-webkit-full-screen ~ .live-viewer-fullscreen-btn {
+  display: none;
 }
 .live-viewer-audio-only {
   display: flex;

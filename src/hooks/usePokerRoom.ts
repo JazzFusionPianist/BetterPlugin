@@ -174,17 +174,17 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
         .maybeSingle()
       if (cancelled) return
       if (error) {
-        console.warn('[usePokerRoom] hole_cards fetch error:', error)
+        console.warn('[usePokerRoom] hole_cards fetch error (attempt', attempt, '):', error)
         return
       }
       const cards = ((data as PokerHoleCards | null)?.cards ?? []) as string[]
+      console.log('[usePokerRoom] hole_cards fetch attempt', attempt, 'data:', data, 'cards:', cards)
       if (cards.length === 2) {
         setMyHoleCards(cards)
-      } else if (attempt < 3) {
-        // Cards not in DB yet — retry
-        setTimeout(() => { if (!cancelled) fetchHoleCards(attempt + 1) }, 250 * (attempt + 1))
+      } else if (attempt < 5) {
+        setTimeout(() => { if (!cancelled) fetchHoleCards(attempt + 1) }, 300 * (attempt + 1))
       } else {
-        console.warn('[usePokerRoom] hole_cards still empty after retries')
+        console.warn('[usePokerRoom] hole_cards still empty after retries — possible RLS issue or upsert failed')
         setMyHoleCards([])
       }
     }
@@ -593,16 +593,19 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       .delete()
       .eq('room_id', room.id)
     if (delErr) console.warn('[usePokerRoom.startHand] delete hole_cards:', delErr)
+    console.log('[usePokerRoom.startHand] dealing cards to', Array.from(holeCardsByUser.keys()))
 
     const holeRows: PokerHoleCards[] = []
     for (const [uid, cards] of holeCardsByUser.entries()) {
       holeRows.push({ room_id: room.id, user_id: uid, cards })
     }
     if (holeRows.length > 0) {
-      const { error: hcErr } = await supabase
+      const { data: hcData, error: hcErr } = await supabase
         .from('poker_hole_cards')
         .upsert(holeRows, { onConflict: 'room_id,user_id' })
-      if (hcErr) console.warn('[usePokerRoom.startHand] insert hole_cards:', hcErr)
+        .select()
+      if (hcErr) console.warn('[usePokerRoom.startHand] upsert hole_cards error:', hcErr)
+      else console.log('[usePokerRoom.startHand] upserted hole_cards rows:', hcData?.length ?? 0)
     }
 
     // Update room: set status=playing if still in lobby

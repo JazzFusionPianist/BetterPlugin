@@ -115,7 +115,20 @@ export function useLiveBroadcaster(
     const handleAnswer = async (viewerId: string, sdp: RTCSessionDescriptionInit) => {
       const pc = peersRef.current.get(viewerId)
       if (!pc) return
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+      console.log('[broadcaster] handleAnswer for', viewerId, 'localDesc m-lines:',
+        pc.localDescription?.sdp.match(/^m=\w+/gm)?.join(','),
+        'answer m-lines:', sdp.sdp?.match(/^m=\w+/gm)?.join(','))
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+      } catch (e) {
+        console.error('[broadcaster] setRemoteDescription failed for', viewerId, e)
+        // Tear down the bad PC and let viewer retry; their join interval
+        // will fire again and we'll create a fresh PC with matching SDP.
+        pc.close()
+        peersRef.current.delete(viewerId)
+        setViewerIds(prev => { const n = new Set(prev); n.delete(viewerId); return n })
+        return
+      }
       remoteSetForViewer.add(viewerId)
       const queue = iceQueues.get(viewerId)
       if (queue) {
@@ -156,6 +169,10 @@ export function useLiveBroadcaster(
     channel
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         const msg = payload as SignalMessage
+        // Filter self-broadcasts defensively (Supabase config { self: false }
+        // doesn't always filter — and even if it does, we don't want our own
+        // offer/ice echoing into the answer flow).
+        if (msg.from === hostId) return
         console.log('[broadcaster] received signal:', msg.type, 'from=', msg.from)
         if (msg.type === 'join') {
           console.log('[broadcaster] handling join for viewer', msg.from, 'localStream?', !!localStreamRef.current)
@@ -186,7 +203,10 @@ export function useLiveBroadcaster(
 
   // ── Track replacement — when localStream tracks change, swap them on the
   // existing senders instead of renegotiating. Also adds NEW kinds (e.g.
-  // audio added for the first time) by calling addTrack.
+  // audio added for the first time) by calling addTrack — but only when the
+  // peer is in 'stable' signalingState. Adding tracks while an offer is
+  // in flight would change the local SDP and the incoming answer would have
+  // a mismatched m-line order ("Failed to set remote answer sdp" error).
   useEffect(() => {
     if (!localStream) return
     const tracks = localStream.getTracks()
@@ -196,6 +216,10 @@ export function useLiveBroadcaster(
         const existing = senders.find(s => s.track && s.track.kind === track.kind)
         if (existing) {
           if (existing.track !== track) existing.replaceTrack(track).catch(e => console.warn('replaceTrack failed', e))
+        } else if (pc.signalingState !== 'stable') {
+          // Defer: addTrack would change SDP mid-negotiation. The next
+          // localStream change (or a future negotiation cycle) will pick it up.
+          console.warn('[broadcaster] deferring addTrack — signalingState:', pc.signalingState)
         } else {
           // New kind (e.g., mic added after start-with-DAW-only)
           try { pc.addTrack(track, localStream) }

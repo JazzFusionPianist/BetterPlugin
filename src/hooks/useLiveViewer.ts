@@ -100,6 +100,8 @@ export function useLiveViewer(
     channel
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         const msg = payload as SignalMessage
+        // Defensive self-filter
+        if (msg.from === viewerId) return
         console.log('[viewer] received signal:', msg.type, 'to=' in msg ? (msg as { to?: string }).to : '-', 'from=', msg.from)
         if (msg.type === 'offer' && msg.to === viewerId) {
           try {

@@ -88,6 +88,12 @@ export function useLiveViewer(
 
     let retryTimer: ReturnType<typeof setInterval> | null = null
     let connected = false
+    // Queue ICE candidates that arrive before remoteDescription is set,
+    // then drain after setRemoteDescription. Without this, early ICE
+    // candidates throw and are lost — leaving the connection unable
+    // to traverse NAT.
+    const iceQueue: RTCIceCandidateInit[] = []
+    let remoteDescSet = false
 
     channel
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
@@ -97,6 +103,13 @@ export function useLiveViewer(
             connected = true
             if (retryTimer) { clearInterval(retryTimer); retryTimer = null }
             await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+            remoteDescSet = true
+            // Drain queued ICE
+            for (const c of iceQueue) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)) }
+              catch (e) { console.warn('queued ICE add failed', e) }
+            }
+            iceQueue.length = 0
             const answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             send({ type: 'answer', from: viewerId, to: hostId, sdp: answer })
@@ -107,6 +120,10 @@ export function useLiveViewer(
             setStatus('error')
           }
         } else if (msg.type === 'ice' && msg.to === viewerId) {
+          if (!remoteDescSet) {
+            iceQueue.push(msg.candidate)
+            return
+          }
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)) }
           catch (e) {
             const err = e instanceof Error ? e.message : String(e)

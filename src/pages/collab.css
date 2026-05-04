@@ -4961,15 +4961,20 @@
 .poker-action-btn--raise:hover:not(:disabled) { opacity: 0.88; }
 
 .poker-raise-controls {
-  display: flex; flex-direction: column; gap: 4px; width: 100%;
-  max-width: 290px;
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; max-width: 290px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 5px 6px;
+  box-sizing: border-box;
+}
+.poker-raise-row {
+  display: flex; gap: 4px; align-items: stretch;
 }
 .poker-raise-input {
-  width: 100%; padding: 5px 8px;
+  flex: 0 0 60px; min-width: 0;
+  padding: 5px 6px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -4979,11 +4984,15 @@
   outline: none;
   box-sizing: border-box;
 }
+.poker-raise-row .poker-action-btn--raise {
+  flex: 1; min-width: 0;
+}
 .poker-raise-quick {
   display: flex; gap: 3px;
 }
 .poker-raise-quick button {
-  flex: 1; padding: 4px 4px;
+  flex: 1; min-width: 0;
+  padding: 4px 2px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -4991,6 +5000,7 @@
   font-size: 9px; font-weight: 600;
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
+  white-space: nowrap;
 }
 .poker-raise-quick button:hover { background: var(--bg); }
 

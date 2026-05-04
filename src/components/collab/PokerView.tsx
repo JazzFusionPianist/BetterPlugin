@@ -718,74 +718,54 @@ export default function PokerView({
 
           {/* Action buttons */}
           {isMyTurn && myState && !myState.folded && !myState.all_in && (
-            <div className="poker-actions">
-              <button
-                className="poker-action-btn poker-action-btn--fold"
-                onClick={handleFold}
-              >
-                Fold
-              </button>
-              <button
-                className="poker-action-btn poker-action-btn--call"
-                onClick={handleCallOrCheck}
-              >
-                {callLabel}
-              </button>
+            <>
+              <div className="poker-actions">
+                <button
+                  className="poker-action-btn poker-action-btn--fold"
+                  onClick={handleFold}
+                >
+                  Fold
+                </button>
+                <button
+                  className="poker-action-btn poker-action-btn--call"
+                  onClick={handleCallOrCheck}
+                >
+                  {callLabel}
+                </button>
+              </div>
               {canRaise && (
                 <div className="poker-raise-controls">
-                  <input
-                    className="poker-raise-input"
-                    type="number"
-                    value={raiseAmount}
-                    min={minRaiseTotal}
-                    max={maxRaiseTotal}
-                    step={1}
-                    onChange={e => setRaiseAmount(Number(e.target.value) || 0)}
-                  />
-                  <button
-                    className="poker-action-btn poker-action-btn--raise"
-                    onClick={handleRaise}
-                    disabled={
-                      raiseAmount < minRaiseTotal && raiseAmount !== maxRaiseTotal
-                      || raiseAmount > maxRaiseTotal
-                      || raiseAmount <= roomCurrentBet
-                    }
-                  >
-                    Raise to {raiseAmount}
-                  </button>
+                  <div className="poker-raise-row">
+                    <input
+                      className="poker-raise-input"
+                      type="number"
+                      value={raiseAmount}
+                      min={minRaiseTotal}
+                      max={maxRaiseTotal}
+                      step={1}
+                      onChange={e => setRaiseAmount(Number(e.target.value) || 0)}
+                    />
+                    <button
+                      className="poker-action-btn poker-action-btn--raise"
+                      onClick={handleRaise}
+                      disabled={
+                        raiseAmount < minRaiseTotal && raiseAmount !== maxRaiseTotal
+                        || raiseAmount > maxRaiseTotal
+                        || raiseAmount <= roomCurrentBet
+                      }
+                    >
+                      Raise {raiseAmount}
+                    </button>
+                  </div>
                   <div className="poker-raise-quick">
-                    <button
-                      className="poker-action-btn"
-                      onClick={() => setRaiseQuick('min')}
-                      type="button"
-                    >
-                      Min
-                    </button>
-                    <button
-                      className="poker-action-btn"
-                      onClick={() => setRaiseQuick('half')}
-                      type="button"
-                    >
-                      ½ Pot
-                    </button>
-                    <button
-                      className="poker-action-btn"
-                      onClick={() => setRaiseQuick('pot')}
-                      type="button"
-                    >
-                      Pot
-                    </button>
-                    <button
-                      className="poker-action-btn"
-                      onClick={() => setRaiseQuick('allin')}
-                      type="button"
-                    >
-                      All-in
-                    </button>
+                    <button onClick={() => setRaiseQuick('min')} type="button">Min</button>
+                    <button onClick={() => setRaiseQuick('half')} type="button">½ Pot</button>
+                    <button onClick={() => setRaiseQuick('pot')} type="button">Pot</button>
+                    <button onClick={() => setRaiseQuick('allin')} type="button">All-in</button>
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {isHandActive && !isMyTurn && currentPlayerId && (

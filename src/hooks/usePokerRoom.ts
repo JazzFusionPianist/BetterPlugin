@@ -156,29 +156,41 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     }
   }, [room?.id, supabase, currentUserId])
 
-  // Defensive re-fetch: whenever the room transitions into a new hand
-  // (hand_number or betting_round changes), re-pull our own hole cards
-  // from DB. This protects against missed realtime events for
-  // poker_hole_cards (e.g. if the table isn't in the realtime publication
-  // yet, or events were dropped during a brief disconnect).
+  // Defensive re-fetch: whenever the room transitions into a new hand,
+  // re-pull our own hole cards from DB. Retries up to 3 times with a small
+  // delay because the host's UPSERT can race with the room update arriving
+  // here via realtime — at first we may see hand N, but the row for hand N
+  // hasn't propagated yet.
   const handNumber = (room?.state as PokerRoomState | undefined)?.hand_number
-  const bettingRound = (room?.state as PokerRoomState | undefined)?.betting_round
   useEffect(() => {
-    if (!room) return
+    if (!room || !handNumber) return
     let cancelled = false
-    ;(async () => {
-      const { data } = await supabase
+    const fetchHoleCards = async (attempt = 0) => {
+      const { data, error } = await supabase
         .from('poker_hole_cards')
         .select('*')
         .eq('room_id', room.id)
         .eq('user_id', currentUserId)
         .maybeSingle()
       if (cancelled) return
-      if (data) setMyHoleCards(((data as PokerHoleCards).cards ?? []) as string[])
-      else setMyHoleCards([])
-    })()
+      if (error) {
+        console.warn('[usePokerRoom] hole_cards fetch error:', error)
+        return
+      }
+      const cards = ((data as PokerHoleCards | null)?.cards ?? []) as string[]
+      if (cards.length === 2) {
+        setMyHoleCards(cards)
+      } else if (attempt < 3) {
+        // Cards not in DB yet — retry
+        setTimeout(() => { if (!cancelled) fetchHoleCards(attempt + 1) }, 250 * (attempt + 1))
+      } else {
+        console.warn('[usePokerRoom] hole_cards still empty after retries')
+        setMyHoleCards([])
+      }
+    }
+    fetchHoleCards()
     return () => { cancelled = true }
-  }, [room, handNumber, bettingRound, supabase, currentUserId])
+  }, [room?.id, handNumber, supabase, currentUserId])
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
   const createRoom = useCallback(

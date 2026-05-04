@@ -65,7 +65,10 @@ export function useLiveViewer(
     }
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') setStatus('connected')
-      if (['failed', 'closed'].includes(pc.connectionState)) setStatus('ended')
+      // Don't go to 'ended' on transient ICE failures — wait for explicit
+      // 'closed' (peer torn down). Failed connections often recover when
+      // the host re-sends an offer after re-creating the peer connection.
+      if (pc.connectionState === 'closed') setStatus('ended')
       refreshDebug()
     }
     pc.oniceconnectionstatechange = refreshDebug
@@ -83,11 +86,16 @@ export function useLiveViewer(
       config: { broadcast: { self: false, ack: false } },
     })
 
+    let retryTimer: ReturnType<typeof setInterval> | null = null
+    let connected = false
+
     channel
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         const msg = payload as SignalMessage
         if (msg.type === 'offer' && msg.to === viewerId) {
           try {
+            connected = true
+            if (retryTimer) { clearInterval(retryTimer); retryTimer = null }
             await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
             const answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
@@ -113,12 +121,20 @@ export function useLiveViewer(
         if (status === 'SUBSCRIBED') {
           // Announce our presence so the host starts negotiation
           send({ type: 'join', from: viewerId })
+          // Retry every 2.5s until we get an offer back. Handles the race
+          // where the host hasn't yet subscribed to the signaling channel
+          // or didn't yet have a localStream when our first join arrived.
+          retryTimer = setInterval(() => {
+            if (connected) { if (retryTimer) clearInterval(retryTimer); return }
+            send({ type: 'join', from: viewerId })
+          }, 2500)
         }
       })
 
     channelRef.current = channel
 
     return () => {
+      if (retryTimer) clearInterval(retryTimer)
       send({ type: 'leave', from: viewerId })
       pc.close()
       pcRef.current = null

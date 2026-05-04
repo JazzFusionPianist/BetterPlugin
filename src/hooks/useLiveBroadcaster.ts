@@ -54,8 +54,6 @@ export function useLiveBroadcaster(
 
     const handleJoin = (viewerId: string) => {
       if (peersRef.current.has(viewerId)) return
-      const stream = localStreamRef.current
-      if (!stream) return   // wait until local stream is ready
       const pc = new RTCPeerConnection(rtcConfig)
       peersRef.current.set(viewerId, pc)
       setViewerIds(prev => {
@@ -97,8 +95,15 @@ export function useLiveBroadcaster(
         }
       }
 
-      // Adding tracks triggers onnegotiationneeded → offer sent automatically
-      stream.getTracks().forEach(track => pc.addTrack(track, stream))
+      // Adding tracks triggers onnegotiationneeded → offer sent automatically.
+      // If localStream isn't ready yet, the track-replacement effect below will
+      // addTrack on this peer when the stream arrives.
+      const stream = localStreamRef.current
+      if (stream) {
+        stream.getTracks().forEach(track => pc.addTrack(track, stream))
+      } else {
+        console.warn('[broadcaster] viewer joined before localStream ready — peer queued')
+      }
     }
 
     const handleAnswer = async (viewerId: string, sdp: RTCSessionDescriptionInit) => {

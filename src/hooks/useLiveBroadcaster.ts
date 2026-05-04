@@ -67,7 +67,10 @@ export function useLiveBroadcaster(
       }
 
       pc.onicecandidate = (ev) => {
-        if (ev.candidate) send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
+        if (ev.candidate) {
+          console.log('[broadcaster] local ICE candidate type=', ev.candidate.type, 'protocol=', ev.candidate.protocol)
+          send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
+        }
       }
       pc.onconnectionstatechange = () => {
         console.log('[broadcaster] pc(', viewerId, ') connectionState:', pc.connectionState)

@@ -86,7 +86,10 @@ export function useLiveViewer(
     }
 
     pc.onicecandidate = (ev) => {
-      if (ev.candidate) send({ type: 'ice', from: viewerId, to: hostId, candidate: ev.candidate.toJSON() })
+      if (ev.candidate) {
+        console.log('[viewer] local ICE candidate type=', ev.candidate.type, 'protocol=', ev.candidate.protocol)
+        send({ type: 'ice', from: viewerId, to: hostId, candidate: ev.candidate.toJSON() })
+      }
     }
 
     const channel = client.channel(liveSignalingChannel(sessionId), {

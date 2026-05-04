@@ -64,15 +64,22 @@ export function useLiveViewer(
       refreshDebug()
     }
     pc.onconnectionstatechange = () => {
+      console.log('[viewer] connectionState:', pc.connectionState)
       if (pc.connectionState === 'connected') setStatus('connected')
-      // Don't go to 'ended' on transient ICE failures — wait for explicit
-      // 'closed' (peer torn down). Failed connections often recover when
-      // the host re-sends an offer after re-creating the peer connection.
       if (pc.connectionState === 'closed') setStatus('ended')
       refreshDebug()
     }
-    pc.oniceconnectionstatechange = refreshDebug
-    pc.onsignalingstatechange = refreshDebug
+    pc.oniceconnectionstatechange = () => {
+      console.log('[viewer] iceConnectionState:', pc.iceConnectionState)
+      refreshDebug()
+    }
+    pc.onicegatheringstatechange = () => {
+      console.log('[viewer] iceGatheringState:', pc.iceGatheringState)
+    }
+    pc.onsignalingstatechange = () => {
+      console.log('[viewer] signalingState:', pc.signalingState)
+      refreshDebug()
+    }
 
     const send = (msg: SignalMessage) => {
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })

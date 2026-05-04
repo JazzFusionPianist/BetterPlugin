@@ -70,12 +70,19 @@ export function useLiveBroadcaster(
         if (ev.candidate) send({ type: 'ice', from: hostId, to: viewerId, candidate: ev.candidate.toJSON() })
       }
       pc.onconnectionstatechange = () => {
+        console.log('[broadcaster] pc(', viewerId, ') connectionState:', pc.connectionState)
         refreshPeerStates()
         if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
           removeViewer(viewerId)
         }
       }
-      pc.oniceconnectionstatechange = refreshPeerStates
+      pc.oniceconnectionstatechange = () => {
+        console.log('[broadcaster] pc(', viewerId, ') iceConnectionState:', pc.iceConnectionState)
+        refreshPeerStates()
+      }
+      pc.onicegatheringstatechange = () => {
+        console.log('[broadcaster] pc(', viewerId, ') iceGatheringState:', pc.iceGatheringState)
+      }
 
       // Auto-renegotiate whenever tracks are added/removed (e.g. switching
       // from audio-only to video mid-stream). Guard against concurrent offers.

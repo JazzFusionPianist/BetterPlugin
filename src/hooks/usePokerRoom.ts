@@ -872,16 +872,46 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
   // Each action does an OPTIMISTIC local update first (so the UI reflects
   // the move instantly), then talks to Supabase. The realtime sub will
   // overwrite local state with the authoritative version once it arrives.
+
+  // Helper: advance turn index past current player (skipping folded).
+  // Cheap approximation — realtime will correct if the round actually closes.
+  function nextTurnIndex(
+    playerIds: string[],
+    states: Map<string, PokerPlayerState>,
+    from: number
+  ): number {
+    const n = playerIds.length
+    if (n === 0) return from
+    for (let i = 1; i <= n; i++) {
+      const idx = (from + i) % n
+      const ps = states.get(playerIds[idx])
+      if (!ps) continue
+      if (ps.folded || ps.all_in) continue
+      return idx
+    }
+    return from
+  }
+
   const fold = useCallback(async (): Promise<void> => {
     if (!room) return
     const ps = playerStates.get(currentUserId)
     if (!ps) return
-    // Optimistic — user sees themselves as folded immediately
+    const rmStateLocal = room.state as PokerRoomState
+    // Optimistic — fold + advance turn so action buttons disappear instantly
     setPlayerStates(prev => {
       const next = new Map(prev)
       next.set(currentUserId, { ...ps, folded: true, acted: true })
       return next
     })
+    if (rmStateLocal && typeof rmStateLocal.current_player_index === 'number') {
+      const nextStates = new Map(playerStates)
+      nextStates.set(currentUserId, { ...ps, folded: true, acted: true })
+      const nextIdx = nextTurnIndex(room.player_ids, nextStates, rmStateLocal.current_player_index)
+      setRoom(prev => prev ? {
+        ...prev,
+        state: { ...rmStateLocal, current_player_index: nextIdx } as PokerRoomState,
+      } : prev)
+    }
 
     const snap = await snapshot()
     if (!snap) return
@@ -904,21 +934,36 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     if (!ps || !rmStateLocal) return
     const toCallLocal = Math.max(0, (rmStateLocal.current_bet ?? 0) - ps.current_bet)
     const payLocal = Math.min(toCallLocal, ps.chips)
-    // Optimistic — instantly reflect chips/current_bet/acted/all-in
+    const newPsLocal: PokerPlayerState = {
+      ...ps,
+      chips: ps.chips - payLocal,
+      current_bet: ps.current_bet + payLocal,
+      all_in: ps.chips - payLocal === 0 && payLocal > 0 ? true : ps.all_in,
+      acted: true,
+    }
+    // Optimistic: bets + advance turn so action buttons disappear instantly
     setPlayerStates(prev => {
       const next = new Map(prev)
-      next.set(currentUserId, {
-        ...ps,
-        chips: ps.chips - payLocal,
-        current_bet: ps.current_bet + payLocal,
-        all_in: ps.chips - payLocal === 0 && payLocal > 0 ? true : ps.all_in,
-        acted: true,
-      })
+      next.set(currentUserId, newPsLocal)
       return next
     })
-    setRoom(prev => prev
-      ? { ...prev, state: { ...rmStateLocal, pot: (rmStateLocal.pot ?? 0) + payLocal } as PokerRoomState }
-      : prev)
+    if (typeof rmStateLocal.current_player_index === 'number') {
+      const nextStates = new Map(playerStates)
+      nextStates.set(currentUserId, newPsLocal)
+      const nextIdx = nextTurnIndex(room.player_ids, nextStates, rmStateLocal.current_player_index)
+      setRoom(prev => prev ? {
+        ...prev,
+        state: {
+          ...rmStateLocal,
+          pot: (rmStateLocal.pot ?? 0) + payLocal,
+          current_player_index: nextIdx,
+        } as PokerRoomState,
+      } : prev)
+    } else {
+      setRoom(prev => prev
+        ? { ...prev, state: { ...rmStateLocal, pot: (rmStateLocal.pot ?? 0) + payLocal } as PokerRoomState }
+        : prev)
+    }
 
     const snap = await snapshot()
     if (!snap) return
@@ -961,24 +1006,25 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
           if (targetLocal >= minTotal || targetLocal === maxTotal) {
             const deltaLocal = targetLocal - psLocal.current_bet
             if (deltaLocal > 0 && deltaLocal <= psLocal.chips) {
-              setPlayerStates(prev => {
-                const next = new Map(prev)
-                next.set(currentUserId, {
-                  ...psLocal,
-                  chips: psLocal.chips - deltaLocal,
-                  current_bet: targetLocal,
-                  all_in: psLocal.chips - deltaLocal === 0,
-                  acted: true,
-                })
-                // Other live players need to act again
-                for (const uid of room.player_ids) {
-                  if (uid === currentUserId) continue
-                  const other = next.get(uid)
-                  if (!other || other.folded || other.all_in) continue
-                  next.set(uid, { ...other, acted: false })
-                }
-                return next
-              })
+              const newPsLocal: PokerPlayerState = {
+                ...psLocal,
+                chips: psLocal.chips - deltaLocal,
+                current_bet: targetLocal,
+                all_in: psLocal.chips - deltaLocal === 0,
+                acted: true,
+              }
+              const nextStatesLocal = new Map(playerStates)
+              nextStatesLocal.set(currentUserId, newPsLocal)
+              for (const uid of room.player_ids) {
+                if (uid === currentUserId) continue
+                const other = nextStatesLocal.get(uid)
+                if (!other || other.folded || other.all_in) continue
+                nextStatesLocal.set(uid, { ...other, acted: false })
+              }
+              setPlayerStates(nextStatesLocal)
+              const nextIdx = typeof rmStateLocal.current_player_index === 'number'
+                ? nextTurnIndex(room.player_ids, nextStatesLocal, rmStateLocal.current_player_index)
+                : 0
               setRoom(prev => prev ? {
                 ...prev,
                 state: {
@@ -987,6 +1033,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
                   current_bet: targetLocal,
                   min_raise: Math.max(targetLocal - (rmStateLocal.current_bet ?? 0), rmStateLocal.min_raise ?? 0),
                   last_aggressor_index: rmStateLocal.current_player_index,
+                  current_player_index: nextIdx,
                 } as PokerRoomState
               } : prev)
             }

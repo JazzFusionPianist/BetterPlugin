@@ -47,6 +47,65 @@ export function getInitials(name: string): string {
     .toUpperCase()
 }
 
+// ── Poker (Texas Hold'em) ────────────────────────────────────────────────
+
+export type PokerRound = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown' | 'hand_end'
+
+export interface PokerHandEvalSnapshot {
+  user_id: string
+  rank_name: string         // e.g. "Two Pair", "Flush"
+  best_cards: string[]      // 5-card best hand
+  hole_cards: string[]      // hole cards revealed
+}
+
+export interface PokerRoomState {
+  hand_number: number
+  dealer_index: number              // index in player_ids
+  betting_round: PokerRound
+  deck: string[]                    // remaining cards in deck
+  community_cards: string[]         // up to 5
+  pot: number
+  current_bet: number               // amount required to call this round
+  min_raise: number
+  current_player_index: number      // whose turn to act
+  small_blind: number
+  big_blind: number
+  last_aggressor_index: number      // for end-of-betting-round detection
+  // Populated at showdown — public reveal of contesting players' hands
+  showdown?: PokerHandEvalSnapshot[]
+  hand_winner_ids?: string[]        // winners of the most recent hand (for split pots)
+  hand_winner_amount?: number       // chips each winner got
+}
+
+export interface PokerRoom {
+  id: string
+  host_id: string
+  player_count: 2 | 3 | 4 | 5 | 6
+  status: 'lobby' | 'playing' | 'finished'
+  player_ids: string[]              // host first
+  ready_ids: string[]
+  state: PokerRoomState | Record<string, never>  // {} during lobby
+  winner_id: string | null          // last player standing
+  created_at: string
+  updated_at: string
+}
+
+export interface PokerPlayerState {
+  room_id: string
+  user_id: string
+  chips: number
+  current_bet: number
+  folded: boolean
+  all_in: boolean
+  acted: boolean
+}
+
+export interface PokerHoleCards {
+  room_id: string
+  user_id: string
+  cards: string[]                   // ["AS", "KH"] — 2 cards
+}
+
 export interface TetrisRoom {
   id: string
   host_id: string

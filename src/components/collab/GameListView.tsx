@@ -1,7 +1,7 @@
 import React from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 
-export type GameId = 'chess' | 'tetris'
+export type GameId = 'chess' | 'tetris' | 'poker'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -65,6 +65,28 @@ const GAMES: GameCard[] = [
     ),
     name: 'Falling Blocks',
     description: 'Battle 2-4 players · clear lines, send garbage',
+  },
+  {
+    id: 'poker',
+    icon: (
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        {/* Two fan'd playing cards (suit + back) */}
+        <rect x="6" y="6" width="14" height="20" rx="2" fill="currentColor" opacity="0.55" transform="rotate(-12 13 16)" />
+        <rect x="12" y="6" width="14" height="20" rx="2" fill="currentColor" opacity="0.95" />
+        <text x="14" y="14" fontSize="6" fontFamily="serif" fontWeight="700" fill="#fff">A</text>
+        <path d="M19 18 L21 22 L17 22 Z" fill="#fff" />
+        <circle cx="19" cy="20" r="1.6" fill="#fff" />
+      </svg>
+    ),
+    name: 'Poker',
+    description: 'Texas Hold\'em · 2-6 players',
   },
 ]
 

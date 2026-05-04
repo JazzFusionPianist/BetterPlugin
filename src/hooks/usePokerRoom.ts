@@ -587,30 +587,23 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       return
     }
 
-    // Wipe old hole cards then insert new ones
-    const { error: delErr } = await supabase
-      .from('poker_hole_cards')
-      .delete()
-      .eq('room_id', room.id)
-    if (delErr) console.warn('[usePokerRoom.startHand] delete hole_cards:', delErr)
-    console.log('[usePokerRoom.startHand] dealing cards to', Array.from(holeCardsByUser.keys()))
-
-    const holeRows: PokerHoleCards[] = []
+    // Use the poker_deal_hand RPC (SECURITY DEFINER) — bypasses RLS so the
+    // host can write hole cards for every player without per-row policy
+    // gymnastics. The function verifies caller is the room host.
+    const holeMap: Record<string, string[]> = {}
     for (const [uid, cards] of holeCardsByUser.entries()) {
-      holeRows.push({ room_id: room.id, user_id: uid, cards })
+      holeMap[uid] = cards
     }
-    if (holeRows.length > 0) {
-      // NOTE: do NOT chain .select() — that forces PostgREST to filter the
-      // RETURNING rows through the SELECT policy (which only allows
-      // auth.uid() = user_id), so the host writing both their own AND the
-      // opponent's cards would get a 403 because they can't SELECT the
-      // opponent's row. Plain upsert without .select() bypasses this.
-      const { error: hcErr } = await supabase
-        .from('poker_hole_cards')
-        .upsert(holeRows, { onConflict: 'room_id,user_id' })
-      if (hcErr) console.warn('[usePokerRoom.startHand] upsert hole_cards error:', hcErr)
-      else console.log('[usePokerRoom.startHand] upserted hole_cards count:', holeRows.length)
+    console.log('[usePokerRoom.startHand] dealing cards to', Object.keys(holeMap))
+    const { error: dealErr } = await supabase.rpc('poker_deal_hand', {
+      p_room_id: room.id,
+      p_hole_cards: holeMap,
+    })
+    if (dealErr) {
+      console.warn('[usePokerRoom.startHand] poker_deal_hand RPC error:', dealErr)
+      return
     }
+    console.log('[usePokerRoom.startHand] dealt successfully')
 
     // Update room: set status=playing if still in lobby
     const update: Partial<PokerRoom> = {

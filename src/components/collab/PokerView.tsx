@@ -221,17 +221,27 @@ export default function PokerView({
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4 | 5 | 6>(2)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
+  // Suppress lobby UI flicker until the initial join/findActiveRoom completes.
+  const [resolving, setResolving] = useState(true)
 
   // ── Mount: try to resume an active room ──────────────────────────────────
   useEffect(() => {
-    const pendingRoomId = sessionStorage.getItem('join_room_id')
-    if (pendingRoomId && !room) {
-      sessionStorage.removeItem('join_room_id')
-      joinRoom(pendingRoomId)
-      return
-    }
-    if (!room) findActiveRoom()
-  }, [joinRoom, findActiveRoom, room])
+    let cancelled = false
+    ;(async () => {
+      const pendingRoomId = sessionStorage.getItem('join_room_id')
+      if (pendingRoomId) {
+        sessionStorage.removeItem('join_room_id')
+        await joinRoom(pendingRoomId)
+      } else {
+        await findActiveRoom()
+      }
+      if (!cancelled) setResolving(false)
+    })()
+    return () => { cancelled = true }
+    // Run only on mount — joinRoom/findActiveRoom are stable but listing them
+    // would cause re-runs on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Status helpers ───────────────────────────────────────────────────────
   const status = room?.status ?? 'lobby'
@@ -603,8 +613,20 @@ export default function PokerView({
             </div>
           )}
 
+          {/* Resolving overlay — covers the brief window before findActiveRoom
+              or pending joinRoom finishes, so the user doesn't see the
+              Create-Room flow flash before being placed in their invited room. */}
+          {resolving && !room && (
+            <div className="poker-finish-overlay chess-finish-overlay">
+              <div className="poker-finish-card chess-finish-card">
+                <div className="poker-finish-emoji">🃏</div>
+                <div className="poker-finish-title">Joining…</div>
+              </div>
+            </div>
+          )}
+
           {/* Lobby/invite overlay */}
-          {!isPlaying && !isFinished && (!room || !hasAllPlayers) && (
+          {!resolving && !isPlaying && !isFinished && (!room || !hasAllPlayers) && (
             <div className="poker-finish-overlay chess-finish-overlay">
               <div className="poker-finish-card chess-finish-card">
                 <div className="poker-finish-emoji">🃏</div>

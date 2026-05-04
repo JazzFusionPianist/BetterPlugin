@@ -118,47 +118,22 @@ export function useLiveBroadcaster(
       }
     }
 
-    // Per-viewer ICE queues (in case remote answer hasn't been processed yet)
-    const iceQueues = new Map<string, RTCIceCandidateInit[]>()
-    const remoteSetForViewer = new Set<string>()
-
     const handleAnswer = async (viewerId: string, sdp: RTCSessionDescriptionInit) => {
       const pc = peersRef.current.get(viewerId)
       if (!pc) return
-      console.log('[broadcaster] handleAnswer for', viewerId, 'localDesc m-lines:',
-        pc.localDescription?.sdp.match(/^m=\w+/gm)?.join(','),
-        'answer m-lines:', sdp.sdp?.match(/^m=\w+/gm)?.join(','))
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp))
       } catch (e) {
         console.error('[broadcaster] setRemoteDescription failed for', viewerId, e)
-        // Tear down the bad PC and let viewer retry; their join interval
-        // will fire again and we'll create a fresh PC with matching SDP.
         pc.close()
         peersRef.current.delete(viewerId)
         setViewerIds(prev => { const n = new Set(prev); n.delete(viewerId); return n })
-        return
-      }
-      remoteSetForViewer.add(viewerId)
-      const queue = iceQueues.get(viewerId)
-      if (queue) {
-        for (const c of queue) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(c)) }
-          catch (e) { console.warn('queued ICE add failed', e) }
-        }
-        iceQueues.delete(viewerId)
       }
     }
 
     const handleIce = async (viewerId: string, candidate: RTCIceCandidateInit) => {
       const pc = peersRef.current.get(viewerId)
       if (!pc) return
-      if (!remoteSetForViewer.has(viewerId)) {
-        const q = iceQueues.get(viewerId) ?? []
-        q.push(candidate)
-        iceQueues.set(viewerId, q)
-        return
-      }
       try { await pc.addIceCandidate(new RTCIceCandidate(candidate)) }
       catch (e) { console.warn('addIceCandidate failed', e) }
     }

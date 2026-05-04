@@ -162,6 +162,7 @@
   z-index: 100;
 }
 
+
 .app-title {
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
@@ -420,7 +421,11 @@
 .content {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  /* Clip horizontally so sliding views (translateX) don't bleed sideways,
+     but leave the vertical axis open so the orb layer can extend up into
+     the top-bar area. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .view {
@@ -649,6 +654,241 @@
 }
 .tt-arrow.down { border-top: 6px solid var(--bg); border-bottom: none; bottom: -5px; }
 .tt-arrow.up   { border-bottom: 6px solid var(--bg); border-top: none; top: -5px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   HoverTooltip (friend hover card)
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.tt2 {
+  position: absolute;
+  width: 158px;
+  max-width: calc(100% - 24px);
+  z-index: 50;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  font-family: 'DM Sans', sans-serif;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  /* Anchor: (x, y) is the orb's top-center; the card sits above it. */
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.tt2.below { transform: translate(-50%, 8px); }
+.tt2.visible { opacity: 1; }
+.plugin.dark .tt2 {
+  background: rgba(30, 30, 30, 0.78);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.tt2-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.tt2-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  position: relative;
+  font-family: 'DM Sans', sans-serif;
+}
+.tt2-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.tt2-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3CC97A;
+  border: 1.5px solid var(--bg);
+  box-sizing: border-box;
+}
+
+.tt2-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tt2-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  line-height: 1.2;
+}
+.tt2-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.tt2-star {
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.1s;
+}
+.tt2-star:hover { transform: scale(1.15); }
+.tt2-star.on { color: #f5c518; }
+.plugin.dark .tt2-star { color: rgba(255, 255, 255, 0.18); }
+.plugin.dark .tt2-star.on { color: #f5c518; }
+
+.tt2-status {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--t2);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 5px;
+  padding: 1px 6px;
+  width: fit-content;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+.plugin.dark .tt2-status {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.tt2-status-mutual {
+  color: var(--ob-t);
+  background: var(--ob-bg);
+  border-color: rgba(60, 201, 122, 0.5);
+}
+
+.tt2-counts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 2px;
+  font-size: 10px;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+}
+.tt2-count b {
+  color: var(--t1);
+  font-weight: 600;
+  margin-right: 3px;
+}
+
+.tt2-actions {
+  display: flex;
+  gap: 6px;
+}
+.tt2-action-btn {
+  flex: 1;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.018);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--t1);
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+.tt2-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+.tt2-action-btn:active { transform: scale(0.96); }
+.plugin.dark .tt2-action-btn {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.plugin.dark .tt2-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.tt2-live-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 9px;
+  background: rgba(255, 59, 48, 0.12);
+  border: 1px solid rgba(255, 59, 48, 0.35);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: #FF3B30;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+.tt2-live-btn:hover {
+  background: rgba(255, 59, 48, 0.22);
+  border-color: rgba(255, 59, 48, 0.55);
+}
+.tt2-live-btn:active { transform: scale(0.98); }
+.tt2-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #FF3B30;
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.6);
+  animation: tt2-live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes tt2-live-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.2); }
+}
+
+/* Glass-tinted arrow tail under the tt2 card. Overrides `.tt-arrow` colors. */
+.tt2 .tt-arrow.down {
+  border-top-color: rgba(255, 255, 255, 0.7);
+}
+.tt2 .tt-arrow.up {
+  border-bottom-color: rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .tt2 .tt-arrow.down {
+  border-top-color: rgba(30, 30, 30, 0.78);
+}
+.plugin.dark .tt2 .tt-arrow.up {
+  border-bottom-color: rgba(30, 30, 30, 0.78);
+}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Chat Sub-Bar
@@ -1376,20 +1616,29 @@
 .profile-orbit-body {
   padding: 0 !important;
   position: relative;
-  overflow: hidden;
+  /* `overflow: visible` so the orb layer (which uses negative `top`) can
+     paint upward into the top-bar strip. */
+  overflow: visible;
 }
 .profile-orbit {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .orbit-self {
   position: absolute !important;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  /* Avatar's TOP edge sits at panel-centre minus half its own height (38px)
+     so the avatar is vertically centred. We position via `top` only and
+     keep `transform` constant — animating both `top` and `transform` at
+     once was producing a small visual hitch on the main↔party transition
+     because the percentage→pixel `top` interpolation and the translate-y
+     change weren't perfectly in sync. */
+  top: calc(50% - 38px);
+  transform: translate(-50%, 0);
   z-index: 2;
-  transition: top 0.5s ease, transform 0.5s ease;
+  transition: top 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: top;
 }
 .orbit-bottom {
   position: absolute;
@@ -1408,18 +1657,28 @@
   color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.018);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   padding: 2px 12px;
   border-radius: 6px;
+}
+.plugin.dark .orbit-name {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 /* --- Scroll-up profile view --- */
 .orbit-orbs-layer {
   position: absolute;
-  inset: 0;
+  /* Extend upward into the top-bar strip (44px). Orbs paint behind the
+     transparent top-bar background while the icons (z-index 100) stay on
+     top and clickable. */
+  top: -44px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   transition: transform 0.5s ease, opacity 0.4s ease;
 }
 .orbit-orbs-hidden {
@@ -1427,9 +1686,50 @@
   opacity: 0;
   pointer-events: none;
 }
+/* Music-panel state: keep friend orbs as a live backdrop, but disable
+   hover so they read as ambient decoration rather than clickable nodes. */
+.orbit-orbs-ambient {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: saturate(0.85) brightness(1.18);
+}
+.orbit-orbs-ambient .orbit-orb {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Scrolled-up music view: lift the glass chips off the busy orb backdrop
+   by painting them with a brighter white-leaning fill instead of the
+   default `rgba(0,0,0,…)` ghost. */
+.orbit-scrolled .orbit-mode-toggle-btn,
+.orbit-scrolled .orbit-stat,
+.orbit-scrolled .orbit-name {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.orbit-scrolled .orbit-mode-toggle-btn:hover,
+.orbit-scrolled .orbit-stat:hover {
+  background: rgba(232, 232, 236, 0.82);
+  border-color: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.orbit-scrolled .orbit-stat.active {
+  background: rgba(220, 222, 228, 0.88);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.plugin.dark .orbit-scrolled .orbit-mode-toggle-btn,
+.plugin.dark .orbit-scrolled .orbit-stat,
+.plugin.dark .orbit-scrolled .orbit-name {
+  background: rgba(30, 30, 30, 0.55);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
 .orbit-scrolled .orbit-self {
   top: 60px;
-  transform: translate(-50%, 0);
+  /* `transform` matches the base rule — only `top` animates between
+     main and party states, which keeps the motion silky. */
 }
 .orbit-stats {
   position: absolute;
@@ -1448,44 +1748,67 @@
 .orbit-stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 1px;
   font-family: 'DM Sans', sans-serif;
   color: var(--t1);
+  pointer-events: auto;
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.018);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
 }
 .orbit-stat:first-child {
-  position: absolute;
   right: calc(50% + 52px);
-  top: 0;
-  height: 100%;
-  align-items: flex-end;
 }
 .orbit-stat:last-child {
-  position: absolute;
   left: calc(50% + 51px);
-  top: 0;
-  height: 100%;
-  align-items: flex-start;
+}
+.orbit-stat:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.orbit-stat:active { transform: translateY(-50%) scale(0.97); }
+.orbit-stat.active {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .orbit-stat {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.plugin.dark .orbit-stat:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.plugin.dark .orbit-stat.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .orbit-stat-count {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
+  color: var(--t1);
 }
 .orbit-stat-label {
   font-size: 9px;
   font-weight: 400;
-  opacity: 0.5;
+  opacity: 0.55;
   text-transform: lowercase;
+  letter-spacing: 0.02em;
 }
-.orbit-stat {
-  pointer-events: auto;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.orbit-stat:hover { opacity: 0.7; }
-.orbit-stat.active .orbit-stat-count,
-.orbit-stat.active .orbit-stat-label { opacity: 1; }
-.orbit-stat.active .orbit-stat-label { opacity: 0.8; }
 
 /* --- Stat profile list --- */
 .orbit-stat-list {
@@ -1621,6 +1944,7 @@
   will-change: transform;
   touch-action: pan-y;
   transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  z-index: 1;
 }
 .orbit-track-item {
   width: 140px;
@@ -1651,6 +1975,7 @@
   to   { transform: rotate(360deg); }
 }
 .orbit-track-cover {
+  position: relative;
   width: 140px;
   height: 140px;
   border-radius: 50%;
@@ -1658,6 +1983,16 @@
   transition: opacity 0.15s;
   overflow: hidden;
   flex-shrink: 0;
+  /* Glass-CD layered shadow:
+     - outer soft drop for depth
+     - inner white ring (top-edge highlight) for the rim sheen
+     - subtle inset darkening at the rim so the disk reads convex */
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.16),
+    0 1px 4px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+    inset 0 -10px 28px rgba(0, 0, 0, 0.08),
+    inset 0 10px 28px rgba(255, 255, 255, 0.18);
 }
 .orbit-track-cover img {
   width: 100%;
@@ -1666,7 +2001,25 @@
   display: block;
 }
 .orbit-track-cover-default {
-  background: #fff;
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff 0%, #f0f1f5 55%, #d8dadf 100%);
+}
+/* Diagonal highlight sweep — gives the CD that "polished glass" sheen */
+.orbit-track-cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.05) 28%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0) 70%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
 }
 .orbit-track-item:hover .orbit-track-cover { opacity: 0.8; }
 .orbit-track-playing {
@@ -1691,10 +2044,11 @@
   max-width: 70px;
 }
 
-/* --- Hover label (title + date) --- */
+/* --- Hover label (title + date) — glass capsule so it stays legible
+       on top of the friend-orb backdrop. --- */
 .orbit-track-hover-label {
   position: absolute;
-  top: calc(50% + 82px);
+  top: calc(50% + 78px);
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
@@ -1703,6 +2057,18 @@
   transition: opacity 0.2s ease;
   white-space: nowrap;
   font-family: 'DM Sans', sans-serif;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .orbit-track-hover-label {
+  background: rgba(30, 30, 30, 0.6);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 .orbit-track-item:hover .orbit-track-hover-label {
   opacity: 1;
@@ -1712,16 +2078,15 @@
 }
 .orbit-track-hover-title {
   font-size: 11px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--t1);
-  opacity: 0.75;
   letter-spacing: 0.01em;
 }
 .orbit-track-hover-date {
   font-size: 9px;
   font-weight: 400;
   color: var(--t1);
-  opacity: 0.4;
+  opacity: 0.55;
   margin-top: 2px;
   letter-spacing: 0.02em;
 }
@@ -1746,25 +2111,51 @@
 }
 .orbit-track-edit-input,
 .orbit-track-edit-desc {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--orbit-ring-soft);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
   color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   font-size: 12px;
-  padding: 5px 0;
+  padding: 6px 10px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
-  transition: border-color 0.15s;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .orbit-track-edit-input::placeholder,
 .orbit-track-edit-desc::placeholder {
   color: var(--orbit-input-ph);
 }
+.orbit-track-edit-input:hover,
+.orbit-track-edit-desc:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.9);
+}
 .orbit-track-edit-input:focus,
 .orbit-track-edit-desc:focus {
-  border-bottom-color: var(--orbit-ring);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.plugin.dark .orbit-track-edit-input,
+.plugin.dark .orbit-track-edit-desc {
+  background: rgba(40, 40, 40, 0.78);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.plugin.dark .orbit-track-edit-input:hover,
+.plugin.dark .orbit-track-edit-desc:hover {
+  background: rgba(50, 50, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.plugin.dark .orbit-track-edit-input:focus,
+.plugin.dark .orbit-track-edit-desc:focus {
+  background: rgba(55, 55, 55, 0.92);
+  border-color: rgba(255, 255, 255, 0.36);
 }
 .orbit-track-edit-title-input {
   font-size: 14px;
@@ -1772,7 +2163,7 @@
 }
 .orbit-track-edit-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 .orbit-track-edit-row .orbit-track-edit-input {
   flex: 1;
@@ -1780,9 +2171,6 @@
 }
 .orbit-track-edit-desc {
   resize: none;
-  border: 1px solid var(--orbit-ring-soft);
-  border-radius: 6px;
-  padding: 6px 8px;
   font-family: inherit;
   line-height: 1.4;
 }
@@ -1793,23 +2181,40 @@
   margin-top: 4px;
 }
 .orbit-track-edit-btn {
-  background: transparent;
-  border: 1px solid var(--orbit-ring);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 14px;
   color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
-  padding: 5px 12px;
+  font-weight: 500;
+  padding: 5px 14px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.08s;
 }
 .orbit-track-edit-btn:hover:not(:disabled) {
-  border-color: var(--orbit-ring-hover);
-  background: var(--orbit-ring-tint);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.orbit-track-edit-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .orbit-track-edit-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
+}
+.plugin.dark .orbit-track-edit-btn {
+  background: rgba(40, 40, 40, 0.78);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.plugin.dark .orbit-track-edit-btn:hover:not(:disabled) {
+  background: rgba(55, 55, 55, 0.88);
+  border-color: rgba(255, 255, 255, 0.34);
 }
 
 /* --- Track privacy toggle + follower picker --- */
@@ -1820,18 +2225,26 @@
 }
 .orbit-track-privacy-toggle {
   display: flex;
-  background: var(--orbit-ring-tint);
-  border: 1px solid var(--orbit-ring-soft);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
   padding: 2px;
   gap: 2px;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .orbit-track-privacy-toggle {
+  background: rgba(40, 40, 40, 0.78);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .orbit-track-privacy-opt {
   flex: 1;
   background: transparent;
   border: none;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 11px;
   font-family: 'DM Sans', sans-serif;
   font-weight: 500;
@@ -1841,9 +2254,13 @@
 }
 .orbit-track-privacy-opt:hover { color: var(--t1); }
 .orbit-track-privacy-opt.active {
-  background: var(--bg);
+  background: rgba(255, 255, 255, 0.75);
   color: var(--t1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .orbit-track-privacy-opt.active {
+  background: rgba(60, 60, 60, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .orbit-track-followers-list {
   display: flex;
@@ -2313,11 +2730,11 @@
   top: 8px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.018);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 500;
@@ -2326,9 +2743,22 @@
   padding: 2px 10px;
   border-radius: 6px;
   z-index: 4;
-  transition: background .12s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
 }
-.orbit-mode-toggle-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.orbit-mode-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.orbit-mode-toggle-btn:active { transform: translateX(-50%) scale(0.97); }
+.plugin.dark .orbit-mode-toggle-btn {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.plugin.dark .orbit-mode-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
 .party-list-overlay {
   position: absolute;
   inset: 0;

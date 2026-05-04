@@ -4,6 +4,8 @@ import type { Profile } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 import { useTracks } from '../../hooks/useTracks'
+import HoverTooltip from './HoverTooltip'
+import FloatingOrbs from '../FloatingOrbs'
 
 interface Props {
   supabase: SupabaseClient
@@ -38,6 +40,10 @@ interface Orb {
 }
 
 const SELF_RADIUS = 38
+// The orb playground extends upward into the top-bar so orbs can drift
+// across the icons too. Keep this in sync with `.top-bar { height }` in
+// collab.css and the negative `top` on `.orbit-orbs-layer`.
+const TOP_GAP = 44
 
 export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly, liveHostIds, liveSessions, onWatchLive }: Props) {
   // 'main'  → party_main        (orbit / friend bubbles view)
@@ -59,15 +65,45 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const prevModeRef = useRef(mode)
   const speedFactorRef = useRef(1)
   const exclusionPadRef = useRef(6)
-  // true  → party_discography page (user scrolled up to reveal music gallery)
-  // false → party_main page (default orbit view)
-  const [scrolledUp, setScrolledUp] = useState(false)
+  // Mirror of `mode === 'party'` so the animation loop (mounted once with
+  // empty deps) can read the latest value without re-binding.
+  const ambientRef = useRef(false)
+  // The legacy "party_main" orbit view (orbs around the avatar) was removed
+  // — entering party mode goes straight to the music panel. We keep this
+  // derived flag so the existing class names / conditionals all still read
+  // naturally; it's simply equal to `mode === 'party'` now.
+  const scrolledUp = mode === 'party'
   const [statList, setStatList] = useState<'members' | 'following' | null>(null)
   const lastListRef = useRef<'members' | 'following'>('members')
 
   useEffect(() => { if (statList) lastListRef.current = statList }, [statList])
 
   useEffect(() => { if (!scrolledUp) { setStatList(null); setTrackPanel(false) } }, [scrolledUp])
+  useEffect(() => {
+    const next = scrolledUp
+    const prev = ambientRef.current
+    ambientRef.current = next
+    // When we *enter* ambient mode, redistribute every orb to a uniformly
+    // random spot anywhere in the panel — including the central area that
+    // the regular party view kept clear for the avatar. Without this the
+    // orbs would still display the donut hole left over from initial
+    // placement, even though the centre-exclusion has been turned off.
+    if (!prev && next) {
+      const orbs = orbsRef.current
+      const { w: W, h: H } = sizeRef.current
+      const reservedBottom = 4
+      const sf = speedFactorRef.current
+      for (const o of orbs) {
+        if (o.frozen) continue
+        o.x = o.r + Math.random() * (W - 2 * o.r)
+        o.y = o.r + Math.random() * (H - reservedBottom - 2 * o.r)
+        const ang = Math.random() * Math.PI * 2
+        const speed = (0.06 + Math.random() * 0.08) * sf
+        o.vx = Math.cos(ang) * speed
+        o.vy = Math.sin(ang) * speed
+      }
+    }
+  }, [scrolledUp, mode])
   useEffect(() => { setStatList(null); setTrackPanel(false) }, [mode])
 
   // --- Track upload state ---
@@ -99,13 +135,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   const wheelStartIdxRef = useRef<number | null>(null)
   const wheelResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const trackListRef = useRef<HTMLDivElement>(null)
-  const scrollAccumRef = useRef(0)
-  const scrollResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const panelAnimLockRef = useRef(false)
   const GALLERY_SPACING = 150
   const DRAG_CLICK_THRESHOLD = 5
-  const PANEL_SCROLL_THRESHOLD = 50
-  const PANEL_ANIM_LOCK_MS = 550
 
   // During active drag/scroll: write transform directly to the list element (no React re-render).
   // On release: clear the inline transition override and setViewIndex — React re-renders the
@@ -260,36 +291,6 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     }
   }, [playingTrackId, deleteTrack])
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (mode !== 'party') return
-    if (statList || trackPanel) return
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
-    // Ignore further wheel events while the previous toggle is still animating so
-    // rapid / jittery scrolls don't interrupt the in-flight animation.
-    if (panelAnimLockRef.current) return
-
-    scrollAccumRef.current += e.deltaY
-
-    let toggled = false
-    if (scrollAccumRef.current <= -PANEL_SCROLL_THRESHOLD && !scrolledUp) {
-      setScrolledUp(true)
-      toggled = true
-    } else if (scrollAccumRef.current >= PANEL_SCROLL_THRESHOLD && scrolledUp) {
-      setScrolledUp(false)
-      toggled = true
-    }
-
-    if (toggled) {
-      scrollAccumRef.current = 0
-      panelAnimLockRef.current = true
-      setTimeout(() => { panelAnimLockRef.current = false }, PANEL_ANIM_LOCK_MS)
-    }
-
-    // Drain accumulated delta if the user pauses scrolling
-    if (scrollResetRef.current) clearTimeout(scrollResetRef.current)
-    scrollResetRef.current = setTimeout(() => { scrollAccumRef.current = 0 }, 220)
-  }
-
   const handleTrackWheel = (e: React.WheelEvent) => {
     if (tracks.length <= 1 || playingTrackId) return
     const dx = e.deltaX
@@ -355,6 +356,9 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     () => mode === 'main' ? followingProfiles.filter(p => p.isOnline) : followerProfiles,
     [mode, followingProfiles, followerProfiles]
   )
+  // Derive following / follower membership sets so HoverTooltip can show the right status pill.
+  const followingSet = useMemo(() => new Set(followingProfiles.map(p => p.id)), [followingProfiles])
+  const followerSet  = useMemo(() => new Set(followerProfiles.map(p => p.id)), [followerProfiles])
   const [renderProfiles, setRenderProfiles] = useState<Profile[]>(displayProfiles)
   const [transitionTick, setTransitionTick] = useState(0)
   const [exiting, setExiting] = useState(false)
@@ -408,11 +412,16 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
   // Initialize orbs whenever display list changes
   useLayoutEffect(() => {
+    // Measure the panel container directly and add `TOP_GAP` so the orb
+    // playground always reflects the panel + top-bar strip — this is more
+    // reliable than reading the orb-layer's box (whose negative `top`
+    // expansion can be misreported during the first render under some
+    // browser/CSS-loading orderings).
     const c = containerRef.current
     if (!c) return
     const rect = c.getBoundingClientRect()
     const W = rect.width
-    const H = rect.height
+    const H = rect.height + TOP_GAP
     sizeRef.current = { w: W, h: H }
 
     const N = renderProfiles.length
@@ -424,8 +433,6 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       return
     }
 
-    const cx = W / 2
-    const cy = H / 2
     const reservedBottom = 4
     const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
     const rRaw = Math.sqrt(usable / (N * Math.PI))
@@ -439,14 +446,13 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
-      const rMin = SELF_RADIUS + r + exclusionPad + 4
-      // Uniform rectangle sampling with guaranteed rejection inside the self exclusion
-      let x = 0, y = 0
-      for (let attempt = 0; attempt < 500; attempt++) {
-        x = r + Math.random() * (W - 2 * r)
-        y = r + Math.random() * (H - reservedBottom - 2 * r)
-        if (Math.hypot(x - cx, y - cy) >= rMin) break
-      }
+      // Uniform rectangle sampling across the entire panel — including the
+      // centre. The runtime exclusion (when not in ambient mode) will push
+      // any orbs that landed under the avatar back out within a few frames,
+      // but the initial frame reads as a fully-populated field with no
+      // donut hole.
+      const x = r + Math.random() * (W - 2 * r)
+      const y = r + Math.random() * (H - reservedBottom - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
       orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
@@ -465,7 +471,10 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const tick = () => {
       const orbs = orbsRef.current
       const { w: W, h: H } = sizeRef.current
-      const cx = W / 2, cy = H / 2
+      // Avatar sits at the visual centre of the panel below the top-bar.
+      // In orb-layer coords (which include the TOP_GAP top-bar strip), that
+      // y-position is `TOP_GAP + (H - TOP_GAP) / 2 = (H + TOP_GAP) / 2`.
+      const cx = W / 2, cy = (H + TOP_GAP) / 2
       const reservedBottom = 4
 
       const transitioning = !wallBounceRef.current
@@ -494,18 +503,22 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
         }
       }
 
-      for (const o of orbs) {
-        const dx = o.x - cx, dy = o.y - cy
-        const d = Math.hypot(dx, dy) || 0.001
-        const min = SELF_RADIUS + o.r + exclusionPadRef.current
-        if (d < min) {
-          const nx = dx / d, ny = dy / d
-          o.x = cx + nx * min
-          o.y = cy + ny * min
-          const dot = o.vx * nx + o.vy * ny
-          if (dot < 0) {
-            o.vx -= 2 * dot * nx
-            o.vy -= 2 * dot * ny
+      // Skip the centre-exclusion when the music panel is up — orbs
+      // should fly freely through the (smaller, repositioned) avatar.
+      if (!ambientRef.current) {
+        for (const o of orbs) {
+          const dx = o.x - cx, dy = o.y - cy
+          const d = Math.hypot(dx, dy) || 0.001
+          const min = SELF_RADIUS + o.r + exclusionPadRef.current
+          if (d < min) {
+            const nx = dx / d, ny = dy / d
+            o.x = cx + nx * min
+            o.y = cy + ny * min
+            const dot = o.vx * nx + o.vy * ny
+            if (dot < 0) {
+              o.vx -= 2 * dot * nx
+              o.vy -= 2 * dot * ny
+            }
           }
         }
       }
@@ -530,8 +543,12 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const halfTT = 70
     const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))
     const tooltipH = 80
-    const below = orb.y - orb.r < tooltipH
-    setTooltipPos({ x: clampedX, y: below ? orb.y + orb.r : orb.y - orb.r, below })
+    // The tooltip is rendered inside `.profile-orbit`, which sits TOP_GAP px
+    // below the orb-layer's origin — translate the orb's y from orb-layer
+    // coords back into panel coords so the card lines up with the avatar.
+    const yInPanel = orb.y - TOP_GAP
+    const below = yInPanel - orb.r < tooltipH
+    setTooltipPos({ x: clampedX, y: below ? yInPanel + orb.r : yInPanel - orb.r, below })
   }
 
   const handleOrbLeave = (idx: number) => {
@@ -563,7 +580,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
   return (
     <>
-      <div className="s-body profile-orbit-body" onWheel={handleWheel}>
+      <div className="s-body profile-orbit-body">
         <div className={`profile-orbit${scrolledUp && mode === 'party' ? ' orbit-scrolled' : ''}`} ref={containerRef}>
           {viewOnly ? (
             <button className="orbit-mode-toggle-btn" onClick={onClose}>
@@ -577,7 +594,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
               {mode}
             </button>
           )}
-          <div className={`orbit-orbs-layer${scrolledUp && mode === 'party' ? ' orbit-orbs-hidden' : ''}`}>
+          <div className={`orbit-orbs-layer${scrolledUp && mode === 'party' ? ' orbit-orbs-ambient' : ''}`}>
           {renderProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
@@ -629,43 +646,31 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
             )}
           </button>
 
-          {hoveredProfile && tooltipPos && (
-            <div
-              className={`orbit-tooltip${tooltipPos.below ? ' below' : ''}`}
-              style={{ left: tooltipPos.x, top: tooltipPos.y }}
-              onMouseEnter={handleTooltipEnter}
-              onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
-            >
-              <div className="orbit-tt-name-row">
-                <div className="orbit-tt-name">{hoveredProfile.display_name}</div>
-                <button
-                  className={`orbit-tt-star${favorites.has(hoveredProfile.id) ? ' on' : ''}`}
-                  onClick={() => onToggleFav(hoveredProfile.id)}
-                  title={favorites.has(hoveredProfile.id) ? 'Unfavorite' : 'Favorite'}
-                >
-                  ★
-                </button>
-              </div>
-              <button className="orbit-tt-btn" onClick={() => handleUnfollow(hoveredProfile.id)}>following</button>
-              <div className="orbit-tt-btn-row">
-                <button className="orbit-tt-btn orbit-tt-msg" onClick={() => onOpenChat(hoveredProfile.id)}>message</button>
-                {onViewProfile && <button className="orbit-tt-btn orbit-tt-prof" onClick={() => onViewProfile(hoveredProfile.id)}>profile</button>}
-              </div>
-              {(() => {
-                if (!liveHostIds?.has(hoveredProfile.id)) return null
-                const session = liveSessions?.find(s => s.host_id === hoveredProfile.id)
-                if (!session || !onWatchLive) return null
-                return (
-                  <button
-                    className="orbit-tt-btn orbit-tt-join-live"
-                    onClick={() => onWatchLive(session.id)}
-                  >
-                    ● Join Live!
-                  </button>
-                )
-              })()}
-            </div>
-          )}
+          {hoveredProfile && tooltipPos && (() => {
+            const liveSession = liveHostIds?.has(hoveredProfile.id)
+              ? liveSessions?.find(s => s.host_id === hoveredProfile.id) ?? null
+              : null
+            return (
+              <HoverTooltip
+                supabase={supabase}
+                profile={hoveredProfile}
+                x={tooltipPos.x}
+                y={tooltipPos.y}
+                below={tooltipPos.below}
+                isMutual={followingSet.has(hoveredProfile.id) && followerSet.has(hoveredProfile.id)}
+                isFollowing={followingSet.has(hoveredProfile.id)}
+                isFollower={followerSet.has(hoveredProfile.id)}
+                isFavorite={favorites.has(hoveredProfile.id)}
+                onToggleFavorite={() => onToggleFav(hoveredProfile.id)}
+                liveSessionId={liveSession?.id ?? null}
+                onJoinLive={liveSession && onWatchLive ? () => onWatchLive(liveSession.id) : undefined}
+                onMessage={() => onOpenChat(hoveredProfile.id)}
+                onViewProfile={() => onViewProfile?.(hoveredProfile.id)}
+                onMouseEnter={handleTooltipEnter}
+                onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
+              />
+            )
+          })()}
 
           <div className="orbit-bottom">
             <div className="orbit-name">{displayName}</div>
@@ -709,7 +714,7 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
 
           {/* --- party_discography: Upload circle / Track display --- */}
           {scrolledUp && mode === 'party' && !statList && (
-            <div className="orbit-track-area">
+            <div className="orbit-track-area" onWheel={e => e.stopPropagation()}>
               {tracks.length === 0 ? (
                 viewOnly ? (
                   <div className="orbit-no-tracks">no music just yet, but stay tuned!</div>

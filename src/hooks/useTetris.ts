@@ -34,8 +34,8 @@ export interface LockResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const BOARD_ROWS = 20
-export const BOARD_COLS = 10
+export const BOARD_ROWS = 18
+export const BOARD_COLS = 8
 export const LOCK_DELAY_MS = 500
 const PREVIEW_SIZE = 5
 const ALL_PIECES: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
@@ -297,10 +297,9 @@ function drawPiece(
 }
 
 function makePiece(type: PieceType): Piece {
-  // All pieces use a 4×4 bounding box. Using col=3 places the piece roughly
-  // centered on a 10-wide board for both 3-wide pieces (occupying cols 3-5)
-  // and the I piece (occupying cols 3-6 on rotation 0).
-  return { type, rotation: 0, row: 0, col: 3 }
+  // All pieces use a 4×4 bounding box. Centered for an 8-wide board: col=2
+  // puts 3-wide pieces in cols 2-4 and the I piece in cols 2-5.
+  return { type, rotation: 0, row: 0, col: 2 }
 }
 
 function isOnGround(board: Board, piece: Piece): boolean {

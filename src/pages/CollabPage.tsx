@@ -196,6 +196,22 @@ function CollabPageInner({ user }: Props) {
     if (s) setWatchingSession(s)
   }, [liveSessions])
 
+  // Keep watchingSession in sync with liveSessions — when the host updates
+  // their live_sessions row (e.g. has_video toggles when source changes
+  // from audio-only to video), the realtime update propagates through
+  // liveSessions and we refresh watchingSession so the viewer's UI
+  // (video element vs audio-only avatar) updates accordingly.
+  useEffect(() => {
+    if (!watchingSession) return
+    const fresh = liveSessions.find(s => s.id === watchingSession.id)
+    if (!fresh) return
+    if (fresh.has_video === watchingSession.has_video
+      && fresh.has_audio === watchingSession.has_audio
+      && fresh.video_source === watchingSession.video_source
+      && fresh.title === watchingSession.title) return
+    setWatchingSession(fresh)
+  }, [liveSessions, watchingSession])
+
   // Live chat — scoped to whichever session we're currently engaged with
   // (our own broadcast or a friend we're watching).
   const chatSessionId = mySession?.id ?? watchingSessionId ?? null

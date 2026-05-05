@@ -83,12 +83,22 @@ export function useLiveViewer(
     pc.ontrack = (ev) => {
       console.log('[viewer] ontrack:', ev.track.kind, 'id:', ev.track.id.slice(0, 8),
         'enabled:', ev.track.enabled, 'muted:', ev.track.muted)
-      ev.streams[0]?.getTracks().forEach(t => remote.addTrack(t))
+      // When the host cycles audio→video→audio→video, each video transition
+      // creates a NEW video transceiver on the host (because replaceTrack(null)
+      // leaves the sender with track=null and the next addTrack creates a fresh
+      // sender). On the viewer that means multiple video tracks accumulate
+      // in our remote stream, and the <video> element plays the FIRST one,
+      // which is now muted/dead — giving a black frame even though a fresh
+      // video track is also present. Drop any existing track of the same
+      // kind before adding the new one.
+      for (const existing of remote.getTracks()) {
+        if (existing.kind === ev.track.kind && existing !== ev.track) {
+          remote.removeTrack(existing)
+        }
+      }
+      remote.addTrack(ev.track)
       setRemoteStream(new MediaStream(remote.getTracks()))
       refreshDebug()
-      // Listen for mute/unmute on the new track — when the host calls
-      // replaceTrack(newTrack) on their sender, the viewer side may see a
-      // brief mute event. We re-trigger srcObject in that case.
       ev.track.onunmute = () => {
         console.log('[viewer] track unmuted:', ev.track.kind)
         setRemoteStream(new MediaStream(remote.getTracks()))

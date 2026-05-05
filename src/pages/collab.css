@@ -3722,9 +3722,12 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 100px;
-  max-height: 200px;
+  flex: 1 1 auto;
+  /* Was capped at 200px which felt cramped on tall windows. Scale to a
+     larger floor + no upper cap so the chat takes whatever vertical
+     space the body has after the video. The body itself scrolls if
+     content overflows. */
+  min-height: 220px;
   border: 0.5px solid var(--border);
   border-radius: 8px;
   background: var(--bg2);

@@ -51,7 +51,16 @@ export default function LiveChat({ messages, currentUserId, onSend }: Props) {
           maxLength={280}
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') submit() }}
+          onKeyDown={e => {
+            if (e.key !== 'Enter') return
+            // Skip the Enter that ends an IME composition (Korean/Japanese/
+            // Chinese). nativeEvent.isComposing is true during composition;
+            // keyCode 229 is the legacy "compose-key" sentinel some browsers
+            // still fire even after composition ends.
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return
+            e.preventDefault()
+            submit()
+          }}
         />
         <button
           className="live-chat-send"

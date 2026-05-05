@@ -196,19 +196,22 @@ function CollabPageInner({ user }: Props) {
     if (s) setWatchingSession(s)
   }, [liveSessions])
 
-  // Keep watchingSession in sync with liveSessions — when the host updates
-  // their live_sessions row (e.g. has_video toggles when source changes
-  // from audio-only to video), the realtime update propagates through
-  // liveSessions and we refresh watchingSession so the viewer's UI
-  // (video element vs audio-only avatar) updates accordingly.
+  // Keep watchingSession in sync with liveSessions
   useEffect(() => {
     if (!watchingSession) return
     const fresh = liveSessions.find(s => s.id === watchingSession.id)
-    if (!fresh) return
+    if (!fresh) {
+      console.log('[CollabPage] watching session not in liveSessions:', watchingSession.id)
+      return
+    }
     if (fresh.has_video === watchingSession.has_video
       && fresh.has_audio === watchingSession.has_audio
       && fresh.video_source === watchingSession.video_source
       && fresh.title === watchingSession.title) return
+    console.log('[CollabPage] updating watchingSession:', {
+      old: { has_video: watchingSession.has_video, video_source: watchingSession.video_source },
+      new: { has_video: fresh.has_video, video_source: fresh.video_source },
+    })
     setWatchingSession(fresh)
   }, [liveSessions, watchingSession])
 

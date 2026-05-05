@@ -335,13 +335,40 @@ static NSView* findViewWithDragTypes (NSView* root)
     return nil;
 }
 
-// ── Convenience: is the pasteboard carrying a Logic region (file promise)? ────
-static BOOL isLogicRegionDrag (NSPasteboard* pb)
+// ── Convenience: does the pasteboard carry something we can attach? ──────────
+// Logic Pro          : NSFilePromiseReceiver  (async region export)
+// Pro Tools          : NSURL file URL          (already-existing audio file)
+// Cubase / Studio One: Sometimes NSFilePromise, sometimes file URL, sometimes
+//                       a custom audio-clip type — we accept any of them
+// Luna / Reaper      : Usually file URL after the DAW writes a temp file
+// We also accept the deprecated NSFilenamesPboardType for older hosts.
+static BOOL isAcceptableAudioDrag (NSPasteboard* pb)
 {
     if (!pb) return NO;
+
+    // 1. NSFilePromise (Logic-style async export)
     NSArray* rcvs = [pb readObjectsForClasses:@[[NSFilePromiseReceiver class]]
                                       options:nil];
-    return rcvs.count > 0;
+    if (rcvs.count > 0) return YES;
+
+    // 2. Direct file URLs (Pro Tools, Cubase temp-file style, Reaper, etc.)
+    NSDictionary* opts = @{ NSPasteboardURLReadingFileURLsOnlyKey : @YES };
+    NSArray<NSURL*>* urls =
+        [pb readObjectsForClasses:@[[NSURL class]] options:opts];
+    if (urls.count > 0 && urls.firstObject.isFileURL) return YES;
+
+    // 3. Legacy NSFilenamesPboardType (older hosts still use it)
+    NSArray* legacyPaths = [pb propertyListForType:@"NSFilenamesPboardType"];
+    if ([legacyPaths isKindOfClass:[NSArray class]] && legacyPaths.count > 0)
+        return YES;
+
+    return NO;
+}
+
+// Backwards-compatible alias — call sites used the old name.
+static BOOL isLogicRegionDrag (NSPasteboard* pb)
+{
+    return isAcceptableAudioDrag (pb);
 }
 
 // ── C-level IMP replacements ──────────────────────────────────────────────────
@@ -414,19 +441,65 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             return YES;
         }
 
-        // ── Regular file URL drop ──────────────────────────────────────────
+        // ── Regular file URL drop (Pro Tools, Cubase temp file, Reaper) ──
         NSDictionary* opts = @{ NSPasteboardURLReadingFileURLsOnlyKey : @YES };
         NSArray<NSURL*>* urls =
             [pb readObjectsForClasses:@[[NSURL class]] options:opts];
+        if (urls.count == 0) {
+            // Fallback: legacy NSFilenamesPboardType (some older hosts)
+            NSArray* legacyPaths = [pb propertyListForType:@"NSFilenamesPboardType"];
+            if ([legacyPaths isKindOfClass:[NSArray class]]) {
+                NSMutableArray* asURLs = [NSMutableArray array];
+                for (NSString* p in legacyPaths) {
+                    if ([p isKindOfClass:[NSString class]])
+                        [asURLs addObject:[NSURL fileURLWithPath:p]];
+                }
+                urls = asURLs;
+            }
+        }
+
         if (urls.count > 0 && urls.firstObject.isFileURL)
         {
-            NSURL*    fileURL = urls.firstObject;
-            NSData*   raw     = [NSData dataWithContentsOfURL:fileURL];
-            NSString* b64     = [raw base64EncodedStringWithOptions:0];
-            NSString* name    = fileURL.lastPathComponent;
-            if (raw) cb.block (name, b64);
+            // Tell JS how many files are coming so they group into one message
+            WKWebView* wkv = objc_getAssociatedObject (selfView, &kWKViewRefKey);
+            if (wkv) {
+                NSString* startJS = [NSString stringWithFormat:
+                    @"window.dispatchEvent(new CustomEvent('__juceDropGroupStart',"
+                     "{detail:{count:%lu}}))", (unsigned long)urls.count];
+                [wkv evaluateJavaScript:startJS completionHandler:nil];
+                [wkv evaluateJavaScript:
+                    @"window.dispatchEvent(new Event('__juceDragComplete'))"
+                 completionHandler:nil];
+            }
+
+            NSLog (@"[DragMonitor] processing %lu file URL(s) from drop",
+                   (unsigned long)urls.count);
+
+            // Read each file off the main thread to avoid stalling the UI
+            // for large WAV files.
+            NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
+            bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
+
+            for (NSURL* fileURL in urls) {
+                if (!fileURL.isFileURL) continue;
+                [bgQueue addOperationWithBlock:^{
+                    NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
+                    if (!raw) {
+                        NSLog (@"[DragMonitor] failed to read %@", fileURL);
+                        return;
+                    }
+                    NSString* b64  = [raw base64EncodedStringWithOptions:0];
+                    NSString* name = fileURL.lastPathComponent;
+                    dispatch_async (dispatch_get_main_queue(), ^{
+                        cb.block (name, b64);
+                    });
+                }];
+            }
             return YES;
         }
+
+        // No recognised pasteboard type — log everything for diagnosis
+        NSLog (@"[DragMonitor] drop rejected, unrecognised types: %@", pb.types);
     }
 
     if (gOrigPerformDragOp)
@@ -449,6 +522,9 @@ static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
     WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
     BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
+
+    NSLog (@"[DragMonitor] draggingEntered: pasteboard types=%@ ownDrag=%d acceptable=%d",
+           info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
     if ((ownDrag || logicDrag) && wkv)
     {

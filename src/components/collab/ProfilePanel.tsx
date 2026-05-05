@@ -82,16 +82,16 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const next = scrolledUp
     const prev = ambientRef.current
     ambientRef.current = next
-    // When we *enter* ambient mode, redistribute every orb to a uniformly
-    // random spot anywhere in the panel — including the central area that
-    // the regular party view kept clear for the avatar. Without this the
-    // orbs would still display the donut hole left over from initial
-    // placement, even though the centre-exclusion has been turned off.
+    const orbs = orbsRef.current
+    const { w: W, h: H } = sizeRef.current
+    const reservedBottom = 4
+    const sf = speedFactorRef.current
+    // Entering ambient (main → party): redistribute every orb uniformly
+    // across the full playable area — including the top-bar strip and
+    // the centre that main mode kept clear for the avatar. Without
+    // this the orbs would still display the donut hole left over from
+    // main-mode placement.
     if (!prev && next) {
-      const orbs = orbsRef.current
-      const { w: W, h: H } = sizeRef.current
-      const reservedBottom = 4
-      const sf = speedFactorRef.current
       for (const o of orbs) {
         if (o.frozen) continue
         o.x = o.r + Math.random() * (W - 2 * o.r)
@@ -100,6 +100,17 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
         const speed = (0.06 + Math.random() * 0.08) * sf
         o.vx = Math.cos(ang) * speed
         o.vy = Math.sin(ang) * speed
+      }
+    }
+    // Leaving ambient (party → main): drop any orb that's currently in
+    // the top-bar strip into the panel area so it doesn't snap on the
+    // very next animation frame. Random y avoids a visible band.
+    if (prev && !next) {
+      for (const o of orbs) {
+        if (o.frozen) continue
+        if (o.y < TOP_GAP + o.r) {
+          o.y = TOP_GAP + o.r + Math.random() * (H - reservedBottom - TOP_GAP - 2 * o.r)
+        }
       }
     }
   }, [scrolledUp, mode])
@@ -442,16 +453,20 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     speedFactorRef.current = speedFactor
     exclusionPadRef.current = exclusionPad
 
+    // Match the runtime wall (see the animation loop): ambient/party
+    // mode lets orbs into the top-bar strip; main mode keeps them
+    // below it so the icons stay clear.
+    const topWall = ambientRef.current ? 0 : TOP_GAP
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
-      // Uniform rectangle sampling across the entire panel — including the
-      // centre. The runtime exclusion (when not in ambient mode) will push
-      // any orbs that landed under the avatar back out within a few frames,
-      // but the initial frame reads as a fully-populated field with no
-      // donut hole.
+      // Uniform rectangle sampling across the playable area — including
+      // the centre. The runtime exclusion (when not in ambient mode)
+      // will push any orbs that landed under the avatar back out
+      // within a few frames, but the initial frame reads as a fully-
+      // populated field with no donut hole.
       const x = r + Math.random() * (W - 2 * r)
-      const y = r + Math.random() * (H - reservedBottom - 2 * r)
+      const y = topWall + r + Math.random() * (H - reservedBottom - topWall - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
       orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
@@ -494,10 +509,14 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
       }
 
       if (wallBounceRef.current) {
+        // Top-bar strip is fair game in party (ambient) mode but
+        // off-limits in main mode — keeps the icons unobscured when
+        // you're looking at the orbit / profile view.
+        const topWall = ambientRef.current ? 0 : TOP_GAP
         for (const o of orbs) {
           if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
           if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
-          if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
+          if (o.y < topWall + o.r) { o.y = topWall + o.r; o.vy = Math.abs(o.vy) }
           if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
         }
       }
@@ -703,7 +722,11 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
                   : lastListRef.current === 'members' ? followerProfiles
                   : followingProfiles
                 ).map(p => (
-                  <div key={p.id} className="orbit-stat-row" onClick={() => onOpenChat(p.id)}>
+                  <div
+                    key={p.id}
+                    className="orbit-stat-row"
+                    onClick={() => onViewProfile?.(p.id)}
+                  >
                     <div className="orbit-stat-av" style={{ background: p.avatar_color }}>
                       {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
                       {p.isOnline && <div className="orbit-stat-online" />}

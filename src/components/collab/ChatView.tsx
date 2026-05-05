@@ -143,7 +143,6 @@ type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback' | 'impo
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
 function AudioAttachment({ url, name }: { url: string; name: string }) {
-  const [expanded, setExpanded]   = useState(false)
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
@@ -336,65 +335,62 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
   return (
     <div className="msg-att-audio">
-      <div className="msg-att-audio-header" onClick={() => setExpanded(v => !v)}>
+      <div className="msg-att-audio-header">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M9 18V5l12-2v13" />
           <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
         <span className="msg-att-audio-name">{name}</span>
-
-        {/* Import / Drag 버튼 */}
-        <button
-          className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' || dragState === 'imported' ? ' ready' : ''}`}
-          onMouseEnter={handleMouseEnter}
-          onMouseDown={handleMouseDown}
-          onClick={e => e.stopPropagation()}
-          title={dragLabel[dragState]}
-        >
-          {dragState === 'fetching' && (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
-            </svg>
-          )}
-          {(dragState === 'idle' || dragState === 'fallback') && (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
-            </svg>
-          )}
-          {(dragState === 'armed' || dragState === 'dragging' || dragState === 'imported') && (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
-            </svg>
-          )}
-          <span>{dragLabel[dragState]}</span>
-        </button>
-
-        <span className="msg-att-audio-chevron">{expanded ? '▲' : '▼'}</span>
       </div>
-      {expanded && (
-        <div className="msg-att-audio-player">
-          <audio
-            ref={audioRef}
-            src={url}
-            onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
-            onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
-            onEnded={() => setPlaying(false)}
+
+      {/* Player bar — always visible (no expand/collapse) */}
+      <div className="msg-att-audio-player">
+        <audio
+          ref={audioRef}
+          src={url}
+          onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
+          onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+          onEnded={() => setPlaying(false)}
+        />
+        <button className="msg-att-play-pause" onClick={toggle}>
+          {playing
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+          }
+        </button>
+        <div className="msg-att-progress-track" onClick={seek}>
+          <div
+            className="msg-att-progress-fill"
+            style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }}
           />
-          <button className="msg-att-play-pause" onClick={toggle}>
-            {playing
-              ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
-            }
-          </button>
-          <div className="msg-att-progress-track" onClick={seek}>
-            <div
-              className="msg-att-progress-fill"
-              style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }}
-            />
-          </div>
-          <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
         </div>
-      )}
+        <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
+      </div>
+
+      {/* Import / Drag button — its own row under the player */}
+      <button
+        className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' || dragState === 'imported' ? ' ready' : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseDown={handleMouseDown}
+        title={dragLabel[dragState]}
+      >
+        {dragState === 'fetching' && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+          </svg>
+        )}
+        {(dragState === 'idle' || dragState === 'fallback') && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
+          </svg>
+        )}
+        {(dragState === 'armed' || dragState === 'dragging' || dragState === 'imported') && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
+          </svg>
+        )}
+        <span>{dragLabel[dragState]}</span>
+      </button>
     </div>
   )
 }

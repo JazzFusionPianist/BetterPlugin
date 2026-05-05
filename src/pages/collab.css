@@ -1140,8 +1140,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
+  padding: 8px 10px 6px;
   color: var(--t1);
 }
 .msg-att-audio-name {
@@ -1154,14 +1153,15 @@
 .msg-att-import-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 3px 6px;
-  border-radius: 5px;
+  justify-content: center;
+  gap: 5px;
+  margin: 6px 10px 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
   background: var(--bg2);
   border: 0.5px solid var(--border2);
   color: var(--t2);
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 500;
   cursor: grab;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -1176,12 +1176,12 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.9s linear infinite; }
-.msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
+.msg-att-audio-chevron { display: none; }
 .msg-att-audio-player {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 10px 8px;
+  padding: 0 10px;
 }
 .msg-att-play-pause {
   background: none;

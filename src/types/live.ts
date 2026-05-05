@@ -19,3 +19,4 @@ export type SignalMessage =
   | { type: 'ice';    from: string; to: string; candidate: RTCIceCandidateInit } // both directions
   | { type: 'leave';  from: string }                                          // viewer → host
   | { type: 'bye';    from: string }                                          // host → all viewers
+  | { type: 'source'; from: string; has_video: boolean; has_audio: boolean }  // host → all viewers

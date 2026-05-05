@@ -22,7 +22,7 @@ interface Props {
 }
 
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, sessionEnded, onSendChat, onClose }: Props) {
-  const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
+  const { remoteStream, status, hostSource } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // To decide whether to render the video element vs the audio-only avatar,
@@ -75,8 +75,16 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
     v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
 
-  // Combined signal — show video only when BOTH say it's available.
-  const showVideo = streamHasVideo && session.has_video
+  // Source-of-truth priority:
+  //   1. hostSource (signaled directly by the broadcaster on every change)
+  //   2. session.has_video (live_sessions metadata via realtime)
+  //   3. streamHasVideo (WebRTC track liveness)
+  // hostSource is most reliable and immediate. Until it arrives we fall back
+  // to the metadata + stream signal (this only matters for the very first
+  // milliseconds of a session before the broadcast handshake completes).
+  const showVideo = hostSource
+    ? hostSource.has_video && streamHasVideo
+    : streamHasVideo && session.has_video
 
   const ended = sessionEnded || status === 'ended'
 

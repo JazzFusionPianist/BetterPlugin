@@ -131,6 +131,16 @@ export function useLiveBroadcaster(
       const stream = localStreamRef.current
       if (stream) {
         stream.getTracks().forEach(track => pc.addTrack(track, stream))
+        // Also broadcast current source state so the new viewer's UI knows
+        // whether to show video element or audio-only avatar — independent
+        // of whether the live_sessions metadata has reached them yet.
+        const tracks = stream.getTracks()
+        send({
+          type: 'source',
+          from: hostId,
+          has_video: tracks.some(t => t.kind === 'video'),
+          has_audio: tracks.some(t => t.kind === 'audio'),
+        })
       } else {
         console.warn('[broadcaster] viewer joined before localStream ready — peer queued')
       }
@@ -214,6 +224,8 @@ export function useLiveBroadcaster(
   useEffect(() => {
     if (!localStream) return
     const tracks = localStream.getTracks()
+    const hasVideo = tracks.some(t => t.kind === 'video')
+    const hasAudio = tracks.some(t => t.kind === 'audio')
     console.log('[broadcaster] localStream changed, peers:', peersRef.current.size,
       'tracks:', tracks.map(t => `${t.kind}:${t.id.slice(0, 8)}`))
     peersRef.current.forEach((pc, viewerId) => {
@@ -240,7 +252,18 @@ export function useLiveBroadcaster(
         }
       })
     })
-  }, [localStream])
+
+    // Tell viewers explicitly whether the stream has video/audio right now.
+    // Don't rely on the live_sessions metadata realtime sync — this signal
+    // travels on the same broadcast channel as offers/ICE so it's reliable
+    // and immediate. Also covers the new-viewer-joining case (channel
+    // ref might not be ready yet — guard for that).
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'signal',
+      payload: { type: 'source', from: hostId, has_video: hasVideo, has_audio: hasAudio },
+    })
+  }, [localStream, hostId])
 
   // Reset stats when a new session starts
   useEffect(() => {

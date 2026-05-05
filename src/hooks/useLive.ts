@@ -24,21 +24,15 @@ export function useLive(client: SupabaseClient, userId: string) {
   }, [client, userId])
 
   useEffect(() => {
-    // Initial fetch — but DON'T delete our own existing session row.
-    // The previous behaviour ('delete WHERE host_id = me' on every mount)
-    // would propagate via realtime to viewers as 'session ended', so any
-    // re-render of the host's component (or remount of the React tree)
-    // would cause every viewer to see 'Thank you for watching' even
-    // though the host is still streaming. startLive() handles wiping
-    // stale rows just before inserting a new one.
     fetchSessions()
 
     const channel = client
       .channel('live-sessions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, (payload) => {
+        console.log('[useLive] realtime event:', payload.eventType, payload.new ?? payload.old)
         fetchSessions()
       })
-      .subscribe()
+      .subscribe(status => console.log('[useLive] sub status:', status))
     return () => { client.removeChannel(channel) }
   }, [client, userId, fetchSessions])
 

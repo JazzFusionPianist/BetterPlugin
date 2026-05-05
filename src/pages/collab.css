@@ -1084,6 +1084,65 @@
   line-height: 1.3;
 }
 
+/* Pending upload bubble — appears in the chat as soon as upload starts.
+   !important on display/flex-direction because some host WebKits (Cubase's)
+   appear to skip these declarations under heavy re-render load. */
+.mg.mine .msg-att-pending,
+.msg-att-pending {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px;
+  min-width: 200px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg3);
+  font-family: 'DM Sans', sans-serif;
+  box-sizing: border-box;
+}
+.mg.mine .msg-att-pending-row,
+.msg-att-pending-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.msg-att-pending-icon { color: var(--t1); flex-shrink: 0; width: 14px; height: 14px; }
+.msg-att-pending-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-att-pending-pct {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--t2);
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+}
+.msg-att-pending-bar {
+  height: 3px;
+  width: 100%;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.msg-att-pending-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A8FE7, #7B5CF6);
+  transition: width 0.15s ease-out;
+}
+.msg-att-pending-size {
+  font-size: 9px;
+  color: var(--t3);
+  font-family: 'DM Mono', monospace;
+}
+
 .msg-att-audio-group {
   min-width: 160px;
   max-width: 200px;

@@ -904,10 +904,16 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
         const xhr = new XMLHttpRequest()
         xhr.open('PUT', uploadUrl)
         xhr.setRequestHeader('Content-Type', contentType)
+        // Throttle progress updates to ~10fps — huge uploads can fire
+        // hundreds of progress events per second, which can stall older
+        // WebKits (Cubase's bundled WKWebView for example).
+        let lastUpdate = 0
         xhr.upload.onprogress = e => {
-          if (e.lengthComputable) {
-            updatePendingProgress(pendingId, Math.min(0.99, e.loaded / e.total))
-          }
+          if (!e.lengthComputable) return
+          const now = performance.now()
+          if (now - lastUpdate < 100 && e.loaded < e.total) return
+          lastUpdate = now
+          updatePendingProgress(pendingId, Math.min(0.99, e.loaded / e.total))
         }
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {

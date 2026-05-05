@@ -506,6 +506,10 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 
         if (urls.count > 0 && urls.firstObject.isFileURL)
         {
+            // Stop the position timer so it doesn't re-fire __juceDragEnter
+            // while the mouse is still over the WKWebView post-drop.
+            stopDragTimer();
+
             // Tell JS how many files are coming so they group into one message
             WKWebView* wkv = objc_getAssociatedObject (selfView, &kWKViewRefKey);
             if (wkv) {

@@ -1153,9 +1153,8 @@
 .msg-att-import-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  margin: 6px 10px 8px;
+  margin: 6px 10px 8px auto;
   padding: 5px 8px;
   border-radius: 6px;
   background: var(--bg2);

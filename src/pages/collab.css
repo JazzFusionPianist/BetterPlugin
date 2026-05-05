@@ -3571,6 +3571,12 @@
   align-items: center;
   padding: 28px 20px 24px;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 .live-pulse-wrap {
   position: relative;
@@ -3818,9 +3824,19 @@
   padding: 12px 14px 14px;
   gap: 8px;
 }
+/* Broadcasting preview matches the viewer's video sizing — let the video's
+   natural aspect ratio drive the frame so portrait sources aren't cropped
+   into a letterboxed 16:9 box. The .live-preview-audio placeholder still
+   uses its 16:9 aspect (the override below has higher specificity). */
 .live-broadcasting .live-preview {
-  max-height: 110px;
-  max-width: 180px;
+  max-height: 55vh;
+  max-width: unset;
+  width: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+.live-broadcasting .live-preview.live-preview-audio {
+  aspect-ratio: 16 / 9;
 }
 
 /* Viewer layout: video on top, then status, then chat fills the rest */

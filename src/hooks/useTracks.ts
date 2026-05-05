@@ -20,17 +20,33 @@ export function useTracks(supabase: SupabaseClient, userId: string, viewerId?: s
   const [tracks, setTracks] = useState<Track[]>([])
 
   const fetchTracks = useCallback(async () => {
-    let query = supabase
+    const baseQuery = () => supabase
       .from('tracks')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-    // If a viewer is specified and isn't the owner, hide private tracks they
-    // aren't whitelisted on. (Defence in depth — the canonical guard is RLS.)
+
+    // If a viewer is specified and isn't the owner, try to hide private
+    // tracks they aren't whitelisted on. (Defence in depth — the
+    // canonical guard is RLS.) If the privacy migration hasn't been
+    // applied yet the `is_private` / `allowed_user_ids` columns don't
+    // exist and PostgREST rejects the filter — fall back to the
+    // unfiltered query so we still surface tracks instead of going
+    // silently empty.
     if (viewerId && viewerId !== userId) {
-      query = query.or(`is_private.eq.false,allowed_user_ids.cs.{${viewerId}}`)
+      const { data, error } = await baseQuery()
+        .or(`is_private.eq.false,allowed_user_ids.cs.{${viewerId}}`)
+      if (!error && data) {
+        setTracks(data as Track[])
+        return
+      }
+      // Likely "column does not exist" — retry without the filter.
+      const fallback = await baseQuery()
+      if (fallback.data) setTracks(fallback.data as Track[])
+      return
     }
-    const { data } = await query
+
+    const { data } = await baseQuery()
     if (data) setTracks(data as Track[])
   }, [supabase, userId, viewerId])
 

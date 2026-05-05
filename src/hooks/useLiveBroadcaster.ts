@@ -254,10 +254,9 @@ export function useLiveBroadcaster(
     })
 
     // Tell viewers explicitly whether the stream has video/audio right now.
-    // Don't rely on the live_sessions metadata realtime sync — this signal
-    // travels on the same broadcast channel as offers/ICE so it's reliable
-    // and immediate. Also covers the new-viewer-joining case (channel
-    // ref might not be ready yet — guard for that).
+    console.log('[broadcaster] sending source update:',
+      'has_video=', hasVideo, 'has_audio=', hasAudio,
+      'channel?', !!channelRef.current)
     channelRef.current?.send({
       type: 'broadcast',
       event: 'signal',

@@ -20,17 +20,26 @@ set -euo pipefail
 COOP_APP_URL="https://better-plugin.vercel.app"
 BUILD_TYPE="Debug"
 INSTALL=false
+SKIP_AAX=false
 
 AAX_SDK_PATH="/Users/jasonpark/Documents/Coding/BetterPlugin/aax-sdk-2-9-0"
 
 # ── Args ─────────────────────────────────────────────────────────────────────
 for arg in "$@"; do
   case $arg in
-    --release) BUILD_TYPE="Release" ;;
-    --install) INSTALL=true ;;
-    --aax=*)   AAX_SDK_PATH="${arg#--aax=}" ;;
+    --release)  BUILD_TYPE="Release" ;;
+    --install)  INSTALL=true ;;
+    --aax=*)    AAX_SDK_PATH="${arg#--aax=}" ;;
+    --no-aax)   SKIP_AAX=true ;;
+    --url=*)    COOP_APP_URL="${arg#--url=}" ;;
   esac
 done
+
+# AAX requires the Avid SDK; skip it gracefully when the path is missing
+# or --no-aax was passed (keeps local builds green without Avid access).
+if [ "$SKIP_AAX" = true ] || [ ! -d "$AAX_SDK_PATH" ]; then
+  AAX_SDK_PATH=""
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
@@ -42,10 +51,12 @@ echo "  URL    : $COOP_APP_URL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── CMake configure ────────────────────────────────────────────────────────────
-BUILD_TARGETS="CoOpPlugin_AU CoOpPlugin_VST3 CoOpPlugin_AAX"
-
 if [ -n "$AAX_SDK_PATH" ]; then
+  BUILD_TARGETS="CoOpPlugin_AU CoOpPlugin_VST3 CoOpPlugin_AAX"
   echo "  AAX    : $AAX_SDK_PATH"
+else
+  BUILD_TARGETS="CoOpPlugin_AU CoOpPlugin_VST3"
+  echo "  AAX    : (skipped — no SDK)"
 fi
 
 cmake -B "$BUILD_DIR" \

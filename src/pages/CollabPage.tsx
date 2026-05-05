@@ -282,6 +282,39 @@ function CollabPageInner({ user }: Props) {
     + (notifSettings.follow ? friendEvents.filter(e => e.type !== 'game_invite' && !e.read).length : 0)
     + (notifSettings.message ? unread.size : 0)
 
+  // True when the user is looking at the home / profile screen — no
+  // chat is open, no overlay panel (settings, addfriend, conv list,
+  // live, game, etc.) is on top. Used to gate the corner-glow alert
+  // so it doesn't pulse over a deep-linked subscreen.
+  const isMainScreen = !selectedId
+    && !settingsOpen && !displayOpen && !infoOpen && !notifSettingsOpen
+    && !addFriendOpen && !convOpen && !liveOpen && !watchingSession
+    && !gameOpen
+
+  // Glow shows only when there are *new* notifications relative to
+  // the last time the user looked. Opening the panel — or dismissing
+  // it by clicking outside — bumps `seenBellCount` up to the current
+  // count, so the glow goes away. New events afterwards push
+  // `bellCount` above `seenBellCount` again and the glow returns.
+  const [seenBellCount, setSeenBellCount] = useState(0)
+  const showGlow = bellCount > seenBellCount && !notifOpen && isMainScreen
+
+  // Outside-click dismiss for the notification panel — any mousedown
+  // outside the panel itself closes it AND marks the current count
+  // as seen so the glow doesn't immediately re-light.
+  useEffect(() => {
+    if (!notifOpen) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Element | null
+      if (!target?.closest('.notif-panel')) {
+        setNotifOpen(false)
+        setSeenBellCount(bellCount)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [notifOpen, bellCount])
+
   const handleToggleFav = (id: string) => {
     setFavorites(prev => {
       const next = new Set(prev)
@@ -312,7 +345,16 @@ function CollabPageInner({ user }: Props) {
   const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
   const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
-  const handleToggleNotif     = () => setNotifOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch(); setTimeout(() => markFriendEventsRead(), 400) } return !prev })
+  const handleToggleNotif     = () => setNotifOpen(prev => {
+    if (!prev) {
+      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch()
+      setSeenBellCount(bellCount)  // mark current alerts as seen so the glow stops pulsing
+      setTimeout(() => markFriendEventsRead(), 400)
+    } else {
+      setSeenBellCount(bellCount)  // also bump on close
+    }
+    return !prev
+  })
   const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
@@ -455,8 +497,11 @@ function CollabPageInner({ user }: Props) {
         </button>
       </div>
 
-      {/* Corner glow — pulses when there are unread notifications */}
-      {bellCount > 0 && !notifOpen && (
+      {/* Corner glow — pulses when there are *new* notifications since
+          the user last looked, and only on the home / profile screen
+          so it doesn't bleed over chat, settings, or any deep-linked
+          subview. See `showGlow` derivation above. */}
+      {showGlow && (
         <div
           className="notif-corner-glow"
           onClick={handleToggleNotif}

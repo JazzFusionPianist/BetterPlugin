@@ -1,9 +1,8 @@
-import { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
-import { useTracks } from '../../hooks/useTracks'
 import HoverTooltip from './HoverTooltip'
 
 interface Props {
@@ -34,359 +33,50 @@ interface Orb {
   r: number
   frozen: boolean
   el: HTMLDivElement | null
-  tx?: number
-  ty?: number
 }
 
 const SELF_RADIUS = 38
-// The orb playground extends upward into the top-bar so orbs can drift
-// across the icons too. Keep this in sync with `.top-bar { height }` in
-// collab.css and the negative `top` on `.orbit-orbs-layer`.
-const TOP_GAP = 44
 
-export default function ProfilePanel({ supabase, user, me, followingProfiles, followerProfiles, onClose, onUpdated, onOpenChat, onRemoveFriend, favorites, onToggleFav, onViewProfile, onAvatarUpdated, viewOnly, liveHostIds, liveSessions, onWatchLive }: Props) {
-  // 'main'  → party_main        (orbit / friend bubbles view)
-  // 'party' → party_discography (scrolled-up music gallery view)
-  const [mode, setMode] = useState<'main' | 'party'>(viewOnly ? 'party' : 'main')
-  useEffect(() => { if (viewOnly) setMode('party') }, [viewOnly])
-  const fileRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const orbsRef = useRef<Orb[]>([])
-  const sizeRef = useRef({ w: 300, h: 480 })
-  const [, forceRender] = useState(0)
-  const [uploading, setUploading] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; below: boolean } | null>(null)
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const wallBounceRef = useRef(true)
-  const enterFromOutsideRef = useRef(false)
-  const prevModeRef = useRef(mode)
-  const speedFactorRef = useRef(1)
-  const exclusionPadRef = useRef(6)
-  // Mirror of `mode === 'party'` so the animation loop (mounted once with
-  // empty deps) can read the latest value without re-binding.
-  const ambientRef = useRef(false)
-  // The legacy "party_main" orbit view (orbs around the avatar) was removed
-  // — entering party mode goes straight to the music panel. We keep this
-  // derived flag so the existing class names / conditionals all still read
-  // naturally; it's simply equal to `mode === 'party'` now.
-  const scrolledUp = mode === 'party'
-  const [statList, setStatList] = useState<'members' | 'following' | null>(null)
-  const lastListRef = useRef<'members' | 'following'>('members')
+/**
+ * Single-panel profile view. The legacy main↔party toggle and the music
+ * panel were retired; this is now the only profile surface. The
+ * friend-orb backdrop, the members/following chips, and the avatar all
+ * live together on this one screen.
+ */
+export default function ProfilePanel ({
+  supabase, user, me,
+  followingProfiles, followerProfiles,
+  onClose, onUpdated, onOpenChat, onRemoveFriend,
+  favorites, onToggleFav, onViewProfile, onAvatarUpdated,
+  viewOnly,
+  liveHostIds, liveSessions, onWatchLive,
+}: Props) {
+  void onRemoveFriend // retained on the props contract for future use
+  const fileRef       = useRef<HTMLInputElement>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const orbsRef       = useRef<Orb[]>([])
+  const sizeRef       = useRef({ w: 300, h: 480 })
+  const [, forceRender]      = useState(0)
+  const [uploading, setUploading]    = useState(false)
+  const [msg, setMsg]                = useState<string | null>(null)
+  const [hoveredIdx, setHoveredIdx]  = useState<number | null>(null)
+  const [tooltipPos, setTooltipPos]  = useState<{ x: number; y: number; below: boolean } | null>(null)
+  const hoverTimerRef                = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const speedFactorRef               = useRef(1)
+  const exclusionPadRef              = useRef(6)
+  const [statList, setStatList]      = useState<'members' | 'following' | null>(null)
+  const lastListRef                  = useRef<'members' | 'following'>('members')
 
   useEffect(() => { if (statList) lastListRef.current = statList }, [statList])
 
-  useEffect(() => { if (!scrolledUp) { setStatList(null); setTrackPanel(false) } }, [scrolledUp])
-  useEffect(() => {
-    const next = scrolledUp
-    const prev = ambientRef.current
-    ambientRef.current = next
-    const orbs = orbsRef.current
-    const { w: W, h: H } = sizeRef.current
-    const reservedBottom = 4
-    const sf = speedFactorRef.current
-    // Entering ambient (main → party): redistribute every orb uniformly
-    // across the full playable area — including the top-bar strip and
-    // the centre that main mode kept clear for the avatar. Without
-    // this the orbs would still display the donut hole left over from
-    // main-mode placement.
-    if (!prev && next) {
-      for (const o of orbs) {
-        if (o.frozen) continue
-        o.x = o.r + Math.random() * (W - 2 * o.r)
-        o.y = o.r + Math.random() * (H - reservedBottom - 2 * o.r)
-        const ang = Math.random() * Math.PI * 2
-        const speed = (0.06 + Math.random() * 0.08) * sf
-        o.vx = Math.cos(ang) * speed
-        o.vy = Math.sin(ang) * speed
-      }
-    }
-    // Leaving ambient (party → main): drop any orb that's currently in
-    // the top-bar strip into the panel area so it doesn't snap on the
-    // very next animation frame. Random y avoids a visible band.
-    if (prev && !next) {
-      for (const o of orbs) {
-        if (o.frozen) continue
-        if (o.y < TOP_GAP + o.r) {
-          o.y = TOP_GAP + o.r + Math.random() * (H - reservedBottom - TOP_GAP - 2 * o.r)
-        }
-      }
-    }
-  }, [scrolledUp, mode])
-  useEffect(() => { setStatList(null); setTrackPanel(false) }, [mode])
-
-  // --- Track upload state ---
-  const trackOwnerId = me?.id ?? user.id
-  const { tracks, addTrack, updateTrack, deleteTrack } = useTracks(supabase, trackOwnerId, user.id)
-  const audioInputRef = useRef<HTMLInputElement>(null)
-  const coverInputRef = useRef<HTMLInputElement>(null)
-  const trackAudioRef = useRef<HTMLAudioElement>(null)
-  const [pendingAudioFiles, setPendingAudioFiles] = useState<File[]>([])
-  const [trackPanel, setTrackPanel] = useState(false)
-  const [trackMeta, setTrackMeta] = useState({
-    title: '', artist: '', version: '', date: '', description: '',
-    isPrivate: false, allowedUserIds: [] as string[],
-  })
-  const [trackCoverFile, setTrackCoverFile] = useState<File | null>(null)
-  const [trackCoverPreview, setTrackCoverPreview] = useState<string | null>(null)
-  const [trackSaving, setTrackSaving] = useState(false)
-  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
-  const [editMeta, setEditMeta] = useState({
-    title: '', version: '', date: '', description: '',
-    isPrivate: false, allowedUserIds: [] as string[],
-  })
-  const [editSaving, setEditSaving] = useState(false)
-  const [editJustSaved, setEditJustSaved] = useState(false)
-  const [viewIndex, setViewIndex] = useState(0)
-  const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
-  const draggedRef = useRef(false)
-  const wheelAccumRef = useRef(0)
-  const wheelStartIdxRef = useRef<number | null>(null)
-  const wheelResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const trackListRef = useRef<HTMLDivElement>(null)
-  const GALLERY_SPACING = 150
-  const DRAG_CLICK_THRESHOLD = 5
-
-  // During active drag/scroll: write transform directly to the list element (no React re-render).
-  // On release: clear the inline transition override and setViewIndex — React re-renders the
-  // list with transform = viewIndex * SPACING, and the CSS transition smoothly animates from
-  // the current DOM value to the new one. No instant jump at snap time.
-  const setLiveListOffset = (startIdx: number, dragPx: number) => {
-    const el = trackListRef.current
-    if (!el) return
-    el.style.transition = 'none'
-    el.style.transform = `translate3d(${startIdx * GALLERY_SPACING + dragPx}px, 0, 0)`
-  }
-
-  const releaseAndSnap = (startIdx: number, dragPx: number) => {
-    const shift = Math.round(dragPx / GALLERY_SPACING)
-    const clamped = Math.max(0, Math.min(tracks.length - 1, startIdx + shift))
-    // Drop the inline transition override so the CSS default re-applies when React rewrites
-    // transform. The browser will then tween from the current transform to the new one.
-    if (trackListRef.current) trackListRef.current.style.transition = ''
-    setViewIndex(clamped)
-  }
-
-  // Clamp viewIndex when tracks list changes
-  useEffect(() => {
-    if (tracks.length === 0) {
-      setViewIndex(0)
-    } else {
-      setViewIndex(v => Math.max(0, Math.min(v, tracks.length - 1)))
-    }
-  }, [tracks.length])
-
-  const formatTrackDate = (iso: string | null | undefined) => {
-    if (!iso) return ''
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return ''
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  }
-
-  useEffect(() => {
-    if (!playingTrackId) return
-    const t = tracks.find(x => x.id === playingTrackId)
-    if (!t) return
-    setEditMeta({
-      title: t.title || '',
-      version: t.version || '',
-      date: t.date || (t.created_at ? t.created_at.slice(0, 10) : ''),
-      description: t.description || '',
-      isPrivate: !!t.is_private,
-      allowedUserIds: t.allowed_user_ids ?? [],
-    })
-  }, [playingTrackId, tracks])
-
-  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    setPendingAudioFiles(Array.from(files))
-    setTrackMeta({
-      title: files[0].name.replace(/\.[^.]+$/, ''),
-      artist: '', version: '1', date: '', description: '',
-      isPrivate: false, allowedUserIds: [],
-    })
-    setTrackCoverFile(null)
-    setTrackCoverPreview(null)
-    setTrackPanel(true)
-    if (audioInputRef.current) audioInputRef.current.value = ''
-  }
-
-  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setTrackCoverFile(file)
-    const url = URL.createObjectURL(file)
-    setTrackCoverPreview(url)
-    if (coverInputRef.current) coverInputRef.current.value = ''
-  }
-
-  const handleTrackSave = useCallback(async () => {
-    if (!pendingAudioFiles.length || !trackMeta.title) return
-    setTrackSaving(true)
-    try {
-      for (const audioFile of pendingAudioFiles) {
-        await addTrack(audioFile, {
-          title: trackMeta.title,
-          artist: trackMeta.artist,
-          version: trackMeta.version,
-          date: trackMeta.date,
-          description: trackMeta.description,
-          is_private: trackMeta.isPrivate,
-          allowed_user_ids: trackMeta.isPrivate ? trackMeta.allowedUserIds : [],
-        }, trackCoverFile || undefined)
-      }
-    } catch (err: any) {
-      console.error('Track upload failed:', err)
-      showMsg('Upload failed: ' + (err?.message || 'unknown error'))
-    }
-    setTrackPanel(false)
-    setPendingAudioFiles([])
-    setTrackSaving(false)
-  }, [pendingAudioFiles, trackMeta, trackCoverFile, addTrack])
-
-  const handleTrackPlay = (track: typeof tracks[0]) => {
-    const audio = trackAudioRef.current
-    if (!audio) return
-    if (playingTrackId === track.id) {
-      audio.pause()
-      setPlayingTrackId(null)
-    } else {
-      audio.src = track.audio_url
-      audio.play()
-      setPlayingTrackId(track.id)
-      // In view-only mode (friend's panel), recenter the gallery on the played track so
-      // when the user closes it the track is at center instead of its prior off-center slot.
-      if (viewOnly) {
-        const idx = tracks.findIndex(t => t.id === track.id)
-        if (idx >= 0) setViewIndex(idx)
-      }
-    }
-  }
-
-  const handleTrackEditSave = useCallback(async () => {
-    if (!playingTrackId) return
-    setEditSaving(true)
-    try {
-      await updateTrack(playingTrackId, {
-        title: editMeta.title,
-        version: editMeta.version || null as unknown as string,
-        date: editMeta.date || null,
-        description: editMeta.description || null,
-        is_private: editMeta.isPrivate,
-        allowed_user_ids: editMeta.isPrivate ? editMeta.allowedUserIds : [],
-      })
-      setEditJustSaved(true)
-      setTimeout(() => setEditJustSaved(false), 1500)
-    } catch (err: any) {
-      console.error('Track update failed:', err)
-      showMsg('Save failed: ' + (err?.message || 'unknown error'))
-    }
-    setEditSaving(false)
-  }, [playingTrackId, editMeta, updateTrack])
-
-  const handleTrackDelete = useCallback(async () => {
-    if (!playingTrackId) return
-    if (!window.confirm('Delete this track?')) return
-    const id = playingTrackId
-    const audio = trackAudioRef.current
-    if (audio) { audio.pause(); audio.currentTime = 0 }
-    setPlayingTrackId(null)
-    try {
-      await deleteTrack(id)
-    } catch (err: any) {
-      console.error('Track delete failed:', err)
-      showMsg('Delete failed: ' + (err?.message || 'unknown error'))
-    }
-  }, [playingTrackId, deleteTrack])
-
-  const handleTrackWheel = (e: React.WheelEvent) => {
-    if (tracks.length <= 1 || playingTrackId) return
-    const dx = e.deltaX
-    if (Math.abs(dx) <= Math.abs(e.deltaY)) return
-
-    if (wheelStartIdxRef.current === null) {
-      wheelStartIdxRef.current = viewIndex
-      wheelAccumRef.current = 0
-    }
-    const startIdx = wheelStartIdxRef.current
-
-    wheelAccumRef.current -= dx
-    const minDelta = -startIdx * GALLERY_SPACING
-    const maxDelta = (tracks.length - 1 - startIdx) * GALLERY_SPACING
-    wheelAccumRef.current = Math.max(minDelta, Math.min(maxDelta, wheelAccumRef.current))
-
-    setLiveListOffset(startIdx, wheelAccumRef.current)
-    if (Math.abs(wheelAccumRef.current) > DRAG_CLICK_THRESHOLD) draggedRef.current = true
-
-    if (wheelResetRef.current) clearTimeout(wheelResetRef.current)
-    wheelResetRef.current = setTimeout(() => {
-      releaseAndSnap(startIdx, wheelAccumRef.current)
-      wheelAccumRef.current = 0
-      wheelStartIdxRef.current = null
-      setTimeout(() => { draggedRef.current = false }, 0)
-    }, 130)
-  }
-
-  const handleTrackPointerDown = (e: React.PointerEvent) => {
-    if (tracks.length <= 1 || playingTrackId) return
-    if (e.button !== undefined && e.button !== 0) return
-    const startIdx = viewIndex
-    dragStartRef.current = { startX: e.clientX, startViewIndex: startIdx }
-    draggedRef.current = false
-
-    const minDelta = -startIdx * GALLERY_SPACING
-    const maxDelta = (tracks.length - 1 - startIdx) * GALLERY_SPACING
-
-    const onMove = (ev: PointerEvent) => {
-      if (!dragStartRef.current) return
-      let dx = ev.clientX - dragStartRef.current.startX
-      if (Math.abs(dx) > DRAG_CLICK_THRESHOLD) draggedRef.current = true
-      dx = Math.max(minDelta, Math.min(maxDelta, dx))
-      setLiveListOffset(startIdx, dx)
-    }
-    const onUp = (ev: PointerEvent) => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-      if (!dragStartRef.current) return
-      let dx = ev.clientX - dragStartRef.current.startX
-      dx = Math.max(minDelta, Math.min(maxDelta, dx))
-      releaseAndSnap(dragStartRef.current.startViewIndex, dx)
-      dragStartRef.current = null
-      setTimeout(() => { draggedRef.current = false }, 0)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-  }
-
-  const displayProfiles = useMemo(
-    () => mode === 'main' ? followingProfiles.filter(p => p.isOnline) : followerProfiles,
-    [mode, followingProfiles, followerProfiles]
-  )
-  // Derive following / follower membership sets so HoverTooltip can show the right status pill.
+  // The orb backdrop mirrors the *members* count — the followers of
+  // whoever this profile belongs to (you on your own panel, the
+  // friend on their panel). Mirrors the deleted party-panel
+  // backdrop. Sets are derived once for HoverTooltip's status pill
+  // (mutual / following / follows-you).
+  const renderProfiles = followerProfiles
   const followingSet = useMemo(() => new Set(followingProfiles.map(p => p.id)), [followingProfiles])
   const followerSet  = useMemo(() => new Set(followerProfiles.map(p => p.id)), [followerProfiles])
-  const [renderProfiles, setRenderProfiles] = useState<Profile[]>(displayProfiles)
-  const [transitionTick, setTransitionTick] = useState(0)
-  const [exiting, setExiting] = useState(false)
-
-  useEffect(() => {
-    if (prevModeRef.current === mode) {
-      setRenderProfiles(displayProfiles)
-      return
-    }
-    prevModeRef.current = mode
-    setExiting(true)
-    const t = setTimeout(() => {
-      setExiting(false)
-      setRenderProfiles(displayProfiles)
-      setTransitionTick(v => v + 1)
-    }, 400)
-    return () => clearTimeout(t)
-  }, [mode, displayProfiles])
 
   const showMsg = (m: string) => {
     setMsg(m)
@@ -400,11 +90,10 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { showMsg('max 5MB'); return }
     setUploading(true)
-    const ext = file.name.split('.').pop() || 'png'
+    const ext  = file.name.split('.').pop() || 'png'
     const path = `${user.id}/avatar-${Date.now()}.${ext}`
     const { error: upErr } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true, contentType: file.type })
+      .from('avatars').upload(path, file, { upsert: true, contentType: file.type })
     if (upErr) { setUploading(false); showMsg('upload failed: ' + upErr.message); return }
     const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
     const { error: dbErr } = await supabase
@@ -416,134 +105,109 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
   }
 
   const displayName = me?.display_name ?? ''
-  const initials = me?.initials ?? getInitials(displayName || 'Unknown')
-  const color = me?.avatar_color ?? '#4A8FE7'
-  const photo = me?.avatar_url
+  const initials    = me?.initials ?? getInitials(displayName || 'Unknown')
+  const color       = me?.avatar_color ?? '#4A8FE7'
+  const photo       = me?.avatar_url
 
-  // Initialize orbs whenever display list changes
+  // ── Orb seeding ──────────────────────────────────────────────────────────
+  // Re-seed whenever the membership list or favourites change. Orbs spawn
+  // anywhere in the panel below the top-bar; the centre is open at first
+  // (random distribution may put an orb there) but the runtime exclusion
+  // pushes it back out within a few frames so the avatar stays uncovered.
   useLayoutEffect(() => {
-    // Measure the panel container directly and add `TOP_GAP` so the orb
-    // playground always reflects the panel + top-bar strip — this is more
-    // reliable than reading the orb-layer's box (whose negative `top`
-    // expansion can be misreported during the first render under some
-    // browser/CSS-loading orderings).
     const c = containerRef.current
     if (!c) return
     const rect = c.getBoundingClientRect()
     const W = rect.width
-    const H = rect.height + TOP_GAP
+    const H = rect.height
     sizeRef.current = { w: W, h: H }
 
     const N = renderProfiles.length
     if (N === 0) {
       orbsRef.current = []
-      wallBounceRef.current = true
-      enterFromOutsideRef.current = false
       forceRender(v => v + 1)
       return
     }
 
     const reservedBottom = 4
-    const usable = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
-    const rRaw = Math.sqrt(usable / (N * Math.PI))
-    const baseR = Math.max(4, Math.min(14, rRaw))
-    const favR = Math.max(baseR * 1.4, baseR + 5)
+    const usable      = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
+    const rRaw        = Math.sqrt(usable / (N * Math.PI))
+    const baseR       = Math.max(4, Math.min(14, rRaw))
+    const favR        = Math.max(baseR * 1.4, baseR + 5)
     const exclusionPad = Math.max(18, 48 - Math.sqrt(N) * 1.5)
-    const speedFactor = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
-    speedFactorRef.current = speedFactor
+    const speedFactor  = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
+    speedFactorRef.current  = speedFactor
     exclusionPadRef.current = exclusionPad
 
-    // Match the runtime wall (see the animation loop): ambient/party
-    // mode lets orbs into the top-bar strip; main mode keeps them
-    // below it so the icons stay clear.
-    const topWall = ambientRef.current ? 0 : TOP_GAP
     const orbs: Orb[] = []
     for (let i = 0; i < N; i++) {
       const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
-      // Uniform rectangle sampling across the playable area — including
-      // the centre. The runtime exclusion (when not in ambient mode)
-      // will push any orbs that landed under the avatar back out
-      // within a few frames, but the initial frame reads as a fully-
-      // populated field with no donut hole.
       const x = r + Math.random() * (W - 2 * r)
-      const y = topWall + r + Math.random() * (H - reservedBottom - topWall - 2 * r)
+      const y = r + Math.random() * (H - reservedBottom - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
       orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
     }
-    wallBounceRef.current = true
     orbsRef.current = orbs
     setHoveredIdx(null)
     setTooltipPos(null)
     forceRender(v => v + 1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderProfiles.map(p => p.id).join('|'), Array.from(favorites).sort().join('|'), transitionTick])
+  }, [renderProfiles.map(p => p.id).join('|'), Array.from(favorites).sort().join('|')])
 
-  // Animation loop
+  // ── Animation loop ───────────────────────────────────────────────────────
+  // Brownian drift + wall bounce + circular exclusion around the avatar.
   useEffect(() => {
     let raf = 0
     const tick = () => {
       const orbs = orbsRef.current
       const { w: W, h: H } = sizeRef.current
-      // Avatar sits at the visual centre of the panel below the top-bar.
-      // In orb-layer coords (which include the TOP_GAP top-bar strip), that
-      // y-position is `TOP_GAP + (H - TOP_GAP) / 2 = (H + TOP_GAP) / 2`.
-      const cx = W / 2, cy = (H + TOP_GAP) / 2
+      const cx = W / 2, cy = H / 2
       const reservedBottom = 4
-
-      const transitioning = !wallBounceRef.current
       const sf = speedFactorRef.current
+
       for (const o of orbs) {
         if (o.frozen) continue
-        if (!transitioning) {
-          o.vx += (Math.random() - 0.5) * 0.012 * sf
-          o.vy += (Math.random() - 0.5) * 0.012 * sf
-        }
+        o.vx += (Math.random() - 0.5) * 0.012 * sf
+        o.vy += (Math.random() - 0.5) * 0.012 * sf
         const sp = Math.hypot(o.vx, o.vy)
-        const maxSp = transitioning ? 8 : 0.18 * sf
-        const minSp = transitioning ? 0 : 0.06 * sf
+        const maxSp = 0.18 * sf
+        const minSp = 0.06 * sf
         if (sp > maxSp) { o.vx = o.vx / sp * maxSp; o.vy = o.vy / sp * maxSp }
         else if (sp < minSp && sp > 0) { o.vx = o.vx / sp * minSp; o.vy = o.vy / sp * minSp }
         o.x += o.vx
         o.y += o.vy
       }
 
-      if (wallBounceRef.current) {
-        // Top-bar strip is fair game in party (ambient) mode but
-        // off-limits in main mode — keeps the icons unobscured when
-        // you're looking at the orbit / profile view.
-        const topWall = ambientRef.current ? 0 : TOP_GAP
-        for (const o of orbs) {
-          if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
-          if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
-          if (o.y < topWall + o.r) { o.y = topWall + o.r; o.vy = Math.abs(o.vy) }
-          if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
-        }
+      // Walls — orbs stay inside the panel area (top-bar is owned by the
+      // app's icon row; we don't paint into it).
+      for (const o of orbs) {
+        if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
+        if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
+        if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
+        if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
       }
 
-      // Skip the centre-exclusion when the music panel is up — orbs
-      // should fly freely through the (smaller, repositioned) avatar.
-      if (!ambientRef.current) {
-        for (const o of orbs) {
-          const dx = o.x - cx, dy = o.y - cy
-          const d = Math.hypot(dx, dy) || 0.001
-          const min = SELF_RADIUS + o.r + exclusionPadRef.current
-          if (d < min) {
-            const nx = dx / d, ny = dy / d
-            o.x = cx + nx * min
-            o.y = cy + ny * min
-            const dot = o.vx * nx + o.vy * ny
-            if (dot < 0) {
-              o.vx -= 2 * dot * nx
-              o.vy -= 2 * dot * ny
-            }
+      // Centre exclusion — push orbs out of the avatar's circle so the
+      // photo stays unobscured.
+      for (const o of orbs) {
+        const dx = o.x - cx, dy = o.y - cy
+        const d  = Math.hypot(dx, dy) || 0.001
+        const min = SELF_RADIUS + o.r + exclusionPadRef.current
+        if (d < min) {
+          const nx = dx / d, ny = dy / d
+          o.x = cx + nx * min
+          o.y = cy + ny * min
+          const dot = o.vx * nx + o.vy * ny
+          if (dot < 0) {
+            o.vx -= 2 * dot * nx
+            o.vy -= 2 * dot * ny
           }
         }
       }
 
-      for (const o of orbs) {
+      for (const o of orbs)
         if (o.el) o.el.style.transform = `translate(${o.x - o.r}px, ${o.y - o.r}px)`
-      }
 
       raf = requestAnimationFrame(tick)
     }
@@ -561,12 +225,8 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     const halfTT = 70
     const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))
     const tooltipH = 80
-    // The tooltip is rendered inside `.profile-orbit`, which sits TOP_GAP px
-    // below the orb-layer's origin — translate the orb's y from orb-layer
-    // coords back into panel coords so the card lines up with the avatar.
-    const yInPanel = orb.y - TOP_GAP
-    const below = yInPanel - orb.r < tooltipH
-    setTooltipPos({ x: clampedX, y: below ? yInPanel + orb.r : yInPanel - orb.r, below })
+    const below = orb.y - orb.r < tooltipH
+    setTooltipPos({ x: clampedX, y: below ? orb.y + orb.r : orb.y - orb.r, below })
   }
 
   const handleOrbLeave = (idx: number) => {
@@ -588,42 +248,34 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
   }
 
-  // Kept for potential re-use; the orbit tooltip's unfollow path was
-  // refactored away but this helper mirrors the desired behaviour and
-  // is referenced by stale handlers in some panels.
-  const _handleUnfollow = async (id: string) => {
-    await onRemoveFriend(id)
-    setHoveredIdx(null)
-    setTooltipPos(null)
-  }
-  void _handleUnfollow
-
   const hoveredProfile = hoveredIdx !== null ? renderProfiles[hoveredIdx] : null
 
+  // The list shown when a stat chip is open. Falls back to the last
+  // selected list while collapsing so the rows stay rendered (no flash
+  // of empty content) until the fade-out finishes.
+  const listProfiles = (statList === 'members' ? followerProfiles
+    : statList === 'following' ? followingProfiles
+    : lastListRef.current === 'members' ? followerProfiles
+    : followingProfiles)
+
   return (
-    <>
-      <div className="s-body profile-orbit-body">
-        <div className={`profile-orbit${scrolledUp && mode === 'party' ? ' orbit-scrolled' : ''}`} ref={containerRef}>
-          {viewOnly ? (
-            <button className="orbit-mode-toggle-btn" onClick={onClose}>
-              ← back
-            </button>
-          ) : (
-            <button
-              className="orbit-mode-toggle-btn"
-              onClick={() => setMode(m => m === 'main' ? 'party' : 'main')}
-            >
-              {mode}
-            </button>
-          )}
-          <div className={`orbit-orbs-layer${scrolledUp && mode === 'party' ? ' orbit-orbs-ambient' : ''}`}>
+    <div className="s-body profile-orbit-body">
+      <div className="profile-orbit" ref={containerRef}>
+        {viewOnly && (
+          <button className="orbit-back-btn" onClick={onClose} title="Back">← back</button>
+        )}
+
+        {/* Friend-orb backdrop. Always-on ambient style — translucent and
+            slightly bright so the foreground glass UI reads cleanly on
+            top while the orbs still register motion. */}
+        <div className="orbit-orbs-layer">
           {renderProfiles.map((p, i) => {
             const orb = orbsRef.current[i]
             const r = orb?.r ?? 14
             return (
               <div
-                key={`${mode}-${p.id}`}
-                className={`orbit-orb${p.isOnline ? '' : ' offline'}${exiting ? ' fading-out' : ''}`}
+                key={p.id}
+                className={`orbit-orb${p.isOnline ? '' : ' offline'}`}
                 ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
                 style={{
                   width: r * 2,
@@ -644,349 +296,109 @@ export default function ProfilePanel({ supabase, user, me, followingProfiles, fo
               </div>
             )
           })}
-          </div>
+        </div>
 
-          <button
-            className="profile-av-btn orbit-self"
-            onClick={viewOnly ? undefined : handlePickFile}
-            disabled={uploading || viewOnly}
-            title={viewOnly ? displayName : 'Change photo'}
-            style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2, cursor: viewOnly ? 'default' : undefined }}
+        {/* Members / Following stats — always visible at the top. */}
+        <div className="orbit-stats">
+          <div
+            className={`orbit-stat${statList === 'members' ? ' active' : ''}`}
+            onClick={() => setStatList(s => s === 'members' ? null : 'members')}
           >
-            <div className="av profile-av" style={{ background: color, width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}>
-              {photo ? <img src={photo} alt="avatar" /> : <span>{initials}</span>}
-            </div>
-            {viewOnly ? null : (
-              <div className="profile-av-overlay">
-                {uploading ? '...' : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                )}
-              </div>
-            )}
-          </button>
-
-          {hoveredProfile && tooltipPos && (() => {
-            const liveSession = liveHostIds?.has(hoveredProfile.id)
-              ? liveSessions?.find(s => s.host_id === hoveredProfile.id) ?? null
-              : null
-            return (
-              <HoverTooltip
-                supabase={supabase}
-                profile={hoveredProfile}
-                x={tooltipPos.x}
-                y={tooltipPos.y}
-                below={tooltipPos.below}
-                isMutual={followingSet.has(hoveredProfile.id) && followerSet.has(hoveredProfile.id)}
-                isFollowing={followingSet.has(hoveredProfile.id)}
-                isFollower={followerSet.has(hoveredProfile.id)}
-                isFavorite={favorites.has(hoveredProfile.id)}
-                onToggleFavorite={() => onToggleFav(hoveredProfile.id)}
-                liveSessionId={liveSession?.id ?? null}
-                onJoinLive={liveSession && onWatchLive ? () => onWatchLive(liveSession.id) : undefined}
-                onMessage={() => onOpenChat(hoveredProfile.id)}
-                onViewProfile={() => onViewProfile?.(hoveredProfile.id)}
-                onMouseEnter={handleTooltipEnter}
-                onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
-              />
-            )
-          })()}
-
-          <div className="orbit-bottom">
-            <div className="orbit-name">{displayName}</div>
+            <span className="orbit-stat-count">{followerProfiles.length}</span>
+            <span className="orbit-stat-label">members</span>
           </div>
+          <div
+            className={`orbit-stat${statList === 'following' ? ' active' : ''}`}
+            onClick={() => setStatList(s => s === 'following' ? null : 'following')}
+          >
+            <span className="orbit-stat-count">{followingProfiles.length}</span>
+            <span className="orbit-stat-label">following</span>
+          </div>
+        </div>
 
-          {scrolledUp && mode === 'party' && (
-            <>
-              <div className="orbit-stats">
-                <div
-                  className={`orbit-stat${statList === 'members' ? ' active' : ''}`}
-                  onClick={() => setStatList(s => s === 'members' ? null : 'members')}
-                >
-                  <span className="orbit-stat-count">{followerProfiles.length}</span>
-                  <span className="orbit-stat-label">members</span>
-                </div>
-                <div
-                  className={`orbit-stat${statList === 'following' ? ' active' : ''}`}
-                  onClick={() => setStatList(s => s === 'following' ? null : 'following')}
-                >
-                  <span className="orbit-stat-count">{followingProfiles.length}</span>
-                  <span className="orbit-stat-label">following</span>
-                </div>
+        {/* Friend list — opens when a stat chip is selected. Each row is
+            a glass capsule that opens that user's profile. */}
+        <div className={`orbit-stat-list${statList ? ' open' : ''}`}>
+          {listProfiles.map(p => (
+            <div
+              key={p.id}
+              className="orbit-stat-row"
+              onClick={() => onViewProfile?.(p.id)}
+            >
+              <div className="orbit-stat-av" style={{ background: p.avatar_color }}>
+                {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
+                {p.isOnline && <div className="orbit-stat-online" />}
               </div>
-              <div className={`orbit-stat-list${statList ? ' open' : ''}`}>
-                {(statList === 'members' ? followerProfiles
-                  : statList === 'following' ? followingProfiles
-                  : lastListRef.current === 'members' ? followerProfiles
-                  : followingProfiles
-                ).map(p => (
-                  <div
-                    key={p.id}
-                    className="orbit-stat-row"
-                    onClick={() => onViewProfile?.(p.id)}
-                  >
-                    <div className="orbit-stat-av" style={{ background: p.avatar_color }}>
-                      {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
-                      {p.isOnline && <div className="orbit-stat-online" />}
-                    </div>
-                    <span className="orbit-stat-row-name">{p.display_name}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+              <span className="orbit-stat-row-name">{p.display_name}</span>
+            </div>
+          ))}
+        </div>
 
-          {/* --- party_discography: Upload circle / Track display --- */}
-          {scrolledUp && mode === 'party' && !statList && (
-            <div className="orbit-track-area" onWheel={e => e.stopPropagation()}>
-              {tracks.length === 0 ? (
-                viewOnly ? (
-                  <div className="orbit-no-tracks">no music just yet, but stay tuned!</div>
-                ) : (
-                  <div className="orbit-upload-circle" onClick={() => audioInputRef.current?.click()}>
-                    <span className="orbit-upload-plus">+</span>
-                  </div>
-                )
-              ) : (
-                <div
-                  ref={trackListRef}
-                  className={`orbit-track-list${playingTrackId ? ' has-playing' : ''}`}
-                  style={{ transform: `translate3d(${(playingTrackId ? 0 : viewIndex * GALLERY_SPACING)}px, 0, 0)` }}
-                  onWheel={handleTrackWheel}
-                  onPointerDown={handleTrackPointerDown}
-                >
-                  {tracks.map((t, i) => (
-                    <div
-                      key={t.id}
-                      className={`orbit-track-item${playingTrackId === t.id ? ' playing' : ''}`}
-                      style={{ ['--track-offset' as any]: `${-i * GALLERY_SPACING}px` }}
-                      onClick={() => {
-                        if (draggedRef.current) return
-                        handleTrackPlay(t)
-                      }}
-                    >
-                      <div className={`orbit-track-cover${t.cover_url ? '' : ' orbit-track-cover-default'}`}>
-                        {t.cover_url && <img src={t.cover_url} alt={t.title} />}
-                      </div>
-                      {playingTrackId === t.id && <div className="orbit-track-playing">▶</div>}
-                      <div className="orbit-track-hover-label">
-                        <div className="orbit-track-hover-title">{t.title}</div>
-                        <div className="orbit-track-hover-date">{formatTrackDate(t.date || t.created_at)}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {!viewOnly && (
-                    <div
-                      className={`orbit-upload-circle small${playingTrackId ? ' hidden' : ''}`}
-                      style={{ ['--track-offset' as any]: `${GALLERY_SPACING}px` }}
-                      onClick={() => {
-                        if (draggedRef.current) return
-                        audioInputRef.current?.click()
-                      }}
-                    >
-                      <span className="orbit-upload-plus">+</span>
-                    </div>
-                  )}
-                  {playingTrackId && (viewOnly ? (
-                    <div className="orbit-track-view">
-                      <div className="orbit-track-view-title">{editMeta.title || 'Untitled'}</div>
-                      <div className="orbit-track-view-date">
-                        {formatTrackDate(editMeta.date || (tracks.find(t => t.id === playingTrackId)?.created_at ?? null))}
-                      </div>
-                      {editMeta.description && (
-                        <div className="orbit-track-view-desc">{editMeta.description}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="orbit-track-edit">
-                      <input
-                        className="orbit-track-edit-input orbit-track-edit-title-input"
-                        placeholder="Title"
-                        value={editMeta.title}
-                        onChange={e => setEditMeta(m => ({ ...m, title: e.target.value }))}
-                      />
-                      <div className="orbit-track-edit-row">
-                        <input
-                          className="orbit-track-edit-input"
-                          placeholder="Version"
-                          value={editMeta.version}
-                          onChange={e => setEditMeta(m => ({ ...m, version: e.target.value }))}
-                        />
-                        <input
-                          className="orbit-track-edit-input"
-                          type="date"
-                          value={editMeta.date}
-                          onChange={e => setEditMeta(m => ({ ...m, date: e.target.value }))}
-                        />
-                      </div>
-                      <textarea
-                        className="orbit-track-edit-desc"
-                        placeholder="Description"
-                        rows={3}
-                        value={editMeta.description}
-                        onChange={e => setEditMeta(m => ({ ...m, description: e.target.value }))}
-                      />
-                      <div className="orbit-track-privacy">
-                        <div className="orbit-track-privacy-toggle">
-                          <button
-                            type="button"
-                            className={`orbit-track-privacy-opt${!editMeta.isPrivate ? ' active' : ''}`}
-                            onClick={() => setEditMeta(m => ({ ...m, isPrivate: false }))}
-                          >Public</button>
-                          <button
-                            type="button"
-                            className={`orbit-track-privacy-opt${editMeta.isPrivate ? ' active' : ''}`}
-                            onClick={() => setEditMeta(m => ({ ...m, isPrivate: true }))}
-                          >Private</button>
-                        </div>
-                        {editMeta.isPrivate && (
-                          followingProfiles.length === 0 ? (
-                            <div className="orbit-track-followers-empty">You're not following anyone yet — only you can see this track.</div>
-                          ) : (
-                            <div className="orbit-track-followers-list">
-                              {followingProfiles.map(p => {
-                                const selected = editMeta.allowedUserIds.includes(p.id)
-                                return (
-                                  <div
-                                    key={p.id}
-                                    className={`orbit-track-follower-row${selected ? ' selected' : ''}`}
-                                    onClick={() => setEditMeta(m => ({
-                                      ...m,
-                                      allowedUserIds: selected
-                                        ? m.allowedUserIds.filter(id => id !== p.id)
-                                        : [...m.allowedUserIds, p.id]
-                                    }))}
-                                  >
-                                    <div className="orbit-track-follower-av" style={{ background: p.avatar_color }}>
-                                      {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
-                                    </div>
-                                    <span className="orbit-track-follower-name">{p.display_name}</span>
-                                    <span className="orbit-track-follower-check">{selected ? '✓' : ''}</span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )
-                        )}
-                      </div>
-                      <div className="orbit-track-edit-actions">
-                        <button
-                          className="orbit-track-edit-btn delete"
-                          onClick={handleTrackDelete}
-                          disabled={editSaving}
-                        >Delete</button>
-                        <button
-                          className={`orbit-track-edit-btn save${editJustSaved ? ' saved' : ''}`}
-                          onClick={handleTrackEditSave}
-                          disabled={editSaving || editJustSaved || !editMeta.title}
-                        >{editSaving ? '...' : editJustSaved ? 'Saved ✓' : 'Save'}</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {/* Avatar — always centred. */}
+        <button
+          className="profile-av-btn orbit-self"
+          onClick={viewOnly ? undefined : handlePickFile}
+          disabled={uploading || viewOnly}
+          title={viewOnly ? displayName : 'Change photo'}
+          style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2, cursor: viewOnly ? 'default' : undefined }}
+        >
+          <div className="av profile-av" style={{ background: color, width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}>
+            {photo ? <img src={photo} alt="avatar" /> : <span>{initials}</span>}
+          </div>
+          {viewOnly ? null : (
+            <div className="profile-av-overlay">
+              {uploading ? '...' : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
               )}
             </div>
           )}
+        </button>
 
-          {/* --- Track metadata panel --- */}
-          {trackPanel && (
-            <div className="orbit-track-panel">
-              <div className="orbit-track-panel-top">
-                <div className="orbit-track-cover-pick" onClick={() => coverInputRef.current?.click()}>
-                  {trackCoverPreview ? (
-                    <img src={trackCoverPreview} alt="cover" />
-                  ) : (
-                    <span>+</span>
-                  )}
-                </div>
-                <div className="orbit-track-fields">
-                  <input
-                    className="orbit-track-input orbit-track-title orbit-track-title-large"
-                    placeholder="Title"
-                    value={trackMeta.title}
-                    onChange={e => setTrackMeta(m => ({ ...m, title: e.target.value }))}
-                  />
-                  <select
-                    className="orbit-track-select"
-                    value={trackMeta.version}
-                    onChange={e => setTrackMeta(m => ({ ...m, version: e.target.value }))}
-                  >
-                    {Array.from({ length: 20 }, (_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>v{i + 1}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="orbit-track-privacy">
-                <div className="orbit-track-privacy-toggle">
-                  <button
-                    type="button"
-                    className={`orbit-track-privacy-opt${!trackMeta.isPrivate ? ' active' : ''}`}
-                    onClick={() => setTrackMeta(m => ({ ...m, isPrivate: false }))}
-                  >Public</button>
-                  <button
-                    type="button"
-                    className={`orbit-track-privacy-opt${trackMeta.isPrivate ? ' active' : ''}`}
-                    onClick={() => setTrackMeta(m => ({ ...m, isPrivate: true }))}
-                  >Private</button>
-                </div>
-                {trackMeta.isPrivate && (
-                  followingProfiles.length === 0 ? (
-                    <div className="orbit-track-followers-empty">You're not following anyone yet — only you will be able to see this track.</div>
-                  ) : (
-                    <div className="orbit-track-followers-list">
-                      {followingProfiles.map(p => {
-                        const selected = trackMeta.allowedUserIds.includes(p.id)
-                        return (
-                          <div
-                            key={p.id}
-                            className={`orbit-track-follower-row${selected ? ' selected' : ''}`}
-                            onClick={() => setTrackMeta(m => ({
-                              ...m,
-                              allowedUserIds: selected
-                                ? m.allowedUserIds.filter(id => id !== p.id)
-                                : [...m.allowedUserIds, p.id]
-                            }))}
-                          >
-                            <div className="orbit-track-follower-av" style={{ background: p.avatar_color }}>
-                              {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
-                            </div>
-                            <span className="orbit-track-follower-name">{p.display_name}</span>
-                            <span className="orbit-track-follower-check">{selected ? '✓' : ''}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                )}
-              </div>
-              <div className="orbit-track-btns">
-                <button className="orbit-track-btn cancel" onClick={() => { setTrackPanel(false); setPendingAudioFiles([]) }}>Cancel</button>
-                <button className="orbit-track-btn save" onClick={handleTrackSave} disabled={trackSaving || !trackMeta.title}>
-                  {trackSaving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Friend hover card — pops above/below the hovered orb. */}
+        {hoveredProfile && tooltipPos && (() => {
+          const liveSession = liveHostIds?.has(hoveredProfile.id)
+            ? liveSessions?.find(s => s.host_id === hoveredProfile.id) ?? null
+            : null
+          return (
+            <HoverTooltip
+              supabase={supabase}
+              profile={hoveredProfile}
+              x={tooltipPos.x}
+              y={tooltipPos.y}
+              below={tooltipPos.below}
+              isMutual={followingSet.has(hoveredProfile.id) && followerSet.has(hoveredProfile.id)}
+              isFollowing={followingSet.has(hoveredProfile.id)}
+              isFollower={followerSet.has(hoveredProfile.id)}
+              isFavorite={favorites.has(hoveredProfile.id)}
+              onToggleFavorite={() => onToggleFav(hoveredProfile.id)}
+              liveSessionId={liveSession?.id ?? null}
+              onJoinLive={liveSession && onWatchLive ? () => onWatchLive(liveSession.id) : undefined}
+              onMessage={() => onOpenChat(hoveredProfile.id)}
+              onViewProfile={() => onViewProfile?.(hoveredProfile.id)}
+              onMouseEnter={handleTooltipEnter}
+              onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
+            />
+          )
+        })()}
 
-          <audio ref={trackAudioRef} onEnded={() => setPlayingTrackId(null)} />
-          <input ref={audioInputRef} type="file" accept="audio/*" multiple style={{ display: 'none' }} onChange={handleAudioSelect} />
-          <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverSelect} />
-
+        {/* Display name — bottom of the panel. */}
+        <div className="orbit-bottom">
+          <div className="orbit-name">{displayName}</div>
         </div>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-
-        {msg && <div className="profile-msg">{msg}</div>}
       </div>
-    </>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
+      {msg && <div className="profile-msg">{msg}</div>}
+    </div>
   )
 }

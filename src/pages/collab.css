@@ -4024,36 +4024,47 @@
   overflow: hidden;
   position: relative;
 }
+/* Wraps the video — fullscreen button anchors to this so it sits in the
+   actual video's bottom-right corner, not the body's. */
+.live-viewer-video-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.live-viewer-video-wrap.is-audio-only { display: none; }
 .live-viewer-video {
   width: 100%;
   max-height: 320px;
   background: #000;
   border-radius: 8px;
   object-fit: contain;
+  display: block;
 }
 
-/* Fullscreen button overlaid on the video (bottom-right) */
+/* Fullscreen button — anchored to the video wrapper's bottom-right */
 .live-viewer-fullscreen-btn {
   position: absolute;
-  right: 18px;
-  bottom: 18px;
-  width: 32px; height: 32px;
-  border-radius: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: 30px; height: 30px;
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   z-index: 5;
+  opacity: 0.85;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  transition: background .12s, transform .08s;
+  transition: background .12s, opacity .12s, transform .08s;
 }
 .live-viewer-fullscreen-btn:hover {
   background: rgba(0, 0, 0, 0.75);
+  opacity: 1;
 }
 .live-viewer-fullscreen-btn:active { transform: scale(0.94); }
-/* Hide the button itself when the video is in native fullscreen */
 .live-viewer-video:fullscreen ~ .live-viewer-fullscreen-btn,
 .live-viewer-video:-webkit-full-screen ~ .live-viewer-fullscreen-btn {
   display: none;

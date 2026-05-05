@@ -26,6 +26,13 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
 function formatDur(s: number): string {
   const m = Math.floor(s / 60)
   const sec = Math.floor(s % 60)
@@ -580,6 +587,23 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
+
+  // In-flight uploads — rendered as optimistic ghost bubbles in the chat with
+  // their own progress bar so the user can see the file is actually moving.
+  interface PendingUpload {
+    id: string
+    name: string
+    type: AttachType
+    size: number
+    progress: number     // 0–1
+  }
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
+  const updatePendingProgress = (id: string, progress: number) => {
+    setPendingUploads(prev => prev.map(p => p.id === id ? { ...p, progress } : p))
+  }
+  const removePending = (id: string) => {
+    setPendingUploads(prev => prev.filter(p => p.id !== id))
+  }
   const [dragOver, setDragOver]   = useState(false)
   const [dragType, setDragType]   = useState<'attach' | 'cancel'>('attach')
   const chatAreaRef = useRef<HTMLDivElement>(null)
@@ -846,16 +870,20 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     setTimeout(() => { setSendError(false); setUploadErrMsg('') }, 3000)
   }
 
-  // Upload via Cloudflare R2:
-  //   1. Ask our Edge Function for a presigned PUT URL.
-  //   2. PUT the file directly to R2 (browser → R2, doesn't go through Vercel).
-  //   3. Use the returned public URL as the attachment URL.
-  // R2's lifecycle rule (set in the bucket dashboard) handles 7-day expiry.
+  // Upload via Cloudflare R2 with progress tracking:
+  //   1. Push a 0% pending-upload row so a ghost bubble appears immediately.
+  //   2. Ask our Edge Function for a presigned PUT URL.
+  //   3. XHR PUT to R2 — XMLHttpRequest exposes upload.onprogress, fetch doesn't.
+  //   4. Tick the progress in state; remove the row on success/failure.
   const uploadFile = async (file: File, type: AttachType): Promise<Attachment | null> => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const contentType = file.type || 'application/octet-stream'
+    const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setPendingUploads(prev => [...prev, {
+      id: pendingId, name: file.name, type, size: file.size, progress: 0,
+    }])
+
     try {
-      // 1. Get presigned URL
       const presignRes = await fetch('/api/r2-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -864,27 +892,45 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       if (!presignRes.ok) {
         const errText = await presignRes.text()
         console.error('[upload] presign failed:', presignRes.status, errText)
+        removePending(pendingId)
         return null
       }
       const { uploadUrl, publicUrl } = await presignRes.json() as {
         uploadUrl: string; publicUrl: string
       }
 
-      // 2. PUT to R2
-      const putRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: file,
+      // PUT via XHR for upload.onprogress events (fetch can't do this yet).
+      const ok = await new Promise<boolean>((resolve) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', contentType)
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            updatePendingProgress(pendingId, Math.min(0.99, e.loaded / e.total))
+          }
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            updatePendingProgress(pendingId, 1)
+            resolve(true)
+          } else {
+            console.error('[upload] R2 PUT failed:', xhr.status, xhr.responseText)
+            resolve(false)
+          }
+        }
+        xhr.onerror = () => {
+          console.error('[upload] R2 PUT network error')
+          resolve(false)
+        }
+        xhr.send(file)
       })
-      if (!putRes.ok) {
-        const errText = await putRes.text()
-        console.error('[upload] R2 PUT failed:', putRes.status, errText)
-        return null
-      }
 
+      removePending(pendingId)
+      if (!ok) return null
       return { url: publicUrl, type, name: file.name }
     } catch (e) {
       console.error('[upload] error:', e)
+      removePending(pendingId)
       return null
     }
   }
@@ -1147,7 +1193,33 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             </div>
           )
         )}
-        {messages.length === 0 && !loading && (
+
+        {/* Ghost bubbles for in-flight uploads — always shown as 'mine' */}
+        {pendingUploads.map(p => (
+          <div key={p.id} className="mg mine">
+            <div className="msg-att-pending">
+              <div className="msg-att-pending-row">
+                <svg className="msg-att-pending-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {p.type === 'image'
+                    ? <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></>
+                    : p.type === 'video'
+                      ? <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></>
+                      : <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></>}
+                </svg>
+                <span className="msg-att-pending-name">{p.name}</span>
+                <span className="msg-att-pending-pct">{Math.round(p.progress * 100)}%</span>
+              </div>
+              <div className="msg-att-pending-bar">
+                <div className="msg-att-pending-bar-fill" style={{ width: `${Math.round(p.progress * 100)}%` }} />
+              </div>
+              <div className="msg-att-pending-size">
+                {formatBytes(Math.round(p.progress * p.size))} / {formatBytes(p.size)}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {messages.length === 0 && !loading && pendingUploads.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 40 }}>
             No messages yet
           </div>

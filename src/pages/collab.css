@@ -1088,6 +1088,56 @@
   line-height: 1.3;
 }
 
+/* Pending upload bubble — appears in the chat as soon as upload starts */
+.msg-att-pending {
+  min-width: 200px;
+  max-width: 240px;
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'DM Sans', sans-serif;
+}
+.msg-att-pending-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.msg-att-pending-icon { color: var(--t1); flex-shrink: 0; }
+.msg-att-pending-name {
+  flex: 1;
+  font-size: 11px;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-att-pending-pct {
+  font-size: 10px;
+  color: var(--t2);
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.msg-att-pending-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.msg-att-pending-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A8FE7, #7B5CF6);
+  transition: width 0.15s ease-out;
+}
+.msg-att-pending-size {
+  font-size: 9px;
+  color: var(--t3);
+  font-family: 'DM Mono', monospace;
+}
+
 .msg-att-audio-group {
   min-width: 160px;
   max-width: 200px;

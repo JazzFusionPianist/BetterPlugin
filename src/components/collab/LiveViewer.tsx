@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useLiveViewer } from '../../hooks/useLiveViewer'
 import type { LiveSession } from '../../hooks/useLive'
@@ -24,6 +24,41 @@ interface Props {
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, sessionEnded, onSendChat, onClose }: Props) {
   const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  // Use the stream's actual video tracks as the source of truth for whether
+  // to render the video element vs the audio-only avatar. This stays in sync
+  // automatically when the host adds/removes video via WebRTC renegotiation,
+  // even if the live_sessions metadata hasn't propagated yet.
+  const [streamHasVideo, setStreamHasVideo] = useState(false)
+  useEffect(() => {
+    if (!remoteStream) { setStreamHasVideo(false); return }
+    const update = () => {
+      const live = remoteStream.getVideoTracks().some(t => t.readyState === 'live' && !t.muted)
+      setStreamHasVideo(live)
+    }
+    update()
+    remoteStream.addEventListener('addtrack', update)
+    remoteStream.addEventListener('removetrack', update)
+    // Watch each video track's mute state too — replaceTrack(null) on host's
+    // sender flips this to muted=true on the receiver.
+    const trackListeners: Array<{ track: MediaStreamTrack; mute: () => void; unmute: () => void; ended: () => void }> = []
+    for (const t of remoteStream.getVideoTracks()) {
+      const mute = update, unmute = update, ended = update
+      t.addEventListener('mute', mute)
+      t.addEventListener('unmute', unmute)
+      t.addEventListener('ended', ended)
+      trackListeners.push({ track: t, mute, unmute, ended })
+    }
+    return () => {
+      remoteStream.removeEventListener('addtrack', update)
+      remoteStream.removeEventListener('removetrack', update)
+      for (const { track, mute, unmute, ended } of trackListeners) {
+        track.removeEventListener('mute', mute)
+        track.removeEventListener('unmute', unmute)
+        track.removeEventListener('ended', ended)
+      }
+    }
+  }, [remoteStream])
 
   useEffect(() => {
     const v = videoRef.current
@@ -80,13 +115,13 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
         {/* Wrapper around the video so the fullscreen button can be anchored
             to the actual video area (not the whole body). When in audio-only
             mode the wrapper collapses (display: none on .has-video=false). */}
-        <div className={`live-viewer-video-wrap${session.has_video ? '' : ' is-audio-only'}`}>
+        <div className={`live-viewer-video-wrap${streamHasVideo ? '' : ' is-audio-only'}`}>
           <video
             ref={videoRef}
             className="live-viewer-video"
             autoPlay playsInline
           />
-          {session.has_video && (
+          {streamHasVideo && (
             <button
               className="live-viewer-fullscreen-btn"
               onClick={() => {
@@ -116,7 +151,7 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
             </button>
           )}
         </div>
-        {!session.has_video && (
+        {!streamHasVideo && (
           <div className="live-viewer-audio-only">
             <div className="live-pulse-wrap live-pulse-lg">
               <div className="live-pulse-ring" />

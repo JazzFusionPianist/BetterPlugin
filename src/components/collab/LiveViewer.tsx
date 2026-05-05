@@ -25,10 +25,18 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
   const { remoteStream, status } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Use the stream's actual video tracks as the source of truth for whether
-  // to render the video element vs the audio-only avatar. This stays in sync
-  // automatically when the host adds/removes video via WebRTC renegotiation,
-  // even if the live_sessions metadata hasn't propagated yet.
+  // To decide whether to render the video element vs the audio-only avatar,
+  // we combine TWO signals because each is reliable in only one direction:
+  //   - streamHasVideo (WebRTC):       fast on audio → video (ontrack fires
+  //                                    immediately) but unreliable on
+  //                                    video → audio (replaceTrack(null) on
+  //                                    the sender doesn't always fire mute
+  //                                    on the receiver, leaving a frozen
+  //                                    last frame).
+  //   - session.has_video (metadata):  flips fast in BOTH directions when
+  //                                    the host calls updateLive.
+  // We show video only when BOTH agree, so a stop signal from either side
+  // collapses the UI to audio-only.
   const [streamHasVideo, setStreamHasVideo] = useState(false)
   useEffect(() => {
     if (!remoteStream) { setStreamHasVideo(false); return }
@@ -66,6 +74,9 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
     v.srcObject = remoteStream
     v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
+
+  // Combined signal — show video only when BOTH say it's available.
+  const showVideo = streamHasVideo && session.has_video
 
   const ended = sessionEnded || status === 'ended'
 
@@ -115,13 +126,13 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
         {/* Wrapper around the video so the fullscreen button can be anchored
             to the actual video area (not the whole body). When in audio-only
             mode the wrapper collapses (display: none on .has-video=false). */}
-        <div className={`live-viewer-video-wrap${streamHasVideo ? '' : ' is-audio-only'}`}>
+        <div className={`live-viewer-video-wrap${showVideo ? '' : ' is-audio-only'}`}>
           <video
             ref={videoRef}
             className="live-viewer-video"
             autoPlay playsInline
           />
-          {streamHasVideo && (
+          {showVideo && (
             <button
               className="live-viewer-fullscreen-btn"
               onClick={() => {
@@ -151,7 +162,7 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
             </button>
           )}
         </div>
-        {!streamHasVideo && (
+        {!showVideo && (
           <div className="live-viewer-audio-only">
             <div className="live-pulse-wrap live-pulse-lg">
               <div className="live-pulse-ring" />

@@ -214,29 +214,29 @@ export function useLiveBroadcaster(
   useEffect(() => {
     if (!localStream) return
     const tracks = localStream.getTracks()
-    peersRef.current.forEach(pc => {
+    console.log('[broadcaster] localStream changed, peers:', peersRef.current.size,
+      'tracks:', tracks.map(t => `${t.kind}:${t.id.slice(0, 8)}`))
+    peersRef.current.forEach((pc, viewerId) => {
       const senders = pc.getSenders()
       for (const track of tracks) {
         const existing = senders.find(s => s.track && s.track.kind === track.kind)
         if (existing) {
-          if (existing.track !== track) existing.replaceTrack(track).catch(e => console.warn('replaceTrack failed', e))
+          if (existing.track !== track) {
+            console.log('[broadcaster] replaceTrack on', viewerId, 'kind=', track.kind)
+            existing.replaceTrack(track).catch(e => console.warn('replaceTrack failed', e))
+          }
         } else if (pc.signalingState !== 'stable') {
-          // Defer: addTrack would change SDP mid-negotiation. The next
-          // localStream change (or a future negotiation cycle) will pick it up.
           console.warn('[broadcaster] deferring addTrack — signalingState:', pc.signalingState)
         } else {
-          // New kind (e.g., mic added after start-with-DAW-only)
+          console.log('[broadcaster] addTrack on', viewerId, 'kind=', track.kind)
           try { pc.addTrack(track, localStream) }
           catch (e) { console.warn('addTrack during replacement failed', e) }
         }
       }
-      // If the new stream dropped a kind, null the sender so viewers stop receiving it
       senders.forEach(s => {
-        if (s.track && !tracks.find(t => t.kind === s.track!.kind && t.id === s.track!.id)) {
-          // check: is there any track of this kind in the new list?
-          if (!tracks.find(t => t.kind === s.track!.kind)) {
-            s.replaceTrack(null).catch(() => {})
-          }
+        if (s.track && !tracks.find(t => t.kind === s.track!.kind)) {
+          console.log('[broadcaster] dropping sender on', viewerId, 'kind=', s.track.kind)
+          s.replaceTrack(null).catch(() => {})
         }
       })
     })

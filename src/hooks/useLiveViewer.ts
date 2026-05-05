@@ -77,10 +77,21 @@ export function useLiveViewer(
     }
 
     pc.ontrack = (ev) => {
+      console.log('[viewer] ontrack:', ev.track.kind, 'id:', ev.track.id.slice(0, 8),
+        'enabled:', ev.track.enabled, 'muted:', ev.track.muted)
       ev.streams[0]?.getTracks().forEach(t => remote.addTrack(t))
-      // Trigger re-render with a fresh stream object so <video> updates
       setRemoteStream(new MediaStream(remote.getTracks()))
       refreshDebug()
+      // Listen for mute/unmute on the new track — when the host calls
+      // replaceTrack(newTrack) on their sender, the viewer side may see a
+      // brief mute event. We re-trigger srcObject in that case.
+      ev.track.onunmute = () => {
+        console.log('[viewer] track unmuted:', ev.track.kind)
+        setRemoteStream(new MediaStream(remote.getTracks()))
+      }
+      ev.track.onmute = () => {
+        console.log('[viewer] track muted:', ev.track.kind)
+      }
     }
     pc.onconnectionstatechange = () => {
       console.log('[viewer] connectionState:', pc.connectionState)

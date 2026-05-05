@@ -8,6 +8,11 @@
 #import <objc/runtime.h>
 #import <WebKit/WebKit.h>
 #import <objc/message.h>
+#import <os/log.h>
+
+// macOS unified logging redacts NSLog's %@ args as <private> by default.
+// Use os_log with %{public}@ so pasteboard types are visible to Console.app.
+#define COOP_LOG(fmt, ...) os_log(OS_LOG_DEFAULT, "[DragMonitor] " fmt, ##__VA_ARGS__)
 
 static constexpr float kMinDragPx = 4.0f;
 
@@ -335,12 +340,41 @@ static NSView* findViewWithDragTypes (NSView* root)
     return nil;
 }
 
+// Extract <filename> tags from Cubase's vst-xml pasteboard payload.
+// Cubase doesn't put audio files on the pasteboard — only an XML metadata
+// blob whose <filename> child holds the absolute path of the underlying
+// audio file in the project's Audio folder. We parse the path out and read
+// the file from disk ourselves.
+static NSArray<NSURL*>* extractCubaseXmlFileURLs (NSPasteboard* pb)
+{
+    NSString* xml = [pb stringForType:@"public.utf8-plain-text"];
+    if (!xml || ![xml containsString:@"<vst-xml"]) return @[];
+
+    NSMutableArray<NSURL*>* out = [NSMutableArray array];
+    NSScanner* sc = [NSScanner scannerWithString:xml];
+    sc.charactersToBeSkipped = nil;
+    while (![sc isAtEnd]) {
+        if (![sc scanUpToString:@"<filename>" intoString:nil]) break;
+        if (![sc scanString:@"<filename>" intoString:nil]) break;
+        NSString* path = nil;
+        if (![sc scanUpToString:@"</filename>" intoString:&path]) break;
+        if (path.length > 0) {
+            // Decode XML entities (Cubase mostly leaves paths unencoded but be safe)
+            NSString* decoded = [[[path
+                stringByReplacingOccurrencesOfString:@"&amp;" withString:@"&"]
+                stringByReplacingOccurrencesOfString:@"&lt;"  withString:@"<"]
+                stringByReplacingOccurrencesOfString:@"&gt;"  withString:@">"];
+            [out addObject:[NSURL fileURLWithPath:decoded]];
+        }
+    }
+    return out;
+}
+
 // ── Convenience: does the pasteboard carry something we can attach? ──────────
 // Logic Pro          : NSFilePromiseReceiver  (async region export)
 // Pro Tools          : NSURL file URL          (already-existing audio file)
-// Cubase / Studio One: Sometimes NSFilePromise, sometimes file URL, sometimes
-//                       a custom audio-clip type — we accept any of them
-// Luna / Reaper      : Usually file URL after the DAW writes a temp file
+// Cubase             : XML metadata with <filename> — we parse the path out
+// Reaper / Studio One: Usually file URL after the DAW writes a temp file
 // We also accept the deprecated NSFilenamesPboardType for older hosts.
 static BOOL isAcceptableAudioDrag (NSPasteboard* pb)
 {
@@ -351,7 +385,7 @@ static BOOL isAcceptableAudioDrag (NSPasteboard* pb)
                                       options:nil];
     if (rcvs.count > 0) return YES;
 
-    // 2. Direct file URLs (Pro Tools, Cubase temp-file style, Reaper, etc.)
+    // 2. Direct file URLs (Pro Tools, Reaper, Studio One, etc.)
     NSDictionary* opts = @{ NSPasteboardURLReadingFileURLsOnlyKey : @YES };
     NSArray<NSURL*>* urls =
         [pb readObjectsForClasses:@[[NSURL class]] options:opts];
@@ -361,6 +395,9 @@ static BOOL isAcceptableAudioDrag (NSPasteboard* pb)
     NSArray* legacyPaths = [pb propertyListForType:@"NSFilenamesPboardType"];
     if ([legacyPaths isKindOfClass:[NSArray class]] && legacyPaths.count > 0)
         return YES;
+
+    // 4. Cubase vst-xml — embedded <filename> path
+    if (extractCubaseXmlFileURLs (pb).count > 0) return YES;
 
     return NO;
 }
@@ -381,7 +418,7 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
     if (cb)
     {
         NSPasteboard* pb = info.draggingPasteboard;
-        NSLog (@"[DragMonitor] performDragOperation: types=%@", pb.types);
+        COOP_LOG ("performDragOperation: types=%{public}@", pb.types);
 
         // ── Our own NSDraggingSession came back to the chat ────────────────
         // Reject the drop so JS 'drop' never fires and the file is NOT
@@ -441,12 +478,12 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             return YES;
         }
 
-        // ── Regular file URL drop (Pro Tools, Cubase temp file, Reaper) ──
+        // ── Regular file URL drop (Pro Tools, Reaper, Studio One) ──────────
         NSDictionary* opts = @{ NSPasteboardURLReadingFileURLsOnlyKey : @YES };
         NSArray<NSURL*>* urls =
             [pb readObjectsForClasses:@[[NSURL class]] options:opts];
         if (urls.count == 0) {
-            // Fallback: legacy NSFilenamesPboardType (some older hosts)
+            // Fallback 1: legacy NSFilenamesPboardType (some older hosts)
             NSArray* legacyPaths = [pb propertyListForType:@"NSFilenamesPboardType"];
             if ([legacyPaths isKindOfClass:[NSArray class]]) {
                 NSMutableArray* asURLs = [NSMutableArray array];
@@ -455,6 +492,15 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                         [asURLs addObject:[NSURL fileURLWithPath:p]];
                 }
                 urls = asURLs;
+            }
+        }
+        if (urls.count == 0) {
+            // Fallback 2: Cubase vst-xml metadata — extract <filename> paths
+            NSArray<NSURL*>* xmlUrls = extractCubaseXmlFileURLs (pb);
+            if (xmlUrls.count > 0) {
+                COOP_LOG ("extracted %lu file URL(s) from Cubase vst-xml",
+                          (unsigned long)xmlUrls.count);
+                urls = xmlUrls;
             }
         }
 
@@ -499,7 +545,13 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
         }
 
         // No recognised pasteboard type — log everything for diagnosis
-        NSLog (@"[DragMonitor] drop rejected, unrecognised types: %@", pb.types);
+        COOP_LOG ("drop rejected, unrecognised types: %{public}@", pb.types);
+        for (NSPasteboardType t in pb.types) {
+            NSData* d = [pb dataForType:t];
+            NSString* asUtf8 = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
+            COOP_LOG ("  type=%{public}@ size=%lu utf8=%{public}@",
+                      t, (unsigned long)d.length, asUtf8 ?: @"<not utf8>");
+        }
     }
 
     if (gOrigPerformDragOp)
@@ -523,8 +575,8 @@ static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
     BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
 
-    NSLog (@"[DragMonitor] draggingEntered: pasteboard types=%@ ownDrag=%d acceptable=%d",
-           info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
+    COOP_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
+              info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
     if ((ownDrag || logicDrag) && wkv)
     {
@@ -628,6 +680,8 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
     if (!gSwizzleInstalled)
     {
         Class cls = object_getClass (dropView);
+        NSLog (@"[DragMonitor] *** v2 (multi-DAW) swizzle installing on class %@ ***",
+               NSStringFromClass(cls));
         installSwizzle (cls, @selector(performDragOperation:),
                         (IMP) coopPerformDragOp,    &gOrigPerformDragOp);
         installSwizzle (cls, @selector(draggingEntered:),
@@ -637,6 +691,7 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
         installSwizzle (cls, @selector(draggingUpdated:),
                         (IMP) coopDraggingUpdated,  &gOrigDraggingUpdated);
         gSwizzleInstalled = YES;
+        NSLog (@"[DragMonitor] swizzle install complete");
     }
 
     // ── Keyboard fix: Logic eats key events via NSApp.sendEvent: ─────────────

@@ -574,7 +574,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase, currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -835,7 +835,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
 
-  const MAX_SIZE_MB = 50
+  // Cap raised after migrating to Cloudflare R2 (which has 5TB per-object limit
+  // and free egress) — most audio sessions/stems are well under 1GB.
+  const MAX_SIZE_MB = 1000
   const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024
 
   const showErr = (msg: string) => {
@@ -844,18 +846,47 @@ export default function ChatView({ supabase, currentUserId, otherProfile, messag
     setTimeout(() => { setSendError(false); setUploadErrMsg('') }, 3000)
   }
 
+  // Upload via Cloudflare R2:
+  //   1. Ask our Edge Function for a presigned PUT URL.
+  //   2. PUT the file directly to R2 (browser → R2, doesn't go through Vercel).
+  //   3. Use the returned public URL as the attachment URL.
+  // R2's lifecycle rule (set in the bucket dashboard) handles 7-day expiry.
   const uploadFile = async (file: File, type: AttachType): Promise<Attachment | null> => {
-    const ext  = file.name.split('.').pop() ?? 'bin'
-    const path = `${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabase.storage
-      .from('attachments')
-      .upload(path, file, { contentType: file.type })
-    if (error) {
-      console.error('[upload error]', error.message, error)
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+    const contentType = file.type || 'application/octet-stream'
+    try {
+      // 1. Get presigned URL
+      const presignRes = await fetch('/api/r2-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
+      })
+      if (!presignRes.ok) {
+        const errText = await presignRes.text()
+        console.error('[upload] presign failed:', presignRes.status, errText)
+        return null
+      }
+      const { uploadUrl, publicUrl } = await presignRes.json() as {
+        uploadUrl: string; publicUrl: string
+      }
+
+      // 2. PUT to R2
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: file,
+      })
+      if (!putRes.ok) {
+        const errText = await putRes.text()
+        console.error('[upload] R2 PUT failed:', putRes.status, errText)
+        return null
+      }
+
+      return { url: publicUrl, type, name: file.name }
+    } catch (e) {
+      console.error('[upload] error:', e)
       return null
     }
-    const { data } = supabase.storage.from('attachments').getPublicUrl(path)
-    return { url: data.publicUrl, type, name: file.name }
   }
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>, type: AttachType) => {

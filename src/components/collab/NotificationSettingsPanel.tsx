@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 export interface NotifSettings {
   follow: boolean
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function NotificationSettingsPanel({ onClose, onSettingsChange }: Props) {
+  const { t } = useT()
   const [settings, setSettings] = useState<NotifSettings>(readNotifSettings)
 
   const toggle = (key: keyof NotifSettings) => {
@@ -50,7 +52,7 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
 
       <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
         <span className="settings-header-back">‹</span>
-        <span className="settings-header-title">Notifications</span>
+        <span className="settings-header-title">{t('settings.notifications')}</span>
       </div>
 
       <div className="info-stack">
@@ -61,8 +63,8 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
           tabIndex={0}
         >
           <div className="notif-setting-info">
-            <span className="notif-setting-name">New follower</span>
-            <span className="notif-setting-desc">When someone follows you</span>
+            <span className="notif-setting-name">{t('notifSettings.follow')}</span>
+            <span className="notif-setting-desc">{t('notifSettings.followDesc')}</span>
           </div>
           <button
             className={`pill-toggle${settings.follow ? ' on' : ''}`}
@@ -78,8 +80,8 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
           tabIndex={0}
         >
           <div className="notif-setting-info">
-            <span className="notif-setting-name">New message</span>
-            <span className="notif-setting-desc">When someone sends you a chat</span>
+            <span className="notif-setting-name">{t('notifSettings.message')}</span>
+            <span className="notif-setting-desc">{t('notifSettings.messageDesc')}</span>
           </div>
           <button
             className={`pill-toggle${settings.message ? ' on' : ''}`}
@@ -95,8 +97,8 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
           tabIndex={0}
         >
           <div className="notif-setting-info">
-            <span className="notif-setting-name">Game turn alert</span>
-            <span className="notif-setting-desc">When it's your turn</span>
+            <span className="notif-setting-name">{t('notifSettings.gameTurn')}</span>
+            <span className="notif-setting-desc">{t('notifSettings.gameTurnDesc')}</span>
           </div>
           <button
             className={`pill-toggle${settings.gameTurn ? ' on' : ''}`}

@@ -6,6 +6,7 @@ import type { Profile } from '../../types/collab'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
 import LiveChat from './LiveChat'
 import { expandPluginWindow, compactPluginWindow, isExpandSupported } from '../../lib/pluginWindow'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   supabase: SupabaseClient
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, sessionEnded, onSendChat, onClose }: Props) {
+  const { t } = useT()
   const { remoteStream, status, hostSource } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -154,8 +156,8 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
                 <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
               </svg>
             </div>
-            <div className="live-ended-title">Thank you for watching!</div>
-            <div className="live-ended-sub">The stream has ended.</div>
+            <div className="live-ended-title">{t('live.thankYou')}</div>
+            <div className="live-ended-sub">{t('live.streamEnded')}</div>
             <button className="live-go-btn" onClick={onClose}>Back</button>
           </div>
         </div>
@@ -164,8 +166,8 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
   }
 
   const statusLabel =
-    status === 'connecting' ? 'Connecting…'
-    : status === 'error'     ? 'Connection error'
+    status === 'connecting' ? t('live.connecting')
+    : status === 'error'     ? t('live.connectionError')
     : ''
 
   return (
@@ -263,7 +265,7 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
                 </svg>
               )}
             </div>
-            <div className="live-viewer-audio-label">Audio only</div>
+            <div className="live-viewer-audio-label">{t('live.audioOnly')}</div>
           </div>
         )}
 

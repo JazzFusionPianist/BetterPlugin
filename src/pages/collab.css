@@ -445,11 +445,13 @@
 .plugin.settings-open      .fview > *,
 .plugin.addfriend-open     .fview > *,
 .plugin.notifsettings-open .fview > *,
+.plugin.language-open      .fview > *,
 .plugin.conv-open          .fview > *,
 .plugin.live-open          .fview > * { visibility: hidden; }
 .plugin.display-open       .sview > *,
 .plugin.info-open          .sview > *,
-.plugin.notifsettings-open .sview > * { visibility: hidden; }
+.plugin.notifsettings-open .sview > *,
+.plugin.language-open      .sview > * { visibility: hidden; }
 
 .fview { transform: translateX(0); background: transparent; }
 .fview .s-body { background: transparent; }
@@ -461,6 +463,7 @@
 .dview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
 .iview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
 .nsview { transform: translateX(100%); z-index: 19; background: var(--bg); }
+.lngview { transform: translateX(100%); z-index: 19; background: var(--bg); }
 .convview { transform: translateX(100%); z-index: 20; background: var(--bg); }
 .lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
 
@@ -472,6 +475,7 @@
 .plugin.display-open        .dview    { transform: translateX(0); }
 .plugin.info-open           .iview    { transform: translateX(0); }
 .plugin.notifsettings-open  .nsview   { transform: translateX(0); }
+.plugin.language-open       .lngview  { transform: translateX(0); }
 .plugin.conv-open           .convview { transform: translateX(0); }
 .plugin.live-open           .lvview   { transform: translateX(0); }
 .gview    { transform: translateX(100%); z-index: 22; background: var(--bg); }
@@ -4154,6 +4158,41 @@
   color: var(--t3);
   line-height: 1.4;
 }
+
+/* ── Language picker rows ───────────────────────────────────────────── */
+.language-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.language-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.language-row-native {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.language-row-english {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  color: var(--t3);
+  line-height: 1.4;
+}
+.language-row-check {
+  font-size: 14px;
+  color: #34C759;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.language-row.active .language-row-native { color: var(--t1); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Chess View

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -569,11 +570,12 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
 }
 
 function ExpiredAttachment({ type }: { type: AttachType }) {
+  const { t } = useT()
   const icon = type === 'image' ? '🖼️' : type === 'video' ? '🎬' : '🎵'
   return (
     <div className="att-expired">
       <span className="att-expired-icon">{icon}</span>
-      <span className="att-expired-text">File expired (7 days)</span>
+      <span className="att-expired-text">{t('chat.fileExpired')}</span>
     </div>
   )
 }
@@ -592,6 +594,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 
 // ── 메인 ChatView ─────────────────────────────────────────────
 export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, onSend, onBack }: Props) {
+  const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -1184,12 +1187,12 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           <div className="chdr-sub">
             {otherIsLive
               ? <>
-                  <span className="chdr-live-tag">● LIVE</span>
+                  <span className="chdr-live-tag">{t('chat.headerOnLive')}</span>
                   {otherLiveTitle && (
                     <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
                   )}
                 </>
-              : otherProfile.isOnline ? 'online' : 'offline'}
+              : otherProfile.isOnline ? t('common.online') : t('common.offline')}
           </div>
         </div>
         {otherIsLive && onJoinLive && (
@@ -1198,7 +1201,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             className="chdr-join-btn"
             onClick={e => { e.stopPropagation(); onJoinLive() }}
           >
-            Join
+            {t('chat.joinLive')}
           </button>
         )}
       </div>

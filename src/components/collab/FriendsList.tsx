@@ -1,4 +1,5 @@
 import type { Profile } from '../../types/collab'
+import { useT } from '../../i18n/LanguageContext'
 
 function VerifiedBadge() {
   return (
@@ -41,6 +42,7 @@ function FriendRow({
   onToggleFav: () => void
   onAvatarClick: (el: HTMLDivElement) => void
 }) {
+  const { t } = useT()
   return (
     <div className="f-row" onClick={onSelect}>
       <div className="av-wrap" onClick={e => { e.stopPropagation(); onAvatarClick(e.currentTarget) }} style={{ cursor: 'pointer' }}>
@@ -61,8 +63,10 @@ function FriendRow({
         </div>
         <div className="f-sub" title={isLive && liveTitle ? liveTitle : undefined}>
           {isLive
-            ? (liveTitle ? <><span className="f-sub-live-tag">● LIVE</span> {liveTitle}</> : 'On Live')
-            : profile.isOnline ? 'online' : 'offline'}
+            ? (liveTitle
+                ? <><span className="f-sub-live-tag">{t('chat.headerOnLive')}</span> {liveTitle}</>
+                : t('friends.onLive'))
+            : profile.isOnline ? t('common.online') : t('common.offline')}
         </div>
       </div>
 
@@ -76,7 +80,7 @@ function FriendRow({
         </span>
         {isLive
           ? <span className="ob live">LIVE</span>
-          : profile.isOnline && <span className="ob">online</span>}
+          : profile.isOnline && <span className="ob">{t('common.online')}</span>}
       </div>
     </div>
   )
@@ -129,8 +133,9 @@ export default function FriendsList({
   onToggleFav,
   onGalleryCellClick,
 }: Props) {
+  const { t } = useT()
   if (loading) {
-    return <div className="collab-loading">Loading...</div>
+    return <div className="collab-loading">{t('common.loading')}</div>
   }
 
   const filtered = searchQuery
@@ -140,8 +145,8 @@ export default function FriendsList({
   if (filtered.length === 0) {
     return (
       <div className="collab-loading" style={{ flexDirection: 'column', gap: 6, textAlign: 'center', padding: '0 24px' }}>
-        <span>{searchQuery ? 'No results' : 'No friends yet'}</span>
-        {!searchQuery && <span style={{ fontSize: 10, opacity: 0.7 }}>Use the + button above to add friends</span>}
+        <span>{searchQuery ? t('friends.noResults') : t('friends.empty')}</span>
+        {!searchQuery && <span style={{ fontSize: 10, opacity: 0.7 }}>{t('friends.emptyHint')}</span>}
       </div>
     )
   }

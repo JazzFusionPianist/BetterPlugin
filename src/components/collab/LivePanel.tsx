@@ -5,6 +5,7 @@ import type { VideoSource } from '../../types/live'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
 import LiveChat from './LiveChat'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 interface MicOption { deviceId: string; label: string }
 
@@ -199,6 +200,7 @@ export default function LivePanel({
   currentUserId, chatMessages, onSendChat,
   onStartLive, onEndLive, onReplaceSource, onWatchLive, onClose,
 }: Props) {
+  const { t } = useT()
   const [title, setTitle]         = useState('')
   const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
   // Default to (None) — user picks a video source when they want one
@@ -371,20 +373,20 @@ export default function LivePanel({
                 <circle cx="16" cy="16" r="2.4" fill="currentColor" stroke="none" />
               </svg>
             </div>
-            <p className="live-setup-hint">Pick a video source and start<br />streaming to your friends.</p>
+            <p className="live-setup-hint">{t('live.pickSource')}</p>
 
             <input
               ref={titleRef}
               className="live-title-input"
               type="text"
-              placeholder="Stream title (optional)"
+              placeholder={t('live.streamTitlePlaceholder')}
               maxLength={60}
               value={title}
               onChange={e => setTitle(e.target.value)}
             />
 
             <div className="live-field">
-              <label className="live-field-label">Video source</label>
+              <label className="live-field-label">{t('live.videoSource')}</label>
               <select
                 className="live-select"
                 value={selectedKey}
@@ -403,7 +405,7 @@ export default function LivePanel({
 
             {microphones.length > 0 && (
               <div className="live-field">
-                <label className="live-field-label">Microphone</label>
+                <label className="live-field-label">{t('live.microphone')}</label>
                 <select
                   className="live-select"
                   value={micDeviceId}
@@ -424,7 +426,7 @@ export default function LivePanel({
               onClick={handleGoLive}
               disabled={!selectedSource}
             >
-              Go Live
+              {t('live.goLive')}
             </button>
           </div>
         )}

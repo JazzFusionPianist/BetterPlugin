@@ -20,6 +20,7 @@ import LivePanel from '../components/collab/LivePanel'
 import LiveViewer from '../components/collab/LiveViewer'
 import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
 import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
+import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
@@ -110,6 +111,7 @@ function CollabPageInner({ user }: Props) {
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [notifSettingsOpen, setNotifSettingsOpen] = useState(false)
+  const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
   const [searchOpen, setSearchOpen]             = useState(false)
   const [searchQuery, setSearchQuery]           = useState('')
@@ -293,7 +295,7 @@ function CollabPageInner({ user }: Props) {
   // live, game, etc.) is on top. Used to gate the corner-glow alert
   // so it doesn't pulse over a deep-linked subscreen.
   const isMainScreen = !selectedId
-    && !settingsOpen && !displayOpen && !infoOpen && !notifSettingsOpen
+    && !settingsOpen && !displayOpen && !infoOpen && !notifSettingsOpen && !languageOpen
     && !addFriendOpen && !convOpen && !liveOpen && !watchingSession
     && !gameOpen
 
@@ -348,7 +350,7 @@ function CollabPageInner({ user }: Props) {
     else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
     return !prev
   })
-  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
+  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); setLanguageOpen(false) }
   const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleNotif     = () => setNotifOpen(prev => {
@@ -432,6 +434,7 @@ function CollabPageInner({ user }: Props) {
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',
     notifSettingsOpen ? 'notifsettings-open' : '',
+    languageOpen      ? 'language-open'      : '',
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
@@ -636,10 +639,11 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view sview">
           <SettingsPanel
-            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }}
+            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); setLanguageOpen(false) }}
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenNotifSettings={() => setNotifSettingsOpen(true)}
+            onOpenLanguage={() => setLanguageOpen(true)}
             onOpenFindPeople={() => setAddFriendOpen(true)}
             onSignOut={() => client.auth.signOut()}
           />
@@ -652,6 +656,9 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view nsview">
           <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
+        </div>
+        <div className="view lngview">
+          <LanguagePanel onClose={() => setLanguageOpen(false)} />
         </div>
         <div className="view convview">
           <ConversationsPanel

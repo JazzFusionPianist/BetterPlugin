@@ -4193,6 +4193,10 @@
   flex-shrink: 0;
 }
 .language-row.active .language-row-native { color: var(--t1); }
+/* Language list has 8 rows — `justify-content: center` from .info-stack
+   clips the first row when the content overflows. Pin to the top inside
+   the language panel only. */
+.lngview .info-stack { justify-content: flex-start; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Chess View

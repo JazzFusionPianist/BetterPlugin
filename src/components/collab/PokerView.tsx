@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, PokerRoomState } from '../../types/collab'
 import { usePokerRoom } from '../../hooks/usePokerRoom'
 import { cardRank, cardSuit } from '../../hooks/usePoker'
+import { useTurnSound } from '../../hooks/useTurnSound'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -286,6 +287,8 @@ export default function PokerView({
   }, [room, roomState.current_player_index])
 
   const isMyTurn = !!isHandActive && currentPlayerId === currentUserId
+  // Chime when it becomes my turn. Active only during a live hand.
+  useTurnSound(isMyTurn, 'poker', !!isHandActive)
 
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {

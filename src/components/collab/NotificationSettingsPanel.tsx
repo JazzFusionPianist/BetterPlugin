@@ -4,14 +4,26 @@ import FloatingOrbs from '../FloatingOrbs'
 export interface NotifSettings {
   follow: boolean
   message: boolean
+  /** Play a short chime when it becomes your turn in chess / poker,
+   *  even while the plugin window is closed. */
+  gameTurn: boolean
+}
+
+const DEFAULT_NOTIF_SETTINGS: NotifSettings = {
+  follow: true,
+  message: true,
+  gameTurn: true,
 }
 
 export function readNotifSettings(): NotifSettings {
   try {
     const raw = localStorage.getItem('coop_notif_settings')
-    return raw ? (JSON.parse(raw) as NotifSettings) : { follow: true, message: true }
+    if (!raw) return { ...DEFAULT_NOTIF_SETTINGS }
+    // Merge over defaults so newly-introduced keys (e.g. gameTurn) have
+    // a sensible value for users with old localStorage entries.
+    return { ...DEFAULT_NOTIF_SETTINGS, ...(JSON.parse(raw) as Partial<NotifSettings>) }
   } catch {
-    return { follow: true, message: true }
+    return { ...DEFAULT_NOTIF_SETTINGS }
   }
 }
 
@@ -72,6 +84,23 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
           <button
             className={`pill-toggle${settings.message ? ' on' : ''}`}
             onClick={(e) => { e.stopPropagation(); toggle('message') }}
+            tabIndex={-1}
+          />
+        </div>
+
+        <div
+          className="settings-card notif-setting-card"
+          onClick={() => toggle('gameTurn')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="notif-setting-info">
+            <span className="notif-setting-name">Your turn (games)</span>
+            <span className="notif-setting-desc">Chime when it's your move in chess or poker</span>
+          </div>
+          <button
+            className={`pill-toggle${settings.gameTurn ? ' on' : ''}`}
+            onClick={(e) => { e.stopPropagation(); toggle('gameTurn') }}
             tabIndex={-1}
           />
         </div>

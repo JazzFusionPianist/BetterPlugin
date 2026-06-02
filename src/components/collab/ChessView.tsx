@@ -10,6 +10,7 @@ import {
   isInCheck,
 } from '../../hooks/useChess'
 import type { ChessState, Pos } from '../../hooks/useChess'
+import { useTurnSound } from '../../hooks/useTurnSound'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -581,6 +582,8 @@ export default function ChessView({
 
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'
+  // Chime when it becomes my turn. Honors the Notifications toggle.
+  useTurnSound(isMyTurn, 'chess', room?.status === 'playing')
 
   // Captured pieces
   const myCaptured: string[] = room

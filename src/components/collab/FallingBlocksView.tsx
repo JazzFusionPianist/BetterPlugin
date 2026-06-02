@@ -788,93 +788,8 @@ export default function FallingBlocksView({
               size="self"
             />
 
-            {/* Lobby overlay: no room or not all players present */}
-            {!isPlaying && !isFinished && (!room || !hasAllPlayers) && (
-              <div className="falling-blocks-finish-overlay chess-finish-overlay">
-                <div className="falling-blocks-finish-card chess-finish-card">
-                  <div className="falling-blocks-finish-emoji">🧱</div>
-                  <div className="falling-blocks-finish-title">Falling Blocks</div>
-                  <div className="falling-blocks-player-count-picker">
-                    {[2, 3, 4].map(n => (
-                      <button
-                        key={n}
-                        className={`falling-blocks-player-count-btn${
-                          (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
-                        }`}
-                        onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
-                        disabled={!!room && (!isHost || (room.player_ids.length > n))}
-                      >
-                        {n}P
-                      </button>
-                    ))}
-                  </div>
-                  {!room ? (
-                    <button
-                      className="falling-blocks-btn"
-                      onClick={handleCreateRoom}
-                      disabled={loading}
-                    >
-                      Create Room
-                    </button>
-                  ) : (
-                    isHost && (
-                      <button
-                        className="falling-blocks-btn"
-                        onClick={() => setShowInviteModal(true)}
-                      >
-                        🕹 Invite Friends
-                      </button>
-                    )
-                  )}
-                  {room && (
-                    <div className="falling-blocks-finish-readystate">
-                      {room.player_ids.length} / {room.player_count} joined
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Lobby ready overlay (all players present) */}
-            {isLobby && hasAllPlayers && !allReady && (
-              <div className="falling-blocks-finish-overlay chess-finish-overlay">
-                <div className="falling-blocks-finish-card chess-finish-card">
-                  <div className="falling-blocks-finish-emoji">🧱</div>
-                  <div className="falling-blocks-finish-title">Ready to play?</div>
-                  <button
-                    className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                    onClick={toggleReady}
-                    disabled={loading}
-                  >
-                    {myReady ? '✓ Ready' : 'Ready'}
-                  </button>
-                  <div className="falling-blocks-finish-readystate">
-                    {room!.ready_ids.length} / {room!.player_count} ready
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Finish overlay */}
-            {isFinished && room && (
-              <div className="falling-blocks-finish-overlay chess-finish-overlay">
-                <div className="falling-blocks-finish-card chess-finish-card">
-                  <div className="falling-blocks-finish-emoji">{resultEmoji}</div>
-                  <div className="falling-blocks-finish-title">{resultTitle}</div>
-                  <button
-                    className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                    onClick={toggleReady}
-                  >
-                    {myReady ? '✓ Ready' : 'Rematch'}
-                  </button>
-                  <div className="falling-blocks-finish-readystate">
-                    {room.ready_ids.length} / {room.player_count} ready
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Self topped out (game still going) */}
+            {/* Self topped out (game still going) — stays anchored to the
+                board because it's a "you specifically are out" indicator. */}
             {isPlaying && myTopOutServer && (
               <div className="falling-blocks-topout-overlay">
                 <span>You're out</span>
@@ -912,6 +827,97 @@ export default function FallingBlocksView({
             )}
           </div>
         </div>
+
+        {/* Centred modal overlays — anchored to the whole game-layout area
+            (which has position: relative), so they always appear in the
+            middle of the visible plugin viewport regardless of the board's
+            position. */}
+
+        {/* Lobby overlay: no room or not all players present */}
+        {!isPlaying && !isFinished && (!room || !hasAllPlayers) && (
+          <div className="falling-blocks-finish-overlay chess-finish-overlay">
+            <div className="falling-blocks-finish-card chess-finish-card">
+              <div className="falling-blocks-finish-emoji">🧱</div>
+              <div className="falling-blocks-finish-title">Falling Blocks</div>
+              <div className="falling-blocks-player-count-picker">
+                {[2, 3, 4].map(n => (
+                  <button
+                    key={n}
+                    className={`falling-blocks-player-count-btn${
+                      (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
+                    }`}
+                    onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
+                    disabled={!!room && (!isHost || (room.player_ids.length > n))}
+                  >
+                    {n}P
+                  </button>
+                ))}
+              </div>
+              {!room ? (
+                <button
+                  className="falling-blocks-btn"
+                  onClick={handleCreateRoom}
+                  disabled={loading}
+                >
+                  Create Room
+                </button>
+              ) : (
+                isHost && (
+                  <button
+                    className="falling-blocks-btn"
+                    onClick={() => setShowInviteModal(true)}
+                  >
+                    🕹 Invite Friends
+                  </button>
+                )
+              )}
+              {room && (
+                <div className="falling-blocks-finish-readystate">
+                  {room.player_ids.length} / {room.player_count} joined
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Lobby ready overlay (all players present) */}
+        {isLobby && hasAllPlayers && !allReady && (
+          <div className="falling-blocks-finish-overlay chess-finish-overlay">
+            <div className="falling-blocks-finish-card chess-finish-card">
+              <div className="falling-blocks-finish-emoji">🧱</div>
+              <div className="falling-blocks-finish-title">Ready to play?</div>
+              <button
+                className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
+                onClick={toggleReady}
+                disabled={loading}
+              >
+                {myReady ? '✓ Ready' : 'Ready'}
+              </button>
+              <div className="falling-blocks-finish-readystate">
+                {room!.ready_ids.length} / {room!.player_count} ready
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Finish overlay */}
+        {isFinished && room && (
+          <div className="falling-blocks-finish-overlay chess-finish-overlay">
+            <div className="falling-blocks-finish-card chess-finish-card">
+              <div className="falling-blocks-finish-emoji">{resultEmoji}</div>
+              <div className="falling-blocks-finish-title">{resultTitle}</div>
+              <button
+                className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
+                onClick={toggleReady}
+              >
+                {myReady ? '✓ Ready' : 'Rematch'}
+              </button>
+              <div className="falling-blocks-finish-readystate">
+                {room.ready_ids.length} / {room.player_count} ready
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Invite modal */}

@@ -847,7 +847,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   useEffect(() => {
     const el = chatAreaRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages])
+  }, [messages, pendingUploads])
 
   // 메뉴 외부 클릭 시 닫기
   useEffect(() => {

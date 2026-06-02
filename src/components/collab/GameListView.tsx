@@ -1,5 +1,7 @@
-import React, { useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
+import type { TKey } from '../../i18n/translations'
 
 export type GameId = 'chess' | 'falling_blocks' | 'poker'
 
@@ -11,8 +13,10 @@ interface Props {
 interface GameCard {
   id: GameId
   icon: React.ReactNode
-  name: string
-  description: string
+  /** Translation key for the user-visible card title. */
+  nameKey: TKey
+  /** Translation key for the user-visible card description. */
+  descKey: TKey
   /** CSS background applied to the CD body — mirrors the genre / mood. */
   coverBg: string
 }
@@ -31,8 +35,8 @@ const GAMES: GameCard[] = [
         <rect x="5" y="23" width="22" height="3" rx="1.5" fill="currentColor" />
       </svg>
     ),
-    name: 'Chess',
-    description: 'Play vs a friend',
+    nameKey: 'game.chess',
+    descKey: 'game.chessDesc',
   },
   {
     id: 'falling_blocks',
@@ -48,8 +52,8 @@ const GAMES: GameCard[] = [
         <rect x="16" y="8"  width="6" height="6" rx="1" fill="currentColor" opacity="0.92" />
       </svg>
     ),
-    name: 'Falling Blocks',
-    description: 'Battle 2-4 players',
+    nameKey: 'game.fallingBlocks',
+    descKey: 'game.fallingBlocksDesc',
   },
   {
     id: 'poker',
@@ -63,8 +67,8 @@ const GAMES: GameCard[] = [
         <circle cx="19" cy="20" r="1.6" fill="#1a1a1a" />
       </svg>
     ),
-    name: 'Poker',
-    description: "Texas Hold'em · 2-6 players",
+    nameKey: 'game.poker',
+    descKey: 'game.pokerDesc',
   },
 ]
 
@@ -85,7 +89,15 @@ const STEP_PX = 70
  * snap to it; click the centred CD to enter that game.
  */
 export default function GameListView({ onSelectGame }: Props) {
+  const { t } = useT()
   const [viewIndex, setViewIndex] = useState(0)
+  // Memoise so card title/desc lookups don't churn on every render —
+  // useT() re-evaluates t() on language change, which is the only time
+  // we actually need to recompute.
+  const cards = useMemo(
+    () => GAMES.map(g => ({ ...g, name: t(g.nameKey), description: t(g.descKey) })),
+    [t]
+  )
   const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
   const draggedRef = useRef(false)
 
@@ -137,7 +149,7 @@ export default function GameListView({ onSelectGame }: Props) {
           className="game-cd-list"
           style={{ transform: `translate3d(${viewIndex * SPACING}px, 0, 0)` }}
         >
-          {GAMES.map((g, i) => (
+          {cards.map((g, i) => (
             <div
               key={g.id}
               className={`game-cd-item${i === viewIndex ? ' centred' : ''}`}

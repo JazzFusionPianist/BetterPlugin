@@ -23,13 +23,25 @@ function readStoredLang (): Lang {
 interface LanguageContextValue {
   lang: Lang
   setLang: (lang: Lang) => void
-  t: (key: TKey) => string
+  /** `t('key')` or `t('key', { name: 'Alice' })`. `{placeholder}` tokens
+   *  in the dictionary string are replaced by the corresponding param. */
+  t: (key: TKey, params?: Record<string, string | number>) => string
   /** Localised label with the English form in parentheses when the
    *  active language isn't English — e.g. "언어 (Language)". In English
    *  mode this collapses to just the English string. Used for the
    *  Settings menu so a user who switched to a non-English language can
    *  still recognise the original control name. */
   tWithEn: (key: TKey) => string
+}
+
+/** Apply `{name}` style interpolation. Plain string replace — no escape
+ *  syntax — because translations are author-controlled, not user input. */
+function interpolate (template: string, params: Record<string, string | number>): string {
+  let out = template
+  for (const [k, v] of Object.entries(params)) {
+    out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+  }
+  return out
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
@@ -48,7 +60,10 @@ export function LanguageProvider ({ children }: { children: ReactNode }) {
     if (typeof document !== 'undefined') document.documentElement.lang = lang
   }, [lang])
 
-  const t = useCallback((key: TKey) => lookup(key, lang), [lang])
+  const t = useCallback((key: TKey, params?: Record<string, string | number>) => {
+    const raw = lookup(key, lang)
+    return params ? interpolate(raw, params) : raw
+  }, [lang])
   const tWithEn = useCallback((key: TKey) => {
     const localised = lookup(key, lang)
     const english   = lookup(key, 'en')

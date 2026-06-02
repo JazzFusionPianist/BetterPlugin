@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Profile } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   allProfiles: Profile[]
@@ -43,6 +44,7 @@ export default function AddFriendPanel({
   onUnfollow,
   onClose,
 }: Props) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(7)
   const [pending, setPending] = useState<Set<string>>(new Set())
@@ -65,7 +67,7 @@ export default function AddFriendPanel({
 
       <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
         <span className="settings-header-back">‹</span>
-        <span className="settings-header-title">Find people</span>
+        <span className="settings-header-title">{t('settings.findPeople')}</span>
       </div>
 
       <div className="af-stack">
@@ -77,7 +79,7 @@ export default function AddFriendPanel({
           <input
             className="af-search-input"
             type="text"
-            placeholder="search by name..."
+            placeholder={t('addFriend.search')}
             value={query}
             onChange={e => { setQuery(e.target.value); setLimit(7) }}
           />
@@ -93,7 +95,7 @@ export default function AddFriendPanel({
         <div className="af-results">
           {results.length === 0 && (
             <div className="settings-card af-empty">
-              {query.trim() ? 'No results' : 'Search for someone to follow'}
+              {query.trim() ? t('friends.noResults') : t('addFriend.searchHint')}
             </div>
           )}
           {results.map(p => {
@@ -111,7 +113,7 @@ export default function AddFriendPanel({
                     {p.is_verified && <VerifiedBadge />}
                   </div>
                   <div className="f-sub">
-                    {isMutual ? 'mutual' : isFollower ? 'follows you' : p.isOnline ? 'online' : 'offline'}
+                    {isMutual ? t('addFriend.mutual') : isFollower ? t('addFriend.followsYou') : p.isOnline ? t('common.online') : t('common.offline')}
                   </div>
                 </div>
 
@@ -120,18 +122,18 @@ export default function AddFriendPanel({
                     className="af-btn af-btn-added"
                     disabled={isLoading}
                     onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                    title="Unfollow"
+                    title={t('addFriend.unfollow')}
                   >
-                    {isLoading ? '...' : 'Mutual ✓'}
+                    {isLoading ? '...' : t('addFriend.mutualBtn')}
                   </button>
                 ) : isFollowing ? (
                   <button
                     className="af-btn af-btn-requested"
                     disabled={isLoading}
                     onClick={() => withPending(p.id, () => onUnfollow(p.id))}
-                    title="Unfollow"
+                    title={t('addFriend.unfollow')}
                   >
-                    {isLoading ? '...' : 'Following'}
+                    {isLoading ? '...' : t('addFriend.following')}
                   </button>
                 ) : (
                   <button
@@ -139,7 +141,7 @@ export default function AddFriendPanel({
                     disabled={isLoading}
                     onClick={() => withPending(p.id, () => onFollow(p.id))}
                   >
-                    {isLoading ? '...' : isFollower ? '+ Follow back' : '+ Follow'}
+                    {isLoading ? '...' : isFollower ? t('addFriend.followBack') : t('addFriend.follow')}
                   </button>
                 )}
               </div>
@@ -147,7 +149,7 @@ export default function AddFriendPanel({
           })}
           {hasMore && (
             <button className="af-load-more" onClick={() => setLimit(l => l + 7)}>
-              Load More
+              {t('addFriend.loadMore')}
             </button>
           )}
         </div>

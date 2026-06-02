@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Profile } from '../../types/collab'
 import type { Conversation } from '../../hooks/useConversations'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 function formatConvTime(iso: string): string {
   const d = new Date(iso)
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function ConversationsPanel({ conversations, profiles, favorites, currentUserId, onOpenChat }: Props) {
+  const { t } = useT()
   const [tab, setTab] = useState<'all' | 'favorites'>('all')
 
   const filtered = tab === 'favorites'
@@ -32,14 +34,14 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
     <>
       <FloatingOrbs count={28} />
       <div className="conv-tabs" style={{ marginTop: 12 }}>
-        <button className={`conv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>
-        <button className={`conv-tab${tab === 'favorites' ? ' active' : ''}`} onClick={() => setTab('favorites')}>Favorites</button>
+        <button className={`conv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('conv.tabAll')}</button>
+        <button className={`conv-tab${tab === 'favorites' ? ' active' : ''}`} onClick={() => setTab('favorites')}>{t('conv.tabFavorites')}</button>
       </div>
 
       <div className="conv-list">
         {filtered.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 40 }}>
-            {tab === 'favorites' ? 'No favorite conversations' : 'No conversations yet'}
+            {tab === 'favorites' ? t('conv.emptyFavorites') : t('conv.emptyAll')}
           </div>
         )}
         {filtered.map(c => {
@@ -48,10 +50,10 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
           const msg = c.lastMessage
           const isMine = msg.sender_id === currentUserId
           const preview = msg.attachment_type
-            ? msg.attachment_type === 'image' ? (isMine ? 'You sent a photo' : 'Sent a photo')
-              : msg.attachment_type === 'video' ? (isMine ? 'You sent a video' : 'Sent a video')
-              : (isMine ? 'You sent an audio' : 'Sent an audio')
-            : isMine ? `You: ${msg.content}` : msg.content
+            ? msg.attachment_type === 'image' ? (isMine ? t('conv.youSentPhoto') : t('conv.sentPhoto'))
+              : msg.attachment_type === 'video' ? (isMine ? t('conv.youSentVideo') : t('conv.sentVideo'))
+              : (isMine ? t('conv.youSentAudio') : t('conv.sentAudio'))
+            : isMine ? t('conv.youPrefix', { content: msg.content }) : msg.content
           return (
             <div key={c.partnerId} className="conv-row" onClick={() => onOpenChat(c.partnerId)}>
               <div className="conv-av" style={{ background: profile.avatar_color }}>

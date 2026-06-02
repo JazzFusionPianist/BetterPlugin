@@ -16,6 +16,7 @@ import {
   BOARD_COLS,
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
+import { useT } from '../../i18n/LanguageContext'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -214,6 +215,7 @@ interface InviteModalProps {
 }
 
 function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: InviteModalProps) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
@@ -239,10 +241,10 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
       className="falling-blocks-invite-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="falling-blocks-invite-modal" role="dialog" aria-label="Invite friends">
+      <div className="falling-blocks-invite-modal" role="dialog" aria-label={t('game.inviteFriends')}>
         <div className="falling-blocks-invite-modal-header">
           <span className="falling-blocks-invite-modal-title">
-            Invite Friends ({invitedIds.size}/{maxInvitees})
+            {t('game.inviteFriends')} ({invitedIds.size}/{maxInvitees})
           </span>
           <button
             className="falling-blocks-invite-modal-close"
@@ -257,7 +259,7 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
             <input
               className="falling-blocks-invite-search-input"
               type="text"
-              placeholder={`Search ${friends.length} friend${friends.length === 1 ? '' : 's'}…`}
+              placeholder={t('game.searchFriends')}
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -265,9 +267,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           </div>
         )}
         {friends.length === 0 ? (
-          <p className="falling-blocks-invite-empty">No friends to invite.</p>
+          <p className="falling-blocks-invite-empty">{t('game.noFriendsToInvite')}</p>
         ) : filtered.length === 0 ? (
-          <p className="falling-blocks-invite-empty">No friends match "{query}".</p>
+          <p className="falling-blocks-invite-empty">{t('game.noMatch', { q: query })}</p>
         ) : (
           <div className="falling-blocks-invite-list">
             {filtered.map(friend => {
@@ -286,9 +288,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
                     className={`falling-blocks-invite-do-btn${isInvited ? ' invited' : ''}`}
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
-                    title={isInvited ? 'Cancel invite' : 'Send invite'}
+                    title={isInvited ? t('game.invited') : t('game.invite')}
                   >
-                    {isInvited ? 'Invited ✓' : 'Invite'}
+                    {isInvited ? t('game.invited') : t('game.invite')}
                   </button>
                 </div>
               )
@@ -320,6 +322,7 @@ export default function FallingBlocksView({
   friendProfiles,
   onClose,
 }: Props) {
+  const { t } = useT()
   const {
     room,
     playerStates,
@@ -752,7 +755,7 @@ export default function FallingBlocksView({
             />
           </svg>
         </button>
-        <span className="falling-blocks-title">Falling Blocks</span>
+        <span className="falling-blocks-title">{t('game.fallingBlocks')}</span>
         {isPlaying && !myTopOutServer && (
           <div className="falling-blocks-controls">
             <button
@@ -852,7 +855,7 @@ export default function FallingBlocksView({
           <div className="falling-blocks-finish-overlay chess-finish-overlay">
             <div className="falling-blocks-finish-card chess-finish-card">
               <div className="falling-blocks-finish-emoji">🧱</div>
-              <div className="falling-blocks-finish-title">Falling Blocks</div>
+              <div className="falling-blocks-finish-title">{t('game.fallingBlocks')}</div>
               <div className="falling-blocks-player-count-picker">
                 {[2, 3, 4].map(n => (
                   <button
@@ -899,7 +902,7 @@ export default function FallingBlocksView({
           <div className="falling-blocks-finish-overlay chess-finish-overlay">
             <div className="falling-blocks-finish-card chess-finish-card">
               <div className="falling-blocks-finish-emoji">🧱</div>
-              <div className="falling-blocks-finish-title">Ready to play?</div>
+              <div className="falling-blocks-finish-title">{t('game.readyToPlay')}</div>
               <button
                 className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
                 onClick={toggleReady}

@@ -4,6 +4,7 @@ import type { Profile, PokerRoomState } from '../../types/collab'
 import { usePokerRoom } from '../../hooks/usePokerRoom'
 import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
+import { useT } from '../../i18n/LanguageContext'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ interface InviteModalProps {
 }
 
 function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: InviteModalProps) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
@@ -119,10 +121,10 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
       className="poker-invite-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="poker-invite-modal" role="dialog" aria-label="Invite friends">
+      <div className="poker-invite-modal" role="dialog" aria-label={t('game.inviteFriends')}>
         <div className="poker-invite-modal-header">
           <span className="poker-invite-modal-title">
-            Invite Friends ({invitedIds.size}/{maxInvitees})
+            {t('game.inviteFriends')} ({invitedIds.size}/{maxInvitees})
           </span>
           <button
             className="poker-invite-modal-close"
@@ -137,7 +139,7 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
             <input
               className="poker-invite-search-input"
               type="text"
-              placeholder={`Search ${friends.length} friend${friends.length === 1 ? '' : 's'}…`}
+              placeholder={t('game.searchFriends')}
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -145,9 +147,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           </div>
         )}
         {friends.length === 0 ? (
-          <p className="poker-invite-empty">No friends to invite.</p>
+          <p className="poker-invite-empty">{t('game.noFriendsToInvite')}</p>
         ) : filtered.length === 0 ? (
-          <p className="poker-invite-empty">No friends match "{query}".</p>
+          <p className="poker-invite-empty">{t('game.noMatch', { q: query })}</p>
         ) : (
           <div className="poker-invite-list">
             {filtered.map(friend => {
@@ -166,9 +168,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
                     className={`poker-invite-do-btn${isInvited ? ' invited' : ''}`}
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
-                    title={isInvited ? 'Cancel invite' : 'Send invite'}
+                    title={isInvited ? t('game.invited') : t('game.invite')}
                   >
-                    {isInvited ? 'Invited ✓' : 'Invite'}
+                    {isInvited ? t('game.invited') : t('game.invite')}
                   </button>
                 </div>
               )
@@ -200,6 +202,7 @@ export default function PokerView({
   friendProfiles,
   onClose,
 }: Props) {
+  const { t } = useT()
   const {
     room,
     loading,
@@ -483,7 +486,7 @@ export default function PokerView({
             />
           </svg>
         </button>
-        <span className="poker-title">Poker</span>
+        <span className="poker-title">{t('game.poker')}</span>
         {isPlaying && (
           <div className="poker-controls">
             <button
@@ -656,7 +659,7 @@ export default function PokerView({
             <div className="poker-finish-overlay chess-finish-overlay">
               <div className="poker-finish-card chess-finish-card">
                 <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">Poker</div>
+                <div className="poker-finish-title">{t('game.poker')}</div>
                 <div className="poker-player-count-picker">
                   {[2, 3, 4, 5, 6].map(n => (
                     <button
@@ -703,7 +706,7 @@ export default function PokerView({
             <div className="poker-finish-overlay chess-finish-overlay">
               <div className="poker-finish-card chess-finish-card">
                 <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">Ready to play?</div>
+                <div className="poker-finish-title">{t('game.readyToPlay')}</div>
                 <button
                   className={`poker-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
                   onClick={toggleReady}

@@ -11,6 +11,7 @@ import {
 } from '../../hooks/useChess'
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
+import { useT } from '../../i18n/LanguageContext'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -370,6 +371,7 @@ interface InviteModalProps {
 }
 
 function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProps) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
 
   // Filter + sort: invited last, online first (if available), alphabetical fallback
@@ -394,9 +396,9 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
       className="chess-invite-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="chess-invite-modal" role="dialog" aria-label="Invite a friend">
+      <div className="chess-invite-modal" role="dialog" aria-label={t('game.inviteFriend')}>
         <div className="chess-invite-modal-header">
-          <span className="chess-invite-modal-title">Invite a Friend</span>
+          <span className="chess-invite-modal-title">{t('game.inviteFriend')}</span>
           <button
             className="chess-invite-modal-close"
             onClick={onClose}
@@ -413,7 +415,7 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
             <input
               className="chess-invite-search-input"
               type="text"
-              placeholder={`Search ${friends.length} friend${friends.length === 1 ? '' : 's'}…`}
+              placeholder={t('game.searchFriends')}
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -428,9 +430,9 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
           </div>
         )}
         {friends.length === 0 ? (
-          <p className="chess-invite-empty">No friends to invite.</p>
+          <p className="chess-invite-empty">{t('game.noFriendsToInvite')}</p>
         ) : filtered.length === 0 ? (
-          <p className="chess-invite-empty">No friends match "{query}".</p>
+          <p className="chess-invite-empty">{t('game.noMatch', { q: query })}</p>
         ) : (
           <div className="chess-invite-list">
             {filtered.map(friend => (
@@ -443,9 +445,9 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
                 <button
                   className={`chess-invite-do-btn${invitedIds.has(friend.id) ? ' invited' : ''}`}
                   onClick={() => onInvite(friend.id)}
-                  title={invitedIds.has(friend.id) ? 'Cancel invite' : 'Send invite'}
+                  title={invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
                 >
-                  {invitedIds.has(friend.id) ? 'Invited ✓' : 'Invite'}
+                  {invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
                 </button>
               </div>
             ))}
@@ -495,6 +497,7 @@ export default function ChessView({
   onlineIds,
   onClose,
 }: Props) {
+  const { t } = useT()
   const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
     useGameRoom(supabase, currentUserId)
 
@@ -759,7 +762,7 @@ export default function ChessView({
             <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span className="chess-title">Chess</span>
+        <span className="chess-title">{t('game.chess')}</span>
         {isPlaying && (
           <div className="chess-controls">
             <button
@@ -830,7 +833,7 @@ export default function ChessView({
                 {!room || (isHost && !hasGuest) ? (
                   <>
                     <div className="chess-finish-emoji">♟</div>
-                    <div className="chess-finish-title">Chess</div>
+                    <div className="chess-finish-title">{t('game.chess')}</div>
                     <button
                       className="chess-invite-btn"
                       onClick={() => setShowInviteModal(true)}
@@ -857,7 +860,7 @@ export default function ChessView({
             <div className="chess-finish-overlay">
               <div className="chess-finish-card">
                 <div className="chess-finish-emoji">♟</div>
-                <div className="chess-finish-title">Ready to play?</div>
+                <div className="chess-finish-title">{t('game.readyToPlay')}</div>
                 <button
                   className={`chess-ready-btn${myReady ? ' ready' : ''}`}
                   onClick={toggleReady}

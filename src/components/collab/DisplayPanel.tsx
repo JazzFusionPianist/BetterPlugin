@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   isDark: boolean
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWallpaper, onClose }: Props) {
+  const { t } = useT()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handlePick = () => fileRef.current?.click()
@@ -29,12 +31,12 @@ export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWal
 
       <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
         <span className="settings-header-back">‹</span>
-        <span className="settings-header-title">Display</span>
+        <span className="settings-header-title">{t('settings.display')}</span>
       </div>
 
       <div className="display-stack">
         <div className="settings-card settings-row-card" onClick={onToggleDark} role="button" tabIndex={0}>
-          <span>Dark mode</span>
+          <span>{t('display.darkMode')}</span>
           <button
             className={`pill-toggle${isDark ? ' on' : ''}`}
             onClick={(e) => { e.stopPropagation(); onToggleDark() }}
@@ -43,8 +45,8 @@ export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWal
         </div>
 
         <div className="settings-card settings-row-card" onClick={handlePick} role="button" tabIndex={0}>
-          <span>Set wallpaper</span>
-          <span className="settings-row-action">Choose</span>
+          <span>{t('display.setWallpaper')}</span>
+          <span className="settings-row-action">{t('display.choose')}</span>
         </div>
 
         {wallpaper && (
@@ -54,8 +56,8 @@ export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWal
             role="button"
             tabIndex={0}
           >
-            <span>Remove wallpaper</span>
-            <span className="settings-row-action settings-row-action-danger">Remove</span>
+            <span>{t('display.removeWallpaper')}</span>
+            <span className="settings-row-action settings-row-action-danger">{t('display.remove')}</span>
           </div>
         )}
       </div>

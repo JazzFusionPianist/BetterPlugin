@@ -30,10 +30,10 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, todayLabel: string): string {
   const d = new Date(iso)
   const today = new Date()
-  if (d.toDateString() === today.toDateString()) return 'today'
+  if (d.toDateString() === today.toDateString()) return todayLabel
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
@@ -1124,7 +1124,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const groups: Array<{ type: 'ts'; label: string } | { type: 'msg'; msg: Message }> = []
   let lastDate = ''
   for (const msg of messages) {
-    const dateLabel = formatDate(msg.created_at)
+    const dateLabel = formatDate(msg.created_at, t('chat.dateToday'))
     if (dateLabel !== lastDate) {
       groups.push({ type: 'ts', label: dateLabel })
       lastDate = dateLabel
@@ -1258,7 +1258,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
 
         {messages.length === 0 && !loading && pendingUploads.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 40 }}>
-            No messages yet
+            {t('chat.noMessages')}
           </div>
         )}
       </div>
@@ -1266,7 +1266,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       {/* 전송/업로드 실패 토스트 */}
       {sendError && (
         <div className="send-error-toast">
-          {uploadErrMsg || 'Failed to send. Please try again.'}
+          {uploadErrMsg || t('chat.sendFailed')}
         </div>
       )}
 
@@ -1278,19 +1278,19 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
               <path d="M21 15l-5-5L5 21"/>
             </svg>
-            Photo
+            {t('chat.attachPhoto')}
           </button>
           <button className="attach-menu-item" onClick={() => { vidRef.current?.click() }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 9l5-3v12l-5-3V9z"/>
             </svg>
-            Video
+            {t('chat.attachVideo')}
           </button>
           <button className="attach-menu-item" onClick={() => { audRef.current?.click() }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
             </svg>
-            Audio
+            {t('chat.attachAudio')}
           </button>
         </div>
       )}
@@ -1307,7 +1307,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           className={`attach-btn${menuOpen ? ' active' : ''}`}
           onClick={() => setMenuOpen(v => !v)}
           disabled={uploading}
-          title="Attach file"
+          title={t('chat.attachFile')}
         >
           {uploading
             ? <span style={{ fontSize: 10, color: 'var(--t3)' }}>...</span>
@@ -1321,7 +1321,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           <input
             className="mi"
             type="text"
-            placeholder={`message ${otherProfile.display_name.split(' ')[0]}...`}
+            placeholder={t('chat.messageWith', { name: otherProfile.display_name.split(' ')[0] })}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

@@ -20,30 +20,33 @@ export default function SettingsPanel({
   onOpenFindPeople,
   onSignOut,
 }: Props) {
-  const { tWithEn } = useT()
+  const { t, tWithEn } = useT()
   return (
     <div className="settings-panel">
       <FloatingOrbs count={28} />
       <div className="settings-list">
         <div className="settings-card" onClick={onOpenFindPeople} role="button" tabIndex={0}>
-          {tWithEn('settings.findPeople')}
+          {t('settings.findPeople')}
         </div>
         <div className="settings-card" onClick={onOpenDisplay} role="button" tabIndex={0}>
-          {tWithEn('settings.display')}
+          {t('settings.display')}
         </div>
         <div className="settings-card" onClick={onOpenInfo} role="button" tabIndex={0}>
-          {tWithEn('settings.userInfo')}
+          {t('settings.userInfo')}
         </div>
         <div className="settings-card" onClick={onOpenNotifSettings} role="button" tabIndex={0}>
-          {tWithEn('settings.notifications')}
+          {t('settings.notifications')}
         </div>
+        {/* Language is the only row that shows the English form in
+            parens — that lets a user who's accidentally switched into
+            a language they can't read still find their way back. */}
         <div className="settings-card" onClick={onOpenLanguage} role="button" tabIndex={0}>
           {tWithEn('settings.language')}
         </div>
       </div>
       <div className="settings-list settings-list-bottom">
         <div className="settings-card settings-signout" onClick={onSignOut} role="button" tabIndex={0}>
-          {tWithEn('settings.signOut')}
+          {t('settings.signOut')}
         </div>
       </div>
     </div>

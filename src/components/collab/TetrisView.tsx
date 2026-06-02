@@ -647,9 +647,23 @@ export default function TetrisView({
   }, [isPlaying, myTopOutServer, handleLockAndSpawn])
 
   // ── Forfeit ──────────────────────────────────────────────────────────────
-  const handleForfeit = useCallback(() => {
-    setPlayerTopOut(currentUserId, true)
-  }, [setPlayerTopOut, currentUserId])
+  // Tops out the current player. Also explicitly ends the game when only one
+  // other player is still alive — otherwise the room would stay in 'playing'
+  // status if everyone left before the natural top-out detection fired.
+  const handleForfeit = useCallback(async () => {
+    if (!confirm('Forfeit the game? The other player wins.')) return
+    await setPlayerTopOut(currentUserId, true)
+    const aliveOpponents = opponentIds.filter(id => {
+      const ps = playerStatesRef.current.get(id)
+      return ps && !ps.top_out
+    })
+    if (aliveOpponents.length === 1) {
+      await endGame(aliveOpponents[0])
+    } else if (aliveOpponents.length === 0) {
+      await endGame(null)
+    }
+    // 2+ alive opponents → let the game continue normally
+  }, [setPlayerTopOut, currentUserId, opponentIds, endGame])
 
   // ── Rematch helper: when finished, host auto-starts when all ready ───────
   useEffect(() => {

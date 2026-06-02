@@ -11,6 +11,9 @@ interface Props {
   otherProfile: Profile
   messages: Message[]
   loading: boolean
+  /** True when otherProfile is currently broadcasting a live stream —
+   * we paint the status dot red instead of the online/offline colour. */
+  otherIsLive?: boolean
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
 }
@@ -581,7 +584,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, otherIsLive, onSend, onBack }: Props) {
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -1159,7 +1162,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           {otherProfile.avatar_url
             ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
             : otherProfile.initials}
-          <div className={`chdr-dot ${otherProfile.isOnline ? 'don' : 'doff'}`} />
+          <div className={`chdr-dot ${otherIsLive ? 'dlive' : otherProfile.isOnline ? 'don' : 'doff'}`} />
         </div>
         <div className="chdr-info">
           <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -1171,7 +1174,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               </svg>
             )}
           </div>
-          <div className="chdr-sub">{otherProfile.isOnline ? 'online' : 'offline'}</div>
+          <div className="chdr-sub">{otherIsLive ? '● LIVE' : otherProfile.isOnline ? 'online' : 'offline'}</div>
         </div>
       </div>
 

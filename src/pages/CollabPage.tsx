@@ -612,7 +612,7 @@ function CollabPageInner({ user }: Props) {
           }
         </div>
         <div className="view cview">
-          {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} onSend={send} onBack={() => setSelectedId(null)} />}
+          {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} otherIsLive={liveHostIds.has(selectedProfile.id)} onSend={send} onBack={() => setSelectedId(null)} />}
         </div>
         <div className="view sview">
           <SettingsPanel

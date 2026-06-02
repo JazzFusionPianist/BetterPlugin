@@ -20,30 +20,30 @@ export default function SettingsPanel({
   onOpenFindPeople,
   onSignOut,
 }: Props) {
-  const { t } = useT()
+  const { tWithEn } = useT()
   return (
     <div className="settings-panel">
       <FloatingOrbs count={28} />
       <div className="settings-list">
         <div className="settings-card" onClick={onOpenFindPeople} role="button" tabIndex={0}>
-          {t('settings.findPeople')}
+          {tWithEn('settings.findPeople')}
         </div>
         <div className="settings-card" onClick={onOpenDisplay} role="button" tabIndex={0}>
-          {t('settings.display')}
+          {tWithEn('settings.display')}
         </div>
         <div className="settings-card" onClick={onOpenInfo} role="button" tabIndex={0}>
-          {t('settings.userInfo')}
+          {tWithEn('settings.userInfo')}
         </div>
         <div className="settings-card" onClick={onOpenNotifSettings} role="button" tabIndex={0}>
-          {t('settings.notifications')}
+          {tWithEn('settings.notifications')}
         </div>
         <div className="settings-card" onClick={onOpenLanguage} role="button" tabIndex={0}>
-          {t('settings.language')}
+          {tWithEn('settings.language')}
         </div>
       </div>
       <div className="settings-list settings-list-bottom">
         <div className="settings-card settings-signout" onClick={onSignOut} role="button" tabIndex={0}>
-          {t('settings.signOut')}
+          {tWithEn('settings.signOut')}
         </div>
       </div>
     </div>

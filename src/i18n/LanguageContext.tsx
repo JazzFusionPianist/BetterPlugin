@@ -24,6 +24,12 @@ interface LanguageContextValue {
   lang: Lang
   setLang: (lang: Lang) => void
   t: (key: TKey) => string
+  /** Localised label with the English form in parentheses when the
+   *  active language isn't English — e.g. "언어 (Language)". In English
+   *  mode this collapses to just the English string. Used for the
+   *  Settings menu so a user who switched to a non-English language can
+   *  still recognise the original control name. */
+  tWithEn: (key: TKey) => string
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
@@ -43,9 +49,15 @@ export function LanguageProvider ({ children }: { children: ReactNode }) {
   }, [lang])
 
   const t = useCallback((key: TKey) => lookup(key, lang), [lang])
+  const tWithEn = useCallback((key: TKey) => {
+    const localised = lookup(key, lang)
+    const english   = lookup(key, 'en')
+    if (lang === 'en' || localised === english) return english
+    return `${localised} (${english})`
+  }, [lang])
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, t, tWithEn }}>
       {children}
     </LanguageContext.Provider>
   )

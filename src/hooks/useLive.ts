@@ -78,6 +78,9 @@ export function useLive(client: SupabaseClient, userId: string) {
   }, [client, userId, fetchSessions])
 
   const liveHostIds = new Set(liveSessions.map(s => s.host_id))
+  // Quick lookup so ChatView / FriendsList can render the broadcast title
+  // (and join the session) by hostId without re-scanning the array.
+  const liveSessionByHost = new Map(liveSessions.map(s => [s.host_id, s]))
 
-  return { liveSessions, mySession, liveHostIds, startLive, endLive, updateLive }
+  return { liveSessions, mySession, liveHostIds, liveSessionByHost, startLive, endLive, updateLive }
 }

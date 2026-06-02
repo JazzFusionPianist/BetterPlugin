@@ -173,8 +173,15 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
       <div className="s-header live-viewer-header">
         <div className="s-close" onClick={onClose}>&#8249;</div>
         <div className="live-viewer-titlebar">
-          <span className="live-title-badge">● LIVE</span>
-          <span className="live-viewer-host">{host?.display_name ?? 'Unknown'}</span>
+          <div className="live-viewer-titlebar-row">
+            <span className="live-title-badge">● LIVE</span>
+            <span className="live-viewer-host">{host?.display_name ?? 'Unknown'}</span>
+          </div>
+          {session.title && (
+            <div className="live-viewer-subtitle" title={session.title}>
+              {session.title}
+            </div>
+          )}
         </div>
         {canExpand && (
           <button

@@ -157,7 +157,13 @@ function CollabPageInner({ user }: Props) {
   const { events: friendEvents, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations } = useConversations(client, user.id)
-  const { liveSessions, mySession, liveHostIds, startLive, endLive, updateLive } = useLive(client, user.id)
+  const { liveSessions, mySession, liveHostIds, liveSessionByHost, startLive, endLive, updateLive } = useLive(client, user.id)
+  // Derived: hostId → broadcast title, for the FriendsList sub-line.
+  const liveTitleByHost = useMemo(() => {
+    const m = new Map<string, string>()
+    liveSessionByHost.forEach((s, host) => { if (s.title) m.set(host, s.title) })
+    return m
+  }, [liveSessionByHost])
   const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported, requestDevicePermissions } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
@@ -608,11 +614,25 @@ function CollabPageInner({ user }: Props) {
             ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} viewOnly />
             : viewMode === 'default'
               ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} />
-              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
+              : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} liveTitleByHost={liveTitleByHost} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
         <div className="view cview">
-          {selectedProfile && <ChatView supabase={client} currentUserId={user.id} otherProfile={selectedProfile} messages={messages} loading={messagesLoading} otherIsLive={liveHostIds.has(selectedProfile.id)} onSend={send} onBack={() => setSelectedId(null)} />}
+          {selectedProfile && <ChatView
+            supabase={client}
+            currentUserId={user.id}
+            otherProfile={selectedProfile}
+            messages={messages}
+            loading={messagesLoading}
+            otherIsLive={liveHostIds.has(selectedProfile.id)}
+            otherLiveTitle={liveSessionByHost.get(selectedProfile.id)?.title}
+            onJoinLive={() => {
+              const sid = liveSessionByHost.get(selectedProfile.id)?.id
+              if (sid) { handleOpenWatching(sid); setLiveOpen(true) }
+            }}
+            onSend={send}
+            onBack={() => setSelectedId(null)}
+          />}
         </div>
         <div className="view sview">
           <SettingsPanel

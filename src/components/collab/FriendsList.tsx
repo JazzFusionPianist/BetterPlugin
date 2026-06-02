@@ -16,6 +16,9 @@ interface Props {
   viewMode: 'gallery' | 'list'
   searchQuery: string
   liveHostIds?: Set<string>
+  /** Map of hostId → broadcast title, for showing the title in the row
+   *  sub-line instead of the generic "On Live" label. */
+  liveTitleByHost?: Map<string, string>
   onSelect: (id: string) => void
   onToggleFav: (id: string) => void
   onGalleryCellClick: (profile: Profile, el: HTMLDivElement) => void
@@ -25,6 +28,7 @@ function FriendRow({
   profile,
   isFav,
   isLive,
+  liveTitle,
   onSelect,
   onToggleFav,
   onAvatarClick,
@@ -32,6 +36,7 @@ function FriendRow({
   profile: Profile
   isFav: boolean
   isLive: boolean
+  liveTitle?: string
   onSelect: () => void
   onToggleFav: () => void
   onAvatarClick: (el: HTMLDivElement) => void
@@ -54,8 +59,10 @@ function FriendRow({
           {profile.display_name}
           {profile.is_verified && <VerifiedBadge />}
         </div>
-        <div className="f-sub">
-          {isLive ? 'On Live' : profile.isOnline ? 'online' : 'offline'}
+        <div className="f-sub" title={isLive && liveTitle ? liveTitle : undefined}>
+          {isLive
+            ? (liveTitle ? <><span className="f-sub-live-tag">● LIVE</span> {liveTitle}</> : 'On Live')
+            : profile.isOnline ? 'online' : 'offline'}
         </div>
       </div>
 
@@ -117,6 +124,7 @@ export default function FriendsList({
   viewMode,
   searchQuery,
   liveHostIds = new Set(),
+  liveTitleByHost,
   onSelect,
   onToggleFav,
   onGalleryCellClick,
@@ -167,6 +175,7 @@ export default function FriendsList({
         profile={p}
         isFav={favorites.has(p.id)}
         isLive={liveHostIds.has(p.id)}
+        liveTitle={liveTitleByHost?.get(p.id)}
         onSelect={() => onSelect(p.id)}
         onToggleFav={() => onToggleFav(p.id)}
         onAvatarClick={el => onGalleryCellClick(p, el)}

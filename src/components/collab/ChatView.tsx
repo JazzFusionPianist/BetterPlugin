@@ -14,6 +14,13 @@ interface Props {
   /** True when otherProfile is currently broadcasting a live stream —
    * we paint the status dot red instead of the online/offline colour. */
   otherIsLive?: boolean
+  /** Title of the other user's active live stream, if any. Drives the
+   *  sub-line text and the Join button in the chat header. */
+  otherLiveTitle?: string
+  /** Callback to jump straight into the other user's broadcast. The
+   *  parent already knows the session id, so this is a parameterless
+   *  trigger from ChatView's perspective. */
+  onJoinLive?: () => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
 }
@@ -584,7 +591,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, otherIsLive, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, onSend, onBack }: Props) {
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -1174,8 +1181,26 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               </svg>
             )}
           </div>
-          <div className="chdr-sub">{otherIsLive ? '● LIVE' : otherProfile.isOnline ? 'online' : 'offline'}</div>
+          <div className="chdr-sub">
+            {otherIsLive
+              ? <>
+                  <span className="chdr-live-tag">● LIVE</span>
+                  {otherLiveTitle && (
+                    <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
+                  )}
+                </>
+              : otherProfile.isOnline ? 'online' : 'offline'}
+          </div>
         </div>
+        {otherIsLive && onJoinLive && (
+          <button
+            type="button"
+            className="chdr-join-btn"
+            onClick={e => { e.stopPropagation(); onJoinLive() }}
+          >
+            Join
+          </button>
+        )}
       </div>
 
       {/* Messages */}

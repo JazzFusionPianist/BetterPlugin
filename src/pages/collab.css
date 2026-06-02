@@ -86,6 +86,13 @@
   flex-direction: column;
   position: relative;
 }
+/* When the live viewer asks the host plugin to grow (Expand View),
+   we toggle this class so the inner shell follows the new window size
+   instead of staying at the hardcoded 300×500. */
+.plugin.plugin-expanded {
+  width: 100vw;
+  height: 100vh;
+}
 
 /* ── Wallpaper: opaque backgrounds in light mode ──────────────────────────
    The wallpaper is applied to the .plugin root, so it bleeds through every

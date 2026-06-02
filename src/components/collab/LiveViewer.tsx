@@ -81,13 +81,36 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
   // doesn't end up with a giant empty window after the stream stops.
   const [expanded, setExpanded] = useState(false)
   const canExpand = isExpandSupported()
+  // The .plugin shell root is hardcoded to 300x500, so growing the host
+  // window alone leaves the inner UI clipped to the corner. Toggle a class
+  // on it so the layout follows the window size while expanded.
+  const setShellExpanded = (on: boolean) => {
+    const root = document.querySelector('.plugin')
+    if (!root) return
+    root.classList.toggle('plugin-expanded', on)
+  }
   useEffect(() => {
-    return () => { if (expanded) compactPluginWindow() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      // Always restore on unmount, regardless of last `expanded` value
+      // (closures can capture a stale value).
+      setShellExpanded(false)
+      compactPluginWindow()
+    }
   }, [])
   const toggleExpanded = async () => {
-    const ok = expanded ? await compactPluginWindow() : await expandPluginWindow()
-    if (ok) setExpanded(!expanded)
+    const next = !expanded
+    // Resize the shell class FIRST so the new layout is ready when the
+    // host window finishes growing — otherwise you get a one-frame flash
+    // of the 300x500 shell sitting in the corner of the big window.
+    if (next) setShellExpanded(true)
+    const ok = next ? await expandPluginWindow() : await compactPluginWindow()
+    if (ok) {
+      if (!next) setShellExpanded(false)
+      setExpanded(next)
+    } else {
+      // Roll back the class if the native resize was rejected.
+      setShellExpanded(expanded)
+    }
   }
 
   // Source-of-truth priority:
@@ -107,6 +130,7 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
   // no sense for the thank-you screen.
   useEffect(() => {
     if (ended && expanded) {
+      setShellExpanded(false)
       compactPluginWindow()
       setExpanded(false)
     }

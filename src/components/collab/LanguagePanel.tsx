@@ -42,9 +42,6 @@ export default function LanguagePanel ({ onClose }: Props) {
             >
               <div className="language-row-info">
                 <span className="language-row-native">{meta.nativeName}</span>
-                {meta.englishName !== meta.nativeName && (
-                  <span className="language-row-english">{meta.englishName}</span>
-                )}
               </div>
               {active && <span className="language-row-check">✓</span>}
             </div>

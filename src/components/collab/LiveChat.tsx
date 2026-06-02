@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   messages: LiveChatMessage[]
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function LiveChat({ messages, currentUserId, onSend }: Props) {
+  const { t } = useT()
   const [text, setText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -17,9 +19,9 @@ export default function LiveChat({ messages, currentUserId, onSend }: Props) {
   }, [messages])
 
   const submit = () => {
-    const t = text.trim()
-    if (!t) return
-    onSend(t)
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onSend(trimmed)
     setText('')
   }
 
@@ -47,7 +49,7 @@ export default function LiveChat({ messages, currentUserId, onSend }: Props) {
         <input
           className="live-chat-input"
           type="text"
-          placeholder="Say something…"
+          placeholder={t('liveChat.placeholder')}
           maxLength={280}
           value={text}
           onChange={e => setText(e.target.value)}
@@ -67,7 +69,7 @@ export default function LiveChat({ messages, currentUserId, onSend }: Props) {
           onClick={submit}
           disabled={!text.trim()}
         >
-          Send
+          {t('common.send')}
         </button>
       </div>
     </div>

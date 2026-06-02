@@ -18,7 +18,7 @@ export default function DisplayPanel({ isDark, wallpaper, onToggleDark, onSetWal
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { alert('max 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { alert(t('alert.maxFileSize5mb')); return }
     const reader = new FileReader()
     reader.onload = () => onSetWallpaper(reader.result as string)
     reader.readAsDataURL(file)

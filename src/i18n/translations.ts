@@ -217,6 +217,21 @@ export const T = {
   'live.endStream':        { en: 'End Stream', ko: '방송 종료', ja: '配信を終了', zh: '结束直播', es: 'Terminar', de: 'Stream beenden', fr: 'Terminer le direct', hi: 'स्ट्रीम समाप्त' },
   'live.liveNow':          { en: 'Live Now', ko: '라이브 중', ja: 'ライブ中', zh: '正在直播', es: 'En vivo', de: 'Jetzt live', fr: 'En direct', hi: 'अभी लाइव' },
   'live.watch':            { en: 'Watch', ko: '시청', ja: '視聴', zh: '观看', es: 'Ver', de: 'Ansehen', fr: 'Regarder', hi: 'देखें' },
+
+  // ───── Confirm / alert dialogs (native browser popups) ──────────────────
+  'confirm.forfeitPoker':  { en: 'Forfeit this game? The other player will win.', ko: '이 게임을 포기하시겠습니까? 상대 플레이어가 승리합니다.', ja: 'このゲームを棄権しますか？ 対戦相手の勝利になります。', zh: '弃赛？ 对手将获胜。', es: '¿Abandonar la partida? El otro jugador ganará.', de: 'Spiel aufgeben? Der andere Spieler gewinnt.', fr: 'Abandonner la partie ? L’autre joueur gagne.', hi: 'इस गेम को छोड़ें? दूसरा खिलाड़ी जीतेगा।' },
+  'confirm.forfeitFb':     { en: 'Forfeit the game? The other player wins.', ko: '게임을 포기하시겠습니까? 상대 플레이어가 승리합니다.', ja: 'ゲームを棄権しますか？ 対戦相手の勝利になります。', zh: '弃赛？ 对手将获胜。', es: '¿Abandonar la partida? El otro jugador gana.', de: 'Spiel aufgeben? Der andere Spieler gewinnt.', fr: 'Abandonner la partie ? L’autre joueur gagne.', hi: 'गेम छोड़ें? दूसरा खिलाड़ी जीतता है।' },
+  'alert.maxFileSize5mb':  { en: 'Maximum file size is 5 MB.', ko: '파일 크기는 최대 5MB입니다.', ja: 'ファイルサイズは最大 5MB です。', zh: '文件大小最大 5 MB。', es: 'El tamaño máximo del archivo es 5 MB.', de: 'Maximale Dateigröße ist 5 MB.', fr: 'Taille maximale du fichier : 5 Mo.', hi: 'अधिकतम फ़ाइल आकार 5 MB है।' },
+
+  // ───── Toasts / inline status messages ─────────────────────────────────
+  'info.saved':              { en: 'saved',           ko: '저장됨',          ja: '保存しました',  zh: '已保存',    es: 'guardado',         de: 'gespeichert',     fr: 'enregistré',       hi: 'सहेजा गया' },
+  'info.passwordChanged':    { en: 'password changed', ko: '비밀번호 변경됨',  ja: 'パスワードを変更しました', zh: '密码已修改',    es: 'contraseña cambiada', de: 'Passwort geändert', fr: 'mot de passe modifié', hi: 'पासवर्ड बदला गया' },
+  'info.typeDeleteToConfirm':{ en: 'type DELETE to confirm', ko: '확인하려면 DELETE 입력', ja: '確認するには DELETE と入力', zh: '输入 DELETE 确认', es: 'escribe DELETE para confirmar', de: 'DELETE eingeben zum Bestätigen', fr: 'tapez DELETE pour confirmer', hi: 'पुष्टि के लिए DELETE टाइप करें' },
+
+  // ───── Misc remaining UI strings ───────────────────────────────────────
+  'liveChat.placeholder':  { en: 'Say something…', ko: '메시지를 남겨주세요…', ja: '何か書いてみる…', zh: '说点什么…', es: 'Di algo…', de: 'Sag etwas…', fr: 'Dites quelque chose…', hi: 'कुछ कहें…' },
+  'chat.dropToAttach':     { en: 'Drop to attach', ko: '여기에 놓아 첨부', ja: 'ドロップして添付', zh: '拖放以添加附件', es: 'Soltar para adjuntar', de: 'Loslassen zum Anhängen', fr: 'Déposez pour joindre', hi: 'जोड़ने के लिए छोड़ें' },
+  'chat.releaseToCancel':  { en: 'Release to cancel', ko: '취소하려면 놓기', ja: '離してキャンセル', zh: '释放以取消', es: 'Soltar para cancelar', de: 'Loslassen zum Abbrechen', fr: 'Relâcher pour annuler', hi: 'रद्द करने के लिए छोड़ें' },
 } as const
 
 export type TKey = keyof typeof T

@@ -48,7 +48,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
       .from('profiles').upsert({ id: user.id, display_name: name.trim() }, { onConflict: 'id' })
     setSaving(false)
     if (error) showMsg('failed: ' + error.message)
-    else { onNameSaved?.(name.trim()); showMsg('saved'); onUpdated() }
+    else { onNameSaved?.(name.trim()); showMsg(t('info.saved')); onUpdated() }
   }
 
   const handleChangePassword = async () => {
@@ -70,14 +70,14 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
     setSavingPw(false)
     if (error) setPwError('error: ' + error.message)
     else {
-      showMsg('password changed')
+      showMsg(t('info.passwordChanged'))
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setPwOpen(false)
     }
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteInput !== 'DELETE') { showMsg('type DELETE to confirm'); return }
+    if (deleteInput !== 'DELETE') { showMsg(t('info.typeDeleteToConfirm')); return }
     setDeleting(true)
     const { error } = await supabase.rpc('delete_my_account')
     if (error) { setDeleting(false); showMsg('error: ' + error.message); return }

@@ -1150,7 +1150,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                   <circle cx="12" cy="12" r="10"/>
                   <path d="M15 9l-6 6M9 9l6 6"/>
                 </svg>
-                <span>Release to cancel</span>
+                <span>{t('chat.releaseToCancel')}</span>
               </>
             ) : (
               <>
@@ -1159,7 +1159,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                   <polyline points="17 8 12 3 7 8"/>
                   <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <span>Drop to attach</span>
+                <span>{t('chat.dropToAttach')}</span>
               </>
             )}
           </div>

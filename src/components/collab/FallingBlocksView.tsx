@@ -669,7 +669,7 @@ export default function FallingBlocksView({
   // other player is still alive — otherwise the room would stay in 'playing'
   // status if everyone left before the natural top-out detection fired.
   const handleForfeit = useCallback(async () => {
-    if (!confirm('Forfeit the game? The other player wins.')) return
+    if (!confirm(t('confirm.forfeitFb'))) return
     await setPlayerTopOut(currentUserId, true)
     const aliveOpponents = opponentIds.filter(id => {
       const ps = playerStatesRef.current.get(id)

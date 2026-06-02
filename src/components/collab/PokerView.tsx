@@ -387,7 +387,7 @@ export default function PokerView({
   // The user can then exit cleanly — back button will delete the finished
   // room, so the next session starts fresh.
   const handleForfeit = useCallback(async () => {
-    if (!confirm('Forfeit this game? The other player will win.')) return
+    if (!confirm(t('confirm.forfeitPoker'))) return
     await quitGame()
   }, [quitGame])
 

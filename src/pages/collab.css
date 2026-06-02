@@ -4566,6 +4566,141 @@
 .plugin.dark .chess-finish-card {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Ear Training Duel
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.et-scorebar {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 700;
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 3px 10px; border-radius: 10px;
+}
+.et-score-mine   { color: #4A8FE7; }
+.et-score-theirs { color: var(--t2); }
+.et-score-sep    { color: var(--t3); margin: 0 2px; }
+
+.et-arena {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 12px; gap: 8px;
+}
+
+.et-lobby-card {
+  max-width: 260px;
+}
+
+/* Setup chips (modes / difficulty) */
+.et-setup {
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%; margin: 8px 0 6px;
+}
+.et-setup-label {
+  font-size: 9px; color: var(--t3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  font-family: 'DM Sans', sans-serif;
+}
+.et-setup-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.et-chip {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 600;
+  background: var(--bg2); color: var(--t2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.et-chip.on {
+  background: #4A8FE7; color: #fff; border-color: #4A8FE7;
+}
+.et-chip:disabled { cursor: default; opacity: 0.6; }
+
+/* Round / play */
+.et-round {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; width: 100%; max-width: 260px;
+}
+.et-round-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; color: var(--t3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.et-play-btn {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: #d96a3a; color: #fff;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(217, 106, 58, 0.45);
+  transition: transform .08s, background .12s, box-shadow .12s;
+}
+.et-play-btn:hover:not(:disabled)  { background: #c25a30; }
+.et-play-btn:active:not(:disabled) { transform: scale(0.95); }
+.et-play-btn:disabled              { background: var(--bg2); color: var(--t3); box-shadow: none; cursor: default; }
+.et-replays {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px; color: var(--t3);
+}
+.et-prompt {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; color: var(--t1);
+  text-align: center;
+  margin-top: 4px;
+}
+.et-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+.et-option {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  padding: 8px 0;
+  border-radius: 10px;
+  background: var(--bg2); color: var(--t1);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s, transform .08s, border-color .1s;
+}
+.et-option:hover:not(:disabled)  { background: var(--border); }
+.et-option:active:not(:disabled) { transform: scale(0.96); }
+.et-option:disabled              { cursor: default; }
+.et-option.picked { border-color: #4A8FE7; }
+.et-option.correct {
+  background: #34C759; color: #fff; border-color: #34C759;
+}
+.et-option.wrong {
+  background: #ff5252; color: #fff; border-color: #ff5252;
+}
+
+.et-feedback {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  padding: 6px 10px; border-radius: 8px;
+  text-align: center;
+}
+.et-feedback.ok  { color: #34C759; }
+.et-feedback.bad { color: #ff5252; }
+
+.et-timer {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; color: var(--t3);
+}
+.et-timer.out { color: #ff5252; }
+
+.et-final-score {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 24px; font-weight: 800;
+  color: var(--t1);
+  margin-top: 6px;
+}
 .chess-finish-emoji { font-size: 40px; line-height: 1; }
 .chess-finish-title {
   font-size: 18px; font-weight: 700; color: var(--t1);

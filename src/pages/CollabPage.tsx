@@ -26,6 +26,7 @@ import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
 import PokerView from '../components/collab/PokerView'
+import EarTrainingView from '../components/collab/EarTrainingView'
 import type { Profile } from '../types/collab'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
@@ -119,7 +120,7 @@ function CollabPageInner({ user }: Props) {
   const [convOpen, setConvOpen]                 = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -558,6 +559,7 @@ function CollabPageInner({ user }: Props) {
                         const gameType =
                           ev.metadata?.game_type === 'falling_blocks' ? 'falling_blocks' :
                           ev.metadata?.game_type === 'poker' ? 'poker' :
+                          ev.metadata?.game_type === 'ear_training' ? 'ear_training' :
                           'chess'
                         setGameScreen(gameType)
                         // The game view will join via room_id stored in sessionStorage
@@ -745,6 +747,16 @@ function CollabPageInner({ user }: Props) {
               friendProfiles={friendProfiles}
               onlineIds={onlineIds}
               onClose={() => setGameScreen('list')}
+            />
+          )}
+          {gameScreen === 'ear_training' && (
+            <EarTrainingView
+              supabase={client}
+              currentUserId={user.id}
+              currentUserProfile={me}
+              friendProfiles={friendProfiles}
+              onClose={() => setGameScreen('list')}
+              pendingInviteRoomId={sessionStorage.getItem('join_room_id')}
             />
           )}
         </div>

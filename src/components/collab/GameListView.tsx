@@ -3,7 +3,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
 
-export type GameId = 'chess' | 'falling_blocks' | 'poker'
+export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -69,6 +69,19 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.poker',
     descKey: 'game.pokerDesc',
+  },
+  {
+    id: 'ear_training',
+    coverBg: 'radial-gradient(circle at 30% 30%, #ffb56b 0%, #d96a3a 55%, #4a1e3a 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M6 18a8 8 0 0116 0v3a4 4 0 01-4 4h-1v-7h1a2 2 0 002-2" />
+        <path d="M6 18v3a4 4 0 004 4h1v-7h-1a2 2 0 00-2-2" />
+        <path d="M12 12l3-3M20 12l-3-3M16 7v3" strokeLinecap="round" />
+      </svg>
+    ),
+    nameKey: 'game.earTraining',
+    descKey: 'game.earTrainingDesc',
   },
 ]
 

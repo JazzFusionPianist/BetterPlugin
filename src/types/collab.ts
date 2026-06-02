@@ -129,6 +129,29 @@ export interface FallingBlocksPlayerState {
   updated_at: string
 }
 
+export interface EarTrainingRoom {
+  id: string
+  player1_id: string
+  player2_id: string | null
+  status: 'lobby' | 'playing' | 'finished'
+  player1_ready: boolean
+  player2_ready: boolean
+  player1_score: number
+  player2_score: number
+  current_round: number
+  total_rounds: number
+  player1_answer: string | null
+  player2_answer: string | null
+  round_started_at: string | null
+  config: {
+    modes: ('interval' | 'chord')[]
+    difficulty: 'basic' | 'intermediate' | 'advanced'
+  }
+  winner_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface GameRoom {
   id: string
   game_type: 'chess'

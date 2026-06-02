@@ -232,6 +232,27 @@ export const T = {
   'liveChat.placeholder':  { en: 'Say something…', ko: '메시지를 남겨주세요…', ja: '何か書いてみる…', zh: '说点什么…', es: 'Di algo…', de: 'Sag etwas…', fr: 'Dites quelque chose…', hi: 'कुछ कहें…' },
   'chat.dropToAttach':     { en: 'Drop to attach', ko: '여기에 놓아 첨부', ja: 'ドロップして添付', zh: '拖放以添加附件', es: 'Soltar para adjuntar', de: 'Loslassen zum Anhängen', fr: 'Déposez pour joindre', hi: 'जोड़ने के लिए छोड़ें' },
   'chat.releaseToCancel':  { en: 'Release to cancel', ko: '취소하려면 놓기', ja: '離してキャンセル', zh: '释放以取消', es: 'Soltar para cancelar', de: 'Loslassen zum Abbrechen', fr: 'Relâcher pour annuler', hi: 'रद्द करने के लिए छोड़ें' },
+
+  // ───── Ear Training Duel ────────────────────────────────────────────────
+  'game.earTraining':       { en: 'Ear Training', ko: '청음 훈련', ja: '聴音トレーニング', zh: '听音训练', es: 'Entrenamiento auditivo', de: 'Gehörbildung', fr: 'Entraînement auditif', hi: 'कान का अभ्यास' },
+  'game.earTrainingDesc':   { en: 'Identify intervals & chords', ko: '음정과 화음 알아맞히기', ja: '音程と和音を当てる', zh: '识别音程和和弦', es: 'Identifica intervalos y acordes', de: 'Intervalle und Akkorde erkennen', fr: 'Identifier intervalles et accords', hi: 'अंतराल और कॉर्ड पहचानें' },
+  'et.round':               { en: 'Round {n} / {total}', ko: '라운드 {n} / {total}', ja: 'ラウンド {n} / {total}', zh: '回合 {n} / {total}', es: 'Ronda {n} / {total}', de: 'Runde {n} / {total}', fr: 'Manche {n} / {total}', hi: 'राउंड {n} / {total}' },
+  'et.play':                { en: 'Play', ko: '재생', ja: '再生', zh: '播放', es: 'Reproducir', de: 'Abspielen', fr: 'Jouer', hi: 'चलाएं' },
+  'et.replaysLeft':         { en: '{n} replays left', ko: '재생 {n}회 남음', ja: '残り {n} 回', zh: '剩余 {n} 次', es: '{n} repeticiones restantes', de: 'Noch {n} Wiederh.', fr: '{n} relectures restantes', hi: '{n} रिप्ले शेष' },
+  'et.whatInterval':        { en: 'What interval did you hear?', ko: '어떤 음정이 들렸나요?', ja: 'どの音程でしたか？', zh: '听到的是什么音程？', es: '¿Qué intervalo escuchaste?', de: 'Welches Intervall hast du gehört?', fr: 'Quel intervalle avez-vous entendu ?', hi: 'आपने कौन सा अंतराल सुना?' },
+  'et.whatChord':           { en: 'What chord did you hear?', ko: '어떤 화음이 들렸나요?', ja: 'どの和音でしたか？', zh: '听到的是什么和弦？', es: '¿Qué acorde escuchaste?', de: 'Welchen Akkord hast du gehört?', fr: 'Quel accord avez-vous entendu ?', hi: 'आपने कौन सा कॉर्ड सुना?' },
+  'et.correct':             { en: 'Correct!', ko: '정답!', ja: '正解！', zh: '正确！', es: '¡Correcto!', de: 'Richtig!', fr: 'Correct !', hi: 'सही!' },
+  'et.wrong':               { en: 'Wrong — it was {ans}', ko: '오답 — 정답은 {ans}', ja: '不正解 — 正解は {ans}', zh: '错误 — 答案是 {ans}', es: 'Incorrecto — era {ans}', de: 'Falsch — es war {ans}', fr: 'Faux — c’était {ans}', hi: 'गलत — सही था {ans}' },
+  'et.timeUp':              { en: 'Time’s up — it was {ans}', ko: '시간 초과 — 정답은 {ans}', ja: '時間切れ — 正解は {ans}', zh: '时间到 — 答案是 {ans}', es: 'Tiempo agotado — era {ans}', de: 'Zeit abgelaufen — es war {ans}', fr: 'Temps écoulé — c’était {ans}', hi: 'समय समाप्त — सही था {ans}' },
+  'et.waitingOpponent':     { en: 'Waiting for opponent…', ko: '상대를 기다리는 중…', ja: '相手を待っています…', zh: '等待对手…', es: 'Esperando al oponente…', de: 'Warten auf Gegner…', fr: 'En attente de l’adversaire…', hi: 'प्रतिद्वंद्वी की प्रतीक्षा…' },
+  'et.modes':               { en: 'Modes', ko: '모드', ja: 'モード', zh: '模式', es: 'Modos', de: 'Modi', fr: 'Modes', hi: 'मोड' },
+  'et.modeInterval':        { en: 'Intervals', ko: '음정', ja: '音程', zh: '音程', es: 'Intervalos', de: 'Intervalle', fr: 'Intervalles', hi: 'अंतराल' },
+  'et.modeChord':           { en: 'Chords', ko: '화음', ja: '和音', zh: '和弦', es: 'Acordes', de: 'Akkorde', fr: 'Accords', hi: 'कॉर्ड' },
+  'et.difficulty':          { en: 'Difficulty', ko: '난이도', ja: '難易度', zh: '难度', es: 'Dificultad', de: 'Schwierigkeit', fr: 'Difficulté', hi: 'कठिनाई' },
+  'et.basic':               { en: 'Basic',        ko: '초급', ja: '初級', zh: '基础', es: 'Básico',  de: 'Einfach',  fr: 'Facile', hi: 'सरल' },
+  'et.intermediate':        { en: 'Intermediate', ko: '중급', ja: '中級', zh: '中级', es: 'Intermedio', de: 'Mittel', fr: 'Moyen', hi: 'मध्यम' },
+  'et.advanced':            { en: 'Advanced',     ko: '고급', ja: '上級', zh: '高级', es: 'Avanzado', de: 'Schwer', fr: 'Avancé', hi: 'कठिन' },
+  'et.score':               { en: 'Score', ko: '점수', ja: 'スコア', zh: '分数', es: 'Puntos', de: 'Punkte', fr: 'Score', hi: 'स्कोर' },
 } as const
 
 export type TKey = keyof typeof T

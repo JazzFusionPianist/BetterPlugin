@@ -5,6 +5,7 @@ import type { LiveSession } from '../../hooks/useLive'
 import type { Profile } from '../../types/collab'
 import type { LiveChatMessage } from '../../hooks/useLiveChat'
 import LiveChat from './LiveChat'
+import { expandPluginWindow, compactPluginWindow, isExpandSupported } from '../../lib/pluginWindow'
 
 interface Props {
   supabase: SupabaseClient
@@ -75,6 +76,20 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
     v.play().catch(e => console.warn('video.play() failed', e))
   }, [remoteStream])
 
+  // Expand-view (wide landscape) — viewer can toggle the plugin window to
+  // a wider layout. Auto-collapse on unmount or session end so the user
+  // doesn't end up with a giant empty window after the stream stops.
+  const [expanded, setExpanded] = useState(false)
+  const canExpand = isExpandSupported()
+  useEffect(() => {
+    return () => { if (expanded) compactPluginWindow() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const toggleExpanded = async () => {
+    const ok = expanded ? await compactPluginWindow() : await expandPluginWindow()
+    if (ok) setExpanded(!expanded)
+  }
+
   // Source-of-truth priority:
   //   1. hostSource (signaled directly by the broadcaster on every change)
   //   2. session.has_video (live_sessions metadata via realtime)
@@ -87,6 +102,15 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
     : streamHasVideo && session.has_video
 
   const ended = sessionEnded || status === 'ended'
+
+  // Auto-restore compact size when the stream ends — the wide layout makes
+  // no sense for the thank-you screen.
+  useEffect(() => {
+    if (ended && expanded) {
+      compactPluginWindow()
+      setExpanded(false)
+    }
+  }, [ended, expanded])
 
   // When the stream ends we show a thank-you screen instead of auto-closing
   // — the viewer dismisses it manually via the Back button.
@@ -128,9 +152,29 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
           <span className="live-title-badge">● LIVE</span>
           <span className="live-viewer-host">{host?.display_name ?? 'Unknown'}</span>
         </div>
+        {canExpand && (
+          <button
+            className="live-viewer-expand-btn"
+            onClick={toggleExpanded}
+            title={expanded ? 'Collapse view' : 'Expand view'}
+            aria-label={expanded ? 'Collapse view' : 'Expand view'}
+          >
+            {expanded ? (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2v4H2" /><path d="M10 2v4h4" />
+                <path d="M6 14v-4H2" /><path d="M10 14v-4h4" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6V2h4" /><path d="M14 6V2h-4" />
+                <path d="M2 10v4h4" /><path d="M14 10v4h-4" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
 
-      <div className="live-viewer-body">
+      <div className={`live-viewer-body${expanded ? ' live-viewer-body-expanded' : ''}`}>
         {/* Wrapper around the video so the fullscreen button can be anchored
             to the actual video area (not the whole body). When in audio-only
             mode the wrapper collapses (display: none on .has-video=false). */}

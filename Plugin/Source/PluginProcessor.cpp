@@ -109,6 +109,12 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handlePickCaptureSource (args, std::move (completion));
+                })
+            .withNativeFunction ("setPluginSize",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleSetPluginSize (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -589,6 +595,29 @@ void CoOpAudioProcessor::handlePickCaptureSource (const juce::var& /*args*/,
 juce::AudioProcessorEditor* CoOpAudioProcessor::createEditor()
 {
     return new CoOpAudioProcessorEditor (*this);
+}
+
+// JS-callable: resize the plugin window. Args: [width, height].
+// Called from the React Expand View button on the live viewer.
+void CoOpAudioProcessor::handleSetPluginSize (const juce::var& args,
+                                              juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! args.isArray() || args.size() < 2) {
+        completion ("error:bad-args");
+        return;
+    }
+    const int w = (int) args[0];
+    const int h = (int) args[1];
+    if (w < 200 || h < 200 || w > 4000 || h > 4000) {
+        completion ("error:size-out-of-range");
+        return;
+    }
+    // Editor lives on the message thread — bounce the call there.
+    juce::MessageManager::callAsync ([this, w, h]
+    {
+        requestEditorResize (w, h);
+    });
+    completion ("ok");
 }
 
 //==============================================================================

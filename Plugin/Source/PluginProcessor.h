@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "VideoCapture.h"
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -67,6 +68,16 @@ public:
     std::shared_ptr<juce::WebBrowserComponent::NativeFunctionCompletion>
         takePendingDragCompletion() { auto p = pendingDragComp; pendingDragComp.reset(); return p; }
 
+    //── Editor resize callback ───────────────────────────────────────────────
+    // Editor registers a "set me to size W,H" callback at construction. The
+    // setPluginSize native function (called from JS Expand View) invokes it.
+    using ResizeFn = std::function<void(int /*w*/, int /*h*/)>;
+    void setEditorResizeFn (ResizeFn fn) { editorResizeFn = std::move(fn); }
+    void requestEditorResize (int w, int h)
+    {
+        if (editorResizeFn) editorResizeFn (w, h);
+    }
+
 private:
     //── Capture ring buffer ───────────────────────────────────────────────────
     static constexpr int kCaptureBufferSize = 96000;
@@ -92,6 +103,10 @@ private:
     void handleStopVideoCapture  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleListCaptureSources(const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handlePickCaptureSource (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleSetPluginSize     (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+
+    //── Active editor resize callback (registered by editor on construct) ────
+    ResizeFn editorResizeFn;
 
     //── Native window / screen capture ───────────────────────────────────────
     std::unique_ptr<VideoCapture> videoCapture;

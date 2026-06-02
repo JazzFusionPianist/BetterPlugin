@@ -6,7 +6,20 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
       processorRef (p)
 {
     setSize (kWidth, kHeight);
-    setResizable (false, false);
+    // Enable resizing so DAWs honor programmatic setSize() (called from
+    // the Expand View button on the live viewer). Min/max bounds avoid
+    // pathological sizes if the JS calls it with bad args.
+    setResizable (true, false);
+    setResizeLimits (kWidth, kHeight, 1600, 1200);
+
+    // Register a callback the processor can invoke from the JS-callable
+    // setPluginSize native function.
+    juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+    processorRef.setEditorResizeFn ([safe] (int w, int h)
+    {
+        if (auto* c = safe.getComponent())
+            c->setSize (w, h);
+    });
 
     // Adopt the processor-owned browser as our visible child. When this
     // editor is destroyed, JUCE removes the browser from its parent but the
@@ -22,6 +35,9 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
 CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
 {
     dragMonitor.disarm();
+    // Clear the resize callback so a future setPluginSize call doesn't
+    // dereference our dead self.
+    processorRef.setEditorResizeFn ({});
 
     // IMPORTANT: remove — do NOT delete — the browser. Processor owns it.
     if (auto* b = processorRef.getBrowser())

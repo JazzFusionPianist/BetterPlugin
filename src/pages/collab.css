@@ -3475,6 +3475,52 @@
   background: rgba(0, 0, 0, 0.75);
 }
 .live-viewer-fullscreen-btn:active { transform: scale(0.94); }
+
+/* Expand-view button in the header (viewer landscape mode). */
+.live-viewer-expand-btn {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.live-viewer-expand-btn:hover {
+  background: var(--surf2);
+  color: var(--t1);
+  border-color: var(--t3);
+}
+.live-viewer-expand-btn:active { transform: scale(0.94); }
+
+/* Expanded (wide landscape) layout — video on left, chat on right. */
+.live-viewer-body-expanded {
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+}
+.live-viewer-body-expanded .live-viewer-video-wrap,
+.live-viewer-body-expanded .live-viewer-audio-only {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.live-viewer-body-expanded .live-viewer-video {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+}
+.live-viewer-body-expanded .live-chat {
+  flex: 0 0 280px;
+  max-width: 280px;
+  height: 100%;
+}
 /* Hide the button itself when the video is in native fullscreen */
 .live-viewer-video:fullscreen ~ .live-viewer-fullscreen-btn,
 .live-viewer-video:-webkit-full-screen ~ .live-viewer-fullscreen-btn {

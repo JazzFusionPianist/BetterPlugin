@@ -95,8 +95,8 @@ export default function NotificationSettingsPanel({ onClose, onSettingsChange }:
           tabIndex={0}
         >
           <div className="notif-setting-info">
-            <span className="notif-setting-name">Your turn (games)</span>
-            <span className="notif-setting-desc">Chime when it's your move in chess or poker</span>
+            <span className="notif-setting-name">Game turn alert</span>
+            <span className="notif-setting-desc">When it's your turn</span>
           </div>
           <button
             className={`pill-toggle${settings.gameTurn ? ' on' : ''}`}

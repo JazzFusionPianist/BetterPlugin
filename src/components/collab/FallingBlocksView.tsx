@@ -79,6 +79,7 @@ interface FallingBlocksBoardProps {
 }
 
 function FallingBlocksBoard({ board, currentPiece, ghost, topOut, size = 'self' }: FallingBlocksBoardProps) {
+  const { t } = useT()
   // Build display board: base + ghost overlay + current piece overlay
   const display: (string | null)[][] = useMemo(() => {
     const out: (string | null)[][] = board.map(row => row.slice())
@@ -121,7 +122,7 @@ function FallingBlocksBoard({ board, currentPiece, ghost, topOut, size = 'self' 
       ))}
       {topOut && (
         <div className="falling-blocks-topout-overlay">
-          <span>Topped out</span>
+          <span>{t('fb.toppedOut')}</span>
         </div>
       )}
     </div>
@@ -717,18 +718,18 @@ export default function FallingBlocksView({
     : Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
 
   // ── Result text ──────────────────────────────────────────────────────────
-  let resultTitle = 'Game over'
+  let resultTitle = t('fb.gameOver')
   let resultEmoji = '🎮'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
-      resultTitle = 'You won!'
+      resultTitle = t('chess.youWon')
       resultEmoji = '🏆'
     } else if (room.winner_id) {
       const winnerProfile = friendProfiles.find(p => p.id === room.winner_id)
-      resultTitle = winnerProfile ? `${winnerProfile.display_name} won` : 'You lost'
+      resultTitle = winnerProfile ? t('fb.playerWon', { name: winnerProfile.display_name }) : t('chess.youLost')
       resultEmoji = '😔'
     } else {
-      resultTitle = 'Draw'
+      resultTitle = t('chess.drawResult')
       resultEmoji = '🤝'
     }
   }
@@ -809,7 +810,7 @@ export default function FallingBlocksView({
                 board because it's a "you specifically are out" indicator. */}
             {isPlaying && myTopOutServer && (
               <div className="falling-blocks-topout-overlay">
-                <span>You're out</span>
+                <span>{t('fb.youAreOut')}</span>
               </div>
             )}
           </div>
@@ -817,26 +818,26 @@ export default function FallingBlocksView({
           {/* Side info */}
           <div className="falling-blocks-side-info">
             <div className="falling-blocks-stat">
-              <span className="falling-blocks-stat-label">Score</span>
+              <span className="falling-blocks-stat-label">{t('fb.score')}</span>
               <span className="falling-blocks-stat-value">{game.score}</span>
             </div>
             <div className="falling-blocks-stat">
-              <span className="falling-blocks-stat-label">Lines</span>
+              <span className="falling-blocks-stat-label">{t('fb.lines')}</span>
               <span className="falling-blocks-stat-value">{game.lines}</span>
             </div>
             <div className="falling-blocks-stat">
-              <span className="falling-blocks-stat-label">Incoming</span>
+              <span className="falling-blocks-stat-label">{t('fb.incoming')}</span>
               <span className="falling-blocks-stat-value">
                 {game.garbagePending + (myPlayerState?.garbage_pending ?? 0)}
               </span>
             </div>
             <div className="falling-blocks-stat">
-              <span className="falling-blocks-stat-label">Next</span>
+              <span className="falling-blocks-stat-label">{t('fb.next')}</span>
               <NextPiecesPreview pieces={game.next} />
             </div>
             {isLobby && hasAllPlayers && (
               <div className="falling-blocks-stat">
-                <span className="falling-blocks-stat-label">You</span>
+                <span className="falling-blocks-stat-label">{t('common.you')}</span>
                 <span className="falling-blocks-stat-value">
                   {currentUserProfile?.display_name ?? 'Me'}
                 </span>

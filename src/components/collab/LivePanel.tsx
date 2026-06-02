@@ -284,13 +284,13 @@ export default function LivePanel({
                 <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.8" />
               </svg>
             </div>
-            <div className="live-ended-title">Stream ended</div>
+            <div className="live-ended-title">{t('live.streamEndedTitle')}</div>
             <div className="live-ended-stats">
-              <div className="live-ended-stat"><div className="live-ended-stat-val">{formatDuration(endedStats.durationSecs)}</div><div className="live-ended-stat-lbl">Duration</div></div>
-              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.totalViewers}</div><div className="live-ended-stat-lbl">Total viewers</div></div>
-              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.peakViewers}</div><div className="live-ended-stat-lbl">Peak viewers</div></div>
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{formatDuration(endedStats.durationSecs)}</div><div className="live-ended-stat-lbl">{t('live.duration')}</div></div>
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.totalViewers}</div><div className="live-ended-stat-lbl">{t('live.totalViewers')}</div></div>
+              <div className="live-ended-stat"><div className="live-ended-stat-val">{endedStats.peakViewers}</div><div className="live-ended-stat-lbl">{t('live.peakViewers')}</div></div>
             </div>
-            <button className="live-go-btn" onClick={() => { setEndedStats(null); onClose() }}>Done</button>
+            <button className="live-go-btn" onClick={() => { setEndedStats(null); onClose() }}>{t('common.done')}</button>
           </div>
         ) : mySession ? (
           /* ── Broadcasting mode ── */
@@ -358,7 +358,7 @@ export default function LivePanel({
               currentUserId={currentUserId}
               onSend={onSendChat}
             />
-            <button className="live-end-btn" onClick={onEndLive}>End Stream</button>
+            <button className="live-end-btn" onClick={onEndLive}>{t('live.endStream')}</button>
           </div>
         ) : (
           /* ── Pre-live setup ── */
@@ -434,7 +434,7 @@ export default function LivePanel({
         {/* ── Friends live now ── */}
         {othersLive.length > 0 && (
           <div className="live-others">
-            <div className="s-section-label" style={{ padding: '0 14px', marginBottom: 4 }}>Live Now</div>
+            <div className="s-section-label" style={{ padding: '0 14px', marginBottom: 4 }}>{t('live.liveNow')}</div>
             {othersLive.map(s => {
               const p = profiles.find(pr => pr.id === s.host_id)
               if (!p) return null
@@ -452,7 +452,7 @@ export default function LivePanel({
                     <div className="live-others-name">{p.display_name}</div>
                     {s.title && <div className="live-others-sub">{s.title}</div>}
                   </div>
-                  <button className="live-watch-btn">Watch</button>
+                  <button className="live-watch-btn">{t('live.watch')}</button>
                 </div>
               )
             })}

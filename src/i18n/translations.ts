@@ -133,6 +133,90 @@ export const T = {
   'game.noFriendsToInvite':  { en: 'No friends to invite.', ko: '초대할 친구가 없습니다.', ja: '招待できる友達がいません。', zh: '没有可邀请的好友。', es: 'No hay amigos para invitar.', de: 'Keine Freunde zum Einladen.', fr: 'Aucun ami à inviter.', hi: 'आमंत्रित करने के लिए कोई मित्र नहीं।' },
   'game.noMatch':            { en: 'No friends match "{q}".', ko: '"{q}"와 일치하는 친구가 없습니다.', ja: '"{q}"に一致する友達がいません。', zh: '没有匹配 "{q}" 的好友。', es: 'No hay amigos que coincidan con "{q}".', de: 'Keine Freunde stimmen mit „{q}“ überein.', fr: 'Aucun ami ne correspond à « {q} ».', hi: '"{q}" से मेल खाने वाला कोई मित्र नहीं।' },
   'game.searchFriends':      { en: 'Search friends…', ko: '친구 검색…', ja: '友達を検索…', zh: '搜索好友…', es: 'Buscar amigos…', de: 'Freunde suchen…', fr: 'Rechercher des amis…', hi: 'मित्र खोजें…' },
+
+  // ───── Common state / lobby ─────────────────────────────────────────────
+  'common.ready':         { en: 'Ready',      ko: '준비',     ja: '準備OK',     zh: '准备',     es: 'Listo',     de: 'Bereit',     fr: 'Prêt',      hi: 'तैयार' },
+  'common.notReady':      { en: 'Not ready',  ko: '준비 안됨', ja: '準備未完',   zh: '未准备',   es: 'No listo',  de: 'Nicht bereit', fr: 'Pas prêt', hi: 'तैयार नहीं' },
+  'common.readyCheck':    { en: '✓ Ready',    ko: '✓ 준비',   ja: '✓ 準備OK',  zh: '✓ 准备',   es: '✓ Listo',   de: '✓ Bereit',   fr: '✓ Prêt',    hi: '✓ तैयार' },
+  'common.you':           { en: 'You',        ko: '나',       ja: 'あなた',    zh: '你',       es: 'Tú',        de: 'Du',         fr: 'Vous',      hi: 'आप' },
+  'common.me':            { en: 'Me',         ko: '나',       ja: '自分',      zh: '我',       es: 'Yo',        de: 'Ich',        fr: 'Moi',       hi: 'मैं' },
+  'common.opponent':      { en: 'Opponent',   ko: '상대',     ja: '対戦相手',  zh: '对手',     es: 'Oponente',  de: 'Gegner',     fr: 'Adversaire', hi: 'प्रतिद्वंद्वी' },
+  'common.waiting':       { en: 'Waiting…',   ko: '대기 중…', ja: '待機中…',   zh: '等待中…',   es: 'Esperando…', de: 'Warte…',    fr: 'En attente…', hi: 'प्रतीक्षा…' },
+  'common.joining':       { en: 'Joining…',   ko: '입장 중…', ja: '参加中…',   zh: '加入中…',   es: 'Uniéndose…', de: 'Beitreten…', fr: 'Rejoindre…', hi: 'जुड़ रहे…' },
+  'common.done':          { en: 'Done',       ko: '완료',     ja: '完了',      zh: '完成',     es: 'Listo',     de: 'Fertig',     fr: 'Terminé',   hi: 'पूर्ण' },
+  'common.thinking':      { en: 'thinking…',  ko: '생각 중…', ja: '考え中…',   zh: '思考中…',   es: 'pensando…', de: 'denkt…',    fr: 'réfléchit…', hi: 'सोच रहे…' },
+  'common.goBack':        { en: 'Go back',    ko: '뒤로',     ja: '戻る',      zh: '返回',     es: 'Volver',    de: 'Zurück',     fr: 'Retour',    hi: 'वापस' },
+
+  // ───── Chess in-progress ────────────────────────────────────────────────
+  'chess.resign':         { en: 'Resign',       ko: '기권',      ja: '投了',     zh: '认输',     es: 'Rendirse',  de: 'Aufgeben',  fr: 'Abandonner', hi: 'हार स्वीकार' },
+  'chess.draw':           { en: 'Draw?',        ko: '무승부?',   ja: '引き分け？', zh: '和棋？',   es: '¿Tablas?',  de: 'Remis?',     fr: 'Nulle ?',   hi: 'ड्रॉ?' },
+  'chess.drawOffered':    { en: 'Draw offered', ko: '무승부 제안됨', ja: '引き分け提案中', zh: '已提议和棋', es: 'Tablas ofrecidas', de: 'Remis angeboten', fr: 'Nulle proposée', hi: 'ड्रॉ प्रस्तावित' },
+  'chess.acceptDraw':     { en: 'Accept Draw',  ko: '무승부 수락', ja: '引き分けを受諾', zh: '接受和棋', es: 'Aceptar tablas', de: 'Remis annehmen', fr: 'Accepter nulle', hi: 'ड्रॉ स्वीकार' },
+  'chess.offerDraw':      { en: 'Offer draw',   ko: '무승부 제안', ja: '引き分けを提案', zh: '提议和棋', es: 'Ofrecer tablas', de: 'Remis anbieten', fr: 'Proposer une nulle', hi: 'ड्रॉ प्रस्ताव' },
+  'chess.opponentOffered':{ en: 'Opponent offered a draw — accept?', ko: '상대가 무승부를 제안했습니다 — 수락하시겠습니까?', ja: '対戦相手が引き分けを提案 — 受諾？', zh: '对手提议和棋 — 接受？', es: 'El oponente ofreció tablas — ¿aceptar?', de: 'Gegner bietet Remis — annehmen?', fr: 'L’adversaire propose une nulle — accepter ?', hi: 'प्रतिद्वंद्वी ने ड्रॉ का प्रस्ताव दिया — स्वीकार?' },
+  'chess.yourTurn':       { en: 'Your turn',  ko: '내 차례',    ja: 'あなたの番', zh: '该你了',   es: 'Tu turno',  de: 'Du bist dran', fr: 'À vous',  hi: 'आपकी बारी' },
+  'chess.youWon':         { en: 'You won!',   ko: '승리!',     ja: '勝利！',    zh: '你赢了！', es: '¡Ganaste!', de: 'Gewonnen!',  fr: 'Gagné !',   hi: 'जीत!' },
+  'chess.youLost':        { en: 'You lost',   ko: '패배',      ja: '敗北',      zh: '你输了',   es: 'Perdiste',  de: 'Verloren',   fr: 'Perdu',     hi: 'हार' },
+  'chess.drawResult':     { en: 'Draw',       ko: '무승부',    ja: '引き分け',   zh: '和棋',     es: 'Tablas',    de: 'Remis',      fr: 'Nulle',     hi: 'ड्रॉ' },
+  'chess.waitingForFriend':{ en: 'Waiting for friend…', ko: '친구를 기다리는 중…', ja: '友達を待っています…', zh: '等待好友…', es: 'Esperando al amigo…', de: 'Warten auf den Freund…', fr: 'En attente d’un ami…', hi: 'दोस्त की प्रतीक्षा…' },
+  'chess.readyCount':     { en: '{n} / 2 ready', ko: '{n} / 2 준비', ja: '{n} / 2 準備完了', zh: '{n} / 2 已准备', es: '{n} / 2 listos', de: '{n} / 2 bereit', fr: '{n} / 2 prêts', hi: '{n} / 2 तैयार' },
+  'chess.inviteCta':      { en: '🕹 Invite a Friend', ko: '🕹 친구 초대', ja: '🕹 友達を招待', zh: '🕹 邀请好友', es: '🕹 Invitar a un amigo', de: '🕹 Freund einladen', fr: '🕹 Inviter un ami', hi: '🕹 मित्र को आमंत्रित' },
+
+  // ───── Poker in-progress ────────────────────────────────────────────────
+  'poker.fold':           { en: 'Fold',     ko: '폴드',     ja: 'フォールド',  zh: '弃牌',     es: 'Pasar',     de: 'Passen',     fr: 'Se coucher', hi: 'फोल्ड' },
+  'poker.check':          { en: 'Check',    ko: '체크',     ja: 'チェック',    zh: '让牌',     es: 'Pasar',     de: 'Schieben',   fr: 'Check',     hi: 'चेक' },
+  'poker.call':           { en: 'Call {amount}', ko: '콜 {amount}', ja: 'コール {amount}', zh: '跟注 {amount}', es: 'Igualar {amount}', de: 'Mitgehen {amount}', fr: 'Suivre {amount}', hi: 'कॉल {amount}' },
+  'poker.callAllInChips': { en: 'All-in ({chips})', ko: '올인 ({chips})', ja: 'オールイン ({chips})', zh: '全下 ({chips})', es: 'All-in ({chips})', de: 'All-in ({chips})', fr: 'All-in ({chips})', hi: 'ऑल-इन ({chips})' },
+  'poker.raise':          { en: 'Raise',    ko: '레이즈',   ja: 'レイズ',      zh: '加注',     es: 'Subir',     de: 'Erhöhen',    fr: 'Relancer',  hi: 'रेज़' },
+  'poker.min':            { en: 'Min',      ko: '최소',     ja: 'ミニマム',    zh: '最小',     es: 'Mín',       de: 'Min',        fr: 'Min',       hi: 'न्यूनतम' },
+  'poker.pot':            { en: 'Pot',      ko: '팟',       ja: 'ポット',     zh: '底池',     es: 'Bote',      de: 'Pot',        fr: 'Pot',       hi: 'पॉट' },
+  'poker.allInShort':     { en: 'All-in',   ko: '올인',     ja: 'オールイン',  zh: '全下',     es: 'All-in',    de: 'All-in',     fr: 'All-in',    hi: 'ऑल-इन' },
+  'poker.folded':         { en: 'Folded',   ko: '폴드함',   ja: 'フォールド済', zh: '已弃牌',  es: 'Pasado',    de: 'Gepasst',    fr: 'Couché',    hi: 'फोल्डेड' },
+  'poker.gameOver':       { en: 'Game over', ko: '게임 종료', ja: 'ゲーム終了', zh: '游戏结束', es: 'Fin del juego', de: 'Spiel vorbei', fr: 'Partie terminée', hi: 'गेम समाप्त' },
+  'poker.youWon':         { en: 'You won!',  ko: '승리!',    ja: '勝利！',     zh: '你赢了！', es: '¡Ganaste!',  de: 'Gewonnen!', fr: 'Gagné !',   hi: 'जीत!' },
+  'poker.youLost':        { en: 'You lost',  ko: '패배',     ja: '敗北',       zh: '你输了',   es: 'Perdiste',   de: 'Verloren',  fr: 'Perdu',     hi: 'हार' },
+  'poker.playerWon':      { en: '{name} won', ko: '{name} 승리', ja: '{name} の勝ち', zh: '{name} 获胜', es: '{name} ganó', de: '{name} hat gewonnen', fr: '{name} a gagné', hi: '{name} जीते' },
+  'poker.forfeit':        { en: 'Forfeit',   ko: '포기',     ja: '棄権',       zh: '弃赛',     es: 'Abandonar', de: 'Aufgeben',   fr: 'Abandonner', hi: 'त्याग' },
+  'poker.forfeitTip':     { en: 'Forfeit (end the game and let the other player win)', ko: '게임을 포기하고 상대 승리로 종료합니다', ja: '棄権（ゲームを終了し対戦相手の勝利にする）', zh: '弃赛（结束游戏并让对手获胜）', es: 'Abandonar (terminar el juego y dejar ganar al otro)', de: 'Aufgeben (Spiel beenden und Gegner gewinnen lassen)', fr: 'Abandonner (terminer la partie et laisser gagner l’autre)', hi: 'त्याग (खेल समाप्त करें और दूसरे को जीतने दें)' },
+  'poker.playerThinking': { en: '{name} thinking…', ko: '{name} 생각 중…', ja: '{name} 考え中…', zh: '{name} 思考中…', es: '{name} pensando…', de: '{name} denkt…', fr: '{name} réfléchit…', hi: '{name} सोच रहे…' },
+
+  // ───── Falling Blocks in-progress ───────────────────────────────────────
+  'fb.score':       { en: 'Score',      ko: '점수',     ja: 'スコア',     zh: '分数',    es: 'Puntos',    de: 'Punkte',     fr: 'Score',     hi: 'स्कोर' },
+  'fb.lines':       { en: 'Lines',      ko: '라인',     ja: 'ライン',     zh: '行数',    es: 'Líneas',    de: 'Reihen',     fr: 'Lignes',    hi: 'लाइनें' },
+  'fb.incoming':    { en: 'Incoming',   ko: '받는 줄',  ja: '受信',       zh: '来袭',    es: 'Entrante',  de: 'Eingehend',  fr: 'Entrant',   hi: 'आगामी' },
+  'fb.next':        { en: 'Next',       ko: '다음',     ja: '次',         zh: '下一个',  es: 'Siguiente', de: 'Nächstes',   fr: 'Suivant',   hi: 'अगला' },
+  'fb.toppedOut':   { en: 'Topped out', ko: '게임 오버', ja: 'ゲームオーバー', zh: '顶满',    es: 'Eliminado', de: 'Spiel verloren', fr: 'Plein',  hi: 'टॉप आउट' },
+  'fb.youAreOut':   { en: "You're out", ko: '탈락',     ja: '脱落',       zh: '你出局了', es: 'Has perdido', de: 'Ausgeschieden', fr: 'Vous êtes éliminé', hi: 'आप बाहर' },
+  'fb.gameOver':    { en: 'Game over',  ko: '게임 종료', ja: 'ゲーム終了', zh: '游戏结束', es: 'Fin del juego', de: 'Spiel vorbei', fr: 'Partie terminée', hi: 'गेम समाप्त' },
+  'fb.playerWon':   { en: '{name} won', ko: '{name} 승리', ja: '{name} の勝ち', zh: '{name} 获胜', es: '{name} ganó', de: '{name} hat gewonnen', fr: '{name} a gagné', hi: '{name} जीते' },
+
+  // ───── Information Panel ────────────────────────────────────────────────
+  'info.yourName':         { en: 'your name', ko: '이름', ja: '名前', zh: '你的名字', es: 'tu nombre', de: 'dein Name', fr: 'votre nom', hi: 'आपका नाम' },
+  'info.email':            { en: 'Email', ko: '이메일', ja: 'メール', zh: '邮箱', es: 'Correo', de: 'E-Mail', fr: 'E-mail', hi: 'ईमेल' },
+  'info.changePassword':   { en: 'Change Password', ko: '비밀번호 변경', ja: 'パスワードを変更', zh: '修改密码', es: 'Cambiar contraseña', de: 'Passwort ändern', fr: 'Modifier le mot de passe', hi: 'पासवर्ड बदलें' },
+  'info.currentPw':        { en: 'current password', ko: '현재 비밀번호', ja: '現在のパスワード', zh: '当前密码', es: 'contraseña actual', de: 'aktuelles Passwort', fr: 'mot de passe actuel', hi: 'वर्तमान पासवर्ड' },
+  'info.newPw':            { en: 'new password', ko: '새 비밀번호', ja: '新しいパスワード', zh: '新密码', es: 'nueva contraseña', de: 'neues Passwort', fr: 'nouveau mot de passe', hi: 'नया पासवर्ड' },
+  'info.confirmPw':        { en: 'confirm new password', ko: '새 비밀번호 확인', ja: '新しいパスワードを確認', zh: '确认新密码', es: 'confirmar nueva contraseña', de: 'neues Passwort bestätigen', fr: 'confirmer le mot de passe', hi: 'नया पासवर्ड पुष्टि' },
+  'info.updatePassword':   { en: 'Update password', ko: '비밀번호 변경', ja: 'パスワードを更新', zh: '更新密码', es: 'Actualizar contraseña', de: 'Passwort aktualisieren', fr: 'Mettre à jour', hi: 'पासवर्ड अपडेट' },
+  'info.verifying':        { en: 'verifying…', ko: '확인 중…', ja: '確認中…', zh: '验证中…', es: 'verificando…', de: 'überprüfen…', fr: 'vérification…', hi: 'सत्यापित कर रहे…' },
+  'info.deleteAccount':    { en: 'Delete Account', ko: '계정 삭제', ja: 'アカウントを削除', zh: '删除账号', es: 'Eliminar cuenta', de: 'Konto löschen', fr: 'Supprimer le compte', hi: 'खाता हटाएं' },
+  'info.deleteWarning':    { en: 'This will permanently delete your account and all data. Type DELETE to confirm.', ko: '계정과 모든 데이터가 영구 삭제됩니다. 확인하려면 DELETE를 입력하세요.', ja: 'アカウントとすべてのデータが完全に削除されます。確認のため DELETE と入力してください。', zh: '这将永久删除你的账号和所有数据。输入 DELETE 确认。', es: 'Esto eliminará permanentemente tu cuenta y todos los datos. Escribe DELETE para confirmar.', de: 'Dies löscht dein Konto und alle Daten dauerhaft. Tippe DELETE zur Bestätigung.', fr: 'Cela supprimera définitivement votre compte et toutes les données. Tapez DELETE pour confirmer.', hi: 'यह आपका खाता और सारा डेटा स्थायी रूप से हटा देगा। पुष्टि के लिए DELETE टाइप करें।' },
+  'info.deleteMyAccount':  { en: 'Delete my account', ko: '내 계정 삭제', ja: '自分のアカウントを削除', zh: '删除我的账号', es: 'Eliminar mi cuenta', de: 'Konto löschen', fr: 'Supprimer mon compte', hi: 'मेरा खाता हटाएं' },
+  'info.deleting':         { en: 'deleting…', ko: '삭제 중…', ja: '削除中…', zh: '删除中…', es: 'eliminando…', de: 'löschen…', fr: 'suppression…', hi: 'हटाया जा रहा…' },
+
+  // ───── Profile panel ────────────────────────────────────────────────────
+  'profile.members':       { en: 'members',   ko: '멤버',     ja: 'メンバー',   zh: '成员',    es: 'miembros',   de: 'Mitglieder', fr: 'membres',   hi: 'सदस्य' },
+  'profile.following':     { en: 'following', ko: '팔로잉',   ja: 'フォロー中', zh: '关注',    es: 'siguiendo',  de: 'folge ich',  fr: 'abonné',    hi: 'फॉलोइंग' },
+  'profile.changePhoto':   { en: 'Change photo', ko: '사진 변경', ja: '写真を変更', zh: '更换照片', es: 'Cambiar foto', de: 'Foto ändern', fr: 'Changer la photo', hi: 'फ़ोटो बदलें' },
+
+  // ───── Live panel — broadcaster side ────────────────────────────────────
+  'live.streamEndedTitle': { en: 'Stream ended', ko: '방송 종료', ja: '配信終了', zh: '直播结束', es: 'Transmisión finalizada', de: 'Stream beendet', fr: 'Diffusion terminée', hi: 'स्ट्रीम समाप्त' },
+  'live.duration':         { en: 'Duration', ko: '시간', ja: '時間', zh: '时长', es: 'Duración', de: 'Dauer', fr: 'Durée', hi: 'अवधि' },
+  'live.totalViewers':     { en: 'Total viewers', ko: '총 시청자', ja: '合計視聴者', zh: '总观看', es: 'Espectadores totales', de: 'Gesamt-Zuschauer', fr: 'Spectateurs totaux', hi: 'कुल दर्शक' },
+  'live.peakViewers':      { en: 'Peak viewers', ko: '최고 시청자', ja: 'ピーク視聴者', zh: '最高观看', es: 'Pico de espectadores', de: 'Spitzen-Zuschauer', fr: 'Spectateurs max.', hi: 'अधिकतम दर्शक' },
+  'live.endStream':        { en: 'End Stream', ko: '방송 종료', ja: '配信を終了', zh: '结束直播', es: 'Terminar', de: 'Stream beenden', fr: 'Terminer le direct', hi: 'स्ट्रीम समाप्त' },
+  'live.liveNow':          { en: 'Live Now', ko: '라이브 중', ja: 'ライブ中', zh: '正在直播', es: 'En vivo', de: 'Jetzt live', fr: 'En direct', hi: 'अभी लाइव' },
+  'live.watch':            { en: 'Watch', ko: '시청', ja: '視聴', zh: '观看', es: 'Ver', de: 'Ansehen', fr: 'Regarder', hi: 'देखें' },
 } as const
 
 export type TKey = keyof typeof T

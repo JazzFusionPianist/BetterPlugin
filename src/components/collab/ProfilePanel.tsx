@@ -4,6 +4,7 @@ import type { Profile } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 import HoverTooltip from './HoverTooltip'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   supabase: SupabaseClient
@@ -51,6 +52,7 @@ export default function ProfilePanel ({
   viewOnly,
   liveHostIds, liveSessions, onWatchLive,
 }: Props) {
+  const { t } = useT()
   void onRemoveFriend // retained on the props contract for future use
   const fileRef       = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
@@ -305,14 +307,14 @@ export default function ProfilePanel ({
             onClick={() => setStatList(s => s === 'members' ? null : 'members')}
           >
             <span className="orbit-stat-count">{followerProfiles.length}</span>
-            <span className="orbit-stat-label">members</span>
+            <span className="orbit-stat-label">{t('profile.members')}</span>
           </div>
           <div
             className={`orbit-stat${statList === 'following' ? ' active' : ''}`}
             onClick={() => setStatList(s => s === 'following' ? null : 'following')}
           >
             <span className="orbit-stat-count">{followingProfiles.length}</span>
-            <span className="orbit-stat-label">following</span>
+            <span className="orbit-stat-label">{t('profile.following')}</span>
           </div>
         </div>
 
@@ -339,7 +341,7 @@ export default function ProfilePanel ({
           className="profile-av-btn orbit-self"
           onClick={viewOnly ? undefined : handlePickFile}
           disabled={uploading || viewOnly}
-          title={viewOnly ? displayName : 'Change photo'}
+          title={viewOnly ? displayName : t('profile.changePhoto')}
           style={{ width: SELF_RADIUS * 2, height: SELF_RADIUS * 2, cursor: viewOnly ? 'default' : undefined }}
         >
           <div className="av profile-av" style={{ background: color, width: SELF_RADIUS * 2, height: SELF_RADIUS * 2 }}>

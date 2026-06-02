@@ -737,14 +737,14 @@ export default function ChessView({
   const drawOfferedByOpponent =
     !!(room && room.draw_offered_by !== null && room.draw_offered_by !== currentUserId)
 
-  let resultTitle = 'Draw'
+  let resultTitle = t('chess.drawResult')
   let resultEmoji = '🤝'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
-      resultTitle = 'You won!'
+      resultTitle = t('chess.youWon')
       resultEmoji = '🏆'
     } else if (room.winner_id && room.winner_id !== currentUserId) {
-      resultTitle = 'You lost'
+      resultTitle = t('chess.youLost')
       resultEmoji = '😔'
     }
   }
@@ -756,7 +756,7 @@ export default function ChessView({
         <button
           className="chess-back-btn"
           onClick={handleBack}
-          aria-label="Go back"
+          aria-label={t('common.goBack')}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
@@ -769,15 +769,15 @@ export default function ChessView({
               className="chess-btn chess-btn-resign"
               onClick={handleResign}
             >
-              Resign
+              {t('chess.resign')}
             </button>
             <button
               className="chess-btn chess-btn-draw"
               onClick={handleDrawOffer}
               disabled={drawOffering && !drawOfferedByOpponent}
-              title={drawOfferedByOpponent ? 'Opponent offered a draw — accept?' : 'Offer draw'}
+              title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
             >
-              {drawOfferedByOpponent ? 'Accept Draw' : drawOffering ? 'Draw offered' : 'Draw?'}
+              {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
             </button>
           </div>
         )}
@@ -793,15 +793,15 @@ export default function ChessView({
             </>
           ) : (
             <span className="chess-player-name chess-player-name--unknown">
-              {hasGuest ? 'Opponent' : 'Waiting…'}
+              {hasGuest ? t('common.opponent') : t('common.waiting')}
             </span>
           )}
           {isPlaying && chessState.turn !== myColor && (
-            <span className="chess-player-turn">● thinking…</span>
+            <span className="chess-player-turn">● {t('common.thinking')}</span>
           )}
           {isLobby && hasGuest && (
             <span className={`chess-ready-badge${opponentReady ? ' ready' : ''}`}>
-              {opponentReady ? '✓ Ready' : 'Not ready'}
+              {opponentReady ? t('common.readyCheck') : t('common.notReady')}
             </span>
           )}
         </div>
@@ -839,16 +839,16 @@ export default function ChessView({
                       onClick={() => setShowInviteModal(true)}
                       disabled={loading}
                     >
-                      🕹 Invite a Friend
+                      {t('chess.inviteCta')}
                     </button>
                     {room && !hasGuest && (
-                      <div className="chess-finish-readystate">Waiting for friend…</div>
+                      <div className="chess-finish-readystate">{t('chess.waitingForFriend')}</div>
                     )}
                   </>
                 ) : (
                   <>
                     <div className="chess-finish-emoji">⏳</div>
-                    <div className="chess-finish-title">Joining…</div>
+                    <div className="chess-finish-title">{t('common.joining')}</div>
                   </>
                 )}
               </div>
@@ -866,10 +866,10 @@ export default function ChessView({
                   onClick={toggleReady}
                   disabled={loading}
                 >
-                  {myReady ? '✓ Ready' : 'Ready'}
+                  {myReady ? t('common.readyCheck') : t('common.ready')}
                 </button>
                 <div className="chess-finish-readystate">
-                  {(room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0)} / 2 ready
+                  {t('chess.readyCount', { n: (room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0) })}
                 </div>
               </div>
             </div>
@@ -885,10 +885,10 @@ export default function ChessView({
                   className={`chess-ready-btn${myReady ? ' ready' : ''}`}
                   onClick={toggleReady}
                 >
-                  {myReady ? '✓ Ready' : 'Ready'}
+                  {myReady ? t('common.readyCheck') : t('common.ready')}
                 </button>
                 <div className="chess-finish-readystate">
-                  {(room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0)} / 2 ready
+                  {t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })}
                 </div>
               </div>
             </div>
@@ -912,14 +912,14 @@ export default function ChessView({
               <span className="chess-player-name">{currentUserProfile.display_name}</span>
             </>
           ) : (
-            <span className="chess-player-name">Me</span>
+            <span className="chess-player-name">{t('common.me')}</span>
           )}
           {isPlaying && isMyTurn && (
-            <span className="chess-player-turn">● Your turn</span>
+            <span className="chess-player-turn">● {t('chess.yourTurn')}</span>
           )}
           {isLobby && hasGuest && (
             <span className={`chess-ready-badge${myReady ? ' ready' : ''}`}>
-              {myReady ? '✓ Ready' : 'Not ready'}
+              {myReady ? t('common.readyCheck') : t('common.notReady')}
             </span>
           )}
         </div>

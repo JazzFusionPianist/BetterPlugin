@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   supabase: SupabaseClient
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function InformationPanel({ supabase, user, me, onClose, onUpdated, onNameSaved }: Props) {
+  const { t } = useT()
   const [name, setName] = useState(me?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -88,7 +90,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
 
       <div className="settings-card settings-header-card" onClick={onClose} role="button" tabIndex={0}>
         <span className="settings-header-back">‹</span>
-        <span className="settings-header-title">User Info</span>
+        <span className="settings-header-title">{t('settings.userInfo')}</span>
       </div>
 
       <div className="info-stack">
@@ -99,7 +101,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="your name"
+            placeholder={t('info.yourName')}
             maxLength={40}
           />
           <button
@@ -107,13 +109,13 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
             onClick={handleSaveName}
             disabled={saving || !name.trim() || name === me?.display_name}
           >
-            {saving ? '...' : 'Save'}
+            {saving ? '...' : t('common.save')}
           </button>
         </div>
 
         {/* Email */}
         <div className="settings-card settings-row-card info-email-card">
-          <span>Email</span>
+          <span>{t('info.email')}</span>
           <span className="settings-row-action info-email-value">{user.email}</span>
         </div>
 
@@ -124,7 +126,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
           role="button"
           tabIndex={0}
         >
-          <span>Change Password</span>
+          <span>{t('info.changePassword')}</span>
           <span className="settings-row-action info-toggle-chev">{pwOpen ? '▾' : '›'}</span>
         </div>
 
@@ -134,7 +136,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
               <input
                 className="info-input"
                 type="password"
-                placeholder="current password"
+                placeholder={t('info.currentPw')}
                 value={currentPw}
                 onChange={e => { setCurrentPw(e.target.value); setPwError(null) }}
               />
@@ -143,7 +145,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
               <input
                 className="info-input"
                 type="password"
-                placeholder="new password"
+                placeholder={t('info.newPw')}
                 value={newPw}
                 onChange={e => { setNewPw(e.target.value); setPwError(null) }}
               />
@@ -152,7 +154,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
               <input
                 className="info-input"
                 type="password"
-                placeholder="confirm new password"
+                placeholder={t('info.confirmPw')}
                 value={confirmPw}
                 onChange={e => { setConfirmPw(e.target.value); setPwError(null) }}
               />
@@ -163,7 +165,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
               onClick={handleChangePassword}
               disabled={savingPw || !currentPw || !newPw || !confirmPw}
             >
-              {savingPw ? 'verifying...' : 'Update password'}
+              {savingPw ? t('info.verifying') : t('info.updatePassword')}
             </button>
           </>
         )}
@@ -175,14 +177,14 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
           role="button"
           tabIndex={0}
         >
-          <span>Delete Account</span>
+          <span>{t('info.deleteAccount')}</span>
           <span className="info-toggle-chev info-toggle-chev-danger">{deleteOpen ? '▾' : '›'}</span>
         </div>
 
         {deleteOpen && (
           <>
             <div className="settings-card info-desc-card">
-              This will permanently delete your account and all data. Type <strong>DELETE</strong> to confirm.
+              {t('info.deleteWarning')}
             </div>
             <div className="settings-card info-input-card">
               <input
@@ -198,7 +200,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
               onClick={handleDeleteAccount}
               disabled={deleting || deleteInput !== 'DELETE'}
             >
-              {deleting ? 'deleting...' : 'Delete my account'}
+              {deleting ? t('info.deleting') : t('info.deleteMyAccount')}
             </button>
           </>
         )}

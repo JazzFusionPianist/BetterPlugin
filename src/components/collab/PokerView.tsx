@@ -415,18 +415,18 @@ export default function PokerView({
   }, [raise, raiseAmount])
 
   // ── Result text (finished) ───────────────────────────────────────────────
-  let resultTitle = 'Game over'
+  let resultTitle = t('poker.gameOver')
   let resultEmoji = '🃏'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
-      resultTitle = 'You won!'
+      resultTitle = t('poker.youWon')
       resultEmoji = '🏆'
     } else if (room.winner_id) {
       const winnerProfile = profileById.get(room.winner_id) ?? null
-      resultTitle = winnerProfile ? `${winnerProfile.display_name} won` : 'You lost'
+      resultTitle = winnerProfile ? t('poker.playerWon', { name: winnerProfile.display_name }) : t('poker.youLost')
       resultEmoji = '😔'
     } else {
-      resultTitle = 'Game over'
+      resultTitle = t('poker.gameOver')
       resultEmoji = '🃏'
     }
   }
@@ -440,7 +440,9 @@ export default function PokerView({
   const minRaiseDelta = roomState.min_raise ?? BIG_BLIND
   const toCall = Math.max(0, roomCurrentBet - myBet)
   const callIsAllIn = toCall >= myChips && toCall > 0
-  const callLabel = toCall === 0 ? 'Check' : (callIsAllIn ? `All-in (${myChips})` : `Call ${toCall}`)
+  const callLabel = toCall === 0
+    ? t('poker.check')
+    : (callIsAllIn ? t('poker.callAllInChips', { chips: myChips }) : t('poker.call', { amount: toCall }))
   const minRaiseTotal = roomCurrentBet + minRaiseDelta
   const maxRaiseTotal = myChips + myBet
   const canRaise = maxRaiseTotal > roomCurrentBet
@@ -492,9 +494,9 @@ export default function PokerView({
             <button
               className="poker-btn poker-btn-forfeit"
               onClick={handleForfeit}
-              title="Forfeit (end the game and let the other player win)"
+              title={t('poker.forfeitTip')}
             >
-              Forfeit
+              {t('poker.forfeit')}
             </button>
           </div>
         )}
@@ -537,8 +539,8 @@ export default function PokerView({
                   {(ps?.current_bet ?? 0) > 0 && (
                     <span className="poker-opponent-bet">Bet {ps?.current_bet}</span>
                   )}
-                  {folded && <span className="poker-opponent-status">Folded</span>}
-                  {allIn && !folded && <span className="poker-opponent-status">All-in</span>}
+                  {folded && <span className="poker-opponent-status">{t('poker.folded')}</span>}
+                  {allIn && !folded && <span className="poker-opponent-status">{t('poker.allInShort')}</span>}
                   <div className="poker-opponent-cards">
                     {showdownReveal && showdown && showdown.hole_cards.length >= 2 ? (
                       <>
@@ -565,7 +567,7 @@ export default function PokerView({
                     )}
                   </div>
                   {isTheirTurn && (
-                    <span className="poker-thinking">thinking…</span>
+                    <span className="poker-thinking">{t('common.thinking')}</span>
                   )}
                 </div>
               )
@@ -649,7 +651,7 @@ export default function PokerView({
             <div className="poker-finish-overlay chess-finish-overlay">
               <div className="poker-finish-card chess-finish-card">
                 <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">Joining…</div>
+                <div className="poker-finish-title">{t('common.joining')}</div>
               </div>
             </div>
           )}
@@ -763,8 +765,8 @@ export default function PokerView({
             {(myState?.current_bet ?? 0) > 0 && (
               <span className="poker-self-bet">Bet {myState?.current_bet}</span>
             )}
-            {myState?.folded && <span className="poker-opponent-status">Folded</span>}
-            {myState?.all_in && !myState.folded && <span className="poker-opponent-status">All-in</span>}
+            {myState?.folded && <span className="poker-opponent-status">{t('poker.folded')}</span>}
+            {myState?.all_in && !myState.folded && <span className="poker-opponent-status">{t('poker.allInShort')}</span>}
           </div>
 
           {/* Action buttons */}
@@ -775,7 +777,7 @@ export default function PokerView({
                   className="poker-action-btn poker-action-btn--fold"
                   onClick={handleFold}
                 >
-                  Fold
+                  {t('poker.fold')}
                 </button>
                 <button
                   className="poker-action-btn poker-action-btn--call"
@@ -805,14 +807,14 @@ export default function PokerView({
                         || raiseAmount <= roomCurrentBet
                       }
                     >
-                      Raise {raiseAmount}
+                      {t('poker.raise')} {raiseAmount}
                     </button>
                   </div>
                   <div className="poker-raise-quick">
-                    <button onClick={() => setRaiseQuick('min')} type="button">Min</button>
+                    <button onClick={() => setRaiseQuick('min')} type="button">{t('poker.min')}</button>
                     <button onClick={() => setRaiseQuick('half')} type="button">½ Pot</button>
-                    <button onClick={() => setRaiseQuick('pot')} type="button">Pot</button>
-                    <button onClick={() => setRaiseQuick('allin')} type="button">All-in</button>
+                    <button onClick={() => setRaiseQuick('pot')} type="button">{t('poker.pot')}</button>
+                    <button onClick={() => setRaiseQuick('allin')} type="button">{t('poker.allInShort')}</button>
                   </div>
                 </div>
               )}
@@ -821,7 +823,7 @@ export default function PokerView({
 
           {isHandActive && !isMyTurn && currentPlayerId && (
             <div className="poker-thinking">
-              {(profileById.get(currentPlayerId)?.display_name ?? 'Player')} thinking…
+              {t('poker.playerThinking', { name: profileById.get(currentPlayerId)?.display_name ?? '' })}
             </div>
           )}
         </div>

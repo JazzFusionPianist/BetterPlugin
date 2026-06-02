@@ -573,7 +573,7 @@ function ExpiredAttachment({ type }: { type: AttachType }) {
   return (
     <div className="att-expired">
       <span className="att-expired-icon">{icon}</span>
-      <span className="att-expired-text">파일이 만료되었습니다 (7일)</span>
+      <span className="att-expired-text">File expired (7 days)</span>
     </div>
   )
 }

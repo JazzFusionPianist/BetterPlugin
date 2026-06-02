@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 
-export type GameId = 'chess' | 'tetris' | 'poker'
+export type GameId = 'chess' | 'falling_blocks' | 'poker'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -35,7 +35,7 @@ const GAMES: GameCard[] = [
     description: 'Play vs a friend',
   },
   {
-    id: 'tetris',
+    id: 'falling_blocks',
     coverBg: 'radial-gradient(circle at 30% 30%, #6fb6ff 0%, #4a8fe7 50%, #5a3fd0 100%)',
     icon: (
       <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">

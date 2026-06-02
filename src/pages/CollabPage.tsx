@@ -23,7 +23,7 @@ import type { NotifSettings } from '../components/collab/NotificationSettingsPan
 import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
-import TetrisView from '../components/collab/TetrisView'
+import FallingBlocksView from '../components/collab/FallingBlocksView'
 import PokerView from '../components/collab/PokerView'
 import type { Profile } from '../types/collab'
 import type { VideoSource } from '../types/live'
@@ -117,7 +117,7 @@ function CollabPageInner({ user }: Props) {
   const [convOpen, setConvOpen]                 = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'tetris' | 'poker'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker'>('list')
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -529,7 +529,7 @@ function CollabPageInner({ user }: Props) {
                   <div className="notif-name">{ev.actor.display_name}</div>
                   <div className="notif-preview">
                     {ev.type === 'game_invite'
-                      ? (ev.metadata?.game_type === 'tetris'
+                      ? (ev.metadata?.game_type === 'falling_blocks'
                           ? '🧱 invited you to play Falling Blocks'
                           : ev.metadata?.game_type === 'poker'
                             ? '🃏 invited you to play Poker'
@@ -547,7 +547,7 @@ function CollabPageInner({ user }: Props) {
                         setNotifOpen(false)
                         setGameOpen(true)
                         const gameType =
-                          ev.metadata?.game_type === 'tetris' ? 'tetris' :
+                          ev.metadata?.game_type === 'falling_blocks' ? 'falling_blocks' :
                           ev.metadata?.game_type === 'poker' ? 'poker' :
                           'chess'
                         setGameScreen(gameType)
@@ -700,8 +700,8 @@ function CollabPageInner({ user }: Props) {
               onClose={() => setGameScreen('list')}
             />
           )}
-          {gameScreen === 'tetris' && (
-            <TetrisView
+          {gameScreen === 'falling_blocks' && (
+            <FallingBlocksView
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}

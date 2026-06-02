@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Profile, TetrisPlayerState } from '../../types/collab'
-import { useTetrisRoom } from '../../hooks/useTetrisRoom'
+import type { Profile, FallingBlocksPlayerState } from '../../types/collab'
+import { useFallingBlocksRoom } from '../../hooks/useFallingBlocksRoom'
 import {
-  initialTetrisState,
+  initialFallingBlocksState,
   tryMove,
   tryRotate,
   hardDrop,
@@ -14,8 +14,8 @@ import {
   pieceCells,
   BOARD_ROWS,
   BOARD_COLS,
-} from '../../hooks/useTetris'
-import type { TetrisState, Board, Piece, PieceType } from '../../hooks/useTetris'
+} from '../../hooks/useFallingBlocks'
+import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -24,14 +24,14 @@ const TICK_MS = 50
 const SYNC_THROTTLE_MS = 250
 
 const PIECE_CLASS: Record<string, string> = {
-  I: 'tetris-cell--I',
-  O: 'tetris-cell--O',
-  T: 'tetris-cell--T',
-  S: 'tetris-cell--S',
-  Z: 'tetris-cell--Z',
-  J: 'tetris-cell--J',
-  L: 'tetris-cell--L',
-  G: 'tetris-cell--G',
+  I: 'falling-blocks-cell--I',
+  O: 'falling-blocks-cell--O',
+  T: 'falling-blocks-cell--T',
+  S: 'falling-blocks-cell--S',
+  Z: 'falling-blocks-cell--Z',
+  J: 'falling-blocks-cell--J',
+  L: 'falling-blocks-cell--L',
+  G: 'falling-blocks-cell--G',
 }
 
 // ─── Avatar helper ────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function Avatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
 
 // ─── Board renderer ───────────────────────────────────────────────────────────
 
-interface TetrisBoardProps {
+interface FallingBlocksBoardProps {
   board: Board
   currentPiece?: Piece | null
   ghost?: Piece | null
@@ -77,7 +77,7 @@ interface TetrisBoardProps {
   size?: 'self' | 'opponent'
 }
 
-function TetrisBoard({ board, currentPiece, ghost, topOut, size = 'self' }: TetrisBoardProps) {
+function FallingBlocksBoard({ board, currentPiece, ghost, topOut, size = 'self' }: FallingBlocksBoardProps) {
   // Build display board: base + ghost overlay + current piece overlay
   const display: (string | null)[][] = useMemo(() => {
     const out: (string | null)[][] = board.map(row => row.slice())
@@ -101,15 +101,15 @@ function TetrisBoard({ board, currentPiece, ghost, topOut, size = 'self' }: Tetr
   const sizeClass = size === 'self' ? 'is-self' : 'is-opponent'
 
   return (
-    <div className={`tetris-board ${sizeClass}`} role="grid" aria-label="Falling Blocks board">
+    <div className={`falling-blocks-board ${sizeClass}`} role="grid" aria-label="Falling Blocks board">
       {display.map((row, r) => (
-        <div key={r} className="tetris-board-row" style={{ display: 'contents' }}>
+        <div key={r} className="falling-blocks-board-row" style={{ display: 'contents' }}>
           {row.map((cell, c) => {
-            let cls = 'tetris-cell'
+            let cls = 'falling-blocks-cell'
             if (cell) {
               if (cell.startsWith('ghost-')) {
                 const t = cell.slice('ghost-'.length)
-                cls += ` tetris-cell--ghost ${PIECE_CLASS[t] ?? ''}`
+                cls += ` falling-blocks-cell--ghost ${PIECE_CLASS[t] ?? ''}`
               } else {
                 cls += ` ${PIECE_CLASS[cell] ?? ''}`
               }
@@ -119,7 +119,7 @@ function TetrisBoard({ board, currentPiece, ghost, topOut, size = 'self' }: Tetr
         </div>
       ))}
       {topOut && (
-        <div className="tetris-topout-overlay">
+        <div className="falling-blocks-topout-overlay">
           <span>Topped out</span>
         </div>
       )}
@@ -141,13 +141,13 @@ const PIECE_PREVIEW_SHAPES: Record<PieceType, number[][]> = {
 
 function NextPiecesPreview({ pieces }: { pieces: PieceType[] }) {
   return (
-    <div className="tetris-next-list">
+    <div className="falling-blocks-next-list">
       {pieces.slice(0, 3).map((type, i) => {
         const shape = PIECE_PREVIEW_SHAPES[type]
         return (
           <div
             key={i}
-            className="tetris-next-piece"
+            className="falling-blocks-next-piece"
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${shape[0].length}, 12px)`,
@@ -159,7 +159,7 @@ function NextPiecesPreview({ pieces }: { pieces: PieceType[] }) {
               row.map((v, c) => (
                 <div
                   key={`${r}-${c}`}
-                  className={v ? `tetris-cell ${PIECE_CLASS[type]}` : 'tetris-cell'}
+                  className={v ? `falling-blocks-cell ${PIECE_CLASS[type]}` : 'falling-blocks-cell'}
                   style={{ width: 12, height: 12, opacity: v ? 1 : 0 }}
                 />
               ))
@@ -175,7 +175,7 @@ function NextPiecesPreview({ pieces }: { pieces: PieceType[] }) {
 
 interface OpponentBoardProps {
   profile: Profile | null
-  state: TetrisPlayerState | undefined
+  state: FallingBlocksPlayerState | undefined
   fallbackName: string
 }
 
@@ -184,17 +184,17 @@ function OpponentBoard({ profile, state, fallbackName }: OpponentBoardProps) {
     Array.from({ length: BOARD_COLS }, () => null)
   )
   return (
-    <div className="tetris-opponent">
-      <div className="tetris-opponent-header">
+    <div className="falling-blocks-opponent">
+      <div className="falling-blocks-opponent-header">
         {profile && <Avatar profile={profile} size={20} />}
-        <span className="tetris-opponent-name">
+        <span className="falling-blocks-opponent-name">
           {profile?.display_name ?? fallbackName}
         </span>
-        <span className="tetris-opponent-score">
+        <span className="falling-blocks-opponent-score">
           {state?.score ?? 0}
         </span>
       </div>
-      <TetrisBoard
+      <FallingBlocksBoard
         board={board}
         topOut={state?.top_out ?? false}
         size="opponent"
@@ -236,16 +236,16 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
 
   return (
     <div
-      className="tetris-invite-modal-overlay"
+      className="falling-blocks-invite-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="tetris-invite-modal" role="dialog" aria-label="Invite friends">
-        <div className="tetris-invite-modal-header">
-          <span className="tetris-invite-modal-title">
+      <div className="falling-blocks-invite-modal" role="dialog" aria-label="Invite friends">
+        <div className="falling-blocks-invite-modal-header">
+          <span className="falling-blocks-invite-modal-title">
             Invite Friends ({invitedIds.size}/{maxInvitees})
           </span>
           <button
-            className="tetris-invite-modal-close"
+            className="falling-blocks-invite-modal-close"
             onClick={onClose}
             aria-label="Close invite dialog"
           >
@@ -253,9 +253,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           </button>
         </div>
         {friends.length > 0 && (
-          <div className="tetris-invite-search-wrap">
+          <div className="falling-blocks-invite-search-wrap">
             <input
-              className="tetris-invite-search-input"
+              className="falling-blocks-invite-search-input"
               type="text"
               placeholder={`Search ${friends.length} friend${friends.length === 1 ? '' : 's'}…`}
               value={query}
@@ -265,23 +265,23 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           </div>
         )}
         {friends.length === 0 ? (
-          <p className="tetris-invite-empty">No friends to invite.</p>
+          <p className="falling-blocks-invite-empty">No friends to invite.</p>
         ) : filtered.length === 0 ? (
-          <p className="tetris-invite-empty">No friends match "{query}".</p>
+          <p className="falling-blocks-invite-empty">No friends match "{query}".</p>
         ) : (
-          <div className="tetris-invite-list">
+          <div className="falling-blocks-invite-list">
             {filtered.map(friend => {
               const isInvited = invitedIds.has(friend.id)
               const disabled = isInvited || (limitReached && !isInvited)
               return (
-                <div key={friend.id} className="tetris-invite-row">
-                  <div className="tetris-invite-av-wrap">
+                <div key={friend.id} className="falling-blocks-invite-row">
+                  <div className="falling-blocks-invite-av-wrap">
                     <Avatar profile={friend} size={36} />
-                    {friend.isOnline && <span className="tetris-invite-online-dot" />}
+                    {friend.isOnline && <span className="falling-blocks-invite-online-dot" />}
                   </div>
-                  <span className="tetris-invite-name">{friend.display_name}</span>
+                  <span className="falling-blocks-invite-name">{friend.display_name}</span>
                   <button
-                    className="tetris-invite-do-btn"
+                    className="falling-blocks-invite-do-btn"
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
                   >
@@ -310,7 +310,7 @@ interface Props {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function TetrisView({
+export default function FallingBlocksView({
   supabase,
   currentUserId,
   currentUserProfile,
@@ -333,14 +333,14 @@ export default function TetrisView({
     updateMyState,
     sendGarbage,
     setPlayerTopOut,
-  } = useTetrisRoom(supabase, currentUserId)
+  } = useFallingBlocksRoom(supabase, currentUserId)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4>(2)
 
   // Local game state
-  const [tetris, setTetris] = useState<TetrisState>(() => ({
+  const [game, setGame] = useState<FallingBlocksState>(() => ({
     board: Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null)),
     current: null,
     next: [],
@@ -351,8 +351,8 @@ export default function TetrisView({
     garbagePending: 0,
     lockTimer: null,
   }))
-  const tetrisRef = useRef(tetris)
-  useEffect(() => { tetrisRef.current = tetris }, [tetris])
+  const gameRef = useRef(game)
+  useEffect(() => { gameRef.current = game }, [game])
 
   const playerStatesRef = useRef(playerStates)
   useEffect(() => { playerStatesRef.current = playerStates }, [playerStates])
@@ -443,8 +443,8 @@ export default function TetrisView({
     const prev = prevStatusRef.current
     prevStatusRef.current = status
     if (prev !== 'playing' && status === 'playing') {
-      const fresh = initialTetrisState()
-      setTetris(fresh)
+      const fresh = initialFallingBlocksState()
+      setGame(fresh)
       // Push initial state to server
       updateMyState({
         board: fresh.board,
@@ -463,7 +463,7 @@ export default function TetrisView({
     if (!ps) return
     if (ps.garbage_pending > 0) {
       // Add to local pending and reset server inbox
-      setTetris(prev => ({
+      setGame(prev => ({
         ...prev,
         garbagePending: prev.garbagePending + ps.garbage_pending,
       }))
@@ -479,11 +479,11 @@ export default function TetrisView({
     if (now - lastSyncRef.current < SYNC_THROTTLE_MS) return
     lastSyncRef.current = now
     updateMyState({
-      board: tetris.board,
-      score: tetris.score,
-      lines: tetris.lines,
+      board: game.board,
+      score: game.score,
+      lines: game.lines,
     })
-  }, [tetris.board, tetris.score, tetris.lines, isPlaying, updateMyState])
+  }, [game.board, game.score, game.lines, isPlaying, updateMyState])
 
   // ── On local top-out: notify server ──────────────────────────────────────
   const reportedTopOutRef = useRef(false)
@@ -492,16 +492,16 @@ export default function TetrisView({
       reportedTopOutRef.current = false
       return
     }
-    if (tetris.topOut && !reportedTopOutRef.current) {
+    if (game.topOut && !reportedTopOutRef.current) {
       reportedTopOutRef.current = true
       updateMyState({
         top_out: true,
-        board: tetris.board,
-        score: tetris.score,
-        lines: tetris.lines,
+        board: game.board,
+        score: game.score,
+        lines: game.lines,
       })
     }
-  }, [tetris.topOut, tetris.board, tetris.score, tetris.lines, isPlaying, updateMyState])
+  }, [game.topOut, game.board, game.score, game.lines, isPlaying, updateMyState])
 
   // ── Win detection: if all opponents topped out and I'm alive, end game ──
   useEffect(() => {
@@ -538,7 +538,7 @@ export default function TetrisView({
 
   // ── Lock & spawn helper ──────────────────────────────────────────────────
   const handleLockAndSpawn = useCallback(
-    (state: TetrisState): TetrisState => {
+    (state: FallingBlocksState): FallingBlocksState => {
       const lockResult = lockPiece(state)
       if (lockResult.garbageToSend > 0) {
         distributeGarbage(lockResult.garbageToSend)
@@ -552,7 +552,7 @@ export default function TetrisView({
   // ── Keyboard controls ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isPlaying) return
-    if (myTopOutServer || tetris.topOut) return
+    if (myTopOutServer || game.topOut) return
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
@@ -574,7 +574,7 @@ export default function TetrisView({
         e.preventDefault()
       }
 
-      setTetris(prev => {
+      setGame(prev => {
         if (prev.topOut || !prev.current) return prev
         switch (key) {
           case 'ArrowLeft':
@@ -607,7 +607,7 @@ export default function TetrisView({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isPlaying, myTopOutServer, tetris.topOut, distributeGarbage])
+  }, [isPlaying, myTopOutServer, game.topOut, distributeGarbage])
 
   // ── Game loop: gravity tick + lock timer ─────────────────────────────────
   useEffect(() => {
@@ -623,7 +623,7 @@ export default function TetrisView({
       lastTick = now
       gravityAccum += dt
 
-      setTetris(prev => {
+      setGame(prev => {
         if (prev.topOut || !prev.current) return prev
         let next = prev
         // Gravity step (move piece down) only fires every GRAVITY_MS.
@@ -683,20 +683,20 @@ export default function TetrisView({
       }
       if (room.player_ids.length > count) return
       const { error } = await supabase
-        .from('tetris_rooms')
+        .from('falling_blocks_rooms')
         .update({ player_count: count })
         .eq('id', room.id)
-      if (error) console.error('[TetrisView.updatePlayerCount]', error)
+      if (error) console.error('[FallingBlocksView.updatePlayerCount]', error)
     },
     [supabase, room, isHost]
   )
 
   // ── Ghost piece ──────────────────────────────────────────────────────────
-  const ghost = useMemo(() => getGhostPiece(tetris), [tetris])
+  const ghost = useMemo(() => getGhostPiece(game), [game])
 
   // ── Display board for self ───────────────────────────────────────────────
   const selfDisplayBoard: Board = isPlaying || isFinished
-    ? tetris.board
+    ? game.board
     : Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
 
   // ── Result text ──────────────────────────────────────────────────────────
@@ -720,11 +720,11 @@ export default function TetrisView({
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="tetris-view" style={{ userSelect: 'none' }}>
+    <div className="falling-blocks-view" style={{ userSelect: 'none' }}>
       {/* Header */}
-      <div className="tetris-header">
+      <div className="falling-blocks-header">
         <button
-          className="tetris-back-btn chess-back-btn"
+          className="falling-blocks-back-btn chess-back-btn"
           onClick={handleBack}
           aria-label="Go back"
         >
@@ -738,11 +738,11 @@ export default function TetrisView({
             />
           </svg>
         </button>
-        <span className="tetris-title">Falling Blocks</span>
+        <span className="falling-blocks-title">Falling Blocks</span>
         {isPlaying && !myTopOutServer && (
-          <div className="tetris-controls">
+          <div className="falling-blocks-controls">
             <button
-              className="tetris-btn tetris-btn-forfeit"
+              className="falling-blocks-btn falling-blocks-btn-forfeit"
               onClick={handleForfeit}
             >
               Forfeit
@@ -751,15 +751,15 @@ export default function TetrisView({
         )}
       </div>
 
-      <div className="tetris-game-layout">
+      <div className="falling-blocks-game-layout">
         {/* Opponents row */}
-        <div className="tetris-opponents-row">
+        <div className="falling-blocks-opponents-row">
           {opponentIds.length === 0 ? (
-            <div className="tetris-opponent" style={{ opacity: 0.5 }}>
-              <div className="tetris-opponent-header">
-                <span className="tetris-opponent-name">Waiting…</span>
+            <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
+              <div className="falling-blocks-opponent-header">
+                <span className="falling-blocks-opponent-name">Waiting…</span>
               </div>
-              <TetrisBoard
+              <FallingBlocksBoard
                 board={Array.from({ length: BOARD_ROWS }, () =>
                   Array.from({ length: BOARD_COLS }, () => null)
                 )}
@@ -779,26 +779,26 @@ export default function TetrisView({
         </div>
 
         {/* Self row */}
-        <div className="tetris-self-row">
-          <div className="tetris-self-board-wrap">
-            <TetrisBoard
+        <div className="falling-blocks-self-row">
+          <div className="falling-blocks-self-board-wrap">
+            <FallingBlocksBoard
               board={selfDisplayBoard}
-              currentPiece={isPlaying && !myTopOutServer ? tetris.current : null}
+              currentPiece={isPlaying && !myTopOutServer ? game.current : null}
               ghost={isPlaying && !myTopOutServer ? ghost : null}
               size="self"
             />
 
             {/* Lobby overlay: no room or not all players present */}
             {!isPlaying && !isFinished && (!room || !hasAllPlayers) && (
-              <div className="tetris-finish-overlay chess-finish-overlay">
-                <div className="tetris-finish-card chess-finish-card">
-                  <div className="tetris-finish-emoji">🧱</div>
-                  <div className="tetris-finish-title">Falling Blocks</div>
-                  <div className="tetris-player-count-picker">
+              <div className="falling-blocks-finish-overlay chess-finish-overlay">
+                <div className="falling-blocks-finish-card chess-finish-card">
+                  <div className="falling-blocks-finish-emoji">🧱</div>
+                  <div className="falling-blocks-finish-title">Falling Blocks</div>
+                  <div className="falling-blocks-player-count-picker">
                     {[2, 3, 4].map(n => (
                       <button
                         key={n}
-                        className={`tetris-player-count-btn${
+                        className={`falling-blocks-player-count-btn${
                           (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
                         }`}
                         onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
@@ -810,7 +810,7 @@ export default function TetrisView({
                   </div>
                   {!room ? (
                     <button
-                      className="tetris-btn"
+                      className="falling-blocks-btn"
                       onClick={handleCreateRoom}
                       disabled={loading}
                     >
@@ -819,7 +819,7 @@ export default function TetrisView({
                   ) : (
                     isHost && (
                       <button
-                        className="tetris-btn"
+                        className="falling-blocks-btn"
                         onClick={() => setShowInviteModal(true)}
                       >
                         🕹 Invite Friends
@@ -827,7 +827,7 @@ export default function TetrisView({
                     )
                   )}
                   {room && (
-                    <div className="tetris-finish-readystate">
+                    <div className="falling-blocks-finish-readystate">
                       {room.player_ids.length} / {room.player_count} joined
                     </div>
                   )}
@@ -837,18 +837,18 @@ export default function TetrisView({
 
             {/* Lobby ready overlay (all players present) */}
             {isLobby && hasAllPlayers && !allReady && (
-              <div className="tetris-finish-overlay chess-finish-overlay">
-                <div className="tetris-finish-card chess-finish-card">
-                  <div className="tetris-finish-emoji">🧱</div>
-                  <div className="tetris-finish-title">Ready to play?</div>
+              <div className="falling-blocks-finish-overlay chess-finish-overlay">
+                <div className="falling-blocks-finish-card chess-finish-card">
+                  <div className="falling-blocks-finish-emoji">🧱</div>
+                  <div className="falling-blocks-finish-title">Ready to play?</div>
                   <button
-                    className={`tetris-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
+                    className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
                     onClick={toggleReady}
                     disabled={loading}
                   >
                     {myReady ? '✓ Ready' : 'Ready'}
                   </button>
-                  <div className="tetris-finish-readystate">
+                  <div className="falling-blocks-finish-readystate">
                     {room!.ready_ids.length} / {room!.player_count} ready
                   </div>
                 </div>
@@ -857,17 +857,17 @@ export default function TetrisView({
 
             {/* Finish overlay */}
             {isFinished && room && (
-              <div className="tetris-finish-overlay chess-finish-overlay">
-                <div className="tetris-finish-card chess-finish-card">
-                  <div className="tetris-finish-emoji">{resultEmoji}</div>
-                  <div className="tetris-finish-title">{resultTitle}</div>
+              <div className="falling-blocks-finish-overlay chess-finish-overlay">
+                <div className="falling-blocks-finish-card chess-finish-card">
+                  <div className="falling-blocks-finish-emoji">{resultEmoji}</div>
+                  <div className="falling-blocks-finish-title">{resultTitle}</div>
                   <button
-                    className={`tetris-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
+                    className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
                     onClick={toggleReady}
                   >
                     {myReady ? '✓ Ready' : 'Rematch'}
                   </button>
-                  <div className="tetris-finish-readystate">
+                  <div className="falling-blocks-finish-readystate">
                     {room.ready_ids.length} / {room.player_count} ready
                   </div>
                 </div>
@@ -876,36 +876,36 @@ export default function TetrisView({
 
             {/* Self topped out (game still going) */}
             {isPlaying && myTopOutServer && (
-              <div className="tetris-topout-overlay">
+              <div className="falling-blocks-topout-overlay">
                 <span>You're out</span>
               </div>
             )}
           </div>
 
           {/* Side info */}
-          <div className="tetris-side-info">
-            <div className="tetris-stat">
-              <span className="tetris-stat-label">Score</span>
-              <span className="tetris-stat-value">{tetris.score}</span>
+          <div className="falling-blocks-side-info">
+            <div className="falling-blocks-stat">
+              <span className="falling-blocks-stat-label">Score</span>
+              <span className="falling-blocks-stat-value">{game.score}</span>
             </div>
-            <div className="tetris-stat">
-              <span className="tetris-stat-label">Lines</span>
-              <span className="tetris-stat-value">{tetris.lines}</span>
+            <div className="falling-blocks-stat">
+              <span className="falling-blocks-stat-label">Lines</span>
+              <span className="falling-blocks-stat-value">{game.lines}</span>
             </div>
-            <div className="tetris-stat">
-              <span className="tetris-stat-label">Incoming</span>
-              <span className="tetris-stat-value">
-                {tetris.garbagePending + (myPlayerState?.garbage_pending ?? 0)}
+            <div className="falling-blocks-stat">
+              <span className="falling-blocks-stat-label">Incoming</span>
+              <span className="falling-blocks-stat-value">
+                {game.garbagePending + (myPlayerState?.garbage_pending ?? 0)}
               </span>
             </div>
-            <div className="tetris-stat">
-              <span className="tetris-stat-label">Next</span>
-              <NextPiecesPreview pieces={tetris.next} />
+            <div className="falling-blocks-stat">
+              <span className="falling-blocks-stat-label">Next</span>
+              <NextPiecesPreview pieces={game.next} />
             </div>
             {isLobby && hasAllPlayers && (
-              <div className="tetris-stat">
-                <span className="tetris-stat-label">You</span>
-                <span className="tetris-stat-value">
+              <div className="falling-blocks-stat">
+                <span className="falling-blocks-stat-label">You</span>
+                <span className="falling-blocks-stat-value">
                   {currentUserProfile?.display_name ?? 'Me'}
                 </span>
               </div>

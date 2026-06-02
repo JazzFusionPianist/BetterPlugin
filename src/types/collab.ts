@@ -106,7 +106,7 @@ export interface PokerHoleCards {
   cards: string[]                   // ["AS", "KH"] — 2 cards
 }
 
-export interface TetrisRoom {
+export interface FallingBlocksRoom {
   id: string
   host_id: string
   player_count: 2 | 3 | 4
@@ -118,7 +118,7 @@ export interface TetrisRoom {
   updated_at: string
 }
 
-export interface TetrisPlayerState {
+export interface FallingBlocksPlayerState {
   room_id: string
   user_id: string
   board: (string | null)[][]   // 20 rows × 10 cols, cell holds piece type ('I','O',...) or null

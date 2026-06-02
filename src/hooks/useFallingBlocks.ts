@@ -1,4 +1,4 @@
-// Pure-functions Tetris game logic for multiplayer battle Tetris.
+// Pure-functions FallingBlocks game logic for multiplayer battle FallingBlocks.
 // No React. All functions are pure (return new state, do not mutate inputs).
 
 export type Cell = string | null
@@ -12,7 +12,7 @@ export interface Piece {
   col: number
 }
 
-export interface TetrisState {
+export interface FallingBlocksState {
   board: Board // 20×10
   current: Piece | null // null between piece-lock and next-spawn (briefly)
   next: PieceType[] // upcoming pieces (at least 5 visible)
@@ -25,7 +25,7 @@ export interface TetrisState {
 }
 
 export interface LockResult {
-  state: TetrisState
+  state: FallingBlocksState
   linesCleared: number // 0–4
   garbageToSend: number // = max(0, linesCleared - 1) for MVP
 }
@@ -307,7 +307,7 @@ function isOnGround(board: Board, piece: Piece): boolean {
   return !isValidPosition(board, moved)
 }
 
-function applyLockTimer(state: TetrisState): TetrisState {
+function applyLockTimer(state: FallingBlocksState): FallingBlocksState {
   if (!state.current) return { ...state, lockTimer: null }
   if (isOnGround(state.board, state.current)) {
     return { ...state, lockTimer: LOCK_DELAY_MS }
@@ -395,7 +395,7 @@ export function addGarbageLines(board: Board, n: number, holeCol: number): Board
   return next
 }
 
-export function getGhostPiece(state: TetrisState): Piece | null {
+export function getGhostPiece(state: FallingBlocksState): Piece | null {
   if (!state.current) return null
   let ghost: Piece = { ...state.current }
   // Step down until the next position would be invalid.
@@ -411,7 +411,7 @@ export function getGhostPiece(state: TetrisState): Piece | null {
 // Core state transitions
 // ---------------------------------------------------------------------------
 
-export function spawnPiece(state: TetrisState): TetrisState {
+export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
   // Apply any pending garbage before spawning.
   let board = state.board
   let topOut = state.topOut
@@ -458,7 +458,7 @@ export function spawnPiece(state: TetrisState): TetrisState {
     }
   }
 
-  const spawned: TetrisState = {
+  const spawned: FallingBlocksState = {
     ...state,
     board,
     current: piece,
@@ -471,8 +471,8 @@ export function spawnPiece(state: TetrisState): TetrisState {
   return applyLockTimer(spawned)
 }
 
-export function initialTetrisState(): TetrisState {
-  const base: TetrisState = {
+export function initialFallingBlocksState(): FallingBlocksState {
+  const base: FallingBlocksState = {
     board: emptyBoard(),
     current: null,
     next: [],
@@ -486,7 +486,7 @@ export function initialTetrisState(): TetrisState {
   return spawnPiece(base)
 }
 
-export function tryMove(state: TetrisState, dx: number, dy: number): TetrisState {
+export function tryMove(state: FallingBlocksState, dx: number, dy: number): FallingBlocksState {
   if (!state.current || state.topOut) return state
   const candidate: Piece = {
     ...state.current,
@@ -497,7 +497,7 @@ export function tryMove(state: TetrisState, dx: number, dy: number): TetrisState
   return applyLockTimer({ ...state, current: candidate })
 }
 
-export function tryRotate(state: TetrisState, dir: 1 | -1): TetrisState {
+export function tryRotate(state: FallingBlocksState, dir: 1 | -1): FallingBlocksState {
   if (!state.current || state.topOut) return state
   const rot = (((state.current.rotation + dir) % 4) + 4) % 4
   const candidate: Piece = {
@@ -508,7 +508,7 @@ export function tryRotate(state: TetrisState, dir: 1 | -1): TetrisState {
   return applyLockTimer({ ...state, current: candidate })
 }
 
-export function lockPiece(state: TetrisState): LockResult {
+export function lockPiece(state: FallingBlocksState): LockResult {
   if (!state.current) {
     return { state, linesCleared: 0, garbageToSend: 0 }
   }
@@ -518,7 +518,7 @@ export function lockPiece(state: TetrisState): LockResult {
   const score = state.score + (LINE_SCORES[linesCleared] ?? 0)
   const lines = state.lines + linesCleared
   const garbageToSend = Math.max(0, linesCleared - 1)
-  const next: TetrisState = {
+  const next: FallingBlocksState = {
     ...state,
     board: cleared,
     current: null,
@@ -529,7 +529,7 @@ export function lockPiece(state: TetrisState): LockResult {
   return { state: next, linesCleared, garbageToSend }
 }
 
-export function hardDrop(state: TetrisState): LockResult {
+export function hardDrop(state: FallingBlocksState): LockResult {
   if (!state.current || state.topOut) {
     return { state, linesCleared: 0, garbageToSend: 0 }
   }
@@ -539,14 +539,14 @@ export function hardDrop(state: TetrisState): LockResult {
     if (!isValidPosition(state.board, candidate)) break
     piece = candidate
   }
-  const dropped: TetrisState = { ...state, current: piece }
+  const dropped: FallingBlocksState = { ...state, current: piece }
   return lockPiece(dropped)
 }
 
 export function softDropTick(
-  state: TetrisState,
+  state: FallingBlocksState,
   gravityMs: number
-): TetrisState {
+): FallingBlocksState {
   if (!state.current || state.topOut) return state
 
   const candidate: Piece = { ...state.current, row: state.current.row + 1 }

@@ -4300,7 +4300,6 @@
   /* Stable height so very long lists render predictably without layout shift */
   height: 52px; box-sizing: border-box; flex-shrink: 0;
 }
-.chess-invite-row:hover { background: var(--bg2); }
 .chess-invite-av-wrap {
   position: relative; flex-shrink: 0;
   width: 36px; height: 36px;
@@ -4853,7 +4852,6 @@
   display: flex; align-items: center; gap: 10px;
   padding: 8px 16px; height: 52px; box-sizing: border-box;
 }
-.falling-blocks-invite-row:hover { background: var(--bg2); }
 .falling-blocks-invite-av-wrap { position: relative; flex-shrink: 0; width: 36px; height: 36px; }
 .falling-blocks-invite-online-dot {
   position: absolute; right: -1px; bottom: -1px;
@@ -5320,7 +5318,6 @@
   display: flex; align-items: center; gap: 10px;
   padding: 8px 16px; height: 52px; box-sizing: border-box;
 }
-.poker-invite-row:hover { background: var(--bg2); }
 .poker-invite-av-wrap { position: relative; flex-shrink: 0; width: 36px; height: 36px; }
 .poker-invite-online-dot {
   position: absolute; right: -1px; bottom: -1px;

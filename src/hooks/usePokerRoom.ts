@@ -366,6 +366,22 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     [supabase, currentUserId]
   )
 
+  // Undo a previously-sent invite. Realtime DELETE on the notifications
+  // table makes the row disappear from the recipient's friend-events list.
+  const cancelInvite = useCallback(
+    async (friendId: string, roomId: string): Promise<void> => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', friendId)
+        .eq('actor_id', currentUserId)
+        .eq('type', 'game_invite')
+        .eq('metadata->>room_id', roomId)
+      if (error) console.warn('[usePokerRoom.cancelInvite]', error)
+    },
+    [supabase, currentUserId]
+  )
+
   const updatePlayerCount = useCallback(
     async (n: PlayerCount): Promise<void> => {
       if (!room) return
@@ -1114,6 +1130,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     findActiveRoom,
     toggleReady,
     inviteFriend,
+    cancelInvite,
     updatePlayerCount,
     startHand,
     startNewHandIfReady,

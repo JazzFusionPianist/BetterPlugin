@@ -441,9 +441,9 @@ function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProp
                 </div>
                 <span className="chess-invite-name">{friend.display_name}</span>
                 <button
-                  className="chess-invite-do-btn"
+                  className={`chess-invite-do-btn${invitedIds.has(friend.id) ? ' invited' : ''}`}
                   onClick={() => onInvite(friend.id)}
-                  disabled={invitedIds.has(friend.id)}
+                  title={invitedIds.has(friend.id) ? 'Cancel invite' : 'Send invite'}
                 >
                   {invitedIds.has(friend.id) ? 'Invited ✓' : 'Invite'}
                 </button>
@@ -495,7 +495,7 @@ export default function ChessView({
   onlineIds,
   onClose,
 }: Props) {
-  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
+  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
     useGameRoom(supabase, currentUserId)
 
   // Back button: in lobby/finished, delete the room so the next visit starts
@@ -601,6 +601,18 @@ export default function ChessView({
 
   const handleCreateAndInvite = useCallback(
     async (friendId: string) => {
+      // Toggle: if we've already invited this friend in this lobby
+      // session, treat the click as a cancellation. Removes the row
+      // from the recipient's notifications via realtime DELETE.
+      if (room && invitedIds.has(friendId)) {
+        await cancelInvite(friendId, room.id)
+        setInvitedIds(prev => {
+          const next = new Set(prev)
+          next.delete(friendId)
+          return next
+        })
+        return
+      }
       let targetRoom = room
       if (!targetRoom) {
         targetRoom = await createRoom()
@@ -609,7 +621,7 @@ export default function ChessView({
       await inviteFriend(friendId, targetRoom.id)
       setInvitedIds(prev => new Set([...prev, friendId]))
     },
-    [room, createRoom, inviteFriend],
+    [room, invitedIds, createRoom, inviteFriend, cancelInvite],
   )
 
   const handleMove = useCallback(

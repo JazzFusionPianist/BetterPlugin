@@ -119,6 +119,21 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     if (error) console.error('[inviteFriend] insert error:', error)
   }, [supabase, currentUserId])
 
+  // Counterpart to inviteFriend. Removes the pending game_invite
+  // notification we previously inserted so the recipient stops seeing
+  // it (their useFriendEvents picks up the DELETE realtime event).
+  // Idempotent: a stale call with no matching row is a no-op.
+  const cancelInvite = useCallback(async (friendId: string, roomId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', friendId)
+      .eq('actor_id', currentUserId)
+      .eq('type', 'game_invite')
+      .eq('metadata->>room_id', roomId)
+    if (error) console.error('[cancelInvite] delete error:', error)
+  }, [supabase, currentUserId])
+
   const leaveRoom = useCallback(() => {
     setRoom(null)
   }, [])
@@ -150,5 +165,5 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
 
   const setRoomDirect = useCallback((r: GameRoom | null) => setRoom(r), [])
 
-  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom: setRoomDirect }
+  return { room, loading, createRoom, joinRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom: setRoomDirect }
 }

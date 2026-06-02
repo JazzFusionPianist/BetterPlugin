@@ -152,7 +152,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           <div className="poker-invite-list">
             {filtered.map(friend => {
               const isInvited = invitedIds.has(friend.id)
-              const disabled = isInvited || (limitReached && !isInvited)
+              // Allow clicking an invited row — that's the cancel path.
+              // Only block fresh invites once the seat-count cap is hit.
+              const disabled = !isInvited && limitReached
               return (
                 <div key={friend.id} className="poker-invite-row">
                   <div className="poker-invite-av-wrap">
@@ -161,9 +163,10 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
                   </div>
                   <span className="poker-invite-name">{friend.display_name}</span>
                   <button
-                    className="poker-invite-do-btn"
+                    className={`poker-invite-do-btn${isInvited ? ' invited' : ''}`}
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
+                    title={isInvited ? 'Cancel invite' : 'Send invite'}
                   >
                     {isInvited ? 'Invited ✓' : 'Invite'}
                   </button>
@@ -210,6 +213,7 @@ export default function PokerView({
     findActiveRoom,
     toggleReady,
     inviteFriend,
+    cancelInvite,
     updatePlayerCount,
     startHand,
     startNewHandIfReady,
@@ -307,6 +311,16 @@ export default function PokerView({
 
   const handleCreateAndInvite = useCallback(
     async (friendId: string) => {
+      // Toggle: re-clicking an already-invited friend cancels the invite.
+      if (room && invitedIds.has(friendId)) {
+        await cancelInvite(friendId, room.id)
+        setInvitedIds(prev => {
+          const next = new Set(prev)
+          next.delete(friendId)
+          return next
+        })
+        return
+      }
       let targetRoom = room
       if (!targetRoom) {
         targetRoom = await createRoom(pickedPlayerCount)
@@ -315,7 +329,7 @@ export default function PokerView({
       await inviteFriend(friendId, targetRoom.id)
       setInvitedIds(prev => new Set([...prev, friendId]))
     },
-    [room, createRoom, inviteFriend, pickedPlayerCount]
+    [room, invitedIds, createRoom, inviteFriend, cancelInvite, pickedPlayerCount]
   )
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────

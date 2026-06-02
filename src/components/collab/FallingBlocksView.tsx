@@ -272,7 +272,9 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
           <div className="falling-blocks-invite-list">
             {filtered.map(friend => {
               const isInvited = invitedIds.has(friend.id)
-              const disabled = isInvited || (limitReached && !isInvited)
+              // Allow clicking an invited row — that's the cancel path.
+              // Block fresh invites only once the seat-count cap is hit.
+              const disabled = !isInvited && limitReached
               return (
                 <div key={friend.id} className="falling-blocks-invite-row">
                   <div className="falling-blocks-invite-av-wrap">
@@ -281,9 +283,10 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
                   </div>
                   <span className="falling-blocks-invite-name">{friend.display_name}</span>
                   <button
-                    className="falling-blocks-invite-do-btn"
+                    className={`falling-blocks-invite-do-btn${isInvited ? ' invited' : ''}`}
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
+                    title={isInvited ? 'Cancel invite' : 'Send invite'}
                   >
                     {isInvited ? 'Invited ✓' : 'Invite'}
                   </button>
@@ -330,6 +333,7 @@ export default function FallingBlocksView({
     startGame,
     endGame,
     inviteFriend,
+    cancelInvite,
     updateMyState,
     sendGarbage,
     setPlayerTopOut,
@@ -417,6 +421,16 @@ export default function FallingBlocksView({
 
   const handleCreateAndInvite = useCallback(
     async (friendId: string) => {
+      // Toggle: re-clicking an already-invited friend cancels the invite.
+      if (room && invitedIds.has(friendId)) {
+        await cancelInvite(friendId, room.id)
+        setInvitedIds(prev => {
+          const next = new Set(prev)
+          next.delete(friendId)
+          return next
+        })
+        return
+      }
       let targetRoom = room
       if (!targetRoom) {
         targetRoom = await createRoom(pickedPlayerCount)
@@ -425,7 +439,7 @@ export default function FallingBlocksView({
       await inviteFriend(friendId, targetRoom.id)
       setInvitedIds(prev => new Set([...prev, friendId]))
     },
-    [room, createRoom, inviteFriend, pickedPlayerCount]
+    [room, invitedIds, createRoom, inviteFriend, cancelInvite, pickedPlayerCount]
   )
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────

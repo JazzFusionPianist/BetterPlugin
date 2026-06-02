@@ -268,6 +268,20 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
     [supabase, currentUserId]
   )
 
+  const cancelInvite = useCallback(
+    async (friendId: string, roomId: string): Promise<void> => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', friendId)
+        .eq('actor_id', currentUserId)
+        .eq('type', 'game_invite')
+        .eq('metadata->>room_id', roomId)
+      if (error) console.error('[useFallingBlocksRoom.cancelInvite]', error)
+    },
+    [supabase, currentUserId]
+  )
+
   const updateMyState = useCallback(
     async (updates: Partial<FallingBlocksPlayerState>): Promise<void> => {
       if (!room) return
@@ -348,6 +362,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
     startGame,
     endGame,
     inviteFriend,
+    cancelInvite,
     updateMyState,
     sendGarbage,
     setPlayerTopOut,

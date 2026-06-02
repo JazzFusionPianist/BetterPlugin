@@ -59,6 +59,17 @@ export function useFriendEvents(supabase: SupabaseClient, currentUserId: string)
         event: 'INSERT', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${currentUserId}`,
       }, fetch)
+      // DELETE so that an invite cancelled by the sender (or any other
+      // server-side removal — e.g. a finished invite cleaned up by a job)
+      // disappears from the recipient's notifications list in real time.
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${currentUserId}`,
+      }, payload => {
+        const oldId = (payload.old as { id?: string } | null)?.id
+        if (!oldId) { fetch(); return }
+        setEvents(prev => prev.filter(e => e.id !== oldId))
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }

@@ -4323,6 +4323,11 @@
   white-space: nowrap;
 }
 .chess-invite-do-btn:disabled { background: #34C759; cursor: default; }
+/* Already-invited row — green confirmation, but still clickable to
+   cancel the invite. Hover hints at the cancel action. */
+.chess-invite-do-btn.invited            { background: #34C759; }
+.chess-invite-do-btn.invited:hover      { background: #ff5252; }
+.chess-invite-do-btn.invited:hover::after { content: ' ✕'; }
 
 /* Game area */
 .chess-game-area {
@@ -4871,6 +4876,9 @@
   white-space: nowrap;
 }
 .falling-blocks-invite-do-btn:disabled { background: #34C759; cursor: default; }
+.falling-blocks-invite-do-btn.invited            { background: #34C759; }
+.falling-blocks-invite-do-btn.invited:hover      { background: #ff5252; }
+.falling-blocks-invite-do-btn.invited:hover::after { content: ' ✕'; }
 .falling-blocks-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;
@@ -5337,6 +5345,9 @@
   white-space: nowrap;
 }
 .poker-invite-do-btn:disabled { background: #34C759; cursor: default; }
+.poker-invite-do-btn.invited            { background: #34C759; }
+.poker-invite-do-btn.invited:hover      { background: #ff5252; }
+.poker-invite-do-btn.invited:hover::after { content: ' ✕'; }
 .poker-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;

@@ -6552,12 +6552,14 @@
   justify-content: space-between;
   margin-bottom: 6px;
 }
+/* Section label — DM Sans like the rest of the panel. Sentence case,
+   muted colour. */
 .chat-settings-label {
-  font-family: 'DM Mono', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--t3);
 }
 .chat-settings-link {

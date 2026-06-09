@@ -377,7 +377,7 @@ export default function ChatSettingsPanel({
             <div className="chat-settings-section">
               <div className="chat-settings-label">New group name</div>
               <input
-                className="chat-settings-input"
+                className="chat-settings-input chat-settings-search"
                 placeholder="Name your new group…"
                 value={promoteTitle}
                 onChange={e => setPromoteTitle(e.target.value)}

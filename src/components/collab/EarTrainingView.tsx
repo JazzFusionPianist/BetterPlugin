@@ -47,15 +47,12 @@ function InviteModal ({ friends, invitedIds, onInvite, onClose }: InviteModalPro
       ? friends.filter(f => f.display_name.toLowerCase().includes(q))
       : friends
     return [...list].sort((a, b) => {
-      const aInv = invitedIds.has(a.id) ? 1 : 0
-      const bInv = invitedIds.has(b.id) ? 1 : 0
-      if (aInv !== bInv) return aInv - bInv
       const aOn = a.isOnline ? 0 : 1
       const bOn = b.isOnline ? 0 : 1
       if (aOn !== bOn) return aOn - bOn
       return a.display_name.localeCompare(b.display_name)
     })
-  }, [friends, query, invitedIds])
+  }, [friends, query])
 
   return (
     <div

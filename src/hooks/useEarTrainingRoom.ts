@@ -59,7 +59,18 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       .select()
       .single()
     setLoading(false)
-    if (error) { console.error('[useEarTrainingRoom.createRoom]', error); return null }
+    if (error) {
+      console.error('[useEarTrainingRoom.createRoom]', error)
+      // Surface the failure so a missing migration / broken RLS doesn't
+      // present as "the Invite button just does nothing". Schema-issue
+      // errors here (relation does not exist, RLS denied) need user
+      // attention — they aren't transient.
+      const msg = error.message?.includes('relation') || error.message?.includes('does not exist')
+        ? 'Ear Training table is missing. Apply the 20260603_ear_training_rooms.sql migration in Supabase.'
+        : `Couldn't create Ear Training room: ${error.message ?? 'unknown error'}`
+      try { alert(msg) } catch {/* non-browser */}
+      return null
+    }
     setRoom(data as EarTrainingRoom)
     return data as EarTrainingRoom
   }, [supabase, currentUserId])

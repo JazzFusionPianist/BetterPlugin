@@ -103,16 +103,16 @@ function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: In
     const list = q
       ? friends.filter(f => f.display_name.toLowerCase().includes(q))
       : friends
+    // Don't reorder by invited status — keeps the list stable so
+    // tapping Invite doesn't make the row jump out from under the
+    // user's finger.
     return [...list].sort((a, b) => {
-      const aInv = invitedIds.has(a.id) ? 1 : 0
-      const bInv = invitedIds.has(b.id) ? 1 : 0
-      if (aInv !== bInv) return aInv - bInv
       const aOn = a.isOnline ? 0 : 1
       const bOn = b.isOnline ? 0 : 1
       if (aOn !== bOn) return aOn - bOn
       return a.display_name.localeCompare(b.display_name)
     })
-  }, [friends, query, invitedIds])
+  }, [friends, query])
 
   const limitReached = invitedIds.size >= maxInvitees
 

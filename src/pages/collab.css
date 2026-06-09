@@ -5126,17 +5126,21 @@
 .falling-blocks-controls { display: flex; gap: 6px; margin-left: auto; }
 .falling-blocks-btn {
   font-size: 10px; font-weight: 500;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px 10px; cursor: pointer;
-  background: rgba(255, 255, 255, 0.55);
+  /* Theme-aware glass — was hardcoded to a white-ish tint that
+     vanished against the dark theme's white text. Now follows the
+     same --bg2 / --t1 tokens as .chess-btn so both themes work. */
+  background: var(--bg2);
   color: var(--t1); font-family: 'DM Sans', sans-serif;
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
 }
 .falling-blocks-btn:hover { background: var(--bg3); }
+.falling-blocks-btn:disabled { opacity: 0.5; cursor: default; }
 .falling-blocks-btn-forfeit { border-color: rgba(255,59,48,.35); color: #FF3B30; }
 .falling-blocks-btn-forfeit:hover { background: rgba(255,59,48,.08); }
 
@@ -5475,10 +5479,11 @@
   white-space: nowrap;
   transition: background .12s;
 }
-.falling-blocks-invite-do-btn:hover:not(:disabled)         { background: #3a7ad3; }
-.falling-blocks-invite-do-btn:disabled { background: #34C759; cursor: default; }
-.falling-blocks-invite-do-btn.invited                       { background: #34C759; }
-.falling-blocks-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
+.falling-blocks-invite-do-btn:hover:not(:disabled)             { background: #3a7ad3; }
+.falling-blocks-invite-do-btn:disabled:not(.invited)            { opacity: 0.45; cursor: default; }
+.falling-blocks-invite-do-btn.invited                           { background: #34C759; }
+.falling-blocks-invite-do-btn.invited:hover:not(:disabled)      { background: #2caa4d; }
+.falling-blocks-invite-do-btn.invited:disabled                  { background: #34C759; cursor: default; }
 .falling-blocks-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;
@@ -5945,9 +5950,13 @@
   transition: background .12s;
 }
 .poker-invite-do-btn:hover:not(:disabled)         { background: #3a7ad3; }
-.poker-invite-do-btn:disabled { background: #34C759; cursor: default; }
+/* Disabled NON-invited (seat cap reached) — keep blue base, just dim
+   so the row clearly reads as "can't invite" instead of "already
+   invited" (which is what a green background would imply). */
+.poker-invite-do-btn:disabled:not(.invited)        { opacity: 0.45; cursor: default; }
 .poker-invite-do-btn.invited                       { background: #34C759; }
 .poker-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
+.poker-invite-do-btn.invited:disabled              { background: #34C759; cursor: default; }
 .poker-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;

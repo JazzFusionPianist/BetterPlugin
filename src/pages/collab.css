@@ -961,6 +961,17 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  /* WebKit (used by the JUCE WebView) treats trackpad gestures over a
+     draggable image as the start of a drag, which swallows the wheel
+     event the chat-area needs to scroll. Disabling drag + handing
+     pointer events to the parent (which still has the onClick) lets
+     two-finger scrolls pass straight through to the chat area. */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+.msg-link-preview-rich .msg-link-preview-thumb {
+  touch-action: pan-y;
 }
 .msg-link-preview-info {
   padding: 6px 10px 8px;

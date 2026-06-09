@@ -191,7 +191,9 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     return (data as EarTrainingRoom | null) ?? null
   }, [supabase, currentUserId])
 
-  /** Send a game_invite notification. Same shape as the other games. */
+  /** Send a game_invite. Writes to the notifications table (kept for
+   *  downstream consumers) AND posts a chat message so the orb pulse
+   *  / banner surfaces it to the recipient. */
   const inviteFriend = useCallback(async (friendId: string, roomId: string) => {
     const { error } = await supabase.from('notifications').insert({
       user_id: friendId,

@@ -125,6 +125,9 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
   }, [supabase, room])
 
   const inviteFriend = useCallback(async (friendId: string, roomId: string): Promise<void> => {
+    // Notifications-table row is kept for any downstream consumers
+    // (admin reports, push pipelines, etc.) but the user-visible
+    // notification flows through the chat now — see sendGameInviteMessage.
     const { error } = await supabase.from('notifications').insert({
       user_id: friendId,
       actor_id: currentUserId,

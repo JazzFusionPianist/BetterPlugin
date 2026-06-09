@@ -84,6 +84,10 @@ export function clearDmCache(meId: string, otherId: string): void {
   dmCache.delete(dmKey(meId, otherId))
 }
 
+// `sendGameInviteMessage` lives in `./gameRooms.ts` alongside the
+// rest of the game-room helpers — see that file. We re-export here
+// would be redundant; callers import from gameRooms directly.
+
 /**
  * Create a new group conversation with the caller plus `memberIds`.
  * Caller becomes 'admin' and is implicitly seeded as a member. Throws

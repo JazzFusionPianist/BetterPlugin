@@ -6452,9 +6452,11 @@
 .chat-settings-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.32);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  /* No tint — just blur. Keeps the chat readable underneath so the
+     user retains context while the settings sheet is open. */
+  background: transparent;
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
 }
 .chat-settings-sheet {
   position: relative;

@@ -556,8 +556,9 @@ export default function ProfilePanel ({
               const text = (msg.content ?? '').trim()
               const isAttach = !text && !!msg.attachment_type
               const label = isAttach
-                ? (msg.attachment_type === 'image' ? '📷 Photo'
-                  : msg.attachment_type === 'video' ? '🎬 Video'
+                ? (msg.attachment_type === 'image'       ? '📷 Photo'
+                  : msg.attachment_type === 'video'      ? '🎬 Video'
+                  : msg.attachment_type === 'game_invite' ? '🎮 Game invite'
                   : '🎵 Audio')
                 : text
               return (
@@ -605,8 +606,9 @@ export default function ProfilePanel ({
               const text = (msg.content ?? '').trim()
               const isAttach = !text && !!msg.attachment_type
               const label = isAttach
-                ? (msg.attachment_type === 'image' ? '📷 Photo'
-                  : msg.attachment_type === 'video' ? '🎬 Video'
+                ? (msg.attachment_type === 'image'       ? '📷 Photo'
+                  : msg.attachment_type === 'video'      ? '🎬 Video'
+                  : msg.attachment_type === 'game_invite' ? '🎮 Game invite'
                   : '🎵 Audio')
                 : text
               const senderName = sender?.display_name ?? 'someone'

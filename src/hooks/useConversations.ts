@@ -154,6 +154,17 @@ export function useConversations(supabase: SupabaseClient, userId: string) {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'conversation_members', filter: `user_id=eq.${userId}` },
         fetch)
+      // Rename / metadata edits on a group I'm in. RLS scopes this to
+      // my conversations server-side, so a no-op filter is fine.
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        fetch)
+      // Member roster changes (someone added, someone removed, role
+      // change) — refetch so the chat header member count + roster
+      // stay in sync without requiring the user to back out and back in.
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_members' },
+        fetch)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [fetch, supabase, userId])

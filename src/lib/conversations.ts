@@ -93,7 +93,10 @@ export function clearDmCache(meId: string, otherId: string): void {
 // and member inserts are host-only at the DB layer; leave/kick is
 // either-self-or-admin. Callers don't need to pre-check role.
 
-/** Rename a group. Host-only — DB will reject if caller isn't admin. */
+/** Rename a group. Host-only — DB will reject if caller isn't admin.
+ *  Crucially we `.select('id')` after the update: an RLS denial returns
+ *  zero rows with NO error, so without that we'd happily report
+ *  success on a write the DB silently dropped. */
 export async function renameGroupConversation(
   supabase: SupabaseClient,
   conversationId: string,
@@ -101,11 +104,15 @@ export async function renameGroupConversation(
 ): Promise<void> {
   const trimmed = newTitle.trim()
   if (!trimmed) throw new Error('group name is required')
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('conversations')
     .update({ title: trimmed })
     .eq('id', conversationId)
+    .select('id')
   if (error) throw error
+  if (!data || data.length === 0) {
+    throw new Error('rename rejected — you may not be the host of this group')
+  }
 }
 
 /** Add new members to a group. Host-only at the DB layer. */

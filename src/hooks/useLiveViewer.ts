@@ -31,6 +31,10 @@ export function useLiveViewer(
   // source of truth for whether the host is currently sending video/audio.
   // null until the host announces (or the new-viewer-join handshake fires).
   const [hostSource, setHostSource] = useState<{ has_video: boolean; has_audio: boolean } | null>(null)
+  // Current live viewer count, kept in sync with whatever the broadcaster
+  // last announced via the 'viewer_count' signal. Falls back to 1 once
+  // we're connected — at minimum the local viewer is watching.
+  const [viewerCount, setViewerCount] = useState<number>(0)
   const [debug, setDebug] = useState<ViewerDebug>({
     connection: 'new', ice: 'new', signaling: 'stable',
     trackCount: 0, audioTracks: 0, videoTracks: 0, lastError: '',
@@ -177,6 +181,8 @@ export function useLiveViewer(
         } else if (msg.type === 'source') {
           console.log('[viewer] host source update:', msg.has_video, msg.has_audio)
           setHostSource({ has_video: msg.has_video, has_audio: msg.has_audio })
+        } else if (msg.type === 'viewer_count') {
+          setViewerCount(msg.count)
         }
       })
       .subscribe((status) => {
@@ -207,5 +213,5 @@ export function useLiveViewer(
     }  // end setupConnection
   }, [client, viewerId, sessionId, hostId])
 
-  return { remoteStream, status, debug, hostSource }
+  return { remoteStream, status, debug, hostSource, viewerCount }
 }

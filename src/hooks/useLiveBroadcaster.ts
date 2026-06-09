@@ -273,5 +273,20 @@ export function useLiveBroadcaster(
     }
   }, [sessionId])
 
+  // Push the current viewer count out to all watchers whenever it
+  // changes, so the viewer UI can mirror what the broadcaster already
+  // knows. Done as a separate effect so it doesn't need to live inside
+  // the WebRTC setup closure.
+  useEffect(() => {
+    if (!sessionId) return
+    const ch = channelRef.current
+    if (!ch) return
+    ch.send({
+      type: 'broadcast',
+      event: 'signal',
+      payload: { type: 'viewer_count', from: hostId, count: viewerIds.size } satisfies SignalMessage,
+    })
+  }, [hostId, sessionId, viewerIds.size])
+
   return { viewerCount: viewerIds.size, peerStates, totalViewers, peakViewers }
 }

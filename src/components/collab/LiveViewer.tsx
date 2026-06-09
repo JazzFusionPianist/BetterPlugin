@@ -25,7 +25,7 @@ interface Props {
 
 export default function LiveViewer({ supabase, viewerId, session, host, currentUserId, chatMessages, sessionEnded, onSendChat, onClose }: Props) {
   const { t } = useT()
-  const { remoteStream, status, hostSource } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
+  const { remoteStream, status, hostSource, viewerCount } = useLiveViewer(supabase, viewerId, session.id, session.host_id)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // To decide whether to render the video element vs the audio-only avatar,
@@ -185,6 +185,14 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
             </div>
           )}
         </div>
+        {viewerCount > 0 && (
+          <span className="live-viewer-count" title={`${viewerCount} watching`}>
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M8 3C4 3 1.5 8 1.5 8S4 13 8 13s6.5-5 6.5-5S12 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6z"/>
+            </svg>
+            {viewerCount}
+          </span>
+        )}
         {canExpand && (
           <button
             className="live-viewer-expand-btn"

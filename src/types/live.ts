@@ -20,3 +20,4 @@ export type SignalMessage =
   | { type: 'leave';  from: string }                                          // viewer → host
   | { type: 'bye';    from: string }                                          // host → all viewers
   | { type: 'source'; from: string; has_video: boolean; has_audio: boolean }  // host → all viewers
+  | { type: 'viewer_count'; from: string; count: number }                     // host → all viewers

@@ -20,9 +20,11 @@ interface Props {
   favorites: Set<string>
   currentUserId: string
   onOpenChat: (id: string) => void
+  /** Open the "new group" creation flow. */
+  onNewGroup: () => void
 }
 
-export default function ConversationsPanel({ conversations, profiles, favorites, currentUserId, onOpenChat }: Props) {
+export default function ConversationsPanel({ conversations, profiles, favorites, currentUserId, onOpenChat, onNewGroup }: Props) {
   const { t } = useT()
   const [tab, setTab] = useState<'all' | 'favorites'>('all')
 
@@ -74,6 +76,19 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
           )
         })}
       </div>
+
+      {/* Floating + button — opens the new-group flow. Sits bottom-right
+          of the chat list so it's reachable without occluding any row. */}
+      <button
+        className="conv-new-group"
+        onClick={onNewGroup}
+        aria-label="New group"
+        title="New group"
+      >
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M10 4v12M4 10h12" />
+        </svg>
+      </button>
     </>
   )
 }

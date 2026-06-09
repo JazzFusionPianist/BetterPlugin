@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
-import { useNotifications } from '../hooks/useNotifications'
-import { useFriendEvents } from '../hooks/useFriendEvents'
+import { useConversationNotifications } from '../hooks/useConversationNotifications'
+import { getOrCreateDmConversation, createGroupConversation } from '../lib/conversations'
 import { useFollows } from '../hooks/useFollows'
 import { useConversations } from '../hooks/useConversations'
 import ChatView from '../components/collab/ChatView'
 import ConversationsPanel from '../components/collab/ConversationsPanel'
+import NewGroupPanel from '../components/collab/NewGroupPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
@@ -18,8 +19,6 @@ import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
 import LiveViewer from '../components/collab/LiveViewer'
-import NotificationSettingsPanel, { readNotifSettings } from '../components/collab/NotificationSettingsPanel'
-import type { NotifSettings } from '../components/collab/NotificationSettingsPanel'
 import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
@@ -27,7 +26,7 @@ import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
-import type { Profile } from '../types/collab'
+import type { Profile, Message, ChatTarget } from '../types/collab'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
@@ -38,86 +37,48 @@ import './collab.css'
 interface Props { user: User }
 interface TooltipInfo { profile: Profile; x: number; y: number; arrowX: number; arrowUp: boolean }
 
+/** Average a set of #RRGGBB strings into a single hex. Used for group
+ *  constellation tint — visually unifies a member set without picking
+ *  any single member as "the" color. */
+function mixHexColors(hexes: string[]): string {
+  if (hexes.length === 0) return '#4A8FE7'
+  let r = 0, g = 0, b = 0
+  for (const h of hexes) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
+    if (!m) continue
+    const v = parseInt(m[1]!, 16)
+    r += (v >> 16) & 0xff
+    g += (v >> 8) & 0xff
+    b += v & 0xff
+  }
+  const n = hexes.length
+  const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
+  return `#${to2(r)}${to2(g)}${to2(b)}`
+}
+
 export default function CollabPage({ user }: Props) {
   if (!supabase) return <div style={{ padding: 20, fontSize: 12, fontFamily: 'sans-serif', color: '#999' }}>Supabase not configured.</div>
   return <CollabPageInner user={user} />
-}
-
-const SWIPE_THRESHOLD = 72
-
-function SwipeRow({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
-  const [dx, setDx] = useState(0)
-  const [leaving, setLeaving] = useState(false)
-  const startX   = useRef<number | null>(null)
-  const dragging  = useRef(false)   // 실제 스와이프 중인지 (5px 초과 이동)
-  const dxRef    = useRef(0)
-
-  const dismiss = useCallback(() => {
-    setLeaving(true)
-    setTimeout(onDismiss, 220)
-  }, [onDismiss])
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    startX.current = e.clientX
-    dragging.current = false
-    dxRef.current = 0
-  }
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (startX.current === null) return
-    const d = e.clientX - startX.current
-    // 5px 이상 움직여야 스와이프로 인식 (작은 떨림으로 클릭 방해 방지)
-    if (Math.abs(d) > 5) {
-      dragging.current = true
-      dxRef.current = d
-      setDx(d)
-    }
-  }
-  const onPointerUp = () => {
-    startX.current = null
-    if (!dragging.current) return   // 탭(클릭)이면 그냥 통과
-    dragging.current = false
-    if (Math.abs(dxRef.current) > SWIPE_THRESHOLD) dismiss()
-    else { setDx(0); dxRef.current = 0 }
-  }
-
-  const style: React.CSSProperties = leaving
-    ? { transform: `translateX(${dxRef.current >= 0 ? '110%' : '-110%'})`, opacity: 0, transition: 'transform 0.22s ease-in, opacity 0.22s ease-in' }
-    : dx !== 0
-      ? { transform: `translateX(${dx}px)`, transition: 'none' }
-      : { transform: 'translateX(0)', transition: 'transform 0.18s ease-out' }
-
-  return (
-    <div className="swipe-row-wrap">
-      <div
-        className="swipe-row-inner"
-        style={{ ...style, userSelect: 'none' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
-        {children}
-      </div>
-      <div className="swipe-hint" style={{ opacity: Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1) * 0.6 }} />
-    </div>
-  )
 }
 
 function CollabPageInner({ user }: Props) {
   const client = supabase!
   const pluginRef = useRef<HTMLDivElement>(null)
 
-  const [selectedId, setSelectedId]             = useState<string | null>(null)
+  // Mutually exclusive — a chat is either a DM (selectedId = friend id)
+  // or a group (selectedGroupConvId = conversation id). Opening one
+  // clears the other.
+  const [selectedId, setSelectedId]                       = useState<string | null>(null)
+  const [selectedGroupConvId, setSelectedGroupConvId]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [infoOpen, setInfoOpen]                 = useState(false)
-  const [notifSettingsOpen, setNotifSettingsOpen] = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
   const [searchOpen, setSearchOpen]             = useState(false)
   const [searchQuery, setSearchQuery]           = useState('')
-  const [notifOpen, setNotifOpen]               = useState(false)
   const [convOpen, setConvOpen]                 = useState(false)
+  const [newGroupOpen, setNewGroupOpen]         = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
@@ -136,7 +97,6 @@ function CollabPageInner({ user }: Props) {
   }
   // viewMode is locked to 'default' — gallery/list views are no longer exposed.
   const viewMode: 'default' | 'gallery' | 'list' = 'default'
-  const [notifSettings, setNotifSettings] = useState<NotifSettings>(readNotifSettings)
 
   const favKey = `collab_favorites_${user.id}`
   const [favorites, setFavorites] = useState<Set<string>>(() => {
@@ -154,12 +114,78 @@ function CollabPageInner({ user }: Props) {
     }
   }, [profilesLoading, me, client, user.id, user.email, refetchProfiles])
 
-  const { messages, loading: messagesLoading, send } = useMessages(client, user.id, selectedId)
+  // Build the active chat target — DM or group, mutually exclusive.
+  const chatTarget: ChatTarget | null = useMemo(() => {
+    if (selectedId) return { kind: 'dm', otherUserId: selectedId }
+    if (selectedGroupConvId) return { kind: 'group', conversationId: selectedGroupConvId }
+    return null
+  }, [selectedId, selectedGroupConvId])
+  const { messages, loading: messagesLoading, send } = useMessages(client, user.id, chatTarget)
   const onlineIds  = usePresence(client, user.id)
-  const { unread, markSeen } = useNotifications(client, user.id)
-  const { events: friendEvents, markAllRead: markFriendEventsRead, dismiss: dismissFriendEvent } = useFriendEvents(client, user.id)
+  // Conversation-keyed notifications. The Phase-2 UI (ProfilePanel) is
+  // still friend-keyed, so we adapt below via the DM conversations list.
+  const { unread: convUnread, lastMessages: convLastMessages, markSeen: markConvSeen } = useConversationNotifications(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
-  const { conversations } = useConversations(client, user.id)
+  const { conversations, groupConversations } = useConversations(client, user.id)
+
+  // ── conv-keyed → friend-keyed adapters ──────────────────────────────────
+  // ProfilePanel renders friend-orb-anchored cues, so we translate
+  // `convUnread` / `convLastMessages` through the DM partner mapping.
+  // A brand-new unread (from a sender we've never DM'd) shows up in
+  // `convUnread` immediately but takes one `useConversations` refetch
+  // tick to surface here — acceptable (sub-second).
+  const friendUnread = useMemo(() => {
+    const out = new Map<string, number>()
+    for (const conv of conversations) {
+      const n = convUnread.get(conv.conversationId) ?? 0
+      if (n > 0) out.set(conv.partnerId, n)
+    }
+    return out
+  }, [conversations, convUnread])
+
+  const friendLastMessages = useMemo(() => {
+    const out = new Map<string, Message>()
+    for (const conv of conversations) {
+      const m = convLastMessages.get(conv.conversationId)
+      if (m) out.set(conv.partnerId, m)
+    }
+    return out
+  }, [conversations, convLastMessages])
+
+  // Group-keyed mirrors — straight pass-through filtered to groups,
+  // since convUnread/convLastMessages are already conversation-keyed.
+  const groupUnread = useMemo(() => {
+    const out = new Map<string, number>()
+    for (const gc of groupConversations) {
+      const n = convUnread.get(gc.conversationId) ?? 0
+      if (n > 0) out.set(gc.conversationId, n)
+    }
+    return out
+  }, [groupConversations, convUnread])
+
+  const groupLastMessages = useMemo(() => {
+    const out = new Map<string, Message>()
+    for (const gc of groupConversations) {
+      const m = convLastMessages.get(gc.conversationId)
+      if (m) out.set(gc.conversationId, m)
+    }
+    return out
+  }, [groupConversations, convLastMessages])
+
+  // markFriendSeen: clear by friend id. Fast-path through the cached
+  // conversations list; falls back to resolving the DM if the user
+  // opens a thread that hasn't been in the list yet (first contact).
+  const markFriendSeen = useCallback(async (friendId: string) => {
+    const conv = conversations.find(c => c.partnerId === friendId)
+    if (conv) { markConvSeen(conv.conversationId); return }
+    try {
+      const cid = await getOrCreateDmConversation(client, user.id, friendId)
+      markConvSeen(cid)
+    } catch (err) {
+      console.error('[markFriendSeen]', err)
+    }
+  }, [conversations, markConvSeen, client, user.id])
+
   const { liveSessions, mySession, liveHostIds, liveSessionByHost, startLive, endLive, updateLive } = useLive(client, user.id)
   // Derived: hostId → broadcast title, for the FriendsList sub-line.
   const liveTitleByHost = useMemo(() => {
@@ -179,10 +205,60 @@ function CollabPageInner({ user }: Props) {
   const watchingSessionId = watchingSession?.id ?? null
 
   const profilesWithStatus = useMemo(() => profiles.map(p => ({ ...p, isOnline: onlineIds.has(p.id) })), [profiles, onlineIds])
+
+  // Group-orb pool — join GroupConversation rows to profile data so the
+  // constellation can render member mini-orbs. Members whose profile
+  // hasn't loaded yet are dropped silently rather than rendered as
+  // blanks (avoids "ghost stars" in the constellation on first paint).
+  const groupOrbs = useMemo(() => {
+    const byId = new Map(profilesWithStatus.map(p => [p.id, p]))
+    if (me && !byId.has(me.id)) byId.set(me.id, { ...me, isOnline: true })
+    return groupConversations.map(gc => {
+      const members = gc.memberIds
+        .map(mid => byId.get(mid))
+        .filter((p): p is Profile => !!p)
+      return {
+        conversationId: gc.conversationId,
+        title: gc.title,
+        members,
+        memberCount: gc.memberIds.length,
+      }
+    })
+  }, [groupConversations, profilesWithStatus, me])
+
+  // Resolve a group's display color = average of member avatar_colors.
+  // Used for the chat header backsplash so the same vibe persists
+  // from orb → header.
+  const groupColorByConv = useMemo(() => {
+    const out = new Map<string, string>()
+    for (const g of groupOrbs) out.set(g.conversationId, mixHexColors(g.members.map(m => m.avatar_color)))
+    return out
+  }, [groupOrbs])
+
+  const selectedGroup = selectedGroupConvId
+    ? groupOrbs.find(g => g.conversationId === selectedGroupConvId) ?? null
+    : null
   // 친구 목록 = 서로 팔로우한 유저만
   const friendProfiles  = useMemo(() => profilesWithStatus.filter(p => mutualIds.has(p.id)), [profilesWithStatus, mutualIds])
   const followingProfiles = useMemo(() => profilesWithStatus.filter(p => followingIds.has(p.id)), [profilesWithStatus, followingIds])
   const followerProfiles  = useMemo(() => profilesWithStatus.filter(p => followerIds.has(p.id)), [profilesWithStatus, followerIds])
+
+  // Anyone with pending unread messages MUST appear as an orb in the
+  // backdrop — otherwise the notification visuals have nothing to
+  // attach to and the user can't see them. Union with followers
+  // (dedup by id) so the orb pool covers both "members of your
+  // orbit" and "people pinging you right now". Profiles that
+  // haven't loaded yet are dropped silently.
+  const orbPool = useMemo(() => {
+    const byId = new Map(followerProfiles.map(p => [p.id, p] as const))
+    for (const fid of friendUnread.keys()) {
+      if (!byId.has(fid)) {
+        const p = profilesWithStatus.find(x => x.id === fid)
+        if (p) byId.set(fid, p)
+      }
+    }
+    return Array.from(byId.values())
+  }, [followerProfiles, friendUnread, profilesWithStatus])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
 
   // Friend orbit viewing
@@ -280,49 +356,6 @@ function CollabPageInner({ user }: Props) {
     return actualSource
   }, [replaceSource, updateLive])
 
-  // 알림 설정에 따라 보이는 알림 필터링
-  // game_invite는 follow 설정과 무관하게 항상 표시
-  const gameInviteEvents = friendEvents.filter(e => e.type === 'game_invite')
-  const followEvents     = notifSettings.follow ? friendEvents.filter(e => e.type !== 'game_invite') : []
-  const visibleEvents    = [...gameInviteEvents, ...followEvents]
-  const visibleUnread    = notifSettings.message ? unread : new Map()
-  // 알림 벨 카운트
-  const bellCount = gameInviteEvents.filter(e => !e.read).length
-    + (notifSettings.follow ? friendEvents.filter(e => e.type !== 'game_invite' && !e.read).length : 0)
-    + (notifSettings.message ? unread.size : 0)
-
-  // True when the user is looking at the home / profile screen — no
-  // chat is open, no overlay panel (settings, addfriend, conv list,
-  // live, game, etc.) is on top. Used to gate the corner-glow alert
-  // so it doesn't pulse over a deep-linked subscreen.
-  const isMainScreen = !selectedId
-    && !settingsOpen && !displayOpen && !infoOpen && !notifSettingsOpen && !languageOpen
-    && !addFriendOpen && !convOpen && !liveOpen && !watchingSession
-    && !gameOpen
-
-  // Glow shows only when there are *new* notifications relative to
-  // the last time the user looked. Opening the panel — or dismissing
-  // it by clicking outside — bumps `seenBellCount` up to the current
-  // count, so the glow goes away. New events afterwards push
-  // `bellCount` above `seenBellCount` again and the glow returns.
-  const [seenBellCount, setSeenBellCount] = useState(0)
-  const showGlow = bellCount > seenBellCount && !notifOpen && isMainScreen
-
-  // Outside-click dismiss for the notification panel — any mousedown
-  // outside the panel itself closes it AND marks the current count
-  // as seen so the glow doesn't immediately re-light.
-  useEffect(() => {
-    if (!notifOpen) return
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Element | null
-      if (!target?.closest('.notif-panel')) {
-        setNotifOpen(false)
-        setSeenBellCount(bellCount)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [notifOpen, bellCount])
 
   const handleToggleFav = (id: string) => {
     setFavorites(prev => {
@@ -338,8 +371,8 @@ function CollabPageInner({ user }: Props) {
   // their trigger buttons from the toolbar but the panels are still wired up.
   const _handleToggleSearch = () => setSearchOpen(prev => {
     if (prev) { setSearchQuery('') } else {
-      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-      setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false)
+      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
+      setAddFriendOpen(false); setConvOpen(false)
       setTimeout(() => searchInputRef.current?.focus(), 200)
     }
     return !prev
@@ -347,27 +380,21 @@ function CollabPageInner({ user }: Props) {
   void _handleToggleSearch
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); closeSearch() }
-    else { setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false) }
+    if (!prev) { setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setDisplayOpen(false); setInfoOpen(false); closeSearch() }
+    else { setDisplayOpen(false); setInfoOpen(false) }
     return !prev
   })
-  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); setLanguageOpen(false) }
-  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
+  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
+  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
-  const handleToggleNotif     = () => setNotifOpen(prev => {
-    if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch()
-      setSeenBellCount(bellCount)  // mark current alerts as seen so the glow stops pulsing
-      setTimeout(() => markFriendEventsRead(), 400)
-    } else {
-      setSeenBellCount(bellCount)  // also bump on close
-    }
+  const handleToggleConv      = () => setConvOpen(prev => {
+    if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() }
+    else { setNewGroupOpen(false) }   // closing the tab resets the new-group flow
     return !prev
   })
-  const handleToggleConv      = () => setConvOpen(prev => { if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setGameOpen(false); closeSearch()
+      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); closeSearch()
       // Unlock mic labels/IDs so the dropdown is populated when the panel opens
       requestDevicePermissions()
     }
@@ -376,7 +403,19 @@ function CollabPageInner({ user }: Props) {
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
-  const handleOpenChat     = (id: string) => { setTooltip(null); setGalleryPopup(null); setLiveOpen(false); setSelectedId(id); markSeen(id) }
+  const handleOpenChat     = (id: string) => {
+    setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
+    setSelectedGroupConvId(null)   // mutual exclusion with group chats
+    setSelectedId(id)
+    markFriendSeen(id)  // clears the orb pulse for that friend
+  }
+
+  const handleOpenGroupChat = (convId: string) => {
+    setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
+    setSelectedId(null)            // mutual exclusion with DM chats
+    setSelectedGroupConvId(convId)
+    markConvSeen(convId)           // clears the constellation pulse
+  }
 
   const handleGalleryCellClick = (profile: Profile, el: HTMLDivElement) => {
     // Toggle off if same profile already open
@@ -405,7 +444,9 @@ function CollabPageInner({ user }: Props) {
     setViewingProfileId(id)
   }
 
-  useEffect(() => { if (selectedId) { setSearchOpen(false); setSearchQuery(''); setNotifOpen(false); setConvOpen(false) } }, [selectedId])
+  useEffect(() => {
+    if (selectedId || selectedGroupConvId) { setSearchOpen(false); setSearchQuery(''); setConvOpen(false) }
+  }, [selectedId, selectedGroupConvId])
 
   useEffect(() => {
     if (!galleryPopup) return
@@ -420,21 +461,20 @@ function CollabPageInner({ user }: Props) {
   }, [galleryPopup])
 
   const handleGoHome = () => {
-    setSelectedId(null); setViewingProfileId(null)
-    setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false)
-    setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false)
+    setSelectedId(null); setSelectedGroupConvId(null); setViewingProfileId(null)
+    setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
+    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false)
     setGameOpen(false); setGameScreen('list')
     setWatchingSession(null)
     closeSearch()
   }
 
   const pluginClass = ['plugin',
-    selectedId        ? 'chat-open'          : '',
+    (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     isDark            ? 'dark'               : '',
     settingsOpen      ? 'settings-open'      : '',
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',
-    notifSettingsOpen ? 'notifsettings-open' : '',
     languageOpen      ? 'language-open'      : '',
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
@@ -475,7 +515,7 @@ function CollabPageInner({ user }: Props) {
           className={`icon-btn${gameOpen ? ' active' : ''}`}
           onClick={() => {
             const next = !gameOpen
-            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setNotifOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch() }
+            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch() }
             setGameOpen(next)
             if (next) setGameScreen('list')
           }}
@@ -507,118 +547,13 @@ function CollabPageInner({ user }: Props) {
         </button>
       </div>
 
-      {/* Corner glow — pulses when there are *new* notifications since
-          the user last looked, and only on the home / profile screen
-          so it doesn't bleed over chat, settings, or any deep-linked
-          subview. See `showGlow` derivation above. */}
-      {showGlow && (
-        <div
-          className="notif-corner-glow"
-          onClick={handleToggleNotif}
-          title={`${bellCount} new notification${bellCount > 1 ? 's' : ''}`}
-        />
-      )}
-
-      {/* Notification panel — balloons out from the corner */}
-      {notifOpen && (
-        <div className="notif-panel notif-panel-balloon">
-          {visibleEvents.length === 0 && visibleUnread.size === 0 && (
-            <div className="notif-empty">No notifications</div>
-          )}
-
-          {/* Follow / Game Invite 알림 */}
-          {visibleEvents.map(ev => (
-            <SwipeRow key={ev.id} onDismiss={() => dismissFriendEvent(ev.id)}>
-              <div className={`notif-row${ev.read ? '' : ' notif-unread'}`}>
-                <div className="av sz32" style={{ background: ev.actor.avatar_color, flexShrink: 0 }}>
-                  {ev.actor.avatar_url
-                    ? <img src={ev.actor.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                    : ev.actor.display_name.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="notif-info">
-                  <div className="notif-name">{ev.actor.display_name}</div>
-                  <div className="notif-preview">
-                    {ev.type === 'game_invite'
-                      ? (ev.metadata?.game_type === 'falling_blocks'
-                          ? '🧱 invited you to play Falling Blocks'
-                          : ev.metadata?.game_type === 'poker'
-                            ? '🃏 invited you to play Poker'
-                            : '♟ invited you to play Chess')
-                      : 'followed you'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {ev.type === 'game_invite' && ev.metadata?.room_id ? (
-                    <button
-                      className="notif-action-btn notif-accept"
-                      onClick={async e => {
-                        e.stopPropagation()
-                        dismissFriendEvent(ev.id)
-                        setNotifOpen(false)
-                        setGameOpen(true)
-                        const gameType =
-                          ev.metadata?.game_type === 'falling_blocks' ? 'falling_blocks' :
-                          ev.metadata?.game_type === 'poker' ? 'poker' :
-                          ev.metadata?.game_type === 'ear_training' ? 'ear_training' :
-                          'chess'
-                        setGameScreen(gameType)
-                        // The game view will join via room_id stored in sessionStorage
-                        sessionStorage.setItem('join_room_id', ev.metadata!.room_id!)
-                      }}
-                    >
-                      Join
-                    </button>
-                  ) : !followingIds.has(ev.actor.id) && (
-                    <button
-                      className="notif-action-btn notif-accept"
-                      onClick={async e => { e.stopPropagation(); await follow(ev.actor.id) }}
-                      title="Follow back"
-                    >
-                      Follow
-                    </button>
-                  )}
-                  <button
-                    className="notif-action-btn notif-dismiss-btn"
-                    onClick={e => { e.stopPropagation(); dismissFriendEvent(ev.id) }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            </SwipeRow>
-          ))}
-
-          {/* 읽지 않은 메시지 알림 */}
-          {Array.from(visibleUnread.entries()).map(([senderId, msgs]) => {
-            const profile = profilesWithStatus.find(p => p.id === senderId)
-            const count   = msgs.length
-            return (
-              <SwipeRow key={senderId} onDismiss={() => markSeen(senderId)}>
-                <div className="notif-row notif-unread" onClick={() => { setNotifOpen(false); handleOpenChat(senderId) }}>
-                  <div className="av sz32" style={{ background: profile?.avatar_color ?? '#999' }}>
-                    {profile?.avatar_url
-                      ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                      : profile?.initials ?? '?'}
-                  </div>
-                  <div className="notif-info">
-                    <div className="notif-name">{profile?.display_name ?? 'Unknown'}</div>
-                    <div className="notif-preview">{count === 1 ? msgs[0]!.content : `${count} new messages`}</div>
-                  </div>
-                  <div className="notif-count">{count}</div>
-                </div>
-              </SwipeRow>
-            )
-          })}
-        </div>
-      )}
-
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
           {viewingProfileId && viewingProfile
-            ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} viewOnly />
+            ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} viewOnly />
             : viewMode === 'default'
-              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} />
+              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} orbProfiles={orbPool} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} groupOrbs={groupOrbs} groupUnread={groupUnread} groupLastMessages={groupLastMessages} onOpenGroupChat={handleOpenGroupChat} />
               : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} liveTitleByHost={liveTitleByHost} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
@@ -638,13 +573,27 @@ function CollabPageInner({ user }: Props) {
             onSend={send}
             onBack={() => setSelectedId(null)}
           />}
+          {selectedGroup && (
+            <ChatView
+              supabase={client}
+              currentUserId={user.id}
+              groupHeader={{
+                title: selectedGroup.title,
+                color: groupColorByConv.get(selectedGroup.conversationId) ?? '#4A8FE7',
+                memberCount: selectedGroup.memberCount,
+              }}
+              messages={messages}
+              loading={messagesLoading}
+              onSend={send}
+              onBack={() => setSelectedGroupConvId(null)}
+            />
+          )}
         </div>
         <div className="view sview">
           <SettingsPanel
-            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setNotifSettingsOpen(false); setLanguageOpen(false) }}
+            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }}
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
-            onOpenNotifSettings={() => setNotifSettingsOpen(true)}
             onOpenLanguage={() => setLanguageOpen(true)}
             onOpenFindPeople={() => setAddFriendOpen(true)}
             onSignOut={() => client.auth.signOut()}
@@ -656,20 +605,42 @@ function CollabPageInner({ user }: Props) {
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />
         </div>
-        <div className="view nsview">
-          <NotificationSettingsPanel onClose={() => setNotifSettingsOpen(false)} onSettingsChange={setNotifSettings} />
-        </div>
         <div className="view lngview">
           <LanguagePanel onClose={() => setLanguageOpen(false)} />
         </div>
         <div className="view convview">
-          <ConversationsPanel
-            conversations={conversations}
-            profiles={profilesWithStatus}
-            favorites={favorites}
-            currentUserId={user.id}
-            onOpenChat={handleOpenChat}
-          />
+          {newGroupOpen ? (
+            <NewGroupPanel
+              friendProfiles={friendProfiles}
+              onClose={() => setNewGroupOpen(false)}
+              onCreate={async (title, memberIds) => {
+                try {
+                  const convId = await createGroupConversation(client, user.id, title, memberIds)
+                  // Drop the user into the new group chat immediately.
+                  // useConversations refetches on the conversation_members
+                  // INSERT, so the group orb will surface in the backdrop
+                  // a tick later — but we don't need to wait for that to
+                  // route, since we already have the conversationId.
+                  setNewGroupOpen(false)
+                  setConvOpen(false)
+                  handleOpenGroupChat(convId)
+                  return convId
+                } catch (err) {
+                  console.error('[createGroupConversation]', err)
+                  return null
+                }
+              }}
+            />
+          ) : (
+            <ConversationsPanel
+              conversations={conversations}
+              profiles={profilesWithStatus}
+              favorites={favorites}
+              currentUserId={user.id}
+              onOpenChat={handleOpenChat}
+              onNewGroup={() => setNewGroupOpen(true)}
+            />
+          )}
         </div>
         <div className="view lvview">
           {watchingSession ? (

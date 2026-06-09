@@ -5,7 +5,6 @@ interface Props {
   onClose: () => void
   onOpenDisplay: () => void
   onOpenInfo: () => void
-  onOpenNotifSettings: () => void
   onOpenLanguage: () => void
   onOpenFindPeople: () => void
   onSignOut: () => void
@@ -15,7 +14,6 @@ export default function SettingsPanel({
   onClose: _onClose,
   onOpenDisplay,
   onOpenInfo,
-  onOpenNotifSettings,
   onOpenLanguage,
   onOpenFindPeople,
   onSignOut,
@@ -33,9 +31,6 @@ export default function SettingsPanel({
         </div>
         <div className="settings-card" onClick={onOpenInfo} role="button" tabIndex={0}>
           {t('settings.userInfo')}
-        </div>
-        <div className="settings-card" onClick={onOpenNotifSettings} role="button" tabIndex={0}>
-          {t('settings.notifications')}
         </div>
         {/* Language is the only row that shows the English form in
             parens — that lets a user who's accidentally switched into

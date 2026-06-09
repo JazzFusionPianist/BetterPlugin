@@ -9,7 +9,14 @@ interface Attachment { url: string; type: AttachType; name: string }
 interface Props {
   supabase: SupabaseClient
   currentUserId: string
-  otherProfile: Profile
+  /** DM partner — present iff this is a 1:1 chat. */
+  otherProfile?: Profile
+  /** Group-chat header info — present iff this is a group chat. */
+  groupHeader?: {
+    title: string
+    color: string
+    memberCount: number
+  }
   messages: Message[]
   loading: boolean
   /** True when otherProfile is currently broadcasting a live stream —
@@ -593,7 +600,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, onSend, onBack }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
@@ -611,6 +618,18 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     progress: number     // 0–1
   }
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
+
+  // iMessage-style pop animation: any message ID we haven't seen
+  // before during this mount gets `.mg-pop` for its first paint.
+  // Initial-load messages are marked seen WITHOUT animating so the
+  // first chat opening doesn't scale-in every history bubble.
+  const seenMsgIdsRef = useRef<Set<string>>(new Set())
+  const initializedRef = useRef(false)
+  useEffect(() => {
+    for (const m of messages) seenMsgIdsRef.current.add(m.id)
+    initializedRef.current = true
+  }, [messages])
+
   const updatePendingProgress = (id: string, progress: number) => {
     setPendingUploads(prev => prev.map(p => p.id === id ? { ...p, progress } : p))
   }
@@ -1168,42 +1187,68 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       {/* Sub-bar */}
       <div className="csub">
         <div className="back" onClick={onBack}>&#8249;</div>
-        <div className="chdr-av" style={{ background: otherProfile.avatar_color }}>
-          {otherProfile.avatar_url
-            ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-            : otherProfile.initials}
-          <div className={`chdr-dot ${otherIsLive ? 'dlive' : otherProfile.isOnline ? 'don' : 'doff'}`} />
-        </div>
-        <div className="chdr-info">
-          <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {otherProfile.display_name}
-            {otherProfile.is_verified && (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
-                <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        {groupHeader ? (
+          <>
+            <div
+              className="chdr-av chdr-av-group"
+              style={{ background: groupHeader.color }}
+              aria-label="Group"
+            >
+              {/* Simple cluster glyph — a small constellation, mirroring
+                  the orb visual. Stand-in until Phase-5 polish swaps in
+                  member-avatar mini-stack. */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="9" r="2.2" fill="#fff" stroke="none" />
+                <circle cx="18" cy="9" r="2.2" fill="#fff" stroke="none" />
+                <circle cx="12" cy="17" r="2.2" fill="#fff" stroke="none" />
+                <path d="M6 9 L18 9 M6 9 L12 17 M18 9 L12 17" opacity="0.55" />
               </svg>
+            </div>
+            <div className="chdr-info">
+              <div className="chdr-name">{groupHeader.title}</div>
+              <div className="chdr-sub">{groupHeader.memberCount} members</div>
+            </div>
+          </>
+        ) : otherProfile ? (
+          <>
+            <div className="chdr-av" style={{ background: otherProfile.avatar_color }}>
+              {otherProfile.avatar_url
+                ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                : otherProfile.initials}
+              <div className={`chdr-dot ${otherIsLive ? 'dlive' : otherProfile.isOnline ? 'don' : 'doff'}`} />
+            </div>
+            <div className="chdr-info">
+              <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                {otherProfile.display_name}
+                {otherProfile.is_verified && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
+                    <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              <div className="chdr-sub">
+                {otherIsLive
+                  ? <>
+                      <span className="chdr-live-tag">{t('chat.headerOnLive')}</span>
+                      {otherLiveTitle && (
+                        <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
+                      )}
+                    </>
+                  : otherProfile.isOnline ? t('common.online') : t('common.offline')}
+              </div>
+            </div>
+            {otherIsLive && onJoinLive && (
+              <button
+                type="button"
+                className="chdr-join-btn"
+                onClick={e => { e.stopPropagation(); onJoinLive() }}
+              >
+                {t('chat.joinLive')}
+              </button>
             )}
-          </div>
-          <div className="chdr-sub">
-            {otherIsLive
-              ? <>
-                  <span className="chdr-live-tag">{t('chat.headerOnLive')}</span>
-                  {otherLiveTitle && (
-                    <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
-                  )}
-                </>
-              : otherProfile.isOnline ? t('common.online') : t('common.offline')}
-          </div>
-        </div>
-        {otherIsLive && onJoinLive && (
-          <button
-            type="button"
-            className="chdr-join-btn"
-            onClick={e => { e.stopPropagation(); onJoinLive() }}
-          >
-            {t('chat.joinLive')}
-          </button>
-        )}
+          </>
+        ) : null}
       </div>
 
       {/* Messages */}
@@ -1213,7 +1258,12 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           g.type === 'ts' ? (
             <div key={i} className="ts">{g.label}</div>
           ) : (
-            <div key={g.msg.id} className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}`}>
+            <div
+              key={g.msg.id}
+              className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}${
+                initializedRef.current && !seenMsgIdsRef.current.has(g.msg.id) ? ' mg-pop' : ''
+              }`}
+            >
               {g.msg.attachment_type && (
                 g.msg.attachment_expired
                   ? <ExpiredAttachment type={g.msg.attachment_type} />
@@ -1231,9 +1281,11 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           )
         )}
 
-        {/* Ghost bubbles for in-flight uploads — always shown as 'mine' */}
+        {/* Ghost bubbles for in-flight uploads — always shown as 'mine'.
+            Animated in so the attachment bubble has the same "sent" beat
+            as a text message. */}
         {pendingUploads.map(p => (
-          <div key={p.id} className="mg mine">
+          <div key={p.id} className="mg mine mg-pop">
             <div className="msg-att-pending">
               <div className="msg-att-pending-row">
                 <svg className="msg-att-pending-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1321,7 +1373,11 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           <input
             className="mi"
             type="text"
-            placeholder={t('chat.messageWith', { name: otherProfile.display_name.split(' ')[0] })}
+            placeholder={
+              groupHeader
+                ? t('chat.messageWith', { name: groupHeader.title.split(' ')[0] })
+                : t('chat.messageWith', { name: otherProfile?.display_name.split(' ')[0] ?? '' })
+            }
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

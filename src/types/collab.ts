@@ -13,8 +13,11 @@ export type AttachType = 'image' | 'video' | 'audio' | 'multi-audio'
 
 export interface Message {
   id: string
+  /** Owning conversation. Drives realtime filtering, RLS, and unread
+   *  bookkeeping. Replaces the legacy `receiver_id` column — for DMs
+   *  the partner is now derived via `conversation_members`. */
+  conversation_id: string
   sender_id: string
-  receiver_id: string
   content: string
   created_at: string
   attachment_url?: string | null
@@ -23,6 +26,27 @@ export interface Message {
   attachment_expires_at?: string | null   // ISO timestamp, 7 days after upload
   attachment_expired?: boolean            // true once storage object is deleted
 }
+
+export type ConversationKind = 'dm' | 'group'
+
+export interface Conversation {
+  id: string
+  kind: ConversationKind
+  title: string | null      // group display name; null for DMs
+  created_by: string
+  created_at: string
+  /** User IDs of every member. Always populated by `useConversations`
+   *  — DMs are exactly two, groups are 2..16. */
+  member_ids: string[]
+}
+
+/** What chat the user has open — a DM with a specific friend, a group
+ *  identified by conversation_id, or nothing. Threaded through
+ *  useMessages and ChatView so both surfaces stay agnostic about
+ *  which kind is active. */
+export type ChatTarget =
+  | { kind: 'dm';    otherUserId:    string }
+  | { kind: 'group'; conversationId: string }
 
 export interface AppNotification {
   id: string

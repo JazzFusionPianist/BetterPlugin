@@ -227,157 +227,6 @@
 }
 .icon-btn svg { width: 15px; height: 15px; stroke: var(--t1); fill: none; }
 
-.notif-dot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ef4444;
-  border: 1px solid var(--bg);
-}
-
-/* Notification panel */
-/* ── Swipe-to-dismiss ──────────────────────────────── */
-.swipe-row-wrap {
-  position: relative;
-  overflow: hidden;
-  border-radius: 8px;
-}
-.swipe-row-inner {
-  position: relative;
-  z-index: 1;
-  will-change: transform;
-}
-.swipe-hint {
-  position: absolute;
-  inset: 0;
-  background: #FF3B30;
-  border-radius: 8px;
-  pointer-events: none;
-  z-index: 0;
-  transition: opacity 0.05s;
-}
-
-.notif-panel {
-  position: absolute;
-  top: 44px;
-  right: 8px;
-  width: 240px;
-  max-height: 320px;
-  overflow-y: auto;
-  background: var(--bg);
-  border: 0.5px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12);
-  z-index: 200;
-  padding: 4px;
-  font-family: 'DM Sans', sans-serif;
-}
-
-/* --- Bottom-left corner glow (replaces the bell icon) --- */
-.notif-corner-glow {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 140px;
-  height: 140px;
-  pointer-events: auto;
-  cursor: pointer;
-  z-index: 90;
-  background: radial-gradient(
-    circle at 0% 100%,
-    rgba(255, 60, 60, 0.85) 0%,
-    rgba(255, 90, 60, 0.6) 22%,
-    rgba(255, 120, 60, 0.35) 42%,
-    rgba(255, 150, 60, 0.15) 60%,
-    transparent 75%
-  );
-  filter: blur(0.5px);
-  animation: notif-corner-osc 1.4s ease-in-out infinite;
-  transform-origin: 0 100%;
-}
-@keyframes notif-corner-osc {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50%      { opacity: 1;   transform: scale(1.18); }
-}
-
-/* --- Balloon-out animation when the panel opens from the corner --- */
-.notif-panel-balloon {
-  top: auto;
-  right: auto;
-  bottom: 56px;
-  left: 16px;
-  transform-origin: 0% 100%;
-  animation: notif-balloon-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-}
-@keyframes notif-balloon-in {
-  0%   { transform: scale(0.08); opacity: 0; }
-  55%  { opacity: 1; }
-  78%  { transform: scale(1.04); }
-  100% { transform: scale(1); opacity: 1; }
-}
-.notif-empty {
-  padding: 20px 12px;
-  text-align: center;
-  font-size: 11px;
-  color: var(--t3);
-}
-.notif-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.notif-row:hover { background: var(--bg3); }
-.notif-info { flex: 1; min-width: 0; }
-.notif-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--t1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.notif-preview {
-  font-size: 11px;
-  color: var(--t3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
-}
-.notif-unread { background: var(--bg2); }
-.notif-action-btn {
-  width: 24px; height: 24px;
-  border-radius: 6px; border: none;
-  font-size: 11px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: opacity .12s;
-}
-.notif-accept { background: #4A8FE7; color: #fff; font-weight: 700; }
-.notif-decline { background: var(--bg3); color: var(--t2); }
-.notif-dismiss-btn { background: transparent; color: var(--t3); }
-.notif-action-btn:hover { opacity: .75; }
-
-.notif-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 9px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Search Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -451,13 +300,11 @@
 /* Hide underlying view content when an overlay panel is open */
 .plugin.settings-open      .fview > *,
 .plugin.addfriend-open     .fview > *,
-.plugin.notifsettings-open .fview > *,
 .plugin.language-open      .fview > *,
 .plugin.conv-open          .fview > *,
 .plugin.live-open          .fview > * { visibility: hidden; }
 .plugin.display-open       .sview > *,
 .plugin.info-open          .sview > *,
-.plugin.notifsettings-open .sview > *,
 .plugin.language-open      .sview > * { visibility: hidden; }
 
 .fview { transform: translateX(0); background: transparent; }
@@ -469,7 +316,6 @@
 .afview { transform: translateX(100%); z-index: 17; background: var(--bg); }
 .dview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
 .iview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
-.nsview { transform: translateX(100%); z-index: 19; background: var(--bg); }
 .lngview { transform: translateX(100%); z-index: 19; background: var(--bg); }
 .convview { transform: translateX(100%); z-index: 20; background: var(--bg); }
 .lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
@@ -481,7 +327,6 @@
 .plugin.addfriend-open      .afview   { transform: translateX(0); }
 .plugin.display-open        .dview    { transform: translateX(0); }
 .plugin.info-open           .iview    { transform: translateX(0); }
-.plugin.notifsettings-open  .nsview   { transform: translateX(0); }
 .plugin.language-open       .lngview  { transform: translateX(0); }
 .plugin.conv-open           .convview { transform: translateX(0); }
 .plugin.live-open           .lvview   { transform: translateX(0); }
@@ -1025,6 +870,24 @@
 .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .mg { display: flex; flex-direction: column; gap: 3px; }
+
+/* iMessage-style bubble pop — overshoots slightly so it reads as a
+   tactile "send" beat. Only applied to newly-arrived messages (see
+   ChatView's seenMsgIds ref). The transform-origin anchors the
+   scale to the bubble's tail corner: bottom-right for my messages,
+   bottom-left for theirs. */
+@keyframes mg-pop {
+  0%   { transform: scale(0.55) translateY(10px); opacity: 0; }
+  60%  { transform: scale(1.05) translateY(0);   opacity: 1; }
+  100% { transform: scale(1)    translateY(0);   opacity: 1; }
+}
+.mg-pop {
+  animation: mg-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.mg-pop.mine,
+.mg.mine.mg-pop { transform-origin: bottom right; }
+.mg-pop.theirs,
+.mg.theirs.mg-pop { transform-origin: bottom left; }
 .mm { font-size: 9px; color: var(--t4); font-weight: 500; margin-bottom: 2px; font-family: 'DM Sans', sans-serif; }
 .mb {
   display: inline-block;
@@ -1197,25 +1060,55 @@
   font-family: 'DM Mono', monospace;
 }
 
+/* ─── Audio attachment — modern player card ──────────────────────────
+   Frosted glass surface that reads like part of the bubble family.
+   Circular accent play button + gradient progress bar + full-width
+   import pill. Tints invert when sent by the current user so it
+   sits cleanly on the dark "mine" bubble. */
+.msg-att-audio,
 .msg-att-audio-group {
-  min-width: 160px;
-  max-width: 200px;
-  background: var(--bg3);
-  border-radius: 10px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 210px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   margin-bottom: 2px;
   font-family: 'DM Sans', sans-serif;
+  color: var(--t1);
 }
+.mg.mine .msg-att-audio,
+.mg.mine .msg-att-audio-group {
+  background: rgba(17, 17, 17, 0.85);
+  color: #F5F5F5;
+  border-color: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.plugin.dark .msg-att-audio,
+.plugin.dark .msg-att-audio-group {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.plugin.dark .mg.mine .msg-att-audio,
+.plugin.dark .mg.mine .msg-att-audio-group {
+  background: rgba(245, 245, 245, 0.92);
+  color: #111;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Header — note icon + track name (or "N Tracks") + optional group
+   actions on the right. */
+.msg-att-audio-header,
 .msg-att-audio-group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  color: var(--t1);
-}
-.msg-att-group-chevron {
-  background: none;
-  border: none;
+  gap: 8px;
   padding: 0;
   cursor: pointer;
   font-size: 8px;
@@ -1255,9 +1148,13 @@
   cursor: pointer;
   color: var(--t1);
 }
+.msg-att-audio-header svg,
+.msg-att-audio-group-header svg { opacity: 0.7; flex-shrink: 0; }
 .msg-att-audio-name {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1292,41 +1189,166 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.9s linear infinite; }
 .msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
+
+/* Player row — round play disc + thicker rounded progress + mono time. */
 .msg-att-audio-player {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px 8px;
+  gap: 10px;
+  padding: 0;
 }
 .msg-att-play-pause {
-  background: none;
-  border: none;
-  cursor: pointer;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   color: var(--t1);
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  cursor: pointer;
   padding: 0;
+  transition: background 0.15s, transform 0.08s, border-color 0.15s;
+}
+.msg-att-play-pause svg { width: 9px; height: 9px; }
+.msg-att-play-pause:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+.msg-att-play-pause:active { transform: scale(0.94); }
+.mg.mine .msg-att-play-pause {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #F5F5F5;
+}
+.mg.mine .msg-att-play-pause:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 .msg-att-progress-track {
   flex: 1;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
   cursor: pointer;
   position: relative;
+  overflow: hidden;
 }
+.mg.mine .msg-att-progress-track { background: rgba(255, 255, 255, 0.15); }
+.plugin.dark .msg-att-progress-track { background: rgba(255, 255, 255, 0.1); }
+.plugin.dark .mg.mine .msg-att-progress-track { background: rgba(0, 0, 0, 0.12); }
 .msg-att-progress-fill {
   height: 100%;
-  background: #4A8FE7;
-  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 999px;
   transition: width 0.1s linear;
 }
+.mg.mine .msg-att-progress-fill { background: rgba(255, 255, 255, 0.85); }
+.plugin.dark .msg-att-progress-fill { background: rgba(255, 255, 255, 0.7); }
+.plugin.dark .mg.mine .msg-att-progress-fill { background: rgba(0, 0, 0, 0.75); }
 .msg-att-time {
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--t3);
+  font-family: 'DM Mono', monospace;
+  font-feature-settings: 'tnum' 1;
   flex-shrink: 0;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.mg.mine .msg-att-time { color: rgba(255, 255, 255, 0.55); }
+
+/* Import-to-DAW pill — full-width primary action under the player. */
+.msg-att-import-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--t1);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: grab;
+  user-select: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
+}
+.msg-att-import-btn:hover {
+  background: rgba(0, 0, 0, 0.09);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+.msg-att-import-btn:active { transform: scale(0.97); }
+.msg-att-import-btn.ready {
+  background: rgba(0, 0, 0, 0.85);
+  color: #F5F5F5;
+  border-color: rgba(0, 0, 0, 0.85);
+  cursor: grabbing;
+}
+.mg.mine .msg-att-import-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #F5F5F5;
+}
+.mg.mine .msg-att-import-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.mg.mine .msg-att-import-btn.ready {
+  background: #F5F5F5;
+  color: #111;
+  border-color: #F5F5F5;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.9s linear infinite; }
+
+/* Group attachment — chevron + expanded child tracks share a thinner
+   divider, no individual padding so they look like a continuous list. */
+.msg-att-group-chevron {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 999px;
+  width: 22px; height: 22px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 9px;
+  color: var(--t2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+}
+.msg-att-group-chevron:hover { background: rgba(0, 0, 0, 0.08); }
+.mg.mine .msg-att-group-chevron {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.65);
+}
+.mg.mine .msg-att-group-chevron:hover { background: rgba(255, 255, 255, 0.14); }
+.msg-att-group-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+}
+.mg.mine .msg-att-group-tracks { border-top-color: rgba(255, 255, 255, 0.12); }
+.msg-att-group-tracks .msg-att-audio {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.025);
+  box-shadow: none;
+  border-radius: 12px;
+  max-width: none;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.mg.mine .msg-att-group-tracks .msg-att-audio {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ── + 버튼 / 첨부 메뉴 ────────────────────────────────── */
@@ -1778,13 +1800,213 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 /* Friend-orb backdrop on the main panel — fills the orbit area below the
-   top-bar. Translucent + slightly brightened so the glass UI on top
-   reads cleanly against it. */
+   top-bar. Orbs themselves carry the translucent ambient opacity (so
+   we can selectively bump it to 1 on `.has-notif` orbs without the
+   parent-opacity stacking trap). The layer just supplies the global
+   filter tone. */
 .orbit-orbs-layer {
   position: absolute;
   inset: 0;
-  opacity: 0.55;
   filter: saturate(0.9) brightness(1.15);
+}
+/* Notification-bearing orbs break out of the ambient translucency so
+   they read as "asking for attention" against their muted siblings.
+   The pulse box-shadow is sized big enough to read across the panel
+   — small orbs (4–14 px radius) get a halo several times their own
+   width so they're spottable from across the screen. */
+.orbit-orb.has-notif {
+  opacity: 1;
+  animation: orbit-orb-notif-pulse 1.6s ease-in-out infinite;
+}
+@keyframes orbit-orb-notif-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 143, 231, 0);     }
+  50%      { box-shadow: 0 0 22px 10px rgba(74, 143, 231, 0.55); }
+}
+
+/* Soft halo bloom underneath the orb — wide radial gradient that
+   layers with the pulse so the cue reads as a glowing aura the orb
+   is sitting inside, not just a thin ring around it. */
+.orbit-orb-notif-halo {
+  position: absolute;
+  inset: -90%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(74, 143, 231, 0.65) 0%,
+    rgba(74, 143, 231, 0.32) 30%,
+    rgba(74, 143, 231, 0.08) 55%,
+    rgba(74, 143, 231, 0) 75%
+  );
+  pointer-events: none;
+  z-index: -1;
+  animation: orbit-orb-halo-breathe 2.4s ease-in-out infinite;
+  filter: blur(2px);
+}
+@keyframes orbit-orb-halo-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1);    }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+
+/* ── Message preview banners ──────────────────────────────────────────
+   Stacks below the stat chips on the home panel. Each banner is one
+   newly-arrived message: avatar + sender + content snippet. Springs
+   in once and persists — only cleared by opening that chat
+   (markFriendSeen) or clicking the hover-revealed ✕ on the right. */
+.orbit-msg-preview-stack {
+  position: absolute;
+  top: 76px;
+  left: 14px;
+  right: 14px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.orbit-msg-preview-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.16),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: orbit-msg-banner-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.08s, background 0.15s, border-color 0.15s;
+}
+.orbit-msg-preview-banner:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.78);
+}
+.orbit-msg-preview-banner:active { transform: scale(0.98); }
+.plugin.dark .orbit-msg-preview-banner {
+  background: rgba(30, 30, 32, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.plugin.dark .orbit-msg-preview-banner:hover {
+  background: rgba(45, 45, 48, 0.92);
+}
+.orbit-msg-preview-av {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  position: relative;
+}
+.orbit-msg-preview-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.orbit-msg-preview-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.orbit-msg-preview-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--t2);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.orbit-msg-preview-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+@keyframes orbit-msg-banner-in {
+  0%   { transform: translateY(-12px) scale(0.96); opacity: 0; }
+  60%  { transform: translateY(0)     scale(1.02); opacity: 1; }
+  100% { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+/* Hover-revealed ✕ on the right edge. Lets the user dismiss the
+   banner without marking the message read — orb keeps pulsing. */
+.orbit-msg-preview-close {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  margin-right: -2px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s, background 0.15s, color 0.15s;
+}
+.orbit-msg-preview-banner:hover .orbit-msg-preview-close,
+.orbit-msg-preview-close:focus-visible {
+  opacity: 0.75;
+  transform: scale(1);
+}
+.orbit-msg-preview-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--t1);
+}
+.plugin.dark .orbit-msg-preview-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Small counter pill at the top-right corner. Only renders when
+   unread > 1; a single unread is communicated by the halo alone. */
+.orbit-orb-notif-count {
+  position: absolute;
+  top: -4px; right: -4px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #FF3B30;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(255, 59, 48, 0.4);
+  z-index: 1;
 }
 .orbit-stats {
   position: absolute;
@@ -2056,14 +2278,14 @@
 }
 .orbit-orb > * { pointer-events: none; }
 .orbit-orb {
-  opacity: 0.8;
+  opacity: 0.55;
   transition: opacity 400ms ease-out;
   animation: orbit-orb-fade 450ms ease-out;
 }
 .orbit-orb.fading-out { opacity: 0; animation: none; }
 @keyframes orbit-orb-fade {
   from { opacity: 0; }
-  to { opacity: 0.8; }
+  to { opacity: 0.55; }
 }
 .orbit-orb.offline { filter: grayscale(0.5); }
 .orbit-orb-dot {
@@ -2417,18 +2639,6 @@
 .profile-save-danger:hover:not(:disabled) { background: #e02d20 !important; }
 .profile-save-danger:disabled { background: rgba(255,59,48,.3) !important; }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━
-   Notification Dot
-━━━━━━━━━━━━━━━━━━━━━━━ */
-.notif-dot {
-  position: absolute;
-  top: 2px; right: 2px;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #FF3B30;
-  border: 1.5px solid var(--bg);
-  pointer-events: none;
-}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Add Friend Panel
@@ -2584,52 +2794,6 @@
   font-size: 11px;
   color: var(--t3);
 }
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━
-   Notification Settings
-━━━━━━━━━━━━━━━━━━━━━━━ */
-.notif-setting-row {
-  cursor: default;
-  padding: 10px 14px;
-}
-.notif-setting-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.notif-setting-desc {
-  font-size: 10px;
-  color: var(--t3);
-  font-family: 'DM Sans', sans-serif;
-}
-
-/* iOS-style toggle switch */
-.notif-toggle {
-  position: relative;
-  flex-shrink: 0;
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--border2);
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.2s;
-}
-.notif-toggle::after {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,.25);
-}
-.notif-toggle.on { background: #4A8FE7; }
-.notif-toggle.on::after { transform: translateX(18px); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Conversations Panel
@@ -4146,34 +4310,6 @@
   padding: 0 4px;
 }
 
-/* --- Notifications panel cards --- */
-.notif-setting-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-}
-.notif-setting-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-.notif-setting-name {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--t1);
-}
-.notif-setting-desc {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 10px;
-  color: var(--t3);
-  line-height: 1.4;
-}
-
 /* ── Language picker rows ───────────────────────────────────────────── */
 .language-row {
   display: flex;
@@ -4258,8 +4394,10 @@
   border: 1px solid var(--border); flex-shrink: 0;
 }
 .chess-preview-sq { width: 100%; aspect-ratio: 1; }
-.chess-preview-sq.sq-light { background: #F0D9B5; }
-.chess-preview-sq.sq-dark  { background: #B58863; }
+.chess-preview-sq.sq-light { background: rgba(255, 255, 255, 0.55); }
+.chess-preview-sq.sq-dark  { background: rgba(70, 75, 90, 0.22); }
+.plugin.dark .chess-preview-sq.sq-light { background: rgba(255, 255, 255, 0.16); }
+.plugin.dark .chess-preview-sq.sq-dark  { background: rgba(0, 0, 0, 0.28); }
 .chess-invite-btn {
   width: 100%; padding: 11px; border-radius: 10px;
   background: var(--accent, #4A8FE7); color: #fff;
@@ -4420,37 +4558,70 @@
   position: relative; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
+/* Glass chess board — sits over the panel's orb backdrop. The whole
+   board is one frosted card; squares are translucent tints rather
+   than the traditional opaque cream/brown so the orbs read through
+   the dark squares for a "looking through cool glass" feel. */
 .chess-board {
   display: grid; grid-template-columns: repeat(8, 1fr);
   width: 100%; max-width: 272px;
-  border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  overflow: hidden;
   aspect-ratio: 1; touch-action: none; user-select: none;
+  background: rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.14),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .chess-board {
+  background: rgba(28, 28, 30, 0.45);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 .chess-sq {
   position: relative; display: flex;
   align-items: center; justify-content: center;
   cursor: pointer; aspect-ratio: 1;
 }
-.sq-light { background: #F0D9B5; }
-.sq-dark  { background: #B58863; }
-.sq-selected { background: rgba(20,85,30,.5) !important; }
-.sq-lastmove { background: rgba(205,210,106,.5) !important; }
-.sq-check    { background: rgba(255,59,48,.55) !important; }
+.sq-light { background: rgba(255, 255, 255, 0.55); }
+.sq-dark  { background: rgba(70, 75, 90, 0.22); }
+.plugin.dark .sq-light { background: rgba(255, 255, 255, 0.16); }
+.plugin.dark .sq-dark  { background: rgba(0, 0, 0, 0.28); }
+
+/* Highlight states — tuned to read on top of the glass squares
+   instead of the old opaque cream. Slightly stronger than before so
+   they pop through the translucency. */
+.sq-selected { background: rgba(34, 145, 60, 0.55) !important; }
+.sq-lastmove { background: rgba(220, 225, 110, 0.55) !important; }
+.sq-check    {
+  background: rgba(255, 70, 60, 0.6) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 70, 60, 0.85);
+}
 .sq-valid    {}
 .sq-valid-dot {
   position: absolute; width: 30%; height: 30%;
-  border-radius: 50%; background: rgba(20,85,30,.4);
+  border-radius: 50%; background: rgba(40, 110, 60, 0.55);
+  box-shadow: 0 0 6px rgba(40, 110, 60, 0.4);
   pointer-events: none;
 }
 .sq-valid-capture {
   position: absolute; inset: 0; border-radius: 50%;
-  box-shadow: inset 0 0 0 3px rgba(20,85,30,.5);
+  box-shadow: inset 0 0 0 3px rgba(40, 110, 60, 0.6);
   pointer-events: none;
 }
 .chess-piece {
   display: flex; align-items: center; justify-content: center;
   width: 88%; height: 88%; z-index: 1;
-  filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35));
+  /* Slightly stronger drop-shadow so the piece doesn't get lost in
+     the translucent square. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
   user-select: none;
   -webkit-user-drag: element;
 }
@@ -4462,17 +4633,18 @@
   user-select: none;
 }
 
-/* Board labels — colors are constant (board square colors), independent of
-   light/dark theme since the chess board itself has fixed colors.        */
+/* Board labels — neutral tones that read on the new glass squares
+   without being tied to the cream/brown palette. */
 .chess-sq-rank, .chess-sq-file,
 .chess-rank-label, .chess-file-label {
   font-family: 'DM Mono', monospace;
   pointer-events: none;
+  color: rgba(0, 0, 0, 0.55);
 }
-.sq-light .chess-sq-rank, .sq-light .chess-sq-file,
-.sq-light .chess-rank-label, .sq-light .chess-file-label { color: #B58863; }
-.sq-dark  .chess-sq-rank, .sq-dark  .chess-sq-file,
-.sq-dark  .chess-rank-label, .sq-dark  .chess-file-label  { color: #F0D9B5; }
+.plugin.dark .chess-sq-rank, .plugin.dark .chess-sq-file,
+.plugin.dark .chess-rank-label, .plugin.dark .chess-file-label {
+  color: rgba(255, 255, 255, 0.55);
+}
 
 /* Move history */
 .chess-move-history {
@@ -4751,17 +4923,20 @@
   display: flex; flex-direction: column;
   height: 100%; overflow: hidden;
   background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
 }
 .falling-blocks-header {
   display: flex; align-items: center; gap: 8px;
   padding: 0 10px; height: 44px; flex-shrink: 0;
-  border-bottom: 0.5px solid var(--border);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 .falling-blocks-back-btn {
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 20px; border-radius: 6px;
+  color: var(--t1); font-size: 20px; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.12s;
 }
 .falling-blocks-back-btn:hover { background: var(--bg2); }
 .falling-blocks-title {
@@ -4771,9 +4946,15 @@
 .falling-blocks-controls { display: flex; gap: 6px; margin-left: auto; }
 .falling-blocks-btn {
   font-size: 10px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: 6px;
-  padding: 4px 8px; cursor: pointer; background: var(--bg2);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 4px 10px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.55);
   color: var(--t1); font-family: 'DM Sans', sans-serif;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
 }
 .falling-blocks-btn:hover { background: var(--bg3); }
 .falling-blocks-btn-forfeit { border-color: rgba(255,59,48,.35); color: #FF3B30; }
@@ -4813,11 +4994,20 @@
 .falling-blocks-board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  background: #0d0d12;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  background: rgba(20, 22, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.plugin.dark .tetris-board {
+  background: rgba(10, 10, 14, 0.65);
 }
 /* Self board fills its wrapper completely (wrap controls aspect ratio). */
 .falling-blocks-board.is-self {
@@ -4865,9 +5055,6 @@
 }
 .falling-blocks-next-list {
   display: flex; flex-direction: column; gap: 3px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   padding: 4px 3px;
 }
 .falling-blocks-next-piece {
@@ -4880,10 +5067,7 @@
 .falling-blocks-next-piece .falling-blocks-cell { background: transparent; }
 .falling-blocks-stat {
   display: flex; flex-direction: column; gap: 1px;
-  padding: 4px 6px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 5px 7px;
 }
 .falling-blocks-stat-label {
   font-size: 7px; color: var(--t3);
@@ -4949,32 +5133,43 @@
   background: transparent; border: none; cursor: pointer;
   color: var(--t2); font-size: 12px; font-weight: 600;
   font-family: 'DM Sans', sans-serif;
-  border-radius: 6px;
-  transition: background .12s, color .12s;
+  border-radius: 8px;
+  transition: background .12s, color .12s, box-shadow .12s;
 }
 .falling-blocks-player-count-btn:hover { color: var(--t1); }
 .falling-blocks-player-count-btn.active {
   background: var(--bg);
   color: var(--t1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plugin.dark .tetris-player-count-btn.active {
+  background: rgba(60, 60, 60, 0.85);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 /* Reuse chess overlay/finish/ready styles via falling-blocks-* aliases */
 .falling-blocks-finish-overlay {
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
 }
 .falling-blocks-finish-card {
   display: flex; flex-direction: column; align-items: center;
   gap: 10px; padding: 18px 22px;
-  background: var(--bg); color: var(--t1);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--t1);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 16px;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.10),
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
   min-width: 200px; max-width: 90%;
 }
 .plugin.dark .falling-blocks-finish-card {
@@ -4991,11 +5186,20 @@
 }
 .falling-blocks-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
-  background: var(--bg2); color: var(--t1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--t1);
   font-size: 13px; font-weight: 600; cursor: pointer;
   font-family: 'DM Sans', sans-serif;
-  transition: background .15s, border-color .15s, transform .08s;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
+}
+.tetris-ready-btn:hover {
+  background: rgba(232, 232, 236, 0.78);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 .falling-blocks-ready-btn:hover { background: var(--bg3); }
 .falling-blocks-ready-btn:active { transform: scale(0.97); }
@@ -5007,7 +5211,9 @@
 /* Invite modal — reuse chess-invite-* shapes */
 .falling-blocks-invite-modal-overlay {
   position: absolute; inset: 0; z-index: 50;
-  background: rgba(0,0,0,.45);
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   display: flex; align-items: flex-end;
 }
 .falling-blocks-invite-modal {
@@ -5016,11 +5222,22 @@
   height: 75%; max-height: 75%;
   display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  font-family: 'DM Sans', sans-serif;
+}
+.plugin.dark .tetris-invite-modal {
+  background: rgba(28, 28, 30, 0.78);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .falling-blocks-invite-modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 22px 18px 12px; flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.plugin.dark .tetris-invite-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 .falling-blocks-invite-modal-title {
   font-size: 16px; font-weight: 700; color: var(--t1);
@@ -5030,13 +5247,23 @@
   background: none; border: none; cursor: pointer;
   color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
   opacity: 0.6;
+  font-family: 'DM Sans', sans-serif;
 }
 .falling-blocks-invite-modal-close:hover { opacity: 1; }
 .falling-blocks-invite-search-wrap {
   position: relative; display: flex; align-items: center;
   margin: 10px 14px 6px; flex-shrink: 0;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 30px 0 32px; height: 34px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  padding: 0 30px 0 32px;
+  height: 34px;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+.plugin.dark .tetris-invite-search-wrap {
+  background: rgba(40, 40, 40, 0.55);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 .falling-blocks-invite-search-input {
   flex: 1; height: 100%; background: transparent; border: none; outline: none;
@@ -5063,7 +5290,7 @@
 .falling-blocks-invite-do-btn {
   font-size: 11px; font-weight: 600;
   background: var(--accent, #4A8FE7); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
+  border: none; border-radius: 8px; padding: 5px 12px;
   cursor: pointer; font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
 }
@@ -5539,4 +5766,348 @@
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;
   text-align: center; padding: 24px 16px; margin: 0;
+}
+
+/* ── New-group flow ───────────────────────────────────────────────────
+   Floating + button on the chat list + the multi-step group creator
+   that opens when it's tapped. */
+
+.conv-new-group {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #4A8FE7 0%, #2E6FCF 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 8px 22px rgba(46, 111, 207, 0.42),
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.12s, box-shadow 0.18s;
+  z-index: 5;
+}
+.conv-new-group:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 10px 26px rgba(46, 111, 207, 0.52),
+    0 3px 8px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.conv-new-group:active { transform: scale(0.96); }
+
+/* Selected-people chip strip */
+.ng-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+.ng-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t1);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.ng-chip:hover { background: rgba(255, 255, 255, 0.92); }
+.plugin.dark .ng-chip {
+  background: rgba(60, 60, 64, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.plugin.dark .ng-chip:hover { background: rgba(75, 75, 80, 0.78); }
+.ng-chip-av {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; color: #fff;
+  overflow: hidden;
+}
+.ng-chip-av img { width: 100%; height: 100%; object-fit: cover; }
+.ng-chip-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Cap hint under the search box */
+.ng-cap {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--t3);
+  text-align: right;
+  padding: 4px 14px 0;
+}
+.ng-cap-warn { color: #FF9F0A; }
+
+/* Friend rows — checkbox-style multi-select */
+.ng-friend-list { margin-top: 4px; }
+.ng-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.1s;
+}
+.ng-row:hover { background: rgba(0, 0, 0, 0.04); }
+.plugin.dark .ng-row:hover { background: rgba(255, 255, 255, 0.06); }
+.ng-row.dim { opacity: 0.4; cursor: default; }
+.ng-row.dim:hover { background: transparent; }
+.ng-row-av {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.ng-row-av img { width: 100%; height: 100%; object-fit: cover; }
+.ng-row-dot {
+  position: absolute;
+  right: -1px; bottom: -1px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg, #fff);
+}
+.ng-row-dot.don { background: #34C759; }
+.ng-row-dot.doff { background: #8E8E93; }
+.ng-row-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ng-check {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.1s, border-color 0.1s;
+}
+.plugin.dark .ng-check { border-color: rgba(255, 255, 255, 0.22); }
+.ng-check.on {
+  background: #4A8FE7;
+  border-color: #4A8FE7;
+}
+
+/* Primary CTA — pinned to the bottom of the panel */
+.ng-cta {
+  position: absolute;
+  left: 14px; right: 14px;
+  bottom: 14px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4A8FE7 0%, #2E6FCF 100%);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 6px 18px rgba(46, 111, 207, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.1s, opacity 0.1s;
+}
+.ng-cta:hover:not(:disabled) { transform: translateY(-1px); }
+.ng-cta:active:not(:disabled) { transform: translateY(0); }
+.ng-cta:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+
+.ng-error {
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 59, 48, 0.12);
+  color: #FF3B30;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* ── Group constellations ─────────────────────────────────────────────
+   A group conversation renders as a cluster of mini-orbs (members)
+   connected by faint lines. Same brownian-motion physics as a DM orb;
+   only the visual is different. */
+
+.orbit-orb.orbit-constellation {
+  /* Reset the solid background DM orbs use — the cluster gets its
+     color from the mini-orbs inside instead. */
+  background: transparent !important;
+  border-radius: 50%;
+  position: absolute;
+  display: block;
+  overflow: visible;   /* mini-orbs sit on the perimeter — don't clip */
+}
+.orbit-constellation-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.orbit-constellation-lines line {
+  stroke: rgba(0, 0, 0, 0.18);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+.plugin.dark .orbit-constellation-lines line {
+  stroke: rgba(255, 255, 255, 0.24);
+}
+.orbit-constellation-mini {
+  position: absolute;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.orbit-constellation-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.orbit-constellation-overflow {
+  position: absolute;
+  left: 50%; bottom: -4px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 6px;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.plugin.dark .orbit-constellation-overflow {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Group banner variant — same chrome as DM banner but the avatar slot
+   shows the constellation glyph and the name line carries a tag. */
+.orbit-msg-preview-av-group {
+  background: linear-gradient(135deg, #6B8AFD 0%, #4A8FE7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.orbit-msg-preview-grouptag {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #4A8FE7;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.plugin.dark .orbit-msg-preview-grouptag {
+  color: #80B1FB;
+}
+
+/* Group hover card — title + member avatar row + Open chat button.
+   Geometry mirrors the friend HoverTooltip so positioning math in
+   ProfilePanel works without a branch. */
+.orbit-group-tt {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin-top: -6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 9px 10px;
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  font-family: 'DM Sans', sans-serif;
+  z-index: 10;
+  min-width: 140px;
+}
+.orbit-group-tt.below {
+  transform: translate(-50%, 0);
+  margin-top: 6px;
+}
+.plugin.dark .orbit-group-tt {
+  background: rgba(40, 40, 44, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.orbit-group-tt-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  margin-bottom: 6px;
+}
+.orbit-group-tt-members {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.orbit-group-tt-mem { flex-shrink: 0; }
+.orbit-group-tt-av {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; color: #fff;
+  overflow: hidden;
+}
+.orbit-group-tt-av img { width: 100%; height: 100%; object-fit: cover; }
+.orbit-group-tt-more {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  margin-left: 2px;
+}
+.orbit-group-tt-btn {
+  width: 100%;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #4A8FE7;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.orbit-group-tt-btn:hover { background: #3E7BCC; }
+
+/* Group ChatView header — constellation glyph avatar */
+.chdr-av-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

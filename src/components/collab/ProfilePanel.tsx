@@ -1,10 +1,21 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
-import type { Profile } from '../../types/collab'
+import type { Profile, Message } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 import HoverTooltip from './HoverTooltip'
 import { useT } from '../../i18n/LanguageContext'
+
+/** A group conversation as the parent prepared it for orb rendering —
+ *  member profiles already joined, plus a memberCount in case the
+ *  profile list is shorter than the actual membership (profiles still
+ *  loading). */
+export interface GroupOrbData {
+  conversationId: string
+  title: string
+  members: Profile[]
+  memberCount: number
+}
 
 interface Props {
   supabase: SupabaseClient
@@ -24,9 +35,30 @@ interface Props {
   liveHostIds?: Set<string>
   liveSessions?: LiveSession[]
   onWatchLive?: (sessionId: string) => void
+  /** Per-friend unread-message counts. Drives the orb pulse/halo/badge. */
+  friendUnread?: Map<string, number>
+  /** Latest unread message per friend — populates the floating preview. */
+  friendLastMessages?: Map<string, Message>
+  /** Optional override of the orb pool. Defaults to `followerProfiles`
+   *  (members), but the parent may union in anyone with pending
+   *  notifications so the alert visuals always have an orb to land
+   *  on — even if the sender isn't a follower. */
+  orbProfiles?: Profile[]
+  /** Group constellations to render alongside DM orbs. Each renders
+   *  as a cluster of member mini-orbs connected by faint lines. */
+  groupOrbs?: GroupOrbData[]
+  /** Per-group unread counts (keyed by conversation_id). */
+  groupUnread?: Map<string, number>
+  /** Per-group latest unread message — populates the group banner. */
+  groupLastMessages?: Map<string, Message>
+  /** Open a group chat. Click on a constellation fires this with the
+   *  group's conversation_id. */
+  onOpenGroupChat?: (conversationId: string) => void
 }
 
-interface Orb {
+type Orb = OrbBase & ({ kind: 'dm'; profile: Profile } | { kind: 'group'; group: GroupOrbData })
+
+interface OrbBase {
   x: number
   y: number
   vx: number
@@ -51,6 +83,8 @@ export default function ProfilePanel ({
   favorites, onToggleFav, onViewProfile, onAvatarUpdated,
   viewOnly,
   liveHostIds, liveSessions, onWatchLive,
+  friendUnread, friendLastMessages, orbProfiles,
+  groupOrbs, groupUnread, groupLastMessages, onOpenGroupChat,
 }: Props) {
   const { t } = useT()
   void onRemoveFriend // retained on the props contract for future use
@@ -65,9 +99,110 @@ export default function ProfilePanel ({
   const [tooltipPos, setTooltipPos]  = useState<{ x: number; y: number; below: boolean } | null>(null)
   const hoverTimerRef                = useRef<ReturnType<typeof setTimeout> | null>(null)
   const speedFactorRef               = useRef(1)
-  const exclusionPadRef              = useRef(6)
   const [statList, setStatList]      = useState<'members' | 'following' | null>(null)
   const lastListRef                  = useRef<'members' | 'following'>('members')
+
+  // ── Live message preview state ───────────────────────────────────────────
+  // Each new message gets a banner that **persists** until the user
+  // either (a) opens the chat (mark-seen clears it via the second
+  // effect) or (b) clicks the per-banner ✕ to drop it without marking
+  // the message read. The orb pulse / halo / count keep going in
+  // case (b) so the user still has a cue to follow up.
+  //
+  // DMs and groups have separate states so neither effect needs to
+  // know about the other; they render into the same banner stack.
+  const [dmPreviews,    setDmPreviews]    = useState<Map<string, Message>>(new Map())  // friend id → msg
+  const [groupPreviews, setGroupPreviews] = useState<Map<string, Message>>(new Map())  // conv id → msg
+  const prevDmUnreadRef    = useRef<Map<string, number>>(new Map())
+  const prevGroupUnreadRef = useRef<Map<string, number>>(new Map())
+
+  // DM — detect new arrivals, surface as banners.
+  useEffect(() => {
+    if (!friendUnread) { prevDmUnreadRef.current = new Map(); return }
+    const prev = prevDmUnreadRef.current
+    const incoming: Array<[string, Message]> = []
+    for (const [fid, count] of friendUnread) {
+      if (count > (prev.get(fid) ?? 0)) {
+        const msg = friendLastMessages?.get(fid)
+        if (msg) incoming.push([fid, msg])
+      }
+    }
+    prevDmUnreadRef.current = new Map(friendUnread)
+    if (incoming.length === 0) return
+    setDmPreviews(p => {
+      const next = new Map(p)
+      for (const [fid, msg] of incoming) next.set(fid, msg)
+      return next
+    })
+  }, [friendUnread, friendLastMessages])
+
+  // Group — same shape, keyed by conversation_id.
+  useEffect(() => {
+    if (!groupUnread) { prevGroupUnreadRef.current = new Map(); return }
+    const prev = prevGroupUnreadRef.current
+    const incoming: Array<[string, Message]> = []
+    for (const [cid, count] of groupUnread) {
+      if (count > (prev.get(cid) ?? 0)) {
+        const msg = groupLastMessages?.get(cid)
+        if (msg) incoming.push([cid, msg])
+      }
+    }
+    prevGroupUnreadRef.current = new Map(groupUnread)
+    if (incoming.length === 0) return
+    setGroupPreviews(p => {
+      const next = new Map(p)
+      for (const [cid, msg] of incoming) next.set(cid, msg)
+      return next
+    })
+  }, [groupUnread, groupLastMessages])
+
+  // Drop banners as their unread clears (user opened the chat).
+  useEffect(() => {
+    if (!friendUnread) return
+    let changed = false
+    const next = new Map(dmPreviews)
+    for (const fid of dmPreviews.keys()) {
+      if (!friendUnread.has(fid)) { next.delete(fid); changed = true }
+    }
+    if (changed) setDmPreviews(next)
+  }, [friendUnread, dmPreviews])
+
+  useEffect(() => {
+    if (!groupUnread) return
+    let changed = false
+    const next = new Map(groupPreviews)
+    for (const cid of groupPreviews.keys()) {
+      if (!groupUnread.has(cid)) { next.delete(cid); changed = true }
+    }
+    if (changed) setGroupPreviews(next)
+  }, [groupUnread, groupPreviews])
+
+  // Total banner count — used for hover-tooltip suppression below.
+  const totalPreviews = dmPreviews.size + groupPreviews.size
+
+  // Close any open hover tooltip the moment a banner appears.
+  useEffect(() => {
+    if (totalPreviews === 0) return
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
+    for (const o of orbsRef.current) o.frozen = false
+    setHoveredIdx(null)
+    setTooltipPos(null)
+  }, [totalPreviews])
+
+  // Manual ✕ dismiss — drop the banner without touching `unread`, so
+  // the orb keeps pulsing and the count badge stays.
+  const dismissDmPreview = (fid: string) => {
+    setDmPreviews(p => {
+      if (!p.has(fid)) return p
+      const next = new Map(p); next.delete(fid); return next
+    })
+  }
+  const dismissGroupPreview = (cid: string) => {
+    setGroupPreviews(p => {
+      if (!p.has(cid)) return p
+      const next = new Map(p); next.delete(cid); return next
+    })
+  }
 
   useEffect(() => { if (statList) lastListRef.current = statList }, [statList])
 
@@ -76,7 +211,10 @@ export default function ProfilePanel ({
   // friend on their panel). Mirrors the deleted party-panel
   // backdrop. Sets are derived once for HoverTooltip's status pill
   // (mutual / following / follows-you).
-  const renderProfiles = followerProfiles
+  // Parent may pass `orbProfiles` to include people-with-notifications
+  // that aren't followers (so their pulse/preview has something to
+  // attach to). Falls back to followers-only if unset.
+  const renderProfiles = orbProfiles ?? followerProfiles
   const followingSet = useMemo(() => new Set(followingProfiles.map(p => p.id)), [followingProfiles])
   const followerSet  = useMemo(() => new Set(followerProfiles.map(p => p.id)), [followerProfiles])
 
@@ -112,10 +250,11 @@ export default function ProfilePanel ({
   const photo       = me?.avatar_url
 
   // ── Orb seeding ──────────────────────────────────────────────────────────
-  // Re-seed whenever the membership list or favourites change. Orbs spawn
-  // anywhere in the panel below the top-bar; the centre is open at first
-  // (random distribution may put an orb there) but the runtime exclusion
-  // pushes it back out within a few frames so the avatar stays uncovered.
+  // Re-seed whenever the membership list, group set, or favourites
+  // change. Orbs spawn anywhere in the panel below the top-bar. DM
+  // orbs and group constellations share the same brownian-motion
+  // physics — only the rendered representation differs.
+  const safeGroupOrbs = groupOrbs ?? []
   useLayoutEffect(() => {
     const c = containerRef.current
     if (!c) return
@@ -124,7 +263,7 @@ export default function ProfilePanel ({
     const H = rect.height
     sizeRef.current = { w: W, h: H }
 
-    const N = renderProfiles.length
+    const N = renderProfiles.length + safeGroupOrbs.length
     if (N === 0) {
       orbsRef.current = []
       forceRender(v => v + 1)
@@ -132,39 +271,56 @@ export default function ProfilePanel ({
     }
 
     const reservedBottom = 4
-    const usable      = Math.max(1, (W * (H - reservedBottom) - Math.PI * SELF_RADIUS * SELF_RADIUS) * 0.22)
+    const usable      = Math.max(1, W * (H - reservedBottom) * 0.22)
     const rRaw        = Math.sqrt(usable / (N * Math.PI))
     const baseR       = Math.max(4, Math.min(14, rRaw))
     const favR        = Math.max(baseR * 1.4, baseR + 5)
-    const exclusionPad = Math.max(18, 48 - Math.sqrt(N) * 1.5)
+    // Constellations need more breathing room — scale with member
+    // count so a 16-member group reads as visibly chunkier than a
+    // 3-member one. Capped so they don't dominate the panel.
+    const groupR = (n: number) => Math.max(baseR * 1.8, Math.min(28, baseR * 1.4 + n * 0.7))
     const speedFactor  = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
-    speedFactorRef.current  = speedFactor
-    exclusionPadRef.current = exclusionPad
+    speedFactorRef.current = speedFactor
 
     const orbs: Orb[] = []
-    for (let i = 0; i < N; i++) {
-      const r = favorites.has(renderProfiles[i]!.id) ? favR : baseR
+    for (const p of renderProfiles) {
+      const r = favorites.has(p.id) ? favR : baseR
       const x = r + Math.random() * (W - 2 * r)
       const y = r + Math.random() * (H - reservedBottom - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
-      orbs.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
+      orbs.push({ kind: 'dm', profile: p, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
+    }
+    for (const g of safeGroupOrbs) {
+      const r = groupR(Math.max(2, g.memberCount))
+      const x = r + Math.random() * (W - 2 * r)
+      const y = r + Math.random() * (H - reservedBottom - 2 * r)
+      const angle = Math.random() * Math.PI * 2
+      const speed = (0.05 + Math.random() * 0.06) * speedFactor   // groups drift a hair slower
+      orbs.push({ kind: 'group', group: g, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
     }
     orbsRef.current = orbs
     setHoveredIdx(null)
     setTooltipPos(null)
     forceRender(v => v + 1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderProfiles.map(p => p.id).join('|'), Array.from(favorites).sort().join('|')])
+  }, [
+    renderProfiles.map(p => p.id).join('|'),
+    safeGroupOrbs.map(g => g.conversationId).join('|'),
+    Array.from(favorites).sort().join('|'),
+  ])
 
   // ── Animation loop ───────────────────────────────────────────────────────
-  // Brownian drift + wall bounce + circular exclusion around the avatar.
+  // Brownian drift + wall bounce. Orbs can drift through the avatar
+  // freely — the prior centre-exclusion ring was producing a visible
+  // clump on first paint because every orb that initialised inside it
+  // got snapped to the boundary at once. Letting them pass through
+  // looks calmer and reads as a genuinely even distribution.
   useEffect(() => {
     let raf = 0
     const tick = () => {
       const orbs = orbsRef.current
       const { w: W, h: H } = sizeRef.current
-      const cx = W / 2, cy = H / 2
       const reservedBottom = 4
       const sf = speedFactorRef.current
 
@@ -190,24 +346,6 @@ export default function ProfilePanel ({
         if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
       }
 
-      // Centre exclusion — push orbs out of the avatar's circle so the
-      // photo stays unobscured.
-      for (const o of orbs) {
-        const dx = o.x - cx, dy = o.y - cy
-        const d  = Math.hypot(dx, dy) || 0.001
-        const min = SELF_RADIUS + o.r + exclusionPadRef.current
-        if (d < min) {
-          const nx = dx / d, ny = dy / d
-          o.x = cx + nx * min
-          o.y = cy + ny * min
-          const dot = o.vx * nx + o.vy * ny
-          if (dot < 0) {
-            o.vx -= 2 * dot * nx
-            o.vy -= 2 * dot * ny
-          }
-        }
-      }
-
       for (const o of orbs)
         if (o.el) o.el.style.transform = `translate(${o.x - o.r}px, ${o.y - o.r}px)`
 
@@ -221,6 +359,12 @@ export default function ProfilePanel ({
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
     const orb = orbsRef.current[idx]
     if (!orb) return
+    // Notification banners live at the top of the panel; the hover
+    // tooltip would draw right over them. While any preview is
+    // showing we suppress the tooltip entirely — the orb still
+    // clicks through to its chat, which is what the user wants
+    // anyway when an orb is pulsing.
+    if (totalPreviews > 0) return
     orb.frozen = true
     setHoveredIdx(idx)
     const W = sizeRef.current.w
@@ -250,7 +394,9 @@ export default function ProfilePanel ({
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null }
   }
 
-  const hoveredProfile = hoveredIdx !== null ? renderProfiles[hoveredIdx] : null
+  const hoveredOrb     = hoveredIdx !== null ? orbsRef.current[hoveredIdx] : null
+  const hoveredProfile = hoveredOrb?.kind === 'dm'    ? hoveredOrb.profile : null
+  const hoveredGroup   = hoveredOrb?.kind === 'group' ? hoveredOrb.group   : null
 
   // The list shown when a stat chip is open. Falls back to the last
   // selected list while collapsing so the rows stay rendered (no flash
@@ -271,34 +417,232 @@ export default function ProfilePanel ({
             slightly bright so the foreground glass UI reads cleanly on
             top while the orbs still register motion. */}
         <div className="orbit-orbs-layer">
-          {renderProfiles.map((p, i) => {
-            const orb = orbsRef.current[i]
-            const r = orb?.r ?? 14
+          {orbsRef.current.map((orb, i) => {
+            if (orb.kind === 'dm') {
+              const p = orb.profile
+              const r = orb.r
+              const unread = friendUnread?.get(p.id) ?? 0
+              const hasNotif = unread > 0
+              return (
+                <div
+                  key={`dm:${p.id}`}
+                  className={`orbit-orb${p.isOnline ? '' : ' offline'}${hasNotif ? ' has-notif' : ''}`}
+                  ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
+                  style={{
+                    width: r * 2,
+                    height: r * 2,
+                    background: p.avatar_color,
+                    fontSize: Math.max(8, r * 0.55),
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={() => handleOrbEnter(i)}
+                  onMouseLeave={() => handleOrbLeave(i)}
+                  onClick={() => onOpenChat(p.id)}
+                >
+                  {p.avatar_url && <img src={p.avatar_url} alt="" />}
+                  {liveHostIds?.has(p.id)
+                    ? <div className="orbit-orb-livedot" />
+                    : p.isOnline && <div className="orbit-orb-dot" />}
+                  {favorites.has(p.id) && <div className="orbit-orb-fav">★</div>}
+                  {hasNotif && <div className="orbit-orb-notif-halo" />}
+                  {hasNotif && unread > 1 && (
+                    <div className="orbit-orb-notif-count">{unread > 9 ? '9+' : unread}</div>
+                  )}
+                </div>
+              )
+            }
+
+            // ── Group constellation ──────────────────────────────────────
+            const g = orb.group
+            const r = orb.r
+            const unread = groupUnread?.get(g.conversationId) ?? 0
+            const hasNotif = unread > 0
+            // Show up to 6 member mini-orbs; group is capped at 16 in DB
+            // but the constellation reads as cluttered past 6. Beyond
+            // that we just stop adding — the count badge already cues
+            // "this is a big one".
+            const shown = g.members.slice(0, 6)
+            const innerR = r * 0.62   // radius of the ring the mini-orbs sit on
+            const miniR  = Math.max(3, r * 0.28)
+            // Pre-compute positions so we can draw both the mini-orbs
+            // AND the connecting SVG lines from the same data.
+            const positions = shown.map((m, idx) => {
+              const angle = (idx / shown.length) * Math.PI * 2 - Math.PI / 2  // start at 12 o'clock
+              return {
+                profile: m,
+                cx: r + Math.cos(angle) * innerR,
+                cy: r + Math.sin(angle) * innerR,
+              }
+            })
             return (
               <div
-                key={p.id}
-                className={`orbit-orb${p.isOnline ? '' : ' offline'}`}
+                key={`grp:${g.conversationId}`}
+                className={`orbit-orb orbit-constellation${hasNotif ? ' has-notif' : ''}`}
                 ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
                 style={{
                   width: r * 2,
                   height: r * 2,
-                  background: p.avatar_color,
-                  fontSize: Math.max(8, r * 0.55),
                   cursor: 'pointer',
                 }}
                 onMouseEnter={() => handleOrbEnter(i)}
                 onMouseLeave={() => handleOrbLeave(i)}
-                onClick={() => onOpenChat(p.id)}
+                onClick={() => onOpenGroupChat?.(g.conversationId)}
+                title={g.title}
               >
-                {p.avatar_url && <img src={p.avatar_url} alt="" />}
-                {liveHostIds?.has(p.id)
-                  ? <div className="orbit-orb-livedot" />
-                  : p.isOnline && <div className="orbit-orb-dot" />}
-                {favorites.has(p.id) && <div className="orbit-orb-fav">★</div>}
+                {/* Connecting lines — sit behind the mini-orbs. */}
+                <svg
+                  className="orbit-constellation-lines"
+                  width={r * 2}
+                  height={r * 2}
+                  viewBox={`0 0 ${r * 2} ${r * 2}`}
+                >
+                  {positions.map((p, j) => {
+                    const next = positions[(j + 1) % positions.length]!
+                    return (
+                      <line
+                        key={j}
+                        x1={p.cx} y1={p.cy}
+                        x2={next.cx} y2={next.cy}
+                      />
+                    )
+                  })}
+                </svg>
+                {positions.map((pos, j) => (
+                  <div
+                    key={`mini-${j}`}
+                    className="orbit-constellation-mini"
+                    style={{
+                      left: pos.cx - miniR,
+                      top:  pos.cy - miniR,
+                      width: miniR * 2,
+                      height: miniR * 2,
+                      background: pos.profile.avatar_color,
+                      fontSize: Math.max(6, miniR * 0.95),
+                    }}
+                  >
+                    {pos.profile.avatar_url
+                      ? <img src={pos.profile.avatar_url} alt="" />
+                      : <span>{pos.profile.initials.slice(0, 1)}</span>}
+                  </div>
+                ))}
+                {hasNotif && <div className="orbit-orb-notif-halo" />}
+                {hasNotif && unread > 1 && (
+                  <div className="orbit-orb-notif-count">{unread > 9 ? '9+' : unread}</div>
+                )}
+                {/* Member-count badge for groups bigger than what we can
+                    show as mini-orbs. Sits opposite the notif count. */}
+                {g.memberCount > shown.length && (
+                  <div className="orbit-constellation-overflow">+{g.memberCount - shown.length}</div>
+                )}
               </div>
             )
           })}
         </div>
+
+        {/* Live message preview banners — DM and group entries share
+            the same stack. Banner persists until the user opens that
+            chat (mark-seen clears it) or hits the ✕ button. */}
+        {totalPreviews > 0 && (
+          <div className="orbit-msg-preview-stack">
+            {Array.from(dmPreviews.entries()).map(([fid, msg]) => {
+              const friend = renderProfiles.find(p => p.id === fid)
+              if (!friend) return null
+              const text = (msg.content ?? '').trim()
+              const isAttach = !text && !!msg.attachment_type
+              const label = isAttach
+                ? (msg.attachment_type === 'image' ? '📷 Photo'
+                  : msg.attachment_type === 'video' ? '🎬 Video'
+                  : '🎵 Audio')
+                : text
+              return (
+                <div
+                  className="orbit-msg-preview-banner"
+                  key={`dm:${fid}-${msg.id}`}
+                  onClick={() => onOpenChat(fid)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="orbit-msg-preview-av" style={{ background: friend.avatar_color }}>
+                    {friend.avatar_url
+                      ? <img src={friend.avatar_url} alt="" />
+                      : <span>{friend.initials}</span>}
+                  </div>
+                  <div className="orbit-msg-preview-body">
+                    <div className="orbit-msg-preview-name">{friend.display_name}</div>
+                    <div className="orbit-msg-preview-text">{label}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="orbit-msg-preview-close"
+                    aria-label="Dismiss"
+                    onClick={(e) => { e.stopPropagation(); dismissDmPreview(fid) }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                      <path d="M2 2l6 6M8 2l-6 6" />
+                    </svg>
+                  </button>
+                </div>
+              )
+            })}
+
+            {/* Group banner: [Group] sender: text — sender name is
+                resolved from `renderProfiles` (DM peers may overlap
+                with group members so the join works most of the time).
+                Falls back to "someone" if the sender profile isn't
+                loaded yet — rare and self-healing. */}
+            {Array.from(groupPreviews.entries()).map(([cid, msg]) => {
+              const group = safeGroupOrbs.find(g => g.conversationId === cid)
+              if (!group) return null
+              const sender = group.members.find(m => m.id === msg.sender_id)
+                ?? renderProfiles.find(p => p.id === msg.sender_id)
+                ?? null
+              const text = (msg.content ?? '').trim()
+              const isAttach = !text && !!msg.attachment_type
+              const label = isAttach
+                ? (msg.attachment_type === 'image' ? '📷 Photo'
+                  : msg.attachment_type === 'video' ? '🎬 Video'
+                  : '🎵 Audio')
+                : text
+              const senderName = sender?.display_name ?? 'someone'
+              return (
+                <div
+                  className="orbit-msg-preview-banner orbit-msg-preview-group"
+                  key={`grp:${cid}-${msg.id}`}
+                  onClick={() => onOpenGroupChat?.(cid)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="orbit-msg-preview-av orbit-msg-preview-av-group">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
+                      <circle cx="6"  cy="9"  r="2.2" fill="#fff" stroke="none" />
+                      <circle cx="18" cy="9"  r="2.2" fill="#fff" stroke="none" />
+                      <circle cx="12" cy="17" r="2.2" fill="#fff" stroke="none" />
+                      <path d="M6 9 L18 9 M6 9 L12 17 M18 9 L12 17" opacity="0.55" />
+                    </svg>
+                  </div>
+                  <div className="orbit-msg-preview-body">
+                    <div className="orbit-msg-preview-name">
+                      <span className="orbit-msg-preview-grouptag">{group.title}</span>
+                      {' · '}
+                      {senderName}
+                    </div>
+                    <div className="orbit-msg-preview-text">{label}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="orbit-msg-preview-close"
+                    aria-label="Dismiss"
+                    onClick={(e) => { e.stopPropagation(); dismissGroupPreview(cid) }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                      <path d="M2 2l6 6M8 2l-6 6" />
+                    </svg>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Members / Following stats — always visible at the top. */}
         <div className="orbit-stats">
@@ -358,6 +702,39 @@ export default function ProfilePanel ({
             </div>
           )}
         </button>
+
+        {/* Group hover card — pops above/below the hovered constellation.
+            Minimal Phase-3 surface: title + member chips + Open. */}
+        {hoveredGroup && tooltipPos && (
+          <div
+            className={`orbit-group-tt${tooltipPos.below ? ' below' : ''}`}
+            style={{ left: tooltipPos.x, top: tooltipPos.y }}
+            onMouseEnter={handleTooltipEnter}
+            onMouseLeave={() => hoveredIdx !== null && handleOrbLeave(hoveredIdx)}
+          >
+            <div className="orbit-group-tt-title">{hoveredGroup.title}</div>
+            <div className="orbit-group-tt-members">
+              {hoveredGroup.members.slice(0, 5).map(m => (
+                <div key={m.id} className="orbit-group-tt-mem" title={m.display_name}>
+                  <div className="orbit-group-tt-av" style={{ background: m.avatar_color }}>
+                    {m.avatar_url
+                      ? <img src={m.avatar_url} alt="" />
+                      : <span>{m.initials.slice(0, 1)}</span>}
+                  </div>
+                </div>
+              ))}
+              {hoveredGroup.memberCount > 5 && (
+                <span className="orbit-group-tt-more">+{hoveredGroup.memberCount - 5}</span>
+              )}
+            </div>
+            <button
+              className="orbit-group-tt-btn"
+              onClick={() => onOpenGroupChat?.(hoveredGroup.conversationId)}
+            >
+              Open chat
+            </button>
+          </div>
+        )}
 
         {/* Friend hover card — pops above/below the hovered orb. */}
         {hoveredProfile && tooltipPos && (() => {

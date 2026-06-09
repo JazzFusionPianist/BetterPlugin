@@ -4018,7 +4018,8 @@
   gap: 4px;
   cursor: pointer;
   scroll-snap-align: center;
-  scroll-snap-stop: always;
+  /* No scroll-snap-stop: always — that grabbed every card during a
+     fast swipe and made the scroll lurch through them one at a time. */
   /* Scale lives on the item (not the cover) so the cover's rotate
      animation in `.centred` doesn't fight a scale transition on the
      same property — that fight was the perceived snap on snap. */

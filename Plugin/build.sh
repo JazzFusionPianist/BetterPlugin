@@ -70,6 +70,7 @@ fi
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
       -DCOOP_APP_URL="$COOP_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \
       -G Xcode \

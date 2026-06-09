@@ -168,6 +168,13 @@
   position: relative;
   z-index: 100;
 }
+/* In Expand View the plugin shell goes to 100vw, but space-evenly
+   would smear the 4 icons across the whole width. Pin the bar to its
+   original 300 px footprint so the icons stay in the same visual
+   cluster they had in compact mode. */
+.plugin.plugin-expanded .top-bar {
+  width: 300px;
+}
 
 
 .app-title {

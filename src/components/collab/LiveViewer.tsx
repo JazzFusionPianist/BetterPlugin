@@ -192,15 +192,18 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
             title={expanded ? 'Collapse view' : 'Expand view'}
             aria-label={expanded ? 'Collapse view' : 'Expand view'}
           >
+            {/* Double-chevron arrows: » to expand wider, « to collapse
+                back. Strokes drawn as SVG so they pick up currentColor
+                from the button + scale crisply at any DPI. */}
             {expanded ? (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2v4H2" /><path d="M10 2v4h4" />
-                <path d="M6 14v-4H2" /><path d="M10 14v-4h4" />
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 4l-4 4 4 4" />
+                <path d="M13 4l-4 4 4 4" />
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 6V2h4" /><path d="M14 6V2h-4" />
-                <path d="M2 10v4h4" /><path d="M14 10v4h-4" />
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 4l4 4-4 4" />
+                <path d="M7 4l4 4-4 4" />
               </svg>
             )}
           </button>

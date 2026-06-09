@@ -162,6 +162,25 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     }
   }, [syncCentred])
 
+  // Translate mouse-wheel deltaY into horizontal scroll for users
+  // without a trackpad. Desktop browsers won't auto-map vertical
+  // wheel input onto an `overflow-x: auto` container, so a regular
+  // mouse user couldn't budge the gallery at all. We only intervene
+  // when there's no deltaX — trackpad horizontal swipes already work
+  // natively and shouldn't be doubled-up.
+  useEffect(() => {
+    const area = areaRef.current
+    if (!area) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaX !== 0) return                    // trackpad horizontal — let the browser handle
+      if (e.deltaY === 0) return
+      e.preventDefault()
+      area.scrollLeft += e.deltaY
+    }
+    area.addEventListener('wheel', onWheel, { passive: false })
+    return () => area.removeEventListener('wheel', onWheel)
+  }, [])
+
   // Measure spacer widths BEFORE paint so the first render already has
   // the correct layout — otherwise the items shift to the right after
   // the initial useEffect runs and viewIndex points at whoever was at

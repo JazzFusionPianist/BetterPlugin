@@ -674,10 +674,12 @@ function CollabPageInner({ user }: Props) {
           ) : (
             <ConversationsPanel
               conversations={conversations}
+              groupConversations={groupConversations}
               profiles={profilesWithStatus}
               favorites={favorites}
               currentUserId={user.id}
               onOpenChat={handleOpenChat}
+              onOpenGroupChat={handleOpenGroupChat}
               onNewGroup={() => setNewGroupOpen(true)}
             />
           )}

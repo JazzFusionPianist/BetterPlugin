@@ -275,12 +275,12 @@ export default function ProfilePanel ({
     const rRaw        = Math.sqrt(usable / (N * Math.PI))
     const baseR       = Math.max(4, Math.min(14, rRaw))
     const favR        = Math.max(baseR * 1.4, baseR + 5)
-    // Constellations need to read as **anchors** even when the panel
-    // is crowded with DM orbs (a follower count of hundreds will
-    // otherwise bury them). Sized noticeably bigger than the largest
-    // favourite-DM orb, and capped at a value that still fits in a
-    // tight panel without dominating it.
-    const groupR = (n: number) => Math.max(favR * 1.4, Math.min(38, favR * 1.1 + n * 0.9))
+    // Constellation size is *intentionally* decoupled from the DM-orb
+    // sizing above — DM orbs shrink as the backdrop gets crowded (the
+    // `rRaw` formula divides usable area by N), but a group orb has
+    // to stay legible regardless. The size only scales with member
+    // count, never with how many DM orbs share the panel.
+    const groupR = (n: number) => Math.max(22, Math.min(40, 24 + n * 0.9))
     const speedFactor  = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
     speedFactorRef.current = speedFactor
 

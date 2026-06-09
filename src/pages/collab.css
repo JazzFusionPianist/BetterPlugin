@@ -6301,6 +6301,16 @@
   justify-content: center;
 }
 
+/* Group row in the chat list — same shape as a DM row, just the
+   avatar slot carries the constellation glyph + the brand gradient. */
+.conv-av.conv-av-group {
+  background: linear-gradient(135deg, #6B8AFD 0%, #4A8FE7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
 /* ── Group sender chip ───────────────────────────────────────────────
    Tiny avatar + display name above a `theirs` bubble in group chats.
    Only renders on the first message of a streak so consecutive

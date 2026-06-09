@@ -275,10 +275,12 @@ export default function ProfilePanel ({
     const rRaw        = Math.sqrt(usable / (N * Math.PI))
     const baseR       = Math.max(4, Math.min(14, rRaw))
     const favR        = Math.max(baseR * 1.4, baseR + 5)
-    // Constellations need more breathing room — scale with member
-    // count so a 16-member group reads as visibly chunkier than a
-    // 3-member one. Capped so they don't dominate the panel.
-    const groupR = (n: number) => Math.max(baseR * 1.8, Math.min(28, baseR * 1.4 + n * 0.7))
+    // Constellations need to read as **anchors** even when the panel
+    // is crowded with DM orbs (a follower count of hundreds will
+    // otherwise bury them). Sized noticeably bigger than the largest
+    // favourite-DM orb, and capped at a value that still fits in a
+    // tight panel without dominating it.
+    const groupR = (n: number) => Math.max(favR * 1.4, Math.min(38, favR * 1.1 + n * 0.9))
     const speedFactor  = Math.max(0.15, 1 - Math.log10(Math.max(1, N)) * 0.35)
     speedFactorRef.current = speedFactor
 
@@ -534,6 +536,10 @@ export default function ProfilePanel ({
                 {g.memberCount > shown.length && (
                   <div className="orbit-constellation-overflow">+{g.memberCount - shown.length}</div>
                 )}
+                {/* Always-on title tag below the cluster so the user can
+                    spot which group is which without hovering. Pointer
+                    events stay off — clicks still hit the constellation. */}
+                <div className="orbit-constellation-label">{g.title}</div>
               </div>
             )
           })}

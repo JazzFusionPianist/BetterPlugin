@@ -8,6 +8,11 @@ export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
 interface Props {
   onSelectGame: (game: GameId) => void
   onClose: () => void
+  /** When set, the list is being browsed specifically to invite the
+   *  current chat. Currently only used to swap the centred CD's
+   *  hover-label CTA from "Play" to "Invite" — actual room creation
+   *  + chat-bubble send happens in the parent's onSelectGame handler. */
+  inviteContext?: { conversationId: string } | null
 }
 
 interface GameCard {
@@ -101,7 +106,8 @@ const STEP_PX = 70
  * step, smoothly animated by the CSS transition). Click a side CD to
  * snap to it; click the centred CD to enter that game.
  */
-export default function GameListView({ onSelectGame }: Props) {
+export default function GameListView({ onSelectGame, inviteContext }: Props) {
+  void inviteContext // reserved for the optional CTA swap later — parent owns invite logic
   const { t } = useT()
   const [viewIndex, setViewIndex] = useState(0)
   // Memoise so card title/desc lookups don't churn on every render —

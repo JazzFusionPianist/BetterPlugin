@@ -134,6 +134,15 @@ export const T = {
   'game.noMatch':            { en: 'No friends match "{q}".', ko: '"{q}"와 일치하는 친구가 없습니다.', ja: '"{q}"に一致する友達がいません。', zh: '没有匹配 "{q}" 的好友。', es: 'No hay amigos que coincidan con "{q}".', de: 'Keine Freunde stimmen mit „{q}“ überein.', fr: 'Aucun ami ne correspond à « {q} ».', hi: '"{q}" से मेल खाने वाला कोई मित्र नहीं।' },
   'game.searchFriends':      { en: 'Search friends…', ko: '친구 검색…', ja: '友達を検索…', zh: '搜索好友…', es: 'Buscar amigos…', de: 'Freunde suchen…', fr: 'Rechercher des amis…', hi: 'मित्र खोजें…' },
 
+  // ───── Game invite via chat ─────────────────────────────────────────────
+  'game.invitedYouToPlay':  { en: 'invited you to play {game}', ko: '{game} 게임에 초대했습니다', ja: '{game} に招待しました', zh: '邀请你玩 {game}', es: 'te invitó a jugar {game}', de: 'hat dich zu {game} eingeladen', fr: 'vous a invité à jouer à {game}', hi: 'आपको {game} खेलने के लिए आमंत्रित किया' },
+  'game.youInvitedToPlay':  { en: 'You invited everyone to play {game}', ko: '{game} 게임에 모두를 초대했습니다', ja: '{game} に全員を招待しました', zh: '你邀请大家玩 {game}', es: 'Invitaste a todos a jugar {game}', de: 'Du hast alle zu {game} eingeladen', fr: 'Vous avez invité tout le monde à jouer à {game}', hi: 'आपने सभी को {game} खेलने के लिए आमंत्रित किया' },
+  'game.joinGame':          { en: 'Join Game', ko: '게임 참여', ja: 'ゲームに参加', zh: '加入游戏', es: 'Unirse al juego', de: 'Spiel beitreten', fr: 'Rejoindre la partie', hi: 'खेल में शामिल हों' },
+  'game.roomFull':          { en: 'Room is full', ko: '방이 꽉 찼습니다', ja: '部屋は満員です', zh: '房间已满', es: 'La sala está llena', de: 'Raum ist voll', fr: 'La salle est pleine', hi: 'कमरा भरा हुआ है' },
+  'game.alreadyJoined':     { en: 'Already in the game', ko: '이미 참여 중', ja: '既に参加中', zh: '已加入', es: 'Ya estás en el juego', de: 'Bereits dabei', fr: 'Déjà dans la partie', hi: 'पहले से शामिल' },
+  'conv.youSentGameInvite': { en: 'You sent a game invite', ko: '게임 초대를 보냈습니다', ja: 'ゲーム招待を送信しました', zh: '你发送了游戏邀请', es: 'Enviaste una invitación de juego', de: 'Du hast eine Spieleinladung gesendet', fr: 'Vous avez envoyé une invitation de jeu', hi: 'आपने एक गेम आमंत्रण भेजा' },
+  'conv.sentGameInvite':    { en: 'Sent a game invite',  ko: '게임 초대를 보냈습니다', ja: 'ゲーム招待を送信しました', zh: '发送了游戏邀请', es: 'Envió una invitación de juego', de: 'Hat eine Spieleinladung gesendet', fr: 'A envoyé une invitation de jeu', hi: 'गेम आमंत्रण भेजा' },
+
   // ───── Common state / lobby ─────────────────────────────────────────────
   'common.ready':         { en: 'Ready',      ko: '준비',     ja: '準備OK',     zh: '准备',     es: 'Listo',     de: 'Bereit',     fr: 'Prêt',      hi: 'तैयार' },
   'common.notReady':      { en: 'Not ready',  ko: '준비 안됨', ja: '準備未完',   zh: '未准备',   es: 'No listo',  de: 'Nicht bereit', fr: 'Pas prêt', hi: 'तैयार नहीं' },

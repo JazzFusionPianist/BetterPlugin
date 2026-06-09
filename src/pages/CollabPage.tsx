@@ -83,6 +83,12 @@ function CollabPageInner({ user }: Props) {
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
+  // True while the user is using the GameList specifically to invite
+  // people in the chat they just left open. Cleared when they pick a
+  // game (we create the room + send the invite bubble) or close the
+  // game panel. Stores the conversation id so we send the invite into
+  // the right place even if the user navigates between chats.
+  const [chatGameInvite, setChatGameInvite] = useState<{ conversationId: string } | null>(null)
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null)
   const [tooltip, setTooltip]                   = useState<TooltipInfo | null>(null)
   const [galleryPopup, setGalleryPopup]         = useState<{ profile: Profile; x: number; y: number; below: boolean } | null>(null)
@@ -114,6 +120,22 @@ function CollabPageInner({ user }: Props) {
         .then(() => refetchProfiles())
     }
   }, [profilesLoading, me, client, user.id, user.email, refetchProfiles])
+
+  // Click handler for an in-chat game invite bubble's "Join Game"
+  // button. Atomically takes a seat if available and routes the user
+  // into the lobby. Returns the join outcome so the bubble can surface
+  // a banner ("Room is full", "Already in", …).
+  const handleJoinGameInvite = useCallback(async (gameType: string, roomId: string) => {
+    const { joinGameRoom } = await import('../lib/gameRooms')
+    const type = gameType as 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+    const result = await joinGameRoom(client, type, roomId, user.id)
+    if (result === 'joined' || result === 'already-in') {
+      sessionStorage.setItem('join_room_id', roomId)
+      setGameScreen(type)
+      setGameOpen(true)
+    }
+    return result
+  }, [client, user.id])
 
   // Build the active chat target — DM or group, mutually exclusive.
   const chatTarget: ChatTarget | null = useMemo(() => {
@@ -519,7 +541,16 @@ function CollabPageInner({ user }: Props) {
           className={`icon-btn${gameOpen ? ' active' : ''}`}
           onClick={() => {
             const next = !gameOpen
-            if (next) { closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch() }
+            if (next) {
+              closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch()
+              // If the user is currently in a chat, opening the games
+              // panel from here means "I want to invite the people in
+              // this chat to play". Remember the conversation id —
+              // GameListView reads it to switch into invite mode.
+              setChatGameInvite(activeConvId ? { conversationId: activeConvId } : null)
+            } else {
+              setChatGameInvite(null)
+            }
             setGameOpen(next)
             if (next) setGameScreen('list')
           }}
@@ -576,6 +607,7 @@ function CollabPageInner({ user }: Props) {
             }}
             reads={conversationReads}
             onSend={send}
+            onJoinGameInvite={handleJoinGameInvite}
             onBack={() => setSelectedId(null)}
           />}
           {selectedGroup && (
@@ -592,6 +624,7 @@ function CollabPageInner({ user }: Props) {
               loading={messagesLoading}
               reads={conversationReads}
               onSend={send}
+              onJoinGameInvite={handleJoinGameInvite}
               onBack={() => setSelectedGroupConvId(null)}
             />
           )}
@@ -693,8 +726,21 @@ function CollabPageInner({ user }: Props) {
         <div className="view gview">
           {gameScreen === 'list' && (
             <GameListView
-              onSelectGame={(g) => setGameScreen(g)}
-              onClose={() => setGameOpen(false)}
+              inviteContext={chatGameInvite}
+              onSelectGame={async (g) => {
+                // Normal path — user picked a game to play / browse.
+                if (!chatGameInvite) { setGameScreen(g); return }
+                // Invite path — create the room, post the invite bubble
+                // into the chat, then drop the user into the lobby.
+                const { createGameRoom } = await import('../lib/gameRooms')
+                const roomId = await createGameRoom(client, g, user.id)
+                if (!roomId) { setGameScreen(g); return }
+                await send('', { url: roomId, type: 'game_invite', name: g })
+                sessionStorage.setItem('join_room_id', roomId)
+                setChatGameInvite(null)
+                setGameScreen(g)
+              }}
+              onClose={() => { setGameOpen(false); setChatGameInvite(null) }}
             />
           )}
           {gameScreen === 'chess' && (

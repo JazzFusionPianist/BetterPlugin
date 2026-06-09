@@ -9,7 +9,12 @@ export interface Profile {
   is_admin: boolean
 }
 
-export type AttachType = 'image' | 'video' | 'audio' | 'multi-audio'
+export type AttachType =
+  | 'image' | 'video' | 'audio' | 'multi-audio'
+  /** Special chat bubble for in-chat game invites. `attachment_url`
+   *  holds the room id and `attachment_name` holds the game type
+   *  ('chess' | 'falling_blocks' | 'poker' | 'ear_training'). */
+  | 'game_invite'
 
 export interface Message {
   id: string

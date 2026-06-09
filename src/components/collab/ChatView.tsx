@@ -41,6 +41,12 @@ interface Props {
   reads?: Map<string, number>
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
+  /** Called when the user taps "Join Game" on a chat invite bubble.
+   *  Parent handles the room-capacity check + routing into the lobby;
+   *  ChatView itself only renders the bubble and reports the click.
+   *  Resolves with the join outcome so the bubble can surface a
+   *  "Room is full" / "Already in" banner. */
+  onJoinGameInvite?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
 }
 
 function formatTime(iso: string): string {
@@ -597,6 +603,75 @@ function ExpiredAttachment({ type }: { type: AttachType }) {
   )
 }
 
+// ── Game invite bubble — in-chat invite card ────────────────────────────────
+// `url` is the room id, `name` is the game type. Tapping Join asks the
+// parent to handle capacity check + room navigation; we just render the
+// outcome banner here so users see "Room is full" inline.
+function GameInviteBubble ({
+  roomId, gameType, isMine, senderName,
+  onJoin,
+}: {
+  roomId: string
+  gameType: string
+  isMine: boolean
+  senderName: string
+  onJoin?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
+}) {
+  const { t } = useT()
+  const [banner, setBanner] = useState<null | 'full' | 'already-in' | 'missing'>(null)
+  const [busy, setBusy] = useState(false)
+
+  // Map our internal game type → the user-visible game name via the
+  // existing per-game translation key.
+  const gameNameKey =
+    gameType === 'chess'          ? 'game.chess'
+    : gameType === 'falling_blocks' ? 'game.fallingBlocks'
+    : gameType === 'poker'        ? 'game.poker'
+    : gameType === 'ear_training' ? 'game.earTraining'
+    : 'game.chess'
+  const gameName = t(gameNameKey as 'game.chess')
+
+  const headline = isMine
+    ? t('game.youInvitedToPlay', { game: gameName })
+    : `${senderName} ${t('game.invitedYouToPlay', { game: gameName })}`
+
+  const handleJoin = async () => {
+    if (!onJoin || busy) return
+    setBusy(true)
+    const r = await onJoin(gameType, roomId)
+    setBusy(false)
+    if (r === 'joined') return
+    setBanner(r)
+  }
+
+  const bannerText =
+    banner === 'full'       ? t('game.roomFull')
+    : banner === 'already-in' ? t('game.alreadyJoined')
+    : banner === 'missing'  ? t('game.roomFull')
+    : null
+
+  return (
+    <div className="game-invite-bubble">
+      <div className="game-invite-row">
+        <div className={`game-invite-icon game-invite-icon-${gameType}`}>
+          {gameType === 'chess' ? '♟' : gameType === 'poker' ? '🃏' : gameType === 'falling_blocks' ? '🎮' : '🎧'}
+        </div>
+        <div className="game-invite-text">{headline}</div>
+      </div>
+      <button
+        className="game-invite-join"
+        onClick={handleJoin}
+        disabled={busy || banner === 'full' || banner === 'missing'}
+      >
+        {t('game.joinGame')}
+      </button>
+      {bannerText && (
+        <div className="game-invite-banner">{bannerText}</div>
+      )}
+    </div>
+  )
+}
+
 function AttachmentView({ url, type, name }: { url: string; type: AttachType; name: string }) {
   if (type === 'image') return <ImageAttachment url={url} name={name} />
   if (type === 'video') return <VideoAttachment url={url} />
@@ -610,7 +685,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onSend, onBack, onJoinGameInvite }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
@@ -1314,7 +1389,16 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                     <span className="mg-sender-name">{senderProfile.display_name}</span>
                   </div>
                 )}
-                {g.msg.attachment_type && (
+                {g.msg.attachment_type === 'game_invite' && g.msg.attachment_url && g.msg.attachment_name && (
+                  <GameInviteBubble
+                    roomId={g.msg.attachment_url}
+                    gameType={g.msg.attachment_name}
+                    isMine={isMine}
+                    senderName={senderProfile?.display_name ?? otherProfile?.display_name ?? ''}
+                    onJoin={onJoinGameInvite}
+                  />
+                )}
+                {g.msg.attachment_type && g.msg.attachment_type !== 'game_invite' && (
                   g.msg.attachment_expired
                     ? <ExpiredAttachment type={g.msg.attachment_type} />
                     : g.msg.attachment_url

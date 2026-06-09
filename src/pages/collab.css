@@ -1010,6 +1010,69 @@
 .mg.mine .msg-link-preview {
   align-self: flex-end;
 }
+
+/* ── Game invite bubble (in-chat invite card) ─────────────────────── */
+.game-invite-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  font-family: 'DM Sans', sans-serif;
+}
+.mg.mine .game-invite-bubble { align-self: flex-end; }
+.game-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.game-invite-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #fff;
+}
+.game-invite-icon-chess          { background: linear-gradient(135deg, #4a5680, #1f2740); }
+.game-invite-icon-falling_blocks { background: linear-gradient(135deg, #6fb6ff, #5a3fd0); }
+.game-invite-icon-poker          { background: linear-gradient(135deg, #2f8f5a, #4a1018); }
+.game-invite-icon-ear_training   { background: linear-gradient(135deg, #ffb56b, #4a1e3a); }
+.game-invite-text {
+  font-size: 12px;
+  color: var(--t1);
+  line-height: 1.35;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+.game-invite-join {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  background: #4A8FE7;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background .12s, transform .08s, opacity .12s;
+}
+.game-invite-join:hover:not(:disabled)  { background: #3a7ad3; }
+.game-invite-join:active:not(:disabled) { transform: scale(0.97); }
+.game-invite-join:disabled              { opacity: 0.55; cursor: default; }
+.game-invite-banner {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ff5252;
+  text-align: center;
+  padding: 4px 0 0;
+}
+
 .plugin.dark .mb {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);

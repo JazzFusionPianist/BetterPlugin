@@ -54,6 +54,7 @@ export default function ConversationsPanel({ conversations, profiles, favorites,
           const preview = msg.attachment_type
             ? msg.attachment_type === 'image' ? (isMine ? t('conv.youSentPhoto') : t('conv.sentPhoto'))
               : msg.attachment_type === 'video' ? (isMine ? t('conv.youSentVideo') : t('conv.sentVideo'))
+              : msg.attachment_type === 'game_invite' ? (isMine ? t('conv.youSentGameInvite') : t('conv.sentGameInvite'))
               : (isMine ? t('conv.youSentAudio') : t('conv.sentAudio'))
             : isMine ? t('conv.youPrefix', { content: msg.content }) : msg.content
           return (

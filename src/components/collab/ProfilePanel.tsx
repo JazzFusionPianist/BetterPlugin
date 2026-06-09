@@ -455,7 +455,14 @@ export default function ProfilePanel ({
             }
 
             // ── Group constellation ──────────────────────────────────────
-            const g = orb.group
+            // Read the LATEST group data from the prop, falling back to
+            // the cached orb.group only when the prop hasn't caught up
+            // yet. The cached version is what got seeded into the
+            // physics ref at mount time — useLayoutEffect re-seeds only
+            // when conversationIds change, NOT when a group's title,
+            // member count, or member list mutates. Without this
+            // lookup, renames/member-edits never reach the label.
+            const g = safeGroupOrbs.find(gg => gg.conversationId === orb.group.conversationId) ?? orb.group
             const r = orb.r
             const unread = groupUnread?.get(g.conversationId) ?? 0
             const hasNotif = unread > 0

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
@@ -127,42 +127,49 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   // desktop browsers, which broke the snap points at the edges).
   const [spacerPx, setSpacerPx] = useState(0)
 
-  // Track the currently-centred item via scroll position. requestAnimationFrame
-  // throttles to one update per frame so a fast trackpad swipe doesn't fight
+  /** Find whichever item's centre is closest to the scroll-container's
+   *  centre and reflect it as viewIndex. Idempotent — bails if the
+   *  result hasn't changed. Pulled out so the spacer-resize and the
+   *  scroll-listener can both call it. */
+  const syncCentred = useCallback(() => {
+    const area = areaRef.current
+    if (!area) return
+    const center = area.scrollLeft + area.clientWidth / 2
+    let closestIdx = 0
+    let closestDist = Infinity
+    for (let i = 0; i < itemRefs.current.length; i++) {
+      const node = itemRefs.current[i]
+      if (!node) continue
+      const itemCenter = node.offsetLeft + node.clientWidth / 2
+      const d = Math.abs(itemCenter - center)
+      if (d < closestDist) { closestDist = d; closestIdx = i }
+    }
+    setViewIndex(prev => (prev === closestIdx ? prev : closestIdx))
+  }, [])
+
+  // Listen to scroll. rAF-throttled so a fast swipe doesn't fight
   // React's reconciliation.
   useEffect(() => {
     const area = areaRef.current
     if (!area) return
     let rafId = 0
-    const sync = () => {
-      rafId = 0
-      const center = area.scrollLeft + area.clientWidth / 2
-      let closestIdx = 0
-      let closestDist = Infinity
-      for (let i = 0; i < itemRefs.current.length; i++) {
-        const node = itemRefs.current[i]
-        if (!node) continue
-        const itemCenter = node.offsetLeft + node.clientWidth / 2
-        const d = Math.abs(itemCenter - center)
-        if (d < closestDist) { closestDist = d; closestIdx = i }
-      }
-      setViewIndex(prev => (prev === closestIdx ? prev : closestIdx))
-    }
-    const onScroll = () => { if (!rafId) rafId = requestAnimationFrame(sync) }
+    const fire = () => { rafId = 0; syncCentred() }
+    const onScroll = () => { if (!rafId) rafId = requestAnimationFrame(fire) }
     area.addEventListener('scroll', onScroll, { passive: true })
-    // Sync once on mount so the initial centred class lines up with
-    // wherever the browser settled on the first frame.
-    sync()
     return () => {
       area.removeEventListener('scroll', onScroll)
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [syncCentred])
 
-  // Keep the spacers in sync with the actual scroll-container width so
-  // the snap points at the first/last cards land at exact centre even
-  // when the plugin shell resizes (Expand View toggles 300 ↔ 720 px).
-  useEffect(() => {
+  // Measure spacer widths BEFORE paint so the first render already has
+  // the correct layout — otherwise the items shift to the right after
+  // the initial useEffect runs and viewIndex points at whoever was at
+  // the centre during the spacer-less first frame, not the visually
+  // centred card. ResizeObserver picks up later changes (Expand View,
+  // host window resize) and re-runs the sync so the centred class
+  // tracks the new layout.
+  useLayoutEffect(() => {
     const area = areaRef.current
     if (!area) return
     const ITEM_HALF = 70
@@ -171,10 +178,17 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       setSpacerPx(Math.max(0, Math.floor(w / 2 - ITEM_HALF)))
     }
     compute()
-    const ro = new ResizeObserver(compute)
+    const ro = new ResizeObserver(() => { compute() })
     ro.observe(area)
     return () => ro.disconnect()
   }, [])
+
+  // Re-sync whenever the spacer width changes (i.e. the layout just
+  // shifted under the same scrollLeft) so the .centred class tracks
+  // the new visual centre.
+  useLayoutEffect(() => {
+    syncCentred()
+  }, [spacerPx, syncCentred])
 
   /** Smooth-scroll the chosen card to centre. Used by the side-card
    *  click handler (and could power keyboard nav later). */

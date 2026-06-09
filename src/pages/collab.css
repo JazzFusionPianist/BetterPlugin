@@ -5113,6 +5113,61 @@
   padding: 4px 0;
 }
 
+/* Reveal scoreboard — correct answer + per-player picks (✓/✗) +
+   projected post-round running total. Held for REVEAL_DURATION_MS
+   before the next round opens. */
+.et-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  max-width: 260px;
+  margin-top: 4px;
+}
+.et-reveal-answer {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  text-align: center;
+}
+.et-reveal-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.et-reveal-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--t1);
+  border: 1px solid transparent;
+}
+.et-reveal-row.ok  { border-color: rgba(52, 199, 89, 0.5); }
+.et-reveal-row.bad { border-color: rgba(255, 82, 82, 0.5); }
+.et-reveal-row-label  { font-weight: 600; }
+.et-reveal-row.mine .et-reveal-row-label { color: #4A8FE7; }
+.et-reveal-row-pick   { color: var(--t2); font-variant-numeric: tabular-nums; }
+.et-reveal-row-mark   { font-weight: 800; font-size: 14px; }
+.et-reveal-row.ok  .et-reveal-row-mark { color: #34C759; }
+.et-reveal-row.bad .et-reveal-row-mark { color: #ff5252; }
+
+.et-reveal-score {
+  display: flex; align-items: baseline; justify-content: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px; font-weight: 800;
+  color: var(--t1);
+  margin-top: 2px;
+}
+
 .et-final-score {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: 'DM Sans', sans-serif;

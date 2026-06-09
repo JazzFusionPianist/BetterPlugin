@@ -37,6 +37,24 @@ function Bulb ({ lit, mine = false }: { lit: boolean; mine?: boolean }) {
   )
 }
 
+/** One row in the reveal scoreboard — "You: m3 ✓" / "Opponent: M3 ✗".
+ *  `mine` paints the side label blue so the user can match it to
+ *  their own blue bulb up top without reading the label twice. */
+function RevealRow ({ label, pick, correct, mine = false }: {
+  label: string
+  pick: string
+  correct: boolean
+  mine?: boolean
+}) {
+  return (
+    <div className={`et-reveal-row${correct ? ' ok' : ' bad'}${mine ? ' mine' : ''}`}>
+      <span className="et-reveal-row-label">{label}</span>
+      <span className="et-reveal-row-pick">{pick}</span>
+      <span className="et-reveal-row-mark">{correct ? '✓' : '✗'}</span>
+    </div>
+  )
+}
+
 function Avatar ({ profile, size = 28 }: { profile: Profile; size?: number }) {
   return (
     <div className="av" style={{ background: profile.avatar_color, width: size, height: size, fontSize: size * 0.42 }}>
@@ -350,6 +368,23 @@ export default function EarTrainingView ({
   const myLocked       = seat === 'player1' ? p1Locked : p2Locked
   const opponentLocked = seat === 'player1' ? p2Locked : p1Locked
 
+  // Reveal-time data — both raw answers and their correctness, so the
+  // detailed scoreboard can show "me ✓ — opponent ✗ — +1 for me".
+  const opponentAnswerRaw = seat === 'player1' ? room?.player2_answer : room?.player1_answer
+  const opponentCorrect = question && opponentAnswerRaw && opponentAnswerRaw !== '__timeout__'
+    ? isCorrect(question, opponentAnswerRaw) : false
+  // Pretty-print an answer code (e.g. 'M3' → 'M3') via the right label
+  // table. Returns null for missing / timeout picks so the caller can
+  // render a "no pick" badge instead.
+  const answerLabel = (raw: string | null | undefined): string | null => {
+    if (!raw || raw === '__timeout__' || !question) return null
+    const table = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
+    return table[raw as keyof typeof table] ?? raw
+  }
+  const correctAnswerLabel = question
+    ? (question.type === 'interval' ? INTERVAL_LABELS[question.answer] : CHORD_LABELS[question.answer])
+    : ''
+
   return (
     <div className="chess-view">
       <div className="chess-header">
@@ -527,16 +562,38 @@ export default function EarTrainingView ({
                 <div className="et-pending">{t('et.bothPicking')}</div>
               )}
               {reveal && (
-                <div className={`et-feedback${myCorrect ? ' ok' : ' bad'}`}>
-                  {myAnswer === '__timeout__'
-                    ? t('et.timeUp', { ans: question.type === 'interval'
-                        ? INTERVAL_LABELS[question.answer]
-                        : CHORD_LABELS[question.answer] })
-                    : myCorrect
-                      ? t('et.correct')
-                      : t('et.wrong', { ans: question.type === 'interval'
-                          ? INTERVAL_LABELS[question.answer]
-                          : CHORD_LABELS[question.answer] })}
+                <div className="et-reveal">
+                  {/* Correct answer banner — large, centred, with a
+                      check icon so it reads at a glance. */}
+                  <div className="et-reveal-answer">
+                    {t('et.answerWas', { ans: correctAnswerLabel })}
+                  </div>
+                  {/* Two scoreboard rows: me + opponent. Each shows the
+                      player's pick and a ✓ / ✗ glyph that drove the
+                      score delta this round. */}
+                  <div className="et-reveal-rows">
+                    <RevealRow
+                      label={t('common.you')}
+                      pick={answerLabel(myAnswer) ?? t('et.skipped')}
+                      correct={myCorrect}
+                      mine
+                    />
+                    <RevealRow
+                      label={t('common.opponent')}
+                      pick={answerLabel(opponentAnswerRaw) ?? t('et.skipped')}
+                      correct={opponentCorrect}
+                    />
+                  </div>
+                  {/* Projected running total for the round we're about
+                      to close. The header scorebar still reads the
+                      OLD total during reveal (advanceRound hasn't run
+                      yet); show the post-round version here so the
+                      user understands the delta this round produced. */}
+                  <div className="et-reveal-score">
+                    <span className="et-score-mine">{myScore + (myCorrect ? 1 : 0)}</span>
+                    <span className="et-score-sep">–</span>
+                    <span className="et-score-theirs">{opponentScore + (opponentCorrect ? 1 : 0)}</span>
+                  </div>
                 </div>
               )}
             </div>

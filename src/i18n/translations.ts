@@ -265,6 +265,9 @@ export const T = {
   'et.forfeit':             { en: 'Forfeit', ko: '포기', ja: '棄権', zh: '弃赛', es: 'Abandonar', de: 'Aufgeben', fr: 'Abandonner', hi: 'त्याग' },
   'et.forfeitConfirm':      { en: 'Forfeit this game? The other player wins.', ko: '이 게임을 포기하시겠습니까? 상대방이 승리합니다.', ja: 'このゲームを棄権しますか？相手の勝利になります。', zh: '弃赛？对手将获胜。', es: '¿Abandonar la partida? El otro jugador gana.', de: 'Spiel aufgeben? Der andere Spieler gewinnt.', fr: 'Abandonner la partie ? L’autre joueur gagne.', hi: 'इस गेम को छोड़ें? दूसरा खिलाड़ी जीतता है।' },
   'et.bothPicking':         { en: 'Waiting for both to lock in…', ko: '두 사람의 선택을 기다리는 중…', ja: '二人の選択を待っています…', zh: '等待两人选择…', es: 'Esperando a que ambos elijan…', de: 'Warten auf beide…', fr: 'En attente des deux joueurs…', hi: 'दोनों के चुनने का इंतज़ार…' },
+  'et.answerWas':           { en: 'Answer: {ans}', ko: '정답: {ans}', ja: '正解: {ans}', zh: '答案: {ans}', es: 'Respuesta: {ans}', de: 'Antwort: {ans}', fr: 'Réponse : {ans}', hi: 'उत्तर: {ans}' },
+  'et.noAnswer':            { en: '—', ko: '—', ja: '—', zh: '—', es: '—', de: '—', fr: '—', hi: '—' },
+  'et.skipped':             { en: 'no pick', ko: '미선택', ja: '未選択', zh: '未选', es: 'sin elegir', de: 'keine Wahl', fr: 'pas choisi', hi: 'चुना नहीं' },
 } as const
 
 export type TKey = keyof typeof T

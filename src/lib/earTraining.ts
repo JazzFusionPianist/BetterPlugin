@@ -92,7 +92,7 @@ const MIN_ROOT = 52  // E3
 const MAX_ROOT = 72  // C5
 
 export const ROUND_DURATION_MS = 12_000   // 12s per question
-export const REVEAL_DURATION_MS = 2_500   // pause between answer and next round
+export const REVEAL_DURATION_MS = 3_800   // pause between answer and next round — long enough to read both players' picks + projected score
 export const MAX_PLAYS = 3                // replays per round
 
 // ─── Seeded RNG (mulberry32) ──────────────────────────────────────────────────

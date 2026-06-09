@@ -140,6 +140,10 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   // macOS inertial-decay phase (deltas shrinking towards zero) so we
   // can snap the gallery the instant the user lifts their fingers.
   const peakDeltaRef = useRef(0)
+  // Counts consecutive events whose |delta| is well below the running
+  // peak. A single brief dip mid-swipe (user pausing the finger) is
+  // normal, but a STREAK of them is the inertial decay tail.
+  const decayStreakRef = useRef(0)
   // True while we're absorbing the macOS inertial tail. Wheel events
   // that arrive after a snap fired do nothing visually — we just
   // preventDefault them — so the gallery doesn't drift through the
@@ -171,6 +175,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       setViewIndex(target)
       setSwiping(false)
       peakDeltaRef.current = 0
+      decayStreakRef.current = 0
       inCooldownRef.current = true
     }
     const armCooldownEnd = () => {
@@ -180,15 +185,20 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       }, 250)
     }
 
-    // Threshold magnitudes for the peak-decay detector. Tuned so:
-    //   PEAK_MIN          — guards against the first 1-2 tiny start-of-
-    //                       gesture events triggering the snap branch
-    //                       before any real swipe has happened.
-    //   DECAY_RATIO       — once the absolute delta drops below this
-    //                       fraction of the peak we treat the gesture
-    //                       as in macOS inertial decay and snap.
-    const PEAK_MIN    = 25
-    const DECAY_RATIO = 0.4
+    // Decay detector thresholds. Active swipes occasionally dip below
+    // a previous high (the user briefly slows the finger) — we DON'T
+    // want to snap on those, so we require a STREAK of low deltas
+    // before declaring "inertia".
+    //   PEAK_MIN     — only arm the detector once a real push has
+    //                  happened; protects gentle slow swipes from
+    //                  ever triggering it.
+    //   DECAY_RATIO  — events under this fraction of the peak count
+    //                  as "low".
+    //   DECAY_RUN    — need this many consecutive low events in a row
+    //                  to conclude we're past the active phase.
+    const PEAK_MIN    = 45
+    const DECAY_RATIO = 0.35
+    const DECAY_RUN   = 4
 
     // Hard clamp at integer boundaries — no rubber-band. macOS
     // inertial scroll keeps firing wheel events for up to ~2 s after
@@ -224,19 +234,23 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       setWheelOffset(next)
       if (!swiping) setSwiping(true)
 
-      // Decay detection — if the user has clearly stopped pushing and
-      // we're now riding the macOS inertia tail (deltas a fraction of
-      // what they were at peak), snap immediately. Beats waiting the
-      // full inertial decay (up to ~2 s) before the idle timer fires.
+      // Decay detection — snap as soon as we see a STREAK of low
+      // deltas after a real push. A single low event is just the user
+      // pausing the finger; multiple in a row is the inertial tail.
       if (peakDeltaRef.current >= PEAK_MIN && adx < peakDeltaRef.current * DECAY_RATIO) {
-        snapNow()
-        armCooldownEnd()
-        return
+        decayStreakRef.current++
+        if (decayStreakRef.current >= DECAY_RUN) {
+          snapNow()
+          armCooldownEnd()
+          return
+        }
+      } else {
+        decayStreakRef.current = 0
       }
 
       // Otherwise keep deferring the snap until the wheel goes quiet.
       if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      wheelEndTimerRef.current = setTimeout(() => { snapNow(); armCooldownEnd() }, 60)
+      wheelEndTimerRef.current = setTimeout(() => { snapNow(); armCooldownEnd() }, 100)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {

@@ -8,15 +8,22 @@ import {
 } from '../../lib/conversations'
 
 /**
- * Settings sheet for an open group chat. Lets the user:
- *   • see the title + member roster
- *   • rename the group           (host only — RLS enforces)
- *   • invite more people         (host only — RLS enforces)
- *   • remove a member            (host only — RLS enforces)
- *   • leave the group            (anyone — self-delete)
+ * Settings sheet that mounts over either chat kind when the user taps
+ * the chat header.
  *
- * Mounts on top of ChatView when the user taps the chat header. Closes
- * via the ✕ in the corner or by clicking the dim backdrop.
+ *   Group mode (kind='group'):
+ *     • roster + host badge
+ *     • rename / invite / kick (all host-only, RLS enforces)
+ *     • leave group (anyone — self-delete)
+ *
+ *   DM mode (kind='dm'):
+ *     • the two members
+ *     • "Delete chat" — self-removes from the conversation, mirroring
+ *       a familiar Slack/iMessage "delete conversation" affordance
+ *     • "Add people" — promotes the DM into a brand-new group:
+ *       creates a `kind='group'` conversation with the original
+ *       partner + the picked friends and routes the user there.
+ *       The original DM is left untouched.
  */
 
 interface Member {
@@ -29,6 +36,8 @@ interface Props {
   supabase: SupabaseClient
   currentUserId: string
   conversationId: string
+  /** DM or group. Drives all the kind-specific affordances below. */
+  chatKind: 'dm' | 'group'
   initialTitle: string
   /** Member count known up-front from the chat header. Lets us paint
    *  the right number of skeleton rows during the initial fetch so
@@ -40,9 +49,13 @@ interface Props {
   friendProfiles: Profile[]
   /** Used to display profile info for current members. */
   profileLookup: (id: string) => Profile | null
+  /** DM-only: invoked when the user converts the DM into a group via
+   *  "Add people". CollabPage creates the new conversation and routes
+   *  to it; returns the new convId on success, null on failure. */
+  onPromoteToGroup?: (title: string, extraMemberIds: string[]) => Promise<string | null>
   onClose: () => void
-  /** Called after the current user successfully leaves the group so
-   *  CollabPage can navigate back to the chat list. */
+  /** Called after the current user successfully leaves / deletes the
+   *  chat so CollabPage can navigate back to the chat list. */
   onLeft: () => void
 }
 
@@ -50,13 +63,16 @@ export default function ChatSettingsPanel({
   supabase,
   currentUserId,
   conversationId,
+  chatKind,
   initialTitle,
   initialMemberCount,
   friendProfiles,
   profileLookup,
+  onPromoteToGroup,
   onClose,
   onLeft,
 }: Props) {
+  const isGroup = chatKind === 'group'
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState(initialTitle)
@@ -64,9 +80,13 @@ export default function ChatSettingsPanel({
   const [titleDraft, setTitleDraft] = useState(initialTitle)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mode, setMode] = useState<'view' | 'add'>('view')
+  // 'view'  = roster + actions
+  // 'add'   = group-mode "invite more people" sub-view
+  // 'promote' = DM-mode "convert to group" sub-view (pick people + name)
+  const [mode, setMode] = useState<'view' | 'add' | 'promote'>('view')
   const [addQuery, setAddQuery] = useState('')
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set())
+  const [promoteTitle, setPromoteTitle] = useState('')
 
   const meIsAdmin = useMemo(
     () => members.some(m => m.userId === currentUserId && m.role === 'admin'),
@@ -129,16 +149,36 @@ export default function ChatSettingsPanel({
   }
 
   const handleLeave = async () => {
-    if (!confirm('Leave this group?')) return
+    const msg = isGroup ? 'Leave this group?' : 'Delete this chat?'
+    if (!confirm(msg)) return
     setBusy(true); setError(null)
     try {
       await removeGroupMember(supabase, conversationId, currentUserId)
       onLeft()
     } catch (err) {
-      console.error('[ChatSettings] leave', err)
-      setError('Failed to leave.')
+      console.error('[ChatSettings] leave/delete', err)
+      setError(isGroup ? 'Failed to leave.' : 'Failed to delete.')
       setBusy(false)
     }
+  }
+
+  const handlePromote = async () => {
+    if (!onPromoteToGroup) return
+    const t = promoteTitle.trim()
+    if (!t || addSelected.size === 0) return
+    setBusy(true); setError(null)
+    try {
+      const newConvId = await onPromoteToGroup(t, Array.from(addSelected))
+      if (!newConvId) {
+        setError('Failed to create group. Try again?')
+        return
+      }
+      // CollabPage navigates on success — close ourselves.
+      onClose()
+    } catch (err) {
+      console.error('[ChatSettings] promote', err)
+      setError('Failed to create group.')
+    } finally { setBusy(false) }
   }
 
   const handleConfirmAdd = async () => {
@@ -181,13 +221,25 @@ export default function ChatSettingsPanel({
       <div className="chat-settings-backdrop" onClick={onClose} />
       <div className="chat-settings-sheet">
         <div className="chat-settings-header">
-          {mode === 'add' ? (
-            <button className="chat-settings-back" onClick={() => { setMode('view'); setAddSelected(new Set()); setAddQuery('') }}>
+          {mode !== 'view' ? (
+            <button
+              className="chat-settings-back"
+              onClick={() => {
+                setMode('view')
+                setAddSelected(new Set())
+                setAddQuery('')
+                setPromoteTitle('')
+              }}
+            >
               ‹
             </button>
           ) : <span />}
           <div className="chat-settings-heading">
-            {mode === 'view' ? 'Group info' : 'Add members'}
+            {mode === 'view'
+              ? (isGroup ? 'Group info' : 'Chat info')
+              : mode === 'add'
+                ? 'Add members'
+                : 'Add people'}
           </div>
           <button className="chat-settings-close" onClick={onClose} aria-label="Close">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -200,7 +252,9 @@ export default function ChatSettingsPanel({
 
         {mode === 'view' && (
           <>
-            {/* Title block */}
+            {/* Title block — only meaningful for groups. DMs have no
+                editable title (the header just shows the partner). */}
+            {isGroup && (
             <div className="chat-settings-section">
               <div className="chat-settings-label">Group name</div>
               {editingTitle ? (
@@ -238,16 +292,27 @@ export default function ChatSettingsPanel({
                 </div>
               )}
             </div>
+            )}
 
             {/* Member roster */}
             <div className="chat-settings-section">
               <div className="chat-settings-section-row">
                 <div className="chat-settings-label">Members · {members.length}</div>
-                {meIsAdmin && members.length < 16 && (
+                {/* Group host: invite straight into this conversation.
+                    DM: tapping Add promotes the chat into a brand-new
+                    group via the 'promote' sub-mode. */}
+                {isGroup && meIsAdmin && members.length < 16 && (
                   <button
                     className="chat-settings-link"
                     onClick={() => setMode('add')}
                   >+ Add</button>
+                )}
+                {!isGroup && onPromoteToGroup && (
+                  <button
+                    className="chat-settings-link"
+                    onClick={() => setMode('promote')}
+                    title="Add people — converts this DM into a new group"
+                  >+ Add people</button>
                 )}
               </div>
               {loading ? (
@@ -296,13 +361,87 @@ export default function ChatSettingsPanel({
               ))}
             </div>
 
-            {/* Leave */}
+            {/* Leave / delete — same self-removal, different copy. */}
             <button
               className="chat-settings-leave"
               onClick={handleLeave}
               disabled={busy}
             >
-              Leave group
+              {isGroup ? 'Leave group' : 'Delete chat'}
+            </button>
+          </>
+        )}
+
+        {mode === 'promote' && (
+          <>
+            <div className="chat-settings-section">
+              <div className="chat-settings-label">New group name</div>
+              <input
+                className="chat-settings-input"
+                placeholder="Name your new group…"
+                value={promoteTitle}
+                onChange={e => setPromoteTitle(e.target.value)}
+                maxLength={40}
+                autoFocus
+              />
+            </div>
+            <div className="chat-settings-section">
+              <div className="chat-settings-label">Add people</div>
+              <input
+                className="chat-settings-input chat-settings-search"
+                placeholder="Search friends…"
+                value={addQuery}
+                onChange={e => setAddQuery(e.target.value)}
+              />
+              {/* Selected count — DM partner + me are auto-included so
+                  the effective group size is `addSelected.size + 2`. */}
+              <div className="chat-settings-cap">
+                {addSelected.size + 2} of 16 members
+              </div>
+              {invitePool.length === 0 && (
+                <div className="chat-settings-empty">
+                  {addQuery.trim() ? 'No matches' : 'No friends to add'}
+                </div>
+              )}
+              {invitePool.map(p => {
+                const isOn = addSelected.has(p.id)
+                // Cap = 16 total. We auto-add me + DM partner, so the
+                // selectable limit is 14 more.
+                const remaining = 14 - addSelected.size
+                const dimmed = !isOn && remaining <= 0
+                return (
+                  <div
+                    key={p.id}
+                    className={`chat-settings-pick${isOn ? ' on' : ''}${dimmed ? ' dim' : ''}`}
+                    onClick={() => !dimmed && toggleInvite(p.id)}
+                  >
+                    <div className="chat-settings-member-av" style={{ background: p.avatar_color }}>
+                      {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{p.initials}</span>}
+                    </div>
+                    <span className="chat-settings-member-name">{p.display_name}</span>
+                    <div className={`chat-settings-check${isOn ? ' on' : ''}`}>
+                      {isOn && (
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2.5 6.5l2.5 2.5L9.5 3" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              className="chat-settings-cta"
+              onClick={handlePromote}
+              disabled={busy || !promoteTitle.trim() || addSelected.size === 0}
+            >
+              {busy
+                ? 'Creating…'
+                : !promoteTitle.trim()
+                  ? 'Name the group first'
+                  : addSelected.size === 0
+                    ? 'Pick people to add'
+                    : `Create group with ${addSelected.size + 2} people`}
             </button>
           </>
         )}

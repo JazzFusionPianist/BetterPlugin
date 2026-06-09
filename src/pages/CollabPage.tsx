@@ -624,10 +624,10 @@ function CollabPageInner({ user }: Props) {
               if (sid) { handleOpenWatching(sid); setLiveOpen(true) }
             }}
             reads={conversationReads}
-            onOpenSettings={() => handleViewProfile(selectedProfile.id)}
+            onOpenSettings={() => setChatSettingsOpen(true)}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
-            onBack={() => setSelectedId(null)}
+            onBack={() => { setChatSettingsOpen(false); setSelectedId(null) }}
           />}
           {selectedGroup && (
             <ChatView
@@ -648,25 +648,47 @@ function CollabPageInner({ user }: Props) {
               onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
             />
           )}
-          {selectedGroup && chatSettingsOpen && (
+          {/* ChatSettingsPanel covers both DM and group. We mount when
+              either side of the chat target is active AND the user has
+              tapped the header to open settings. For DM mode we also
+              wait for `activeConvId` so the panel always has the
+              conversation_id to operate on. */}
+          {chatSettingsOpen && (selectedGroup || (selectedProfile && activeConvId)) && (
             <ChatSettingsPanel
               supabase={client}
               currentUserId={user.id}
-              conversationId={selectedGroup.conversationId}
-              initialTitle={selectedGroup.title}
-              initialMemberCount={selectedGroup.memberCount}
+              chatKind={selectedGroup ? 'group' : 'dm'}
+              conversationId={(selectedGroup?.conversationId ?? activeConvId)!}
+              initialTitle={selectedGroup?.title ?? ''}
+              initialMemberCount={selectedGroup?.memberCount ?? 2}
               friendProfiles={friendProfiles}
               profileLookup={(id) => {
                 // `profiles` from useProfiles is filtered to exclude self,
                 // so fall back to `me` for the current user — otherwise
-                // the current user vanishes from the group roster.
+                // the current user vanishes from the roster.
                 if (id === user.id && me) return { ...me, isOnline: true }
                 return profilesWithStatus.find(p => p.id === id) ?? null
               }}
+              onPromoteToGroup={selectedProfile ? async (title, extraMemberIds) => {
+                try {
+                  // Auto-include the DM partner alongside whoever the
+                  // user picked. createGroupConversation dedupes and
+                  // appends self as admin.
+                  const memberIds = [selectedProfile.id, ...extraMemberIds]
+                  const newConvId = await createGroupConversation(client, user.id, title, memberIds)
+                  setChatSettingsOpen(false)
+                  handleOpenGroupChat(newConvId)
+                  return newConvId
+                } catch (err) {
+                  console.error('[promoteToGroup]', err)
+                  return null
+                }
+              } : undefined}
               onClose={() => setChatSettingsOpen(false)}
               onLeft={() => {
                 setChatSettingsOpen(false)
-                setSelectedGroupConvId(null)
+                if (selectedGroup) setSelectedGroupConvId(null)
+                else                setSelectedId(null)
               }}
             />
           )}

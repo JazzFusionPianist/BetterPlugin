@@ -177,6 +177,62 @@ export async function sendGameInviteMessage (
 }
 
 /**
+ * Find a game the user is currently mid-match in (status='playing')
+ * across all four game tables. Returns the most recently active one
+ * so the toolbar's Games button can drop the user back into the
+ * lobby they wandered off from instead of the picker.
+ *
+ * The query fans out in parallel — typical round-trip is one Supabase
+ * RPC's worth of latency. Returns null if the user isn't in any live
+ * game.
+ */
+export async function findActiveGame (
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
+  const [chess, fb, poker, et] = await Promise.all([
+    supabase.from('game_rooms')
+      .select('id, updated_at')
+      .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
+      .eq('status', 'playing')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('falling_blocks_rooms')
+      .select('id, updated_at')
+      .contains('player_ids', [userId])
+      .eq('status', 'playing')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('poker_rooms')
+      .select('id, updated_at')
+      .contains('player_ids', [userId])
+      .eq('status', 'playing')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('ear_training_rooms')
+      .select('id, updated_at')
+      .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+      .eq('status', 'playing')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
+  if (chess.data) candidates.push({ gameType: 'chess', roomId: chess.data.id, updatedAt: chess.data.updated_at })
+  if (fb.data)    candidates.push({ gameType: 'falling_blocks', roomId: fb.data.id, updatedAt: fb.data.updated_at })
+  if (poker.data) candidates.push({ gameType: 'poker', roomId: poker.data.id, updatedAt: poker.data.updated_at })
+  if (et.data)    candidates.push({ gameType: 'ear_training', roomId: et.data.id, updatedAt: et.data.updated_at })
+
+  if (candidates.length === 0) return null
+  candidates.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return candidates[0]
+}
+
+/**
  * Counterpart to sendGameInviteMessage — removes the chat bubble when
  * the inviter cancels. We resolve the same DM and delete the row that
  * still carries `attachment_url = roomId`, so a recipient who hasn't

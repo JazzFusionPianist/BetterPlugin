@@ -30,7 +30,10 @@ juce_add_plugin(CoOpPlugin
     PLUGIN_MANUFACTURER_CODE    CoOp   # 4 chars
     PLUGIN_CODE                 CoAp   # 4 chars, unique per plugin
 
-    FORMATS                     AU VST3
+    # Standalone produces a CoOp.app that runs the plugin UI without a
+    # DAW — useful for fast dev iteration. AU/VST3 are the production
+    # formats DAWs actually load.
+    FORMATS                     AU VST3 Standalone
 
     PRODUCT_NAME                "CoOp"
     BUNDLE_ID                   "com.coop.plugin"

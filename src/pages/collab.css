@@ -3564,12 +3564,6 @@
   gap: 12px;
   padding: 12px;
 }
-/* In audio-only mode the video element has no source — collapse the
-   wrap entirely so the audio-only pulse avatar takes its slot
-   instead of sharing space with an empty black square. Applies to
-   both compact and expanded layouts. */
-.live-viewer-video-wrap.is-audio-only { display: none; }
-
 .live-viewer-body-expanded .live-viewer-video-wrap {
   flex: 1 1 auto;
   min-width: 0;
@@ -3602,6 +3596,14 @@
   height: 100%;
   align-self: stretch;
 }
+
+/* In audio-only mode the <video> has no source. Hide the wrap so
+   the audio-only pulse avatar takes its slot instead of sharing
+   space with an empty black square. Comes AFTER the expanded layout
+   rules above and bumps specificity with .live-viewer-body so it
+   beats both `.live-viewer-body-expanded .live-viewer-video-wrap`
+   and any future flex rules on the wrap. */
+.live-viewer-body .live-viewer-video-wrap.is-audio-only { display: none; }
 /* Hide the button itself when the video is in native fullscreen */
 .live-viewer-video:fullscreen ~ .live-viewer-fullscreen-btn,
 .live-viewer-video:-webkit-full-screen ~ .live-viewer-fullscreen-btn {

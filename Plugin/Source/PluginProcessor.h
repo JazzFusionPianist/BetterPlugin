@@ -104,6 +104,7 @@ private:
     void handleListCaptureSources(const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handlePickCaptureSource (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleSetPluginSize     (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleOpenExternal      (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     //── Active editor resize callback (registered by editor on construct) ────
     ResizeFn editorResizeFn;

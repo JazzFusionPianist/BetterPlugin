@@ -919,6 +919,20 @@
   border-radius: 14px 14px 4px 14px;
 }
 .mg.theirs .mb { border-radius: 14px 14px 14px 4px; }
+
+/* Clickable URL inside a chat bubble. Inherits the bubble's text
+   colour by default but adds an underline + a hint of blue on hover
+   so the affordance is obvious without screaming on every line. */
+.msg-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  word-break: break-all;
+}
+.msg-link:hover { color: #4A8FE7; }
+.mg.mine .msg-link:hover { color: #1a4d8a; }
 .plugin.dark .mb {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);

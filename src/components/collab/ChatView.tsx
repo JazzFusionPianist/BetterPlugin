@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
+import { linkify } from '../../lib/linkify'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -1275,7 +1276,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                       />
                     : null
               )}
-              {g.msg.content && <div className="mb">{g.msg.content}</div>}
+              {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
               <div className="mtime">{formatTime(g.msg.created_at)}</div>
             </div>
           )

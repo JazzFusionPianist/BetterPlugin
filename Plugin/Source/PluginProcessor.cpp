@@ -115,6 +115,12 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleSetPluginSize (args, std::move (completion));
+                })
+            .withNativeFunction ("openExternal",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleOpenExternal (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -617,6 +623,32 @@ void CoOpAudioProcessor::handleSetPluginSize (const juce::var& args,
     {
         requestEditorResize (w, h);
     });
+    completion ("ok");
+}
+
+// JS-callable: open a URL in the user's default browser. Used by the
+// chat linkify path so message links don't navigate the embedded
+// WebView itself (which would unload the plugin UI). Args: [url].
+void CoOpAudioProcessor::handleOpenExternal (const juce::var& args,
+                                             juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! args.isArray() || args.size() < 1) {
+        completion ("error:bad-args");
+        return;
+    }
+    const juce::String urlStr = args[0].toString();
+    if (urlStr.isEmpty()) {
+        completion ("error:empty-url");
+        return;
+    }
+    // Allow only http/https schemes — keeps file:// and javascript: out
+    // of the system handoff. Any link content reaching this point came
+    // from a user-typed chat message, so we treat it as untrusted.
+    if (! (urlStr.startsWithIgnoreCase ("http://") || urlStr.startsWithIgnoreCase ("https://"))) {
+        completion ("error:bad-scheme");
+        return;
+    }
+    juce::URL (urlStr).launchInDefaultBrowser();
     completion ("ok");
 }
 

@@ -121,6 +121,12 @@ CoOpAudioProcessor::CoOpAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleOpenExternal (args, std::move (completion));
+                })
+            .withNativeFunction ("getClipboardText",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetClipboardText (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -650,6 +656,20 @@ void CoOpAudioProcessor::handleOpenExternal (const juce::var& args,
     }
     juce::URL (urlStr).launchInDefaultBrowser();
     completion ("ok");
+}
+
+// JS-callable: read the system clipboard. WKWebView's default paste
+// pipeline only fires when the WebView itself receives the keystroke
+// event, but DAW hosts typically swallow ⌘V before it reaches the
+// plugin window. The JS keydown handler in ChatView calls this to
+// pull the clipboard contents and insert them manually.
+void CoOpAudioProcessor::handleGetClipboardText (const juce::var&,
+                                                 juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    const juce::String text = juce::SystemClipboard::getTextFromClipboard();
+    // Result is a plain string — no JSON wrapping. The JS bridge resolves
+    // with the raw string so the caller can use it as-is.
+    completion (text);
 }
 
 //==============================================================================

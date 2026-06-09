@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { LanguageProvider } from './i18n/LanguageContext'
+import { installPastePolyfill } from './lib/pastePolyfill'
+
+// Plugin host (DAW) usually swallows ⌘V before the WKWebView can see
+// it, so the standard paste event never fires inside text inputs.
+// Install a document-level keydown listener that reads the system
+// clipboard via the JUCE native function and inserts the text manually.
+// No-op outside the plugin (regular browsers handle paste natively).
+installPastePolyfill()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

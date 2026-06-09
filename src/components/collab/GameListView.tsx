@@ -140,6 +140,12 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   // macOS inertial-decay phase (deltas shrinking towards zero) so we
   // can snap the gallery the instant the user lifts their fingers.
   const peakDeltaRef = useRef(0)
+  // True while we're absorbing the macOS inertial tail. Wheel events
+  // that arrive after a snap fired do nothing visually — we just
+  // preventDefault them — so the gallery doesn't drift through the
+  // 1-2 s of decaying-delta events the OS continues to emit.
+  const inCooldownRef = useRef(false)
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const N = GAMES.length
 
@@ -150,7 +156,9 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     const el = areaRef.current
     if (!el) return
     // Snap NOW — used by both the "deltas are decaying" detector and
-    // the regular idle timer.
+    // the regular idle timer. After firing we enter a cooldown that
+    // absorbs the inertial wheel tail so the gallery doesn't keep
+    // drifting through the OS-driven decay.
     const snapNow = () => {
       if (wheelEndTimerRef.current) {
         clearTimeout(wheelEndTimerRef.current)
@@ -163,6 +171,13 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       setViewIndex(target)
       setSwiping(false)
       peakDeltaRef.current = 0
+      inCooldownRef.current = true
+    }
+    const armCooldownEnd = () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
+      cooldownTimerRef.current = setTimeout(() => {
+        inCooldownRef.current = false
+      }, 250)
     }
 
     // Threshold magnitudes for the peak-decay detector. Tuned so:
@@ -188,6 +203,13 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       if (dx === 0) return
       ev.preventDefault()
 
+      // Already snapped on this gesture — swallow the inertial tail
+      // events so the gallery doesn't drift past the snap target.
+      // Keep resetting the cooldown end-timer while events still come;
+      // once they stop for ~250 ms we treat the next event as the
+      // start of a fresh gesture.
+      if (inCooldownRef.current) { armCooldownEnd(); return }
+
       const adx = Math.abs(dx)
       peakDeltaRef.current = Math.max(peakDeltaRef.current, adx)
 
@@ -208,17 +230,19 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       // full inertial decay (up to ~2 s) before the idle timer fires.
       if (peakDeltaRef.current >= PEAK_MIN && adx < peakDeltaRef.current * DECAY_RATIO) {
         snapNow()
+        armCooldownEnd()
         return
       }
 
       // Otherwise keep deferring the snap until the wheel goes quiet.
       if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      wheelEndTimerRef.current = setTimeout(snapNow, 60)
+      wheelEndTimerRef.current = setTimeout(() => { snapNow(); armCooldownEnd() }, 60)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('wheel', onWheel)
       if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
     }
   }, [N, viewIndex, swiping])
 

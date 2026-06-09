@@ -12,6 +12,7 @@ import { useConversations } from '../hooks/useConversations'
 import ChatView from '../components/collab/ChatView'
 import ConversationsPanel from '../components/collab/ConversationsPanel'
 import NewGroupPanel from '../components/collab/NewGroupPanel'
+import ChatSettingsPanel from '../components/collab/ChatSettingsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
@@ -80,6 +81,7 @@ function CollabPageInner({ user }: Props) {
   const [searchQuery, setSearchQuery]           = useState('')
   const [convOpen, setConvOpen]                 = useState(false)
   const [newGroupOpen, setNewGroupOpen]         = useState(false)
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
@@ -606,6 +608,7 @@ function CollabPageInner({ user }: Props) {
               if (sid) { handleOpenWatching(sid); setLiveOpen(true) }
             }}
             reads={conversationReads}
+            onOpenSettings={() => handleViewProfile(selectedProfile.id)}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
             onBack={() => setSelectedId(null)}
@@ -623,9 +626,25 @@ function CollabPageInner({ user }: Props) {
               messages={messages}
               loading={messagesLoading}
               reads={conversationReads}
+              onOpenSettings={() => setChatSettingsOpen(true)}
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}
-              onBack={() => setSelectedGroupConvId(null)}
+              onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
+            />
+          )}
+          {selectedGroup && chatSettingsOpen && (
+            <ChatSettingsPanel
+              supabase={client}
+              currentUserId={user.id}
+              conversationId={selectedGroup.conversationId}
+              initialTitle={selectedGroup.title}
+              friendProfiles={friendProfiles}
+              profileLookup={(id) => profilesWithStatus.find(p => p.id === id) ?? null}
+              onClose={() => setChatSettingsOpen(false)}
+              onLeft={() => {
+                setChatSettingsOpen(false)
+                setSelectedGroupConvId(null)
+              }}
             />
           )}
         </div>

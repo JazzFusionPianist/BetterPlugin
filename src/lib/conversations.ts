@@ -88,6 +88,57 @@ export function clearDmCache(meId: string, otherId: string): void {
 // rest of the game-room helpers — see that file. We re-export here
 // would be redundant; callers import from gameRooms directly.
 
+// ── Group-conversation administration ────────────────────────────────
+// These all delegate enforcement to RLS (migration 20260606): renames
+// and member inserts are host-only at the DB layer; leave/kick is
+// either-self-or-admin. Callers don't need to pre-check role.
+
+/** Rename a group. Host-only — DB will reject if caller isn't admin. */
+export async function renameGroupConversation(
+  supabase: SupabaseClient,
+  conversationId: string,
+  newTitle: string,
+): Promise<void> {
+  const trimmed = newTitle.trim()
+  if (!trimmed) throw new Error('group name is required')
+  const { error } = await supabase
+    .from('conversations')
+    .update({ title: trimmed })
+    .eq('id', conversationId)
+  if (error) throw error
+}
+
+/** Add new members to a group. Host-only at the DB layer. */
+export async function addGroupMembers(
+  supabase: SupabaseClient,
+  conversationId: string,
+  memberIds: string[],
+): Promise<void> {
+  if (memberIds.length === 0) return
+  const rows = memberIds.map(uid => ({
+    conversation_id: conversationId,
+    user_id: uid,
+    role: 'member' as const,
+  }))
+  const { error } = await supabase.from('conversation_members').insert(rows)
+  if (error) throw error
+}
+
+/** Remove one member. Self-removal is "leave"; removing someone else
+ *  is "kick" and requires admin role. RLS handles both gates. */
+export async function removeGroupMember(
+  supabase: SupabaseClient,
+  conversationId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('conversation_members')
+    .delete()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+  if (error) throw error
+}
+
 /**
  * Create a new group conversation with the caller plus `memberIds`.
  * Caller becomes 'admin' and is implicitly seeded as a member. Throws

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { Profile } from '../../types/collab'
 import type { Conversation, GroupConversation } from '../../hooks/useConversations'
 import FloatingOrbs from '../FloatingOrbs'
@@ -42,7 +42,6 @@ export default function ConversationsPanel({
   onNewGroup,
 }: Props) {
   const { t } = useT()
-  const [tab, setTab] = useState<'all' | 'favorites'>('all')
 
   // Merge DMs + groups into one list sorted by most-recent activity.
   // Groups without messages fall back to their createdAt — keeps fresh
@@ -57,27 +56,17 @@ export default function ConversationsPanel({
     return all.sort((a, b) => tsOf(b) - tsOf(a))
   }, [conversations, groupConversations])
 
-  // Favorites are friend-keyed today; group conversations don't have a
-  // single id to mark as favourite, so they only appear under "All".
-  const filtered = tab === 'favorites'
-    ? rows.filter(r => r.kind === 'dm' && favorites.has(r.conv.partnerId))
-    : rows
-
   return (
     <>
       <FloatingOrbs count={28} />
-      <div className="conv-tabs" style={{ marginTop: 12 }}>
-        <button className={`conv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>{t('conv.tabAll')}</button>
-        <button className={`conv-tab${tab === 'favorites' ? ' active' : ''}`} onClick={() => setTab('favorites')}>{t('conv.tabFavorites')}</button>
-      </div>
 
       <div className="conv-list">
-        {filtered.length === 0 && (
+        {rows.length === 0 && (
           <div className="collab-loading" style={{ flex: 'unset', marginTop: 40 }}>
-            {tab === 'favorites' ? t('conv.emptyFavorites') : t('conv.emptyAll')}
+            {t('conv.emptyAll')}
           </div>
         )}
-        {filtered.map(row => {
+        {rows.map(row => {
           if (row.kind === 'dm') {
             const c = row.conv
             const profile = profiles.find(p => p.id === c.partnerId)

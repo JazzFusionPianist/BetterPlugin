@@ -39,6 +39,10 @@ interface Props {
    *  the current user. The "read by" row below my last sent message
    *  shows whichever members have ts ≥ that message's `created_at`. */
   reads?: Map<string, number>
+  /** Tap on the chat header (avatar + name area) fires this. For DMs
+   *  the parent usually wires this to open the partner's profile; for
+   *  groups it opens ChatSettingsPanel. */
+  onOpenSettings?: () => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
   /** Called when the user taps "Join Game" on a chat invite bubble.
@@ -685,7 +689,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onSend, onBack, onJoinGameInvite }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
@@ -1273,7 +1277,12 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       <div className="csub">
         <div className="back" onClick={onBack}>&#8249;</div>
         {groupHeader ? (
-          <>
+          <div
+            className="chdr-tap"
+            onClick={onOpenSettings}
+            role={onOpenSettings ? 'button' : undefined}
+            tabIndex={onOpenSettings ? 0 : undefined}
+          >
             <div
               className="chdr-av chdr-av-group"
               style={{ background: groupHeader.color }}
@@ -1293,34 +1302,41 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               <div className="chdr-name">{groupHeader.title}</div>
               <div className="chdr-sub">{groupHeader.memberCount} members</div>
             </div>
-          </>
+          </div>
         ) : otherProfile ? (
           <>
-            <div className="chdr-av" style={{ background: otherProfile.avatar_color }}>
-              {otherProfile.avatar_url
-                ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                : otherProfile.initials}
-              <div className={`chdr-dot ${otherIsLive ? 'dlive' : otherProfile.isOnline ? 'don' : 'doff'}`} />
-            </div>
-            <div className="chdr-info">
-              <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                {otherProfile.display_name}
-                {otherProfile.is_verified && (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                    <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
-                    <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
+            <div
+              className="chdr-tap"
+              onClick={onOpenSettings}
+              role={onOpenSettings ? 'button' : undefined}
+              tabIndex={onOpenSettings ? 0 : undefined}
+            >
+              <div className="chdr-av" style={{ background: otherProfile.avatar_color }}>
+                {otherProfile.avatar_url
+                  ? <img src={otherProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  : otherProfile.initials}
+                <div className={`chdr-dot ${otherIsLive ? 'dlive' : otherProfile.isOnline ? 'don' : 'doff'}`} />
               </div>
-              <div className="chdr-sub">
-                {otherIsLive
-                  ? <>
-                      <span className="chdr-live-tag">{t('chat.headerOnLive')}</span>
-                      {otherLiveTitle && (
-                        <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
-                      )}
-                    </>
-                  : otherProfile.isOnline ? t('common.online') : t('common.offline')}
+              <div className="chdr-info">
+                <div className="chdr-name" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  {otherProfile.display_name}
+                  {otherProfile.is_verified && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="12" fill="#1D9BF0" />
+                      <path d="M6.5 12.5l3.5 3.5 7-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <div className="chdr-sub">
+                  {otherIsLive
+                    ? <>
+                        <span className="chdr-live-tag">{t('chat.headerOnLive')}</span>
+                        {otherLiveTitle && (
+                          <span className="chdr-live-title" title={otherLiveTitle}>{otherLiveTitle}</span>
+                        )}
+                      </>
+                    : otherProfile.isOnline ? t('common.online') : t('common.offline')}
+                </div>
               </div>
             </div>
             {otherIsLive && onJoinLive && (

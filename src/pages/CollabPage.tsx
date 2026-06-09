@@ -5,6 +5,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { useMessages } from '../hooks/useMessages'
 import { usePresence } from '../hooks/usePresence'
 import { useConversationNotifications } from '../hooks/useConversationNotifications'
+import { useConversationReads } from '../hooks/useConversationReads'
 import { getOrCreateDmConversation, createGroupConversation } from '../lib/conversations'
 import { useFollows } from '../hooks/useFollows'
 import { useConversations } from '../hooks/useConversations'
@@ -120,7 +121,10 @@ function CollabPageInner({ user }: Props) {
     if (selectedGroupConvId) return { kind: 'group', conversationId: selectedGroupConvId }
     return null
   }, [selectedId, selectedGroupConvId])
-  const { messages, loading: messagesLoading, send } = useMessages(client, user.id, chatTarget)
+  const { messages, loading: messagesLoading, send, conversationId: activeConvId } = useMessages(client, user.id, chatTarget)
+  // Read receipts for whichever chat is open. The hook handles nulls
+  // (no chat open) and resubscribes whenever the conv id changes.
+  const conversationReads = useConversationReads(client, activeConvId, user.id)
   const onlineIds  = usePresence(client, user.id)
   // Conversation-keyed notifications. The Phase-2 UI (ProfilePanel) is
   // still friend-keyed, so we adapt below via the DM conversations list.
@@ -570,6 +574,7 @@ function CollabPageInner({ user }: Props) {
               const sid = liveSessionByHost.get(selectedProfile.id)?.id
               if (sid) { handleOpenWatching(sid); setLiveOpen(true) }
             }}
+            reads={conversationReads}
             onSend={send}
             onBack={() => setSelectedId(null)}
           />}
@@ -582,8 +587,10 @@ function CollabPageInner({ user }: Props) {
                 color: groupColorByConv.get(selectedGroup.conversationId) ?? '#4A8FE7',
                 memberCount: selectedGroup.memberCount,
               }}
+              groupMembers={selectedGroup.members.filter(m => m.id !== user.id)}
               messages={messages}
               loading={messagesLoading}
+              reads={conversationReads}
               onSend={send}
               onBack={() => setSelectedGroupConvId(null)}
             />

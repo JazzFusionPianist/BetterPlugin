@@ -30,6 +30,14 @@ interface Props {
    *  parent already knows the session id, so this is a parameterless
    *  trigger from ChatView's perspective. */
   onJoinLive?: () => void
+  /** Group members excluding the current user — drives the per-message
+   *  sender chip on `theirs` bubbles and supplies the avatar/name
+   *  lookup for the read-receipt row. */
+  groupMembers?: Profile[]
+  /** Per-user last-seen timestamps (ms) in this conversation, excluding
+   *  the current user. The "read by" row below my last sent message
+   *  shows whichever members have ts ≥ that message's `created_at`. */
+  reads?: Map<string, number>
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
 }
@@ -601,7 +609,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, onSend, onBack }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onSend, onBack }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
@@ -1255,32 +1263,91 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       {/* Messages */}
       <div className="chat-area" ref={chatAreaRef}>
         {loading && <div className="collab-loading" style={{ flex: 'unset' }}>Loading...</div>}
-        {groups.map((g, i) =>
-          g.type === 'ts' ? (
-            <div key={i} className="ts">{g.label}</div>
-          ) : (
-            <div
-              key={g.msg.id}
-              className={`mg ${g.msg.sender_id === currentUserId ? 'mine' : 'theirs'}${
-                initializedRef.current && !seenMsgIdsRef.current.has(g.msg.id) ? ' mg-pop' : ''
-              }`}
-            >
-              {g.msg.attachment_type && (
-                g.msg.attachment_expired
-                  ? <ExpiredAttachment type={g.msg.attachment_type} />
-                  : g.msg.attachment_url
-                    ? <AttachmentView
-                        url={g.msg.attachment_url}
-                        type={g.msg.attachment_type}
-                        name={g.msg.attachment_name ?? ''}
-                      />
-                    : null
-              )}
-              {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
-              <div className="mtime">{formatTime(g.msg.created_at)}</div>
-            </div>
-          )
-        )}
+        {(() => {
+          // Index of the last `mine` message — anchors the read-by row.
+          // Computed inline so the snapshot stays in sync with `groups`.
+          let lastMineGroupIdx = -1
+          for (let i = groups.length - 1; i >= 0; i--) {
+            const gg = groups[i]
+            if (gg && gg.type !== 'ts' && gg.msg.sender_id === currentUserId) {
+              lastMineGroupIdx = i; break
+            }
+          }
+          // Profile pool for sender-chip + read-by avatar lookups.
+          const readerCandidates: Profile[] = groupMembers
+            ?? (otherProfile ? [otherProfile] : [])
+          return groups.map((g, i) => {
+            if (g.type === 'ts') return <div key={i} className="ts">{g.label}</div>
+            const isMine = g.msg.sender_id === currentUserId
+            // First-in-burst: previous group is a timestamp OR a different
+            // sender. Drives the sender chip on group `theirs` messages.
+            const prev = i > 0 ? groups[i - 1] : null
+            const isFirstFromSender = !prev || prev.type === 'ts' || prev.msg.sender_id !== g.msg.sender_id
+            const senderProfile = (!isMine && groupHeader)
+              ? (groupMembers?.find(m => m.id === g.msg.sender_id) ?? null)
+              : null
+            const showSenderChip = !!senderProfile && isFirstFromSender
+            // Read-by row only renders on my LAST sent message and
+            // only if at least one peer has caught up to it.
+            const isLastMine = isMine && i === lastMineGroupIdx
+            const readers = isLastMine && reads
+              ? readerCandidates.filter(p => {
+                  const ts = reads.get(p.id) ?? 0
+                  return ts >= new Date(g.msg.created_at).getTime()
+                })
+              : []
+            return (
+              <div
+                key={g.msg.id}
+                className={`mg ${isMine ? 'mine' : 'theirs'}${
+                  initializedRef.current && !seenMsgIdsRef.current.has(g.msg.id) ? ' mg-pop' : ''
+                }${showSenderChip ? ' mg-with-sender' : ''}`}
+              >
+                {showSenderChip && senderProfile && (
+                  <div className="mg-sender">
+                    <div className="mg-sender-av" style={{ background: senderProfile.avatar_color }}>
+                      {senderProfile.avatar_url
+                        ? <img src={senderProfile.avatar_url} alt="" />
+                        : <span>{senderProfile.initials.slice(0, 1)}</span>}
+                    </div>
+                    <span className="mg-sender-name">{senderProfile.display_name}</span>
+                  </div>
+                )}
+                {g.msg.attachment_type && (
+                  g.msg.attachment_expired
+                    ? <ExpiredAttachment type={g.msg.attachment_type} />
+                    : g.msg.attachment_url
+                      ? <AttachmentView
+                          url={g.msg.attachment_url}
+                          type={g.msg.attachment_type}
+                          name={g.msg.attachment_name ?? ''}
+                        />
+                      : null
+                )}
+                {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
+                <div className="mtime">{formatTime(g.msg.created_at)}</div>
+                {isLastMine && readers.length > 0 && (
+                  <div className="mg-readby" title={`Read by ${readers.map(r => r.display_name).join(', ')}`}>
+                    {readers.slice(0, 4).map(r => (
+                      <div
+                        key={r.id}
+                        className="mg-readby-av"
+                        style={{ background: r.avatar_color }}
+                      >
+                        {r.avatar_url
+                          ? <img src={r.avatar_url} alt="" />
+                          : <span>{r.initials.slice(0, 1)}</span>}
+                      </div>
+                    ))}
+                    {readers.length > 4 && (
+                      <span className="mg-readby-more">+{readers.length - 4}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        })()}
 
         {/* Ghost bubbles for in-flight uploads — always shown as 'mine'.
             Animated in so the attachment bubble has the same "sent" beat

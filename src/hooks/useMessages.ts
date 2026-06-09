@@ -178,5 +178,5 @@ export function useMessages(
     return true
   }, [supabase, currentUserId])
 
-  return { messages, loading, send }
+  return { messages, loading, send, conversationId: convId }
 }

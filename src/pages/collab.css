@@ -1940,11 +1940,9 @@
   gap: 1px;
 }
 .orbit-msg-preview-name {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--t2);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6032,13 +6030,11 @@
   align-items: center;
   justify-content: center;
 }
+/* Group tag inside the banner — same font as the rest of the banner
+   (DM Sans, sentence case). Only the colour distinguishes it. */
 .orbit-msg-preview-grouptag {
-  font-family: 'DM Mono', monospace;
-  font-size: 9px;
   font-weight: 700;
   color: #4A8FE7;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .plugin.dark .orbit-msg-preview-grouptag {
   color: #80B1FB;
@@ -6124,4 +6120,80 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ── Group sender chip ───────────────────────────────────────────────
+   Tiny avatar + display name above a `theirs` bubble in group chats.
+   Only renders on the first message of a streak so consecutive
+   replies from the same person don't repeat the chip. The bubble
+   beneath gets a touch of top-margin via .mg-with-sender so the
+   chip doesn't crowd the content. */
+.mg-sender {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 2px 0;
+}
+.mg-sender-av {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  overflow: hidden;
+}
+.mg-sender-av img { width: 100%; height: 100%; object-fit: cover; }
+.mg-sender-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t3);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg.mg-with-sender { margin-top: 4px; }
+
+/* ── Read-by indicator ───────────────────────────────────────────────
+   Row of mini avatar circles below my last sent message, showing
+   members who have caught up to that message. Live-updates via the
+   conversation_reads realtime subscription. */
+.mg-readby {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 3px;
+  justify-content: flex-end;
+}
+.mg-readby-av {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 7px;
+  font-weight: 700;
+  overflow: hidden;
+  margin-left: -4px;   /* slight overlap so 2+ stack neatly */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.mg-readby-av:first-child { margin-left: 0; }
+.mg-readby-av img { width: 100%; height: 100%; object-fit: cover; }
+.mg-readby-more {
+  margin-left: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--t3);
 }

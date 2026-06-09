@@ -3979,56 +3979,58 @@
   position: relative;
   overflow: hidden;
 }
+/* Native horizontal scroll container with scroll-snap. The browser
+   handles the trackpad swipe physics, momentum, and the "snap when the
+   user lifts their fingers" detection — which is the bit we can't
+   reach reliably via wheel-event JS. */
 .game-cd-area {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   z-index: 1;
 }
-/* Horizontal album-cover gallery — same drag / wheel / snap pattern as
-   the music-panel track list. Each item is positioned absolutely with
-   `--game-offset` so the centred item naturally sits at (50%, 50%). */
+.game-cd-area::-webkit-scrollbar { display: none; }
 .game-cd-list {
-  position: relative;
-  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   height: 100%;
-  overflow: visible;
-  will-change: transform;
-  touch-action: pan-y;
-  transition: transform 0.38s cubic-bezier(0.22, 0.7, 0.32, 1);
+  width: max-content;            /* fit children, not the container */
+  padding: 0;
 }
-/* Disable the snap-back transition while the user is still mid-swipe
-   so the gallery tracks the fingers 1:1 instead of lagging through
-   the 0.55 s ease. The transition re-engages on the next render
-   (when swiping ends) and animates the snap-to-nearest. */
-.game-cd-list.game-cd-list-swiping {
-  transition: none;
+/* Spacers let the first / last item scroll into the centre. Each
+   half-container minus half-item. */
+.game-cd-spacer {
+  flex-shrink: 0;
+  width: calc(50% - 70px);
+  height: 1px;
 }
 .game-cd-item {
+  flex-shrink: 0;
   width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  position: absolute;
-  top: 50%;
-  left: calc(50% + var(--game-offset, 0px));
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
   /* Scale lives on the item (not the cover) so the cover's rotate
      animation in `.centred` doesn't fight a scale transition on the
      same property — that fight was the perceived snap on snap. */
-  transform: translate(-50%, -50%) scale(0.86);
+  transform: scale(0.86);
   opacity: 0.78;
   transition:
-    left 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
     transform 0.25s ease,
     opacity 0.3s ease;
   user-select: none;
 }
 .game-cd-item.centred {
-  transform: translate(-50%, -50%) scale(1);
+  transform: scale(1);
   opacity: 1;
 }
 .game-cd-cover {

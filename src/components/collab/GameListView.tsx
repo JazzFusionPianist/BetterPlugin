@@ -90,21 +90,20 @@ const GAMES: GameCard[] = [
   },
 ]
 
-const SPACING = 150
-// Treat anything under this many px of horizontal motion as a click,
-// not a drag.
-const DRAG_CLICK_THRESHOLD = 5
-// Drag this many pixels in a direction to advance one CD. Subsequent
-// steps within the same drag require another `STEP_PX` of motion in
-// the same direction. Cross back over the line and the gallery walks
-// the other way — one CD per `STEP_PX` of finger travel.
-const STEP_PX = 70
-
 /**
- * Game picker styled as a horizontal album-cover gallery. Drag left or
- * right to step one CD at a time (each `STEP_PX` of finger travel = one
- * step, smoothly animated by the CSS transition). Click a side CD to
- * snap to it; click the centred CD to enter that game.
+ * Game picker styled as a horizontal album-cover gallery.
+ *
+ * Native CSS scroll-snap drives the actual physics:
+ *   - The area is a horizontal overflow:auto scroll container.
+ *   - Each item is scroll-snap-align: center.
+ *   - The browser handles trackpad swipe, momentum, and the snap at
+ *     end-of-gesture — including detecting when the user actually
+ *     lifts their fingers, which is information not reachable from
+ *     wheel-event JS.
+ *
+ * We listen to the scroll event only to know which item is currently
+ * centred, so we can mark it `.centred` for the scale-up animation
+ * and route Enter / click to the right card.
  */
 export default function GameListView({ onSelectGame, inviteContext }: Props) {
   void inviteContext // reserved for the optional CTA swap later — parent owns invite logic
@@ -117,206 +116,63 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     () => GAMES.map(g => ({ ...g, name: t(g.nameKey), description: t(g.descKey) })),
     [t]
   )
-  const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
-  const draggedRef = useRef(false)
   const areaRef = useRef<HTMLDivElement>(null)
-  // Pixel offset applied on top of `viewIndex * SPACING` while a
-  // trackpad swipe is in progress, so the gallery tracks the gesture
-  // 1:1. Reset to 0 (with viewIndex bumped to the nearest CD) when the
-  // gesture ends — that's the "snap" animation that the CSS transition
-  // smooths in.
-  const [wheelOffset, setWheelOffset] = useState(0)
-  // True while a wheel gesture is in flight. Drives a no-transition
-  // class on the cd-list so it stays glued to the finger; clearing it
-  // re-enables the transition for the snap.
-  const [swiping, setSwiping] = useState(false)
-  // The mutable offset lives in a ref too because the rAF / timeout
-  // handlers below need the current value without triggering a closure
-  // capture on every render.
-  const wheelOffsetRef = useRef(0)
-  const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Largest |delta| seen during the current gesture — used to spot the
-  // transition from active swiping (deltas climbing/holding) into the
-  // macOS inertial-decay phase (deltas shrinking towards zero) so we
-  // can snap the gallery the instant the user lifts their fingers.
-  const peakDeltaRef = useRef(0)
-  // Counts consecutive events whose |delta| is well below the running
-  // peak. A single brief dip mid-swipe (user pausing the finger) is
-  // normal, but a STREAK of them is the inertial decay tail.
-  const decayStreakRef = useRef(0)
-  // True while we're absorbing the macOS inertial tail. Wheel events
-  // that arrive after a snap fired do nothing visually — we just
-  // preventDefault them — so the gallery doesn't drift through the
-  // 1-2 s of decaying-delta events the OS continues to emit.
-  const inCooldownRef = useRef(false)
-  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([])
 
-  const N = GAMES.length
-
-  // Wheel handler — bound natively (not via React's onWheel) so we can
-  // call preventDefault: React listeners on root containers default to
-  // passive, which silently drops the call.
+  // Track the currently-centred item via scroll position. requestAnimationFrame
+  // throttles to one update per frame so a fast trackpad swipe doesn't fight
+  // React's reconciliation.
   useEffect(() => {
-    const el = areaRef.current
-    if (!el) return
-    // Snap NOW — used by both the "deltas are decaying" detector and
-    // the regular idle timer. After firing we enter a cooldown that
-    // absorbs the inertial wheel tail so the gallery doesn't keep
-    // drifting through the OS-driven decay.
-    const snapNow = () => {
-      if (wheelEndTimerRef.current) {
-        clearTimeout(wheelEndTimerRef.current)
-        wheelEndTimerRef.current = null
+    const area = areaRef.current
+    if (!area) return
+    let rafId = 0
+    const sync = () => {
+      rafId = 0
+      const center = area.scrollLeft + area.clientWidth / 2
+      let closestIdx = 0
+      let closestDist = Infinity
+      for (let i = 0; i < itemRefs.current.length; i++) {
+        const node = itemRefs.current[i]
+        if (!node) continue
+        const itemCenter = node.offsetLeft + node.clientWidth / 2
+        const d = Math.abs(itemCenter - center)
+        if (d < closestDist) { closestDist = d; closestIdx = i }
       }
-      const step = Math.round(wheelOffsetRef.current / SPACING)
-      const target = Math.max(0, Math.min(N - 1, viewIndex + step))
-      wheelOffsetRef.current = 0
-      setWheelOffset(0)
-      setViewIndex(target)
-      setSwiping(false)
-      peakDeltaRef.current = 0
-      decayStreakRef.current = 0
-      inCooldownRef.current = true
+      setViewIndex(prev => (prev === closestIdx ? prev : closestIdx))
     }
-    const armCooldownEnd = () => {
-      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
-      cooldownTimerRef.current = setTimeout(() => {
-        inCooldownRef.current = false
-      }, 250)
-    }
-
-    // Decay detector thresholds. Active swipes occasionally dip below
-    // a previous high (the user briefly slows the finger) — we DON'T
-    // want to snap on those, so we require a STREAK of low deltas
-    // before declaring "inertia".
-    //   PEAK_MIN     — only arm the detector once a real push has
-    //                  happened; protects gentle slow swipes from
-    //                  ever triggering it.
-    //   DECAY_RATIO  — events under this fraction of the peak count
-    //                  as "low".
-    //   DECAY_RUN    — need this many consecutive low events in a row
-    //                  to conclude we're past the active phase.
-    const PEAK_MIN    = 45
-    const DECAY_RATIO = 0.35
-    const DECAY_RUN   = 4
-
-    // Hard clamp at integer boundaries — no rubber-band. macOS
-    // inertial scroll keeps firing wheel events for up to ~2 s after
-    // the user lifts their fingers; rubber-banding lets the gallery
-    // sit floppy in that zone, which the user reads as "stuck".
-    const onWheel = (ev: WheelEvent) => {
-      if (N <= 1) return
-      // Prefer the horizontal axis (two-finger left/right). If the user
-      // happens to scroll vertically on this surface, treat it as a
-      // mapping to horizontal — there's nothing else to scroll here.
-      const dx = Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
-      if (dx === 0) return
-      ev.preventDefault()
-
-      // Already snapped on this gesture — swallow the inertial tail
-      // events so the gallery doesn't drift past the snap target.
-      // Keep resetting the cooldown end-timer while events still come;
-      // once they stop for ~250 ms we treat the next event as the
-      // start of a fresh gesture.
-      if (inCooldownRef.current) { armCooldownEnd(); return }
-
-      const adx = Math.abs(dx)
-      peakDeltaRef.current = Math.max(peakDeltaRef.current, adx)
-
-      // translateX = viewIndex*SPACING + wheelOffset; viewIndex+1 →
-      // translateX += SPACING. Positive offset → moves toward the
-      // last CD; negative → first. Clamp tight so reaching either end
-      // produces an instant hard stop.
-      const maxOffset =  ((N - 1) - viewIndex) * SPACING
-      const minOffset = -viewIndex * SPACING
-      const next = Math.max(minOffset, Math.min(maxOffset, wheelOffsetRef.current + dx))
-      wheelOffsetRef.current = next
-      setWheelOffset(next)
-      if (!swiping) setSwiping(true)
-
-      // Decay detection — snap as soon as we see a STREAK of low
-      // deltas after a real push. A single low event is just the user
-      // pausing the finger; multiple in a row is the inertial tail.
-      if (peakDeltaRef.current >= PEAK_MIN && adx < peakDeltaRef.current * DECAY_RATIO) {
-        decayStreakRef.current++
-        if (decayStreakRef.current >= DECAY_RUN) {
-          snapNow()
-          armCooldownEnd()
-          return
-        }
-      } else {
-        decayStreakRef.current = 0
-      }
-
-      // Otherwise keep deferring the snap until the wheel goes quiet.
-      if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      wheelEndTimerRef.current = setTimeout(() => { snapNow(); armCooldownEnd() }, 100)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
+    const onScroll = () => { if (!rafId) rafId = requestAnimationFrame(sync) }
+    area.addEventListener('scroll', onScroll, { passive: true })
+    // Sync once on mount so the initial centred class lines up with
+    // wherever the browser settled on the first frame.
+    sync()
     return () => {
-      el.removeEventListener('wheel', onWheel)
-      if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current)
+      area.removeEventListener('scroll', onScroll)
+      if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [N, viewIndex, swiping])
+  }, [])
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (N <= 1) return
-    if (e.button !== undefined && e.button !== 0) return
-    const startIdx = viewIndex
-    dragStartRef.current = { startX: e.clientX, startViewIndex: startIdx }
-    draggedRef.current = false
-    // Track the most recently set index so we don't call setViewIndex
-    // on every pixel of motion — only when the step changes.
-    let lastIdx = startIdx
-
-    const onMove = (ev: PointerEvent) => {
-      if (!dragStartRef.current) return
-      const dx = ev.clientX - dragStartRef.current.startX
-      if (Math.abs(dx) > DRAG_CLICK_THRESHOLD) draggedRef.current = true
-      // Follow-finger: dragging right slides the gallery right, so the
-      // CD that was peeking in from the LEFT edge becomes centred —
-      // i.e. viewIndex increases. Dragging left = previous CD.
-      const step = Math.round(dx / STEP_PX)
-      const target = Math.max(0, Math.min(N - 1, startIdx + step))
-      if (target !== lastIdx) {
-        lastIdx = target
-        setViewIndex(target)
-      }
-    }
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-      dragStartRef.current = null
-      // Defer the click-suppress flag reset so the synthetic click
-      // that fires right after pointerup sees the correct value.
-      setTimeout(() => { draggedRef.current = false }, 0)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
+  /** Smooth-scroll the chosen card to centre. Used by the side-card
+   *  click handler (and could power keyboard nav later). */
+  const scrollToIndex = (i: number) => {
+    const node = itemRefs.current[i]
+    if (!node) return
+    node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
   return (
     <div className="game-cd-view">
       <FloatingOrbs count={28} />
-      <div className="game-cd-area" ref={areaRef} onPointerDown={handlePointerDown}>
-        <div
-          className={`game-cd-list${swiping ? ' game-cd-list-swiping' : ''}`}
-          style={{ transform: `translate3d(${viewIndex * SPACING + wheelOffset}px, 0, 0)` }}
-        >
+      <div className="game-cd-area" ref={areaRef}>
+        <div className="game-cd-list">
+          {/* Leading spacer so the first card can centre via scroll-snap. */}
+          <div className="game-cd-spacer" aria-hidden="true" />
           {cards.map((g, i) => (
             <div
               key={g.id}
+              ref={el => { itemRefs.current[i] = el }}
               className={`game-cd-item${i === viewIndex ? ' centred' : ''}`}
-              style={{ ['--game-offset' as any]: `${-i * SPACING}px` }}
               onClick={() => {
-                if (draggedRef.current) return
-                if (i !== viewIndex) {
-                  setViewIndex(i)
-                  return
-                }
+                if (i !== viewIndex) { scrollToIndex(i); return }
                 onSelectGame(g.id)
               }}
               role="button"
@@ -331,6 +187,8 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
               </div>
             </div>
           ))}
+          {/* Trailing spacer so the last card can centre via scroll-snap. */}
+          <div className="game-cd-spacer" aria-hidden="true" />
         </div>
       </div>
     </div>

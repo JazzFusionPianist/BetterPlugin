@@ -639,7 +639,13 @@ function CollabPageInner({ user }: Props) {
               conversationId={selectedGroup.conversationId}
               initialTitle={selectedGroup.title}
               friendProfiles={friendProfiles}
-              profileLookup={(id) => profilesWithStatus.find(p => p.id === id) ?? null}
+              profileLookup={(id) => {
+                // `profiles` from useProfiles is filtered to exclude self,
+                // so fall back to `me` for the current user — otherwise
+                // the current user vanishes from the group roster.
+                if (id === user.id && me) return { ...me, isOnline: true }
+                return profilesWithStatus.find(p => p.id === id) ?? null
+              }}
               onClose={() => setChatSettingsOpen(false)}
               onLeft={() => {
                 setChatSettingsOpen(false)

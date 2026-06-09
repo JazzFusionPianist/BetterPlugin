@@ -258,18 +258,23 @@ export default function ChatSettingsPanel({
                     <div className="chat-settings-member-name">
                       {m.profile.display_name}
                       {m.userId === currentUserId && <span className="chat-settings-you"> · you</span>}
+                      {m.role === 'admin' && (
+                        <span className="chat-settings-host-tag">host</span>
+                      )}
                     </div>
-                    {m.role === 'admin' && (
-                      <div className="chat-settings-host-tag">Host</div>
-                    )}
                   </div>
                   {meIsAdmin && m.userId !== currentUserId && (
                     <button
                       className="chat-settings-kick"
                       onClick={() => handleKick(m.userId)}
                       disabled={busy}
+                      aria-label={`Remove ${m.profile.display_name}`}
                       title="Remove from group"
-                    >Remove</button>
+                    >
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M2 2l8 8M10 2l-8 8" />
+                      </svg>
+                    </button>
                   )}
                 </div>
               ))}

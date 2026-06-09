@@ -6633,38 +6633,46 @@
   color: var(--t3);
   font-weight: 400;
 }
+/* Inline "host" tag — sits to the right of the name, lowercase + small
+   so it reads like a quiet annotation, not a pill. */
 .chat-settings-host-tag {
-  display: inline-block;
-  background: rgba(74, 143, 231, 0.15);
+  margin-left: 6px;
   color: #4A8FE7;
-  font-family: 'DM Mono', monospace;
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 5px;
-  margin-top: 2px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .plugin.dark .chat-settings-host-tag {
-  background: rgba(128, 177, 251, 0.18);
   color: #80B1FB;
 }
+/* Compact circular kick button — hidden until the row is hovered,
+   then springs in. Keeps the roster quiet by default. */
 .chat-settings-kick {
-  border: 1px solid rgba(255, 59, 48, 0.4);
-  background: transparent;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 59, 48, 0.12);
   color: #FF3B30;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 4px 9px;
-  border-radius: 7px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.12s;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s, background 0.12s;
 }
-.chat-settings-kick:hover { background: rgba(255, 59, 48, 0.1); }
-.chat-settings-kick:disabled { opacity: 0.4; cursor: default; }
+.chat-settings-member-row:hover .chat-settings-kick,
+.chat-settings-kick:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.chat-settings-kick:hover { background: rgba(255, 59, 48, 0.25); }
+.chat-settings-kick:disabled { opacity: 0.3; cursor: default; }
 
 .chat-settings-leave {
   width: 100%;

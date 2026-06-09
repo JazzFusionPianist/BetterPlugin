@@ -135,6 +135,11 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   // capture on every render.
   const wheelOffsetRef = useRef(0)
   const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Largest |delta| seen during the current gesture — used to spot the
+  // transition from active swiping (deltas climbing/holding) into the
+  // macOS inertial-decay phase (deltas shrinking towards zero) so we
+  // can snap the gallery the instant the user lifts their fingers.
+  const peakDeltaRef = useRef(0)
 
   const N = GAMES.length
 
@@ -144,6 +149,32 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   useEffect(() => {
     const el = areaRef.current
     if (!el) return
+    // Snap NOW — used by both the "deltas are decaying" detector and
+    // the regular idle timer.
+    const snapNow = () => {
+      if (wheelEndTimerRef.current) {
+        clearTimeout(wheelEndTimerRef.current)
+        wheelEndTimerRef.current = null
+      }
+      const step = Math.round(wheelOffsetRef.current / SPACING)
+      const target = Math.max(0, Math.min(N - 1, viewIndex + step))
+      wheelOffsetRef.current = 0
+      setWheelOffset(0)
+      setViewIndex(target)
+      setSwiping(false)
+      peakDeltaRef.current = 0
+    }
+
+    // Threshold magnitudes for the peak-decay detector. Tuned so:
+    //   PEAK_MIN          — guards against the first 1-2 tiny start-of-
+    //                       gesture events triggering the snap branch
+    //                       before any real swipe has happened.
+    //   DECAY_RATIO       — once the absolute delta drops below this
+    //                       fraction of the peak we treat the gesture
+    //                       as in macOS inertial decay and snap.
+    const PEAK_MIN    = 25
+    const DECAY_RATIO = 0.4
+
     // Hard clamp at integer boundaries — no rubber-band. macOS
     // inertial scroll keeps firing wheel events for up to ~2 s after
     // the user lifts their fingers; rubber-banding lets the gallery
@@ -156,6 +187,10 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       const dx = Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
       if (dx === 0) return
       ev.preventDefault()
+
+      const adx = Math.abs(dx)
+      peakDeltaRef.current = Math.max(peakDeltaRef.current, adx)
+
       // translateX = viewIndex*SPACING + wheelOffset; viewIndex+1 →
       // translateX += SPACING. Positive offset → moves toward the
       // last CD; negative → first. Clamp tight so reaching either end
@@ -166,19 +201,19 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       wheelOffsetRef.current = next
       setWheelOffset(next)
       if (!swiping) setSwiping(true)
+
+      // Decay detection — if the user has clearly stopped pushing and
+      // we're now riding the macOS inertia tail (deltas a fraction of
+      // what they were at peak), snap immediately. Beats waiting the
+      // full inertial decay (up to ~2 s) before the idle timer fires.
+      if (peakDeltaRef.current >= PEAK_MIN && adx < peakDeltaRef.current * DECAY_RATIO) {
+        snapNow()
+        return
+      }
+
+      // Otherwise keep deferring the snap until the wheel goes quiet.
       if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      // Snap aggressively once the wheel quiets. 60 ms is short enough
-      // that the gallery doesn't feel sluggish even during the long
-      // tail of an inertial swipe (which decays slowly but with small
-      // deltas, so we can afford to read "settled" early).
-      wheelEndTimerRef.current = setTimeout(() => {
-        const step = Math.round(wheelOffsetRef.current / SPACING)
-        const target = Math.max(0, Math.min(N - 1, viewIndex + step))
-        wheelOffsetRef.current = 0
-        setWheelOffset(0)
-        setViewIndex(target)
-        setSwiping(false)
-      }, 60)
+      wheelEndTimerRef.current = setTimeout(snapNow, 60)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {

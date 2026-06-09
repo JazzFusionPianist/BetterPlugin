@@ -38,6 +38,10 @@ juce_add_plugin(CoOpPlugin
     PRODUCT_NAME                "CoOp"
     BUNDLE_ID                   "com.coop.plugin"
 
+    # Bundle icon — JUCE converts the PNG to .icns and embeds it on macOS.
+    # Visible in the Dock, Finder, and the Standalone app's title bar.
+    ICON_BIG                    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
+
     PLUGIN_AU_MAIN_TYPE         "kAudioUnitType_Effect"
     PLUGIN_AU_EXPORT_PREFIX     CoOpAU
 

@@ -55,12 +55,28 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       .single()
     if (!existing || existing.status !== 'lobby') return null
 
+    const e = existing as GameRoom
+    // Host re-entering their own lobby (e.g. after firing off a chat
+    // invite) must NOT take the guest seat — otherwise both fields
+    // hold the host's id and every subsequent join sees the room as
+    // full. Just fetch + set.
+    if (e.host_id === currentUserId) {
+      setRoom(e)
+      return e
+    }
+    // Already-the-guest path — also skip the update.
+    if (e.guest_id === currentUserId) {
+      setRoom(e)
+      return e
+    }
+
     const { data, error } = await supabase
       .from('game_rooms')
       .update({ guest_id: currentUserId })
       .eq('id', roomId)
+      .is('guest_id', null)           // refuse to overwrite a claimed seat
       .select()
-      .single()
+      .maybeSingle()
     if (error || !data) return null
     setRoom(data as GameRoom)
     return data as GameRoom

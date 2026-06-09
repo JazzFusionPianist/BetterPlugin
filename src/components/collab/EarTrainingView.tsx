@@ -19,6 +19,24 @@ interface Props {
   pendingInviteRoomId?: string | null
 }
 
+/** Light-bulb readout — lit when its player has locked in an answer.
+ *  Two of these live side-by-side above the round's options so each
+ *  player can see at a glance whether the round is waiting on them or
+ *  on their opponent. `mine` swaps the lit colour to the player's own
+ *  blue accent so the user can tell which bulb is theirs without
+ *  reading a label. */
+function Bulb ({ lit, mine = false }: { lit: boolean; mine?: boolean }) {
+  return (
+    <div className={`et-bulb${lit ? ' lit' : ''}${mine ? ' mine' : ''}`} aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 18h6" />
+        <path d="M10 21h4" />
+        <path d="M12 3a6 6 0 00-4 10.5c.7.8 1 1.7 1 2.5h6c0-.8.3-1.7 1-2.5A6 6 0 0012 3z" />
+      </svg>
+    </div>
+  )
+}
+
 function Avatar ({ profile, size = 28 }: { profile: Profile; size?: number }) {
   return (
     <div className="av" style={{ background: profile.avatar_color, width: size, height: size, fontSize: size * 0.42 }}>
@@ -116,7 +134,7 @@ export default function EarTrainingView ({
   const {
     room, seat,
     createRoom, joinRoom, updateConfig, toggleReady, startGame,
-    submitAnswer, advanceRound,
+    submitAnswer, advanceRound, forfeitGame,
     deleteCurrentRoom, findActiveRoom,
     inviteFriend, cancelInvite,
   } = useEarTrainingRoom(supabase, currentUserId)
@@ -263,6 +281,12 @@ export default function EarTrainingView ({
     submitAnswer(ans)
   }
 
+  const handleForfeit = useCallback(async () => {
+    if (!isPlaying) return
+    if (!confirm(t('et.forfeitConfirm'))) return
+    await forfeitGame()
+  }, [isPlaying, forfeitGame, t])
+
   const handleBack = useCallback(async () => {
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
       await deleteCurrentRoom()
@@ -308,6 +332,23 @@ export default function EarTrainingView ({
   const opponentReady = seat === 'player1' ? !!room?.player2_ready : !!room?.player1_ready
 
   const myCorrect = question && myAnswer && myAnswer !== '__timeout__' ? isCorrect(question, myAnswer) : false
+  // Reveal the correct answer ONLY once BOTH players have locked in.
+  // Picking solo just lights up your bulb; you can't peek at the
+  // answer by submitting first.
+  const reveal = bothAnswered
+  // Countdown bar — 1 → empty, 0 → full progress. We render it as a
+  // shrinking fill via style.width so the CSS doesn't need a JS-driven
+  // animation per frame.
+  const timeRatio = ROUND_DURATION_MS > 0
+    ? Math.max(0, Math.min(1, remainingMs / ROUND_DURATION_MS))
+    : 0
+  // Has each player locked in an answer? Drives the bulb indicators.
+  const p1Locked = !!room?.player1_answer
+  const p2Locked = !!room?.player2_answer
+  // Render the bulbs from MY perspective: my bulb on the left, opponent
+  // on the right, so the user always sees their own state first.
+  const myLocked       = seat === 'player1' ? p1Locked : p2Locked
+  const opponentLocked = seat === 'player1' ? p2Locked : p1Locked
 
   return (
     <div className="chess-view">
@@ -325,6 +366,13 @@ export default function EarTrainingView ({
               <span className="et-score-sep">–</span>
               <span className="et-score-theirs">{opponentScore}</span>
             </span>
+            <button
+              className="chess-btn chess-btn-resign"
+              onClick={handleForfeit}
+              title={t('et.forfeitConfirm')}
+            >
+              {t('et.forfeit')}
+            </button>
           </div>
         )}
       </div>
@@ -416,6 +464,15 @@ export default function EarTrainingView ({
                 {t('et.round', { n: round, total: room!.total_rounds })}
               </div>
 
+              {/* Twin-bulb readout — each lights up when its player has
+                  locked in an answer. Reveal happens once both lights
+                  are on. Left bulb = me, right bulb = opponent so the
+                  user always knows which is which without a label. */}
+              <div className="et-bulbs">
+                <Bulb lit={myLocked} mine />
+                <Bulb lit={opponentLocked} />
+              </div>
+
               <button
                 className="et-play-btn"
                 onClick={handlePlay}
@@ -432,55 +489,56 @@ export default function EarTrainingView ({
                 {question.type === 'interval' ? t('et.whatInterval') : t('et.whatChord')}
               </div>
 
+              {/* Shared cell for both question variants — keeps the
+                  reveal-vs-locked styling DRY. */}
               <div className="et-options">
-                {question.type === 'interval'
-                  ? question.options.map(opt => {
-                      const reveal = !!myAnswer
-                      const isAns = opt === question.answer
-                      const isMyPick = selectedAnswer === opt || myAnswer === opt
-                      const cls = !reveal ? '' : isAns ? ' correct' : isMyPick ? ' wrong' : ''
-                      return (
-                        <button
-                          key={opt}
-                          className={`et-option${cls}${isMyPick ? ' picked' : ''}`}
-                          onClick={() => handleAnswer(opt)}
-                          disabled={!!myAnswer}
-                        >{INTERVAL_LABELS[opt]}</button>
-                      )
-                    })
-                  : question.options.map(opt => {
-                      const reveal = !!myAnswer
-                      const isAns = opt === question.answer
-                      const isMyPick = selectedAnswer === opt || myAnswer === opt
-                      const cls = !reveal ? '' : isAns ? ' correct' : isMyPick ? ' wrong' : ''
-                      return (
-                        <button
-                          key={opt}
-                          className={`et-option${cls}${isMyPick ? ' picked' : ''}`}
-                          onClick={() => handleAnswer(opt)}
-                          disabled={!!myAnswer}
-                        >{CHORD_LABELS[opt]}</button>
-                      )
-                    })
-                }
+                {question.options.map(opt => {
+                  const labels = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
+                  const isAns    = opt === question.answer
+                  const isMyPick = selectedAnswer === opt || myAnswer === opt
+                  // The answer is hidden until BOTH players have locked
+                  // in. Until then we only show that I picked an option
+                  // (et-option picked), not whether it was correct.
+                  const cls = !reveal ? '' : isAns ? ' correct' : isMyPick ? ' wrong' : ''
+                  return (
+                    <button
+                      key={opt}
+                      className={`et-option${cls}${isMyPick ? ' picked' : ''}`}
+                      onClick={() => handleAnswer(opt)}
+                      disabled={!!myAnswer}
+                    >{labels[opt as keyof typeof labels]}</button>
+                  )
+                })}
               </div>
 
-              {/* Feedback / timer */}
-              {myAnswer
-                ? <div className={`et-feedback${myCorrect ? ' ok' : ' bad'}`}>
-                    {myAnswer === '__timeout__'
-                      ? t('et.timeUp', { ans: question.type === 'interval'
+              {/* Status line — three states:
+                  • not answered yet → countdown progress bar
+                  • I've answered but opponent hasn't → "waiting for both"
+                  • both answered → reveal feedback */}
+              {!myAnswer && (
+                <div className={`et-progress${timedOut ? ' out' : ''}`}>
+                  <div
+                    className="et-progress-fill"
+                    style={{ width: `${timeRatio * 100}%` }}
+                  />
+                </div>
+              )}
+              {myAnswer && !reveal && (
+                <div className="et-pending">{t('et.bothPicking')}</div>
+              )}
+              {reveal && (
+                <div className={`et-feedback${myCorrect ? ' ok' : ' bad'}`}>
+                  {myAnswer === '__timeout__'
+                    ? t('et.timeUp', { ans: question.type === 'interval'
+                        ? INTERVAL_LABELS[question.answer]
+                        : CHORD_LABELS[question.answer] })
+                    : myCorrect
+                      ? t('et.correct')
+                      : t('et.wrong', { ans: question.type === 'interval'
                           ? INTERVAL_LABELS[question.answer]
-                          : CHORD_LABELS[question.answer] })
-                      : myCorrect
-                        ? t('et.correct')
-                        : t('et.wrong', { ans: question.type === 'interval'
-                            ? INTERVAL_LABELS[question.answer]
-                            : CHORD_LABELS[question.answer] })}
-                  </div>
-                : <div className={`et-timer${timedOut ? ' out' : ''}`}>
-                    ⏱ {(remainingMs / 1000).toFixed(0)}s
-                  </div>}
+                          : CHORD_LABELS[question.answer] })}
+                </div>
+              )}
             </div>
           )}
 

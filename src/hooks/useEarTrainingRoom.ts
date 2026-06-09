@@ -188,6 +188,20 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     setRoom(null)
   }, [supabase, room])
 
+  /** End the game with the opponent declared winner. Mirrors the
+   *  Forfeit action in chess/poker — the player who tapped this
+   *  immediately concedes the match. Idempotent: only fires if the
+   *  game is still in progress. */
+  const forfeitGame = useCallback(async () => {
+    if (!room || !seat) return
+    if (room.status === 'finished') return
+    const opponentId = seat === 'player1' ? room.player2_id : room.player1_id
+    await supabase.from('ear_training_rooms')
+      .update({ status: 'finished', winner_id: opponentId })
+      .eq('id', room.id)
+      .neq('status', 'finished')   // lost-update guard
+  }, [supabase, room, seat])
+
   /** Same idea as useGameRoom.findActiveRoom — resume on remount. */
   const findActiveRoom = useCallback(async (): Promise<EarTrainingRoom | null> => {
     const { data } = await supabase
@@ -242,6 +256,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     startGame,
     submitAnswer,
     advanceRound,
+    forfeitGame,
     leaveRoom,
     deleteCurrentRoom,
     findActiveRoom,

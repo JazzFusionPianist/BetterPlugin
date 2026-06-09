@@ -5061,6 +5061,58 @@
 }
 .et-timer.out { color: #ff5252; }
 
+/* Countdown progress bar — drains from 100 % to 0 % as the round
+   timer runs out. Width is set inline by JS each tick; the
+   transition smooths the cross-frame deltas so the bar doesn't
+   stutter when React's setInterval lands. */
+.et-progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg2);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.et-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A8FE7, #6fb6ff);
+  border-radius: 3px;
+  transition: width 0.25s linear, background 0.2s;
+}
+.et-progress.out .et-progress-fill { background: #ff5252; }
+
+/* Twin bulbs above the option grid — left is me, right is opponent.
+   `lit` lights them with a soft glow; `.mine` colours the lit state
+   blue instead of amber so the user's own bulb is obvious. */
+.et-bulbs {
+  display: flex; gap: 16px;
+  align-items: center; justify-content: center;
+  margin-bottom: 2px;
+}
+.et-bulb {
+  width: 28px; height: 28px;
+  color: var(--t3);
+  transition: color 0.2s, filter 0.2s, transform 0.18s;
+}
+.et-bulb svg { width: 100%; height: 100%; display: block; }
+.et-bulb.lit {
+  color: #ffb43a;
+  filter: drop-shadow(0 0 6px rgba(255, 180, 58, 0.65));
+  transform: scale(1.05);
+}
+.et-bulb.lit.mine {
+  color: #4A8FE7;
+  filter: drop-shadow(0 0 6px rgba(74, 143, 231, 0.7));
+}
+
+.et-pending {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--t3);
+  text-align: center;
+  padding: 4px 0;
+}
+
 .et-final-score {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: 'DM Sans', sans-serif;

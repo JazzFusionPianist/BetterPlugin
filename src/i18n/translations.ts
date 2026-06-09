@@ -262,6 +262,9 @@ export const T = {
   'et.intermediate':        { en: 'Intermediate', ko: '중급', ja: '中級', zh: '中级', es: 'Intermedio', de: 'Mittel', fr: 'Moyen', hi: 'मध्यम' },
   'et.advanced':            { en: 'Advanced',     ko: '고급', ja: '上級', zh: '高级', es: 'Avanzado', de: 'Schwer', fr: 'Avancé', hi: 'कठिन' },
   'et.score':               { en: 'Score', ko: '점수', ja: 'スコア', zh: '分数', es: 'Puntos', de: 'Punkte', fr: 'Score', hi: 'स्कोर' },
+  'et.forfeit':             { en: 'Forfeit', ko: '포기', ja: '棄権', zh: '弃赛', es: 'Abandonar', de: 'Aufgeben', fr: 'Abandonner', hi: 'त्याग' },
+  'et.forfeitConfirm':      { en: 'Forfeit this game? The other player wins.', ko: '이 게임을 포기하시겠습니까? 상대방이 승리합니다.', ja: 'このゲームを棄権しますか？相手の勝利になります。', zh: '弃赛？对手将获胜。', es: '¿Abandonar la partida? El otro jugador gana.', de: 'Spiel aufgeben? Der andere Spieler gewinnt.', fr: 'Abandonner la partie ? L’autre joueur gagne.', hi: 'इस गेम को छोड़ें? दूसरा खिलाड़ी जीतता है।' },
+  'et.bothPicking':         { en: 'Waiting for both to lock in…', ko: '두 사람의 선택을 기다리는 중…', ja: '二人の選択を待っています…', zh: '等待两人选择…', es: 'Esperando a que ambos elijan…', de: 'Warten auf beide…', fr: 'En attente des deux joueurs…', hi: 'दोनों के चुनने का इंतज़ार…' },
 } as const
 
 export type TKey = keyof typeof T

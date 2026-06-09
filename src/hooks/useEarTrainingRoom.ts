@@ -201,6 +201,8 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       metadata: { room_id: roomId, game_type: 'ear_training' },
     })
     if (error) console.error('[useEarTrainingRoom.inviteFriend]', error)
+    const { sendGameInviteMessage } = await import('../lib/gameRooms')
+    sendGameInviteMessage(supabase, currentUserId, friendId, roomId, 'ear_training')
   }, [supabase, currentUserId])
 
   const cancelInvite = useCallback(async (friendId: string, roomId: string) => {
@@ -212,6 +214,8 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       .eq('type', 'game_invite')
       .eq('metadata->>room_id', roomId)
     if (error) console.error('[useEarTrainingRoom.cancelInvite]', error)
+    const { deleteGameInviteMessage } = await import('../lib/gameRooms')
+    deleteGameInviteMessage(supabase, currentUserId, friendId, roomId)
   }, [supabase, currentUserId])
 
   return {

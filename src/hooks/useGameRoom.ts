@@ -133,6 +133,10 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       metadata: { room_id: roomId, game_type: 'chess' },
     })
     if (error) console.error('[inviteFriend] insert error:', error)
+    // Mirror the invite into the DM as a chat bubble so the friend
+    // can join from the conversation view too, not just the bell.
+    const { sendGameInviteMessage } = await import('../lib/gameRooms')
+    sendGameInviteMessage(supabase, currentUserId, friendId, roomId, 'chess')
   }, [supabase, currentUserId])
 
   // Counterpart to inviteFriend. Removes the pending game_invite
@@ -148,6 +152,8 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       .eq('type', 'game_invite')
       .eq('metadata->>room_id', roomId)
     if (error) console.error('[cancelInvite] delete error:', error)
+    const { deleteGameInviteMessage } = await import('../lib/gameRooms')
+    deleteGameInviteMessage(supabase, currentUserId, friendId, roomId)
   }, [supabase, currentUserId])
 
   const leaveRoom = useCallback(() => {

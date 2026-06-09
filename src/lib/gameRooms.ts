@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getOrCreateDmConversation } from './conversations'
 
 /**
  * Shared helpers for the chat-driven game invite flow.
@@ -139,6 +140,71 @@ export async function createGameRoom (
     .single()
   if (error) { console.error('[createGameRoom.poker]', error); return null }
   return (data as { id: string }).id
+}
+
+/**
+ * Post a `game_invite` chat message into the DM between `senderId`
+ * and `recipientId`. Used by each game's `inviteFriend` hook so the
+ * invite also shows up as a tappable bubble in the conversation, not
+ * just the notifications panel.
+ *
+ * Resolves the DM conversation (creating it if needed) and inserts
+ * the row directly — we don't go through useMessages because the
+ * caller usually isn't sitting in the DM and the optimistic UI path
+ * doesn't apply.
+ */
+export async function sendGameInviteMessage (
+  supabase: SupabaseClient,
+  senderId: string,
+  recipientId: string,
+  roomId: string,
+  gameType: GameType,
+): Promise<void> {
+  try {
+    const conversationId = await getOrCreateDmConversation(supabase, senderId, recipientId)
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content: '',
+      attachment_type: 'game_invite',
+      attachment_url: roomId,
+      attachment_name: gameType,
+    })
+    if (error) console.warn('[sendGameInviteMessage] insert failed', error)
+  } catch (e) {
+    console.warn('[sendGameInviteMessage] failed', e)
+  }
+}
+
+/**
+ * Counterpart to sendGameInviteMessage — removes the chat bubble when
+ * the inviter cancels. We resolve the same DM and delete the row that
+ * still carries `attachment_url = roomId`, so a recipient who hasn't
+ * clicked Join yet sees the bubble disappear via realtime DELETE.
+ *
+ * Safe to call when no chat message exists (e.g. the invite was only
+ * sent before this feature shipped) — DELETE on an empty match is a
+ * no-op.
+ */
+export async function deleteGameInviteMessage (
+  supabase: SupabaseClient,
+  senderId: string,
+  recipientId: string,
+  roomId: string,
+): Promise<void> {
+  try {
+    const conversationId = await getOrCreateDmConversation(supabase, senderId, recipientId)
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('conversation_id', conversationId)
+      .eq('sender_id', senderId)
+      .eq('attachment_type', 'game_invite')
+      .eq('attachment_url', roomId)
+    if (error) console.warn('[deleteGameInviteMessage]', error)
+  } catch (e) {
+    console.warn('[deleteGameInviteMessage] failed', e)
+  }
 }
 
 /**

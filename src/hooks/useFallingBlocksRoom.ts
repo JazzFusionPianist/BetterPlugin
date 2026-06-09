@@ -264,6 +264,8 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         metadata: { room_id: roomId, game_type: 'falling_blocks' },
       })
       if (error) console.error('[useFallingBlocksRoom.inviteFriend]', error)
+      const { sendGameInviteMessage } = await import('../lib/gameRooms')
+      sendGameInviteMessage(supabase, currentUserId, friendId, roomId, 'falling_blocks')
     },
     [supabase, currentUserId]
   )
@@ -278,6 +280,8 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         .eq('type', 'game_invite')
         .eq('metadata->>room_id', roomId)
       if (error) console.error('[useFallingBlocksRoom.cancelInvite]', error)
+      const { deleteGameInviteMessage } = await import('../lib/gameRooms')
+      deleteGameInviteMessage(supabase, currentUserId, friendId, roomId)
     },
     [supabase, currentUserId]
   )

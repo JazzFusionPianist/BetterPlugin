@@ -362,6 +362,8 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
         metadata: { room_id: roomId, game_type: 'poker' },
       })
       if (error) console.warn('[usePokerRoom.inviteFriend]', error)
+      const { sendGameInviteMessage } = await import('../lib/gameRooms')
+      sendGameInviteMessage(supabase, currentUserId, friendId, roomId, 'poker')
     },
     [supabase, currentUserId]
   )
@@ -378,6 +380,8 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
         .eq('type', 'game_invite')
         .eq('metadata->>room_id', roomId)
       if (error) console.warn('[usePokerRoom.cancelInvite]', error)
+      const { deleteGameInviteMessage } = await import('../lib/gameRooms')
+      deleteGameInviteMessage(supabase, currentUserId, friendId, roomId)
     },
     [supabase, currentUserId]
   )

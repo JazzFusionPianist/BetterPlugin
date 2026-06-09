@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
@@ -119,8 +119,50 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   )
   const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
   const draggedRef = useRef(false)
+  const areaRef = useRef<HTMLDivElement>(null)
+  // Wheel accumulator — macOS trackpad two-finger swipes fire a stream
+  // of small-delta wheel events. We collect them and step the gallery
+  // once enough horizontal travel has piled up. Reset on quiet so a
+  // later gesture starts from zero, not from the residual of the last.
+  const wheelAccRef = useRef(0)
+  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const N = GAMES.length
+
+  // Wheel handler — bound natively (not via React's onWheel) so we can
+  // call preventDefault: React listeners on root containers default to
+  // passive, which silently drops the call.
+  useEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    /** Trackpad swipes give us small delta values per event (~5-20 px);
+     *  takes ~5-15 events to traverse one CD width at a comfortable
+     *  swipe speed. */
+    const WHEEL_STEP = 90
+    const onWheel = (ev: WheelEvent) => {
+      if (N <= 1) return
+      // Prefer the horizontal axis (two-finger left/right). If the user
+      // happens to scroll vertically on this surface, treat it as a
+      // mapping to horizontal — there's nothing else to scroll here.
+      const dx = Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
+      if (dx === 0) return
+      ev.preventDefault()
+      wheelAccRef.current += dx
+      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+      wheelResetTimerRef.current = setTimeout(() => { wheelAccRef.current = 0 }, 180)
+      // Step (possibly multiple) CDs if the accumulator crossed the threshold.
+      while (Math.abs(wheelAccRef.current) >= WHEEL_STEP) {
+        const dir = wheelAccRef.current > 0 ? 1 : -1
+        wheelAccRef.current -= dir * WHEEL_STEP
+        setViewIndex(prev => Math.max(0, Math.min(N - 1, prev + dir)))
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+    }
+  }, [N])
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (N <= 1) return
@@ -163,7 +205,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   return (
     <div className="game-cd-view">
       <FloatingOrbs count={28} />
-      <div className="game-cd-area" onPointerDown={handlePointerDown}>
+      <div className="game-cd-area" ref={areaRef} onPointerDown={handlePointerDown}>
         <div
           className="game-cd-list"
           style={{ transform: `translate3d(${viewIndex * SPACING}px, 0, 0)` }}

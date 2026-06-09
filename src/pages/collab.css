@@ -4002,11 +4002,13 @@
   width: max-content;            /* fit children, not the container */
   padding: 0;
 }
-/* Spacers let the first / last item scroll into the centre. Each
-   half-container minus half-item. */
+/* Spacers let the first / last item scroll into the centre. Width is
+   set inline from JS — percentage-on-flex-child against a
+   max-content list parent is browser-defined behaviour that broke
+   in some desktop browsers (snap targets ended up at the wrong
+   place, so scrolling past the last card wrapped back to the first). */
 .game-cd-spacer {
   flex-shrink: 0;
-  width: calc(50% - 70px);
   height: 1px;
 }
 .game-cd-item {

@@ -118,6 +118,14 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   )
   const areaRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
+  // Half the scroll-container width minus half the item width — the
+  // exact value the leading/trailing spacers need so the first and
+  // last cards can scroll into the centre. Computed in JS because
+  // percentage-on-flex-child against a `max-content` flex parent is
+  // a circular-dependency case browsers resolve inconsistently (it
+  // worked in the plugin's WKWebView but evaluated to 0 in some
+  // desktop browsers, which broke the snap points at the edges).
+  const [spacerPx, setSpacerPx] = useState(0)
 
   // Track the currently-centred item via scroll position. requestAnimationFrame
   // throttles to one update per frame so a fast trackpad swipe doesn't fight
@@ -151,6 +159,23 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     }
   }, [])
 
+  // Keep the spacers in sync with the actual scroll-container width so
+  // the snap points at the first/last cards land at exact centre even
+  // when the plugin shell resizes (Expand View toggles 300 ↔ 720 px).
+  useEffect(() => {
+    const area = areaRef.current
+    if (!area) return
+    const ITEM_HALF = 70
+    const compute = () => {
+      const w = area.clientWidth
+      setSpacerPx(Math.max(0, Math.floor(w / 2 - ITEM_HALF)))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(area)
+    return () => ro.disconnect()
+  }, [])
+
   /** Smooth-scroll the chosen card to centre. Used by the side-card
    *  click handler (and could power keyboard nav later). */
   const scrollToIndex = (i: number) => {
@@ -165,7 +190,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       <div className="game-cd-area" ref={areaRef}>
         <div className="game-cd-list">
           {/* Leading spacer so the first card can centre via scroll-snap. */}
-          <div className="game-cd-spacer" aria-hidden="true" />
+          <div className="game-cd-spacer" aria-hidden="true" style={{ width: spacerPx }} />
           {cards.map((g, i) => (
             <div
               key={g.id}
@@ -188,7 +213,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
             </div>
           ))}
           {/* Trailing spacer so the last card can centre via scroll-snap. */}
-          <div className="game-cd-spacer" aria-hidden="true" />
+          <div className="game-cd-spacer" aria-hidden="true" style={{ width: spacerPx }} />
         </div>
       </div>
     </div>

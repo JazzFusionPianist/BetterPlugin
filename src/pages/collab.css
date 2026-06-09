@@ -6457,6 +6457,21 @@
   background: transparent;
   -webkit-backdrop-filter: blur(6px) saturate(120%);
   backdrop-filter: blur(6px) saturate(120%);
+  /* Ease the blur in over the same window as the sheet so the panel
+     opening reads as one fluid motion instead of "snap → slide." */
+  animation: chat-settings-backdrop-in 320ms ease-out both;
+}
+@keyframes chat-settings-backdrop-in {
+  from {
+    -webkit-backdrop-filter: blur(0) saturate(100%);
+    backdrop-filter: blur(0) saturate(100%);
+    opacity: 0;
+  }
+  to {
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    backdrop-filter: blur(6px) saturate(120%);
+    opacity: 1;
+  }
 }
 .chat-settings-sheet {
   position: relative;
@@ -6469,10 +6484,12 @@
   max-height: 88%;
   overflow-y: auto;
   box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.28);
-  animation: chat-settings-in 240ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  /* Spring-y but tame — overshoots the resting position by ~3% then
+     settles. Feels expensive without being bouncy. */
+  animation: chat-settings-in 420ms cubic-bezier(0.22, 1.32, 0.36, 1) both;
 }
 @keyframes chat-settings-in {
-  from { transform: translateY(16px); opacity: 0; }
+  from { transform: translateY(24px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
@@ -6605,9 +6622,50 @@
   gap: 10px;
   padding: 6px 4px;
   border-radius: 8px;
+  /* Real rows fade in softly on mount so the skeleton→roster swap
+     reads as a settle, not a pop. Skeletons themselves opt out below. */
+  animation: chat-settings-row-in 220ms ease-out both;
 }
 .chat-settings-member-row:hover { background: rgba(0, 0, 0, 0.03); }
 .plugin.dark .chat-settings-member-row:hover { background: rgba(255, 255, 255, 0.04); }
+@keyframes chat-settings-row-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Skeleton roster ──────────────────────────────────────────────────
+   Ghost rows during the initial members fetch — same outer geometry
+   as a real row so the panel height stays constant when the data
+   lands. A gentle shimmer cues "loading" without yelling. */
+.chat-settings-skeleton {
+  animation: none;       /* no row-in shimmy; just the shimmer below */
+  pointer-events: none;
+}
+.chat-settings-skel-block,
+.chat-settings-skel-bar {
+  background: linear-gradient(90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.06) 100%);
+  background-size: 200% 100%;
+  animation: chat-settings-skel-shimmer 1.2s linear infinite;
+}
+.plugin.dark .chat-settings-skel-block,
+.plugin.dark .chat-settings-skel-bar {
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 100%);
+  background-size: 200% 100%;
+}
+.chat-settings-skel-bar {
+  height: 10px;
+  border-radius: 5px;
+}
+@keyframes chat-settings-skel-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
 .chat-settings-member-av {
   width: 30px; height: 30px;
   border-radius: 50%;

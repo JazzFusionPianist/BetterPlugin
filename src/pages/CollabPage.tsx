@@ -638,6 +638,7 @@ function CollabPageInner({ user }: Props) {
               currentUserId={user.id}
               conversationId={selectedGroup.conversationId}
               initialTitle={selectedGroup.title}
+              initialMemberCount={selectedGroup.memberCount}
               friendProfiles={friendProfiles}
               profileLookup={(id) => {
                 // `profiles` from useProfiles is filtered to exclude self,

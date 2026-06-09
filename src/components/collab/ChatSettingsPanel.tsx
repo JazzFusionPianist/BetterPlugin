@@ -30,6 +30,10 @@ interface Props {
   currentUserId: string
   conversationId: string
   initialTitle: string
+  /** Member count known up-front from the chat header. Lets us paint
+   *  the right number of skeleton rows during the initial fetch so
+   *  the panel height doesn't jump when the real roster lands. */
+  initialMemberCount: number
   /** Pool to draw new invitees from — typically the user's mutual
    *  friends. Members already in the group are filtered out
    *  client-side. */
@@ -47,6 +51,7 @@ export default function ChatSettingsPanel({
   currentUserId,
   conversationId,
   initialTitle,
+  initialMemberCount,
   friendProfiles,
   profileLookup,
   onClose,
@@ -246,7 +251,18 @@ export default function ChatSettingsPanel({
                 )}
               </div>
               {loading ? (
-                <div className="chat-settings-empty">Loading…</div>
+                // Ghost rows shaped like real member rows so the panel
+                // height matches what's about to appear — prevents the
+                // jump that happens when "Loading…" gets replaced with
+                // a roster of a different height.
+                Array.from({ length: Math.max(1, initialMemberCount) }).map((_, i) => (
+                  <div key={`skel-${i}`} className="chat-settings-member-row chat-settings-skeleton">
+                    <div className="chat-settings-member-av chat-settings-skel-block" />
+                    <div className="chat-settings-member-info">
+                      <div className="chat-settings-skel-bar" style={{ width: '50%' }} />
+                    </div>
+                  </div>
+                ))
               ) : members.map(m => (
                 <div key={m.userId} className="chat-settings-member-row">
                   <div className="chat-settings-member-av" style={{ background: m.profile.avatar_color }}>

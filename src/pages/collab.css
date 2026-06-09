@@ -3564,6 +3564,12 @@
   gap: 12px;
   padding: 12px;
 }
+/* In audio-only mode the video element has no source — collapse the
+   wrap entirely so the audio-only pulse avatar takes its slot
+   instead of sharing space with an empty black square. Applies to
+   both compact and expanded layouts. */
+.live-viewer-video-wrap.is-audio-only { display: none; }
+
 .live-viewer-body-expanded .live-viewer-video-wrap {
   flex: 1 1 auto;
   min-width: 0;

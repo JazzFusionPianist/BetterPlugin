@@ -933,6 +933,83 @@
 }
 .msg-link:hover { color: #4A8FE7; }
 .mg.mine .msg-link:hover { color: #1a4d8a; }
+
+/* ── Link preview card (Slack/iMessage style) ──────────────────── */
+.msg-link-preview {
+  margin-top: 4px;
+  max-width: 240px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  overflow: hidden;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .08s;
+  font-family: 'DM Sans', sans-serif;
+}
+.msg-link-preview:hover  { background: var(--bg); border-color: var(--t3); }
+.msg-link-preview:active { transform: scale(0.98); }
+
+/* Image-rich variant — thumbnail on top, text below. */
+.msg-link-preview-rich .msg-link-preview-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+.msg-link-preview-rich .msg-link-preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.msg-link-preview-info {
+  padding: 6px 10px 8px;
+}
+.msg-link-preview-site {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--t3);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-link-preview-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.msg-link-preview-desc {
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--t2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Text-only fallback — no thumbnail, tighter padding. */
+.msg-link-preview-text {
+  padding: 8px 10px;
+}
+.msg-link-preview-text .msg-link-preview-site {
+  margin-bottom: 3px;
+}
+
+/* When the bubble is from the local user (mine), align the card to
+   the right edge — same axis as the bubble — and tweak colours so
+   it doesn't compete with the bubble background. */
+.mg.mine .msg-link-preview {
+  align-self: flex-end;
+}
 .plugin.dark .mb {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);

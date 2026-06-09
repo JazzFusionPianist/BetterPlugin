@@ -108,3 +108,16 @@ export function linkify (text: string): ReactNode {
   if (cursor < text.length) parts.push(text.slice(cursor))
   return createElement(Fragment, null, ...parts)
 }
+
+/** Return the first URL detected in `text`, with the same trim/href
+ *  normalisation linkify uses for display. Returns null if nothing
+ *  matches. Used by the chat to drive the preview card under the
+ *  message bubble (we only unfurl one link per message to keep things
+ *  visually quiet). */
+export function firstUrl (text: string): string | null {
+  if (!text) return null
+  URL_RE.lastIndex = 0
+  const m = URL_RE.exec(text)
+  if (!m) return null
+  return toHref(trimTrailing(m[0]).url)
+}

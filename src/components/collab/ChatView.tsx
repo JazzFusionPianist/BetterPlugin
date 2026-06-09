@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
-import { linkify } from '../../lib/linkify'
+import { linkify, firstUrl } from '../../lib/linkify'
+import LinkPreviewCard from './LinkPreviewCard'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -1325,6 +1326,9 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                       : null
                 )}
                 {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
+                {g.msg.content && firstUrl(g.msg.content) && (
+                  <LinkPreviewCard url={firstUrl(g.msg.content)!} />
+                )}
                 <div className="mtime">{formatTime(g.msg.created_at)}</div>
                 {isLastMine && readers.length > 0 && (
                   <div className="mg-readby" title={`Read by ${readers.map(r => r.display_name).join(', ')}`}>

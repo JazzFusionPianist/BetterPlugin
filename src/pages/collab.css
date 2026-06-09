@@ -4683,10 +4683,15 @@
   border: none; border-radius: 6px; padding: 4px 10px;
   cursor: pointer; font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
+  transition: background .12s;
 }
+/* Subtle darker shade on hover for both blue (invite) and green
+   (invited) states so the buttons feel interactive. */
+.chess-invite-do-btn:hover:not(:disabled)         { background: #3a7ad3; }
 .chess-invite-do-btn:disabled { background: #34C759; cursor: default; }
 /* Already-invited row — green confirmation. Click again to cancel. */
-.chess-invite-do-btn.invited { background: #34C759; }
+.chess-invite-do-btn.invited                       { background: #34C759; }
+.chess-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
 
 /* Game area */
 .chess-game-area {
@@ -5456,9 +5461,12 @@
   border: none; border-radius: 8px; padding: 5px 12px;
   cursor: pointer; font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
+  transition: background .12s;
 }
+.falling-blocks-invite-do-btn:hover:not(:disabled)         { background: #3a7ad3; }
 .falling-blocks-invite-do-btn:disabled { background: #34C759; cursor: default; }
-.falling-blocks-invite-do-btn.invited { background: #34C759; }
+.falling-blocks-invite-do-btn.invited                       { background: #34C759; }
+.falling-blocks-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
 .falling-blocks-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;
@@ -5922,9 +5930,12 @@
   border: none; border-radius: 6px; padding: 4px 10px;
   cursor: pointer; font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
+  transition: background .12s;
 }
+.poker-invite-do-btn:hover:not(:disabled)         { background: #3a7ad3; }
 .poker-invite-do-btn:disabled { background: #34C759; cursor: default; }
-.poker-invite-do-btn.invited { background: #34C759; }
+.poker-invite-do-btn.invited                       { background: #34C759; }
+.poker-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
 .poker-invite-empty {
   color: var(--t3); font-size: 13px;
   font-family: 'DM Sans', sans-serif;

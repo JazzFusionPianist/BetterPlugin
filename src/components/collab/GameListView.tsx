@@ -144,10 +144,10 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   useEffect(() => {
     const el = areaRef.current
     if (!el) return
-    /** Soft clamp at the edges — past this much travel beyond an end
-     *  we just absorb the rest of the gesture without moving further,
-     *  so flicking against the first/last CD doesn't fling off-screen. */
-    const EDGE_RESIST = SPACING * 0.4
+    // Hard clamp at integer boundaries — no rubber-band. macOS
+    // inertial scroll keeps firing wheel events for up to ~2 s after
+    // the user lifts their fingers; rubber-banding lets the gallery
+    // sit floppy in that zone, which the user reads as "stuck".
     const onWheel = (ev: WheelEvent) => {
       if (N <= 1) return
       // Prefer the horizontal axis (two-finger left/right). If the user
@@ -156,25 +156,21 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       const dx = Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
       if (dx === 0) return
       ev.preventDefault()
-      // Direction convention: positive wheelOffset == moved towards the
-      // next CD (matches drag-right == viewIndex+1). Subtract because
-      // a positive wheel deltaX is a swipe-left gesture on macOS (the
-      // content moves left so the next CD comes from the right).
-      let next = wheelOffsetRef.current + dx
-      // Edge clamping. translateX = viewIndex*SPACING + wheelOffset,
-      // and viewIndex+1 → translateX += SPACING. So positive offset
-      // moves towards the last CD; negative towards the first. The
-      // amount of room left in each direction depends on where we
-      // currently are.
-      const maxOffset =  ((N - 1) - viewIndex) * SPACING + EDGE_RESIST
-      const minOffset = -viewIndex * SPACING - EDGE_RESIST
-      next = Math.max(minOffset, Math.min(maxOffset, next))
+      // translateX = viewIndex*SPACING + wheelOffset; viewIndex+1 →
+      // translateX += SPACING. Positive offset → moves toward the
+      // last CD; negative → first. Clamp tight so reaching either end
+      // produces an instant hard stop.
+      const maxOffset =  ((N - 1) - viewIndex) * SPACING
+      const minOffset = -viewIndex * SPACING
+      const next = Math.max(minOffset, Math.min(maxOffset, wheelOffsetRef.current + dx))
       wheelOffsetRef.current = next
       setWheelOffset(next)
       if (!swiping) setSwiping(true)
       if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
-      // After a brief quiet period the gesture is considered finished —
-      // snap to whichever CD is closest.
+      // Snap aggressively once the wheel quiets. 60 ms is short enough
+      // that the gallery doesn't feel sluggish even during the long
+      // tail of an inertial swipe (which decays slowly but with small
+      // deltas, so we can afford to read "settled" early).
       wheelEndTimerRef.current = setTimeout(() => {
         const step = Math.round(wheelOffsetRef.current / SPACING)
         const target = Math.max(0, Math.min(N - 1, viewIndex + step))
@@ -182,7 +178,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
         setWheelOffset(0)
         setViewIndex(target)
         setSwiping(false)
-      }, 140)
+      }, 60)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {

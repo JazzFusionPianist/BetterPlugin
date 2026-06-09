@@ -3997,7 +3997,7 @@
   overflow: visible;
   will-change: transform;
   touch-action: pan-y;
-  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 0.26s cubic-bezier(0.2, 0.85, 0.3, 1);
 }
 /* Disable the snap-back transition while the user is still mid-swipe
    so the gallery tracks the fingers 1:1 instead of lagging through

@@ -120,12 +120,21 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   const dragStartRef = useRef<{ startX: number; startViewIndex: number } | null>(null)
   const draggedRef = useRef(false)
   const areaRef = useRef<HTMLDivElement>(null)
-  // Wheel accumulator — macOS trackpad two-finger swipes fire a stream
-  // of small-delta wheel events. We collect them and step the gallery
-  // once enough horizontal travel has piled up. Reset on quiet so a
-  // later gesture starts from zero, not from the residual of the last.
-  const wheelAccRef = useRef(0)
-  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Pixel offset applied on top of `viewIndex * SPACING` while a
+  // trackpad swipe is in progress, so the gallery tracks the gesture
+  // 1:1. Reset to 0 (with viewIndex bumped to the nearest CD) when the
+  // gesture ends — that's the "snap" animation that the CSS transition
+  // smooths in.
+  const [wheelOffset, setWheelOffset] = useState(0)
+  // True while a wheel gesture is in flight. Drives a no-transition
+  // class on the cd-list so it stays glued to the finger; clearing it
+  // re-enables the transition for the snap.
+  const [swiping, setSwiping] = useState(false)
+  // The mutable offset lives in a ref too because the rAF / timeout
+  // handlers below need the current value without triggering a closure
+  // capture on every render.
+  const wheelOffsetRef = useRef(0)
+  const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const N = GAMES.length
 
@@ -135,10 +144,10 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   useEffect(() => {
     const el = areaRef.current
     if (!el) return
-    /** Trackpad swipes give us small delta values per event (~5-20 px);
-     *  takes ~5-15 events to traverse one CD width at a comfortable
-     *  swipe speed. */
-    const WHEEL_STEP = 90
+    /** Soft clamp at the edges — past this much travel beyond an end
+     *  we just absorb the rest of the gesture without moving further,
+     *  so flicking against the first/last CD doesn't fling off-screen. */
+    const EDGE_RESIST = SPACING * 0.4
     const onWheel = (ev: WheelEvent) => {
       if (N <= 1) return
       // Prefer the horizontal axis (two-finger left/right). If the user
@@ -147,22 +156,40 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       const dx = Math.abs(ev.deltaX) >= Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY
       if (dx === 0) return
       ev.preventDefault()
-      wheelAccRef.current += dx
-      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
-      wheelResetTimerRef.current = setTimeout(() => { wheelAccRef.current = 0 }, 180)
-      // Step (possibly multiple) CDs if the accumulator crossed the threshold.
-      while (Math.abs(wheelAccRef.current) >= WHEEL_STEP) {
-        const dir = wheelAccRef.current > 0 ? 1 : -1
-        wheelAccRef.current -= dir * WHEEL_STEP
-        setViewIndex(prev => Math.max(0, Math.min(N - 1, prev + dir)))
-      }
+      // Direction convention: positive wheelOffset == moved towards the
+      // next CD (matches drag-right == viewIndex+1). Subtract because
+      // a positive wheel deltaX is a swipe-left gesture on macOS (the
+      // content moves left so the next CD comes from the right).
+      let next = wheelOffsetRef.current + dx
+      // Edge clamping. translateX = viewIndex*SPACING + wheelOffset,
+      // and viewIndex+1 → translateX += SPACING. So positive offset
+      // moves towards the last CD; negative towards the first. The
+      // amount of room left in each direction depends on where we
+      // currently are.
+      const maxOffset =  ((N - 1) - viewIndex) * SPACING + EDGE_RESIST
+      const minOffset = -viewIndex * SPACING - EDGE_RESIST
+      next = Math.max(minOffset, Math.min(maxOffset, next))
+      wheelOffsetRef.current = next
+      setWheelOffset(next)
+      if (!swiping) setSwiping(true)
+      if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
+      // After a brief quiet period the gesture is considered finished —
+      // snap to whichever CD is closest.
+      wheelEndTimerRef.current = setTimeout(() => {
+        const step = Math.round(wheelOffsetRef.current / SPACING)
+        const target = Math.max(0, Math.min(N - 1, viewIndex + step))
+        wheelOffsetRef.current = 0
+        setWheelOffset(0)
+        setViewIndex(target)
+        setSwiping(false)
+      }, 140)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       el.removeEventListener('wheel', onWheel)
-      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+      if (wheelEndTimerRef.current) clearTimeout(wheelEndTimerRef.current)
     }
-  }, [N])
+  }, [N, viewIndex, swiping])
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (N <= 1) return
@@ -207,8 +234,8 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       <FloatingOrbs count={28} />
       <div className="game-cd-area" ref={areaRef} onPointerDown={handlePointerDown}>
         <div
-          className="game-cd-list"
-          style={{ transform: `translate3d(${viewIndex * SPACING}px, 0, 0)` }}
+          className={`game-cd-list${swiping ? ' game-cd-list-swiping' : ''}`}
+          style={{ transform: `translate3d(${viewIndex * SPACING + wheelOffset}px, 0, 0)` }}
         >
           {cards.map((g, i) => (
             <div

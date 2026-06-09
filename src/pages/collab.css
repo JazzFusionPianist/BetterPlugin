@@ -3999,6 +3999,13 @@
   touch-action: pan-y;
   transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+/* Disable the snap-back transition while the user is still mid-swipe
+   so the gallery tracks the fingers 1:1 instead of lagging through
+   the 0.55 s ease. The transition re-engages on the next render
+   (when swiping ends) and animates the snap-to-nearest. */
+.game-cd-list.game-cd-list-swiping {
+  transition: none;
+}
 .game-cd-item {
   width: 140px;
   display: flex;

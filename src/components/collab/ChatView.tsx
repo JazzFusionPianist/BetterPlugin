@@ -1438,25 +1438,30 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                 {g.msg.content && firstUrl(g.msg.content) && (
                   <LinkPreviewCard url={firstUrl(g.msg.content)!} />
                 )}
-                <div className="mtime">{formatTime(g.msg.created_at)}</div>
-                {isMine && readers.length > 0 && (
-                  <div className="mg-readby" title={`Read by ${readers.map(r => r.display_name).join(', ')}`}>
-                    {readers.slice(0, 4).map(r => (
-                      <div
-                        key={r.id}
-                        className="mg-readby-av"
-                        style={{ background: r.avatar_color }}
-                      >
-                        {r.avatar_url
-                          ? <img src={r.avatar_url} alt="" />
-                          : <span>{r.initials.slice(0, 1)}</span>}
-                      </div>
-                    ))}
-                    {readers.length > 4 && (
-                      <span className="mg-readby-more">+{readers.length - 4}</span>
-                    )}
-                  </div>
-                )}
+                <div className="mtime">
+                  <span>{formatTime(g.msg.created_at)}</span>
+                  {isMine && readers.length > 0 && (
+                    <span
+                      className="mg-readby"
+                      title={`Read by ${readers.map(r => r.display_name).join(', ')}`}
+                    >
+                      {readers.slice(0, 4).map(r => (
+                        <span
+                          key={r.id}
+                          className="mg-readby-av"
+                          style={{ background: r.avatar_color }}
+                        >
+                          {r.avatar_url
+                            ? <img src={r.avatar_url} alt="" />
+                            : <span>{r.initials.slice(0, 1)}</span>}
+                        </span>
+                      ))}
+                      {readers.length > 4 && (
+                        <span className="mg-readby-more">+{readers.length - 4}</span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             )
           })

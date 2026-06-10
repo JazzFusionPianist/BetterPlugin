@@ -158,6 +158,7 @@ export const T = {
 
   // ───── Chess in-progress ────────────────────────────────────────────────
   'chess.resign':         { en: 'Resign',       ko: '기권',      ja: '投了',     zh: '认输',     es: 'Rendirse',  de: 'Aufgeben',  fr: 'Abandonner', hi: 'हार स्वीकार' },
+  'chess.resignConfirm':  { en: 'Resign this game? Your opponent wins.', ko: '이 게임을 기권하시겠습니까? 상대방이 승리합니다.', ja: 'この対局を投了しますか？ 相手の勝利になります。', zh: '认输这局？ 对手将获胜。', es: '¿Rendirse en esta partida? Tu oponente gana.', de: 'Diese Partie aufgeben? Dein Gegner gewinnt.', fr: 'Abandonner cette partie ? Votre adversaire gagne.', hi: 'इस गेम में हार मानें? आपका प्रतिद्वंद्वी जीतता है।' },
   'chess.draw':           { en: 'Draw?',        ko: '무승부?',   ja: '引き分け？', zh: '和棋？',   es: '¿Tablas?',  de: 'Remis?',     fr: 'Nulle ?',   hi: 'ड्रॉ?' },
   'chess.drawOffered':    { en: 'Draw offered', ko: '무승부 제안됨', ja: '引き分け提案中', zh: '已提议和棋', es: 'Tablas ofrecidas', de: 'Remis angeboten', fr: 'Nulle proposée', hi: 'ड्रॉ प्रस्तावित' },
   'chess.acceptDraw':     { en: 'Accept Draw',  ko: '무승부 수락', ja: '引き分けを受諾', zh: '接受和棋', es: 'Aceptar tablas', de: 'Remis annehmen', fr: 'Accepter nulle', hi: 'ड्रॉ स्वीकार' },

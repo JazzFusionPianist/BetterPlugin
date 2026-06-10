@@ -12,6 +12,7 @@ import {
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
+import ConfirmDialog from './ConfirmDialog'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -535,6 +536,7 @@ export default function ChessView({
 
   // Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
 
   // Draw offer state
@@ -682,7 +684,14 @@ export default function ChessView({
     [pendingPromotion, handleMove],
   )
 
-  const handleResign = useCallback(async () => {
+  // In-app confirm modal — matches the other games and works inside the
+  // plugin (JUCE's WKWebView blocks window.confirm).
+  const handleResign = useCallback(() => {
+    if (!room || !opponentId) return
+    setShowResignConfirm(true)
+  }, [room, opponentId])
+  const confirmResign = useCallback(async () => {
+    setShowResignConfirm(false)
     if (!room || !opponentId) return
     await endGame(opponentId)
   }, [room, opponentId, endGame])
@@ -955,6 +964,14 @@ export default function ChessView({
           onClose={() => setShowInviteModal(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={showResignConfirm}
+        message={t('chess.resignConfirm')}
+        confirmLabel={t('chess.resign')}
+        onConfirm={confirmResign}
+        onCancel={() => setShowResignConfirm(false)}
+      />
     </div>
   )
 }

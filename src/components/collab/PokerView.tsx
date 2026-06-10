@@ -5,6 +5,7 @@ import { usePokerRoom } from '../../hooks/usePokerRoom'
 import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
+import ConfirmDialog from './ConfirmDialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ export default function PokerView({
   } = usePokerRoom(supabase, currentUserId)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4 | 5 | 6>(2)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
@@ -386,8 +388,13 @@ export default function PokerView({
   // End the game outright (status='finished' with another player as winner).
   // The user can then exit cleanly — back button will delete the finished
   // room, so the next session starts fresh.
-  const handleForfeit = useCallback(async () => {
-    if (!confirm(t('confirm.forfeitPoker'))) return
+  // In-app confirm modal — JUCE's WKWebView blocks window.confirm,
+  // so the native call silently no-op'd inside the plugin.
+  const handleForfeit = useCallback(() => {
+    setShowForfeitConfirm(true)
+  }, [])
+  const confirmForfeit = useCallback(async () => {
+    setShowForfeitConfirm(false)
     await quitGame()
   }, [quitGame])
 
@@ -839,6 +846,14 @@ export default function PokerView({
           onClose={() => setShowInviteModal(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={showForfeitConfirm}
+        message={t('confirm.forfeitPoker')}
+        confirmLabel={t('poker.forfeit')}
+        onConfirm={confirmForfeit}
+        onCancel={() => setShowForfeitConfirm(false)}
+      />
     </div>
   )
 }

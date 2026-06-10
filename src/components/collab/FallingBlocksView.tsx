@@ -17,6 +17,7 @@ import {
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 import { useT } from '../../i18n/LanguageContext'
+import ConfirmDialog from './ConfirmDialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -341,6 +342,7 @@ export default function FallingBlocksView({
   } = useFallingBlocksRoom(supabase, currentUserId)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4>(2)
 
@@ -665,8 +667,13 @@ export default function FallingBlocksView({
   // Tops out the current player. Also explicitly ends the game when only one
   // other player is still alive — otherwise the room would stay in 'playing'
   // status if everyone left before the natural top-out detection fired.
-  const handleForfeit = useCallback(async () => {
-    if (!confirm(t('confirm.forfeitFb'))) return
+  // In-app confirm modal — JUCE's WKWebView blocks window.confirm,
+  // so the native call silently no-op'd inside the plugin.
+  const handleForfeit = useCallback(() => {
+    setShowForfeitConfirm(true)
+  }, [])
+  const confirmForfeit = useCallback(async () => {
+    setShowForfeitConfirm(false)
     await setPlayerTopOut(currentUserId, true)
     const aliveOpponents = opponentIds.filter(id => {
       const ps = playerStatesRef.current.get(id)
@@ -945,6 +952,14 @@ export default function FallingBlocksView({
           onClose={() => setShowInviteModal(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={showForfeitConfirm}
+        message={t('confirm.forfeitFb')}
+        confirmLabel={t('poker.forfeit')}
+        onConfirm={confirmForfeit}
+        onCancel={() => setShowForfeitConfirm(false)}
+      />
     </div>
   )
 }

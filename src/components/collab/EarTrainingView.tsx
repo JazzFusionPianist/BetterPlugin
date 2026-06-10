@@ -9,6 +9,7 @@ import {
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '../../lib/earTraining'
 import { useT } from '../../i18n/LanguageContext'
+import ConfirmDialog from './ConfirmDialog'
 
 interface Props {
   supabase: SupabaseClient
@@ -651,29 +652,13 @@ export default function EarTrainingView ({
         />
       )}
 
-      {/* Custom Forfeit confirm — the JUCE WKWebView blocks native
-          confirm(), so we render our own dialog. Same overlay shape
-          as the invite modal so we get the same backdrop dismiss. */}
-      {showForfeitConfirm && (
-        <div
-          className="et-confirm-overlay"
-          onClick={e => { if (e.target === e.currentTarget) setShowForfeitConfirm(false) }}
-        >
-          <div className="et-confirm-modal" role="dialog" aria-label={t('et.forfeit')}>
-            <div className="et-confirm-text">{t('et.forfeitConfirm')}</div>
-            <div className="et-confirm-actions">
-              <button
-                className="et-confirm-btn et-confirm-cancel"
-                onClick={() => setShowForfeitConfirm(false)}
-              >{t('common.cancel')}</button>
-              <button
-                className="et-confirm-btn et-confirm-danger"
-                onClick={confirmForfeit}
-              >{t('et.forfeit')}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showForfeitConfirm}
+        message={t('et.forfeitConfirm')}
+        confirmLabel={t('et.forfeit')}
+        onConfirm={confirmForfeit}
+        onCancel={() => setShowForfeitConfirm(false)}
+      />
     </div>
   )
 }

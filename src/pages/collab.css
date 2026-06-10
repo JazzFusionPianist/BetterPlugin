@@ -5546,19 +5546,17 @@
   border-radius: 12px;
   font-family: 'DM Sans', sans-serif;
 }
+/* Theme-aware card — the old hardcoded white fill kept the card light
+   in dark mode while the title (var(--t1)) went near-white, so the
+   "X 승리" text vanished. Mirrors .chess-finish-card. */
 .falling-blocks-finish-card {
   display: flex; flex-direction: column; align-items: center;
   gap: 10px; padding: 18px 22px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--bg);
   color: var(--t1);
-  border: 1px solid rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.10),
-    0 2px 8px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   min-width: 200px; max-width: 90%;
 }
 .plugin.dark .falling-blocks-finish-card {
@@ -5573,22 +5571,18 @@
   font-size: 11px; color: var(--t3);
   font-family: 'DM Mono', monospace;
 }
+/* Theme-aware so the label (var(--t1)) never matches the background —
+   the old hardcoded white fill went white-on-white in dark mode.
+   Mirrors .chess-ready-btn. */
 .falling-blocks-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--border);
+  background: var(--bg2);
   color: var(--t1);
   font-size: 13px; font-weight: 600; cursor: pointer;
   font-family: 'DM Sans', sans-serif;
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
-}
-.tetris-ready-btn:hover {
-  background: rgba(232, 232, 236, 0.78);
-  border-color: rgba(255, 255, 255, 0.85);
+  transition: background .15s, border-color .15s, transform .08s;
 }
 .falling-blocks-ready-btn:hover { background: var(--bg3); }
 .falling-blocks-ready-btn:active { transform: scale(0.97); }

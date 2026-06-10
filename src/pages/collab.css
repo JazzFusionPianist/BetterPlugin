@@ -4965,14 +4965,12 @@
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
   align-items: center;
-  /* `safe center` keeps the round vertically centred when it fits,
-     but falls back to top-aligned (instead of clipping symmetrically
-     into the player rows) once the content is taller than the arena.
-     overflow-y lets a very tall reveal scroll within the arena rather
-     than spilling over the profile rows above/below. */
+  /* `safe center` centres when it fits and top-aligns (no symmetric
+     clipping into the profile rows) if it ever doesn't. The round
+     content is sized to fit a single screen — see the compact .et-*
+     rules below — so this should rarely need to fall back. */
   justify-content: safe center;
-  overflow-y: auto;
-  padding: 12px; gap: 8px;
+  padding: 8px; gap: 6px;
 }
 
 .et-lobby-card {
@@ -5007,49 +5005,51 @@
 }
 .et-chip:disabled { cursor: default; opacity: 0.6; }
 
-/* Round / play */
+/* Round / play — sized to fit a single 300×500 plugin screen without
+   scrolling. Everything here is deliberately compact. */
 .et-round {
   display: flex; flex-direction: column; align-items: center;
-  gap: 10px; width: 100%; max-width: 260px;
+  gap: 6px; width: 100%; max-width: 260px;
 }
 .et-round-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: 11px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .et-play-btn {
-  width: 64px; height: 64px;
+  width: 46px; height: 46px;
   border-radius: 50%;
   background: #d96a3a; color: #fff;
   border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 18px rgba(217, 106, 58, 0.45);
+  box-shadow: 0 4px 12px rgba(217, 106, 58, 0.4);
   transition: transform .08s, background .12s, box-shadow .12s;
 }
+.et-play-btn svg { width: 22px; height: 22px; }
 .et-play-btn:hover:not(:disabled)  { background: #c25a30; }
 .et-play-btn:active:not(:disabled) { transform: scale(0.95); }
 .et-play-btn:disabled              { background: var(--bg2); color: var(--t3); box-shadow: none; cursor: default; }
 .et-replays {
   font-family: 'DM Sans', sans-serif;
-  font-size: 10px; color: var(--t3);
+  font-size: 9px; color: var(--t3);
 }
 .et-prompt {
   font-family: 'DM Sans', sans-serif;
-  font-size: 12px; color: var(--t1);
+  font-size: 11px; color: var(--t1);
   text-align: center;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .et-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 5px;
   width: 100%;
 }
 .et-option {
   font-family: 'DM Sans', sans-serif;
-  font-size: 13px; font-weight: 600;
-  padding: 8px 0;
-  border-radius: 10px;
+  font-size: 12px; font-weight: 600;
+  padding: 6px 0;
+  border-radius: 8px;
   background: var(--bg2); color: var(--t1);
   border: 1px solid var(--border);
   cursor: pointer;
@@ -5087,11 +5087,11 @@
    stutter when React's setInterval lands. */
 .et-progress {
   width: 100%;
-  height: 6px;
+  height: 5px;
   border-radius: 3px;
   background: var(--bg2);
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .et-progress-fill {
   height: 100%;
@@ -5105,49 +5105,49 @@
    `lit` lights them with a soft glow; `.mine` colours the lit state
    blue instead of amber so the user's own bulb is obvious. */
 .et-bulbs {
-  display: flex; gap: 16px;
+  display: flex; gap: 14px;
   align-items: center; justify-content: center;
-  margin-bottom: 2px;
 }
 .et-bulb {
-  width: 28px; height: 28px;
+  width: 22px; height: 22px;
   color: var(--t3);
   transition: color 0.2s, filter 0.2s, transform 0.18s;
 }
 .et-bulb svg { width: 100%; height: 100%; display: block; }
 .et-bulb.lit {
   color: #ffb43a;
-  filter: drop-shadow(0 0 6px rgba(255, 180, 58, 0.65));
+  filter: drop-shadow(0 0 5px rgba(255, 180, 58, 0.65));
   transform: scale(1.05);
 }
 .et-bulb.lit.mine {
   color: #4A8FE7;
-  filter: drop-shadow(0 0 6px rgba(74, 143, 231, 0.7));
+  filter: drop-shadow(0 0 5px rgba(74, 143, 231, 0.7));
 }
 
 .et-pending {
   font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--t3);
   text-align: center;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 /* Reveal scoreboard — correct answer + per-player picks (✓/✗) +
    projected post-round running total. Held for REVEAL_DURATION_MS
-   before the next round opens. */
+   before the next round opens. Compact so the whole round (options
+   + reveal) fits a single 300×500 screen without scrolling. */
 .et-reveal {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   max-width: 260px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .et-reveal-answer {
   font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--t1);
   text-align: center;
@@ -5155,18 +5155,18 @@
 .et-reveal-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 .et-reveal-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 4px 9px;
+  border-radius: 7px;
   background: var(--bg2);
   font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--t1);
   border: 1px solid transparent;
 }
@@ -5175,7 +5175,7 @@
 .et-reveal-row-label  { font-weight: 600; }
 .et-reveal-row.mine .et-reveal-row-label { color: #4A8FE7; }
 .et-reveal-row-pick   { color: var(--t2); font-variant-numeric: tabular-nums; }
-.et-reveal-row-mark   { font-weight: 800; font-size: 14px; }
+.et-reveal-row-mark   { font-weight: 800; font-size: 13px; }
 .et-reveal-row.ok  .et-reveal-row-mark { color: #34C759; }
 .et-reveal-row.bad .et-reveal-row-mark { color: #ff5252; }
 
@@ -5183,7 +5183,7 @@
   display: flex; align-items: baseline; justify-content: center;
   gap: 6px;
   font-family: 'DM Sans', sans-serif;
-  font-size: 22px; font-weight: 800;
+  font-size: 19px; font-weight: 800;
   color: var(--t1);
   margin-top: 2px;
 }

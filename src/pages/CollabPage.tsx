@@ -433,6 +433,7 @@ function CollabPageInner({ user }: Props) {
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
   const handleOpenChat     = (id: string) => {
     setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
+    setConvOpen(false)             // close the messages panel so the chat (lower z) shows
     setSelectedGroupConvId(null)   // mutual exclusion with group chats
     setSelectedId(id)
     markFriendSeen(id)  // clears the orb pulse for that friend
@@ -440,6 +441,7 @@ function CollabPageInner({ user }: Props) {
 
   const handleOpenGroupChat = (convId: string) => {
     setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
+    setConvOpen(false)             // close the messages panel so the chat (lower z) shows
     setSelectedId(null)            // mutual exclusion with DM chats
     setSelectedGroupConvId(convId)
     markConvSeen(convId)           // clears the constellation pulse

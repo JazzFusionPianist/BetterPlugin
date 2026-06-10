@@ -218,6 +218,23 @@ export default function ProfilePanel ({
 
   useEffect(() => { if (statList) lastListRef.current = statList }, [statList])
 
+  // Close the members/following list when the user clicks outside it.
+  // Clicks on the stat chips themselves are excluded so their own
+  // toggle handler stays in charge (clicking the active chip closes it,
+  // clicking the other switches lists).
+  useEffect(() => {
+    if (!statList) return
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest('.orbit-stat-list') || target.closest('.orbit-stats')) return
+      setStatList(null)
+    }
+    // Defer attach to the next tick so the click that opened the list
+    // doesn't immediately close it.
+    const id = setTimeout(() => document.addEventListener('mousedown', onPointerDown), 0)
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onPointerDown) }
+  }, [statList])
+
   // The orb backdrop mirrors the *members* count — the followers of
   // whoever this profile belongs to (you on your own panel, the
   // friend on their panel). Mirrors the deleted party-panel

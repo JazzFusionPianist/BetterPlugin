@@ -965,10 +965,50 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   }, [])
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Are we (roughly) pinned to the bottom right now? Used to decide
+  // whether async content growth should re-pin. Generous threshold so a
+  // few px of rounding doesn't count as "scrolled up".
+  const NEAR_BOTTOM_PX = 120
+  const isNearBottom = (el: HTMLElement) =>
+    el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
+
+  // Tracks whether the user has deliberately scrolled up to read older
+  // messages — while true we DON'T yank them back to the bottom when
+  // late content (images, link previews) grows the list.
+  const stickToBottomRef = useRef(true)
+
+  // On message-list change, jump to the bottom and re-arm sticking.
+  // New messages / opening a chat both land here.
   useEffect(() => {
     const el = chatAreaRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    stickToBottomRef.current = true
   }, [messages, pendingUploads])
+
+  // Keep the view pinned to the bottom while late-loading content
+  // (async images, link-preview cards that fetch OG data, game-invite
+  // bubbles) grows the scroll height AFTER the initial scroll fired.
+  // Without this, opening a chat whose newest messages contain a link
+  // or attachment leaves you stranded just above the real bottom —
+  // most visible when entering from a notification (incoming messages
+  // are exactly the ones with that kind of content).
+  useEffect(() => {
+    const el = chatAreaRef.current
+    if (!el) return
+    // Note when the user scrolls away from / back to the bottom.
+    const onScroll = () => { stickToBottomRef.current = isNearBottom(el) }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    // Re-pin on any content resize, but only if we were at the bottom.
+    const ro = new ResizeObserver(() => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight
+    })
+    ro.observe(el)
+    // Observe direct children too — the container's own box may not
+    // change when an inner card expands, but a child's will.
+    for (const child of Array.from(el.children)) ro.observe(child)
+    return () => { el.removeEventListener('scroll', onScroll); ro.disconnect() }
+  }, [messages])
 
   // 메뉴 외부 클릭 시 닫기
   useEffect(() => {

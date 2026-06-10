@@ -5523,12 +5523,15 @@
   transition: background .12s, color .12s, box-shadow .12s;
 }
 .falling-blocks-player-count-btn:hover { color: var(--t1); }
+/* JSX applies `.selected`; keep `.active` too for any legacy callers. */
+.falling-blocks-player-count-btn.selected,
 .falling-blocks-player-count-btn.active {
   background: var(--bg);
   color: var(--t1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.plugin.dark .tetris-player-count-btn.active {
+.plugin.dark .falling-blocks-player-count-btn.selected,
+.plugin.dark .falling-blocks-player-count-btn.active {
   background: rgba(60, 60, 60, 0.85);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }

@@ -533,27 +533,26 @@ export default function EarTrainingView ({
                 {question.type === 'interval' ? t('et.whatInterval') : t('et.whatChord')}
               </div>
 
-              {/* Shared cell for both question variants — keeps the
-                  reveal-vs-locked styling DRY. */}
-              <div className="et-options">
-                {question.options.map(opt => {
-                  const labels = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
-                  const isAns    = opt === question.answer
-                  const isMyPick = selectedAnswer === opt || myAnswer === opt
-                  // The answer is hidden until BOTH players have locked
-                  // in. Until then we only show that I picked an option
-                  // (et-option picked), not whether it was correct.
-                  const cls = !reveal ? '' : isAns ? ' correct' : isMyPick ? ' wrong' : ''
-                  return (
-                    <button
-                      key={opt}
-                      className={`et-option${cls}${isMyPick ? ' picked' : ''}`}
-                      onClick={() => handleAnswer(opt)}
-                      disabled={!!myAnswer}
-                    >{labels[opt as keyof typeof labels]}</button>
-                  )
-                })}
-              </div>
+              {/* Options grid — hidden once both answer (reveal) so the
+                  reveal card has room to sit on one screen. The grid's
+                  green/red feedback would otherwise duplicate what the
+                  card already states, and stacking both overflowed. */}
+              {!reveal && (
+                <div className="et-options">
+                  {question.options.map(opt => {
+                    const labels = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
+                    const isMyPick = selectedAnswer === opt || myAnswer === opt
+                    return (
+                      <button
+                        key={opt}
+                        className={`et-option${isMyPick ? ' picked' : ''}`}
+                        onClick={() => handleAnswer(opt)}
+                        disabled={!!myAnswer}
+                      >{labels[opt as keyof typeof labels]}</button>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Status line — three states:
                   • not answered yet → countdown progress bar

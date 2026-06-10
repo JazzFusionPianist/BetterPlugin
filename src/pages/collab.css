@@ -4263,11 +4263,11 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;   /* top-align settings rows */
   gap: 10px;
   position: relative;
   z-index: 1;
-  padding-bottom: 28px; /* visual balance against the top header */
+  margin-top: 14px;
 }
 
 /* --- Find people panel --- */
@@ -4360,7 +4360,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;   /* top-align rows (User Info / Notifications / Language) */
   gap: 10px;
   position: relative;
   z-index: 1;
@@ -4531,10 +4531,13 @@
   flex-shrink: 0;
 }
 .language-row.active .language-row-native { color: var(--t1); }
-/* Language list has 8 rows — `justify-content: center` from .info-stack
-   clips the first row when the content overflows. Pin to the top inside
-   the language panel only. */
-.lngview .info-stack { justify-content: flex-start; }
+/* Language list scrolls (8 rows) but we hide the scrollbar for a clean
+   look — the list still scrolls via trackpad / wheel / drag. */
+.lngview .info-stack {
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;         /* old Edge */
+}
+.lngview .info-stack::-webkit-scrollbar { display: none; }  /* WebKit / Chrome */
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Chess View

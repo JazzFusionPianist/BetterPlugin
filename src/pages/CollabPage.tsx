@@ -431,17 +431,26 @@ function CollabPageInner({ user }: Props) {
 
   const handleTooltipEnter = () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
   const handleTooltipLeave = () => { hideTimerRef.current = setTimeout(() => setTooltip(null), 180) }
+  // The chat view (.cview) sits at the bottom of the overlay z-stack, so
+  // ANY open panel (settings/display/info/language/add-friend/messages/
+  // live/game) would cover it. Close them all before showing a chat so
+  // the chat is never opened behind a panel.
+  const closeAllOverlays = () => {
+    closeSettingsPanels()
+    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false)
+    setGameOpen(false); setNewGroupOpen(false); closeSearch()
+    setTooltip(null); setGalleryPopup(null)
+  }
+
   const handleOpenChat     = (id: string) => {
-    setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
-    setConvOpen(false)             // close the messages panel so the chat (lower z) shows
+    closeAllOverlays()
     setSelectedGroupConvId(null)   // mutual exclusion with group chats
     setSelectedId(id)
     markFriendSeen(id)  // clears the orb pulse for that friend
   }
 
   const handleOpenGroupChat = (convId: string) => {
-    setTooltip(null); setGalleryPopup(null); setLiveOpen(false)
-    setConvOpen(false)             // close the messages panel so the chat (lower z) shows
+    closeAllOverlays()
     setSelectedId(null)            // mutual exclusion with DM chats
     setSelectedGroupConvId(convId)
     markConvSeen(convId)           // clears the constellation pulse

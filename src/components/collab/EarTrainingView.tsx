@@ -158,6 +158,7 @@ export default function EarTrainingView ({
   } = useEarTrainingRoom(supabase, currentUserId)
 
   const [showInvite, setShowInvite] = useState(false)
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [playsLeft, setPlaysLeft] = useState(MAX_PLAYS)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
@@ -299,11 +300,18 @@ export default function EarTrainingView ({
     submitAnswer(ans)
   }
 
-  const handleForfeit = useCallback(async () => {
+  // Open the in-app confirm modal rather than calling window.confirm —
+  // JUCE's WKWebView blocks native confirm/alert dialogs, so the
+  // plugin-side click just silently no-op'd. The modal works in both
+  // the regular browser AND the plugin.
+  const handleForfeit = useCallback(() => {
     if (!isPlaying) return
-    if (!confirm(t('et.forfeitConfirm'))) return
+    setShowForfeitConfirm(true)
+  }, [isPlaying])
+  const confirmForfeit = useCallback(async () => {
+    setShowForfeitConfirm(false)
     await forfeitGame()
-  }, [isPlaying, forfeitGame, t])
+  }, [forfeitGame])
 
   const handleBack = useCallback(async () => {
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
@@ -641,6 +649,30 @@ export default function EarTrainingView ({
           onInvite={handleCreateAndInvite}
           onClose={() => setShowInvite(false)}
         />
+      )}
+
+      {/* Custom Forfeit confirm — the JUCE WKWebView blocks native
+          confirm(), so we render our own dialog. Same overlay shape
+          as the invite modal so we get the same backdrop dismiss. */}
+      {showForfeitConfirm && (
+        <div
+          className="chess-invite-modal-overlay"
+          onClick={e => { if (e.target === e.currentTarget) setShowForfeitConfirm(false) }}
+        >
+          <div className="chess-invite-modal et-confirm-modal" role="dialog" aria-label={t('et.forfeit')}>
+            <div className="et-confirm-text">{t('et.forfeitConfirm')}</div>
+            <div className="et-confirm-actions">
+              <button
+                className="et-confirm-btn et-confirm-cancel"
+                onClick={() => setShowForfeitConfirm(false)}
+              >{t('common.cancel')}</button>
+              <button
+                className="et-confirm-btn et-confirm-danger"
+                onClick={confirmForfeit}
+              >{t('et.forfeit')}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

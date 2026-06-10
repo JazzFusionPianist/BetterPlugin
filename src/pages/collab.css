@@ -5168,6 +5168,51 @@
   margin-top: 2px;
 }
 
+/* In-app Forfeit confirm. Native window.confirm() doesn't render
+   inside JUCE's WKWebView, so we paint our own minimal dialog with
+   the same overlay shell as the invite modal. */
+.et-confirm-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  max-width: 280px;
+}
+.et-confirm-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  text-align: center;
+  line-height: 1.4;
+}
+.et-confirm-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.et-confirm-btn {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--t1);
+  cursor: pointer;
+  transition: background .12s, transform .08s;
+}
+.et-confirm-btn:hover  { background: var(--bg3); }
+.et-confirm-btn:active { transform: scale(0.97); }
+.et-confirm-danger {
+  background: #ff5252;
+  border-color: #ff5252;
+  color: #fff;
+}
+.et-confirm-danger:hover { background: #ff3636; }
+
 .et-final-score {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: 'DM Sans', sans-serif;

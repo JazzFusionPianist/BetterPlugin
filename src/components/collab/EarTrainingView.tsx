@@ -507,26 +507,27 @@ export default function EarTrainingView ({
                 {t('et.round', { n: round, total: room!.total_rounds })}
               </div>
 
-              {/* Twin-bulb readout — each lights up when its player has
-                  locked in an answer. Reveal happens once both lights
-                  are on. Left bulb = me, right bulb = opponent so the
-                  user always knows which is which without a label. */}
-              <div className="et-bulbs">
+              {/* Hero — the sound source (play button) flanked by the two
+                  players' bulbs. My bulb on the left (blue), opponent on
+                  the right (amber); each lights when that player locks in
+                  an answer. Reveal happens once both are lit. */}
+              <div className="et-hero">
                 <Bulb lit={myLocked} mine />
+                <div className="et-hero-center">
+                  <button
+                    className="et-play-btn"
+                    onClick={handlePlay}
+                    disabled={playsLeft <= 0 || !!myAnswer}
+                    aria-label={t('et.play')}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                  <div className="et-replays">{t('et.replaysLeft', { n: playsLeft })}</div>
+                </div>
                 <Bulb lit={opponentLocked} />
               </div>
-
-              <button
-                className="et-play-btn"
-                onClick={handlePlay}
-                disabled={playsLeft <= 0 || !!myAnswer}
-                aria-label={t('et.play')}
-              >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </button>
-              <div className="et-replays">{t('et.replaysLeft', { n: playsLeft })}</div>
 
               <div className="et-prompt">
                 {question.type === 'interval' ? t('et.whatInterval') : t('et.whatChord')}

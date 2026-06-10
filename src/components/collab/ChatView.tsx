@@ -1356,18 +1356,35 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       <div className="chat-area" ref={chatAreaRef}>
         {loading && <div className="collab-loading" style={{ flex: 'unset' }}>Loading...</div>}
         {(() => {
-          // Index of the last `mine` message — anchors the read-by row.
-          // Computed inline so the snapshot stays in sync with `groups`.
-          let lastMineGroupIdx = -1
-          for (let i = groups.length - 1; i >= 0; i--) {
-            const gg = groups[i]
-            if (gg && gg.type !== 'ts' && gg.msg.sender_id === currentUserId) {
-              lastMineGroupIdx = i; break
-            }
-          }
           // Profile pool for sender-chip + read-by avatar lookups.
           const readerCandidates: Profile[] = groupMembers
             ?? (otherProfile ? [otherProfile] : [])
+          // Per-message read receipts, iMessage-style: each reader's
+          // avatar appears once, anchored to the LATEST of my messages
+          // their last_seen_at covers. As they read further the avatar
+          // moves forward to the next message. Quiet and informative —
+          // beats clumping every reader under the last bubble.
+          const readersByMsgId = new Map<string, Profile[]>()
+          if (reads) {
+            // `messages` arrives chronological (asc). Walk my messages in
+            // that order so the last assignment per reader is naturally
+            // their latest-read.
+            const mineMsgs = messages.filter(m => m.sender_id === currentUserId)
+            for (const reader of readerCandidates) {
+              const readerTs = reads.get(reader.id) ?? 0
+              if (readerTs <= 0) continue
+              let lastReadId: string | null = null
+              for (const m of mineMsgs) {
+                if (new Date(m.created_at).getTime() <= readerTs) lastReadId = m.id
+                else break
+              }
+              if (lastReadId) {
+                const arr = readersByMsgId.get(lastReadId) ?? []
+                arr.push(reader)
+                readersByMsgId.set(lastReadId, arr)
+              }
+            }
+          }
           return groups.map((g, i) => {
             if (g.type === 'ts') return <div key={i} className="ts">{g.label}</div>
             const isMine = g.msg.sender_id === currentUserId
@@ -1379,15 +1396,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               ? (groupMembers?.find(m => m.id === g.msg.sender_id) ?? null)
               : null
             const showSenderChip = !!senderProfile && isFirstFromSender
-            // Read-by row only renders on my LAST sent message and
-            // only if at least one peer has caught up to it.
-            const isLastMine = isMine && i === lastMineGroupIdx
-            const readers = isLastMine && reads
-              ? readerCandidates.filter(p => {
-                  const ts = reads.get(p.id) ?? 0
-                  return ts >= new Date(g.msg.created_at).getTime()
-                })
-              : []
+            const readers = isMine ? (readersByMsgId.get(g.msg.id) ?? []) : []
             return (
               <div
                 key={g.msg.id}
@@ -1430,7 +1439,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                   <LinkPreviewCard url={firstUrl(g.msg.content)!} />
                 )}
                 <div className="mtime">{formatTime(g.msg.created_at)}</div>
-                {isLastMine && readers.length > 0 && (
+                {isMine && readers.length > 0 && (
                   <div className="mg-readby" title={`Read by ${readers.map(r => r.display_name).join(', ')}`}>
                     {readers.slice(0, 4).map(r => (
                       <div

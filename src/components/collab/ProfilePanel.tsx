@@ -372,7 +372,11 @@ export default function ProfilePanel ({
     const W = sizeRef.current.w
     const halfTT = 70
     const clampedX = Math.max(halfTT + 4, Math.min(W - halfTT - 4, orb.x))
-    const tooltipH = 80
+    // Group tooltips carry title + members + button → taller than DM
+    // tooltips. Use a per-kind height so the "flip below the orb"
+    // decision actually reflects whether the card fits above without
+    // getting clipped by .profile-orbit's overflow:hidden.
+    const tooltipH = orb.kind === 'group' ? 130 : 80
     const below = orb.y - orb.r < tooltipH
     setTooltipPos({ x: clampedX, y: below ? orb.y + orb.r : orb.y - orb.r, below })
   }

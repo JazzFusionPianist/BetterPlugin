@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Orb — Make music together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- One unified font (DM Sans) for absolutely everything, Orb wordmark included. -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:   #0c0c0f;
+    --t1:   #ECECEF;
+    --t2:   #9A9AA2;
+    --t3:   #5E5E66;
+    --line: rgba(255,255,255,0.10);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--t1);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;            /* no scroll — everything lives in one screen */
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* ── Background orbs ─────────────────────────────────── */
+  #orb-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  /* Filmic grain — kills the flat "template" look, adds texture. */
+  .grain {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    opacity: 0.035; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .veil {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(ellipse 70% 70% at 50% 50%, transparent 35%, rgba(12,12,15,0.55) 100%);
+  }
+
+  /* ── Single-screen shell ─────────────────────────────── */
+  .shell {
+    position: relative; z-index: 2;
+    height: 100svh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  /* Top bar */
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 30px clamp(24px, 5vw, 56px);
+  }
+  .word {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 20px; letter-spacing: -0.02em;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .word .mark {
+    width: 17px; height: 17px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #BFE0FF, #5E8BD8 65%, #3E5FA8);
+    box-shadow: 0 0 16px rgba(120,160,230,0.5), inset 0 1px 1.5px rgba(255,255,255,0.5);
+  }
+  .login {
+    font-size: 14px; color: var(--t2);
+    transition: color .2s;
+  }
+  .login:hover { color: var(--t1); }
+
+  /* Center stage */
+  .stage {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 0 24px; gap: 0;
+  }
+  h1 {
+    font-weight: 500;
+    font-size: clamp(40px, 8.5vw, 92px);
+    line-height: 1.06;          /* room for descenders (the 'g' tail) */
+    padding-bottom: 0.08em;     /* clip-text safety margin */
+    letter-spacing: -0.035em;
+    /* Soft pastel gradient — same family as the orbs, kept muted so it
+       reads sophisticated rather than candy. Font untouched. */
+    background: linear-gradient(115deg, #BFE0FF 0%, #C9B6EC 46%, #F4BCD2 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .sub {
+    margin-top: 28px;
+    font-size: clamp(15px, 2.2vw, 18px);
+    font-weight: 400;
+    color: var(--t2);
+    max-width: 440px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+  }
+  .actions {
+    margin-top: 44px;
+    display: flex; align-items: center; gap: 22px;
+  }
+  .download {
+    background: var(--t1); color: #0c0c0f;
+    font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+    padding: 13px 26px; border-radius: 999px;
+    transition: transform .18s cubic-bezier(.34,1.4,.5,1), opacity .2s;
+  }
+  .download:hover { transform: translateY(-2px); }
+  .secondary {
+    font-size: 14.5px; color: var(--t2);
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px; transition: color .2s, border-color .2s;
+  }
+  .secondary:hover { color: var(--t1); border-color: var(--line); }
+
+  /* Bottom line */
+  .bottom {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 26px clamp(24px, 5vw, 56px);
+    font-size: 12.5px; color: var(--t3); letter-spacing: -0.005em;
+  }
+  .bottom .meta { display: flex; align-items: center; gap: 9px; }
+  .bottom .meta .dot { width: 5px; height: 5px; border-radius: 50%; background: #34C759; box-shadow: 0 0 7px #34C759; }
+
+  @media (max-width: 600px) {
+    .actions { flex-direction: column; gap: 16px; margin-top: 36px; }
+    .sub { margin-top: 22px; }
+  }
+
+  /* ── Auth modal ──────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    /* No heavy tint — just a soft frost, matching the app's sheets. */
+    background: rgba(8,8,11,0.45);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    backdrop-filter: blur(10px) saturate(120%);
+    opacity: 0; pointer-events: none;
+    transition: opacity .28s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .modal-card {
+    width: 100%; max-width: 360px;
+    background: rgba(26,26,31,0.82);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 34px 30px 28px;
+    box-shadow: 0 30px 90px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+    transform: translateY(14px) scale(0.98);
+    transition: transform .34s cubic-bezier(.22,1.3,.36,1);
+    position: relative;
+  }
+  .modal-overlay.open .modal-card { transform: translateY(0) scale(1); }
+
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 28px; height: 28px; border: none; cursor: pointer;
+    background: transparent; color: var(--t3); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+
+  .modal-mark {
+    width: 30px; height: 30px; border-radius: 50%; margin-bottom: 18px;
+    background: radial-gradient(circle at 34% 30%, #BFE0FF, #5E8BD8 65%, #3E5FA8);
+    box-shadow: 0 0 20px rgba(120,160,230,0.5), inset 0 1px 1.5px rgba(255,255,255,0.5);
+  }
+  .modal-title {
+    font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 4px;
+  }
+  .modal-sub { font-size: 13.5px; color: var(--t2); margin-bottom: 24px; }
+
+  .field { margin-bottom: 13px; }
+  .field label {
+    display: block; font-size: 12px; color: var(--t2);
+    margin-bottom: 6px; letter-spacing: -0.005em;
+  }
+  .field input {
+    width: 100%; padding: 11px 13px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line); border-radius: 11px;
+    color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; transition: border-color .16s, background .16s;
+  }
+  .field input::placeholder { color: var(--t3); }
+  .field input:focus {
+    border-color: rgba(127,176,255,0.6);
+    background: rgba(255,255,255,0.06);
+  }
+
+  .modal-submit {
+    width: 100%; margin-top: 8px;
+    background: var(--t1); color: #0c0c0f;
+    font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 14.5px;
+    padding: 12px; border: none; border-radius: 11px; cursor: pointer;
+    transition: transform .16s cubic-bezier(.34,1.4,.5,1), opacity .2s;
+  }
+  .modal-submit:hover { transform: translateY(-1px); }
+
+  .modal-foot {
+    margin-top: 18px; text-align: center;
+    font-size: 13px; color: var(--t2);
+  }
+  .modal-foot button {
+    background: none; border: none; cursor: pointer;
+    color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    padding: 0; margin-left: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-foot button:hover { border-color: var(--t1); }
+
+  /* Sign-up-only field — hidden in sign-in mode. */
+  .signup-only { display: none; }
+  .modal-card.mode-signup .signup-only { display: block; }
+</style>
+</head>
+<body>
+<canvas id="orb-canvas"></canvas>
+<div class="grain"></div>
+<div class="veil"></div>
+
+<div class="shell">
+  <!-- top -->
+  <div class="top">
+    <span class="word"><span class="mark"></span>Orb</span>
+    <a href="#" class="login">Log in</a>
+  </div>
+
+  <!-- center -->
+  <main class="stage">
+    <h1>Make music together.</h1>
+    <p class="sub">Your crew, your sessions, your sound — in your DAW and on the web.</p>
+    <div class="actions">
+      <a href="#" class="download">Download for Mac</a>
+      <a href="#" class="secondary">or open in browser</a>
+    </div>
+  </main>
+
+  <!-- bottom -->
+  <div class="bottom">
+    <span class="meta"><span class="dot"></span> Early access · macOS</span>
+    <span>© 2026 Orb</span>
+  </div>
+</div>
+
+<!-- Auth modal -->
+<div class="modal-overlay" id="auth">
+  <div class="modal-card mode-signin" id="auth-card">
+    <button class="modal-close" id="auth-close" aria-label="Close">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg>
+    </button>
+    <div class="modal-mark"></div>
+    <div class="modal-title" id="auth-title">Welcome back</div>
+    <div class="modal-sub" id="auth-subtitle">Sign in to your Orb account.</div>
+
+    <form id="auth-form">
+      <div class="field signup-only">
+        <label for="auth-name">Display name</label>
+        <input id="auth-name" type="text" placeholder="What should we call you?" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="auth-password">Password</label>
+        <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="modal-submit" id="auth-submit">Sign in</button>
+    </form>
+
+    <div class="modal-foot" id="auth-foot">
+      <span id="auth-foot-text">New to Orb?</span>
+      <button type="button" id="auth-toggle">Create account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Two layers: soft dreamy orbs (back) + crisp constellations (front)
+const canvas = document.getElementById('orb-canvas');
+const ctx = canvas.getContext('2d');
+// Tight, cohesive palette — blue / lavender / blush / teal, muted.
+const COLORS = ['#7FB0FF','#9CA8FF','#C7A8E8','#F2B6CE','#86D8D2','#A9C7FF'];
+// Constellation node colours — brighter so the crisp dots read clearly.
+const STAR = ['#CFE3FF','#D8CCF5','#FAD0E0','#BFF0EC','#CBD8FF'];
+let orbs = [], consts = [], W, H, DPR;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.width  = innerWidth  * DPR;
+  H = canvas.height = innerHeight * DPR;
+  canvas.style.width  = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+}
+
+function seedOrbs() {
+  const n = Math.min(14, Math.floor(innerWidth / 90));
+  orbs = [];
+  for (let i = 0; i < n; i++) {
+    const r = (80 + Math.random() * 180) * DPR;          // large, soft
+    const a = Math.random() * Math.PI * 2;
+    const sp = (0.02 + Math.random() * 0.05) * DPR;       // slow drift
+    orbs.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      r, c: COLORS[i % COLORS.length],
+    });
+  }
+}
+
+// Each constellation is a small rigid cluster of crisp nodes (3–5)
+// linked in a ring, drifting + rotating slowly as one unit. Mirrors
+// the in-app group "constellation" orb, just minimally blurred.
+function seedConsts() {
+  const n = Math.max(3, Math.min(6, Math.floor(innerWidth / 360)));
+  consts = [];
+  for (let i = 0; i < n; i++) {
+    const count  = 3 + Math.floor(Math.random() * 3);   // 3–5 nodes
+    const spread = (38 + Math.random() * 46) * DPR;
+    const nodes = [];
+    for (let j = 0; j < count; j++) {
+      const a = (j / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.7;
+      const d = spread * (0.55 + Math.random() * 0.45);
+      nodes.push({
+        dx: Math.cos(a) * d, dy: Math.sin(a) * d,
+        r: (1.5 + Math.random() * 1.6) * DPR,
+        c: STAR[Math.floor(Math.random() * STAR.length)],
+      });
+    }
+    const ang = Math.random() * Math.PI * 2;
+    const sp  = (0.035 + Math.random() * 0.05) * DPR;     // slightly faster than orbs
+    consts.push({
+      cx: Math.random() * W, cy: Math.random() * H,
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.0009,                 // gentle spin
+      nodes,
+    });
+  }
+}
+
+function drawConsts() {
+  const m = 220 * DPR;
+  for (const k of consts) {
+    k.cx += k.vx; k.cy += k.vy; k.rot += k.vr;
+    if (k.cx < -m) k.cx = W + m; if (k.cx > W + m) k.cx = -m;
+    if (k.cy < -m) k.cy = H + m; if (k.cy > H + m) k.cy = -m;
+    const cos = Math.cos(k.rot), sin = Math.sin(k.rot);
+    const pts = k.nodes.map(nd => ({
+      x: k.cx + nd.dx * cos - nd.dy * sin,
+      y: k.cy + nd.dx * sin + nd.dy * cos,
+      r: nd.r, c: nd.c,
+    }));
+    // connecting ring — faint
+    ctx.strokeStyle = 'rgba(200,215,255,0.15)';
+    ctx.lineWidth = 1 * DPR;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+    // crisp nodes with a small glow (much less blur than the orbs)
+    for (const p of pts) {
+      ctx.save();
+      ctx.shadowColor = p.c; ctx.shadowBlur = 6 * DPR;
+      ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function tick() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Layer 1 — soft dreamy orbs (additive blend)
+  ctx.globalCompositeOperation = 'lighter';
+  for (const o of orbs) {
+    o.x += o.vx; o.y += o.vy;
+    if (o.x < -o.r) o.x = W + o.r; if (o.x > W + o.r) o.x = -o.r;
+    if (o.y < -o.r) o.y = H + o.r; if (o.y > H + o.r) o.y = -o.r;
+    const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+    g.addColorStop(0, o.c + '30');
+    g.addColorStop(1, o.c + '00');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Layer 2 — crisp constellations on top
+  ctx.globalCompositeOperation = 'source-over';
+  drawConsts();
+
+  requestAnimationFrame(tick);
+}
+
+resize(); seedOrbs(); seedConsts(); tick();
+addEventListener('resize', () => { resize(); seedOrbs(); seedConsts(); });
+
+// ── Auth modal ────────────────────────────────────────────
+const overlay  = document.getElementById('auth');
+const card     = document.getElementById('auth-card');
+let   mode     = 'signin';   // 'signin' | 'signup'
+
+function openAuth(m) {
+  setMode(m || 'signin');
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('auth-email').focus(), 260);
+}
+function closeAuth() { overlay.classList.remove('open'); }
+
+function setMode(m) {
+  mode = m;
+  const title = document.getElementById('auth-title');
+  const sub   = document.getElementById('auth-subtitle');
+  const submit= document.getElementById('auth-submit');
+  const footT = document.getElementById('auth-foot-text');
+  const toggle= document.getElementById('auth-toggle');
+  const pw    = document.getElementById('auth-password');
+  if (m === 'signup') {
+    card.classList.remove('mode-signin'); card.classList.add('mode-signup');
+    title.textContent  = 'Create your account';
+    sub.textContent    = 'Join Orb and bring your crew in.';
+    submit.textContent = 'Create account';
+    footT.textContent  = 'Already have an account?';
+    toggle.textContent = 'Sign in';
+    pw.setAttribute('autocomplete', 'new-password');
+  } else {
+    card.classList.remove('mode-signup'); card.classList.add('mode-signin');
+    title.textContent  = 'Welcome back';
+    sub.textContent    = 'Sign in to your Orb account.';
+    submit.textContent = 'Sign in';
+    footT.textContent  = 'New to Orb?';
+    toggle.textContent = 'Create account';
+    pw.setAttribute('autocomplete', 'current-password');
+  }
+}
+
+// Triggers — every "Log in" link opens the modal.
+document.querySelectorAll('.login').forEach(el =>
+  el.addEventListener('click', e => { e.preventDefault(); openAuth('signin'); })
+);
+document.getElementById('auth-close').addEventListener('click', closeAuth);
+document.getElementById('auth-toggle').addEventListener('click', () =>
+  setMode(mode === 'signin' ? 'signup' : 'signin')
+);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeAuth(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
+
+// Prototype only — no real auth yet (wired to Supabase in the Next.js port).
+document.getElementById('auth-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const btn = document.getElementById('auth-submit');
+  const original = btn.textContent;
+  btn.textContent = mode === 'signup' ? 'Creating…' : 'Signing in…';
+  setTimeout(() => {
+    btn.textContent = original;
+    alert('Prototype — auth wires up to Supabase in the Next.js build.');
+  }, 700);
+});
+</script>
+</body>
+</html>

@@ -1,29 +1,12 @@
 {
-  "name": "community",
-  "version": "1.0.0",
-  "description": "",
-  "type": "module",
+  "name": "orb-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Orb — collaboration for music makers. Plugin / web / mobile / marketing.",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.101.1",
-    "aws4fetch": "^1.0.20",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.2.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.3"
+    "dev": "pnpm --filter plugin dev",
+    "dev:plugin": "pnpm --filter plugin dev",
+    "build:plugin": "pnpm --filter plugin build",
+    "typecheck:plugin": "pnpm --filter plugin exec tsc -b"
   }
 }

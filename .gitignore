@@ -1,9 +1,24 @@
+# Dependencies
 node_modules
+.pnpm-store
+
+# Build output
 dist
+.vite
+*.tsbuildinfo
+
+# Env / secrets
 .env
+.env.*
+!.env.example
+
+# Editor / OS
 .claude
-tsconfig.tsbuildinfo
 .DS_Store
 
 # JUCE plugin build artifacts
 Plugin/build/
+Plugin/*.bak
+
+# Vercel
+.vercel

@@ -656,10 +656,10 @@ export default function EarTrainingView ({
           as the invite modal so we get the same backdrop dismiss. */}
       {showForfeitConfirm && (
         <div
-          className="chess-invite-modal-overlay"
+          className="et-confirm-overlay"
           onClick={e => { if (e.target === e.currentTarget) setShowForfeitConfirm(false) }}
         >
-          <div className="chess-invite-modal et-confirm-modal" role="dialog" aria-label={t('et.forfeit')}>
+          <div className="et-confirm-modal" role="dialog" aria-label={t('et.forfeit')}>
             <div className="et-confirm-text">{t('et.forfeitConfirm')}</div>
             <div className="et-confirm-actions">
               <button

@@ -5171,15 +5171,28 @@
 }
 
 /* In-app Forfeit confirm. Native window.confirm() doesn't render
-   inside JUCE's WKWebView, so we paint our own minimal dialog with
-   the same overlay shell as the invite modal. */
+   inside JUCE's WKWebView, so we paint our own minimal dialog. Unlike
+   the invite modal (a bottom sheet), this is a small centred card. */
+.et-confirm-overlay {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
 .et-confirm-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 20px;
-  max-width: 280px;
+  gap: 16px;
+  padding: 22px 20px;
+  width: 100%;
+  max-width: 260px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 .et-confirm-text {
   font-family: 'DM Sans', sans-serif;

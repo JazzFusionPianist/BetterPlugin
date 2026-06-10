@@ -91,12 +91,19 @@ export default function ProfilePanel ({
   const fileRef       = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
   const statsRef      = useRef<HTMLDivElement>(null)
+  const avatarRef     = useRef<HTMLButtonElement>(null)
+  const nameRef       = useRef<HTMLDivElement>(null)
   const orbsRef       = useRef<Orb[]>([])
   const sizeRef       = useRef({ w: 300, h: 480 })
-  // Bounding box of the members/following stats panel relative to the
-  // orbit container, so orbs treat it as a solid obstacle and bounce
-  // off instead of sliding behind it. Recomputed on resize / list-open.
-  const statsRectRef  = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  // Solid obstacles the orbs bounce off, in container-local coords.
+  // `rects` are AABB boxes (stats panel, name chip); `circles` are
+  // round obstacles (the centre avatar). Recomputed on resize /
+  // list-open. Top of the container already acts as the toolbar wall
+  // via the y < r clamp, so the toolbar needs no entry here.
+  const obstaclesRef  = useRef<{
+    rects: { x: number; y: number; w: number; h: number }[]
+    circles: { x: number; y: number; r: number }[]
+  }>({ rects: [], circles: [] })
   const [, forceRender]      = useState(0)
   const [uploading, setUploading]    = useState(false)
   const [msg, setMsg]                = useState<string | null>(null)
@@ -317,28 +324,41 @@ export default function ProfilePanel ({
     Array.from(favorites).sort().join('|'),
   ])
 
-  // Measure the stats panel's box (in container-local coordinates) so
-  // the orb physics can treat it as a solid wall. Re-runs whenever the
-  // selected list toggles (the panel grows when a list opens) and on
-  // window resize. A small ResizeObserver keeps it fresh if layout
-  // shifts for any other reason.
+  // Measure every solid obstacle (in container-local coords) so the
+  // orb physics can bounce off them. Re-runs whenever the selected
+  // list toggles (the stats panel grows when a list opens) and on
+  // window resize; a ResizeObserver keeps it fresh for any other
+  // layout shift.
   useLayoutEffect(() => {
     const measure = () => {
       const c = containerRef.current
-      const s = statsRef.current
-      if (!c || !s) { statsRectRef.current = null; return }
+      if (!c) { obstaclesRef.current = { rects: [], circles: [] }; return }
       const cr = c.getBoundingClientRect()
-      const sr = s.getBoundingClientRect()
-      statsRectRef.current = {
-        x: sr.left - cr.left,
-        y: sr.top  - cr.top,
-        w: sr.width,
-        h: sr.height,
+      const toLocalRect = (el: Element | null) => {
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return { x: r.left - cr.left, y: r.top - cr.top, w: r.width, h: r.height }
       }
+      const rects = [toLocalRect(statsRef.current), toLocalRect(nameRef.current)]
+        .filter(Boolean) as { x: number; y: number; w: number; h: number }[]
+      // Avatar is round — model it as a circle for a natural bounce.
+      const circles: { x: number; y: number; r: number }[] = []
+      const ab = avatarRef.current
+      if (ab) {
+        const r = ab.getBoundingClientRect()
+        circles.push({
+          x: r.left - cr.left + r.width / 2,
+          y: r.top  - cr.top  + r.height / 2,
+          r: r.width / 2,
+        })
+      }
+      obstaclesRef.current = { rects, circles }
     }
     measure()
     const ro = new ResizeObserver(measure)
     if (statsRef.current)     ro.observe(statsRef.current)
+    if (nameRef.current)      ro.observe(nameRef.current)
+    if (avatarRef.current)    ro.observe(avatarRef.current)
     if (containerRef.current) ro.observe(containerRef.current)
     window.addEventListener('resize', measure)
     return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
@@ -380,26 +400,24 @@ export default function ProfilePanel ({
         if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
       }
 
-      // Stats panel — treated as a solid obstacle. Circle-vs-AABB:
-      // find the closest point on the box to the orb centre; if the
-      // orb overlaps, push it out along the shallowest axis and flip
-      // that velocity component so it bounces like a wall.
-      const box = statsRectRef.current
-      if (box) {
-        const bx0 = box.x, by0 = box.y
-        const bx1 = box.x + box.w, by1 = box.y + box.h
-        for (const o of orbs) {
-          if (o.frozen) continue
-          // Nearest point on the box to the orb centre.
+      // Solid obstacles — stats panel, name chip (AABB) and the centre
+      // avatar (circle). Orbs bounce off them like the panel walls.
+      const { rects, circles } = obstaclesRef.current
+      for (const o of orbs) {
+        if (o.frozen) continue
+
+        // Circle-vs-AABB for each rectangular obstacle.
+        for (const box of rects) {
+          const bx0 = box.x, by0 = box.y
+          const bx1 = box.x + box.w, by1 = box.y + box.h
           const nx = Math.max(bx0, Math.min(o.x, bx1))
           const ny = Math.max(by0, Math.min(o.y, by1))
           const dx = o.x - nx
           const dy = o.y - ny
           const distSq = dx * dx + dy * dy
-          if (distSq >= o.r * o.r) continue   // no overlap
+          if (distSq >= o.r * o.r) continue
 
           if (o.x > bx0 && o.x < bx1 && o.y > by0 && o.y < by1) {
-            // Centre is INSIDE the box — eject along the nearest edge.
             const toLeft   = o.x - bx0
             const toRight  = bx1 - o.x
             const toTop    = o.y - by0
@@ -410,8 +428,6 @@ export default function ProfilePanel ({
             else if (m === toTop)    { o.y = by0 - o.r; o.vy = -Math.abs(o.vy) }
             else                     { o.y = by1 + o.r; o.vy =  Math.abs(o.vy) }
           } else {
-            // Overlapping a corner/edge from outside — push out along
-            // the contact normal and reflect velocity onto it.
             const dist = Math.sqrt(distSq) || 0.0001
             const ux = dx / dist, uy = dy / dist
             o.x = nx + ux * o.r
@@ -419,6 +435,23 @@ export default function ProfilePanel ({
             const vDot = o.vx * ux + o.vy * uy
             if (vDot < 0) { o.vx -= 2 * vDot * ux; o.vy -= 2 * vDot * uy }
           }
+        }
+
+        // Circle-vs-circle for the avatar — push the orb out to the
+        // combined-radius distance and reflect its velocity onto the
+        // contact normal.
+        for (const cc of circles) {
+          const dx = o.x - cc.x
+          const dy = o.y - cc.y
+          const minDist = cc.r + o.r
+          const distSq = dx * dx + dy * dy
+          if (distSq >= minDist * minDist) continue
+          const dist = Math.sqrt(distSq) || 0.0001
+          const ux = dx / dist, uy = dy / dist
+          o.x = cc.x + ux * minDist
+          o.y = cc.y + uy * minDist
+          const vDot = o.vx * ux + o.vy * uy
+          if (vDot < 0) { o.vx -= 2 * vDot * ux; o.vy -= 2 * vDot * uy }
         }
       }
 
@@ -775,6 +808,7 @@ export default function ProfilePanel ({
 
         {/* Avatar — always centred. */}
         <button
+          ref={avatarRef}
           className="profile-av-btn orbit-self"
           onClick={viewOnly ? undefined : handlePickFile}
           disabled={uploading || viewOnly}
@@ -858,7 +892,7 @@ export default function ProfilePanel ({
 
         {/* Display name — bottom of the panel. */}
         <div className="orbit-bottom">
-          <div className="orbit-name">{displayName}</div>
+          <div className="orbit-name" ref={nameRef}>{displayName}</div>
         </div>
       </div>
 

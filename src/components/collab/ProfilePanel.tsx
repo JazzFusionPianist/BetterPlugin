@@ -90,8 +90,13 @@ export default function ProfilePanel ({
   void onRemoveFriend // retained on the props contract for future use
   const fileRef       = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
+  const statsRef      = useRef<HTMLDivElement>(null)
   const orbsRef       = useRef<Orb[]>([])
   const sizeRef       = useRef({ w: 300, h: 480 })
+  // Bounding box of the members/following stats panel relative to the
+  // orbit container, so orbs treat it as a solid obstacle and bounce
+  // off instead of sliding behind it. Recomputed on resize / list-open.
+  const statsRectRef  = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
   const [, forceRender]      = useState(0)
   const [uploading, setUploading]    = useState(false)
   const [msg, setMsg]                = useState<string | null>(null)
@@ -312,6 +317,33 @@ export default function ProfilePanel ({
     Array.from(favorites).sort().join('|'),
   ])
 
+  // Measure the stats panel's box (in container-local coordinates) so
+  // the orb physics can treat it as a solid wall. Re-runs whenever the
+  // selected list toggles (the panel grows when a list opens) and on
+  // window resize. A small ResizeObserver keeps it fresh if layout
+  // shifts for any other reason.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const c = containerRef.current
+      const s = statsRef.current
+      if (!c || !s) { statsRectRef.current = null; return }
+      const cr = c.getBoundingClientRect()
+      const sr = s.getBoundingClientRect()
+      statsRectRef.current = {
+        x: sr.left - cr.left,
+        y: sr.top  - cr.top,
+        w: sr.width,
+        h: sr.height,
+      }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (statsRef.current)     ro.observe(statsRef.current)
+    if (containerRef.current) ro.observe(containerRef.current)
+    window.addEventListener('resize', measure)
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
+  }, [statList])
+
   // ── Animation loop ───────────────────────────────────────────────────────
   // Brownian drift + wall bounce. Orbs can drift through the avatar
   // freely — the prior centre-exclusion ring was producing a visible
@@ -346,6 +378,48 @@ export default function ProfilePanel ({
         if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
         if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
         if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
+      }
+
+      // Stats panel — treated as a solid obstacle. Circle-vs-AABB:
+      // find the closest point on the box to the orb centre; if the
+      // orb overlaps, push it out along the shallowest axis and flip
+      // that velocity component so it bounces like a wall.
+      const box = statsRectRef.current
+      if (box) {
+        const bx0 = box.x, by0 = box.y
+        const bx1 = box.x + box.w, by1 = box.y + box.h
+        for (const o of orbs) {
+          if (o.frozen) continue
+          // Nearest point on the box to the orb centre.
+          const nx = Math.max(bx0, Math.min(o.x, bx1))
+          const ny = Math.max(by0, Math.min(o.y, by1))
+          const dx = o.x - nx
+          const dy = o.y - ny
+          const distSq = dx * dx + dy * dy
+          if (distSq >= o.r * o.r) continue   // no overlap
+
+          if (o.x > bx0 && o.x < bx1 && o.y > by0 && o.y < by1) {
+            // Centre is INSIDE the box — eject along the nearest edge.
+            const toLeft   = o.x - bx0
+            const toRight  = bx1 - o.x
+            const toTop    = o.y - by0
+            const toBottom = by1 - o.y
+            const m = Math.min(toLeft, toRight, toTop, toBottom)
+            if (m === toLeft)        { o.x = bx0 - o.r; o.vx = -Math.abs(o.vx) }
+            else if (m === toRight)  { o.x = bx1 + o.r; o.vx =  Math.abs(o.vx) }
+            else if (m === toTop)    { o.y = by0 - o.r; o.vy = -Math.abs(o.vy) }
+            else                     { o.y = by1 + o.r; o.vy =  Math.abs(o.vy) }
+          } else {
+            // Overlapping a corner/edge from outside — push out along
+            // the contact normal and reflect velocity onto it.
+            const dist = Math.sqrt(distSq) || 0.0001
+            const ux = dx / dist, uy = dy / dist
+            o.x = nx + ux * o.r
+            o.y = ny + uy * o.r
+            const vDot = o.vx * ux + o.vy * uy
+            if (vDot < 0) { o.vx -= 2 * vDot * ux; o.vy -= 2 * vDot * uy }
+          }
+        }
       }
 
       for (const o of orbs)
@@ -664,7 +738,7 @@ export default function ProfilePanel ({
         )}
 
         {/* Members / Following stats — always visible at the top. */}
-        <div className="orbit-stats">
+        <div className="orbit-stats" ref={statsRef}>
           <div
             className={`orbit-stat${statList === 'members' ? ' active' : ''}`}
             onClick={() => setStatList(s => s === 'members' ? null : 'members')}

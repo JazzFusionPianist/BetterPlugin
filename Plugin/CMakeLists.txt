@@ -14,8 +14,12 @@ add_subdirectory(/Applications/JUCE JUCE)
 
 # ── AAX SDK (optional) ───────────────────────────────────────────────────────
 set(AAX_SDK_PATH "" CACHE PATH "Path to the Avid AAX SDK (leave empty to skip AAX)")
+# Formats are assembled here so AAX joins the list only when the SDK is
+# available — passing AAX in FORMATS without the SDK is a configure error.
+set(COOP_FORMATS AU VST3 Standalone)
 if(AAX_SDK_PATH AND EXISTS "${AAX_SDK_PATH}")
   juce_set_aax_sdk_path("${AAX_SDK_PATH}")
+  list(APPEND COOP_FORMATS AAX)
 endif()
 
 # ── Vercel URL ────────────────────────────────────────────────────────────────
@@ -33,7 +37,7 @@ juce_add_plugin(CoOpPlugin
     # Standalone produces a CoOp.app that runs the plugin UI without a
     # DAW — useful for fast dev iteration. AU/VST3 are the production
     # formats DAWs actually load.
-    FORMATS                     AU VST3 Standalone
+    FORMATS                     ${COOP_FORMATS}
 
     PRODUCT_NAME                "CoOp"
     BUNDLE_ID                   "com.coop.plugin"

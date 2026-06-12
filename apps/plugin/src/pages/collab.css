@@ -6990,3 +6990,26 @@
 }
 .dawcap-progress-text { font-size: 13px; color: var(--t1); }
 .dawcap-progress-text b { font-weight: 700; }
+
+/* Drop-choice cards (DAW region → attach as-is vs capture bar range) */
+.dropchoice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dropchoice-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 6px; padding: 18px 12px;
+  background: rgba(0,0,0,0.04); border: 1px solid var(--line, rgba(0,0,0,0.08));
+  border-radius: 14px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.dropchoice-card:hover { background: rgba(0,0,0,0.07); border-color: rgba(74,143,231,0.5); transform: translateY(-2px); }
+.dropchoice-card:active { transform: translateY(0); }
+.plugin.dark .dropchoice-card { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+.plugin.dark .dropchoice-card:hover { background: rgba(255,255,255,0.1); border-color: rgba(107,138,253,0.6); }
+.dropchoice-icon {
+  width: 40px; height: 40px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(74,143,231,0.14); color: #4A8FE7; border: 1px solid rgba(74,143,231,0.25);
+}
+.plugin.dark .dropchoice-icon { color: #80B1FB; }
+.dropchoice-label { font-size: 13px; font-weight: 700; color: var(--t1); letter-spacing: -0.01em; }
+.dropchoice-sub { font-size: 10.5px; color: var(--t3); line-height: 1.3; }

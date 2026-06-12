@@ -698,6 +698,9 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
   const [dawCaptureOpen, setDawCaptureOpen] = useState(false)
+  // Pending DAW-region drop awaiting the user's choice (attach as-is vs
+  // capture a bar range). Holds the base64 audio payload(s) from C++.
+  const [dropChoice, setDropChoice] = useState<{ name: string; data: string }[] | null>(null)
   // "Capture from DAW" only makes sense inside the plugin (it needs the
   // native playhead/audio stream); hide it in the plain browser app.
   const inPlugin = typeof window !== 'undefined' && !!window.__JUCE__?.backend
@@ -833,28 +836,10 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       dropBuffer.current = []
       dropGroupCount.current = 1
 
-      // Helper: base64 string → File object
-      const toFile = (n: string, d: string) => {
-        const binary = atob(d)
-        const bytes  = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-        const ext  = n.split('.').pop()?.toLowerCase() ?? ''
-        const mimeMap: Record<string, string> = {
-          wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
-          mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
-          ogg: 'audio/ogg', flac: 'audio/flac',
-        }
-        return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
-      }
-
-      if (batch.length === 1) {
-        // Single file — existing path
-        await processDroppedFileRef.current(toFile(batch[0].name, batch[0].data))
-        return
-      }
-
-      // Multiple files — delegate to ref so closures stay fresh
-      await processMultiDropRef.current(batch)
+      // Instead of attaching immediately, offer a choice: send the dragged
+      // region as-is, or open the bar-range capture flow. The dropped
+      // files are stashed so "attach directly" can resume the old path.
+      setDropChoice(batch)
     }
     window.addEventListener('__juceFileDrop', handler)
     return () => window.removeEventListener('__juceFileDrop', handler)
@@ -1189,6 +1174,43 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     setUploading(false)
     if (!att) showErr('Upload failed. Check file size or connection.')
     else await onSend('', att)
+  }
+
+  // base64 audio payload (from a DAW region drop) → File
+  const b64ToAudioFile = (n: string, d: string) => {
+    const binary = atob(d)
+    const bytes  = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const ext  = n.split('.').pop()?.toLowerCase() ?? ''
+    const mimeMap: Record<string, string> = {
+      wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
+      mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
+      ogg: 'audio/ogg', flac: 'audio/flac',
+    }
+    return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
+  }
+
+  // "Attach directly" branch of the drop choice — sends the dragged
+  // region(s) as-is (single audio, or a multi-track message).
+  const attachDroppedBatch = async (batch: { name: string; data: string }[]) => {
+    if (batch.length === 1) {
+      await processDroppedFile(b64ToAudioFile(batch[0]!.name, batch[0]!.data))
+      return
+    }
+    setUploading(true)
+    const uploaded: TrackInfo[] = []
+    for (const { name: n, data: d } of batch) {
+      const file = b64ToAudioFile(n, d)
+      if (file.size > MAX_SIZE) { showErr(`${n}: too large (max ${MAX_SIZE_MB}MB)`); continue }
+      const att = await uploadFile(file, 'audio')
+      if (att) uploaded.push({ url: att.url, name: att.name })
+    }
+    setUploading(false)
+    if (uploaded.length === 1) {
+      await onSend('', { url: uploaded[0]!.url, type: 'audio', name: uploaded[0]!.name })
+    } else if (uploaded.length > 1) {
+      await onSend('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks` })
+    }
   }
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -1583,6 +1605,49 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
               Capture from DAW
             </button>
           )}
+        </div>
+      )}
+
+      {/* DAW-region drop → choose how to send it */}
+      {dropChoice && (
+        <div className="dawcap-overlay" role="dialog" aria-modal="true">
+          <div className="dawcap-backdrop" onClick={() => setDropChoice(null)} />
+          <div className="dawcap-sheet">
+            <div className="dawcap-head">
+              <span className="dawcap-title">
+                {dropChoice.length > 1 ? `${dropChoice.length} regions from DAW` : 'Audio from DAW'}
+              </span>
+              <button className="dawcap-close" onClick={() => setDropChoice(null)} aria-label="Close">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+              </button>
+            </div>
+            <div className="dropchoice-grid">
+              <button
+                className="dropchoice-card"
+                onClick={() => { const b = dropChoice; setDropChoice(null); attachDroppedBatch(b) }}
+              >
+                <div className="dropchoice-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                <div className="dropchoice-label">Attach as-is</div>
+                <div className="dropchoice-sub">Send the dragged region</div>
+              </button>
+              <button
+                className="dropchoice-card"
+                onClick={() => { setDropChoice(null); setDawCaptureOpen(true) }}
+              >
+                <div className="dropchoice-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12h3l2-7 4 14 2-7h3"/><path d="M19 5v4M21 7h-4"/>
+                  </svg>
+                </div>
+                <div className="dropchoice-label">Capture bar range</div>
+                <div className="dropchoice-sub">Pick bars &amp; record</div>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

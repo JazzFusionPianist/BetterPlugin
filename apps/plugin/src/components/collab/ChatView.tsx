@@ -5,7 +5,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import { linkify, firstUrl } from '../../lib/linkify'
 import LinkPreviewCard from './LinkPreviewCard'
-import DawCapturePanel from './DawCapturePanel'
+import { mergeDroppedRegions } from '../../lib/audioMerge'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -697,13 +697,11 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
-  const [dawCaptureOpen, setDawCaptureOpen] = useState(false)
-  // Pending DAW-region drop awaiting the user's choice (attach as-is vs
-  // capture a bar range). Holds the base64 audio payload(s) from C++.
+  // Pending multi-region DAW drop awaiting the user's choice (merge into
+  // one file vs send each region separately). Single-region drops skip
+  // the sheet and attach directly. Holds the base64 payloads from C++.
   const [dropChoice, setDropChoice] = useState<{ name: string; data: string }[] | null>(null)
-  // "Capture from DAW" only makes sense inside the plugin (it needs the
-  // native playhead/audio stream); hide it in the plain browser app.
-  const inPlugin = typeof window !== 'undefined' && !!window.__JUCE__?.backend
+  const [merging, setMerging] = useState(false)
 
   // In-flight uploads — rendered as optimistic ghost bubbles in the chat with
   // their own progress bar so the user can see the file is actually moving.
@@ -1190,6 +1188,33 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
   }
 
+  // A single dragged region needs no choice — attach it straight away.
+  // Multi-region drops fall through to the merge/separate choice sheet.
+  useEffect(() => {
+    if (dropChoice && dropChoice.length === 1) {
+      const b = dropChoice
+      setDropChoice(null)
+      void attachDroppedBatch(b)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropChoice])
+
+  // "Merge into one" branch — decode + concatenate the regions into a
+  // single WAV and send it as one audio clip.
+  const mergeAndSend = async (batch: { name: string; data: string }[]) => {
+    setMerging(true)
+    const file = await mergeDroppedRegions(batch)
+    setMerging(false)
+    setDropChoice(null)
+    if (!file) { showErr('Could not merge these regions.'); return }
+    if (file.size > MAX_SIZE) { showErr(`Merged file too large (max ${MAX_SIZE_MB}MB)`); return }
+    setUploading(true)
+    const att = await uploadFile(file, 'audio')
+    setUploading(false)
+    if (att) await onSend('', att)
+    else showErr('Upload failed.')
+  }
+
   // "Attach directly" branch of the drop choice — sends the dragged
   // region(s) as-is (single audio, or a multi-track message).
   const attachDroppedBatch = async (batch: { name: string; data: string }[]) => {
@@ -1597,70 +1622,50 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             </svg>
             {t('chat.attachAudio')}
           </button>
-          {inPlugin && (
-            <button className="attach-menu-item" onClick={() => { setMenuOpen(false); setDawCaptureOpen(true) }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12h3l2-7 4 14 2-7h3"/><path d="M19 5v4M21 7h-4"/>
-              </svg>
-              Capture from DAW
-            </button>
-          )}
         </div>
       )}
 
-      {/* DAW-region drop → choose how to send it */}
-      {dropChoice && (
+      {/* Multi-region DAW drop → merge into one file, or send separately */}
+      {dropChoice && dropChoice.length > 1 && (
         <div className="dawcap-overlay" role="dialog" aria-modal="true">
-          <div className="dawcap-backdrop" onClick={() => setDropChoice(null)} />
+          <div className="dawcap-backdrop" onClick={merging ? undefined : () => setDropChoice(null)} />
           <div className="dawcap-sheet">
             <div className="dawcap-head">
-              <span className="dawcap-title">
-                {dropChoice.length > 1 ? `${dropChoice.length} regions from DAW` : 'Audio from DAW'}
-              </span>
-              <button className="dawcap-close" onClick={() => setDropChoice(null)} aria-label="Close">
+              <span className="dawcap-title">{dropChoice.length} regions from DAW</span>
+              <button className="dawcap-close" onClick={() => !merging && setDropChoice(null)} aria-label="Close">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 2l8 8M10 2l-8 8" /></svg>
               </button>
             </div>
-            <div className="dropchoice-grid">
-              <button
-                className="dropchoice-card"
-                onClick={() => { const b = dropChoice; setDropChoice(null); attachDroppedBatch(b) }}
-              >
-                <div className="dropchoice-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                  </svg>
-                </div>
-                <div className="dropchoice-label">Attach as-is</div>
-                <div className="dropchoice-sub">Send the dragged region</div>
-              </button>
-              <button
-                className="dropchoice-card"
-                onClick={() => { setDropChoice(null); setDawCaptureOpen(true) }}
-              >
-                <div className="dropchoice-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12h3l2-7 4 14 2-7h3"/><path d="M19 5v4M21 7h-4"/>
-                  </svg>
-                </div>
-                <div className="dropchoice-label">Capture bar range</div>
-                <div className="dropchoice-sub">Pick bars &amp; record</div>
-              </button>
-            </div>
+
+            {merging ? (
+              <div className="dawcap-progress">
+                <div className="dawcap-progress-spinner" />
+                <div className="dawcap-progress-text">Merging {dropChoice.length} regions…</div>
+              </div>
+            ) : (
+              <div className="dropchoice-grid">
+                <button className="dropchoice-card" onClick={() => mergeAndSend(dropChoice)}>
+                  <div className="dropchoice-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 8l-4 4 4 4M17 8l4 4-4 4M3 12h18"/>
+                    </svg>
+                  </div>
+                  <div className="dropchoice-label">Merge into one</div>
+                  <div className="dropchoice-sub">Regions on one track</div>
+                </button>
+                <button className="dropchoice-card" onClick={() => { const b = dropChoice; setDropChoice(null); void attachDroppedBatch(b) }}>
+                  <div className="dropchoice-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="15" width="18" height="5" rx="1.5"/>
+                    </svg>
+                  </div>
+                  <div className="dropchoice-label">Send separately</div>
+                  <div className="dropchoice-sub">One file per region</div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {dawCaptureOpen && (
-        <DawCapturePanel
-          onClose={() => setDawCaptureOpen(false)}
-          onCaptured={async (file) => {
-            setDawCaptureOpen(false)
-            const att = await uploadFile(file, 'audio')
-            if (att) await onSend('', att)
-            else { setUploadErrMsg('Capture upload failed'); setSendError(true) }
-          }}
-        />
       )}
 
       {/* Input bar */}

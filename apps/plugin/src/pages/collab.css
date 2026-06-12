@@ -1242,290 +1242,197 @@
    Circular accent play button + gradient progress bar + full-width
    import pill. Tints invert when sent by the current user so it
    sits cleanly on the dark "mine" bubble. */
+/* ── Audio attachment ────────────────────────────────────────────────
+   Surface follows the THEME (light in light mode, dark in dark mode)
+   for both sent and received — the sender is conveyed by bubble
+   alignment, not by colour. Compact, DM Sans throughout. */
 .msg-att-audio,
 .msg-att-audio-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 210px;
-  max-width: 240px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.04);
+  gap: 7px;
+  min-width: 188px;
+  max-width: 230px;
+  padding: 9px 11px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.045);
   border: 1px solid rgba(0, 0, 0, 0.07);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   margin-bottom: 2px;
   font-family: 'DM Sans', sans-serif;
   color: var(--t1);
 }
-.mg.mine .msg-att-audio,
-.mg.mine .msg-att-audio-group {
-  background: rgba(17, 17, 17, 0.85);
-  color: #F5F5F5;
-  border-color: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
 .plugin.dark .msg-att-audio,
 .plugin.dark .msg-att-audio-group {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-.plugin.dark .mg.mine .msg-att-audio,
-.plugin.dark .mg.mine .msg-att-audio-group {
-  background: rgba(245, 245, 245, 0.92);
-  color: #111;
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Header — note icon + track name (or "N Tracks") + optional group
-   actions on the right. */
+/* Header — small note glyph + filename (+ inline group actions) */
 .msg-att-audio-header,
 .msg-att-audio-group-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0;
-  cursor: pointer;
-  font-size: 8px;
-  color: var(--t3);
-  flex-shrink: 0;
-}
-.msg-att-group-tracks {
-  border-top: 0.5px solid var(--border);
-}
-.msg-att-group-tracks .msg-att-audio {
-  border-radius: 0;
-  margin-bottom: 0;
-  background: transparent;
-  max-width: none;
-}
-.msg-att-group-tracks .msg-att-audio + .msg-att-audio {
-  border-top: 0.5px solid var(--border);
-}
-
-/* 오디오 */
-.msg-att-audio {
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-  max-width: 240px;
-  background: var(--bg3);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 2px;
-  font-family: 'DM Sans', sans-serif;
-}
-.msg-att-audio-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
+  gap: 7px;
   color: var(--t1);
 }
 .msg-att-audio-header svg,
-.msg-att-audio-group-header svg { opacity: 0.7; flex-shrink: 0; }
+.msg-att-audio-group-header svg {
+  width: 13px; height: 13px;
+  opacity: 0.5; flex-shrink: 0;
+}
 .msg-att-audio-name {
   flex: 1;
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.msg-att-import-btn {
-  /* Push to the right edge of the audio bubble; sits on its own row
-     below the player bar. */
-  align-self: flex-end;
-  margin: 6px 10px 8px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 5px 8px;
-  border-radius: 5px;
-  background: var(--bg2);
-  border: 0.5px solid var(--border2);
-  color: var(--t2);
-  font-size: 10.5px;
-  font-weight: 500;
-  cursor: grab;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  user-select: none;
-}
-.msg-att-import-btn:hover { background: var(--bg3); color: var(--t1); }
-.msg-att-import-btn.ready {
-  background: rgba(74,143,231,0.12);
-  border-color: #4A8FE7;
-  color: #4A8FE7;
-  cursor: grabbing;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin 0.9s linear infinite; }
-.msg-att-audio-chevron { font-size: 8px; color: var(--t3); flex-shrink: 0; }
 
-/* Player row — round play disc + thicker rounded progress + mono time. */
+/* Player — play disc + progress + time, one tight row */
 .msg-att-audio-player {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0;
+  gap: 8px;
 }
 .msg-att-play-pause {
-  width: 20px; height: 20px;
+  width: 22px; height: 22px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: var(--t1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.15s, transform 0.08s, border-color 0.15s;
+  background: var(--t1);
+  border: none;
+  color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; padding: 0; cursor: pointer;
+  transition: transform 0.08s, opacity 0.15s;
 }
 .msg-att-play-pause svg { width: 9px; height: 9px; }
-.msg-att-play-pause:hover {
-  background: rgba(0, 0, 0, 0.1);
-  border-color: rgba(0, 0, 0, 0.18);
-}
-.msg-att-play-pause:active { transform: scale(0.94); }
-.mg.mine .msg-att-play-pause {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #F5F5F5;
-}
-.mg.mine .msg-att-play-pause:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.32);
-}
+.msg-att-play-pause:hover { opacity: 0.82; }
+.msg-att-play-pause:active { transform: scale(0.92); }
+
 .msg-att-progress-track {
   flex: 1;
-  height: 5px;
-  background: rgba(0, 0, 0, 0.08);
+  height: 4px;
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 999px;
-  cursor: pointer;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
-.mg.mine .msg-att-progress-track { background: rgba(255, 255, 255, 0.15); }
-.plugin.dark .msg-att-progress-track { background: rgba(255, 255, 255, 0.1); }
-.plugin.dark .mg.mine .msg-att-progress-track { background: rgba(0, 0, 0, 0.12); }
+.plugin.dark .msg-att-progress-track { background: rgba(255, 255, 255, 0.14); }
 .msg-att-progress-fill {
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--t1);
   border-radius: 999px;
   transition: width 0.1s linear;
 }
-.mg.mine .msg-att-progress-fill { background: rgba(255, 255, 255, 0.85); }
-.plugin.dark .msg-att-progress-fill { background: rgba(255, 255, 255, 0.7); }
-.plugin.dark .mg.mine .msg-att-progress-fill { background: rgba(0, 0, 0, 0.75); }
+
 .msg-att-time {
   font-size: 9.5px;
   color: var(--t3);
-  font-family: 'DM Mono', monospace;
+  font-family: 'DM Sans', sans-serif;
   font-feature-settings: 'tnum' 1;
   flex-shrink: 0;
   white-space: nowrap;
-  letter-spacing: 0.02em;
 }
-.mg.mine .msg-att-time { color: rgba(255, 255, 255, 0.55); }
 
-/* Import-to-DAW pill — full-width primary action under the player. */
+/* Import-to-DAW — compact pill. Inline in a group header, full-width
+   on its own row under a single track. Accent blue when armed to drag. */
 .msg-att-import-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border-radius: 999px;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 9px;
   background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
   cursor: grab;
   user-select: none;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s, color 0.15s;
 }
+.msg-att-import-btn svg { flex-shrink: 0; }
 .msg-att-import-btn:hover {
   background: rgba(0, 0, 0, 0.09);
-  border-color: rgba(0, 0, 0, 0.18);
+  border-color: rgba(0, 0, 0, 0.15);
 }
 .msg-att-import-btn:active { transform: scale(0.97); }
 .msg-att-import-btn.ready {
-  background: rgba(0, 0, 0, 0.85);
-  color: #F5F5F5;
-  border-color: rgba(0, 0, 0, 0.85);
+  background: #4A8FE7;
+  border-color: #4A8FE7;
+  color: #fff;
   cursor: grabbing;
 }
-.mg.mine .msg-att-import-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #F5F5F5;
+.plugin.dark .msg-att-import-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
 }
-.mg.mine .msg-att-import-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
+.plugin.dark .msg-att-import-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
 }
-.mg.mine .msg-att-import-btn.ready {
-  background: #F5F5F5;
-  color: #111;
-  border-color: #F5F5F5;
+/* Single-track variant: button on its own row, full width */
+.msg-att-audio > .msg-att-import-btn {
+  width: 100%;
+  margin-top: 1px;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.9s linear infinite; }
 
-/* Group attachment — chevron + expanded child tracks share a thinner
-   divider, no individual padding so they look like a continuous list. */
+/* Group chevron — compact round toggle */
 .msg-att-group-chevron {
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   padding: 0;
-  cursor: pointer;
-  font-size: 9px;
+  font-size: 8px;
   color: var(--t2);
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
   transition: background 0.12s;
 }
-.msg-att-group-chevron:hover { background: rgba(0, 0, 0, 0.08); }
-.mg.mine .msg-att-group-chevron {
+.msg-att-group-chevron:hover { background: rgba(0, 0, 0, 0.1); }
+.plugin.dark .msg-att-group-chevron {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.65);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--t2);
 }
-.mg.mine .msg-att-group-chevron:hover { background: rgba(255, 255, 255, 0.14); }
+.plugin.dark .msg-att-group-chevron:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* Group expanded tracks — borderless rows reading as one list */
 .msg-att-group-tracks {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   padding-top: 8px;
   border-top: 1px solid rgba(0, 0, 0, 0.07);
 }
-.mg.mine .msg-att-group-tracks { border-top-color: rgba(255, 255, 255, 0.12); }
+.plugin.dark .msg-att-group-tracks { border-top-color: rgba(255, 255, 255, 0.1); }
 .msg-att-group-tracks .msg-att-audio {
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.025);
+  padding: 7px 9px;
+  background: rgba(0, 0, 0, 0.03);
+  border: none;
   box-shadow: none;
-  border-radius: 12px;
+  border-radius: 10px;
   max-width: none;
   min-width: 0;
   margin-bottom: 0;
 }
-.mg.mine .msg-att-group-tracks .msg-att-audio {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+.plugin.dark .msg-att-group-tracks .msg-att-audio {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* ── + 버튼 / 첨부 메뉴 ────────────────────────────────── */

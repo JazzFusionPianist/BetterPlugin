@@ -94,56 +94,6 @@
   height: 100vh;
 }
 
-/* ── Wallpaper: opaque backgrounds in light mode ──────────────────────────
-   The wallpaper is applied to the .plugin root, so it bleeds through every
-   transparent element. In light mode this makes dark icons/text invisible.
-   Dark mode already has opaque-enough styling; only light needs the fix.   */
-/* Wallpaper: chat sub-header (.csub) always opaque — matches top-bar.   */
-.plugin.has-wallpaper .csub {
-  background: var(--bg) !important;
-}
-
-/* Light mode + wallpaper: toolbar fully opaque, content areas transparent
-   so the wallpaper shows through completely.                             */
-.plugin.has-wallpaper:not(.dark) .top-bar {
-  background: rgba(255, 255, 255, 1) !important;
-}
-.plugin.has-wallpaper:not(.dark) .fview .s-body,
-.plugin.has-wallpaper:not(.dark) .fscroll,
-.plugin.has-wallpaper:not(.dark) .cview {
-  background: transparent !important;
-}
-
-/* Wallpaper: text adapts to any background color automatically using
-   mix-blend-mode: difference — white text inverts against the wallpaper
-   so it reads as black on bright areas, white on dark areas.
-   Backgrounds stay fully transparent; hover stays transparent too.      */
-.plugin.has-wallpaper .f-name,
-.plugin.has-wallpaper .f-sub {
-  color: white !important;
-  mix-blend-mode: difference;
-}
-.plugin.has-wallpaper:not(.dark) .f-row:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-.plugin.has-wallpaper.dark .f-row:hover {
-  background: rgba(255, 255, 255, 0.07) !important;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-
-/* Orbit labels: same adaptive contrast trick, remove pill backgrounds   */
-.plugin.has-wallpaper .orbit-back-btn,
-.plugin.has-wallpaper .orbit-name {
-  color: white !important;
-  mix-blend-mode: difference;
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe
    gesture, which conflicts with the party-page vertical navigation. */

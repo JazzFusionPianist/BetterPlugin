@@ -98,12 +98,6 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
-  const [wallpaper, setWallpaper] = useState<string | null>(() => localStorage.getItem('collab_wallpaper'))
-  const handleSetWallpaper = (url: string | null) => {
-    if (url) localStorage.setItem('collab_wallpaper', url)
-    else localStorage.removeItem('collab_wallpaper')
-    setWallpaper(url)
-  }
   // viewMode is locked to 'default' — gallery/list views are no longer exposed.
   const viewMode: 'default' | 'gallery' | 'list' = 'default'
 
@@ -519,11 +513,10 @@ function CollabPageInner({ user }: Props) {
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
     gameOpen          ? 'game-open'          : '',
-    wallpaper         ? 'has-wallpaper'      : '',
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={pluginClass} ref={pluginRef} style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+    <div className={pluginClass} ref={pluginRef}>
       <div className="top-bar">
         {/* Chat list */}
         <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">
@@ -715,7 +708,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} wallpaper={wallpaper} onToggleDark={handleToggleDark} onSetWallpaper={handleSetWallpaper} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} onToggleDark={handleToggleDark} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

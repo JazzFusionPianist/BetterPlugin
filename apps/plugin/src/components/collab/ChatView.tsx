@@ -5,6 +5,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import { linkify, firstUrl } from '../../lib/linkify'
 import LinkPreviewCard from './LinkPreviewCard'
+import DawCapturePanel from './DawCapturePanel'
 
 interface Attachment { url: string; type: AttachType; name: string }
 
@@ -696,6 +697,10 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
+  const [dawCaptureOpen, setDawCaptureOpen] = useState(false)
+  // "Capture from DAW" only makes sense inside the plugin (it needs the
+  // native playhead/audio stream); hide it in the plain browser app.
+  const inPlugin = typeof window !== 'undefined' && !!window.__JUCE__?.backend
 
   // In-flight uploads — rendered as optimistic ghost bubbles in the chat with
   // their own progress bar so the user can see the file is actually moving.
@@ -1570,7 +1575,27 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             </svg>
             {t('chat.attachAudio')}
           </button>
+          {inPlugin && (
+            <button className="attach-menu-item" onClick={() => { setMenuOpen(false); setDawCaptureOpen(true) }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12h3l2-7 4 14 2-7h3"/><path d="M19 5v4M21 7h-4"/>
+              </svg>
+              Capture from DAW
+            </button>
+          )}
         </div>
+      )}
+
+      {dawCaptureOpen && (
+        <DawCapturePanel
+          onClose={() => setDawCaptureOpen(false)}
+          onCaptured={async (file) => {
+            setDawCaptureOpen(false)
+            const att = await uploadFile(file, 'audio')
+            if (att) await onSend('', att)
+            else { setUploadErrMsg('Capture upload failed'); setSendError(true) }
+          }}
+        />
       )}
 
       {/* Input bar */}

@@ -86,6 +86,19 @@ private:
     std::atomic<int>      captureSampleRate  { 0 };
     std::atomic<int>      captureNumChannels { 0 };
 
+    //── Playhead snapshot ─────────────────────────────────────────────────────
+    // Read on the audio thread in processBlock (the only place getPlayHead()
+    // is valid), published via atomics, and attached to every __juceDawAudio
+    // event so the web side can gate bar-range capture on musical position.
+    // ppqPosition is reported by virtually every DAW, which keeps the
+    // bar-range capture feature cross-DAW (loop/cycle points are NOT, so we
+    // deliberately don't use those).
+    std::atomic<double> playheadPpq      { 0.0 };
+    std::atomic<double> playheadBpm      { 120.0 };
+    std::atomic<int>    playheadTsNum    { 4 };
+    std::atomic<int>    playheadTsDen    { 4 };
+    std::atomic<bool>   transportPlaying { false };
+
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;
     std::vector<float> audioPollBuffer;

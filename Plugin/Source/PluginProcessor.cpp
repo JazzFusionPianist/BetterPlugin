@@ -188,6 +188,26 @@ void CoOpAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
 
+    // ── Playhead snapshot ────────────────────────────────────────────────
+    // getPlayHead() is only valid here on the audio thread. We publish the
+    // musical position via atomics; the timer attaches it to the audio
+    // events so the web side knows which bar each batch of samples belongs
+    // to. Guarded field-by-field because some hosts omit individual fields.
+    if (auto* ph = getPlayHead())
+    {
+        if (auto pos = ph->getPosition())
+        {
+            if (auto ppq = pos->getPpqPosition())  playheadPpq.store (*ppq);
+            if (auto bpm = pos->getBpm())          playheadBpm.store (*bpm);
+            if (auto ts  = pos->getTimeSignature())
+            {
+                playheadTsNum.store (ts->numerator);
+                playheadTsDen.store (ts->denominator);
+            }
+            transportPlaying.store (pos->getIsPlaying());
+        }
+    }
+
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = juce::jmin (buffer.getNumChannels(), captureBuffer.getNumChannels());
 
@@ -262,11 +282,21 @@ void CoOpAudioProcessor::timerCallback()
     juce::Base64::convertToBase64 (b64Stream, audioPollBuffer.data(), (size_t) bytes);
     const juce::String b64 = b64Stream.toString();
 
+    // Playhead snapshot to accompany this batch — lets the web side gate
+    // bar-range capture on musical position. `tnum`/`tden` are the time
+    // signature; `ppq` is quarter-notes from project start; `playing`
+    // tells JS whether the transport is rolling.
     juce::String script;
     script << "window.dispatchEvent(new CustomEvent('__juceDawAudio',{detail:{"
            << "samples:'" << b64 << "',"
            << "sr:"       << sr << ","
-           << "ch:"       << ch << "}}))";
+           << "ch:"       << ch << ","
+           << "ppq:"      << juce::String (playheadPpq.load(), 6) << ","
+           << "bpm:"      << juce::String (playheadBpm.load(), 4) << ","
+           << "tnum:"     << playheadTsNum.load() << ","
+           << "tden:"     << playheadTsDen.load() << ","
+           << "playing:"  << (transportPlaying.load() ? "true" : "false")
+           << "}}))";
 
     browser->evaluateJavascript (script,
         [] (juce::WebBrowserComponent::EvaluationResult) {});

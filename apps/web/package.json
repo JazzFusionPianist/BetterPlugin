@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@orb/core": "workspace:*",
     "@supabase/supabase-js": "^2.101.1",
     "next": "^15.1.6",
     "react": "^19.2.0",

@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import OrbBackground from '@/components/OrbBackground'
+import AppShell from '@/components/app/AppShell'
 
 /**
- * Placeholder app shell — the logged-in home. The real product surfaces
- * (chat, friends, calendar, music community) get ported in here from the
- * plugin app, one at a time. This whole web app is what Capacitor wraps
- * for mobile.
+ * Logged-in home. Auth-gated, then hands off to the hybrid AppShell
+ * (orb-profile home + conversations rail). This whole app is what
+ * Capacitor wraps for mobile, so the layout is responsive: wide on
+ * desktop, single-column on narrow.
  */
 export default function AppHome() {
   const router = useRouter()
@@ -25,32 +25,15 @@ export default function AppHome() {
       setUser(data.session.user)
       setChecking(false)
     })
-    // React to sign-out from anywhere.
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!session) router.replace('/')
+      else setUser(session.user)
     })
     return () => { alive = false; sub.subscription.unsubscribe() }
   }, [router])
 
-  if (checking) {
+  if (checking || !user) {
     return <div className="splash"><div className="spinner" /></div>
   }
-
-  const name = (user?.user_metadata?.display_name as string | undefined)
-    ?? user?.email?.split('@')[0] ?? 'there'
-
-  return (
-    <>
-      <OrbBackground />
-      <div className="grain" />
-      <div className="veil" />
-      <div className="appshell">
-        <span className="word"><span className="mark" />Orb</span>
-        <h2>You&rsquo;re in, {name}.</h2>
-        <p>The web app is taking shape — chat, your crew, sessions, and more are coming here next.</p>
-        <div className="who">{user?.email}</div>
-        <button className="signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
-      </div>
-    </>
-  )
+  return <AppShell user={user} />
 }

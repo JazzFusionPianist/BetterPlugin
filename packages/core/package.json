@@ -1,0 +1,21 @@
+{
+  "name": "@orb/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "*",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.7",
+    "react": "^19.2.0",
+    "@supabase/supabase-js": "^2.101.1"
+  }
+}

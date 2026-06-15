@@ -1,0 +1,221 @@
+:root {
+  --bg:   #0c0c0f;
+  --t1:   #ECECEF;
+  --t2:   #9A9AA2;
+  --t3:   #5E5E66;
+  --line: rgba(255, 255, 255, 0.10);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+
+/* ── Background orbs ─────────────────────────────────── */
+.orb-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.grain {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.035; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.veil {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse 70% 70% at 50% 50%, transparent 35%, rgba(12,12,15,0.55) 100%);
+}
+
+/* ── Single-screen landing shell ─────────────────────── */
+.shell {
+  position: relative; z-index: 2;
+  height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 30px clamp(24px, 5vw, 56px);
+}
+.word {
+  font-weight: 700;
+  font-size: 20px; letter-spacing: -0.02em;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.word .mark {
+  width: 17px; height: 17px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #BFE0FF, #5E8BD8 65%, #3E5FA8);
+  box-shadow: 0 0 16px rgba(120,160,230,0.5), inset 0 1px 1.5px rgba(255,255,255,0.5);
+}
+.login {
+  font-size: 14px; color: var(--t2); cursor: pointer;
+  background: none; border: none; transition: color .2s;
+}
+.login:hover { color: var(--t1); }
+
+.stage {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 0 24px;
+}
+.stage h1 {
+  font-weight: 500;
+  font-size: clamp(40px, 8.5vw, 92px);
+  line-height: 1.06;
+  padding-bottom: 0.08em;
+  letter-spacing: -0.035em;
+  background: linear-gradient(115deg, #BFE0FF 0%, #C9B6EC 46%, #F4BCD2 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.sub {
+  margin-top: 28px;
+  font-size: clamp(15px, 2.2vw, 18px);
+  color: var(--t2);
+  max-width: 440px; line-height: 1.5; letter-spacing: -0.005em;
+}
+.actions { margin-top: 44px; display: flex; align-items: center; gap: 22px; }
+.download {
+  background: var(--t1); color: #0c0c0f;
+  font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+  padding: 13px 26px; border-radius: 999px; cursor: pointer; border: none;
+  transition: transform .18s cubic-bezier(.34,1.4,.5,1), opacity .2s;
+}
+.download:hover { transform: translateY(-2px); }
+.secondary {
+  font-size: 14.5px; color: var(--t2); cursor: pointer;
+  background: none; border: none;
+  border-bottom: 1px solid transparent; padding-bottom: 1px;
+  transition: color .2s, border-color .2s;
+}
+.secondary:hover { color: var(--t1); border-color: var(--line); }
+
+.bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 26px clamp(24px, 5vw, 56px);
+  font-size: 12.5px; color: var(--t3); letter-spacing: -0.005em;
+}
+.bottom .meta { display: flex; align-items: center; gap: 9px; }
+.bottom .meta .dot { width: 5px; height: 5px; border-radius: 50%; background: #34C759; box-shadow: 0 0 7px #34C759; }
+
+@media (max-width: 600px) {
+  .actions { flex-direction: column; gap: 16px; margin-top: 36px; }
+  .sub { margin-top: 22px; }
+}
+
+/* ── Auth modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(8,8,11,0.45);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+  opacity: 0; pointer-events: none; transition: opacity .28s ease;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-card {
+  width: 100%; max-width: 360px;
+  background: rgba(26,26,31,0.82);
+  border: 1px solid var(--line); border-radius: 22px;
+  padding: 34px 30px 28px;
+  box-shadow: 0 30px 90px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  transform: translateY(14px) scale(0.98);
+  transition: transform .34s cubic-bezier(.22,1.3,.36,1);
+  position: relative;
+}
+.modal-overlay.open .modal-card { transform: translateY(0) scale(1); }
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 28px; height: 28px; border: none; cursor: pointer;
+  background: transparent; color: var(--t3); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+.modal-mark {
+  width: 30px; height: 30px; border-radius: 50%; margin-bottom: 18px;
+  background: radial-gradient(circle at 34% 30%, #BFE0FF, #5E8BD8 65%, #3E5FA8);
+  box-shadow: 0 0 20px rgba(120,160,230,0.5), inset 0 1px 1.5px rgba(255,255,255,0.5);
+}
+.modal-title { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 4px; }
+.modal-sub { font-size: 13.5px; color: var(--t2); margin-bottom: 24px; }
+
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 12px; color: var(--t2); margin-bottom: 6px; letter-spacing: -0.005em; }
+.field input {
+  width: 100%; padding: 11px 13px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line); border-radius: 11px;
+  color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 14px;
+  outline: none; transition: border-color .16s, background .16s;
+}
+.field input::placeholder { color: var(--t3); }
+.field input:focus { border-color: rgba(127,176,255,0.6); background: rgba(255,255,255,0.06); }
+
+.modal-submit {
+  width: 100%; margin-top: 8px;
+  background: var(--t1); color: #0c0c0f;
+  font-weight: 600; font-size: 14.5px;
+  padding: 12px; border: none; border-radius: 11px; cursor: pointer;
+  transition: transform .16s cubic-bezier(.34,1.4,.5,1), opacity .2s;
+}
+.modal-submit:hover { transform: translateY(-1px); }
+.modal-submit:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.modal-error {
+  margin-top: 12px; padding: 9px 11px; border-radius: 9px;
+  background: rgba(255,59,48,0.12); color: #FF6B60;
+  font-size: 12px; line-height: 1.4; text-align: center;
+}
+.modal-note {
+  margin-top: 12px; padding: 9px 11px; border-radius: 9px;
+  background: rgba(52,199,89,0.12); color: #5BD27A;
+  font-size: 12px; line-height: 1.4; text-align: center;
+}
+
+.modal-foot { margin-top: 18px; text-align: center; font-size: 13px; color: var(--t2); }
+.modal-foot button {
+  background: none; border: none; cursor: pointer;
+  color: var(--t1); font-size: 13px; font-weight: 600;
+  padding: 0; margin-left: 4px; border-bottom: 1px solid var(--line);
+}
+.modal-foot button:hover { border-color: var(--t1); }
+
+/* ── Placeholder app shell (after login) ─────────────── */
+.appshell {
+  position: relative; z-index: 2;
+  min-height: 100svh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 18px; padding: 24px;
+}
+.appshell .word { margin-bottom: 6px; }
+.appshell h2 { font-size: clamp(24px, 5vw, 34px); font-weight: 600; letter-spacing: -0.02em; }
+.appshell p { color: var(--t2); font-size: 15px; max-width: 380px; line-height: 1.55; }
+.appshell .who { font-size: 13px; color: var(--t3); }
+.appshell .signout {
+  margin-top: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--line);
+  color: var(--t1); font-size: 14px; font-weight: 600;
+  padding: 10px 22px; border-radius: 999px; cursor: pointer;
+  transition: background .15s;
+}
+.appshell .signout:hover { background: rgba(255,255,255,0.12); }
+
+/* Loading splash (session check) */
+.splash {
+  position: fixed; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+}
+.splash .spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.18); border-top-color: var(--t1);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

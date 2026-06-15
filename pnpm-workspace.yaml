@@ -1,3 +1,9 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# sharp (Next.js's image-optimisation native dep) isn't needed — our web
+# pages use no next/image. Explicitly skip its build so pnpm neither warns
+# nor blocks `pnpm <script>` on the ignored-build check.
+allowBuilds:
+  sharp: false

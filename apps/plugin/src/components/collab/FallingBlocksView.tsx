@@ -692,7 +692,9 @@ export default function FallingBlocksView({
           Forfeit
         </button>
       ) : undefined}
-      aboveBoard={
+      fillBoard
+      board={
+        <div className="falling-blocks-game-layout">
         <div className="falling-blocks-opponents-row">
           {opponentIds.length === 0 ? (
             <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
@@ -717,8 +719,6 @@ export default function FallingBlocksView({
             ))
           )}
         </div>
-      }
-      board={
         <div className="falling-blocks-self-row">
           <div className="falling-blocks-self-board-wrap">
             <FallingBlocksBoard
@@ -766,6 +766,7 @@ export default function FallingBlocksView({
               </div>
             )}
           </div>
+        </div>
         </div>
       }
       overlay={overlay}

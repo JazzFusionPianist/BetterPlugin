@@ -427,7 +427,9 @@ export default function PokerView({
           {t('poker.forfeit')}
         </button>
       ) : undefined}
-      aboveBoard={
+      fillBoard
+      board={
+        <div className="poker-game-layout">
         <div className="poker-opponents-row">
           {opponentIds.length === 0 ? (
             <div className="poker-opponent" style={{ opacity: 0.5 }}>
@@ -498,8 +500,6 @@ export default function PokerView({
             })
           )}
         </div>
-      }
-      board={
         <div className="poker-table-area">
           {/* Community cards */}
           <div className="poker-community">
@@ -568,8 +568,6 @@ export default function PokerView({
             )
           })()}
         </div>
-      }
-      belowBoard={
         <div className="poker-self-row">
           <div className="poker-self-cards">
             {myHoleCards.length >= 2 ? (
@@ -652,6 +650,7 @@ export default function PokerView({
               {t('poker.playerThinking', { name: profileById.get(currentPlayerId)?.display_name ?? '' })}
             </div>
           )}
+        </div>
         </div>
       }
       overlay={overlay}

@@ -195,6 +195,10 @@ interface GameShellProps {
   belowBoard?: ReactNode
   /** Card to overlay on the board (lobby/ready/finished). `null` while playing. */
   overlay?: ReactNode | null
+  /** For games whose board sizes by HEIGHT (e.g. Falling Blocks): make the
+   *  board-wrap fill the content area as a flex column so the game's own
+   *  flex:1 layout has a definite height to size against. */
+  fillBoard?: boolean
   invite?: InviteProps
   confirm?: {
     open: boolean
@@ -208,7 +212,7 @@ interface GameShellProps {
 }
 
 export default function GameShell ({
-  title, onBack, controls, aboveBoard, board, belowBoard, overlay, invite, confirm, extraModals,
+  title, onBack, controls, aboveBoard, board, belowBoard, overlay, fillBoard, invite, confirm, extraModals,
 }: GameShellProps) {
   const { t } = useT()
   return (
@@ -225,7 +229,7 @@ export default function GameShell ({
 
       <div className="game-area">
         {aboveBoard}
-        <div className={`game-board-wrap${overlay ? ' has-overlay' : ''}`}>
+        <div className={`game-board-wrap${fillBoard ? ' fill' : overlay ? ' has-overlay' : ''}`}>
           {board}
           {overlay && <div className="game-finish-overlay">{overlay}</div>}
         </div>

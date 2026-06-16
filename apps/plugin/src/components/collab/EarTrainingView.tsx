@@ -422,6 +422,7 @@ export default function EarTrainingView ({
           )}
         </div>
       }
+      fillBoard
       board={
         <div className="et-arena">
           {isPlaying && question && (

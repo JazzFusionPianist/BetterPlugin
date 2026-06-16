@@ -4886,6 +4886,13 @@
   flex: 1 1 auto;
   display: flex; align-items: center; justify-content: center;
 }
+/* fillBoard: the board's own flex:1 layout (e.g. Falling Blocks) needs a
+   definite height — let the wrap fill the content area as a flex column. The
+   status overlay still centres itself (it's absolutely positioned). */
+.game-board-wrap.fill {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column;
+}
 
 /* Invite button (lobby CTA) */
 .game-invite-btn {

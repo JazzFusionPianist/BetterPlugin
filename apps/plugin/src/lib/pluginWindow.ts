@@ -19,14 +19,15 @@ export const EXPANDED_H = 460
  * The window grows but the inner UI keeps its pixel sizes — the layout
  * simply spreads out into the extra room. 'small' is the original
  * 300×500 shell (100%); 'medium' is 150% of that; 'large' keeps medium's
- * height and only widens the width (landscape). All within the editor's
+ * height and widens to a 16:9 monitor ratio. All within the editor's
  * resize limits (PluginEditor setResizeLimits → max 1600×1200).
  */
 export type ScreenSize = 'small' | 'medium' | 'large'
+const MED_H = COMPACT_H * 1.5 // 750 — also large's (fixed) height
 export const SCREEN_SIZES: Record<ScreenSize, { w: number; h: number }> = {
-  small:  { w: COMPACT_W,       h: COMPACT_H },       // 300 × 500  (100%)
-  medium: { w: COMPACT_W * 1.5, h: COMPACT_H * 1.5 }, // 450 × 750  (150%)
-  large:  { w: COMPACT_W * 3,   h: COMPACT_H * 1.5 }, // 900 × 750  (wider)
+  small:  { w: COMPACT_W,       h: COMPACT_H },                // 300 × 500  (100%)
+  medium: { w: COMPACT_W * 1.5, h: MED_H },                   // 450 × 750  (150%)
+  large:  { w: Math.round(MED_H * 16 / 9), h: MED_H },        // 1333 × 750 (16:9)
 }
 
 /**

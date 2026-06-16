@@ -416,7 +416,11 @@ function CollabPageInner({ user }: Props) {
   void _handleToggleSearch
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
-    if (!prev) { setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setDisplayOpen(false); setInfoOpen(false); closeSearch() }
+    // Settings overlays on top of whatever you were viewing (messages/live/
+    // game/add-friend stay open underneath) and renders above them via
+    // z-index, so closing Settings returns you exactly where you were.
+    // Only the in-Settings sub-panels (display/info) and search are reset.
+    if (!prev) { setDisplayOpen(false); setInfoOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false) }
     return !prev
   })

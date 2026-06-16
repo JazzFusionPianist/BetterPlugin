@@ -269,12 +269,15 @@
 .fview .s-body { background: transparent; }
 .profile-orbit-body { background: transparent !important; }
 .cview { transform: translateX(100%); }
-.sview { transform: translateX(100%); z-index: 15; background: var(--bg); }
+/* Settings (and its Display/Info/Language sub-panels) sit ABOVE every other
+   overlay (conv 20 / live 21 / game 22) so Settings can open on top of
+   whatever you were viewing and, when closed, reveal it again unchanged. */
+.sview { transform: translateX(100%); z-index: 30; background: var(--bg); }
 .pview { transform: translateX(100%); z-index: 16; background: var(--bg); }
 .afview { transform: translateX(100%); z-index: 17; background: var(--bg); }
-.dview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
-.iview  { transform: translateX(100%); z-index: 18; background: var(--bg); }
-.lngview { transform: translateX(100%); z-index: 19; background: var(--bg); }
+.dview  { transform: translateX(100%); z-index: 31; background: var(--bg); }
+.iview  { transform: translateX(100%); z-index: 31; background: var(--bg); }
+.lngview { transform: translateX(100%); z-index: 32; background: var(--bg); }
 .convview { transform: translateX(100%); z-index: 20; background: var(--bg); }
 .lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
 

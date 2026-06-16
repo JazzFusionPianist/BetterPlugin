@@ -52,6 +52,7 @@ const SAVE_EVENTS_TOOL = {
             end_time: { type: ['string', 'null'], description: 'End time HH:MM 24-hour, or null if not given.' },
             all_day: { type: 'boolean', description: 'True when no specific time is given.' },
             location: { type: ['string', 'null'], description: 'Location if mentioned, else null.' },
+            category: { type: ['string', 'null'], description: 'A short, reusable category in the user\'s language (e.g. 약속, 공연, 합주, 레슨, 회의, 개인). Prefer a small consistent set; null if truly unclear.' },
           },
           required: ['title', 'date', 'all_day'],
         },
@@ -86,7 +87,10 @@ Deno.serve(async (req) => {
     'to an absolute YYYY-MM-DD using that current date and timezone.',
     'Extract EVERY distinct event in the text. If no time is stated, set all_day=true',
     'and leave start_time/end_time null. Use 24-hour HH:MM. Keep titles short and in the',
-    'user\'s own language. Never invent events that are not in the text.',
+    'user\'s own language. Also classify each event into a short, reusable category',
+    '(in the user\'s language, e.g. 약속/공연/합주/레슨/회의/개인) — prefer a small consistent',
+    'set so the same kind of event always gets the same category. Never invent events',
+    'that are not in the text.',
     'Always respond by calling the save_events tool.',
   ].join(' ')
 

@@ -9,6 +9,7 @@ interface ParsedEvent {
   end_time?: string | null
   all_day?: boolean
   location?: string | null
+  category?: string | null
 }
 
 export class ScheduleParseError extends Error {}
@@ -39,6 +40,7 @@ function toNewEvent(e: ParsedEvent): NewCalendarEvent {
     ends_at,
     all_day: allDay,
     location: e.location?.trim() || null,
+    category: e.category?.trim() || null,
     source: 'prompt',
   }
 }

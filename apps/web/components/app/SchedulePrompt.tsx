@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent } from '@orb/core'
 
+interface Target { id: string | null; label: string }
+
 interface Props {
-  /** Parse + persist the text; resolves with the events that were added. */
-  onSubmit: (text: string) => Promise<CalendarEvent[]>
+  /** Parse + persist the text to the chosen target; resolves with the added events. */
+  onSubmit: (text: string, conversationId: string | null) => Promise<CalendarEvent[]>
   onOpenCalendar: () => void
+  /** Destinations for new events: Personal (id null) + my groups. */
+  targets: Target[]
 }
 
 function fmtWhen(e: CalendarEvent): string {
@@ -17,12 +21,13 @@ function fmtWhen(e: CalendarEvent): string {
   return `${day} · ${t}`
 }
 
-export default function SchedulePrompt({ onSubmit, onOpenCalendar }: Props) {
+export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets }: Props) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState<CalendarEvent[] | null>(null)
   const [kbInset, setKbInset] = useState(0)
+  const [target, setTarget] = useState<string | null>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
   // Keep the bar above the on-screen keyboard. visualViewport shrinks when
@@ -55,7 +60,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar }: Props) {
     if (!value || busy) return
     setBusy(true); setError(null); setAdded(null)
     try {
-      const events = await onSubmit(value)
+      const events = await onSubmit(value, target)
       setAdded(events)
       setText('')
       if (taRef.current) taRef.current.style.height = 'auto'
@@ -99,6 +104,25 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar }: Props) {
       )}
 
       {error && <div className="sprompt-error">{error}</div>}
+
+      {targets.length > 1 && (
+        <div className="sprompt-targets">
+          {targets.map((t) => (
+            <button
+              key={t.id ?? 'personal'}
+              className={`sprompt-target${(target ?? null) === t.id ? ' on' : ''}`}
+              onClick={() => setTarget(t.id)}
+            >
+              {t.id === null ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.2" /><circle cx="17" cy="9" r="2.6" /><path d="M3 20c0-3.2 3-5 6-5s6 1.8 6 5M15.5 20c0-2 1-3.4 3-3.6" /></svg>
+              )}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className={`sprompt-bar${busy ? ' busy' : ''}`}>
         <textarea

@@ -17,6 +17,9 @@ export interface CalendarEvent {
   location: string | null
   notes: string | null
   source: string
+  category: string | null
+  category_color: string | null
+  conversation_id: string | null   // set => shared with that group
   created_at: string
 }
 
@@ -29,6 +32,9 @@ export interface NewCalendarEvent {
   location?: string | null
   notes?: string | null
   source?: string
+  category?: string | null
+  category_color?: string | null
+  conversation_id?: string | null
 }
 
 export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
@@ -37,10 +43,11 @@ export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
 
   const refetch = useCallback(async () => {
     if (!userId) return
+    // No user_id filter — RLS returns my events AND shared group events from
+    // conversations I belong to.
     const { data, error } = await supabase
       .from('calendar_events')
       .select('*')
-      .eq('user_id', userId)
       .order('starts_at', { ascending: true })
     if (!error && data) setEvents(data as CalendarEvent[])
     setLoading(false)
@@ -49,11 +56,13 @@ export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
   useEffect(() => {
     refetch()
     if (!userId) return
+    // Listen to every calendar_events change (no filter) and refetch — RLS
+    // gates the refetch, so group events authored by others land too.
     const channel = supabase
       .channel(`calendar:${userId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'calendar_events', filter: `user_id=eq.${userId}` },
+        { event: '*', schema: 'public', table: 'calendar_events' },
         () => refetch(),
       )
       .subscribe()
@@ -73,6 +82,9 @@ export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
         location: e.location ?? null,
         notes: e.notes ?? null,
         source: e.source ?? 'manual',
+        category: e.category ?? null,
+        category_color: e.category_color ?? null,
+        conversation_id: e.conversation_id ?? null,
       }))
       const { data, error } = await supabase.from('calendar_events').insert(rows).select('*')
       if (error) throw error
@@ -95,5 +107,15 @@ export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
     [supabase, refetch],
   )
 
-  return { events, loading, addEvents, deleteEvent, refetch }
+  /** Patch fields on one event (e.g. re-categorize). Author-only via RLS. */
+  const updateEvent = useCallback(
+    async (id: string, patch: Partial<Pick<CalendarEvent, 'category' | 'category_color' | 'title' | 'location'>>) => {
+      setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+      const { error } = await supabase.from('calendar_events').update(patch).eq('id', id)
+      if (error) { refetch(); throw error }
+    },
+    [supabase, refetch],
+  )
+
+  return { events, loading, addEvents, deleteEvent, updateEvent, refetch }
 }

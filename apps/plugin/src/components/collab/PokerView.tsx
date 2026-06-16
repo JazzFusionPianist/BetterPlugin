@@ -5,45 +5,12 @@ import { usePokerRoom } from '../../hooks/usePokerRoom'
 import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
-import ConfirmDialog from './ConfirmDialog'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const BIG_BLIND = 20
 const HAND_END_DELAY_MS = 4000
-
-// ─── Avatar helper ────────────────────────────────────────────────────────────
-
-function Avatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
-  if (profile.avatar_url) {
-    return (
-      <img
-        src={profile.avatar_url}
-        alt={profile.display_name}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: profile.avatar_color || '#555',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontWeight: 700,
-        fontSize: size * 0.4,
-        flexShrink: 0,
-      }}
-    >
-      {profile.initials}
-    </div>
-  )
-}
 
 // ─── Playing card ─────────────────────────────────────────────────────────────
 
@@ -81,104 +48,6 @@ function PlayingCard({ card, faceDown, small }: { card?: string; faceDown?: bool
     <div className={`poker-card ${colorClass}${small ? ' small' : ''}`}>
       <span className="poker-card-rank">{rankToDisplay(card)}</span>
       <span className="poker-card-suit">{suitToSymbol(suit)}</span>
-    </div>
-  )
-}
-
-// ─── Invite modal ─────────────────────────────────────────────────────────────
-
-interface InviteModalProps {
-  friends: Profile[]
-  invitedIds: Set<string>
-  maxInvitees: number
-  onInvite: (friendId: string) => void
-  onClose: () => void
-}
-
-function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: InviteModalProps) {
-  const { t } = useT()
-  const [query, setQuery] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const list = q
-      ? friends.filter(f => f.display_name.toLowerCase().includes(q))
-      : friends
-    // Don't reorder by invited status — keeps the list stable so
-    // tapping Invite doesn't make the row jump out from under the
-    // user's finger.
-    return [...list].sort((a, b) => {
-      const aOn = a.isOnline ? 0 : 1
-      const bOn = b.isOnline ? 0 : 1
-      if (aOn !== bOn) return aOn - bOn
-      return a.display_name.localeCompare(b.display_name)
-    })
-  }, [friends, query])
-
-  const limitReached = invitedIds.size >= maxInvitees
-
-  return (
-    <div
-      className="poker-invite-modal-overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="poker-invite-modal" role="dialog" aria-label={t('game.inviteFriends')}>
-        <div className="poker-invite-modal-header">
-          <span className="poker-invite-modal-title">
-            {t('game.inviteFriends')} ({invitedIds.size}/{maxInvitees})
-          </span>
-          <button
-            className="poker-invite-modal-close"
-            onClick={onClose}
-            aria-label="Close invite dialog"
-          >
-            ×
-          </button>
-        </div>
-        {friends.length > 0 && (
-          <div className="poker-invite-search-wrap">
-            <input
-              className="poker-invite-search-input"
-              type="text"
-              placeholder={t('game.searchFriends')}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              autoFocus
-            />
-          </div>
-        )}
-        {friends.length === 0 ? (
-          <p className="poker-invite-empty">{t('game.noFriendsToInvite')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="poker-invite-empty">{t('game.noMatch', { q: query })}</p>
-        ) : (
-          <div className="poker-invite-list">
-            {filtered.map(friend => {
-              const isInvited = invitedIds.has(friend.id)
-              // Allow clicking an invited row — that's the cancel path.
-              // Only block fresh invites once the seat-count cap is hit.
-              const disabled = !isInvited && limitReached
-              return (
-                <div key={friend.id} className="poker-invite-row">
-                  <div className="poker-invite-av-wrap">
-                    <Avatar profile={friend} size={36} />
-                    {friend.isOnline && <span className="poker-invite-online-dot" />}
-                  </div>
-                  <span className="poker-invite-name">{friend.display_name}</span>
-                  <button
-                    className={`poker-invite-do-btn${isInvited ? ' invited' : ''}`}
-                    onClick={() => onInvite(friend.id)}
-                    disabled={disabled}
-                    title={isInvited ? t('game.invited') : t('game.invite')}
-                  >
-                    {isInvited ? t('game.invited') : t('game.invite')}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -475,42 +344,90 @@ export default function PokerView({
   const community: string[] = roomState.community_cards ?? []
   const communitySlots: (string | undefined)[] = [0, 1, 2, 3, 4].map(i => community[i])
 
-  // ── Render ───────────────────────────────────────────────────────────────
-  return (
-    <div className="poker-view" style={{ userSelect: 'none' }}>
-      {/* Header */}
-      <div className="poker-header">
-        <button
-          className="poker-back-btn chess-back-btn"
-          onClick={handleBack}
-          aria-label="Go back"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path
-              d="M12.5 15L7.5 10L12.5 5"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <span className="poker-title">{t('game.poker')}</span>
-        {isPlaying && (
-          <div className="poker-controls">
+  // ── Overlay (resolving / lobby → ready → finished); null while playing ────
+  let overlay: React.ReactNode = null
+  if (resolving && !room) {
+    overlay = <GameOverlayCard emoji="🃏" title={t('common.joining')} />
+  } else if (isFinished && room) {
+    overlay = (
+      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+        <GameReadyControl
+          ready={myReady}
+          count={`${room.ready_ids.length} / ${room.player_count} ready`}
+          onToggle={toggleReady}
+        />
+      </GameOverlayCard>
+    )
+  } else if (isLobby && hasAllPlayers && !allReady) {
+    overlay = (
+      <GameOverlayCard emoji="🃏" title={t('game.readyToPlay')}>
+        <GameReadyControl
+          ready={myReady}
+          count={`${room!.ready_ids.length} / ${room!.player_count} ready`}
+          onToggle={toggleReady}
+          disabled={loading || !room?.player_ids.includes(currentUserId)}
+        />
+      </GameOverlayCard>
+    )
+  } else if (!resolving && !isPlaying && !isFinished && (!room || !hasAllPlayers)) {
+    overlay = (
+      <GameOverlayCard emoji="🃏" title={t('game.poker')}>
+        <div className="poker-player-count-picker">
+          {[2, 3, 4, 5, 6].map(n => (
             <button
-              className="poker-btn poker-btn-forfeit"
-              onClick={handleForfeit}
-              title={t('poker.forfeitTip')}
+              key={n}
+              className={`poker-player-count-btn${
+                (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
+              }`}
+              onClick={() => handlePlayerCountChange(n as 2 | 3 | 4 | 5 | 6)}
+              disabled={!!room && (!isHost || (room.player_ids.length > n))}
             >
-              {t('poker.forfeit')}
+              {n}P
             </button>
+          ))}
+        </div>
+        {!room ? (
+          <button
+            className="game-invite-btn"
+            onClick={handleCreateRoom}
+            disabled={loading}
+          >
+            Create Room
+          </button>
+        ) : (
+          isHost && (
+            <button
+              className="game-invite-btn"
+              onClick={() => setShowInviteModal(true)}
+            >
+              🃏 Invite Friends
+            </button>
+          )
+        )}
+        {room && (
+          <div className="game-finish-readystate">
+            {room.player_ids.length} / {room.player_count} joined
           </div>
         )}
-      </div>
+      </GameOverlayCard>
+    )
+  }
 
-      <div className="poker-game-layout">
-        {/* Opponents row */}
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <GameShell
+      title={t('game.poker')}
+      onBack={handleBack}
+      controls={isPlaying ? (
+        <button
+          className="game-btn game-btn-danger"
+          onClick={handleForfeit}
+          title={t('poker.forfeitTip')}
+        >
+          {t('poker.forfeit')}
+        </button>
+      ) : undefined}
+      aboveBoard={
         <div className="poker-opponents-row">
           {opponentIds.length === 0 ? (
             <div className="poker-opponent" style={{ opacity: 0.5 }}>
@@ -532,7 +449,7 @@ export default function PokerView({
                 >
                   <div className="poker-opponent-av-wrap">
                     {profile ? (
-                      <Avatar profile={profile} size={28} />
+                      <GameAvatar profile={profile} size={28} />
                     ) : (
                       <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#555' }} />
                     )}
@@ -581,8 +498,8 @@ export default function PokerView({
             })
           )}
         </div>
-
-        {/* Table area */}
+      }
+      board={
         <div className="poker-table-area">
           {/* Community cards */}
           <div className="poker-community">
@@ -650,107 +567,9 @@ export default function PokerView({
               </div>
             )
           })()}
-
-          {/* Resolving overlay — covers the brief window before findActiveRoom
-              or pending joinRoom finishes, so the user doesn't see the
-              Create-Room flow flash before being placed in their invited room. */}
-          {resolving && !room && (
-            <div className="poker-finish-overlay chess-finish-overlay">
-              <div className="poker-finish-card chess-finish-card">
-                <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">{t('common.joining')}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Lobby/invite overlay */}
-          {!resolving && !isPlaying && !isFinished && (!room || !hasAllPlayers) && (
-            <div className="poker-finish-overlay chess-finish-overlay">
-              <div className="poker-finish-card chess-finish-card">
-                <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">{t('game.poker')}</div>
-                <div className="poker-player-count-picker">
-                  {[2, 3, 4, 5, 6].map(n => (
-                    <button
-                      key={n}
-                      className={`poker-player-count-btn${
-                        (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
-                      }`}
-                      onClick={() => handlePlayerCountChange(n as 2 | 3 | 4 | 5 | 6)}
-                      disabled={!!room && (!isHost || (room.player_ids.length > n))}
-                    >
-                      {n}P
-                    </button>
-                  ))}
-                </div>
-                {!room ? (
-                  <button
-                    className="poker-btn"
-                    onClick={handleCreateRoom}
-                    disabled={loading}
-                  >
-                    Create Room
-                  </button>
-                ) : (
-                  isHost && (
-                    <button
-                      className="poker-btn"
-                      onClick={() => setShowInviteModal(true)}
-                    >
-                      🃏 Invite Friends
-                    </button>
-                  )
-                )}
-                {room && (
-                  <div className="poker-finish-readystate">
-                    {room.player_ids.length} / {room.player_count} joined
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Lobby ready overlay (all players present) */}
-          {isLobby && hasAllPlayers && !allReady && (
-            <div className="poker-finish-overlay chess-finish-overlay">
-              <div className="poker-finish-card chess-finish-card">
-                <div className="poker-finish-emoji">🃏</div>
-                <div className="poker-finish-title">{t('game.readyToPlay')}</div>
-                <button
-                  className={`poker-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                  onClick={toggleReady}
-                  disabled={loading || !room?.player_ids.includes(currentUserId)}
-                >
-                  {myReady ? '✓ Ready' : 'Ready'}
-                </button>
-                <div className="poker-finish-readystate">
-                  {room!.ready_ids.length} / {room!.player_count} ready
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Finished overlay */}
-          {isFinished && room && (
-            <div className="poker-finish-overlay chess-finish-overlay">
-              <div className="poker-finish-card chess-finish-card">
-                <div className="poker-finish-emoji">{resultEmoji}</div>
-                <div className="poker-finish-title">{resultTitle}</div>
-                <button
-                  className={`poker-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                  onClick={toggleReady}
-                >
-                  {myReady ? '✓ Ready' : 'Rematch'}
-                </button>
-                <div className="poker-finish-readystate">
-                  {room.ready_ids.length} / {room.player_count} ready
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-
-        {/* Self row */}
+      }
+      belowBoard={
         <div className="poker-self-row">
           <div className="poker-self-cards">
             {myHoleCards.length >= 2 ? (
@@ -834,27 +653,24 @@ export default function PokerView({
             </div>
           )}
         </div>
-      </div>
-
-      {/* Invite modal */}
-      {showInviteModal && (
-        <InviteModal
-          friends={friendProfiles}
-          invitedIds={invitedIds}
-          maxInvitees={maxInvitees}
-          onInvite={id => { handleCreateAndInvite(id) }}
-          onClose={() => setShowInviteModal(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        open={showForfeitConfirm}
-        message={t('confirm.forfeitPoker')}
-        confirmLabel={t('poker.forfeit')}
-        onConfirm={confirmForfeit}
-        onCancel={() => setShowForfeitConfirm(false)}
-      />
-    </div>
+      }
+      overlay={overlay}
+      invite={{
+        open: showInviteModal,
+        onClose: () => setShowInviteModal(false),
+        friends: friendProfiles,
+        invitedIds,
+        onInvite: id => { handleCreateAndInvite(id) },
+        canInvite: (id: string) => invitedIds.has(id) || invitedIds.size < maxInvitees,
+      }}
+      confirm={{
+        open: showForfeitConfirm,
+        message: t('confirm.forfeitPoker'),
+        confirmLabel: t('poker.forfeit'),
+        onConfirm: confirmForfeit,
+        onCancel: () => setShowForfeitConfirm(false),
+      }}
+    />
   )
 }
 

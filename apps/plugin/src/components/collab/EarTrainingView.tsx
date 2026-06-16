@@ -9,7 +9,7 @@ import {
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '../../lib/earTraining'
 import { useT } from '../../i18n/LanguageContext'
-import ConfirmDialog from './ConfirmDialog'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
 
 interface Props {
   supabase: SupabaseClient
@@ -52,92 +52,6 @@ function RevealRow ({ label, pick, correct, mine = false }: {
       <span className="et-reveal-row-label">{label}</span>
       <span className="et-reveal-row-pick">{pick}</span>
       <span className="et-reveal-row-mark">{correct ? '✓' : '✗'}</span>
-    </div>
-  )
-}
-
-function Avatar ({ profile, size = 28 }: { profile: Profile; size?: number }) {
-  return (
-    <div className="av" style={{ background: profile.avatar_color, width: size, height: size, fontSize: size * 0.42 }}>
-      {profile.avatar_url
-        ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-        : profile.initials}
-    </div>
-  )
-}
-
-// ─── Invite modal — same shape as ChessView's ─────────────────────────────────
-
-interface InviteModalProps {
-  friends: Profile[]
-  invitedIds: Set<string>
-  onInvite: (friendId: string) => void
-  onClose: () => void
-}
-
-function InviteModal ({ friends, invitedIds, onInvite, onClose }: InviteModalProps) {
-  const { t } = useT()
-  const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const list = q
-      ? friends.filter(f => f.display_name.toLowerCase().includes(q))
-      : friends
-    return [...list].sort((a, b) => {
-      const aOn = a.isOnline ? 0 : 1
-      const bOn = b.isOnline ? 0 : 1
-      if (aOn !== bOn) return aOn - bOn
-      return a.display_name.localeCompare(b.display_name)
-    })
-  }, [friends, query])
-
-  return (
-    <div
-      className="chess-invite-modal-overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="chess-invite-modal" role="dialog" aria-label={t('game.inviteFriend')}>
-        <div className="chess-invite-modal-header">
-          <span className="chess-invite-modal-title">{t('game.inviteFriend')}</span>
-          <button className="chess-invite-modal-close" onClick={onClose}>×</button>
-        </div>
-        {friends.length > 0 && (
-          <div className="chess-invite-search-wrap">
-            <input
-              className="chess-invite-search-input"
-              type="text"
-              placeholder={t('game.searchFriends')}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              autoFocus
-            />
-          </div>
-        )}
-        {friends.length === 0 ? (
-          <p className="chess-invite-empty">{t('game.noFriendsToInvite')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="chess-invite-empty">{t('game.noMatch', { q: query })}</p>
-        ) : (
-          <div className="chess-invite-list">
-            {filtered.map(friend => (
-              <div key={friend.id} className="chess-invite-row">
-                <div className="chess-invite-av-wrap">
-                  <Avatar profile={friend} size={36} />
-                  {friend.isOnline && <span className="chess-invite-online-dot" />}
-                </div>
-                <span className="chess-invite-name">{friend.display_name}</span>
-                <button
-                  className={`chess-invite-do-btn${invitedIds.has(friend.id) ? ' invited' : ''}`}
-                  onClick={() => onInvite(friend.id)}
-                  title={invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
-                >
-                  {invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -352,6 +266,9 @@ export default function EarTrainingView ({
     [room?.player2_id, currentUserId, currentUserProfile, friendProfiles]
   )
 
+  // The opponent profile from MY perspective (player2 if I'm player1, else player1).
+  const opponentProfile = seat === 'player1' ? player2Profile : player1Profile
+
   const myScore       = seat === 'player1' ? (room?.player1_score ?? 0) : (room?.player2_score ?? 0)
   const opponentScore = seat === 'player1' ? (room?.player2_score ?? 0) : (room?.player1_score ?? 0)
 
@@ -394,114 +311,119 @@ export default function EarTrainingView ({
     ? (question.type === 'interval' ? INTERVAL_LABELS[question.answer] : CHORD_LABELS[question.answer])
     : ''
 
-  return (
-    <div className="chess-view">
-      <div className="chess-header">
-        <button className="chess-back-btn" onClick={handleBack} aria-label={t('common.goBack')}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <span className="chess-title">{t('game.earTraining')}</span>
-        {isPlaying && (
-          <div className="chess-controls">
-            <span className="et-scorebar">
-              <span className="et-score-mine">{myScore}</span>
-              <span className="et-score-sep">–</span>
-              <span className="et-score-theirs">{opponentScore}</span>
-            </span>
+  // ─── Overlay (lobby → ready → finished); null while a round is active ──────
+  let overlay: React.ReactNode = null
+  if (isFinished && room) {
+    // NO REMATCH — show the final score and exit chrome only.
+    overlay = (
+      <GameOverlayCard
+        emoji={room.winner_id === currentUserId ? '🏆' : room.winner_id ? '😔' : '🤝'}
+        title={
+          room.winner_id === currentUserId
+            ? t('chess.youWon')
+            : room.winner_id
+              ? t('chess.youLost')
+              : t('chess.drawResult')
+        }
+      >
+        <div className="et-final-score">
+          <span>{myScore}</span><span className="et-score-sep">–</span><span>{opponentScore}</span>
+        </div>
+      </GameOverlayCard>
+    )
+  } else if (isLobby && hasOpponent && config) {
+    // Ready-to-play card with the host-controlled config UI inside.
+    overlay = (
+      <GameOverlayCard emoji="🎧" title={t('game.readyToPlay')} className="et-lobby-card">
+        <div className="et-setup">
+          <div className="et-setup-label">{t('et.modes')}</div>
+          <div className="et-setup-row">
             <button
-              className="chess-btn chess-btn-resign"
-              onClick={handleForfeit}
-              title={t('et.forfeitConfirm')}
-            >
-              {t('et.forfeit')}
-            </button>
+              className={`et-chip${config.modes.includes('interval') ? ' on' : ''}`}
+              disabled={seat !== 'player1'}
+              onClick={() => setMode('interval', !config.modes.includes('interval'))}
+            >{t('et.modeInterval')}</button>
+            <button
+              className={`et-chip${config.modes.includes('chord') ? ' on' : ''}`}
+              disabled={seat !== 'player1'}
+              onClick={() => setMode('chord', !config.modes.includes('chord'))}
+            >{t('et.modeChord')}</button>
           </div>
-        )}
-      </div>
+          <div className="et-setup-label">{t('et.difficulty')}</div>
+          <div className="et-setup-row">
+            {(['basic', 'intermediate', 'advanced'] as const).map(d => (
+              <button
+                key={d}
+                className={`et-chip${config.difficulty === d ? ' on' : ''}`}
+                disabled={seat !== 'player1'}
+                onClick={() => setDifficulty(d)}
+              >{t(`et.${d}`)}</button>
+            ))}
+          </div>
+        </div>
 
-      <div className="chess-game-area">
-        {/* Opponent row */}
-        <div className="chess-player-row chess-player-row--opponent">
-          {player2Profile && player1Profile ? (
-            seat === 'player1' && player2Profile
-              ? <><Avatar profile={player2Profile} size={28} /><span className="chess-player-name">{player2Profile.display_name}</span></>
-              : seat === 'player2' && player1Profile
-                ? <><Avatar profile={player1Profile} size={28} /><span className="chess-player-name">{player1Profile.display_name}</span></>
-                : null
+        <GameReadyControl
+          ready={myReady}
+          count={`${(room!.player1_ready ? 1 : 0) + (room!.player2_ready ? 1 : 0)} / 2`}
+          onToggle={toggleReady}
+        />
+      </GameOverlayCard>
+    )
+  } else if (isLobby && !hasOpponent) {
+    overlay = (
+      <GameOverlayCard emoji="🎧" title={t('game.earTraining')} className="et-lobby-card">
+        <button className="game-invite-btn" onClick={() => setShowInvite(true)}>
+          {t('chess.inviteCta')}
+        </button>
+        {room && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
+      </GameOverlayCard>
+    )
+  }
+
+  return (
+    <GameShell
+      title={t('game.earTraining')}
+      onBack={handleBack}
+      controls={isPlaying ? (
+        <>
+          <span className="et-scorebar">
+            <span className="et-score-mine">{myScore}</span>
+            <span className="et-score-sep">–</span>
+            <span className="et-score-theirs">{opponentScore}</span>
+          </span>
+          <button
+            className="game-btn game-btn-danger"
+            onClick={handleForfeit}
+            title={t('et.forfeitConfirm')}
+          >
+            {t('et.forfeit')}
+          </button>
+        </>
+      ) : undefined}
+      aboveBoard={
+        <div className="game-player-row">
+          {opponentProfile ? (
+            <>
+              <GameAvatar profile={opponentProfile} size={28} />
+              <span className="game-player-name">{opponentProfile.display_name}</span>
+            </>
           ) : (
-            <span className="chess-player-name chess-player-name--unknown">
+            <span className="game-player-name game-player-name--unknown">
               {hasOpponent ? t('common.opponent') : t('et.waitingOpponent')}
             </span>
           )}
           {isPlaying && !opponentAnswer && (
-            <span className="chess-player-turn">● {t('common.thinking')}</span>
+            <span className="game-player-turn">● {t('common.thinking')}</span>
           )}
           {isLobby && hasOpponent && (
-            <span className={`chess-ready-badge${opponentReady ? ' ready' : ''}`}>
+            <span className={`game-ready-badge${opponentReady ? ' ready' : ''}`}>
               {opponentReady ? t('common.readyCheck') : t('common.notReady')}
             </span>
           )}
         </div>
-
-        {/* Centre area */}
+      }
+      board={
         <div className="et-arena">
-          {isLobby && !hasOpponent && (
-            <div className="chess-finish-card et-lobby-card">
-              <div className="chess-finish-emoji">🎧</div>
-              <div className="chess-finish-title">{t('game.earTraining')}</div>
-              <button className="chess-invite-btn" onClick={() => setShowInvite(true)}>
-                {t('chess.inviteCta')}
-              </button>
-              {room && <div className="chess-finish-readystate">{t('chess.waitingForFriend')}</div>}
-            </div>
-          )}
-
-          {isLobby && hasOpponent && config && (
-            <div className="chess-finish-card et-lobby-card">
-              <div className="chess-finish-emoji">🎧</div>
-              <div className="chess-finish-title">{t('game.readyToPlay')}</div>
-
-              <div className="et-setup">
-                <div className="et-setup-label">{t('et.modes')}</div>
-                <div className="et-setup-row">
-                  <button
-                    className={`et-chip${config.modes.includes('interval') ? ' on' : ''}`}
-                    disabled={seat !== 'player1'}
-                    onClick={() => setMode('interval', !config.modes.includes('interval'))}
-                  >{t('et.modeInterval')}</button>
-                  <button
-                    className={`et-chip${config.modes.includes('chord') ? ' on' : ''}`}
-                    disabled={seat !== 'player1'}
-                    onClick={() => setMode('chord', !config.modes.includes('chord'))}
-                  >{t('et.modeChord')}</button>
-                </div>
-                <div className="et-setup-label">{t('et.difficulty')}</div>
-                <div className="et-setup-row">
-                  {(['basic', 'intermediate', 'advanced'] as const).map(d => (
-                    <button
-                      key={d}
-                      className={`et-chip${config.difficulty === d ? ' on' : ''}`}
-                      disabled={seat !== 'player1'}
-                      onClick={() => setDifficulty(d)}
-                    >{t(`et.${d}`)}</button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                className={`chess-ready-btn${myReady ? ' ready' : ''}`}
-                onClick={toggleReady}
-              >
-                {myReady ? t('common.readyCheck') : t('common.ready')}
-              </button>
-              <div className="chess-finish-readystate">
-                {(room!.player1_ready ? 1 : 0) + (room!.player2_ready ? 1 : 0)} / 2
-              </div>
-            </div>
-          )}
-
           {isPlaying && question && (
             <div className="et-round">
               <div className="et-round-label">
@@ -607,58 +529,40 @@ export default function EarTrainingView ({
               )}
             </div>
           )}
-
-          {isFinished && room && (
-            <div className="chess-finish-card et-lobby-card">
-              <div className="chess-finish-emoji">
-                {room.winner_id === currentUserId ? '🏆' : room.winner_id ? '😔' : '🤝'}
-              </div>
-              <div className="chess-finish-title">
-                {room.winner_id === currentUserId
-                  ? t('chess.youWon')
-                  : room.winner_id
-                    ? t('chess.youLost')
-                    : t('chess.drawResult')}
-              </div>
-              <div className="et-final-score">
-                <span>{myScore}</span><span className="et-score-sep">–</span><span>{opponentScore}</span>
-              </div>
-            </div>
-          )}
         </div>
-
-        {/* My player row */}
-        <div className="chess-player-row chess-player-row--me">
+      }
+      belowBoard={
+        <div className="game-player-row">
           {currentUserProfile
-            ? <><Avatar profile={currentUserProfile} size={28} /><span className="chess-player-name">{currentUserProfile.display_name}</span></>
-            : <span className="chess-player-name">{t('common.me')}</span>}
+            ? <><GameAvatar profile={currentUserProfile} size={28} /><span className="game-player-name">{currentUserProfile.display_name}</span></>
+            : <span className="game-player-name">{t('common.me')}</span>}
           {isPlaying && myAnswer && !opponentAnswer && (
-            <span className="chess-player-turn">● {t('common.waiting')}</span>
+            <span className="game-player-turn">● {t('common.waiting')}</span>
           )}
           {isLobby && hasOpponent && (
-            <span className={`chess-ready-badge${myReady ? ' ready' : ''}`}>
+            <span className={`game-ready-badge${myReady ? ' ready' : ''}`}>
               {myReady ? t('common.readyCheck') : t('common.notReady')}
             </span>
           )}
         </div>
-      </div>
-
-      {showInvite && (
-        <InviteModal
-          friends={friendProfiles}
-          invitedIds={invitedIds}
-          onInvite={handleCreateAndInvite}
-          onClose={() => setShowInvite(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        open={showForfeitConfirm}
-        message={t('et.forfeitConfirm')}
-        confirmLabel={t('et.forfeit')}
-        onConfirm={confirmForfeit}
-        onCancel={() => setShowForfeitConfirm(false)}
-      />
-    </div>
+      }
+      overlay={overlay}
+      invite={{
+        open: showInvite,
+        onClose: () => setShowInvite(false),
+        friends: friendProfiles,
+        invitedIds,
+        onInvite: handleCreateAndInvite,
+        // ET is strictly 2-player: once an opponent is present, no further invites.
+        canInvite: () => !hasOpponent,
+      }}
+      confirm={{
+        open: showForfeitConfirm,
+        message: t('et.forfeitConfirm'),
+        confirmLabel: t('et.forfeit'),
+        onConfirm: confirmForfeit,
+        onCancel: () => setShowForfeitConfirm(false),
+      }}
+    />
   )
 }

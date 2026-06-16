@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, GameRoom } from '../../types/collab'
 import { useGameRoom } from '../../hooks/useGameRoom'
@@ -12,7 +12,7 @@ import {
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
-import ConfirmDialog from './ConfirmDialog'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -40,41 +40,6 @@ const PIECE_NAMES: Record<string, string> = {
 }
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-
-// ─── Avatar helper ────────────────────────────────────────────────────────────
-
-function Avatar({ profile, size = 32 }: { profile: Profile; size?: number }) {
-  if (profile.avatar_url) {
-    return (
-      <img
-        className="chess-player-av"
-        src={profile.avatar_url}
-        alt={profile.display_name}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }}
-      />
-    )
-  }
-  return (
-    <div
-      className="chess-player-av"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: profile.avatar_color || '#555',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontWeight: 700,
-        fontSize: size * 0.4,
-        flexShrink: 0,
-      }}
-    >
-      {profile.initials}
-    </div>
-  )
-}
 
 // ─── Chess board ──────────────────────────────────────────────────────────────
 
@@ -326,8 +291,6 @@ function ChessBoard({
   )
 }
 
-// (BoardPreview removed — unified view always renders the actual ChessBoard)
-
 // ─── Promotion modal ──────────────────────────────────────────────────────────
 
 interface PromotionModalProps {
@@ -357,102 +320,6 @@ function PromotionModal({ color, onChoose }: PromotionModalProps) {
             </button>
           ))}
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Invite modal ─────────────────────────────────────────────────────────────
-
-interface InviteModalProps {
-  friends: Profile[]
-  invitedIds: Set<string>
-  onInvite: (friendId: string) => void
-  onClose: () => void
-}
-
-function InviteModal({ friends, invitedIds, onInvite, onClose }: InviteModalProps) {
-  const { t } = useT()
-  const [query, setQuery] = useState('')
-
-  // Filter + sort: invited last, online first (if available), alphabetical fallback
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const list = q
-      ? friends.filter(f => f.display_name.toLowerCase().includes(q))
-      : friends
-    // Sort by online/name only — invited status doesn't reorder so a
-    // friend you just invited stays exactly where you tapped them.
-    return [...list].sort((a, b) => {
-      const aOn = a.isOnline ? 0 : 1
-      const bOn = b.isOnline ? 0 : 1
-      if (aOn !== bOn) return aOn - bOn
-      return a.display_name.localeCompare(b.display_name)
-    })
-  }, [friends, query])
-
-  return (
-    <div
-      className="chess-invite-modal-overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="chess-invite-modal" role="dialog" aria-label={t('game.inviteFriend')}>
-        <div className="chess-invite-modal-header">
-          <span className="chess-invite-modal-title">{t('game.inviteFriend')}</span>
-          <button
-            className="chess-invite-modal-close"
-            onClick={onClose}
-            aria-label="Close invite dialog"
-          >
-            ×
-          </button>
-        </div>
-        {friends.length > 0 && (
-          <div className="chess-invite-search-wrap">
-            <svg className="chess-invite-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <circle cx="6.8" cy="6.8" r="4.2" /><path d="M10.2 10.2L13 13" strokeLinecap="round" />
-            </svg>
-            <input
-              className="chess-invite-search-input"
-              type="text"
-              placeholder={t('game.searchFriends')}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              autoFocus
-            />
-            {query && (
-              <button
-                className="chess-invite-search-clear"
-                onClick={() => setQuery('')}
-                aria-label="Clear search"
-              >×</button>
-            )}
-          </div>
-        )}
-        {friends.length === 0 ? (
-          <p className="chess-invite-empty">{t('game.noFriendsToInvite')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="chess-invite-empty">{t('game.noMatch', { q: query })}</p>
-        ) : (
-          <div className="chess-invite-list">
-            {filtered.map(friend => (
-              <div key={friend.id} className="chess-invite-row">
-                <div className="chess-invite-av-wrap">
-                  <Avatar profile={friend} size={36} />
-                  {friend.isOnline && <span className="chess-invite-online-dot" />}
-                </div>
-                <span className="chess-invite-name">{friend.display_name}</span>
-                <button
-                  className={`chess-invite-do-btn${invitedIds.has(friend.id) ? ' invited' : ''}`}
-                  onClick={() => onInvite(friend.id)}
-                  title={invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
-                >
-                  {invitedIds.has(friend.id) ? t('game.invited') : t('game.invite')}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
@@ -721,15 +588,7 @@ export default function ChessView({
     }
   }, [room, isHostLocal, startGame])
 
-  // ── Unified Game/Lobby UI ─────────────────────────────────────────────────
-  // Single view: chess board always visible. Overlay shows different content
-  // depending on room status:
-  //   - no room                  → "Invite a Friend" overlay
-  //   - lobby, no guest          → "Waiting for friend..." overlay
-  //   - lobby, guest joined      → Ready button overlay
-  //   - playing                  → no overlay (live game)
-  //   - finished                 → result + Ready button overlay
-
+  // ── Derived status ─────────────────────────────────────────────────────────
   const status = room?.status ?? 'lobby'
   const isFinished = status === 'finished'
   const isLobby = status === 'lobby'
@@ -757,73 +616,92 @@ export default function ChessView({
     }
   }
 
+  const readyCountStr = room
+    ? t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })
+    : ''
+
+  // ── Overlay (lobby → ready → finished); null while playing ─────────────────
+  let overlay: React.ReactNode = null
+  if (isFinished && room) {
+    overlay = (
+      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+        <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} />
+      </GameOverlayCard>
+    )
+  } else if (isLobby && hasGuest) {
+    overlay = (
+      <GameOverlayCard emoji="♟" title={t('game.readyToPlay')}>
+        <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} disabled={loading} />
+      </GameOverlayCard>
+    )
+  } else if (!isPlaying) {
+    if (!room || (isHost && !hasGuest)) {
+      overlay = (
+        <GameOverlayCard emoji="♟" title={t('game.chess')}>
+          <button className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
+            {t('chess.inviteCta')}
+          </button>
+          {room && !hasGuest && (
+            <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
+          )}
+        </GameOverlayCard>
+      )
+    } else {
+      overlay = <GameOverlayCard emoji="⏳" title={t('common.joining')} />
+    }
+  }
+
   return (
-    <div className="chess-view">
-      {/* Header */}
-      <div className="chess-header">
-        <button
-          className="chess-back-btn"
-          onClick={handleBack}
-          aria-label={t('common.goBack')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <span className="chess-title">{t('game.chess')}</span>
-        {isPlaying && (
-          <div className="chess-controls">
-            <button
-              className="chess-btn chess-btn-resign"
-              onClick={handleResign}
-            >
-              {t('chess.resign')}
-            </button>
-            <button
-              className="chess-btn chess-btn-draw"
-              onClick={handleDrawOffer}
-              disabled={drawOffering && !drawOfferedByOpponent}
-              title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
-            >
-              {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
-            </button>
+    <GameShell
+      title={t('game.chess')}
+      onBack={handleBack}
+      controls={isPlaying ? (
+        <>
+          <button className="game-btn game-btn-danger" onClick={handleResign}>
+            {t('chess.resign')}
+          </button>
+          <button
+            className="game-btn"
+            onClick={handleDrawOffer}
+            disabled={drawOffering && !drawOfferedByOpponent}
+            title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
+          >
+            {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
+          </button>
+        </>
+      ) : undefined}
+      aboveBoard={
+        <>
+          <div className="game-player-row">
+            {opponentProfile ? (
+              <>
+                <GameAvatar profile={opponentProfile} size={28} />
+                <span className="game-player-name">{opponentProfile.display_name}</span>
+              </>
+            ) : (
+              <span className="game-player-name game-player-name--unknown">
+                {hasGuest ? t('common.opponent') : t('common.waiting')}
+              </span>
+            )}
+            {isPlaying && chessState.turn !== myColor && (
+              <span className="game-player-turn">● {t('common.thinking')}</span>
+            )}
+            {isLobby && hasGuest && (
+              <span className={`game-ready-badge${opponentReady ? ' ready' : ''}`}>
+                {opponentReady ? t('common.readyCheck') : t('common.notReady')}
+              </span>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="chess-game-area">
-        {/* Opponent row (top) — always render so layout is stable */}
-        <div className="chess-player-row chess-player-row--opponent">
-          {opponentProfile ? (
-            <>
-              <Avatar profile={opponentProfile} size={28} />
-              <span className="chess-player-name">{opponentProfile.display_name}</span>
-            </>
-          ) : (
-            <span className="chess-player-name chess-player-name--unknown">
-              {hasGuest ? t('common.opponent') : t('common.waiting')}
-            </span>
+          {opponentCaptured.length > 0 && (
+            <div className="chess-captured">
+              {opponentCaptured.map((p, i) => (
+                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+              ))}
+            </div>
           )}
-          {isPlaying && chessState.turn !== myColor && (
-            <span className="chess-player-turn">● {t('common.thinking')}</span>
-          )}
-          {isLobby && hasGuest && (
-            <span className={`chess-ready-badge${opponentReady ? ' ready' : ''}`}>
-              {opponentReady ? t('common.readyCheck') : t('common.notReady')}
-            </span>
-          )}
-        </div>
-
-        {/* Opponent captured pieces */}
-        {opponentCaptured.length > 0 && (
-          <div className="chess-captured">
-            {opponentCaptured.map((p, i) => (
-              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-            ))}
-          </div>
-        )}
-
-        {/* Board (with overlay for lobby/finish) */}
+        </>
+      }
+      board={
         <div className="chess-board-wrap">
           <ChessBoard
             state={displayState}
@@ -833,145 +711,67 @@ export default function ChessView({
             lastTo={isPlaying || isFinished ? lastTo : null}
             isMyTurn={isMyTurn && isPlaying}
           />
-
-          {/* Lobby overlay (no room or no guest) */}
-          {!isPlaying && !isFinished && (!room || !hasGuest) && (
-            <div className="chess-finish-overlay">
-              <div className="chess-finish-card">
-                {!room || (isHost && !hasGuest) ? (
-                  <>
-                    <div className="chess-finish-emoji">♟</div>
-                    <div className="chess-finish-title">{t('game.chess')}</div>
-                    <button
-                      className="chess-invite-btn"
-                      onClick={() => setShowInviteModal(true)}
-                      disabled={loading}
-                    >
-                      {t('chess.inviteCta')}
-                    </button>
-                    {room && !hasGuest && (
-                      <div className="chess-finish-readystate">{t('chess.waitingForFriend')}</div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="chess-finish-emoji">⏳</div>
-                    <div className="chess-finish-title">{t('common.joining')}</div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Lobby ready overlay (both players present) */}
-          {isLobby && hasGuest && (
-            <div className="chess-finish-overlay">
-              <div className="chess-finish-card">
-                <div className="chess-finish-emoji">♟</div>
-                <div className="chess-finish-title">{t('game.readyToPlay')}</div>
-                <button
-                  className={`chess-ready-btn${myReady ? ' ready' : ''}`}
-                  onClick={toggleReady}
-                  disabled={loading}
-                >
-                  {myReady ? t('common.readyCheck') : t('common.ready')}
-                </button>
-                <div className="chess-finish-readystate">
-                  {t('chess.readyCount', { n: (room!.host_ready ? 1 : 0) + (room!.guest_ready ? 1 : 0) })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Finish overlay */}
-          {isFinished && room && (
-            <div className="chess-finish-overlay">
-              <div className="chess-finish-card">
-                <div className="chess-finish-emoji">{resultEmoji}</div>
-                <div className="chess-finish-title">{resultTitle}</div>
-                <button
-                  className={`chess-ready-btn${myReady ? ' ready' : ''}`}
-                  onClick={toggleReady}
-                >
-                  {myReady ? t('common.readyCheck') : t('common.ready')}
-                </button>
-                <div className="chess-finish-readystate">
-                  {t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-
-        {/* My captured pieces */}
-        {myCaptured.length > 0 && (
-          <div className="chess-captured">
-            {myCaptured.map((p, i) => (
-              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-            ))}
-          </div>
-        )}
-
-        {/* My player row (bottom) */}
-        <div className="chess-player-row chess-player-row--me">
-          {currentUserProfile ? (
-            <>
-              <Avatar profile={currentUserProfile} size={28} />
-              <span className="chess-player-name">{currentUserProfile.display_name}</span>
-            </>
-          ) : (
-            <span className="chess-player-name">{t('common.me')}</span>
+      }
+      belowBoard={
+        <>
+          {myCaptured.length > 0 && (
+            <div className="chess-captured">
+              {myCaptured.map((p, i) => (
+                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+              ))}
+            </div>
           )}
-          {isPlaying && isMyTurn && (
-            <span className="chess-player-turn">● {t('chess.yourTurn')}</span>
-          )}
-          {isLobby && hasGuest && (
-            <span className={`chess-ready-badge${myReady ? ' ready' : ''}`}>
-              {myReady ? t('common.readyCheck') : t('common.notReady')}
-            </span>
-          )}
-        </div>
-
-        {/* Move history (only during/after a game) */}
-        {room && (room.move_history ?? []).length > 0 && (
-          <div className="chess-move-history">
-            {(room.move_history ?? []).map((move, i) => (
-              <span key={i} className="chess-move-entry">
-                {i % 2 === 0 && (
-                  <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
-                )}
-                {move}
+          <div className="game-player-row">
+            {currentUserProfile ? (
+              <>
+                <GameAvatar profile={currentUserProfile} size={28} />
+                <span className="game-player-name">{currentUserProfile.display_name}</span>
+              </>
+            ) : (
+              <span className="game-player-name">{t('common.me')}</span>
+            )}
+            {isPlaying && isMyTurn && (
+              <span className="game-player-turn">● {t('chess.yourTurn')}</span>
+            )}
+            {isLobby && hasGuest && (
+              <span className={`game-ready-badge${myReady ? ' ready' : ''}`}>
+                {myReady ? t('common.readyCheck') : t('common.notReady')}
               </span>
-            ))}
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Promotion modal */}
-      {pendingPromotion && (
-        <PromotionModal
-          color={myColor}
-          onChoose={handlePromotionChoice}
-        />
+          {room && (room.move_history ?? []).length > 0 && (
+            <div className="chess-move-history">
+              {(room.move_history ?? []).map((move, i) => (
+                <span key={i} className="chess-move-entry">
+                  {i % 2 === 0 && (
+                    <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
+                  )}
+                  {move}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      }
+      overlay={overlay}
+      invite={{
+        open: showInviteModal,
+        onClose: () => setShowInviteModal(false),
+        friends: friendProfiles,
+        invitedIds,
+        onInvite: id => { handleCreateAndInvite(id) },
+      }}
+      confirm={{
+        open: showResignConfirm,
+        message: t('chess.resignConfirm'),
+        confirmLabel: t('chess.resign'),
+        onConfirm: confirmResign,
+        onCancel: () => setShowResignConfirm(false),
+      }}
+      extraModals={pendingPromotion && (
+        <PromotionModal color={myColor} onChoose={handlePromotionChoice} />
       )}
-
-      {/* Invite modal */}
-      {showInviteModal && (
-        <InviteModal
-          friends={friendProfiles}
-          invitedIds={invitedIds}
-          onInvite={id => { handleCreateAndInvite(id) }}
-          onClose={() => setShowInviteModal(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        open={showResignConfirm}
-        message={t('chess.resignConfirm')}
-        confirmLabel={t('chess.resign')}
-        onConfirm={confirmResign}
-        onCancel={() => setShowResignConfirm(false)}
-      />
-    </div>
+    />
   )
 }

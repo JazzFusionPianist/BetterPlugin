@@ -17,7 +17,7 @@ import {
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 import { useT } from '../../i18n/LanguageContext'
-import ConfirmDialog from './ConfirmDialog'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -34,39 +34,6 @@ const PIECE_CLASS: Record<string, string> = {
   J: 'falling-blocks-cell--J',
   L: 'falling-blocks-cell--L',
   G: 'falling-blocks-cell--G',
-}
-
-// ─── Avatar helper ────────────────────────────────────────────────────────────
-
-function Avatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
-  if (profile.avatar_url) {
-    return (
-      <img
-        src={profile.avatar_url}
-        alt={profile.display_name}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: profile.avatar_color || '#555',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontWeight: 700,
-        fontSize: size * 0.4,
-        flexShrink: 0,
-      }}
-    >
-      {profile.initials}
-    </div>
-  )
 }
 
 // ─── Board renderer ───────────────────────────────────────────────────────────
@@ -189,7 +156,7 @@ function OpponentBoard({ profile, state, fallbackName }: OpponentBoardProps) {
   return (
     <div className="falling-blocks-opponent">
       <div className="falling-blocks-opponent-header">
-        {profile && <Avatar profile={profile} size={20} />}
+        {profile && <GameAvatar profile={profile} size={20} />}
         <span className="falling-blocks-opponent-name">
           {profile?.display_name ?? fallbackName}
         </span>
@@ -202,101 +169,6 @@ function OpponentBoard({ profile, state, fallbackName }: OpponentBoardProps) {
         topOut={state?.top_out ?? false}
         size="opponent"
       />
-    </div>
-  )
-}
-
-// ─── Invite modal ─────────────────────────────────────────────────────────────
-
-interface InviteModalProps {
-  friends: Profile[]
-  invitedIds: Set<string>
-  maxInvitees: number
-  onInvite: (friendId: string) => void
-  onClose: () => void
-}
-
-function InviteModal({ friends, invitedIds, maxInvitees, onInvite, onClose }: InviteModalProps) {
-  const { t } = useT()
-  const [query, setQuery] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const list = q
-      ? friends.filter(f => f.display_name.toLowerCase().includes(q))
-      : friends
-    return [...list].sort((a, b) => {
-      const aOn = a.isOnline ? 0 : 1
-      const bOn = b.isOnline ? 0 : 1
-      if (aOn !== bOn) return aOn - bOn
-      return a.display_name.localeCompare(b.display_name)
-    })
-  }, [friends, query])
-
-  const limitReached = invitedIds.size >= maxInvitees
-
-  return (
-    <div
-      className="falling-blocks-invite-modal-overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="falling-blocks-invite-modal" role="dialog" aria-label={t('game.inviteFriends')}>
-        <div className="falling-blocks-invite-modal-header">
-          <span className="falling-blocks-invite-modal-title">
-            {t('game.inviteFriends')} ({invitedIds.size}/{maxInvitees})
-          </span>
-          <button
-            className="falling-blocks-invite-modal-close"
-            onClick={onClose}
-            aria-label="Close invite dialog"
-          >
-            ×
-          </button>
-        </div>
-        {friends.length > 0 && (
-          <div className="falling-blocks-invite-search-wrap">
-            <input
-              className="falling-blocks-invite-search-input"
-              type="text"
-              placeholder={t('game.searchFriends')}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              autoFocus
-            />
-          </div>
-        )}
-        {friends.length === 0 ? (
-          <p className="falling-blocks-invite-empty">{t('game.noFriendsToInvite')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="falling-blocks-invite-empty">{t('game.noMatch', { q: query })}</p>
-        ) : (
-          <div className="falling-blocks-invite-list">
-            {filtered.map(friend => {
-              const isInvited = invitedIds.has(friend.id)
-              // Allow clicking an invited row — that's the cancel path.
-              // Block fresh invites only once the seat-count cap is hit.
-              const disabled = !isInvited && limitReached
-              return (
-                <div key={friend.id} className="falling-blocks-invite-row">
-                  <div className="falling-blocks-invite-av-wrap">
-                    <Avatar profile={friend} size={36} />
-                    {friend.isOnline && <span className="falling-blocks-invite-online-dot" />}
-                  </div>
-                  <span className="falling-blocks-invite-name">{friend.display_name}</span>
-                  <button
-                    className={`falling-blocks-invite-do-btn${isInvited ? ' invited' : ''}`}
-                    onClick={() => onInvite(friend.id)}
-                    disabled={disabled}
-                    title={isInvited ? t('game.invited') : t('game.invite')}
-                  >
-                    {isInvited ? t('game.invited') : t('game.invite')}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -740,41 +612,87 @@ export default function FallingBlocksView({
 
   const maxInvitees = playerCount - 1
 
-  // ── Render ───────────────────────────────────────────────────────────────
-  return (
-    <div className="falling-blocks-view" style={{ userSelect: 'none' }}>
-      {/* Header */}
-      <div className="falling-blocks-header">
-        <button
-          className="falling-blocks-back-btn chess-back-btn"
-          onClick={handleBack}
-          aria-label="Go back"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path
-              d="M12.5 15L7.5 10L12.5 5"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <span className="falling-blocks-title">{t('game.fallingBlocks')}</span>
-        {isPlaying && !myTopOutServer && (
-          <div className="falling-blocks-controls">
+  // ── Overlay (lobby → ready → finished); null while playing ─────────────────
+  let overlay: React.ReactNode = null
+  if (isFinished && room) {
+    overlay = (
+      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+        <GameReadyControl
+          ready={myReady}
+          count={`${room.ready_ids.length} / ${room.player_count} ready`}
+          onToggle={toggleReady}
+        />
+      </GameOverlayCard>
+    )
+  } else if (isLobby && hasAllPlayers && !allReady) {
+    overlay = (
+      <GameOverlayCard emoji="🧱" title={t('game.readyToPlay')}>
+        <GameReadyControl
+          ready={myReady}
+          count={`${room!.ready_ids.length} / ${room!.player_count} ready`}
+          onToggle={toggleReady}
+          disabled={loading}
+        />
+      </GameOverlayCard>
+    )
+  } else if (!isPlaying && !isFinished && (!room || !hasAllPlayers)) {
+    overlay = (
+      <GameOverlayCard emoji="🧱" title={t('game.fallingBlocks')}>
+        <div className="falling-blocks-player-count-picker">
+          {[2, 3, 4].map(n => (
             <button
-              className="falling-blocks-btn falling-blocks-btn-forfeit"
-              onClick={handleForfeit}
+              key={n}
+              className={`falling-blocks-player-count-btn${
+                (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
+              }`}
+              onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
+              disabled={!!room && (!isHost || (room.player_ids.length > n))}
             >
-              Forfeit
+              {n}P
             </button>
+          ))}
+        </div>
+        {!room ? (
+          <button
+            className="game-invite-btn"
+            onClick={handleCreateRoom}
+            disabled={loading}
+          >
+            Create Room
+          </button>
+        ) : (
+          isHost && (
+            <button
+              className="game-invite-btn"
+              onClick={() => setShowInviteModal(true)}
+            >
+              🕹 Invite Friends
+            </button>
+          )
+        )}
+        {room && (
+          <div className="game-finish-readystate">
+            {room.player_ids.length} / {room.player_count} joined
           </div>
         )}
-      </div>
+      </GameOverlayCard>
+    )
+  }
 
-      <div className="falling-blocks-game-layout">
-        {/* Opponents row */}
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <GameShell
+      title={t('game.fallingBlocks')}
+      onBack={handleBack}
+      controls={isPlaying && !myTopOutServer ? (
+        <button
+          className="game-btn game-btn-danger"
+          onClick={handleForfeit}
+        >
+          Forfeit
+        </button>
+      ) : undefined}
+      aboveBoard={
         <div className="falling-blocks-opponents-row">
           {opponentIds.length === 0 ? (
             <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
@@ -799,8 +717,8 @@ export default function FallingBlocksView({
             ))
           )}
         </div>
-
-        {/* Self row */}
+      }
+      board={
         <div className="falling-blocks-self-row">
           <div className="falling-blocks-self-board-wrap">
             <FallingBlocksBoard
@@ -849,117 +767,23 @@ export default function FallingBlocksView({
             )}
           </div>
         </div>
-
-        {/* Centred modal overlays — anchored to the whole game-layout area
-            (which has position: relative), so they always appear in the
-            middle of the visible plugin viewport regardless of the board's
-            position. */}
-
-        {/* Lobby overlay: no room or not all players present */}
-        {!isPlaying && !isFinished && (!room || !hasAllPlayers) && (
-          <div className="falling-blocks-finish-overlay chess-finish-overlay">
-            <div className="falling-blocks-finish-card chess-finish-card">
-              <div className="falling-blocks-finish-emoji">🧱</div>
-              <div className="falling-blocks-finish-title">{t('game.fallingBlocks')}</div>
-              <div className="falling-blocks-player-count-picker">
-                {[2, 3, 4].map(n => (
-                  <button
-                    key={n}
-                    className={`falling-blocks-player-count-btn${
-                      (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
-                    }`}
-                    onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
-                    disabled={!!room && (!isHost || (room.player_ids.length > n))}
-                  >
-                    {n}P
-                  </button>
-                ))}
-              </div>
-              {!room ? (
-                <button
-                  className="falling-blocks-btn"
-                  onClick={handleCreateRoom}
-                  disabled={loading}
-                >
-                  Create Room
-                </button>
-              ) : (
-                isHost && (
-                  <button
-                    className="falling-blocks-btn"
-                    onClick={() => setShowInviteModal(true)}
-                  >
-                    🕹 Invite Friends
-                  </button>
-                )
-              )}
-              {room && (
-                <div className="falling-blocks-finish-readystate">
-                  {room.player_ids.length} / {room.player_count} joined
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Lobby ready overlay (all players present) */}
-        {isLobby && hasAllPlayers && !allReady && (
-          <div className="falling-blocks-finish-overlay chess-finish-overlay">
-            <div className="falling-blocks-finish-card chess-finish-card">
-              <div className="falling-blocks-finish-emoji">🧱</div>
-              <div className="falling-blocks-finish-title">{t('game.readyToPlay')}</div>
-              <button
-                className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                onClick={toggleReady}
-                disabled={loading}
-              >
-                {myReady ? '✓ Ready' : 'Ready'}
-              </button>
-              <div className="falling-blocks-finish-readystate">
-                {room!.ready_ids.length} / {room!.player_count} ready
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Finish overlay */}
-        {isFinished && room && (
-          <div className="falling-blocks-finish-overlay chess-finish-overlay">
-            <div className="falling-blocks-finish-card chess-finish-card">
-              <div className="falling-blocks-finish-emoji">{resultEmoji}</div>
-              <div className="falling-blocks-finish-title">{resultTitle}</div>
-              <button
-                className={`falling-blocks-ready-btn chess-ready-btn${myReady ? ' ready' : ''}`}
-                onClick={toggleReady}
-              >
-                {myReady ? '✓ Ready' : 'Rematch'}
-              </button>
-              <div className="falling-blocks-finish-readystate">
-                {room.ready_ids.length} / {room.player_count} ready
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Invite modal */}
-      {showInviteModal && (
-        <InviteModal
-          friends={friendProfiles}
-          invitedIds={invitedIds}
-          maxInvitees={maxInvitees}
-          onInvite={id => { handleCreateAndInvite(id) }}
-          onClose={() => setShowInviteModal(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        open={showForfeitConfirm}
-        message={t('confirm.forfeitFb')}
-        confirmLabel={t('poker.forfeit')}
-        onConfirm={confirmForfeit}
-        onCancel={() => setShowForfeitConfirm(false)}
-      />
-    </div>
+      }
+      overlay={overlay}
+      invite={{
+        open: showInviteModal,
+        onClose: () => setShowInviteModal(false),
+        friends: friendProfiles,
+        invitedIds,
+        onInvite: id => { handleCreateAndInvite(id) },
+        canInvite: id => invitedIds.has(id) || invitedIds.size < maxInvitees,
+      }}
+      confirm={{
+        open: showForfeitConfirm,
+        message: t('confirm.forfeitFb'),
+        confirmLabel: t('poker.forfeit'),
+        onConfirm: confirmForfeit,
+        onCancel: () => setShowForfeitConfirm(false),
+      }}
+    />
   )
 }

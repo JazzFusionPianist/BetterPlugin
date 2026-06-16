@@ -9,7 +9,10 @@
 /* Lock the document to the webview height — no scroll, no iOS rubber-band
    bounce. The landing (and app) are single-screen; any scrolling lives in
    inner panels, not the page itself. */
-html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html, body {
+  height: 100%; overflow: hidden; overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+}
 body {
   background: var(--bg);
   color: var(--t1);
@@ -175,16 +178,18 @@ button { font-family: inherit; }
 /* Floating-label fields — the label rides up into a caption on focus/fill. */
 .fld { position: relative; margin-bottom: 10px; }
 .fld input {
-  width: 100%; padding: 21px 14px 8px;
+  width: 100%; padding: 20px 14px 8px;
   background: rgba(255,255,255,0.035);
   border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
-  color: var(--t1); font-family: inherit; font-size: 15px; letter-spacing: -0.005em;
+  /* 16px is the threshold below which iOS WKWebView auto-zooms the whole
+     page when the field is focused — keep it >= 16 to avoid that jump. */
+  color: var(--t1); font-family: inherit; font-size: 16px; letter-spacing: -0.005em;
   outline: none;
   transition: border-color .16s, background .16s, box-shadow .16s;
 }
 .fld label {
-  position: absolute; left: 15px; top: 14px;
-  font-size: 15px; color: var(--t3); pointer-events: none;
+  position: absolute; left: 15px; top: 15px;
+  font-size: 16px; color: var(--t3); pointer-events: none;
   transform-origin: left top;
   transition: transform .16s ease, color .16s;
 }

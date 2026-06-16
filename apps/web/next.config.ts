@@ -1,10 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Static export — produces `out/` that Capacitor bundles into the native
+  // app, and serves as a fast static SPA on the web too. The app is fully
+  // client-rendered (client-side Supabase auth), so there's nothing
+  // server-only to lose.
+  output: 'export',
+  images: { unoptimized: true },
   // Transpile the shared workspace package (raw .ts, no build step).
   transpilePackages: ['@orb/core'],
-  // Lint/types are enforced via the workspace typecheck script; don't fail
-  // the Vercel build on warnings here.
   eslint: { ignoreDuringBuilds: true },
 }
 

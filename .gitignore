@@ -27,3 +27,10 @@ Plugin/*.bak
 
 # Vercel
 .vercel
+
+# Capacitor / iOS native build artifacts
+apps/web/ios/App/Pods
+apps/web/ios/App/App/public
+apps/web/ios/App/build
+apps/web/ios/**/xcuserdata
+DerivedData

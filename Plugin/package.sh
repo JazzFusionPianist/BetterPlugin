@@ -78,6 +78,14 @@ build_component() {
   return 0
 }
 
+# Auto-sign AAX with PACE/iLok before packaging when credentials are present.
+# Without this the bundled .aaxplugin only loads in Pro Tools Developer builds.
+# See sign-aax.sh for the one-time account prerequisites.
+if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/CoOp.aaxplugin" ]; then
+  echo "  • signing AAX (PACE_ACCOUNT set) …"
+  "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — packaging the unsigned bundle"
+fi
+
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
 build_component vst3       "$ARTEFACTS/VST3/CoOp.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
 build_component au         "$ARTEFACTS/AU/CoOp.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true

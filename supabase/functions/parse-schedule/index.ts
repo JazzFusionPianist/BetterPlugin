@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  // trim() guards against a trailing newline/space slipping into the secret.
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim()
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
 
   let body: { text?: string; timezone?: string; now?: string }

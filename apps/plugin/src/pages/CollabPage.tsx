@@ -16,6 +16,7 @@ import ChatSettingsPanel from '../components/collab/ChatSettingsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
+import CalendarPanel from '../components/collab/CalendarPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
@@ -76,6 +77,7 @@ function CollabPageInner({ user }: Props) {
   const [selectedGroupConvId, setSelectedGroupConvId]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
+  const [calendarOpen, setCalendarOpen]         = useState(false)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
@@ -534,6 +536,7 @@ function CollabPageInner({ user }: Props) {
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
     gameOpen          ? 'game-open'          : '',
+    calendarOpen      ? 'calendar-open'      : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -604,6 +607,24 @@ function CollabPageInner({ user }: Props) {
             <path d="M5.5 8.5h2M6.5 7.5v2" />
             <circle cx="10.5" cy="8" r=".6" fill="currentColor" stroke="none" />
             <circle cx="12" cy="9.5" r=".6" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+
+        {/* Calendar */}
+        <div
+          className={`icon-btn${calendarOpen ? ' active' : ''}`}
+          onClick={() => setCalendarOpen(prev => {
+            if (!prev) {
+              setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false)
+              setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch()
+            }
+            return !prev
+          })}
+          title="Calendar"
+        >
+          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.3" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="12" height="11" rx="2" />
+            <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
           </svg>
         </div>
 
@@ -730,6 +751,9 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view dview">
           <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
+        </div>
+        <div className="view calview-pane">
+          <CalendarPanel supabase={client} user={user} groups={groupConversations} onClose={() => setCalendarOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

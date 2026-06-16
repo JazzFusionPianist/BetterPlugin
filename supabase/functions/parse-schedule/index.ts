@@ -21,7 +21,7 @@
  *     }> }
  */
 
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-3-5-haiku-latest'
+const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-haiku-4-5-20251001'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -63,11 +63,12 @@ const SAVE_EVENTS_TOOL = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
   // trim() guards against a trailing newline/space slipping into the secret.
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')?.trim()
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+
+  if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
   let body: { text?: string; timezone?: string; now?: string }
   try { body = await req.json() } catch { return json({ error: 'invalid JSON' }, 400) }

@@ -11,8 +11,8 @@ interface Props {
 
 function fmtWhen(e: CalendarEvent): string {
   const d = new Date(e.starts_at)
-  const day = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-  if (e.all_day) return day
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  if (e.all_day) return `${day} · all day`
   const t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   return `${day} · ${t}`
 }
@@ -73,19 +73,28 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar }: Props) {
   return (
     <div className="sprompt" style={{ '--kb': `${kbInset}px` } as React.CSSProperties}>
       {added && added.length > 0 && (
-        <div className="sprompt-result">
-          <div className="sprompt-result-head">
-            <span>✓ Added {added.length} {added.length === 1 ? 'event' : 'events'}</span>
-            <button onClick={onOpenCalendar}>View calendar</button>
+        <div className="sconfirm">
+          <div className="sconfirm-head">
+            <span className="sconfirm-kicker">
+              Noted{added.length > 1 ? <em> · {added.length}</em> : ''}
+            </span>
+            <button className="sconfirm-dismiss" onClick={() => setAdded(null)} aria-label="Dismiss">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
+            </button>
           </div>
-          <div className="sprompt-chips">
-            {added.slice(0, 4).map((e) => (
-              <span key={e.id} className="sprompt-chip">
-                <b>{e.title}</b> {fmtWhen(e)}
-              </span>
+          <ul className="sconfirm-list">
+            {added.slice(0, 5).map((e) => (
+              <li key={e.id} className="sconfirm-item">
+                <span className="sconfirm-rail" />
+                <div className="sconfirm-text">
+                  <div className="sconfirm-t">{e.title}</div>
+                  <div className="sconfirm-w">{fmtWhen(e)}{e.location ? ` · ${e.location}` : ''}</div>
+                </div>
+              </li>
             ))}
-            {added.length > 4 && <span className="sprompt-chip more">+{added.length - 4}</span>}
-          </div>
+            {added.length > 5 && <li className="sconfirm-more">+{added.length - 5} more</li>}
+          </ul>
+          <button className="sconfirm-open" onClick={onOpenCalendar}>View in calendar →</button>
         </div>
       )}
 

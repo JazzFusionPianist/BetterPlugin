@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import {
@@ -23,8 +23,6 @@ export default function AppShell({ user }: { user: User }) {
   const { conversations } = useConversations(supabase, user.id)
   const { unread } = useConversationNotifications(supabase, user.id)
 
-  const [railOpen, setRailOpen] = useState(false)
-
   const profilesWithStatus = useMemo(
     () => profiles.map((p: Profile) => ({ ...p, isOnline: online.has(p.id) })),
     [profiles, online],
@@ -45,22 +43,19 @@ export default function AppShell({ user }: { user: User }) {
   }, [conversations, unread])
 
   return (
-    <div className={`webapp${railOpen ? ' rail-open' : ''}`}>
+    <div className="webapp">
+      {/* Desktop shows the conversations rail as a persistent column. On
+          mobile it's hidden — proper mobile conversation nav lands with
+          the chat view (orbs/rows aren't wired to open chats yet). */}
       <Sidebar
         conversations={conversations}
         profiles={profilesWithStatus}
         currentUserId={user.id}
         unreadByFriend={unreadByFriend}
-        onClose={() => setRailOpen(false)}
+        onClose={() => {}}
       />
-      <div className="webapp-scrim" onClick={() => setRailOpen(false)} />
 
       <main className="webapp-main">
-        <button className="webapp-rail-toggle" onClick={() => setRailOpen(true)} aria-label="Conversations">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
         <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} />
       </main>
     </div>

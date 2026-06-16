@@ -337,7 +337,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
     <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 15, letterSpacing: 1 }}>CoOp</span>
+        <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 15, letterSpacing: 1 }}>Orb</span>
         <span style={{ color: '#999', fontSize: 13 }}>/</span>
         <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>Admin</span>
         <div style={{ flex: 1 }} />

@@ -12,7 +12,7 @@
 
 // macOS unified logging redacts NSLog's %@ args as <private> by default.
 // Use os_log with %{public}@ so pasteboard types are visible to Console.app.
-#define COOP_LOG(fmt, ...) os_log(OS_LOG_DEFAULT, "[DragMonitor] " fmt, ##__VA_ARGS__)
+#define ORB_LOG(fmt, ...) os_log(OS_LOG_DEFAULT, "[DragMonitor] " fmt, ##__VA_ARGS__)
 
 static constexpr float kMinDragPx = 4.0f;
 
@@ -410,7 +410,7 @@ static BOOL isLogicRegionDrag (NSPasteboard* pb)
 
 // ── C-level IMP replacements ──────────────────────────────────────────────────
 
-static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
+static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 {
     JuceDropCallbackBox* cb =
         objc_getAssociatedObject (selfView, &kDropCallbackKey);
@@ -418,12 +418,12 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
     if (cb)
     {
         NSPasteboard* pb = info.draggingPasteboard;
-        COOP_LOG ("performDragOperation: types=%{public}@", pb.types);
+        ORB_LOG ("performDragOperation: types=%{public}@", pb.types);
 
         // ── Our own NSDraggingSession came back to the chat ────────────────
         // Reject the drop so JS 'drop' never fires and the file is NOT
         // re-attached to the chat.  Firing __juceDragComplete dismisses
-        // any cancel overlay that coopDraggingEntered put up.
+        // any cancel overlay that orbDraggingEntered put up.
         if (gDragHelper && gDragHelper.isDragging)
         {
             NSLog (@"[DragMonitor] own drag returning — rejecting drop");
@@ -498,7 +498,7 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             // Fallback 2: Cubase vst-xml metadata — extract <filename> paths
             NSArray<NSURL*>* xmlUrls = extractCubaseXmlFileURLs (pb);
             if (xmlUrls.count > 0) {
-                COOP_LOG ("extracted %lu file URL(s) from Cubase vst-xml",
+                ORB_LOG ("extracted %lu file URL(s) from Cubase vst-xml",
                           (unsigned long)xmlUrls.count);
                 urls = xmlUrls;
             }
@@ -549,11 +549,11 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
         }
 
         // No recognised pasteboard type — log everything for diagnosis
-        COOP_LOG ("drop rejected, unrecognised types: %{public}@", pb.types);
+        ORB_LOG ("drop rejected, unrecognised types: %{public}@", pb.types);
         for (NSPasteboardType t in pb.types) {
             NSData* d = [pb dataForType:t];
             NSString* asUtf8 = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
-            COOP_LOG ("  type=%{public}@ size=%lu utf8=%{public}@",
+            ORB_LOG ("  type=%{public}@ size=%lu utf8=%{public}@",
                       t, (unsigned long)d.length, asUtf8 ?: @"<not utf8>");
         }
     }
@@ -572,14 +572,14 @@ static BOOL coopPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 // We use gDragHelper.wkView directly rather than an associated-object lookup
 // because selfView (WKContentView) and the object we stored the ref on may
 // differ across WKWebView rebuilds.
-static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
+static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
     WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
     BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
 
-    COOP_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
+    ORB_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
               info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
     if ((ownDrag || logicDrag) && wkv)
@@ -604,7 +604,7 @@ static NSDragOperation coopDraggingEntered (id selfView, SEL _cmd,
 // when the mouse truly leaves the WKWebView bounds.  We no longer rely on
 // this delegate for overlay management because it fires spuriously on every
 // internal sub-view boundary crossing.
-static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
+static void orbDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 {
     if (gOrigDraggingExited)
         ((void(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingExited)
@@ -618,7 +618,7 @@ static void coopDraggingExited (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 // draggingUpdated: fires continuously (every mouse move) while the drag IS over
 // the view.  Throttled to 10 Hz, it acts as a heartbeat:  React shows the
 // overlay while updates arrive and hides it when they stop (200 ms timeout).
-static NSDragOperation coopDraggingUpdated (id selfView, SEL _cmd,
+static NSDragOperation orbDraggingUpdated (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
     // Ensure the timer is running (it may have been stopped if draggingEntered:
@@ -687,13 +687,13 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
         NSLog (@"[DragMonitor] *** v2 (multi-DAW) swizzle installing on class %@ ***",
                NSStringFromClass(cls));
         installSwizzle (cls, @selector(performDragOperation:),
-                        (IMP) coopPerformDragOp,    &gOrigPerformDragOp);
+                        (IMP) orbPerformDragOp,    &gOrigPerformDragOp);
         installSwizzle (cls, @selector(draggingEntered:),
-                        (IMP) coopDraggingEntered,  &gOrigDraggingEntered);
+                        (IMP) orbDraggingEntered,  &gOrigDraggingEntered);
         installSwizzle (cls, @selector(draggingExited:),
-                        (IMP) coopDraggingExited,   &gOrigDraggingExited);
+                        (IMP) orbDraggingExited,   &gOrigDraggingExited);
         installSwizzle (cls, @selector(draggingUpdated:),
-                        (IMP) coopDraggingUpdated,  &gOrigDraggingUpdated);
+                        (IMP) orbDraggingUpdated,  &gOrigDraggingUpdated);
         gSwizzleInstalled = YES;
         NSLog (@"[DragMonitor] swizzle install complete");
     }

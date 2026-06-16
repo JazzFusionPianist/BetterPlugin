@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# CoOp — AAX PACE/iLok signing
+# Orb — AAX PACE/iLok signing
 #
 # An AAX plugin only loads in *release* Pro Tools if it is signed with PACE's
 # `wraptool`. The unsigned bundle that `build.sh` produces only loads in a
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AAX="$SCRIPT_DIR/build/CoOpPlugin_artefacts/Release/AAX/CoOp.aaxplugin"
+AAX="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release/AAX/Orb.aaxplugin"
 
 PACE_ACCOUNT="${PACE_ACCOUNT:-}"
 PACE_WCGUID="${PACE_WCGUID:-}"
@@ -87,7 +87,7 @@ echo "  It will now load in release Pro Tools. Re-run ./package.sh to bundle it.
 #         signing certificate onto your iLok (USB) or iLok Cloud.
 #
 #  3. Register the product → get a wcguid
-#       In your PACE developer account create a product entry for CoOp and
+#       In your PACE developer account create a product entry for Orb and
 #       copy its GUID. That is PACE_WCGUID above.
 #
 #  4. Apple "Developer ID Application" certificate (paid Apple Developer

@@ -10,7 +10,7 @@ import { useEffect, useRef } from 'react'
  * audio output (not the DAW's bus), so it reaches the user regardless
  * of whether the plugin window is visible.
  *
- * Honors the `gameTurn` flag in localStorage (`coop_notif_settings`)
+ * Honors the `gameTurn` flag in localStorage (`orb_notif_settings`)
  * so the user can mute this without code changes.
  */
 
@@ -21,7 +21,7 @@ type GameKind = 'chess' | 'poker'
  *  and we don't want to wire a context just for this. */
 function isTurnSoundEnabled (): boolean {
   try {
-    const raw = localStorage.getItem('coop_notif_settings')
+    const raw = localStorage.getItem('orb_notif_settings') ?? localStorage.getItem('coop_notif_settings')
     if (!raw) return true                 // default ON
     const obj = JSON.parse(raw) as { gameTurn?: boolean }
     return obj.gameTurn !== false         // missing key → ON (back-compat)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# CoOp — notarize + staple the installer .pkg
+# Orb — notarize + staple the installer .pkg
 #
 # Apple's notary service scans the signed installer and, on success, lets you
 # "staple" a ticket so it installs without a Gatekeeper warning on any Mac,
@@ -9,18 +9,18 @@
 # / wraptool for AAX).
 #
 # One-time: store credentials in the keychain so this isn't prompting:
-#   xcrun notarytool store-credentials coop-notary \
+#   xcrun notarytool store-credentials orb-notary \
 #     --apple-id you@apple.com --team-id TEAMID --password <app-specific-pw>
 #   (app-specific password: https://account.apple.com ▸ Sign-In and Security)
 #
 # Usage:
-#   ./notarize.sh installer/CoOp-1.0.0.pkg            # uses profile coop-notary
+#   ./notarize.sh installer/Orb-1.0.0.pkg            # uses profile orb-notary
 #   NOTARY_PROFILE=myprofile ./notarize.sh <pkg>
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 PKG="${1:-}"
-PROFILE="${NOTARY_PROFILE:-coop-notary}"
+PROFILE="${NOTARY_PROFILE:-orb-notary}"
 
 fail() { echo "✗ $1" >&2; exit 1; }
 [ -n "$PKG" ] && [ -f "$PKG" ] || fail "Usage: ./notarize.sh <path-to.pkg>"

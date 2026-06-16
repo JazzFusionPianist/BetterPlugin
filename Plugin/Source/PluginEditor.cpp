@@ -1,7 +1,7 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
+OrbAudioProcessorEditor::OrbAudioProcessorEditor (OrbAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processorRef (p)
 {
@@ -14,7 +14,7 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
 
     // Register a callback the processor can invoke from the JS-callable
     // setPluginSize native function.
-    juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+    juce::Component::SafePointer<OrbAudioProcessorEditor> safe (this);
     processorRef.setEditorResizeFn ([safe] (int w, int h)
     {
         if (auto* c = safe.getComponent())
@@ -32,7 +32,7 @@ CoOpAudioProcessorEditor::CoOpAudioProcessorEditor (CoOpAudioProcessor& p)
     }
 }
 
-CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
+OrbAudioProcessorEditor::~OrbAudioProcessorEditor()
 {
     dragMonitor.disarm();
     // Clear the resize callback so a future setPluginSize call doesn't
@@ -45,40 +45,40 @@ CoOpAudioProcessorEditor::~CoOpAudioProcessorEditor()
 }
 
 //==============================================================================
-void CoOpAudioProcessorEditor::paint (juce::Graphics& g)
+void OrbAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff1a1a1a));
 }
 
-void CoOpAudioProcessorEditor::resized()
+void OrbAudioProcessorEditor::resized()
 {
     if (auto* b = processorRef.getBrowser())
         b->setBounds (getLocalBounds());
 }
 
 //==============================================================================
-void CoOpAudioProcessorEditor::armDragMonitor (const std::string& path)
+void OrbAudioProcessorEditor::armDragMonitor (const std::string& path)
 {
     dragMonitor.arm (path);
 }
 
-void CoOpAudioProcessorEditor::armDragMonitorMultiple (const std::vector<std::string>& paths)
+void OrbAudioProcessorEditor::armDragMonitorMultiple (const std::vector<std::string>& paths)
 {
     dragMonitor.armMultiple (paths);
 }
 
 //==============================================================================
-void CoOpAudioProcessorEditor::parentHierarchyChanged()
+void OrbAudioProcessorEditor::parentHierarchyChanged()
 {
     dropSetupRetryCount = 0;
     trySetupDropHandling();
 }
 
-void CoOpAudioProcessorEditor::trySetupDropHandling()
+void OrbAudioProcessorEditor::trySetupDropHandling()
 {
     if (auto* peer = getPeer())
     {
-        juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+        juce::Component::SafePointer<OrbAudioProcessorEditor> safe (this);
 
         dragMonitor.setupDropHandling (
             peer->getNativeHandle(),
@@ -104,7 +104,7 @@ void CoOpAudioProcessorEditor::trySetupDropHandling()
         ++dropSetupRetryCount;
         const int delayMs = 300 * dropSetupRetryCount;
 
-        juce::Component::SafePointer<CoOpAudioProcessorEditor> safe (this);
+        juce::Component::SafePointer<OrbAudioProcessorEditor> safe (this);
         juce::Timer::callAfterDelay (delayMs, [safe]
         {
             if (auto* c = safe.getComponent())

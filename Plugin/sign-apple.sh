@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# CoOp — Apple Developer ID codesigning (AU / VST3 / Standalone)
+# Orb — Apple Developer ID codesigning (AU / VST3 / Standalone)
 #
 # Signs the built bundles with a "Developer ID Application" certificate +
 # hardened runtime + the network entitlement, so they pass Gatekeeper and can
@@ -18,8 +18,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REL="$SCRIPT_DIR/build/CoOpPlugin_artefacts/Release"
-ENTITLEMENTS="$SCRIPT_DIR/Resources/CoOp.entitlements"
+REL="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release"
+ENTITLEMENTS="$SCRIPT_DIR/Resources/Orb.entitlements"
 APPLE_SIGN_ID="${APPLE_SIGN_ID:-}"
 
 fail() { echo "✗ $1" >&2; exit 1; }
@@ -45,8 +45,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Apple Developer ID signing"
 echo "    identity: $APPLE_SIGN_ID"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-sign_bundle "$REL/VST3/CoOp.vst3"
-sign_bundle "$REL/AU/CoOp.component"
-sign_bundle "$REL/Standalone/CoOp.app"
+sign_bundle "$REL/VST3/Orb.vst3"
+sign_bundle "$REL/AU/Orb.component"
+sign_bundle "$REL/Standalone/Orb.app"
 echo ""
 echo "✓ Apple bundles signed. Next: ./package.sh then ./notarize.sh"

@@ -51,7 +51,7 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
 }
 
 //==============================================================================
-CoOpAudioProcessor::CoOpAudioProcessor()
+OrbAudioProcessor::OrbAudioProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
@@ -146,7 +146,7 @@ CoOpAudioProcessor::CoOpAudioProcessor()
     // Append ?plugin=1 so the web app can tailor UX for in-plugin context
     // (e.g. hide camera sources that hang WKWebView inside an Audio Unit).
     {
-        juce::String url (COOP_APP_URL);
+        juce::String url (ORB_APP_URL);
         url += (url.contains ("?") ? "&" : "?");
         url += "plugin=1";
         browser->goToURL (url);
@@ -156,25 +156,25 @@ CoOpAudioProcessor::CoOpAudioProcessor()
     startTimer (20);
 }
 
-CoOpAudioProcessor::~CoOpAudioProcessor()
+OrbAudioProcessor::~OrbAudioProcessor()
 {
     stopTimer();
 }
 
 //==============================================================================
-void CoOpAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void OrbAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
     captureSampleRate.store ((int) sampleRate);
     captureFifo.reset();
     captureBuffer.clear();
 }
 
-void CoOpAudioProcessor::releaseResources()
+void OrbAudioProcessor::releaseResources()
 {
     captureFifo.reset();
 }
 
-bool CoOpAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool OrbAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
@@ -183,7 +183,7 @@ bool CoOpAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
         || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::mono();
 }
 
-void CoOpAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                        juce::MidiBuffer& /*midi*/)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -235,7 +235,7 @@ void CoOpAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 }
 
-int CoOpAudioProcessor::readCapturedAudio (float* dest, int maxFrames)
+int OrbAudioProcessor::readCapturedAudio (float* dest, int maxFrames)
 {
     const int numCh = captureNumChannels.load();
     if (numCh <= 0 || dest == nullptr) return 0;
@@ -263,7 +263,7 @@ int CoOpAudioProcessor::readCapturedAudio (float* dest, int maxFrames)
 }
 
 //==============================================================================
-void CoOpAudioProcessor::timerCallback()
+void OrbAudioProcessor::timerCallback()
 {
     const int sr = getCaptureSampleRate();
     const int ch = getCaptureNumChannels();
@@ -303,11 +303,11 @@ void CoOpAudioProcessor::timerCallback()
 }
 
 //==============================================================================
-juce::File CoOpAudioProcessor::downloadToTemp (const juce::String& url,
+juce::File OrbAudioProcessor::downloadToTemp (const juce::String& url,
                                                 const juce::String& name)
 {
     juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                         .getChildFile ("CoOp_" + name);
+                         .getChildFile ("Orb_" + name);
 
     auto stream = juce::URL (url).createInputStream (
         juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
@@ -357,7 +357,7 @@ juce::File CoOpAudioProcessor::downloadToTemp (const juce::String& url,
 }
 
 //==============================================================================
-void CoOpAudioProcessor::handlePrefetch (const juce::var& args,
+void OrbAudioProcessor::handlePrefetch (const juce::var& args,
                                           juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 2) { completion (juce::var ("error")); return; }
@@ -414,7 +414,7 @@ void CoOpAudioProcessor::handlePrefetch (const juce::var& args,
 }
 
 //==============================================================================
-void CoOpAudioProcessor::handleStartDrag (const juce::var& args,
+void OrbAudioProcessor::handleStartDrag (const juce::var& args,
                                            juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 2) { completion (juce::var ("error")); return; }
@@ -475,7 +475,7 @@ void CoOpAudioProcessor::handleStartDrag (const juce::var& args,
 }
 
 //==============================================================================
-void CoOpAudioProcessor::handleWriteAudioFile (const juce::var& args,
+void OrbAudioProcessor::handleWriteAudioFile (const juce::var& args,
                                                 juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 2)
@@ -498,7 +498,7 @@ void CoOpAudioProcessor::handleWriteAudioFile (const juce::var& args,
         }
 
         juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                             .getChildFile ("CoOp_" + name);
+                             .getChildFile ("Orb_" + name);
 
         if (! tmp.replaceWithData (data.getData(), data.getSize()))
         {
@@ -515,7 +515,7 @@ void CoOpAudioProcessor::handleWriteAudioFile (const juce::var& args,
             dragArmed       = true;
 
             // Arm drag monitor via the editor (if currently visible)
-            if (auto* ed = dynamic_cast<CoOpAudioProcessorEditor*> (getActiveEditor()))
+            if (auto* ed = dynamic_cast<OrbAudioProcessorEditor*> (getActiveEditor()))
                 ed->armDragMonitor (tmp.getFullPathName().toStdString());
 
             (*compPtr) (juce::var ("armed"));
@@ -528,7 +528,7 @@ void CoOpAudioProcessor::handleWriteAudioFile (const juce::var& args,
 }
 
 //==============================================================================
-void CoOpAudioProcessor::handleWriteAudioFiles (const juce::var& args,
+void OrbAudioProcessor::handleWriteAudioFiles (const juce::var& args,
                                                  juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 2 || (args.size() % 2) != 0)
@@ -558,7 +558,7 @@ void CoOpAudioProcessor::handleWriteAudioFiles (const juce::var& args,
             }
 
             juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                 .getChildFile ("CoOp_" + e.name);
+                                 .getChildFile ("Orb_" + e.name);
             if (! tmp.replaceWithData (data.getData(), data.getSize()))
             {
                 juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error:write")); });
@@ -575,7 +575,7 @@ void CoOpAudioProcessor::handleWriteAudioFiles (const juce::var& args,
             for (const auto& f : files)
                 paths.push_back (f.getFullPathName().toStdString());
 
-            if (auto* ed = dynamic_cast<CoOpAudioProcessorEditor*> (getActiveEditor()))
+            if (auto* ed = dynamic_cast<OrbAudioProcessorEditor*> (getActiveEditor()))
                 ed->armDragMonitorMultiple (paths);
 
             (*compPtr) (juce::var ("armed"));
@@ -590,7 +590,7 @@ void CoOpAudioProcessor::handleWriteAudioFiles (const juce::var& args,
 //==============================================================================
 // Video capture — ScreenCaptureKit bridge
 //==============================================================================
-void CoOpAudioProcessor::handleStartVideoCapture (const juce::var& args,
+void OrbAudioProcessor::handleStartVideoCapture (const juce::var& args,
                                                    juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! videoCapture)
@@ -610,14 +610,14 @@ void CoOpAudioProcessor::handleStartVideoCapture (const juce::var& args,
     else                       (*compPtr) (juce::var ("error:unknown-kind"));
 }
 
-void CoOpAudioProcessor::handleStopVideoCapture (const juce::var& /*args*/,
+void OrbAudioProcessor::handleStopVideoCapture (const juce::var& /*args*/,
                                                    juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (videoCapture) videoCapture->stop();
     completion (juce::var ("ok"));
 }
 
-void CoOpAudioProcessor::handleListCaptureSources (const juce::var& /*args*/,
+void OrbAudioProcessor::handleListCaptureSources (const juce::var& /*args*/,
                                                     juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! videoCapture) { completion (juce::var ("[]")); return; }
@@ -625,7 +625,7 @@ void CoOpAudioProcessor::handleListCaptureSources (const juce::var& /*args*/,
     videoCapture->listSources ([compPtr] (const juce::String& json) { (*compPtr) (juce::var (json)); });
 }
 
-void CoOpAudioProcessor::handlePickCaptureSource (const juce::var& /*args*/,
+void OrbAudioProcessor::handlePickCaptureSource (const juce::var& /*args*/,
                                                     juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! videoCapture) { completion (juce::var ("error:no-capture")); return; }
@@ -634,14 +634,14 @@ void CoOpAudioProcessor::handlePickCaptureSource (const juce::var& /*args*/,
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* CoOpAudioProcessor::createEditor()
+juce::AudioProcessorEditor* OrbAudioProcessor::createEditor()
 {
-    return new CoOpAudioProcessorEditor (*this);
+    return new OrbAudioProcessorEditor (*this);
 }
 
 // JS-callable: resize the plugin window. Args: [width, height].
 // Called from the React Expand View button on the live viewer.
-void CoOpAudioProcessor::handleSetPluginSize (const juce::var& args,
+void OrbAudioProcessor::handleSetPluginSize (const juce::var& args,
                                               juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 2) {
@@ -665,7 +665,7 @@ void CoOpAudioProcessor::handleSetPluginSize (const juce::var& args,
 // JS-callable: open a URL in the user's default browser. Used by the
 // chat linkify path so message links don't navigate the embedded
 // WebView itself (which would unload the plugin UI). Args: [url].
-void CoOpAudioProcessor::handleOpenExternal (const juce::var& args,
+void OrbAudioProcessor::handleOpenExternal (const juce::var& args,
                                              juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     if (! args.isArray() || args.size() < 1) {
@@ -693,7 +693,7 @@ void CoOpAudioProcessor::handleOpenExternal (const juce::var& args,
 // event, but DAW hosts typically swallow ⌘V before it reaches the
 // plugin window. The JS keydown handler in ChatView calls this to
 // pull the clipboard contents and insert them manually.
-void CoOpAudioProcessor::handleGetClipboardText (const juce::var&,
+void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
                                                  juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
     const juce::String text = juce::SystemClipboard::getTextFromClipboard();
@@ -706,5 +706,5 @@ void CoOpAudioProcessor::handleGetClipboardText (const juce::var&,
 // Plugin entry point
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new CoOpAudioProcessor();
+    return new OrbAudioProcessor();
 }

@@ -15,13 +15,13 @@
  *   • Adopts processor->getBrowser() as a visible child component.
  *   • Owns the platform-specific DragMonitor (which needs a live NSWindow).
  */
-class CoOpAudioProcessorEditor final
+class OrbAudioProcessorEditor final
     : public juce::AudioProcessorEditor,
       public juce::DragAndDropContainer
 {
 public:
-    explicit CoOpAudioProcessorEditor (CoOpAudioProcessor&);
-    ~CoOpAudioProcessorEditor() override;
+    explicit OrbAudioProcessorEditor (OrbAudioProcessor&);
+    ~OrbAudioProcessorEditor() override;
 
     void paint                  (juce::Graphics&) override;
     void resized                () override;
@@ -38,9 +38,9 @@ private:
 
     void trySetupDropHandling();
 
-    CoOpAudioProcessor& processorRef;
+    OrbAudioProcessor& processorRef;
     DragMonitor         dragMonitor;
     int                 dropSetupRetryCount { 0 };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CoOpAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbAudioProcessorEditor)
 };

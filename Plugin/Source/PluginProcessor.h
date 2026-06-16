@@ -9,7 +9,7 @@
 
 //==============================================================================
 /**
- * CoOp Plugin Processor
+ * Orb Plugin Processor
  *
  * Pure pass-through audio plugin. Owns the embedded WKWebView
  * (juce::WebBrowserComponent) so the live broadcast survives plugin-window
@@ -22,12 +22,12 @@
  *   • All native-function handlers registered on the WebBrowserComponent
  *     (prefetch, drag, write-audio, etc.) — they used to live on the editor.
  */
-class CoOpAudioProcessor final : public juce::AudioProcessor,
+class OrbAudioProcessor final : public juce::AudioProcessor,
                                   private juce::Timer
 {
 public:
-    CoOpAudioProcessor();
-    ~CoOpAudioProcessor() override;
+    OrbAudioProcessor();
+    ~OrbAudioProcessor() override;
 
     //── Playback ──────────────────────────────────────────────────────────────
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -40,7 +40,7 @@ public:
     bool hasEditor() const override { return true; }
 
     //── Identity ──────────────────────────────────────────────────────────────
-    const juce::String getName() const override { return "CoOp"; }
+    const juce::String getName() const override { return "Orb"; }
     bool acceptsMidi() const override  { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
@@ -141,5 +141,5 @@ private:
     int getCaptureSampleRate () const noexcept { return captureSampleRate.load(); }
     int getCaptureNumChannels() const noexcept { return captureNumChannels.load(); }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CoOpAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbAudioProcessor)
 };

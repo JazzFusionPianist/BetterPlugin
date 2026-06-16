@@ -1,4 +1,4 @@
-# CoOp — official distribution
+# Orb — official distribution
 
 How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 
@@ -18,12 +18,12 @@ How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 Certificates ▸ **+** ▸ "Developer ID Application", then again "Developer ID
 Installer". Verify: `security find-identity -v -p codesigning`.
 
-**Create #4:** `xcrun notarytool store-credentials coop-notary --apple-id
+**Create #4:** `xcrun notarytool store-credentials orb-notary --apple-id
 <id> --team-id <TEAMID> --password <app-specific-pw>` (app-specific password
 from account.apple.com ▸ Sign-In and Security).
 
 **#6/#7 (AAX, the long pole):** apply at paceap.com for the Eden developer
-program, install PACE Eden Tools (gives `wraptool`), and register CoOp to get
+program, install PACE Eden Tools (gives `wraptool`), and register Orb to get
 its `wcguid`. Until then, AAX can only be a Developer build (loads in Pro
 Tools Developer, not release).
 
@@ -44,7 +44,7 @@ PACE_ACCOUNT=<acct> PACE_WCGUID=<guid> \
 SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
 # Notarize + staple (needs #4)
-./notarize.sh installer/CoOp-1.0.0.pkg
+./notarize.sh installer/Orb-1.0.0.pkg
 ```
 
 ## Partial release (PACE not ready)

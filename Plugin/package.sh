@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# CoOp Plugin Installer Packager (macOS .pkg)
+# Orb Plugin Installer Packager (macOS .pkg)
 #
 # Bundles the built formats into a single distribution installer the user
 # can download and double-click:
@@ -33,7 +33,7 @@ set -euo pipefail
 
 VERSION="1.0.0"
 SIGN_ID="${SIGN_ID:-}"
-IDENTIFIER_BASE="com.coop.plugin"
+IDENTIFIER_BASE="com.orb.plugin"
 
 for arg in "$@"; do
   case $arg in
@@ -44,7 +44,7 @@ for arg in "$@"; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARTEFACTS="$SCRIPT_DIR/build/CoOpPlugin_artefacts/Release"
+ARTEFACTS="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release"
 OUT_DIR="$SCRIPT_DIR/installer"
 WORK="$OUT_DIR/work"
 
@@ -52,7 +52,7 @@ rm -rf "$WORK"
 mkdir -p "$WORK/pkgs" "$WORK/roots"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  CoOp Installer Packager  v$VERSION"
+echo "  Orb Installer Packager  v$VERSION"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── Build one component package ───────────────────────────────────────────────
@@ -73,7 +73,7 @@ build_component() {
     --identifier "$IDENTIFIER_BASE.$key" \
     --version "$VERSION" \
     --install-location "/" \
-    "$WORK/pkgs/CoOp-$key.pkg" > /dev/null
+    "$WORK/pkgs/Orb-$key.pkg" > /dev/null
   echo "  ✓ $key  →  $dest"
   return 0
 }
@@ -81,16 +81,16 @@ build_component() {
 # Auto-sign AAX with PACE/iLok before packaging when credentials are present.
 # Without this the bundled .aaxplugin only loads in Pro Tools Developer builds.
 # See sign-aax.sh for the one-time account prerequisites.
-if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/CoOp.aaxplugin" ]; then
+if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/Orb.aaxplugin" ]; then
   echo "  • signing AAX (PACE_ACCOUNT set) …"
   "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — packaging the unsigned bundle"
 fi
 
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
-build_component vst3       "$ARTEFACTS/VST3/CoOp.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
-build_component au         "$ARTEFACTS/AU/CoOp.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
-build_component aax        "$ARTEFACTS/AAX/CoOp.aaxplugin"       "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
-build_component standalone "$ARTEFACTS/Standalone/CoOp.app"      "/Applications"                                     && HAVE_APP=1  || true
+build_component vst3       "$ARTEFACTS/VST3/Orb.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
+build_component au         "$ARTEFACTS/AU/Orb.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
+build_component aax        "$ARTEFACTS/AAX/Orb.aaxplugin"       "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
+build_component standalone "$ARTEFACTS/Standalone/Orb.app"      "/Applications"                                     && HAVE_APP=1  || true
 
 if [ $((HAVE_VST3 + HAVE_AU + HAVE_AAX + HAVE_APP)) -eq 0 ]; then
   echo "✗ Nothing to package. Run ./build.sh --release first." >&2
@@ -102,7 +102,7 @@ DIST="$WORK/distribution.xml"
 {
   echo '<?xml version="1.0" encoding="utf-8"?>'
   echo '<installer-gui-script minSpecVersion="2">'
-  echo "  <title>CoOp $VERSION</title>"
+  echo "  <title>Orb $VERSION</title>"
   echo '  <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>'
   echo '  <domains enable_localSystem="true"/>'
   echo '  <choices-outline>'
@@ -115,18 +115,18 @@ DIST="$WORK/distribution.xml"
     echo "  <choice id=\"$1\" title=\"$2\" description=\"$3\">"
     echo "    <pkg-ref id=\"$IDENTIFIER_BASE.$1\"/>"
     echo '  </choice>'
-    echo "  <pkg-ref id=\"$IDENTIFIER_BASE.$1\" version=\"$VERSION\">CoOp-$1.pkg</pkg-ref>"
+    echo "  <pkg-ref id=\"$IDENTIFIER_BASE.$1\" version=\"$VERSION\">Orb-$1.pkg</pkg-ref>"
   }
   [ $HAVE_AU   -eq 1 ] && emit_choice au         "Audio Unit (AU)"  "For Logic Pro, GarageBand and other AU hosts."
   [ $HAVE_VST3 -eq 1 ] && emit_choice vst3       "VST3"             "For Cubase, Ableton Live, FL Studio and other VST3 hosts."
   [ $HAVE_AAX  -eq 1 ] && emit_choice aax        "AAX"              "For Pro Tools. Requires PACE-signed builds for release Pro Tools."
-  [ $HAVE_APP  -eq 1 ] && emit_choice standalone "Standalone App"   "Run CoOp without a DAW. Installs to /Applications."
+  [ $HAVE_APP  -eq 1 ] && emit_choice standalone "Standalone App"   "Run Orb without a DAW. Installs to /Applications."
   echo '</installer-gui-script>'
 } > "$DIST"
 
 # ── Final product archive ─────────────────────────────────────────────────────
 mkdir -p "$OUT_DIR"
-FINAL="$OUT_DIR/CoOp-$VERSION.pkg"
+FINAL="$OUT_DIR/Orb-$VERSION.pkg"
 # ${arr[@]+…} guard: macOS ships bash 3.2 where expanding an empty
 # array under `set -u` is an unbound-variable error.
 SIGN_ARGS=()

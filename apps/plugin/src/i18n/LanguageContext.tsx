@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { DEFAULT_LANG, type Lang } from './types'
 import { lookup, type TKey } from './translations'
 
-const STORAGE_KEY = 'coop_lang'
+const STORAGE_KEY = 'orb_lang'
+const LEGACY_STORAGE_KEY = 'coop_lang' // pre-rebrand key — read once so prefs survive
 
 /**
  * Language preference is stored in localStorage. We read it once on mount;
@@ -11,7 +12,7 @@ const STORAGE_KEY = 'coop_lang'
  */
 function readStoredLang (): Lang {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
     if (raw === 'en' || raw === 'ko' || raw === 'ja' || raw === 'zh'
         || raw === 'es' || raw === 'de' || raw === 'fr' || raw === 'hi') {
       return raw

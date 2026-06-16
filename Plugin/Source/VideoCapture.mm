@@ -56,7 +56,7 @@ static juce::String jpegBase64FromPixelBuffer (CVPixelBufferRef pb, CGFloat qual
 typedef void (^CompletionBlock)(NSString* _Nullable error);
 
 API_AVAILABLE(macos(12.3))
-@interface CoOpSCKCapture : NSObject <SCStreamOutput, SCStreamDelegate>
+@interface OrbSCKCapture : NSObject <SCStreamOutput, SCStreamDelegate>
 @property (strong, nullable) SCStream* stream;
 @property (strong) dispatch_queue_t outputQueue;
 @property (copy, nullable) void (^frameCb)(CVPixelBufferRef, int, int);
@@ -76,11 +76,11 @@ API_AVAILABLE(macos(12.3))
 
 // Separate delegate for the system picker — introduced in macOS 14.
 API_AVAILABLE(macos(14.0))
-@interface CoOpPickerDelegate : NSObject <SCContentSharingPickerObserver>
-@property (weak) CoOpSCKCapture* owner;
+@interface OrbPickerDelegate : NSObject <SCContentSharingPickerObserver>
+@property (weak) OrbSCKCapture* owner;
 @end
 
-@implementation CoOpPickerDelegate
+@implementation OrbPickerDelegate
 - (void) contentSharingPicker: (SCContentSharingPicker*) picker
              didUpdateWithFilter: (SCContentFilter*) filter
                        forStream: (SCStream*) stream
@@ -114,12 +114,12 @@ API_AVAILABLE(macos(14.0))
 @end
 
 API_AVAILABLE(macos(12.3))
-@implementation CoOpSCKCapture
+@implementation OrbSCKCapture
 
 - (instancetype) init
 {
     if ((self = [super init]))
-        _outputQueue = dispatch_queue_create ("com.coop.capture.output", DISPATCH_QUEUE_SERIAL);
+        _outputQueue = dispatch_queue_create ("com.orb.capture.output", DISPATCH_QUEUE_SERIAL);
     return self;
 }
 
@@ -227,7 +227,7 @@ static NSSet<NSString*>* knownDawBundles (void)
         NSString* bid = w.owningApplication.bundleIdentifier;
         return bid != nil && [daws containsObject: bid];
     });
-    if (hit != nil) { NSLog (@"[CoOp VideoCapture] matched DAW bundle: %@", hit.owningApplication.bundleIdentifier); return hit; }
+    if (hit != nil) { NSLog (@"[Orb VideoCapture] matched DAW bundle: %@", hit.owningApplication.bundleIdentifier); return hit; }
 
     // Pass 2: frontmost regular-activation app.
     NSRunningApplication* fm = [NSWorkspace sharedWorkspace].frontmostApplication;
@@ -238,12 +238,12 @@ static NSSet<NSString*>* knownDawBundles (void)
         hit = largestByPredicate (^BOOL (SCWindow* w) {
             return w.owningApplication.processID == fm.processIdentifier;
         });
-        if (hit != nil) { NSLog (@"[CoOp VideoCapture] matched frontmost: %@", fm.bundleIdentifier); return hit; }
+        if (hit != nil) { NSLog (@"[Orb VideoCapture] matched frontmost: %@", fm.bundleIdentifier); return hit; }
     }
 
     // Pass 3: anything eligible.
     hit = largestByPredicate (^BOOL (SCWindow* /*w*/) { return YES; });
-    if (hit != nil) NSLog (@"[CoOp VideoCapture] fallback largest: %@", hit.owningApplication.bundleIdentifier);
+    if (hit != nil) NSLog (@"[Orb VideoCapture] fallback largest: %@", hit.owningApplication.bundleIdentifier);
     return hit;
 }
 
@@ -326,7 +326,7 @@ static NSSet<NSString*>* knownDawBundles (void)
                 @"layer":    @(w.windowLayer),
             }];
         }
-        NSLog (@"[CoOp VideoCapture] listSources: %lu displays, %lu windows returned (filtered from %lu total)",
+        NSLog (@"[Orb VideoCapture] listSources: %lu displays, %lu windows returned (filtered from %lu total)",
                (unsigned long) content.displays.count,
                (unsigned long) arr.count - content.displays.count,
                (unsigned long) content.windows.count);
@@ -395,7 +395,7 @@ static NSSet<NSString*>* knownDawBundles (void)
             completion (@"unknown-kind");
             return;
         }
-        NSLog (@"[CoOp VideoCapture] picked %@", diag);
+        NSLog (@"[Orb VideoCapture] picked %@", diag);
 
         constexpr int MAX_W = 1280;
         if (outW > MAX_W)
@@ -486,9 +486,9 @@ static NSSet<NSString*>* knownDawBundles (void)
 {
     if (@available (macOS 14.0, *))
     {
-        static CoOpPickerDelegate* delegate = nil;
+        static OrbPickerDelegate* delegate = nil;
         static dispatch_once_t once;
-        dispatch_once (&once, ^{ delegate = [CoOpPickerDelegate new]; });
+        dispatch_once (&once, ^{ delegate = [OrbPickerDelegate new]; });
         delegate.owner = self;
 
         self.pendingPickerCompletion = completion;
@@ -548,7 +548,7 @@ static NSSet<NSString*>* knownDawBundles (void)
 
     static std::atomic<int> loggedFirst { 0 };
     if (loggedFirst.fetch_add (1) == 0)
-        NSLog (@"[CoOp VideoCapture] first sample arrived %dx%d", w, h);
+        NSLog (@"[Orb VideoCapture] first sample arrived %dx%d", w, h);
 
     if (self.frameCb != nil) self.frameCb (pb, w, h);
 }
@@ -568,7 +568,7 @@ static NSSet<NSString*>* knownDawBundles (void)
 
 struct VideoCapture::Impl
 {
-    id                  objc;   // CoOpSCKCapture*  (nil on < 12.3)
+    id                  objc;   // OrbSCKCapture*  (nil on < 12.3)
     std::atomic<Kind>   kind { Kind::None };
 };
 
@@ -577,7 +577,7 @@ VideoCapture::VideoCapture (FrameFn onFrame)
 {
     if (@available (macOS 12.3, *))
     {
-        CoOpSCKCapture* o = [CoOpSCKCapture new];
+        OrbSCKCapture* o = [OrbSCKCapture new];
 
         FrameFn frame = std::move (onFrame);
         o.frameCb = ^(CVPixelBufferRef pb, int w, int h)
@@ -610,7 +610,7 @@ static void runStart (id objcHandle, int kindNum, uint32_t wid, uint32_t did,
 
     if (@available (macOS 12.3, *))
     {
-        CoOpSCKCapture* o = (CoOpSCKCapture*) objcHandle;
+        OrbSCKCapture* o = (OrbSCKCapture*) objcHandle;
         [o startWithKind: kindNum windowId: wid displayId: did completion: ^(NSString* err)
         {
             juce::String result = (err == nil)
@@ -647,7 +647,7 @@ void VideoCapture::startWithPicker (CompleteFn onComplete)
     impl->kind.store (Kind::Window);
     if (@available (macOS 14.0, *))
     {
-        CoOpSCKCapture* o = (CoOpSCKCapture*) impl->objc;
+        OrbSCKCapture* o = (OrbSCKCapture*) impl->objc;
         [o startWithPickerAndCompletion: ^(NSString* err)
         {
             juce::String result = (err == nil)
@@ -671,7 +671,7 @@ void VideoCapture::listSources (ListFn onComplete)
     }
     if (@available (macOS 12.3, *))
     {
-        CoOpSCKCapture* o = (CoOpSCKCapture*) impl->objc;
+        OrbSCKCapture* o = (OrbSCKCapture*) impl->objc;
         [o listSourcesWithCompletion: ^(NSString* json)
         {
             juce::String s = juce::String::fromUTF8 ([(json ?: @"[]") UTF8String]);
@@ -689,7 +689,7 @@ void VideoCapture::stop()
     impl->kind.store (Kind::None);
     if (impl->objc == nil) return;
     if (@available (macOS 12.3, *))
-        [(CoOpSCKCapture*) impl->objc stop];
+        [(OrbSCKCapture*) impl->objc stop];
 }
 
 VideoCapture::Kind VideoCapture::currentKind() const noexcept

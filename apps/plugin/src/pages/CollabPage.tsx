@@ -34,6 +34,8 @@ import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
 import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
+import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
+import { hasJuceBridge } from '../lib/juceBridge'
 import './collab.css'
 
 interface Props { user: User }
@@ -98,6 +100,10 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
+  const [screenSize, setScreenSize] = useState<ScreenSize>(() => {
+    const s = localStorage.getItem('collab_screen_size')
+    return s === 'medium' || s === 'large' ? s : 'small'
+  })
   // viewMode is locked to 'default' — gallery/list views are no longer exposed.
   const viewMode: 'default' | 'gallery' | 'list' = 'default'
 
@@ -388,6 +394,14 @@ function CollabPageInner({ user }: Props) {
     })
   }
   const handleToggleDark      = () => setIsDark(prev => { const next = !prev; localStorage.setItem('collab_dark', String(next)); return next })
+  const handleScreenSize = (size: ScreenSize) => {
+    setScreenSize(size)
+    localStorage.setItem('collab_screen_size', size)
+    applyScreenSize(size)
+  }
+  // Re-apply the saved window size when the plugin (re)loads so a Medium/Large
+  // preference is restored on host launch. No-op without the JUCE bridge.
+  useEffect(() => { applyScreenSize(screenSize) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search/AddFriend toggles kept for re-introduction; redesign removed
   // their trigger buttons from the toolbar but the panels are still wired up.
@@ -505,6 +519,9 @@ function CollabPageInner({ user }: Props) {
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     isDark            ? 'dark'               : '',
+    // Grow the shell to fill the resized host window. Gated on the JUCE bridge
+    // so the browser preview keeps its fixed 300×500 frame.
+    (hasJuceBridge && screenSize !== 'small') ? `screen-${screenSize}` : '',
     settingsOpen      ? 'settings-open'      : '',
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',
@@ -708,7 +725,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} onToggleDark={handleToggleDark} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

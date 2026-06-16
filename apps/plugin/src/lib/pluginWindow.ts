@@ -14,6 +14,37 @@ export const COMPACT_H = 500
 export const EXPANDED_W = 720
 export const EXPANDED_H = 460
 
+/**
+ * User-selectable plugin-window sizes (Display ▸ Screen size).
+ * The window grows but the inner UI keeps its pixel sizes — the layout
+ * simply spreads out into the extra room. 'small' is the original
+ * 300×500 shell; medium/large are 1.5×/2× that, both within the editor's
+ * resize limits (PluginEditor setResizeLimits → max 1600×1200).
+ */
+export type ScreenSize = 'small' | 'medium' | 'large'
+export const SCREEN_SIZES: Record<ScreenSize, { w: number; h: number }> = {
+  small:  { w: COMPACT_W,     h: COMPACT_H },     // 300 × 500
+  medium: { w: COMPACT_W * 1.5, h: COMPACT_H * 1.5 }, // 450 × 750
+  large:  { w: COMPACT_W * 2,   h: COMPACT_H * 2 },   // 600 × 1000
+}
+
+/**
+ * The user's chosen base window size. Live-view "Expand" temporarily grows
+ * past this for landscape video, then restores back to it (not a hardcoded
+ * 300×500) on collapse so a Medium/Large preference survives a live session.
+ */
+let _baseSize = SCREEN_SIZES.small
+
+/** Record the base size without resizing (used to keep restore-on-collapse correct). */
+export function setBaseScreenSize (size: ScreenSize) { _baseSize = SCREEN_SIZES[size] }
+
+/** Apply a Screen size: remember it as the base and resize the host window now. */
+export function applyScreenSize (size: ScreenSize) {
+  setBaseScreenSize(size)
+  const { w, h } = SCREEN_SIZES[size]
+  return setPluginSize(w, h)
+}
+
 export async function setPluginSize (width: number, height: number): Promise<boolean> {
   if (!hasJuceBridge || !hasJuceNativeFunction('setPluginSize')) return false
   try {
@@ -26,7 +57,8 @@ export async function setPluginSize (width: number, height: number): Promise<boo
 }
 
 export function expandPluginWindow () { return setPluginSize(EXPANDED_W, EXPANDED_H) }
-export function compactPluginWindow () { return setPluginSize(COMPACT_W, COMPACT_H) }
+/** Restore to the user's chosen base size (defaults to compact 300×500). */
+export function compactPluginWindow () { return setPluginSize(_baseSize.w, _baseSize.h) }
 
 export const isExpandSupported = () =>
   hasJuceBridge && hasJuceNativeFunction('setPluginSize')

@@ -93,6 +93,14 @@
   width: 100vw;
   height: 100vh;
 }
+/* Screen size (Display ▸ Screen size): the host window is resized to
+   450×750 / 600×1000, so the shell fills it and the layout spreads into
+   the extra room. Inner elements keep their pixel sizes. */
+.plugin.screen-medium,
+.plugin.screen-large {
+  width: 100vw;
+  height: 100vh;
+}
 
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe
@@ -4126,6 +4134,25 @@
   z-index: 1;
   margin-top: 14px;
 }
+
+/* --- Display panel: screen-size card (label + segmented control) --- */
+.display-size-card {
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.display-size-card:hover {
+  background: rgba(0, 0, 0, 0.018);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.plugin.dark .display-size-card:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.display-size-card:active { transform: none; }
+.display-size-label { font-weight: 500; color: var(--t1); }
 
 /* --- Find people panel --- */
 .af-stack {

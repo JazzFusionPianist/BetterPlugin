@@ -103,6 +103,10 @@ export const T = {
   'display.choose':         { en: 'Choose', ko: '선택', ja: '選択', zh: '选择', es: 'Elegir', de: 'Wählen', fr: 'Choisir', hi: 'चुनें' },
   'display.removeWallpaper':{ en: 'Remove wallpaper', ko: '배경 제거', ja: '壁紙を削除', zh: '移除壁纸', es: 'Quitar fondo', de: 'Hintergrund entfernen', fr: 'Retirer le fond', hi: 'वॉलपेपर हटाएं' },
   'display.remove':         { en: 'Remove', ko: '제거', ja: '削除', zh: '移除', es: 'Quitar', de: 'Entfernen', fr: 'Retirer', hi: 'हटाएं' },
+  'display.screenSize':     { en: 'Screen size', ko: '화면 크기', ja: '画面サイズ', zh: '屏幕大小', es: 'Tamaño de pantalla', de: 'Bildschirmgröße', fr: 'Taille d\'écran', hi: 'स्क्रीन आकार' },
+  'display.size.small':     { en: 'Small', ko: '작게', ja: '小', zh: '小', es: 'Pequeño', de: 'Klein', fr: 'Petit', hi: 'छोटा' },
+  'display.size.medium':    { en: 'Medium', ko: '보통', ja: '中', zh: '中', es: 'Mediano', de: 'Mittel', fr: 'Moyen', hi: 'मध्यम' },
+  'display.size.large':     { en: 'Large', ko: '크게', ja: '大', zh: '大', es: 'Grande', de: 'Groß', fr: 'Grand', hi: 'बड़ा' },
 
   // ───── Find people / AddFriend ──────────────────────────────────────────
   'addFriend.search':        { en: 'search by name…', ko: '이름으로 검색…', ja: '名前で検索…', zh: '按姓名搜索…', es: 'buscar por nombre…', de: 'nach Name suchen…', fr: 'rechercher par nom…', hi: 'नाम से खोजें…' },

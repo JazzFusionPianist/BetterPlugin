@@ -1,13 +1,18 @@
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
+import type { ScreenSize } from '../../lib/pluginWindow'
+
+const SCREEN_OPTIONS: ScreenSize[] = ['small', 'medium', 'large']
 
 interface Props {
   isDark: boolean
+  screenSize: ScreenSize
   onToggleDark: () => void
+  onScreenSizeChange: (size: ScreenSize) => void
   onClose: () => void
 }
 
-export default function DisplayPanel({ isDark, onToggleDark, onClose }: Props) {
+export default function DisplayPanel({ isDark, screenSize, onToggleDark, onScreenSizeChange, onClose }: Props) {
   const { t } = useT()
 
   return (
@@ -27,6 +32,21 @@ export default function DisplayPanel({ isDark, onToggleDark, onClose }: Props) {
             onClick={(e) => { e.stopPropagation(); onToggleDark() }}
             tabIndex={-1}
           />
+        </div>
+
+        <div className="settings-card display-size-card">
+          <span className="display-size-label">{t('display.screenSize')}</span>
+          <div className="seg">
+            {SCREEN_OPTIONS.map((size) => (
+              <button
+                key={size}
+                className={`seg-opt${screenSize === size ? ' active' : ''}`}
+                onClick={() => onScreenSizeChange(size)}
+              >
+                {t(`display.size.${size}`)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

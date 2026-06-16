@@ -18,14 +18,14 @@ export const EXPANDED_H = 460
  * User-selectable plugin-window sizes (Display ▸ Screen size).
  * The window grows but the inner UI keeps its pixel sizes — the layout
  * simply spreads out into the extra room. 'small' is the original
- * 300×500 shell; medium/large are 1.5×/2× that, both within the editor's
- * resize limits (PluginEditor setResizeLimits → max 1600×1200).
+ * 300×500 shell (100%); medium/large are 125%/150% of that, both within
+ * the editor's resize limits (PluginEditor setResizeLimits → max 1600×1200).
  */
 export type ScreenSize = 'small' | 'medium' | 'large'
 export const SCREEN_SIZES: Record<ScreenSize, { w: number; h: number }> = {
-  small:  { w: COMPACT_W,     h: COMPACT_H },     // 300 × 500
-  medium: { w: COMPACT_W * 1.5, h: COMPACT_H * 1.5 }, // 450 × 750
-  large:  { w: COMPACT_W * 2,   h: COMPACT_H * 2 },   // 600 × 1000
+  small:  { w: COMPACT_W,        h: COMPACT_H },        // 300 × 500  (100%)
+  medium: { w: COMPACT_W * 1.25, h: COMPACT_H * 1.25 }, // 375 × 625  (125%)
+  large:  { w: COMPACT_W * 1.5,  h: COMPACT_H * 1.5 },  // 450 × 750  (150%)
 }
 
 /**

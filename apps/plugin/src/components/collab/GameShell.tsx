@@ -225,7 +225,7 @@ export default function GameShell ({
 
       <div className="game-area">
         {aboveBoard}
-        <div className="game-board-wrap">
+        <div className={`game-board-wrap${overlay ? ' has-overlay' : ''}`}>
           {board}
           {overlay && <div className="game-finish-overlay">{overlay}</div>}
         </div>

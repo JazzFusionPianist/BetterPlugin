@@ -4877,6 +4877,15 @@
   padding: 8px 10px; gap: 8px; overflow-y: auto;
 }
 .game-board-wrap { position: relative; }
+/* While a status overlay is shown, the board-wrap fills the content area so
+   the lobby/ready/finished card centres consistently across every game —
+   including ones that render no board in lobby (e.g. Ear Training). During
+   play (no overlay) the wrap keeps its natural size, so game layouts are
+   untouched. */
+.game-board-wrap.has-overlay {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+}
 
 /* Invite button (lobby CTA) */
 .game-invite-btn {

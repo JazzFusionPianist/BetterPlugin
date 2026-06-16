@@ -90,6 +90,15 @@ button { font-family: inherit; }
   max-width: 440px; line-height: 1.5; letter-spacing: -0.005em;
 }
 .actions { margin-top: 44px; display: flex; align-items: center; gap: 22px; }
+/* Native first-launch: stacked welcome CTAs (primary + sign-in link). */
+.actions-native { flex-direction: column; gap: 18px; }
+.actions-native .download { padding: 14px 30px; font-size: 15.5px; }
+.ghost-link {
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 14px; color: var(--t3); letter-spacing: -0.005em;
+}
+.ghost-link span { color: var(--t1); font-weight: 600; margin-left: 2px; }
+.ghost-link:active span { opacity: 0.7; }
 .download {
   background: var(--t1); color: #0c0c0f;
   font-weight: 600; font-size: 15px; letter-spacing: -0.01em;

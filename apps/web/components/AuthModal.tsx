@@ -3,17 +3,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+type Mode = 'signin' | 'signup'
+
 interface Props {
   open: boolean
   onClose: () => void
+  /** Which view to show when the panel opens. Defaults to sign-in. */
+  initialMode?: Mode
   /** Fired after a successful sign-in (session established). */
   onAuthed: () => void
 }
 
-type Mode = 'signin' | 'signup'
-
-export default function AuthModal({ open, onClose, onAuthed }: Props) {
-  const [mode, setMode] = useState<Mode>('signin')
+export default function AuthModal({ open, onClose, initialMode = 'signin', onAuthed }: Props) {
+  const [mode, setMode] = useState<Mode>(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,14 +25,14 @@ export default function AuthModal({ open, onClose, onAuthed }: Props) {
   const [showPw, setShowPw] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
 
-  // Focus the email field when the modal opens.
+  // Reset to the requested mode + focus the email field when it opens.
   useEffect(() => {
     if (open) {
-      setError(null); setNote(null)
+      setMode(initialMode); setError(null); setNote(null)
       const t = setTimeout(() => emailRef.current?.focus(), 260)
       return () => clearTimeout(t)
     }
-  }, [open])
+  }, [open, initialMode])
 
   // Esc closes.
   useEffect(() => {

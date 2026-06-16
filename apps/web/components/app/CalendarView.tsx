@@ -106,7 +106,7 @@ export default function CalendarView({
                 key={c.id}
                 className={`cal-filter${filter === c.name ? ' on' : ''}`}
                 onClick={() => setFilter((f) => (f === c.name ? null : c.name))}
-                style={filter === c.name ? { background: c.color, borderColor: c.color, color: '#fff' } : undefined}
+                style={filter === c.name ? { color: c.color } : undefined}
               >
                 <span className="cal-filter-dot" style={{ background: c.color }} />
                 {c.name}
@@ -158,8 +158,13 @@ export default function CalendarView({
                     <div className="cal-ev-main">
                       <div className="cal-ev-title">{e.title}</div>
                       <div className="cal-ev-meta">
-                        {e.category && <span className="cal-ev-cat" style={{ color }}>{e.category}</span>}
-                        {group && <span className="cal-ev-group">⛬ {group}</span>}
+                        {e.category && <span className="cal-ev-cat">{e.category}</span>}
+                        {group && (
+                          <span className="cal-ev-group">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>
+                            {group}
+                          </span>
+                        )}
                         {e.location && <span className="cal-ev-loc">{e.location}</span>}
                       </div>
                       {editing === e.id && (

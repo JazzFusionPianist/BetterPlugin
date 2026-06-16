@@ -97,107 +97,140 @@ button { font-family: inherit; }
   transition: transform .18s cubic-bezier(.34,1.4,.5,1), opacity .2s;
 }
 .download:hover { transform: translateY(-2px); }
-.secondary {
-  font-size: 14.5px; color: var(--t2); cursor: pointer;
-  background: none; border: none;
-  border-bottom: 1px solid transparent; padding-bottom: 1px;
-  transition: color .2s, border-color .2s;
-}
-.secondary:hover { color: var(--t1); border-color: var(--line); }
-
 .bottom {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-end;
   padding: 26px calc(clamp(24px, 5vw, 56px) + env(safe-area-inset-right))
            calc(26px + env(safe-area-inset-bottom)) calc(clamp(24px, 5vw, 56px) + env(safe-area-inset-left));
   font-size: 12.5px; color: var(--t3); letter-spacing: -0.005em;
 }
-.bottom .meta { display: flex; align-items: center; gap: 9px; }
-.bottom .meta .dot { width: 5px; height: 5px; border-radius: 50%; background: #34C759; box-shadow: 0 0 7px #34C759; }
 
 @media (max-width: 600px) {
   .actions { flex-direction: column; gap: 16px; margin-top: 36px; }
   .sub { margin-top: 22px; }
 }
 
-/* ── Auth modal ──────────────────────────────────────── */
-.modal-overlay {
+/* ── Auth panel ──────────────────────────────────────── */
+.auth-overlay {
   position: fixed; inset: 0; z-index: 50;
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: rgba(8,8,11,0.45);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  backdrop-filter: blur(10px) saturate(120%);
-  opacity: 0; pointer-events: none; transition: opacity .28s ease;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  background: rgba(6,6,9,0.62);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none; transition: opacity .26s ease;
 }
-.modal-overlay.open { opacity: 1; pointer-events: auto; }
-.modal-card {
-  width: 100%; max-width: 360px;
-  background: rgba(26,26,31,0.82);
-  border: 1px solid var(--line); border-radius: 22px;
-  padding: 34px 30px 28px;
-  box-shadow: 0 30px 90px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-  transform: translateY(14px) scale(0.98);
-  transition: transform .34s cubic-bezier(.22,1.3,.36,1);
+.auth-overlay.open { opacity: 1; pointer-events: auto; }
+
+.auth {
   position: relative;
+  width: 100%; max-width: 384px;
+  /* A solid, lit surface — not a blurry glass pane. The top sheen + deep
+     soft shadow give it a sense of a real, crafted object. */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 130px),
+    #131316;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 30px 28px 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 40px 80px -24px rgba(0,0,0,0.75);
+  opacity: 0; transform: translateY(16px) scale(0.985);
+  transition: transform .42s cubic-bezier(.2,1.18,.34,1), opacity .3s ease;
 }
-.modal-overlay.open .modal-card { transform: translateY(0) scale(1); }
-.modal-close {
-  position: absolute; top: 16px; right: 16px;
-  width: 28px; height: 28px; border: none; cursor: pointer;
-  background: transparent; color: var(--t3); border-radius: 50%;
+.auth-overlay.open .auth { opacity: 1; transform: none; }
+
+.auth-x {
+  position: absolute; top: 18px; right: 18px;
+  width: 30px; height: 30px; border: none; cursor: pointer;
+  background: transparent; color: var(--t3); border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   transition: background .15s, color .15s;
 }
-.modal-close:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
-.modal-mark {
-  width: 30px; height: 30px; border-radius: 50%; margin-bottom: 18px;
+.auth-x:hover { background: rgba(255,255,255,0.07); color: var(--t1); }
+
+.auth-head { margin-bottom: 22px; }
+.auth-brand {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: -0.005em; color: var(--t2);
+  margin-bottom: 15px;
+}
+.auth-brand-dot {
+  width: 13px; height: 13px; border-radius: 50%;
   background: radial-gradient(circle at 34% 30%, #BFE0FF, #5E8BD8 65%, #3E5FA8);
-  box-shadow: 0 0 20px rgba(120,160,230,0.5), inset 0 1px 1.5px rgba(255,255,255,0.5);
+  box-shadow: 0 0 10px rgba(120,160,230,0.45), inset 0 1px 1px rgba(255,255,255,0.5);
 }
-.modal-title { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 4px; }
-.modal-sub { font-size: 13.5px; color: var(--t2); margin-bottom: 24px; }
+.auth-title { font-size: 23px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; }
+.auth-lede { margin-top: 7px; font-size: 13.5px; line-height: 1.45; color: var(--t2); max-width: 30ch; }
 
-.field { margin-bottom: 13px; }
-.field label { display: block; font-size: 12px; color: var(--t2); margin-bottom: 6px; letter-spacing: -0.005em; }
-.field input {
-  width: 100%; padding: 11px 13px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--line); border-radius: 11px;
-  color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 14px;
-  outline: none; transition: border-color .16s, background .16s;
+/* Floating-label fields — the label rides up into a caption on focus/fill. */
+.fld { position: relative; margin-bottom: 10px; }
+.fld input {
+  width: 100%; padding: 21px 14px 8px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;
+  color: var(--t1); font-family: inherit; font-size: 15px; letter-spacing: -0.005em;
+  outline: none;
+  transition: border-color .16s, background .16s, box-shadow .16s;
 }
-.field input::placeholder { color: var(--t3); }
-.field input:focus { border-color: rgba(127,176,255,0.6); background: rgba(255,255,255,0.06); }
+.fld label {
+  position: absolute; left: 15px; top: 14px;
+  font-size: 15px; color: var(--t3); pointer-events: none;
+  transform-origin: left top;
+  transition: transform .16s ease, color .16s;
+}
+.fld input:focus { border-color: rgba(140,180,255,0.5); background: rgba(255,255,255,0.055); box-shadow: 0 0 0 3px rgba(120,160,230,0.13); }
+.fld input:focus + label,
+.fld input:not(:placeholder-shown) + label {
+  transform: translateY(-7px) scale(0.78);
+  color: var(--t2);
+}
+.fld input:-webkit-autofill,
+.fld input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--t1);
+  -webkit-box-shadow: 0 0 0 1000px #1b1b20 inset;
+  caret-color: var(--t1);
+}
+.fld-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  color: var(--t3); font-size: 12px; font-weight: 500;
+  padding: 5px 8px; border-radius: 7px; transition: color .15s, background .15s;
+}
+.fld-toggle:hover { color: var(--t1); background: rgba(255,255,255,0.05); }
 
-.modal-submit {
+.auth-error, .auth-note {
+  margin: 4px 0 12px; padding: 9px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.4;
+}
+.auth-error { background: rgba(255,69,58,0.10); color: #FF7A70; border: 1px solid rgba(255,69,58,0.20); }
+.auth-note { background: rgba(48,209,88,0.10); color: #5BD27A; border: 1px solid rgba(48,209,88,0.20); }
+
+.auth-submit {
   width: 100%; margin-top: 8px;
   background: var(--t1); color: #0c0c0f;
-  font-weight: 600; font-size: 14.5px;
-  padding: 12px; border: none; border-radius: 11px; cursor: pointer;
-  transition: transform .16s cubic-bezier(.34,1.4,.5,1), opacity .2s;
+  font-family: inherit; font-weight: 600; font-size: 15px; letter-spacing: -0.01em;
+  padding: 13px; border: none; border-radius: 12px; cursor: pointer;
+  transition: transform .16s cubic-bezier(.34,1.4,.5,1), opacity .2s, box-shadow .2s;
 }
-.modal-submit:hover { transform: translateY(-1px); }
-.modal-submit:disabled { opacity: 0.5; cursor: default; transform: none; }
+.auth-submit:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(255,255,255,0.28); }
+.auth-submit:active { transform: translateY(0); }
+.auth-submit:disabled { opacity: 0.55; cursor: default; transform: none; box-shadow: none; }
 
-.modal-error {
-  margin-top: 12px; padding: 9px 11px; border-radius: 9px;
-  background: rgba(255,59,48,0.12); color: #FF6B60;
-  font-size: 12px; line-height: 1.4; text-align: center;
+.auth-switch {
+  margin-top: 20px; padding-top: 17px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 13px; color: var(--t2);
 }
-.modal-note {
-  margin-top: 12px; padding: 9px 11px; border-radius: 9px;
-  background: rgba(52,199,89,0.12); color: #5BD27A;
-  font-size: 12px; line-height: 1.4; text-align: center;
+.auth-switch button {
+  position: relative; background: none; border: none; cursor: pointer; font-family: inherit;
+  color: var(--t1); font-size: 13px; font-weight: 600; margin-left: 7px; padding: 0;
 }
-
-.modal-foot { margin-top: 18px; text-align: center; font-size: 13px; color: var(--t2); }
-.modal-foot button {
-  background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 13px; font-weight: 600;
-  padding: 0; margin-left: 4px; border-bottom: 1px solid var(--line);
+.auth-switch button::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 1px;
+  background: currentColor; opacity: 0.22; transition: opacity .15s;
 }
-.modal-foot button:hover { border-color: var(--t1); }
+.auth-switch button:hover::after { opacity: 0.7; }
 
 /* ── Placeholder app shell (after login) ─────────────── */
 .appshell {

@@ -28,12 +28,10 @@ export default function Landing() {
             <button className="download" onClick={() => alert('Plugin download coming soon.')}>
               Download for Mac
             </button>
-            <button className="secondary" onClick={() => setAuthOpen(true)}>or open in browser</button>
           </div>
         </main>
 
         <div className="bottom">
-          <span className="meta"><span className="dot" /> Early access · macOS</span>
           <span>© 2026 Orb</span>
         </div>
       </div>

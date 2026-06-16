@@ -5031,7 +5031,9 @@
   white-space: nowrap; transition: background .12s;
 }
 .game-invite-do-btn:hover:not(:disabled) { background: #3a7ad3; }
-.game-invite-do-btn:disabled { background: #34C759; cursor: default; }
+/* Disabled = invite cap reached (N-player games), NOT yet invited. Show it
+   greyed/muted — never green, so it can't be mistaken for an "Invited" row. */
+.game-invite-do-btn:disabled { background: var(--bg3); color: var(--t3); cursor: default; }
 .game-invite-do-btn.invited { background: #34C759; }
 .game-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
 

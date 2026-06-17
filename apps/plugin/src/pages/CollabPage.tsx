@@ -105,7 +105,14 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
+  // Dev override: ?screen=medium|large lets us preview the larger layouts
+  // in a plain browser (no JUCE bridge). Never present in production URLs.
+  const screenPreview = (() => {
+    const p = new URLSearchParams(window.location.search).get('screen')
+    return p === 'medium' || p === 'large' ? (p as ScreenSize) : null
+  })()
   const [screenSize, setScreenSize] = useState<ScreenSize>(() => {
+    if (screenPreview) return screenPreview
     const s = localStorage.getItem('collab_screen_size')
     return s === 'medium' || s === 'large' ? s : 'small'
   })
@@ -547,8 +554,9 @@ function CollabPageInner({ user }: Props) {
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     isDark            ? 'dark'               : '',
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
-    // so the browser preview keeps its fixed 300×500 frame.
-    (hasJuceBridge && screenSize !== 'small') ? `screen-${screenSize}` : '',
+    // so the browser preview keeps its fixed 300×500 frame — unless the
+    // ?screen= dev override is set, which forces it on in the browser too.
+    ((hasJuceBridge || screenPreview) && screenSize !== 'small') ? `screen-${screenSize}` : '',
     settingsOpen      ? 'settings-open'      : '',
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',

@@ -118,21 +118,23 @@
 /* Large: two panes. Existing sliding views fill the LEFT pane; the
    calendar docks on the RIGHT. */
 .cal-dock { display: none; }
-.plugin.screen-large .content > .view { right: var(--cal-dock-w, 460px); }
+/* Exact 50/50: left pane holds the sliding views, right half is the dock. */
+.plugin.screen-large .content > .view { right: 50%; }
 .plugin.screen-large .calview-pane { display: none; }     /* docked instead */
 .plugin.screen-large .cal-dock {
   display: block; position: absolute; top: 0; right: 0; bottom: 0;
-  width: var(--cal-dock-w, 460px); z-index: 50;   /* above every sliding view */
+  width: 50%; z-index: 50;   /* above every sliding view */
   background: var(--bg); border-left: 1px solid var(--border);
 }
-/* Toolbar: cluster icons on the left instead of smearing them. */
-.plugin.screen-large .top-bar { justify-content: flex-start; gap: 10px; padding-left: 18px; }
+/* Toolbar spans the left pane only; base space-evenly then spreads the
+   icons across it — centred above the profile column, not in a corner. */
+.plugin.screen-large .top-bar { width: 50%; }
 /* Hide the calendar toggle icon at large — the dock is always present. */
 .plugin.screen-large .icon-btn.cal-toggle { display: none; }
-/* Centre the prompt within the (narrower) left pane. */
+/* Centre the prompt within the left pane. */
 .plugin.screen-large .orbit-prompt {
   left: 50%; right: auto; transform: translateX(-50%);
-  width: min(560px, calc(100% - 40px));
+  width: min(520px, calc(100% - 40px));
 }
 
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.

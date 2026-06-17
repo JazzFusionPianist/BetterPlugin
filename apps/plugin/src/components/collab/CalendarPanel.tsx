@@ -9,7 +9,6 @@ interface Props {
   supabase: SupabaseClient
   user: User
   groups: GroupTarget[]
-  onClose: () => void
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -27,7 +26,7 @@ const fmtWhen = (e: CalendarEvent) => {
   return `${day} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
 }
 
-export default function CalendarPanel({ supabase, user, groups, onClose }: Props) {
+export default function CalendarPanel({ supabase, user, groups }: Props) {
   const { events, addEvents, deleteEvent, updateEvent } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory } = useEventCategories(supabase, user.id)
 
@@ -107,9 +106,6 @@ export default function CalendarPanel({ supabase, user, groups, onClose }: Props
   return (
     <div className="cal-panel">
       <div className="cal-panel-head">
-        <button className="cal-back" onClick={onClose} aria-label="Back">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-        </button>
         <h2 className="cal-month">{MONTHS[view.m]} <span>{view.y}</span></h2>
         <div className="cal-tools">
           {!onCurrentMonth && <button className="cal-today" onClick={() => { setView({ y: today.getFullYear(), m: today.getMonth() }); setSelected(todayKey) }}>Today</button>}
@@ -118,37 +114,38 @@ export default function CalendarPanel({ supabase, user, groups, onClose }: Props
         </div>
       </div>
 
-      {categories.length > 0 && (
-        <div className="cal-filters">
-          {categories.map((c) => (
-            <button key={c.id} className={`cal-filter${filter === c.name ? ' on' : ''}`} onClick={() => setFilter((f) => (f === c.name ? null : c.name))} style={filter === c.name ? { color: c.color } : undefined}>
-              <span className="cal-filter-dot" style={{ background: c.color }} />{c.name}
-            </button>
-          ))}
+      <div className="cal-body">
+        {categories.length > 0 && (
+          <div className="cal-filters">
+            {categories.map((c) => (
+              <button key={c.id} className={`cal-filter${filter === c.name ? ' on' : ''}`} onClick={() => setFilter((f) => (f === c.name ? null : c.name))} style={filter === c.name ? { color: c.color } : undefined}>
+                <span className="cal-filter-dot" style={{ background: c.color }} />{c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="cal-week">{WEEKDAYS.map((d, i) => <span key={i}>{d}</span>)}</div>
+        <div className="cal-grid">
+          {cells.map((day, i) => {
+            if (day === null) return <span key={`b${i}`} className="cal-pad" />
+            const k = `${view.y}-${String(view.m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const dots = dotColors(k)
+            return (
+              <button key={k} className={`cal-day${k === selected ? ' sel' : ''}${k === todayKey ? ' today' : ''}`} onClick={() => setSelected(k)}>
+                <span className="cal-num">{day}</span>
+                {dots.length > 0 && <span className="cal-dots">{dots.map((c, j) => <span key={j} className="cal-dot" style={{ background: c }} />)}</span>}
+              </button>
+            )
+          })}
         </div>
-      )}
 
-      <div className="cal-week">{WEEKDAYS.map((d, i) => <span key={i}>{d}</span>)}</div>
-      <div className="cal-grid">
-        {cells.map((day, i) => {
-          if (day === null) return <span key={`b${i}`} className="cal-pad" />
-          const k = `${view.y}-${String(view.m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-          const dots = dotColors(k)
-          return (
-            <button key={k} className={`cal-day${k === selected ? ' sel' : ''}${k === todayKey ? ' today' : ''}`} onClick={() => setSelected(k)}>
-              <span className="cal-num">{day}</span>
-              {dots.length > 0 && <span className="cal-dots">{dots.map((c, j) => <span key={j} className="cal-dot" style={{ background: c }} />)}</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="cal-agenda">
-        <div className="cal-agenda-date">{new Date(selected + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        {selectedEvents.length === 0 ? (
-          <div className="cal-agenda-empty">Nothing scheduled{filter ? ` · ${filter}` : ''}</div>
-        ) : (
-          <ul className="cal-agenda-list">
+        <div className="cal-agenda">
+          <div className="cal-agenda-date">{new Date(selected + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          {selectedEvents.length === 0 ? (
+            <div className="cal-agenda-empty">Nothing scheduled{filter ? ` · ${filter}` : ''}</div>
+          ) : (
+            <ul className="cal-agenda-list">
             {selectedEvents.map((e) => {
               const color = e.category_color || DEFAULT_COLOR
               const group = e.conversation_id ? groupTitleById.get(e.conversation_id) : null
@@ -190,6 +187,7 @@ export default function CalendarPanel({ supabase, user, groups, onClose }: Props
             })}
           </ul>
         )}
+        </div>
       </div>
 
       {/* Add bar */}
@@ -221,7 +219,7 @@ export default function CalendarPanel({ supabase, user, groups, onClose }: Props
           </div>
         )}
         <div className={`sprompt-bar${busy ? ' busy' : ''}`}>
-          <textarea ref={taRef} rows={1} value={text} placeholder="Add to your schedule — e.g. 합주 내일 7시" disabled={busy}
+          <textarea ref={taRef} rows={1} value={text} placeholder="Add to your schedule…" disabled={busy}
             onChange={(e) => { setText(e.target.value); setError(null); grow() }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }} />
           <button className="sprompt-send" onClick={submit} disabled={busy || !text.trim()} aria-label="Add to calendar">

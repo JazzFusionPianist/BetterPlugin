@@ -753,7 +753,7 @@ function CollabPageInner({ user }: Props) {
           <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view calview-pane">
-          <CalendarPanel supabase={client} user={user} groups={groupConversations} onClose={() => setCalendarOpen(false)} />
+          <CalendarPanel supabase={client} user={user} groups={groupConversations} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

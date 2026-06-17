@@ -4,6 +4,8 @@ import type { Profile, Message } from '../../types/collab'
 import type { LiveSession } from '../../hooks/useLive'
 import { getInitials } from '../../types/collab'
 import HoverTooltip from './HoverTooltip'
+import SchedulePrompt from './SchedulePrompt'
+import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import { useT } from '../../i18n/LanguageContext'
 
 /** A group conversation as the parent prepared it for orb rendering —
@@ -54,6 +56,10 @@ interface Props {
   /** Open a group chat. Click on a constellation fires this with the
    *  group's conversation_id. */
   onOpenGroupChat?: (conversationId: string) => void
+  /** AI schedule prompt (home only). When provided, the bottom of the
+   *  panel hosts the schedule input instead of just the name. */
+  onSchedule?: (text: string, conversationId: string | null) => Promise<CalendarEvent[]>
+  scheduleTargets?: { id: string | null; label: string }[]
 }
 
 type Orb = OrbBase & ({ kind: 'dm'; profile: Profile } | { kind: 'group'; group: GroupOrbData })
@@ -85,6 +91,7 @@ export default function ProfilePanel ({
   liveHostIds, liveSessions, onWatchLive,
   friendUnread, friendLastMessages, orbProfiles,
   groupOrbs, groupUnread, groupLastMessages, onOpenGroupChat,
+  onSchedule, scheduleTargets,
 }: Props) {
   const { t } = useT()
   void onRemoveFriend // retained on the props contract for future use
@@ -847,6 +854,9 @@ export default function ProfilePanel ({
           )}
         </button>
 
+        {/* Display name — sits just beneath the avatar. */}
+        <div className="orbit-name-under" ref={nameRef}>{displayName}</div>
+
         {/* Group hover card — pops above/below the hovered constellation.
             Minimal Phase-3 surface: title + member chips + Open. */}
         {hoveredGroup && tooltipPos && (
@@ -907,10 +917,12 @@ export default function ProfilePanel ({
           )
         })()}
 
-        {/* Display name — bottom of the panel. */}
-        <div className="orbit-bottom">
-          <div className="orbit-name" ref={nameRef}>{displayName}</div>
-        </div>
+        {/* Schedule prompt — bottom of the home panel (self only). */}
+        {onSchedule && scheduleTargets && (
+          <div className="orbit-prompt">
+            <SchedulePrompt onSubmit={onSchedule} targets={scheduleTargets} />
+          </div>
+        )}
       </div>
 
       <input

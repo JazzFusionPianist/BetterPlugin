@@ -1846,6 +1846,22 @@
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
+/* Username chip — sits just beneath the centred avatar. */
+.orbit-name-under {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, 46px);
+  z-index: 3; white-space: nowrap; text-align: center;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: var(--t1);
+  padding: 1px 10px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(12px) saturate(160%); backdrop-filter: blur(12px) saturate(160%);
+}
+.plugin.dark .orbit-name-under {
+  background: rgba(30, 30, 30, 0.5); border-color: rgba(255, 255, 255, 0.16);
+}
+/* Schedule prompt anchored to the bottom of the home panel. */
+.orbit-prompt { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 5; }
+.sprompt-wrap { display: flex; flex-direction: column; gap: 7px; }
 /* Friend-orb backdrop on the main panel — fills the orbit area below the
    top-bar. Orbs themselves carry the translucent ambient opacity (so
    we can selectively bump it to 1 on `.has-notif` orbs without the
@@ -7263,7 +7279,7 @@
 
 .cal-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
 .cal-month { flex: 1; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; color: var(--t1); margin: 0; }
-.cal-month span { color: var(--t3); font-weight: 500; margin-left: 3px; }
+.cal-month span { color: var(--t3); font-weight: 500; margin-left: 0; }
 .cal-tools { display: flex; align-items: center; gap: 2px; }
 .cal-today { font-family: inherit; font-size: 11px; font-weight: 600; color: var(--t2); background: var(--bg3); border: none; border-radius: 7px; padding: 4px 9px; cursor: pointer; margin-right: 3px; }
 .cal-today:hover { color: var(--t1); }
@@ -7337,7 +7353,7 @@
 .sprompt-target svg { opacity: 0.7; }
 .sprompt-target.on { color: var(--t1); font-weight: 600; border-color: var(--border2); }
 .sprompt-target.on svg { opacity: 1; }
-.sprompt-bar { display: flex; align-items: flex-end; gap: 7px; background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 12px; transition: border-color .14s; }
+.sprompt-bar { display: flex; align-items: center; gap: 7px; background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 12px; transition: border-color .14s; }
 .sprompt-bar:focus-within { border-color: var(--border2); }
 .sprompt-bar textarea { flex: 1; resize: none; border: none; outline: none; background: none; color: var(--t1); font-family: inherit; font-size: 13px; line-height: 1.35; max-height: 80px; padding: 4px 0; }
 .sprompt-bar textarea::placeholder { color: var(--t3); }

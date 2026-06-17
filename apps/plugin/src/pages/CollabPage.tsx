@@ -9,6 +9,9 @@ import { useConversationReads } from '../hooks/useConversationReads'
 import { getOrCreateDmConversation, createGroupConversation } from '../lib/conversations'
 import { useFollows } from '../hooks/useFollows'
 import { useConversations } from '../hooks/useConversations'
+import { useCalendarEvents } from '../hooks/useCalendarEvents'
+import { useEventCategories } from '../hooks/useEventCategories'
+import { parseSchedule } from '../lib/parseSchedule'
 import ChatView from '../components/collab/ChatView'
 import ConversationsPanel from '../components/collab/ConversationsPanel'
 import NewGroupPanel from '../components/collab/NewGroupPanel'
@@ -157,6 +160,24 @@ function CollabPageInner({ user }: Props) {
   const { unread: convUnread, lastMessages: convLastMessages, markSeen: markConvSeen } = useConversationNotifications(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { conversations, groupConversations } = useConversations(client, user.id)
+
+  // ── Calendar (shared by the home schedule prompt + the calendar view) ────
+  const { events: calEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(client, user.id)
+  const { categories: calCategories, ensureCategory: calEnsureCategory } = useEventCategories(client, user.id)
+  const calTargets = useMemo(
+    () => [{ id: null as string | null, label: 'Personal' }, ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'Group' }))],
+    [groupConversations],
+  )
+  const calGroupTitleById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const g of groupConversations) m.set(g.conversationId, g.title || 'Group')
+    return m
+  }, [groupConversations])
+  const handleSchedule = useCallback(async (text: string, conversationId: string | null) => {
+    const parsed = await parseSchedule(client, text)
+    const withMeta = await Promise.all(parsed.map(async (e) => ({ ...e, category_color: await calEnsureCategory(e.category), conversation_id: conversationId })))
+    return calAddEvents(withMeta)
+  }, [client, calEnsureCategory, calAddEvents])
 
   // ── conv-keyed → friend-keyed adapters ──────────────────────────────────
   // ProfilePanel renders friend-orb-anchored cues, so we translate
@@ -652,7 +673,7 @@ function CollabPageInner({ user }: Props) {
           {viewingProfileId && viewingProfile
             ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} viewOnly />
             : viewMode === 'default'
-              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} orbProfiles={orbPool} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} groupOrbs={groupOrbs} groupUnread={groupUnread} groupLastMessages={groupLastMessages} onOpenGroupChat={handleOpenGroupChat} />
+              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} orbProfiles={orbPool} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} groupOrbs={groupOrbs} groupUnread={groupUnread} groupLastMessages={groupLastMessages} onOpenGroupChat={handleOpenGroupChat} onSchedule={handleSchedule} scheduleTargets={calTargets} />
               : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} liveTitleByHost={liveTitleByHost} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
@@ -753,7 +774,14 @@ function CollabPageInner({ user }: Props) {
           <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view calview-pane">
-          <CalendarPanel supabase={client} user={user} groups={groupConversations} />
+          <CalendarPanel
+            events={calEvents}
+            categories={calCategories}
+            currentUserId={user.id}
+            groupTitleById={calGroupTitleById}
+            onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+            onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
+          />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

@@ -102,6 +102,39 @@
   height: 100vh;
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Responsive home — Medium: centred column over a full-width orb field.
+   Large: profile stage (left) + always-on calendar dock (right).
+   The orb stage itself already fills its container, so we mostly re-anchor
+   the chrome (toolbar, prompt) and, at large, split the content area.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* Medium */
+.plugin.screen-medium .top-bar { align-self: center; width: 360px; }
+.plugin.screen-medium .orbit-prompt {
+  left: 50%; right: auto; transform: translateX(-50%);
+  width: min(440px, calc(100% - 28px));
+}
+
+/* Large: two panes. Existing sliding views fill the LEFT pane; the
+   calendar docks on the RIGHT. */
+.cal-dock { display: none; }
+.plugin.screen-large .content > .view { right: var(--cal-dock-w, 460px); }
+.plugin.screen-large .calview-pane { display: none; }     /* docked instead */
+.plugin.screen-large .cal-dock {
+  display: block; position: absolute; top: 0; right: 0; bottom: 0;
+  width: var(--cal-dock-w, 460px); z-index: 50;   /* above every sliding view */
+  background: var(--bg); border-left: 1px solid var(--border);
+}
+/* Toolbar: cluster icons on the left instead of smearing them. */
+.plugin.screen-large .top-bar { justify-content: flex-start; gap: 10px; padding-left: 18px; }
+/* Hide the calendar toggle icon at large — the dock is always present. */
+.plugin.screen-large .icon-btn.cal-toggle { display: none; }
+/* Centre the prompt within the (narrower) left pane. */
+.plugin.screen-large .orbit-prompt {
+  left: 50%; right: auto; transform: translateX(-50%);
+  width: min(560px, calc(100% - 40px));
+}
+
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe
    gesture, which conflicts with the party-page vertical navigation. */

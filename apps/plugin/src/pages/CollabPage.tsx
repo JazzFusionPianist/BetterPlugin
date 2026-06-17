@@ -633,7 +633,7 @@ function CollabPageInner({ user }: Props) {
 
         {/* Calendar */}
         <div
-          className={`icon-btn${calendarOpen ? ' active' : ''}`}
+          className={`icon-btn cal-toggle${calendarOpen ? ' active' : ''}`}
           onClick={() => setCalendarOpen(prev => {
             if (!prev) {
               setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false)
@@ -774,6 +774,17 @@ function CollabPageInner({ user }: Props) {
           <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view calview-pane">
+          <CalendarPanel
+            events={calEvents}
+            categories={calCategories}
+            currentUserId={user.id}
+            groupTitleById={calGroupTitleById}
+            onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+            onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
+          />
+        </div>
+        {/* Large layout only: calendar permanently docked on the right. */}
+        <div className="cal-dock">
           <CalendarPanel
             events={calEvents}
             categories={calCategories}

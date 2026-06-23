@@ -146,6 +146,14 @@
   overscroll-behavior: none;
 }
 
+/* FloatingOrbs is used as a backdrop inside several slide-in panels. Orbs
+   that spawn exactly on the panel's top edge can appear as tiny moving
+   slivers just under the toolbar, especially on the live setup screen. */
+.plugin .float-orbs-layer {
+  overflow: hidden;
+  clip-path: inset(18px 0 0 0);
+}
+
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Top Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */

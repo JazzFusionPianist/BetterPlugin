@@ -5159,6 +5159,42 @@
 .plugin.screen-large .chess-board-wrap {
   width: min(100%, calc(100vh - 116px));
 }
+.plugin.screen-medium .chess-shell .game-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+.plugin.screen-medium .chess-shell .game-board-wrap {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+}
+.plugin.screen-medium .chess-shell .chess-board-wrap {
+  width: min(100%, calc(100vh - 116px));
+  max-width: calc(100vw - 32px);
+}
+.plugin.screen-medium .chess-shell .chess-board {
+  max-width: calc(100vw - 32px);
+}
+.plugin.screen-medium .chess-shell .game-above,
+.plugin.screen-medium .chess-shell .game-below {
+  grid-row: 2;
+  align-self: stretch;
+  justify-content: start;
+}
+.plugin.screen-medium .chess-shell .game-above { grid-column: 1; }
+.plugin.screen-medium .chess-shell .game-below { grid-column: 2; }
+.plugin.screen-medium .chess-shell .game-player-row {
+  min-height: 58px;
+}
+.plugin.screen-medium .chess-shell .chess-move-history {
+  display: none;
+}
 .plugin.screen-medium .chess-move-history,
 .plugin.screen-large .chess-move-history {
   max-height: 140px;

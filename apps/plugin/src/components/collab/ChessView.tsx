@@ -653,6 +653,7 @@ export default function ChessView({
 
   return (
     <GameShell
+      className="chess-shell"
       title={t('game.chess')}
       onBack={handleBack}
       controls={isPlaying ? (

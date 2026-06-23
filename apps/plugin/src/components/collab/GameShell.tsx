@@ -210,6 +210,7 @@ interface GameShellProps {
    *  board-wrap fill the content area as a flex column so the game's own
    *  flex:1 layout has a definite height to size against. */
   fillBoard?: boolean
+  className?: string
   invite?: InviteProps
   confirm?: {
     open: boolean
@@ -223,11 +224,11 @@ interface GameShellProps {
 }
 
 export default function GameShell ({
-  title, onBack, controls, aboveBoard, board, belowBoard, overlay, fillBoard, invite, confirm, extraModals,
+  title, onBack, controls, aboveBoard, board, belowBoard, overlay, fillBoard, className, invite, confirm, extraModals,
 }: GameShellProps) {
   const { t } = useT()
   return (
-    <div className={`game-view${fillBoard ? ' game-view-fill' : ''}`}>
+    <div className={`game-view${fillBoard ? ' game-view-fill' : ''}${className ? ' ' + className : ''}`}>
       <div className="game-header">
         <button className="game-back-btn" onClick={onBack} aria-label={t('common.goBack')}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

@@ -271,7 +271,7 @@ function ChessBoard({
                 )}
                 {piece && (
                   <span
-                    className="chess-piece"
+                    className={`chess-piece chess-piece-${piece.startsWith('b') ? 'black' : 'white'}`}
                     draggable={canDragThis}
                     onDragStart={e => handleDragStart(e, row, col)}
                     onDragEnd={handleDragEnd}

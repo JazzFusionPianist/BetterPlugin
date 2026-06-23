@@ -5046,6 +5046,312 @@
   background: currentColor;
   opacity: 0.55;
 }
+.game-above,
+.game-below {
+  display: contents;
+}
+
+/* Responsive mini-game layouts — Medium/Large use the expanded frame as a
+   real play surface instead of stretching the compact 300×500 composition. */
+.plugin.screen-medium.game-open .top-bar,
+.plugin.screen-large.game-open .top-bar {
+  width: 100%;
+}
+.plugin.screen-large.game-open .content > .view {
+  right: 0;
+}
+.plugin.screen-large.game-open .cal-dock {
+  display: none;
+}
+.plugin.screen-medium .game-header,
+.plugin.screen-large .game-header {
+  height: 56px;
+  padding: 0 18px;
+}
+.plugin.screen-medium .game-title,
+.plugin.screen-large .game-title {
+  font-size: 15px;
+}
+.plugin.screen-medium .game-back-btn,
+.plugin.screen-large .game-back-btn {
+  width: 36px;
+  height: 36px;
+}
+.plugin.screen-medium .game-area,
+.plugin.screen-large .game-area {
+  padding: 16px;
+  gap: 12px;
+  overflow: hidden;
+}
+.plugin.screen-medium .game-above,
+.plugin.screen-medium .game-below,
+.plugin.screen-large .game-above,
+.plugin.screen-large .game-below {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.plugin.screen-medium .game-player-row,
+.plugin.screen-large .game-player-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg2);
+}
+.plugin.screen-medium .game-player-name,
+.plugin.screen-large .game-player-name {
+  font-size: 13px;
+}
+.plugin.screen-medium .game-ready-badge,
+.plugin.screen-large .game-ready-badge {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+.plugin.screen-medium .game-finish-card,
+.plugin.screen-large .game-finish-card {
+  min-width: 240px;
+  padding: 22px 28px;
+}
+.plugin.screen-medium .game-result-mark,
+.plugin.screen-large .game-result-mark {
+  width: 132px;
+  height: 46px;
+}
+
+/* Chess / Ear Training: two-column play desk. */
+.plugin.screen-medium .game-view:not(.game-view-fill) .game-area,
+.plugin.screen-large .game-view:not(.game-view-fill) .game-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.58fr);
+  grid-template-rows: 1fr 1fr;
+  align-items: stretch;
+}
+.plugin.screen-large .game-view:not(.game-view-fill) .game-area {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+}
+.plugin.screen-medium .game-view:not(.game-view-fill) .game-board-wrap,
+.plugin.screen-large .game-view:not(.game-view-fill) .game-board-wrap {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plugin.screen-medium .game-view:not(.game-view-fill) .game-above,
+.plugin.screen-large .game-view:not(.game-view-fill) .game-above {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+}
+.plugin.screen-medium .game-view:not(.game-view-fill) .game-below,
+.plugin.screen-large .game-view:not(.game-view-fill) .game-below {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+}
+.plugin.screen-medium .chess-board,
+.plugin.screen-large .chess-board {
+  max-width: min(100%, calc(100vh - 116px));
+}
+.plugin.screen-medium .chess-board-wrap,
+.plugin.screen-large .chess-board-wrap {
+  width: min(100%, calc(100vh - 116px));
+}
+.plugin.screen-medium .chess-move-history,
+.plugin.screen-large .chess-move-history {
+  max-height: 140px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg2);
+}
+.plugin.screen-medium .chess-captured,
+.plugin.screen-large .chess-captured {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg2);
+  min-height: 22px;
+}
+
+/* Falling Blocks: main board + dashboard lane. */
+.plugin.screen-medium .falling-blocks-game-layout,
+.plugin.screen-large .falling-blocks-game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 136px;
+  grid-template-rows: 1fr auto;
+  gap: 12px;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+.plugin.screen-large .falling-blocks-game-layout {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+.plugin.screen-medium .falling-blocks-self-row,
+.plugin.screen-large .falling-blocks-self-row {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  justify-content: center;
+  padding: 0;
+}
+.plugin.screen-medium .falling-blocks-self-board-wrap,
+.plugin.screen-large .falling-blocks-self-board-wrap {
+  height: 100%;
+  max-width: 100%;
+}
+.plugin.screen-medium .falling-blocks-side-info,
+.plugin.screen-large .falling-blocks-side-info {
+  width: auto;
+  grid-column: 2;
+  grid-row: 1;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg2);
+}
+.plugin.screen-medium .falling-blocks-opponents-row,
+.plugin.screen-large .falling-blocks-opponents-row {
+  grid-column: 2;
+  grid-row: 2;
+  max-height: none;
+  flex-direction: column;
+  overflow: auto;
+}
+.plugin.screen-medium .falling-blocks-opponent,
+.plugin.screen-large .falling-blocks-opponent {
+  min-height: 92px;
+}
+.plugin.screen-medium .falling-blocks-stat,
+.plugin.screen-large .falling-blocks-stat {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+.plugin.screen-large .falling-blocks-stat-value { font-size: 16px; }
+
+/* Poker: table-centred layout with opponents on top and player console below. */
+.plugin.screen-medium .poker-game-layout,
+.plugin.screen-large .poker-game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+.plugin.screen-medium .poker-opponents-row,
+.plugin.screen-large .poker-opponents-row {
+  justify-content: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.plugin.screen-medium .poker-opponent,
+.plugin.screen-large .poker-opponent {
+  min-width: 112px;
+  max-width: 148px;
+  padding: 8px 10px;
+}
+.plugin.screen-medium .poker-table-area,
+.plugin.screen-large .poker-table-area {
+  min-height: 0;
+  border-radius: 22px;
+  gap: 16px;
+}
+.plugin.screen-medium .poker-card {
+  width: 40px;
+  height: 56px;
+  border-radius: 6px;
+}
+.plugin.screen-large .poker-card {
+  width: 54px;
+  height: 76px;
+  border-radius: 8px;
+}
+.plugin.screen-medium .poker-card.small {
+  width: 24px;
+  height: 34px;
+}
+.plugin.screen-large .poker-card.small {
+  width: 30px;
+  height: 42px;
+}
+.plugin.screen-medium .poker-card-rank { font-size: 15px; }
+.plugin.screen-large .poker-card-rank { font-size: 18px; }
+.plugin.screen-medium .poker-card-suit { font-size: 16px; }
+.plugin.screen-large .poker-card-suit { font-size: 20px; }
+.plugin.screen-medium .poker-self-row,
+.plugin.screen-large .poker-self-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg2);
+}
+.plugin.screen-medium .poker-self-cards,
+.plugin.screen-large .poker-self-cards {
+  grid-row: 1 / span 2;
+}
+.plugin.screen-medium .poker-actions,
+.plugin.screen-large .poker-actions,
+.plugin.screen-medium .poker-raise-controls,
+.plugin.screen-large .poker-raise-controls {
+  max-width: none;
+}
+.plugin.screen-large .poker-handend-banner {
+  width: min(520px, 88%);
+}
+.plugin.screen-medium .poker-handend-banner {
+  width: min(380px, 90%);
+}
+.plugin.screen-large .poker-showdown-list {
+  max-height: 300px;
+}
+.plugin.screen-medium .poker-showdown-list {
+  max-height: 240px;
+}
+
+/* Ear Training: wider options, calmer spacing. */
+.plugin.screen-medium .et-arena,
+.plugin.screen-large .et-arena {
+  width: 100%;
+  padding: 18px;
+  gap: 14px;
+}
+.plugin.screen-medium .et-round,
+.plugin.screen-large .et-round {
+  max-width: 420px;
+}
+.plugin.screen-large .et-round {
+  max-width: 560px;
+}
+.plugin.screen-medium .et-play-btn,
+.plugin.screen-large .et-play-btn {
+  width: 64px;
+  height: 64px;
+}
+.plugin.screen-medium .et-options,
+.plugin.screen-large .et-options {
+  gap: 8px;
+}
+.plugin.screen-medium .et-option,
+.plugin.screen-large .et-option {
+  padding: 10px 0;
+  font-size: 14px;
+}
+.plugin.screen-large .et-option {
+  padding: 12px 0;
+}
 
 /* Player rows (opponent top / me bottom) */
 .game-player-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }

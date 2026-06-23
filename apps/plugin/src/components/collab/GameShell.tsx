@@ -227,7 +227,7 @@ export default function GameShell ({
 }: GameShellProps) {
   const { t } = useT()
   return (
-    <div className="game-view">
+    <div className={`game-view${fillBoard ? ' game-view-fill' : ''}`}>
       <div className="game-header">
         <button className="game-back-btn" onClick={onBack} aria-label={t('common.goBack')}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -239,12 +239,12 @@ export default function GameShell ({
       </div>
 
       <div className="game-area">
-        {aboveBoard}
+        {aboveBoard && <div className="game-above">{aboveBoard}</div>}
         <div className={`game-board-wrap${fillBoard ? ' fill' : overlay ? ' has-overlay' : ''}`}>
           {board}
           {overlay && <div className="game-finish-overlay">{overlay}</div>}
         </div>
-        {belowBoard}
+        {belowBoard && <div className="game-below">{belowBoard}</div>}
       </div>
 
       {invite?.open && (

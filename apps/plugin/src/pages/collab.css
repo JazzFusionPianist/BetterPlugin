@@ -6069,6 +6069,10 @@
 .poker-card.red { color: #DC2626; }
 .poker-card.black { color: #18181b; }
 .poker-card.small { width: 18px; height: 26px; border-radius: 3px; }
+.poker-card.highlighted {
+  border-color: #FFD60A;
+  box-shadow: 0 0 0 1px rgba(255, 214, 10, 0.9), 0 2px 8px rgba(255, 214, 10, 0.26);
+}
 .poker-card-rank {
   font-size: 12px; line-height: 1;
 }
@@ -6105,11 +6109,13 @@
   background: linear-gradient(180deg, rgba(28,28,32,0.95) 0%, rgba(18,18,22,0.95) 100%);
   border: 1px solid rgba(255, 214, 10, 0.35);
   border-radius: 14px;
-  padding: 14px 22px 12px;
+  padding: 12px;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04) inset, 0 1px 0 rgba(255,255,255,0.06) inset;
   z-index: 4;
-  min-width: 200px; max-width: 92%;
+  width: min(272px, 92%);
+  max-height: calc(100% - 18px);
+  box-sizing: border-box;
   animation: pokerHandEndIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes pokerHandEndIn {
@@ -6117,62 +6123,102 @@
   to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 .poker-handend-trophy {
-  font-size: 38px; line-height: 1;
+  font-size: 28px; line-height: 1;
   filter: drop-shadow(0 2px 6px rgba(255, 214, 10, 0.4));
-  margin-bottom: 2px;
 }
 .poker-handend-headline {
-  font-size: 17px; font-weight: 800;
+  font-size: 15px; font-weight: 800;
   color: #FFD60A;
   font-family: 'DM Sans', sans-serif;
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .poker-handend-sub {
   font-size: 9px; font-weight: 600;
   color: rgba(255, 255, 255, 0.45);
   font-family: 'DM Mono', monospace;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   text-transform: uppercase;
   margin-bottom: 4px;
 }
-.poker-handend-evals {
+.poker-showdown-list {
   width: 100%;
   display: flex; flex-direction: column; gap: 3px;
-  margin-top: 6px;
+  margin-top: 4px;
   padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+  max-height: 190px;
 }
-.poker-handend-eval {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
+.poker-showdown-player {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
 }
-.poker-handend-eval.winner {
+.poker-showdown-player.winner {
   background: rgba(255, 214, 10, 0.14);
   border: 1px solid rgba(255, 214, 10, 0.3);
 }
-.poker-handend-eval-name {
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
+.poker-showdown-player-head {
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0;
 }
-.poker-handend-eval.winner .poker-handend-eval-name {
+.poker-showdown-name {
+  flex: 1;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.poker-showdown-player.winner .poker-showdown-name {
   color: #FFD60A;
   font-weight: 700;
 }
-.poker-handend-eval-rank {
-  color: rgba(255, 255, 255, 0.55);
+.poker-showdown-badge {
+  flex-shrink: 0;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.56);
   font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
-.poker-handend-eval.winner .poker-handend-eval-rank {
-  color: rgba(255, 214, 10, 0.85);
+.poker-showdown-badge.winner {
+  background: rgba(255, 214, 10, 0.18);
+  color: #FFD60A;
+}
+.poker-showdown-rank {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.poker-showdown-cards-row {
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0;
+}
+.poker-showdown-cards-row > span {
+  flex: 0 0 46px;
+  color: rgba(255, 255, 255, 0.48);
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.poker-showdown-cards {
+  display: flex; gap: 3px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 /* Lobby/finish overlays — reuse chess-finish-overlay/card */

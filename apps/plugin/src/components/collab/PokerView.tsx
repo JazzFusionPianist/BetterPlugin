@@ -5,12 +5,26 @@ import { usePokerRoom } from '../../hooks/usePokerRoom'
 import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
+import type { TKey } from '../../i18n/translations'
 import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const BIG_BLIND = 20
-const HAND_END_DELAY_MS = 4000
+const HAND_END_DELAY_MS = 7000
+
+const POKER_RANK_KEYS: Record<string, TKey> = {
+  'High Card': 'poker.rankHighCard',
+  Pair: 'poker.rankPair',
+  'Two Pair': 'poker.rankTwoPair',
+  'Three of a Kind': 'poker.rankTrips',
+  Straight: 'poker.rankStraight',
+  Flush: 'poker.rankFlush',
+  'Full House': 'poker.rankFullHouse',
+  'Four of a Kind': 'poker.rankQuads',
+  'Straight Flush': 'poker.rankStraightFlush',
+  'Royal Flush': 'poker.rankRoyalFlush',
+}
 
 // ─── Playing card ─────────────────────────────────────────────────────────────
 
@@ -30,7 +44,17 @@ function suitToSymbol(s: string): string {
   return '?'
 }
 
-function PlayingCard({ card, faceDown, small }: { card?: string; faceDown?: boolean; small?: boolean }) {
+function PlayingCard({
+  card,
+  faceDown,
+  small,
+  highlighted,
+}: {
+  card?: string
+  faceDown?: boolean
+  small?: boolean
+  highlighted?: boolean
+}) {
   if (!card && !faceDown) {
     return <div className={`poker-card poker-card-empty${small ? ' small' : ''}`} />
   }
@@ -45,11 +69,16 @@ function PlayingCard({ card, faceDown, small }: { card?: string; faceDown?: bool
   const isRed = suit === 'H' || suit === 'D'
   const colorClass = isRed ? 'red' : 'black'
   return (
-    <div className={`poker-card ${colorClass}${small ? ' small' : ''}`}>
+    <div className={`poker-card ${colorClass}${small ? ' small' : ''}${highlighted ? ' highlighted' : ''}`}>
       <span className="poker-card-rank">{rankToDisplay(card)}</span>
       <span className="poker-card-suit">{suitToSymbol(suit)}</span>
     </div>
   )
+}
+
+function bestHandLabel(rankName: string, t: (key: TKey) => string): string {
+  const key = POKER_RANK_KEYS[rankName]
+  return key ? t(key) : rankName
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -531,34 +560,66 @@ export default function PokerView({
               return wp?.display_name ?? wid.slice(0, 6)
             })
             const iWon = winners.includes(currentUserId)
-            const showdown = roomState.showdown ?? []
+            const showdown = [...(roomState.showdown ?? [])].sort((a, b) => {
+              const aw = winners.includes(a.user_id) ? 0 : 1
+              const bw = winners.includes(b.user_id) ? 0 : 1
+              if (aw !== bw) return aw - bw
+              return (room?.player_ids.indexOf(a.user_id) ?? 0) - (room?.player_ids.indexOf(b.user_id) ?? 0)
+            })
+            const resultText = winners.length === 0
+              ? t('poker.handComplete')
+              : winners.length > 1
+                ? t('poker.splitPot', { names: winnerNames.join(' & '), amount })
+                : iWon
+                  ? t('poker.youWinPot', { amount })
+                  : t('poker.playerWinsPot', { name: winnerNames[0] ?? '', amount })
             return (
               <div className="poker-handend-banner">
                 <div className="poker-handend-trophy">{iWon ? '🏆' : winners.length > 0 ? '🪙' : '🤝'}</div>
                 <div className="poker-handend-headline">
-                  {winners.length === 0
-                    ? 'Hand complete'
-                    : iWon
-                      ? `You win +${amount}`
-                      : `${winnerNames.join(' & ')} +${amount}`}
+                  {resultText}
                 </div>
                 <div className="poker-handend-sub">
-                  Hand #{roomState.hand_number ?? ''}
+                  {t('poker.showdown')} · {t('poker.handNumber', { n: roomState.hand_number ?? '' })}
                 </div>
                 {showdown.length > 0 && (
-                  <div className="poker-handend-evals">
+                  <div className="poker-showdown-list">
                     {showdown.map(s => {
                       const wp = profileById.get(s.user_id) ?? null
                       const isWinner = winners.includes(s.user_id)
+                      const bestCards = new Set(s.best_cards)
+                      const rankLabel = bestHandLabel(s.rank_name, t)
                       return (
                         <div
                           key={s.user_id}
-                          className={`poker-handend-eval${isWinner ? ' winner' : ''}`}
+                          className={`poker-showdown-player${isWinner ? ' winner' : ''}`}
                         >
-                          <span className="poker-handend-eval-name">
-                            {wp?.display_name ?? s.user_id.slice(0, 6)}
-                          </span>
-                          <span className="poker-handend-eval-rank">{s.rank_name}</span>
+                          <div className="poker-showdown-player-head">
+                            {wp && <GameAvatar profile={wp} size={20} />}
+                            <div className="poker-showdown-name">
+                              {wp?.display_name ?? s.user_id.slice(0, 6)}
+                            </div>
+                            <div className={`poker-showdown-badge${isWinner ? ' winner' : ''}`}>
+                              {isWinner ? t('poker.winner') : t('poker.revealed')}
+                            </div>
+                          </div>
+                          <div className="poker-showdown-rank">{rankLabel}</div>
+                          <div className="poker-showdown-cards-row">
+                            <span>{t('poker.holeCards')}</span>
+                            <div className="poker-showdown-cards">
+                              {s.hole_cards.map(card => (
+                                <PlayingCard key={card} card={card} small highlighted={bestCards.has(card)} />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="poker-showdown-cards-row">
+                            <span>{t('poker.bestFive')}</span>
+                            <div className="poker-showdown-cards">
+                              {s.best_cards.map(card => (
+                                <PlayingCard key={card} card={card} small highlighted />
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )
                     })}

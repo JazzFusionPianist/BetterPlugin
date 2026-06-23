@@ -124,7 +124,13 @@
 .plugin.screen-large .cal-dock {
   display: block; position: absolute; top: 0; right: 0; bottom: 0;
   width: 50%; z-index: 50;   /* above every sliding view */
-  background: var(--bg); border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+/* Full-height divider at the 50% seam — runs top to bottom (through the
+   toolbar row), unlike a border on the dock which starts below it. */
+.plugin.screen-large::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 1px; background: var(--border); z-index: 51; pointer-events: none;
 }
 /* Toolbar spans the left pane only; base space-evenly then spreads the
    icons across it — centred above the profile column, not in a corner. */
@@ -135,6 +141,13 @@
 .plugin.screen-large .orbit-prompt {
   left: 50%; right: auto; transform: translateX(-50%);
   width: min(520px, calc(100% - 40px));
+}
+/* Settings cards (find people / display / user info / language / sign out)
+   are full-width rows that stretch awkwardly in the wide pane — cap them
+   to a centred column at the larger sizes. */
+.plugin.screen-medium .settings-list,
+.plugin.screen-large .settings-list {
+  width: 100%; max-width: 340px; margin-left: auto; margin-right: auto;
 }
 
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.

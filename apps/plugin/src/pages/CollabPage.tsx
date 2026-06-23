@@ -890,7 +890,15 @@ function CollabPageInner({ user }: Props) {
               inviteContext={chatGameInvite}
               onSelectGame={async (g) => {
                 // Normal path — user picked a game to play / browse.
-                if (!chatGameInvite) { setGameScreen(g); return }
+                if (!chatGameInvite) {
+                  const { findActiveGame } = await import('../lib/gameRooms')
+                  const active = await findActiveGame(client, user.id)
+                  if (active?.gameType === g) {
+                    sessionStorage.setItem('join_room_id', active.roomId)
+                  }
+                  setGameScreen(g)
+                  return
+                }
                 // Invite path — create the room, post the invite bubble
                 // into the chat, then drop the user into the lobby.
                 const { createGameRoom } = await import('../lib/gameRooms')
@@ -910,7 +918,6 @@ function CollabPageInner({ user }: Props) {
               currentUserId={user.id}
               currentUserProfile={me}
               friendProfiles={friendProfiles}
-              onlineIds={onlineIds}
               onClose={() => setGameScreen('list')}
             />
           )}

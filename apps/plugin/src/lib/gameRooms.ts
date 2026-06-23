@@ -202,14 +202,15 @@ export async function sendGameInviteMessage (
 }
 
 /**
- * Find a game the user is currently mid-match in (status='playing')
+ * Find a game the user is currently in (status='lobby' or 'playing')
  * across all four game tables. Returns the most recently active one
  * so the toolbar's Games button can drop the user back into the
  * lobby they wandered off from instead of the picker.
  *
  * The query fans out in parallel — typical round-trip is one Supabase
  * RPC's worth of latency. Returns null if the user isn't in any live
- * game.
+ * game. Window/tab close is treated as a visual detach, so unstarted
+ * lobbies are resumable too.
  */
 export async function findActiveGame (
   supabase: SupabaseClient,
@@ -219,28 +220,28 @@ export async function findActiveGame (
     supabase.from('game_rooms')
       .select('id, updated_at')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
-      .eq('status', 'playing')
+      .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase.from('falling_blocks_rooms')
       .select('id, updated_at')
       .contains('player_ids', [userId])
-      .eq('status', 'playing')
+      .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase.from('poker_rooms')
       .select('id, updated_at')
       .contains('player_ids', [userId])
-      .eq('status', 'playing')
+      .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase.from('ear_training_rooms')
       .select('id, updated_at')
       .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-      .eq('status', 'playing')
+      .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),

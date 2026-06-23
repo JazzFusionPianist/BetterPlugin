@@ -165,15 +165,15 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     setRoom(null)
   }, [supabase, room])
 
-  // Find an active room where the current user is host or guest.
-  // Only resumes 'playing' games — lobby/finished are transient states
-  // that should start fresh on each visit.
+  // Find a resumable room where the current user is host or guest.
+  // Window/tab close is not a game action, so both lobby and playing rooms
+  // should be restored. Finished rooms stay terminal.
   const findActiveRoom = useCallback(async (): Promise<GameRoom | null> => {
     const { data, error } = await supabase
       .from('game_rooms')
       .select('*')
       .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
-      .eq('status', 'playing')
+      .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()

@@ -351,7 +351,6 @@ interface Props {
   currentUserId: string
   currentUserProfile: Profile | null
   friendProfiles: Profile[]
-  onlineIds: Set<string>      // for detecting opponent disconnect
   onClose: () => void
 }
 
@@ -362,12 +361,12 @@ export default function ChessView({
   currentUserId,
   currentUserProfile,
   friendProfiles,
-  onlineIds,
   onClose,
 }: Props) {
   const { t } = useT()
   const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
     useGameRoom(supabase, currentUserId)
+  const [resolvingRoom, setResolvingRoom] = useState(true)
 
   // Back button: in lobby/finished, delete the room so the next visit starts
   // fresh. In playing, just unmount locally so the user can resume later.
@@ -389,9 +388,13 @@ export default function ChessView({
       if (pendingRoomId) {
         sessionStorage.removeItem('join_room_id')
         const joined = await joinRoom(pendingRoomId)
-        if (joined || cancelled) return
+        if (joined || cancelled) {
+          if (!cancelled) setResolvingRoom(false)
+          return
+        }
       }
       if (!cancelled) await findActiveRoom()
+      if (!cancelled) setResolvingRoom(false)
     }
     resumeRoom()
     return () => { cancelled = true }
@@ -439,23 +442,6 @@ export default function ChessView({
     : null
 
   const isHost = room ? currentUserId === room.host_id : false
-
-  // ── Disconnect detection ─────────────────────────────────────────────────
-  // The plugin keeps its WebView alive in the AudioProcessor across editor
-  // window open/close, so closing the plugin window does NOT drop Supabase
-  // Realtime presence. A real disconnect (DAW closed, plugin removed, etc.)
-  // takes the user offline; if the opponent stays offline for 60s while a
-  // game is playing, the still-connected player wins by abandonment.
-  useEffect(() => {
-    if (!room || room.status !== 'playing') return
-    if (!opponentId) return
-    if (onlineIds.has(opponentId)) return  // opponent online → no action
-
-    const timer = setTimeout(() => {
-      endGame(currentUserId)
-    }, 60_000)
-    return () => clearTimeout(timer)
-  }, [room, opponentId, onlineIds, currentUserId, endGame])
 
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'
@@ -640,6 +626,8 @@ export default function ChessView({
         <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} disabled={loading} />
       </GameOverlayCard>
     )
+  } else if (resolvingRoom) {
+    overlay = <GameOverlayCard emoji="⏳" title={t('common.joining')} />
   } else if (!isPlaying) {
     if (!room || (isHost && !hasGuest)) {
       overlay = (

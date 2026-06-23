@@ -12,7 +12,8 @@ import {
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameChat from './GameChat'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -680,10 +681,7 @@ export default function ChessView({
         <>
           <div className="game-player-row">
             {opponentProfile ? (
-              <>
-                <GameAvatar profile={opponentProfile} size={28} />
-                <span className="game-player-name">{opponentProfile.display_name}</span>
-              </>
+              <span className="game-player-name">{opponentProfile.display_name}</span>
             ) : (
               <span className="game-player-name game-player-name--unknown">
                 {hasGuest ? t('common.opponent') : t('common.waiting')}
@@ -730,10 +728,7 @@ export default function ChessView({
           )}
           <div className="game-player-row">
             {currentUserProfile ? (
-              <>
-                <GameAvatar profile={currentUserProfile} size={28} />
-                <span className="game-player-name">{currentUserProfile.display_name}</span>
-              </>
+              <span className="game-player-name">{currentUserProfile.display_name}</span>
             ) : (
               <span className="game-player-name">{t('common.me')}</span>
             )}
@@ -761,6 +756,14 @@ export default function ChessView({
         </>
       }
       overlay={overlay}
+      chat={
+        <GameChat
+          supabase={supabase}
+          currentUserId={currentUserId}
+          otherUserId={opponentId}
+          otherName={opponentProfile?.display_name}
+        />
+      }
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

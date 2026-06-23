@@ -9,7 +9,8 @@ import {
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '../../lib/earTraining'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameChat from './GameChat'
 
 interface Props {
   supabase: SupabaseClient
@@ -101,6 +102,11 @@ export default function EarTrainingView ({
   const isPlaying   = room?.status === 'playing'
   const isFinished  = room?.status === 'finished'
   const hasOpponent = !!(room && room.player2_id)
+  const opponentId = room
+    ? seat === 'player1'
+      ? room.player2_id
+      : room.player1_id
+    : null
 
   const config: RoomConfig | null = room?.config ?? null
   const round = room?.current_round ?? 0
@@ -404,10 +410,7 @@ export default function EarTrainingView ({
       aboveBoard={
         <div className="game-player-row">
           {opponentProfile ? (
-            <>
-              <GameAvatar profile={opponentProfile} size={28} />
-              <span className="game-player-name">{opponentProfile.display_name}</span>
-            </>
+            <span className="game-player-name">{opponentProfile.display_name}</span>
           ) : (
             <span className="game-player-name game-player-name--unknown">
               {hasOpponent ? t('common.opponent') : t('et.waitingOpponent')}
@@ -536,7 +539,7 @@ export default function EarTrainingView ({
       belowBoard={
         <div className="game-player-row">
           {currentUserProfile
-            ? <><GameAvatar profile={currentUserProfile} size={28} /><span className="game-player-name">{currentUserProfile.display_name}</span></>
+            ? <span className="game-player-name">{currentUserProfile.display_name}</span>
             : <span className="game-player-name">{t('common.me')}</span>}
           {isPlaying && myAnswer && !opponentAnswer && (
             <span className="game-player-turn">● {t('common.waiting')}</span>
@@ -549,6 +552,14 @@ export default function EarTrainingView ({
         </div>
       }
       overlay={overlay}
+      chat={
+        <GameChat
+          supabase={supabase}
+          currentUserId={currentUserId}
+          otherUserId={opponentId}
+          otherName={opponentProfile?.display_name}
+        />
+      }
       invite={{
         open: showInvite,
         onClose: () => setShowInvite(false),

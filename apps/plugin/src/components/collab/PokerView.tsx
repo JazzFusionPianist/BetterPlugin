@@ -6,7 +6,8 @@ import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameChat from './GameChat'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,8 @@ export default function PokerView({
     }
     return map
   }, [room, friendProfiles, currentUserProfile, currentUserId])
+  const chatOpponentId = opponentIds.length === 1 ? opponentIds[0] : null
+  const chatOpponentProfile = chatOpponentId ? profileById.get(chatOpponentId) ?? null : null
 
   const currentPlayerId = useMemo(() => {
     if (!room || typeof roomState.current_player_index !== 'number') return null
@@ -478,13 +481,6 @@ export default function PokerView({
                   key={id}
                   className={`poker-opponent${folded ? ' folded' : ''}${isTheirTurn ? ' active' : ''}`}
                 >
-                  <div className="poker-opponent-av-wrap">
-                    {profile ? (
-                      <GameAvatar profile={profile} size={28} />
-                    ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#555' }} />
-                    )}
-                  </div>
                   <span className="poker-opponent-name">
                     {profile?.display_name ?? `Player ${idx + 2}`}
                   </span>
@@ -597,7 +593,6 @@ export default function PokerView({
                           className={`poker-showdown-player${isWinner ? ' winner' : ''}`}
                         >
                           <div className="poker-showdown-player-head">
-                            {wp && <GameAvatar profile={wp} size={20} />}
                             <div className="poker-showdown-name">
                               {wp?.display_name ?? s.user_id.slice(0, 6)}
                             </div>
@@ -717,6 +712,14 @@ export default function PokerView({
         </div>
       }
       overlay={overlay}
+      chat={
+        <GameChat
+          supabase={supabase}
+          currentUserId={currentUserId}
+          otherUserId={chatOpponentId}
+          otherName={chatOpponentProfile?.display_name}
+        />
+      }
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

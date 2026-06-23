@@ -5122,6 +5122,11 @@
 .plugin.screen-large .game-player-name {
   font-size: 13px;
 }
+.plugin.screen-medium .game-chat,
+.plugin.screen-large .game-chat {
+  flex-basis: 116px;
+  margin: 0 16px 16px;
+}
 .plugin.screen-medium .game-ready-badge,
 .plugin.screen-large .game-ready-badge {
   font-size: 10px;
@@ -5419,6 +5424,87 @@
 .game-player-name { font-size: 11px; font-weight: 500; color: var(--t1); font-family: 'DM Sans', sans-serif; flex: 1; }
 .game-player-name--unknown { color: var(--t3); }
 .game-player-turn { font-size: 9px; color: #34C759; font-family: 'DM Mono', monospace; font-weight: 600; }
+
+.game-chat {
+  flex: 0 0 94px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg2);
+  overflow: hidden;
+}
+.game-chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.game-chat-empty {
+  margin: auto;
+  color: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+}
+.game-chat-msg {
+  align-self: flex-start;
+  max-width: 84%;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--t1);
+  border: 1px solid var(--border);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.game-chat-msg.mine {
+  align-self: flex-end;
+  background: var(--mine-bg);
+  color: var(--mine-t);
+  border-color: transparent;
+}
+.game-chat-inputrow {
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.game-chat-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--t1);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  padding: 3px 4px;
+}
+.game-chat-input::placeholder { color: var(--t3); }
+.game-chat-send {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  padding: 4px 9px;
+  background: var(--accent, #4A8FE7);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.game-chat-send:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
 
 /* Player-count picker (N-player games) */
 .game-count-picker { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }

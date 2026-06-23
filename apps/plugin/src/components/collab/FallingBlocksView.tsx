@@ -17,7 +17,8 @@ import {
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import GameChat from './GameChat'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -156,7 +157,6 @@ function OpponentBoard({ profile, state, fallbackName }: OpponentBoardProps) {
   return (
     <div className="falling-blocks-opponent">
       <div className="falling-blocks-opponent-header">
-        {profile && <GameAvatar profile={profile} size={20} />}
         <span className="falling-blocks-opponent-name">
           {profile?.display_name ?? fallbackName}
         </span>
@@ -278,6 +278,8 @@ export default function FallingBlocksView({
     }
     return map
   }, [opponentIds, friendProfiles])
+  const chatOpponentId = opponentIds.length === 1 ? opponentIds[0] : null
+  const chatOpponentProfile = chatOpponentId ? opponentProfilesById.get(chatOpponentId) ?? null : null
 
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
@@ -770,6 +772,14 @@ export default function FallingBlocksView({
         </div>
       }
       overlay={overlay}
+      chat={
+        <GameChat
+          supabase={supabase}
+          currentUserId={currentUserId}
+          otherUserId={chatOpponentId}
+          otherName={chatOpponentProfile?.display_name}
+        />
+      }
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

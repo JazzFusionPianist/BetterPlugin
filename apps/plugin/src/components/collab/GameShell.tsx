@@ -206,6 +206,8 @@ interface GameShellProps {
   belowBoard?: ReactNode
   /** Card to overlay on the board (lobby/ready/finished). `null` while playing. */
   overlay?: ReactNode | null
+  /** Optional compact chat panel pinned to the bottom of the game view. */
+  chat?: ReactNode
   /** For games whose board sizes by HEIGHT (e.g. Falling Blocks): make the
    *  board-wrap fill the content area as a flex column so the game's own
    *  flex:1 layout has a definite height to size against. */
@@ -224,7 +226,7 @@ interface GameShellProps {
 }
 
 export default function GameShell ({
-  title, onBack, controls, aboveBoard, board, belowBoard, overlay, fillBoard, className, invite, confirm, extraModals,
+  title, onBack, controls, aboveBoard, board, belowBoard, overlay, chat, fillBoard, className, invite, confirm, extraModals,
 }: GameShellProps) {
   const { t } = useT()
   return (
@@ -247,6 +249,8 @@ export default function GameShell ({
         </div>
         {belowBoard && <div className="game-below">{belowBoard}</div>}
       </div>
+
+      {chat}
 
       {invite?.open && (
         <GameInviteModal

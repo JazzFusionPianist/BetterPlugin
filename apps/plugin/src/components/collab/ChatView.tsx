@@ -8,6 +8,7 @@ import LinkPreviewCard from './LinkPreviewCard'
 import { mergeDroppedRegions } from '../../lib/audioMerge'
 
 interface Attachment { url: string; type: AttachType; name: string }
+type GameInviteJoinResult = 'joined' | 'already-in' | 'full' | 'missing'
 
 interface Props {
   supabase: SupabaseClient
@@ -51,7 +52,7 @@ interface Props {
    *  ChatView itself only renders the bubble and reports the click.
    *  Resolves with the join outcome so the bubble can surface a
    *  "Room is full" / "Already in" banner. */
-  onJoinGameInvite?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
+  onJoinGameInvite?: (gameType: string, roomId: string) => Promise<GameInviteJoinResult>
 }
 
 function formatTime(iso: string): string {
@@ -620,10 +621,10 @@ function GameInviteBubble ({
   gameType: string
   isMine: boolean
   senderName: string
-  onJoin?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
+  onJoin?: (gameType: string, roomId: string) => Promise<GameInviteJoinResult>
 }) {
   const { t } = useT()
-  const [banner, setBanner] = useState<null | 'full' | 'already-in' | 'missing'>(null)
+  const [banner, setBanner] = useState<null | Exclude<GameInviteJoinResult, 'joined'>>(null)
   const [busy, setBusy] = useState(false)
 
   // Map our internal game type → the user-visible game name via the
@@ -652,7 +653,7 @@ function GameInviteBubble ({
   const bannerText =
     banner === 'full'       ? t('game.roomFull')
     : banner === 'already-in' ? t('game.alreadyJoined')
-    : banner === 'missing'  ? t('game.roomFull')
+    : banner === 'missing'  ? t('game.roomExpired')
     : null
 
   return (

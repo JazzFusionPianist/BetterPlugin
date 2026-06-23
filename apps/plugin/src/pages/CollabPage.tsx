@@ -135,22 +135,6 @@ function CollabPageInner({ user }: Props) {
     }
   }, [profilesLoading, me, client, user.id, user.email, refetchProfiles])
 
-  // Click handler for an in-chat game invite bubble's "Join Game"
-  // button. Atomically takes a seat if available and routes the user
-  // into the lobby. Returns the join outcome so the bubble can surface
-  // a banner ("Room is full", "Already in", …).
-  const handleJoinGameInvite = useCallback(async (gameType: string, roomId: string) => {
-    const { joinGameRoom } = await import('../lib/gameRooms')
-    const type = gameType as 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
-    const result = await joinGameRoom(client, type, roomId, user.id)
-    if (result === 'joined' || result === 'already-in') {
-      sessionStorage.setItem('join_room_id', roomId)
-      setGameScreen(type)
-      setGameOpen(true)
-    }
-    return result
-  }, [client, user.id])
-
   // Build the active chat target — DM or group, mutually exclusive.
   const chatTarget: ChatTarget | null = useMemo(() => {
     if (selectedId) return { kind: 'dm', otherUserId: selectedId }
@@ -162,6 +146,21 @@ function CollabPageInner({ user }: Props) {
   // (no chat open) and resubscribes whenever the conv id changes.
   const conversationReads = useConversationReads(client, activeConvId, user.id)
   const onlineIds  = usePresence(client, user.id)
+  // Click handler for an in-chat game invite bubble's "Join Game"
+  // button. Atomically takes a seat if available and routes the user
+  // into the lobby. A stale room whose host has gone offline is treated
+  // as expired, even if the current user's id is still on the room row.
+  const handleJoinGameInvite = useCallback(async (gameType: string, roomId: string) => {
+    const { joinGameRoom } = await import('../lib/gameRooms')
+    const type = gameType as 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+    const result = await joinGameRoom(client, type, roomId, user.id, { onlineIds })
+    if (result === 'joined' || result === 'already-in') {
+      sessionStorage.setItem('join_room_id', roomId)
+      setGameScreen(type)
+      setGameOpen(true)
+    }
+    return result
+  }, [client, onlineIds, user.id])
   // Conversation-keyed notifications. The Phase-2 UI (ProfilePanel) is
   // still friend-keyed, so we adapt below via the DM conversations list.
   const { unread: convUnread, lastMessages: convLastMessages, markSeen: markConvSeen } = useConversationNotifications(client, user.id)

@@ -20,6 +20,15 @@ export const GAME_TABLE: Record<GameType, string> = {
   ear_training:   'ear_training_rooms',
 }
 
+interface RoomCapacity {
+  capacity: number
+  occupied: number
+  alreadyIn: boolean
+  userIds: string[]
+  hostId: string
+  status: string
+}
+
 // Reasonable defaults when creating a room from a chat invite. The host
 // can still tweak in the lobby (poker / falling_blocks) before others
 // fill the seats.
@@ -34,37 +43,53 @@ export async function getRoomCapacity (
   supabase: SupabaseClient,
   gameType: GameType,
   roomId: string,
-): Promise<{ capacity: number; occupied: number; alreadyIn: boolean; userIds: string[] } | null> {
+): Promise<RoomCapacity | null> {
   const table = GAME_TABLE[gameType]
   const { data, error } = await supabase.from(table).select('*').eq('id', roomId).maybeSingle()
   if (error || !data) return null
 
   if (gameType === 'chess') {
-    const r = data as { host_id: string; guest_id: string | null }
+    const r = data as { host_id: string; guest_id: string | null; status: string }
     return {
       capacity: 2,
       occupied: 1 + (r.guest_id ? 1 : 0),
       alreadyIn: false, // caller checks against currentUserId
       userIds: [r.host_id, ...(r.guest_id ? [r.guest_id] : [])],
+      hostId: r.host_id,
+      status: r.status,
     }
   }
   if (gameType === 'ear_training') {
-    const r = data as { player1_id: string; player2_id: string | null }
+    const r = data as { player1_id: string; player2_id: string | null; status: string }
     return {
       capacity: 2,
       occupied: 1 + (r.player2_id ? 1 : 0),
       alreadyIn: false,
       userIds: [r.player1_id, ...(r.player2_id ? [r.player2_id] : [])],
+      hostId: r.player1_id,
+      status: r.status,
     }
   }
   // poker / falling_blocks
-  const r = data as { player_ids: string[]; player_count: number }
+  const r = data as { host_id: string; player_ids: string[]; player_count: number; status: string }
   return {
     capacity: r.player_count,
     occupied: r.player_ids.length,
     alreadyIn: false,
     userIds: r.player_ids,
+    hostId: r.host_id,
+    status: r.status,
   }
+}
+
+async function deleteStaleRoom (
+  supabase: SupabaseClient,
+  gameType: GameType,
+  roomId: string,
+): Promise<void> {
+  const table = GAME_TABLE[gameType]
+  const { error } = await supabase.from(table).delete().eq('id', roomId)
+  if (error) console.warn('[deleteStaleRoom]', error)
 }
 
 /** Create an empty game room with the current user as the host /
@@ -285,9 +310,20 @@ export async function joinGameRoom (
   gameType: GameType,
   roomId: string,
   userId: string,
+  options: { onlineIds?: Set<string> } = {},
 ): Promise<JoinResult> {
   const cap = await getRoomCapacity(supabase, gameType, roomId)
   if (!cap) return 'missing'
+  if (
+    cap.hostId !== userId &&
+    (cap.status === 'lobby' || cap.status === 'playing') &&
+    options.onlineIds &&
+    options.onlineIds.size > 0 &&
+    !options.onlineIds.has(cap.hostId)
+  ) {
+    await deleteStaleRoom(supabase, gameType, roomId)
+    return 'missing'
+  }
   if (cap.userIds.includes(userId)) return 'already-in'
   if (cap.occupied >= cap.capacity) return 'full'
 

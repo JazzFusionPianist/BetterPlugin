@@ -9,7 +9,7 @@ import {
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '../../lib/earTraining'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 
 interface Props {
   supabase: SupabaseClient
@@ -315,9 +315,10 @@ export default function EarTrainingView ({
   let overlay: React.ReactNode = null
   if (isFinished && room) {
     // NO REMATCH — show the final score and exit chrome only.
+    const resultMark = room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw'
     overlay = (
       <GameOverlayCard
-        emoji={room.winner_id === currentUserId ? '🏆' : room.winner_id ? '😔' : '🤝'}
+        emoji={<GameResultMark result={resultMark} />}
         title={
           room.winner_id === currentUserId
             ? t('chess.youWon')

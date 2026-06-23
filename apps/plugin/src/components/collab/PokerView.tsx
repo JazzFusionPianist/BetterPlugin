@@ -6,7 +6,7 @@ import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -321,18 +321,18 @@ export default function PokerView({
 
   // ── Result text (finished) ───────────────────────────────────────────────
   let resultTitle = t('poker.gameOver')
-  let resultEmoji = '🃏'
+  let resultMark: 'win' | 'loss' | 'draw' = 'draw'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
       resultTitle = t('poker.youWon')
-      resultEmoji = '🏆'
+      resultMark = 'win'
     } else if (room.winner_id) {
       const winnerProfile = profileById.get(room.winner_id) ?? null
       resultTitle = winnerProfile ? t('poker.playerWon', { name: winnerProfile.display_name }) : t('poker.youLost')
-      resultEmoji = '😔'
+      resultMark = 'loss'
     } else {
       resultTitle = t('poker.gameOver')
-      resultEmoji = '🃏'
+      resultMark = 'draw'
     }
   }
 
@@ -379,7 +379,7 @@ export default function PokerView({
     overlay = <GameOverlayCard emoji="🃏" title={t('common.joining')} />
   } else if (isFinished && room) {
     overlay = (
-      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+      <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl
           ready={myReady}
           count={`${room.ready_ids.length} / ${room.player_count} ready`}
@@ -575,7 +575,9 @@ export default function PokerView({
                   : t('poker.playerWinsPot', { name: winnerNames[0] ?? '', amount })
             return (
               <div className="poker-handend-banner">
-                <div className="poker-handend-trophy">{iWon ? '🏆' : winners.length > 0 ? '🪙' : '🤝'}</div>
+                <div className={`poker-handend-status${iWon ? ' win' : winners.length > 0 ? 'loss' : 'draw'}`}>
+                  {iWon ? 'WIN' : winners.length > 0 ? 'LOSS' : 'DRAW'}
+                </div>
                 <div className="poker-handend-headline">
                   {resultText}
                 </div>

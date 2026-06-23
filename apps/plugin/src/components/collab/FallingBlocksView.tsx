@@ -17,7 +17,7 @@ import {
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -595,18 +595,18 @@ export default function FallingBlocksView({
 
   // ── Result text ──────────────────────────────────────────────────────────
   let resultTitle = t('fb.gameOver')
-  let resultEmoji = '🎮'
+  let resultMark: 'win' | 'loss' | 'draw' = 'draw'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
       resultTitle = t('chess.youWon')
-      resultEmoji = '🏆'
+      resultMark = 'win'
     } else if (room.winner_id) {
       const winnerProfile = friendProfiles.find(p => p.id === room.winner_id)
       resultTitle = winnerProfile ? t('fb.playerWon', { name: winnerProfile.display_name }) : t('chess.youLost')
-      resultEmoji = '😔'
+      resultMark = 'loss'
     } else {
       resultTitle = t('chess.drawResult')
-      resultEmoji = '🤝'
+      resultMark = 'draw'
     }
   }
 
@@ -616,7 +616,7 @@ export default function FallingBlocksView({
   let overlay: React.ReactNode = null
   if (isFinished && room) {
     overlay = (
-      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+      <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl
           ready={myReady}
           count={`${room.ready_ids.length} / ${room.player_count} ready`}

@@ -68,6 +68,17 @@ export function GameOverlayCard ({ emoji, title, children, className }: {
   )
 }
 
+export function GameResultMark ({ result }: { result: 'win' | 'loss' | 'draw' }) {
+  const label = result === 'win' ? 'WIN' : result === 'loss' ? 'LOSS' : 'DRAW'
+  return (
+    <div className={`game-result-mark ${result}`} aria-hidden="true">
+      <span className="game-result-mark-line" />
+      <span className="game-result-mark-label">{label}</span>
+      <span className="game-result-mark-line" />
+    </div>
+  )
+}
+
 // ── Ready / Rematch button + counter ──────────────────────────────────────────
 export function GameReadyControl ({ ready, count, onToggle, disabled }: {
   ready: boolean

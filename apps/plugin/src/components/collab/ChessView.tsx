@@ -12,7 +12,7 @@ import {
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
-import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl } from './GameShell'
+import GameShell, { GameAvatar, GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 
 // ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
 // Renders identically across all browsers/OSes. Cached via wikimedia CDN.
@@ -605,14 +605,14 @@ export default function ChessView({
     !!(room && room.draw_offered_by !== null && room.draw_offered_by !== currentUserId)
 
   let resultTitle = t('chess.drawResult')
-  let resultEmoji = '🤝'
+  let resultMark: 'win' | 'loss' | 'draw' = 'draw'
   if (isFinished && room) {
     if (room.winner_id === currentUserId) {
       resultTitle = t('chess.youWon')
-      resultEmoji = '🏆'
+      resultMark = 'win'
     } else if (room.winner_id && room.winner_id !== currentUserId) {
       resultTitle = t('chess.youLost')
-      resultEmoji = '😔'
+      resultMark = 'loss'
     }
   }
 
@@ -624,7 +624,7 @@ export default function ChessView({
   let overlay: React.ReactNode = null
   if (isFinished && room) {
     overlay = (
-      <GameOverlayCard emoji={resultEmoji} title={resultTitle}>
+      <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} />
       </GameOverlayCard>
     )

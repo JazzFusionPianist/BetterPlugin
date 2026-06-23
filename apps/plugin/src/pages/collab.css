@@ -5007,6 +5007,45 @@
 .plugin.dark .game-finish-card { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
 .game-finish-emoji { font-size: 40px; line-height: 1; }
 .game-finish-title { font-size: 15px; font-weight: 700; color: var(--t1); font-family: 'DM Sans', sans-serif; text-align: center; }
+.game-result-mark {
+  width: 112px;
+  height: 42px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.game-result-mark.win {
+  color: #d9a400;
+  border-color: rgba(217, 164, 0, 0.42);
+  background: rgba(255, 214, 10, 0.12);
+}
+.game-result-mark.loss {
+  color: var(--t2);
+  border-color: rgba(127, 127, 140, 0.32);
+  background: rgba(127, 127, 140, 0.1);
+}
+.game-result-mark.draw {
+  color: #4A8FE7;
+  border-color: rgba(74, 143, 231, 0.36);
+  background: rgba(74, 143, 231, 0.1);
+}
+.game-result-mark-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.game-result-mark-line {
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
 
 /* Player rows (opponent top / me bottom) */
 .game-player-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -6122,9 +6161,31 @@
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
   to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
-.poker-handend-trophy {
-  font-size: 28px; line-height: 1;
-  filter: drop-shadow(0 2px 6px rgba(255, 214, 10, 0.4));
+.poker-handend-status {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+}
+.poker-handend-status.win {
+  color: #FFD60A;
+  border-color: rgba(255, 214, 10, 0.42);
+  background: rgba(255, 214, 10, 0.14);
+}
+.poker-handend-status.loss {
+  color: rgba(255, 255, 255, 0.58);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+.poker-handend-status.draw {
+  color: #8ec5ff;
+  border-color: rgba(142, 197, 255, 0.34);
+  background: rgba(74, 143, 231, 0.16);
 }
 .poker-handend-headline {
   font-size: 15px; font-weight: 800;

@@ -381,14 +381,19 @@ export default function ChessView({
 
   // On mount: auto-join from pending invite first, otherwise resume any active room
   useEffect(() => {
-    const pendingRoomId = sessionStorage.getItem('join_room_id')
-    if (pendingRoomId && !room) {
-      sessionStorage.removeItem('join_room_id')
-      joinRoom(pendingRoomId)
-      return
+    if (room) return
+    let cancelled = false
+    const resumeRoom = async () => {
+      const pendingRoomId = sessionStorage.getItem('join_room_id')
+      if (pendingRoomId) {
+        sessionStorage.removeItem('join_room_id')
+        const joined = await joinRoom(pendingRoomId)
+        if (joined || cancelled) return
+      }
+      if (!cancelled) await findActiveRoom()
     }
-    // Resume any active room (lobby/playing) where we're a participant
-    if (!room) findActiveRoom()
+    resumeRoom()
+    return () => { cancelled = true }
   }, [joinRoom, findActiveRoom, room])
 
   // Local chess state (mirrors room, but updated optimistically)

@@ -166,8 +166,8 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
   }, [supabase, room])
 
   // Find a resumable room where the current user is host or guest.
-  // Window/tab close is not a game action, so both lobby and playing rooms
-  // should be restored. Finished rooms stay terminal.
+  // Window/tab close is not a game action, so playing rooms and lobbies with
+  // an opponent should be restored. Empty host-only lobbies are invite drafts.
   const findActiveRoom = useCallback(async (): Promise<GameRoom | null> => {
     const { data, error } = await supabase
       .from('game_rooms')
@@ -175,11 +175,12 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       .or(`host_id.eq.${currentUserId},guest_id.eq.${currentUserId}`)
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(5)
     if (error) { console.error('[findActiveRoom]', error); return null }
-    if (data) setRoom(data as GameRoom)
-    return (data as GameRoom | null) ?? null
+    const room = ((data as GameRoom[] | null) ?? [])
+      .find(r => r.status === 'playing' || !!r.guest_id) ?? null
+    if (room) setRoom(room)
+    return room
   }, [supabase, currentUserId])
 
   const setRoomDirect = useCallback((r: GameRoom | null) => setRoom(r), [])

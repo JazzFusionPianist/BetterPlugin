@@ -209,8 +209,8 @@ export async function sendGameInviteMessage (
  *
  * The query fans out in parallel — typical round-trip is one Supabase
  * RPC's worth of latency. Returns null if the user isn't in any live
- * game. Window/tab close is treated as a visual detach, so unstarted
- * lobbies are resumable too.
+ * game. Window/tab close is treated as a visual detach, but empty
+ * host-only lobbies are invite drafts, not games to auto-resume.
  */
 export async function findActiveGame (
   supabase: SupabaseClient,
@@ -218,40 +218,40 @@ export async function findActiveGame (
 ): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
   const [chess, fb, poker, et] = await Promise.all([
     supabase.from('game_rooms')
-      .select('id, updated_at')
+      .select('id, updated_at, status, guest_id')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(5),
     supabase.from('falling_blocks_rooms')
-      .select('id, updated_at')
+      .select('id, updated_at, status, player_ids')
       .contains('player_ids', [userId])
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(5),
     supabase.from('poker_rooms')
-      .select('id, updated_at')
+      .select('id, updated_at, status, player_ids')
       .contains('player_ids', [userId])
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(5),
     supabase.from('ear_training_rooms')
-      .select('id, updated_at')
+      .select('id, updated_at, status, player2_id')
       .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(5),
   ])
 
   const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
-  if (chess.data) candidates.push({ gameType: 'chess', roomId: chess.data.id, updatedAt: chess.data.updated_at })
-  if (fb.data)    candidates.push({ gameType: 'falling_blocks', roomId: fb.data.id, updatedAt: fb.data.updated_at })
-  if (poker.data) candidates.push({ gameType: 'poker', roomId: poker.data.id, updatedAt: poker.data.updated_at })
-  if (et.data)    candidates.push({ gameType: 'ear_training', roomId: et.data.id, updatedAt: et.data.updated_at })
+  const chessRoom = chess.data?.find(r => r.status === 'playing' || !!r.guest_id)
+  const fbRoom = fb.data?.find(r => r.status === 'playing' || ((r.player_ids as string[] | null) ?? []).length > 1)
+  const pokerRoom = poker.data?.find(r => r.status === 'playing' || ((r.player_ids as string[] | null) ?? []).length > 1)
+  const etRoom = et.data?.find(r => r.status === 'playing' || !!r.player2_id)
+  if (chessRoom) candidates.push({ gameType: 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
+  if (fbRoom)    candidates.push({ gameType: 'falling_blocks', roomId: fbRoom.id, updatedAt: fbRoom.updated_at })
+  if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
+  if (etRoom)    candidates.push({ gameType: 'ear_training', roomId: etRoom.id, updatedAt: etRoom.updated_at })
 
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

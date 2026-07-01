@@ -726,3 +726,28 @@ button { font-family: inherit; }
 .chatt-bar textarea::placeholder { color: var(--t3); }
 .chatt-send { flex-shrink: 0; width: 34px; height: 34px; border-radius: 12px; border: none; cursor: pointer; background: var(--t1); color: #0c0c0f; display: flex; align-items: center; justify-content: center; transition: opacity .15s; }
 .chatt-send:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Chat attachments (audio player, image, etc.) ────────────────────── */
+.chatt-bubble.has-att { padding: 5px; max-width: 86%; }
+.chatt-bubble.has-att .chatt-text { display: block; padding: 4px 8px 2px; }
+.chatt-bubble.has-att .chatt-time { padding: 0 6px 2px; }
+
+.msg-audio { min-width: 210px; }
+.msg-audio-head { display: flex; align-items: center; gap: 6px; padding: 4px 6px 7px; font-size: 12px; opacity: 0.9; }
+.msg-audio-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.msg-audio-player { display: flex; align-items: center; gap: 9px; padding: 0 2px 2px; }
+.msg-audio-btn {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.2); color: inherit;
+  display: flex; align-items: center; justify-content: center; transition: background .12s;
+}
+.msg-audio-btn:active { background: rgba(255,255,255,0.32); }
+.msg-audio-track { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.22); cursor: pointer; position: relative; }
+.msg-audio-fill { height: 100%; border-radius: 2px; background: currentColor; }
+.msg-audio-time { flex-shrink: 0; font-size: 10.5px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.msg-audio-multi { display: flex; flex-direction: column; gap: 10px; }
+
+.msg-img { max-width: 240px; border-radius: 12px; display: block; cursor: pointer; }
+.msg-video { max-width: 240px; border-radius: 12px; display: block; }
+.msg-file { display: inline-block; padding: 8px 12px; font-size: 13.5px; text-decoration: none; color: inherit; }
+.msg-tomb { padding: 8px 12px; font-size: 13px; opacity: 0.7; font-style: italic; }

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { useMessages, type Profile } from '@orb/core'
+import { useMessages, type Profile, type Message } from '@orb/core'
 
 interface Props {
   supabase: SupabaseClient
@@ -13,6 +13,93 @@ interface Props {
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+
+const fmtDur = (s: number) => {
+  if (!isFinite(s)) return '0:00'
+  const m = Math.floor(s / 60)
+  return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+}
+
+/** Inline audio player — the whole point of mobile chat for this app:
+ *  audio people drop in from the DAW must play right here. */
+function AudioPlayer({ url, name }: { url: string; name: string }) {
+  const ref = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [cur, setCur] = useState(0)
+  const [dur, setDur] = useState(0)
+
+  const toggle = () => {
+    const a = ref.current
+    if (!a) return
+    if (playing) { a.pause(); setPlaying(false) }
+    else { a.play().then(() => setPlaying(true)).catch(() => {}) }
+  }
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const a = ref.current
+    if (!a || !dur) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    a.currentTime = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * dur
+  }
+
+  return (
+    <div className="msg-audio">
+      <div className="msg-audio-head">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+        <span className="msg-audio-name">{name}</span>
+      </div>
+      <div className="msg-audio-player">
+        <audio
+          ref={ref}
+          src={url}
+          preload="metadata"
+          onTimeUpdate={() => setCur(ref.current?.currentTime ?? 0)}
+          onLoadedMetadata={() => setDur(ref.current?.duration ?? 0)}
+          onEnded={() => { setPlaying(false); setCur(0) }}
+        />
+        <button className="msg-audio-btn" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing
+            ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+            : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>}
+        </button>
+        <div className="msg-audio-track" onClick={seek}>
+          <div className="msg-audio-fill" style={{ width: dur ? `${(cur / dur) * 100}%` : '0%' }} />
+        </div>
+        <span className="msg-audio-time">{fmtDur(cur)} / {fmtDur(dur)}</span>
+      </div>
+    </div>
+  )
+}
+
+/** Render whatever a message carries as an attachment. */
+function Attachment({ m }: { m: Message }) {
+  if (m.attachment_expired) {
+    return <div className="msg-tomb">🎵 This attachment has expired</div>
+  }
+  const url = m.attachment_url
+  const name = m.attachment_name ?? 'Audio'
+  if (!url) return null
+  switch (m.attachment_type) {
+    case 'audio':
+      return <AudioPlayer url={url} name={name} />
+    case 'multi-audio': {
+      let tracks: { url: string; name: string }[] = []
+      try { tracks = JSON.parse(url) } catch { /* ignore */ }
+      return (
+        <div className="msg-audio-multi">
+          {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `Track ${i + 1}`} />)}
+        </div>
+      )
+    }
+    case 'image':
+      return <img className="msg-img" src={url} alt={name} onClick={() => window.open(url, '_blank')} />
+    case 'video':
+      return <video className="msg-video" src={url} controls playsInline preload="metadata" />
+    case 'game_invite':
+      return <div className="msg-tomb">🎮 Game invite</div>
+    default:
+      return <a className="msg-file" href={url} target="_blank" rel="noreferrer">📎 {name}</a>
+  }
+}
 
 /** Minimal 1:1 chat — a full-screen thread over the orb home on mobile. */
 export default function ChatThread({ supabase, currentUserId, friend, onClose }: Props) {
@@ -80,10 +167,12 @@ export default function ChatThread({ supabase, currentUserId, friend, onClose }:
           const prev = messages[i - 1]
           const grouped = prev && prev.sender_id === m.sender_id &&
             new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 4 * 60 * 1000
+          const hasAttach = !!m.attachment_url || m.attachment_expired
           return (
             <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
-              <div className="chatt-bubble">
-                {m.content}
+              <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
+                {hasAttach && <Attachment m={m} />}
+                {m.content && <span className="chatt-text">{m.content}</span>}
                 <span className="chatt-time">{fmtTime(m.created_at)}</span>
               </div>
             </div>

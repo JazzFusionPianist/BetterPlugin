@@ -97,7 +97,7 @@
    450×750 / 600×1000, so the shell fills it and the layout spreads into
    the extra room. Inner elements keep their pixel sizes. */
 .plugin.screen-medium,
-.plugin.screen-large {
+.plugin.screen-wide {
   width: 100vw;
   height: 100vh;
 }
@@ -119,26 +119,26 @@
    calendar docks on the RIGHT. */
 .cal-dock { display: none; }
 /* Exact 50/50: left pane holds the sliding views, right half is the dock. */
-.plugin.screen-large .content > .view { right: 50%; }
-.plugin.screen-large .calview-pane { display: none; }     /* docked instead */
-.plugin.screen-large .cal-dock {
+.plugin.screen-wide .content > .view { right: 50%; }
+.plugin.screen-wide .calview-pane { display: none; }     /* docked instead */
+.plugin.screen-wide .cal-dock {
   display: block; position: absolute; top: 0; right: 0; bottom: 0;
   width: 50%; z-index: 50;   /* above every sliding view */
   background: var(--bg);
 }
 /* Full-height divider at the 50% seam — runs top to bottom (through the
    toolbar row), unlike a border on the dock which starts below it. */
-.plugin.screen-large::after {
+.plugin.screen-wide::after {
   content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
   width: 1px; background: var(--border); z-index: 51; pointer-events: none;
 }
 /* Toolbar spans the left pane only; base space-evenly then spreads the
    icons across it — centred above the profile column, not in a corner. */
-.plugin.screen-large .top-bar { width: 50%; }
+.plugin.screen-wide .top-bar { width: 50%; }
 /* Hide the calendar toggle icon at large — the dock is always present. */
-.plugin.screen-large .icon-btn.cal-toggle { display: none; }
+.plugin.screen-wide .icon-btn.cal-toggle { display: none; }
 /* Centre the prompt within the left pane. */
-.plugin.screen-large .orbit-prompt {
+.plugin.screen-wide .orbit-prompt {
   left: 50%; right: auto; transform: translateX(-50%);
   width: min(520px, calc(100% - 40px));
 }
@@ -146,7 +146,7 @@
    are full-width rows that stretch awkwardly in the wide pane — cap them
    to a centred column at the larger sizes. */
 .plugin.screen-medium .settings-list,
-.plugin.screen-large .settings-list {
+.plugin.screen-wide .settings-list {
   width: 100%; max-width: 340px; margin-left: auto; margin-right: auto;
 }
 

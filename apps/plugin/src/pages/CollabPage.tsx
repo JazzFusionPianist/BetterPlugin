@@ -555,7 +555,11 @@ function CollabPageInner({ user }: Props) {
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
     // so the browser preview keeps its fixed 300×500 frame — unless the
     // ?screen= dev override is set, which forces it on in the browser too.
-    ((hasJuceBridge || screenPreview) && screenSize !== 'small') ? `screen-${screenSize}` : '',
+    // 'large' emits `screen-wide` (our split layout); the mini-games' own
+    // screen-large rules stay dormant there so games render compact in the
+    // left pane while the calendar stays docked on the right.
+    ((hasJuceBridge || screenPreview) && screenSize !== 'small')
+      ? (screenSize === 'large' ? 'screen-wide' : `screen-${screenSize}`) : '',
     settingsOpen      ? 'settings-open'      : '',
     displayOpen       ? 'display-open'       : '',
     infoOpen          ? 'info-open'          : '',
@@ -790,17 +794,6 @@ function CollabPageInner({ user }: Props) {
             onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
           />
         </div>
-        {/* Large layout only: calendar permanently docked on the right. */}
-        <div className="cal-dock">
-          <CalendarPanel
-            events={calEvents}
-            categories={calCategories}
-            currentUserId={user.id}
-            groupTitleById={calGroupTitleById}
-            onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-            onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
-          />
-        </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />
         </div>
@@ -964,6 +957,20 @@ function CollabPageInner({ user }: Props) {
             onClose={() => setAddFriendOpen(false)}
           />
         </div>
+      </div>
+
+      {/* Wide layout only: calendar docked on the right, spanning the full
+          plugin height (above the toolbar row) so its header sits at the top.
+          A sibling of .content — not inside it — so top:0 means the very top. */}
+      <div className="cal-dock">
+        <CalendarPanel
+          events={calEvents}
+          categories={calCategories}
+          currentUserId={user.id}
+          groupTitleById={calGroupTitleById}
+          onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+          onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
+        />
       </div>
 
       {galleryPopup && (

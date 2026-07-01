@@ -23,11 +23,11 @@ export const EXPANDED_H = 460
  * resize limits (PluginEditor setResizeLimits → max 1600×1200).
  */
 export type ScreenSize = 'small' | 'medium' | 'large'
-const MED_H = COMPACT_H * 1.5 // 750 — also large's (fixed) height
+const MED_H = COMPACT_H * 1.5 // 750
 export const SCREEN_SIZES: Record<ScreenSize, { w: number; h: number }> = {
   small:  { w: COMPACT_W,       h: COMPACT_H },                // 300 × 500  (100%)
   medium: { w: COMPACT_W * 1.5, h: MED_H },                   // 450 × 750  (150%)
-  large:  { w: Math.round(MED_H * 16 / 9), h: MED_H },        // 1333 × 750 (16:9)
+  large:  { w: COMPACT_W * 2,   h: COMPACT_H },               // 600 × 500  (2× wide — two small panes)
 }
 
 /**

@@ -18,22 +18,19 @@ export const EXPANDED_H = 460
  * User-selectable plugin-window sizes (Display ▸ Screen size).
  * The window grows but the inner UI keeps its pixel sizes — the layout
  * simply spreads out into the extra room. 'small' is the original
- * 300×500 shell (100%); 'medium' is 150% of that; 'large' keeps medium's
- * height and widens to a 16:9 monitor ratio. All within the editor's
+ * 300×500 shell (100%); 'large' is a two-pane 600×500 layout. All within the editor's
  * resize limits (PluginEditor setResizeLimits → max 1600×1200).
  */
-export type ScreenSize = 'small' | 'medium' | 'large'
-const MED_H = COMPACT_H * 1.5 // 750
+export type ScreenSize = 'small' | 'large'
 export const SCREEN_SIZES: Record<ScreenSize, { w: number; h: number }> = {
   small:  { w: COMPACT_W,       h: COMPACT_H },                // 300 × 500  (100%)
-  medium: { w: COMPACT_W * 1.5, h: MED_H },                   // 450 × 750  (150%)
   large:  { w: COMPACT_W * 2,   h: COMPACT_H },               // 600 × 500  (2× wide — two small panes)
 }
 
 /**
  * The user's chosen base window size. Live-view "Expand" temporarily grows
  * past this for landscape video, then restores back to it (not a hardcoded
- * 300×500) on collapse so a Medium/Large preference survives a live session.
+ * 300×500) on collapse so a Large preference survives a live session.
  */
 let _baseSize = SCREEN_SIZES.small
 

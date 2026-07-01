@@ -105,7 +105,6 @@ export const T = {
   'display.remove':         { en: 'Remove', ko: '제거', ja: '削除', zh: '移除', es: 'Quitar', de: 'Entfernen', fr: 'Retirer', hi: 'हटाएं' },
   'display.screenSize':     { en: 'Screen size', ko: '화면 크기', ja: '画面サイズ', zh: '屏幕大小', es: 'Tamaño de pantalla', de: 'Bildschirmgröße', fr: 'Taille d\'écran', hi: 'स्क्रीन आकार' },
   'display.size.small':     { en: 'Small', ko: '작게', ja: '小', zh: '小', es: 'Pequeño', de: 'Klein', fr: 'Petit', hi: 'छोटा' },
-  'display.size.medium':    { en: 'Medium', ko: '보통', ja: '中', zh: '中', es: 'Mediano', de: 'Mittel', fr: 'Moyen', hi: 'मध्यम' },
   'display.size.large':     { en: 'Large', ko: '크게', ja: '大', zh: '大', es: 'Grande', de: 'Groß', fr: 'Grand', hi: 'बड़ा' },
 
   // ───── Find people / AddFriend ──────────────────────────────────────────

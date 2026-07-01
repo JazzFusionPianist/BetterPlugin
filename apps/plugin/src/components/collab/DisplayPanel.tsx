@@ -2,7 +2,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
 
-const SCREEN_OPTIONS: ScreenSize[] = ['small', 'medium', 'large']
+const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
 
 interface Props {
   isDark: boolean

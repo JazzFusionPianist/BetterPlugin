@@ -105,16 +105,20 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
-  // Dev override: ?screen=medium|large lets us preview the larger layouts
+  // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.
   const screenPreview = (() => {
     const p = new URLSearchParams(window.location.search).get('screen')
-    return p === 'medium' || p === 'large' ? (p as ScreenSize) : null
+    return p === 'large' ? (p as ScreenSize) : null
   })()
   const [screenSize, setScreenSize] = useState<ScreenSize>(() => {
     if (screenPreview) return screenPreview
     const s = localStorage.getItem('collab_screen_size')
-    return s === 'medium' || s === 'large' ? s : 'small'
+    if (s === 'medium') {
+      localStorage.setItem('collab_screen_size', 'large')
+      return 'large'
+    }
+    return s === 'large' ? s : 'small'
   })
   // viewMode is locked to 'default' — gallery/list views are no longer exposed.
   const viewMode: 'default' | 'gallery' | 'list' = 'default'
@@ -428,7 +432,7 @@ function CollabPageInner({ user }: Props) {
     localStorage.setItem('collab_screen_size', size)
     applyScreenSize(size)
   }
-  // Re-apply the saved window size when the plugin (re)loads so a Medium/Large
+  // Re-apply the saved window size when the plugin (re)loads so a Large
   // preference is restored on host launch. No-op without the JUCE bridge.
   useEffect(() => { applyScreenSize(screenSize) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 

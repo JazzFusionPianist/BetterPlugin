@@ -453,7 +453,12 @@ function CollabPageInner({ user }: Props) {
     else { setDisplayOpen(false); setInfoOpen(false) }
     return !prev
   })
-  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
+  // Called by every "open a main panel" handler (messages/live/games/
+  // add-friend/chat). The calendar sliding view sits above those in the
+  // z-stack, so close it here too — otherwise a newly-opened panel would be
+  // hidden behind it. Settings (z-index 30) intentionally overlays instead,
+  // so it does NOT go through here and keeps working over the calendar.
+  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setCalendarOpen(false) }
   const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleConv      = () => setConvOpen(prev => {

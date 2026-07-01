@@ -137,6 +137,10 @@
 .plugin.screen-wide .top-bar { width: 50%; }
 /* Hide the calendar toggle icon at large — the dock is always present. */
 .plugin.screen-wide .icon-btn.cal-toggle { display: none; }
+/* Mini-games render compact in the 300px left pane; make sure their play
+   area keeps the default vertical scroll (the co-worker's screen-large
+   `overflow:hidden` is dormant here, but pin it so games always scroll). */
+.plugin.screen-wide .game-area { overflow-y: auto; }
 /* Centre the prompt within the left pane. */
 .plugin.screen-wide .orbit-prompt {
   left: 50%; right: auto; transform: translateX(-50%);

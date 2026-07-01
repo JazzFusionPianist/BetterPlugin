@@ -13,6 +13,8 @@ import Sidebar from './Sidebar'
 import OrbHome from './OrbHome'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
+import ProfileSheet from './ProfileSheet'
+import ChatThread from './ChatThread'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -29,6 +31,8 @@ export default function AppShell({ user }: { user: User }) {
   const { categories, ensureCategory } = useEventCategories(supabase, user.id)
 
   const [calOpen, setCalOpen] = useState(false)
+  const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
+  const [chatFriend, setChatFriend] = useState<Profile | null>(null)     // open conversation
 
   // Where new events go: personal, or shared with one of my groups.
   const targets = useMemo(
@@ -101,10 +105,26 @@ export default function AppShell({ user }: { user: User }) {
           {events.length > 0 && <span className="webapp-cal-count">{events.length}</span>}
         </button>
 
-        <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} />
+        <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} onSelect={setSheetFriend} />
 
         <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
       </main>
+
+      <ProfileSheet
+        friend={sheetFriend}
+        unread={sheetFriend ? (unreadByFriend.get(sheetFriend.id) ?? 0) : 0}
+        onClose={() => setSheetFriend(null)}
+        onMessage={(f) => { setSheetFriend(null); setChatFriend(f) }}
+      />
+
+      {chatFriend && (
+        <ChatThread
+          supabase={supabase}
+          currentUserId={user.id}
+          friend={chatFriend}
+          onClose={() => setChatFriend(null)}
+        />
+      )}
 
       <CalendarView
         open={calOpen}

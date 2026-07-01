@@ -7,6 +7,7 @@ interface Props {
   me: Profile | null
   friends: Profile[]
   unreadByFriend: Map<string, number>
+  onSelect: (friend: Profile) => void
 }
 
 interface Orb { x: number; y: number; vx: number; vy: number; r: number; el: HTMLDivElement | null }
@@ -19,7 +20,7 @@ const CENTER_R = 64   // radius of the central avatar's keep-out zone
  * friend-orb backdrop: gentle brownian motion, wall bounce, and a
  * soft keep-out ring around the centre so orbs never cover your face.
  */
-export default function OrbHome({ me, friends, unreadByFriend }: Props) {
+export default function OrbHome({ me, friends, unreadByFriend, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
   const sizeRef = useRef({ w: 1000, h: 700 })
@@ -107,6 +108,7 @@ export default function OrbHome({ me, friends, unreadByFriend }: Props) {
             ref={(el) => { if (orbsRef.current[i]) orbsRef.current[i]!.el = el }}
             className={`orbhome-orb${f.isOnline ? '' : ' offline'}${unread > 0 ? ' has-notif' : ''}`}
             style={{ width: r * 2, height: r * 2, background: f.avatar_color, fontSize: Math.max(11, r * 0.5) }}
+            onClick={() => onSelect(f)}
             onMouseEnter={(e) => {
               const rect = containerRef.current!.getBoundingClientRect()
               setHovered({ name: f.display_name, x: e.clientX - rect.left, y: e.clientY - rect.top })

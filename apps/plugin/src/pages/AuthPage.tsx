@@ -13,6 +13,11 @@ export default function AuthPage() {
     <div className="auth-page">
       <FloatingOrbs />
       <div className="auth-content">
+        <div className="auth-logo" aria-label="Orb">
+          <span className="auth-logo-mark" aria-hidden="true" />
+          <span>Orb</span>
+        </div>
+
         <div className="auth-tabs">
           <button
             type="button"

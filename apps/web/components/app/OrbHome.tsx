@@ -8,6 +8,7 @@ interface Props {
   friends: Profile[]
   unreadByFriend: Map<string, number>
   onSelect: (friend: Profile) => void
+  onOpenSettings: () => void
 }
 
 interface Orb { x: number; y: number; vx: number; vy: number; r: number; el: HTMLDivElement | null }
@@ -20,7 +21,7 @@ const CENTER_R = 64   // radius of the central avatar's keep-out zone
  * friend-orb backdrop: gentle brownian motion, wall bounce, and a
  * soft keep-out ring around the centre so orbs never cover your face.
  */
-export default function OrbHome({ me, friends, unreadByFriend, onSelect }: Props) {
+export default function OrbHome({ me, friends, unreadByFriend, onSelect, onOpenSettings }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
   const sizeRef = useRef({ w: 1000, h: 700 })
@@ -124,7 +125,7 @@ export default function OrbHome({ me, friends, unreadByFriend, onSelect }: Props
 
       {/* Centre — me */}
       <div className="orbhome-center">
-        <div className="orbhome-me" style={{ background: color }}>
+        <div className="orbhome-me" style={{ background: color }} onClick={onOpenSettings} role="button" aria-label="Profile & settings">
           {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
         </div>
         <div className="orbhome-name">{me?.display_name ?? '…'}</div>

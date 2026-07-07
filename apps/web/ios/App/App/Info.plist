@@ -22,6 +22,12 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Orb uses the microphone to record voice memos you send in chats.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Orb uses the camera to take photos you attach in chats and for your profile picture.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Orb accesses your photo library to attach images and set your profile picture.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

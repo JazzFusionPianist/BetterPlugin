@@ -846,3 +846,154 @@ button { font-family: inherit; }
   background: rgba(255,69,58,0.10); border: 1px solid rgba(255,69,58,0.22);
   color: #FF7A70; font-size: 12.5px;
 }
+
+/* ── Settings sheet (tap your own avatar) ────────────────────────────── */
+.orbhome-me { pointer-events: auto; cursor: pointer; }   /* centre stack is inert except the avatar */
+.sset-overlay {
+  position: fixed; inset: 0; z-index: 46;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(6,6,9,0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none; transition: opacity .26s ease;
+}
+.sset-overlay.open { opacity: 1; pointer-events: auto; }
+.sset {
+  width: 100%; max-width: 440px;
+  background: #131316; border: 1px solid rgba(255,255,255,0.08); border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 10px 22px calc(22px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: center;
+  transform: translateY(24px); transition: transform .32s cubic-bezier(.2,1.1,.35,1);
+  box-shadow: 0 -30px 80px -20px rgba(0,0,0,0.7);
+}
+.sset-overlay.open .sset { transform: none; }
+.sset-avatar { position: relative; border: none; background: none; cursor: pointer; padding: 0; margin-top: 6px; }
+.sset-av {
+  display: flex; align-items: center; justify-content: center;
+  width: 84px; height: 84px; border-radius: 50%;
+  color: #fff; font-weight: 700; font-size: 28px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.sset-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.sset-av-edit {
+  position: absolute; right: -2px; bottom: -2px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--t1); color: #0c0c0f; display: flex; align-items: center; justify-content: center;
+  border: 3px solid #131316;
+}
+.sset-namerow { display: flex; align-items: center; gap: 8px; margin-top: 14px; width: 100%; justify-content: center; }
+.sset-name {
+  background: none; border: none; outline: none; text-align: center;
+  color: var(--t1); font-family: inherit; font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  max-width: 230px; border-bottom: 1px dashed transparent; transition: border-color .15s;
+}
+.sset-name:focus { border-bottom-color: rgba(255,255,255,0.25); }
+.sset-save {
+  flex-shrink: 0; background: var(--t1); color: #0c0c0f; border: none; border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 11px; cursor: pointer;
+}
+.sset-email { font-size: 12.5px; color: var(--t3); margin-top: 4px; }
+.sset-note { margin-top: 10px; font-size: 12.5px; color: #5BD27A; }
+.sset-rows { width: 100%; margin-top: 20px; display: flex; flex-direction: column; gap: 2px; }
+.sset-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  color: var(--t1); font-family: inherit; font-size: 14.5px; font-weight: 500;
+  padding: 13px 10px; border-radius: 12px; transition: background .12s;
+}
+.sset-row:hover { background: rgba(255,255,255,0.05); }
+.sset-row svg { color: var(--t2); flex-shrink: 0; }
+.sset-chev { margin-left: auto; color: var(--t3); font-size: 15px; }
+.sset-signout { color: #FF7A70; }
+.sset-signout svg { color: #FF7A70; }
+.sset-about { padding: 4px 10px 12px 39px; }
+.sset-about-brand { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.sset-about p { font-size: 12.5px; color: var(--t2); line-height: 1.5; max-width: 34ch; }
+.sset-about-ver { display: block; margin-top: 8px; font-size: 11.5px; color: var(--t3); }
+
+/* ── Find people / New group sheets ──────────────────────────────────── */
+.afr, .ngr {
+  position: fixed; inset: 0; z-index: 47;
+  background: rgba(8,8,11,0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .26s ease;
+}
+.afr.open, .ngr.open { opacity: 1; pointer-events: auto; }
+.afr-sheet, .ngr-sheet {
+  width: 100%; max-width: 460px; height: min(84vh, 700px);
+  display: flex; flex-direction: column;
+  background: #131316; border: 1px solid rgba(255,255,255,0.08); border-bottom: none;
+  border-radius: 26px 26px 0 0;
+  padding: 20px 16px calc(14px + env(safe-area-inset-bottom));
+  box-shadow: 0 -30px 80px -20px rgba(0,0,0,0.7);
+  transform: translateY(24px); transition: transform .34s cubic-bezier(.2,1.1,.35,1);
+}
+.afr.open .afr-sheet, .ngr.open .ngr-sheet { transform: none; }
+.afr-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 14px; }
+.afr-head h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; flex: 1; }
+.afr-search {
+  display: flex; align-items: center; gap: 9px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 13px; margin-bottom: 10px; color: var(--t3);
+}
+.afr-search input { flex: 1; background: none; border: none; outline: none; color: var(--t1); font-family: inherit; font-size: 16px; }
+.afr-search input::placeholder { color: var(--t3); }
+.afr-clear { background: none; border: none; color: var(--t3); cursor: pointer; display: flex; padding: 3px; }
+.afr-list { flex: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.afr-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 10px 8px; border-radius: 13px; border: none; background: none;
+  font-family: inherit; text-align: left; transition: background .12s;
+}
+.afr-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.afr-sub { font-size: 12px; color: var(--t3); }
+.afr-sub-hot { color: #7FB0FF; font-weight: 600; }
+.afr-btn {
+  flex-shrink: 0; border: none; cursor: pointer; font-family: inherit;
+  background: var(--t1); color: #0c0c0f; font-size: 12.5px; font-weight: 600;
+  padding: 7px 14px; border-radius: 999px; transition: transform .12s, opacity .15s;
+}
+.afr-btn:active { transform: scale(0.95); }
+.afr-btn-off { background: rgba(255,255,255,0.08); color: var(--t2); }
+
+.convs-newgroup {
+  width: 32px; height: 32px; border: none; background: none; color: var(--t2);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  border-radius: 9px; margin-right: 2px; transition: background .12s, color .12s;
+}
+.convs-newgroup:hover { background: rgba(255,255,255,0.07); color: var(--t1); }
+
+.ngr-title {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; margin: 0 2px 14px; color: var(--t1);
+  font-family: inherit; font-size: 16px; font-weight: 600; outline: none; transition: border-color .15s;
+}
+.ngr-title:focus { border-color: rgba(140,180,255,0.5); }
+.ngr-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--t3); padding: 0 8px 8px; }
+.ngr-label em { font-style: normal; color: var(--t2); text-transform: none; letter-spacing: 0; }
+.ngr-row { cursor: pointer; }
+.ngr-row.on { background: rgba(255,255,255,0.05); }
+.ngr-check {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  border: 1.6px solid rgba(255,255,255,0.25); color: #fff;
+  display: flex; align-items: center; justify-content: center; transition: background .14s, border-color .14s;
+}
+.ngr-check.on { background: #3E6DDF; border-color: #3E6DDF; }
+.ngr-create {
+  margin: 12px 2px 0; padding: 14px; border: none; border-radius: 13px; cursor: pointer;
+  background: var(--t1); color: #0c0c0f; font-family: inherit; font-size: 15px; font-weight: 600;
+  transition: opacity .15s, transform .14s;
+}
+.ngr-create:disabled { opacity: 0.4; cursor: default; }
+.ngr-create:not(:disabled):active { transform: scale(0.98); }
+
+/* ── Voice memo recording bar ────────────────────────────────────────── */
+.chatt-mic { background: rgba(255,255,255,0.08); color: var(--t1); }
+.chatt-recbar { align-items: center; gap: 10px; padding: 10px 8px 10px 16px; }
+.chatt-recdot { width: 10px; height: 10px; border-radius: 50%; background: #FF3B30; animation: rec-pulse 1.1s ease-in-out infinite; flex-shrink: 0; }
+@keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.chatt-rectime { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--t1); }
+.chatt-reclabel { flex: 1; font-size: 13px; color: var(--t3); }
+.chatt-reccancel {
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  color: var(--t2); font-size: 13.5px; font-weight: 600; padding: 6px 10px;
+}
+.chatt-reccancel:hover { color: var(--t1); }

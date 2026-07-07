@@ -16,6 +16,9 @@ import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
 import ChatThread, { type ThreadTarget } from './ChatThread'
 import ConversationsList from './ConversationsList'
+import SettingsSheet from './SettingsSheet'
+import AddFriendsSheet from './AddFriendsSheet'
+import NewGroupSheet from './NewGroupSheet'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -23,8 +26,8 @@ import ConversationsList from './ConversationsList'
  * the rail collapses behind a toggle (the future mobile layout).
  */
 export default function AppShell({ user }: { user: User }) {
-  const { profiles, me } = useProfiles(supabase, user.id)
-  const { mutualIds } = useFollows(supabase, user.id)
+  const { profiles, me, updateMyAvatar, updateMe } = useProfiles(supabase, user.id)
+  const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(supabase, user.id)
   const online = usePresence(supabase, user.id)
   const { conversations, groupConversations } = useConversations(supabase, user.id)
   const { unread, markSeen } = useConversationNotifications(supabase, user.id)
@@ -33,6 +36,9 @@ export default function AppShell({ user }: { user: User }) {
 
   const [calOpen, setCalOpen] = useState(false)
   const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
+  const [settingsOpen, setSettingsOpen] = useState(false)                // profile / about / sign out
+  const [findOpen, setFindOpen] = useState(false)                        // find people
+  const [newGroupOpen, setNewGroupOpen] = useState(false)                // create a group
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
   const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
 
@@ -131,7 +137,7 @@ export default function AppShell({ user }: { user: User }) {
           {events.length > 0 && <span className="webapp-cal-count">{events.length}</span>}
         </button>
 
-        <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} onSelect={setSheetFriend} />
+        <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} onSelect={setSheetFriend} onOpenSettings={() => setSettingsOpen(true)} />
 
         <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
       </main>
@@ -150,7 +156,42 @@ export default function AppShell({ user }: { user: User }) {
         profileById={profileById}
         unread={unread}
         onOpen={(t) => { setConvsOpen(false); setThread(t) }}
+        onNewGroup={() => { setConvsOpen(false); setNewGroupOpen(true) }}
         onClose={() => setConvsOpen(false)}
+      />
+
+      <SettingsSheet
+        open={settingsOpen}
+        supabase={supabase}
+        user={user}
+        me={me}
+        onAvatarUpdated={updateMyAvatar}
+        onMeUpdated={updateMe}
+        onFindPeople={() => { setSettingsOpen(false); setFindOpen(true) }}
+        onClose={() => setSettingsOpen(false)}
+      />
+
+      <AddFriendsSheet
+        open={findOpen}
+        profiles={profilesWithStatus}
+        followingIds={followingIds}
+        followerIds={followerIds}
+        mutualIds={mutualIds}
+        onFollow={follow}
+        onUnfollow={unfollow}
+        onClose={() => setFindOpen(false)}
+      />
+
+      <NewGroupSheet
+        open={newGroupOpen}
+        supabase={supabase}
+        currentUserId={user.id}
+        friends={friends}
+        onCreated={(conversationId, title, memberCount) => {
+          setNewGroupOpen(false)
+          setThread({ kind: 'group', conversationId, title, memberCount })
+        }}
+        onClose={() => setNewGroupOpen(false)}
       />
 
       {thread && (

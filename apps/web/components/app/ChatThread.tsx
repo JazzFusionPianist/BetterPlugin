@@ -127,9 +127,12 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   const [uploads, setUploads] = useState<PendingUpload[]>([])
   const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [kbInset, setKbInset] = useState(0)
+  const [recording, setRecording] = useState(false)
+  const [recElapsed, setRecElapsed] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const recRef = useRef<{ rec: MediaRecorder; stream: MediaStream; chunks: Blob[]; timer: ReturnType<typeof setInterval> } | null>(null)
 
   const isGroup = target.kind === 'group'
   const title = isGroup ? target.title : target.friend.display_name
@@ -171,6 +174,79 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
     if (taRef.current) taRef.current.style.height = 'auto'
     try { await send(value) } finally { setSending(false) }
   }
+
+  // ── Voice memo ─────────────────────────────────────────────────────────
+  // Musicians live one hum away from an idea — record on the phone mic and
+  // it lands in the thread as a playable (and DAW-importable) audio file.
+  const stopTracks = () => {
+    const r = recRef.current
+    if (!r) return
+    clearInterval(r.timer)
+    r.stream.getTracks().forEach(t => t.stop())
+  }
+
+  const startRecording = async () => {
+    if (recording) return
+    setUploadErr(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Safari/WKWebView records AAC in an mp4 container; Chrome uses webm.
+      const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : ''
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      const entry = { rec, stream, chunks: [] as Blob[], timer: setInterval(() => setRecElapsed(s => s + 1), 1000) }
+      rec.ondataavailable = (e) => { if (e.data.size > 0) entry.chunks.push(e.data) }
+      recRef.current = entry
+      setRecElapsed(0)
+      setRecording(true)
+      rec.start(250)
+    } catch (err) {
+      console.error('[voice-memo]', err)
+      setUploadErr('Microphone unavailable — check the app permission.')
+    }
+  }
+
+  const cancelRecording = () => {
+    const r = recRef.current
+    if (r && r.rec.state !== 'inactive') r.rec.stop()
+    stopTracks()
+    recRef.current = null
+    setRecording(false)
+  }
+
+  const sendRecording = async () => {
+    const r = recRef.current
+    if (!r) return
+    // Collect the final chunk, then hand the blob to the normal upload path.
+    const blob = await new Promise<Blob>((resolve) => {
+      r.rec.onstop = () => resolve(new Blob(r.chunks, { type: r.rec.mimeType || 'audio/mp4' }))
+      if (r.rec.state !== 'inactive') r.rec.stop()
+      else resolve(new Blob(r.chunks, { type: r.rec.mimeType || 'audio/mp4' }))
+    })
+    stopTracks()
+    recRef.current = null
+    setRecording(false)
+    if (blob.size === 0) return
+
+    const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('webm') ? 'webm' : 'audio'
+    const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    const file = new File([blob], `Voice memo ${stamp}.${ext}`, { type: blob.type || 'audio/mp4' })
+
+    const pid = `up-${Date.now()}-vm`
+    setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
+    try {
+      const att = await uploadAttachment(file, currentUserId, (ratio) =>
+        setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: ratio } : u)))
+      await send('', att)
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setUploads(prev => prev.filter(u => u.id !== pid))
+    }
+  }
+
+  // Never leave the mic running when the thread unmounts.
+  useEffect(() => () => { stopTracks(); recRef.current = null }, [])
 
   // ── Attachments ────────────────────────────────────────────────────────
   const MAX_MB = 200
@@ -290,30 +366,48 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
       {uploadErr && <div className="chatt-uperr">{uploadErr}</div>}
 
       <div className="chatt-compose" style={{ paddingBottom: `calc(10px + env(safe-area-inset-bottom) + ${kbInset}px)` }}>
-        <div className="chatt-bar">
-          <button className="chatt-attach" onClick={pickFiles} aria-label="Attach audio">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="audio/*,image/*,video/*"
-            multiple
-            hidden
-            onChange={onFiles}
-          />
-          <textarea
-            ref={taRef}
-            rows={1}
-            value={text}
-            placeholder={isGroup ? `Message ${title}…` : `Message ${title}…`}
-            onChange={(e) => { setText(e.target.value); grow() }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
-          />
-          <button className="chatt-send" onClick={submit} disabled={!text.trim() || sending} aria-label="Send">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </button>
-        </div>
+        {recording ? (
+          <div className="chatt-bar chatt-recbar">
+            <span className="chatt-recdot" />
+            <span className="chatt-rectime">{fmtDur(recElapsed)}</span>
+            <span className="chatt-reclabel">Recording…</span>
+            <button className="chatt-reccancel" onClick={cancelRecording}>Cancel</button>
+            <button className="chatt-send" onClick={sendRecording} aria-label="Send voice memo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </button>
+          </div>
+        ) : (
+          <div className="chatt-bar">
+            <button className="chatt-attach" onClick={pickFiles} aria-label="Attach audio">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="audio/*,image/*,video/*"
+              multiple
+              hidden
+              onChange={onFiles}
+            />
+            <textarea
+              ref={taRef}
+              rows={1}
+              value={text}
+              placeholder={`Message ${title}…`}
+              onChange={(e) => { setText(e.target.value); grow() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+            />
+            {text.trim() ? (
+              <button className="chatt-send" onClick={submit} disabled={sending} aria-label="Send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            ) : (
+              <button className="chatt-send chatt-mic" onClick={startRecording} aria-label="Record voice memo">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5" /></svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

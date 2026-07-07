@@ -11,6 +11,7 @@ interface Props {
   profileById: Map<string, Profile & { isOnline?: boolean }>
   unread: Map<string, number>
   onOpen: (target: ThreadTarget) => void
+  onNewGroup: () => void
   onClose: () => void
 }
 
@@ -54,7 +55,7 @@ interface Row {
 /** Slide-up sheet listing every conversation — DMs and groups together,
  *  newest activity first. The mobile "chats" home. */
 export default function ConversationsList({
-  open, conversations, groupConversations, profileById, unread, onOpen, onClose,
+  open, conversations, groupConversations, profileById, unread, onOpen, onNewGroup, onClose,
 }: Props) {
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
@@ -92,6 +93,9 @@ export default function ConversationsList({
       <div className="convs-sheet">
         <header className="convs-head">
           <h2>Chats</h2>
+          <button className="convs-newgroup" onClick={onNewGroup} aria-label="New group">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.4" /><path d="M2.8 20c0-3.4 2.8-5.2 6.2-5.2 1.4 0 2.7.3 3.7.9M18 13v7M14.5 16.5h7" /></svg>
+          </button>
           <button className="convs-close" onClick={onClose} aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
           </button>

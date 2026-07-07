@@ -441,7 +441,13 @@ export default function ChessView({
   const opponentProfile = opponentId && !isComputerPlayerId(opponentId)
     ? friendProfiles.find(p => p.id === opponentId) ?? null
     : null
-  const isComputerOpponent = isComputerPlayerId(opponentId)
+  const isComputerMatch = !!(
+    room &&
+    room.status === 'playing' &&
+    !room.guest_id &&
+    (room.captured as unknown as { computer?: boolean } | null)?.computer === true
+  )
+  const isComputerOpponent = isComputerPlayerId(opponentId) || isComputerMatch
 
   const isHost = room ? currentUserId === room.host_id : false
 
@@ -497,11 +503,10 @@ export default function ChessView({
     const { data, error } = await supabase
       .from('game_rooms')
       .update({
-        guest_id: computerPlayerId(0),
         status: 'playing',
         board: initialState.board as (string | null)[][],
         turn: 'white',
-        captured: { white: [], black: [] },
+        captured: { white: [], black: [], computer: true },
         move_history: [],
         castling: { wK: true, wQ: true, bK: true, bQ: true },
         en_passant: null,
@@ -582,7 +587,7 @@ export default function ChessView({
 
   const computerMoveKeyRef = useRef('')
   useEffect(() => {
-    if (!room || room.status !== 'playing' || !isComputerOpponent || !opponentId) return
+    if (!room || room.status !== 'playing' || !isComputerOpponent) return
     const computerColor = getOppositeColor(myColor)
     if (chessState.turn !== computerColor) return
     const moveKey = `${room.id}:${room.move_history?.length ?? 0}:${chessState.turn}`
@@ -622,7 +627,7 @@ export default function ChessView({
         move_history: [...(room.move_history ?? []), result.algebraic],
       })
       if (result.isCheckmate) {
-        await endGame(opponentId)
+        await endGame(null)
       } else if (result.isStalemate || result.isDraw) {
         await endGame(null)
       }
@@ -761,7 +766,7 @@ export default function ChessView({
             {opponentProfile ? (
               <span className="game-player-name">{opponentProfile.display_name}</span>
             ) : isComputerOpponent ? (
-              <span className="game-player-name">{computerPlayerName(opponentId)}</span>
+              <span className="game-player-name">{computerPlayerName(computerPlayerId(0))}</span>
             ) : (
               <span className="game-player-name game-player-name--unknown">
                 {hasGuest ? t('common.opponent') : t('common.waiting')}
@@ -841,7 +846,7 @@ export default function ChessView({
           supabase={supabase}
           currentUserId={currentUserId}
           otherUserId={isComputerOpponent ? null : opponentId}
-          otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
+          otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
         />
       }
       invite={{

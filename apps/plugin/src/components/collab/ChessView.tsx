@@ -592,7 +592,6 @@ export default function ChessView({
     if (chessState.turn !== computerColor) return
     const moveKey = `${room.id}:${room.move_history?.length ?? 0}:${chessState.turn}`
     if (computerMoveKeyRef.current === moveKey) return
-    computerMoveKeyRef.current = moveKey
     const timer = window.setTimeout(async () => {
       const moves: { from: Pos; to: Pos; capture: boolean }[] = []
       for (let r = 0; r < 8; r++) {
@@ -608,6 +607,7 @@ export default function ChessView({
       const captures = moves.filter(m => m.capture)
       const pool = captures.length > 0 ? captures : moves
       const chosen = pool[Math.floor(Math.random() * pool.length)]
+      computerMoveKeyRef.current = moveKey
       const result = applyMove(chessState, chosen.from, chosen.to, 'Q')
       setChessState(result.state)
       setLastFrom(chosen.from)
@@ -781,13 +781,11 @@ export default function ChessView({
               </span>
             )}
           </div>
-          {opponentCaptured.length > 0 && (
-            <div className="chess-captured">
-              {opponentCaptured.map((p, i) => (
-                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-              ))}
-            </div>
-          )}
+          <div className="chess-captured" aria-hidden={opponentCaptured.length === 0}>
+            {opponentCaptured.map((p, i) => (
+              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+            ))}
+          </div>
         </>
       }
       board={
@@ -804,13 +802,11 @@ export default function ChessView({
       }
       belowBoard={
         <>
-          {myCaptured.length > 0 && (
-            <div className="chess-captured">
-              {myCaptured.map((p, i) => (
-                <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
-              ))}
-            </div>
-          )}
+          <div className="chess-captured" aria-hidden={myCaptured.length === 0}>
+            {myCaptured.map((p, i) => (
+              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+            ))}
+          </div>
           <div className="game-player-row">
             {currentUserProfile ? (
               <span className="game-player-name">{currentUserProfile.display_name}</span>

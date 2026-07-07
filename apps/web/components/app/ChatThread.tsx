@@ -3,13 +3,25 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useMessages, type Profile, type Message } from '@orb/core'
+import { uploadAttachment, attachTypeFor, type UploadedAttachment } from '@/lib/upload'
+
+/** What a thread points at — a DM partner or a group conversation. */
+export type ThreadTarget =
+  | { kind: 'dm'; friend: Profile & { isOnline?: boolean } }
+  | { kind: 'group'; conversationId: string; title: string; memberCount: number }
 
 interface Props {
   supabase: SupabaseClient
   currentUserId: string
-  friend: Profile & { isOnline?: boolean }
+  target: ThreadTarget
+  /** Resolve a sender id → profile (group sender names). */
+  profileById: Map<string, Profile>
+  /** Called with the conversation id when the user has seen the thread. */
+  onSeen?: (conversationId: string) => void
   onClose: () => void
 }
+
+interface PendingUpload { id: string; name: string; progress: number }
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
@@ -101,20 +113,38 @@ function Attachment({ m }: { m: Message }) {
   }
 }
 
-/** Minimal 1:1 chat — a full-screen thread over the orb home on mobile. */
-export default function ChatThread({ supabase, currentUserId, friend, onClose }: Props) {
-  const { messages, loading, send } = useMessages(supabase, currentUserId, { kind: 'dm', otherUserId: friend.id })
+/** Full-screen thread — 1:1 or group — over the orb home on mobile. */
+export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onClose }: Props) {
+  const { messages, loading, send, conversationId } = useMessages(
+    supabase,
+    currentUserId,
+    target.kind === 'dm'
+      ? { kind: 'dm', otherUserId: target.friend.id }
+      : { kind: 'group', conversationId: target.conversationId },
+  )
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [uploads, setUploads] = useState<PendingUpload[]>([])
+  const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [kbInset, setKbInset] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const isGroup = target.kind === 'group'
+  const title = isGroup ? target.title : target.friend.display_name
 
   // Keep the newest message in view.
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages.length])
+  }, [messages.length, uploads.length])
+
+  // Mark the conversation read while the thread is open (clears unread
+  // badges everywhere — the same conversation_reads row the plugin uses).
+  useEffect(() => {
+    if (conversationId && onSeen) onSeen(conversationId)
+  }, [conversationId, messages.length, onSeen])
 
   // Lift the composer above the on-screen keyboard.
   useEffect(() => {
@@ -142,25 +172,83 @@ export default function ChatThread({ supabase, currentUserId, friend, onClose }:
     try { await send(value) } finally { setSending(false) }
   }
 
+  // ── Attachments ────────────────────────────────────────────────────────
+  const MAX_MB = 200
+  const pickFiles = () => fileRef.current?.click()
+  const onFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''   // allow re-picking the same file
+    if (files.length === 0) return
+    setUploadErr(null)
+
+    const ok = files.filter(f => {
+      if (f.size > MAX_MB * 1024 * 1024) {
+        setUploadErr(`${f.name}: too large (max ${MAX_MB}MB)`)
+        return false
+      }
+      return true
+    })
+    if (ok.length === 0) return
+
+    const done: UploadedAttachment[] = []
+    for (const f of ok) {
+      const pid = `up-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      setUploads(prev => [...prev, { id: pid, name: f.name, progress: 0 }])
+      try {
+        const att = await uploadAttachment(f, currentUserId, (r) =>
+          setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: r } : u)))
+        done.push(att)
+      } catch (err) {
+        setUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+      } finally {
+        setUploads(prev => prev.filter(u => u.id !== pid))
+      }
+    }
+    if (done.length === 0) return
+
+    // Several audio files at once → one multi-track message (same shape the
+    // plugin sends); otherwise one message per file.
+    const allAudio = done.every(a => a.type === 'audio')
+    if (allAudio && done.length > 1) {
+      await send('', {
+        url: JSON.stringify(done.map(a => ({ url: a.url, name: a.name }))),
+        type: 'multi-audio',
+        name: `${done.length} Tracks`,
+      })
+    } else {
+      for (const a of done) await send('', a)
+    }
+  }
+
   return (
     <div className="chatt">
       <header className="chatt-head">
         <button className="chatt-back" onClick={onClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
-        <div className="chatt-av" style={{ background: friend.avatar_color }}>
-          {friend.avatar_url ? <img src={friend.avatar_url} alt="" /> : <span>{friend.initials}</span>}
-          {friend.isOnline && <span className="chatt-dot" />}
-        </div>
+        {isGroup ? (
+          <div className="chatt-av chatt-av-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>
+          </div>
+        ) : (
+          <div className="chatt-av" style={{ background: target.friend.avatar_color }}>
+            {target.friend.avatar_url ? <img src={target.friend.avatar_url} alt="" /> : <span>{target.friend.initials}</span>}
+            {target.friend.isOnline && <span className="chatt-dot" />}
+          </div>
+        )}
         <div className="chatt-who">
-          <div className="chatt-name">{friend.display_name}</div>
-          <div className="chatt-status">{friend.isOnline ? 'Online now' : 'Offline'}</div>
+          <div className="chatt-name">{title}</div>
+          <div className="chatt-status">
+            {isGroup
+              ? `${target.memberCount} members`
+              : target.friend.isOnline ? 'Online now' : 'Offline'}
+          </div>
         </div>
       </header>
 
       <div className="chatt-scroll" ref={scrollRef}>
-        {!loading && messages.length === 0 && (
-          <div className="chatt-empty">Say hi to {friend.display_name} 👋</div>
+        {!loading && messages.length === 0 && uploads.length === 0 && (
+          <div className="chatt-empty">Say hi{isGroup ? '' : ` to ${title}`} 👋</div>
         )}
         {messages.map((m, i) => {
           const mine = m.sender_id === currentUserId
@@ -168,25 +256,57 @@ export default function ChatThread({ supabase, currentUserId, friend, onClose }:
           const grouped = prev && prev.sender_id === m.sender_id &&
             new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 4 * 60 * 1000
           const hasAttach = !!m.attachment_url || m.attachment_expired
+          const sender = isGroup && !mine && !grouped ? profileById.get(m.sender_id) : null
           return (
             <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
-              <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
-                {hasAttach && <Attachment m={m} />}
-                {m.content && <span className="chatt-text">{m.content}</span>}
-                <span className="chatt-time">{fmtTime(m.created_at)}</span>
+              <div className="chatt-col">
+                {sender && (
+                  <span className="chatt-sender" style={{ color: sender.avatar_color }}>
+                    {sender.display_name}
+                  </span>
+                )}
+                <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
+                  {hasAttach && <Attachment m={m} />}
+                  {m.content && <span className="chatt-text">{m.content}</span>}
+                  <span className="chatt-time">{fmtTime(m.created_at)}</span>
+                </div>
               </div>
             </div>
           )
         })}
+        {uploads.map(u => (
+          <div key={u.id} className="chatt-row mine">
+            <div className="chatt-bubble has-att">
+              <div className="msg-uploading">
+                <span className="msg-uploading-name">{u.name}</span>
+                <div className="msg-uploading-track"><div className="msg-uploading-fill" style={{ width: `${Math.round(u.progress * 100)}%` }} /></div>
+                <span className="msg-uploading-pct">{Math.round(u.progress * 100)}%</span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
+
+      {uploadErr && <div className="chatt-uperr">{uploadErr}</div>}
 
       <div className="chatt-compose" style={{ paddingBottom: `calc(10px + env(safe-area-inset-bottom) + ${kbInset}px)` }}>
         <div className="chatt-bar">
+          <button className="chatt-attach" onClick={pickFiles} aria-label="Attach audio">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="audio/*,image/*,video/*"
+            multiple
+            hidden
+            onChange={onFiles}
+          />
           <textarea
             ref={taRef}
             rows={1}
             value={text}
-            placeholder={`Message ${friend.display_name}…`}
+            placeholder={isGroup ? `Message ${title}…` : `Message ${title}…`}
             onChange={(e) => { setText(e.target.value); grow() }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
           />

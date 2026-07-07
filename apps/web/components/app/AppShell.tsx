@@ -14,7 +14,8 @@ import OrbHome from './OrbHome'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
-import ChatThread from './ChatThread'
+import ChatThread, { type ThreadTarget } from './ChatThread'
+import ConversationsList from './ConversationsList'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -26,13 +27,14 @@ export default function AppShell({ user }: { user: User }) {
   const { mutualIds } = useFollows(supabase, user.id)
   const online = usePresence(supabase, user.id)
   const { conversations, groupConversations } = useConversations(supabase, user.id)
-  const { unread } = useConversationNotifications(supabase, user.id)
+  const { unread, markSeen } = useConversationNotifications(supabase, user.id)
   const { events, addEvents, deleteEvent, updateEvent } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory } = useEventCategories(supabase, user.id)
 
   const [calOpen, setCalOpen] = useState(false)
+  const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
-  const [chatFriend, setChatFriend] = useState<Profile | null>(null)     // open conversation
+  const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
 
   // Where new events go: personal, or shared with one of my groups.
   const targets = useMemo(
@@ -79,6 +81,19 @@ export default function AppShell({ user }: { user: User }) {
     return out
   }, [conversations, unread])
 
+  // Sender-id → profile (group sender names, conversation rows). Includes me.
+  const profileById = useMemo(() => {
+    const m = new Map<string, Profile & { isOnline?: boolean }>()
+    for (const p of profilesWithStatus) m.set(p.id, p)
+    if (me) m.set(me.id, { ...me, isOnline: true })
+    return m
+  }, [profilesWithStatus, me])
+
+  const totalUnread = useMemo(
+    () => Array.from(unread.values()).reduce((a, b) => a + b, 0),
+    [unread],
+  )
+
   return (
     <div className="webapp">
       {/* Desktop shows the conversations rail as a persistent column. On
@@ -93,6 +108,17 @@ export default function AppShell({ user }: { user: User }) {
       />
 
       <main className="webapp-main">
+        <button
+          className="webapp-chats-btn"
+          onClick={() => setConvsOpen(true)}
+          aria-label="Open chats"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.4 8.4 0 0 1-11.7 7.7L3 21l1.9-6.3A8.4 8.4 0 1 1 21 11.5Z" />
+          </svg>
+          {totalUnread > 0 && <span className="webapp-cal-count">{totalUnread > 9 ? '9+' : totalUnread}</span>}
+        </button>
+
         <button
           className="webapp-cal-btn"
           onClick={() => setCalOpen(true)}
@@ -114,15 +140,27 @@ export default function AppShell({ user }: { user: User }) {
         friend={sheetFriend}
         unread={sheetFriend ? (unreadByFriend.get(sheetFriend.id) ?? 0) : 0}
         onClose={() => setSheetFriend(null)}
-        onMessage={(f) => { setSheetFriend(null); setChatFriend(f) }}
+        onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f }) }}
       />
 
-      {chatFriend && (
+      <ConversationsList
+        open={convsOpen}
+        conversations={conversations}
+        groupConversations={groupConversations}
+        profileById={profileById}
+        unread={unread}
+        onOpen={(t) => { setConvsOpen(false); setThread(t) }}
+        onClose={() => setConvsOpen(false)}
+      />
+
+      {thread && (
         <ChatThread
           supabase={supabase}
           currentUserId={user.id}
-          friend={chatFriend}
-          onClose={() => setChatFriend(null)}
+          target={thread}
+          profileById={profileById}
+          onSeen={markSeen}
+          onClose={() => setThread(null)}
         />
       )}
 

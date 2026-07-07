@@ -22,6 +22,12 @@ import { AwsClient } from 'aws4fetch'
 
 export const config = { runtime: 'edge' }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'content-type',
+}
+
 interface Body {
   ext?: string
   contentType?: string
@@ -29,6 +35,11 @@ interface Body {
 }
 
 export default async function handler(req: Request): Promise<Response> {
+  // CORS: the mobile/web app (different origin — capacitor://localhost,
+  // localhost dev, or its own vercel domain) shares this presign endpoint.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS })
+  }
   if (req.method !== 'POST') {
     return json({ error: 'POST required' }, 405)
   }
@@ -102,7 +113,7 @@ export default async function handler(req: Request): Promise<Response> {
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...CORS },
   })
 }
 

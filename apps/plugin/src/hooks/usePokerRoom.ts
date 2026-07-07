@@ -194,7 +194,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
   const createRoom = useCallback(
-    async (playerCount: PlayerCount): Promise<PokerRoom | null> => {
+    async (playerCount: PlayerCount = 6): Promise<PokerRoom | null> => {
       setLoading(true)
       const { data, error } = await supabase
         .from('poker_rooms')
@@ -449,6 +449,14 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
 
     const playerIds = room.player_ids
     const n = playerIds.length
+    if (n < 2) {
+      console.warn('[usePokerRoom.startHand] not enough players')
+      return
+    }
+    if (room.status === 'lobby' && !playerIds.every(id => room.ready_ids.includes(id))) {
+      console.warn('[usePokerRoom.startHand] not all current players are ready')
+      return
+    }
 
     // Pull latest player states from DB (chips persist across hands)
     const { data: psData, error: psErr } = await supabase
@@ -628,6 +636,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     // Update room: set status=playing if still in lobby
     const update: Partial<PokerRoom> = {
       state: newState,
+      player_count: n as PlayerCount,
       ready_ids: [],
     }
     if (room.status === 'lobby') update.status = 'playing'

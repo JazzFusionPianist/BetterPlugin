@@ -29,11 +29,11 @@ interface RoomCapacity {
   status: string
 }
 
-// Reasonable defaults when creating a room from a chat invite. The host
-// can still tweak in the lobby (poker / falling_blocks) before others
-// fill the seats.
+// Lobby rooms for variable-player games stay open up to their maximum.
+// When everyone currently in the lobby readies up, the game start path
+// locks `player_count` down to the actual joined player count.
 const DEFAULT_PLAYER_COUNT: Record<GameType, number> = {
-  chess: 2, ear_training: 2, falling_blocks: 2, poker: 2,
+  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6,
 }
 
 /** Maximum seats currently configured for a room. Reads the row, then

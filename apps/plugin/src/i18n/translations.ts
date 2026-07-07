@@ -174,7 +174,7 @@ export const T = {
   'chess.drawResult':     { en: 'Draw',       ko: '무승부',    ja: '引き分け',   zh: '和棋',     es: 'Tablas',    de: 'Remis',      fr: 'Nulle',     hi: 'ड्रॉ' },
   'chess.waitingForFriend':{ en: 'Waiting for friend…', ko: '친구를 기다리는 중…', ja: '友達を待っています…', zh: '等待好友…', es: 'Esperando al amigo…', de: 'Warten auf den Freund…', fr: 'En attente d’un ami…', hi: 'दोस्त की प्रतीक्षा…' },
   'chess.readyCount':     { en: '{n} / 2 ready', ko: '{n} / 2 준비', ja: '{n} / 2 準備完了', zh: '{n} / 2 已准备', es: '{n} / 2 listos', de: '{n} / 2 bereit', fr: '{n} / 2 prêts', hi: '{n} / 2 तैयार' },
-  'chess.inviteCta':      { en: '🕹 Invite a Friend', ko: '🕹 친구 초대', ja: '🕹 友達を招待', zh: '🕹 邀请好友', es: '🕹 Invitar a un amigo', de: '🕹 Freund einladen', fr: '🕹 Inviter un ami', hi: '🕹 मित्र को आमंत्रित' },
+  'chess.inviteCta':      { en: 'Invite a Friend', ko: '친구 초대', ja: '友達を招待', zh: '邀请好友', es: 'Invitar a un amigo', de: 'Freund einladen', fr: 'Inviter un ami', hi: 'मित्र को आमंत्रित' },
 
   // ───── Poker in-progress ────────────────────────────────────────────────
   'poker.fold':           { en: 'Fold',     ko: '폴드',     ja: 'フォールド',  zh: '弃牌',     es: 'Pasar',     de: 'Passen',     fr: 'Se coucher', hi: 'फोल्ड' },

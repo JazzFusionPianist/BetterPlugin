@@ -25,6 +25,7 @@ import GameChat from './GameChat'
 const GRAVITY_MS = 1000
 const TICK_MS = 50
 const SYNC_THROTTLE_MS = 250
+const MAX_PLAYERS = 4
 
 const PIECE_CLASS: Record<string, string> = {
   I: 'falling-blocks-cell--I',
@@ -216,7 +217,6 @@ export default function FallingBlocksView({
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-  const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4>(2)
 
   // Local game state
   const [game, setGame] = useState<FallingBlocksState>(() => ({
@@ -257,10 +257,11 @@ export default function FallingBlocksView({
   const isFinished = status === 'finished'
   const isHost = !!(room && room.host_id === currentUserId)
 
-  const playerCount = room?.player_count ?? pickedPlayerCount
-  const hasAllPlayers = !!(room && room.player_ids.length === room.player_count)
+  const joinedCount = room?.player_ids.length ?? 0
+  const readyCount = room ? room.ready_ids.filter(id => room.player_ids.includes(id)).length : 0
+  const hasEnoughPlayers = joinedCount >= 2
   const myReady = !!(room && room.ready_ids.includes(currentUserId))
-  const allReady = !!(room && room.ready_ids.length === room.player_count && hasAllPlayers)
+  const allReady = !!(room && hasEnoughPlayers && room.player_ids.every(id => room.ready_ids.includes(id)))
 
   const myPlayerState = playerStates.get(currentUserId)
   const myTopOutServer = !!myPlayerState?.top_out
@@ -291,10 +292,13 @@ export default function FallingBlocksView({
     onClose()
   }, [room, deleteCurrentRoom, leaveRoom, onClose])
 
-  // ── Create room ──────────────────────────────────────────────────────────
-  const handleCreateRoom = useCallback(async () => {
-    await createRoom(pickedPlayerCount)
-  }, [createRoom, pickedPlayerCount])
+  // ── Invite flow ─────────────────────────────────────────────────────────
+  const handleOpenInvite = useCallback(async () => {
+    let targetRoom = room
+    if (!targetRoom) targetRoom = await createRoom(MAX_PLAYERS as 2 | 3 | 4)
+    if (!targetRoom) return
+    setShowInviteModal(true)
+  }, [room, createRoom])
 
   const handleCreateAndInvite = useCallback(
     async (friendId: string) => {
@@ -310,21 +314,21 @@ export default function FallingBlocksView({
       }
       let targetRoom = room
       if (!targetRoom) {
-        targetRoom = await createRoom(pickedPlayerCount)
+        targetRoom = await createRoom(MAX_PLAYERS as 2 | 3 | 4)
       }
       if (!targetRoom) return
       await inviteFriend(friendId, targetRoom.id)
       setInvitedIds(prev => new Set([...prev, friendId]))
     },
-    [room, invitedIds, createRoom, inviteFriend, cancelInvite, pickedPlayerCount]
+    [room, invitedIds, createRoom, inviteFriend, cancelInvite]
   )
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
     if (!room || !isHost) return
     if (room.status !== 'lobby') return
-    if (room.player_ids.length !== room.player_count) return
-    if (room.ready_ids.length !== room.player_count) return
+    if (room.player_ids.length < 2) return
+    if (!room.player_ids.every(id => room.ready_ids.includes(id))) return
     startGame()
   }, [room, isHost, startGame])
 
@@ -565,27 +569,10 @@ export default function FallingBlocksView({
   useEffect(() => {
     if (!room || !isHost) return
     if (room.status !== 'finished') return
-    if (room.ready_ids.length !== room.player_count) return
-    if (room.player_ids.length !== room.player_count) return
+    if (room.player_ids.length < 2) return
+    if (!room.player_ids.every(id => room.ready_ids.includes(id))) return
     startGame()
   }, [room, isHost, startGame])
-
-  // ── Player count change in lobby (host only) ─────────────────────────────
-  const updatePlayerCount = useCallback(
-    async (count: 2 | 3 | 4) => {
-      if (!room || !isHost || room.status !== 'lobby') {
-        setPickedPlayerCount(count)
-        return
-      }
-      if (room.player_ids.length > count) return
-      const { error } = await supabase
-        .from('falling_blocks_rooms')
-        .update({ player_count: count })
-        .eq('id', room.id)
-      if (error) console.error('[FallingBlocksView.updatePlayerCount]', error)
-    },
-    [supabase, room, isHost]
-  )
 
   // ── Ghost piece ──────────────────────────────────────────────────────────
   const ghost = useMemo(() => getGhostPiece(game), [game])
@@ -612,7 +599,9 @@ export default function FallingBlocksView({
     }
   }
 
-  const maxInvitees = playerCount - 1
+  const pendingInviteCount = [...invitedIds].filter(id => !(room?.player_ids ?? []).includes(id)).length
+  const canInviteMore = (id: string) =>
+    invitedIds.has(id) || ((room?.player_ids.length ?? 1) + pendingInviteCount < MAX_PLAYERS)
 
   // ── Overlay (lobby → ready → finished); null while playing ─────────────────
   let overlay: React.ReactNode = null
@@ -621,62 +610,47 @@ export default function FallingBlocksView({
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl
           ready={myReady}
-          count={`${room.ready_ids.length} / ${room.player_count} ready`}
+          count={`${readyCount} / ${joinedCount} ready`}
           onToggle={toggleReady}
         />
       </GameOverlayCard>
     )
-  } else if (isLobby && hasAllPlayers && !allReady) {
+  } else if (isLobby && room && !allReady) {
     overlay = (
       <GameOverlayCard emoji="🧱" title={t('game.readyToPlay')}>
         <GameReadyControl
           ready={myReady}
-          count={`${room!.ready_ids.length} / ${room!.player_count} ready`}
+          count={`${readyCount} / ${joinedCount} ready`}
           onToggle={toggleReady}
           disabled={loading}
         />
-      </GameOverlayCard>
-    )
-  } else if (!isPlaying && !isFinished && (!room || !hasAllPlayers)) {
-    overlay = (
-      <GameOverlayCard emoji="🧱" title={t('game.fallingBlocks')}>
-        <div className="falling-blocks-player-count-picker">
-          {[2, 3, 4].map(n => (
-            <button
-              key={n}
-              className={`falling-blocks-player-count-btn${
-                (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
-              }`}
-              onClick={() => updatePlayerCount(n as 2 | 3 | 4)}
-              disabled={!!room && (!isHost || (room.player_ids.length > n))}
-            >
-              {n}P
-            </button>
-          ))}
-        </div>
-        {!room ? (
+        {isHost && (
           <button
             className="game-invite-btn"
-            onClick={handleCreateRoom}
-            disabled={loading}
+            onClick={handleOpenInvite}
+            disabled={loading || (room.player_ids.length + pendingInviteCount >= MAX_PLAYERS)}
           >
-            Create Room
+            {t('game.inviteFriends')}
           </button>
-        ) : (
-          isHost && (
-            <button
-              className="game-invite-btn"
-              onClick={() => setShowInviteModal(true)}
-            >
-              🕹 Invite Friends
-            </button>
-          )
         )}
-        {room && (
-          <div className="game-finish-readystate">
-            {room.player_ids.length} / {room.player_count} joined
-          </div>
+        {!hasEnoughPlayers && (
+          <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
         )}
+        <div className="game-finish-readystate">
+          {joinedCount} / {MAX_PLAYERS} joined
+        </div>
+      </GameOverlayCard>
+    )
+  } else if (!isPlaying && !isFinished && !room) {
+    overlay = (
+      <GameOverlayCard emoji="🧱" title={t('game.fallingBlocks')}>
+        <button
+          className="game-invite-btn"
+          onClick={handleOpenInvite}
+          disabled={loading}
+        >
+          {t('game.inviteFriends')}
+        </button>
       </GameOverlayCard>
     )
   }
@@ -759,7 +733,7 @@ export default function FallingBlocksView({
               <span className="falling-blocks-stat-label">{t('fb.next')}</span>
               <NextPiecesPreview pieces={game.next} />
             </div>
-            {isLobby && hasAllPlayers && (
+            {isLobby && room && (
               <div className="falling-blocks-stat">
                 <span className="falling-blocks-stat-label">{t('common.you')}</span>
                 <span className="falling-blocks-stat-value">
@@ -786,7 +760,7 @@ export default function FallingBlocksView({
         friends: friendProfiles,
         invitedIds,
         onInvite: id => { handleCreateAndInvite(id) },
-        canInvite: id => invitedIds.has(id) || invitedIds.size < maxInvitees,
+        canInvite: canInviteMore,
       }}
       confirm={{
         open: showForfeitConfirm,

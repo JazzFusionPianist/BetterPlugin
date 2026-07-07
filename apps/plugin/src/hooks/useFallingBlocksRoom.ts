@@ -98,7 +98,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
   }, [room?.id, supabase])
 
   const createRoom = useCallback(
-    async (playerCount: 2 | 3 | 4): Promise<FallingBlocksRoom | null> => {
+    async (playerCount: 2 | 3 | 4 = 4): Promise<FallingBlocksRoom | null> => {
       setLoading(true)
       const { data, error } = await supabase
         .from('falling_blocks_rooms')
@@ -206,17 +206,18 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       console.error('[useFallingBlocksRoom.startGame] only host can start')
       return
     }
-    if (room.ready_ids.length !== room.player_count) {
-      console.error('[useFallingBlocksRoom.startGame] not all players ready')
+    const playerIds = room.player_ids
+    if (playerIds.length < 2) {
+      console.error('[useFallingBlocksRoom.startGame] not enough players')
       return
     }
-    if (room.player_ids.length !== room.player_count) {
-      console.error('[useFallingBlocksRoom.startGame] room not full')
+    if (!playerIds.every(id => room.ready_ids.includes(id))) {
+      console.error('[useFallingBlocksRoom.startGame] not all players ready')
       return
     }
 
     const now = new Date().toISOString()
-    const rows = room.player_ids.map(uid => ({
+    const rows = playerIds.map(uid => ({
       room_id: room.id,
       user_id: uid,
       board: EMPTY_BOARD,
@@ -237,7 +238,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
 
     const { error: updateErr } = await supabase
       .from('falling_blocks_rooms')
-      .update({ status: 'playing', ready_ids: [] })
+      .update({ status: 'playing', player_count: playerIds.length, ready_ids: [] })
       .eq('id', room.id)
     if (updateErr) console.error('[useFallingBlocksRoom.startGame] update room:', updateErr)
   }, [supabase, room, currentUserId])

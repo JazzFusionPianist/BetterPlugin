@@ -13,6 +13,7 @@ import GameChat from './GameChat'
 
 const BIG_BLIND = 20
 const HAND_END_DELAY_MS = 7000
+const MAX_PLAYERS = 6
 
 const POKER_RANK_KEYS: Record<string, TKey> = {
   'High Card': 'poker.rankHighCard',
@@ -117,7 +118,6 @@ export default function PokerView({
     toggleReady,
     inviteFriend,
     cancelInvite,
-    updatePlayerCount,
     startHand,
     startNewHandIfReady,
     fold,
@@ -128,7 +128,6 @@ export default function PokerView({
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-  const [pickedPlayerCount, setPickedPlayerCount] = useState<2 | 3 | 4 | 5 | 6>(2)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
   // Suppress lobby UI flicker until the initial join/findActiveRoom completes.
   const [resolving, setResolving] = useState(true)
@@ -159,10 +158,11 @@ export default function PokerView({
   const isFinished = status === 'finished'
   const isHost = !!(room && room.host_id === currentUserId)
 
-  const playerCount = room?.player_count ?? pickedPlayerCount
-  const hasAllPlayers = !!(room && room.player_ids.length === room.player_count)
+  const joinedCount = room?.player_ids.length ?? 0
+  const readyCount = room ? room.ready_ids.filter(id => room.player_ids.includes(id)).length : 0
+  const hasEnoughPlayers = joinedCount >= 2
   const myReady = !!(room && room.ready_ids.includes(currentUserId))
-  const allReady = !!(room && room.ready_ids.length === room.player_count && hasAllPlayers)
+  const allReady = !!(room && hasEnoughPlayers && room.player_ids.every(id => room.ready_ids.includes(id)))
 
   const roomState = (room?.state ?? {}) as Partial<PokerRoomState>
   const bettingRound = roomState.betting_round
@@ -210,10 +210,13 @@ export default function PokerView({
     onClose()
   }, [room, deleteCurrentRoom, leaveRoom, onClose])
 
-  // ── Create room ──────────────────────────────────────────────────────────
-  const handleCreateRoom = useCallback(async () => {
-    await createRoom(pickedPlayerCount)
-  }, [createRoom, pickedPlayerCount])
+  // ── Invite flow ─────────────────────────────────────────────────────────
+  const handleOpenInvite = useCallback(async () => {
+    let targetRoom = room
+    if (!targetRoom) targetRoom = await createRoom(MAX_PLAYERS as 2 | 3 | 4 | 5 | 6)
+    if (!targetRoom) return
+    setShowInviteModal(true)
+  }, [room, createRoom])
 
   const handleCreateAndInvite = useCallback(
     async (friendId: string) => {
@@ -229,21 +232,21 @@ export default function PokerView({
       }
       let targetRoom = room
       if (!targetRoom) {
-        targetRoom = await createRoom(pickedPlayerCount)
+        targetRoom = await createRoom(MAX_PLAYERS as 2 | 3 | 4 | 5 | 6)
       }
       if (!targetRoom) return
       await inviteFriend(friendId, targetRoom.id)
       setInvitedIds(prev => new Set([...prev, friendId]))
     },
-    [room, invitedIds, createRoom, inviteFriend, cancelInvite, pickedPlayerCount]
+    [room, invitedIds, createRoom, inviteFriend, cancelInvite]
   )
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
     if (!room || !isHost) return
     if (room.status !== 'lobby') return
-    if (room.player_ids.length !== room.player_count) return
-    if (room.ready_ids.length !== room.player_count) return
+    if (room.player_ids.length < 2) return
+    if (!room.player_ids.every(id => room.ready_ids.includes(id))) return
     startHand()
   }, [room, isHost, startHand])
 
@@ -299,20 +302,6 @@ export default function PokerView({
     await quitGame()
   }, [quitGame])
 
-  // ── Player count change in lobby (host only) ─────────────────────────────
-  const handlePlayerCountChange = useCallback(
-    async (count: 2 | 3 | 4 | 5 | 6) => {
-      if (!room) {
-        setPickedPlayerCount(count)
-        return
-      }
-      if (!isHost || room.status !== 'lobby') return
-      if (room.player_ids.length > count) return
-      await updatePlayerCount(count)
-    },
-    [room, isHost, updatePlayerCount]
-  )
-
   // ── Action handlers ──────────────────────────────────────────────────────
   const handleFold = useCallback(() => { fold() }, [fold])
 
@@ -339,7 +328,9 @@ export default function PokerView({
     }
   }
 
-  const maxInvitees = playerCount - 1
+  const pendingInviteCount = [...invitedIds].filter(id => !(room?.player_ids ?? []).includes(id)).length
+  const canInviteMore = (id: string) =>
+    invitedIds.has(id) || ((room?.player_ids.length ?? 1) + pendingInviteCount < MAX_PLAYERS)
 
   // ── Derived values for action buttons ────────────────────────────────────
   const myChips = myState?.chips ?? 0
@@ -385,62 +376,47 @@ export default function PokerView({
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl
           ready={myReady}
-          count={`${room.ready_ids.length} / ${room.player_count} ready`}
+          count={`${readyCount} / ${joinedCount} ready`}
           onToggle={toggleReady}
         />
       </GameOverlayCard>
     )
-  } else if (isLobby && hasAllPlayers && !allReady) {
+  } else if (isLobby && room && !allReady) {
     overlay = (
       <GameOverlayCard emoji="🃏" title={t('game.readyToPlay')}>
         <GameReadyControl
           ready={myReady}
-          count={`${room!.ready_ids.length} / ${room!.player_count} ready`}
+          count={`${readyCount} / ${joinedCount} ready`}
           onToggle={toggleReady}
           disabled={loading || !room?.player_ids.includes(currentUserId)}
         />
-      </GameOverlayCard>
-    )
-  } else if (!resolving && !isPlaying && !isFinished && (!room || !hasAllPlayers)) {
-    overlay = (
-      <GameOverlayCard emoji="🃏" title={t('game.poker')}>
-        <div className="poker-player-count-picker">
-          {[2, 3, 4, 5, 6].map(n => (
-            <button
-              key={n}
-              className={`poker-player-count-btn${
-                (room?.player_count ?? pickedPlayerCount) === n ? ' selected' : ''
-              }`}
-              onClick={() => handlePlayerCountChange(n as 2 | 3 | 4 | 5 | 6)}
-              disabled={!!room && (!isHost || (room.player_ids.length > n))}
-            >
-              {n}P
-            </button>
-          ))}
-        </div>
-        {!room ? (
+        {isHost && (
           <button
             className="game-invite-btn"
-            onClick={handleCreateRoom}
-            disabled={loading}
+            onClick={handleOpenInvite}
+            disabled={loading || (room.player_ids.length + pendingInviteCount >= MAX_PLAYERS)}
           >
-            Create Room
+            {t('game.inviteFriends')}
           </button>
-        ) : (
-          isHost && (
-            <button
-              className="game-invite-btn"
-              onClick={() => setShowInviteModal(true)}
-            >
-              🃏 Invite Friends
-            </button>
-          )
         )}
-        {room && (
-          <div className="game-finish-readystate">
-            {room.player_ids.length} / {room.player_count} joined
-          </div>
+        {!hasEnoughPlayers && (
+          <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
         )}
+        <div className="game-finish-readystate">
+          {joinedCount} / {MAX_PLAYERS} joined
+        </div>
+      </GameOverlayCard>
+    )
+  } else if (!resolving && !isPlaying && !isFinished && !room) {
+    overlay = (
+      <GameOverlayCard emoji="🃏" title={t('game.poker')}>
+        <button
+          className="game-invite-btn"
+          onClick={handleOpenInvite}
+          disabled={loading}
+        >
+          {t('game.inviteFriends')}
+        </button>
       </GameOverlayCard>
     )
   }
@@ -726,7 +702,7 @@ export default function PokerView({
         friends: friendProfiles,
         invitedIds,
         onInvite: id => { handleCreateAndInvite(id) },
-        canInvite: (id: string) => invitedIds.has(id) || invitedIds.size < maxInvitees,
+        canInvite: canInviteMore,
       }}
       confirm={{
         open: showForfeitConfirm,

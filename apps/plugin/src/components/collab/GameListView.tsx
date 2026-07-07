@@ -118,6 +118,14 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   )
   const areaRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+  })
+  const suppressClickRef = useRef(false)
   // Half the scroll-container width minus half the item width — the
   // exact value the leading/trailing spacers need so the first and
   // last cards can scroll into the centre. Computed in JS because
@@ -131,9 +139,9 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
    *  centre and reflect it as viewIndex. Idempotent — bails if the
    *  result hasn't changed. Pulled out so the spacer-resize and the
    *  scroll-listener can both call it. */
-  const syncCentred = useCallback(() => {
+  const closestIndex = useCallback(() => {
     const area = areaRef.current
-    if (!area) return
+    if (!area) return 0
     const center = area.scrollLeft + area.clientWidth / 2
     let closestIdx = 0
     let closestDist = Infinity
@@ -144,8 +152,13 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       const d = Math.abs(itemCenter - center)
       if (d < closestDist) { closestDist = d; closestIdx = i }
     }
-    setViewIndex(prev => (prev === closestIdx ? prev : closestIdx))
+    return closestIdx
   }, [])
+
+  const syncCentred = useCallback(() => {
+    const closestIdx = closestIndex()
+    setViewIndex(prev => (prev === closestIdx ? prev : closestIdx))
+  }, [closestIndex])
 
   // Listen to scroll. rAF-throttled so a fast swipe doesn't fight
   // React's reconciliation.
@@ -217,10 +230,56 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     node.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const area = areaRef.current
+    if (!area) return
+    dragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startScrollLeft: area.scrollLeft,
+      moved: false,
+    }
+    area.classList.add('dragging')
+    area.setPointerCapture(event.pointerId)
+  }
+
+  const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const area = areaRef.current
+    const drag = dragRef.current
+    if (!area || !drag.active || drag.pointerId !== event.pointerId) return
+    dragRef.current.active = false
+    area.classList.remove('dragging')
+    if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId)
+    if (drag.moved) {
+      suppressClickRef.current = true
+      const targetIndex = closestIndex()
+      requestAnimationFrame(() => scrollToIndex(targetIndex))
+      window.setTimeout(() => { suppressClickRef.current = false }, 180)
+    }
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const area = areaRef.current
+    const drag = dragRef.current
+    if (!area || !drag.active || drag.pointerId !== event.pointerId) return
+    const dx = event.clientX - drag.startX
+    if (Math.abs(dx) > 4) drag.moved = true
+    area.scrollLeft = drag.startScrollLeft - dx
+    event.preventDefault()
+  }
+
   return (
     <div className="game-cd-view">
       <FloatingOrbs count={28} />
-      <div className="game-cd-area" ref={areaRef}>
+      <div
+        className="game-cd-area"
+        ref={areaRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+      >
         <div className="game-cd-list">
           {/* Leading spacer so the first card can centre via scroll-snap. */}
           <div className="game-cd-spacer" aria-hidden="true" style={{ width: spacerPx }} />
@@ -229,7 +288,11 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
               key={g.id}
               ref={el => { itemRefs.current[i] = el }}
               className={`game-cd-item${i === viewIndex ? ' centred' : ''}`}
-              onClick={() => {
+              onClick={(event) => {
+                if (suppressClickRef.current) {
+                  event.preventDefault()
+                  return
+                }
                 if (i !== viewIndex) { scrollToIndex(i); return }
                 onSelectGame(g.id)
               }}

@@ -3949,7 +3949,14 @@
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  cursor: grab;
   z-index: 1;
+}
+.game-cd-area.dragging {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  cursor: grabbing;
 }
 .game-cd-area::-webkit-scrollbar { display: none; }
 .game-cd-list {

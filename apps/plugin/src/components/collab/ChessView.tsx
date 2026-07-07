@@ -445,7 +445,7 @@ export default function ChessView({
     room &&
     room.status === 'playing' &&
     !room.guest_id &&
-    (room.captured as unknown as { computer?: boolean } | null)?.computer === true
+    currentUserId === room.host_id
   )
   const isComputerOpponent = isComputerPlayerId(opponentId) || isComputerMatch
 
@@ -638,14 +638,14 @@ export default function ChessView({
   // In-app confirm modal — matches the other games and works inside the
   // plugin (JUCE's WKWebView blocks window.confirm).
   const handleResign = useCallback(() => {
-    if (!room || !opponentId) return
+    if (!room || (!opponentId && !isComputerOpponent)) return
     setShowResignConfirm(true)
-  }, [room, opponentId])
+  }, [room, opponentId, isComputerOpponent])
   const confirmResign = useCallback(async () => {
     setShowResignConfirm(false)
-    if (!room || !opponentId) return
-    await endGame(opponentId)
-  }, [room, opponentId, endGame])
+    if (!room || (!opponentId && !isComputerOpponent)) return
+    await endGame(isComputerOpponent ? null : opponentId)
+  }, [room, opponentId, isComputerOpponent, endGame])
 
   const handleDrawOffer = useCallback(async () => {
     if (!room) return

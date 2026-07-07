@@ -124,6 +124,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     startX: 0,
     startScrollLeft: 0,
     moved: false,
+    pressedIndex: -1,
   })
   const suppressClickRef = useRef(false)
   // Half the scroll-container width minus half the item width — the
@@ -233,15 +234,23 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const area = areaRef.current
     if (!area) return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const cardEl = (event.target as HTMLElement).closest<HTMLElement>('[data-game-index]')
     dragRef.current = {
       active: true,
       pointerId: event.pointerId,
       startX: event.clientX,
       startScrollLeft: area.scrollLeft,
       moved: false,
+      pressedIndex: cardEl ? Number(cardEl.dataset.gameIndex) : -1,
     }
-    area.classList.add('dragging')
     area.setPointerCapture(event.pointerId)
+  }
+
+  const handleSelectIndex = (i: number) => {
+    if (i < 0 || i >= cards.length) return
+    if (i !== viewIndex) { scrollToIndex(i); return }
+    onSelectGame(cards[i].id)
   }
 
   const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -255,7 +264,13 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
       suppressClickRef.current = true
       const targetIndex = closestIndex()
       requestAnimationFrame(() => scrollToIndex(targetIndex))
-      window.setTimeout(() => { suppressClickRef.current = false }, 180)
+      window.setTimeout(() => { suppressClickRef.current = false }, 80)
+      return
+    }
+    if (drag.pressedIndex >= 0) {
+      suppressClickRef.current = true
+      handleSelectIndex(drag.pressedIndex)
+      window.setTimeout(() => { suppressClickRef.current = false }, 0)
     }
   }
 
@@ -264,9 +279,12 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
     const drag = dragRef.current
     if (!area || !drag.active || drag.pointerId !== event.pointerId) return
     const dx = event.clientX - drag.startX
-    if (Math.abs(dx) > 4) drag.moved = true
+    if (Math.abs(dx) > 4) {
+      drag.moved = true
+      area.classList.add('dragging')
+    }
     area.scrollLeft = drag.startScrollLeft - dx
-    event.preventDefault()
+    if (drag.moved) event.preventDefault()
   }
 
   return (
@@ -287,14 +305,19 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
             <div
               key={g.id}
               ref={el => { itemRefs.current[i] = el }}
+              data-game-index={i}
               className={`game-cd-item${i === viewIndex ? ' centred' : ''}`}
               onClick={(event) => {
                 if (suppressClickRef.current) {
                   event.preventDefault()
                   return
                 }
-                if (i !== viewIndex) { scrollToIndex(i); return }
-                onSelectGame(g.id)
+                handleSelectIndex(i)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                handleSelectIndex(i)
               }}
               role="button"
               tabIndex={0}

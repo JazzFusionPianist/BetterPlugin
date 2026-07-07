@@ -709,7 +709,12 @@ button { font-family: inherit; }
 .chatt-who { min-width: 0; }
 .chatt-name { font-size: 15px; font-weight: 600; color: var(--t1); }
 .chatt-status { font-size: 11.5px; color: var(--t3); margin-top: 1px; }
-.chatt-scroll { flex: 1; overflow-y: auto; padding: 16px 14px 12px; display: flex; flex-direction: column; }
+.chatt-scroll {
+  flex: 1; overflow-y: auto; padding: 16px 14px 12px; display: flex; flex-direction: column;
+  /* min-height:0 lets this flex child actually shrink below its content so
+     overflow scrolling engages (without it the thread can't scroll at all). */
+  min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
 .chatt-empty { margin: auto; color: var(--t3); font-size: 14px; }
 .chatt-row { display: flex; margin-top: 9px; }
 .chatt-row.grouped { margin-top: 2px; }

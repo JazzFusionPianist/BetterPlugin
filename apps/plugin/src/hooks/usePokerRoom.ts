@@ -440,20 +440,21 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
   }
 
   // ── startHand ─────────────────────────────────────────────────────────
-  const startHand = useCallback(async (): Promise<void> => {
-    if (!room) return
-    if (room.host_id !== currentUserId) {
+  const startHand = useCallback(async (targetRoom?: PokerRoom): Promise<void> => {
+    const activeRoom = targetRoom ?? room
+    if (!activeRoom) return
+    if (activeRoom.host_id !== currentUserId) {
       console.warn('[usePokerRoom.startHand] only host can start a hand')
       return
     }
 
-    const playerIds = room.player_ids
+    const playerIds = activeRoom.player_ids
     const n = playerIds.length
     if (n < 2) {
       console.warn('[usePokerRoom.startHand] not enough players')
       return
     }
-    if (room.status === 'lobby' && !playerIds.every(id => room.ready_ids.includes(id))) {
+    if (activeRoom.status === 'lobby' && !playerIds.every(id => activeRoom.ready_ids.includes(id))) {
       console.warn('[usePokerRoom.startHand] not all current players are ready')
       return
     }
@@ -462,7 +463,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     const { data: psData, error: psErr } = await supabase
       .from('poker_player_states')
       .select('*')
-      .eq('room_id', room.id)
+      .eq('room_id', activeRoom.id)
     if (psErr) {
       console.warn('[usePokerRoom.startHand] fetch player_states:', psErr)
       return
@@ -471,11 +472,11 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     for (const row of (psData ?? []) as PokerPlayerState[]) states.set(row.user_id, row)
     // Ensure every player has a state row
     for (const uid of playerIds) {
-      if (!states.has(uid)) states.set(uid, emptyPlayerState(room.id, uid))
+      if (!states.has(uid)) states.set(uid, emptyPlayerState(activeRoom.id, uid))
     }
 
     // Determine new dealer index (skip 0-chip players)
-    const prevState = (room.state ?? {}) as Partial<PokerRoomState>
+    const prevState = (activeRoom.state ?? {}) as Partial<PokerRoomState>
     const prevDealer =
       typeof prevState.dealer_index === 'number' ? prevState.dealer_index : -1
     let dealerIndex = -1
@@ -624,7 +625,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     }
     console.log('[usePokerRoom.startHand] dealing cards to', Object.keys(holeMap))
     const { error: dealErr } = await supabase.rpc('poker_deal_hand', {
-      p_room_id: room.id,
+      p_room_id: activeRoom.id,
       p_hole_cards: holeMap,
     })
     if (dealErr) {
@@ -639,12 +640,12 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       player_count: n as PlayerCount,
       ready_ids: [],
     }
-    if (room.status === 'lobby') update.status = 'playing'
+    if (activeRoom.status === 'lobby') update.status = 'playing'
 
     const { error: roomErr } = await supabase
       .from('poker_rooms')
       .update(update)
-      .eq('id', room.id)
+      .eq('id', activeRoom.id)
     if (roomErr) console.warn('[usePokerRoom.startHand] update room:', roomErr)
   }, [supabase, room, currentUserId])
 
@@ -1021,6 +1022,26 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     await advanceAfterAction(rm, newRmState, states)
   }, [supabase, room, currentUserId, playerStates])
 
+  const computerCallOrCheck = useCallback(async (playerId: string): Promise<void> => {
+    const snap = await snapshot()
+    if (!snap) return
+    const { rm, rmState, states } = snap
+    const turnUid = rm.player_ids[rmState.current_player_index]
+    if (turnUid !== playerId) return
+    const ps = states.get(playerId)
+    if (!ps || ps.folded || ps.all_in) return
+    const toCall = Math.max(0, rmState.current_bet - ps.current_bet)
+    const pay = Math.min(toCall, ps.chips)
+    states.set(playerId, {
+      ...ps,
+      chips: ps.chips - pay,
+      current_bet: ps.current_bet + pay,
+      all_in: ps.chips - pay === 0 && pay > 0 ? true : ps.all_in,
+      acted: true,
+    })
+    await advanceAfterAction(rm, { ...rmState, pot: rmState.pot + pay }, states)
+  }, [room, supabase])
+
   const raise = useCallback(
     async (raiseTo: number): Promise<void> => {
       // Optimistic local update first for snappy UI
@@ -1149,6 +1170,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
     startNewHandIfReady,
     fold,
     callOrCheck,
+    computerCallOrCheck,
     raise,
     setRoom,
   }

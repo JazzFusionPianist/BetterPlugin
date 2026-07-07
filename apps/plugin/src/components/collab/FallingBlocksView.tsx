@@ -17,6 +17,7 @@ import {
 } from '../../hooks/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '../../hooks/useFallingBlocks'
 import { useT } from '../../i18n/LanguageContext'
+import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 
@@ -217,6 +218,7 @@ export default function FallingBlocksView({
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
+  const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3>(1)
 
   // Local game state
   const [game, setGame] = useState<FallingBlocksState>(() => ({
@@ -279,7 +281,7 @@ export default function FallingBlocksView({
     }
     return map
   }, [opponentIds, friendProfiles])
-  const chatOpponentId = opponentIds.length === 1 ? opponentIds[0] : null
+  const chatOpponentId = opponentIds.length === 1 && !isComputerPlayerId(opponentIds[0]) ? opponentIds[0] : null
   const chatOpponentProfile = chatOpponentId ? opponentProfilesById.get(chatOpponentId) ?? null : null
 
   // ── Back button ──────────────────────────────────────────────────────────
@@ -322,6 +324,32 @@ export default function FallingBlocksView({
     },
     [room, invitedIds, createRoom, inviteFriend, cancelInvite]
   )
+
+  const handlePlayComputer = useCallback(async () => {
+    const bots = computerPlayerIds(computerOpponents)
+    const playerIds = [currentUserId, ...bots]
+    let targetRoom = room
+    if (!targetRoom) {
+      targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
+    }
+    if (!targetRoom) return
+    const { data, error } = await supabase
+      .from('falling_blocks_rooms')
+      .update({
+        player_count: playerIds.length,
+        player_ids: playerIds,
+        ready_ids: playerIds,
+        winner_id: null,
+      })
+      .eq('id', targetRoom.id)
+      .select()
+      .single()
+    if (error || !data) {
+      console.error('[FallingBlocksView.handlePlayComputer]', error)
+      return
+    }
+    await startGame(data)
+  }, [computerOpponents, currentUserId, room, createRoom, supabase, startGame])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
@@ -541,6 +569,32 @@ export default function FallingBlocksView({
     return () => window.clearInterval(interval)
   }, [isPlaying, myTopOutServer, handleLockAndSpawn])
 
+  useEffect(() => {
+    if (!room || !isPlaying || room.host_id !== currentUserId) return
+    const botIds = room.player_ids.filter(isComputerPlayerId)
+    if (botIds.length === 0) return
+    const startedAt = Date.now()
+    const interval = window.setInterval(async () => {
+      const elapsed = Date.now() - startedAt
+      const rows = botIds.map((botId, index) => {
+        const prev = playerStatesRef.current.get(botId)
+        const topOut = prev?.top_out || elapsed > 45_000 + index * 12_000 + Math.random() * 10_000
+        return {
+          room_id: room.id,
+          user_id: botId,
+          board: prev?.board ?? Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null)),
+          score: (prev?.score ?? 0) + (topOut ? 0 : Math.floor(Math.random() * 90)),
+          lines: (prev?.lines ?? 0) + (topOut ? 0 : (Math.random() < 0.35 ? 1 : 0)),
+          top_out: topOut,
+          garbage_pending: prev?.garbage_pending ?? 0,
+          updated_at: new Date().toISOString(),
+        }
+      })
+      await supabase.from('falling_blocks_player_states').upsert(rows, { onConflict: 'room_id,user_id' })
+    }, 1100)
+    return () => window.clearInterval(interval)
+  }, [room, isPlaying, currentUserId, supabase])
+
   // ── Forfeit ──────────────────────────────────────────────────────────────
   // Tops out the current player. Also explicitly ends the game when only one
   // other player is still alive — otherwise the room would stay in 'playing'
@@ -633,6 +687,25 @@ export default function FallingBlocksView({
             {t('game.inviteFriends')}
           </button>
         )}
+        {isHost && (
+          <>
+            <div className="game-computer-picker" aria-label={t('game.computerCount')}>
+              {[1, 2, 3].map(n => (
+                <button
+                  key={n}
+                  className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
+                  onClick={() => setComputerOpponents(n as 1 | 2 | 3)}
+                  type="button"
+                >
+                  1:{n}
+                </button>
+              ))}
+            </div>
+            <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+              {t('game.playComputer')}
+            </button>
+          </>
+        )}
         {!hasEnoughPlayers && (
           <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
         )}
@@ -650,6 +723,21 @@ export default function FallingBlocksView({
           disabled={loading}
         >
           {t('game.inviteFriends')}
+        </button>
+        <div className="game-computer-picker" aria-label={t('game.computerCount')}>
+          {[1, 2, 3].map(n => (
+            <button
+              key={n}
+              className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
+              onClick={() => setComputerOpponents(n as 1 | 2 | 3)}
+              type="button"
+            >
+              1:{n}
+            </button>
+          ))}
+        </div>
+        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+          {t('game.playComputer')}
         </button>
       </GameOverlayCard>
     )
@@ -690,7 +778,7 @@ export default function FallingBlocksView({
                 key={id}
                 profile={opponentProfilesById.get(id) ?? null}
                 state={playerStates.get(id)}
-                fallbackName={`Player ${idx + 2}`}
+                fallbackName={isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`}
               />
             ))
           )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Profile } from '../../types/collab'
+import type { EarTrainingRoom, Profile } from '../../types/collab'
 import { useEarTrainingRoom } from '../../hooks/useEarTrainingRoom'
 import {
   generateQuestion, playQuestion, isCorrect,
@@ -9,6 +9,7 @@ import {
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '../../lib/earTraining'
 import { useT } from '../../i18n/LanguageContext'
+import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 
@@ -70,7 +71,7 @@ export default function EarTrainingView ({
     createRoom, joinRoom, updateConfig, toggleReady, startGame,
     submitAnswer, advanceRound, forfeitGame,
     deleteCurrentRoom, findActiveRoom,
-    inviteFriend, cancelInvite,
+    inviteFriend, cancelInvite, setRoom,
   } = useEarTrainingRoom(supabase, currentUserId)
 
   const [showInvite, setShowInvite] = useState(false)
@@ -209,6 +210,37 @@ export default function EarTrainingView ({
     setInvitedIds(s => new Set([...s, friendId]))
   }, [room, invitedIds, createRoom, inviteFriend, cancelInvite])
 
+  const handlePlayComputer = useCallback(async () => {
+    let target = room
+    if (!target) {
+      target = await createRoom({ modes: ['interval', 'chord'], difficulty: 'basic' })
+    }
+    if (!target) return
+    const { data, error } = await supabase
+      .from('ear_training_rooms')
+      .update({
+        player2_id: computerPlayerId(0),
+        player1_ready: false,
+        player2_ready: false,
+        status: 'playing',
+        current_round: 1,
+        round_started_at: new Date().toISOString(),
+        player1_answer: null,
+        player2_answer: null,
+        player1_score: 0,
+        player2_score: 0,
+        winner_id: null,
+      })
+      .eq('id', target.id)
+      .select()
+      .single()
+    if (error || !data) {
+      console.error('[EarTrainingView.handlePlayComputer]', error)
+      return
+    }
+    setRoom(data as EarTrainingRoom)
+  }, [room, createRoom, supabase, setRoom])
+
   const handlePlay = () => {
     if (!question || playsLeft <= 0 || myAnswer) return
     playQuestion(question)
@@ -220,6 +252,28 @@ export default function EarTrainingView ({
     setSelectedAnswer(ans)
     submitAnswer(ans)
   }
+
+  const computerAnswerKeyRef = useRef('')
+  useEffect(() => {
+    if (!isPlaying || !room || !question) return
+    const botSeat =
+      isComputerPlayerId(room.player1_id) ? 'player1'
+      : isComputerPlayerId(room.player2_id) ? 'player2'
+      : null
+    if (!botSeat) return
+    const field = botSeat === 'player1' ? 'player1_answer' : 'player2_answer'
+    if (room[field]) return
+    const key = `${room.id}:${room.current_round}:${field}`
+    if (computerAnswerKeyRef.current === key) return
+    computerAnswerKeyRef.current = key
+    const timer = window.setTimeout(async () => {
+      const options = question.options
+      const wrong = options.filter(o => o !== question.answer)
+      const pick = Math.random() < 0.72 ? question.answer : (wrong[Math.floor(Math.random() * wrong.length)] ?? question.answer)
+      await supabase.from('ear_training_rooms').update({ [field]: pick }).eq('id', room.id)
+    }, 900 + Math.floor(Math.random() * 1400))
+    return () => window.clearTimeout(timer)
+  }, [isPlaying, room, question, supabase])
 
   // Open the in-app confirm modal rather than calling window.confirm —
   // JUCE's WKWebView blocks native confirm/alert dialogs, so the
@@ -266,7 +320,7 @@ export default function EarTrainingView ({
     [room?.player1_id, currentUserId, currentUserProfile, friendProfiles]
   )
   const player2Profile = useMemo(
-    () => !room?.player2_id ? null
+    () => !room?.player2_id || isComputerPlayerId(room.player2_id) ? null
       : room.player2_id === currentUserId ? currentUserProfile
       : friendProfiles.find(p => p.id === room.player2_id) ?? null,
     [room?.player2_id, currentUserId, currentUserProfile, friendProfiles]
@@ -274,6 +328,7 @@ export default function EarTrainingView ({
 
   // The opponent profile from MY perspective (player2 if I'm player1, else player1).
   const opponentProfile = seat === 'player1' ? player2Profile : player1Profile
+  const isComputerOpponent = isComputerPlayerId(opponentId)
 
   const myScore       = seat === 'player1' ? (room?.player1_score ?? 0) : (room?.player2_score ?? 0)
   const opponentScore = seat === 'player1' ? (room?.player2_score ?? 0) : (room?.player1_score ?? 0)
@@ -382,6 +437,9 @@ export default function EarTrainingView ({
         <button className="game-invite-btn" onClick={() => setShowInvite(true)}>
           {t('chess.inviteCta')}
         </button>
+        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer}>
+          {t('game.playComputer')}
+        </button>
         {room && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
       </GameOverlayCard>
     )
@@ -411,6 +469,8 @@ export default function EarTrainingView ({
         <div className="game-player-row">
           {opponentProfile ? (
             <span className="game-player-name">{opponentProfile.display_name}</span>
+          ) : isComputerOpponent ? (
+            <span className="game-player-name">{computerPlayerName(opponentId)}</span>
           ) : (
             <span className="game-player-name game-player-name--unknown">
               {hasOpponent ? t('common.opponent') : t('et.waitingOpponent')}
@@ -556,8 +616,8 @@ export default function EarTrainingView ({
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
-          otherUserId={opponentId}
-          otherName={opponentProfile?.display_name}
+          otherUserId={isComputerOpponent ? null : opponentId}
+          otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
         />
       }
       invite={{

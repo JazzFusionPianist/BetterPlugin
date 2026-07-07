@@ -6,6 +6,7 @@ import { cardRank, cardSuit } from '../../hooks/usePoker'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
+import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 
@@ -122,12 +123,15 @@ export default function PokerView({
     startNewHandIfReady,
     fold,
     callOrCheck,
+    computerCallOrCheck,
     raise,
+    setRoom,
   } = usePokerRoom(supabase, currentUserId)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
+  const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
   // Suppress lobby UI flicker until the initial join/findActiveRoom completes.
   const [resolving, setResolving] = useState(true)
@@ -182,13 +186,13 @@ export default function PokerView({
     if (currentUserProfile) map.set(currentUserId, currentUserProfile)
     for (const id of (room?.player_ids ?? [])) {
       if (!map.has(id)) {
-        const p = friendProfiles.find(fp => fp.id === id) ?? null
+        const p = isComputerPlayerId(id) ? null : friendProfiles.find(fp => fp.id === id) ?? null
         map.set(id, p)
       }
     }
     return map
   }, [room, friendProfiles, currentUserProfile, currentUserId])
-  const chatOpponentId = opponentIds.length === 1 ? opponentIds[0] : null
+  const chatOpponentId = opponentIds.length === 1 && !isComputerPlayerId(opponentIds[0]) ? opponentIds[0] : null
   const chatOpponentProfile = chatOpponentId ? profileById.get(chatOpponentId) ?? null : null
 
   const currentPlayerId = useMemo(() => {
@@ -241,6 +245,34 @@ export default function PokerView({
     [room, invitedIds, createRoom, inviteFriend, cancelInvite]
   )
 
+  const handlePlayComputer = useCallback(async () => {
+    const bots = computerPlayerIds(computerOpponents)
+    const playerIds = [currentUserId, ...bots]
+    let targetRoom = room
+    if (!targetRoom) {
+      targetRoom = await createRoom(playerIds.length as 2 | 3 | 4 | 5 | 6)
+    }
+    if (!targetRoom) return
+    const { data, error } = await supabase
+      .from('poker_rooms')
+      .update({
+        player_count: playerIds.length,
+        player_ids: playerIds,
+        ready_ids: playerIds,
+        winner_id: null,
+        state: {},
+      })
+      .eq('id', targetRoom.id)
+      .select()
+      .single()
+    if (error || !data) {
+      console.warn('[PokerView.handlePlayComputer]', error)
+      return
+    }
+    setRoom(data)
+    await startHand(data)
+  }, [computerOpponents, currentUserId, room, createRoom, supabase, startHand, setRoom])
+
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
     if (!room || !isHost) return
@@ -279,6 +311,18 @@ export default function PokerView({
       // do nothing here — keep marker until new hand starts
     }
   }, [isHandEnd])
+
+  const computerPokerActionKeyRef = useRef('')
+  useEffect(() => {
+    if (!isHost || !isHandActive || !currentPlayerId || !isComputerPlayerId(currentPlayerId)) return
+    const key = `${room?.id}:${roomState.hand_number}:${roomState.betting_round}:${currentPlayerId}:${roomState.current_player_index}:${roomState.pot}:${roomState.current_bet}`
+    if (computerPokerActionKeyRef.current === key) return
+    computerPokerActionKeyRef.current = key
+    const timer = window.setTimeout(() => {
+      computerCallOrCheck(currentPlayerId)
+    }, 750 + Math.floor(Math.random() * 900))
+    return () => window.clearTimeout(timer)
+  }, [isHost, isHandActive, currentPlayerId, room?.id, roomState.hand_number, roomState.betting_round, roomState.current_player_index, roomState.pot, roomState.current_bet, computerCallOrCheck])
 
   // ── Reset raise input when betting state changes ─────────────────────────
   useEffect(() => {
@@ -399,6 +443,25 @@ export default function PokerView({
             {t('game.inviteFriends')}
           </button>
         )}
+        {isHost && (
+          <>
+            <div className="game-computer-picker" aria-label={t('game.computerCount')}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
+                  onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
+                  type="button"
+                >
+                  1:{n}
+                </button>
+              ))}
+            </div>
+            <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+              {t('game.playComputer')}
+            </button>
+          </>
+        )}
         {!hasEnoughPlayers && (
           <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
         )}
@@ -416,6 +479,21 @@ export default function PokerView({
           disabled={loading}
         >
           {t('game.inviteFriends')}
+        </button>
+        <div className="game-computer-picker" aria-label={t('game.computerCount')}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
+              onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
+              type="button"
+            >
+              1:{n}
+            </button>
+          ))}
+        </div>
+        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+          {t('game.playComputer')}
         </button>
       </GameOverlayCard>
     )
@@ -458,7 +536,7 @@ export default function PokerView({
                   className={`poker-opponent${folded ? ' folded' : ''}${isTheirTurn ? ' active' : ''}`}
                 >
                   <span className="poker-opponent-name">
-                    {profile?.display_name ?? `Player ${idx + 2}`}
+                    {profile?.display_name ?? (isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`)}
                   </span>
                   <span className="poker-opponent-chips">
                     {ps?.chips ?? '—'} chips

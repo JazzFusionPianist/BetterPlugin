@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, GameRoom } from '../../types/collab'
 import { useGameRoom } from '../../hooks/useGameRoom'
@@ -12,6 +12,7 @@ import {
 import type { ChessState, Pos } from '../../hooks/useChess'
 import { useTurnSound } from '../../hooks/useTurnSound'
 import { useT } from '../../i18n/LanguageContext'
+import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 
@@ -364,7 +365,7 @@ export default function ChessView({
   onClose,
 }: Props) {
   const { t } = useT()
-  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom } =
+  const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom } =
     useGameRoom(supabase, currentUserId)
   const [resolvingRoom, setResolvingRoom] = useState(true)
 
@@ -437,9 +438,10 @@ export default function ChessView({
       : room.host_id
     : null
 
-  const opponentProfile = opponentId
+  const opponentProfile = opponentId && !isComputerPlayerId(opponentId)
     ? friendProfiles.find(p => p.id === opponentId) ?? null
     : null
+  const isComputerOpponent = isComputerPlayerId(opponentId)
 
   const isHost = room ? currentUserId === room.host_id : false
 
@@ -486,6 +488,41 @@ export default function ChessView({
     },
     [room, invitedIds, createRoom, inviteFriend, cancelInvite],
   )
+
+  const handlePlayComputer = useCallback(async () => {
+    let targetRoom = room
+    if (!targetRoom) targetRoom = await createRoom()
+    if (!targetRoom) return
+    const initialState = initialChessState()
+    const { data, error } = await supabase
+      .from('game_rooms')
+      .update({
+        guest_id: computerPlayerId(0),
+        status: 'playing',
+        board: initialState.board as (string | null)[][],
+        turn: 'white',
+        captured: { white: [], black: [] },
+        move_history: [],
+        castling: { wK: true, wQ: true, bK: true, bQ: true },
+        en_passant: null,
+        halfmove: 0,
+        winner_id: null,
+        draw_offered_by: null,
+        host_ready: false,
+        guest_ready: false,
+      })
+      .eq('id', targetRoom.id)
+      .select()
+      .single()
+    if (error || !data) {
+      console.error('[ChessView.handlePlayComputer]', error)
+      return
+    }
+    setRoom(data as GameRoom)
+    setChessState(initialState)
+    setLastFrom(null)
+    setLastTo(null)
+  }, [room, createRoom, supabase, setRoom])
 
   const handleMove = useCallback(
     async (from: Pos, to: Pos, promoteTo?: string) => {
@@ -542,6 +579,56 @@ export default function ChessView({
     },
     [pendingPromotion, handleMove],
   )
+
+  const computerMoveKeyRef = useRef('')
+  useEffect(() => {
+    if (!room || room.status !== 'playing' || !isComputerOpponent || !opponentId) return
+    const computerColor = getOppositeColor(myColor)
+    if (chessState.turn !== computerColor) return
+    const moveKey = `${room.id}:${room.move_history?.length ?? 0}:${chessState.turn}`
+    if (computerMoveKeyRef.current === moveKey) return
+    computerMoveKeyRef.current = moveKey
+    const timer = window.setTimeout(async () => {
+      const moves: { from: Pos; to: Pos; capture: boolean }[] = []
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = chessState.board[r][c]
+          if (!piece || pieceColor(piece) !== computerColor) continue
+          for (const to of getValidMoves(chessState, [r, c])) {
+            moves.push({ from: [r, c], to, capture: !!chessState.board[to[0]][to[1]] })
+          }
+        }
+      }
+      if (moves.length === 0) return
+      const captures = moves.filter(m => m.capture)
+      const pool = captures.length > 0 ? captures : moves
+      const chosen = pool[Math.floor(Math.random() * pool.length)]
+      const result = applyMove(chessState, chosen.from, chosen.to, 'Q')
+      setChessState(result.state)
+      setLastFrom(chosen.from)
+      setLastTo(chosen.to)
+
+      const newCaptured = { ...(room.captured ?? { white: [], black: [] }) }
+      if (result.captured) {
+        newCaptured[computerColor] = [...(newCaptured[computerColor] ?? []), result.captured]
+      }
+      await makeMove({
+        board: result.state.board as (string | null)[][],
+        turn: result.state.turn,
+        castling: result.state.castling,
+        en_passant: result.state.enPassant as [number, number] | null,
+        halfmove: result.state.halfmove,
+        captured: newCaptured,
+        move_history: [...(room.move_history ?? []), result.algebraic],
+      })
+      if (result.isCheckmate) {
+        await endGame(opponentId)
+      } else if (result.isStalemate || result.isDraw) {
+        await endGame(null)
+      }
+    }, 650)
+    return () => window.clearTimeout(timer)
+  }, [room, isComputerOpponent, opponentId, myColor, chessState, makeMove, endGame])
 
   // In-app confirm modal — matches the other games and works inside the
   // plugin (JUCE's WKWebView blocks window.confirm).
@@ -635,6 +722,9 @@ export default function ChessView({
           <button className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
             {t('chess.inviteCta')}
           </button>
+          <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+            {t('game.playComputer')}
+          </button>
           {room && !hasGuest && (
             <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
           )}
@@ -670,6 +760,8 @@ export default function ChessView({
           <div className="game-player-row">
             {opponentProfile ? (
               <span className="game-player-name">{opponentProfile.display_name}</span>
+            ) : isComputerOpponent ? (
+              <span className="game-player-name">{computerPlayerName(opponentId)}</span>
             ) : (
               <span className="game-player-name game-player-name--unknown">
                 {hasGuest ? t('common.opponent') : t('common.waiting')}
@@ -748,8 +840,8 @@ export default function ChessView({
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
-          otherUserId={opponentId}
-          otherName={opponentProfile?.display_name}
+          otherUserId={isComputerOpponent ? null : opponentId}
+          otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
         />
       }
       invite={{

@@ -131,6 +131,8 @@ export const T = {
   'game.readyToPlay':        { en: 'Ready to play?', ko: '준비됐나요?', ja: 'プレイ準備はOK？', zh: '准备好了吗？', es: '¿Listo para jugar?', de: 'Bereit zu spielen?', fr: 'Prêt à jouer ?', hi: 'खेलने को तैयार?' },
   'game.inviteFriend':       { en: 'Invite a Friend',  ko: '친구 초대',      ja: '友達を招待',     zh: '邀请好友',  es: 'Invitar a un amigo', de: 'Freund einladen', fr: 'Inviter un ami', hi: 'मित्र को आमंत्रित करें' },
   'game.inviteFriends':      { en: 'Invite Friends',   ko: '친구 초대',      ja: '友達を招待',     zh: '邀请好友',  es: 'Invitar amigos',     de: 'Freunde einladen', fr: 'Inviter des amis', hi: 'मित्रों को आमंत्रित करें' },
+  'game.playComputer':       { en: 'Play with Computer', ko: '컴퓨터와 대전', ja: 'コンピューターと対戦', zh: '与电脑对战', es: 'Jugar contra la computadora', de: 'Gegen Computer spielen', fr: 'Jouer contre l’ordinateur', hi: 'कंप्यूटर से खेलें' },
+  'game.computerCount':      { en: 'Computer opponents', ko: '컴퓨터 상대 수', ja: 'コンピューター人数', zh: '电脑对手数量', es: 'Oponentes de computadora', de: 'Computergegner', fr: 'Adversaires ordinateur', hi: 'कंप्यूटर प्रतिद्वंद्वी' },
   'game.invite':             { en: 'Invite',           ko: '초대',           ja: '招待',          zh: '邀请',     es: 'Invitar',           de: 'Einladen',        fr: 'Inviter',        hi: 'आमंत्रित' },
   'game.invited':            { en: 'Invited ✓',        ko: '초대됨 ✓',       ja: '招待済み ✓',    zh: '已邀请 ✓',  es: 'Invitado ✓',         de: 'Eingeladen ✓',    fr: 'Invité ✓',       hi: 'आमंत्रित ✓' },
   'game.noFriendsToInvite':  { en: 'No friends to invite.', ko: '초대할 친구가 없습니다.', ja: '招待できる友達がいません。', zh: '没有可邀请的好友。', es: 'No hay amigos para invitar.', de: 'Keine Freunde zum Einladen.', fr: 'Aucun ami à inviter.', hi: 'आमंत्रित करने के लिए कोई मित्र नहीं।' },

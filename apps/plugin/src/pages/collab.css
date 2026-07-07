@@ -4999,6 +4999,34 @@
 }
 .game-invite-btn:hover { opacity: .88; }
 .game-invite-btn:disabled { opacity: .5; cursor: default; }
+.game-computer-btn {
+  background: #2f9d63;
+}
+.game-computer-picker {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.game-computer-count {
+  min-width: 42px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--t2);
+  cursor: pointer;
+  font: 700 12px 'DM Mono', monospace;
+}
+.game-computer-count:hover,
+.game-computer-count.selected {
+  color: var(--t1);
+  border-color: rgba(72, 187, 120, 0.65);
+  background: rgba(72, 187, 120, 0.18);
+}
 
 /* Ready / Rematch button */
 .game-ready-btn {

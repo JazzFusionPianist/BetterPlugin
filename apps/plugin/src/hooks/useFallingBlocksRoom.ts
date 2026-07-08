@@ -269,6 +269,11 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         .update({ status: 'finished', winner_id: winnerId })
         .eq('id', room.id)
       if (error) console.error('[useFallingBlocksRoom.endGame]', error)
+      setRoom({
+        ...room,
+        status: 'finished',
+        winner_id: winnerId,
+      })
     },
     [supabase, room]
   )
@@ -359,6 +364,21 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
   const setPlayerTopOut = useCallback(
     async (userId: string, topOut: boolean): Promise<void> => {
       if (!room) return
+      setPlayerStates(prev => {
+        const next = new Map(prev)
+        const existing = next.get(userId)
+        next.set(userId, {
+          room_id: room.id,
+          user_id: userId,
+          board: existing?.board ?? EMPTY_BOARD,
+          score: existing?.score ?? 0,
+          lines: existing?.lines ?? 0,
+          top_out: topOut,
+          garbage_pending: existing?.garbage_pending ?? 0,
+          updated_at: new Date().toISOString(),
+        })
+        return next
+      })
       const { error } = await supabase
         .from('falling_blocks_player_states')
         .update({

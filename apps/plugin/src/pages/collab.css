@@ -6190,15 +6190,16 @@
 .falling-blocks-game-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  padding: 6px; gap: 6px;
+  padding: 4px 6px 6px; gap: 6px;
   overflow: hidden;
   position: relative;
 }
 .falling-blocks-opponents-row {
   display: flex; gap: 6px; justify-content: center;
-  flex-shrink: 0;
-  /* Cap opponents-row height so the self board gets most of the area */
-  max-height: 28%;
+  flex: 0 0 76px;
+  min-height: 76px;
+  max-height: 86px;
+  overflow: hidden;
 }
 .falling-blocks-self-row {
   flex: 1; min-height: 0;
@@ -6314,7 +6315,7 @@
   gap: 2px; position: relative;
   height: 100%; min-width: 0;
   flex: 1 1 0;
-  max-width: 90px;
+  max-width: 74px;
 }
 .falling-blocks-opponent-header {
   display: flex; align-items: center; gap: 4px;

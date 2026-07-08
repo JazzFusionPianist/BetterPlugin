@@ -284,6 +284,7 @@ export default function FallingBlocksView({
   }, [opponentIds, friendProfiles])
   const chatOpponentId = opponentIds.length === 1 && !isComputerPlayerId(opponentIds[0]) ? opponentIds[0] : null
   const chatOpponentProfile = chatOpponentId ? opponentProfilesById.get(chatOpponentId) ?? null : null
+  const isComputerMatch = opponentIds.some(isComputerPlayerId)
 
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
@@ -599,6 +600,17 @@ export default function FallingBlocksView({
   }, [])
   const confirmForfeit = useCallback(async () => {
     setShowForfeitConfirm(false)
+    setGame(prev => ({ ...prev, topOut: true }))
+    applyPlayerStates([{
+      room_id: room?.id ?? '',
+      user_id: currentUserId,
+      board: gameRef.current.board,
+      score: gameRef.current.score,
+      lines: gameRef.current.lines,
+      top_out: true,
+      garbage_pending: 0,
+      updated_at: new Date().toISOString(),
+    }])
     await setPlayerTopOut(currentUserId, true)
     const aliveOpponents = opponentIds.filter(id => {
       const ps = playerStatesRef.current.get(id)
@@ -610,7 +622,7 @@ export default function FallingBlocksView({
       await endGame(null)
     }
     // 2+ alive opponents → let the game continue normally
-  }, [setPlayerTopOut, currentUserId, opponentIds, endGame])
+  }, [applyPlayerStates, room?.id, setPlayerTopOut, currentUserId, opponentIds, endGame])
 
   // ── Rematch helper: when finished, host auto-starts when all ready ───────
   useEffect(() => {
@@ -827,14 +839,14 @@ export default function FallingBlocksView({
         </div>
       }
       overlay={overlay}
-      chat={
+      chat={!isComputerMatch ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
           otherUserId={chatOpponentId}
           otherName={chatOpponentProfile?.display_name}
         />
-      }
+      ) : undefined}
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

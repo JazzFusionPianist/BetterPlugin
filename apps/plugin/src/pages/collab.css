@@ -4792,7 +4792,9 @@
 }
 .sq-valid    {}
 .sq-valid-dot {
-  position: absolute; width: 30%; height: 30%;
+  position: absolute; left: 50%; top: 50%;
+  width: 30%; height: 30%;
+  transform: translate(-50%, -50%);
   border-radius: 50%; background: rgba(40, 110, 60, 0.55);
   box-shadow: 0 0 6px rgba(40, 110, 60, 0.4);
   pointer-events: none;

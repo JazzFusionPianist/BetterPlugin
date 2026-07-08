@@ -216,6 +216,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       console.error('[useFallingBlocksRoom.startGame] not all players ready')
       return
     }
+    const playerCount = playerIds.length as 2 | 3 | 4
 
     const now = new Date().toISOString()
     const rows = playerIds.map(uid => ({
@@ -236,12 +237,21 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       console.error('[useFallingBlocksRoom.startGame] insert player_states:', insertErr)
       return
     }
+    setPlayerStates(new Map(rows.map(row => [row.user_id, row as FallingBlocksPlayerState])))
 
     const { error: updateErr } = await supabase
       .from('falling_blocks_rooms')
-      .update({ status: 'playing', player_count: playerIds.length, ready_ids: [] })
+      .update({ status: 'playing', player_count: playerCount, ready_ids: [] })
       .eq('id', activeRoom.id)
     if (updateErr) console.error('[useFallingBlocksRoom.startGame] update room:', updateErr)
+    if (!updateErr) {
+      setRoom({
+        ...activeRoom,
+        status: 'playing',
+        player_count: playerCount,
+        ready_ids: [],
+      })
+    }
   }, [supabase, room, currentUserId])
 
   const endGame = useCallback(

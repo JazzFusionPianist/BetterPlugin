@@ -8,9 +8,13 @@ type Tab = 'login' | 'signup'
 
 export default function AuthPage() {
   const [tab, setTab] = useState<Tab>('login')
+  const [isDark] = useState(() => {
+    try { return localStorage.getItem('collab_dark') === 'true' }
+    catch { return false }
+  })
 
   return (
-    <div className="auth-page">
+    <div className={`auth-page${isDark ? ' dark' : ''}`}>
       <FloatingOrbs />
       <div className="auth-content">
         <div className="auth-logo" aria-label="Orb">

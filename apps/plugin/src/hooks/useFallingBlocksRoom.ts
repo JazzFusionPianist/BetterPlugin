@@ -249,17 +249,16 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
 
     const { error: updateErr } = await supabase
       .from('falling_blocks_rooms')
-      .update({ status: 'playing', player_count: playerCount, ready_ids: [] })
+      .update({ status: 'playing', player_count: playerCount, player_ids: playerIds, ready_ids: [] })
       .eq('id', activeRoom.id)
     if (updateErr) console.error('[useFallingBlocksRoom.startGame] update room:', updateErr)
-    if (!updateErr) {
-      setRoom({
-        ...activeRoom,
-        status: 'playing',
-        player_count: playerCount,
-        ready_ids: [],
-      })
-    }
+    setRoom({
+      ...activeRoom,
+      status: 'playing',
+      player_count: playerCount,
+      player_ids: playerIds,
+      ready_ids: [],
+    })
   }, [supabase, room, currentUserId])
 
   const endGame = useCallback(

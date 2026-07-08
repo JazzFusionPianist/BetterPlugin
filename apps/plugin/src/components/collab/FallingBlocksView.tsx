@@ -334,23 +334,14 @@ export default function FallingBlocksView({
       targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
     }
     if (!targetRoom) return
-    const { data, error } = await supabase
-      .from('falling_blocks_rooms')
-      .update({
-        player_count: playerIds.length,
-        player_ids: playerIds,
-        ready_ids: playerIds,
-        winner_id: null,
-      })
-      .eq('id', targetRoom.id)
-      .select()
-      .single()
-    if (error || !data) {
-      console.error('[FallingBlocksView.handlePlayComputer]', error)
-      return
-    }
-    await startGame(data)
-  }, [computerOpponents, currentUserId, room, createRoom, supabase, startGame])
+    await startGame({
+      ...targetRoom,
+      player_count: playerIds.length as 2 | 3 | 4,
+      player_ids: playerIds,
+      ready_ids: playerIds,
+      winner_id: null,
+    })
+  }, [computerOpponents, currentUserId, room, createRoom, startGame])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {

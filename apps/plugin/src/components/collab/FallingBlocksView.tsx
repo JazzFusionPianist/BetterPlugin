@@ -350,7 +350,7 @@ export default function FallingBlocksView({
       winner_id: null,
     }
     await startGame(nextRoom)
-    applyPlayerStates(bots.map(botId => {
+    const botRows = bots.map(botId => {
       const initial = initialFallingBlocksState()
       botStatesRef.current.set(botId, initial)
       return {
@@ -363,8 +363,10 @@ export default function FallingBlocksView({
         garbage_pending: 0,
         updated_at: new Date().toISOString(),
       }
-    }))
-  }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates])
+    })
+    applyPlayerStates(botRows)
+    await supabase.from('falling_blocks_player_states').upsert(botRows, { onConflict: 'room_id,user_id' })
+  }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates, supabase])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
@@ -383,7 +385,10 @@ export default function FallingBlocksView({
     if (prev !== 'playing' && status === 'playing') {
       const fresh = initialFallingBlocksState()
       setGame(fresh)
-      botStatesRef.current = new Map()
+      const activeBotIds = new Set(room?.player_ids.filter(isComputerPlayerId) ?? [])
+      for (const botId of botStatesRef.current.keys()) {
+        if (!activeBotIds.has(botId)) botStatesRef.current.delete(botId)
+      }
       // Push initial state to server
       updateMyState({
         board: fresh.board,
@@ -393,7 +398,7 @@ export default function FallingBlocksView({
         garbage_pending: 0,
       })
     }
-  }, [status, updateMyState])
+  }, [room?.player_ids, status, updateMyState])
 
   // ── Apply incoming garbage from server inbox ─────────────────────────────
   useEffect(() => {

@@ -12,6 +12,7 @@ import {
   spawnPiece,
   getGhostPiece,
   pieceCells,
+  cellsToBoard,
   BOARD_ROWS,
   BOARD_COLS,
 } from '../../hooks/useFallingBlocks'
@@ -39,21 +40,10 @@ const PIECE_CLASS: Record<string, string> = {
   G: 'falling-blocks-cell--G',
 }
 
-function makeComputerBoard(seed: number, progress: number, topOut: boolean): Board {
-  const board: Board = Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
-  const filledRows = topOut
-    ? BOARD_ROWS
-    : Math.min(BOARD_ROWS - 3, Math.max(0, Math.floor(progress)))
-  const pieces: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
-  for (let r = BOARD_ROWS - filledRows; r < BOARD_ROWS; r++) {
-    const density = topOut ? 0.92 : 0.58 + ((r + seed) % 3) * 0.09
-    const hole = (seed + r * 3) % BOARD_COLS
-    for (let c = 0; c < BOARD_COLS; c++) {
-      const roll = ((seed * 17 + r * 11 + c * 7) % 100) / 100
-      if (c !== hole && roll < density) board[r][c] = pieces[(seed + r + c) % pieces.length]
-    }
-  }
-  return board
+function boardWithCurrentPiece(state: FallingBlocksState): Board {
+  return state.current
+    ? cellsToBoard(pieceCells(state.current), state.current.type, state.board)
+    : state.board
 }
 
 // ─── Board renderer ───────────────────────────────────────────────────────────
@@ -251,6 +241,7 @@ export default function FallingBlocksView({
   }))
   const gameRef = useRef(game)
   useEffect(() => { gameRef.current = game }, [game])
+  const botStatesRef = useRef<Map<string, FallingBlocksState>>(new Map())
 
   const playerStatesRef = useRef(playerStates)
   useEffect(() => { playerStatesRef.current = playerStates }, [playerStates])
@@ -359,16 +350,20 @@ export default function FallingBlocksView({
       winner_id: null,
     }
     await startGame(nextRoom)
-    applyPlayerStates(bots.map((botId, index) => ({
-      room_id: targetRoom.id,
-      user_id: botId,
-      board: makeComputerBoard(index + 1, 0, false),
-      score: 0,
-      lines: 0,
-      top_out: false,
-      garbage_pending: 0,
-      updated_at: new Date().toISOString(),
-    })))
+    applyPlayerStates(bots.map(botId => {
+      const initial = initialFallingBlocksState()
+      botStatesRef.current.set(botId, initial)
+      return {
+        room_id: targetRoom.id,
+        user_id: botId,
+        board: boardWithCurrentPiece(initial),
+        score: 0,
+        lines: 0,
+        top_out: false,
+        garbage_pending: 0,
+        updated_at: new Date().toISOString(),
+      }
+    }))
   }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
@@ -388,6 +383,7 @@ export default function FallingBlocksView({
     if (prev !== 'playing' && status === 'playing') {
       const fresh = initialFallingBlocksState()
       setGame(fresh)
+      botStatesRef.current = new Map()
       // Push initial state to server
       updateMyState({
         board: fresh.board,
@@ -608,20 +604,37 @@ export default function FallingBlocksView({
     if (!room || !isPlaying || room.host_id !== currentUserId) return
     const botIds = room.player_ids.filter(isComputerPlayerId)
     if (botIds.length === 0) return
-    const startedAt = Date.now()
+    for (const botId of botIds) {
+      if (!botStatesRef.current.has(botId)) {
+        botStatesRef.current.set(botId, initialFallingBlocksState())
+      }
+    }
     const interval = window.setInterval(async () => {
-      const elapsed = Date.now() - startedAt
       const rows = botIds.map((botId, index) => {
         const prev = playerStatesRef.current.get(botId)
-        const topOut = prev?.top_out || elapsed > 45_000 + index * 12_000 + Math.random() * 10_000
-        const progress = Math.max(0, (elapsed - 9000) / 6500 + index * 0.4)
+        let bot = botStatesRef.current.get(botId) ?? initialFallingBlocksState()
+        if (!bot.topOut) {
+          if (Math.random() < 0.22) bot = tryMove(bot, Math.random() < 0.5 ? -1 : 1, 0)
+          if (Math.random() < 0.10) bot = tryRotate(bot, 1)
+          if (Math.random() < 0.04) {
+            const dropped = hardDrop(bot)
+            bot = spawnPiece(dropped.state)
+          } else {
+            bot = softDropTick(bot, 460 + index * 90)
+            if (bot.lockTimer !== null && bot.lockTimer <= 0) {
+              const locked = lockPiece(bot)
+              bot = spawnPiece(locked.state)
+            }
+          }
+        }
+        botStatesRef.current.set(botId, bot)
         return {
           room_id: room.id,
           user_id: botId,
-          board: makeComputerBoard(index + 1, progress, topOut),
-          score: (prev?.score ?? 0) + (topOut ? 0 : Math.floor(Math.random() * 90)),
-          lines: (prev?.lines ?? 0) + (topOut ? 0 : (Math.random() < 0.35 ? 1 : 0)),
-          top_out: topOut,
+          board: boardWithCurrentPiece(bot),
+          score: Math.max(prev?.score ?? 0, bot.score),
+          lines: Math.max(prev?.lines ?? 0, bot.lines),
+          top_out: bot.topOut,
           garbage_pending: prev?.garbage_pending ?? 0,
           updated_at: new Date().toISOString(),
         }

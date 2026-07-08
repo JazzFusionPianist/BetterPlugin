@@ -249,7 +249,7 @@ export default function GameListView({ onSelectGame, inviteContext }: Props) {
 
   const handleSelectIndex = (i: number) => {
     if (i < 0 || i >= cards.length) return
-    if (i !== viewIndex) { scrollToIndex(i); return }
+    if (i !== viewIndex) scrollToIndex(i)
     onSelectGame(cards[i].id)
   }
 

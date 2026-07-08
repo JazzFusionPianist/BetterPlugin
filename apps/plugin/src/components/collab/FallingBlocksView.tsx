@@ -43,7 +43,7 @@ function makeComputerBoard(seed: number, progress: number, topOut: boolean): Boa
   const board: Board = Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
   const filledRows = topOut
     ? BOARD_ROWS
-    : Math.min(BOARD_ROWS - 2, Math.max(2, Math.floor(progress)))
+    : Math.min(BOARD_ROWS - 3, Math.max(0, Math.floor(progress)))
   const pieces: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
   for (let r = BOARD_ROWS - filledRows; r < BOARD_ROWS; r++) {
     const density = topOut ? 0.92 : 0.58 + ((r + seed) % 3) * 0.09
@@ -362,7 +362,7 @@ export default function FallingBlocksView({
     applyPlayerStates(bots.map((botId, index) => ({
       room_id: targetRoom.id,
       user_id: botId,
-      board: makeComputerBoard(index + 1, 3 + index, false),
+      board: makeComputerBoard(index + 1, 0, false),
       score: 0,
       lines: 0,
       top_out: false,
@@ -614,7 +614,7 @@ export default function FallingBlocksView({
       const rows = botIds.map((botId, index) => {
         const prev = playerStatesRef.current.get(botId)
         const topOut = prev?.top_out || elapsed > 45_000 + index * 12_000 + Math.random() * 10_000
-        const progress = 2 + elapsed / 3600 + index * 1.4
+        const progress = Math.max(0, (elapsed - 9000) / 6500 + index * 0.4)
         return {
           room_id: room.id,
           user_id: botId,

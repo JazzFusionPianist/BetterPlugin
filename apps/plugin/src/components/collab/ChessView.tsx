@@ -747,29 +747,19 @@ export default function ChessView({
       onBack={handleBack}
       aboveBoard={
         <>
-          <div className="game-player-row">
+          <div className="chess-action-row">
             <button className="chess-inline-back" onClick={handleBack} aria-label={t('common.goBack')}>
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
                 <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            {opponentProfile ? (
-              <span className="game-player-name">{opponentProfile.display_name}</span>
-            ) : isComputerOpponent ? (
-              <span className="game-player-name">{computerPlayerName(computerPlayerId(0))}</span>
-            ) : (
-              <span className="game-player-name game-player-name--unknown">
-                {hasGuest ? t('common.opponent') : t('common.waiting')}
-              </span>
-            )}
-            {isPlaying && chessState.turn !== myColor && (
-              <span className="game-player-turn">● {t('common.thinking')}</span>
-            )}
-            {isLobby && hasGuest && (
-              <span className={`game-ready-badge${opponentReady ? ' ready' : ''}`}>
-                {opponentReady ? t('common.readyCheck') : t('common.notReady')}
-              </span>
-            )}
+            <span className="chess-turn-center" aria-live="polite">
+              {isPlaying && (
+                chessState.turn === myColor
+                  ? <>● {t('chess.yourTurn')}</>
+                  : <>● {t('common.thinking')}</>
+              )}
+            </span>
             {isPlaying && (
               <span className="chess-row-controls">
                 <button className="game-btn game-btn-danger" onClick={handleResign}>
@@ -786,16 +776,32 @@ export default function ChessView({
               </span>
             )}
           </div>
-          <div className="chess-captured" aria-hidden={opponentCaptured.length === 0}>
-            {opponentCaptured.map((p, i) => (
-              <img
-                key={i}
-                className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
-                src={PIECE_URLS[p]}
-                alt={PIECE_NAMES[p] ?? p}
-                draggable={false}
-              />
-            ))}
+          <div className="game-player-row chess-player-captured-row">
+            {opponentProfile ? (
+              <span className="game-player-name">{opponentProfile.display_name}</span>
+            ) : isComputerOpponent ? (
+              <span className="game-player-name">{computerPlayerName(computerPlayerId(0))}</span>
+            ) : (
+              <span className="game-player-name game-player-name--unknown">
+                {hasGuest ? t('common.opponent') : t('common.waiting')}
+              </span>
+            )}
+            <span className="chess-captured" aria-hidden={opponentCaptured.length === 0}>
+              {opponentCaptured.map((p, i) => (
+                <img
+                  key={i}
+                  className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
+                  src={PIECE_URLS[p]}
+                  alt={PIECE_NAMES[p] ?? p}
+                  draggable={false}
+                />
+              ))}
+            </span>
+            {isLobby && hasGuest && (
+              <span className={`game-ready-badge${opponentReady ? ' ready' : ''}`}>
+                {opponentReady ? t('common.readyCheck') : t('common.notReady')}
+              </span>
+            )}
           </div>
         </>
       }
@@ -813,26 +819,23 @@ export default function ChessView({
       }
       belowBoard={
         <>
-          <div className="chess-captured" aria-hidden={myCaptured.length === 0}>
-            {myCaptured.map((p, i) => (
-              <img
-                key={i}
-                className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
-                src={PIECE_URLS[p]}
-                alt={PIECE_NAMES[p] ?? p}
-                draggable={false}
-              />
-            ))}
-          </div>
-          <div className="game-player-row">
+          <div className="game-player-row chess-player-captured-row">
             {currentUserProfile ? (
               <span className="game-player-name">{currentUserProfile.display_name}</span>
             ) : (
               <span className="game-player-name">{t('common.me')}</span>
             )}
-            {isPlaying && isMyTurn && (
-              <span className="game-player-turn">● {t('chess.yourTurn')}</span>
-            )}
+            <span className="chess-captured" aria-hidden={myCaptured.length === 0}>
+              {myCaptured.map((p, i) => (
+                <img
+                  key={i}
+                  className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
+                  src={PIECE_URLS[p]}
+                  alt={PIECE_NAMES[p] ?? p}
+                  draggable={false}
+                />
+              ))}
+            </span>
             {isLobby && hasGuest && (
               <span className={`game-ready-badge${myReady ? ' ready' : ''}`}>
                 {myReady ? t('common.readyCheck') : t('common.notReady')}

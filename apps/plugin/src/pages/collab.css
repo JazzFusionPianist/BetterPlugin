@@ -5024,17 +5024,18 @@
 .game-view.chess-shell .game-above,
 .game-view.chess-shell .game-below {
   display: grid;
-  grid-template-rows: auto auto;
   gap: 2px;
   min-width: 0;
   min-height: 0;
-  padding: 3px 0;
+  padding: 2px 0;
   flex: 0 0 auto;
 }
+.game-view.chess-shell .game-above { grid-template-rows: 24px 18px; }
+.game-view.chess-shell .game-below { grid-template-rows: 18px; }
 .game-view.chess-shell .game-above { grid-row: 1; }
 .game-view.chess-shell .game-below { grid-row: 3; }
 .game-view.chess-shell .game-player-row {
-  min-height: 28px;
+  min-height: 18px;
   gap: 6px;
 }
 .game-view.chess-shell .game-player-name {
@@ -5046,6 +5047,14 @@
 .game-view.chess-shell .game-player-turn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+.chess-action-row {
+  position: relative;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
 }
 .chess-inline-back {
   width: 24px;
@@ -5062,7 +5071,19 @@
   cursor: pointer;
 }
 .chess-inline-back:hover { background: var(--bg2); }
+.chess-turn-center {
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  color: #34C759;
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .chess-row-controls {
+  grid-column: 3;
+  justify-self: end;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -5072,13 +5093,23 @@
   padding: 3px 7px;
   font-size: 9px;
 }
+.chess-player-captured-row {
+  align-items: center;
+}
+.chess-player-captured-row .game-player-name {
+  flex: 0 1 auto;
+  max-width: 44%;
+}
 .game-view.chess-shell .chess-captured {
   display: flex;
   align-items: center;
   gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 14px;
   height: 14px;
   max-height: 14px;
+  overflow: hidden;
   opacity: 1;
 }
 .game-view.chess-shell .chess-captured[aria-hidden="true"] {

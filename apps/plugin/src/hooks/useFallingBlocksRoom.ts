@@ -187,6 +187,14 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
     return (data as FallingBlocksRoom | null) ?? null
   }, [supabase, currentUserId])
 
+  const applyPlayerStates = useCallback((rows: FallingBlocksPlayerState[]): void => {
+    setPlayerStates(prev => {
+      const next = new Map(prev)
+      for (const row of rows) next.set(row.user_id, row)
+      return next
+    })
+  }, [])
+
   const toggleReady = useCallback(async (): Promise<void> => {
     if (!room) return
     const isReady = room.ready_ids.includes(currentUserId)
@@ -230,14 +238,14 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       updated_at: now,
     }))
 
+    setPlayerStates(new Map(rows.map(row => [row.user_id, row as FallingBlocksPlayerState])))
+
     const { error: insertErr } = await supabase
       .from('falling_blocks_player_states')
       .upsert(rows, { onConflict: 'room_id,user_id' })
     if (insertErr) {
       console.error('[useFallingBlocksRoom.startGame] insert player_states:', insertErr)
-      return
     }
-    setPlayerStates(new Map(rows.map(row => [row.user_id, row as FallingBlocksPlayerState])))
 
     const { error: updateErr } = await supabase
       .from('falling_blocks_rooms')
@@ -368,6 +376,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
   return {
     room,
     playerStates,
+    applyPlayerStates,
     loading,
     createRoom,
     joinRoom,

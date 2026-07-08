@@ -211,6 +211,7 @@ export default function FallingBlocksView({
     inviteFriend,
     cancelInvite,
     updateMyState,
+    applyPlayerStates,
     sendGarbage,
     setPlayerTopOut,
   } = useFallingBlocksRoom(supabase, currentUserId)
@@ -590,10 +591,11 @@ export default function FallingBlocksView({
           updated_at: new Date().toISOString(),
         }
       })
+      applyPlayerStates(rows)
       await supabase.from('falling_blocks_player_states').upsert(rows, { onConflict: 'room_id,user_id' })
     }, 1100)
     return () => window.clearInterval(interval)
-  }, [room, isPlaying, currentUserId, supabase])
+  }, [room, isPlaying, currentUserId, supabase, applyPlayerStates])
 
   // ── Forfeit ──────────────────────────────────────────────────────────────
   // Tops out the current player. Also explicitly ends the game when only one

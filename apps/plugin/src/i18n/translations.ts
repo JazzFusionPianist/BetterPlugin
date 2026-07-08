@@ -151,6 +151,7 @@ export const T = {
 
   // ───── Common state / lobby ─────────────────────────────────────────────
   'common.ready':         { en: 'Ready',      ko: '준비',     ja: '準備OK',     zh: '准备',     es: 'Listo',     de: 'Bereit',     fr: 'Prêt',      hi: 'तैयार' },
+  'common.rematch':       { en: 'Rematch',    ko: '다시 하기', ja: '再戦',      zh: '再来一局', es: 'Revancha',  de: 'Revanche',   fr: 'Revanche',  hi: 'रीमैच' },
   'common.notReady':      { en: 'Not ready',  ko: '준비 안됨', ja: '準備未完',   zh: '未准备',   es: 'No listo',  de: 'Nicht bereit', fr: 'Pas prêt', hi: 'तैयार नहीं' },
   'common.readyCheck':    { en: '✓ Ready',    ko: '✓ 준비',   ja: '✓ 準備OK',  zh: '✓ 准备',   es: '✓ Listo',   de: '✓ Bereit',   fr: '✓ Prêt',    hi: '✓ तैयार' },
   'common.you':           { en: 'You',        ko: '나',       ja: 'あなた',    zh: '你',       es: 'Tú',        de: 'Du',         fr: 'Vous',      hi: 'आप' },

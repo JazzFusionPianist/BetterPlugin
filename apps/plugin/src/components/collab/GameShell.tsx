@@ -80,12 +80,13 @@ export function GameResultMark ({ result }: { result: 'win' | 'loss' | 'draw' })
 }
 
 // ── Ready / Rematch button + counter ──────────────────────────────────────────
-export function GameReadyControl ({ ready, count, onToggle, disabled }: {
+export function GameReadyControl ({ ready, count, onToggle, disabled, label }: {
   ready: boolean
   /** e.g. "1 / 2" — pass the already-formatted readiness string, or omit. */
   count?: ReactNode
   onToggle: () => void
   disabled?: boolean
+  label?: ReactNode
 }) {
   const { t } = useT()
   return (
@@ -95,7 +96,7 @@ export function GameReadyControl ({ ready, count, onToggle, disabled }: {
         onClick={onToggle}
         disabled={disabled}
       >
-        {ready ? t('common.readyCheck') : t('common.ready')}
+        {label ?? (ready ? t('common.readyCheck') : t('common.ready'))}
       </button>
       {count != null && <div className="game-finish-readystate">{count}</div>}
     </>

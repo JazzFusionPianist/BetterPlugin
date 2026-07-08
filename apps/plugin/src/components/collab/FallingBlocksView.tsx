@@ -39,6 +39,23 @@ const PIECE_CLASS: Record<string, string> = {
   G: 'falling-blocks-cell--G',
 }
 
+function makeComputerBoard(seed: number, progress: number, topOut: boolean): Board {
+  const board: Board = Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
+  const filledRows = topOut
+    ? BOARD_ROWS
+    : Math.min(BOARD_ROWS - 2, Math.max(2, Math.floor(progress)))
+  const pieces: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
+  for (let r = BOARD_ROWS - filledRows; r < BOARD_ROWS; r++) {
+    const density = topOut ? 0.92 : 0.58 + ((r + seed) % 3) * 0.09
+    const hole = (seed + r * 3) % BOARD_COLS
+    for (let c = 0; c < BOARD_COLS; c++) {
+      const roll = ((seed * 17 + r * 11 + c * 7) % 100) / 100
+      if (c !== hole && roll < density) board[r][c] = pieces[(seed + r + c) % pieces.length]
+    }
+  }
+  return board
+}
+
 // ─── Board renderer ───────────────────────────────────────────────────────────
 
 interface FallingBlocksBoardProps {
@@ -168,7 +185,6 @@ function OpponentBoard({ profile, state, fallbackName }: OpponentBoardProps) {
       </div>
       <FallingBlocksBoard
         board={board}
-        topOut={state?.top_out ?? false}
         size="opponent"
       />
     </div>
@@ -335,14 +351,25 @@ export default function FallingBlocksView({
       targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
     }
     if (!targetRoom) return
-    await startGame({
+    const nextRoom = {
       ...targetRoom,
       player_count: playerIds.length as 2 | 3 | 4,
       player_ids: playerIds,
       ready_ids: playerIds,
       winner_id: null,
-    })
-  }, [computerOpponents, currentUserId, room, createRoom, startGame])
+    }
+    await startGame(nextRoom)
+    applyPlayerStates(bots.map((botId, index) => ({
+      room_id: targetRoom.id,
+      user_id: botId,
+      board: makeComputerBoard(index + 1, 3 + index, false),
+      score: 0,
+      lines: 0,
+      top_out: false,
+      garbage_pending: 0,
+      updated_at: new Date().toISOString(),
+    })))
+  }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
@@ -418,6 +445,21 @@ export default function FallingBlocksView({
       })
     }
   }, [game.topOut, game.board, game.score, game.lines, isPlaying, updateMyState])
+
+  const localTopOutEndedRef = useRef(false)
+  useEffect(() => {
+    if (!isPlaying) {
+      localTopOutEndedRef.current = false
+      return
+    }
+    if (!game.topOut || localTopOutEndedRef.current) return
+    localTopOutEndedRef.current = true
+    const aliveOpponents = opponentIds.filter(id => {
+      const ps = playerStatesRef.current.get(id)
+      return !ps || !ps.top_out
+    })
+    endGame(aliveOpponents[0] ?? null)
+  }, [game.topOut, isPlaying, opponentIds, endGame])
 
   // ── Win detection: if all opponents topped out and I'm alive, end game ──
   useEffect(() => {
@@ -572,10 +614,11 @@ export default function FallingBlocksView({
       const rows = botIds.map((botId, index) => {
         const prev = playerStatesRef.current.get(botId)
         const topOut = prev?.top_out || elapsed > 45_000 + index * 12_000 + Math.random() * 10_000
+        const progress = 2 + elapsed / 3600 + index * 1.4
         return {
           room_id: room.id,
           user_id: botId,
-          board: prev?.board ?? Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null)),
+          board: makeComputerBoard(index + 1, progress, topOut),
           score: (prev?.score ?? 0) + (topOut ? 0 : Math.floor(Math.random() * 90)),
           lines: (prev?.lines ?? 0) + (topOut ? 0 : (Math.random() < 0.35 ? 1 : 0)),
           top_out: topOut,
@@ -667,11 +710,19 @@ export default function FallingBlocksView({
   if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
-        <GameReadyControl
-          ready={myReady}
-          count={`${readyCount} / ${joinedCount} ready`}
-          onToggle={toggleReady}
-        />
+        {isComputerMatch ? (
+          <GameReadyControl
+            ready={false}
+            label={t('common.rematch')}
+            onToggle={handlePlayComputer}
+          />
+        ) : (
+          <GameReadyControl
+            ready={myReady}
+            count={`${readyCount} / ${joinedCount} ready`}
+            onToggle={toggleReady}
+          />
+        )}
       </GameOverlayCard>
     )
   } else if (isLobby && room && !allReady) {

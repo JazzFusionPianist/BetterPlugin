@@ -822,6 +822,7 @@ export default function FallingBlocksView({
     <GameShell
       title={t('game.fallingBlocks')}
       onBack={handleBack}
+      className="falling-blocks-shell"
       controls={isPlaying && !myTopOutServer ? (
         <button
           className="game-btn game-btn-danger"

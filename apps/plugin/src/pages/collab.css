@@ -5140,6 +5140,16 @@
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column;
 }
+.game-view.falling-blocks-shell {
+  background: #2a2b2f;
+}
+.game-view.falling-blocks-shell .game-area {
+  background: #2a2b2f;
+}
+.plugin.dark .game-view.falling-blocks-shell,
+.plugin.dark .game-view.falling-blocks-shell .game-area {
+  background: #202124;
+}
 
 /* Invite button (lobby CTA) */
 .game-invite-btn {
@@ -6193,6 +6203,10 @@
   padding: 4px 6px 6px; gap: 6px;
   overflow: hidden;
   position: relative;
+  background: #2a2b2f;
+}
+.plugin.dark .falling-blocks-game-layout {
+  background: #202124;
 }
 .falling-blocks-opponents-row {
   display: flex; gap: 6px; justify-content: center;
@@ -6297,12 +6311,12 @@
   padding: 5px 7px;
 }
 .falling-blocks-stat-label {
-  font-size: 7px; color: var(--t3);
+  font-size: 7px; color: rgba(255, 255, 255, 0.58);
   font-family: 'DM Mono', monospace;
   text-transform: uppercase; letter-spacing: 0.4px;
 }
 .falling-blocks-stat-value {
-  font-size: 12px; color: var(--t1); font-weight: 700;
+  font-size: 12px; color: rgba(255, 255, 255, 0.92); font-weight: 700;
   font-family: 'DM Mono', monospace; line-height: 1;
 }
 .falling-blocks-stat-value.warning {
@@ -6323,13 +6337,13 @@
   flex-shrink: 0;
 }
 .falling-blocks-opponent-name {
-  font-size: 8px; font-weight: 500; color: var(--t1);
+  font-size: 8px; font-weight: 500; color: rgba(255, 255, 255, 0.92);
   font-family: 'DM Sans', sans-serif;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 64px;
 }
 .falling-blocks-opponent-score {
-  font-size: 8px; color: var(--t3);
+  font-size: 8px; color: rgba(255, 255, 255, 0.58);
   font-family: 'DM Mono', monospace;
 }
 

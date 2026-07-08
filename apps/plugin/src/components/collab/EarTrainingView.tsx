@@ -449,21 +449,21 @@ export default function EarTrainingView ({
     <GameShell
       title={t('game.earTraining')}
       onBack={handleBack}
+      actionStatus={isPlaying ? (
+        <span className="et-scorebar">
+          <span className="et-score-mine">{myScore}</span>
+          <span className="et-score-sep">–</span>
+          <span className="et-score-theirs">{opponentScore}</span>
+        </span>
+      ) : undefined}
       controls={isPlaying ? (
-        <>
-          <span className="et-scorebar">
-            <span className="et-score-mine">{myScore}</span>
-            <span className="et-score-sep">–</span>
-            <span className="et-score-theirs">{opponentScore}</span>
-          </span>
-          <button
-            className="game-btn game-btn-danger"
-            onClick={handleForfeit}
-            title={t('et.forfeitConfirm')}
-          >
-            {t('et.forfeit')}
-          </button>
-        </>
+        <button
+          className="game-btn game-btn-danger"
+          onClick={handleForfeit}
+          title={t('et.forfeitConfirm')}
+        >
+          {t('et.forfeit')}
+        </button>
       ) : undefined}
       aboveBoard={
         <div className="game-player-row">

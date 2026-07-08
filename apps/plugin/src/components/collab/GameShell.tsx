@@ -198,6 +198,8 @@ interface GameShellProps {
   onBack: () => void
   /** Header right-side controls (resign / forfeit / draw) — shown when playing. */
   controls?: ReactNode
+  /** Compact header center content. Defaults to the game title. */
+  actionStatus?: ReactNode
   /** Content above the board (e.g. opponent row, captured pieces). */
   aboveBoard?: ReactNode
   /** The game board / cards / content. */
@@ -226,19 +228,20 @@ interface GameShellProps {
 }
 
 export default function GameShell ({
-  title, onBack, controls, aboveBoard, board, belowBoard, overlay, chat, fillBoard, className, invite, confirm, extraModals,
+  title, onBack, controls, actionStatus, aboveBoard, board, belowBoard, overlay, chat, fillBoard, className, invite, confirm, extraModals,
 }: GameShellProps) {
   const { t } = useT()
+  const hasActionStatus = actionStatus != null
   return (
     <div className={`game-view${fillBoard ? ' game-view-fill' : ''}${className ? ' ' + className : ''}`}>
-      <div className="game-header">
-        <button className="game-back-btn" onClick={onBack} aria-label={t('common.goBack')}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <div className="game-action-row">
+        <button className="game-inline-back" onClick={onBack} aria-label={t('common.goBack')}>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
             <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span className="game-title">{title}</span>
-        {controls && <div className="game-controls">{controls}</div>}
+        <span className={`game-action-status${hasActionStatus ? ' active' : ''}`}>{actionStatus ?? title}</span>
+        {controls && <div className="game-row-controls">{controls}</div>}
       </div>
 
       <div className="game-area">

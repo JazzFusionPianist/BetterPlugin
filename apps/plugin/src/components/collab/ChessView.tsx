@@ -745,37 +745,30 @@ export default function ChessView({
       className="chess-shell"
       title={t('game.chess')}
       onBack={handleBack}
+      actionStatus={
+        isPlaying
+          ? chessState.turn === myColor
+            ? <>● {t('chess.yourTurn')}</>
+            : <>● {t('common.thinking')}</>
+          : undefined
+      }
+      controls={isPlaying ? (
+        <span className="chess-row-controls">
+          <button className="game-btn game-btn-danger" onClick={handleResign}>
+            {t('chess.resign')}
+          </button>
+          <button
+            className="game-btn"
+            onClick={handleDrawOffer}
+            disabled={drawOffering && !drawOfferedByOpponent}
+            title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
+          >
+            {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
+          </button>
+        </span>
+      ) : undefined}
       aboveBoard={
         <>
-          <div className="chess-action-row">
-            <button className="chess-inline-back" onClick={handleBack} aria-label={t('common.goBack')}>
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <span className="chess-turn-center" aria-live="polite">
-              {isPlaying && (
-                chessState.turn === myColor
-                  ? <>● {t('chess.yourTurn')}</>
-                  : <>● {t('common.thinking')}</>
-              )}
-            </span>
-            {isPlaying && (
-              <span className="chess-row-controls">
-                <button className="game-btn game-btn-danger" onClick={handleResign}>
-                  {t('chess.resign')}
-                </button>
-                <button
-                  className="game-btn"
-                  onClick={handleDrawOffer}
-                  disabled={drawOffering && !drawOfferedByOpponent}
-                  title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
-                >
-                  {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
-                </button>
-              </span>
-            )}
-          </div>
           <div className="game-player-row chess-player-captured-row">
             {opponentProfile ? (
               <span className="game-player-name">{opponentProfile.display_name}</span>

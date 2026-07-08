@@ -5140,16 +5140,6 @@
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column;
 }
-.game-view.falling-blocks-shell {
-  background: #2a2b2f;
-}
-.game-view.falling-blocks-shell .game-area {
-  background: #2a2b2f;
-}
-.plugin.dark .game-view.falling-blocks-shell,
-.plugin.dark .game-view.falling-blocks-shell .game-area {
-  background: #202124;
-}
 
 /* Invite button (lobby CTA) */
 .game-invite-btn {
@@ -6200,10 +6190,6 @@
   padding: 4px 6px 6px; gap: 7px;
   overflow: hidden;
   position: relative;
-  background: #2a2b2f;
-}
-.plugin.dark .falling-blocks-game-layout {
-  background: #202124;
 }
 .falling-blocks-playfield {
   flex: 1 1 auto;
@@ -6239,8 +6225,8 @@
 .falling-blocks-board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  background: rgba(20, 22, 30, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #36383d;
+  border: 1px solid rgba(0, 0, 0, 0.18);
   border-radius: 12px;
   overflow: hidden;
   position: relative;
@@ -6249,10 +6235,11 @@
   box-shadow:
     0 8px 26px rgba(0, 0, 0, 0.35),
     0 2px 6px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
-.plugin.dark .tetris-board {
-  background: rgba(10, 10, 14, 0.65);
+.plugin.dark .falling-blocks-board {
+  background: #2a2b30;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 /* Self board fills its wrapper completely (wrap controls aspect ratio). */
 .falling-blocks-board.is-self {
@@ -6274,7 +6261,7 @@
 }
 /* Subtle grid lines for empty cells */
 .falling-blocks-cell:not([data-filled]) {
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.055);
 }
 
 /* Piece colors — custom palette (different from standard FallingBlocks) */
@@ -6322,15 +6309,16 @@
   min-width: 0;
   padding: 4px 5px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.04);
 }
+.plugin.dark .falling-blocks-stat { background: rgba(255, 255, 255, 0.06); }
 .falling-blocks-stat-label {
-  font-size: 7px; color: rgba(255, 255, 255, 0.58);
+  font-size: 7px; color: var(--t3);
   font-family: 'DM Mono', monospace;
   text-transform: uppercase; letter-spacing: 0.4px;
 }
 .falling-blocks-stat-value {
-  font-size: 12px; color: rgba(255, 255, 255, 0.92); font-weight: 700;
+  font-size: 12px; color: var(--t1); font-weight: 700;
   font-family: 'DM Mono', monospace; line-height: 1;
 }
 .falling-blocks-stat-value.warning {
@@ -6352,13 +6340,13 @@
   flex-shrink: 0;
 }
 .falling-blocks-opponent-name {
-  font-size: 8px; font-weight: 500; color: rgba(255, 255, 255, 0.92);
+  font-size: 8px; font-weight: 500; color: var(--t1);
   font-family: 'DM Sans', sans-serif;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 64px;
 }
 .falling-blocks-opponent-score {
-  font-size: 8px; color: rgba(255, 255, 255, 0.58);
+  font-size: 8px; color: var(--t3);
   font-family: 'DM Mono', monospace;
 }
 

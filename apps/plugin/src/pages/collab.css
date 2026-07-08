@@ -5450,24 +5450,23 @@
   min-height: 22px;
 }
 
-/* Falling Blocks: main board + dashboard lane. */
+/* Falling Blocks: self board left, opponent boards right, stats below. */
 .plugin.screen-medium .falling-blocks-game-layout,
 .plugin.screen-large .falling-blocks-game-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 136px;
-  grid-template-rows: 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 0;
   width: 100%;
   height: 100%;
 }
-.plugin.screen-large .falling-blocks-game-layout {
-  grid-template-columns: minmax(0, 1fr) 220px;
+.plugin.screen-medium .falling-blocks-playfield,
+.plugin.screen-large .falling-blocks-playfield {
+  grid-template-columns: minmax(0, 1fr) clamp(120px, 24%, 220px);
+  gap: 12px;
 }
 .plugin.screen-medium .falling-blocks-self-row,
 .plugin.screen-large .falling-blocks-self-row {
-  grid-column: 1;
-  grid-row: 1 / span 2;
   justify-content: center;
   padding: 0;
 }
@@ -5479,31 +5478,29 @@
 .plugin.screen-medium .falling-blocks-side-info,
 .plugin.screen-large .falling-blocks-side-info {
   width: auto;
-  grid-column: 2;
-  grid-row: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--bg2);
+  padding: 0;
 }
 .plugin.screen-medium .falling-blocks-opponents-row,
 .plugin.screen-large .falling-blocks-opponents-row {
-  grid-column: 2;
-  grid-row: 2;
   max-height: none;
   flex-direction: column;
   overflow: auto;
 }
 .plugin.screen-medium .falling-blocks-opponent,
 .plugin.screen-large .falling-blocks-opponent {
-  min-height: 92px;
+  min-height: 0;
+}
+.plugin.screen-medium .falling-blocks-board.is-opponent,
+.plugin.screen-large .falling-blocks-board.is-opponent {
+  width: min(100%, 120px);
 }
 .plugin.screen-medium .falling-blocks-stat,
 .plugin.screen-large .falling-blocks-stat {
   padding: 8px 10px;
   border-radius: 10px;
-  background: var(--bg);
+  background: rgba(255, 255, 255, 0.06);
 }
 .plugin.screen-large .falling-blocks-stat-value { font-size: 16px; }
 
@@ -6200,7 +6197,7 @@
 .falling-blocks-game-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  padding: 4px 6px 6px; gap: 6px;
+  padding: 4px 6px 6px; gap: 7px;
   overflow: hidden;
   position: relative;
   background: #2a2b2f;
@@ -6208,27 +6205,34 @@
 .plugin.dark .falling-blocks-game-layout {
   background: #202124;
 }
+.falling-blocks-playfield {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(70px, 28%, 92px);
+  gap: 7px;
+  align-items: stretch;
+  justify-content: center;
+}
 .falling-blocks-opponents-row {
-  display: flex; gap: 6px; justify-content: center;
-  flex: 0 0 76px;
-  min-height: 76px;
-  max-height: 86px;
-  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  display: flex; flex-direction: column; gap: 6px; justify-content: flex-start;
+  overflow: auto;
+  padding: 0 1px;
 }
 .falling-blocks-self-row {
-  flex: 1; min-height: 0;
+  min-width: 0; min-height: 0;
   display: flex; gap: 6px; align-items: stretch; justify-content: center;
-  padding: 0 2px;
 }
 /* Wrapper for self board + overlays — sized so width matches the actual
-   board (8/18 aspect). Cap to leave room for side-info.                  */
+   board (8/18 aspect). */
 .falling-blocks-self-board-wrap {
   position: relative;
   height: 100%;
   aspect-ratio: 8 / 18;
   flex-shrink: 0;
-  /* If height-based width would exceed available space, allow shrink */
-  max-width: calc(100% - 70px);
+  max-width: 100%;
 }
 
 /* Board (8 cols × 18 rows) */
@@ -6257,9 +6261,10 @@
 }
 /* Opponent board: fills opponents-row height. */
 .falling-blocks-board.is-opponent {
-  height: 100%;
+  height: auto;
   aspect-ratio: 8 / 18;
-  width: auto;
+  width: min(100%, 72px);
+  max-height: 100%;
   flex-shrink: 1; min-width: 0;
 }
 .falling-blocks-cell {
@@ -6288,27 +6293,36 @@
 
 /* Side info (next pieces, score, lines, garbage) */
 .falling-blocks-side-info {
-  display: flex; flex-direction: column; gap: 5px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
   align-items: stretch;
-  width: 64px; flex-shrink: 0;
   font-family: 'DM Sans', sans-serif;
-  overflow-y: auto;
+  overflow: hidden;
 }
 .falling-blocks-next-list {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 4px 3px;
+  display: flex; flex-direction: row; gap: 3px;
+  align-items: center;
+  padding: 2px 0 0;
+  overflow: hidden;
 }
 .falling-blocks-next-piece {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  width: 100%;
+  width: 28px;
   aspect-ratio: 4 / 2;
+  flex: 0 0 auto;
 }
 .falling-blocks-next-piece .falling-blocks-cell { background: transparent; }
 .falling-blocks-stat {
   display: flex; flex-direction: column; gap: 1px;
-  padding: 5px 7px;
+  min-width: 0;
+  padding: 4px 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
 }
 .falling-blocks-stat-label {
   font-size: 7px; color: rgba(255, 255, 255, 0.58);
@@ -6327,9 +6341,10 @@
 .falling-blocks-opponent {
   display: flex; flex-direction: column; align-items: center;
   gap: 2px; position: relative;
-  height: 100%; min-width: 0;
+  min-width: 0;
   flex: 1 1 0;
-  max-width: 74px;
+  max-width: none;
+  min-height: 0;
 }
 .falling-blocks-opponent-header {
   display: flex; align-items: center; gap: 4px;

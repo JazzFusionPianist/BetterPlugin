@@ -834,49 +834,53 @@ export default function FallingBlocksView({
       fillBoard
       board={
         <div className="falling-blocks-game-layout">
-        <div className="falling-blocks-opponents-row">
-          {opponentIds.length === 0 ? (
-            <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
-              <div className="falling-blocks-opponent-header">
-                <span className="falling-blocks-opponent-name">Waiting…</span>
-              </div>
-              <FallingBlocksBoard
-                board={Array.from({ length: BOARD_ROWS }, () =>
-                  Array.from({ length: BOARD_COLS }, () => null)
-                )}
-                size="opponent"
-              />
-            </div>
-          ) : (
-            opponentIds.map((id, idx) => (
-              <OpponentBoard
-                key={id}
-                profile={opponentProfilesById.get(id) ?? null}
-                state={playerStates.get(id)}
-                fallbackName={isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`}
-              />
-            ))
-          )}
-        </div>
-        <div className="falling-blocks-self-row">
-          <div className="falling-blocks-self-board-wrap">
-            <FallingBlocksBoard
-              board={selfDisplayBoard}
-              currentPiece={isPlaying && !myTopOutServer ? game.current : null}
-              ghost={isPlaying && !myTopOutServer ? ghost : null}
-              size="self"
-            />
+          <div className="falling-blocks-playfield">
+            <div className="falling-blocks-self-row">
+              <div className="falling-blocks-self-board-wrap">
+                <FallingBlocksBoard
+                  board={selfDisplayBoard}
+                  currentPiece={isPlaying && !myTopOutServer ? game.current : null}
+                  ghost={isPlaying && !myTopOutServer ? ghost : null}
+                  size="self"
+                />
 
-            {/* Self topped out (game still going) — stays anchored to the
-                board because it's a "you specifically are out" indicator. */}
-            {isPlaying && myTopOutServer && (
-              <div className="falling-blocks-topout-overlay">
-                <span>{t('fb.youAreOut')}</span>
+                {/* Self topped out (game still going) — stays anchored to the
+                    board because it's a "you specifically are out" indicator. */}
+                {isPlaying && myTopOutServer && (
+                  <div className="falling-blocks-topout-overlay">
+                    <span>{t('fb.youAreOut')}</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="falling-blocks-opponents-row">
+              {opponentIds.length === 0 ? (
+                <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
+                  <div className="falling-blocks-opponent-header">
+                    <span className="falling-blocks-opponent-name">Waiting…</span>
+                  </div>
+                  <FallingBlocksBoard
+                    board={Array.from({ length: BOARD_ROWS }, () =>
+                      Array.from({ length: BOARD_COLS }, () => null)
+                    )}
+                    size="opponent"
+                  />
+                </div>
+              ) : (
+                opponentIds.map((id, idx) => (
+                  <OpponentBoard
+                    key={id}
+                    profile={opponentProfilesById.get(id) ?? null}
+                    state={playerStates.get(id)}
+                    fallbackName={isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`}
+                  />
+                ))
+              )}
+            </div>
           </div>
 
-          {/* Side info */}
+          {/* Bottom info */}
           <div className="falling-blocks-side-info">
             <div className="falling-blocks-stat">
               <span className="falling-blocks-stat-label">{t('fb.score')}</span>
@@ -905,7 +909,6 @@ export default function FallingBlocksView({
               </div>
             )}
           </div>
-        </div>
         </div>
       }
       overlay={overlay}

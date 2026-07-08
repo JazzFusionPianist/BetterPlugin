@@ -4933,15 +4933,13 @@
 .chess-finish-overlay {
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: transparent;
   border-radius: 4px;
   animation: chessFinishIn 0.3s ease-out;
 }
 @keyframes chessFinishIn {
-  from { opacity: 0; backdrop-filter: blur(0px); }
-  to   { opacity: 1; backdrop-filter: blur(6px); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .chess-finish-card {
   display: flex; flex-direction: column; align-items: center;
@@ -5207,15 +5205,13 @@
 .game-finish-overlay {
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: transparent;
   border-radius: 4px;
   animation: gameFinishIn 0.3s ease-out;
 }
 @keyframes gameFinishIn {
-  from { opacity: 0; backdrop-filter: blur(0px); }
-  to   { opacity: 1; backdrop-filter: blur(6px); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .game-finish-card {
   display: flex; flex-direction: column; align-items: center;

@@ -4722,6 +4722,22 @@
   font-size: 11px; line-height: 14px; letter-spacing: -1px;
   flex-shrink: 0;
 }
+.chess-captured-piece {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  object-fit: contain;
+}
+.chess-captured-piece--black {
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.72));
+}
+.chess-captured-piece--white {
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
+}
 
 /* Chess board */
 .chess-board-wrap {
@@ -4972,6 +4988,10 @@
 .game-btn-danger { border-color: rgba(255,59,48,.35); color: #FF3B30; }
 .game-btn-danger:hover { background: rgba(255,59,48,.08); }
 
+.game-view.chess-shell .game-header {
+  display: none;
+}
+
 /* Content area + board wrap (overlay anchors here) */
 .game-area {
   flex: 1; display: flex; flex-direction: column;
@@ -4999,7 +5019,7 @@
   height: 100%;
   aspect-ratio: 1;
   max-width: 100%;
-  max-height: 246px;
+  max-height: 272px;
 }
 .game-view.chess-shell .game-above,
 .game-view.chess-shell .game-below {
@@ -5014,7 +5034,7 @@
 .game-view.chess-shell .game-above { grid-row: 1; }
 .game-view.chess-shell .game-below { grid-row: 3; }
 .game-view.chess-shell .game-player-row {
-  min-height: 14px;
+  min-height: 28px;
   gap: 6px;
 }
 .game-view.chess-shell .game-player-name {
@@ -5026,6 +5046,31 @@
 .game-view.chess-shell .game-player-turn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+.chess-inline-back {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--t1);
+  cursor: pointer;
+}
+.chess-inline-back:hover { background: var(--bg2); }
+.chess-row-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.game-view.chess-shell .chess-row-controls .game-btn {
+  padding: 3px 7px;
+  font-size: 9px;
 }
 .game-view.chess-shell .chess-captured {
   display: flex;
@@ -5042,8 +5087,8 @@
 .game-view.chess-shell .chess-board {
   width: 100%;
   height: 100%;
-  max-width: 246px;
-  max-height: 246px;
+  max-width: 272px;
+  max-height: 272px;
 }
 .game-view.chess-shell .game-chat {
   flex-basis: 86px;

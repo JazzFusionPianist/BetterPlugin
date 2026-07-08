@@ -745,24 +745,14 @@ export default function ChessView({
       className="chess-shell"
       title={t('game.chess')}
       onBack={handleBack}
-      controls={isPlaying ? (
-        <>
-          <button className="game-btn game-btn-danger" onClick={handleResign}>
-            {t('chess.resign')}
-          </button>
-          <button
-            className="game-btn"
-            onClick={handleDrawOffer}
-            disabled={drawOffering && !drawOfferedByOpponent}
-            title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
-          >
-            {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
-          </button>
-        </>
-      ) : undefined}
       aboveBoard={
         <>
           <div className="game-player-row">
+            <button className="chess-inline-back" onClick={handleBack} aria-label={t('common.goBack')}>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
             {opponentProfile ? (
               <span className="game-player-name">{opponentProfile.display_name}</span>
             ) : isComputerOpponent ? (
@@ -780,10 +770,31 @@ export default function ChessView({
                 {opponentReady ? t('common.readyCheck') : t('common.notReady')}
               </span>
             )}
+            {isPlaying && (
+              <span className="chess-row-controls">
+                <button className="game-btn game-btn-danger" onClick={handleResign}>
+                  {t('chess.resign')}
+                </button>
+                <button
+                  className="game-btn"
+                  onClick={handleDrawOffer}
+                  disabled={drawOffering && !drawOfferedByOpponent}
+                  title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
+                >
+                  {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
+                </button>
+              </span>
+            )}
           </div>
           <div className="chess-captured" aria-hidden={opponentCaptured.length === 0}>
             {opponentCaptured.map((p, i) => (
-              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+              <img
+                key={i}
+                className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
+                src={PIECE_URLS[p]}
+                alt={PIECE_NAMES[p] ?? p}
+                draggable={false}
+              />
             ))}
           </div>
         </>
@@ -804,7 +815,13 @@ export default function ChessView({
         <>
           <div className="chess-captured" aria-hidden={myCaptured.length === 0}>
             {myCaptured.map((p, i) => (
-              <img key={i} src={PIECE_URLS[p]} alt={PIECE_NAMES[p] ?? p} draggable={false} style={{ width: 14, height: 14, verticalAlign: 'middle' }} />
+              <img
+                key={i}
+                className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
+                src={PIECE_URLS[p]}
+                alt={PIECE_NAMES[p] ?? p}
+                draggable={false}
+              />
             ))}
           </div>
           <div className="game-player-row">

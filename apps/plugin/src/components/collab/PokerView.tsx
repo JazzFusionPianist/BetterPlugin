@@ -132,6 +132,7 @@ export default function PokerView({
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3 | 4 | 5>(1)
+  const [computerStartPending, setComputerStartPending] = useState(false)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
   // Suppress lobby UI flicker until the initial join/findActiveRoom completes.
   const [resolving, setResolving] = useState(true)
@@ -246,32 +247,46 @@ export default function PokerView({
   )
 
   const handlePlayComputer = useCallback(async () => {
-    const bots = computerPlayerIds(computerOpponents)
-    const playerIds = [currentUserId, ...bots]
-    let targetRoom = room
-    if (!targetRoom) {
-      targetRoom = await createRoom(playerIds.length as 2 | 3 | 4 | 5 | 6)
-    }
-    if (!targetRoom) return
-    const { data, error } = await supabase
-      .from('poker_rooms')
-      .update({
-        player_count: playerIds.length,
-        player_ids: playerIds,
-        ready_ids: playerIds,
-        winner_id: null,
-        state: {},
-      })
-      .eq('id', targetRoom.id)
-      .select()
-      .single()
-    if (error || !data) {
+    setComputerStartPending(true)
+    try {
+      const bots = computerPlayerIds(computerOpponents)
+      const playerIds = [currentUserId, ...bots]
+      let targetRoom = room
+      if (!targetRoom) {
+        targetRoom = await createRoom(playerIds.length as 2 | 3 | 4 | 5 | 6)
+      }
+      if (!targetRoom) {
+        setComputerStartPending(false)
+        return
+      }
+      const { data, error } = await supabase
+        .from('poker_rooms')
+        .update({
+          player_count: playerIds.length,
+          player_ids: playerIds,
+          ready_ids: playerIds,
+          winner_id: null,
+          state: {},
+        })
+        .eq('id', targetRoom.id)
+        .select()
+        .single()
+      if (error || !data) {
+        console.warn('[PokerView.handlePlayComputer]', error)
+        setComputerStartPending(false)
+        return
+      }
+      setRoom(data)
+      await startHand(data)
+    } catch (error) {
       console.warn('[PokerView.handlePlayComputer]', error)
-      return
+      setComputerStartPending(false)
     }
-    setRoom(data)
-    await startHand(data)
   }, [computerOpponents, currentUserId, room, createRoom, supabase, startHand, setRoom])
+
+  useEffect(() => {
+    if (status === 'playing') setComputerStartPending(false)
+  }, [status])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
@@ -413,7 +428,9 @@ export default function PokerView({
 
   // ── Overlay (resolving / lobby → ready → finished); null while playing ────
   let overlay: React.ReactNode = null
-  if (resolving && !room) {
+  if (computerStartPending) {
+    overlay = null
+  } else if (resolving && !room) {
     overlay = <GameOverlayCard emoji="🃏" title={t('common.joining')} />
   } else if (isFinished && room) {
     overlay = (
@@ -514,7 +531,9 @@ export default function PokerView({
         </button>
       ) : undefined}
       fillBoard
-      board={
+      board={computerStartPending ? (
+        <div className="game-transition-blank" />
+      ) : (
         <div className="poker-game-layout">
         <div className="poker-opponents-row">
           {opponentIds.length === 0 ? (
@@ -764,16 +783,16 @@ export default function PokerView({
           )}
         </div>
         </div>
-      }
+      )}
       overlay={overlay}
-      chat={
+      chat={!computerStartPending ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
           otherUserId={chatOpponentId}
           otherName={chatOpponentProfile?.display_name}
         />
-      }
+      ) : undefined}
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

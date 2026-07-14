@@ -368,6 +368,7 @@ export default function ChessView({
   const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom } =
     useGameRoom(supabase, currentUserId)
   const [resolvingRoom, setResolvingRoom] = useState(true)
+  const [computerStartPending, setComputerStartPending] = useState(false)
 
   // Back button: in lobby/finished, delete the room so the next visit starts
   // fresh. In playing, just unmount locally so the user can resume later.
@@ -496,38 +497,52 @@ export default function ChessView({
   )
 
   const handlePlayComputer = useCallback(async () => {
-    let targetRoom = room
-    if (!targetRoom) targetRoom = await createRoom()
-    if (!targetRoom) return
-    const initialState = initialChessState()
-    const { data, error } = await supabase
-      .from('game_rooms')
-      .update({
-        status: 'playing',
-        board: initialState.board as (string | null)[][],
-        turn: 'white',
-        captured: { white: [], black: [], computer: true },
-        move_history: [],
-        castling: { wK: true, wQ: true, bK: true, bQ: true },
-        en_passant: null,
-        halfmove: 0,
-        winner_id: null,
-        draw_offered_by: null,
-        host_ready: false,
-        guest_ready: false,
-      })
-      .eq('id', targetRoom.id)
-      .select()
-      .single()
-    if (error || !data) {
+    setComputerStartPending(true)
+    try {
+      let targetRoom = room
+      if (!targetRoom) targetRoom = await createRoom()
+      if (!targetRoom) {
+        setComputerStartPending(false)
+        return
+      }
+      const initialState = initialChessState()
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .update({
+          status: 'playing',
+          board: initialState.board as (string | null)[][],
+          turn: 'white',
+          captured: { white: [], black: [], computer: true },
+          move_history: [],
+          castling: { wK: true, wQ: true, bK: true, bQ: true },
+          en_passant: null,
+          halfmove: 0,
+          winner_id: null,
+          draw_offered_by: null,
+          host_ready: false,
+          guest_ready: false,
+        })
+        .eq('id', targetRoom.id)
+        .select()
+        .single()
+      if (error || !data) {
+        console.error('[ChessView.handlePlayComputer]', error)
+        setComputerStartPending(false)
+        return
+      }
+      setRoom(data as GameRoom)
+      setChessState(initialState)
+      setLastFrom(null)
+      setLastTo(null)
+    } catch (error) {
       console.error('[ChessView.handlePlayComputer]', error)
-      return
+      setComputerStartPending(false)
     }
-    setRoom(data as GameRoom)
-    setChessState(initialState)
-    setLastFrom(null)
-    setLastTo(null)
   }, [room, createRoom, supabase, setRoom])
+
+  useEffect(() => {
+    if (room?.status === 'playing') setComputerStartPending(false)
+  }, [room?.status])
 
   const handleMove = useCallback(
     async (from: Pos, to: Pos, promoteTo?: string) => {
@@ -706,7 +721,9 @@ export default function ChessView({
 
   // ── Overlay (lobby → ready → finished); null while playing ─────────────────
   let overlay: React.ReactNode = null
-  if (isFinished && room) {
+  if (computerStartPending) {
+    overlay = null
+  } else if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} />
@@ -798,7 +815,9 @@ export default function ChessView({
           </div>
         </>
       }
-      board={
+      board={computerStartPending ? (
+        <div className="game-transition-blank" />
+      ) : (
         <div className="chess-board-wrap">
           <ChessBoard
             state={displayState}
@@ -809,7 +828,7 @@ export default function ChessView({
             isMyTurn={isMyTurn && isPlaying}
           />
         </div>
-      }
+      )}
       belowBoard={
         <>
           <div className="game-player-row chess-player-captured-row">
@@ -850,14 +869,14 @@ export default function ChessView({
         </>
       }
       overlay={overlay}
-      chat={
+      chat={!computerStartPending ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
         />
-      }
+      ) : undefined}
       invite={{
         open: showInviteModal,
         onClose: () => setShowInviteModal(false),

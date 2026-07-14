@@ -80,6 +80,7 @@ export default function EarTrainingView ({
   const [playsLeft, setPlaysLeft] = useState(MAX_PLAYS)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [computerStartPending, setComputerStartPending] = useState(false)
 
   // Auto-resume any in-progress game on mount, or auto-accept a pending
   // invite that landed us on this screen.
@@ -211,35 +212,49 @@ export default function EarTrainingView ({
   }, [room, invitedIds, createRoom, inviteFriend, cancelInvite])
 
   const handlePlayComputer = useCallback(async () => {
-    let target = room
-    if (!target) {
-      target = await createRoom({ modes: ['interval', 'chord'], difficulty: 'basic' })
-    }
-    if (!target) return
-    const { data, error } = await supabase
-      .from('ear_training_rooms')
-      .update({
-        player2_id: computerPlayerId(0),
-        player1_ready: false,
-        player2_ready: false,
-        status: 'playing',
-        current_round: 1,
-        round_started_at: new Date().toISOString(),
-        player1_answer: null,
-        player2_answer: null,
-        player1_score: 0,
-        player2_score: 0,
-        winner_id: null,
-      })
-      .eq('id', target.id)
-      .select()
-      .single()
-    if (error || !data) {
+    setComputerStartPending(true)
+    try {
+      let target = room
+      if (!target) {
+        target = await createRoom({ modes: ['interval', 'chord'], difficulty: 'basic' })
+      }
+      if (!target) {
+        setComputerStartPending(false)
+        return
+      }
+      const { data, error } = await supabase
+        .from('ear_training_rooms')
+        .update({
+          player2_id: computerPlayerId(0),
+          player1_ready: false,
+          player2_ready: false,
+          status: 'playing',
+          current_round: 1,
+          round_started_at: new Date().toISOString(),
+          player1_answer: null,
+          player2_answer: null,
+          player1_score: 0,
+          player2_score: 0,
+          winner_id: null,
+        })
+        .eq('id', target.id)
+        .select()
+        .single()
+      if (error || !data) {
+        console.error('[EarTrainingView.handlePlayComputer]', error)
+        setComputerStartPending(false)
+        return
+      }
+      setRoom(data as EarTrainingRoom)
+    } catch (error) {
       console.error('[EarTrainingView.handlePlayComputer]', error)
-      return
+      setComputerStartPending(false)
     }
-    setRoom(data as EarTrainingRoom)
   }, [room, createRoom, supabase, setRoom])
+
+  useEffect(() => {
+    if (isPlaying) setComputerStartPending(false)
+  }, [isPlaying])
 
   const handlePlay = () => {
     if (!question || playsLeft <= 0 || myAnswer) return
@@ -374,7 +389,9 @@ export default function EarTrainingView ({
 
   // ─── Overlay (lobby → ready → finished); null while a round is active ──────
   let overlay: React.ReactNode = null
-  if (isFinished && room) {
+  if (computerStartPending) {
+    overlay = null
+  } else if (isFinished && room) {
     // NO REMATCH — show the final score and exit chrome only.
     const resultMark = room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw'
     overlay = (
@@ -487,7 +504,9 @@ export default function EarTrainingView ({
         </div>
       }
       fillBoard
-      board={
+      board={computerStartPending ? (
+        <div className="game-transition-blank" />
+      ) : (
         <div className="et-arena">
           {isPlaying && question && (
             <div className="et-round">
@@ -595,7 +614,7 @@ export default function EarTrainingView ({
             </div>
           )}
         </div>
-      }
+      )}
       belowBoard={
         <div className="game-player-row">
           {currentUserProfile
@@ -612,14 +631,14 @@ export default function EarTrainingView ({
         </div>
       }
       overlay={overlay}
-      chat={
+      chat={!computerStartPending ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
         />
-      }
+      ) : undefined}
       invite={{
         open: showInvite,
         onClose: () => setShowInvite(false),

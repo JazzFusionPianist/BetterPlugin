@@ -278,8 +278,19 @@ export default function PokerView({
       }
       setRoom(data)
       await startHand(data)
+      const { data: refreshedRoom, error: refreshError } = await supabase
+        .from('poker_rooms')
+        .select()
+        .eq('id', targetRoom.id)
+        .single()
+      if (refreshError) {
+        console.warn('[PokerView.handlePlayComputer] refresh room', refreshError)
+      } else if (refreshedRoom) {
+        setRoom(refreshedRoom)
+      }
     } catch (error) {
       console.warn('[PokerView.handlePlayComputer]', error)
+    } finally {
       setComputerStartPending(false)
     }
   }, [computerOpponents, currentUserId, room, createRoom, supabase, startHand, setRoom])

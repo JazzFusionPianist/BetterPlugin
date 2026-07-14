@@ -226,6 +226,7 @@ export default function FallingBlocksView({
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3>(1)
+  const [computerStartPending, setComputerStartPending] = useState(false)
 
   // Local game state
   const [game, setGame] = useState<FallingBlocksState>(() => ({
@@ -335,38 +336,51 @@ export default function FallingBlocksView({
   )
 
   const handlePlayComputer = useCallback(async () => {
-    const bots = computerPlayerIds(computerOpponents)
-    const playerIds = [currentUserId, ...bots]
-    let targetRoom = room
-    if (!targetRoom) {
-      targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
-    }
-    if (!targetRoom) return
-    const nextRoom = {
-      ...targetRoom,
-      player_count: playerIds.length as 2 | 3 | 4,
-      player_ids: playerIds,
-      ready_ids: playerIds,
-      winner_id: null,
-    }
-    await startGame(nextRoom)
-    const botRows = bots.map(botId => {
-      const initial = initialFallingBlocksState()
-      botStatesRef.current.set(botId, initial)
-      return {
-        room_id: targetRoom.id,
-        user_id: botId,
-        board: boardWithCurrentPiece(initial),
-        score: 0,
-        lines: 0,
-        top_out: false,
-        garbage_pending: 0,
-        updated_at: new Date().toISOString(),
+    setComputerStartPending(true)
+    try {
+      const bots = computerPlayerIds(computerOpponents)
+      const playerIds = [currentUserId, ...bots]
+      let targetRoom = room
+      if (!targetRoom) {
+        targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
       }
-    })
-    applyPlayerStates(botRows)
-    await supabase.from('falling_blocks_player_states').upsert(botRows, { onConflict: 'room_id,user_id' })
+      if (!targetRoom) {
+        setComputerStartPending(false)
+        return
+      }
+      const nextRoom = {
+        ...targetRoom,
+        player_count: playerIds.length as 2 | 3 | 4,
+        player_ids: playerIds,
+        ready_ids: playerIds,
+        winner_id: null,
+      }
+      await startGame(nextRoom)
+      const botRows = bots.map(botId => {
+        const initial = initialFallingBlocksState()
+        botStatesRef.current.set(botId, initial)
+        return {
+          room_id: targetRoom.id,
+          user_id: botId,
+          board: boardWithCurrentPiece(initial),
+          score: 0,
+          lines: 0,
+          top_out: false,
+          garbage_pending: 0,
+          updated_at: new Date().toISOString(),
+        }
+      })
+      applyPlayerStates(botRows)
+      await supabase.from('falling_blocks_player_states').upsert(botRows, { onConflict: 'room_id,user_id' })
+    } catch (error) {
+      console.error('[FallingBlocksView.handlePlayComputer]', error)
+      setComputerStartPending(false)
+    }
   }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates, supabase])
+
+  useEffect(() => {
+    if (status === 'playing') setComputerStartPending(false)
+  }, [status])
 
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
@@ -725,7 +739,9 @@ export default function FallingBlocksView({
 
   // ── Overlay (lobby → ready → finished); null while playing ─────────────────
   let overlay: React.ReactNode = null
-  if (isFinished && room) {
+  if (computerStartPending) {
+    overlay = null
+  } else if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         {isComputerMatch ? (
@@ -832,7 +848,9 @@ export default function FallingBlocksView({
         </button>
       ) : undefined}
       fillBoard
-      board={
+      board={computerStartPending ? (
+        <div className="game-transition-blank" />
+      ) : (
         <div className="falling-blocks-game-layout">
           <div className="falling-blocks-playfield">
             <div className="falling-blocks-self-row">
@@ -910,9 +928,9 @@ export default function FallingBlocksView({
             )}
           </div>
         </div>
-      }
+      )}
       overlay={overlay}
-      chat={!isComputerMatch ? (
+      chat={!computerStartPending && !isComputerMatch ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}

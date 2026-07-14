@@ -5482,6 +5482,7 @@
 .plugin.screen-large .falling-blocks-opponents-row {
   max-height: none;
   flex-direction: column;
+  justify-content: center;
   overflow: hidden;
 }
 .plugin.screen-medium .falling-blocks-opponent,
@@ -5490,9 +5491,21 @@
 }
 .plugin.screen-medium .falling-blocks-board.is-opponent,
 .plugin.screen-large .falling-blocks-board.is-opponent {
-  height: 100%;
-  width: auto;
+  height: auto;
+  width: min(100%, 96px);
   max-width: 100%;
+}
+.plugin.screen-medium .falling-blocks-opponents-row.opponents-1 .falling-blocks-board.is-opponent,
+.plugin.screen-large .falling-blocks-opponents-row.opponents-1 .falling-blocks-board.is-opponent {
+  width: min(100%, 112px);
+}
+.plugin.screen-medium .falling-blocks-opponents-row.opponents-2 .falling-blocks-board.is-opponent,
+.plugin.screen-large .falling-blocks-opponents-row.opponents-2 .falling-blocks-board.is-opponent {
+  width: min(100%, 92px);
+}
+.plugin.screen-medium .falling-blocks-opponents-row.opponents-3 .falling-blocks-board.is-opponent,
+.plugin.screen-large .falling-blocks-opponents-row.opponents-3 .falling-blocks-board.is-opponent {
+  width: min(100%, 72px);
 }
 .plugin.screen-medium .falling-blocks-stat,
 .plugin.screen-large .falling-blocks-stat {
@@ -6211,7 +6224,7 @@
 .falling-blocks-opponents-row {
   min-width: 0;
   min-height: 0;
-  display: flex; flex-direction: column; gap: 6px; justify-content: stretch;
+  display: flex; flex-direction: column; gap: 6px; justify-content: center;
   overflow: hidden;
   padding: 0 1px;
 }
@@ -6256,11 +6269,20 @@
 }
 /* Opponent board: fills opponents-row height. */
 .falling-blocks-board.is-opponent {
-  height: 100%;
+  height: auto;
   aspect-ratio: 8 / 18;
-  width: auto;
+  width: min(100%, 64px);
   max-width: 100%;
   flex-shrink: 1; min-width: 0;
+}
+.falling-blocks-opponents-row.opponents-1 .falling-blocks-board.is-opponent {
+  width: min(100%, 76px);
+}
+.falling-blocks-opponents-row.opponents-2 .falling-blocks-board.is-opponent {
+  width: min(100%, 58px);
+}
+.falling-blocks-opponents-row.opponents-3 .falling-blocks-board.is-opponent {
+  width: min(100%, 46px);
 }
 .falling-blocks-cell {
   aspect-ratio: 1;
@@ -6338,7 +6360,7 @@
   display: flex; flex-direction: column; align-items: center;
   gap: 2px; position: relative;
   min-width: 0;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   max-width: none;
   min-height: 0;
   overflow: hidden;

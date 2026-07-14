@@ -872,7 +872,7 @@ export default function FallingBlocksView({
               </div>
             </div>
 
-            <div className="falling-blocks-opponents-row">
+            <div className={`falling-blocks-opponents-row opponents-${Math.max(1, opponentIds.length)}`}>
               {opponentIds.length === 0 ? (
                 <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
                   <div className="falling-blocks-opponent-header">

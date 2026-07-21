@@ -247,7 +247,7 @@ export default function MonitorPanel ({ isOpen }: Props) {
         if (streamText.current) {
           const info = getStreamInfo()
           streamText.current.textContent = m.active
-            ? `${Math.round(info.sr / 1000)}k·${info.ch === 1 ? 'mono' : 'st'}`
+            ? `${Math.round(info.sr / 1000)}k·${info.ch === 1 ? 'mono' : 'st'}${demo ? '·demo' : ''}`
             : 'no sig'
         }
         if (barRmsTextL.current) barRmsTextL.current.textContent = fmtDb(m.rmsL, 1)
@@ -271,16 +271,16 @@ export default function MonitorPanel ({ isOpen }: Props) {
         const ctx = gc.getContext('2d')
         if (ctx) {
           const w = gc.width, h = gc.height, half = w / 2
-          ctx.fillStyle = '#201F1B'
+          ctx.fillStyle = '#22261F'
           ctx.fillRect(0, 0, w, h)
-          ctx.strokeStyle = 'rgba(233, 230, 220, 0.14)'
+          ctx.strokeStyle = 'rgba(201, 240, 189, 0.18)'
           ctx.lineWidth = 1
           ctx.beginPath(); ctx.arc(half, half, half * 0.86, 0, Math.PI * 2); ctx.stroke()
           ctx.beginPath()
           ctx.moveTo(4, 4); ctx.lineTo(w - 4, h - 4)
           ctx.moveTo(w - 4, 4); ctx.lineTo(4, h - 4)
           ctx.stroke()
-          ctx.fillStyle = 'rgba(240, 238, 228, 0.8)'
+          ctx.fillStyle = 'rgba(201, 240, 189, 0.85)'
           const { data } = getGonio()
           for (let i = 0; i < data.length; i += 2) {
             const l = data[i], r = data[i + 1]
@@ -301,20 +301,23 @@ export default function MonitorPanel ({ isOpen }: Props) {
             const c = Math.max(LO, Math.min(HI, v))
             return h - (c - LO) / (HI - LO) * h
           }
-          ctx.fillStyle = '#201F1B'
+          ctx.fillStyle = '#F0EBDC'
           ctx.fillRect(0, 0, w, h)
-          ctx.strokeStyle = 'rgba(233, 230, 220, 0.1)'
+          ctx.strokeStyle = 'rgba(60, 55, 42, 0.14)'
           ctx.lineWidth = 1
           for (let v = HI; v >= LO; v -= 6) {
             ctx.beginPath(); ctx.moveTo(0, yOf(v)); ctx.lineTo(w, yOf(v)); ctx.stroke()
           }
-          ctx.strokeStyle = 'rgba(139, 150, 255, 0.75)'
+          for (let x = 0; x <= w; x += Math.round(w / 10)) {
+            ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); ctx.stroke()
+          }
+          ctx.strokeStyle = 'rgba(36, 64, 255, 0.5)'
           ctx.setLineDash([3, 3])
           ctx.beginPath(); ctx.moveTo(0, yOf(-14)); ctx.lineTo(w, yOf(-14)); ctx.stroke()
           ctx.setLineDash([])
           const { data, pos } = getStHistory()
-          ctx.strokeStyle = 'rgba(240, 238, 228, 0.9)'
-          ctx.lineWidth = 1.2
+          ctx.strokeStyle = 'rgba(195, 59, 39, 0.92)'
+          ctx.lineWidth = 1.4
           ctx.beginPath()
           let started = false
           for (let i = 0; i < data.length; i++) {
@@ -352,6 +355,8 @@ export default function MonitorPanel ({ isOpen }: Props) {
       <div className="mon-rig">
         {/* ── Full-height fader strip (the console's master strip) ── */}
         <div className="mon-fader-strip">
+          <span className="mon-screw tl" /><span className="mon-screw tr" />
+          <span className="mon-screw bl" /><span className="mon-screw br" />
           <Fader value={mon.gainDb} onChange={db => update({ gainDb: db })} />
           <div className="mon-ledder" aria-hidden="true">
             <div className="mon-ledder-track"><div ref={stripBarL} className="mon-ledder-fill" /></div>
@@ -362,6 +367,8 @@ export default function MonitorPanel ({ isOpen }: Props) {
         {/* ── Right: screen + controls ── */}
         <div className="mon-right">
           <div className="mon-screen">
+            <span className="mon-screw tl" /><span className="mon-screw tr" />
+            <span className="mon-screw bl" /><span className="mon-screw br" />
             <div className="mon-screen-menu">
               <button className="mon-arrow" onClick={() => step(-1)} aria-label="Previous meter">‹</button>
               <span className="mon-mode-name" role="tab" aria-selected="true">{MODES[modeIdx].label}</span>
@@ -379,6 +386,7 @@ export default function MonitorPanel ({ isOpen }: Props) {
                           stroke="#26241F" strokeWidth="1.6" transform="rotate(-44 75 68)" />
                         <circle cx="75" cy="68" r="3.2" fill="#26241F" />
                       </svg>
+                      <span className="mon-vu-glass" aria-hidden="true" />
                       <span ref={side === 'L' ? ledL : ledR} className="mon-clip-led" />
                     </div>
                   ))}
@@ -498,9 +506,6 @@ export default function MonitorPanel ({ isOpen }: Props) {
         </div>
       </div>
 
-      {demo && (
-        <p className="mon-demo-note">demo signal — open inside the plugin to meter the daw.</p>
-      )}
     </div>
   )
 }

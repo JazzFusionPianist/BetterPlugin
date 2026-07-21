@@ -12,6 +12,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type CanvasKind = 'photo' | 'video' | 'drawing'
 export type CanvasVisibility = 'friends' | 'private'
 
+/** One coloured-pencil stroke. `p` is a flat list of 0..1 canvas
+ *  fractions: [x0, y0, x1, y1, …]. `w` is the pencil width in px. */
+export interface Stroke {
+  c: string
+  w: number
+  p: number[]
+}
+
 export interface CanvasItem {
   id: string
   user_id: string
@@ -21,6 +29,7 @@ export interface CanvasItem {
   title: string | null
   caption: string | null
   taken_at: string | null
+  strokes: Stroke[] | null
   x: number
   y: number
   rotation: number
@@ -36,6 +45,7 @@ export interface NewCanvasItem {
   title?: string | null
   caption?: string | null
   taken_at?: string | null
+  strokes?: Stroke[] | null
   x?: number
   y?: number
   rotation?: number
@@ -44,7 +54,7 @@ export interface NewCanvasItem {
 }
 
 export type CanvasPatch = Partial<Pick<CanvasItem,
-  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'z' | 'visibility' | 'taken_at'>>
+  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
 
 /**
  * @param ownerId whose canvas to load. Defaults to the current user;
@@ -97,6 +107,7 @@ export function useCanvasItems(
         title: item.title ?? null,
         caption: item.caption ?? null,
         taken_at: item.taken_at ?? null,
+        strokes: item.strokes ?? null,
         x: item.x ?? 0.5,
         y: item.y ?? 0.32,
         rotation: item.rotation ?? 0,

@@ -13,6 +13,13 @@ interface Props {
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 
+/** [x0,y0,x1,y1,…] → "x0,y0 x1,y1 …" for an svg polyline. */
+const pointPairs = (p: number[]) => {
+  let out = ''
+  for (let i = 0; i + 1 < p.length; i += 2) out += `${p[i]},${p[i + 1]} `
+  return out.trim()
+}
+
 /**
  * The wall: photos pinned to the home page like polaroids, drifting orbs
  * passing behind them. Your own can be dragged to rearrange and tapped to
@@ -57,9 +64,34 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
     onUpdate(item.id, { x, y })
   }
 
+  const drawings = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
+  const pinned = items.filter((i) => i.kind !== 'drawing')
+
   return (
     <div className="canvas-layer" ref={layerRef}>
-      {items.map((item) => (
+      {/* Pencil marks live on the paper itself, beneath the polaroids.
+          Coordinates are 0..1 canvas fractions; non-scaling strokes keep
+          the pencil width honest at any screen size. */}
+      {drawings.length > 0 && (
+        <svg className="canvas-drawing" viewBox="0 0 1 1" preserveAspectRatio="none">
+          {drawings.flatMap((d) =>
+            (d.strokes ?? []).map((s, i) => (
+              <polyline
+                key={`${d.id}-${i}`}
+                points={pointPairs(s.p)}
+                fill="none"
+                stroke={s.c}
+                strokeWidth={s.w}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+                opacity={0.9}
+              />
+            )),
+          )}
+        </svg>
+      )}
+      {pinned.map((item) => (
         <div
           key={item.id}
           className={`polad${isMine ? ' movable' : ''}`}

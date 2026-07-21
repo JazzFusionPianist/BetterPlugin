@@ -15,6 +15,7 @@ import Sidebar from './Sidebar'
 import UpcomingList from './UpcomingList'
 import OrbHome from './OrbHome'
 import CanvasLayer from './CanvasLayer'
+import DrawingBoard from './DrawingBoard'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
@@ -42,6 +43,23 @@ export default function AppShell({ user }: { user: User }) {
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [pinning, setPinning] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
+  const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
+
+  // The wall keeps ONE drawing layer — pencil marks on the page itself.
+  const myDrawing = canvasItems.find((i) => i.kind === 'drawing') ?? null
+  const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[]) => {
+    try {
+      if (myDrawing) {
+        if (strokes.length === 0) await deleteCanvasItem(myDrawing.id)
+        else await updateCanvasItem(myDrawing.id, { strokes })
+      } else if (strokes.length > 0) {
+        await addCanvasItem({ kind: 'drawing', strokes, x: 0.5, y: 0.5, z: 0 })
+      }
+    } catch (err) {
+      console.error('[canvas] drawing save failed', err)
+    }
+  }
 
   // Pin a photo to the home wall: compress → R2 → canvas_items, dropped at
   // a tilted spot in the upper canvas (clear of the centre avatar).
@@ -170,9 +188,9 @@ export default function AppShell({ user }: { user: User }) {
         </button>
 
         <button
-          className={`webapp-add-btn${pinning ? ' busy' : ''}`}
-          onClick={() => !pinning && photoInputRef.current?.click()}
-          aria-label="Pin a photo"
+          className={`webapp-add-btn${pinning ? ' busy' : ''}${addOpen ? ' open' : ''}`}
+          onClick={() => !pinning && setAddOpen((o) => !o)}
+          aria-label="Add to your wall"
         >
           {pinning ? (
             <span className="webapp-add-spin" />
@@ -182,7 +200,27 @@ export default function AppShell({ user }: { user: User }) {
             </svg>
           )}
         </button>
+        {addOpen && (
+          <div className="addmenu">
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); photoInputRef.current?.click() }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" /></svg>
+              photo
+            </button>
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); setDrawOpen(true) }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
+              draw
+            </button>
+          </div>
+        )}
         <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+
+        {drawOpen && (
+          <DrawingBoard
+            initial={myDrawing?.strokes ?? []}
+            onSave={saveDrawing}
+            onClose={() => setDrawOpen(false)}
+          />
+        )}
 
         <CanvasLayer
           items={canvasItems}

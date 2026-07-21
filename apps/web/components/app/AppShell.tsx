@@ -18,6 +18,7 @@ import CanvasLayer from './CanvasLayer'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
+import FriendWall from './FriendWall'
 import ChatThread, { type ThreadTarget } from './ChatThread'
 import ConversationsList from './ConversationsList'
 import SettingsSheet from './SettingsSheet'
@@ -69,6 +70,7 @@ export default function AppShell({ user }: { user: User }) {
   const [findOpen, setFindOpen] = useState(false)                        // find people
   const [newGroupOpen, setNewGroupOpen] = useState(false)                // create a group
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
+  const [wallFriend, setWallFriend] = useState<(Profile & { isOnline?: boolean }) | null>(null) // friend's wall
   const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
 
   // Where new events go: personal, or shared with one of my groups.
@@ -219,7 +221,17 @@ export default function AppShell({ user }: { user: User }) {
         unread={sheetFriend ? (unreadByFriend.get(sheetFriend.id) ?? 0) : 0}
         onClose={() => setSheetFriend(null)}
         onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f }) }}
+        onVisitWall={(f) => { setSheetFriend(null); setWallFriend(f as Profile & { isOnline?: boolean }) }}
       />
+
+      {wallFriend && (
+        <FriendWall
+          supabase={supabase}
+          currentUserId={user.id}
+          friend={wallFriend}
+          onClose={() => setWallFriend(null)}
+        />
+      )}
 
       <ConversationsList
         open={convsOpen}

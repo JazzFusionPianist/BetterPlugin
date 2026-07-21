@@ -9,6 +9,7 @@ interface Props {
   unread: number
   onClose: () => void
   onMessage: (friend: Profile) => void
+  onVisitWall: (friend: Profile) => void
 }
 
 /**
@@ -16,7 +17,7 @@ interface Props {
  * equivalent of the plugin's hover popup. Shows the friend and a way to
  * jump into a conversation.
  */
-export default function ProfileSheet({ friend, unread, onClose, onMessage }: Props) {
+export default function ProfileSheet({ friend, unread, onClose, onMessage, onVisitWall }: Props) {
   // Retain the last friend through the close animation so the content
   // doesn't blank out as the sheet slides away.
   const [shown, setShown] = useState(friend)
@@ -37,7 +38,9 @@ export default function ProfileSheet({ friend, unread, onClose, onMessage }: Pro
               {f.isOnline && <span className="psheet-dot" />}
             </div>
             <div className="psheet-name">{f.display_name}</div>
-            <div className="psheet-status">{f.isOnline ? 'Online now' : 'Offline'}</div>
+            {f.username
+              ? <div className="psheet-user">@{f.username}</div>
+              : <div className="psheet-status">{f.isOnline ? 'Online now' : 'Offline'}</div>}
 
             <button className="psheet-msg" onClick={() => onMessage(f)}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -45,6 +48,12 @@ export default function ProfileSheet({ friend, unread, onClose, onMessage }: Pro
               </svg>
               Message
               {unread > 0 && <span className="psheet-msg-badge">{unread > 9 ? '9+' : unread}</span>}
+            </button>
+            <button className="psheet-wall" onClick={() => onVisitWall(f)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" />
+              </svg>
+              Visit wall
             </button>
           </>
         )}

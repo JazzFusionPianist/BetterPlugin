@@ -127,6 +127,18 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleGetClipboardText (args, std::move (completion));
+                })
+            .withNativeFunction ("setMonitor",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleSetMonitor (args, std::move (completion));
+                })
+            .withNativeFunction ("getMonitor",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetMonitor (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -210,6 +222,45 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = juce::jmin (buffer.getNumChannels(), captureBuffer.getNumChannels());
+
+    // ── Monitor section ──────────────────────────────────────────────────
+    // Fader / balance / polarity / mute, applied before the capture FIFO so
+    // the web-side meters show the post-fader signal the DAW receives.
+    // Per-block linear ramps keep parameter moves clickless.
+    {
+        const float gainDb = monGainDb.load (std::memory_order_relaxed);
+        const bool  mute   = monMute.load (std::memory_order_relaxed);
+        const float pan    = juce::jlimit (-1.0f, 1.0f,
+                                           monPan.load (std::memory_order_relaxed));
+
+        // -60 dB on the fader means "pulled all the way down" == silence.
+        const float base = (mute || gainDb <= -59.5f)
+                               ? 0.0f
+                               : juce::Decibels::decibelsToGain (gainDb);
+
+        // Stereo balance: attenuate the side you pan away from.
+        const float balL = pan > 0.0f ? 1.0f - pan : 1.0f;
+        const float balR = pan < 0.0f ? 1.0f + pan : 1.0f;
+
+        float targetL = base * balL * (monInvL.load (std::memory_order_relaxed) ? -1.0f : 1.0f);
+        float targetR = base * balR * (monInvR.load (std::memory_order_relaxed) ? -1.0f : 1.0f);
+        if (buffer.getNumChannels() == 1) targetL = base
+            * (monInvL.load (std::memory_order_relaxed) ? -1.0f : 1.0f);
+
+        if (numSamples > 0)
+        {
+            if (buffer.getNumChannels() > 0)
+            {
+                buffer.applyGainRamp (0, 0, numSamples, smoothGainL, targetL);
+                smoothGainL = targetL;
+            }
+            if (buffer.getNumChannels() > 1)
+            {
+                buffer.applyGainRamp (1, 0, numSamples, smoothGainR, targetR);
+                smoothGainR = targetR;
+            }
+        }
+    }
 
     captureNumChannels.store (numChannels);
 
@@ -700,6 +751,66 @@ void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
     // Result is a plain string — no JSON wrapping. The JS bridge resolves
     // with the raw string so the caller can use it as-is.
     completion (text);
+}
+
+//==============================================================================
+// Monitor section — parameters set from the web UI, applied in processBlock.
+
+void OrbAudioProcessor::handleSetMonitor (const juce::var& args,
+                                          juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    // Args arrive as [ { gainDb, pan, invL, invR, mute } ]; every field is
+    // optional so the UI can update a single control without racing others.
+    if (auto* arr = args.getArray(); arr != nullptr && ! arr->isEmpty())
+    {
+        const juce::var& v = arr->getReference (0);
+        if (v.hasProperty ("gainDb"))
+            monGainDb.store (juce::jlimit (-60.0f, 6.0f, (float) (double) v["gainDb"]));
+        if (v.hasProperty ("pan"))
+            monPan.store (juce::jlimit (-1.0f, 1.0f, (float) (double) v["pan"]));
+        if (v.hasProperty ("invL")) monInvL.store ((bool) v["invL"]);
+        if (v.hasProperty ("invR")) monInvR.store ((bool) v["invR"]);
+        if (v.hasProperty ("mute")) monMute.store ((bool) v["mute"]);
+    }
+    completion (juce::var (true));
+}
+
+void OrbAudioProcessor::handleGetMonitor (const juce::var&,
+                                          juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("gainDb", monGainDb.load());
+    obj->setProperty ("pan",    monPan.load());
+    obj->setProperty ("invL",   monInvL.load());
+    obj->setProperty ("invR",   monInvR.load());
+    obj->setProperty ("mute",   monMute.load());
+    completion (juce::var (obj));
+}
+
+//==============================================================================
+// State — the monitor section is the only persistent plugin state.
+
+void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
+{
+    juce::XmlElement xml ("OrbState");
+    xml.setAttribute ("monGainDb", (double) monGainDb.load());
+    xml.setAttribute ("monPan",    (double) monPan.load());
+    xml.setAttribute ("monInvL",   monInvL.load());
+    xml.setAttribute ("monInvR",   monInvR.load());
+    xml.setAttribute ("monMute",   monMute.load());
+    copyXmlToBinary (xml, dest);
+}
+
+void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    if (auto xml = getXmlFromBinary (data, sizeInBytes); xml != nullptr && xml->hasTagName ("OrbState"))
+    {
+        monGainDb.store ((float) xml->getDoubleAttribute ("monGainDb", 0.0));
+        monPan.store    ((float) xml->getDoubleAttribute ("monPan",    0.0));
+        monInvL.store   (xml->getBoolAttribute ("monInvL", false));
+        monInvR.store   (xml->getBoolAttribute ("monInvR", false));
+        monMute.store   (xml->getBoolAttribute ("monMute", false));
+    }
 }
 
 //==============================================================================

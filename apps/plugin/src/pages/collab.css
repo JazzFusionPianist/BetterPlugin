@@ -8530,3 +8530,174 @@
 }
 .plugin .settings-panel,
 .plugin .settings-panel * { font-weight: 400; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Monitor panel — SSL-style monitoring in catalogue materials:
+   paper VU faces with ink needles, a goniometer plate, LUFS
+   figures set like plate numbers, and a monitor strip (fader /
+   balance / polarity / mute) wired to the JUCE processor.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.monview { transform: translateX(100%); z-index: 21; background: var(--bg); }
+.plugin.monitor-open .monview { transform: translateX(0); }
+.plugin.monitor-open .fview > * { visibility: hidden; }
+
+.monitor-body { display: flex; flex-direction: column; gap: 10px; }
+
+.mon-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+/* ── VU pair ── */
+.mon-vu-row { display: flex; gap: 8px; justify-content: center; }
+.mon-vu { position: relative; flex: 1; max-width: 132px; color: var(--t1); }
+.mon-vu-svg, .mon-vu-needle-svg { display: block; width: 100%; height: auto; }
+.mon-vu-needle-svg { position: absolute; inset: 0; }
+.mon-vu-tick { font-family: var(--f-sans); font-size: 6.5px; font-weight: 500; }
+.mon-vu-label { font-family: var(--f-serif); font-size: 11px; fill: var(--t2); }
+.mon-vu-side { font-family: var(--f-serif); font-size: 10px; fill: var(--t3); }
+
+.mon-clip-led {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border2);
+  transition: background 0.1s, box-shadow 0.1s;
+}
+.mon-clip-led.on {
+  background: #D6402E; border-color: #D6402E;
+  box-shadow: 0 0 6px rgba(214, 64, 46, 0.6);
+}
+
+.mon-vu-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 6px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+
+.mon-machine {
+  font-family: var(--f-sans);
+  font-size: 10px;
+  color: var(--t2);
+  font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+}
+
+.mon-mini-btn {
+  font-family: var(--f-serif);
+  font-size: 11px;
+  color: var(--t2);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 8px 3px;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.12s, border-color 0.12s;
+}
+.mon-mini-btn:hover { color: var(--t1); border-color: var(--border2); }
+
+/* ── Goniometer + loudness ── */
+.mon-duo { display: flex; gap: 10px; }
+.mon-gonio-card { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.mon-gonio {
+  width: 104px; height: 104px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.mon-corr-track {
+  position: relative; width: 100%; height: 5px;
+  background: var(--bg3); border-radius: 2px; overflow: hidden;
+}
+.mon-corr-zero {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+  background: var(--hair); z-index: 1;
+}
+.mon-corr-fill {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
+  background: var(--blue); border-radius: 2px;
+  transition: left 0.12s linear, width 0.12s linear;
+}
+.mon-corr-foot {
+  width: 100%;
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+
+.mon-loud-card {
+  width: 96px; flex-shrink: 0; position: relative;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.mon-loud-row { display: flex; align-items: baseline; justify-content: space-between; }
+.mon-loud-key { font-family: var(--f-serif); font-size: 12px; color: var(--t3); }
+.mon-loud-val {
+  font-family: var(--f-sans); font-size: 13px; color: var(--t1);
+  font-variant-numeric: tabular-nums;
+}
+.mon-loud-int .mon-loud-val { color: var(--blue); font-weight: 600; }
+.mon-loud-unit {
+  font-family: var(--f-serif); font-size: 10.5px; color: var(--t3);
+  margin-top: 1px; text-transform: lowercase;
+}
+.mon-loud-card .mon-mini-btn { margin-top: auto; align-self: flex-start; }
+
+/* ── Monitor strip ── */
+.mon-ctrl-card { display: flex; flex-direction: column; gap: 9px; }
+.mon-ctrl-row { display: flex; align-items: center; gap: 8px; }
+.mon-ctrl-label {
+  font-family: var(--f-serif); font-size: 12px; color: var(--t2);
+  width: 46px; flex-shrink: 0; text-transform: lowercase;
+}
+.mon-ctrl-val {
+  font-family: var(--f-sans); font-size: 10.5px; color: var(--t1);
+  font-variant-numeric: tabular-nums; width: 56px; text-align: right;
+  flex-shrink: 0; text-transform: lowercase;
+}
+
+.mon-slider {
+  flex: 1; min-width: 0;
+  -webkit-appearance: none; appearance: none;
+  height: 3px; border-radius: 2px;
+  background: var(--bg3);
+  outline: none;
+}
+.mon-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 9px; height: 18px; border-radius: 3px;
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1.5px var(--card);
+}
+.mon-slider:focus-visible::-webkit-slider-thumb { outline: 1.5px solid var(--blue); }
+
+.mon-ctrl-btns { display: flex; gap: 6px; padding-top: 2px; }
+.mon-btn {
+  flex: 1;
+  font-family: var(--f-serif); font-size: 12px;
+  color: var(--t2);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 0 6px;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.mon-btn:hover { color: var(--t1); border-color: var(--border2); }
+.mon-btn.on {
+  background: var(--ink); border-color: var(--ink); color: var(--paper);
+}
+.mon-btn-mute.on {
+  background: #D6402E; border-color: #D6402E; color: #fff;
+}
+
+.mon-demo-note {
+  margin: 0;
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--t3);
+  text-align: center;
+}

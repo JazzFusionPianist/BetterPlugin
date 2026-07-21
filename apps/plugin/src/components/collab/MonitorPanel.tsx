@@ -46,9 +46,17 @@ const VU_NUMBERED = new Set([-20, -10, -7, -5, -3, 0, 3])
 const VU_MINOR = [-15, -12, -8.5, -6, -4, -2, -0.5, 0.5, 1.5, 2.5]
 
 function VUFace ({ side }: { side: 'L' | 'R' }) {
+  const gid = `vu-face-${side}`
   return (
     <svg className="mon-vu-svg" viewBox="0 0 150 74" aria-hidden="true">
-      <rect x="1" y="1" width="148" height="72" rx="3.5" className="mon-vu-plate" />
+      <defs>
+        <radialGradient id={gid} cx="0.5" cy="0.9" r="1.1">
+          <stop offset="0%" stopColor="#F7F2E1" />
+          <stop offset="55%" stopColor="#F0EAD6" />
+          <stop offset="100%" stopColor="#E3DCC4" />
+        </radialGradient>
+      </defs>
+      <rect x="1" y="1" width="148" height="72" rx="3.5" fill={`url(#${gid})`} />
       <path d={describeArc(75, 68, 52, vuAngle(-20), vuAngle(0))}
         fill="none" stroke="#3B382F" strokeWidth="1" opacity="0.55" />
       <path d={describeArc(75, 68, 52, vuAngle(0), vuAngle(3))}
@@ -81,9 +89,9 @@ function VUFace ({ side }: { side: 'L' | 'R' }) {
           </g>
         )
       })}
-      <text x="75" y="42" textAnchor="middle" className="mon-vu-label">vu</text>
-      <text x="9" y="69" className="mon-vu-side">{side.toLowerCase()}</text>
-      <text x="141" y="69" textAnchor="end" className="mon-vu-cal">0vu=−18</text>
+      <text x="75" y="42" textAnchor="middle" className="mon-vu-label">VU</text>
+      <text x="9" y="69" className="mon-vu-side">{side}</text>
+      <text x="141" y="69" textAnchor="end" className="mon-vu-cal">0VU=−18dBFS</text>
     </svg>
   )
 }
@@ -280,8 +288,16 @@ export default function MonitorPanel ({ isOpen }: Props) {
           ctx.moveTo(4, 4); ctx.lineTo(w - 4, h - 4)
           ctx.moveTo(w - 4, 4); ctx.lineTo(4, h - 4)
           ctx.stroke()
-          ctx.fillStyle = 'rgba(201, 240, 189, 0.85)'
           const { data } = getGonio()
+          // glow pass, then bright core — cheap phosphor bloom
+          ctx.fillStyle = 'rgba(201, 240, 189, 0.16)'
+          for (let i = 0; i < data.length; i += 2) {
+            const l = data[i], r = data[i + 1]
+            const x = half + (l - r) * 0.7071 * half * 1.2
+            const y = half - (l + r) * 0.7071 * half * 1.2
+            if (x >= 1 && x < w - 2 && y >= 1 && y < h - 2) ctx.fillRect(x - 1.3, y - 1.3, 4, 4)
+          }
+          ctx.fillStyle = 'rgba(214, 248, 202, 0.9)'
           for (let i = 0; i < data.length; i += 2) {
             const l = data[i], r = data[i + 1]
             const x = half + (l - r) * 0.7071 * half * 1.2
@@ -301,7 +317,7 @@ export default function MonitorPanel ({ isOpen }: Props) {
             const c = Math.max(LO, Math.min(HI, v))
             return h - (c - LO) / (HI - LO) * h
           }
-          ctx.fillStyle = '#F0EBDC'
+          ctx.fillStyle = '#EFE9D5'
           ctx.fillRect(0, 0, w, h)
           ctx.strokeStyle = 'rgba(60, 55, 42, 0.14)'
           ctx.lineWidth = 1
@@ -450,7 +466,10 @@ export default function MonitorPanel ({ isOpen }: Props) {
 
               {mode === 'image' && (
                 <div className="mon-image">
-                  <canvas ref={gonioCanvas} width={108} height={108} className="mon-gonio" />
+                  <div className="mon-scope">
+                    <canvas ref={gonioCanvas} width={108} height={108} className="mon-gonio" />
+                    <span className="mon-scope-glass" aria-hidden="true" />
+                  </div>
                   <div className="mon-corr-track">
                     <span className="mon-corr-zero" />
                     <div ref={corrFill} className="mon-corr-fill" />

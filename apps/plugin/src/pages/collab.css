@@ -8558,7 +8558,8 @@
   --counter-bg: #211E18;      /* backlit counter window */
   --counter-t: #F0E9D2;
   --phos: #C9F0BD;            /* scope phosphor */
-  --f-m: 'IBM Plex Mono', monospace;
+  --f-m: 'B612 Mono', monospace;
+  --f-p: 'Barlow Semi Condensed', sans-serif;
   font-family: var(--f-m);
 }
 
@@ -8743,7 +8744,7 @@
   background: var(--counter-bg);
   border-radius: 2px;
   padding: 3px 0 4px;
-  text-transform: lowercase;
+  text-transform: uppercase;
   box-shadow:
     inset 0 1px 4px rgba(0, 0, 0, 0.75),
     0 1px 0 rgba(255, 255, 255, 0.5);
@@ -8776,7 +8777,7 @@
   font-size: 8.5px;
   color: var(--mk-2);
   font-variant-numeric: tabular-nums;
-  text-transform: lowercase;
+  text-transform: uppercase;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .mon-scr-btn {
@@ -8789,7 +8790,7 @@
   border-radius: 3px;
   padding: 1px 8px 2px;
   cursor: pointer;
-  text-transform: lowercase;
+  text-transform: uppercase;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
     0 1.5px 2px rgba(60, 55, 42, 0.3);
@@ -8801,8 +8802,8 @@
 }
 
 .mon-ro-key {
-  font-family: var(--f-m); font-size: 8.5px; color: var(--mk-2);
-  text-transform: lowercase;
+  font-family: var(--f-p); font-size: 9px; font-weight: 600; color: var(--mk-2);
+  text-transform: uppercase;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 .mon-ro-val {
@@ -8840,8 +8841,8 @@
   pointer-events: none;
 }
 .mon-vu-tick { font-family: var(--f-m); font-size: 6px; font-weight: 500; }
-.mon-vu-label { font-family: var(--f-m); font-size: 8.5px; fill: #6E695C; letter-spacing: 0.08em; }
-.mon-vu-side { font-family: var(--f-m); font-size: 8.5px; fill: #8F8A7B; }
+.mon-vu-label { font-family: var(--f-p); font-size: 9px; font-weight: 600; fill: #6E695C; letter-spacing: 0.08em; }
+.mon-vu-side { font-family: var(--f-p); font-size: 9px; font-weight: 600; fill: #8F8A7B; }
 .mon-vu-cal { font-family: var(--f-m); font-size: 5.4px; fill: #8F8A7B; letter-spacing: 0.03em; }
 
 .mon-clip-led {
@@ -8925,7 +8926,7 @@
   letter-spacing: -0.02em; line-height: 1;
 }
 .mon-loud-hero-key {
-  font-family: var(--f-m); font-size: 8px; color: var(--mk-2); letter-spacing: 0.06em;
+  font-family: var(--f-p); font-size: 8px; color: var(--mk-2); letter-spacing: 0.06em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .mon-loud-col { display: flex; flex-direction: column; gap: 0; }
@@ -8941,8 +8942,8 @@
 }
 .mon-loud-axis {
   display: flex; justify-content: space-between;
-  font-family: var(--f-m); font-size: 7.5px; color: var(--mk-2);
-  text-transform: lowercase; letter-spacing: 0.04em;
+  font-family: var(--f-p); font-size: 7.5px; color: var(--mk-2);
+  text-transform: uppercase; letter-spacing: 0.04em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -9020,13 +9021,13 @@
   padding-bottom: 3px;
 }
 .mon-sec-label {
-  font-family: var(--f-m); font-size: 8.5px; color: var(--mk-2);
-  text-transform: lowercase; letter-spacing: 0.09em;
+  font-family: var(--f-p); font-size: 9px; font-weight: 600; color: var(--mk-2);
+  text-transform: uppercase; letter-spacing: 0.09em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .mon-sec-val {
   font-family: var(--f-m); font-size: 9.5px; color: var(--mk);
-  font-variant-numeric: tabular-nums; text-transform: lowercase;
+  font-variant-numeric: tabular-nums; text-transform: uppercase;
 }
 
 .mon-slider {
@@ -9057,7 +9058,7 @@
 .mon-btn {
   flex: 1;
   position: relative;
-  font-family: var(--f-m); font-size: 9.5px;
+  font-family: var(--f-p); font-size: 10px; font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--mk);
   background: linear-gradient(180deg, #F4F0E3, #DCD6C5);
@@ -9065,7 +9066,7 @@
   border-radius: 3px;
   padding: 6px 0 7px;
   cursor: pointer;
-  text-transform: lowercase;
+  text-transform: uppercase;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
     0 2px 3px -1px rgba(60, 55, 42, 0.4);
@@ -9100,5 +9101,92 @@
   font-size: 8.5px;
   color: var(--t3);
   text-align: center;
-  text-transform: lowercase;
+  text-transform: uppercase;
+}
+
+/* ── Extra realism: grain, bezels, keycaps, glass ── */
+
+/* speckled surface grain on every painted panel */
+.mon-fader-strip::before,
+.mon-screen::before,
+.mon-ctrls::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+}
+.mon-screen, .mon-ctrls { position: relative; }
+
+/* ambient occlusion where panels meet the chassis */
+.mon-fader-strip, .mon-screen, .mon-ctrls {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(60, 55, 42, 0.22),
+    0 1px 1px rgba(255, 255, 255, 0.5),
+    0 3px 7px -2px rgba(26, 25, 23, 0.4);
+}
+
+/* VU meters: dark bezel frame, needle casts a shadow on the face */
+.mon-vu {
+  border: 3px solid #34302A;
+  border-radius: 5px;
+  box-shadow:
+    inset 0 2px 6px rgba(40, 36, 28, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    0 2px 4px -1px rgba(26, 25, 23, 0.4);
+}
+.mon-vu-needle-svg line {
+  filter: drop-shadow(1px 1.8px 0.8px rgba(40, 36, 28, 0.32));
+}
+.mon-vu-needle-svg circle {
+  filter: drop-shadow(0 1px 1px rgba(40, 36, 28, 0.5));
+}
+
+/* counter windows: glass reflection + backlit digit glow */
+.mon-mode-name, .mon-strip-display {
+  position: relative;
+  text-shadow: 0 0 4px rgba(240, 233, 210, 0.35);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 38%);
+  background-color: var(--counter-bg);
+}
+.mon-mode-name { font-family: var(--f-m); }
+
+/* keycap buttons: a visible side wall that compresses when pressed */
+.mon-arrow, .mon-scr-btn, .mon-btn {
+  border-bottom-width: 2.5px;
+  border-bottom-color: rgba(60, 55, 42, 0.65);
+}
+.mon-arrow:active, .mon-scr-btn:active, .mon-btn:active, .mon-btn.on {
+  border-bottom-width: 1px;
+}
+
+/* scope: glass dome highlight over the phosphor */
+.mon-scope { position: relative; display: inline-flex; }
+.mon-scope-glass {
+  position: absolute; inset: 3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 26% at 32% 22%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 120% at 50% 118%, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0) 55%);
+}
+
+/* fader cap: contact shadow on the slot beneath */
+.mon-fader-cap::after {
+  content: '';
+  position: absolute; left: 4px; right: 4px; bottom: -7px;
+  height: 7px;
+  background: radial-gradient(50% 100% at 50% 0%, rgba(26, 25, 23, 0.38), rgba(26, 25, 23, 0));
+}
+
+/* aluminium wear: faint darkening along the strip edges */
+.mon-fader-strip {
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(60, 55, 42, 0.07), rgba(60, 55, 42, 0) 6%, rgba(60, 55, 42, 0) 94%, rgba(60, 55, 42, 0.1)),
+    linear-gradient(90deg, #C7C3B5 0%, #D3CFC2 18%, #DDD9CC 50%, #D3CFC2 82%, #C1BDAF 100%);
 }

@@ -50,7 +50,7 @@ export default function Landing() {
 
         <main className="stage">
           <h1>Make music <span className="hl">together.</span></h1>
-          <p className="sub">Your crew, your sessions, your sound — in your DAW and on the web.</p>
+          <p className="sub">your crew, your sessions, your sound,<br />in your daw and in the app</p>
 
           {ready && (
             isNative ? (

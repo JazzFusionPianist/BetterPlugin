@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useMessages, type Profile, type Message } from '@orb/core'
 import { uploadAttachment, attachTypeFor, type UploadedAttachment } from '@/lib/upload'
@@ -32,42 +32,63 @@ const fmtDur = (s: number) => {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 }
 
+/* ── Shared now-playing engine ────────────────────────────────────────
+   One <audio> per thread. Inline bubbles are remote controls for it, and
+   a bottom bar with a finger-sized scrubber appears while it plays —
+   precise seeking on a phone happens there, not on the tiny waveform. */
+interface NowPlayingTrack { url: string; name: string }
+interface NowPlayingApi {
+  track: NowPlayingTrack | null
+  playing: boolean
+  cur: number
+  dur: number
+  start: (t: NowPlayingTrack, at?: number) => void
+  toggle: () => void
+  seekTo: (sec: number) => void
+  close: () => void
+}
+const NowPlayingCtx = createContext<NowPlayingApi | null>(null)
+
 /** Inline audio player — the whole point of mobile chat for this app:
  *  audio people drop in from the DAW must play right here. */
 function AudioPlayer({ url, name }: { url: string; name: string }) {
-  const ref = useRef<HTMLAudioElement>(null)
-  const [playing, setPlaying] = useState(false)
-  const [cur, setCur] = useState(0)
-  const [dur, setDur] = useState(0)
+  const np = useContext(NowPlayingCtx)
+  // A metadata-only element so every bubble can show its duration
+  // before it has ever been played.
+  const metaRef = useRef<HTMLAudioElement>(null)
+  const [metaDur, setMetaDur] = useState(0)
+
+  const active = np?.track?.url === url
+  const playing = !!(active && np?.playing)
+  const cur = active ? np!.cur : 0
+  const dur = (active && np!.dur) || metaDur
 
   const toggle = () => {
-    const a = ref.current
-    if (!a) return
-    if (playing) { a.pause(); setPlaying(false) }
-    else { a.play().then(() => setPlaying(true)).catch(() => {}) }
+    if (!np) return
+    if (active) np.toggle()
+    else np.start({ url, name })
   }
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const a = ref.current
-    if (!a || !dur) return
+    if (!np || !dur) return
     const rect = e.currentTarget.getBoundingClientRect()
-    a.currentTime = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * dur
+    const t = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * dur
+    if (active) np.seekTo(t)
+    else np.start({ url, name }, t)
   }
 
   return (
     <div className="msg-audio">
+      <audio
+        ref={metaRef}
+        src={url}
+        preload="metadata"
+        onLoadedMetadata={() => setMetaDur(metaRef.current?.duration ?? 0)}
+      />
       <div className="msg-audio-head">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
         <span className="msg-audio-name">{name}</span>
       </div>
       <div className="msg-audio-player">
-        <audio
-          ref={ref}
-          src={url}
-          preload="metadata"
-          onTimeUpdate={() => setCur(ref.current?.currentTime ?? 0)}
-          onLoadedMetadata={() => setDur(ref.current?.duration ?? 0)}
-          onEnded={() => { setPlaying(false); setCur(0) }}
-        />
         <button className="msg-audio-btn" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
           {playing
             ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
@@ -78,6 +99,56 @@ function AudioPlayer({ url, name }: { url: string; name: string }) {
         </div>
         <span className="msg-audio-time">{fmtDur(cur)} / {fmtDur(dur)}</span>
       </div>
+    </div>
+  )
+}
+
+/** Docked player — drag anywhere on the big waveform to scrub. */
+function NowPlayingBar() {
+  const np = useContext(NowPlayingCtx)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  if (!np || !np.track) return null
+
+  const scrub = (clientX: number) => {
+    const el = trackRef.current
+    if (!el || !np.dur) return
+    const r = el.getBoundingClientRect()
+    np.seekTo(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * np.dur)
+  }
+
+  const pct = np.dur ? (np.cur / np.dur) * 100 : 0
+  return (
+    <div className="nowbar">
+      <button className="nowbar-btn" onClick={np.toggle} aria-label={np.playing ? 'Pause' : 'Play'}>
+        {np.playing
+          ? <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+          : <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z" /></svg>}
+      </button>
+      <div className="nowbar-main">
+        <div className="nowbar-toprow">
+          <span className="nowbar-name">{np.track.name}</span>
+          <span className="nowbar-time">{fmtDur(np.cur)} / {fmtDur(np.dur)}</span>
+        </div>
+        <div
+          ref={trackRef}
+          className="nowbar-track"
+          onPointerDown={(e) => {
+            dragging.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            scrub(e.clientX)
+          }}
+          onPointerMove={(e) => { if (dragging.current) scrub(e.clientX) }}
+          onPointerUp={() => { dragging.current = false }}
+          onPointerCancel={() => { dragging.current = false }}
+        >
+          <div className="nowbar-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <button className="nowbar-x" onClick={np.close} aria-label="Close player">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+      </button>
     </div>
   )
 }
@@ -133,6 +204,48 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const recRef = useRef<{ rec: MediaRecorder; stream: MediaStream; chunks: Blob[]; timer: ReturnType<typeof setInterval> } | null>(null)
+
+  // ── Now-playing engine (one audio element for the whole thread) ────────
+  const audioRef = useRef<HTMLAudioElement>(null)
+  // Seek requested before the new track's metadata is ready — applied
+  // in onLoadedMetadata (Safari ignores currentTime until then).
+  const pendingSeekRef = useRef<number | null>(null)
+  const [npTrack, setNpTrack] = useState<NowPlayingTrack | null>(null)
+  const [npPlaying, setNpPlaying] = useState(false)
+  const [npCur, setNpCur] = useState(0)
+  const [npDur, setNpDur] = useState(0)
+  const npApi: NowPlayingApi = {
+    track: npTrack, playing: npPlaying, cur: npCur, dur: npDur,
+    start: (t, at = 0) => {
+      const a = audioRef.current
+      if (!a) return
+      if (npTrack?.url !== t.url) {
+        setNpTrack(t); setNpCur(at); setNpDur(0)
+        a.src = t.url
+        pendingSeekRef.current = at > 0 ? at : null
+      } else {
+        a.currentTime = at
+      }
+      a.play().then(() => setNpPlaying(true)).catch(() => {})
+    },
+    toggle: () => {
+      const a = audioRef.current
+      if (!a || !npTrack) return
+      if (npPlaying) { a.pause(); setNpPlaying(false) }
+      else { a.play().then(() => setNpPlaying(true)).catch(() => {}) }
+    },
+    seekTo: (sec) => {
+      const a = audioRef.current
+      if (!a) return
+      a.currentTime = sec
+      setNpCur(sec)
+    },
+    close: () => {
+      const a = audioRef.current
+      a?.pause()
+      setNpTrack(null); setNpPlaying(false); setNpCur(0); setNpDur(0)
+    },
+  }
 
   const isGroup = target.kind === 'group'
   const title = isGroup ? target.title : target.friend.display_name
@@ -297,7 +410,24 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   }
 
   return (
+    <NowPlayingCtx.Provider value={npApi}>
     <div className="chatt">
+      <audio
+        ref={audioRef}
+        preload="metadata"
+        onTimeUpdate={() => setNpCur(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => {
+          const a = audioRef.current
+          if (!a) return
+          setNpDur(a.duration ?? 0)
+          if (pendingSeekRef.current != null) {
+            a.currentTime = pendingSeekRef.current
+            setNpCur(pendingSeekRef.current)
+            pendingSeekRef.current = null
+          }
+        }}
+        onEnded={() => { setNpPlaying(false); setNpCur(0) }}
+      />
       <header className="chatt-head">
         <button className="chatt-back" onClick={onClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -365,6 +495,8 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
       {uploadErr && <div className="chatt-uperr">{uploadErr}</div>}
 
+      <NowPlayingBar />
+
       <div className="chatt-compose" style={{ paddingBottom: `calc(10px + env(safe-area-inset-bottom) + ${kbInset}px)` }}>
         {recording ? (
           <div className="chatt-bar chatt-recbar">
@@ -410,5 +542,6 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
         )}
       </div>
     </div>
+    </NowPlayingCtx.Provider>
   )
 }

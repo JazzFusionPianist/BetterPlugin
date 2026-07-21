@@ -10,6 +10,7 @@ import {
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
 import Sidebar from './Sidebar'
+import UpcomingList from './UpcomingList'
 import OrbHome from './OrbHome'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
@@ -138,7 +139,27 @@ export default function AppShell({ user }: { user: User }) {
           {events.length > 0 && <span className="webapp-cal-count">{events.length}</span>}
         </button>
 
-        <OrbHome me={me} friends={friends} unreadByFriend={unreadByFriend} onSelect={setSheetFriend} onOpenSettings={() => setSettingsOpen(true)} />
+        <OrbHome
+          me={me}
+          friends={friends}
+          groups={groupConversations.map((g) => ({
+            conversationId: g.conversationId,
+            title: g.title || 'Group',
+            memberCount: g.memberIds.length,
+            members: g.memberIds
+              .map((id) => (id === user.id ? me : profileById.get(id)))
+              .filter((p): p is Profile => !!p)
+              .slice(0, 5)
+              .map((p) => ({ color: p.avatar_color, initials: p.initials, avatarUrl: p.avatar_url ?? null })),
+          }))}
+          unreadByFriend={unreadByFriend}
+          unreadByGroup={unread}
+          onSelect={setSheetFriend}
+          onSelectGroup={(g) => setThread({ kind: 'group', conversationId: g.conversationId, title: g.title, memberCount: g.memberCount })}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+
+        <UpcomingList events={events} onOpen={() => setCalOpen(true)} />
 
         <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
       </main>

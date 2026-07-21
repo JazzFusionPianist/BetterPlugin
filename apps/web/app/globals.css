@@ -399,6 +399,26 @@ button { font-family: inherit; }
 }
 .orbhome-orb img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .orbhome-orb.offline { opacity: 0.38; filter: saturate(0.25); }
+/* Group constellations — smaller member orbs joined by hairlines,
+   drifting and slowly turning as one body (faces stay upright). */
+.orbhome-const { position: absolute; top: 0; left: 0; cursor: pointer; will-change: transform; }
+.orbhome-const-spin { position: absolute; inset: 0; will-change: transform; }
+.orbhome-const-spin svg { position: absolute; inset: 0; overflow: visible; }
+.orbhome-const-spin line { stroke: rgba(26,25,23,0.4); stroke-width: 1; }
+.orbhome-const-node {
+  position: absolute; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; overflow: hidden;
+  border: 1.5px solid var(--ink);
+  will-change: transform;
+}
+.orbhome-const-node img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.orbhome-const-label {
+  position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%);
+  font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+  text-transform: lowercase; white-space: nowrap; pointer-events: none;
+}
+.orbhome-const .orbhome-badge { top: -2px; right: -2px; }
 .orbhome-orb.has-notif { animation: orbhome-pulse 2.6s ease-in-out infinite; }
 @keyframes orbhome-pulse {
   0%,100% { box-shadow: 0 0 0 0 rgba(36,64,255,0.35); }
@@ -470,6 +490,49 @@ button { font-family: inherit; }
   transition: transform .12s ease, background .12s;
 }
 .webapp-chats-btn:active { transform: scale(0.94); }
+
+/* ── Upcoming events — a programme column bound to the page edge ──────
+   Anchored at the left edge: the hairlines run off the page like a
+   bound margin, dates right-align against a shared spine (the category
+   dot), titles hang to its right. Bare print — orbs drift behind the
+   letters untouched. */
+.uplist {
+  position: absolute; z-index: 5;
+  top: calc(76px + env(safe-area-inset-top));
+  left: 0;
+  width: fit-content;
+  max-width: min(72vw, 360px);
+}
+.uplist-head {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+  text-transform: lowercase; letter-spacing: normal;
+  text-align: right; width: calc(env(safe-area-inset-left) + 78px);
+  padding: 0 0 6px; margin-bottom: 5px;
+}
+.uplist ul { list-style: none; border-top: 1px solid var(--line); padding-top: 5px; }
+.uplist-newday { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 5px; }
+.uplist-row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  background: none; border: none;
+  /* generous right overhang so the day rules breathe past the text */
+  padding: 3px 32px 3px calc(env(safe-area-inset-left) + 12px); cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.uplist-date {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+  text-transform: lowercase; font-variant-numeric: tabular-nums;
+  width: 66px; flex-shrink: 0; text-align: right;
+}
+.uplist-date.today { color: var(--blue); }
+.uplist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.uplist-title {
+  font-size: 12.5px; font-weight: 500; color: var(--t2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color .12s;
+}
+/* The next thing on the calendar carries a little more ink. */
+.uplist li:first-child .uplist-title { color: var(--ink); font-weight: 600; }
+.uplist-row:hover .uplist-title { color: var(--blue); }
 
 /* ── Schedule prompt (bottom-centre of the stage) ───────────────────── */
 .sprompt {

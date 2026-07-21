@@ -518,7 +518,7 @@ button { font-family: inherit; }
   margin-bottom: 7px;
 }
 .uplist-head span {
-  font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+  font-family: var(--f-mono); font-size: 11px; color: var(--ink);
   text-transform: lowercase; letter-spacing: normal;
   background: var(--card);
   border: 1px solid var(--ink);

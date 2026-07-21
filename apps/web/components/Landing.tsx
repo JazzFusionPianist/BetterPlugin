@@ -49,7 +49,7 @@ export default function Landing() {
         </div>
 
         <main className="stage">
-          <h1>Make music together.</h1>
+          <h1>Make music <span className="hl">together.</span></h1>
           <p className="sub">Your crew, your sessions, your sound — in your DAW and on the web.</p>
 
           {ready && (

@@ -102,15 +102,16 @@ export default function AppShell({ user }: { user: User }) {
 
   return (
     <div className="webapp">
-      {/* Desktop shows the conversations rail as a persistent column. On
-          mobile it's hidden — proper mobile conversation nav lands with
-          the chat view (orbs/rows aren't wired to open chats yet). */}
+      {/* Desktop shows the conversations rail as a persistent column
+          (numbered like the mobile sheet; rows open the thread). On
+          mobile it's hidden — the chats button opens the sheet instead. */}
       <Sidebar
         conversations={conversations}
-        profiles={profilesWithStatus}
+        groupConversations={groupConversations}
+        profileById={profileById}
         currentUserId={user.id}
-        unreadByFriend={unreadByFriend}
-        onClose={() => {}}
+        unread={unread}
+        onOpen={(t) => setThread(t)}
       />
 
       <main className="webapp-main">

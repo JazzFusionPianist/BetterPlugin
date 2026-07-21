@@ -335,13 +335,20 @@ button { font-family: inherit; }
   font-size: 11px; color: var(--t3);
   padding: 4px 20px 8px;
 }
-.rail-list { flex: 1; overflow-y: auto; padding: 0 8px; min-height: 0; }
+.rail-list { flex: 1; overflow-y: auto; padding: 0 8px; min-height: 0; counter-reset: railrow; }
 .rail-empty { color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 14px; text-align: center; padding: 32px 12px; }
 .rail-row {
   width: 100%; display: flex; align-items: center; gap: 11px;
-  padding: 9px 12px; border-radius: 4px; cursor: pointer;
+  padding: 9px 10px; border-radius: 4px; cursor: pointer;
   background: none; border: none; text-align: left;
+  counter-increment: railrow;
   transition: background .12s;
+}
+/* The same plate numbers as the mobile chats index. */
+.rail-row::before {
+  content: counter(railrow, decimal-leading-zero);
+  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
+  width: 18px; flex-shrink: 0;
 }
 .rail-row:hover { background: rgba(26,25,23,0.05); }
 .rail-av {
@@ -350,6 +357,7 @@ button { font-family: inherit; }
   color: #fff; font-weight: 600; font-size: 13px;
   border: 1px solid var(--hair);
 }
+.rail-av-group { background: var(--ink); color: var(--paper); }
 .rail-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .rail-dot {
   position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px;
@@ -879,6 +887,15 @@ button { font-family: inherit; }
   .webapp { grid-template-columns: 1fr; }
   .webapp-sidebar { display: none; }
 }
+/* Desktop: the rail already lists chats — the floating chats button is
+   redundant. The thread runs full-bleed: bubbles hang from the far
+   edges (capped so long lines stay readable) and the docked player
+   stretches wall to wall. */
+@media (min-width: 821px) {
+  .webapp-chats-btn { display: none; }
+  .chatt .chatt-bubble { max-width: min(78%, 640px); }
+  .chatt .chatt-col { max-width: min(86%, 680px); }
+}
 
 /* ── Profile sheet (tap an orb) ──────────────────────────────────────── */
 .psheet-overlay {
@@ -1119,21 +1136,22 @@ button { font-family: inherit; }
 }
 .nowbar-x:hover { color: var(--ink); }
 
-/* ── Conversations list (slide-up sheet) ─────────────────────────────── */
+/* ── Conversations list — centred like the calendar ──────────────────── */
 .convs {
   position: fixed; inset: 0; z-index: 44;
   background: rgba(26,25,23,0.35);
-  display: flex; align-items: flex-end; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
   opacity: 0; pointer-events: none; transition: opacity .2s ease;
 }
 .convs.open { opacity: 1; pointer-events: auto; }
 .convs-sheet {
-  width: 100%; max-width: 460px; height: min(86vh, 720px);
+  width: 100%; max-width: 460px; height: min(82vh, 680px);
   display: flex; flex-direction: column;
-  background: var(--card); border: 1px solid var(--hair); border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  padding: 20px 8px calc(12px + env(safe-area-inset-bottom));
-  transform: translateY(20px); transition: transform .26s cubic-bezier(.2,1,.35,1);
+  background: var(--card); border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 20px 8px 12px;
+  transform: translateY(14px); transition: transform .26s cubic-bezier(.2,1,.35,1);
 }
 .convs.open .convs-sheet { transform: none; }
 .convs-head {

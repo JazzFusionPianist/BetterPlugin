@@ -83,5 +83,44 @@ export function useEventCategories(supabase: SupabaseClient, userId: string) {
     [supabase],
   )
 
-  return { categories, ensureCategory, recolor, refetch }
+  /** Rename a category everywhere: the registry row, then this user's
+   *  events that carry the old name (author-only via RLS). Refuses empty
+   *  names and collisions with another existing category. */
+  const renameCategory = useCallback(
+    async (id: string, rawName: string): Promise<boolean> => {
+      const name = rawName.trim()
+      const cat = categories.find((c) => c.id === id)
+      if (!cat || !name || name === cat.name) return false
+      if (categories.some((c) => c.id !== id && c.name.toLowerCase() === name.toLowerCase())) return false
+      setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)))
+      const { error } = await supabase.from('event_categories').update({ name }).eq('id', id)
+      if (error) { refetch(); return false }
+      await supabase
+        .from('calendar_events')
+        .update({ category: name })
+        .eq('user_id', userId)
+        .eq('category', cat.name)
+      return true
+    },
+    [supabase, userId, categories, refetch],
+  )
+
+  /** Delete a category; its events survive but lose the tag. */
+  const deleteCategory = useCallback(
+    async (id: string) => {
+      const cat = categories.find((c) => c.id === id)
+      if (!cat) return
+      setCategories((prev) => prev.filter((c) => c.id !== id))
+      const { error } = await supabase.from('event_categories').delete().eq('id', id)
+      if (error) { refetch(); return }
+      await supabase
+        .from('calendar_events')
+        .update({ category: null, category_color: null })
+        .eq('user_id', userId)
+        .eq('category', cat.name)
+    },
+    [supabase, userId, categories, refetch],
+  )
+
+  return { categories, ensureCategory, recolor, renameCategory, deleteCategory, refetch }
 }

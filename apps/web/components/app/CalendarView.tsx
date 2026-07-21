@@ -1,7 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CalendarEvent, EventCategory } from '@orb/core'
+
+/** Fields the detail sheet / inline editors may patch. */
+export type EventPatch = Partial<Pick<CalendarEvent,
+  'title' | 'starts_at' | 'ends_at' | 'all_day' | 'location' | 'notes'>>
 
 interface Props {
   open: boolean
@@ -12,6 +16,10 @@ interface Props {
   onClose: () => void
   onDelete: (id: string) => void
   onSetCategory: (id: string, name: string) => void
+  onUpdate: (id: string, patch: EventPatch) => void
+  onAddCategory: (name: string) => void
+  onRenameCategory: (id: string, name: string) => void
+  onDeleteCategory: (id: string) => void
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -24,13 +32,19 @@ const dayKey = (d: Date) =>
 
 export default function CalendarView({
   open, events, currentUserId, categories, groupTitleById, onClose, onDelete, onSetCategory,
+  onUpdate, onAddCategory, onRenameCategory, onDeleteCategory,
 }: Props) {
   const today = new Date()
   const todayKey = dayKey(today)
   const [view, setView] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [selected, setSelected] = useState(todayKey)
   const [filter, setFilter] = useState<string | null>(null)   // category name
-  const [editing, setEditing] = useState<string | null>(null) // event id
+  const [editing, setEditing] = useState<string | null>(null) // event id (category picker)
+  const [renaming, setRenaming] = useState<string | null>(null) // event id (title edit)
+  const [manageOpen, setManageOpen] = useState(false)           // category manager drawer
+  const [catEditing, setCatEditing] = useState<string | null>(null) // category id being renamed
+  const [armedDelete, setArmedDelete] = useState<string | null>(null) // category id, two-tap delete
+  const [detailId, setDetailId] = useState<string | null>(null)     // event id (detail sheet)
 
   const shown = useMemo(
     () => (filter ? events.filter((e) => e.category === filter) : events),
@@ -99,19 +113,87 @@ export default function CalendarView({
           </div>
         </header>
 
-        {categories.length > 0 && (
-          <div className="cal-filters">
+        <div className="cal-filters">
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              className={`cal-filter${filter === c.name ? ' on' : ''}`}
+              onClick={() => setFilter((f) => (f === c.name ? null : c.name))}
+              style={filter === c.name ? { color: c.color } : undefined}
+            >
+              <span className="cal-filter-dot" style={{ background: c.color }} />
+              {c.name}
+            </button>
+          ))}
+          <button
+            className={`cal-filter cal-filters-edit${manageOpen ? ' on' : ''}`}
+            onClick={() => { setManageOpen((o) => !o); setCatEditing(null); setArmedDelete(null) }}
+            aria-label="Edit categories"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+            {categories.length === 0 ? 'categories' : null}
+          </button>
+        </div>
+
+        {manageOpen && (
+          <div className="cal-catmgr">
             {categories.map((c) => (
-              <button
-                key={c.id}
-                className={`cal-filter${filter === c.name ? ' on' : ''}`}
-                onClick={() => setFilter((f) => (f === c.name ? null : c.name))}
-                style={filter === c.name ? { color: c.color } : undefined}
-              >
+              <div key={c.id} className="cal-catmgr-row">
                 <span className="cal-filter-dot" style={{ background: c.color }} />
-                {c.name}
-              </button>
+                {catEditing === c.id ? (
+                  <input
+                    className="cal-catmgr-input"
+                    defaultValue={c.name}
+                    autoFocus
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter') {
+                        const v = (ev.target as HTMLInputElement).value.trim()
+                        if (v && v !== c.name) { onRenameCategory(c.id, v); if (filter === c.name) setFilter(v) }
+                        setCatEditing(null)
+                      }
+                      if (ev.key === 'Escape') setCatEditing(null)
+                    }}
+                    onBlur={(ev) => {
+                      const v = ev.target.value.trim()
+                      if (v && v !== c.name) { onRenameCategory(c.id, v); if (filter === c.name) setFilter(v) }
+                      setCatEditing(null)
+                    }}
+                  />
+                ) : (
+                  <button className="cal-catmgr-name" onClick={() => { setCatEditing(c.id); setArmedDelete(null) }}>
+                    {c.name}
+                  </button>
+                )}
+                <button
+                  className={`cal-catmgr-del${armedDelete === c.id ? ' armed' : ''}`}
+                  onClick={() => {
+                    if (armedDelete === c.id) {
+                      onDeleteCategory(c.id)
+                      setArmedDelete(null)
+                      if (filter === c.name) setFilter(null)
+                    } else {
+                      setArmedDelete(c.id)
+                    }
+                  }}
+                  aria-label={armedDelete === c.id ? 'Confirm delete' : `Delete ${c.name}`}
+                >
+                  {armedDelete === c.id
+                    ? 'sure?'
+                    : <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9" /></svg>}
+                </button>
+              </div>
             ))}
+            <input
+              className="cal-catmgr-new"
+              placeholder="new category…"
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter') {
+                  const el = ev.target as HTMLInputElement
+                  const v = el.value.trim()
+                  if (v) { onAddCategory(v); el.value = '' }
+                }
+              }}
+            />
           </div>
         )}
 
@@ -124,9 +206,16 @@ export default function CalendarView({
             const dots = dotColors(k)
             const isToday = k === todayKey
             const isSel = k === selected
+            // A day with an all-day event is circled in its colour — a
+            // whole day claimed is worth marking on the month page.
+            const allday = byDay.get(k)?.find((e) => e.all_day)
+            const adColor = allday ? (allday.category_color || '#2440FF') : null
             return (
               <button key={k} className={`cal-day${isSel ? ' sel' : ''}${isToday ? ' today' : ''}`} onClick={() => setSelected(k)}>
-                <span className="cal-num">{day}</span>
+                <span
+                  className="cal-num"
+                  style={!isSel && adColor ? { borderColor: adColor, borderWidth: 1.5, background: `${adColor}4D` } : undefined}
+                >{day}</span>
                 {dots.length > 0 && (
                   <span className="cal-dots">
                     {dots.map((c, j) => <span key={j} className="cal-dot" style={{ background: c }} />)}
@@ -155,8 +244,36 @@ export default function CalendarView({
                       {e.all_day ? 'all day' : new Date(e.starts_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                     </span>
                     <span className="cal-ev-bar" style={{ background: color }} />
-                    <div className="cal-ev-main">
-                      <div className="cal-ev-title">{e.title}</div>
+                    <div
+                      className="cal-ev-main"
+                      role="button"
+                      onClick={() => {
+                        if (renaming === e.id || editing === e.id) return
+                        setDetailId(e.id)
+                      }}
+                    >
+                      {renaming === e.id ? (
+                        <input
+                          className="cal-ev-title-input"
+                          defaultValue={e.title}
+                          autoFocus
+                          onKeyDown={(ev) => {
+                            if (ev.key === 'Enter') {
+                              const v = (ev.target as HTMLInputElement).value.trim()
+                              if (v && v !== e.title) onUpdate(e.id, { title: v })
+                              setRenaming(null)
+                            }
+                            if (ev.key === 'Escape') setRenaming(null)
+                          }}
+                          onBlur={(ev) => {
+                            const v = ev.target.value.trim()
+                            if (v && v !== e.title) onUpdate(e.id, { title: v })
+                            setRenaming(null)
+                          }}
+                        />
+                      ) : (
+                        <div className="cal-ev-title">{e.title}</div>
+                      )}
                       <div className="cal-ev-meta">
                         {e.category && <span className="cal-ev-cat">{e.category}</span>}
                         {group && (
@@ -166,6 +283,7 @@ export default function CalendarView({
                           </span>
                         )}
                         {e.location && <span className="cal-ev-loc">{e.location}</span>}
+                        {e.notes && <span className="cal-ev-hasnotes">notes</span>}
                       </div>
                       {editing === e.id && (
                         <div className="cal-catpick">
@@ -189,8 +307,11 @@ export default function CalendarView({
                     </div>
                     {own && (
                       <div className="cal-ev-actions">
-                        <button className="cal-ev-act" onClick={() => setEditing((id) => (id === e.id ? null : e.id))} aria-label="Categorize">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20.4 14.5L16 10 4 22M14 6l4 4M3 17l4 4" /><path d="M12.5 3.5l8 8" /></svg>
+                        <button className="cal-ev-act" onClick={() => { setRenaming((id) => (id === e.id ? null : e.id)); setEditing(null) }} aria-label="Rename event">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                        </button>
+                        <button className="cal-ev-act" onClick={() => { setEditing((id) => (id === e.id ? null : e.id)); setRenaming(null) }} aria-label="Categorize">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
                         </button>
                         <button className="cal-ev-act del" onClick={() => onDelete(e.id)} aria-label="Delete event">
                           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9" /></svg>
@@ -201,6 +322,225 @@ export default function CalendarView({
                 )
               })}
             </ul>
+          )}
+        </div>
+      </div>
+
+      {(() => {
+        const detail = detailId ? events.find((ev) => ev.id === detailId) ?? null : null
+        if (!detail) return null
+        return (
+          <EventSheet
+            key={detail.id}
+            event={detail}
+            own={detail.user_id === currentUserId}
+            groupTitle={detail.conversation_id ? groupTitleById.get(detail.conversation_id) ?? null : null}
+            onUpdate={onUpdate}
+            onClose={() => setDetailId(null)}
+          />
+        )
+      })()}
+    </div>
+  )
+}
+
+/* ── Event detail sheet — tap an agenda row to open ─────────────────────
+   Title, date/time (native pickers — the fast way to fix an am/pm the AI
+   misheard), place, and room for notes. Everything saves as you go. */
+
+const fmtSheetDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+
+function EventSheet({ event, own, groupTitle, onUpdate, onClose }: {
+  event: CalendarEvent
+  own: boolean
+  groupTitle: string | null
+  onUpdate: (id: string, patch: EventPatch) => void
+  onClose: () => void
+}) {
+  // Commit any un-blurred notes when the sheet closes, so nothing typed
+  // is lost even if the textarea never lost focus. Layout effect: its
+  // cleanup runs before React detaches the ref on unmount.
+  const notesRef = useRef<HTMLTextAreaElement>(null)
+  const latest = useRef({ event, onUpdate })
+  latest.current = { event, onUpdate }
+  useLayoutEffect(() => () => {
+    const el = notesRef.current
+    const { event: e, onUpdate: update } = latest.current
+    if (!el) return
+    const v = el.value.replace(/\s+$/, '')
+    if ((e.notes ?? '') !== v) update(e.id, { notes: v || null })
+  }, [])
+
+  // Lift the sheet above the on-screen keyboard (notes live at the bottom).
+  const [kbInset, setKbInset] = useState(0)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
+    onResize()
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize) }
+  }, [])
+
+  /** Reschedule, preserving the event's duration if it has an end. */
+  const applyStart = (next: Date) => {
+    const patch: EventPatch = { starts_at: next.toISOString() }
+    if (event.ends_at) {
+      const delta = next.getTime() - new Date(event.starts_at).getTime()
+      patch.ends_at = new Date(new Date(event.ends_at).getTime() + delta).toISOString()
+    }
+    onUpdate(event.id, patch)
+  }
+  const stepDay = (delta: number) => {
+    const next = new Date(event.starts_at)
+    next.setDate(next.getDate() + delta)
+    applyStart(next)
+  }
+  const setHour24 = (h24: number) => {
+    const next = new Date(event.starts_at)
+    next.setHours(h24)
+    applyStart(next)
+  }
+
+  const start = new Date(event.starts_at)
+  const isPm = start.getHours() >= 12
+  const h12 = ((start.getHours() + 11) % 12) + 1
+  const mm2 = String(start.getMinutes()).padStart(2, '0')
+
+  return (
+    <div className="evsheet-overlay" onClick={onClose}>
+      <div
+        className="evsheet"
+        onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: `calc(24px + env(safe-area-inset-bottom) + ${kbInset}px)` }}
+      >
+        <div className="evsheet-head">
+          <span className="evsheet-kicker">
+            {own ? 'edit event' : groupTitle ? `shared · ${groupTitle}` : 'event'}
+          </span>
+          <button className="evsheet-x" onClick={onClose} aria-label="Close">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+
+        {own ? (
+          <input
+            className="evsheet-title"
+            defaultValue={event.title}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+            onBlur={(ev) => {
+              const v = ev.target.value.trim()
+              if (v && v !== event.title) onUpdate(event.id, { title: v })
+            }}
+          />
+        ) : (
+          <div className="evsheet-title evsheet-title-ro">{event.title}</div>
+        )}
+
+        <div className="evsheet-row">
+          <span className="evsheet-label">when</span>
+          <div className="evsheet-when">
+            <div className="evsheet-daterow">
+              <span className="evsheet-date">{fmtSheetDate(event.starts_at)}</span>
+              {own && (
+                <button className="evsheet-dstep" onClick={() => stepDay(-1)} aria-label="Previous day">‹</button>
+              )}
+              {own && (
+                <button className="evsheet-dstep" onClick={() => stepDay(1)} aria-label="Next day">›</button>
+              )}
+              {own && (
+                <button
+                  className={`evsheet-allday${event.all_day ? ' on' : ''}`}
+                  onClick={() => onUpdate(event.id, { all_day: !event.all_day })}
+                >
+                  all day
+                </button>
+              )}
+            </div>
+            {!event.all_day && (own ? (
+              <div className="evsheet-timerow" key={event.starts_at}>
+                <input
+                  className="evsheet-tinput"
+                  inputMode="numeric"
+                  maxLength={2}
+                  defaultValue={h12}
+                  onFocus={(ev) => ev.target.select()}
+                  onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+                  onBlur={(ev) => {
+                    const v = parseInt(ev.target.value, 10)
+                    if (!isFinite(v) || v < 1 || v > 12) { ev.target.value = String(h12); return }
+                    if (v !== h12) setHour24((v % 12) + (isPm ? 12 : 0))
+                  }}
+                  aria-label="Hour"
+                />
+                <span className="evsheet-tcolon">:</span>
+                <input
+                  className="evsheet-tinput"
+                  inputMode="numeric"
+                  maxLength={2}
+                  defaultValue={mm2}
+                  onFocus={(ev) => ev.target.select()}
+                  onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+                  onBlur={(ev) => {
+                    const v = parseInt(ev.target.value, 10)
+                    if (!isFinite(v) || v < 0 || v > 59) { ev.target.value = mm2; return }
+                    if (String(v).padStart(2, '0') !== mm2) {
+                      const next = new Date(event.starts_at)
+                      next.setMinutes(v)
+                      applyStart(next)
+                    }
+                  }}
+                  aria-label="Minutes"
+                />
+                <div className="evsheet-ampm">
+                  <button className={isPm ? '' : 'on'} onClick={() => { if (isPm) setHour24(start.getHours() - 12) }}>am</button>
+                  <button className={isPm ? 'on' : ''} onClick={() => { if (!isPm) setHour24(start.getHours() + 12) }}>pm</button>
+                </div>
+              </div>
+            ) : (
+              <span className="evsheet-timero">
+                {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="evsheet-row">
+          <span className="evsheet-label">where</span>
+          {own ? (
+            <input
+              className="evsheet-input evsheet-grow"
+              placeholder="add a place…"
+              defaultValue={event.location ?? ''}
+              onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+              onBlur={(ev) => {
+                const v = ev.target.value.trim()
+                if ((event.location ?? '') !== v) onUpdate(event.id, { location: v || null })
+              }}
+            />
+          ) : (
+            <span className="evsheet-ro">{event.location ?? '—'}</span>
+          )}
+        </div>
+
+        <div className="evsheet-row evsheet-row-notes">
+          <span className="evsheet-label">notes</span>
+          {own ? (
+            <textarea
+              ref={notesRef}
+              className="evsheet-notes"
+              placeholder="setlist, gear, who brings what…"
+              defaultValue={event.notes ?? ''}
+              rows={5}
+              onBlur={(ev) => {
+                const v = ev.target.value.replace(/\s+$/, '')
+                if ((event.notes ?? '') !== v) onUpdate(event.id, { notes: v || null })
+              }}
+            />
+          ) : (
+            <div className="evsheet-notes evsheet-ro">{event.notes ?? '—'}</div>
           )}
         </div>
       </div>

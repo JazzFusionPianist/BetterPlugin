@@ -31,8 +31,8 @@ export default function AppShell({ user }: { user: User }) {
   const online = usePresence(supabase, user.id)
   const { conversations, groupConversations } = useConversations(supabase, user.id)
   const { unread, markSeen } = useConversationNotifications(supabase, user.id)
-  const { events, addEvents, deleteEvent, updateEvent } = useCalendarEvents(supabase, user.id)
-  const { categories, ensureCategory } = useEventCategories(supabase, user.id)
+  const { events, addEvents, deleteEvent, updateEvent, refetch: refetchEvents } = useCalendarEvents(supabase, user.id)
+  const { categories, ensureCategory, renameCategory, deleteCategory } = useEventCategories(supabase, user.id)
 
   const [calOpen, setCalOpen] = useState(false)
   const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
@@ -216,6 +216,16 @@ export default function AppShell({ user }: { user: User }) {
         onSetCategory={async (id, name) => {
           const color = await ensureCategory(name)
           updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
+        }}
+        onUpdate={(id, patch) => { updateEvent(id, patch).catch(() => {}) }}
+        onAddCategory={(name) => { ensureCategory(name).catch(() => {}) }}
+        onRenameCategory={async (id, name) => {
+          await renameCategory(id, name).catch(() => {})
+          refetchEvents()
+        }}
+        onDeleteCategory={async (id) => {
+          await deleteCategory(id).catch(() => {})
+          refetchEvents()
         }}
       />
     </div>

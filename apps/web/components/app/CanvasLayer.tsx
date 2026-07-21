@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import type { CanvasItem, CanvasPatch } from '@orb/core'
+import { strokePath, strokesBBox } from '@/lib/strokes'
 
 interface Props {
   items: CanvasItem[]
@@ -12,13 +13,6 @@ interface Props {
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-
-/** [x0,y0,x1,y1,…] → "x0,y0 x1,y1 …" for an svg polyline. */
-const pointPairs = (p: number[]) => {
-  let out = ''
-  for (let i = 0; i + 1 < p.length; i += 2) out += `${p[i]},${p[i + 1]} `
-  return out.trim()
-}
 
 /**
  * The wall: photos pinned to the home page like polaroids, drifting orbs
@@ -53,44 +47,61 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
     el.style.top = `${y * 100}%`
     el.dataset.x = String(x); el.dataset.y = String(y)
   }
-  const onPointerUp = (e: React.PointerEvent, item: CanvasItem) => {
+  /** Shared drag finish — `commit` maps the dropped centre (canvas
+   *  fractions) to whatever the item kind stores in x/y. */
+  const onPointerUp = (e: React.PointerEvent, item: CanvasItem, commit?: (fx: number, fy: number) => CanvasPatch) => {
     const d = drag.current
     drag.current = null
     if (!d || d.id !== item.id || !d.moved) return
     justDragged.current = true
     const el = e.currentTarget as HTMLElement
-    const x = parseFloat(el.dataset.x ?? String(item.x))
-    const y = parseFloat(el.dataset.y ?? String(item.y))
-    onUpdate(item.id, { x, y })
+    const fx = parseFloat(el.dataset.x ?? String(item.x))
+    const fy = parseFloat(el.dataset.y ?? String(item.y))
+    onUpdate(item.id, commit ? commit(fx, fy) : { x: fx, y: fy })
   }
 
-  const drawings = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
+  const doodles = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
   const pinned = items.filter((i) => i.kind !== 'drawing')
 
   return (
     <div className="canvas-layer" ref={layerRef}>
-      {/* Pencil marks live on the paper itself, beneath the polaroids.
-          Coordinates are 0..1 canvas fractions; non-scaling strokes keep
-          the pencil width honest at any screen size. */}
-      {drawings.length > 0 && (
-        <svg className="canvas-drawing" viewBox="0 0 1 1" preserveAspectRatio="none">
-          {drawings.flatMap((d) =>
-            (d.strokes ?? []).map((s, i) => (
-              <polyline
-                key={`${d.id}-${i}`}
-                points={pointPairs(s.p)}
-                fill="none"
-                stroke={s.c}
-                strokeWidth={s.w}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                opacity={0.9}
-              />
-            )),
-          )}
-        </svg>
-      )}
+      {/* Doodles — each drawing is its own movable object. Strokes are
+          absolute canvas fractions; item.x/y hold a drag offset from the
+          drawn spot (0.5,0.5 = untouched), so old drawings stay put. */}
+      {doodles.map((item) => {
+        const bb = strokesBBox(item.strokes!)
+        const bcx = bb.x + bb.w / 2, bcy = bb.y + bb.h / 2
+        const cx = bcx + (item.x - 0.5), cy = bcy + (item.y - 0.5)
+        return (
+          <div
+            key={item.id}
+            className={`doodle${isMine ? ' movable' : ''}`}
+            style={{ left: `${cx * 100}%`, top: `${cy * 100}%`, width: `${bb.w * 100}%`, height: `${bb.h * 100}%`, zIndex: item.z }}
+            onPointerDown={(e) => onPointerDown(e, item)}
+            onPointerMove={(e) => onPointerMove(e, item)}
+            onPointerUp={(e) => onPointerUp(e, item, (fx, fy) => ({ x: 0.5 + fx - bcx, y: 0.5 + fy - bcy }))}
+            onClick={() => {
+              if (justDragged.current) { justDragged.current = false; return }
+              setOpenId(item.id)
+            }}
+            role="button"
+            aria-label={item.title || 'Drawing'}
+          >
+            <svg viewBox={`${bb.x} ${bb.y} ${bb.w} ${bb.h}`} preserveAspectRatio="none" width="100%" height="100%">
+              {(item.strokes ?? []).map((s, i) => (
+                <path key={i} d={strokePath(s.p)} fill="none" stroke={s.c} strokeWidth={s.w}
+                  strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                  opacity={0.9} pointerEvents="none" />
+              ))}
+            </svg>
+            {item.visibility === 'private' && (
+              <span className="polad-lock doodle-lock" aria-label="Private">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="11" width="15" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+              </span>
+            )}
+          </div>
+        )
+      })}
       {pinned.map((item) => (
         <div
           key={item.id}
@@ -146,6 +157,9 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
       <div className="polad-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="polad-sheet-photo">
           {item.media_url && <img src={item.media_url} alt={item.title || ''} />}
+          {item.kind === 'drawing' && item.strokes?.length ? (
+            <DoodlePreview strokes={item.strokes} />
+          ) : null}
         </div>
 
         {isMine ? (
@@ -196,5 +210,18 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
         </div>
       </div>
     </div>
+  )
+}
+
+/** The doodle rendered in its detail card — fit to its own box. */
+function DoodlePreview({ strokes }: { strokes: NonNullable<CanvasItem['strokes']> }) {
+  const bb = strokesBBox(strokes)
+  return (
+    <svg viewBox={`${bb.x} ${bb.y} ${bb.w} ${bb.h}`} className="polad-sheet-doodle">
+      {strokes.map((s, i) => (
+        <path key={i} d={strokePath(s.p)} fill="none" stroke={s.c} strokeWidth={s.w}
+          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={0.9} />
+      ))}
+    </svg>
   )
 }

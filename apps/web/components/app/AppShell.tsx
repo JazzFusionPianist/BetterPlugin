@@ -46,16 +46,12 @@ export default function AppShell({ user }: { user: User }) {
   const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
   const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
 
-  // The wall keeps ONE drawing layer — pencil marks on the page itself.
-  const myDrawing = canvasItems.find((i) => i.kind === 'drawing') ?? null
+  // Every drawing session lands as its own movable doodle object
+  // (x/y 0.5 = "exactly where it was drawn"; dragging shifts it).
   const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[]) => {
+    if (strokes.length === 0) return
     try {
-      if (myDrawing) {
-        if (strokes.length === 0) await deleteCanvasItem(myDrawing.id)
-        else await updateCanvasItem(myDrawing.id, { strokes })
-      } else if (strokes.length > 0) {
-        await addCanvasItem({ kind: 'drawing', strokes, x: 0.5, y: 0.5, z: 0 })
-      }
+      await addCanvasItem({ kind: 'drawing', strokes, x: 0.5, y: 0.5 })
     } catch (err) {
       console.error('[canvas] drawing save failed', err)
     }
@@ -216,7 +212,6 @@ export default function AppShell({ user }: { user: User }) {
 
         {drawOpen && (
           <DrawingBoard
-            initial={myDrawing?.strokes ?? []}
             onSave={saveDrawing}
             onClose={() => setDrawOpen(false)}
           />

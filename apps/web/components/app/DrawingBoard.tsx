@@ -2,10 +2,10 @@
 
 import { useRef, useState } from 'react'
 import type { Stroke } from '@orb/core'
+import { strokePath } from '@/lib/strokes'
 
 interface Props {
-  /** The wall's existing pencil marks — editing continues on top. */
-  initial: Stroke[]
+  /** Called with the finished doodle's strokes (non-empty). */
   onSave: (strokes: Stroke[]) => void
   onClose: () => void
 }
@@ -14,52 +14,61 @@ interface Props {
 const PENCILS = ['#1A1917', '#2440FF', '#E5432D', '#1E9E63', '#E9A400', '#C64BB2']
 
 /**
- * Full-screen colored-pencil mode for the home canvas. Strokes are
- * captured as 0..1 canvas fractions and saved as vector data — a few KB,
- * re-editable, no file upload. Undo pops the last stroke; clear wipes
- * the page.
+ * Colored-pencil mode, drawn over a translucent wash of your actual wall
+ * so the doodle lands in context. Each session produces ONE new movable
+ * doodle object. Capture is Notes-style smoothed: points are thinned by
+ * distance, eased toward the pen (exponential smoothing), and rendered
+ * as quadratic curves through midpoints.
  */
-export default function DrawingBoard({ initial, onSave, onClose }: Props) {
+export default function DrawingBoard({ onSave, onClose }: Props) {
   const surfaceRef = useRef<SVGSVGElement>(null)
-  const [strokes, setStrokes] = useState<Stroke[]>(initial)
+  const [strokes, setStrokes] = useState<Stroke[]>([])
   const [live, setLive] = useState<Stroke | null>(null)
   // Mirror of `live` — state updaters must stay pure (StrictMode runs
-  // them twice), so the commit on pointer-up reads from here instead.
+  // them twice), so drawing mutates here and commits from here.
   const liveRef = useRef<Stroke | null>(null)
+  const lastPx = useRef<[number, number] | null>(null)
   const [color, setColor] = useState(PENCILS[0]!)
   const drawing = useRef(false)
 
-  const toFrac = (e: React.PointerEvent): [number, number] | null => {
-    const rect = surfaceRef.current?.getBoundingClientRect()
-    if (!rect) return null
+  const toFrac = (x: number, y: number): [number, number] => {
+    const rect = surfaceRef.current!.getBoundingClientRect()
     return [
-      Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
-      Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
+      Math.min(1, Math.max(0, (x - rect.left) / rect.width)),
+      Math.min(1, Math.max(0, (y - rect.top) / rect.height)),
     ]
   }
 
   const onDown = (e: React.PointerEvent) => {
-    const pt = toFrac(e)
-    if (!pt) return
+    if (!e.isPrimary || !surfaceRef.current) return
     drawing.current = true
     try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* ignore */ }
-    const s = { c: color, w: 3, p: [...pt] }
+    lastPx.current = [e.clientX, e.clientY]
+    const s = { c: color, w: 3, p: [...toFrac(e.clientX, e.clientY)] }
     liveRef.current = s
     setLive(s)
   }
+
   const onMove = (e: React.PointerEvent) => {
-    if (!drawing.current || !liveRef.current) return
-    const pt = toFrac(e)
-    if (!pt) return
-    const s = { ...liveRef.current, p: [...liveRef.current.p, ...pt] }
+    if (!e.isPrimary || !drawing.current || !liveRef.current || !lastPx.current) return
+    // Thin: ignore movements under ~2.5px — kills sensor jitter.
+    const [lx, ly] = lastPx.current
+    if (Math.hypot(e.clientX - lx, e.clientY - ly) < 2.5) return
+    // Ease toward the pen — the ink trails slightly, like Notes.
+    const sx = lx + (e.clientX - lx) * 0.55
+    const sy = ly + (e.clientY - ly) * 0.55
+    lastPx.current = [sx, sy]
+    const s = { ...liveRef.current, p: [...liveRef.current.p, ...toFrac(sx, sy)] }
     liveRef.current = s
     setLive(s)
   }
+
   const onUp = () => {
     if (!drawing.current) return
     drawing.current = false
     const s = liveRef.current
     liveRef.current = null
+    lastPx.current = null
     setLive(null)
     if (s && s.p.length >= 4) setStrokes((prev) => [...prev, s])
   }
@@ -79,9 +88,9 @@ export default function DrawingBoard({ initial, onSave, onClose }: Props) {
         onPointerCancel={onUp}
       >
         {all.map((s, i) => (
-          <polyline
+          <path
             key={i}
-            points={pointsOf(s.p)}
+            d={strokePath(s.p)}
             fill="none"
             stroke={s.c}
             strokeWidth={s.w}
@@ -89,6 +98,9 @@ export default function DrawingBoard({ initial, onSave, onClose }: Props) {
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
             opacity={0.9}
+            /* Painted strokes must never become touch targets — on iOS
+               they'd hijack touches near existing ink into scroll. */
+            pointerEvents="none"
           />
         ))}
       </svg>
@@ -113,24 +125,18 @@ export default function DrawingBoard({ initial, onSave, onClose }: Props) {
           >
             undo
           </button>
-          <button
-            className="drawboard-act"
-            disabled={strokes.length === 0}
-            onClick={() => setStrokes([])}
-          >
-            clear
+          <button className="drawboard-act" onClick={onClose}>
+            cancel
           </button>
-          <button className="drawboard-done" onClick={() => { onSave(strokes); onClose() }}>
+          <button
+            className="drawboard-done"
+            disabled={strokes.length === 0}
+            onClick={() => { onSave(strokes); onClose() }}
+          >
             done
           </button>
         </div>
       </div>
     </div>
   )
-}
-
-const pointsOf = (p: number[]) => {
-  let out = ''
-  for (let i = 0; i + 1 < p.length; i += 2) out += `${p[i]},${p[i + 1]} `
-  return out.trim()
 }

@@ -1,6 +1,8 @@
 export interface Profile {
   id: string
   display_name: string
+  /** Unique lowercase handle (@username). Empty string if not loaded. */
+  username: string
   avatar_color: string
   avatar_url?: string | null
   initials: string

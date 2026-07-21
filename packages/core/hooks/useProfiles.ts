@@ -16,6 +16,7 @@ function colorForId(id: string): string {
 interface RawProfile {
   id: string
   display_name: string
+  username?: string | null
   avatar_color: string
   avatar_url?: string | null
   is_verified?: boolean | null
@@ -31,7 +32,7 @@ async function fetchAllProfiles(supabase: SupabaseClient): Promise<RawProfile[]>
   while (true) {
     let { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_color, avatar_url, is_verified, is_admin')
+      .select('id, display_name, username, avatar_color, avatar_url, is_verified, is_admin')
       .range(from, from + PAGE_SIZE - 1)
 
     // Fall back to basic columns if newer columns don't exist yet
@@ -66,6 +67,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
     const all = data.map(p => ({
       id: p.id,
       display_name: p.display_name || 'Unknown',
+      username: p.username ?? '',
       avatar_color: p.avatar_color || colorForId(p.id),
       avatar_url: p.avatar_url ?? null,
       initials: getInitials(p.display_name || 'Unknown'),

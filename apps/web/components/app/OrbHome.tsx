@@ -246,6 +246,7 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
           {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
         </div>
         <div className="orbhome-name">{me?.display_name ?? '…'}</div>
+        {me?.username && <div className="orbhome-user">@{me.username}</div>}
         <div className="orbhome-count">
           {friends.length} friends{groups.length > 0 ? ` · ${groups.length} ${groups.length === 1 ? 'group' : 'groups'}` : ''}
         </div>

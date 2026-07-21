@@ -1,17 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import {
   useProfiles, useFollows, usePresence, useConversations,
   useConversationNotifications, useCalendarEvents, useEventCategories,
+  useCanvasItems,
   type Profile, type CalendarEvent,
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
+import { uploadAttachment, compressImage } from '@/lib/upload'
 import Sidebar from './Sidebar'
 import UpcomingList from './UpcomingList'
 import OrbHome from './OrbHome'
+import CanvasLayer from './CanvasLayer'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
@@ -34,6 +37,31 @@ export default function AppShell({ user }: { user: User }) {
   const { unread, markSeen } = useConversationNotifications(supabase, user.id)
   const { events, addEvents, deleteEvent, updateEvent, refetch: refetchEvents } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory, renameCategory, deleteCategory } = useEventCategories(supabase, user.id)
+  const { items: canvasItems, addItem: addCanvasItem, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
+
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [pinning, setPinning] = useState(false)
+
+  // Pin a photo to the home wall: compress → R2 → canvas_items, dropped at
+  // a tilted spot in the upper canvas (clear of the centre avatar).
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPinning(true)
+    try {
+      const compressed = await compressImage(file)
+      const { url } = await uploadAttachment(compressed, user.id)
+      const x = 0.14 + Math.random() * 0.72
+      const y = 0.15 + Math.random() * 0.26
+      const rotation = (Math.random() - 0.5) * 11
+      await addCanvasItem({ kind: 'photo', media_url: url, x, y, rotation, taken_at: new Date(file.lastModified).toISOString() })
+    } catch (err) {
+      console.error('[canvas] pin failed', err)
+    } finally {
+      setPinning(false)
+    }
+  }
 
   const [calOpen, setCalOpen] = useState(false)
   const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
@@ -138,6 +166,28 @@ export default function AppShell({ user }: { user: User }) {
           </svg>
           {events.length > 0 && <span className="webapp-cal-count">{events.length}</span>}
         </button>
+
+        <button
+          className={`webapp-add-btn${pinning ? ' busy' : ''}`}
+          onClick={() => !pinning && photoInputRef.current?.click()}
+          aria-label="Pin a photo"
+        >
+          {pinning ? (
+            <span className="webapp-add-spin" />
+          ) : (
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          )}
+        </button>
+        <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+
+        <CanvasLayer
+          items={canvasItems}
+          isMine
+          onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
+          onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
+        />
 
         <OrbHome
           me={me}

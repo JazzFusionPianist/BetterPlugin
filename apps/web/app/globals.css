@@ -495,6 +495,105 @@ button { font-family: inherit; }
 }
 .webapp-chats-btn:active { transform: scale(0.94); }
 
+/* Pin-a-photo button, tucked under the calendar. */
+.webapp-add-btn {
+  position: absolute; z-index: 6;
+  top: calc(68px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right));
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--hair); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: transform .12s ease, background .12s;
+}
+.webapp-add-btn:active { transform: scale(0.94); }
+.webapp-add-btn.busy { cursor: default; }
+.webapp-add-spin {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 1.5px solid rgba(26,25,23,0.2); border-top-color: var(--ink);
+  animation: spin .8s linear infinite;
+}
+
+/* ── Home canvas — photos pinned like polaroids ─────────────────────── */
+.canvas-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.polad {
+  position: absolute; width: 132px;
+  background: var(--card); border: 1px solid var(--hair);
+  padding: 7px 7px 0; border-radius: 2px;
+  box-shadow: 0 9px 24px -13px rgba(26,25,23,0.45);
+  pointer-events: auto; cursor: pointer;
+  touch-action: none;
+}
+.polad.movable { cursor: grab; }
+.polad.movable:active { cursor: grabbing; }
+/* a strip of tape holding it to the wall */
+.polad::before {
+  content: ''; position: absolute; top: -8px; left: 50%;
+  width: 46px; height: 15px; transform: translateX(-50%) rotate(-2.5deg);
+  background: rgba(242,232,92,0.5);
+  border: 1px solid rgba(26,25,23,0.1);
+}
+.polad-photo {
+  position: relative; width: 100%; aspect-ratio: 1;
+  overflow: hidden; background: var(--paper);
+}
+.polad-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.polad-lock {
+  position: absolute; top: 5px; right: 5px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(26,25,23,0.6); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.polad-cap {
+  font-family: var(--f-mono); font-size: 11px; color: var(--ink);
+  text-align: center; padding: 7px 4px 9px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.polad-cap-empty { color: var(--t3); text-transform: lowercase; }
+
+.polad-sheet-overlay {
+  position: fixed; inset: 0; z-index: 46; pointer-events: auto;
+  background: rgba(26,25,23,0.4);
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top)) 18px calc(16px + env(safe-area-inset-bottom));
+  animation: evsheet-fade .18s ease both;
+}
+.polad-sheet {
+  width: 100%; max-width: 380px;
+  background: var(--card); border: 1px solid var(--hair); border-radius: 10px;
+  padding: 12px;
+  animation: evsheet-up .24s cubic-bezier(.2,1,.35,1) both;
+}
+.polad-sheet-photo { width: 100%; border-radius: 4px; overflow: hidden; background: var(--paper); }
+.polad-sheet-photo img { width: 100%; display: block; max-height: 58vh; object-fit: contain; }
+.polad-sheet-title {
+  width: 100%; background: none; border: none; outline: none;
+  font-family: var(--f-serif); font-size: 22px; color: var(--ink);
+  margin-top: 10px; padding: 0;
+}
+.polad-sheet-caption {
+  width: 100%; background: none; border: none; outline: none; resize: none;
+  font-family: inherit; font-size: 14px; line-height: 1.5; color: var(--t2);
+  margin-top: 4px; min-height: 42px;
+}
+.polad-sheet-title::placeholder, .polad-sheet-caption::placeholder { color: var(--t3); }
+.polad-sheet-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line);
+}
+.polad-sheet-date { font-family: var(--f-mono); font-size: 11px; color: var(--t3); text-transform: lowercase; }
+.polad-sheet-actions { display: flex; align-items: center; gap: 6px; }
+.polad-vis {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+  border: 1px solid var(--line); background: none; border-radius: 3px;
+  padding: 4px 11px; cursor: pointer; text-transform: lowercase;
+  transition: color .12s, border-color .12s;
+}
+.polad-vis.private { border-color: var(--ink); color: var(--ink); }
+.polad-del {
+  border: none; background: none; color: var(--t3); cursor: pointer;
+  padding: 5px; display: flex; border-radius: 4px; transition: color .12s;
+}
+.polad-del:hover { color: var(--red); }
+
 /* ── Upcoming events — a programme column bound to the page edge ──────
    Anchored at the left edge: the hairlines run off the page like a
    bound margin, dates right-align against a shared spine (the category

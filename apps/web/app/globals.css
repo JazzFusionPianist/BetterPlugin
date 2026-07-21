@@ -36,7 +36,13 @@
   --f-body: var(--f-sans);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { color-scheme: light; }
+html {
+  color-scheme: light;
+  /* iOS flashes a grey wash over any tapped element — on full-screen
+     surfaces (the drawing board) that reads as the whole page dimming
+     on every touch. We provide our own active states. */
+  -webkit-tap-highlight-color: transparent;
+}
 /* Lock the document to the webview height — no scroll, no iOS rubber-band
    bounce. The app is single-screen; scrolling lives in inner panels. */
 html, body {

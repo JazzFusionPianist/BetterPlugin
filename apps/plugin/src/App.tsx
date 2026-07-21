@@ -3,23 +3,11 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
-import MonitorPanel from './components/collab/MonitorPanel'
-import './pages/collab.css'
 import type { User } from '@supabase/supabase-js'
 
 export default function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPage />
-  }
-
-  // Dev-only harness: ?monitordemo renders the monitor panel alone (demo
-  // signal, no auth) so meter work can be inspected in a plain browser.
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('monitordemo')) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
-        <div className="plugin"><MonitorPanel isOpen /></div>
-      </div>
-    )
   }
 
   const [user, setUser] = useState<User | null>(null)

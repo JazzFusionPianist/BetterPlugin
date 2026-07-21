@@ -54,8 +54,8 @@ public:
     void changeProgramName (int, const juce::String&) override  {}
 
     //── State ─────────────────────────────────────────────────────────────────
-    void getStateInformation (juce::MemoryBlock&) override;
-    void setStateInformation (const void*, int) override;
+    void getStateInformation (juce::MemoryBlock&) override  {}
+    void setStateInformation (const void*, int) override    {}
 
     //── Persistent WebView (used by editor when it's alive) ──────────────────
     juce::WebBrowserComponent* getBrowser() noexcept { return browser.get(); }
@@ -98,23 +98,6 @@ private:
     std::atomic<int>    playheadTsNum    { 4 };
     std::atomic<int>    playheadTsDen    { 4 };
     std::atomic<bool>   transportPlaying { false };
-
-    //── Monitor section (fader / pan / invert / mute) ────────────────────────
-    // Written from the message thread via the setMonitor native function,
-    // read on the audio thread in processBlock. Gain in dB (-60 == -inf),
-    // pan is a stereo balance in [-1, 1]. Applied BEFORE the capture FIFO so
-    // both the DAW downstream and the web-side meters hear the same signal.
-    std::atomic<float> monGainDb { 0.0f };
-    std::atomic<float> monPan    { 0.0f };
-    std::atomic<bool>  monInvL   { false };
-    std::atomic<bool>  monInvR   { false };
-    std::atomic<bool>  monMute   { false };
-    float smoothGainL = 1.0f, smoothGainR = 1.0f;  // audio thread only
-
-    void handleSetMonitor (const juce::var& args,
-                           juce::WebBrowserComponent::NativeFunctionCompletion completion);
-    void handleGetMonitor (const juce::var& args,
-                           juce::WebBrowserComponent::NativeFunctionCompletion completion);
 
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;

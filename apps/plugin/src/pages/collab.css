@@ -8213,22 +8213,23 @@
 .sprompt-error { background: rgba(229,72,77,0.1); border: 1px solid rgba(229,72,77,0.25); color: #D6402E; font-size: 11.5px; line-height: 1.4; border-radius: 10px; padding: 8px 11px; }
 .sprompt-targets { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
 .sprompt-targets::-webkit-scrollbar { display: none; }
-.sprompt-target { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 11px; font-weight: 500; color: var(--t2); background: var(--bg3); border: 1px solid transparent; border-radius: 999px; padding: 3px 9px; cursor: pointer; transition: color .12s, border-color .12s; }
-.sprompt-target svg { opacity: 0.7; }
-.sprompt-target.on { color: var(--t1); font-weight: 600; border-color: var(--border2); }
+.sprompt-target { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 11px; font-weight: 400; color: var(--t2); background: var(--paper); border: 1px solid var(--border); border-radius: 3px; padding: 4px 9px; cursor: pointer; text-transform: lowercase; transition: color .12s, border-color .12s, background .12s; }
+.sprompt-target svg { opacity: 0.6; }
+.sprompt-target.on { color: var(--paper); background: var(--ink); border-color: var(--ink); }
 .sprompt-target.on svg { opacity: 1; }
-.sprompt-bar { display: flex; align-items: center; gap: 7px; background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 6px 6px 6px 12px; transition: border-color .14s; }
-.sprompt-bar:focus-within { border-color: var(--border2); }
+.sprompt-bar { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 6px 6px 12px; transition: border-color .14s; }
+.sprompt-bar:focus-within { border-color: var(--ink); }
 .sprompt-bar textarea { flex: 1; resize: none; border: none; outline: none; background: none; color: var(--t1); font-family: inherit; font-size: 13px; line-height: 1.35; max-height: 80px; padding: 4px 0; }
 .sprompt-bar textarea::placeholder { color: var(--t3); }
-.sprompt-send { flex-shrink: 0; width: 30px; height: 30px; border-radius: 10px; border: none; cursor: pointer; background: var(--t1); color: var(--bg); display: flex; align-items: center; justify-content: center; transition: opacity .14s; }
+.sprompt-send { flex-shrink: 0; width: 30px; height: 30px; border-radius: 3px; border: none; cursor: pointer; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; transition: opacity .14s, background .14s; }
 .sprompt-send:disabled { opacity: 0.4; cursor: default; }
 .sprompt-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(127,127,127,0.35); border-top-color: var(--bg); animation: cal-spin .7s linear infinite; }
 @keyframes cal-spin { to { transform: rotate(360deg); } }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
-   Catalogue voice — serif for names/titles, quiet lowercase
-   labels, hairline chrome. Applied on top of the machinery.
+   Catalogue voice — the same rule as the app: every name and
+   title speaks Instrument Serif at 400, empty states are serif
+   italic, labels are quiet lowercase sans. Machinery stays sans.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .plugin .app-title {
   font-family: var(--f-serif);
@@ -8238,10 +8239,28 @@
   letter-spacing: 0;
 }
 
+/* Names — people, groups, senders, opponents. */
 .plugin .conv-name,
 .plugin .chdr-name,
 .plugin .live-chat-name,
-.plugin .mg-sender-name {
+.plugin .mg-sender-name,
+.plugin .f-name,
+.plugin .f-name.bold,
+.plugin .orbit-name-under,
+.plugin .tt2-name-text,
+.plugin .orbit-tt-name,
+.plugin .orbit-group-tt-title,
+.plugin .orbit-msg-preview-name,
+.plugin .orbit-stat-row-name,
+.plugin .orbit-constellation-label,
+.plugin .chat-settings-member-name,
+.plugin .live-others-name,
+.plugin .ng-row-name,
+.plugin .ng-chip-name,
+.plugin .game-player-name,
+.plugin .poker-opponent-name,
+.plugin .poker-showdown-name,
+.plugin .falling-blocks-opponent-name {
   font-family: var(--f-serif);
   font-weight: 400;
   letter-spacing: 0;
@@ -8249,6 +8268,23 @@
 
 .plugin .conv-name { font-size: 15px; }
 .plugin .chdr-name { font-size: 16px; }
+.plugin .f-name { font-size: 13.5px; }
+.plugin .chat-settings-member-name { font-size: 14px; }
+
+/* Titles — panels, sheets, tracks, link cards. */
+.plugin .settings-header-title,
+.plugin .live-ended-title,
+.plugin .msg-att-audio-name,
+.plugin .msg-link-preview-title {
+  font-family: var(--f-serif);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.plugin .settings-header-title {
+  font-size: 16px;
+  text-transform: lowercase;
+}
 
 .plugin .cal-month {
   font-family: var(--f-serif);
@@ -8257,6 +8293,25 @@
   text-transform: lowercase;
 }
 
+/* Empty states — a quiet italic aside, like the app. */
+.plugin .af-empty,
+.plugin .cal-agenda-empty,
+.plugin .chat-settings-empty,
+.plugin .chess-invite-empty,
+.plugin .falling-blocks-invite-empty,
+.plugin .game-chat-empty,
+.plugin .game-invite-empty,
+.plugin .live-chat-empty,
+.plugin .party-list-empty,
+.plugin .poker-card-empty,
+.plugin .poker-invite-empty {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--t3);
+}
+
+/* Wall labels — lowercase, natural spacing. */
 .plugin .s-section-label,
 .plugin .af-section-label {
   font-family: var(--f-sans);

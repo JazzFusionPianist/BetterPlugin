@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasItem, CanvasPatch } from '@orb/core'
-import { strokePath, strokesBBox } from '@/lib/strokes'
+import { strokePath, strokePathScaled, strokesBBox } from '@/lib/strokes'
 
 interface Props {
   items: CanvasItem[]
@@ -22,6 +22,23 @@ const fmtDate = (iso: string) =>
 export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props) {
   const layerRef = useRef<HTMLDivElement>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // Layer pixel size — doodle strokes render in raw pixels (Safari's
+  // vector-effect:non-scaling-stroke is unreliable under non-uniform
+  // viewBox scaling, so we never rely on it here).
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = layerRef.current
+    if (!el) return
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0) setDims({ w: r.width, h: r.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   // Drag bookkeeping. `justDragged` suppresses the click that follows a
   // drag so a reposition doesn't also open the sheet.
   const drag = useRef<{ id: string; sx: number; sy: number; moved: boolean } | null>(null)
@@ -87,10 +104,12 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
             role="button"
             aria-label={item.title || 'Drawing'}
           >
-            <svg viewBox={`${bb.x} ${bb.y} ${bb.w} ${bb.h}`} preserveAspectRatio="none" width="100%" height="100%">
-              {(item.strokes ?? []).map((s, i) => (
-                <path key={i} d={strokePath(s.p)} fill="none" stroke={s.c} strokeWidth={s.w}
-                  strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+            {/* No viewBox — svg units are pixels of the doodle box. */}
+            <svg width="100%" height="100%">
+              {dims && (item.strokes ?? []).map((s, i) => (
+                <path key={i} d={strokePathScaled(s.p, dims.w, dims.h, bb.x, bb.y)}
+                  fill="none" stroke={s.c} strokeWidth={s.w}
+                  strokeLinecap="round" strokeLinejoin="round"
                   opacity={0.9} pointerEvents="none" />
               ))}
             </svg>

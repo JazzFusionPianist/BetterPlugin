@@ -26,6 +26,21 @@ export function strokePath(p: number[]): string {
   return d
 }
 
+/**
+ * strokePath, but mapped from fraction space into pixel space:
+ * X = (x - ox) * sx, Y = (y - oy) * sy. Zero-length paths (dots) get a
+ * hair of length so every renderer paints the round cap.
+ */
+export function strokePathScaled(p: number[], sx: number, sy: number, ox = 0, oy = 0): string {
+  const q: number[] = new Array(p.length)
+  for (let i = 0; i + 1 < p.length; i += 2) {
+    q[i] = (p[i]! - ox) * sx
+    q[i + 1] = (p[i + 1]! - oy) * sy
+  }
+  if (q.length === 2) return `M ${q[0]} ${q[1]} l 0.01 0`
+  return strokePath(q)
+}
+
 export interface BBox { x: number; y: number; w: number; h: number }
 
 /** Bounding box over every stroke, padded a little so line caps fit. */

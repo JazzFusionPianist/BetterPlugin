@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Stroke } from '@orb/core'
-import { strokePath } from '@/lib/strokes'
+import { strokePathScaled } from '@/lib/strokes'
 
 interface Props {
   /** Called with the finished doodle's strokes (non-empty). */
@@ -34,6 +34,26 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
   const [color, setColor] = useState(PENCILS[0]!)
   const drawing = useRef(false)
 
+  // Pixel size of the surface. Strokes are STORED as 0..1 fractions but
+  // RENDERED in raw pixels — Safari's vector-effect:non-scaling-stroke
+  // breaks on degenerate paths under non-uniform viewBox scaling (a
+  // tapped dot painted as a screen-sized blob), so we don't use it.
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
+  const dimsRef = useRef(dims)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const r = surfaceRef.current?.getBoundingClientRect()
+      if (r && r.width > 0) {
+        const d = { w: r.width, h: r.height }
+        dimsRef.current = d
+        setDims(d)
+      }
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
   const toFrac = (x: number, y: number): [number, number] => {
     const r = rectRef.current!
     return [
@@ -45,7 +65,8 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
   const paintLive = () => {
     const el = livePathRef.current
     const s = liveRef.current
-    if (el && s) el.setAttribute('d', strokePath(s.p))
+    const d = dimsRef.current
+    if (el && s && d) el.setAttribute('d', strokePathScaled(s.p, d.w, d.h))
   }
 
   const onDown = (e: React.PointerEvent) => {
@@ -96,26 +117,24 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
 
   return (
     <div className="drawboard">
+      {/* No viewBox: svg user units ARE css pixels, stroke widths honest. */}
       <svg
         ref={surfaceRef}
         className="drawboard-surface"
-        viewBox="0 0 1 1"
-        preserveAspectRatio="none"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        {strokes.map((s, i) => (
+        {dims && strokes.map((s, i) => (
           <path
             key={i}
-            d={strokePath(s.p)}
+            d={strokePathScaled(s.p, dims.w, dims.h)}
             fill="none"
             stroke={s.c}
             strokeWidth={s.w}
             strokeLinecap="round"
             strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
             opacity={0.9}
             /* Painted strokes must never become touch targets — on iOS
                they'd hijack touches near existing ink into scroll. */
@@ -129,7 +148,6 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
           strokeWidth={3}
           strokeLinecap="round"
           strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
           opacity={0.9}
           pointerEvents="none"
         />

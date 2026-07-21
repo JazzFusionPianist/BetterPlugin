@@ -501,7 +501,7 @@ button { font-family: inherit; }
   top: calc(76px + env(safe-area-inset-top));
   left: 0;
   width: fit-content;
-  max-width: min(72vw, 360px);
+  max-width: min(80vw, 390px);
   /* Never reach the centre avatar: stop above it and let whatever
      doesn't fit fade out like ink leaving the page. */
   max-height: calc(50vh - 158px - env(safe-area-inset-top));
@@ -529,7 +529,8 @@ button { font-family: inherit; }
 .uplist-date {
   font-family: var(--f-mono); font-size: 11px; color: var(--t3);
   text-transform: lowercase; font-variant-numeric: tabular-nums;
-  width: 66px; flex-shrink: 0; text-align: right;
+  width: 108px; flex-shrink: 0; text-align: right;
+  white-space: nowrap;
 }
 .uplist-date.today { color: var(--blue); }
 .uplist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
@@ -538,10 +539,10 @@ button { font-family: inherit; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color .12s;
 }
+/* Start time rides in the margin column, right after the date. */
 .uplist-time {
-  font-family: var(--f-mono); font-size: 10.5px; color: var(--t3);
-  text-transform: lowercase; font-variant-numeric: tabular-nums;
-  flex-shrink: 0; white-space: nowrap;
+  margin-left: 5px;
+  font-size: 10.5px; color: var(--t3);
 }
 /* The next thing on the calendar carries a little more ink. */
 .uplist li:first-child .uplist-title { color: var(--ink); font-weight: 600; }

@@ -9,12 +9,13 @@ interface Orb {
   el: HTMLDivElement | null
 }
 
+/* Catalogue palette: warm paper greys with the occasional faint klein
+   blue — reads as print texture, not confetti. */
 const DEFAULT_COLORS = [
-  '#FFB4A2', '#FFCDB2', '#FFE5AB',
-  '#A2D2FF', '#BDE0FE', '#C8E7FF',
-  '#CDB4DB', '#E2C2FF', '#D4C5F9',
-  '#B5EAEA', '#A0E7E5', '#C9E4CA',
-  '#FFC8DD', '#FCD5CE', '#F7D6E0',
+  '#EDEAE3', '#E7E4DC', '#F0EEE8',
+  '#E2DFD7', '#EBE8E1', '#E5E2DA',
+  '#DFE3F4', '#E8EAF7', '#EDEAE3',
+  '#E7E4DC', '#DCD9D0', '#F0EEE8',
 ]
 
 interface Props {

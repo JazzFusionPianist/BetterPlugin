@@ -502,6 +502,12 @@ button { font-family: inherit; }
   left: 0;
   width: fit-content;
   max-width: min(72vw, 360px);
+  /* Never reach the centre avatar: stop above it and let whatever
+     doesn't fit fade out like ink leaving the page. */
+  max-height: calc(50vh - 158px - env(safe-area-inset-top));
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
+          mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
 }
 .uplist-head {
   font-family: var(--f-mono); font-size: 11px; color: var(--t3);
@@ -509,7 +515,9 @@ button { font-family: inherit; }
   text-align: right; width: calc(env(safe-area-inset-left) + 78px);
   padding: 0 0 6px; margin-bottom: 5px;
 }
-.uplist ul { list-style: none; border-top: 1px solid var(--line); padding-top: 5px; }
+/* The bottom padding keeps the fade zone empty when the list is short,
+   so nothing fades unless it genuinely overflows. */
+.uplist ul { list-style: none; border-top: 1px solid var(--line); padding-top: 5px; padding-bottom: 26px; }
 .uplist-newday { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 5px; }
 .uplist-row {
   display: flex; align-items: center; gap: 9px; width: 100%;
@@ -529,6 +537,11 @@ button { font-family: inherit; }
   font-size: 12.5px; font-weight: 500; color: var(--t2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color .12s;
+}
+.uplist-time {
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--t3);
+  text-transform: lowercase; font-variant-numeric: tabular-nums;
+  flex-shrink: 0; white-space: nowrap;
 }
 /* The next thing on the calendar carries a little more ink. */
 .uplist li:first-child .uplist-title { color: var(--ink); font-weight: 600; }

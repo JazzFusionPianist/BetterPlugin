@@ -50,6 +50,11 @@ export default function UpcomingList({ events, onOpen }: Props) {
                 <span className={`uplist-date${l.isToday ? ' today' : ''}`}>{l.text}</span>
                 <span className="uplist-dot" style={{ background: e.category_color || 'var(--blue)' }} />
                 <span className="uplist-title">{e.title}</span>
+                {!e.all_day && (
+                  <span className="uplist-time">
+                    {new Date(e.starts_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                )}
               </button>
             </li>
           )

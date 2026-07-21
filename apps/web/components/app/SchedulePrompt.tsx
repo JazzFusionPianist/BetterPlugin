@@ -90,7 +90,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets }: Pr
           <ul className="sconfirm-list">
             {added.slice(0, 5).map((e) => (
               <li key={e.id} className="sconfirm-item">
-                <span className="sconfirm-rail" />
+                <span className="sconfirm-rail" style={e.category_color ? { background: e.category_color } : undefined} />
                 <div className="sconfirm-text">
                   <div className="sconfirm-t">{e.title}</div>
                   <div className="sconfirm-w">{fmtWhen(e)}{e.location ? ` · ${e.location}` : ''}</div>

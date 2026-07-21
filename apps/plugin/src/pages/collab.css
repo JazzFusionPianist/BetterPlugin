@@ -3,8 +3,19 @@
    Two-colour print (warm black ink + klein blue) on bright
    paper, matching apps/web. Serif voice / sans machinery.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Hangul runs visually larger than Instrument Serif's small caps, so
+   the serif stack routes Korean through a size-adjusted alias of the
+   system face. Latin stays untouched. */
+@font-face {
+  font-family: 'Orb Serif KR';
+  src: local('Apple SD Gothic Neo');
+  size-adjust: 92%;
+  unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7A3;
+}
+
 .plugin {
-  --f-serif: 'Instrument Serif', 'Apple SD Gothic Neo', serif;
+  --f-serif: 'Instrument Serif', 'Orb Serif KR', 'Apple SD Gothic Neo', serif;
   --f-sans: 'Instrument Sans', 'Apple SD Gothic Neo', sans-serif;
 
   --paper: #FBFAF7;
@@ -8475,3 +8486,47 @@
   text-transform: lowercase;
   letter-spacing: normal;
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Serif expansion — home stats + group hover, and the live &
+   settings panels go full serif, like the app's booklet pages.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Home: stat counts/labels + group tooltip action. */
+.plugin .orbit-stat-count,
+.plugin .orbit-stat-label,
+.plugin .orbit-group-tt-btn,
+.plugin .tt2-action-btn,
+.plugin .tt2-live-btn {
+  font-family: var(--f-serif);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.plugin .orbit-stat-label,
+.plugin .orbit-group-tt-btn { text-transform: lowercase; }
+
+/* Live panel: full serif. */
+.plugin .live-body,
+.plugin .live-body *,
+.plugin .live-body input,
+.plugin .live-body select,
+.plugin .live-body textarea,
+.plugin .live-body button {
+  font-family: var(--f-serif);
+  letter-spacing: 0;
+}
+.plugin .live-body,
+.plugin .live-body * { font-weight: 400; }
+
+/* Settings (list + find people / display / user info / language). */
+.plugin .settings-panel,
+.plugin .settings-panel *,
+.plugin .settings-panel input,
+.plugin .settings-panel select,
+.plugin .settings-panel textarea,
+.plugin .settings-panel button {
+  font-family: var(--f-serif);
+  letter-spacing: 0;
+}
+.plugin .settings-panel,
+.plugin .settings-panel * { font-weight: 400; }

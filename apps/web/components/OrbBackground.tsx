@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react'
 
 // Two layers: soft dreamy orbs (back, additive) + crisp constellations
 // (front). Ported 1:1 from the landing prototype.
-const COLORS = ['#7FB0FF', '#9CA8FF', '#C7A8E8', '#F2B6CE', '#86D8D2', '#A9C7FF']
-const STAR   = ['#CFE3FF', '#D8CCF5', '#FAD0E0', '#BFF0EC', '#CBD8FF']
+const COLORS = ['#FF9E7D', '#FFC24B', '#5BC0FF', '#A78BFA', '#3BD9AD', '#FF8FBE']
+const STAR   = ['#FF7A59', '#FFB020', '#4EB1FF', '#9B7BFF', '#2FCFA3', '#FF5E9A']
 
 interface Orb { x: number; y: number; vx: number; vy: number; r: number; c: string }
 interface Node { dx: number; dy: number; r: number; c: string }
@@ -70,7 +70,7 @@ export default function OrbBackground() {
         if (k.cy < -m) k.cy = H + m; if (k.cy > H + m) k.cy = -m
         const cos = Math.cos(k.rot), sin = Math.sin(k.rot)
         const pts = k.nodes.map(nd => ({ x: k.cx + nd.dx * cos - nd.dy * sin, y: k.cy + nd.dx * sin + nd.dy * cos, r: nd.r, c: nd.c }))
-        ctx.strokeStyle = 'rgba(200,215,255,0.15)'
+        ctx.strokeStyle = 'rgba(36,29,54,0.13)'
         ctx.lineWidth = 1 * DPR
         ctx.beginPath()
         for (let i = 0; i < pts.length; i++) {
@@ -90,7 +90,6 @@ export default function OrbBackground() {
 
     const tick = () => {
       ctx.clearRect(0, 0, W, H)
-      ctx.globalCompositeOperation = 'lighter'
       for (const o of orbs) {
         o.x += o.vx; o.y += o.vy
         if (o.x < -o.r) o.x = W + o.r; if (o.x > W + o.r) o.x = -o.r
@@ -101,7 +100,6 @@ export default function OrbBackground() {
         ctx.fillStyle = g
         ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.globalCompositeOperation = 'source-over'
       drawConsts()
       raf = requestAnimationFrame(tick)
     }

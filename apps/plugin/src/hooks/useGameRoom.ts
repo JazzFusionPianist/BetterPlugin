@@ -2,6 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { GameRoom } from '../types/collab'
 
+function isComputerRoom(room: GameRoom): boolean {
+  const captured = room.captured as { computer?: boolean } | null | undefined
+  return room.status === 'playing' && captured?.computer === true
+}
+
+function isResumableRoom(room: GameRoom, currentUserId: string): boolean {
+  if (room.status === 'finished') return false
+  if (room.guest_id) return true
+  return room.host_id === currentUserId && isComputerRoom(room)
+}
+
 export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
   const [room, setRoom] = useState<GameRoom | null>(null)
   const [loading, setLoading] = useState(false)
@@ -178,7 +189,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       .limit(5)
     if (error) { console.error('[findActiveRoom]', error); return null }
     const room = ((data as GameRoom[] | null) ?? [])
-      .find(r => r.status === 'playing' || !!r.guest_id) ?? null
+      .find(r => isResumableRoom(r, currentUserId)) ?? null
     if (room) setRoom(room)
     return room
   }, [supabase, currentUserId])

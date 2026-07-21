@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getOrCreateDmConversation } from './conversations'
+import { isComputerPlayerId } from './computerPlayers'
 
 /**
  * Shared helpers for the chat-driven game invite flow.
@@ -12,6 +13,27 @@ import { getOrCreateDmConversation } from './conversations'
  */
 
 export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+
+function hasMultiplePlayers(playerIds: unknown): boolean {
+  return Array.isArray(playerIds) && playerIds.filter(Boolean).length > 1
+}
+
+function isComputerChessRoom(room: { status: string; host_id?: string | null; captured?: unknown }, userId: string): boolean {
+  const captured = room.captured as { computer?: boolean } | null | undefined
+  return room.status === 'playing' && room.host_id === userId && captured?.computer === true
+}
+
+function isResumableChessRoom(room: { status: string; host_id?: string | null; guest_id?: string | null; captured?: unknown }, userId: string): boolean {
+  return !!room.guest_id || isComputerChessRoom(room, userId)
+}
+
+function isResumableMultiPlayerRoom(room: { player_ids?: unknown }): boolean {
+  return hasMultiplePlayers(room.player_ids)
+}
+
+function isResumableEarTrainingRoom(room: { player2_id?: string | null }): boolean {
+  return !!room.player2_id || isComputerPlayerId(room.player2_id)
+}
 
 export const GAME_TABLE: Record<GameType, string> = {
   chess:          'game_rooms',
@@ -218,7 +240,7 @@ export async function findActiveGame (
 ): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
   const [chess, fb, poker, et] = await Promise.all([
     supabase.from('game_rooms')
-      .select('id, updated_at, status, guest_id')
+      .select('id, updated_at, status, host_id, guest_id, captured')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
@@ -244,10 +266,10 @@ export async function findActiveGame (
   ])
 
   const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
-  const chessRoom = chess.data?.find(r => r.status === 'playing' || !!r.guest_id)
-  const fbRoom = fb.data?.find(r => r.status === 'playing' || ((r.player_ids as string[] | null) ?? []).length > 1)
-  const pokerRoom = poker.data?.find(r => r.status === 'playing' || ((r.player_ids as string[] | null) ?? []).length > 1)
-  const etRoom = et.data?.find(r => r.status === 'playing' || !!r.player2_id)
+  const chessRoom = chess.data?.find(r => isResumableChessRoom(r, userId))
+  const fbRoom = fb.data?.find(isResumableMultiPlayerRoom)
+  const pokerRoom = poker.data?.find(isResumableMultiPlayerRoom)
+  const etRoom = et.data?.find(isResumableEarTrainingRoom)
   if (chessRoom) candidates.push({ gameType: 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
   if (fbRoom)    candidates.push({ gameType: 'falling_blocks', roomId: fbRoom.id, updatedAt: fbRoom.updated_at })
   if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
@@ -315,6 +337,10 @@ export async function joinGameRoom (
 ): Promise<JoinResult> {
   const cap = await getRoomCapacity(supabase, gameType, roomId)
   if (!cap) return 'missing'
+
+  if (cap.status !== 'lobby' && cap.status !== 'playing') return 'missing'
+  if (cap.status === 'playing' && cap.occupied < 2) return 'missing'
+
   if (
     cap.hostId !== userId &&
     (cap.status === 'lobby' || cap.status === 'playing') &&
@@ -326,6 +352,7 @@ export async function joinGameRoom (
     return 'missing'
   }
   if (cap.userIds.includes(userId)) return 'already-in'
+  if (cap.status !== 'lobby') return 'missing'
   if (cap.occupied >= cap.capacity) return 'full'
 
   if (gameType === 'chess') {

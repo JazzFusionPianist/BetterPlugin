@@ -210,10 +210,11 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       .or(`player1_id.eq.${currentUserId},player2_id.eq.${currentUserId}`)
       .eq('status', 'playing')
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (data) setRoom(data as EarTrainingRoom)
-    return (data as EarTrainingRoom | null) ?? null
+      .limit(5)
+    const activeRoom = ((data as EarTrainingRoom[] | null) ?? [])
+      .find(r => !!r.player2_id) ?? null
+    if (activeRoom) setRoom(activeRoom)
+    return activeRoom
   }, [supabase, currentUserId])
 
   /** Send a game_invite. Writes to the notifications table (kept for

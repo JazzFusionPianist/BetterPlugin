@@ -329,14 +329,15 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
       .contains('player_ids', [currentUserId])
       .eq('status', 'playing')
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(5)
     if (error) {
       console.warn('[usePokerRoom.findActiveRoom]', error)
       return null
     }
-    if (data) setRoom(data as PokerRoom)
-    return (data as PokerRoom | null) ?? null
+    const activeRoom = ((data as PokerRoom[] | null) ?? [])
+      .find(r => Array.isArray(r.player_ids) && r.player_ids.filter(Boolean).length > 1) ?? null
+    if (activeRoom) setRoom(activeRoom)
+    return activeRoom
   }, [supabase, currentUserId])
 
   const toggleReady = useCallback(async (): Promise<void> => {

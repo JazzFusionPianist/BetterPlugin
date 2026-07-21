@@ -177,14 +177,15 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       .contains('player_ids', [currentUserId])
       .eq('status', 'playing')
       .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(5)
     if (error) {
       console.error('[useFallingBlocksRoom.findActiveRoom]', error)
       return null
     }
-    if (data) setRoom(data as FallingBlocksRoom)
-    return (data as FallingBlocksRoom | null) ?? null
+    const activeRoom = ((data as FallingBlocksRoom[] | null) ?? [])
+      .find(r => Array.isArray(r.player_ids) && r.player_ids.filter(Boolean).length > 1) ?? null
+    if (activeRoom) setRoom(activeRoom)
+    return activeRoom
   }, [supabase, currentUserId])
 
   const applyPlayerStates = useCallback((rows: FallingBlocksPlayerState[]): void => {

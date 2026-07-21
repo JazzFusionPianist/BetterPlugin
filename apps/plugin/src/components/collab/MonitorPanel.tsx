@@ -12,8 +12,16 @@ interface Props {
   isOpen: boolean
 }
 
-/* Map a VU value (dB re 0VU) to a needle angle. Scale runs -20..+3 VU
-   across -46°..+46°, compressed low like a real VU face. */
+type MeterMode = 'vu' | 'stereo' | 'loud' | 'image'
+const MODES: Array<{ id: MeterMode; label: string }> = [
+  { id: 'vu', label: 'vu' },
+  { id: 'stereo', label: 'stereo' },
+  { id: 'loud', label: 'lufs' },
+  { id: 'image', label: 'image' },
+]
+
+/* ── VU face ──────────────────────────────────────────────────────────── */
+
 function vuAngle (db: number): number {
   const clamped = Math.max(-20, Math.min(3, db))
   const t = (clamped + 20) / 23
@@ -23,22 +31,23 @@ function vuAngle (db: number): number {
 const fmtDb = (v: number, digits = 1) =>
   !isFinite(v) ? '−∞' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(digits)}`
 
+function describeArc (cx: number, cy: number, r: number, a1: number, a2: number): string {
+  const p = (a: number) => {
+    const rad = (a - 90) * Math.PI / 180
+    return `${cx + Math.cos(rad) * r} ${cy + Math.sin(rad) * r}`
+  }
+  return `M ${p(a1)} A ${r} ${r} 0 0 1 ${p(a2)}`
+}
+
 function VUFace ({ side }: { side: 'L' | 'R' }) {
-  // Tick marks along the same curve the needle sweeps; only the sparse
-  // set gets a printed number so the red zone stays readable.
   const marks = [-20, -10, -7, -5, -3, -1, 0, 1, 2, 3]
   const numbered = new Set([-20, -10, -7, -5, -3, 0, 3])
   return (
     <svg className="mon-vu-svg" viewBox="0 0 132 78" aria-hidden="true">
-      {/* red zone arc (0..+3 VU) */}
-      <path
-        d={describeArc(66, 72, 56, vuAngle(0), vuAngle(3))}
-        fill="none" stroke="#D6402E" strokeWidth="2.5" opacity="0.85"
-      />
-      <path
-        d={describeArc(66, 72, 56, vuAngle(-20), vuAngle(0))}
-        fill="none" stroke="currentColor" strokeWidth="1" opacity="0.35"
-      />
+      <path d={describeArc(66, 72, 56, vuAngle(0), vuAngle(3))}
+        fill="none" stroke="#D6402E" strokeWidth="2.5" opacity="0.85" />
+      <path d={describeArc(66, 72, 56, vuAngle(-20), vuAngle(0))}
+        fill="none" stroke="currentColor" strokeWidth="1" opacity="0.35" />
       {marks.map(m => {
         const a = (vuAngle(m) - 90) * Math.PI / 180
         const x1 = 66 + Math.cos(a) * 53, y1 = 72 + Math.sin(a) * 53
@@ -64,34 +73,121 @@ function VUFace ({ side }: { side: 'L' | 'R' }) {
   )
 }
 
-function describeArc (cx: number, cy: number, r: number, a1: number, a2: number): string {
-  const p = (a: number) => {
-    const rad = (a - 90) * Math.PI / 180
-    return `${cx + Math.cos(rad) * r} ${cy + Math.sin(rad) * r}`
+/* ── Fader taper: generous travel around unity, log-ish below ─────────── */
+
+const TAPER: Array<[number, number]> = [   // [dB, position 0(top)..1(bottom)]
+  [6, 0], [0, 0.18], [-12, 0.5], [-30, 0.78], [-60, 1],
+]
+
+function dbToPos (db: number): number {
+  const v = Math.max(-60, Math.min(6, db))
+  for (let i = 0; i < TAPER.length - 1; i++) {
+    const [d1, p1] = TAPER[i], [d2, p2] = TAPER[i + 1]
+    if (v <= d1 && v >= d2)
+      return p1 + (d1 - v) / (d1 - d2) * (p2 - p1)
   }
-  return `M ${p(a1)} A ${r} ${r} 0 0 1 ${p(a2)}`
+  return 1
 }
+
+function posToDb (pos: number): number {
+  const p = Math.max(0, Math.min(1, pos))
+  for (let i = 0; i < TAPER.length - 1; i++) {
+    const [d1, p1] = TAPER[i], [d2, p2] = TAPER[i + 1]
+    if (p >= p1 && p <= p2)
+      return d1 - (p - p1) / (p2 - p1) * (d1 - d2)
+  }
+  return -60
+}
+
+const FADER_TICKS: Array<{ db: number; label?: string }> = [
+  { db: 6, label: '+6' }, { db: 3 }, { db: 0, label: '0' }, { db: -6, label: '6' },
+  { db: -12, label: '12' }, { db: -20 }, { db: -30, label: '30' },
+  { db: -45 }, { db: -60, label: '∞' },
+]
+
+function Fader ({ value, onChange }: { value: number; onChange: (db: number) => void }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  const moveTo = (clientY: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    onChange(Math.round(posToDb((clientY - r.top) / r.height) * 10) / 10)
+  }
+
+  return (
+    <div className="mon-fader">
+      <div
+        ref={trackRef}
+        className="mon-fader-track"
+        onPointerDown={e => {
+          dragging.current = true
+          ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+          moveTo(e.clientY)
+        }}
+        onPointerMove={e => { if (dragging.current) moveTo(e.clientY) }}
+        onPointerUp={() => { dragging.current = false }}
+        onDoubleClick={() => onChange(0)}
+        role="slider"
+        aria-label="Monitor fader"
+        aria-valuemin={-60} aria-valuemax={6} aria-valuenow={Math.round(value)}
+        tabIndex={0}
+        onKeyDown={e => {
+          if (e.key === 'ArrowUp') onChange(Math.min(6, value + 1))
+          if (e.key === 'ArrowDown') onChange(Math.max(-60, value - 1))
+        }}
+      >
+        <span className="mon-fader-slot" />
+        <span className="mon-fader-cap" style={{ top: `${dbToPos(value) * 100}%` }}>
+          <span className="mon-fader-cap-line" />
+        </span>
+      </div>
+      <div className="mon-fader-scale" aria-hidden="true">
+        {FADER_TICKS.map(t => (
+          <span key={t.db} className="mon-fader-tick" style={{ top: `${dbToPos(t.db) * 100}%` }}>
+            <span className="mon-fader-tick-mark" />
+            {t.label && <span className="mon-fader-tick-label">{t.label}</span>}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ── Stereo bar meter scale (dBFS, linear in dB from -60..0) ──────────── */
+
+const barPct = (db: number) => Math.max(0, Math.min(100, (db + 60) / 60 * 100))
+const BAR_MARKS = [0, -6, -12, -24, -40, -60]
+
+/* ── Panel ────────────────────────────────────────────────────────────── */
 
 export default function MonitorPanel ({ isOpen }: Props) {
   const [mon, setMon] = useState<MonitorState>({ ...MONITOR_DEFAULTS })
+  const [mode, setMode] = useState<MeterMode>('vu')
   const [demo] = useState(() => !hasJuceBridge)
 
   const needleL = useRef<SVGLineElement>(null)
   const needleR = useRef<SVGLineElement>(null)
   const ledL = useRef<HTMLSpanElement>(null)
   const ledR = useRef<HTMLSpanElement>(null)
+  const barL = useRef<HTMLDivElement>(null)
+  const barR = useRef<HTMLDivElement>(null)
+  const barHoldL = useRef<HTMLDivElement>(null)
+  const barHoldR = useRef<HTMLDivElement>(null)
+  const barTextL = useRef<HTMLSpanElement>(null)
+  const barTextR = useRef<HTMLSpanElement>(null)
   const peakText = useRef<HTMLSpanElement>(null)
   const lufsM = useRef<HTMLSpanElement>(null)
   const lufsS = useRef<HTMLSpanElement>(null)
   const lufsI = useRef<HTMLSpanElement>(null)
+  const lufsIBig = useRef<HTMLSpanElement>(null)
   const corrFill = useRef<HTMLDivElement>(null)
   const corrText = useRef<HTMLSpanElement>(null)
   const gonioCanvas = useRef<HTMLCanvasElement>(null)
 
-  // Load persisted params from the processor once.
   useEffect(() => { void getMonitor().then(setMon) }, [])
 
-  // Metering runs only while the panel is open.
   useEffect(() => {
     if (!isOpen) return
     startMetering()
@@ -109,14 +205,27 @@ export default function MonitorPanel ({ isOpen }: Props) {
       ledL.current?.classList.toggle('on', m.clipL)
       ledR.current?.classList.toggle('on', m.clipR)
 
-      // slower-moving text readouts at ~6fps
+      if (barL.current) barL.current.style.height = `${barPct(m.rmsL)}%`
+      if (barR.current) barR.current.style.height = `${barPct(m.rmsR)}%`
+      if (barHoldL.current) {
+        barHoldL.current.style.bottom = `${barPct(m.holdL)}%`
+        barHoldL.current.style.background = m.holdL > -6 ? '#D6402E' : 'var(--blue)'
+      }
+      if (barHoldR.current) {
+        barHoldR.current.style.bottom = `${barPct(m.holdR)}%`
+        barHoldR.current.style.background = m.holdR > -6 ? '#D6402E' : 'var(--blue)'
+      }
+
       if (now - lastText > 160) {
         lastText = now
         if (peakText.current)
-          peakText.current.textContent = `peak ${fmtDb(Math.max(m.peakL, m.peakR))} dBFS`
+          peakText.current.textContent = `peak ${fmtDb(Math.max(m.peakL, m.peakR))} dbfs`
+        if (barTextL.current) barTextL.current.textContent = fmtDb(m.rmsL, 0)
+        if (barTextR.current) barTextR.current.textContent = fmtDb(m.rmsR, 0)
         if (lufsM.current) lufsM.current.textContent = fmtDb(m.lufsM)
         if (lufsS.current) lufsS.current.textContent = fmtDb(m.lufsS)
         if (lufsI.current) lufsI.current.textContent = fmtDb(m.lufsI)
+        if (lufsIBig.current) lufsIBig.current.textContent = fmtDb(m.lufsI)
         if (corrText.current) corrText.current.textContent = m.corr.toFixed(2)
         if (corrFill.current) {
           const pct = (m.corr + 1) / 2 * 100
@@ -126,7 +235,6 @@ export default function MonitorPanel ({ isOpen }: Props) {
         }
       }
 
-      // goniometer
       const canvas = gonioCanvas.current
       if (canvas) {
         const ctx = canvas.getContext('2d')
@@ -154,7 +262,7 @@ export default function MonitorPanel ({ isOpen }: Props) {
       stopMetering()
       if (demo) stopDemoSignal()
     }
-  }, [isOpen, demo])
+  }, [isOpen, demo, mode])
 
   const update = (patch: Partial<MonitorState>) => {
     setMon(prev => ({ ...prev, ...patch }))
@@ -163,85 +271,124 @@ export default function MonitorPanel ({ isOpen }: Props) {
 
   return (
     <div className="s-body monitor-body">
-      {/* ── VU pair ── */}
-      <div className="mon-card mon-vu-card">
-        <div className="mon-vu-row">
-          <div className="mon-vu">
-            <VUFace side="L" />
-            <svg className="mon-vu-needle-svg" viewBox="0 0 132 78" aria-hidden="true">
-              <line ref={needleL} x1="66" y1="72" x2="66" y2="20"
-                stroke="currentColor" strokeWidth="1.6" transform="rotate(-46 66 72)" />
-              <circle cx="66" cy="72" r="3.5" fill="currentColor" />
-            </svg>
-            <span ref={ledL} className="mon-clip-led" title="clip L" />
-          </div>
-          <div className="mon-vu">
-            <VUFace side="R" />
-            <svg className="mon-vu-needle-svg" viewBox="0 0 132 78" aria-hidden="true">
-              <line ref={needleR} x1="66" y1="72" x2="66" y2="20"
-                stroke="currentColor" strokeWidth="1.6" transform="rotate(-46 66 72)" />
-              <circle cx="66" cy="72" r="3.5" fill="currentColor" />
-            </svg>
-            <span ref={ledR} className="mon-clip-led" title="clip R" />
-          </div>
+      {/* ── The screen: one panel, switchable meters ── */}
+      <div className="mon-card mon-screen">
+        <div className="mon-modes" role="tablist">
+          {MODES.map(m => (
+            <button
+              key={m.id}
+              role="tab"
+              aria-selected={mode === m.id}
+              className={`mon-mode${mode === m.id ? ' active' : ''}`}
+              onClick={() => setMode(m.id)}
+            >
+              {m.label}
+            </button>
+          ))}
         </div>
+
+        <div className="mon-screen-view">
+          {mode === 'vu' && (
+            <div className="mon-vu-row">
+              {(['L', 'R'] as const).map(side => (
+                <div className="mon-vu" key={side}>
+                  <VUFace side={side} />
+                  <svg className="mon-vu-needle-svg" viewBox="0 0 132 78" aria-hidden="true">
+                    <line ref={side === 'L' ? needleL : needleR} x1="66" y1="72" x2="66" y2="20"
+                      stroke="currentColor" strokeWidth="1.6" transform="rotate(-46 66 72)" />
+                    <circle cx="66" cy="72" r="3.5" fill="currentColor" />
+                  </svg>
+                  <span ref={side === 'L' ? ledL : ledR} className="mon-clip-led" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mode === 'stereo' && (
+            <div className="mon-bars">
+              <div className="mon-bars-scale">
+                {BAR_MARKS.map(m => (
+                  <span key={m} className="mon-bars-mark" style={{ bottom: `${barPct(m)}%` }}>
+                    {m === -60 ? '∞' : Math.abs(m)}
+                  </span>
+                ))}
+              </div>
+              {(['L', 'R'] as const).map(side => (
+                <div className="mon-bar-col" key={side}>
+                  <div className="mon-bar-track">
+                    <div ref={side === 'L' ? barL : barR} className="mon-bar-fill" />
+                    <div ref={side === 'L' ? barHoldL : barHoldR} className="mon-bar-hold" />
+                  </div>
+                  <span className="mon-bar-side">{side.toLowerCase()}</span>
+                  <span ref={side === 'L' ? barTextL : barTextR} className="mon-bar-db">−∞</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mode === 'loud' && (
+            <div className="mon-loud">
+              <div className="mon-loud-hero">
+                <span ref={lufsIBig} className="mon-loud-hero-val">−∞</span>
+                <span className="mon-loud-hero-key">integrated lufs</span>
+              </div>
+              <div className="mon-loud-side">
+                <div className="mon-loud-row"><span className="mon-loud-key">momentary</span><span ref={lufsM} className="mon-loud-val">−∞</span></div>
+                <div className="mon-loud-row"><span className="mon-loud-key">short-term</span><span ref={lufsS} className="mon-loud-val">−∞</span></div>
+                <div className="mon-loud-row"><span className="mon-loud-key">integrated</span><span ref={lufsI} className="mon-loud-val">−∞</span></div>
+              </div>
+            </div>
+          )}
+
+          {mode === 'image' && (
+            <div className="mon-image">
+              <canvas ref={gonioCanvas} width={120} height={120} className="mon-gonio" />
+              <div className="mon-image-side">
+                <div className="mon-corr-track">
+                  <span className="mon-corr-zero" />
+                  <div ref={corrFill} className="mon-corr-fill" />
+                </div>
+                <div className="mon-corr-foot">
+                  <span className="mon-machine">−1</span>
+                  <span className="mon-machine">corr <span ref={corrText}>0.00</span></span>
+                  <span className="mon-machine">+1</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mon-vu-foot">
-          <span ref={peakText} className="mon-machine">peak −∞ dBFS</span>
-          <button className="mon-mini-btn" onClick={resetClip}>reset clip</button>
+          <span ref={peakText} className="mon-machine">peak −∞ dbfs</span>
+          {mode === 'loud'
+            ? <button className="mon-mini-btn" onClick={resetIntegrated}>reset lufs</button>
+            : <button className="mon-mini-btn" onClick={resetClip}>reset clip</button>}
         </div>
       </div>
 
-      {/* ── Image + loudness ── */}
-      <div className="mon-duo">
-        <div className="mon-card mon-gonio-card">
-          <canvas ref={gonioCanvas} width={104} height={104} className="mon-gonio" />
-          <div className="mon-corr-track">
-            <span className="mon-corr-zero" />
-            <div ref={corrFill} className="mon-corr-fill" />
+      {/* ── Monitor strip: the fader ── */}
+      <div className="mon-card mon-strip">
+        <Fader value={mon.gainDb} onChange={db => update({ gainDb: db })} />
+        <div className="mon-strip-side">
+          <div className="mon-strip-readout">
+            {mon.gainDb <= -59.5 ? '−∞' : `${fmtDb(mon.gainDb)} db`}
           </div>
-          <div className="mon-corr-foot">
-            <span className="mon-machine">−1</span>
-            <span className="mon-machine">corr <span ref={corrText}>0.00</span></span>
-            <span className="mon-machine">+1</span>
+          <div className="mon-strip-ctrl">
+            <span className="mon-ctrl-label">balance</span>
+            <input
+              type="range" min={-100} max={100} step={1} value={Math.round(mon.pan * 100)}
+              className="mon-slider"
+              onChange={e => update({ pan: Number(e.target.value) / 100 })}
+              onDoubleClick={() => update({ pan: 0 })}
+            />
+            <span className="mon-ctrl-val">
+              {mon.pan === 0 ? 'c' : mon.pan < 0 ? `l ${Math.round(-mon.pan * 100)}` : `r ${Math.round(mon.pan * 100)}`}
+            </span>
           </div>
-        </div>
-
-        <div className="mon-card mon-loud-card">
-          <div className="mon-loud-row"><span className="mon-loud-key">m</span><span ref={lufsM} className="mon-loud-val">−∞</span></div>
-          <div className="mon-loud-row"><span className="mon-loud-key">s</span><span ref={lufsS} className="mon-loud-val">−∞</span></div>
-          <div className="mon-loud-row mon-loud-int"><span className="mon-loud-key">i</span><span ref={lufsI} className="mon-loud-val">−∞</span></div>
-          <div className="mon-loud-unit">lufs</div>
-          <button className="mon-mini-btn" onClick={resetIntegrated}>reset</button>
-        </div>
-      </div>
-
-      {/* ── Monitor controls ── */}
-      <div className="mon-card mon-ctrl-card">
-        <div className="mon-ctrl-row">
-          <span className="mon-ctrl-label">fader</span>
-          <input
-            type="range" min={-60} max={6} step={0.1} value={mon.gainDb}
-            className="mon-slider"
-            onChange={e => update({ gainDb: Number(e.target.value) })}
-            onDoubleClick={() => update({ gainDb: 0 })}
-          />
-          <span className="mon-ctrl-val">{mon.gainDb <= -59.5 ? '−∞' : `${fmtDb(mon.gainDb)} db`}</span>
-        </div>
-        <div className="mon-ctrl-row">
-          <span className="mon-ctrl-label">balance</span>
-          <input
-            type="range" min={-100} max={100} step={1} value={Math.round(mon.pan * 100)}
-            className="mon-slider"
-            onChange={e => update({ pan: Number(e.target.value) / 100 })}
-            onDoubleClick={() => update({ pan: 0 })}
-          />
-          <span className="mon-ctrl-val">
-            {mon.pan === 0 ? 'c' : mon.pan < 0 ? `l ${Math.round(-mon.pan * 100)}` : `r ${Math.round(mon.pan * 100)}`}
-          </span>
-        </div>
-        <div className="mon-ctrl-btns">
-          <button className={`mon-btn${mon.invL ? ' on' : ''}`} onClick={() => update({ invL: !mon.invL })}>ø l</button>
-          <button className={`mon-btn${mon.invR ? ' on' : ''}`} onClick={() => update({ invR: !mon.invR })}>ø r</button>
+          <div className="mon-ctrl-btns">
+            <button className={`mon-btn${mon.invL ? ' on' : ''}`} onClick={() => update({ invL: !mon.invL })}>ø l</button>
+            <button className={`mon-btn${mon.invR ? ' on' : ''}`} onClick={() => update({ invR: !mon.invR })}>ø r</button>
+          </div>
           <button className={`mon-btn mon-btn-mute${mon.mute ? ' on' : ''}`} onClick={() => update({ mute: !mon.mute })}>mute</button>
         </div>
       </div>

@@ -17,6 +17,8 @@
 export interface MeterFrame {
   active: boolean
   peakL: number; peakR: number          // dBFS instantaneous chunk peak
+  holdL: number; holdR: number          // dBFS peak-hold (1s hold, then decay)
+  rmsL: number; rmsR: number            // dBFS fast RMS (~100ms)
   vuL: number; vuR: number              // VU (dB re -18 dBFS)
   clipL: boolean; clipR: boolean        // sticky until resetClip()
   lufsM: number; lufsS: number; lufsI: number
@@ -71,6 +73,9 @@ let lastChunkAt = 0
 
 let vuL = 0, vuR = 0                    // linear rectified average
 let peakL = 0, peakR = 0
+let rmsL = 0, rmsR = 0                  // linear smoothed RMS
+let holdLin = [0, 0]                    // linear peak-hold per channel
+let holdAt = [0, 0]                     // performance.now() of last hold bump
 let clipL = false, clipR = false
 
 let kL: Biquad[] = [], kR: Biquad[] = []
@@ -155,6 +160,21 @@ function processChunk (samples: Float32Array, sr: number, ch: number) {
   peakL = pkL; peakR = pkR
   if (pkL >= 0.999) clipL = true
   if (pkR >= 0.999) clipR = true
+
+  // fast RMS for the bar meters (~100ms smoothing)
+  const alphaRms = 1 - Math.exp(-frames / (0.1 * sr))
+  let sqL = 0, sqR = 0
+  for (let i = 0; i < frames; i++) {
+    const l = samples[i * ch], r = ch > 1 ? samples[i * ch + 1] : l
+    sqL += l * l; sqR += r * r
+  }
+  rmsL += (Math.sqrt(sqL / frames) - rmsL) * alphaRms
+  rmsR += (Math.sqrt(sqR / frames) - rmsR) * alphaRms
+
+  // peak hold: bump immediately, hold 1s, then fall (handled at read time)
+  const now = performance.now()
+  if (pkL >= holdLin[0]) { holdLin[0] = pkL; holdAt[0] = now }
+  if (pkR >= holdLin[1]) { holdLin[1] = pkR; holdAt[1] = now }
 }
 
 function meanSquareOver (seconds: number): number {
@@ -222,11 +242,22 @@ export function getGonio (): { data: Float32Array; pos: number } {
 }
 
 export function readMeters (): MeterFrame {
-  const active = performance.now() - lastChunkAt < 600
-  if (!active) { vuL *= 0.9; vuR *= 0.9 }   // let needles fall when idle
+  const now = performance.now()
+  const active = now - lastChunkAt < 600
+  if (!active) { vuL *= 0.9; vuR *= 0.9; rmsL *= 0.9; rmsR *= 0.9 }
+
+  // peak-hold ballistics: 1s hold, then ~15 dB/s fall
+  for (let c = 0; c < 2; c++) {
+    const held = now - holdAt[c]
+    if (held > 1000 && holdLin[c] > 0)
+      holdLin[c] *= Math.pow(10, -15 * 0.016 / 20)   // per ~frame decay
+  }
+
   return {
     active,
     peakL: toDb(peakL), peakR: toDb(peakR),
+    holdL: toDb(holdLin[0]), holdR: toDb(holdLin[1]),
+    rmsL: toDb(rmsL), rmsR: toDb(rmsR),
     // VU reads average level; +3dB sine correction keeps 0VU==-18dBFS tones honest.
     vuL: toDb(vuL) + 3.01 - VU_REF_DB,
     vuR: toDb(vuR) + 3.01 - VU_REF_DB,

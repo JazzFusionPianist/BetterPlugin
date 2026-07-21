@@ -8532,10 +8532,10 @@
 .plugin .settings-panel * { font-weight: 400; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
-   Monitor panel — SSL-style monitoring in catalogue materials:
-   paper VU faces with ink needles, a goniometer plate, LUFS
-   figures set like plate numbers, and a monitor strip (fader /
-   balance / polarity / mute) wired to the JUCE processor.
+   Monitor panel — one switchable meter screen (vu / stereo /
+   lufs / image) over a console strip with a real fader. SSL
+   bones, catalogue materials: paper faces, ink needles, blue
+   second ink, hairline chrome.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .monview { transform: translateX(100%); z-index: 21; background: var(--bg); }
 .plugin.monitor-open .monview { transform: translateX(0); }
@@ -8550,8 +8550,40 @@
   padding: 10px;
 }
 
+/* ── Mode switcher: the screen's menu bar ── */
+.mon-modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: 9px;
+  background: var(--bg3);
+  border-radius: 4px;
+}
+.mon-mode {
+  flex: 1;
+  font-family: var(--f-serif);
+  font-size: 11.5px;
+  color: var(--t2);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  padding: 3px 0 4px;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.12s, background 0.12s;
+}
+.mon-mode:hover { color: var(--t1); }
+.mon-mode.active { background: var(--ink); color: var(--paper); }
+
+.mon-screen-view {
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── VU pair ── */
-.mon-vu-row { display: flex; gap: 8px; justify-content: center; }
+.mon-vu-row { display: flex; gap: 8px; justify-content: center; width: 100%; }
 .mon-vu { position: relative; flex: 1; max-width: 132px; color: var(--t1); }
 .mon-vu-svg, .mon-vu-needle-svg { display: block; width: 100%; height: auto; }
 .mon-vu-needle-svg { position: absolute; inset: 0; }
@@ -8572,7 +8604,7 @@
 
 .mon-vu-foot {
   display: flex; align-items: center; justify-content: space-between;
-  margin-top: 6px; padding-top: 7px;
+  margin-top: 8px; padding-top: 7px;
   border-top: 1px solid var(--border);
 }
 
@@ -8598,15 +8630,77 @@
 }
 .mon-mini-btn:hover { color: var(--t1); border-color: var(--border2); }
 
-/* ── Goniometer + loudness ── */
-.mon-duo { display: flex; gap: 10px; }
-.mon-gonio-card { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+/* ── Stereo bar meters ── */
+.mon-bars {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: 14px; height: 100%; padding: 4px 0;
+}
+.mon-bars-scale { position: relative; width: 18px; }
+.mon-bars-mark {
+  position: absolute; right: 0; transform: translateY(50%);
+  font-family: var(--f-sans); font-size: 8px; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+.mon-bar-col {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+}
+.mon-bar-track {
+  position: relative; width: 16px; flex: 1;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.mon-bar-fill {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+  background: var(--ink);
+  transition: height 0.05s linear;
+}
+/* printed red zone: the top 10% of the scale (0 to -6 dBFS) */
+.mon-bar-track::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 10%;
+  background: rgba(214, 64, 46, 0.14);
+  border-bottom: 1px solid rgba(214, 64, 46, 0.4);
+  pointer-events: none;
+}
+.mon-bar-hold {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px;
+  background: var(--blue);
+}
+.mon-bar-side { font-family: var(--f-serif); font-size: 10px; color: var(--t3); }
+.mon-bar-db {
+  font-family: var(--f-sans); font-size: 9px; color: var(--t2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Loudness ── */
+.mon-loud { display: flex; align-items: center; gap: 18px; width: 100%; padding: 0 8px; }
+.mon-loud-hero { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mon-loud-hero-val {
+  font-family: var(--f-sans); font-size: 34px; font-weight: 450;
+  color: var(--blue); font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.mon-loud-hero-key { font-family: var(--f-serif); font-size: 11.5px; color: var(--t3); }
+.mon-loud-side { display: flex; flex-direction: column; gap: 6px; width: 128px; }
+.mon-loud-row { display: flex; align-items: baseline; justify-content: space-between; }
+.mon-loud-key { font-family: var(--f-serif); font-size: 11.5px; color: var(--t3); }
+.mon-loud-val {
+  font-family: var(--f-sans); font-size: 12.5px; color: var(--t1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Image ── */
+.mon-image { display: flex; align-items: center; gap: 14px; width: 100%; padding: 0 6px; }
 .mon-gonio {
-  width: 104px; height: 104px;
+  width: 116px; height: 116px; flex-shrink: 0;
   background: var(--paper);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+.mon-image-side { flex: 1; display: flex; flex-direction: column; gap: 7px; }
 .mon-corr-track {
   position: relative; width: 100%; height: 5px;
   background: var(--bg3); border-radius: 2px; overflow: hidden;
@@ -8620,43 +8714,83 @@
   background: var(--blue); border-radius: 2px;
   transition: left 0.12s linear, width 0.12s linear;
 }
-.mon-corr-foot {
-  width: 100%;
-  display: flex; align-items: baseline; justify-content: space-between;
-}
+.mon-corr-foot { display: flex; align-items: baseline; justify-content: space-between; }
 
-.mon-loud-card {
-  width: 96px; flex-shrink: 0; position: relative;
-  display: flex; flex-direction: column; gap: 3px;
+/* ── Console strip: the fader ── */
+.mon-strip { display: flex; gap: 14px; padding: 12px 14px; }
+
+.mon-fader { display: flex; gap: 8px; height: 168px; }
+.mon-fader-track {
+  position: relative; width: 34px; height: 100%;
+  cursor: ns-resize; touch-action: none;
 }
-.mon-loud-row { display: flex; align-items: baseline; justify-content: space-between; }
-.mon-loud-key { font-family: var(--f-serif); font-size: 12px; color: var(--t3); }
-.mon-loud-val {
-  font-family: var(--f-sans); font-size: 13px; color: var(--t1);
+.mon-fader-track:focus-visible { outline: 1.5px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+.mon-fader-slot {
+  position: absolute; left: 50%; top: 2px; bottom: 2px; width: 3px;
+  transform: translateX(-50%);
+  background: var(--bg3);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(26, 25, 23, 0.25);
+}
+.mon-fader-cap {
+  position: absolute; left: 50%;
+  width: 30px; height: 40px;
+  transform: translate(-50%, -50%);
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0 3px, rgba(251, 250, 247, 0.14) 3px 4px),
+    linear-gradient(to bottom, #34322E 0%, var(--ink) 45%, #34322E 100%);
+  border-radius: 3px;
+  box-shadow: 0 3px 8px -2px rgba(26, 25, 23, 0.5);
+  display: flex; align-items: center;
+  pointer-events: none;
+}
+.mon-fader-cap-line {
+  width: 100%; height: 2px;
+  background: var(--paper);
+}
+.plugin.dark .mon-fader-cap {
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0 3px, rgba(23, 22, 20, 0.22) 3px 4px),
+    linear-gradient(to bottom, #FBFAF7 0%, #DDDAD2 45%, #FBFAF7 100%);
+}
+.plugin.dark .mon-fader-cap-line { background: var(--bg); }
+
+.mon-fader-scale { position: relative; width: 22px; height: 100%; }
+.mon-fader-tick {
+  position: absolute; left: 0; display: flex; align-items: center; gap: 4px;
+  transform: translateY(-50%);
+}
+.mon-fader-tick-mark { width: 5px; height: 1px; background: var(--hair); }
+.mon-fader-tick-label {
+  font-family: var(--f-sans); font-size: 8.5px; color: var(--t3);
   font-variant-numeric: tabular-nums;
 }
-.mon-loud-int .mon-loud-val { color: var(--blue); font-weight: 600; }
-.mon-loud-unit {
-  font-family: var(--f-serif); font-size: 10.5px; color: var(--t3);
-  margin-top: 1px; text-transform: lowercase;
-}
-.mon-loud-card .mon-mini-btn { margin-top: auto; align-self: flex-start; }
 
-/* ── Monitor strip ── */
-.mon-ctrl-card { display: flex; flex-direction: column; gap: 9px; }
-.mon-ctrl-row { display: flex; align-items: center; gap: 8px; }
+.mon-strip-side {
+  flex: 1; display: flex; flex-direction: column; gap: 10px;
+  justify-content: flex-start;
+}
+.mon-strip-readout {
+  font-family: var(--f-sans); font-size: 17px; color: var(--t1);
+  font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.mon-strip-ctrl { display: flex; flex-direction: column; gap: 5px; }
 .mon-ctrl-label {
-  font-family: var(--f-serif); font-size: 12px; color: var(--t2);
-  width: 46px; flex-shrink: 0; text-transform: lowercase;
+  font-family: var(--f-serif); font-size: 11.5px; color: var(--t2);
+  text-transform: lowercase;
 }
 .mon-ctrl-val {
   font-family: var(--f-sans); font-size: 10.5px; color: var(--t1);
-  font-variant-numeric: tabular-nums; width: 56px; text-align: right;
-  flex-shrink: 0; text-transform: lowercase;
+  font-variant-numeric: tabular-nums; text-transform: lowercase;
 }
 
 .mon-slider {
-  flex: 1; min-width: 0;
+  width: 100%; min-width: 0;
   -webkit-appearance: none; appearance: none;
   height: 3px; border-radius: 2px;
   background: var(--bg3);
@@ -8672,7 +8806,7 @@
 }
 .mon-slider:focus-visible::-webkit-slider-thumb { outline: 1.5px solid var(--blue); }
 
-.mon-ctrl-btns { display: flex; gap: 6px; padding-top: 2px; }
+.mon-ctrl-btns { display: flex; gap: 6px; }
 .mon-btn {
   flex: 1;
   font-family: var(--f-serif); font-size: 12px;
@@ -8686,12 +8820,8 @@
   transition: color 0.12s, background 0.12s, border-color 0.12s;
 }
 .mon-btn:hover { color: var(--t1); border-color: var(--border2); }
-.mon-btn.on {
-  background: var(--ink); border-color: var(--ink); color: var(--paper);
-}
-.mon-btn-mute.on {
-  background: #D6402E; border-color: #D6402E; color: #fff;
-}
+.mon-btn.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.mon-btn-mute.on { background: #D6402E; border-color: #D6402E; color: #fff; }
 
 .mon-demo-note {
   margin: 0;

@@ -1179,7 +1179,10 @@ button { font-family: inherit; }
 
 /* ── Drawing board — colored pencils over your actual wall ───────────── */
 .drawboard {
-  position: fixed; inset: 0; z-index: 47;
+  /* absolute, not fixed: it must cover EXACTLY the wall box, or capture
+     and render disagree and doodles come out squished (desktop/iPad
+     layouts have a sidebar the wall excludes). */
+  position: absolute; inset: 0; z-index: 47;
   /* a light wash so the wall shows through and the doodle lands in context */
   background: rgba(251,250,247,0.6);
   display: flex; flex-direction: column;

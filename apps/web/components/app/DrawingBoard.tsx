@@ -16,51 +16,71 @@ const PENCILS = ['#1A1917', '#2440FF', '#E5432D', '#1E9E63', '#E9A400', '#C64BB2
 /**
  * Colored-pencil mode, drawn over a translucent wash of your actual wall
  * so the doodle lands in context. Each session produces ONE new movable
- * doodle object. Capture is Notes-style smoothed: points are thinned by
- * distance, eased toward the pen (exponential smoothing), and rendered
- * as quadratic curves through midpoints.
+ * doodle object.
+ *
+ * Capture is Notes-style smoothed (distance thinning + exponential
+ * easing + quadratic rendering) and, for latency, the in-progress stroke
+ * bypasses React entirely: points append into a ref and the live <path>
+ * is mutated directly, so nothing re-renders until the stroke commits.
+ * Apple Pencil's high-rate coalesced samples are consumed when offered.
  */
 export default function DrawingBoard({ onSave, onClose }: Props) {
   const surfaceRef = useRef<SVGSVGElement>(null)
+  const livePathRef = useRef<SVGPathElement>(null)
   const [strokes, setStrokes] = useState<Stroke[]>([])
-  const [live, setLive] = useState<Stroke | null>(null)
-  // Mirror of `live` — state updaters must stay pure (StrictMode runs
-  // them twice), so drawing mutates here and commits from here.
   const liveRef = useRef<Stroke | null>(null)
   const lastPx = useRef<[number, number] | null>(null)
+  const rectRef = useRef<DOMRect | null>(null)
   const [color, setColor] = useState(PENCILS[0]!)
   const drawing = useRef(false)
 
   const toFrac = (x: number, y: number): [number, number] => {
-    const rect = surfaceRef.current!.getBoundingClientRect()
+    const r = rectRef.current!
     return [
-      Math.min(1, Math.max(0, (x - rect.left) / rect.width)),
-      Math.min(1, Math.max(0, (y - rect.top) / rect.height)),
+      Math.min(1, Math.max(0, (x - r.left) / r.width)),
+      Math.min(1, Math.max(0, (y - r.top) / r.height)),
     ]
+  }
+
+  const paintLive = () => {
+    const el = livePathRef.current
+    const s = liveRef.current
+    if (el && s) el.setAttribute('d', strokePath(s.p))
   }
 
   const onDown = (e: React.PointerEvent) => {
     if (!e.isPrimary || !surfaceRef.current) return
     drawing.current = true
     try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    rectRef.current = surfaceRef.current.getBoundingClientRect()
     lastPx.current = [e.clientX, e.clientY]
-    const s = { c: color, w: 3, p: [...toFrac(e.clientX, e.clientY)] }
-    liveRef.current = s
-    setLive(s)
+    liveRef.current = { c: color, w: 3, p: [...toFrac(e.clientX, e.clientY)] }
+    livePathRef.current?.setAttribute('stroke', color)
+    paintLive()
   }
 
   const onMove = (e: React.PointerEvent) => {
     if (!e.isPrimary || !drawing.current || !liveRef.current || !lastPx.current) return
-    // Thin: ignore movements under ~2.5px — kills sensor jitter.
-    const [lx, ly] = lastPx.current
-    if (Math.hypot(e.clientX - lx, e.clientY - ly) < 2.5) return
-    // Ease toward the pen — the ink trails slightly, like Notes.
-    const sx = lx + (e.clientX - lx) * 0.55
-    const sy = ly + (e.clientY - ly) * 0.55
-    lastPx.current = [sx, sy]
-    const s = { ...liveRef.current, p: [...liveRef.current.p, ...toFrac(sx, sy)] }
-    liveRef.current = s
-    setLive(s)
+    // Apple Pencil / high-rate screens batch several samples per event.
+    const native = e.nativeEvent as PointerEvent
+    const samples: { clientX: number; clientY: number }[] =
+      typeof native.getCoalescedEvents === 'function' && native.getCoalescedEvents().length > 0
+        ? native.getCoalescedEvents()
+        : [native]
+    let appended = false
+    for (const ev of samples) {
+      const last: [number, number] = lastPx.current
+      const lx: number = last[0], ly: number = last[1]
+      // Thin: ignore movements under ~2.5px — kills sensor jitter.
+      if (Math.hypot(ev.clientX - lx, ev.clientY - ly) < 2.5) continue
+      // Ease toward the pen — the ink trails slightly, like Notes.
+      const sx: number = lx + (ev.clientX - lx) * 0.55
+      const sy: number = ly + (ev.clientY - ly) * 0.55
+      lastPx.current = [sx, sy]
+      liveRef.current.p.push(...toFrac(sx, sy))
+      appended = true
+    }
+    if (appended) paintLive()
   }
 
   const onUp = () => {
@@ -69,11 +89,10 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     const s = liveRef.current
     liveRef.current = null
     lastPx.current = null
-    setLive(null)
-    if (s && s.p.length >= 4) setStrokes((prev) => [...prev, s])
+    livePathRef.current?.setAttribute('d', '')
+    // A single point is a dot — round caps make it a real mark.
+    if (s && s.p.length >= 2) setStrokes((prev) => [...prev, s])
   }
-
-  const all = live ? [...strokes, live] : strokes
 
   return (
     <div className="drawboard">
@@ -87,7 +106,7 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        {all.map((s, i) => (
+        {strokes.map((s, i) => (
           <path
             key={i}
             d={strokePath(s.p)}
@@ -103,6 +122,17 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
             pointerEvents="none"
           />
         ))}
+        {/* The in-progress stroke — mutated directly, outside React. */}
+        <path
+          ref={livePathRef}
+          fill="none"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          opacity={0.9}
+          pointerEvents="none"
+        />
       </svg>
 
       <div className="drawboard-bar">

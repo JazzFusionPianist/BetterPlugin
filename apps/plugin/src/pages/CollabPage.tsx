@@ -65,7 +65,7 @@ function mixHexColors(hexes: string[]): string {
 }
 
 export default function CollabPage({ user }: Props) {
-  if (!supabase) return <div style={{ padding: 20, fontSize: 12, fontFamily: 'sans-serif', color: '#999' }}>Supabase not configured.</div>
+  if (!supabase) return <div style={{ padding: 20, fontSize: 12, color: '#999' }}>Supabase not configured.</div>
   return <CollabPageInner user={user} />
 }
 

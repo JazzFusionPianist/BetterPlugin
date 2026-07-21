@@ -67,7 +67,7 @@ const GAMES: GameCard[] = [
       <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
         <rect x="6" y="6" width="14" height="20" rx="2" fill="currentColor" opacity="0.55" transform="rotate(-12 13 16)" />
         <rect x="12" y="6" width="14" height="20" rx="2" fill="currentColor" opacity="0.95" />
-        <text x="14" y="14" fontSize="6" fontFamily="serif" fontWeight="700" fill="#1a1a1a">A</text>
+        <text x="14" y="14" fontSize="6" fontFamily="'Instrument Serif', serif" fontWeight="400" fill="#1a1a1a">A</text>
         <path d="M19 18 L21 22 L17 22 Z" fill="#1a1a1a" />
         <circle cx="19" cy="20" r="1.6" fill="#1a1a1a" />
       </svg>

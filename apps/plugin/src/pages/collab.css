@@ -102,6 +102,7 @@
   flex-direction: column;
   position: relative;
   font-family: var(--f-sans);
+  font-weight: 450;
   font-variant-numeric: tabular-nums;
   color: var(--t1);
 }

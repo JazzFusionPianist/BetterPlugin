@@ -502,7 +502,8 @@ button { font-family: inherit; }
    letters untouched. */
 .uplist {
   position: absolute; z-index: 5;
-  top: calc(76px + env(safe-area-inset-top));
+  /* Sits on the same line as the desktop rail's "conversations" label. */
+  top: calc(67.5px + env(safe-area-inset-top));
   left: 0;
   width: fit-content;
   max-width: min(80vw, 390px);
@@ -513,21 +514,15 @@ button { font-family: inherit; }
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
           mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
 }
-/* The label sits in the date column as a little white plate. The extra
-   10px = the plate's right padding + border, so the WORD "upcoming"
-   ends exactly on the date-text axis below it. */
+/* Bare grey label, right edge on the date-text axis (76px). */
 .uplist-head {
   display: flex; justify-content: flex-end;
-  width: calc(env(safe-area-inset-left) + 86px);
-  margin-bottom: 7px;
+  width: calc(env(safe-area-inset-left) + 76px);
+  margin-bottom: 6px;
 }
 .uplist-head span {
-  font-family: var(--f-mono); font-size: 11px; color: var(--ink);
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
   text-transform: lowercase; letter-spacing: normal;
-  background: var(--card);
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  padding: 3px 9px 4px;
 }
 /* The bottom padding keeps the fade zone empty when the list is short,
    so nothing fades unless it genuinely overflows. */

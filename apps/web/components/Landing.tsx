@@ -12,12 +12,21 @@ export default function Landing() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
 
   // Resolve platform after mount to avoid a hydration mismatch (static HTML
-  // is pre-rendered as web). On native we show a focused welcome/auth gate
-  // instead of the marketing download CTA.
+  // is pre-rendered as web). The focused welcome/auth gate replaces the
+  // marketing download CTA in every "app" context: the Capacitor shell, any
+  // phone/tablet browser, and installed home-screen mode — "Download for
+  // Mac" makes no sense on a device that can't run the plugin.
   const [isNative, setIsNative] = useState(false)
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    setIsNative(Capacitor.isNativePlatform())
+    const ua = navigator.userAgent
+    const appContext =
+      Capacitor.isNativePlatform() ||
+      /iPhone|iPod|iPad|Android/i.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ||   // iPadOS desktop UA
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+    setIsNative(appContext)
     setReady(true)
   }, [])
 

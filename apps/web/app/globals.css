@@ -512,7 +512,7 @@ button { font-family: inherit; }
 .uplist-head {
   font-family: var(--f-mono); font-size: 11px; color: var(--t3);
   text-transform: lowercase; letter-spacing: normal;
-  text-align: right; width: calc(env(safe-area-inset-left) + 78px);
+  text-align: right; width: calc(env(safe-area-inset-left) + 119px);
   padding: 0 0 6px; margin-bottom: 5px;
 }
 /* The bottom padding keeps the fade zone empty when the list is short,
@@ -526,10 +526,12 @@ button { font-family: inherit; }
   padding: 3px 32px 3px calc(env(safe-area-inset-left) + 12px); cursor: pointer;
   font-family: inherit; text-align: left;
 }
+/* Two fixed sub-columns, both right-aligned, so every date ends on one
+   axis and every time ends on the next — a proper timetable. */
 .uplist-date {
   font-family: var(--f-mono); font-size: 11px; color: var(--t3);
   text-transform: lowercase; font-variant-numeric: tabular-nums;
-  width: 108px; flex-shrink: 0; text-align: right;
+  width: 64px; flex-shrink: 0; text-align: right;
   white-space: nowrap;
 }
 .uplist-date.today { color: var(--blue); }
@@ -539,10 +541,11 @@ button { font-family: inherit; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color .12s;
 }
-/* Start time rides in the margin column, right after the date. */
 .uplist-time {
-  margin-left: 5px;
-  font-size: 10.5px; color: var(--t3);
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  width: 34px; flex-shrink: 0; text-align: right;
+  white-space: nowrap;
 }
 /* The next thing on the calendar carries a little more ink. */
 .uplist li:first-child .uplist-title { color: var(--ink); font-weight: 600; }

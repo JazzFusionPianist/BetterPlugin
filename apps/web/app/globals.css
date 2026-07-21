@@ -509,10 +509,12 @@ button { font-family: inherit; }
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
           mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
 }
-/* The label sits in the date column as a little white plate. */
+/* The label sits in the date column as a little white plate. The extra
+   10px = the plate's right padding + border, so the WORD "upcoming"
+   ends exactly on the date-text axis below it. */
 .uplist-head {
   display: flex; justify-content: flex-end;
-  width: calc(env(safe-area-inset-left) + 76px);
+  width: calc(env(safe-area-inset-left) + 86px);
   margin-bottom: 7px;
 }
 .uplist-head span {

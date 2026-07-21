@@ -114,6 +114,7 @@ function decodeChunk (b64: string): Float32Array {
 function processChunk (samples: Float32Array, sr: number, ch: number) {
   ensureBuffers(sr)
   lastChunkAt = performance.now()
+  lastCh = ch
 
   const frames = Math.floor(samples.length / ch)
   if (frames === 0) return
@@ -218,6 +219,24 @@ function correlation (): number {
   return denom > 1e-9 ? sLR / denom : 0
 }
 
+// ── Short-term history (for the loudness graph) ───────────────────────────
+const ST_POINTS = 120                    // 60s at 500ms
+const stHist = new Float32Array(ST_POINTS).fill(-Infinity)
+let stHistPos = 0
+let lastStAt = 0
+let lastCh = 2
+
+/** Ring of short-term LUFS values, one every 500ms (60s span). */
+export function getStHistory (): { data: Float32Array; pos: number } {
+  return { data: stHist, pos: stHistPos }
+}
+
+/** Sample rate + channel count of the incoming stream (for the screen's
+ *  status readout). */
+export function getStreamInfo (): { sr: number; ch: number } {
+  return { sr: sampleRate, ch: lastCh }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 export function startMetering () {
   if (listener) return
@@ -253,6 +272,13 @@ export function readMeters (): MeterFrame {
       holdLin[c] *= Math.pow(10, -15 * 0.016 / 20)   // per ~frame decay
   }
 
+  const lufsSNow = toLufs(meanSquareOver(3))
+  if (now - lastStAt > 500) {
+    lastStAt = now
+    stHist[stHistPos] = active ? lufsSNow : -Infinity
+    stHistPos = (stHistPos + 1) % ST_POINTS
+  }
+
   return {
     active,
     peakL: toDb(peakL), peakR: toDb(peakR),
@@ -263,7 +289,7 @@ export function readMeters (): MeterFrame {
     vuR: toDb(vuR) + 3.01 - VU_REF_DB,
     clipL, clipR,
     lufsM: toLufs(meanSquareOver(0.4)),
-    lufsS: toLufs(meanSquareOver(3)),
+    lufsS: lufsSNow,
     lufsI: integratedLufs(),
     corr: correlation(),
   }

@@ -619,23 +619,8 @@ function CollabPageInner({ user }: Props) {
               // this chat to play". Remember the conversation id —
               // GameListView reads it to switch into invite mode.
               setChatGameInvite(activeConvId ? { conversationId: activeConvId } : null)
-              // If they have a game in-progress somewhere, drop them
-              // straight back into that lobby instead of the picker —
-              // chat-invite intent takes precedence (you might be
-              // inviting more people INTO that game).
               setGameOpen(true)
-              if (activeConvId) {
-                setGameScreen('list')
-              } else {
-                const { findActiveGame } = await import('../lib/gameRooms')
-                const active = await findActiveGame(client, user.id)
-                if (active) {
-                  sessionStorage.setItem('join_room_id', active.roomId)
-                  setGameScreen(active.gameType)
-                } else {
-                  setGameScreen('list')
-                }
-              }
+              setGameScreen('list')
             } else {
               setChatGameInvite(null)
               setGameOpen(false)

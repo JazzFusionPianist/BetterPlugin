@@ -509,11 +509,19 @@ button { font-family: inherit; }
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
           mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
 }
+/* The label sits in the date column as a little white plate. */
 .uplist-head {
-  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+  display: flex; justify-content: flex-end;
+  width: calc(env(safe-area-inset-left) + 76px);
+  margin-bottom: 7px;
+}
+.uplist-head span {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t2);
   text-transform: lowercase; letter-spacing: normal;
-  text-align: right; width: calc(env(safe-area-inset-left) + 119px);
-  padding: 0 0 6px; margin-bottom: 5px;
+  background: var(--card);
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  padding: 3px 9px 4px;
 }
 /* The bottom padding keeps the fade zone empty when the list is short,
    so nothing fades unless it genuinely overflows. */

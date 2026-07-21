@@ -39,7 +39,7 @@ export default function UpcomingList({ events, onOpen }: Props) {
 
   return (
     <div className="uplist">
-      <div className="uplist-head">upcoming</div>
+      <div className="uplist-head"><span>upcoming</span></div>
       <ul>
         {rows.map((e, i) => {
           const l = label(e.starts_at)

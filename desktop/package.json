@@ -1,0 +1,40 @@
+{
+  "name": "orb-desktop",
+  "productName": "orb",
+  "version": "0.1.0",
+  "description": "orb — your crew, your sessions, your sound",
+  "main": "main.cjs",
+  "author": "orb",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac pkg"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.orb.desktop",
+    "productName": "orb",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs"
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        {
+          "target": "pkg"
+        }
+      ]
+    },
+    "pkg": {
+      "installLocation": "/Applications"
+    }
+  }
+}

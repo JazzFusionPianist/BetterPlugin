@@ -4,6 +4,17 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Orb — Make music together',
   description: 'Your crew, your sessions, your sound — in your DAW and on the web.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: '/apple-touch-icon.png',
+  },
+  // "Add to Home Screen" on iOS opens orb full-screen, no Safari chrome.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'orb',
+  },
 }
 
 export const viewport: Viewport = {

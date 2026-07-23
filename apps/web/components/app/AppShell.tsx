@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import {
@@ -55,6 +55,107 @@ export default function AppShell({ user }: { user: User }) {
     const el = bookRef.current
     if (el && el.clientWidth > 0) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
+
+  // ── Home zoom ───────────────────────────────────────────────────────
+  // One view transform shared by the orb field and the wall (the chrome
+  // — buttons, programme, prompt — stays put). Pinch on empty canvas,
+  // trackpad pinch (ctrl+wheel), or the −/+ control; plain scroll pans
+  // once zoomed in. Two fingers ON one wall item resize that item
+  // instead (handled in CanvasLayer; we skip those here).
+  const ZMIN = 0.5, ZMAX = 2.5
+  const [view, setView] = useState({ z: 1, tx: 0, ty: 0 })
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const mainRef = useRef<HTMLElement | null>(null)
+  const zoomPts = useRef<Map<number, { x: number; y: number; onItem: boolean }>>(new Map())
+  const zoomPinch = useRef<{ d0: number; z0: number; cx0: number; cy0: number; tx0: number; ty0: number } | null>(null)
+
+  const clampView = (z: number, tx: number, ty: number) => {
+    const el = mainRef.current
+    const w = el?.clientWidth ?? 0, h = el?.clientHeight ?? 0
+    const zc = Math.min(ZMAX, Math.max(ZMIN, z))
+    const mx = Math.max(0, ((zc - 1) * w) / 2), my = Math.max(0, ((zc - 1) * h) / 2)
+    return { z: zc, tx: Math.min(mx, Math.max(-mx, tx)), ty: Math.min(my, Math.max(-my, ty)) }
+  }
+  /** Zoom to `z` keeping the client point (fx,fy) visually fixed. */
+  const zoomAt = (z: number, fx: number, fy: number) => {
+    const el = mainRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const v = viewRef.current
+    const zc = Math.min(ZMAX, Math.max(ZMIN, z))
+    const Fx = fx - (r.left + r.width / 2), Fy = fy - (r.top + r.height / 2)
+    const k = zc / v.z
+    setView(clampView(zc, Fx - (Fx - v.tx) * k, Fy - (Fy - v.ty) * k))
+  }
+  const zoomStep = (k: number) => {
+    const v = viewRef.current
+    const zc = Math.min(ZMAX, Math.max(ZMIN, v.z * k))
+    setView(clampView(zc, v.tx * (zc / v.z), v.ty * (zc / v.z)))
+  }
+
+  // Trackpad pinch arrives as ctrl+wheel; needs a non-passive listener.
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        zoomAt(viewRef.current.z * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY)
+      } else if (viewRef.current.z > 1) {
+        e.preventDefault()
+        const v = viewRef.current
+        setView(clampView(v.z, v.tx - e.deltaX, v.ty - e.deltaY))
+      }
+    }
+    // Two-finger touches are ours (zoom), never the booklet's scroll.
+    const onTouchStart = (e: TouchEvent) => { if (e.touches.length >= 2) e.preventDefault() }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const ZOOM_IGNORE = '.polad, .doodle, .drawboard, .sprompt, .addmenu, button, input, textarea'
+  const zoomDown = (e: React.PointerEvent) => {
+    const onItem = !!(e.target as Element).closest?.(ZOOM_IGNORE)
+    zoomPts.current.set(e.pointerId, { x: e.clientX, y: e.clientY, onItem })
+    const pts = [...zoomPts.current.values()]
+    if (pts.length === 2 && pts.every((p) => !p.onItem)) {
+      const v = viewRef.current
+      zoomPinch.current = {
+        d0: Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y),
+        z0: v.z,
+        cx0: (pts[0]!.x + pts[1]!.x) / 2, cy0: (pts[0]!.y + pts[1]!.y) / 2,
+        tx0: v.tx, ty0: v.ty,
+      }
+    }
+  }
+  const zoomMove = (e: React.PointerEvent) => {
+    const rec = zoomPts.current.get(e.pointerId)
+    if (!rec) return
+    zoomPts.current.set(e.pointerId, { ...rec, x: e.clientX, y: e.clientY })
+    const g = zoomPinch.current
+    const el = mainRef.current
+    if (!g || !el || zoomPts.current.size < 2 || g.d0 <= 0) return
+    const pts = [...zoomPts.current.values()]
+    const d = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y)
+    const cx = (pts[0]!.x + pts[1]!.x) / 2, cy = (pts[0]!.y + pts[1]!.y) / 2
+    const r = el.getBoundingClientRect()
+    const z = Math.min(ZMAX, Math.max(ZMIN, g.z0 * (d / g.d0)))
+    const Fx = g.cx0 - (r.left + r.width / 2), Fy = g.cy0 - (r.top + r.height / 2)
+    const k = z / g.z0
+    setView(clampView(z, Fx - (Fx - g.tx0) * k + (cx - g.cx0), Fy - (Fy - g.ty0) * k + (cy - g.cy0)))
+  }
+  const zoomUp = (e: React.PointerEvent) => {
+    zoomPts.current.delete(e.pointerId)
+    if (zoomPts.current.size < 2) zoomPinch.current = null
+  }
+
+  const zoomStyle = { transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.z})` }
 
   // Every drawing session lands as its own movable doodle object
   // (x/y 0.5 = "exactly where it was drawn"; dragging shifts it).
@@ -169,7 +270,14 @@ export default function AppShell({ user }: { user: User }) {
         onOpen={(t) => setThread(t)}
       />
 
-      <main className="webapp-main">
+      <main
+        className="webapp-main"
+        ref={mainRef}
+        onPointerDown={zoomDown}
+        onPointerMove={zoomMove}
+        onPointerUp={zoomUp}
+        onPointerCancel={zoomUp}
+      >
         <button
           className="webapp-chats-btn"
           onClick={() => setConvsOpen(true)}
@@ -212,7 +320,7 @@ export default function AppShell({ user }: { user: User }) {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" /></svg>
               photo
             </button>
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setDrawOpen(true) }}>
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setView({ z: 1, tx: 0, ty: 0 }); setDrawOpen(true) }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
               draw
             </button>
@@ -233,6 +341,7 @@ export default function AppShell({ user }: { user: User }) {
           }}
         >
           <section className="home-page">
+            <div className="home-zoom" style={zoomStyle}>
             <OrbHome
               me={me}
               friends={friends}
@@ -252,22 +361,28 @@ export default function AppShell({ user }: { user: User }) {
               onSelectGroup={(g) => setThread({ kind: 'group', conversationId: g.conversationId, title: g.title, memberCount: g.memberCount })}
               onOpenSettings={() => setSettingsOpen(true)}
             />
+            </div>
 
             <UpcomingList events={events} onOpen={() => setCalOpen(true)} />
           </section>
 
           <section className="home-page">
+            <div className="home-zoom" style={zoomStyle}>
             <CanvasLayer
               items={canvasItems}
               isMine
               onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
               onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
             />
+            </div>
 
             {canvasItems.length === 0 && (
               <div className="home-wall-hint">your wall — tap + to pin a photo or draw</div>
             )}
 
+            {/* Outside the zoom: drawing always happens at 1:1 (the draw
+                action resets the view first), so captured fractions and
+                the rendered wall agree. */}
             {drawOpen && (
               <DrawingBoard
                 onSave={saveDrawing}
@@ -275,6 +390,15 @@ export default function AppShell({ user }: { user: User }) {
               />
             )}
           </section>
+        </div>
+
+        {/* Zoom control — hairline chip, bottom-right. */}
+        <div className="home-zoomctl">
+          <button onClick={() => zoomStep(1 / 1.25)} aria-label="Zoom out">−</button>
+          <button className="home-zoomctl-val" onClick={() => setView({ z: 1, tx: 0, ty: 0 })} aria-label="Reset zoom">
+            {Math.round(view.z * 100)}%
+          </button>
+          <button onClick={() => zoomStep(1.25)} aria-label="Zoom in">+</button>
         </div>
 
         {/* Page marks — phones only. */}

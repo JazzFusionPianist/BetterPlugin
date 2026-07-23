@@ -420,6 +420,36 @@ button { font-family: inherit; }
   color: var(--t3); text-align: center; max-width: 220px;
   pointer-events: none;
 }
+/* The zoomable stage inside each page — orbs on one, the wall on the
+   other, sharing one view transform. Chrome stays outside. */
+.home-zoom {
+  position: absolute; inset: 0;
+  transform-origin: center center;
+  will-change: transform;
+}
+/* Zoom control — a quiet hairline chip. Tap the % to reset. */
+.home-zoomctl {
+  position: absolute; z-index: 6;
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  display: flex; align-items: center;
+  background: var(--card); border: 1px solid var(--hair); border-radius: 3px;
+  padding: 1px;
+}
+.home-zoomctl button {
+  background: none; border: none; cursor: pointer; color: var(--t2);
+  font-family: var(--f-mono); font-size: 13px;
+  width: 24px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .12s;
+}
+.home-zoomctl button:hover { color: var(--ink); }
+.home-zoomctl-val {
+  width: auto !important; padding: 0 5px;
+  font-size: 10px !important; color: var(--t3) !important;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Page marks above the schedule prompt. */
 .home-dots {
   position: absolute; z-index: 6;
@@ -1255,16 +1285,34 @@ button { font-family: inherit; }
 /* Belt & braces for iOS: nothing inside the surface may become a touch
    target of its own (touch-action doesn't inherit into SVG children). */
 .drawboard-surface * { touch-action: none; pointer-events: none; }
+.drawboard-surface.erasing { cursor: cell; }
 .drawboard-bar {
   position: absolute; left: 0; right: 0;
   bottom: calc(16px + env(safe-area-inset-bottom));
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-direction: column; gap: 8px;
   margin: 0 14px; padding: 9px 12px;
   background: var(--card); border: 1px solid var(--hair); border-radius: 8px;
 }
-.drawboard-pencils { display: flex; align-items: center; gap: 8px; }
+/* Row 1: nibs (each shows its honest stroke), eraser, shapes. */
+.drawboard-tools { display: flex; align-items: center; gap: 2px; }
+.drawboard-tool {
+  background: none; border: none; cursor: pointer; padding: 4px 5px;
+  border-radius: 4px; color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+  transition: color .12s, background .12s;
+}
+.drawboard-tool:hover { color: var(--ink); }
+.drawboard-tool.on { color: var(--ink); background: rgba(26,25,23,0.07); }
+.drawboard-sep { width: 1px; height: 16px; background: var(--hair); margin: 0 6px; flex-shrink: 0; }
+/* Row 2: the pencil case + actions. */
+.drawboard-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.drawboard-pencils {
+  display: flex; align-items: center; gap: 7px;
+  overflow-x: auto; scrollbar-width: none; padding: 2px;
+}
+.drawboard-pencils::-webkit-scrollbar { display: none; }
 .drawboard-pencil {
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
   border: 1px solid rgba(26,25,23,0.25); cursor: pointer; padding: 0;
   transition: transform .12s ease, box-shadow .12s;
 }

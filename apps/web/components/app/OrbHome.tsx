@@ -61,8 +61,9 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
   useLayoutEffect(() => {
     const c = containerRef.current
     if (!c) return
-    const rect = c.getBoundingClientRect()
-    const W = rect.width, H = rect.height
+    // Layout size, not getBoundingClientRect — the home zoom scales this
+    // container and visual measurements would double-scale the drift.
+    const W = c.offsetWidth, H = c.offsetHeight
     sizeRef.current = { w: W, h: H }
     // Constellations take roughly the room of two orbs in the density budget.
     const N = friends.length + groups.length * 2
@@ -167,8 +168,10 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
             style={{ width: r * 2, height: r * 2, background: f.avatar_color, fontSize: Math.max(11, r * 0.5) }}
             onClick={() => onSelect(f)}
             onMouseEnter={(e) => {
-              const rect = containerRef.current!.getBoundingClientRect()
-              setHovered({ name: f.display_name, x: e.clientX - rect.left, y: e.clientY - rect.top })
+              const c = containerRef.current!
+              const rect = c.getBoundingClientRect()
+              const k = rect.width / (c.offsetWidth || 1) // home-zoom scale
+              setHovered({ name: f.display_name, x: (e.clientX - rect.left) / k, y: (e.clientY - rect.top) / k })
             }}
             onMouseLeave={() => setHovered(null)}
           >
@@ -198,8 +201,10 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
             style={{ width: size, height: size }}
             onClick={() => onSelectGroup(g)}
             onMouseEnter={(e) => {
-              const rect = containerRef.current!.getBoundingClientRect()
-              setHovered({ name: g.title, x: e.clientX - rect.left, y: e.clientY - rect.top })
+              const c = containerRef.current!
+              const rect = c.getBoundingClientRect()
+              const k = rect.width / (c.offsetWidth || 1) // home-zoom scale
+              setHovered({ name: g.title, x: (e.clientX - rect.left) / k, y: (e.clientY - rect.top) / k })
             }}
             onMouseLeave={() => setHovered(null)}
             role="button"

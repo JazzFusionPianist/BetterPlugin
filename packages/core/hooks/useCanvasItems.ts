@@ -13,11 +13,15 @@ export type CanvasKind = 'photo' | 'video' | 'drawing'
 export type CanvasVisibility = 'friends' | 'private'
 
 /** One coloured-pencil stroke. `p` is a flat list of 0..1 canvas
- *  fractions: [x0, y0, x1, y1, …]. `w` is the pencil width in px. */
+ *  fractions: [x0, y0, x1, y1, …]. `w` is the pencil width in px.
+ *  `o` is opacity (default 0.9 for old strokes); `r` set means raw —
+ *  render straight segments with no smoothing (shapes). */
 export interface Stroke {
   c: string
   w: number
   p: number[]
+  o?: number
+  r?: 1
 }
 
 export interface CanvasItem {
@@ -33,6 +37,8 @@ export interface CanvasItem {
   x: number
   y: number
   rotation: number
+  /** Pinch-resize factor, 1 = as pinned. */
+  scale: number
   z: number
   visibility: CanvasVisibility
   created_at: string
@@ -49,12 +55,13 @@ export interface NewCanvasItem {
   x?: number
   y?: number
   rotation?: number
+  scale?: number
   z?: number
   visibility?: CanvasVisibility
 }
 
 export type CanvasPatch = Partial<Pick<CanvasItem,
-  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
+  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'scale' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
 
 /**
  * @param ownerId whose canvas to load. Defaults to the current user;
@@ -111,6 +118,7 @@ export function useCanvasItems(
         x: item.x ?? 0.5,
         y: item.y ?? 0.32,
         rotation: item.rotation ?? 0,
+        scale: item.scale ?? 1,
         z: item.z ?? topZ + 1,
         visibility: item.visibility ?? 'friends',
       }

@@ -25,14 +25,15 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 
   // Layer pixel size — doodle strokes render in raw pixels (Safari's
   // vector-effect:non-scaling-stroke is unreliable under non-uniform
-  // viewBox scaling, so we never rely on it here).
+  // viewBox scaling, so we never rely on it here). Measured from LAYOUT
+  // (offsetWidth), not getBoundingClientRect — the home zoom wraps this
+  // layer in a CSS scale and visual measurements would double-scale ink.
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
   useLayoutEffect(() => {
     const el = layerRef.current
     if (!el) return
     const measure = () => {
-      const r = el.getBoundingClientRect()
-      if (r.width > 0) setDims({ w: r.width, h: r.height })
+      if (el.offsetWidth > 0) setDims({ w: el.offsetWidth, h: el.offsetHeight })
     }
     measure()
     const ro = new ResizeObserver(measure)
@@ -43,15 +44,47 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
   // drag so a reposition doesn't also open the sheet.
   const drag = useRef<{ id: string; sx: number; sy: number; moved: boolean } | null>(null)
   const justDragged = useRef(false)
+  // Two fingers on one item = pinch-resize it (yours only).
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinch = useRef<{ id: string; d0: number; s0: number; live: number } | null>(null)
+
+  const pointerDist = () => {
+    const pts = [...pointers.current.values()]
+    return pts.length < 2 ? 0 : Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y)
+  }
 
   const open = items.find((i) => i.id === openId) ?? null
 
+  /** The item's resting transform (what render also sets). */
+  const baseTransform = (item: CanvasItem, s: number) =>
+    item.kind === 'drawing'
+      ? `translate(-50%, -50%) scale(${s})`
+      : `translate(-50%, -50%) rotate(${item.rotation}deg) scale(${s})`
+
   const onPointerDown = (e: React.PointerEvent, item: CanvasItem) => {
     if (!isMine) return
-    drag.current = { id: item.id, sx: e.clientX, sy: e.clientY, moved: false }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    // Second finger on the same item → stop dragging, start resizing.
+    if (pointers.current.size === 2 && drag.current?.id === item.id) {
+      drag.current = null
+      pinch.current = { id: item.id, d0: pointerDist(), s0: item.scale ?? 1, live: item.scale ?? 1 }
+      return
+    }
+    if (pointers.current.size === 1) {
+      drag.current = { id: item.id, sx: e.clientX, sy: e.clientY, moved: false }
+    }
   }
   const onPointerMove = (e: React.PointerEvent, item: CanvasItem) => {
+    if (pointers.current.has(e.pointerId)) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    }
+    const pz = pinch.current
+    if (pz && pz.id === item.id && pointers.current.size >= 2 && pz.d0 > 0) {
+      pz.live = Math.min(3, Math.max(0.35, pz.s0 * (pointerDist() / pz.d0)))
+      ;(e.currentTarget as HTMLElement).style.transform = baseTransform(item, pz.live)
+      return
+    }
     const d = drag.current
     const rect = layerRef.current?.getBoundingClientRect()
     if (!d || d.id !== item.id || !rect) return
@@ -67,6 +100,17 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
   /** Shared drag finish — `commit` maps the dropped centre (canvas
    *  fractions) to whatever the item kind stores in x/y. */
   const onPointerUp = (e: React.PointerEvent, item: CanvasItem, commit?: (fx: number, fy: number) => CanvasPatch) => {
+    pointers.current.delete(e.pointerId)
+    const pz = pinch.current
+    if (pz && pz.id === item.id) {
+      // Resize commits when the second-to-last finger lifts.
+      if (pointers.current.size < 2) {
+        pinch.current = null
+        justDragged.current = true
+        if (Math.abs(pz.live - (item.scale ?? 1)) > 0.01) onUpdate(item.id, { scale: pz.live })
+      }
+      return
+    }
     const d = drag.current
     drag.current = null
     if (!d || d.id !== item.id || !d.moved) return
@@ -93,7 +137,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           <div
             key={item.id}
             className={`doodle${isMine ? ' movable' : ''}`}
-            style={{ left: `${cx * 100}%`, top: `${cy * 100}%`, width: `${bb.w * 100}%`, height: `${bb.h * 100}%`, zIndex: item.z }}
+            style={{ left: `${cx * 100}%`, top: `${cy * 100}%`, width: `${bb.w * 100}%`, height: `${bb.h * 100}%`, zIndex: item.z, transform: baseTransform(item, item.scale ?? 1) }}
             onPointerDown={(e) => onPointerDown(e, item)}
             onPointerMove={(e) => onPointerMove(e, item)}
             onPointerUp={(e) => onPointerUp(e, item, (fx, fy) => ({ x: 0.5 + fx - bcx, y: 0.5 + fy - bcy }))}
@@ -107,10 +151,10 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
             {/* No viewBox — svg units are pixels of the doodle box. */}
             <svg width="100%" height="100%">
               {dims && (item.strokes ?? []).map((s, i) => (
-                <path key={i} d={strokePathScaled(s.p, dims.w, dims.h, bb.x, bb.y)}
+                <path key={i} d={strokePathScaled(s.p, dims.w, dims.h, bb.x, bb.y, s.r === 1)}
                   fill="none" stroke={s.c} strokeWidth={s.w}
                   strokeLinecap="round" strokeLinejoin="round"
-                  opacity={0.9} pointerEvents="none" />
+                  opacity={s.o ?? 0.9} pointerEvents="none" />
               ))}
             </svg>
             {item.visibility === 'private' && (
@@ -125,7 +169,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
         <div
           key={item.id}
           className={`polad${isMine ? ' movable' : ''}`}
-          style={{ left: `${item.x * 100}%`, top: `${item.y * 100}%`, transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`, zIndex: item.z }}
+          style={{ left: `${item.x * 100}%`, top: `${item.y * 100}%`, transform: baseTransform(item, item.scale ?? 1), zIndex: item.z }}
           onPointerDown={(e) => onPointerDown(e, item)}
           onPointerMove={(e) => onPointerMove(e, item)}
           onPointerUp={(e) => onPointerUp(e, item)}
@@ -238,8 +282,8 @@ function DoodlePreview({ strokes }: { strokes: NonNullable<CanvasItem['strokes']
   return (
     <svg viewBox={`${bb.x} ${bb.y} ${bb.w} ${bb.h}`} className="polad-sheet-doodle">
       {strokes.map((s, i) => (
-        <path key={i} d={strokePath(s.p)} fill="none" stroke={s.c} strokeWidth={s.w}
-          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={0.9} />
+        <path key={i} d={strokePath(s.p, s.r === 1)} fill="none" stroke={s.c} strokeWidth={s.w}
+          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={s.o ?? 0.9} />
       ))}
     </svg>
   )

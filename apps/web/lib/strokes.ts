@@ -10,11 +10,17 @@ import type { Stroke } from '@orb/core'
  * midpoints (the classic Notes-style smoothing): every captured point
  * becomes a control point, so corners round off and jitter melts away.
  */
-export function strokePath(p: number[]): string {
+export function strokePath(p: number[], raw = false): string {
   const n = p.length / 2
   if (n === 0) return ''
   if (n === 1) return `M ${p[0]} ${p[1]} L ${p[0]} ${p[1]}`
   if (n === 2) return `M ${p[0]} ${p[1]} L ${p[2]} ${p[3]}`
+  // Raw mode: straight segments, corners stay corners (shapes).
+  if (raw) {
+    let d = `M ${p[0]} ${p[1]}`
+    for (let i = 1; i < n; i++) d += ` L ${p[i * 2]} ${p[i * 2 + 1]}`
+    return d
+  }
   let d = `M ${p[0]} ${p[1]}`
   for (let i = 1; i < n - 1; i++) {
     const x = p[i * 2]!, y = p[i * 2 + 1]!
@@ -31,14 +37,14 @@ export function strokePath(p: number[]): string {
  * X = (x - ox) * sx, Y = (y - oy) * sy. Zero-length paths (dots) get a
  * hair of length so every renderer paints the round cap.
  */
-export function strokePathScaled(p: number[], sx: number, sy: number, ox = 0, oy = 0): string {
+export function strokePathScaled(p: number[], sx: number, sy: number, ox = 0, oy = 0, raw = false): string {
   const q: number[] = new Array(p.length)
   for (let i = 0; i + 1 < p.length; i += 2) {
     q[i] = (p[i]! - ox) * sx
     q[i + 1] = (p[i + 1]! - oy) * sy
   }
   if (q.length === 2) return `M ${q[0]} ${q[1]} l 0.01 0`
-  return strokePath(q)
+  return strokePath(q, raw)
 }
 
 export interface BBox { x: number; y: number; w: number; h: number }

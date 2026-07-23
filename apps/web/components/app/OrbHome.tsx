@@ -18,14 +18,39 @@ export interface GroupOrbInfo {
 }
 
 interface Props {
-  me: Profile | null
   friends: Profile[]
   groups: GroupOrbInfo[]
   unreadByFriend: Map<string, number>
   unreadByGroup: Map<string, number>
   onSelect: (friend: Profile) => void
   onSelectGroup: (g: GroupOrbInfo) => void
+}
+
+/**
+ * The centre block — your avatar, name, @username, counts. Rendered by
+ * AppShell OUTSIDE the zoomable stage and outside the booklet pages, so
+ * it holds its place while the canvas zooms and while pages turn.
+ */
+export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
+  me: Profile | null
+  friendCount: number
+  groupCount: number
   onOpenSettings: () => void
+}) {
+  const initials = me?.initials ?? '··'
+  const color = me?.avatar_color ?? '#4A8FE7'
+  return (
+    <div className="orbhome-center">
+      <div className="orbhome-me" style={{ background: color }} onClick={onOpenSettings} role="button" aria-label="Profile & settings">
+        {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
+      </div>
+      <div className="orbhome-name">{me?.display_name ?? '…'}</div>
+      {me?.username && <div className="orbhome-user">@{me.username}</div>}
+      <div className="orbhome-count">
+        {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
+      </div>
+    </div>
+  )
 }
 
 interface Orb { x: number; y: number; vx: number; vy: number; r: number; el: HTMLDivElement | null }
@@ -49,7 +74,7 @@ const CENTER_R = 64   // radius of the central avatar's keep-out zone
  * Gentle brownian motion, wall bounce, and a soft keep-out ring
  * around the centre so nothing covers your face.
  */
-export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByGroup, onSelect, onSelectGroup, onOpenSettings }: Props) {
+export default function OrbHome({ friends, groups, unreadByFriend, unreadByGroup, onSelect, onSelectGroup }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const orbsRef = useRef<Orb[]>([])
   const groupsRef = useRef<GroupBody[]>([])
@@ -150,9 +175,6 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const initials = me?.initials ?? '··'
-  const color = me?.avatar_color ?? '#4A8FE7'
-
   return (
     <div className="orbhome" ref={containerRef}>
       {/* Friend orbs */}
@@ -246,17 +268,6 @@ export default function OrbHome({ me, friends, groups, unreadByFriend, unreadByG
       })}
 
       {/* Centre — me */}
-      <div className="orbhome-center">
-        <div className="orbhome-me" style={{ background: color }} onClick={onOpenSettings} role="button" aria-label="Profile & settings">
-          {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
-        </div>
-        <div className="orbhome-name">{me?.display_name ?? '…'}</div>
-        {me?.username && <div className="orbhome-user">@{me.username}</div>}
-        <div className="orbhome-count">
-          {friends.length} friends{groups.length > 0 ? ` · ${groups.length} ${groups.length === 1 ? 'group' : 'groups'}` : ''}
-        </div>
-      </div>
-
       {hovered && (
         <div className="orbhome-tip" style={{ left: hovered.x, top: hovered.y }}>{hovered.name}</div>
       )}

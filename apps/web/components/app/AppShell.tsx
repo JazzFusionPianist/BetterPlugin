@@ -13,7 +13,7 @@ import { parseSchedule } from '@/lib/parseSchedule'
 import { uploadAttachment, compressImage } from '@/lib/upload'
 import Sidebar from './Sidebar'
 import UpcomingList from './UpcomingList'
-import OrbHome from './OrbHome'
+import OrbHome, { OrbHomeCenter } from './OrbHome'
 import CanvasLayer from './CanvasLayer'
 import DrawingBoard from './DrawingBoard'
 import SchedulePrompt from './SchedulePrompt'
@@ -343,7 +343,6 @@ export default function AppShell({ user }: { user: User }) {
           <section className="home-page">
             <div className="home-zoom" style={zoomStyle}>
             <OrbHome
-              me={me}
               friends={friends}
               groups={groupConversations.map((g) => ({
                 conversationId: g.conversationId,
@@ -359,7 +358,6 @@ export default function AppShell({ user }: { user: User }) {
               unreadByGroup={unread}
               onSelect={setSheetFriend}
               onSelectGroup={(g) => setThread({ kind: 'group', conversationId: g.conversationId, title: g.title, memberCount: g.memberCount })}
-              onOpenSettings={() => setSettingsOpen(true)}
             />
             </div>
 
@@ -391,6 +389,15 @@ export default function AppShell({ user }: { user: User }) {
             )}
           </section>
         </div>
+
+        {/* You — fixed chrome: outside the zoom, above both pages, so
+            your face and name hold still while the canvas moves. */}
+        <OrbHomeCenter
+          me={me}
+          friendCount={friends.length}
+          groupCount={groupConversations.length}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
 
         {/* Zoom control — hairline chip, bottom-right. */}
         <div className="home-zoomctl">

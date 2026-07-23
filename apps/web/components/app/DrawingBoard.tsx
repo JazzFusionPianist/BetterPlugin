@@ -36,6 +36,57 @@ function distSeg(px: number, py: number, x1: number, y1: number, x2: number, y2:
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
 }
 
+/** Perpendicular distance of a point from the line a→b (RDP helper). */
+function perpDist(p: [number, number], a: [number, number], b: [number, number]): number {
+  const dx = b[0] - a[0], dy = b[1] - a[1]
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return Math.hypot(p[0] - a[0], p[1] - a[1])
+  return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / len
+}
+
+/** Ramer–Douglas–Peucker simplification (iterative, px space). */
+function rdp(pts: [number, number][], eps: number): [number, number][] {
+  if (pts.length < 3) return pts
+  const keep = new Array<boolean>(pts.length).fill(false)
+  keep[0] = keep[pts.length - 1] = true
+  const stack: [number, number][] = [[0, pts.length - 1]]
+  while (stack.length) {
+    const [lo, hi] = stack.pop()!
+    let maxD = 0, maxI = -1
+    for (let i = lo + 1; i < hi; i++) {
+      const d = perpDist(pts[i]!, pts[lo]!, pts[hi]!)
+      if (d > maxD) { maxD = d; maxI = i }
+    }
+    if (maxD > eps && maxI > 0) {
+      keep[maxI] = true
+      stack.push([lo, maxI], [maxI, hi])
+    }
+  }
+  return pts.filter((_, i) => keep[i])
+}
+
+/**
+ * Post-lift polish: once the pen lifts, run a light moving average over
+ * the captured points (ends pinned) and then RDP-simplify, so the
+ * quadratic renderer glides through a few well-spaced points instead of
+ * chasing every wobble. Freehand nibs only — shapes and dots skip it.
+ */
+function refine(p: number[], w: number, h: number): number[] {
+  const n = p.length / 2
+  if (n < 4) return p
+  const pts: [number, number][] = []
+  for (let i = 0; i + 1 < p.length; i += 2) pts.push([p[i]! * w, p[i + 1]! * h])
+  const sm: [number, number][] = pts.map((pt, i) => {
+    if (i === 0 || i === pts.length - 1) return pt
+    return [
+      (pts[i - 1]![0] + pt[0] * 2 + pts[i + 1]![0]) / 4,
+      (pts[i - 1]![1] + pt[1] * 2 + pts[i + 1]![1]) / 4,
+    ]
+  })
+  const kept = rdp(sm, 1.4)
+  return kept.flatMap(([x, y]) => [x / w, y / h])
+}
+
 /** Shape outlines as fraction-space point lists (rendered raw). */
 function buildShape(tool: ToolId, a: [number, number], b: [number, number]): number[] {
   if (tool === 'line') return [a[0], a[1], b[0], b[1]]
@@ -245,7 +296,10 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
       return
     }
     // A single point is a dot — round caps make it a real mark.
-    if (s.p.length >= 2) commit([...strokesRef.current, s])
+    if (s.p.length < 2) return
+    const d = dimsRef.current
+    if (d) s.p = refine(s.p, d.w, d.h)
+    commit([...strokesRef.current, s])
   }
 
   /** A nib button shows its own stroke: honest width and opacity. */

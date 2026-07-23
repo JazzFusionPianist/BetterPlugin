@@ -46,6 +46,16 @@ export default function AppShell({ user }: { user: User }) {
   const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
   const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
 
+  // On phones the home is a two-page booklet spread — people / wall —
+  // swiped horizontally. Desktop flattens both pages back onto one
+  // canvas via display:contents, so this ref only matters under 820px.
+  const bookRef = useRef<HTMLDivElement>(null)
+  const [bookPage, setBookPage] = useState(0)
+  const goPage = (i: number) => {
+    const el = bookRef.current
+    if (el && el.clientWidth > 0) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+  }
+
   // Every drawing session lands as its own movable doodle object
   // (x/y 0.5 = "exactly where it was drawn"; dragging shifts it).
   const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[]) => {
@@ -198,11 +208,11 @@ export default function AppShell({ user }: { user: User }) {
         </button>
         {addOpen && (
           <div className="addmenu">
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); photoInputRef.current?.click() }}>
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); photoInputRef.current?.click() }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" /></svg>
               photo
             </button>
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); setDrawOpen(true) }}>
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setDrawOpen(true) }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
               draw
             </button>
@@ -210,41 +220,68 @@ export default function AppShell({ user }: { user: User }) {
         )}
         <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
 
-        {drawOpen && (
-          <DrawingBoard
-            onSave={saveDrawing}
-            onClose={() => setDrawOpen(false)}
-          />
-        )}
+        {/* The booklet spread. Page 1 = people (orbs + programme), page 2
+            = the wall (polaroids + doodles). Phones swipe between them;
+            desktop flattens both pages onto the one canvas (CSS
+            display:contents), identical to before. */}
+        <div
+          className="home-book"
+          ref={bookRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            if (el.clientWidth > 0) setBookPage(Math.round(el.scrollLeft / el.clientWidth))
+          }}
+        >
+          <section className="home-page">
+            <OrbHome
+              me={me}
+              friends={friends}
+              groups={groupConversations.map((g) => ({
+                conversationId: g.conversationId,
+                title: g.title || 'Group',
+                memberCount: g.memberIds.length,
+                members: g.memberIds
+                  .map((id) => (id === user.id ? me : profileById.get(id)))
+                  .filter((p): p is Profile => !!p)
+                  .slice(0, 5)
+                  .map((p) => ({ color: p.avatar_color, initials: p.initials, avatarUrl: p.avatar_url ?? null })),
+              }))}
+              unreadByFriend={unreadByFriend}
+              unreadByGroup={unread}
+              onSelect={setSheetFriend}
+              onSelectGroup={(g) => setThread({ kind: 'group', conversationId: g.conversationId, title: g.title, memberCount: g.memberCount })}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
 
-        <CanvasLayer
-          items={canvasItems}
-          isMine
-          onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
-          onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
-        />
+            <UpcomingList events={events} onOpen={() => setCalOpen(true)} />
+          </section>
 
-        <OrbHome
-          me={me}
-          friends={friends}
-          groups={groupConversations.map((g) => ({
-            conversationId: g.conversationId,
-            title: g.title || 'Group',
-            memberCount: g.memberIds.length,
-            members: g.memberIds
-              .map((id) => (id === user.id ? me : profileById.get(id)))
-              .filter((p): p is Profile => !!p)
-              .slice(0, 5)
-              .map((p) => ({ color: p.avatar_color, initials: p.initials, avatarUrl: p.avatar_url ?? null })),
-          }))}
-          unreadByFriend={unreadByFriend}
-          unreadByGroup={unread}
-          onSelect={setSheetFriend}
-          onSelectGroup={(g) => setThread({ kind: 'group', conversationId: g.conversationId, title: g.title, memberCount: g.memberCount })}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
+          <section className="home-page">
+            <CanvasLayer
+              items={canvasItems}
+              isMine
+              onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
+              onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
+            />
 
-        <UpcomingList events={events} onOpen={() => setCalOpen(true)} />
+            {canvasItems.length === 0 && (
+              <div className="home-wall-hint">your wall — tap + to pin a photo or draw</div>
+            )}
+
+            {drawOpen && (
+              <DrawingBoard
+                onSave={saveDrawing}
+                onClose={() => setDrawOpen(false)}
+              />
+            )}
+          </section>
+        </div>
+
+        {/* Page marks — phones only. */}
+        <div className="home-dots">
+          <button className={`home-dot${bookPage === 0 ? ' on' : ''}`} onClick={() => goPage(0)} aria-label="People" />
+          <button className={`home-dot${bookPage === 1 ? ' on' : ''}`} onClick={() => goPage(1)} aria-label="Wall" />
+        </div>
 
         <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
       </main>

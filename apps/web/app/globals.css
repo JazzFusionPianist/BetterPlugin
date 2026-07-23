@@ -395,6 +395,46 @@ button { font-family: inherit; }
   background: var(--paper);
 }
 
+/* ── Home booklet — phones read the home as a two-page spread ────────
+   Page 1: people (orbs + programme). Page 2: the wall. Native
+   horizontal snap scrolling; desktop flattens both pages back onto
+   the single canvas via display:contents (see the 820px query). */
+.home-book {
+  position: absolute; inset: 0;
+  display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.home-book::-webkit-scrollbar { display: none; }
+.home-page {
+  position: relative; flex: 0 0 100%; height: 100%;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  overflow: hidden;
+}
+/* Empty wall page, phones only — a caption, not a banner. */
+.home-wall-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-family: var(--f-serif); font-style: italic; font-size: 15px;
+  color: var(--t3); text-align: center; max-width: 220px;
+  pointer-events: none;
+}
+/* Page marks above the schedule prompt. */
+.home-dots {
+  position: absolute; z-index: 6;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 7px;
+}
+.home-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  border: 1px solid var(--hair); background: transparent;
+  padding: 0; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.home-dot.on { background: var(--ink); border-color: var(--ink); }
+
 .orbhome { position: absolute; inset: 0; overflow: hidden; }
 .orbhome-orb {
   position: absolute; top: 0; left: 0; border-radius: 50%;
@@ -549,6 +589,9 @@ button { font-family: inherit; }
 }
 .doodle.movable { cursor: grab; }
 .doodle.movable:active { cursor: grabbing; }
+/* Dragging an item must never pan the booklet underneath it —
+   touch-action does NOT inherit into SVG children, hence the `*`. */
+.doodle.movable, .doodle.movable *, .polad.movable, .polad.movable * { touch-action: none; }
 .doodle svg { position: absolute; inset: 0; overflow: visible; }
 .doodle-lock { top: -6px; right: -6px; }
 .polad {
@@ -1112,6 +1155,9 @@ button { font-family: inherit; }
 @media (max-width: 820px) {
   .webapp { grid-template-columns: 1fr; }
   .webapp-sidebar { display: none; }
+  /* Phones read the programme as a teaser — the next few entries only;
+     the calendar holds the rest (the whole column opens it anyway). */
+  .uplist li:nth-child(n + 6) { display: none; }
 }
 /* Desktop: the rail already lists chats — the floating chats button is
    redundant. The thread runs full-bleed: bubbles hang from the far
@@ -1121,6 +1167,11 @@ button { font-family: inherit; }
   .webapp-chats-btn { display: none; }
   .chatt .chatt-bubble { max-width: min(78%, 640px); }
   .chatt .chatt-col { max-width: min(86%, 680px); }
+  /* Desktop has room for the whole exhibition on one wall: the booklet
+     wrappers vanish from layout and every layer positions against
+     .webapp-main exactly as before the spread existed. */
+  .home-book, .home-page { display: contents; }
+  .home-dots, .home-wall-hint { display: none; }
 }
 
 /* ── Profile sheet (tap an orb) ──────────────────────────────────────── */
@@ -1193,6 +1244,8 @@ button { font-family: inherit; }
   background: rgba(251,250,247,0.6);
   display: flex; flex-direction: column;
   animation: evsheet-fade .18s ease both;
+  /* while drawing, no touch may pan the home booklet underneath */
+  touch-action: none;
 }
 .drawboard-surface {
   position: absolute; inset: 0; width: 100%; height: 100%;

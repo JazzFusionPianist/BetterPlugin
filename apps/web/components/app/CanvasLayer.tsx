@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasItem, CanvasPatch } from '@orb/core'
 import { strokePath, strokePathScaled, strokesBBox } from '@/lib/strokes'
+import { WALL_REF_W, wallSheet } from '@/lib/wall'
 
 interface Props {
   items: CanvasItem[]
@@ -55,11 +56,19 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 
   const open = items.find((i) => i.id === openId) ?? null
 
-  /** The item's resting transform (what render also sets). */
+  // The page itself: fixed 2:3 sheet, contain-fitted into this layer.
+  // Item fractions are sheet fractions — identical picture everywhere.
+  const sheet = dims ? wallSheet(dims.w, dims.h) : null
+  // Polaroid layout size and stroke widths are in reference px; K makes
+  // them grow with the sheet so the picture scales as one object.
+  const K = sheet ? sheet.w / WALL_REF_W : 1
+
+  /** The item's resting transform (what render also sets). Doodle boxes
+   *  already scale with the sheet, so only polaroids need K here. */
   const baseTransform = (item: CanvasItem, s: number) =>
     item.kind === 'drawing'
       ? `translate(-50%, -50%) scale(${s})`
-      : `translate(-50%, -50%) rotate(${item.rotation}deg) scale(${s})`
+      : `translate(-50%, -50%) rotate(${item.rotation}deg) scale(${s * K})`
 
   const onPointerDown = (e: React.PointerEvent, item: CanvasItem) => {
     if (!isMine) return
@@ -86,15 +95,20 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
       return
     }
     const d = drag.current
-    const rect = layerRef.current?.getBoundingClientRect()
-    if (!d || d.id !== item.id || !rect) return
+    const layer = layerRef.current
+    const rect = layer?.getBoundingClientRect()
+    if (!d || d.id !== item.id || !layer || !rect || !sheet) return
     if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 5) return
     d.moved = true
-    const x = Math.min(0.95, Math.max(0.05, (e.clientX - rect.left) / rect.width))
-    const y = Math.min(0.95, Math.max(0.05, (e.clientY - rect.top) / rect.height))
+    // Client → layout px (divide out the home zoom) → sheet fraction.
+    const k = rect.width / (layer.offsetWidth || 1)
+    const px = (e.clientX - rect.left) / k
+    const py = (e.clientY - rect.top) / k
+    const x = Math.min(0.97, Math.max(0.03, (px - sheet.x) / sheet.w))
+    const y = Math.min(0.97, Math.max(0.03, (py - sheet.y) / sheet.h))
     const el = e.currentTarget as HTMLElement
-    el.style.left = `${x * 100}%`
-    el.style.top = `${y * 100}%`
+    el.style.left = `${sheet.x + x * sheet.w}px`
+    el.style.top = `${sheet.y + y * sheet.h}px`
     el.dataset.x = String(x); el.dataset.y = String(y)
   }
   /** Shared drag finish — `commit` maps the dropped centre (canvas
@@ -126,10 +140,15 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 
   return (
     <div className="canvas-layer" ref={layerRef}>
+      {/* The page edge — a quiet hairline so the sheet reads as one
+          object; identical proportions on every device. */}
+      {sheet && (items.length > 0) && (
+        <div className="wall-sheet" style={{ left: sheet.x, top: sheet.y, width: sheet.w, height: sheet.h }} />
+      )}
       {/* Doodles — each drawing is its own movable object. Strokes are
-          absolute canvas fractions; item.x/y hold a drag offset from the
+          absolute sheet fractions; item.x/y hold a drag offset from the
           drawn spot (0.5,0.5 = untouched), so old drawings stay put. */}
-      {doodles.map((item) => {
+      {sheet && doodles.map((item) => {
         const bb = strokesBBox(item.strokes!)
         const bcx = bb.x + bb.w / 2, bcy = bb.y + bb.h / 2
         const cx = bcx + (item.x - 0.5), cy = bcy + (item.y - 0.5)
@@ -137,7 +156,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           <div
             key={item.id}
             className={`doodle${isMine ? ' movable' : ''}`}
-            style={{ left: `${cx * 100}%`, top: `${cy * 100}%`, width: `${bb.w * 100}%`, height: `${bb.h * 100}%`, zIndex: item.z, transform: baseTransform(item, item.scale ?? 1) }}
+            style={{ left: sheet.x + cx * sheet.w, top: sheet.y + cy * sheet.h, width: bb.w * sheet.w, height: bb.h * sheet.h, zIndex: item.z, transform: baseTransform(item, item.scale ?? 1) }}
             onPointerDown={(e) => onPointerDown(e, item)}
             onPointerMove={(e) => onPointerMove(e, item)}
             onPointerUp={(e) => onPointerUp(e, item, (fx, fy) => ({ x: 0.5 + fx - bcx, y: 0.5 + fy - bcy }))}
@@ -150,9 +169,9 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           >
             {/* No viewBox — svg units are pixels of the doodle box. */}
             <svg width="100%" height="100%">
-              {dims && (item.strokes ?? []).map((s, i) => (
-                <path key={i} d={strokePathScaled(s.p, dims.w, dims.h, bb.x, bb.y, s.r === 1)}
-                  fill="none" stroke={s.c} strokeWidth={s.w}
+              {(item.strokes ?? []).map((s, i) => (
+                <path key={i} d={strokePathScaled(s.p, sheet.w, sheet.h, bb.x, bb.y, s.r === 1)}
+                  fill="none" stroke={s.c} strokeWidth={s.w * K}
                   strokeLinecap="round" strokeLinejoin="round"
                   opacity={s.o ?? 0.9} pointerEvents="none" />
               ))}
@@ -165,11 +184,11 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           </div>
         )
       })}
-      {pinned.map((item) => (
+      {sheet && pinned.map((item) => (
         <div
           key={item.id}
           className={`polad${isMine ? ' movable' : ''}`}
-          style={{ left: `${item.x * 100}%`, top: `${item.y * 100}%`, transform: baseTransform(item, item.scale ?? 1), zIndex: item.z }}
+          style={{ left: sheet.x + item.x * sheet.w, top: sheet.y + item.y * sheet.h, transform: baseTransform(item, item.scale ?? 1), zIndex: item.z }}
           onPointerDown={(e) => onPointerDown(e, item)}
           onPointerMove={(e) => onPointerMove(e, item)}
           onPointerUp={(e) => onPointerUp(e, item)}

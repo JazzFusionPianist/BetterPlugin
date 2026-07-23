@@ -612,6 +612,11 @@ button { font-family: inherit; }
 
 /* ── Home canvas — photos pinned like polaroids ─────────────────────── */
 .canvas-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+/* The page edge — the wall is one fixed 2:3 sheet on every device. */
+.wall-sheet {
+  position: absolute; pointer-events: none;
+  border: 1px solid var(--line);
+}
 /* Doodles — each drawing is a movable object with a comfortable
    touch box; the ink itself never intercepts pointers. */
 .doodle {

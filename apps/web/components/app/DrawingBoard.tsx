@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { Stroke } from '@orb/core'
 import { strokePathScaled } from '@/lib/strokes'
+import { WALL_REF_W, wallSheet } from '@/lib/wall'
 
 interface Props {
   /** Called with the finished doodle's strokes (non-empty). */
@@ -170,40 +171,57 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     return () => window.removeEventListener('resize', measure)
   }, [])
 
+  // Ink lives on the 2:3 page (same sheet CanvasLayer renders), so a
+  // stroke drawn on a phone keeps its exact shape on every screen.
+  const sheet = dims ? wallSheet(dims.w, dims.h) : null
+  const getSheet = () => {
+    const d = dimsRef.current
+    return d ? wallSheet(d.w, d.h) : null
+  }
+  // Stroke widths are stored in reference px (a phone-width sheet) and
+  // rendered ×K so ink thickness scales with the page like everything else.
+  const K = sheet ? sheet.w / WALL_REF_W : 1
+  const kNow = () => {
+    const sh = getSheet()
+    return sh ? sh.w / WALL_REF_W : 1
+  }
+
   const toFrac = (x: number, y: number): [number, number] => {
     const r = rectRef.current!
+    const sh = getSheet()!
     return [
-      Math.min(1, Math.max(0, (x - r.left) / r.width)),
-      Math.min(1, Math.max(0, (y - r.top) / r.height)),
+      Math.min(1, Math.max(0, (x - r.left - sh.x) / sh.w)),
+      Math.min(1, Math.max(0, (y - r.top - sh.y) / sh.h)),
     ]
   }
 
   const paintLive = () => {
     const el = livePathRef.current
     const s = liveRef.current
-    const d = dimsRef.current
-    if (el && s && d) el.setAttribute('d', strokePathScaled(s.p, d.w, d.h, 0, 0, s.r === 1))
+    const sh = getSheet()
+    if (el && s && sh) el.setAttribute('d', strokePathScaled(s.p, sh.w, sh.h, 0, 0, s.r === 1))
   }
   const armLive = (s: Stroke) => {
     const el = livePathRef.current
     if (!el) return
     el.setAttribute('stroke', s.c)
-    el.setAttribute('stroke-width', String(s.w))
+    el.setAttribute('stroke-width', String(s.w * kNow()))
     el.setAttribute('opacity', String(s.o ?? 0.9))
   }
 
   /** Remove any stroke the eraser touches at this client point. */
   const eraseAt = (cx: number, cy: number) => {
     const r = rectRef.current
-    const d = dimsRef.current
-    if (!r || !d) return
-    const x = cx - r.left, y = cy - r.top
+    const sh = getSheet()
+    if (!r || !sh) return
+    const x = cx - r.left - sh.x, y = cy - r.top - sh.y
+    const k = sh.w / WALL_REF_W
     const next = strokesRef.current.filter((s) => {
-      const R = Math.max(11, s.w * 0.75 + 8)
+      const R = Math.max(11, s.w * k * 0.75 + 8)
       const p = s.p
-      if (p.length === 2) return Math.hypot(p[0]! * d.w - x, p[1]! * d.h - y) >= R
+      if (p.length === 2) return Math.hypot(p[0]! * sh.w - x, p[1]! * sh.h - y) >= R
       for (let i = 0; i + 3 < p.length; i += 2) {
-        if (distSeg(x, y, p[i]! * d.w, p[i + 1]! * d.h, p[i + 2]! * d.w, p[i + 3]! * d.h) < R) return false
+        if (distSeg(x, y, p[i]! * sh.w, p[i + 1]! * sh.h, p[i + 2]! * sh.w, p[i + 3]! * sh.h) < R) return false
       }
       return true
     })
@@ -297,8 +315,8 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     }
     // A single point is a dot — round caps make it a real mark.
     if (s.p.length < 2) return
-    const d = dimsRef.current
-    if (d) s.p = refine(s.p, d.w, d.h)
+    const sh = getSheet()
+    if (sh) s.p = refine(s.p, sh.w, sh.h)
     commit([...strokesRef.current, s])
   }
 
@@ -321,31 +339,40 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        {dims && strokes.map((s, i) => (
-          <path
-            key={i}
-            d={strokePathScaled(s.p, dims.w, dims.h, 0, 0, s.r === 1)}
-            fill="none"
-            stroke={s.c}
-            strokeWidth={s.w}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={s.o ?? 0.9}
-            /* Painted strokes must never become touch targets — on iOS
-               they'd hijack touches near existing ink into scroll. */
-            pointerEvents="none"
-          />
-        ))}
-        {/* The in-progress stroke — mutated directly, outside React. */}
-        <path
-          ref={livePathRef}
-          fill="none"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.9}
-          pointerEvents="none"
-        />
+        {/* Page edge — you're drawing on the sheet, not the screen. */}
+        {sheet && (
+          <rect x={sheet.x} y={sheet.y} width={sheet.w} height={sheet.h}
+            fill="none" stroke="rgba(26,25,23,0.18)" strokeWidth={1} pointerEvents="none" />
+        )}
+        {sheet && (
+          <g transform={`translate(${sheet.x}, ${sheet.y})`}>
+            {strokes.map((s, i) => (
+              <path
+                key={i}
+                d={strokePathScaled(s.p, sheet.w, sheet.h, 0, 0, s.r === 1)}
+                fill="none"
+                stroke={s.c}
+                strokeWidth={s.w * K}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={s.o ?? 0.9}
+                /* Painted strokes must never become touch targets — on iOS
+                   they'd hijack touches near existing ink into scroll. */
+                pointerEvents="none"
+              />
+            ))}
+            {/* The in-progress stroke — mutated directly, outside React. */}
+            <path
+              ref={livePathRef}
+              fill="none"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.9}
+              pointerEvents="none"
+            />
+          </g>
+        )}
       </svg>
 
       <div className="drawboard-bar">

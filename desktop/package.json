@@ -1,7 +1,7 @@
 {
   "name": "orb-desktop",
   "productName": "orb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "orb — your crew, your sessions, your sound",
   "main": "main.cjs",
   "author": "orb",
@@ -34,7 +34,9 @@
       ]
     },
     "pkg": {
-      "installLocation": "/Applications"
+      "installLocation": "/Applications",
+      "isRelocatable": false,
+      "overwriteAction": "upgrade"
     }
   }
 }

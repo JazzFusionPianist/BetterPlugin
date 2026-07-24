@@ -157,12 +157,18 @@ export default function AppShell({ user }: { user: User }) {
 
   const zoomStyle = { transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.z})` }
 
-  // Every drawing session lands as its own movable doodle object
-  // (x/y 0.5 = "exactly where it was drawn"; dragging shifts it).
-  const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[]) => {
+  // Every drawing session lands as its own movable doodle object,
+  // anchored where it was drawn. Drawn on a wide screen → the landscape
+  // slots get the exact spot and the portrait slots take the same
+  // fractions as a sensible starting point (and vice versa).
+  const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[], cx: number, cy: number, land: boolean) => {
     if (strokes.length === 0) return
     try {
-      await addCanvasItem({ kind: 'drawing', strokes, x: 0.5, y: 0.5 })
+      await addCanvasItem({
+        kind: 'drawing', strokes,
+        x: cx, y: cy,
+        ...(land ? { lx: cx, ly: cy } : {}),
+      })
     } catch (err) {
       console.error('[canvas] drawing save failed', err)
     }

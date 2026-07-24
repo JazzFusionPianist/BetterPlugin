@@ -2,12 +2,14 @@
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { Stroke } from '@orb/core'
-import { strokePathScaled } from '@/lib/strokes'
+import { strokePathScaled, strokesBBox } from '@/lib/strokes'
 import { WALL_REF_W, wallSheet } from '@/lib/wall'
 
 interface Props {
-  /** Called with the finished doodle's strokes (non-empty). */
-  onSave: (strokes: Stroke[]) => void
+  /** Called with the finished doodle: strokes recentred on their own
+   *  bbox centre (unit-space), plus that centre as sheet fractions and
+   *  which page orientation it was drawn on. */
+  onSave: (strokes: Stroke[], cx: number, cy: number, land: boolean) => void
   onClose: () => void
 }
 
@@ -180,18 +182,20 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
   }
   // Stroke widths are stored in reference px (a phone-width sheet) and
   // rendered ×K so ink thickness scales with the page like everything else.
-  const K = sheet ? sheet.w / WALL_REF_W : 1
+  const K = sheet ? sheet.unit / WALL_REF_W : 1
   const kNow = () => {
     const sh = getSheet()
-    return sh ? sh.w / WALL_REF_W : 1
+    return sh ? sh.unit / WALL_REF_W : 1
   }
 
+  // Points are captured in unit-space — fractions of the sheet's short
+  // side — so ink keeps its exact shape on both page orientations.
   const toFrac = (x: number, y: number): [number, number] => {
     const r = rectRef.current!
     const sh = getSheet()!
     return [
-      Math.min(1, Math.max(0, (x - r.left - sh.x) / sh.w)),
-      Math.min(1, Math.max(0, (y - r.top - sh.y) / sh.h)),
+      Math.min(sh.w / sh.unit, Math.max(0, (x - r.left - sh.x) / sh.unit)),
+      Math.min(sh.h / sh.unit, Math.max(0, (y - r.top - sh.y) / sh.unit)),
     ]
   }
 
@@ -199,7 +203,7 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     const el = livePathRef.current
     const s = liveRef.current
     const sh = getSheet()
-    if (el && s && sh) el.setAttribute('d', strokePathScaled(s.p, sh.w, sh.h, 0, 0, s.r === 1))
+    if (el && s && sh) el.setAttribute('d', strokePathScaled(s.p, sh.unit, sh.unit, 0, 0, s.r === 1))
   }
   const armLive = (s: Stroke) => {
     const el = livePathRef.current
@@ -215,13 +219,13 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     const sh = getSheet()
     if (!r || !sh) return
     const x = cx - r.left - sh.x, y = cy - r.top - sh.y
-    const k = sh.w / WALL_REF_W
+    const k = sh.unit / WALL_REF_W
     const next = strokesRef.current.filter((s) => {
       const R = Math.max(11, s.w * k * 0.75 + 8)
       const p = s.p
-      if (p.length === 2) return Math.hypot(p[0]! * sh.w - x, p[1]! * sh.h - y) >= R
+      if (p.length === 2) return Math.hypot(p[0]! * sh.unit - x, p[1]! * sh.unit - y) >= R
       for (let i = 0; i + 3 < p.length; i += 2) {
-        if (distSeg(x, y, p[i]! * sh.w, p[i + 1]! * sh.h, p[i + 2]! * sh.w, p[i + 3]! * sh.h) < R) return false
+        if (distSeg(x, y, p[i]! * sh.unit, p[i + 1]! * sh.unit, p[i + 2]! * sh.unit, p[i + 3]! * sh.unit) < R) return false
       }
       return true
     })
@@ -316,8 +320,24 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
     // A single point is a dot — round caps make it a real mark.
     if (s.p.length < 2) return
     const sh = getSheet()
-    if (sh) s.p = refine(s.p, sh.w, sh.h)
+    if (sh) s.p = refine(s.p, sh.unit, sh.unit)
     commit([...strokesRef.current, s])
+  }
+
+  /** Hand the doodle over: recentre strokes on their bbox centre and
+   *  report that centre as sheet fractions (plus the page orientation),
+   *  so the wall can anchor it exactly where it was drawn. */
+  const finish = () => {
+    const sh = getSheet()
+    if (!sh || strokes.length === 0) return
+    const bb = strokesBBox(strokes, 0)
+    const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2
+    const centered = strokes.map((s) => ({
+      ...s,
+      p: s.p.map((v, i) => (i % 2 === 0 ? v - cx : v - cy)),
+    }))
+    onSave(centered, (cx * sh.unit) / sh.w, (cy * sh.unit) / sh.h, sh.land)
+    onClose()
   }
 
   /** A nib button shows its own stroke: honest width and opacity. */
@@ -349,7 +369,7 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
             {strokes.map((s, i) => (
               <path
                 key={i}
-                d={strokePathScaled(s.p, sheet.w, sheet.h, 0, 0, s.r === 1)}
+                d={strokePathScaled(s.p, sheet.unit, sheet.unit, 0, 0, s.r === 1)}
                 fill="none"
                 stroke={s.c}
                 strokeWidth={s.w * K}
@@ -432,7 +452,7 @@ export default function DrawingBoard({ onSave, onClose }: Props) {
             <button
               className="drawboard-done"
               disabled={strokes.length === 0}
-              onClick={() => { onSave(strokes); onClose() }}
+              onClick={finish}
             >
               done
             </button>

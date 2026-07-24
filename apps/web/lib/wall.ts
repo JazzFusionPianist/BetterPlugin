@@ -1,25 +1,36 @@
 /**
- * The wall is a PAGE — a fixed 2:3 portrait sheet, the same physical
- * object on every device. Item x/y fractions are fractions OF THE
- * SHEET, and every screen shows the whole sheet contain-fitted and
- * centred (uniform scale), so a composition arranged on a phone is
- * pixel-for-pixel the same picture on a desktop, just bigger.
+ * The wall is a PAGE — a fixed-proportion sheet, contain-fitted and
+ * centred, so a composition arranged on one screen is the same picture
+ * on every screen of that orientation. Portrait devices (phones) read
+ * the 2:3 page; wide screens (desktop / iPad landscape) read a 3:2
+ * page with its own stored layout slots (lx/ly/lscale, falling back to
+ * the portrait values until arranged).
+ *
+ * Units: item x/y are fractions of the sheet. Polaroid size and stroke
+ * widths are stored in reference px and multiplied by K = unit/375
+ * (unit = the sheet's SHORT side), so the picture scales as one object
+ * and a photo keeps its relative presence across orientations. Doodle
+ * stroke points are stored in unit-space (fractions of the short side,
+ * centred on the doodle's own bbox centre), which keeps ink aspect-true
+ * on both page shapes.
  */
 
-export const WALL_AW = 2
-export const WALL_AH = 3
+export interface WallSheet {
+  x: number; y: number; w: number; h: number
+  /** Sheet short side in px — the scale unit. */
+  unit: number
+  /** True when this viewport reads the 3:2 landscape page. */
+  land: boolean
+}
 
-/** Reference sheet width (px) — the size units were designed at: a
- *  phone-width sheet. Polaroid size and stroke widths are stored in
- *  reference px and multiplied by (sheet.w / WALL_REF_W) at render, so
- *  the whole picture scales as one object. */
+/** Reference short-side (px) the size units were designed at. */
 export const WALL_REF_W = 375
 
-export interface WallSheet { x: number; y: number; w: number; h: number }
-
-/** Contain-fit the sheet into a w×h viewport (layout px). */
+/** Contain-fit the orientation's sheet into a w×h viewport (layout px). */
 export function wallSheet(w: number, h: number): WallSheet {
-  const s = Math.min(w / WALL_AW, h / WALL_AH)
-  const sw = s * WALL_AW, sh = s * WALL_AH
-  return { x: (w - sw) / 2, y: (h - sh) / 2, w: sw, h: sh }
+  const land = w > h
+  const aw = land ? 3 : 2, ah = land ? 2 : 3
+  const s = Math.min(w / aw, h / ah)
+  const sw = s * aw, sh = s * ah
+  return { x: (w - sw) / 2, y: (h - sh) / 2, w: sw, h: sh, unit: Math.min(sw, sh), land }
 }

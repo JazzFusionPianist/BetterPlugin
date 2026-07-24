@@ -39,6 +39,11 @@ export interface CanvasItem {
   rotation: number
   /** Pinch-resize factor, 1 = as pinned. */
   scale: number
+  /** Landscape-page slots (desktop / iPad landscape). Null = not
+   *  arranged there yet; clients fall back to the portrait values. */
+  lx: number | null
+  ly: number | null
+  lscale: number | null
   z: number
   visibility: CanvasVisibility
   created_at: string
@@ -56,12 +61,15 @@ export interface NewCanvasItem {
   y?: number
   rotation?: number
   scale?: number
+  lx?: number | null
+  ly?: number | null
+  lscale?: number | null
   z?: number
   visibility?: CanvasVisibility
 }
 
 export type CanvasPatch = Partial<Pick<CanvasItem,
-  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'scale' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
+  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'scale' | 'lx' | 'ly' | 'lscale' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
 
 /**
  * @param ownerId whose canvas to load. Defaults to the current user;
@@ -119,6 +127,9 @@ export function useCanvasItems(
         y: item.y ?? 0.32,
         rotation: item.rotation ?? 0,
         scale: item.scale ?? 1,
+        lx: item.lx ?? null,
+        ly: item.ly ?? null,
+        lscale: item.lscale ?? null,
         z: item.z ?? topZ + 1,
         visibility: item.visibility ?? 'friends',
       }

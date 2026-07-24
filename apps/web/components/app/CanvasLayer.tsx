@@ -56,12 +56,21 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 
   const open = items.find((i) => i.id === openId) ?? null
 
-  // The page itself: fixed 2:3 sheet, contain-fitted into this layer.
-  // Item fractions are sheet fractions — identical picture everywhere.
+  // The page: portrait screens read the 2:3 sheet via x/y/scale, wide
+  // screens read the 3:2 sheet via lx/ly/lscale (falling back to the
+  // portrait values until arranged there).
   const sheet = dims ? wallSheet(dims.w, dims.h) : null
   // Polaroid layout size and stroke widths are in reference px; K makes
   // them grow with the sheet so the picture scales as one object.
-  const K = sheet ? sheet.w / WALL_REF_W : 1
+  const K = sheet ? sheet.unit / WALL_REF_W : 1
+
+  const ix = (item: CanvasItem) => (sheet?.land ? item.lx ?? item.x : item.x)
+  const iy = (item: CanvasItem) => (sheet?.land ? item.ly ?? item.y : item.y)
+  const iscale = (item: CanvasItem) => (sheet?.land ? item.lscale ?? item.scale ?? 1 : item.scale ?? 1)
+  const posPatch = (fx: number, fy: number): CanvasPatch =>
+    sheet?.land ? { lx: fx, ly: fy } : { x: fx, y: fy }
+  const scalePatch = (s: number): CanvasPatch =>
+    sheet?.land ? { lscale: s } : { scale: s }
 
   /** The item's resting transform (what render also sets). Doodle boxes
    *  already scale with the sheet, so only polaroids need K here. */
@@ -77,7 +86,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
     // Second finger on the same item → stop dragging, start resizing.
     if (pointers.current.size === 2 && drag.current?.id === item.id) {
       drag.current = null
-      pinch.current = { id: item.id, d0: pointerDist(), s0: item.scale ?? 1, live: item.scale ?? 1 }
+      pinch.current = { id: item.id, d0: pointerDist(), s0: iscale(item), live: iscale(item) }
       return
     }
     if (pointers.current.size === 1) {
@@ -121,7 +130,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
       if (pointers.current.size < 2) {
         pinch.current = null
         justDragged.current = true
-        if (Math.abs(pz.live - (item.scale ?? 1)) > 0.01) onUpdate(item.id, { scale: pz.live })
+        if (Math.abs(pz.live - iscale(item)) > 0.01) onUpdate(item.id, scalePatch(pz.live))
       }
       return
     }
@@ -130,9 +139,9 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
     if (!d || d.id !== item.id || !d.moved) return
     justDragged.current = true
     const el = e.currentTarget as HTMLElement
-    const fx = parseFloat(el.dataset.x ?? String(item.x))
-    const fy = parseFloat(el.dataset.y ?? String(item.y))
-    onUpdate(item.id, commit ? commit(fx, fy) : { x: fx, y: fy })
+    const fx = parseFloat(el.dataset.x ?? String(ix(item)))
+    const fy = parseFloat(el.dataset.y ?? String(iy(item)))
+    onUpdate(item.id, commit ? commit(fx, fy) : posPatch(fx, fy))
   }
 
   const doodles = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
@@ -140,26 +149,20 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 
   return (
     <div className="canvas-layer" ref={layerRef}>
-      {/* The page edge — a quiet hairline so the sheet reads as one
-          object; identical proportions on every device. */}
-      {sheet && (items.length > 0) && (
-        <div className="wall-sheet" style={{ left: sheet.x, top: sheet.y, width: sheet.w, height: sheet.h }} />
-      )}
-      {/* Doodles — each drawing is its own movable object. Strokes are
-          absolute sheet fractions; item.x/y hold a drag offset from the
-          drawn spot (0.5,0.5 = untouched), so old drawings stay put. */}
+      {/* Doodles — each drawing is its own movable object. Stroke points
+          live in unit-space centred on the doodle's own bbox centre, and
+          item x/y (or lx/ly) anchor that centre on the sheet — same
+          moving parts as a polaroid. */}
       {sheet && doodles.map((item) => {
         const bb = strokesBBox(item.strokes!)
-        const bcx = bb.x + bb.w / 2, bcy = bb.y + bb.h / 2
-        const cx = bcx + (item.x - 0.5), cy = bcy + (item.y - 0.5)
         return (
           <div
             key={item.id}
             className={`doodle${isMine ? ' movable' : ''}`}
-            style={{ left: sheet.x + cx * sheet.w, top: sheet.y + cy * sheet.h, width: bb.w * sheet.w, height: bb.h * sheet.h, zIndex: item.z, transform: baseTransform(item, item.scale ?? 1) }}
+            style={{ left: sheet.x + ix(item) * sheet.w, top: sheet.y + iy(item) * sheet.h, width: bb.w * sheet.unit, height: bb.h * sheet.unit, zIndex: item.z, transform: baseTransform(item, iscale(item)) }}
             onPointerDown={(e) => onPointerDown(e, item)}
             onPointerMove={(e) => onPointerMove(e, item)}
-            onPointerUp={(e) => onPointerUp(e, item, (fx, fy) => ({ x: 0.5 + fx - bcx, y: 0.5 + fy - bcy }))}
+            onPointerUp={(e) => onPointerUp(e, item)}
             onClick={() => {
               if (justDragged.current) { justDragged.current = false; return }
               setOpenId(item.id)
@@ -170,7 +173,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
             {/* No viewBox — svg units are pixels of the doodle box. */}
             <svg width="100%" height="100%">
               {(item.strokes ?? []).map((s, i) => (
-                <path key={i} d={strokePathScaled(s.p, sheet.w, sheet.h, bb.x, bb.y, s.r === 1)}
+                <path key={i} d={strokePathScaled(s.p, sheet.unit, sheet.unit, bb.x, bb.y, s.r === 1)}
                   fill="none" stroke={s.c} strokeWidth={s.w * K}
                   strokeLinecap="round" strokeLinejoin="round"
                   opacity={s.o ?? 0.9} pointerEvents="none" />
@@ -188,7 +191,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
         <div
           key={item.id}
           className={`polad${isMine ? ' movable' : ''}`}
-          style={{ left: sheet.x + item.x * sheet.w, top: sheet.y + item.y * sheet.h, transform: baseTransform(item, item.scale ?? 1), zIndex: item.z }}
+          style={{ left: sheet.x + ix(item) * sheet.w, top: sheet.y + iy(item) * sheet.h, transform: baseTransform(item, iscale(item)), zIndex: item.z }}
           onPointerDown={(e) => onPointerDown(e, item)}
           onPointerMove={(e) => onPointerMove(e, item)}
           onPointerUp={(e) => onPointerUp(e, item)}

@@ -2453,3 +2453,240 @@
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
   to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+
+/* ═══ App chess skin — catalogue, sized for real screens ═══════════════
+   Overrides the plugin-ported rules above. Scoped under .games-panel so
+   specificity beats the originals. */
+
+/* Shell: content column breathes and centres */
+.games-panel .game-view .game-area {
+  padding: 12px 16px 8px;
+  gap: 10px;
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+}
+.games-panel .game-view .game-action-row {
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  gap: 10px;
+}
+.games-panel .game-view .game-action-status {
+  font-family: var(--f-serif);
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--ink);
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+.games-panel .game-view .game-inline-back {
+  width: 34px; height: 34px; border: none; background: none;
+  color: var(--ink); border-radius: 4px;
+}
+
+/* The board is the artwork: fill the phone, cap on desktop */
+.games-panel .game-view .chess-board {
+  max-width: min(100%, calc(100dvh - 340px), 520px);
+  min-width: 240px;
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  box-shadow: none;
+}
+.games-panel .chess-sq.sq-light { background: #F6F4ED; }
+.games-panel .chess-sq.sq-dark { background: #E6E2D6; }
+.games-panel .chess-sq.sq-selected { box-shadow: inset 0 0 0 2px var(--blue); }
+.games-panel .chess-sq.sq-lastmove { box-shadow: inset 0 0 0 999px rgba(36, 64, 255, 0.10); }
+.games-panel .chess-sq.sq-selected.sq-lastmove { box-shadow: inset 0 0 0 2px var(--blue), inset 0 0 0 999px rgba(36, 64, 255, 0.10); }
+.games-panel .chess-sq.sq-check { box-shadow: inset 0 0 0 999px rgba(229, 67, 45, 0.22); }
+.games-panel .sq-valid-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(36, 64, 255, 0.55);
+  display: block;
+}
+.games-panel .sq-valid-capture {
+  position: absolute; inset: 3px; border-radius: 50%;
+  border: 2px solid rgba(36, 64, 255, 0.55);
+  display: block;
+}
+
+/* Player rows — serif names, quiet chrome */
+.games-panel .game-player-row { gap: 8px; }
+.games-panel .game-player-name {
+  font-family: var(--f-serif); font-size: 17px; font-weight: 400;
+  color: var(--ink); text-transform: lowercase;
+}
+.games-panel .game-player-name--unknown { color: var(--t3); font-style: italic; }
+.games-panel .game-ready-badge {
+  font-family: var(--f-mono); font-size: 10px; text-transform: lowercase;
+  border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px;
+  color: var(--t2); background: var(--paper);
+}
+.games-panel .game-ready-badge.ready { border-color: var(--blue); color: var(--blue); background: var(--paper); }
+.games-panel .chess-captured-piece { width: 16px; height: 16px; }
+.games-panel .chess-move-history {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+  line-height: 1.7;
+}
+.games-panel .chess-move-number { color: var(--t2); margin-right: 2px; }
+
+/* Overlay cards — a catalogue plate, not a game popup */
+.games-panel .game-finish-overlay { background: rgba(251, 250, 247, 0.42); backdrop-filter: blur(1px); }
+.games-panel .game-finish-card {
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
+  padding: 26px 28px;
+  gap: 12px;
+}
+.games-panel .game-finish-emoji { font-size: 30px; }
+.games-panel .game-finish-title {
+  font-family: var(--f-serif); font-size: 24px; font-weight: 400;
+  color: var(--ink); text-transform: lowercase; letter-spacing: 0;
+}
+.games-panel .game-finish-readystate {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3); text-transform: lowercase;
+}
+.games-panel .game-invite-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500; text-transform: lowercase;
+  padding: 12px 22px; min-width: 210px;
+  transition: background .15s;
+}
+.games-panel .game-invite-btn:hover { background: #1B31D9; }
+.games-panel .game-invite-btn.game-computer-btn {
+  background: none; color: var(--ink); border: 1px solid var(--hair);
+}
+.games-panel .game-invite-btn.game-computer-btn:hover { background: rgba(26, 25, 23, 0.04); }
+.games-panel .game-ready-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500; text-transform: lowercase;
+  padding: 12px 26px;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.games-panel .game-ready-btn.ready {
+  background: none; color: var(--blue); border: 1px solid var(--blue);
+}
+.games-panel .game-result-mark { gap: 10px; }
+.games-panel .game-result-mark-label {
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.14em; color: var(--ink);
+}
+.games-panel .game-result-mark-line { background: var(--hair); height: 1px; width: 34px; }
+
+/* Header controls (resign / draw) — hairline chips */
+.games-panel .game-btn {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 3px;
+  font-family: var(--f-mono); font-size: 11px; text-transform: lowercase;
+  color: var(--t2); padding: 6px 11px;
+  transition: color .12s, border-color .12s;
+}
+.games-panel .game-btn:hover { color: var(--ink); border-color: var(--hair); }
+.games-panel .game-btn.game-btn-danger { color: #C03A28; border-color: rgba(192, 58, 40, 0.35); }
+
+/* Invite sheet — white card, hairline rows */
+.games-panel .game-invite-modal {
+  background: var(--card); border: 1px solid var(--hair); border-radius: 10px;
+}
+.games-panel .game-invite-modal-title {
+  font-family: var(--f-serif); font-size: 19px; font-weight: 400;
+  color: var(--ink); text-transform: lowercase;
+}
+.games-panel .game-invite-do-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 11px; text-transform: lowercase;
+  padding: 6px 14px;
+}
+.games-panel .game-invite-do-btn.invited { background: none; color: var(--blue); border: 1px solid var(--blue); }
+
+/* ── Game chat — quiet log under the board (phones) ── */
+.games-panel .game-chat {
+  flex-basis: auto;
+  margin: 0;
+  padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  display: flex; flex-direction: column;
+  width: 100%; max-width: 620px; margin: 0 auto;
+}
+.games-panel .game-chat-scroll {
+  max-height: 96px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 2px 0 6px;
+}
+.games-panel .game-chat-empty {
+  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  padding: 4px 0;
+}
+.games-panel .game-chat-msg {
+  background: none; border: none; padding: 0;
+  font-size: 13px; color: var(--t2); line-height: 1.45;
+  max-width: 88%; align-self: flex-start; border-radius: 0;
+}
+.games-panel .game-chat-msg.mine { align-self: flex-end; color: var(--ink); text-align: right; }
+.games-panel .game-chat-inputrow {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--card);
+  padding: 4px 4px 4px 12px;
+}
+.games-panel .game-chat-inputrow:focus-within { border-color: var(--ink); }
+.games-panel .game-chat-input {
+  flex: 1; border: none; outline: none; background: none;
+  font-family: inherit; font-size: 14px; color: var(--ink);
+  padding: 7px 0;
+}
+.games-panel .game-chat-input::placeholder { color: var(--t3); }
+.games-panel .game-chat-send {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: lowercase;
+  padding: 8px 14px;
+}
+.games-panel .game-chat-send:disabled { opacity: 0.35; }
+
+/* ── Wide screens: chat becomes a side panel ── */
+@media (min-width: 821px) {
+  .games-panel .game-view {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+  .games-panel .game-view .game-action-row { grid-column: 1 / -1; }
+  .games-panel .game-view .game-area { grid-column: 1; overflow-y: auto; }
+  .games-panel .game-view .game-chat {
+    grid-column: 2; grid-row: 2;
+    border-top: none; border-left: 1px solid var(--line);
+    max-width: none; margin: 0; height: 100%;
+    padding: 14px 16px;
+  }
+  .games-panel .game-view .game-chat-scroll { max-height: none; flex: 1; }
+  .games-panel .game-view .chess-board { max-width: min(100%, calc(100dvh - 300px), 560px); }
+}
+
+/* Fix-ups: out-specific the plugin-ported rules that survived */
+.games-panel .game-view .chess-board-wrap {
+  width: 100%;
+  max-width: min(100%, calc(100dvh - 340px), 520px);
+  display: flex; justify-content: center;
+}
+.games-panel .game-view .chess-board { width: 100%; max-width: none; }
+.games-panel .game-view .game-chat { flex-basis: auto; margin: 0 auto; }
+@media (min-width: 821px) {
+  .games-panel .game-view .chess-board-wrap { max-width: min(100%, calc(100dvh - 300px), 560px); }
+  .games-panel .game-view .game-chat { margin: 0; }
+}
+
+/* Kill the plugin's 272px board cap for good */
+.games-panel .game-view.chess-shell .chess-board-wrap {
+  width: 100%; height: auto; aspect-ratio: auto;
+  max-width: min(100%, calc(100dvh - 340px), 520px);
+  max-height: none;
+}
+.games-panel .game-view.chess-shell .chess-board {
+  width: 100%; height: auto;
+  max-width: none; max-height: none;
+}
+.games-panel .game-view .game-chat { border-radius: 0; }
+@media (min-width: 821px) {
+  .games-panel .game-view.chess-shell .chess-board-wrap { max-width: min(100%, calc(100dvh - 300px), 560px); }
+}

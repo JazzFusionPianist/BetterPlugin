@@ -428,6 +428,12 @@ export default function ChessView({
     setChessState(chessStateFromRoom(room))
   }, [room])
 
+  // The invited friend claimed the seat — the invite list has done its
+  // job, so close it and put Ready one tap away.
+  useEffect(() => {
+    if (room?.guest_id) setShowInviteModal(false)
+  }, [room?.guest_id])
+
   // Determine my color and opponent
   const myColor: 'white' | 'black' = room
     ? currentUserId === room.host_id

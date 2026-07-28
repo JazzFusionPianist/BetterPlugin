@@ -8768,3 +8768,59 @@
 }
 .evsheet-notes::placeholder { color: var(--t3); }
 .evsheet-ro { color: var(--t1); font-size: 12.5px; }
+
+/* ═══ Chess & game-chrome catalogue skin (2026-07-28) ═══════════════════
+   Mirrors the app's chess redesign. Token-based so .plugin.dark keeps
+   working. Layout/sizing untouched — plugin windows keep their caps. */
+.chess-sq.sq-light { background: var(--bg2); }
+.chess-sq.sq-dark { background: var(--bg3); }
+.chess-sq.sq-selected { box-shadow: inset 0 0 0 2px var(--blue); }
+.chess-sq.sq-lastmove { box-shadow: inset 0 0 0 999px rgba(36, 64, 255, 0.10); }
+.chess-sq.sq-selected.sq-lastmove { box-shadow: inset 0 0 0 2px var(--blue), inset 0 0 0 999px rgba(36, 64, 255, 0.10); }
+.chess-sq.sq-check { box-shadow: inset 0 0 0 999px rgba(229, 67, 45, 0.22); }
+.sq-valid-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(36, 64, 255, 0.55); display: block; }
+.sq-valid-capture { position: absolute; inset: 3px; border-radius: 50%; border: 2px solid rgba(36, 64, 255, 0.55); display: block; }
+.chess-board { border: 1px solid var(--hair); border-radius: 3px; background: transparent; }
+
+.game-finish-overlay { background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(1px); }
+.game-finish-card {
+  background: var(--card); border: 1px solid var(--hair); border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(0, 0, 0, 0.5);
+}
+.game-finish-title {
+  font-family: var(--f-serif); font-weight: 400;
+  color: var(--t1); text-transform: lowercase; letter-spacing: 0;
+}
+.game-finish-readystate { font-size: 11px; color: var(--t3); text-transform: lowercase; }
+.game-invite-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-size: 12px; font-weight: 500; text-transform: lowercase;
+}
+.game-invite-btn.game-computer-btn { background: none; color: var(--t1); border: 1px solid var(--hair); }
+.game-ready-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-size: 12px; font-weight: 500; text-transform: lowercase;
+}
+.game-ready-btn.ready { background: none; color: var(--blue); border: 1px solid var(--blue); }
+.game-btn {
+  background: transparent; border: 1px solid var(--border); border-radius: 3px;
+  font-size: 11px; text-transform: lowercase; color: var(--t2);
+}
+.game-btn.game-btn-danger { color: #C03A28; border-color: rgba(192, 58, 40, 0.4); }
+.game-player-name { font-family: var(--f-serif); font-weight: 400; text-transform: lowercase; color: var(--t1); }
+
+/* Game chat — a quiet log, not a widget */
+.game-chat { background: transparent; border: none; border-top: 1px solid var(--border); border-radius: 0; }
+.game-chat-scroll { background: transparent; border: none; border-radius: 0; }
+.game-chat-empty { font-family: var(--f-serif); font-style: italic; color: var(--t3); }
+.game-chat-msg { background: none; border: none; padding: 0; color: var(--t2); border-radius: 0; }
+.game-chat-msg.mine { color: var(--t1); text-align: right; }
+.game-chat-inputrow {
+  border: 1px solid var(--border); border-radius: 6px; background: var(--card);
+}
+.game-chat-inputrow:focus-within { border-color: var(--t1); }
+.game-chat-input { border: none; background: none; color: var(--t1); }
+.game-chat-send {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-size: 11px; font-weight: 500; text-transform: lowercase;
+}

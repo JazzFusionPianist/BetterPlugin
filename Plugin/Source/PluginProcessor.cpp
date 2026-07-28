@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "DragMonitor.h"
 #include <thread>
 
 //==============================================================================
@@ -139,6 +140,16 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleGetFx (args, std::move (completion));
+                })
+            .withNativeFunction ("setKeyboardCapture",
+                [] (const juce::var& args,
+                    juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    // true = the page wants the keyboard (typing / games);
+                    // false = keys pass through to the DAW transport.
+                    if (auto* arr = args.getArray(); arr != nullptr && ! arr->isEmpty())
+                        DragMonitor::setKeyboardCapture ((bool) arr->getReference (0));
+                    completion (juce::var (true));
                 }));
 
     // Build the video capture helper. Frames are dispatched as

@@ -10,6 +10,16 @@
 #import <objc/message.h>
 #import <os/log.h>
 
+#include <atomic>
+
+// Shared with the local key monitor below — see DragMonitor.h.
+static std::atomic<bool> gKeyboardCapture { false };
+
+void DragMonitor::setKeyboardCapture (bool wanted)
+{
+    gKeyboardCapture.store (wanted, std::memory_order_relaxed);
+}
+
 // macOS unified logging redacts NSLog's %@ args as <private> by default.
 // Use os_log with %{public}@ so pasteboard types are visible to Console.app.
 #define ORB_LOG(fmt, ...) os_log(OS_LOG_DEFAULT, "[DragMonitor] " fmt, ##__VA_ARGS__)
@@ -729,6 +739,10 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
             if (!wkv) return ev;
             NSWindow* ourWin = wkv.window;
             if (!ourWin || !ourWin.isKeyWindow) return ev;
+            // Only capture while the page actually wants the keyboard
+            // (typing, or a keyboard game). Otherwise let the event run
+            // its normal course so the DAW transport keeps its keys.
+            if (!gKeyboardCapture.load (std::memory_order_relaxed)) return ev;
             NSResponder* fr = ourWin.firstResponder;
             if (fr) {
                 switch (ev.type) {
@@ -753,4 +767,5 @@ DragMonitor::~DragMonitor() {}
 void DragMonitor::arm (const std::string&) {}
 void DragMonitor::disarm() {}
 void DragMonitor::setupDropHandling (void*, std::function<void(std::string, std::string)>) {}
+void DragMonitor::setKeyboardCapture (bool) {}
 #endif

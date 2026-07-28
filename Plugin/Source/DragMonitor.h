@@ -25,6 +25,13 @@ public:
     DragMonitor();
     ~DragMonitor();
 
+    // ── keyboard routing ─────────────────────────────────────────────────────
+    // The key monitor force-feeds every key into the WKWebView (Logic would
+    // otherwise eat them), which also steals the DAW transport keys. The web
+    // side flips this flag on focusin/focusout (and while a keyboard game is
+    // up): true = keys go to the page, false = keys pass through to the host.
+    static void setKeyboardCapture (bool wanted);
+
     // ── drag-out ─────────────────────────────────────────────────────────────
     void arm         (const std::string& filePath);
     void armMultiple (const std::vector<std::string>& filePaths);

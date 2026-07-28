@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { holdKeyboard } from '../../lib/keyboardCapture'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, FallingBlocksPlayerState } from '../../types/collab'
 import { useFallingBlocksRoom } from '../../hooks/useFallingBlocksRoom'
@@ -578,8 +579,10 @@ export default function FallingBlocksView({
       })
     }
 
+    const releaseKeys = holdKeyboard()   // arrows belong to the game while it's up
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
+      releaseKeys()
   }, [isPlaying, myTopOutServer, game.topOut, distributeGarbage])
 
   // ── Game loop: gravity tick + lock timer ─────────────────────────────────

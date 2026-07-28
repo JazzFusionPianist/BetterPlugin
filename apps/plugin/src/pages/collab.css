@@ -9032,3 +9032,11 @@
    background over it */
 .plugin.fx-closing .view { background: transparent !important; }
 .plugin.fx-closing .view .s-body { background: transparent !important; }
+
+/* Head-to-head score — lives with the score sheet */
+.chess-dock .chess-dock-h2h {
+  grid-column: 1 / -1;
+  font-size: 10.5px; color: var(--t2);
+  font-variant-numeric: tabular-nums;
+  padding: 6px 0 0;
+}

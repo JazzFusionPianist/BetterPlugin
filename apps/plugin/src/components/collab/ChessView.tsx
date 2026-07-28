@@ -830,7 +830,7 @@ export default function ChessView({
   // in game_rooms, so the score is just a count over those rows.
   const [record, setRecord] = useState<{ w: number; d: number; l: number } | null>(null)
   useEffect(() => {
-    if (!opponentId || isComputerOpponent || !(isFinished || (isLobby && hasGuest))) {
+    if (!opponentId || isComputerOpponent || !hasGuest) {
       setRecord(null)
       return
     }
@@ -852,7 +852,7 @@ export default function ChessView({
       setRecord({ w, d, l })
     })()
     return () => { cancelled = true }
-  }, [opponentId, isComputerOpponent, isFinished, isLobby, hasGuest, room?.winner_id, supabase, currentUserId])
+  }, [opponentId, isComputerOpponent, hasGuest, room?.status, room?.winner_id, supabase, currentUserId])
 
   // ── Overlay (lobby → ready → finished); null while playing ─────────────────
   let overlay: React.ReactNode = null
@@ -861,11 +861,6 @@ export default function ChessView({
   } else if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
-        {record && opponentProfile && (
-          <div className="game-h2h">
-            {t('chess.record', { name: opponentProfile.display_name, w: record.w, d: record.d, l: record.l })}
-          </div>
-        )}
         {isComputerOpponent ? (
           <button className="game-ready-btn" onClick={handlePlayComputer} disabled={computerStartPending}>
             {t('chess.playAgain')}
@@ -884,11 +879,6 @@ export default function ChessView({
   } else if (isLobby && hasGuest) {
     overlay = (
       <GameOverlayCard emoji="♟" title={t('game.readyToPlay')}>
-        {record && opponentProfile && (
-          <div className="game-h2h">
-            {t('chess.record', { name: opponentProfile.display_name, w: record.w, d: record.d, l: record.l })}
-          </div>
-        )}
         <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} disabled={loading} />
       </GameOverlayCard>
     )
@@ -1019,6 +1009,14 @@ export default function ChessView({
       overlay={overlay}
       chat={!computerStartPending ? (
         <div className="chess-dock">
+          {record && (
+            <div className="chess-dock-h2h">
+              {t('chess.record', {
+                name: opponentProfile?.display_name ?? t('common.opponent'),
+                w: record.w, d: record.d, l: record.l,
+              })}
+            </div>
+          )}
           <MoveSheet moves={isPlaying || isFinished ? (room?.move_history ?? []) : []} />
           <GameChat
             supabase={supabase}

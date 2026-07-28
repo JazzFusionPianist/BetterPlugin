@@ -2892,3 +2892,18 @@
   cursor: pointer;
 }
 .games-panel .game-endgame-btn:hover { color: var(--ink); }
+
+/* ═══ Head-to-head score — lives with the score sheet, lichess-style ═══ */
+.games-panel .game-view .chess-dock .chess-dock-h2h {
+  grid-column: 1 / -1;
+  font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  padding: 8px 0 0;
+}
+@media (min-width: 821px) {
+  .games-panel .game-view .chess-dock .chess-dock-h2h {
+    flex: 0 0 auto;
+    padding: 0 0 10px; margin-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+}

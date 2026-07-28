@@ -203,6 +203,9 @@ export default function FxPanel ({ isOpen }: Props) {
 
   useEffect(() => {
     if (!isOpen) { setLit(false); return }
+    // Nothing in the room may hold keyboard focus — space and every other
+    // key must fall through the responder chain to the DAW transport.
+    (document.activeElement as HTMLElement | null)?.blur?.()
     void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants) })
     // let the paper render once, then dim the room slowly
     const t = setTimeout(() => setLit(true), 40)
@@ -269,7 +272,6 @@ export default function FxPanel ({ isOpen }: Props) {
           role="slider"
           aria-label={`${MODES[mode].name} amount`}
           aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(a * 100)}
-          tabIndex={0}
           onPointerDown={(e) => {
             dragging.current = true
             setLive(true)
@@ -283,10 +285,6 @@ export default function FxPanel ({ isOpen }: Props) {
           onPointerUp={() => { dragging.current = false; setLive(false); apply(amounts[mode] ?? 0, true) }}
           onDoubleClick={() => apply(neutral, true)}
           onWheel={(e) => { e.preventDefault(); apply(a - Math.sign(e.deltaY) * 0.02, true) }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowUp' || e.key === 'ArrowRight') apply(a + 0.02, true)
-            if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') apply(a - 0.02, true)
-          }}
         >
           <svg viewBox="0 0 220 220" aria-hidden="true">
             <Art a={a} />
@@ -296,19 +294,20 @@ export default function FxPanel ({ isOpen }: Props) {
       </div>
 
       <div className="fx-pager">
-        <button className="fx-arrow" onClick={() => step(-1)} aria-label="Previous effect">‹</button>
+        <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} aria-label="Previous effect">‹</button>
         <div className="fx-chip">
           <span key={mode} className={`fx-chip-label${slide ? ` from-${slide}` : ''}`}>
             {MODES[mode].name}
           </span>
         </div>
-        <button className="fx-arrow" onClick={() => step(1)} aria-label="Next effect">›</button>
+        <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} aria-label="Next effect">›</button>
       </div>
       <div className="fx-variants">
         {VARIANTS[mode].map((name, vi) => (
           <button
             key={name}
             className={`fx-variant${(variants[mode] ?? 0) === vi ? ' on' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => pickVariant(vi)}
           >
             {name}

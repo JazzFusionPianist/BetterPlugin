@@ -854,9 +854,12 @@ export default function ProfilePanel ({
           )}
         </button>
 
-        {/* Display name — sits just beneath the avatar. */}
-        <div className="orbit-name-under" ref={nameRef}>{displayName}</div>
-        {me?.username && <div className="orbit-handle">@{me.username}</div>}
+        {/* Display name + @handle — stacked beneath the avatar, exactly
+            like the app's home centre block. */}
+        <div className="orbit-namewrap" ref={nameRef}>
+          <div className="orbit-name-under">{displayName}</div>
+          {me?.username && <div className="orbit-handle">@{me.username}</div>}
+        </div>
 
         {/* Group hover card — pops above/below the hovered constellation.
             Minimal Phase-3 surface: title + member chips + Open. */}

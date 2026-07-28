@@ -8532,12 +8532,24 @@
 .plugin .settings-panel * { font-weight: 400; }
 
 /* ── @username handles ── */
+/* The name block is a positioned stack: serif name, handle right under,
+   matching the app's .orbhome-name/.orbhome-user pair. */
+.orbit-namewrap {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, 44px);
+  z-index: 3;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; white-space: nowrap;
+}
+.plugin .orbit-namewrap .orbit-name-under {
+  position: static; transform: none;
+  padding: 0; background: none; border: none; box-shadow: none;
+}
 .orbit-handle {
   font-family: var(--f-sans);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--t2);
-  text-align: center;
-  margin-top: 2px;
+  margin-top: -1px;
 }
 .tt2-handle {
   font-family: var(--f-sans);

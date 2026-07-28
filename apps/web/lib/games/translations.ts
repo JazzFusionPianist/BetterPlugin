@@ -178,6 +178,9 @@ export const T = {
   'chess.waitingForFriend':{ en: 'Waiting for friend…', ko: '친구를 기다리는 중…', ja: '友達を待っています…', zh: '等待好友…', es: 'Esperando al amigo…', de: 'Warten auf den Freund…', fr: 'En attente d’un ami…', hi: 'दोस्त की प्रतीक्षा…' },
   'chess.readyCount':     { en: '{n} / 2 ready', ko: '{n} / 2 준비', ja: '{n} / 2 準備完了', zh: '{n} / 2 已准备', es: '{n} / 2 listos', de: '{n} / 2 bereit', fr: '{n} / 2 prêts', hi: '{n} / 2 तैयार' },
   'chess.inviteCta':      { en: 'Invite a Friend', ko: '친구 초대', ja: '友達を招待', zh: '邀请好友', es: 'Invitar a un amigo', de: 'Freund einladen', fr: 'Inviter un ami', hi: 'मित्र को आमंत्रित' },
+  'chess.playAgain':      { en: 'Play again', ko: '한 판 더', ja: 'もう一局', zh: '再来一局', es: 'Jugar otra vez', de: 'Noch eine Partie', fr: 'Rejouer', hi: 'फिर से खेलें' },
+  'chess.endGame':        { en: 'end game', ko: '게임 종료', ja: 'ゲーム終了', zh: '结束游戏', es: 'terminar', de: 'Spiel beenden', fr: 'terminer', hi: 'गेम समाप्त' },
+  'chess.record':         { en: 'vs {name} · {w}W {d}D {l}L', ko: '{name} 상대 전적 · {w}승 {d}무 {l}패', ja: '対 {name} · {w}勝 {d}分 {l}敗', zh: '对 {name} · {w}胜 {d}和 {l}负', es: 'vs {name} · {w}G {d}E {l}P', de: 'gegen {name} · {w}S {d}U {l}N', fr: 'vs {name} · {w}V {d}N {l}D', hi: '{name} के विरुद्ध · {w}जीत {d}ड्रॉ {l}हार' },
 
   // ───── Poker in-progress ────────────────────────────────────────────────
   'poker.fold':           { en: 'Fold',     ko: '폴드',     ja: 'フォールド',  zh: '弃牌',     es: 'Pasar',     de: 'Passen',     fr: 'Se coucher', hi: 'फोल्ड' },

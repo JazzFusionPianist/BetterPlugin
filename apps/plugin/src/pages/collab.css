@@ -8955,7 +8955,20 @@
 }
 
 /* Chat: my messages keep the same edge margin as theirs */
-.game-chat-scroll { padding-left: 6px; padding-right: 6px; }
+.game-chat-scroll { padding-left: 10px; padding-right: 10px; scrollbar-width: none; }
+.game-chat-scroll::-webkit-scrollbar { display: none; }
+
+/* Finished game: record line + quiet end-game exit */
+.game-h2h {
+  font-size: 10.5px; color: var(--t2);
+  font-variant-numeric: tabular-nums; margin: 2px 0 4px;
+}
+.game-endgame-btn {
+  background: none; border: none; padding: 3px 2px; margin-top: 8px;
+  font-size: 10.5px; color: var(--t3);
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.game-endgame-btn:hover { color: var(--t1); }
 
 /* ── fx refinements: slot arrows, variant row, unified fade-out ── */
 

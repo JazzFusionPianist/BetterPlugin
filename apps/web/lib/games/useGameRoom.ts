@@ -87,9 +87,10 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     return data as GameRoom
   }, [supabase, currentUserId])
 
-  const startGame = useCallback(async (initialBoard: (string|null)[][]): Promise<void> => {
+  const startGame = useCallback(async (initialBoard: (string|null)[][], extras: Partial<GameRoom> = {}): Promise<void> => {
     if (!room) return
     await supabase.from('game_rooms').update({
+      ...extras,
       status: 'playing',
       board: initialBoard,
       turn: 'white',

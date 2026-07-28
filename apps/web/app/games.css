@@ -2808,7 +2808,11 @@
 }
 
 /* ═══ Chat meta + edge breathing room ═══ */
-.games-panel .game-chat-scroll { padding-right: 6px; padding-left: 6px; }
+.games-panel .game-chat-scroll {
+  padding-right: 12px; padding-left: 12px;
+  scrollbar-width: none;
+}
+.games-panel .game-chat-scroll::-webkit-scrollbar { display: none; }
 .games-panel .game-chat-msg { max-width: 84%; }
 .games-panel .game-chat-msg.with-meta { margin-top: 7px; }
 .games-panel .game-chat-meta {
@@ -2874,3 +2878,17 @@
 .games-panel .chess-sq.sq-selected.sq-premove {
   box-shadow: inset 0 0 0 2px var(--blue), inset 0 0 0 999px rgba(36, 64, 255, 0.16);
 }
+
+/* ═══ Finished game: record line + quiet end-game exit ═══ */
+.games-panel .game-h2h {
+  font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  margin: 2px 0 6px;
+}
+.games-panel .game-endgame-btn {
+  background: none; border: none; padding: 4px 2px; margin-top: 10px;
+  font-family: var(--f-mono); font-size: 11px; text-transform: lowercase;
+  color: var(--t3); text-decoration: underline; text-underline-offset: 3px;
+  cursor: pointer;
+}
+.games-panel .game-endgame-btn:hover { color: var(--ink); }

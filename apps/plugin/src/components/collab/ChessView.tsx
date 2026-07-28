@@ -422,10 +422,12 @@ export default function ChessView({
   const [resolvingRoom, setResolvingRoom] = useState(true)
   const [computerStartPending, setComputerStartPending] = useState(false)
 
-  // Back button: in lobby/finished, delete the room so the next visit starts
-  // fresh. In playing, just unmount locally so the user can resume later.
+  // Back button: lobby rooms are invite drafts and solo computer games leave
+  // no record worth keeping — delete those. Finished games against a person
+  // stay in the table as the head-to-head record. Playing rooms survive for
+  // resume.
   const handleBack = useCallback(() => {
-    if (room && (room.status === 'lobby' || room.status === 'finished')) {
+    if (room && (room.status === 'lobby' || (room.status === 'finished' && !room.guest_id))) {
       deleteCurrentRoom()
     } else {
       leaveRoom()
@@ -515,7 +517,7 @@ export default function ChessView({
     : null
   const isComputerMatch = !!(
     room &&
-    room.status === 'playing' &&
+    (room.status === 'playing' || room.status === 'finished') &&
     !room.guest_id &&
     currentUserId === room.host_id
   )
@@ -773,13 +775,19 @@ export default function ChessView({
     await makeMove({ draw_offered_by: currentUserId } as Partial<GameRoom>)
   }, [room, currentUserId, endGame, makeMove])
 
-  // Auto-start when both players ready (host only triggers to avoid races)
+  // Auto-start when both players ready (host only triggers to avoid races).
+  // Also fires on a finished game — both pressing "play again" starts the
+  // rematch on a fresh board with colours swapped, lichess-style.
   const isHostLocal = room ? currentUserId === room.host_id : false
   useEffect(() => {
     if (!room || !isHostLocal) return
-    if (room.status === 'lobby' && room.guest_id && room.host_ready && room.guest_ready) {
+    const rematch = room.status === 'finished'
+    if ((room.status === 'lobby' || rematch) && room.guest_id && room.host_ready && room.guest_ready) {
       const initialState = initialChessState()
-      startGame(initialState.board as (string | null)[][])
+      startGame(
+        initialState.board as (string | null)[][],
+        rematch ? { host_color: getOppositeColor(room.host_color) } : {},
+      )
       setChessState(initialState)
       setLastFrom(null)
       setLastTo(null)
@@ -818,6 +826,34 @@ export default function ChessView({
     ? t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })
     : ''
 
+  // Head-to-head record vs this opponent — every finished human game stays
+  // in game_rooms, so the score is just a count over those rows.
+  const [record, setRecord] = useState<{ w: number; d: number; l: number } | null>(null)
+  useEffect(() => {
+    if (!opponentId || isComputerOpponent || !(isFinished || (isLobby && hasGuest))) {
+      setRecord(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .select('winner_id')
+        .eq('game_type', 'chess')
+        .eq('status', 'finished')
+        .or(`and(host_id.eq.${currentUserId},guest_id.eq.${opponentId}),and(host_id.eq.${opponentId},guest_id.eq.${currentUserId})`)
+      if (cancelled || error || !data) return
+      let w = 0; let d = 0; let l = 0
+      for (const r of data as { winner_id: string | null }[]) {
+        if (r.winner_id === currentUserId) w++
+        else if (r.winner_id) l++
+        else d++
+      }
+      setRecord({ w, d, l })
+    })()
+    return () => { cancelled = true }
+  }, [opponentId, isComputerOpponent, isFinished, isLobby, hasGuest, room?.winner_id, supabase, currentUserId])
+
   // ── Overlay (lobby → ready → finished); null while playing ─────────────────
   let overlay: React.ReactNode = null
   if (computerStartPending) {
@@ -825,12 +861,34 @@ export default function ChessView({
   } else if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
-        <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} />
+        {record && opponentProfile && (
+          <div className="game-h2h">
+            {t('chess.record', { name: opponentProfile.display_name, w: record.w, d: record.d, l: record.l })}
+          </div>
+        )}
+        {isComputerOpponent ? (
+          <button className="game-ready-btn" onClick={handlePlayComputer} disabled={computerStartPending}>
+            {t('chess.playAgain')}
+          </button>
+        ) : (
+          <GameReadyControl
+            ready={myReady}
+            count={readyCountStr}
+            onToggle={toggleReady}
+            label={myReady ? undefined : t('chess.playAgain')}
+          />
+        )}
+        <button className="game-endgame-btn" onClick={handleBack}>{t('chess.endGame')}</button>
       </GameOverlayCard>
     )
   } else if (isLobby && hasGuest) {
     overlay = (
       <GameOverlayCard emoji="♟" title={t('game.readyToPlay')}>
+        {record && opponentProfile && (
+          <div className="game-h2h">
+            {t('chess.record', { name: opponentProfile.display_name, w: record.w, d: record.d, l: record.l })}
+          </div>
+        )}
         <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} disabled={loading} />
       </GameOverlayCard>
     )

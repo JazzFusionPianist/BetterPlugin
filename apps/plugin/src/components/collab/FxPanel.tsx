@@ -51,11 +51,6 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
   ],
 }
 
-function tintRgba (mode: FxMode, variant: number, alpha: number): string {
-  const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
-  return `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${alpha})`
-}
-
 /** Glow colour: pure flavour tint on the dark wall, shifting white-hot
  *  as the knob (and so the wall) brightens — light stays light on any
  *  background instead of drowning in its own colour at 100. */

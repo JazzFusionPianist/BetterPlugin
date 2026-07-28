@@ -1,36 +1,128 @@
 import { useEffect, useRef, useState } from 'react'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
-/** The five one-knob effects, in processor order. */
-const MODES: Array<{ id: FxMode; name: string; blurb: string }> = [
-  { id: 0, name: 'tone', blurb: 'tilt — darker on the left, brighter on the right' },
-  { id: 1, name: 'tape', blurb: 'a little warmth and saturation' },
-  { id: 2, name: 'space', blurb: 'a small room around the sound' },
-  { id: 3, name: 'stereo', blurb: 'width from phase — folds back to mono untouched' },
-  { id: 4, name: 'glue', blurb: 'gentle 4:1 compression with makeup' },
+/** The five one-knob effects, in processor order. Each is drawn as a
+ *  two-ink print — the artwork itself is the control and the readout. */
+const MODES: Array<{ id: FxMode; name: string }> = [
+  { id: 0, name: 'tone' },
+  { id: 1, name: 'tape' },
+  { id: 2, name: 'space' },
+  { id: 3, name: 'stereo' },
+  { id: 4, name: 'glue' },
 ]
 
-const KNOB_START = -135
-const KNOB_END = 135
+const INK = '#1A1917'
+const BLUE = '#2440FF'
+const C = 110          // artwork centre
+const R = 86           // usable radius
+
+/* ── tone: a field of horizontal hairlines whose weight tilts ────────── */
+function ToneArt ({ a }: { a: number }) {
+  const tilt = (a - 0.5) * 2   // -1..1
+  const lines = []
+  for (let y = -R + 4; y <= R - 4; y += 6) {
+    const half = Math.sqrt(R * R - y * y)
+    const w = Math.max(0.35, 1.4 + tilt * (-y / R) * 2.6)
+    lines.push(
+      <line key={y} x1={C - half} y1={C + y} x2={C + half} y2={C + y}
+        stroke={y === 0 ? BLUE : INK} strokeWidth={y === 0 ? 1.6 : w} />,
+    )
+  }
+  return <g>{lines}</g>
+}
+
+/* ── tape: concentric pressings that warp and thicken with drive ─────── */
+function TapeArt ({ a }: { a: number }) {
+  const rings = []
+  for (let ri = 0; ri < 10; ri++) {
+    const r = 12 + ri * 8.2
+    const amp = a * (r / R) * 7
+    const pts: string[] = []
+    for (let i = 0; i <= 72; i++) {
+      const th = (i / 72) * Math.PI * 2
+      const rr = r + amp * Math.sin(6 * th + ri * 1.7)
+      pts.push(`${C + Math.cos(th) * rr} ${C + Math.sin(th) * rr}`)
+    }
+    rings.push(
+      <path key={ri} d={`M ${pts.join(' L ')} Z`} fill="none"
+        stroke={ri === 0 ? BLUE : INK}
+        strokeWidth={0.9 + a * 2.1} />,
+    )
+  }
+  return <g>{rings}</g>
+}
+
+/* ── space: echoes ringing out from a blue source ────────────────────── */
+function SpaceArt ({ a }: { a: number }) {
+  const count = Math.round(a * 7)
+  const rings = []
+  for (let i = 0; i < count; i++) {
+    const r = 13 + (i + 1) * (9 + a * 11)
+    if (r > R) break
+    rings.push(
+      <circle key={i} cx={C} cy={C} r={r} fill="none" stroke={INK}
+        strokeWidth={1.1} opacity={0.85 * (1 - i / (count + 1))} />,
+    )
+  }
+  return (
+    <g>
+      <circle cx={C} cy={C} r={5.5} fill={BLUE} />
+      {rings}
+    </g>
+  )
+}
+
+/* ── stereo: one circle becomes two; the shared lens turns blue ──────── */
+function StereoArt ({ a }: { a: number }) {
+  const r = 60
+  const d = a * 30
+  const h = Math.sqrt(Math.max(0, r * r - d * d))
+  return (
+    <g>
+      {d > 1 && h > 1 && (
+        <path
+          d={`M ${C} ${C - h} A ${r} ${r} 0 0 1 ${C} ${C + h} A ${r} ${r} 0 0 1 ${C} ${C - h} Z`}
+          fill={BLUE} opacity={0.14 + a * 0.1} stroke={BLUE} strokeWidth={1} strokeOpacity={0.5}
+        />
+      )}
+      <circle cx={C - d} cy={C} r={r} fill="none" stroke={INK} strokeWidth={1.5} />
+      <circle cx={C + d} cy={C} r={r} fill="none" stroke={INK} strokeWidth={1.5} />
+    </g>
+  )
+}
+
+/* ── glue: a scattered field pulled into a sunflower cluster ─────────── */
+const GOLDEN = Math.PI * (3 - Math.sqrt(5))
+function GlueArt ({ a }: { a: number }) {
+  const dots = []
+  for (let i = 0; i < 46; i++) {
+    const th = i * GOLDEN
+    const loose = R * 0.98 * Math.sqrt((i + 0.5) / 46)
+    const jitter = Math.sin(i * 12.9898) * 8 * (1 - a)
+    const tight = 34 * Math.sqrt((i + 0.5) / 46)
+    const r = loose + (tight - loose) * a + jitter
+    dots.push(
+      <circle key={i}
+        cx={C + Math.cos(th) * r} cy={C + Math.sin(th) * r}
+        r={2 + a * 0.9} fill={INK} />,
+    )
+  }
+  return (
+    <g>
+      {dots}
+      <circle cx={C} cy={C} r={3.2} fill={BLUE} />
+    </g>
+  )
+}
+
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt]
 
 function fmtValue (mode: FxMode, a: number): string {
   if (mode === 0) {
     const db = (a - 0.5) * 12
-    if (Math.abs(db) < 0.05) return 'flat'
-    return `${db > 0 ? '+' : '−'}${Math.abs(db).toFixed(1)} db`
+    return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
   }
-  return `${Math.round(a * 100)}%`
-}
-
-function polar (cx: number, cy: number, r: number, deg: number): [number, number] {
-  const rad = (deg - 90) * Math.PI / 180
-  return [cx + Math.cos(rad) * r, cy + Math.sin(rad) * r]
-}
-
-function arcPath (cx: number, cy: number, r: number, a1: number, a2: number): string {
-  const [x1, y1] = polar(cx, cy, r, a1)
-  const [x2, y2] = polar(cx, cy, r, a2)
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${Math.abs(a2 - a1) > 180 ? 1 : 0} ${a2 > a1 ? 1 : 0} ${x2} ${y2}`
+  return `${Math.round(a * 100)}`
 }
 
 interface Props {
@@ -41,9 +133,11 @@ export default function FxPanel ({ isOpen }: Props) {
   const [mode, setMode] = useState<FxMode>(0)
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
   const [bridge] = useState(() => hasFxBridge())
+  const [showValue, setShowValue] = useState(false)
   const dragging = useRef(false)
   const dragStart = useRef({ y: 0, a: 0 })
   const lastSent = useRef(0)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -52,10 +146,18 @@ export default function FxPanel ({ isOpen }: Props) {
 
   const a = amounts[mode] ?? 0
   const neutral = mode === 0 ? 0.5 : 0
+  const Art = ARTS[mode]
+
+  const flashValue = () => {
+    setShowValue(true)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setShowValue(false), 750)
+  }
 
   const apply = (next: number, force = false) => {
     const clamped = Math.min(1, Math.max(0, next))
     setAmounts((prev) => prev.map((v, i) => (i === mode ? clamped : v)))
+    flashValue()
     const now = performance.now()
     if (force || now - lastSent.current > 33) {
       lastSent.current = now
@@ -63,33 +165,18 @@ export default function FxPanel ({ isOpen }: Props) {
     }
   }
 
-  const pick = (m: FxMode) => {
-    setMode(m)
-    setFx({ mode: m })
+  const step = (dir: 1 | -1) => {
+    const next = MODES[(mode + dir + MODES.length) % MODES.length].id
+    setMode(next)
+    setShowValue(false)
+    setFx({ mode: next })
   }
-
-  const angle = KNOB_START + a * (KNOB_END - KNOB_START)
-  const [px, py] = polar(70, 70, 44, angle)
 
   return (
     <div className="s-body fx-body">
-      <div className="fx-modes" role="tablist">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            role="tab"
-            aria-selected={mode === m.id}
-            className={`fx-mode${mode === m.id ? ' on' : ''}`}
-            onClick={() => pick(m.id)}
-          >
-            {m.name}
-          </button>
-        ))}
-      </div>
-
       <div className="fx-stage">
         <div
-          className="fx-knob"
+          className="fx-art"
           role="slider"
           aria-label={`${MODES[mode].name} amount`}
           aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(a * 100)}
@@ -97,50 +184,36 @@ export default function FxPanel ({ isOpen }: Props) {
           onPointerDown={(e) => {
             dragging.current = true
             dragStart.current = { y: e.clientY, a }
-            // setPointerCapture throws on synthetic events and some SVG
-            // targets — capture is a nicety, never let it kill the drag.
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
           }}
           onPointerMove={(e) => {
             if (!dragging.current) return
-            apply(dragStart.current.a + (dragStart.current.y - e.clientY) / 150)
+            apply(dragStart.current.a + (dragStart.current.y - e.clientY) / 170)
           }}
           onPointerUp={() => { dragging.current = false; apply(amounts[mode] ?? 0, true) }}
           onDoubleClick={() => apply(neutral, true)}
+          onWheel={(e) => { e.preventDefault(); apply(a - Math.sign(e.deltaY) * 0.02, true) }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowRight') apply(a + 0.02, true)
             if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') apply(a - 0.02, true)
           }}
         >
-          <svg viewBox="0 0 140 140" aria-hidden="true">
-            {/* travel track + progress in the second ink */}
-            <path d={arcPath(70, 70, 54, KNOB_START, KNOB_END)} className="fx-knob-track" />
-            {mode === 0 ? (
-              Math.abs(a - 0.5) > 0.004 && (
-                <path d={arcPath(70, 70, 54, 0, angle)} className="fx-knob-arc" />
-              )
-            ) : (
-              a > 0.004 && <path d={arcPath(70, 70, 54, KNOB_START, angle)} className="fx-knob-arc" />
-            )}
-            {/* end ticks + centre detent for tone */}
-            {[KNOB_START, KNOB_END].map((deg) => {
-              const [x1, y1] = polar(70, 70, 58, deg)
-              const [x2, y2] = polar(70, 70, 63, deg)
-              return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} className="fx-knob-tick" />
-            })}
-            {mode === 0 && (() => {
-              const [x1, y1] = polar(70, 70, 58, 0)
-              const [x2, y2] = polar(70, 70, 63, 0)
-              return <line x1={x1} y1={y1} x2={x2} y2={y2} className="fx-knob-tick" />
-            })()}
-            {/* the knob face */}
-            <circle cx="70" cy="70" r="46" className="fx-knob-face" />
-            <line x1={70 + (px - 70) * 0.35} y1={70 + (py - 70) * 0.35} x2={px} y2={py} className="fx-knob-pointer" />
+          <svg viewBox="0 0 220 220" aria-hidden="true">
+            <Art a={a} />
           </svg>
+          <span className={`fx-art-value${showValue ? ' show' : ''}`}>{fmtValue(mode, a)}</span>
         </div>
 
-        <div className="fx-value">{fmtValue(mode, a)}</div>
-        <div className="fx-blurb">{MODES[mode].blurb}</div>
+        <div className="fx-pager">
+          <button className="fx-arrow" onClick={() => step(-1)} aria-label="Previous effect">‹</button>
+          <div className="fx-dots" aria-hidden="true">
+            {MODES.map((m) => (
+              <span key={m.id} className={`fx-dot${mode === m.id ? ' on' : ''}`} />
+            ))}
+          </div>
+          <button className="fx-arrow" onClick={() => step(1)} aria-label="Next effect">›</button>
+        </div>
+        <div className="fx-word">{MODES[mode].name}</div>
       </div>
 
       {!bridge && (

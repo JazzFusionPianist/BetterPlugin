@@ -8825,9 +8825,9 @@
   font-size: 11px; font-weight: 500; text-transform: lowercase;
 }
 
-/* ── One-knob FX: each effect is a two-ink print, and the print is
-     the control. No labels at rest — the artwork carries the value;
-     a big serif numeral surfaces only while the hand is on it. ── */
+/* ── One-knob FX: five prints hung in a darkened room. The wall
+     takes each effect's own light as the amount rises; the print
+     is the control. Labels live in one small chip at the bottom. ── */
 .fxview { transform: translateX(100%); z-index: 21; background: var(--bg); }
 .plugin.fx-open .fxview { transform: translateX(0); }
 .plugin.fx-open .fview > * { visibility: hidden; }
@@ -8835,108 +8835,92 @@
 .fx-body {
   display: flex; flex-direction: column;
   height: 100%; box-sizing: border-box;
+  background: var(--bg);
+  /* the room dims and lights slowly… */
+  transition: background 1.3s ease;
 }
+/* …but follows the hand instantly while dragging */
+.fx-body.live { transition: background 0.12s linear; }
 
 .fx-stage {
-  flex: 1;
-  display: flex; flex-direction: column;
+  flex: 1; min-height: 0;
+  display: flex;
   align-items: center; justify-content: center;
-  gap: 2px;
 }
 
+/* the print scales with the room */
 .fx-art {
   position: relative;
-  width: 226px; height: 226px;
+  width: min(100%, 46vh, 340px);
+  aspect-ratio: 1;
   cursor: ns-resize;
   touch-action: none;
   border-radius: 50%;
 }
-.fx-art:focus-visible { outline: 1.5px solid var(--blue); outline-offset: 6px; }
+.fx-art:focus-visible { outline: 1.5px solid #5A6BFF; outline-offset: 6px; }
 .fx-art svg { display: block; width: 100%; height: 100%; }
 
-/* the numeral — a print specimen floating over the plate */
+/* the numeral — a specimen floating over the plate */
 .fx-art-value {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--f-serif);
-  font-size: 54px; font-weight: 400;
-  color: var(--t1);
-  paint-order: stroke;
-  -webkit-text-stroke: 7px var(--paper);
+  font-size: 58px; font-weight: 400;
+  color: #F6F3EA;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.45);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.35s ease;
 }
-.fx-art-value.show { opacity: 0.92; transition: opacity 0.06s ease; }
+.fx-art-value.show { opacity: 0.94; transition: opacity 0.06s ease; }
 
-/* pager: two quiet serif arrows around five plate dots */
+/* pager — near the floor of the room */
 .fx-pager {
-  display: flex; align-items: center; gap: 14px;
-  margin-top: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 4px 0 10px;
 }
 .fx-arrow {
   font-family: var(--f-serif);
-  font-size: 19px; line-height: 1;
-  color: var(--t3);
+  font-size: 20px; line-height: 1;
+  color: rgba(246, 243, 234, 0.5);
   background: none; border: none;
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
   cursor: pointer;
   border-radius: 50%;
   transition: color 0.12s;
 }
-.fx-arrow:hover { color: var(--t1); }
+.fx-arrow:hover { color: #F6F3EA; }
 .fx-arrow:active { transform: translateY(0.5px); }
-.fx-dots { display: flex; gap: 7px; }
-.fx-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--border2);
-  transition: background 0.15s, transform 0.15s;
-}
-.fx-dot.on { background: var(--blue); transform: scale(1.25); }
 
-.fx-word {
-  font-family: var(--f-serif);
-  font-size: 13px;
-  color: var(--t2);
+/* the label chip — set like the group chips above the prompt bar */
+.fx-chip {
+  width: 112px; height: 27px;
+  border: 1px solid rgba(246, 243, 234, 0.35);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.fx-chip-label {
+  font-family: var(--f-sans);
+  font-size: 11.5px; font-weight: 450;
+  color: #F6F3EA;
   text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.fx-chip-label.from-r { animation: fx-slide-r 0.26s cubic-bezier(0.2, 1, 0.35, 1) both; }
+.fx-chip-label.from-l { animation: fx-slide-l 0.26s cubic-bezier(0.2, 1, 0.35, 1) both; }
+@keyframes fx-slide-r {
+  from { transform: translateX(120%); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fx-slide-l {
+  from { transform: translateX(-120%); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
 }
 
 .fx-note {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-family: var(--f-serif); font-style: italic;
-  font-size: 11.5px; color: var(--t3);
+  font-size: 11.5px; color: rgba(246, 243, 234, 0.5);
   text-align: center;
 }
-
-/* Chess dock — bottom bar halved: score sheet | chat */
-.chess-dock {
-  border-top: 1px solid var(--border);
-  display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px;
-  padding: 0 10px 6px;
-}
-.chess-dock .game-chat { border-top: none; margin: 0; padding: 6px 0 0; }
-.chess-moves {
-  overflow-y: auto; max-height: 110px;
-  padding: 8px 10px 4px 0;
-  border-right: 1px solid var(--border);
-  font-size: 11px; color: var(--t2);
-  scrollbar-width: none;
-}
-.chess-moves::-webkit-scrollbar { display: none; }
-.chess-moves-row {
-  display: grid; grid-template-columns: 16px 1fr 1fr; gap: 4px;
-  line-height: 1.7; font-variant-numeric: tabular-nums;
-}
-.chess-moves-num { color: var(--t3); }
-.chess-moves-cell.latest { color: var(--t1); font-weight: 600; }
-.chess-moves-empty { font-family: var(--f-serif); font-style: italic; font-size: 11px; color: var(--t3); padding-top: 8px; }
-
-/* Chat meta line — real-chat feel: who said it, when */
-.game-chat-scroll { padding-right: 3px; }
-.game-chat-msg { max-width: 86%; }
-.game-chat-msg.with-meta { margin-top: 6px; }
-.game-chat-meta { display: flex; align-items: baseline; gap: 6px; margin-bottom: 1px; }
-.game-chat-msg.mine .game-chat-meta { justify-content: flex-end; }
-.game-chat-meta-name { font-family: var(--f-serif); font-size: 11px; color: var(--t1); text-transform: lowercase; }
-.game-chat-meta-time { font-size: 9px; color: var(--t3); font-variant-numeric: tabular-nums; }
-.game-chat-text { display: block; overflow-wrap: anywhere; }

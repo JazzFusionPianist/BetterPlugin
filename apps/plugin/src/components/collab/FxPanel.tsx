@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
 /** The five one-knob effects, in processor order. Each is drawn as a
- *  two-ink print — the artwork itself is the control and the readout. */
+ *  print on a darkened room wall — the print itself is the control,
+ *  and the wall warms toward each effect's own colour as you turn it. */
 const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 0, name: 'tone' },
   { id: 1, name: 'tape' },
@@ -11,21 +12,39 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 4, name: 'glue' },
 ]
 
-const INK = '#1A1917'
-const BLUE = '#2440FF'
-const C = 110          // artwork centre
-const R = 86           // usable radius
+/* strokes read as paper on the dark wall; blue stays the second ink */
+const PAPER = '#F6F3EA'
+const BLUE = '#5A6BFF'
+const C = 110
+const R = 86
+
+/* the wall: near-black at zero, each mode's own light at full */
+const WALL_DARK: [number, number, number] = [22, 20, 16]
+const WALL_TINTS: Array<[number, number, number]> = [
+  [200, 155, 60],   // tone — lamplight amber
+  [186, 94, 43],    // tape — burnt orange
+  [59, 82, 225],    // space — deep klein
+  [136, 96, 230],   // stereo — violet
+  [76, 138, 86],    // glue — moss
+]
+
+function wallColor (mode: FxMode, a: number): string {
+  const t = WALL_TINTS[mode]
+  const k = a * 0.82
+  const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * k))
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
+}
 
 /* ── tone: a field of horizontal hairlines whose weight tilts ────────── */
 function ToneArt ({ a }: { a: number }) {
-  const tilt = (a - 0.5) * 2   // -1..1
+  const tilt = (a - 0.5) * 2
   const lines = []
   for (let y = -R + 4; y <= R - 4; y += 6) {
     const half = Math.sqrt(R * R - y * y)
     const w = Math.max(0.35, 1.4 + tilt * (-y / R) * 2.6)
     lines.push(
       <line key={y} x1={C - half} y1={C + y} x2={C + half} y2={C + y}
-        stroke={y === 0 ? BLUE : INK} strokeWidth={y === 0 ? 1.6 : w} />,
+        stroke={y === 0 ? BLUE : PAPER} strokeWidth={y === 0 ? 1.6 : w} />,
     )
   }
   return <g>{lines}</g>
@@ -45,7 +64,7 @@ function TapeArt ({ a }: { a: number }) {
     }
     rings.push(
       <path key={ri} d={`M ${pts.join(' L ')} Z`} fill="none"
-        stroke={ri === 0 ? BLUE : INK}
+        stroke={ri === 0 ? BLUE : PAPER}
         strokeWidth={0.9 + a * 2.1} />,
     )
   }
@@ -60,8 +79,8 @@ function SpaceArt ({ a }: { a: number }) {
     const r = 13 + (i + 1) * (9 + a * 11)
     if (r > R) break
     rings.push(
-      <circle key={i} cx={C} cy={C} r={r} fill="none" stroke={INK}
-        strokeWidth={1.1} opacity={0.85 * (1 - i / (count + 1))} />,
+      <circle key={i} cx={C} cy={C} r={r} fill="none" stroke={PAPER}
+        strokeWidth={1.1} opacity={0.9 * (1 - i / (count + 1))} />,
     )
   }
   return (
@@ -82,11 +101,11 @@ function StereoArt ({ a }: { a: number }) {
       {d > 1 && h > 1 && (
         <path
           d={`M ${C} ${C - h} A ${r} ${r} 0 0 1 ${C} ${C + h} A ${r} ${r} 0 0 1 ${C} ${C - h} Z`}
-          fill={BLUE} opacity={0.14 + a * 0.1} stroke={BLUE} strokeWidth={1} strokeOpacity={0.5}
+          fill={BLUE} opacity={0.22 + a * 0.12} stroke={BLUE} strokeWidth={1} strokeOpacity={0.6}
         />
       )}
-      <circle cx={C - d} cy={C} r={r} fill="none" stroke={INK} strokeWidth={1.5} />
-      <circle cx={C + d} cy={C} r={r} fill="none" stroke={INK} strokeWidth={1.5} />
+      <circle cx={C - d} cy={C} r={r} fill="none" stroke={PAPER} strokeWidth={1.5} />
+      <circle cx={C + d} cy={C} r={r} fill="none" stroke={PAPER} strokeWidth={1.5} />
     </g>
   )
 }
@@ -104,7 +123,7 @@ function GlueArt ({ a }: { a: number }) {
     dots.push(
       <circle key={i}
         cx={C + Math.cos(th) * r} cy={C + Math.sin(th) * r}
-        r={2 + a * 0.9} fill={INK} />,
+        r={2 + a * 0.9} fill={PAPER} />,
     )
   }
   return (
@@ -134,14 +153,20 @@ export default function FxPanel ({ isOpen }: Props) {
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
   const [bridge] = useState(() => hasFxBridge())
   const [showValue, setShowValue] = useState(false)
+  const [lit, setLit] = useState(false)          // false = still paper; true = the room is dark
+  const [slide, setSlide] = useState<'l' | 'r' | null>(null)
+  const [live, setLive] = useState(false)        // dragging → snappier wall
   const dragging = useRef(false)
   const dragStart = useRef({ y: 0, a: 0 })
   const lastSent = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) { setLit(false); return }
     void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts) })
+    // let the paper render once, then dim the room slowly
+    const t = setTimeout(() => setLit(true), 40)
+    return () => clearTimeout(t)
   }, [isOpen])
 
   const a = amounts[mode] ?? 0
@@ -169,11 +194,15 @@ export default function FxPanel ({ isOpen }: Props) {
     const next = MODES[(mode + dir + MODES.length) % MODES.length].id
     setMode(next)
     setShowValue(false)
+    setSlide(dir === 1 ? 'r' : 'l')
     setFx({ mode: next })
   }
 
   return (
-    <div className="s-body fx-body">
+    <div
+      className={`s-body fx-body${live ? ' live' : ''}`}
+      style={{ background: lit ? wallColor(mode, a) : undefined }}
+    >
       <div className="fx-stage">
         <div
           className="fx-art"
@@ -183,14 +212,15 @@ export default function FxPanel ({ isOpen }: Props) {
           tabIndex={0}
           onPointerDown={(e) => {
             dragging.current = true
+            setLive(true)
             dragStart.current = { y: e.clientY, a }
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
           }}
           onPointerMove={(e) => {
             if (!dragging.current) return
-            apply(dragStart.current.a + (dragStart.current.y - e.clientY) / 170)
+            apply(dragStart.current.a + (dragStart.current.y - e.clientY) / 190)
           }}
-          onPointerUp={() => { dragging.current = false; apply(amounts[mode] ?? 0, true) }}
+          onPointerUp={() => { dragging.current = false; setLive(false); apply(amounts[mode] ?? 0, true) }}
           onDoubleClick={() => apply(neutral, true)}
           onWheel={(e) => { e.preventDefault(); apply(a - Math.sign(e.deltaY) * 0.02, true) }}
           onKeyDown={(e) => {
@@ -203,17 +233,16 @@ export default function FxPanel ({ isOpen }: Props) {
           </svg>
           <span className={`fx-art-value${showValue ? ' show' : ''}`}>{fmtValue(mode, a)}</span>
         </div>
+      </div>
 
-        <div className="fx-pager">
-          <button className="fx-arrow" onClick={() => step(-1)} aria-label="Previous effect">‹</button>
-          <div className="fx-dots" aria-hidden="true">
-            {MODES.map((m) => (
-              <span key={m.id} className={`fx-dot${mode === m.id ? ' on' : ''}`} />
-            ))}
-          </div>
-          <button className="fx-arrow" onClick={() => step(1)} aria-label="Next effect">›</button>
+      <div className="fx-pager">
+        <button className="fx-arrow" onClick={() => step(-1)} aria-label="Previous effect">‹</button>
+        <div className="fx-chip">
+          <span key={mode} className={`fx-chip-label${slide ? ` from-${slide}` : ''}`}>
+            {MODES[mode].name}
+          </span>
         </div>
-        <div className="fx-word">{MODES[mode].name}</div>
+        <button className="fx-arrow" onClick={() => step(1)} aria-label="Next effect">›</button>
       </div>
 
       {!bridge && (

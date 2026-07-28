@@ -1,52 +1,88 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Message } from '@/lib/games/types'
-import { useMessages } from '@/lib/games/useMessages'
 import { useT } from '@/lib/games/i18n'
+
+interface GameChatMessage {
+  id: string
+  room_id: string
+  sender_id: string
+  content: string
+  created_at: string
+}
 
 interface Props {
   supabase: SupabaseClient
   currentUserId: string
-  otherUserId: string | null
+  /** The game room this chat belongs to. No room yet → chat disabled. */
+  roomId: string | null
+  /** Kept for API compatibility; chat is enabled whenever a room exists. */
+  otherUserId?: string | null
   otherName?: string | null
 }
 
-function messageLabel(message: Message, t: ReturnType<typeof useT>['t']): string {
-  if (message.content.trim()) return message.content
-  switch (message.attachment_type) {
-    case 'image': return t('chat.attachPhoto')
-    case 'video': return t('chat.attachVideo')
-    case 'audio':
-    case 'multi-audio': return t('chat.attachAudio')
-    case 'game_invite': return t('conv.sentGameInvite')
-    default: return ''
-  }
-}
-
-export default function GameChat({ supabase, currentUserId, otherUserId, otherName }: Props) {
+/**
+ * In-game chat — its own little world. Messages live in `game_chats`
+ * keyed by room id, so the match banter never mixes with the players'
+ * real DM thread, and it disappears with the room.
+ */
+export default function GameChat({ supabase, currentUserId, roomId, otherName }: Props) {
   const { t } = useT()
   const [draft, setDraft] = useState('')
+  const [messages, setMessages] = useState<GameChatMessage[]>([])
+  const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const target = useMemo(
-    () => otherUserId ? { kind: 'dm' as const, otherUserId } : null,
-    [otherUserId],
-  )
-  const { messages, loading, send } = useMessages(supabase, currentUserId, target)
-  const visibleMessages = messages.slice(-30)
+
+  useEffect(() => {
+    setMessages([])
+    if (!roomId) return
+    let cancelled = false
+    setLoading(true)
+    supabase
+      .from('game_chats')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true })
+      .limit(80)
+      .then(({ data }) => {
+        if (cancelled) return
+        setMessages((data as GameChatMessage[] | null) ?? [])
+        setLoading(false)
+      })
+    const channel = supabase
+      .channel(`game_chat:${roomId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'game_chats',
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const msg = payload.new as GameChatMessage
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+      })
+      .subscribe()
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, roomId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
-  }, [visibleMessages.length])
+  }, [messages.length])
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const text = draft.trim()
-    if (!text || !otherUserId) return
+    if (!text || !roomId) return
     setDraft('')
-    const ok = await send(text)
-    if (!ok) setDraft(text)
-  }
+    const { data, error } = await supabase
+      .from('game_chats')
+      .insert({ room_id: roomId, sender_id: currentUserId, content: text })
+      .select()
+      .single()
+    if (error) { setDraft(text); return }
+    const msg = data as GameChatMessage
+    setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+  }, [draft, roomId, supabase, currentUserId])
 
   const placeholder = otherName
     ? t('chat.messageWith', { name: otherName })
@@ -55,20 +91,18 @@ export default function GameChat({ supabase, currentUserId, otherUserId, otherNa
   return (
     <div className="game-chat">
       <div className="game-chat-scroll">
-        {!otherUserId ? (
+        {!roomId ? (
           <div className="game-chat-empty">{t('common.waiting')}</div>
         ) : loading ? (
           <div className="game-chat-empty">{t('common.loading')}</div>
-        ) : visibleMessages.length === 0 ? (
+        ) : messages.length === 0 ? (
           <div className="game-chat-empty">{t('chat.noMessages')}</div>
         ) : (
-          visibleMessages.map(message => {
+          messages.map((message) => {
             const mine = message.sender_id === currentUserId
-            const label = messageLabel(message, t)
-            if (!label) return null
             return (
               <div key={message.id} className={`game-chat-msg${mine ? ' mine' : ''}`}>
-                <span>{label}</span>
+                <span>{message.content}</span>
               </div>
             )
           })
@@ -80,9 +114,9 @@ export default function GameChat({ supabase, currentUserId, otherUserId, otherNa
           className="game-chat-input"
           value={draft}
           placeholder={placeholder}
-          disabled={!otherUserId}
-          onChange={event => setDraft(event.target.value)}
-          onKeyDown={event => {
+          disabled={!roomId}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               handleSend()
@@ -92,7 +126,7 @@ export default function GameChat({ supabase, currentUserId, otherUserId, otherNa
         <button
           className="game-chat-send"
           onClick={handleSend}
-          disabled={!otherUserId || draft.trim().length === 0}
+          disabled={!roomId || draft.trim().length === 0}
         >
           {t('common.send')}
         </button>

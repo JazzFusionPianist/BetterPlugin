@@ -204,6 +204,18 @@ export default function AppShell({ user }: { user: User }) {
   const [calOpen, setCalOpen] = useState(false)
   const [gamesOpen, setGamesOpen] = useState(false)                      // games overlay
   const [gamesScreen, setGamesScreen] = useState<GameScreen>('list')     // list | chess | …
+  // An unfinished match resurfaces as a small chip beside the game
+  // button. Re-checked whenever the games overlay closes.
+  const [activeGame, setActiveGame] = useState<{ gameType: GameType; roomId: string } | null>(null)
+  useEffect(() => {
+    if (gamesOpen) return
+    let cancelled = false
+    import('@/lib/games/gameRooms').then(({ findActiveGame }) =>
+      findActiveGame(supabase, user.id).then((g) => { if (!cancelled) setActiveGame(g) }),
+    )
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamesOpen, user.id])
   const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
   const [settingsOpen, setSettingsOpen] = useState(false)                // profile / about / sign out
   const [findOpen, setFindOpen] = useState(false)                        // find people
@@ -360,6 +372,19 @@ export default function AppShell({ user }: { user: User }) {
             <path d="M17.32 5H6.68a4 4 0 0 0-3.98 3.6L2 15.3a2.6 2.6 0 0 0 4.53 2l1.9-2.3h7.14l1.9 2.3a2.6 2.6 0 0 0 4.53-2l-.7-6.7A4 4 0 0 0 17.32 5Z" />
           </svg>
         </button>
+
+        {activeGame && (
+          <button
+            className="webapp-resume-chip"
+            onClick={() => {
+              sessionStorage.setItem('join_room_id', activeGame.roomId)
+              setGamesScreen(activeGame.gameType)
+              setGamesOpen(true)
+            }}
+          >
+            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training' })[activeGame.gameType]}
+          </button>
+        )}
 
         <button
           className={`webapp-add-btn${pinning ? ' busy' : ''}${addOpen ? ' open' : ''}`}

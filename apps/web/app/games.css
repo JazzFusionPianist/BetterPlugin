@@ -2690,3 +2690,64 @@
 @media (min-width: 821px) {
   .games-panel .game-view.chess-shell .chess-board-wrap { max-width: min(100%, calc(100dvh - 300px), 560px); }
 }
+
+/* Move strip — a quiet score line under the board */
+.games-panel .chess-move-history {
+  display: flex; align-items: baseline; gap: 10px;
+  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+  padding: 3px 0 5px; max-width: 100%;
+}
+.games-panel .chess-move-history::-webkit-scrollbar { display: none; }
+.games-panel .chess-move-entry { flex-shrink: 0; }
+.games-panel .chess-move-entry.latest { color: var(--ink); font-weight: 600; }
+
+/* ═══ App scale-up: poker / falling blocks / ear training ═══════════════
+   The plugin sized these for a 300×500 window; on a phone/desktop they
+   get room to breathe. Colours stay per-game; chrome is catalogue. */
+
+/* Poker */
+.games-panel .poker-card { width: 46px; height: 64px; border-radius: 5px; }
+.games-panel .poker-card-rank { font-size: 16px; }
+.games-panel .poker-card-suit { font-size: 15px; }
+.games-panel .poker-opponent { max-width: 128px; }
+.games-panel .poker-opponent-av-wrap { width: 40px; height: 40px; }
+.games-panel .poker-opponent-name { font-size: 12px; }
+.games-panel .poker-opponent-chips, .games-panel .poker-opponent-bet { font-size: 11px; }
+.games-panel .poker-actions { max-width: 460px; gap: 8px; }
+.games-panel .poker-action-btn { font-size: 13px; padding: 12px 10px; border-radius: 4px; }
+.games-panel .poker-pot-amount { font-size: 18px; }
+.games-panel .poker-self-chips, .games-panel .poker-self-bet { font-size: 13px; }
+.games-panel .poker-raise-input { font-size: 14px; }
+.games-panel .poker-title { font-family: var(--f-serif); text-transform: lowercase; font-weight: 400; }
+
+/* Falling blocks */
+.games-panel .falling-blocks-board { border-radius: 4px; }
+.games-panel .falling-blocks-playfield {
+  grid-template-columns: minmax(0, 1fr) clamp(96px, 26%, 140px);
+  gap: 12px; max-width: 480px; margin: 0 auto; width: 100%;
+}
+.games-panel .falling-blocks-next-piece { width: 44px; }
+.games-panel .falling-blocks-opponent-name { font-size: 11px; }
+.games-panel .falling-blocks-opponent-score { font-size: 11px; }
+.games-panel .falling-blocks-stat-label { font-size: 11px; }
+.games-panel .falling-blocks-stat-value { font-size: 15px; }
+.games-panel .falling-blocks-title { font-family: var(--f-serif); text-transform: lowercase; font-weight: 400; }
+.games-panel .falling-blocks-btn { font-size: 12px; }
+
+/* Ear training */
+.games-panel .et-lobby-card { max-width: 360px; }
+.games-panel .et-play-btn { width: 64px; height: 64px; }
+.games-panel .et-play-btn svg { width: 30px; height: 30px; }
+.games-panel .et-bulb { width: 32px; height: 32px; }
+.games-panel .et-option { font-size: 14px; padding: 11px 0; border-radius: 4px; }
+.games-panel .et-options { gap: 8px; max-width: 420px; width: 100%; }
+.games-panel .et-prompt { font-size: 15px; }
+.games-panel .et-timer { font-size: 13px; }
+.games-panel .et-scorebar { font-size: 13px; }
+.games-panel .et-round-label { font-size: 12px; }
+.games-panel .et-arena { max-width: 480px; margin: 0 auto; width: 100%; }
+
+/* Flat ink — the drawn set needs no drop shadow */
+.games-panel .chess-piece, .games-panel .chess-piece svg,
+.games-panel .chess-piece img { filter: none; }
+.games-panel .chess-captured-piece { filter: none; display: inline-block; }

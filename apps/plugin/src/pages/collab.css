@@ -8906,3 +8906,17 @@
   font-size: 11.5px; color: var(--t3);
   text-align: center;
 }
+
+/* Move strip — horizontal score line, latest move carries the ink */
+.chess-move-history {
+  display: flex; align-items: baseline; gap: 10px;
+  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+  padding: 3px 0 5px; max-width: 100%;
+}
+.chess-move-history::-webkit-scrollbar { display: none; }
+.chess-move-entry { flex-shrink: 0; }
+.chess-move-entry.latest { color: var(--t1); font-weight: 600; }
+
+/* Flat ink — the drawn set needs no drop shadow */
+.chess-piece, .chess-piece svg, .chess-piece img { filter: none; }
+.chess-captured-piece { filter: none; display: inline-block; }

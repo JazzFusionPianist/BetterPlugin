@@ -15,24 +15,7 @@ import { useT } from '../../i18n/LanguageContext'
 import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
-
-// ─── Piece SVG URLs (Wikipedia cburnett set, public domain) ───────────────────
-// Renders identically across all browsers/OSes. Cached via wikimedia CDN.
-
-const PIECE_URLS: Record<string, string> = {
-  wK: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
-  wQ: 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
-  wR: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
-  wB: 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
-  wN: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
-  wP: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
-  bK: 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
-  bQ: 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
-  bR: 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
-  bB: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
-  bN: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
-  bP: 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
-}
+import { PieceGlyph } from './ChessPieces'
 
 const PIECE_NAMES: Record<string, string> = {
   wK: 'White King', wQ: 'White Queen', wR: 'White Rook',
@@ -281,7 +264,7 @@ function ChessBoard({
                       cursor: canDragThis ? 'grab' : 'default',
                     }}
                   >
-                    <img src={PIECE_URLS[piece]} alt={PIECE_NAMES[piece] ?? piece} draggable={false} />
+                    <PieceGlyph piece={piece} />
                   </span>
                 )}
               </div>
@@ -318,7 +301,7 @@ function PromotionModal({ color, onChoose }: PromotionModalProps) {
               onClick={() => onChoose(pfx + type)}
               aria-label={`Promote to ${type}`}
             >
-              <img src={PIECE_URLS[pfx + type]} alt={PIECE_NAMES[pfx + type] ?? pfx + type} draggable={false} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+              <span style={{ display: 'block', width: '80%', height: '80%', margin: '0 auto' }}><PieceGlyph piece={pfx + type} /></span>
             </button>
           ))}
         </div>
@@ -420,10 +403,25 @@ export default function ChessView({
   // Draw offer state
   const [drawOffering, setDrawOffering] = useState(false)
 
+  // Move strip keeps the latest move in view, lichess-style.
+  const moveStripRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = moveStripRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [room?.move_history?.length])
+
   // Sync chess state from room updates
   useEffect(() => {
     if (!room || room.status === 'lobby' || !room.board) return
     setChessState(chessStateFromRoom(room))
+  }, [room])
+
+  // Last-move highlight comes from the ROOM, so the opponent's move
+  // lights up too (it used to be local-only — your moves only).
+  useEffect(() => {
+    if (!room || room.status === 'lobby') return
+    setLastFrom((room.last_from as Pos | null) ?? null)
+    setLastTo((room.last_to as Pos | null) ?? null)
   }, [room])
 
   // The invited friend claimed the seat — the invite list has done its
@@ -583,6 +581,8 @@ export default function ChessView({
         halfmove: result.state.halfmove,
         captured: newCaptured,
         move_history: [...(room.move_history ?? []), result.algebraic],
+        last_from: from,
+        last_to: to,
       }
       await makeMove(updates)
 
@@ -646,6 +646,8 @@ export default function ChessView({
         halfmove: result.state.halfmove,
         captured: newCaptured,
         move_history: [...(room.move_history ?? []), result.algebraic],
+        last_from: chosen.from,
+        last_to: chosen.to,
       })
       if (result.isCheckmate) {
         await endGame(null)
@@ -804,13 +806,13 @@ export default function ChessView({
             )}
             <span className="chess-captured" aria-hidden={opponentCaptured.length === 0}>
               {opponentCaptured.map((p, i) => (
-                <img
+                <span
                   key={i}
                   className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
-                  src={PIECE_URLS[p]}
-                  alt={PIECE_NAMES[p] ?? p}
-                  draggable={false}
-                />
+                  title={PIECE_NAMES[p] ?? p}
+                >
+                  <PieceGlyph piece={p} />
+                </span>
               ))}
             </span>
             {isLobby && hasGuest && (
@@ -845,13 +847,13 @@ export default function ChessView({
             )}
             <span className="chess-captured" aria-hidden={myCaptured.length === 0}>
               {myCaptured.map((p, i) => (
-                <img
+                <span
                   key={i}
                   className={`chess-captured-piece chess-captured-piece--${p.startsWith('b') ? 'black' : 'white'}`}
-                  src={PIECE_URLS[p]}
-                  alt={PIECE_NAMES[p] ?? p}
-                  draggable={false}
-                />
+                  title={PIECE_NAMES[p] ?? p}
+                >
+                  <PieceGlyph piece={p} />
+                </span>
               ))}
             </span>
             {isLobby && hasGuest && (
@@ -861,9 +863,9 @@ export default function ChessView({
             )}
           </div>
           {room && (room.move_history ?? []).length > 0 && (
-            <div className="chess-move-history">
-              {(room.move_history ?? []).map((move, i) => (
-                <span key={i} className="chess-move-entry">
+            <div className="chess-move-history" ref={moveStripRef}>
+              {(room.move_history ?? []).map((move, i, arr) => (
+                <span key={i} className={`chess-move-entry${i === arr.length - 1 ? ' latest' : ''}`}>
                   {i % 2 === 0 && (
                     <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
                   )}
@@ -879,6 +881,7 @@ export default function ChessView({
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
+          roomId={room?.id ?? null}
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
         />

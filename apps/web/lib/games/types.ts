@@ -196,6 +196,9 @@ export interface GameRoom {
   draw_offered_by: string | null
   captured: { white: string[]; black: string[] }
   move_history: string[]   // algebraic notation
+  /** Last move's squares ([row, col]) — synced so BOTH players see the highlight. */
+  last_from?: [number, number] | null
+  last_to?: [number, number] | null
   castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean }
   en_passant: [number, number] | null
   halfmove: number

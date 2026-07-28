@@ -635,6 +635,7 @@ export default function EarTrainingView ({
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
+          roomId={room?.id ?? null}
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
         />

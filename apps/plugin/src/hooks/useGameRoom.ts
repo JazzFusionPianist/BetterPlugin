@@ -102,6 +102,8 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       draw_offered_by: null,
       host_ready: false,
       guest_ready: false,
+      last_from: null,
+      last_to: null,
     }).eq('id', room.id)
   }, [supabase, room])
 

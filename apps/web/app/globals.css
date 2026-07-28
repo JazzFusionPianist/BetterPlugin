@@ -600,6 +600,20 @@ button { font-family: inherit; }
   transition: transform .12s ease, background .12s;
 }
 .webapp-game-btn:active { transform: scale(0.94); }
+/* Unfinished match — a quiet pull back to the table, left of the
+   games button (same grammar as the week chip by the calendar). */
+.webapp-resume-chip {
+  position: absolute; z-index: 6;
+  top: calc(78px + env(safe-area-inset-top));
+  right: calc(66px + env(safe-area-inset-right));
+  background: var(--card); border: 1px solid var(--hair); cursor: pointer;
+  color: var(--blue);
+  font-family: var(--f-mono); font-size: 10.5px; font-weight: 500;
+  text-transform: lowercase; white-space: nowrap;
+  padding: 4px 9px; border-radius: 3px;
+  transition: background .15s;
+}
+.webapp-resume-chip:hover { background: rgba(36, 64, 255, 0.06); }
 
 /* Pin-a-photo button, third in the column. */
 .webapp-add-btn {

@@ -802,6 +802,7 @@ export default function PokerView({
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
+          roomId={room?.id ?? null}
           otherUserId={chatOpponentId}
           otherName={chatOpponentProfile?.display_name}
         />

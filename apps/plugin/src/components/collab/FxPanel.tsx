@@ -18,25 +18,38 @@ const BLUE = '#5A6BFF'
 const C = 110
 const R = 86
 
-/* the wall: near-black at zero, each mode's own light at full */
+/* the wall: near-black at zero, each mode's own light — full and loud
+   — at the top of the knob */
 const WALL_DARK: [number, number, number] = [22, 20, 16]
 const WALL_TINTS: Array<[number, number, number]> = [
-  [200, 155, 60],   // tone — lamplight amber
-  [186, 94, 43],    // tape — burnt orange
-  [59, 82, 225],    // space — deep klein
-  [136, 96, 230],   // stereo — violet
-  [76, 138, 86],    // glue — moss
+  [255, 178, 44],   // tone — noon amber
+  [255, 108, 36],   // tape — hot orange
+  [36, 64, 255],    // space — pure klein
+  [150, 84, 255],   // stereo — electric violet
+  [52, 199, 118],   // glue — signal green
 ]
 
 function wallColor (mode: FxMode, a: number): string {
   const t = WALL_TINTS[mode]
-  const k = a * 0.82
-  const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * k))
+  const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * a))
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
 }
 
+/* strokes ride from paper to ink as the wall brightens, so the print
+   stays crisp at both ends of the throw */
+const INK = '#1A1917'
+function mixHex (h1: string, h2: string, t: number): string {
+  const p = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
+  const [a1, b1, c1] = p(h1); const [a2, b2, c2] = p(h2)
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t)
+  return `rgb(${m(a1, a2)}, ${m(b1, b2)}, ${m(c1, c2)})`
+}
+const strokeFor = (a: number) => mixHex(PAPER, INK, Math.min(1, Math.max(0, (a - 0.5) * 1.7)))
+const accentFor = (a: number) => mixHex(BLUE, INK, Math.min(1, Math.max(0, (a - 0.62) * 2.4)))
+
 /* ── tone: a field of horizontal hairlines whose weight tilts ────────── */
 function ToneArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const tilt = (a - 0.5) * 2
   const lines = []
   for (let y = -R + 4; y <= R - 4; y += 6) {
@@ -44,7 +57,7 @@ function ToneArt ({ a }: { a: number }) {
     const w = Math.max(0.35, 1.4 + tilt * (-y / R) * 2.6)
     lines.push(
       <line key={y} x1={C - half} y1={C + y} x2={C + half} y2={C + y}
-        stroke={y === 0 ? BLUE : PAPER} strokeWidth={y === 0 ? 1.6 : w} />,
+        stroke={y === 0 ? acc : s} strokeWidth={y === 0 ? 1.6 : w} />,
     )
   }
   return <g>{lines}</g>
@@ -52,6 +65,7 @@ function ToneArt ({ a }: { a: number }) {
 
 /* ── tape: concentric pressings that warp and thicken with drive ─────── */
 function TapeArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const rings = []
   for (let ri = 0; ri < 10; ri++) {
     const r = 12 + ri * 8.2
@@ -64,7 +78,7 @@ function TapeArt ({ a }: { a: number }) {
     }
     rings.push(
       <path key={ri} d={`M ${pts.join(' L ')} Z`} fill="none"
-        stroke={ri === 0 ? BLUE : PAPER}
+        stroke={ri === 0 ? acc : s}
         strokeWidth={0.9 + a * 2.1} />,
     )
   }
@@ -73,19 +87,20 @@ function TapeArt ({ a }: { a: number }) {
 
 /* ── space: echoes ringing out from a blue source ────────────────────── */
 function SpaceArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const count = Math.round(a * 7)
   const rings = []
   for (let i = 0; i < count; i++) {
     const r = 13 + (i + 1) * (9 + a * 11)
     if (r > R) break
     rings.push(
-      <circle key={i} cx={C} cy={C} r={r} fill="none" stroke={PAPER}
+      <circle key={i} cx={C} cy={C} r={r} fill="none" stroke={s}
         strokeWidth={1.1} opacity={0.9 * (1 - i / (count + 1))} />,
     )
   }
   return (
     <g>
-      <circle cx={C} cy={C} r={5.5} fill={BLUE} />
+      <circle cx={C} cy={C} r={5.5} fill={acc} />
       {rings}
     </g>
   )
@@ -93,6 +108,7 @@ function SpaceArt ({ a }: { a: number }) {
 
 /* ── stereo: one circle becomes two; the shared lens turns blue ──────── */
 function StereoArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const r = 60
   const d = a * 30
   const h = Math.sqrt(Math.max(0, r * r - d * d))
@@ -101,11 +117,11 @@ function StereoArt ({ a }: { a: number }) {
       {d > 1 && h > 1 && (
         <path
           d={`M ${C} ${C - h} A ${r} ${r} 0 0 1 ${C} ${C + h} A ${r} ${r} 0 0 1 ${C} ${C - h} Z`}
-          fill={BLUE} opacity={0.22 + a * 0.12} stroke={BLUE} strokeWidth={1} strokeOpacity={0.6}
+          fill={acc} opacity={0.22 + a * 0.12} stroke={acc} strokeWidth={1} strokeOpacity={0.6}
         />
       )}
-      <circle cx={C - d} cy={C} r={r} fill="none" stroke={PAPER} strokeWidth={1.5} />
-      <circle cx={C + d} cy={C} r={r} fill="none" stroke={PAPER} strokeWidth={1.5} />
+      <circle cx={C - d} cy={C} r={r} fill="none" stroke={s} strokeWidth={1.5} />
+      <circle cx={C + d} cy={C} r={r} fill="none" stroke={s} strokeWidth={1.5} />
     </g>
   )
 }
@@ -113,6 +129,7 @@ function StereoArt ({ a }: { a: number }) {
 /* ── glue: a scattered field pulled into a sunflower cluster ─────────── */
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))
 function GlueArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const dots = []
   for (let i = 0; i < 46; i++) {
     const th = i * GOLDEN
@@ -123,13 +140,13 @@ function GlueArt ({ a }: { a: number }) {
     dots.push(
       <circle key={i}
         cx={C + Math.cos(th) * r} cy={C + Math.sin(th) * r}
-        r={2 + a * 0.9} fill={PAPER} />,
+        r={2 + a * 0.9} fill={s} />,
     )
   }
   return (
     <g>
       {dots}
-      <circle cx={C} cy={C} r={3.2} fill={BLUE} />
+      <circle cx={C} cy={C} r={3.2} fill={acc} />
     </g>
   )
 }
@@ -173,6 +190,23 @@ export default function FxPanel ({ isOpen }: Props) {
   const neutral = mode === 0 ? 0.5 : 0
   const Art = ARTS[mode]
 
+  // The whole screen is the room: paint the wall colour onto the plugin
+  // root so the toolbar dims and lights with the panel.
+  useEffect(() => {
+    const el = document.querySelector('.plugin') as HTMLElement | null
+    if (!el) return
+    if (isOpen && lit) el.style.setProperty('--fx-wall', wallColor(mode, a))
+    else el.style.removeProperty('--fx-wall')
+  }, [isOpen, lit, mode, a])
+  useEffect(() => () => {
+    (document.querySelector('.plugin') as HTMLElement | null)?.style.removeProperty('--fx-wall')
+  }, [])
+  useEffect(() => {
+    const el = document.querySelector('.plugin') as HTMLElement | null
+    el?.classList.toggle('fx-live', live)
+    return () => el?.classList.remove('fx-live')
+  }, [live])
+
   const flashValue = () => {
     setShowValue(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -199,10 +233,7 @@ export default function FxPanel ({ isOpen }: Props) {
   }
 
   return (
-    <div
-      className={`s-body fx-body${live ? ' live' : ''}`}
-      style={{ background: lit ? wallColor(mode, a) : undefined }}
-    >
+    <div className={`s-body fx-body${live ? ' live' : ''}`}>
       <div className="fx-stage">
         <div
           className="fx-art"
@@ -231,7 +262,7 @@ export default function FxPanel ({ isOpen }: Props) {
           <svg viewBox="0 0 220 220" aria-hidden="true">
             <Art a={a} />
           </svg>
-          <span className={`fx-art-value${showValue ? ' show' : ''}`}>{fmtValue(mode, a)}</span>
+          <span className={`fx-art-value${showValue ? ' show' : ''}`} style={{ color: strokeFor(a) }}>{fmtValue(mode, a)}</span>
         </div>
       </div>
 

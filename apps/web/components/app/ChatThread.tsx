@@ -567,7 +567,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
               value={text}
               placeholder={`Message ${title}…`}
               onChange={(e) => { setText(e.target.value); grow() }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+              onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
             />
             {text.trim() ? (
               <button className="chatt-send" onClick={submit} disabled={sending} aria-label="Send">

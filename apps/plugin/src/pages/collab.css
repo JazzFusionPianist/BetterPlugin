@@ -8944,3 +8944,15 @@
   font-size: 11.5px; color: rgba(246, 243, 234, 0.5);
   text-align: center;
 }
+
+/* Premove — the queued move waits in blue */
+.chess-sq.sq-premove {
+  background: none !important;
+  box-shadow: inset 0 0 0 999px rgba(36, 64, 255, 0.16);
+}
+.chess-sq.sq-selected.sq-premove {
+  box-shadow: inset 0 0 0 2px var(--blue), inset 0 0 0 999px rgba(36, 64, 255, 0.16);
+}
+
+/* Chat: my messages keep the same edge margin as theirs */
+.game-chat-scroll { padding-left: 6px; padding-right: 6px; }

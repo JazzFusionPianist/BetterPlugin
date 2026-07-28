@@ -37,6 +37,10 @@ interface ChessBoardProps {
   lastFrom: Pos | null
   lastTo: Pos | null
   isMyTurn: boolean
+  /** Playing but not my turn → clicks queue a premove instead. */
+  canPremove?: boolean
+  premove?: { from: Pos; to: Pos } | null
+  onPremove?: (m: { from: Pos; to: Pos } | null) => void
 }
 
 function ChessBoard({
@@ -46,6 +50,9 @@ function ChessBoard({
   lastFrom,
   lastTo,
   isMyTurn,
+  canPremove,
+  premove,
+  onPremove,
 }: ChessBoardProps) {
   const [selected, setSelected] = useState<Pos | null>(null)
   const [validMoves, setValidMoves] = useState<Pos[]>([])
@@ -95,6 +102,38 @@ function ChessBoard({
 
   function handleSquareClick(row: number, col: number) {
     const piece = state.board[row][col]
+
+    // Opponent's turn: queue a premove (lichess-style). Selection uses
+    // the current position with the turn flipped to mine; legality is
+    // re-checked the instant the move actually fires.
+    if (!isMyTurn && canPremove) {
+      const mineState = { ...state, turn: myColor }
+      if (selected) {
+        const ok = validMoves.some(([vr, vc]) => vr === row && vc === col)
+        if (ok) {
+          onPremove?.({ from: selected, to: [row, col] })
+          setSelected(null)
+          setValidMoves([])
+          return
+        }
+        if (piece && pieceColor(piece) === myColor) {
+          setSelected([row, col])
+          setValidMoves(getValidMoves(mineState, [row, col]))
+          return
+        }
+        setSelected(null)
+        setValidMoves([])
+        onPremove?.(null)
+        return
+      }
+      if (piece && pieceColor(piece) === myColor) {
+        setSelected([row, col])
+        setValidMoves(getValidMoves(mineState, [row, col]))
+      } else {
+        onPremove?.(null)
+      }
+      return
+    }
 
     if (selected) {
       const isValid = validMoves.some(([vr, vc]) => vr === row && vc === col)
@@ -179,6 +218,7 @@ function ChessBoard({
             const isSelected = posEq(selected, [row, col])
             const isValidTarget = validMoves.some(([vr, vc]) => vr === row && vc === col)
             const isLastMove = posEq(lastFrom, [row, col]) || posEq(lastTo, [row, col])
+            const isPremove = !!premove && (posEq(premove.from, [row, col]) || posEq(premove.to, [row, col]))
             const isMyKingCheck = myKingInCheck && posEq(myKingPos, [row, col])
             const isOpponentKingCheck = opponentKingInCheck && posEq(opponentKingPos, [row, col])
             const isCheck = isMyKingCheck || isOpponentKingCheck
@@ -188,6 +228,7 @@ function ChessBoard({
               isLight ? 'sq-light' : 'sq-dark',
               isSelected ? 'sq-selected' : '',
               isLastMove ? 'sq-lastmove' : '',
+              isPremove ? 'sq-premove' : '',
               isCheck ? 'sq-check' : '',
             ]
               .filter(Boolean)
@@ -433,6 +474,10 @@ export default function ChessView({
   // Draw offer state
   const [drawOffering, setDrawOffering] = useState(false)
 
+  // Premove — queued on the opponent's turn, fired (or dropped, if the
+  // position no longer allows it) the instant the turn comes back.
+  const [premove, setPremove] = useState<{ from: Pos; to: Pos } | null>(null)
+
 
   // Sync chess state from room updates
   useEffect(() => {
@@ -629,6 +674,30 @@ export default function ChessView({
     },
     [pendingPromotion, handleMove],
   )
+
+  // Fire (or silently drop) the queued premove the moment the turn returns.
+  useEffect(() => {
+    if (!premove) return
+    if (room?.status !== 'playing') {
+      setPremove(null)
+      return
+    }
+    if (!isMyTurn) return
+    setPremove(null)
+    const [fr, fc] = premove.from
+    const piece = chessState.board[fr]?.[fc]
+    if (!piece || pieceColor(piece) !== myColor) return
+    const legal = getValidMoves(chessState, premove.from).some(
+      ([r, c]) => r === premove.to[0] && c === premove.to[1],
+    )
+    if (!legal) return
+    // Premoved promotions auto-queen, like lichess.
+    const promo =
+      piece[1] === 'P' && premove.to[0] === (myColor === 'white' ? 0 : 7)
+        ? `${piece[0]}Q`
+        : undefined
+    handleMove(premove.from, premove.to, promo)
+  }, [premove, isMyTurn, room?.status, chessState, myColor, handleMove])
 
   const computerMoveKeyRef = useRef('')
   useEffect(() => {
@@ -858,6 +927,9 @@ export default function ChessView({
             lastFrom={isPlaying || isFinished ? lastFrom : null}
             lastTo={isPlaying || isFinished ? lastTo : null}
             isMyTurn={isMyTurn && isPlaying}
+            canPremove={isPlaying}
+            premove={isPlaying ? premove : null}
+            onPremove={setPremove}
           />
         </div>
       )}

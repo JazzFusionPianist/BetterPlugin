@@ -136,6 +136,9 @@ export default function GameChat({ supabase, currentUserId, roomId, names, other
           disabled={!roomId}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
+            // Korean/Japanese IME: Enter during composition also fires
+            // keydown — sending there duplicates the message.
+            if (event.nativeEvent.isComposing) return
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               handleSend()

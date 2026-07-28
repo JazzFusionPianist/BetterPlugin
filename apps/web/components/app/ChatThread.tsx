@@ -18,8 +18,12 @@ interface Props {
   profileById: Map<string, Profile>
   /** Called with the conversation id when the user has seen the thread. */
   onSeen?: (conversationId: string) => void
+  /** Join a game room from an invite bubble (opens the games page). */
+  onJoinGame?: GameInviteBubbleJoin
   onClose: () => void
 }
+
+type GameInviteBubbleJoin = (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
 
 interface PendingUpload { id: string; name: string; progress: number }
 
@@ -153,8 +157,44 @@ function NowPlayingBar() {
   )
 }
 
+/** A game invite in the thread — the room id rides attachment_url and
+ *  the game type attachment_name. Join claims the seat and opens the
+ *  games page (host taps re-enter their own room). */
+const GAME_NAMES: Record<string, string> = {
+  chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training',
+}
+function GameInviteBubble({ roomId, gameType, onJoin }: {
+  roomId: string
+  gameType: string
+  onJoin?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  return (
+    <div className="msg-game-invite">
+      <span className="msg-game-name">🎮 {GAME_NAMES[gameType] ?? gameType}</span>
+      {onJoin && (
+        <button
+          className="msg-game-join"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            const r = await onJoin(gameType, roomId)
+            setBusy(false)
+            if (r === 'full') setNote('room is full')
+            else if (r === 'missing') setNote('this game has ended')
+          }}
+        >
+          join
+        </button>
+      )}
+      {note && <span className="msg-game-note">{note}</span>}
+    </div>
+  )
+}
+
 /** Render whatever a message carries as an attachment. */
-function Attachment({ m }: { m: Message }) {
+function Attachment({ m, onJoinGame }: { m: Message; onJoinGame?: GameInviteBubbleJoin }) {
   if (m.attachment_expired) {
     return <div className="msg-tomb">🎵 This attachment has expired</div>
   }
@@ -178,14 +218,14 @@ function Attachment({ m }: { m: Message }) {
     case 'video':
       return <video className="msg-video" src={url} controls playsInline preload="metadata" />
     case 'game_invite':
-      return <div className="msg-tomb">🎮 Game invite</div>
+      return <GameInviteBubble roomId={url} gameType={name} onJoin={onJoinGame} />
     default:
       return <a className="msg-file" href={url} target="_blank" rel="noreferrer">📎 {name}</a>
   }
 }
 
 /** Full-screen thread — 1:1 or group — over the orb home on mobile. */
-export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onClose }: Props) {
+export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, onClose }: Props) {
   const { messages, loading, send, conversationId } = useMessages(
     supabase,
     currentUserId,
@@ -472,7 +512,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   </span>
                 )}
                 <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
-                  {hasAttach && <Attachment m={m} />}
+                  {hasAttach && <Attachment m={m} onJoinGame={onJoinGame} />}
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>
                 </div>

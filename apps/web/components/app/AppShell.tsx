@@ -22,6 +22,12 @@ import ProfileSheet from './ProfileSheet'
 import FriendWall from './FriendWall'
 import ChatThread, { type ThreadTarget } from './ChatThread'
 import ConversationsList from './ConversationsList'
+import dynamic from 'next/dynamic'
+import type { GameScreen } from '../games/GamesPanel'
+import type { JoinResult, GameType } from '@/lib/games/gameRooms'
+
+// The whole game suite (4 games + rooms) only loads when someone opens it.
+const GamesPanel = dynamic(() => import('../games/GamesPanel'), { ssr: false })
 import SettingsSheet from './SettingsSheet'
 import AddFriendsSheet from './AddFriendsSheet'
 import NewGroupSheet from './NewGroupSheet'
@@ -196,6 +202,8 @@ export default function AppShell({ user }: { user: User }) {
   }
 
   const [calOpen, setCalOpen] = useState(false)
+  const [gamesOpen, setGamesOpen] = useState(false)                      // games overlay
+  const [gamesScreen, setGamesScreen] = useState<GameScreen>('list')     // list | chess | …
   const [convsOpen, setConvsOpen] = useState(false)                      // conversations list
   const [settingsOpen, setSettingsOpen] = useState(false)                // profile / about / sign out
   const [findOpen, setFindOpen] = useState(false)                        // find people
@@ -256,6 +264,21 @@ export default function AppShell({ user }: { user: User }) {
     if (me) m.set(me.id, { ...me, isOnline: true })
     return m
   }, [profilesWithStatus, me])
+
+  // Join a game room from a chat invite bubble: claim the seat, stash
+  // the room id for the game view to pick up, and open the games page.
+  const joinGameFromChat = async (gameType: string, roomId: string): Promise<JoinResult> => {
+    const type = gameType as GameType
+    const { joinGameRoom } = await import('@/lib/games/gameRooms')
+    const onlineIds = new Set(friends.filter((f) => f.isOnline).map((f) => f.id))
+    const result = await joinGameRoom(supabase, type, roomId, user.id, { onlineIds })
+    if (result === 'joined' || result === 'already-in') {
+      sessionStorage.setItem('join_room_id', roomId)
+      setGamesScreen(type)
+      setGamesOpen(true)
+    }
+    return result
+  }
 
   // Remaining events this calendar week (today through Sunday) — the
   // blue chip beside the calendar button.
@@ -324,6 +347,19 @@ export default function AppShell({ user }: { user: User }) {
             {weekCount} {weekCount === 1 ? 'event' : 'events'} this week
           </button>
         )}
+
+        <button
+          className="webapp-game-btn"
+          onClick={() => setGamesOpen(true)}
+          aria-label="Open games"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 11h4M8 9v4" />
+            <circle cx="15.5" cy="10.5" r="0.6" fill="currentColor" stroke="none" />
+            <circle cx="17.8" cy="12.8" r="0.6" fill="currentColor" stroke="none" />
+            <path d="M17.32 5H6.68a4 4 0 0 0-3.98 3.6L2 15.3a2.6 2.6 0 0 0 4.53 2l1.9-2.3h7.14l1.9 2.3a2.6 2.6 0 0 0 4.53-2l-.7-6.7A4 4 0 0 0 17.32 5Z" />
+          </svg>
+        </button>
 
         <button
           className={`webapp-add-btn${pinning ? ' busy' : ''}${addOpen ? ' open' : ''}`}
@@ -510,7 +546,19 @@ export default function AppShell({ user }: { user: User }) {
           target={thread}
           profileById={profileById}
           onSeen={markSeen}
+          onJoinGame={joinGameFromChat}
           onClose={() => setThread(null)}
+        />
+      )}
+
+      {gamesOpen && me && (
+        <GamesPanel
+          supabase={supabase}
+          me={me}
+          friends={friends}
+          screen={gamesScreen}
+          onScreenChange={setGamesScreen}
+          onClose={() => { setGamesOpen(false); setGamesScreen('list') }}
         />
       )}
 

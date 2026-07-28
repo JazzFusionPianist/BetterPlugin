@@ -56,6 +56,16 @@ function tintRgba (mode: FxMode, variant: number, alpha: number): string {
   return `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${alpha})`
 }
 
+/** Glow colour: pure flavour tint on the dark wall, shifting white-hot
+ *  as the knob (and so the wall) brightens — light stays light on any
+ *  background instead of drowning in its own colour at 100. */
+function glowRgba (mode: FxMode, variant: number, a: number): string {
+  const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
+  const k = a * 0.92
+  const m = (x: number) => Math.round(x + (255 - x) * k)
+  return `rgba(${m(t[0])}, ${m(t[1])}, ${m(t[2])}, 1)`
+}
+
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
   const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * a))
@@ -274,7 +284,7 @@ export default function FxPanel ({ isOpen }: Props) {
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
   const variant = variants[mode] ?? 0
-  glowTint.current = tintRgba(mode, variant, 1)
+  glowTint.current = glowRgba(mode, variant, a)
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return

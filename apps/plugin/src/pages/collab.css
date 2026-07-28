@@ -8824,3 +8824,85 @@
   background: var(--blue); color: #fff; border: none; border-radius: 3px;
   font-size: 11px; font-weight: 500; text-transform: lowercase;
 }
+
+/* ── One-knob FX panel ── */
+.fxview { transform: translateX(100%); z-index: 21; background: var(--bg); }
+.plugin.fx-open .fxview { transform: translateX(0); }
+.plugin.fx-open .fview > * { visibility: hidden; }
+
+.fx-body {
+  display: flex; flex-direction: column;
+  height: 100%; box-sizing: border-box;
+}
+
+/* mode words — quiet serif row, active carries the second ink */
+.fx-modes {
+  display: flex; justify-content: center; gap: 13px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.fx-mode {
+  font-family: var(--f-serif);
+  font-size: 13.5px;
+  color: var(--t3);
+  background: none; border: none; padding: 0 1px 2px;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.12s;
+}
+.fx-mode:hover { color: var(--t1); }
+.fx-mode.on {
+  color: var(--t1);
+  box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+.fx-stage {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
+}
+
+.fx-knob {
+  width: 168px; height: 168px;
+  cursor: ns-resize;
+  touch-action: none;
+  border-radius: 50%;
+}
+.fx-knob:focus-visible { outline: 1.5px solid var(--blue); outline-offset: 4px; }
+.fx-knob svg { display: block; width: 100%; height: 100%; }
+.fx-knob-track {
+  fill: none; stroke: var(--border); stroke-width: 2; stroke-linecap: round;
+}
+.fx-knob-arc {
+  fill: none; stroke: var(--blue); stroke-width: 2.5; stroke-linecap: round;
+}
+.fx-knob-tick { stroke: var(--hair); stroke-width: 1; }
+.fx-knob-face {
+  fill: var(--card);
+  stroke: var(--hair); stroke-width: 1;
+}
+.fx-knob-pointer {
+  stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round;
+}
+
+.fx-value {
+  font-family: var(--f-sans);
+  font-size: 15px; color: var(--t1);
+  font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+}
+.fx-blurb {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: 12px; color: var(--t3);
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.45;
+}
+.fx-note {
+  margin: 0 0 4px;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 11.5px; color: var(--t3);
+  text-align: center;
+}

@@ -127,6 +127,18 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleGetClipboardText (args, std::move (completion));
+                })
+            .withNativeFunction ("setFx",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleSetFx (args, std::move (completion));
+                })
+            .withNativeFunction ("getFx",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetFx (args, std::move (completion));
                 }));
 
     // Build the video capture helper. Frames are dispatched as
@@ -167,6 +179,9 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*
     captureSampleRate.store ((int) sampleRate);
     captureFifo.reset();
     captureBuffer.clear();
+
+    fxReverb.setSampleRate (sampleRate);
+    resetFxState();
 }
 
 void OrbAudioProcessor::releaseResources()
@@ -207,6 +222,10 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             transportPlaying.store (pos->getIsPlaying());
         }
     }
+
+    // One-knob FX — before the capture FIFO, so the shared/streamed audio
+    // carries the same sound the DAW hears.
+    processFx (buffer);
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = juce::jmin (buffer.getNumChannels(), captureBuffer.getNumChannels());
@@ -700,6 +719,269 @@ void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
     // Result is a plain string — no JSON wrapping. The JS bridge resolves
     // with the raw string so the caller can use it as-is.
     completion (text);
+}
+
+
+//==============================================================================
+// One-knob FX rack — five tiny effects, one amount each.
+
+void OrbAudioProcessor::resetFxState()
+{
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        tiltLow[ch]  = {};
+        tiltHigh[ch] = {};
+        tapeLpState[ch] = 0.0f;
+    }
+    tiltApplied = 999.0f;
+    for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
+    sideHpState = 0.0f;
+    glueEnv = 0.0f;
+    fxReverb.reset();
+    fxAmtSm = 0.0f;
+}
+
+// RBJ shelf (S = 1). type: false = low shelf, true = high shelf.
+static void bakeShelf (bool high, float gainDb, float freq, float sr,
+                       float& b0, float& b1, float& b2, float& a1, float& a2)
+{
+    const float A     = std::pow (10.0f, gainDb / 40.0f);
+    const float w0    = juce::MathConstants<float>::twoPi * freq / sr;
+    const float cosw  = std::cos (w0);
+    const float sinw  = std::sin (w0);
+    const float alpha = sinw / 2.0f * std::sqrt (2.0f);
+    const float sq    = 2.0f * std::sqrt (A) * alpha;
+
+    float bb0, bb1, bb2, aa0, aa1, aa2;
+    if (! high)
+    {
+        bb0 =  A * ((A + 1) - (A - 1) * cosw + sq);
+        bb1 =  2 * A * ((A - 1) - (A + 1) * cosw);
+        bb2 =  A * ((A + 1) - (A - 1) * cosw - sq);
+        aa0 =  (A + 1) + (A - 1) * cosw + sq;
+        aa1 = -2 * ((A - 1) + (A + 1) * cosw);
+        aa2 =  (A + 1) + (A - 1) * cosw - sq;
+    }
+    else
+    {
+        bb0 =  A * ((A + 1) + (A - 1) * cosw + sq);
+        bb1 = -2 * A * ((A - 1) + (A + 1) * cosw);
+        bb2 =  A * ((A + 1) + (A - 1) * cosw - sq);
+        aa0 =  (A + 1) - (A - 1) * cosw + sq;
+        aa1 =  2 * ((A - 1) - (A + 1) * cosw);
+        aa2 =  (A + 1) - (A - 1) * cosw - sq;
+    }
+    b0 = bb0 / aa0; b1 = bb1 / aa0; b2 = bb2 / aa0; a1 = aa1 / aa0; a2 = aa2 / aa0;
+}
+
+void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
+{
+    const int n  = buffer.getNumSamples();
+    const int nc = buffer.getNumChannels();
+    const float sr = (float) juce::jmax (8000, captureSampleRate.load());
+    if (n == 0 || nc == 0) return;
+
+    const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load (std::memory_order_relaxed));
+    if (mode != fxLastMode)
+    {
+        // Fresh start for the incoming effect; the amount glides up from
+        // zero so switching never clicks (the old tail simply stops).
+        resetFxState();
+        fxLastMode = mode;
+    }
+
+    const float target = juce::jlimit (0.0f, 1.0f, fxAmount[(size_t) mode].load (std::memory_order_relaxed));
+    const float alpha  = 1.0f - std::exp (-(float) n / (0.05f * sr));
+    fxAmtSm += (target - fxAmtSm) * alpha;
+    const float a = fxAmtSm;
+
+    // Neutral positions cost nothing.
+    if (mode == kTone) { if (std::abs (a - 0.5f) < 0.004f) return; }
+    else               { if (a < 0.004f && target < 0.004f) return; }
+
+    float* L = buffer.getWritePointer (0);
+    float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
+
+    switch (mode)
+    {
+        case kTone:
+        {
+            // Tilt: dark ⟵ 0.5 ⟶ bright, ±6 dB split across two shelves.
+            const float tilt = (a - 0.5f) * 12.0f;
+            if (std::abs (tilt - tiltApplied) > 0.05f)
+            {
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    bakeShelf (false, -tilt, 300.0f,  sr, tiltLow[ch].b0,  tiltLow[ch].b1,  tiltLow[ch].b2,  tiltLow[ch].a1,  tiltLow[ch].a2);
+                    bakeShelf (true,   tilt, 2800.0f, sr, tiltHigh[ch].b0, tiltHigh[ch].b1, tiltHigh[ch].b2, tiltHigh[ch].a1, tiltHigh[ch].a2);
+                }
+                tiltApplied = tilt;
+            }
+            for (int i = 0; i < n; ++i)
+            {
+                L[i] = tiltHigh[0].run (tiltLow[0].run (L[i]));
+                if (R != nullptr) R[i] = tiltHigh[1].run (tiltLow[1].run (R[i]));
+            }
+            break;
+        }
+
+        case kTape:
+        {
+            // tanh drive with loudness compensation and a gentle darkening
+            // one-pole (drive pushes the corner down from 16k toward 8k).
+            const float drive = 1.0f + a * 7.0f;
+            const float comp  = 1.0f / std::sqrt (drive);
+            const float fc    = 16000.0f - a * 8000.0f;
+            const float k     = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * fc / sr);
+            for (int i = 0; i < n; ++i)
+            {
+                {
+                    const float shaped = std::tanh (drive * L[i]) * comp;
+                    tapeLpState[0] += (shaped - tapeLpState[0]) * k;
+                    L[i] = tapeLpState[0];
+                }
+                if (R != nullptr)
+                {
+                    const float shaped = std::tanh (drive * R[i]) * comp;
+                    tapeLpState[1] += (shaped - tapeLpState[1]) * k;
+                    R[i] = tapeLpState[1];
+                }
+            }
+            break;
+        }
+
+        case kSpace:
+        {
+            juce::Reverb::Parameters p;
+            p.roomSize   = 0.42f;
+            p.damping    = 0.55f;
+            p.width      = 1.0f;
+            p.wetLevel   = a * 0.55f;
+            p.dryLevel   = 1.0f - a * 0.25f;
+            p.freezeMode = 0.0f;
+            fxReverb.setParameters (p);
+            if (R != nullptr) fxReverb.processStereo (L, R, n);
+            else              fxReverb.processMono (L, n);
+            break;
+        }
+
+        case kStereoize:
+        {
+            // Phase-based width: rotate the mid through a small allpass
+            // chain and inject the rotated signal ANTISYMMETRICALLY
+            // (+ into L, − into R). The mono sum is bit-identical to the
+            // input — width for free, no mono penalty. Lows are kept
+            // centred by high-passing the side send at ~180 Hz.
+            if (R == nullptr) break;   // needs stereo
+            static const float apFreqs[4] = { 240.0f, 900.0f, 2800.0f, 7000.0f };
+            float c[4];
+            for (int st = 0; st < 4; ++st)
+            {
+                const float t = std::tan (juce::MathConstants<float>::pi * apFreqs[st] / sr);
+                c[st] = (t - 1.0f) / (t + 1.0f);
+            }
+            const float hpK  = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 180.0f / sr);
+            const float gain = a * 0.85f;
+            for (int i = 0; i < n; ++i)
+            {
+                const float mid = 0.5f * (L[i] + R[i]);
+                float x = mid;
+                for (int st = 0; st < 4; ++st)
+                {
+                    const float y = c[st] * x + apState[st][0] - c[st] * apState[st][1];
+                    apState[st][0] = x;
+                    apState[st][1] = y;
+                    x = y;
+                }
+                // remove the correlated part so the send is pure "rotation"
+                float side = x - mid;
+                sideHpState += (side - sideHpState) * hpK;
+                side = (side - sideHpState) * gain;
+                L[i] += side;
+                R[i] -= side;
+            }
+            break;
+        }
+
+        case kGlue:
+        {
+            // Stereo-linked 4:1 with programme-friendly times. The knob
+            // lowers the threshold and adds matched makeup.
+            const float threshDb = -2.0f - a * 20.0f;
+            const float makeup   = std::pow (10.0f, (a * 5.0f) / 20.0f);
+            const float atkK = 1.0f - std::exp (-1.0f / (0.008f * sr));
+            const float relK = 1.0f - std::exp (-1.0f / (0.220f * sr));
+            for (int i = 0; i < n; ++i)
+            {
+                const float inMax = R != nullptr ? juce::jmax (std::abs (L[i]), std::abs (R[i]))
+                                                 : std::abs (L[i]);
+                glueEnv += (inMax - glueEnv) * (inMax > glueEnv ? atkK : relK);
+                const float envDb = juce::Decibels::gainToDecibels (glueEnv, -80.0f);
+                const float overDb = envDb - threshDb;
+                const float grDb   = overDb > 0.0f ? overDb * 0.75f : 0.0f;   // 4:1
+                const float g = std::pow (10.0f, -grDb / 20.0f) * makeup;
+                L[i] *= g;
+                if (R != nullptr) R[i] *= g;
+            }
+            break;
+        }
+
+        default: break;
+    }
+}
+
+void OrbAudioProcessor::handleSetFx (const juce::var& args,
+                                     juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    // Args arrive as [ { mode?, amount? } ]; amount applies to the given
+    // (or current) mode so each effect remembers its own setting.
+    if (auto* arr = args.getArray(); arr != nullptr && ! arr->isEmpty())
+    {
+        const juce::var& v = arr->getReference (0);
+        int mode = fxMode.load();
+        if (v.hasProperty ("mode"))
+        {
+            mode = juce::jlimit (0, (int) kNumFx - 1, (int) v["mode"]);
+            fxMode.store (mode);
+        }
+        if (v.hasProperty ("amount"))
+            fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
+    }
+    completion (juce::var (true));
+}
+
+void OrbAudioProcessor::handleGetFx (const juce::var&,
+                                     juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("mode", fxMode.load());
+    juce::Array<juce::var> amounts;
+    for (auto& amt : fxAmount) amounts.add ((double) amt.load());
+    obj->setProperty ("amounts", amounts);
+    completion (juce::var (obj));
+}
+
+//==============================================================================
+// State — the FX rack is the plugin's persistent state.
+
+void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
+{
+    juce::XmlElement xml ("OrbState");
+    xml.setAttribute ("fxMode", fxMode.load());
+    for (int i = 0; i < (int) kNumFx; ++i)
+        xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
+    copyXmlToBinary (xml, dest);
+}
+
+void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    if (auto xml = getXmlFromBinary (data, sizeInBytes); xml != nullptr && xml->hasTagName ("OrbState"))
+    {
+        fxMode.store (juce::jlimit (0, (int) kNumFx - 1, xml->getIntAttribute ("fxMode", 0)));
+        for (int i = 0; i < (int) kNumFx; ++i)
+            fxAmount[(size_t) i].store ((float) xml->getDoubleAttribute (
+                "fxAmount" + juce::String (i), i == kTone ? 0.5 : 0.0));
+    }
 }
 
 //==============================================================================

@@ -24,6 +24,7 @@ import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
+import FxPanel from '../components/collab/FxPanel'
 import UpcomingList from '../components/collab/UpcomingList'
 import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
@@ -91,6 +92,7 @@ function CollabPageInner({ user }: Props) {
   const [newGroupOpen, setNewGroupOpen]         = useState(false)
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
+  const [fxOpen, setFxOpen]                     = useState(false)
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
   // True while the user is using the GameList specifically to invite
@@ -464,16 +466,23 @@ function CollabPageInner({ user }: Props) {
   // hidden behind it. Settings (z-index 30) intentionally overlays instead,
   // so it does NOT go through here and keeps working over the calendar.
   const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setCalendarOpen(false) }
-  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() } return !prev })
+  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleConv      = () => setConvOpen(prev => {
-    if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch() }
+    if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() }
     else { setNewGroupOpen(false) }   // closing the tab resets the new-group flow
+    return !prev
+  })
+  const handleToggleFx        = () => setFxOpen(prev => {
+    if (!prev) {
+      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false)
+      setLiveOpen(false); setGameOpen(false); closeSearch()
+    }
     return !prev
   })
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); closeSearch()
+      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
       // Unlock mic labels/IDs so the dropdown is populated when the panel opens
       requestDevicePermissions()
     }
@@ -488,7 +497,7 @@ function CollabPageInner({ user }: Props) {
   // the chat is never opened behind a panel.
   const closeAllOverlays = () => {
     closeSettingsPanels()
-    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false)
+    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setNewGroupOpen(false); closeSearch()
     setTooltip(null); setGalleryPopup(null)
   }
@@ -553,7 +562,7 @@ function CollabPageInner({ user }: Props) {
   const handleGoHome = () => {
     setSelectedId(null); setSelectedGroupConvId(null); setViewingProfileId(null)
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
-    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false)
+    setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
     setWatchingSession(null)
     closeSearch()
@@ -577,6 +586,7 @@ function CollabPageInner({ user }: Props) {
     addFriendOpen     ? 'addfriend-open'     : '',
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
+    fxOpen            ? 'fx-open'            : '',
     gameOpen          ? 'game-open'          : '',
     calendarOpen      ? 'calendar-open'      : '',
   ].filter(Boolean).join(' ')
@@ -608,13 +618,26 @@ function CollabPageInner({ user }: Props) {
           {mySession && <span className="live-btn-dot" />}
         </div>
 
+        {/* One-knob FX */}
+        <div
+          className={`icon-btn${fxOpen ? ' active' : ''}`}
+          onClick={handleToggleFx}
+          title="FX"
+        >
+          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.3" stroke="currentColor" strokeLinecap="round">
+            <circle cx="8" cy="8" r="5.6" />
+            <path d="M8 8L4.9 4.9" strokeWidth="1.5" />
+            <path d="M3.4 12.6l1 -1M12.6 12.6l-1 -1M12.6 3.4l-1 1" strokeWidth="1" />
+          </svg>
+        </div>
+
         {/* Mini Games */}
         <div
           className={`icon-btn${gameOpen ? ' active' : ''}`}
           onClick={async () => {
             const next = !gameOpen
             if (next) {
-              closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); closeSearch()
+              closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false); closeSearch()
               // If the user is currently in a chat, opening the games
               // panel from here means "I want to invite the people in
               // this chat to play". Remember the conversation id —
@@ -643,7 +666,7 @@ function CollabPageInner({ user }: Props) {
           onClick={() => setCalendarOpen(prev => {
             if (!prev) {
               setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false)
-              setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); closeSearch()
+              setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
             }
             return !prev
           })}
@@ -838,6 +861,10 @@ function CollabPageInner({ user }: Props) {
             />
           )}
         </div>
+        <div className="view fxview">
+          {fxOpen && <FxPanel isOpen={fxOpen} />}
+        </div>
+
         <div className="view lvview">
           {watchingSession ? (
             <LiveViewer

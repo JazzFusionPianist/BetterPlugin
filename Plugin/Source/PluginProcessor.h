@@ -54,8 +54,8 @@ public:
     void changeProgramName (int, const juce::String&) override  {}
 
     //── State ─────────────────────────────────────────────────────────────────
-    void getStateInformation (juce::MemoryBlock&) override  {}
-    void setStateInformation (const void*, int) override    {}
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
 
     //── Persistent WebView (used by editor when it's alive) ──────────────────
     juce::WebBrowserComponent* getBrowser() noexcept { return browser.get(); }
@@ -98,6 +98,37 @@ private:
     std::atomic<int>    playheadTsNum    { 4 };
     std::atomic<int>    playheadTsDen    { 4 };
     std::atomic<bool>   transportPlaying { false };
+
+    //── One-knob FX rack ─────────────────────────────────────────────────────
+    // Five switchable single-parameter effects, applied in processBlock
+    // BEFORE the capture FIFO (what you hear is what you share). Mode and
+    // per-mode amounts are set from the web UI via setFx / getFx and
+    // persisted in plugin state. amounts[kTone] is bipolar around 0.5.
+    enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kNumFx };
+    std::atomic<int> fxMode { kTone };
+    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} }};
+
+    void handleSetFx (const juce::var& args,
+                      juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleGetFx (const juce::var& args,
+                      juce::WebBrowserComponent::NativeFunctionCompletion completion);
+
+    // Audio-thread-only FX state.
+    struct Biquad { float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+                    inline float run (float x) noexcept {
+                        const float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+                        x2 = x1; x1 = x; y2 = y1; y1 = y; return y; } };
+    float fxAmtSm = 0.0f;        // smoothed amount for the active mode
+    int   fxLastMode = kTone;
+    float tiltApplied = 999.0f;  // dB of the currently-baked shelf coeffs
+    Biquad tiltLow[2], tiltHigh[2];
+    float tapeLpState[2] { 0, 0 };
+    juce::Reverb fxReverb;
+    float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
+    float sideHpState = 0.0f;
+    float glueEnv = 0.0f;        // linear peak envelope
+    void resetFxState();
+    void processFx (juce::AudioBuffer<float>& buffer);
 
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;

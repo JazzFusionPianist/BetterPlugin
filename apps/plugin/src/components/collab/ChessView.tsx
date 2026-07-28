@@ -276,6 +276,34 @@ function ChessBoard({
   )
 }
 
+// ─── Move sheet — lichess-style score column in the dock ──────────────────────
+
+function MoveSheet({ moves }: { moves: string[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [moves.length])
+  const last = moves.length - 1
+  const rows: [number, string, string | null][] = []
+  for (let i = 0; i < moves.length; i += 2) rows.push([i, moves[i]!, moves[i + 1] ?? null])
+  return (
+    <div className="chess-moves" ref={ref} aria-label="Moves">
+      {rows.length === 0 ? (
+        <div className="chess-moves-empty">no moves yet</div>
+      ) : (
+        rows.map(([i, w, b]) => (
+          <div key={i} className="chess-moves-row">
+            <span className="chess-moves-num">{i / 2 + 1}</span>
+            <span className={`chess-moves-cell${i === last ? ' latest' : ''}`}>{w}</span>
+            <span className={`chess-moves-cell${i + 1 === last ? ' latest' : ''}`}>{b ?? ''}</span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 // ─── Promotion modal ──────────────────────────────────────────────────────────
 
 interface PromotionModalProps {
@@ -403,12 +431,6 @@ export default function ChessView({
   // Draw offer state
   const [drawOffering, setDrawOffering] = useState(false)
 
-  // Move strip keeps the latest move in view, lichess-style.
-  const moveStripRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = moveStripRef.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [room?.move_history?.length])
 
   // Sync chess state from room updates
   useEffect(() => {
@@ -862,29 +884,20 @@ export default function ChessView({
               </span>
             )}
           </div>
-          {room && (room.move_history ?? []).length > 0 && (
-            <div className="chess-move-history" ref={moveStripRef}>
-              {(room.move_history ?? []).map((move, i, arr) => (
-                <span key={i} className={`chess-move-entry${i === arr.length - 1 ? ' latest' : ''}`}>
-                  {i % 2 === 0 && (
-                    <span className="chess-move-number">{Math.floor(i / 2) + 1}.</span>
-                  )}
-                  {move}
-                </span>
-              ))}
-            </div>
-          )}
         </>
       }
       overlay={overlay}
       chat={!computerStartPending ? (
-        <GameChat
-          supabase={supabase}
-          currentUserId={currentUserId}
-          roomId={room?.id ?? null}
-          otherUserId={isComputerOpponent ? null : opponentId}
-          otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
-        />
+        <div className="chess-dock">
+          <MoveSheet moves={isPlaying || isFinished ? (room?.move_history ?? []) : []} />
+          <GameChat
+            supabase={supabase}
+            currentUserId={currentUserId}
+            roomId={room?.id ?? null}
+            otherUserId={isComputerOpponent ? null : opponentId}
+            otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
+          />
+        </div>
       ) : undefined}
       invite={{
         open: showInviteModal,

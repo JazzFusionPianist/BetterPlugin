@@ -2751,3 +2751,58 @@
 .games-panel .chess-piece, .games-panel .chess-piece svg,
 .games-panel .chess-piece img { filter: none; }
 .games-panel .chess-captured-piece { filter: none; display: inline-block; }
+
+/* ═══ Chess dock — the bottom bar split in half: score sheet | chat ═══ */
+.games-panel .game-view .chess-dock {
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+  width: 100%; max-width: 620px; margin: 0 auto;
+  padding: 0 16px calc(8px + env(safe-area-inset-bottom));
+}
+.games-panel .game-view .chess-dock .game-chat {
+  border-top: none; border-radius: 0;
+  margin: 0; max-width: none; width: auto;
+  padding: 8px 0 0;
+}
+.games-panel .chess-moves {
+  overflow-y: auto; max-height: 150px;
+  padding: 10px 14px 6px 0;
+  border-right: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 12px; color: var(--t2);
+  scrollbar-width: none;
+}
+.games-panel .chess-moves::-webkit-scrollbar { display: none; }
+.games-panel .chess-moves-row {
+  display: grid; grid-template-columns: 20px 1fr 1fr; gap: 6px;
+  line-height: 1.8; font-variant-numeric: tabular-nums;
+}
+.games-panel .chess-moves-num { color: var(--t3); }
+.games-panel .chess-moves-cell.latest { color: var(--ink); font-weight: 600; }
+.games-panel .chess-moves-empty {
+  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  padding-top: 10px;
+}
+
+@media (min-width: 821px) {
+  /* Side panel: score sheet stacked above the chat */
+  .games-panel .game-view .chess-dock {
+    grid-column: 2; grid-row: 2;
+    display: flex; flex-direction: column;
+    border-top: none; border-left: 1px solid var(--line);
+    max-width: none; margin: 0; height: 100%; min-height: 0;
+    padding: 14px 16px;
+  }
+  .games-panel .game-view .chess-dock .chess-moves {
+    flex: 1 1 50%; max-height: none; min-height: 0;
+    border-right: none; border-bottom: 1px solid var(--line);
+    padding: 0 0 10px;
+  }
+  .games-panel .game-view .chess-dock .game-chat {
+    flex: 1 1 50%; min-height: 0; height: auto;
+    border-left: none; padding: 10px 0 0;
+    display: flex; flex-direction: column;
+  }
+  .games-panel .game-view .chess-dock .game-chat-scroll { max-height: none; flex: 1; }
+}

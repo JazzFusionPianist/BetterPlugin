@@ -8825,7 +8825,9 @@
   font-size: 11px; font-weight: 500; text-transform: lowercase;
 }
 
-/* ── One-knob FX panel ── */
+/* ── One-knob FX: each effect is a two-ink print, and the print is
+     the control. No labels at rest — the artwork carries the value;
+     a big serif numeral surfaces only while the hand is on it. ── */
 .fxview { transform: translateX(100%); z-index: 21; background: var(--bg); }
 .plugin.fx-open .fxview { transform: translateX(0); }
 .plugin.fx-open .fview > * { visibility: hidden; }
@@ -8835,71 +8837,70 @@
   height: 100%; box-sizing: border-box;
 }
 
-/* mode words — quiet serif row, active carries the second ink */
-.fx-modes {
-  display: flex; justify-content: center; gap: 13px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.fx-mode {
-  font-family: var(--f-serif);
-  font-size: 13.5px;
-  color: var(--t3);
-  background: none; border: none; padding: 0 1px 2px;
-  cursor: pointer;
-  text-transform: lowercase;
-  transition: color 0.12s;
-}
-.fx-mode:hover { color: var(--t1); }
-.fx-mode.on {
-  color: var(--t1);
-  box-shadow: inset 0 -2px 0 var(--blue);
-}
-
 .fx-stage {
   flex: 1;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 6px;
+  gap: 2px;
 }
 
-.fx-knob {
-  width: 168px; height: 168px;
+.fx-art {
+  position: relative;
+  width: 226px; height: 226px;
   cursor: ns-resize;
   touch-action: none;
   border-radius: 50%;
 }
-.fx-knob:focus-visible { outline: 1.5px solid var(--blue); outline-offset: 4px; }
-.fx-knob svg { display: block; width: 100%; height: 100%; }
-.fx-knob-track {
-  fill: none; stroke: var(--border); stroke-width: 2; stroke-linecap: round;
-}
-.fx-knob-arc {
-  fill: none; stroke: var(--blue); stroke-width: 2.5; stroke-linecap: round;
-}
-.fx-knob-tick { stroke: var(--hair); stroke-width: 1; }
-.fx-knob-face {
-  fill: var(--card);
-  stroke: var(--hair); stroke-width: 1;
-}
-.fx-knob-pointer {
-  stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round;
-}
+.fx-art:focus-visible { outline: 1.5px solid var(--blue); outline-offset: 6px; }
+.fx-art svg { display: block; width: 100%; height: 100%; }
 
-.fx-value {
-  font-family: var(--f-sans);
-  font-size: 15px; color: var(--t1);
-  font-variant-numeric: tabular-nums;
+/* the numeral — a print specimen floating over the plate */
+.fx-art-value {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f-serif);
+  font-size: 54px; font-weight: 400;
+  color: var(--t1);
+  paint-order: stroke;
+  -webkit-text-stroke: 7px var(--paper);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.fx-art-value.show { opacity: 0.92; transition: opacity 0.06s ease; }
+
+/* pager: two quiet serif arrows around five plate dots */
+.fx-pager {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 10px;
+}
+.fx-arrow {
+  font-family: var(--f-serif);
+  font-size: 19px; line-height: 1;
+  color: var(--t3);
+  background: none; border: none;
+  width: 28px; height: 28px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color 0.12s;
+}
+.fx-arrow:hover { color: var(--t1); }
+.fx-arrow:active { transform: translateY(0.5px); }
+.fx-dots { display: flex; gap: 7px; }
+.fx-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--border2);
+  transition: background 0.15s, transform 0.15s;
+}
+.fx-dot.on { background: var(--blue); transform: scale(1.25); }
+
+.fx-word {
+  font-family: var(--f-serif);
+  font-size: 13px;
+  color: var(--t2);
   text-transform: lowercase;
 }
-.fx-blurb {
-  font-family: var(--f-serif);
-  font-style: italic;
-  font-size: 12px; color: var(--t3);
-  text-align: center;
-  max-width: 220px;
-  line-height: 1.45;
-}
+
 .fx-note {
   margin: 0 0 4px;
   font-family: var(--f-serif); font-style: italic;
@@ -8907,16 +8908,25 @@
   text-align: center;
 }
 
-/* Move strip — horizontal score line, latest move carries the ink */
-.chess-move-history {
-  display: flex; align-items: baseline; gap: 10px;
-  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
-  padding: 3px 0 5px; max-width: 100%;
+/* Chess dock — bottom bar halved: score sheet | chat */
+.chess-dock {
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px;
+  padding: 0 10px 6px;
 }
-.chess-move-history::-webkit-scrollbar { display: none; }
-.chess-move-entry { flex-shrink: 0; }
-.chess-move-entry.latest { color: var(--t1); font-weight: 600; }
-
-/* Flat ink — the drawn set needs no drop shadow */
-.chess-piece, .chess-piece svg, .chess-piece img { filter: none; }
-.chess-captured-piece { filter: none; display: inline-block; }
+.chess-dock .game-chat { border-top: none; margin: 0; padding: 6px 0 0; }
+.chess-moves {
+  overflow-y: auto; max-height: 110px;
+  padding: 8px 10px 4px 0;
+  border-right: 1px solid var(--border);
+  font-size: 11px; color: var(--t2);
+  scrollbar-width: none;
+}
+.chess-moves::-webkit-scrollbar { display: none; }
+.chess-moves-row {
+  display: grid; grid-template-columns: 16px 1fr 1fr; gap: 4px;
+  line-height: 1.7; font-variant-numeric: tabular-nums;
+}
+.chess-moves-num { color: var(--t3); }
+.chess-moves-cell.latest { color: var(--t1); font-weight: 600; }
+.chess-moves-empty { font-family: var(--f-serif); font-style: italic; font-size: 11px; color: var(--t3); padding-top: 8px; }

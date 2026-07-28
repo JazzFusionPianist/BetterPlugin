@@ -51,6 +51,11 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
   ],
 }
 
+function tintRgba (mode: FxMode, variant: number, alpha: number): string {
+  const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
+  return `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${alpha})`
+}
+
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
   const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * a))
@@ -200,6 +205,9 @@ export default function FxPanel ({ isOpen }: Props) {
   const dragStart = useRef({ y: 0, a: 0 })
   const lastSent = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const artRef = useRef<HTMLDivElement>(null)
+  const glowEnv = useRef(0)
+  const glowTint = useRef('rgba(255, 178, 44, 0.85)')
 
   useEffect(() => {
     if (!isOpen) { setLit(false); return }
@@ -216,9 +224,57 @@ export default function FxPanel ({ isOpen }: Props) {
   const neutral = mode === 0 ? 0.5 : 0
   const Art = ARTS[mode]
 
+  // The print glows with the programme — instant attack on every hit,
+  // ~160 ms release, in the flavour's own light (the bx_boom trick).
+  useEffect(() => {
+    if (!isOpen) return
+    const onAudio = (e: Event) => {
+      const d = (e as CustomEvent).detail as { samples?: string }
+      if (!d?.samples) return
+      try {
+        const bin = atob(d.samples)
+        const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        const f = new Float32Array(bytes.buffer)
+        let pk = 0
+        for (let i = 0; i < f.length; i += 4) {
+          const v = Math.abs(f[i])
+          if (v > pk) pk = v
+        }
+        if (pk > glowEnv.current) glowEnv.current = Math.min(1.4, pk)
+      } catch { /* skip bad chunk */ }
+    }
+    window.addEventListener('__juceDawAudio', onAudio)
+
+    let raf = 0
+    let lastT = performance.now()
+    const tick = (t: number) => {
+      const dt = Math.max(0, (t - lastT) / 1000)
+      lastT = t
+      glowEnv.current *= Math.exp(-dt / 0.16)
+      const g = Math.pow(Math.min(1, glowEnv.current), 1.4)
+      const el = artRef.current
+      if (el) {
+        el.style.filter = g > 0.03
+          ? `drop-shadow(0 0 ${6 + g * 30}px ${glowTint.current}) drop-shadow(0 0 ${2 + g * 9}px ${glowTint.current})`
+          : 'none'
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    return () => {
+      window.removeEventListener('__juceDawAudio', onAudio)
+      cancelAnimationFrame(raf)
+      glowEnv.current = 0
+      if (artRef.current) artRef.current.style.filter = 'none'
+    }
+  }, [isOpen])
+
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
   const variant = variants[mode] ?? 0
+  glowTint.current = tintRgba(mode, variant, 0.85)
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
@@ -268,6 +324,7 @@ export default function FxPanel ({ isOpen }: Props) {
     <div className={`s-body fx-body${live ? ' live' : ''}`}>
       <div className="fx-stage">
         <div
+          ref={artRef}
           className="fx-art"
           role="slider"
           aria-label={`${MODES[mode].name} amount`}

@@ -1,6 +1,8 @@
 export interface Profile {
   id: string
   display_name: string
+  /** Unique lowercase handle (3-20 chars); shown as @username. */
+  username?: string | null
   avatar_color: string
   avatar_url?: string | null
   initials: string

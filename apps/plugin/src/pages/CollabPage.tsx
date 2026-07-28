@@ -24,6 +24,7 @@ import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
+import UpcomingList from '../components/collab/UpcomingList'
 import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
@@ -173,7 +174,7 @@ function CollabPageInner({ user }: Props) {
 
   // ── Calendar (shared by the home schedule prompt + the calendar view) ────
   const { events: calEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(client, user.id)
-  const { categories: calCategories, ensureCategory: calEnsureCategory } = useEventCategories(client, user.id)
+  const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(client, user.id)
   const calTargets = useMemo(
     () => [{ id: null as string | null, label: 'Personal' }, ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'Group' }))],
     [groupConversations],
@@ -675,6 +676,9 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
+          {!viewingProfileId && viewMode === 'default' && (
+            <UpcomingList events={calEvents} onOpen={() => setCalendarOpen(true)} />
+          )}
           {viewingProfileId && viewingProfile
             ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} viewOnly />
             : viewMode === 'default'
@@ -786,6 +790,10 @@ function CollabPageInner({ user }: Props) {
             groupTitleById={calGroupTitleById}
             onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
             onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
+            onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+            onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
+            onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
+            onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
           />
         </div>
         <div className="view iview">
@@ -964,6 +972,10 @@ function CollabPageInner({ user }: Props) {
           groupTitleById={calGroupTitleById}
           onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
           onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
+          onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+          onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
+          onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
+          onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
         />
       </div>
 

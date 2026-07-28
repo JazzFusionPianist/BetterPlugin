@@ -111,6 +111,7 @@ export default function HoverTooltip({
               >★</button>
             )}
           </div>
+          {profile.username && <span className="tt2-handle">@{profile.username}</span>}
           <span className={`tt2-status${isMutual ? ' tt2-status-mutual' : ''}`}>{status}</span>
         </div>
       </div>

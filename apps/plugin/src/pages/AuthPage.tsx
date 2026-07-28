@@ -4,6 +4,10 @@ import './auth.css'
 
 type Mode = 'signin' | 'signup'
 
+/** Handles are lowercase, 3-20 chars of letters/digits/dot/underscore. */
+const USERNAME_RE = /^[a-z0-9_.]{3,20}$/
+const cleanUsername = (v: string) => v.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20)
+
 /* Static print-shop marginalia — the plugin's small still version of the
    app's drifting registration marks. Ink and one blue accent only. */
 function Marginalia() {
@@ -34,6 +38,7 @@ function Marginalia() {
 export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('signin')
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -55,9 +60,19 @@ export default function AuthPage() {
         const { error } = await supabase!.auth.signInWithPassword({ email, password })
         if (error) setError(error.message)
       } else {
+        const handle = username.trim()
+        if (!USERNAME_RE.test(handle)) {
+          setError('Username must be 3–20 characters: lowercase letters, numbers, dots or underscores.')
+          return
+        }
+        // Availability first — the DB's unique index is the real gate,
+        // but this gives a human answer instead of a database error.
+        const { data: free, error: rpcErr } = await supabase!.rpc('username_available', { u: handle })
+        if (rpcErr) { setError('Could not check that username. Try again.'); return }
+        if (!free) { setError(`@${handle} is taken — try another.`); return }
         const { data, error } = await supabase!.auth.signUp({
           email, password,
-          options: { data: { display_name: name.trim() || email.split('@')[0] } },
+          options: { data: { display_name: name.trim() || handle, username: handle } },
         })
         if (error) { setError(error.message); return }
         // If email confirmation is on, there's no session yet.
@@ -91,11 +106,19 @@ export default function AuthPage() {
 
         <form className="auth-form" onSubmit={submit}>
           {mode === 'signup' && (
-            <div className="fld">
-              <input id="auth-name" type="text" placeholder=" " autoComplete="name"
-                value={name} onChange={e => setName(e.target.value)} />
-              <label htmlFor="auth-name">Display name</label>
-            </div>
+            <>
+              <div className="fld">
+                <input id="auth-name" type="text" placeholder=" " autoComplete="name"
+                  value={name} onChange={e => setName(e.target.value)} />
+                <label htmlFor="auth-name">Display name</label>
+              </div>
+              <div className="fld">
+                <input id="auth-username" type="text" placeholder=" " autoComplete="username" required
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                  value={username} onChange={e => setUsername(cleanUsername(e.target.value))} />
+                <label htmlFor="auth-username">Username</label>
+              </div>
+            </>
           )}
           <div className="fld">
             <input id="auth-email" type="email" placeholder=" " autoComplete="email" required

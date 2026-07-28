@@ -107,9 +107,11 @@ export function useCalendarEvents(supabase: SupabaseClient, userId: string) {
     [supabase, refetch],
   )
 
-  /** Patch fields on one event (e.g. re-categorize). Author-only via RLS. */
+  /** Patch fields on one event (re-categorize, rename, reschedule, notes…).
+   *  Author-only via RLS. */
   const updateEvent = useCallback(
-    async (id: string, patch: Partial<Pick<CalendarEvent, 'category' | 'category_color' | 'title' | 'location'>>) => {
+    async (id: string, patch: Partial<Pick<CalendarEvent,
+      'category' | 'category_color' | 'title' | 'location' | 'notes' | 'starts_at' | 'ends_at' | 'all_day'>>) => {
       setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
       const { error } = await supabase.from('calendar_events').update(patch).eq('id', id)
       if (error) { refetch(); throw error }

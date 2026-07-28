@@ -96,6 +96,28 @@ export default function CalendarView({
   const onCurrentMonth = view.y === today.getFullYear() && view.m === today.getMonth()
   const selectedEvents = byDay.get(selected) ?? []
 
+  // Tapping an agenda row turns the panel itself to the event page —
+  // no bottom sheet, the calendar reads like a booklet.
+  const detail = detailId ? events.find((ev) => ev.id === detailId) ?? null : null
+
+  if (detail) {
+    return (
+      <div className={`cal${open ? ' open' : ''}`} aria-hidden={!open}>
+        <div className="cal-sheet">
+          <EventPage
+            key={detail.id}
+            event={detail}
+            own={detail.user_id === currentUserId}
+            groupTitle={detail.conversation_id ? groupTitleById.get(detail.conversation_id) ?? null : null}
+            onUpdate={onUpdate}
+            onBack={() => setDetailId(null)}
+            onClose={() => { setDetailId(null); onClose() }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`cal${open ? ' open' : ''}`} aria-hidden={!open}>
       <div className="cal-sheet">
@@ -326,36 +348,23 @@ export default function CalendarView({
         </div>
       </div>
 
-      {(() => {
-        const detail = detailId ? events.find((ev) => ev.id === detailId) ?? null : null
-        if (!detail) return null
-        return (
-          <EventSheet
-            key={detail.id}
-            event={detail}
-            own={detail.user_id === currentUserId}
-            groupTitle={detail.conversation_id ? groupTitleById.get(detail.conversation_id) ?? null : null}
-            onUpdate={onUpdate}
-            onClose={() => setDetailId(null)}
-          />
-        )
-      })()}
     </div>
   )
 }
 
-/* ── Event detail sheet — tap an agenda row to open ─────────────────────
-   Title, date/time (native pickers — the fast way to fix an am/pm the AI
+/* ── Event page — the panel turns to this like a booklet page ───────────
+   Title, date/time (am/pm chips — the fast way to fix an am/pm the AI
    misheard), place, and room for notes. Everything saves as you go. */
 
 const fmtSheetDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 
-function EventSheet({ event, own, groupTitle, onUpdate, onClose }: {
+function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose }: {
   event: CalendarEvent
   own: boolean
   groupTitle: string | null
   onUpdate: (id: string, patch: EventPatch) => void
+  onBack: () => void
   onClose: () => void
 }) {
   // Commit any un-blurred notes when the sheet closes, so nothing typed
@@ -410,17 +419,18 @@ function EventSheet({ event, own, groupTitle, onUpdate, onClose }: {
   const mm2 = String(start.getMinutes()).padStart(2, '0')
 
   return (
-    <div className="evsheet-overlay" onClick={onClose}>
-      <div
-        className="evsheet"
-        onClick={(e) => e.stopPropagation()}
-        style={{ paddingBottom: `calc(24px + env(safe-area-inset-bottom) + ${kbInset}px)` }}
-      >
+    <div
+      className="cal-evpage"
+      style={{ paddingBottom: `calc(8px + ${kbInset}px)` }}
+    >
         <div className="evsheet-head">
-          <span className="evsheet-kicker">
-            {own ? 'edit event' : groupTitle ? `shared · ${groupTitle}` : 'event'}
-          </span>
-          <button className="evsheet-x" onClick={onClose} aria-label="Close">
+          <button className="cal-evpage-back" onClick={onBack} aria-label="Back to calendar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            <span className="evsheet-kicker">
+              {own ? 'edit event' : groupTitle ? `shared · ${groupTitle}` : 'event'}
+            </span>
+          </button>
+          <button className="evsheet-x" onClick={onClose} aria-label="Close calendar">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
@@ -543,7 +553,6 @@ function EventSheet({ event, own, groupTitle, onUpdate, onClose }: {
             <div className="evsheet-notes evsheet-ro">{event.notes ?? '—'}</div>
           )}
         </div>
-      </div>
     </div>
   )
 }

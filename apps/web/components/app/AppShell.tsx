@@ -257,6 +257,20 @@ export default function AppShell({ user }: { user: User }) {
     return m
   }, [profilesWithStatus, me])
 
+  // Remaining events this calendar week (today through Sunday) — the
+  // blue chip beside the calendar button.
+  const weekCount = useMemo(() => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const dow = (start.getDay() + 6) % 7 // 0 = Monday
+    const end = new Date(start)
+    end.setDate(start.getDate() + (7 - dow))
+    return events.filter((e) => {
+      const t = new Date(e.starts_at)
+      return t >= start && t < end
+    }).length
+  }, [events])
+
   const totalUnread = useMemo(
     () => Array.from(unread.values()).reduce((a, b) => a + b, 0),
     [unread],
@@ -304,8 +318,12 @@ export default function AppShell({ user }: { user: User }) {
             <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
             <path d="M3 9h18M8 2.5v4M16 2.5v4" />
           </svg>
-          {events.length > 0 && <span className="webapp-cal-count">{events.length}</span>}
         </button>
+        {weekCount > 0 && (
+          <button className="webapp-week-chip" onClick={() => setCalOpen(true)}>
+            {weekCount} {weekCount === 1 ? 'event' : 'events'} this week
+          </button>
+        )}
 
         <button
           className={`webapp-add-btn${pinning ? ' busy' : ''}${addOpen ? ' open' : ''}`}

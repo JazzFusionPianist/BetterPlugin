@@ -427,15 +427,18 @@ button { font-family: inherit; }
   transform-origin: center center;
   will-change: transform;
 }
-/* Zoom control — same chip family as the schedule prompt's targets
-   ('personal', 'factory', …) and sitting on the SAME line as them:
-   bottom = prompt bottom (20px) + one-line prompt bar + 10px gap. */
+/* Zoom control — tucked into the bottom-LEFT corner of the stage.
+   Narrow screens lift it above the schedule prompt bar (which spans
+   nearly full width there); wide screens sit it right in the corner. */
 .home-zoomctl {
   position: absolute; z-index: 6;
-  right: calc(16px + env(safe-area-inset-right));
+  left: calc(14px + env(safe-area-inset-left));
   bottom: calc(84px + env(safe-area-inset-bottom));
   display: flex; align-items: stretch;
   background: var(--paper); border: 1px solid var(--line); border-radius: 3px;
+}
+@media (min-width: 821px) {
+  .home-zoomctl { bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
 .home-zoomctl button {
   background: none; border: none; cursor: pointer; color: var(--t2);
@@ -559,6 +562,19 @@ button { font-family: inherit; }
   transition: transform .12s ease, background .12s;
 }
 .webapp-cal-btn:active { transform: scale(0.94); }
+/* This week at a glance — a blue chip to the LEFT of the calendar
+   button, vertically centred on it. */
+.webapp-week-chip {
+  position: absolute; z-index: 6;
+  top: calc(26px + env(safe-area-inset-top));
+  right: calc(66px + env(safe-area-inset-right));
+  background: var(--blue); color: #fff; border: none; cursor: pointer;
+  font-family: var(--f-mono); font-size: 10.5px; font-weight: 500;
+  text-transform: lowercase; white-space: nowrap;
+  padding: 4px 9px; border-radius: 3px;
+  transition: background .15s;
+}
+.webapp-week-chip:hover { background: #1B31D9; }
 .webapp-cal-count {
   position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 2px; background: var(--blue); color: #fff;
@@ -737,10 +753,17 @@ button { font-family: inherit; }
   font-family: var(--f-mono); font-size: 11px; color: var(--t3);
   text-transform: lowercase; letter-spacing: normal;
 }
-/* The bottom padding keeps the fade zone empty when the list is short,
-   so nothing fades unless it genuinely overflows. */
-.uplist ul { list-style: none; border-top: 1px solid var(--line); padding-top: 5px; padding-bottom: 26px; }
-.uplist-newday { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 5px; }
+.uplist ul { list-style: none; border-top: 1px solid var(--line); padding-top: 5px; padding-bottom: 8px; }
+/* Today's programme carries the ink; the times sit on the date axis. */
+.uplist-today .uplist-title { color: var(--ink); font-weight: 600; }
+.uplist-today .uplist-date { color: var(--ink); }
+.uplist-today .uplist-time { width: 0; }
+.uplist-head-next { margin-top: 8px; }
+.uplist-none {
+  border-top: 1px solid var(--line);
+  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  padding: 7px 0 8px calc(env(safe-area-inset-left) + 12px);
+}
 .uplist-row {
   display: flex; align-items: center; gap: 9px; width: 100%;
   background: none; border: none;
@@ -756,7 +779,6 @@ button { font-family: inherit; }
   width: 64px; flex-shrink: 0; text-align: right;
   white-space: nowrap;
 }
-.uplist-date.today { color: var(--blue); }
 .uplist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .uplist-title {
   font-size: 12.5px; font-weight: 500; color: var(--t2);
@@ -769,8 +791,6 @@ button { font-family: inherit; }
   width: 34px; flex-shrink: 0; text-align: right;
   white-space: nowrap;
 }
-/* The next thing on the calendar carries a little more ink. */
-.uplist li:first-child .uplist-title { color: var(--ink); font-weight: 600; }
 .uplist-row:hover .uplist-title { color: var(--blue); }
 
 /* ── Schedule prompt (bottom-centre of the stage) ───────────────────── */
@@ -1079,21 +1099,22 @@ button { font-family: inherit; }
 .cal-catpick-new::placeholder { color: var(--t3); }
 
 /* ── Event detail sheet (tap an agenda row) ──────────────────────────── */
-.evsheet-overlay {
-  position: fixed; inset: 0; z-index: 42;
-  background: rgba(26,25,23,0.35);
-  display: flex; align-items: flex-end; justify-content: center;
-  animation: evsheet-fade .18s ease both;
-}
 @keyframes evsheet-fade { from { opacity: 0; } to { opacity: 1; } }
-.evsheet {
-  width: 100%; max-width: 460px;
-  background: var(--card); border: 1px solid var(--hair); border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
-  animation: evsheet-up .24s cubic-bezier(.2,1,.35,1) both;
+/* The event page — the calendar panel turns to it like a booklet page. */
+.cal-evpage {
+  animation: cal-page-turn .22s cubic-bezier(.25,1,.4,1) both;
 }
-@keyframes evsheet-up { from { transform: translateY(22px); } to { transform: none; } }
+@keyframes cal-page-turn {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: none; }
+}
+.cal-evpage-back {
+  display: flex; align-items: center; gap: 7px;
+  background: none; border: none; cursor: pointer; color: var(--ink);
+  padding: 4px 6px 4px 0; border-radius: 4px;
+}
+.cal-evpage-back svg { flex-shrink: 0; }
+.cal-evpage-back:hover .evsheet-kicker { color: var(--ink); }
 .evsheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .evsheet-kicker { font-family: var(--f-mono); font-size: 11px; color: var(--t3); text-transform: lowercase; }
 .evsheet-x {
@@ -1188,9 +1209,6 @@ button { font-family: inherit; }
 @media (max-width: 820px) {
   .webapp { grid-template-columns: 1fr; }
   .webapp-sidebar { display: none; }
-  /* Phones read the programme as a teaser — the next few entries only;
-     the calendar holds the rest (the whole column opens it anyway). */
-  .uplist li:nth-child(n + 6) { display: none; }
 }
 /* Desktop: the rail already lists chats — the floating chats button is
    redundant. The thread runs full-bleed: bubbles hang from the far

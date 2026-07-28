@@ -8956,3 +8956,59 @@
 
 /* Chat: my messages keep the same edge margin as theirs */
 .game-chat-scroll { padding-left: 6px; padding-right: 6px; }
+
+/* ── fx refinements: slot arrows, variant row, unified fade-out ── */
+
+/* arrows live in small square slot buttons, cut like the chip */
+.fx-arrow {
+  width: 26px; height: 26px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.26);
+  border: none;
+  box-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 0 rgba(246, 243, 234, 0.14),
+    0 1px 0 rgba(246, 243, 234, 0.1);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  padding-bottom: 2px;
+}
+.fx-arrow:active { transform: none; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7); }
+
+/* sub-flavour words under the slot */
+.fx-variants {
+  min-height: 20px;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding-bottom: 10px;
+}
+.fx-variant {
+  font-family: var(--f-sans);
+  font-size: 10.5px; font-weight: 450;
+  color: rgba(246, 243, 234, 0.42);
+  background: none; border: none; padding: 1px 0 2px;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.fx-variant:hover { color: rgba(246, 243, 234, 0.8); }
+.fx-variant.on {
+  color: #F6F3EA;
+  border-bottom-color: rgba(246, 243, 234, 0.75);
+}
+
+/* leaving the room: everything fades back at the same, slow pace */
+.plugin.fx-closing,
+.plugin.fx-closing .icon-btn {
+  transition:
+    background 1.3s ease,
+    border-color 1.3s ease,
+    color 1.3s ease,
+    box-shadow 1.3s ease;
+}
+.plugin.fx-closing .icon-btn svg { transition: stroke 1.3s ease; }
+/* incoming panels ride the fading wall instead of slamming their own
+   background over it */
+.plugin.fx-closing .view { background: transparent !important; }
+.plugin.fx-closing .view .s-body { background: transparent !important; }

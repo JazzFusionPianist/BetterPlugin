@@ -93,6 +93,17 @@ function CollabPageInner({ user }: Props) {
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
   const [fxOpen, setFxOpen]                     = useState(false)
+  // Lingers ~1.4s after the fx room closes so the wall colour, toolbar and
+  // incoming panels all fade back together instead of snapping.
+  const [fxClosing, setFxClosing]               = useState(false)
+  const fxWasOpen = useRef(false)
+  useEffect(() => {
+    if (fxOpen) { fxWasOpen.current = true; setFxClosing(false); return }
+    if (!fxWasOpen.current) return
+    setFxClosing(true)
+    const t = setTimeout(() => setFxClosing(false), 1450)
+    return () => clearTimeout(t)
+  }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
   // True while the user is using the GameList specifically to invite
@@ -456,7 +467,7 @@ function CollabPageInner({ user }: Props) {
     // game/add-friend stay open underneath) and renders above them via
     // z-index, so closing Settings returns you exactly where you were.
     // Only the in-Settings sub-panels (display/info) and search are reset.
-    if (!prev) { setDisplayOpen(false); setInfoOpen(false); closeSearch() }
+    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setFxOpen(false); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false) }
     return !prev
   })
@@ -587,6 +598,7 @@ function CollabPageInner({ user }: Props) {
     convOpen          ? 'conv-open'          : '',
     (liveOpen || !!watchingSession) ? 'live-open' : '',
     fxOpen            ? 'fx-open'            : '',
+    fxClosing         ? 'fx-closing'         : '',
     gameOpen          ? 'game-open'          : '',
     calendarOpen      ? 'calendar-open'      : '',
   ].filter(Boolean).join(' ')

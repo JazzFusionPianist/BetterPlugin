@@ -13,11 +13,14 @@ export interface FxState {
   mode: FxMode
   /** One remembered amount per mode; amounts[0] (tone) is bipolar around 0.5. */
   amounts: number[]
+  /** Sub-flavour per mode: tape 0=hard 1=clean; space 0=hall 1=room 2=plate. */
+  variants: number[]
 }
 
 export const FX_DEFAULTS: FxState = {
   mode: 0,
   amounts: [0.5, 0, 0, 0, 0],
+  variants: [0, 0, 0, 0, 0],
 }
 
 export function hasFxBridge (): boolean {
@@ -25,7 +28,9 @@ export function hasFxBridge (): boolean {
 }
 
 export async function getFx (): Promise<FxState> {
-  if (!hasFxBridge()) return { ...FX_DEFAULTS, amounts: [...FX_DEFAULTS.amounts] }
+  const fallback = (): FxState =>
+    ({ ...FX_DEFAULTS, amounts: [...FX_DEFAULTS.amounts], variants: [...FX_DEFAULTS.variants] })
+  if (!hasFxBridge()) return fallback()
   try {
     const raw: unknown = await callJuceNative('getFx')
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -36,12 +41,16 @@ export async function getFx (): Promise<FxState> {
           const n = Number((v as FxState).amounts[i])
           return isFinite(n) ? Math.min(1, Math.max(0, n)) : d
         }),
+        variants: FX_DEFAULTS.variants.map((d, i) => {
+          const n = Number((v as FxState).variants?.[i])
+          return isFinite(n) ? Math.min(2, Math.max(0, Math.round(n))) : d
+        }),
       }
   } catch { /* fall through */ }
-  return { ...FX_DEFAULTS, amounts: [...FX_DEFAULTS.amounts] }
+  return fallback()
 }
 
-export function setFx (patch: { mode?: FxMode; amount?: number }): void {
+export function setFx (patch: { mode?: FxMode; amount?: number; variant?: number }): void {
   if (!hasFxBridge()) return
   void callJuceNative('setFx', [patch]).catch(() => {})
 }

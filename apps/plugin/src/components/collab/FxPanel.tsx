@@ -12,6 +12,15 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 4, name: 'glue' },
 ]
 
+/** Sub-flavours, shown under the mode slot. */
+const VARIANTS: string[][] = [
+  [],
+  ['hard', 'clean'],
+  ['hall', 'room', 'plate'],
+  [],
+  [],
+]
+
 /* strokes read as paper on the dark wall; blue stays the second ink */
 const PAPER = '#F6F3EA'
 const BLUE = '#5A6BFF'
@@ -168,6 +177,7 @@ interface Props {
 export default function FxPanel ({ isOpen }: Props) {
   const [mode, setMode] = useState<FxMode>(0)
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
+  const [variants, setVariants] = useState<number[]>([...FX_DEFAULTS.variants])
   const [bridge] = useState(() => hasFxBridge())
   const [showValue, setShowValue] = useState(false)
   const [lit, setLit] = useState(false)          // false = still paper; true = the room is dark
@@ -180,7 +190,7 @@ export default function FxPanel ({ isOpen }: Props) {
 
   useEffect(() => {
     if (!isOpen) { setLit(false); return }
-    void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts) })
+    void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants) })
     // let the paper render once, then dim the room slowly
     const t = setTimeout(() => setLit(true), 40)
     return () => clearTimeout(t)
@@ -222,6 +232,11 @@ export default function FxPanel ({ isOpen }: Props) {
       lastSent.current = now
       setFx({ mode, amount: clamped })
     }
+  }
+
+  const pickVariant = (v: number) => {
+    setVariants((prev) => prev.map((x, i) => (i === mode ? v : x)))
+    setFx({ mode, variant: v })
   }
 
   const step = (dir: 1 | -1) => {
@@ -274,6 +289,17 @@ export default function FxPanel ({ isOpen }: Props) {
           </span>
         </div>
         <button className="fx-arrow" onClick={() => step(1)} aria-label="Next effect">›</button>
+      </div>
+      <div className="fx-variants">
+        {VARIANTS[mode].map((name, vi) => (
+          <button
+            key={name}
+            className={`fx-variant${(variants[mode] ?? 0) === vi ? ' on' : ''}`}
+            onClick={() => pickVariant(vi)}
+          >
+            {name}
+          </button>
+        ))}
       </div>
 
       {!bridge && (

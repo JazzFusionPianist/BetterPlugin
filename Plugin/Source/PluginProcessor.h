@@ -107,6 +107,8 @@ private:
     enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kNumFx };
     std::atomic<int> fxMode { kTone };
     std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} }};
+    // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate.
+    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0} }};
 
     void handleSetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);
@@ -123,7 +125,13 @@ private:
     float tiltApplied = 999.0f;  // dB of the currently-baked shelf coeffs
     Biquad tiltLow[2], tiltHigh[2];
     float tapeLpState[2] { 0, 0 };
+    float cleanXoState[2] { 0, 0 };     // 500 Hz crossover low state
+    Biquad cleanShelf[2];               // clean tape's airy 2.5k shelf
+    float cleanShelfBaked = -1.0f;
     juce::Reverb fxReverb;
+    juce::AudioBuffer<float> fxWetBuf { 2, 2048 };
+    float sendHpState[2] { 0, 0 };      // reverb send low-cut state
+    int   fxLastVariant = 0;
     float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
     float sideHpState = 0.0f;
     float glueEnv = 0.0f;        // linear peak envelope

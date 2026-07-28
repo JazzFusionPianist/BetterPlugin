@@ -174,13 +174,14 @@ OrbAudioProcessor::~OrbAudioProcessor()
 }
 
 //==============================================================================
-void OrbAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     captureSampleRate.store ((int) sampleRate);
     captureFifo.reset();
     captureBuffer.clear();
 
     fxReverb.setSampleRate (sampleRate);
+    fxWetBuf.setSize (2, juce::jmax (64, samplesPerBlock), false, false, true);
     resetFxState();
 }
 
@@ -737,6 +738,13 @@ void OrbAudioProcessor::resetFxState()
     for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
     sideHpState = 0.0f;
     glueEnv = 0.0f;
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        cleanXoState[ch] = 0.0f;
+        cleanShelf[ch] = {};
+        sendHpState[ch] = 0.0f;
+    }
+    cleanShelfBaked = -1.0f;
     fxReverb.reset();
     fxAmtSm = 0.0f;
 }
@@ -782,12 +790,14 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     if (n == 0 || nc == 0) return;
 
     const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load (std::memory_order_relaxed));
-    if (mode != fxLastMode)
+    const int variant = fxVariant[(size_t) mode].load (std::memory_order_relaxed);
+    if (mode != fxLastMode || variant != fxLastVariant)
     {
         // Fresh start for the incoming effect; the amount glides up from
         // zero so switching never clicks (the old tail simply stops).
         resetFxState();
         fxLastMode = mode;
+        fxLastVariant = variant;
     }
 
     const float target = juce::jlimit (0.0f, 1.0f, fxAmount[(size_t) mode].load (std::memory_order_relaxed));
@@ -827,24 +837,59 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 
         case kTape:
         {
-            // tanh drive with loudness compensation and a gentle darkening
-            // one-pole (drive pushes the corner down from 16k toward 8k).
-            const float drive = 1.0f + a * 7.0f;
-            const float comp  = 1.0f / std::sqrt (drive);
-            const float fc    = 16000.0f - a * 8000.0f;
-            const float k     = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * fc / sr);
-            for (int i = 0; i < n; ++i)
+            if (variant == 0)
             {
+                // HARD — full-band tanh drive with loudness compensation and
+                // a darkening one-pole (16k pushed toward 8k with drive).
+                const float drive = 1.0f + a * 7.0f;
+                const float comp  = 1.0f / std::sqrt (drive);
+                const float fc    = 16000.0f - a * 8000.0f;
+                const float k     = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * fc / sr);
+                for (int i = 0; i < n; ++i)
                 {
-                    const float shaped = std::tanh (drive * L[i]) * comp;
-                    tapeLpState[0] += (shaped - tapeLpState[0]) * k;
-                    L[i] = tapeLpState[0];
+                    {
+                        const float shaped = std::tanh (drive * L[i]) * comp;
+                        tapeLpState[0] += (shaped - tapeLpState[0]) * k;
+                        L[i] = tapeLpState[0];
+                    }
+                    if (R != nullptr)
+                    {
+                        const float shaped = std::tanh (drive * R[i]) * comp;
+                        tapeLpState[1] += (shaped - tapeLpState[1]) * k;
+                        R[i] = tapeLpState[1];
+                    }
                 }
-                if (R != nullptr)
+            }
+            else
+            {
+                // CLEAN — the lows pass untouched; only the band above
+                // ~500 Hz saturates, gently, and a small shelf above 2.5k
+                // opens the top. Cool, airy, still glued.
+                const float drive = 1.0f + a * 3.0f;
+                const float comp  = 1.0f / std::sqrt (drive);
+                const float xok   = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 500.0f / sr);
+                const float shelfDb = a * 3.0f;
+                if (std::abs (shelfDb - cleanShelfBaked) > 0.05f)
                 {
-                    const float shaped = std::tanh (drive * R[i]) * comp;
-                    tapeLpState[1] += (shaped - tapeLpState[1]) * k;
-                    R[i] = tapeLpState[1];
+                    for (int ch = 0; ch < 2; ++ch)
+                        bakeShelf (true, shelfDb, 2500.0f, sr,
+                                   cleanShelf[ch].b0, cleanShelf[ch].b1, cleanShelf[ch].b2,
+                                   cleanShelf[ch].a1, cleanShelf[ch].a2);
+                    cleanShelfBaked = shelfDb;
+                }
+                for (int i = 0; i < n; ++i)
+                {
+                    {
+                        cleanXoState[0] += (L[i] - cleanXoState[0]) * xok;
+                        const float hi = L[i] - cleanXoState[0];
+                        L[i] = cleanShelf[0].run (cleanXoState[0] + std::tanh (drive * hi) * comp);
+                    }
+                    if (R != nullptr)
+                    {
+                        cleanXoState[1] += (R[i] - cleanXoState[1]) * xok;
+                        const float hi = R[i] - cleanXoState[1];
+                        R[i] = cleanShelf[1].run (cleanXoState[1] + std::tanh (drive * hi) * comp);
+                    }
                 }
             }
             break;
@@ -852,16 +897,42 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 
         case kSpace:
         {
+            // The reverb hears a high-passed send (~170 Hz), so the lows
+            // stay bone dry; the dry path is untouched full-band.
             juce::Reverb::Parameters p;
-            p.roomSize   = 0.42f;
-            p.damping    = 0.55f;
-            p.width      = 1.0f;
-            p.wetLevel   = a * 0.55f;
-            p.dryLevel   = 1.0f - a * 0.25f;
+            if (variant == 0)      { p.roomSize = 0.85f; p.damping = 0.35f; p.width = 1.0f;  }  // hall
+            else if (variant == 1) { p.roomSize = 0.32f; p.damping = 0.60f; p.width = 0.85f; }  // room
+            else                   { p.roomSize = 0.55f; p.damping = 0.12f; p.width = 1.0f;  }  // plate
+            p.wetLevel   = 1.0f;
+            p.dryLevel   = 0.0f;
             p.freezeMode = 0.0f;
             fxReverb.setParameters (p);
-            if (R != nullptr) fxReverb.processStereo (L, R, n);
-            else              fxReverb.processMono (L, n);
+
+            if (fxWetBuf.getNumSamples() < n)
+                fxWetBuf.setSize (2, n, false, false, true);
+            float* wl = fxWetBuf.getWritePointer (0);
+            float* wr = fxWetBuf.getWritePointer (1);
+            const float hpk = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 170.0f / sr);
+            for (int i = 0; i < n; ++i)
+            {
+                sendHpState[0] += (L[i] - sendHpState[0]) * hpk;
+                wl[i] = L[i] - sendHpState[0];
+                if (R != nullptr)
+                {
+                    sendHpState[1] += (R[i] - sendHpState[1]) * hpk;
+                    wr[i] = R[i] - sendHpState[1];
+                }
+                else wr[i] = wl[i];
+            }
+            fxReverb.processStereo (wl, wr, n);
+
+            const float wet = a * 0.85f;
+            const float dry = 1.0f - a * 0.2f;
+            for (int i = 0; i < n; ++i)
+            {
+                L[i] = L[i] * dry + wl[i] * wet;
+                if (R != nullptr) R[i] = R[i] * dry + wr[i] * wet;
+            }
             break;
         }
 
@@ -946,6 +1017,8 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
         }
         if (v.hasProperty ("amount"))
             fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
+        if (v.hasProperty ("variant"))
+            fxVariant[(size_t) mode].store (juce::jlimit (0, 2, (int) v["variant"]));
     }
     completion (juce::var (true));
 }
@@ -958,6 +1031,9 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     juce::Array<juce::var> amounts;
     for (auto& amt : fxAmount) amounts.add ((double) amt.load());
     obj->setProperty ("amounts", amounts);
+    juce::Array<juce::var> variants;
+    for (auto& vr : fxVariant) variants.add (vr.load());
+    obj->setProperty ("variants", variants);
     completion (juce::var (obj));
 }
 
@@ -969,7 +1045,10 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
     juce::XmlElement xml ("OrbState");
     xml.setAttribute ("fxMode", fxMode.load());
     for (int i = 0; i < (int) kNumFx; ++i)
+    {
         xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
+        xml.setAttribute ("fxVariant" + juce::String (i), fxVariant[(size_t) i].load());
+    }
     copyXmlToBinary (xml, dest);
 }
 
@@ -979,8 +1058,12 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
     {
         fxMode.store (juce::jlimit (0, (int) kNumFx - 1, xml->getIntAttribute ("fxMode", 0)));
         for (int i = 0; i < (int) kNumFx; ++i)
+        {
             fxAmount[(size_t) i].store ((float) xml->getDoubleAttribute (
                 "fxAmount" + juce::String (i), i == kTone ? 0.5 : 0.0));
+            fxVariant[(size_t) i].store (juce::jlimit (0, 2,
+                xml->getIntAttribute ("fxVariant" + juce::String (i), 0)));
+        }
     }
 }
 

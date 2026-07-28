@@ -896,6 +896,7 @@ export default function ChessView({
             supabase={supabase}
             currentUserId={currentUserId}
             roomId={room?.id ?? null}
+            names={Object.fromEntries([[currentUserId, currentUserProfile?.display_name ?? 'me'], ...friendProfiles.map((p) => [p.id, p.display_name])])}
             otherUserId={isComputerOpponent ? null : opponentId}
             otherName={isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : opponentProfile?.display_name}
           />

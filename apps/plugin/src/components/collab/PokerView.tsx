@@ -801,6 +801,7 @@ export default function PokerView({
           supabase={supabase}
           currentUserId={currentUserId}
           roomId={room?.id ?? null}
+          names={Object.fromEntries([[currentUserId, currentUserProfile?.display_name ?? 'me'], ...friendProfiles.map((p) => [p.id, p.display_name])])}
           otherUserId={chatOpponentId}
           otherName={chatOpponentProfile?.display_name}
         />

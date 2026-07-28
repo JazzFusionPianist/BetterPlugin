@@ -8930,3 +8930,13 @@
 .chess-moves-num { color: var(--t3); }
 .chess-moves-cell.latest { color: var(--t1); font-weight: 600; }
 .chess-moves-empty { font-family: var(--f-serif); font-style: italic; font-size: 11px; color: var(--t3); padding-top: 8px; }
+
+/* Chat meta line — real-chat feel: who said it, when */
+.game-chat-scroll { padding-right: 3px; }
+.game-chat-msg { max-width: 86%; }
+.game-chat-msg.with-meta { margin-top: 6px; }
+.game-chat-meta { display: flex; align-items: baseline; gap: 6px; margin-bottom: 1px; }
+.game-chat-msg.mine .game-chat-meta { justify-content: flex-end; }
+.game-chat-meta-name { font-family: var(--f-serif); font-size: 11px; color: var(--t1); text-transform: lowercase; }
+.game-chat-meta-time { font-size: 9px; color: var(--t3); font-variant-numeric: tabular-nums; }
+.game-chat-text { display: block; overflow-wrap: anywhere; }

@@ -2806,3 +2806,46 @@
   }
   .games-panel .game-view .chess-dock .game-chat-scroll { max-height: none; flex: 1; }
 }
+
+/* ═══ Chat meta + edge breathing room ═══ */
+.games-panel .game-chat-scroll { padding-right: 3px; padding-left: 1px; }
+.games-panel .game-chat-msg { max-width: 86%; }
+.games-panel .game-chat-msg.with-meta { margin-top: 7px; }
+.games-panel .game-chat-meta {
+  display: flex; align-items: baseline; gap: 6px; margin-bottom: 1px;
+}
+.games-panel .game-chat-msg.mine .game-chat-meta { justify-content: flex-end; }
+.games-panel .game-chat-meta-name {
+  font-family: var(--f-serif); font-size: 12px; color: var(--ink);
+  text-transform: lowercase;
+}
+.games-panel .game-chat-meta-time {
+  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+.games-panel .game-chat-text { display: block; overflow-wrap: anywhere; }
+
+/* ═══ Chess: components hug the board — no dead margins ═══ */
+.games-panel .game-view.chess-shell .game-area {
+  display: flex; flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  overflow-y: auto;
+}
+.games-panel .game-view.chess-shell .game-board-wrap {
+  flex: 0 0 auto; align-self: center;
+  grid-row: auto; width: 100%;
+}
+.games-panel .game-view.chess-shell .game-above,
+.games-panel .game-view.chess-shell .game-below {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: min(100%, calc(100dvh - 340px), 520px);
+  margin: 0 auto;
+}
+@media (min-width: 821px) {
+  .games-panel .game-view.chess-shell .game-above,
+  .games-panel .game-view.chess-shell .game-below {
+    max-width: min(100%, calc(100dvh - 300px), 560px);
+  }
+}

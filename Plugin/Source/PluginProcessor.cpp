@@ -792,13 +792,21 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 
     const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load (std::memory_order_relaxed));
     const int variant = fxVariant[(size_t) mode].load (std::memory_order_relaxed);
-    if (mode != fxLastMode || variant != fxLastVariant)
+    if (mode != fxLastMode)
     {
         // Fresh start for the incoming effect; the amount glides up from
         // zero so switching never clicks (the old tail simply stops).
         resetFxState();
         fxLastMode = mode;
         fxLastVariant = variant;
+    }
+    else if (variant != fxLastVariant)
+    {
+        // Flavour switch is a LIGHT touch: keep the amount and the tails
+        // so A/B is instant — just force filter re-bakes.
+        fxLastVariant = variant;
+        cleanShelfBaked = -1.0f;
+        tiltApplied = 999.0f;
     }
 
     const float target = juce::jlimit (0.0f, 1.0f, fxAmount[(size_t) mode].load (std::memory_order_relaxed));
@@ -841,10 +849,10 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             if (variant == 0)
             {
                 // HARD — full-band tanh drive with loudness compensation and
-                // a darkening one-pole (16k pushed toward 8k with drive).
-                const float drive = 1.0f + a * 7.0f;
+                // a darkening one-pole (16k pushed toward 6.5k with drive).
+                const float drive = 1.0f + a * 9.0f;
                 const float comp  = 1.0f / std::sqrt (drive);
-                const float fc    = 16000.0f - a * 8000.0f;
+                const float fc    = 16000.0f - a * 9500.0f;
                 const float k     = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * fc / sr);
                 for (int i = 0; i < n; ++i)
                 {
@@ -867,10 +875,10 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 // ~800 Hz saturates, gently, and a small shelf above 2.5k
                 // opens the top. Two cascaded one-poles (12 dB/oct) keep
                 // the low band genuinely clean. Cool, airy, still glued.
-                const float drive = 1.0f + a * 3.0f;
+                const float drive = 1.0f + a * 2.5f;
                 const float comp  = 1.0f / std::sqrt (drive);
                 const float xok   = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 800.0f / sr);
-                const float shelfDb = a * 3.0f;
+                const float shelfDb = a * 4.5f;
                 if (std::abs (shelfDb - cleanShelfBaked) > 0.05f)
                 {
                     for (int ch = 0; ch < 2; ++ch)
@@ -905,10 +913,13 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         {
             // The reverb hears a high-passed send (~170 Hz), so the lows
             // stay bone dry; the dry path is untouched full-band.
+            // Three very different rooms: cathedral-long hall, a tight dead
+            // room (quieter for the same knob), and a bright dense plate.
             juce::Reverb::Parameters p;
-            if (variant == 0)      { p.roomSize = 0.97f; p.damping = 0.22f; p.width = 1.0f;  }  // hall — long, cathedral
-            else if (variant == 1) { p.roomSize = 0.32f; p.damping = 0.60f; p.width = 0.85f; }  // room
-            else                   { p.roomSize = 0.55f; p.damping = 0.12f; p.width = 1.0f;  }  // plate
+            float wetScale;
+            if (variant == 0)      { p.roomSize = 0.99f; p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall
+            else if (variant == 1) { p.roomSize = 0.16f; p.damping = 0.80f; p.width = 0.65f; wetScale = 0.60f; }  // room
+            else                   { p.roomSize = 0.50f; p.damping = 0.03f; p.width = 1.0f;  wetScale = 0.85f; }  // plate
             p.wetLevel   = 1.0f;
             p.dryLevel   = 0.0f;
             p.freezeMode = 0.0f;
@@ -932,7 +943,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             }
             fxReverb.processStereo (wl, wr, n);
 
-            const float wet = a * 0.85f;
+            const float wet = a * wetScale;
             const float dry = 1.0f - a * 0.2f;
             for (int i = 0; i < n; ++i)
             {

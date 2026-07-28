@@ -741,6 +741,7 @@ void OrbAudioProcessor::resetFxState()
     for (int ch = 0; ch < 2; ++ch)
     {
         cleanXoState[ch] = 0.0f;
+        cleanXoState2[ch] = 0.0f;
         cleanShelf[ch] = {};
         sendHpState[ch] = 0.0f;
     }
@@ -863,11 +864,12 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             else
             {
                 // CLEAN — the lows pass untouched; only the band above
-                // ~500 Hz saturates, gently, and a small shelf above 2.5k
-                // opens the top. Cool, airy, still glued.
+                // ~800 Hz saturates, gently, and a small shelf above 2.5k
+                // opens the top. Two cascaded one-poles (12 dB/oct) keep
+                // the low band genuinely clean. Cool, airy, still glued.
                 const float drive = 1.0f + a * 3.0f;
                 const float comp  = 1.0f / std::sqrt (drive);
-                const float xok   = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 500.0f / sr);
+                const float xok   = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 800.0f / sr);
                 const float shelfDb = a * 3.0f;
                 if (std::abs (shelfDb - cleanShelfBaked) > 0.05f)
                 {
@@ -880,15 +882,19 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 for (int i = 0; i < n; ++i)
                 {
                     {
-                        cleanXoState[0] += (L[i] - cleanXoState[0]) * xok;
-                        const float hi = L[i] - cleanXoState[0];
-                        L[i] = cleanShelf[0].run (cleanXoState[0] + std::tanh (drive * hi) * comp);
+                        cleanXoState[0]  += (L[i] - cleanXoState[0]) * xok;
+                        cleanXoState2[0] += (cleanXoState[0] - cleanXoState2[0]) * xok;
+                        const float lo = cleanXoState2[0];
+                        const float hi = L[i] - lo;
+                        L[i] = cleanShelf[0].run (lo + std::tanh (drive * hi) * comp);
                     }
                     if (R != nullptr)
                     {
-                        cleanXoState[1] += (R[i] - cleanXoState[1]) * xok;
-                        const float hi = R[i] - cleanXoState[1];
-                        R[i] = cleanShelf[1].run (cleanXoState[1] + std::tanh (drive * hi) * comp);
+                        cleanXoState[1]  += (R[i] - cleanXoState[1]) * xok;
+                        cleanXoState2[1] += (cleanXoState[1] - cleanXoState2[1]) * xok;
+                        const float lo = cleanXoState2[1];
+                        const float hi = R[i] - lo;
+                        R[i] = cleanShelf[1].run (lo + std::tanh (drive * hi) * comp);
                     }
                 }
             }
@@ -900,7 +906,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             // The reverb hears a high-passed send (~170 Hz), so the lows
             // stay bone dry; the dry path is untouched full-band.
             juce::Reverb::Parameters p;
-            if (variant == 0)      { p.roomSize = 0.85f; p.damping = 0.35f; p.width = 1.0f;  }  // hall
+            if (variant == 0)      { p.roomSize = 0.97f; p.damping = 0.22f; p.width = 1.0f;  }  // hall — long, cathedral
             else if (variant == 1) { p.roomSize = 0.32f; p.damping = 0.60f; p.width = 0.85f; }  // room
             else                   { p.roomSize = 0.55f; p.damping = 0.12f; p.width = 1.0f;  }  // plate
             p.wetLevel   = 1.0f;

@@ -125,7 +125,8 @@ private:
     float tiltApplied = 999.0f;  // dB of the currently-baked shelf coeffs
     Biquad tiltLow[2], tiltHigh[2];
     float tapeLpState[2] { 0, 0 };
-    float cleanXoState[2] { 0, 0 };     // 500 Hz crossover low state
+    float cleanXoState[2] { 0, 0 };     // crossover low state, stage 1
+    float cleanXoState2[2] { 0, 0 };    // crossover low state, stage 2 (12 dB/oct)
     Biquad cleanShelf[2];               // clean tape's airy 2.5k shelf
     float cleanShelfBaked = -1.0f;
     juce::Reverb fxReverb;

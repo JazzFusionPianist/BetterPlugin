@@ -8988,11 +8988,13 @@
 }
 .fx-arrow:active { transform: none; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7); }
 
-/* sub-flavour words under the slot */
+/* sub-flavour words under the slot — fixed height so the pager never
+   shifts when a mode has no flavours */
 .fx-variants {
-  min-height: 20px;
+  height: 22px;
+  flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; gap: 16px;
-  padding-bottom: 10px;
+  margin-bottom: 8px;
 }
 .fx-variant {
   font-family: var(--f-sans);
@@ -9011,16 +9013,21 @@
   border-bottom-color: rgba(246, 243, 234, 0.75);
 }
 
-/* leaving the room: everything fades back at the same, slow pace */
-.plugin.fx-closing,
-.plugin.fx-closing .icon-btn {
-  transition:
-    background 1.3s ease,
-    border-color 1.3s ease,
-    color 1.3s ease,
-    box-shadow 1.3s ease;
+/* leaving the room: everything fades back at the same, slow pace.
+   The icon cards stay transparent for the whole ride (a white card on
+   a still-dark wall would pop early); only their linework eases back
+   to ink, in step with the wall. The card background returns at the
+   end, invisibly — white on paper. */
+.plugin.fx-closing { transition: background 1.3s ease; }
+.plugin.fx-closing .icon-btn,
+.plugin.fx-closing .icon-btn:hover {
+  background: rgba(246, 243, 234, 0.05);
+  box-shadow: none;
+  border-color: var(--border);
+  color: var(--t1);
+  transition: border-color 1.3s ease, color 1.3s ease;
 }
-.plugin.fx-closing .icon-btn svg { transition: stroke 1.3s ease; }
+.plugin.fx-closing .icon-btn svg { stroke: var(--t1); transition: stroke 1.3s ease; }
 /* incoming panels ride the fading wall instead of slamming their own
    background over it */
 .plugin.fx-closing .view { background: transparent !important; }

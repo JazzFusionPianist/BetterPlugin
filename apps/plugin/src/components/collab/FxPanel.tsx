@@ -32,14 +32,27 @@ const R = 86
 const WALL_DARK: [number, number, number] = [22, 20, 16]
 const WALL_TINTS: Array<[number, number, number]> = [
   [255, 178, 44],   // tone — noon amber
-  [255, 108, 36],   // tape — hot orange
-  [36, 64, 255],    // space — pure klein
+  [255, 108, 36],   // tape/hard — hot orange
+  [36, 64, 255],    // space/hall — pure klein
   [150, 84, 255],   // stereo — electric violet
   [52, 199, 118],   // glue — signal green
 ]
 
-function wallColor (mode: FxMode, a: number): string {
-  const t = WALL_TINTS[mode]
+/** Flavours get their own light: [mode][variant] overrides. */
+const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
+  1: [
+    [255, 108, 36],   // hard — hot orange
+    [86, 190, 255],   // clean — cool sky
+  ],
+  2: [
+    [36, 64, 255],    // hall — pure klein
+    [40, 158, 190],   // room — close teal
+    [168, 206, 255],  // plate — bright ice
+  ],
+}
+
+function wallColor (mode: FxMode, variant: number, a: number): string {
+  const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
   const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * a))
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
 }
@@ -202,12 +215,13 @@ export default function FxPanel ({ isOpen }: Props) {
 
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
+  const variant = variants[mode] ?? 0
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
-    if (isOpen && lit) el.style.setProperty('--fx-wall', wallColor(mode, a))
+    if (isOpen && lit) el.style.setProperty('--fx-wall', wallColor(mode, variant, a))
     else el.style.removeProperty('--fx-wall')
-  }, [isOpen, lit, mode, a])
+  }, [isOpen, lit, mode, variant, a])
   useEffect(() => () => {
     (document.querySelector('.plugin') as HTMLElement | null)?.style.removeProperty('--fx-wall')
   }, [])

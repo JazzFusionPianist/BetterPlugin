@@ -225,7 +225,7 @@ export default function FxPanel ({ isOpen }: Props) {
   const Art = ARTS[mode]
 
   // The print glows with the programme — instant attack on every hit,
-  // ~160 ms release, in the flavour's own light (the bx_boom trick).
+  // long lantern-like release, in the flavour's own light (bx_boom trick).
   useEffect(() => {
     if (!isOpen) return
     const onAudio = (e: Event) => {
@@ -251,12 +251,12 @@ export default function FxPanel ({ isOpen }: Props) {
     const tick = (t: number) => {
       const dt = Math.max(0, (t - lastT) / 1000)
       lastT = t
-      glowEnv.current *= Math.exp(-dt / 0.16)
+      glowEnv.current *= Math.exp(-dt / 0.5)
       const g = Math.pow(Math.min(1, glowEnv.current), 1.4)
       const el = artRef.current
       if (el) {
-        el.style.filter = g > 0.03
-          ? `drop-shadow(0 0 ${6 + g * 30}px ${glowTint.current}) drop-shadow(0 0 ${2 + g * 9}px ${glowTint.current})`
+        el.style.filter = g > 0.015
+          ? `drop-shadow(0 0 ${12 + g * 52}px ${glowTint.current}) drop-shadow(0 0 ${5 + g * 22}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 7}px ${glowTint.current})`
           : 'none'
       }
       raf = requestAnimationFrame(tick)
@@ -274,7 +274,7 @@ export default function FxPanel ({ isOpen }: Props) {
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
   const variant = variants[mode] ?? 0
-  glowTint.current = tintRgba(mode, variant, 0.85)
+  glowTint.current = tintRgba(mode, variant, 1)
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return

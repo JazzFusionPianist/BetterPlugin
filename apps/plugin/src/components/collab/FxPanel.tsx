@@ -211,6 +211,7 @@ export default function FxPanel ({ isOpen }: Props) {
   const lastSent = useRef(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const artRef = useRef<HTMLDivElement>(null)
+  const haloRef = useRef<HTMLDivElement>(null)
   const glowEnv = useRef(0)
   const glowTint = useRef('rgba(255, 178, 44, 0.85)')
 
@@ -258,10 +259,11 @@ export default function FxPanel ({ isOpen }: Props) {
       lastT = t
       glowEnv.current *= Math.exp(-dt / 0.5)
       const g = Math.pow(Math.min(1, glowEnv.current), 1.4)
-      const el = artRef.current
+      const el = haloRef.current
       if (el) {
+        // tight and hot: one modest halo plus a doubled bright core
         el.style.filter = g > 0.015
-          ? `drop-shadow(0 0 ${12 + g * 52}px ${glowTint.current}) drop-shadow(0 0 ${5 + g * 22}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 7}px ${glowTint.current})`
+          ? `drop-shadow(0 0 ${2 + g * 20}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 8}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 8}px ${glowTint.current})`
           : 'none'
       }
       raf = requestAnimationFrame(tick)
@@ -272,7 +274,7 @@ export default function FxPanel ({ isOpen }: Props) {
       window.removeEventListener('__juceDawAudio', onAudio)
       cancelAnimationFrame(raf)
       glowEnv.current = 0
-      if (artRef.current) artRef.current.style.filter = 'none'
+      if (haloRef.current) haloRef.current.style.filter = 'none'
     }
   }, [isOpen])
 
@@ -348,9 +350,11 @@ export default function FxPanel ({ isOpen }: Props) {
           onDoubleClick={() => apply(neutral, true)}
           onWheel={(e) => { e.preventDefault(); apply(a - Math.sign(e.deltaY) * 0.02, true) }}
         >
-          <svg viewBox="0 0 220 220" aria-hidden="true">
-            <Art a={a} />
-          </svg>
+          <div ref={haloRef} className="fx-art-halo" aria-hidden="true">
+            <svg viewBox="0 0 220 220">
+              <Art a={a} />
+            </svg>
+          </div>
           <span className={`fx-art-value${showValue ? ' show' : ''}`} style={{ color: strokeFor(a) }}>{fmtValue(mode, a)}</span>
         </div>
       </div>

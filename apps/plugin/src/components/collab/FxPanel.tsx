@@ -51,15 +51,21 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
   ],
 }
 
-/** Glow colour: pure flavour tint on the dark wall, shifting white-hot
- *  as the knob (and so the wall) brightens — light stays light on any
- *  background instead of drowning in its own colour at 100. */
-function glowRgba (mode: FxMode, variant: number, a: number): string {
+/** Glow colour (as an "r, g, b" triple): pure flavour tint on the dark
+ *  wall, shifting white-hot as the knob (and so the wall) brightens —
+ *  light stays light on any background instead of drowning in its own
+ *  colour at 100. Alpha is composed per-frame so the release fades out
+ *  instead of snapping off at the threshold. */
+function glowRgb (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
   const k = a * 0.92
   const m = (x: number) => Math.round(x + (255 - x) * k)
-  return `rgba(${m(t[0])}, ${m(t[1])}, ${m(t[2])}, 1)`
+  return `${m(t[0])}, ${m(t[1])}, ${m(t[2])}`
 }
+
+/** Sparse plates emit less light per hit (space is a few thin rings vs
+ *  tone's dense hatching) — even the score with a per-plate boost. */
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -213,7 +219,8 @@ export default function FxPanel ({ isOpen }: Props) {
   const artRef = useRef<HTMLDivElement>(null)
   const haloRef = useRef<HTMLDivElement>(null)
   const glowEnv = useRef(0)
-  const glowTint = useRef('rgba(255, 178, 44, 0.85)')
+  const glowTint = useRef('255, 178, 44')
+  const glowBoost = useRef(1)
 
   useEffect(() => {
     if (!isOpen) { setLit(false); return }
@@ -257,13 +264,16 @@ export default function FxPanel ({ isOpen }: Props) {
     const tick = (t: number) => {
       const dt = Math.max(0, (t - lastT) / 1000)
       lastT = t
-      glowEnv.current *= Math.exp(-dt / 0.5)
-      const g = Math.pow(Math.min(1, glowEnv.current), 1.4)
+      glowEnv.current *= Math.exp(-dt / 0.3)
+      const g = Math.min(1, Math.pow(Math.min(1, glowEnv.current), 1.4) * glowBoost.current)
       const el = haloRef.current
       if (el) {
-        // tight and hot: one modest halo plus a doubled bright core
-        el.style.filter = g > 0.015
-          ? `drop-shadow(0 0 ${2 + g * 20}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 8}px ${glowTint.current}) drop-shadow(0 0 ${1 + g * 8}px ${glowTint.current})`
+        // tight and hot: one modest halo plus a doubled bright core.
+        // Opacity rides the tail too, so the light dies to nothing
+        // instead of snapping off at a threshold.
+        const c = `rgba(${glowTint.current}, ${Math.min(1, g * 2.6).toFixed(3)})`
+        el.style.filter = g > 0.004
+          ? `drop-shadow(0 0 ${2 + g * 20}px ${c}) drop-shadow(0 0 ${1 + g * 8}px ${c}) drop-shadow(0 0 ${1 + g * 8}px ${c})`
           : 'none'
       }
       raf = requestAnimationFrame(tick)
@@ -281,7 +291,8 @@ export default function FxPanel ({ isOpen }: Props) {
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
   const variant = variants[mode] ?? 0
-  glowTint.current = glowRgba(mode, variant, a)
+  glowTint.current = glowRgb(mode, variant, a)
+  glowBoost.current = GLOW_BOOST[mode]
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return

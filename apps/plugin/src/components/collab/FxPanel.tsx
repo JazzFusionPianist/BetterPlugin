@@ -51,15 +51,14 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
   ],
 }
 
-/** Glow colour (as an "r, g, b" triple): pure flavour tint on the dark
- *  wall, shifting white-hot as the knob (and so the wall) brightens —
- *  light stays light on any background instead of drowning in its own
- *  colour at 100. Alpha is composed per-frame so the release fades out
- *  instead of snapping off at the threshold. */
-function glowRgb (mode: FxMode, variant: number, a: number): string {
+/** Glow colour (as an "r, g, b" triple): the flavour tint pushed most
+ *  of the way to white — hot light in the flavour's hue, equally bright
+ *  on a dark wall and a fully lit one, independent of the knob. Alpha
+ *  is composed per-frame so the release fades out instead of snapping
+ *  off at the threshold. */
+function glowRgb (mode: FxMode, variant: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
-  const k = a * 0.92
-  const m = (x: number) => Math.round(x + (255 - x) * k)
+  const m = (x: number) => Math.round(x + (255 - x) * 0.85)
   return `${m(t[0])}, ${m(t[1])}, ${m(t[2])}`
 }
 
@@ -264,16 +263,17 @@ export default function FxPanel ({ isOpen }: Props) {
     const tick = (t: number) => {
       const dt = Math.max(0, (t - lastT) / 1000)
       lastT = t
-      glowEnv.current *= Math.exp(-dt / 0.3)
-      const g = Math.min(1, Math.pow(Math.min(1, glowEnv.current), 1.4) * glowBoost.current)
+      glowEnv.current *= Math.exp(-dt / 0.5)
+      const g = Math.min(1, Math.pow(Math.min(1, glowEnv.current), 1.2) * 1.35 * glowBoost.current)
       const el = haloRef.current
       if (el) {
         // tight and hot: one modest halo plus a doubled bright core.
         // Opacity rides the tail too, so the light dies to nothing
         // instead of snapping off at a threshold.
-        const c = `rgba(${glowTint.current}, ${Math.min(1, g * 2.6).toFixed(3)})`
+        const c = `rgba(${glowTint.current}, ${Math.min(1, g * 3).toFixed(3)})`
+        const core = `drop-shadow(0 0 ${1 + g * 8}px ${c})`
         el.style.filter = g > 0.004
-          ? `drop-shadow(0 0 ${2 + g * 20}px ${c}) drop-shadow(0 0 ${1 + g * 8}px ${c}) drop-shadow(0 0 ${1 + g * 8}px ${c})`
+          ? `drop-shadow(0 0 ${2 + g * 22}px ${c}) ${core} ${core} ${core}`
           : 'none'
       }
       raf = requestAnimationFrame(tick)
@@ -291,7 +291,7 @@ export default function FxPanel ({ isOpen }: Props) {
   // The whole screen is the room: paint the wall colour onto the plugin
   // root so the toolbar dims and lights with the panel.
   const variant = variants[mode] ?? 0
-  glowTint.current = glowRgb(mode, variant, a)
+  glowTint.current = glowRgb(mode, variant)
   glowBoost.current = GLOW_BOOST[mode]
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null

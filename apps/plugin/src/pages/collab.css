@@ -354,6 +354,14 @@
 .plugin.info-open          .sview > *,
 .plugin.language-open      .sview > * { visibility: hidden; }
 
+/* Leaving the fx room straight for the calendar: the home content must
+   not flash through the gap while the calendar slides in — it stays
+   hidden for the whole closing linger. (Calendar is the one overlay
+   missing from the list above, on purpose: opening it FROM home should
+   show home behind the slide. From the fx room there is nothing to show.)
+   Skipped on the wide split, where home legitimately shares the screen. */
+.plugin.fx-closing.calendar-open:not(.screen-wide) .fview > * { visibility: hidden; }
+
 .fview { transform: translateX(0); background: transparent; }
 .fview .s-body { background: transparent; }
 .profile-orbit-body { background: transparent !important; }

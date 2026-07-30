@@ -104,11 +104,14 @@ private:
     // BEFORE the capture FIFO (what you hear is what you share). Mode and
     // per-mode amounts are set from the web UI via setFx / getFx and
     // persisted in plugin state. amounts[kTone] is bipolar around 0.5.
-    enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kNumFx };
+    enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod, kNumFx };
     std::atomic<int> fxMode { kTone };
-    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} }};
-    // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate.
-    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0} }};
+    // amounts[kGain] is a fader: 0.75 = unity, 0 = −60 dB, 1 = +12 dB.
+    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.75f}, {0.0f} }};
+    // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate;
+    // gain is a polarity BITMASK (bit0 = invert L, bit1 = invert R);
+    // mod 0=chorus 1=flanger 2=phaser.
+    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
 
     void handleSetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);
@@ -136,6 +139,17 @@ private:
     float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
     float sideHpState = 0.0f;
     float glueEnv = 0.0f;        // linear peak envelope
+    // kGain: per-channel signed gain (sign carries the polarity invert),
+    // ramped across each block so fader moves and flips never click.
+    float gainPrev[2] { 1.0f, 1.0f };
+    bool  gainPrimed = false;
+    // kMod: one shared LFO, a modulated delay pair (chorus/flanger) and a
+    // six-stage swept allpass ladder with feedback (phaser).
+    float modLfoPhase = 0.0f;
+    std::vector<float> modDl[2];   // sized in prepareToPlay (~60 ms)
+    int   modWrite = 0;
+    float phX1[6][2] {}, phY1[6][2] {};
+    float phFb[2] { 0.0f, 0.0f };
     void resetFxState();
     void processFx (juce::AudioBuffer<float>& buffer);
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
-/** The five one-knob effects, in processor order. Each is drawn as a
+/** The seven one-knob effects, in processor order. Each is drawn as a
  *  print on a darkened room wall — the print itself is the control,
  *  and the wall warms toward each effect's own colour as you turn it. */
 const MODES: Array<{ id: FxMode; name: string }> = [
@@ -10,15 +10,20 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 2, name: 'space' },
   { id: 3, name: 'stereo' },
   { id: 4, name: 'glue' },
+  { id: 5, name: 'gain' },
+  { id: 6, name: 'mod' },
 ]
 
-/** Sub-flavours, shown under the mode slot. */
+/** Sub-flavours, shown under the mode slot. Gain's row is special-cased
+ *  in the render: two independent polarity toggles, not a radio. */
 const VARIANTS: string[][] = [
   [],
   ['hard', 'clean'],
   ['hall', 'room', 'plate'],
   [],
   [],
+  [],
+  ['chorus', 'flanger', 'phaser'],
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -36,6 +41,8 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [36, 64, 255],    // space/hall — pure klein
   [150, 84, 255],   // stereo — electric violet
   [52, 199, 118],   // glue — signal green
+  [255, 56, 84],    // gain — scarlet meter
+  [255, 84, 200],   // mod/chorus — rose neon
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -48,6 +55,11 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
     [36, 64, 255],    // hall — pure klein
     [40, 158, 190],   // room — close teal
     [168, 206, 255],  // plate — bright ice
+  ],
+  6: [
+    [255, 84, 200],   // chorus — rose neon
+    [70, 215, 205],   // flanger — jet turquoise
+    [178, 232, 66],   // phaser — acid lime
   ],
 }
 
@@ -64,7 +76,7 @@ function glowRgb (mode: FxMode, variant: number): string {
 
 /** Sparse plates emit less light per hit (space is a few thin rings vs
  *  tone's dense hatching) — even the score with a per-plate boost. */
-const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35]
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -188,11 +200,62 @@ function GlueArt ({ a }: { a: number }) {
   )
 }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt]
+/* ── gain: a tick ladder lit up to the fader's blue crossbar ─────────── */
+function GainArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const top = C - R + 10, bot = C + R - 10
+  const y = bot + (top - bot) * a
+  const ticks = []
+  for (let i = 0; i <= 24; i++) {
+    const ty = top + (i / 24) * (bot - top)
+    const below = ty >= y - 1
+    const half = i % 4 === 0 ? 27 : 15
+    ticks.push(
+      <line key={i} x1={C - half} y1={ty} x2={C + half} y2={ty}
+        stroke={s} strokeWidth={below ? 1.5 : 0.55} opacity={below ? 0.95 : 0.5} />,
+    )
+  }
+  return (
+    <g>
+      <line x1={C} y1={top - 5} x2={C} y2={bot + 5} stroke={s} strokeWidth={1.1} />
+      {ticks}
+      <line x1={C - 45} y1={y} x2={C + 45} y2={y} stroke={acc} strokeWidth={3.2} />
+    </g>
+  )
+}
+
+/* ── mod: stacked waves drifting out of phase into shimmer ───────────── */
+function ModArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const rows = []
+  for (let k = 0; k < 9; k++) {
+    const y0 = C - 64 + k * 16
+    const half = Math.sqrt(Math.max(0, R * R - (y0 - C) * (y0 - C))) - 5
+    if (half < 14) continue
+    const amp = 2 + a * 9
+    const pts: string[] = []
+    for (let i = 0; i <= 48; i++) {
+      const x = C - half + (i / 48) * half * 2
+      const ph = x / 17 + k * (0.7 + a * 1.6)
+      pts.push(`${(x).toFixed(1)} ${(y0 + Math.sin(ph) * amp).toFixed(1)}`)
+    }
+    rows.push(
+      <path key={k} d={`M ${pts.join(' L ')}`} fill="none"
+        stroke={k === 4 ? acc : s} strokeWidth={k === 4 ? 1.7 : 1.1} />,
+    )
+  }
+  return <g>{rows}</g>
+}
+
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt]
 
 function fmtValue (mode: FxMode, a: number): string {
   if (mode === 0) {
     const db = (a - 0.5) * 12
+    return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
+  }
+  if (mode === 5) {
+    const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
   }
   return `${Math.round(a * 100)}`
@@ -233,7 +296,7 @@ export default function FxPanel ({ isOpen }: Props) {
   }, [isOpen])
 
   const a = amounts[mode] ?? 0
-  const neutral = mode === 0 ? 0.5 : 0
+  const neutral = mode === 0 ? 0.5 : mode === 5 ? 0.75 : 0
   const Art = ARTS[mode]
 
   // The print glows with the programme — instant attack on every hit,
@@ -380,7 +443,17 @@ export default function FxPanel ({ isOpen }: Props) {
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} aria-label="Next effect">›</button>
       </div>
       <div className="fx-variants">
-        {VARIANTS[mode].map((name, vi) => (
+        {mode === 5 ? ['ø left', 'ø right'].map((name, bi) => (
+          // Polarity flips are independent toggles on a bitmask, not a radio.
+          <button
+            key={name}
+            className={`fx-variant${(variant & (1 << bi)) !== 0 ? ' on' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => pickVariant(variant ^ (1 << bi))}
+          >
+            {name}
+          </button>
+        )) : VARIANTS[mode].map((name, vi) => (
           <button
             key={name}
             className={`fx-variant${(variants[mode] ?? 0) === vi ? ' on' : ''}`}

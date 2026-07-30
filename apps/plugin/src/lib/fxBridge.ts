@@ -6,21 +6,24 @@
 
 import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
 
-export type FxMode = 0 | 1 | 2 | 3 | 4
-export const FX_COUNT = 5
+export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6
+export const FX_COUNT = 7
 
 export interface FxState {
   mode: FxMode
-  /** One remembered amount per mode; amounts[0] (tone) is bipolar around 0.5. */
+  /** One remembered amount per mode; amounts[0] (tone) is bipolar around 0.5
+   *  and amounts[5] (gain) is a fader with unity at 0.75. */
   amounts: number[]
-  /** Sub-flavour per mode: tape 0=hard 1=clean; space 0=hall 1=room 2=plate. */
+  /** Sub-flavour per mode: tape 0=hard 1=clean; space 0=hall 1=room 2=plate;
+   *  gain is a polarity bitmask (bit0 = invert L, bit1 = invert R);
+   *  mod 0=chorus 1=flanger 2=phaser. */
   variants: number[]
 }
 
 export const FX_DEFAULTS: FxState = {
   mode: 0,
-  amounts: [0.5, 0, 0, 0, 0],
-  variants: [0, 0, 0, 0, 0],
+  amounts: [0.5, 0, 0, 0, 0, 0.75, 0],
+  variants: [0, 0, 0, 0, 0, 0, 0],
 }
 
 export function hasFxBridge (): boolean {
@@ -36,14 +39,14 @@ export async function getFx (): Promise<FxState> {
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (v && typeof v === 'object' && Array.isArray((v as FxState).amounts))
       return {
-        mode: Math.min(4, Math.max(0, (v as FxState).mode ?? 0)) as FxMode,
+        mode: Math.min(FX_COUNT - 1, Math.max(0, (v as FxState).mode ?? 0)) as FxMode,
         amounts: FX_DEFAULTS.amounts.map((d, i) => {
           const n = Number((v as FxState).amounts[i])
           return isFinite(n) ? Math.min(1, Math.max(0, n)) : d
         }),
         variants: FX_DEFAULTS.variants.map((d, i) => {
           const n = Number((v as FxState).variants?.[i])
-          return isFinite(n) ? Math.min(2, Math.max(0, Math.round(n))) : d
+          return isFinite(n) ? Math.min(3, Math.max(0, Math.round(n))) : d
         }),
       }
   } catch { /* fall through */ }

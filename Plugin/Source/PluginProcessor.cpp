@@ -193,6 +193,11 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     fxReverb.setSampleRate (sampleRate);
     fxWetBuf.setSize (2, juce::jmax (64, samplesPerBlock), false, false, true);
+    // Modulated delay for chorus/flanger: 60 ms is comfortably past the
+    // deepest excursion. Allocated here, only ever cleared on the audio thread.
+    const int mlen = (int) (sampleRate * 0.06) + 64;
+    modDl[0].assign ((size_t) mlen, 0.0f);
+    modDl[1].assign ((size_t) mlen, 0.0f);
     resetFxState();
 }
 
@@ -759,6 +764,14 @@ void OrbAudioProcessor::resetFxState()
     cleanShelfBaked = -1.0f;
     fxReverb.reset();
     fxAmtSm = 0.0f;
+    gainPrimed = false;
+    modLfoPhase = 0.0f;
+    modWrite = 0;
+    std::fill (modDl[0].begin(), modDl[0].end(), 0.0f);
+    std::fill (modDl[1].begin(), modDl[1].end(), 0.0f);
+    for (int st = 0; st < 6; ++st)
+        for (int ch = 0; ch < 2; ++ch) { phX1[st][ch] = 0.0f; phY1[st][ch] = 0.0f; }
+    phFb[0] = phFb[1] = 0.0f;
 }
 
 // RBJ shelf (S = 1). type: false = low shelf, true = high shelf.
@@ -810,6 +823,9 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         resetFxState();
         fxLastMode = mode;
         fxLastVariant = variant;
+        // The fader is the one mode where zero means silence, not bypass —
+        // arrive at unity and glide to the stored position from there.
+        if (mode == kGain) fxAmtSm = 0.75f;
     }
     else if (variant != fxLastVariant)
     {
@@ -826,8 +842,10 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     const float a = fxAmtSm;
 
     // Neutral positions cost nothing.
-    if (mode == kTone) { if (std::abs (a - 0.5f) < 0.004f) return; }
-    else               { if (a < 0.004f && target < 0.004f) return; }
+    if (mode == kTone)      { if (std::abs (a - 0.5f) < 0.004f) return; }
+    else if (mode == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
+                                               && std::abs (target - 0.75f) < 0.002f) return; }
+    else                    { if (a < 0.004f && target < 0.004f) return; }
 
     float* L = buffer.getWritePointer (0);
     float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
@@ -1025,6 +1043,105 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             break;
         }
 
+        case kGain:
+        {
+            // A fader, nothing more: 0.75 = unity, the bottom quarter dives
+            // to −60 dB, the top quarter opens +12 dB. The variant bitmask
+            // flips polarity per channel — the sign rides the same ramp as
+            // the level, so even a flip mid-playback is a 5 ms crossfade
+            // through zero instead of a click.
+            const float db  = a < 0.75f ? (a / 0.75f - 1.0f) * 60.0f
+                                        : (a - 0.75f) * 48.0f;
+            const float lin = a < 0.0005f ? 0.0f : std::pow (10.0f, db / 20.0f);
+            const float gl  = (variant & 1) != 0 ? -lin : lin;
+            const float gr  = (variant & 2) != 0 ? -lin : lin;
+            if (! gainPrimed) { gainPrev[0] = gl; gainPrev[1] = gr; gainPrimed = true; }
+            const float inv = 1.0f / (float) n;
+            for (int i = 0; i < n; ++i)
+            {
+                const float t = (float) (i + 1) * inv;
+                L[i] *= gainPrev[0] + (gl - gainPrev[0]) * t;
+                if (R != nullptr) R[i] *= gainPrev[1] + (gr - gainPrev[1]) * t;
+            }
+            gainPrev[0] = gl;
+            gainPrev[1] = gr;
+            break;
+        }
+
+        case kMod:
+        {
+            // One LFO, three machines. Chorus and flanger read a modulated
+            // delay (R runs the LFO in quadrature, so the pair breathes wide);
+            // the phaser sweeps a six-stage allpass ladder with feedback.
+            if (modDl[0].empty()) break;
+            const int len = (int) modDl[0].size();
+            const float twoPi = juce::MathConstants<float>::twoPi;
+
+            if (variant == 2)
+            {
+                // PHASER — 320 Hz..~2 kHz exponential sweep, slow and deep.
+                const float inc = 0.35f / sr;
+                const float fb  = 0.55f * a;
+                const float mix = 0.5f  * a;
+                for (int i = 0; i < n; ++i)
+                {
+                    modLfoPhase += inc; if (modLfoPhase >= 1.0f) modLfoPhase -= 1.0f;
+                    const int chs = R != nullptr ? 2 : 1;
+                    for (int ch = 0; ch < chs; ++ch)
+                    {
+                        const float lfo = 0.5f + 0.5f * std::sin (twoPi * modLfoPhase + (ch == 1 ? 1.5708f : 0.0f));
+                        const float f   = 320.0f * std::pow (2.0f, lfo * 2.6f);
+                        const float tn  = std::tan (juce::MathConstants<float>::pi * f / sr);
+                        const float c   = (tn - 1.0f) / (tn + 1.0f);
+                        float* S = ch == 1 ? R : L;
+                        float x = S[i] + phFb[ch] * fb;
+                        for (int st = 0; st < 6; ++st)
+                        {
+                            const float y = c * x + phX1[st][ch] - c * phY1[st][ch];
+                            phX1[st][ch] = x;
+                            phY1[st][ch] = y;
+                            x = y;
+                        }
+                        phFb[ch] = x;
+                        S[i] = S[i] * (1.0f - mix) + x * mix;
+                    }
+                }
+            }
+            else
+            {
+                // CHORUS — lush doubling around 8 ms, no feedback.
+                // FLANGER — jet swing down near 1 ms with regeneration.
+                const bool  fl    = variant == 1;
+                const float inc   = (fl ? 0.22f : 0.85f) / sr;
+                const float base  = (fl ? 0.0009f : 0.008f)  * sr;
+                const float depth = (fl ? 0.0032f : 0.0045f) * sr * a;
+                const float fb    = fl ? 0.6f  * a : 0.0f;
+                const float mix   = fl ? 0.55f * a : 0.5f * a;
+                for (int i = 0; i < n; ++i)
+                {
+                    modLfoPhase += inc; if (modLfoPhase >= 1.0f) modLfoPhase -= 1.0f;
+                    const int chs = R != nullptr ? 2 : 1;
+                    for (int ch = 0; ch < chs; ++ch)
+                    {
+                        const float lfo = 0.5f + 0.5f * std::sin (twoPi * modLfoPhase + (ch == 1 ? 1.5708f : 0.0f));
+                        float rp = (float) modWrite - (base + depth * lfo);
+                        while (rp < 0.0f) rp += (float) len;
+                        const int   i0 = (int) rp;
+                        const float fr = rp - (float) i0;
+                        const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
+                        const float wet = modDl[ch][(size_t) i0] * (1.0f - fr)
+                                        + modDl[ch][(size_t) i1] * fr;
+                        float* S = ch == 1 ? R : L;
+                        modDl[ch][(size_t) modWrite] = S[i] + wet * fb;
+                        S[i] = S[i] * (1.0f - mix * 0.55f) + wet * mix;
+                    }
+                    if (R == nullptr) modDl[1][(size_t) modWrite] = modDl[0][(size_t) modWrite];
+                    modWrite = modWrite + 1 < len ? modWrite + 1 : 0;
+                }
+            }
+            break;
+        }
+
         default: break;
     }
 }
@@ -1046,7 +1163,7 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
         if (v.hasProperty ("amount"))
             fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
         if (v.hasProperty ("variant"))
-            fxVariant[(size_t) mode].store (juce::jlimit (0, 2, (int) v["variant"]));
+            fxVariant[(size_t) mode].store (juce::jlimit (0, 3, (int) v["variant"]));
     }
     completion (juce::var (true));
 }
@@ -1088,8 +1205,8 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         for (int i = 0; i < (int) kNumFx; ++i)
         {
             fxAmount[(size_t) i].store ((float) xml->getDoubleAttribute (
-                "fxAmount" + juce::String (i), i == kTone ? 0.5 : 0.0));
-            fxVariant[(size_t) i].store (juce::jlimit (0, 2,
+                "fxAmount" + juce::String (i), i == kTone ? 0.5 : i == kGain ? 0.75 : 0.0));
+            fxVariant[(size_t) i].store (juce::jlimit (0, 3,
                 xml->getIntAttribute ("fxVariant" + juce::String (i), 0)));
         }
     }

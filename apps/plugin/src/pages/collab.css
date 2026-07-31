@@ -8903,20 +8903,21 @@
    room (over the toolbar too), it reaches down exactly as far as the
    clamp is holding, with the dB reading riding the tip */
 .fx-gr {
-  position: absolute; top: 0; right: 13%;
+  position: absolute; top: 0; left: 0;
   height: 100%;
   pointer-events: none;
   z-index: 120;   /* over the toolbar icons (100) — the line owns the full drop */
 }
 .fx-gr-line {
-  width: 2px; height: 0;
+  width: 4px; height: 0;
   background: #FF3B30;
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 .fx-gr-val {
-  position: absolute; top: 5px; left: 1px;
-  transform: translateX(-50%);
+  /* rides just right of the line's lowest point, bottom-aligned to it */
+  position: absolute; top: 0; left: 9px;
+  transform: translateY(-100%);
   font-size: 10px; letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   color: #FF3B30;

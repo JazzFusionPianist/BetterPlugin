@@ -444,7 +444,7 @@ export default function FxPanel ({ isOpen }: Props) {
         line.style.height = `${px.toFixed(1)}px`
         line.style.opacity = show ? '1' : '0'
         val.textContent = `−${gr.toFixed(1)}`
-        val.style.top = `${(px + 5).toFixed(1)}px`
+        val.style.top = `${px.toFixed(1)}px`
         val.style.opacity = show ? '1' : '0'
       }
       raf = requestAnimationFrame(tick)

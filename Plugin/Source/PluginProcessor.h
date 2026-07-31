@@ -112,6 +112,8 @@ private:
     // gain is a polarity BITMASK (bit0 = invert L, bit1 = invert R);
     // mod 0=chorus 1=flanger 2=phaser.
     std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
+    // Space's second hand: decay per flavour [hall, room, plate], 0.5 = stock.
+    std::array<std::atomic<float>, 3> fxSpaceDecay {{ {0.5f}, {0.5f}, {0.5f} }};
 
     void handleSetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);

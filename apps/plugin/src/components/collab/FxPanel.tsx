@@ -134,9 +134,15 @@ function TapeArt ({ a }: { a: number }) {
   return <g>{rings}</g>
 }
 
-/* ── space: echoes ringing out from a blue source ────────────────────── */
-function SpaceArt ({ a }: { a: number }) {
+/* ── space: echoes ringing out from a blue source; an echo ladder in
+      the right margin is the decay control — drag it up and down ──────── */
+function SpaceArt ({ a, decay = 0.5, onDecay }: {
+  a: number
+  decay?: number
+  onDecay?: (next: number, force?: boolean) => void
+}) {
   const s = strokeFor(a), acc = accentFor(a)
+  const drag = useRef<{ y: number; d: number; last: number } | null>(null)
   const count = Math.round(a * 7)
   const rings = []
   for (let i = 0; i < count; i++) {
@@ -147,10 +153,45 @@ function SpaceArt ({ a }: { a: number }) {
         strokeWidth={1.1} opacity={0.9 * (1 - i / (count + 1))} />,
     )
   }
+  // the ladder IS the decay curve: each rung an echo, fading at the
+  // rate the knob sets — long tails keep every rung alight
+  const rungs = []
+  const fade = 0.5 + decay * 0.48
+  for (let i = 0; i < 12; i++) {
+    rungs.push(
+      <line key={i} x1={204.5} y1={C - 44 + i * 8} x2={216.5 - i * 0.4} y2={C - 44 + i * 8}
+        stroke={i === 0 ? acc : s} strokeWidth={1.3}
+        opacity={Math.max(0.04, Math.pow(fade, i))} />,
+    )
+  }
   return (
     <g>
       <circle cx={C} cy={C} r={5.5} fill={acc} />
       {rings}
+      <g
+        className="fx-hot"
+        style={{ cursor: 'ns-resize' }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          drag.current = { y: e.clientY, d: decay, last: decay }
+          try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
+        }}
+        onPointerMove={(e) => {
+          if (!drag.current) return
+          const next = drag.current.d + (drag.current.y - e.clientY) / 150
+          drag.current.last = Math.min(1, Math.max(0, next))
+          onDecay?.(next)
+        }}
+        onPointerUp={() => {
+          if (drag.current) onDecay?.(drag.current.last, true)
+          drag.current = null
+        }}
+        onDoubleClick={(e) => { e.stopPropagation(); onDecay?.(0.5, true) }}
+        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDecay?.(decay - Math.sign(e.deltaY) * 0.03, true) }}
+      >
+        <rect x={197} y={C - 56} width={23} height={112} fill="transparent" stroke="none" />
+        {rungs}
+      </g>
     </g>
   )
 }
@@ -200,8 +241,13 @@ function GlueArt ({ a }: { a: number }) {
   )
 }
 
-/* ── gain: a tick ladder lit up to the fader's blue crossbar ─────────── */
-function GainArt ({ a }: { a: number }) {
+/* ── gain: a tick ladder lit up to the fader's blue crossbar; the ø
+      polarity marks are printed beside the rail, one per channel ──────── */
+function GainArt ({ a, pol = 0, onFlip }: {
+  a: number
+  pol?: number
+  onFlip?: (bit: number) => void
+}) {
   const s = strokeFor(a), acc = accentFor(a)
   const top = C - R + 10, bot = C + R - 10
   const y = bot + (top - bot) * a
@@ -220,6 +266,25 @@ function GainArt ({ a }: { a: number }) {
       <line x1={C} y1={top - 5} x2={C} y2={bot + 5} stroke={s} strokeWidth={1.1} />
       {ticks}
       <line x1={C - 45} y1={y} x2={C + 45} y2={y} stroke={acc} strokeWidth={3.2} />
+      {[0, 1].map((bi) => {
+        const x = bi === 0 ? C - 68 : C + 68
+        const on = (pol & (1 << bi)) !== 0
+        const ink = on ? acc : s
+        return (
+          <g key={bi} className="fx-hot" style={{ cursor: 'pointer' }}
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+            onClick={() => onFlip?.(1 << bi)}
+          >
+            <rect x={x - 15} y={C - 24} width={30} height={48} fill="transparent" stroke="none" />
+            <circle cx={x} cy={C - 5} r={8} fill="none"
+              stroke={ink} strokeWidth={on ? 1.9 : 1.1} opacity={on ? 1 : 0.5} />
+            <line x1={x - 9.5} y1={C + 4.5} x2={x + 9.5} y2={C - 14.5}
+              stroke={ink} strokeWidth={on ? 1.9 : 1.1} opacity={on ? 1 : 0.5} />
+            <text x={x} y={C + 19} textAnchor="middle" fontSize="8" letterSpacing="1.5"
+              fill={s} opacity={on ? 0.9 : 0.55}>{bi === 0 ? 'L' : 'R'}</text>
+          </g>
+        )
+      })}
     </g>
   )
 }
@@ -269,6 +334,7 @@ export default function FxPanel ({ isOpen }: Props) {
   const [mode, setMode] = useState<FxMode>(0)
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
   const [variants, setVariants] = useState<number[]>([...FX_DEFAULTS.variants])
+  const [decays, setDecays] = useState<number[]>([...FX_DEFAULTS.decays])
   const [bridge] = useState(() => hasFxBridge())
   const [showValue, setShowValue] = useState(false)
   const [lit, setLit] = useState(false)          // false = still paper; true = the room is dark
@@ -289,7 +355,7 @@ export default function FxPanel ({ isOpen }: Props) {
     // Nothing in the room may hold keyboard focus — space and every other
     // key must fall through the responder chain to the DAW transport.
     (document.activeElement as HTMLElement | null)?.blur?.()
-    void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants) })
+    void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants); setDecays(s.decays) })
     // let the paper render once, then dim the room slowly
     const t = setTimeout(() => setLit(true), 40)
     return () => clearTimeout(t)
@@ -393,6 +459,17 @@ export default function FxPanel ({ isOpen }: Props) {
     setFx({ mode, variant: v })
   }
 
+  const lastDecaySent = useRef(0)
+  const applyDecay = (next: number, force = false) => {
+    const clamped = Math.min(1, Math.max(0, next))
+    setDecays((prev) => prev.map((v, i) => (i === variant ? clamped : v)))
+    const now = performance.now()
+    if (force || now - lastDecaySent.current > 33) {
+      lastDecaySent.current = now
+      setFx({ decay: clamped })
+    }
+  }
+
   const step = (dir: 1 | -1) => {
     const next = MODES[(mode + dir + MODES.length) % MODES.length].id
     setMode(next)
@@ -426,7 +503,11 @@ export default function FxPanel ({ isOpen }: Props) {
         >
           <div ref={haloRef} className="fx-art-halo" aria-hidden="true">
             <svg viewBox="0 0 220 220">
-              <Art a={a} />
+              {mode === 2
+                ? <SpaceArt a={a} decay={decays[variant] ?? 0.5} onDecay={applyDecay} />
+                : mode === 5
+                  ? <GainArt a={a} pol={variant} onFlip={(bit) => pickVariant(variant ^ bit)} />
+                  : <Art a={a} />}
             </svg>
           </div>
           <span className={`fx-art-value${showValue ? ' show' : ''}`} style={{ color: strokeFor(a) }}>{fmtValue(mode, a)}</span>
@@ -443,17 +524,7 @@ export default function FxPanel ({ isOpen }: Props) {
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} aria-label="Next effect">›</button>
       </div>
       <div className="fx-variants">
-        {mode === 5 ? ['ø left', 'ø right'].map((name, bi) => (
-          // Polarity flips are independent toggles on a bitmask, not a radio.
-          <button
-            key={name}
-            className={`fx-variant${(variant & (1 << bi)) !== 0 ? ' on' : ''}`}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => pickVariant(variant ^ (1 << bi))}
-          >
-            {name}
-          </button>
-        )) : VARIANTS[mode].map((name, vi) => (
+        {VARIANTS[mode].map((name, vi) => (
           <button
             key={name}
             className={`fx-variant${(variants[mode] ?? 0) === vi ? ' on' : ''}`}

@@ -944,11 +944,15 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             // stay bone dry; the dry path is untouched full-band.
             // Three very different rooms: cathedral-long hall, a tight dead
             // room (quieter for the same knob), and a bright dense plate.
+            // The second hand: per-flavour decay, 0.5 = the stock room —
+            // it trims roomSize around each flavour's centre.
+            const float d = juce::jlimit (0.0f, 1.0f,
+                fxSpaceDecay[(size_t) juce::jlimit (0, 2, variant)].load (std::memory_order_relaxed));
             juce::Reverb::Parameters p;
             float wetScale;
-            if (variant == 0)      { p.roomSize = 0.99f; p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall
-            else if (variant == 1) { p.roomSize = 0.16f; p.damping = 0.80f; p.width = 0.65f; wetScale = 0.60f; }  // room
-            else                   { p.roomSize = 0.50f; p.damping = 0.03f; p.width = 1.0f;  wetScale = 0.85f; }  // plate
+            if (variant == 0)      { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.99f + (d - 0.5f) * 0.22f); p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall
+            else if (variant == 1) { p.roomSize = juce::jlimit (0.02f, 1.0f, 0.16f + (d - 0.5f) * 0.44f); p.damping = 0.80f; p.width = 0.65f; wetScale = 0.60f; }  // room
+            else                   { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.50f + (d - 0.5f) * 0.70f); p.damping = 0.03f; p.width = 1.0f;  wetScale = 0.85f; }  // plate
             p.wetLevel   = 1.0f;
             p.dryLevel   = 0.0f;
             p.freezeMode = 0.0f;
@@ -1164,6 +1168,9 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
             fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
         if (v.hasProperty ("variant"))
             fxVariant[(size_t) mode].store (juce::jlimit (0, 3, (int) v["variant"]));
+        if (v.hasProperty ("decay"))
+            fxSpaceDecay[(size_t) juce::jlimit (0, 2, fxVariant[kSpace].load())]
+                .store (juce::jlimit (0.0f, 1.0f, (float) (double) v["decay"]));
     }
     completion (juce::var (true));
 }
@@ -1179,6 +1186,9 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     juce::Array<juce::var> variants;
     for (auto& vr : fxVariant) variants.add (vr.load());
     obj->setProperty ("variants", variants);
+    juce::Array<juce::var> decays;
+    for (auto& dc : fxSpaceDecay) decays.add ((double) dc.load());
+    obj->setProperty ("decays", decays);
     completion (juce::var (obj));
 }
 
@@ -1194,6 +1204,8 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
         xml.setAttribute ("fxVariant" + juce::String (i), fxVariant[(size_t) i].load());
     }
+    for (int i = 0; i < 3; ++i)
+        xml.setAttribute ("fxDecay" + juce::String (i), (double) fxSpaceDecay[(size_t) i].load());
     copyXmlToBinary (xml, dest);
 }
 
@@ -1209,6 +1221,9 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
             fxVariant[(size_t) i].store (juce::jlimit (0, 3,
                 xml->getIntAttribute ("fxVariant" + juce::String (i), 0)));
         }
+        for (int i = 0; i < 3; ++i)
+            fxSpaceDecay[(size_t) i].store (juce::jlimit (0.0f, 1.0f,
+                (float) xml->getDoubleAttribute ("fxDecay" + juce::String (i), 0.5)));
     }
 }
 

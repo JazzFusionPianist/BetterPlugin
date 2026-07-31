@@ -8885,10 +8885,15 @@
 .fx-art-halo {
   width: 100%; height: 100%;
   box-sizing: content-box;
-  padding: 44px; margin: -44px;
+  /* stacked drop-shadows compound — three cores riding the halo can reach
+     well past 50px, so the apron is generous */
+  padding: 120px; margin: -120px;
   pointer-events: none;
 }
 .fx-art-halo svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* controls printed INTO the plate (polarity flips, the decay ladder)
+   punch through the apron's pointer shield */
+.fx-art-halo svg .fx-hot { pointer-events: all; }
 
 /* the numeral — a specimen floating over the plate */
 .fx-art-value {

@@ -18,12 +18,15 @@ export interface FxState {
    *  gain is a polarity bitmask (bit0 = invert L, bit1 = invert R);
    *  mod 0=chorus 1=flanger 2=phaser. */
   variants: number[]
+  /** Space's second hand: decay per flavour [hall, room, plate], 0.5 = stock. */
+  decays: number[]
 }
 
 export const FX_DEFAULTS: FxState = {
   mode: 0,
   amounts: [0.5, 0, 0, 0, 0, 0.75, 0],
   variants: [0, 0, 0, 0, 0, 0, 0],
+  decays: [0.5, 0.5, 0.5],
 }
 
 export function hasFxBridge (): boolean {
@@ -48,12 +51,16 @@ export async function getFx (): Promise<FxState> {
           const n = Number((v as FxState).variants?.[i])
           return isFinite(n) ? Math.min(3, Math.max(0, Math.round(n))) : d
         }),
+        decays: FX_DEFAULTS.decays.map((d, i) => {
+          const n = Number((v as FxState).decays?.[i])
+          return isFinite(n) ? Math.min(1, Math.max(0, n)) : d
+        }),
       }
   } catch { /* fall through */ }
   return fallback()
 }
 
-export function setFx (patch: { mode?: FxMode; amount?: number; variant?: number }): void {
+export function setFx (patch: { mode?: FxMode; amount?: number; variant?: number; decay?: number }): void {
   if (!hasFxBridge()) return
   void callJuceNative('setFx', [patch]).catch(() => {})
 }

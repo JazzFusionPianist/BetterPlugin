@@ -8843,6 +8843,10 @@
 .fx-body {
   display: flex; flex-direction: column;
   height: 100%; box-sizing: border-box;
+  /* the halo apron paints far outside the plate; without this the
+     overflow grows a scrollbar (classic bars when a mouse is attached)
+     and the whole room shifts left by its width */
+  overflow: hidden;
 }
 
 /* the whole plugin is the room — toolbar included. The wall colour is

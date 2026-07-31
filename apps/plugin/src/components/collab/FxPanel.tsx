@@ -154,12 +154,12 @@ function SpaceArt ({ a, decay = 0.5, onDecay }: {
     )
   }
   // the ladder IS the decay curve: each rung an echo, fading at the
-  // rate the knob sets — long tails keep every rung alight
+  // rate the hand sets — long tails keep every rung alight
   const rungs = []
   const fade = 0.5 + decay * 0.48
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 13; i++) {
     rungs.push(
-      <line key={i} x1={204.5} y1={C - 44 + i * 8} x2={216.5 - i * 0.4} y2={C - 44 + i * 8}
+      <line key={i} x1={C - 60 + i * 8} y1={204} x2={C - 60 + i * 8} y2={214 - i * 0.25}
         stroke={i === 0 ? acc : s} strokeWidth={1.3}
         opacity={Math.max(0.04, Math.pow(fade, i))} />,
     )
@@ -170,15 +170,15 @@ function SpaceArt ({ a, decay = 0.5, onDecay }: {
       {rings}
       <g
         className="fx-hot"
-        style={{ cursor: 'ns-resize' }}
+        style={{ cursor: 'ew-resize' }}
         onPointerDown={(e) => {
           e.stopPropagation()
-          drag.current = { y: e.clientY, d: decay, last: decay }
+          drag.current = { y: e.clientX, d: decay, last: decay }
           try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
         }}
         onPointerMove={(e) => {
           if (!drag.current) return
-          const next = drag.current.d + (drag.current.y - e.clientY) / 150
+          const next = drag.current.d + (e.clientX - drag.current.y) / 150
           drag.current.last = Math.min(1, Math.max(0, next))
           onDecay?.(next)
         }}
@@ -187,10 +187,12 @@ function SpaceArt ({ a, decay = 0.5, onDecay }: {
           drag.current = null
         }}
         onDoubleClick={(e) => { e.stopPropagation(); onDecay?.(0.5, true) }}
-        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDecay?.(decay - Math.sign(e.deltaY) * 0.03, true) }}
+        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDecay?.(decay + Math.sign(e.deltaY) * 0.03, true) }}
       >
-        <rect x={197} y={C - 56} width={23} height={112} fill="transparent" stroke="none" />
+        <rect x={C - 68} y={197} width={150} height={23} fill="transparent" stroke="none" />
         {rungs}
+        <text x={C + 52} y={212.5} fontSize="9" letterSpacing="0.5"
+          fill={s} opacity={0.85}>{Math.round(decay * 100)}</text>
       </g>
     </g>
   )

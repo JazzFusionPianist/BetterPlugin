@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
 /** The seven one-knob effects, in processor order. Each is drawn as a
@@ -365,6 +366,13 @@ export default function FxPanel ({ isOpen }: Props) {
   const glowEnv = useRef(0)
   const glowTint = useRef('255, 178, 44')
   const glowBoost = useRef(1)
+  // glue's gain-reduction plumb line: target dB from the audio events,
+  // displayed dB eased toward it every frame (fast down, slower up)
+  const grLineRef = useRef<HTMLDivElement>(null)
+  const grValRef = useRef<HTMLSpanElement>(null)
+  const grTarget = useRef(0)
+  const grDisp = useRef(0)
+  const grStamp = useRef(0)
 
   useEffect(() => {
     if (!isOpen) { setLit(false); return }
@@ -386,7 +394,9 @@ export default function FxPanel ({ isOpen }: Props) {
   useEffect(() => {
     if (!isOpen) return
     const onAudio = (e: Event) => {
-      const d = (e as CustomEvent).detail as { samples?: string }
+      const d = (e as CustomEvent).detail as { samples?: string; gr?: number }
+      const gr = Number(d?.gr)
+      if (isFinite(gr)) { grTarget.current = gr; grStamp.current = performance.now() }
       if (!d?.samples) return
       try {
         const bin = atob(d.samples)
@@ -420,6 +430,22 @@ export default function FxPanel ({ isOpen }: Props) {
         el.style.filter = g > 0.004
           ? `drop-shadow(0 0 ${2 + g * 22}px ${c}) ${core} ${core} ${core}`
           : 'none'
+      }
+      // the plumb line: falls fast with the clamp, climbs back slower
+      if (t - grStamp.current > 300) grTarget.current = 0
+      const gk = grTarget.current > grDisp.current ? Math.min(1, dt * 26) : Math.min(1, dt * 9)
+      grDisp.current += (grTarget.current - grDisp.current) * gk
+      const line = grLineRef.current
+      const val = grValRef.current
+      if (line && val) {
+        const gr = grDisp.current
+        const px = Math.min(270, gr * 15)
+        const show = gr > 0.06
+        line.style.height = `${px.toFixed(1)}px`
+        line.style.opacity = show ? '1' : '0'
+        val.textContent = `−${gr.toFixed(1)}`
+        val.style.top = `${(px + 5).toFixed(1)}px`
+        val.style.opacity = show ? '1' : '0'
       }
       raf = requestAnimationFrame(tick)
     }
@@ -492,7 +518,11 @@ export default function FxPanel ({ isOpen }: Props) {
     setShowValue(false)
     setSlide(dir === 1 ? 'r' : 'l')
     setFx({ mode: next })
+    grTarget.current = 0
+    grDisp.current = 0
   }
+
+  const pluginEl = document.querySelector('.plugin')
 
   return (
     <div className={`s-body fx-body${live ? ' live' : ''}`}>
@@ -554,6 +584,17 @@ export default function FxPanel ({ isOpen }: Props) {
 
       {!bridge && (
         <p className="fx-note">browser mode — the audio itself runs inside the daw.</p>
+      )}
+
+      {mode === 4 && pluginEl && createPortal(
+        // A red plumb line dropped from the very top of the room — toolbar
+        // included — reaching down exactly as far as the glue is clamping,
+        // its reading riding the tip.
+        <div className="fx-gr" aria-hidden="true">
+          <div ref={grLineRef} className="fx-gr-line" />
+          <span ref={grValRef} className="fx-gr-val" />
+        </div>,
+        pluginEl,
       )}
     </div>
   )

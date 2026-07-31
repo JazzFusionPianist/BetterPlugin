@@ -141,6 +141,9 @@ private:
     float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
     float sideHpState = 0.0f;
     float glueEnv = 0.0f;        // linear peak envelope
+    // UI meter: glue's current gain reduction in dB (positive number),
+    // block max, zeroed whenever glue isn't working. Read by timerCallback.
+    std::atomic<float> glueGrDb { 0.0f };
     // kGain: per-channel signed gain (sign carries the polarity invert),
     // ramped across each block so fader moves and flips never click.
     float gainPrev[2] { 1.0f, 1.0f };

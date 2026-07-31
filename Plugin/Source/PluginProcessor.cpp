@@ -331,7 +331,8 @@ void OrbAudioProcessor::timerCallback()
            << "bpm:"      << juce::String (playheadBpm.load(), 4) << ","
            << "tnum:"     << playheadTsNum.load() << ","
            << "tden:"     << playheadTsDen.load() << ","
-           << "playing:"  << (transportPlaying.load() ? "true" : "false")
+           << "playing:"  << (transportPlaying.load() ? "true" : "false") << ","
+           << "gr:"       << juce::String (glueGrDb.load(), 2)
            << "}}))";
 
     browser->evaluateJavascript (script,
@@ -841,11 +842,14 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     fxAmtSm += (target - fxAmtSm) * alpha;
     const float a = fxAmtSm;
 
+    if (mode != kGlue) glueGrDb.store (0.0f, std::memory_order_relaxed);
+
     // Neutral positions cost nothing.
     if (mode == kTone)      { if (std::abs (a - 0.5f) < 0.004f) return; }
     else if (mode == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
                                                && std::abs (target - 0.75f) < 0.002f) return; }
-    else                    { if (a < 0.004f && target < 0.004f) return; }
+    else                    { if (a < 0.004f && target < 0.004f)
+                              { glueGrDb.store (0.0f, std::memory_order_relaxed); return; } }
 
     float* L = buffer.getWritePointer (0);
     float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
@@ -1032,6 +1036,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             const float makeup   = std::pow (10.0f, (a * 5.0f) / 20.0f);
             const float atkK = 1.0f - std::exp (-1.0f / (0.008f * sr));
             const float relK = 1.0f - std::exp (-1.0f / (0.220f * sr));
+            float grMax = 0.0f;
             for (int i = 0; i < n; ++i)
             {
                 const float inMax = R != nullptr ? juce::jmax (std::abs (L[i]), std::abs (R[i]))
@@ -1040,10 +1045,12 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 const float envDb = juce::Decibels::gainToDecibels (glueEnv, -80.0f);
                 const float overDb = envDb - threshDb;
                 const float grDb   = overDb > 0.0f ? overDb * 0.75f : 0.0f;   // 4:1
+                grMax = juce::jmax (grMax, grDb);
                 const float g = std::pow (10.0f, -grDb / 20.0f) * makeup;
                 L[i] *= g;
                 if (R != nullptr) R[i] *= g;
             }
+            glueGrDb.store (grMax, std::memory_order_relaxed);
             break;
         }
 

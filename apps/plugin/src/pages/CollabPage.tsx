@@ -92,6 +92,10 @@ function CollabPageInner({ user }: Props) {
   const [newGroupOpen, setNewGroupOpen]         = useState(false)
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false)
   const [liveOpen, setLiveOpen]                 = useState(false)
+  // Bumped when a chat game invite is accepted → remounts the game view
+  // so its mount-time join_room_id consumption actually runs (see
+  // handleJoinGameInvite).
+  const [gameJoinNonce, setGameJoinNonce]       = useState(0)
   const [fxOpen, setFxOpen]                     = useState(false)
   // Lingers ~1.4s after the fx room closes so the wall colour, toolbar and
   // incoming panels all fade back together instead of snapping.
@@ -174,6 +178,11 @@ function CollabPageInner({ user }: Props) {
     const result = await joinGameRoom(client, type, roomId, user.id, { onlineIds })
     if (result === 'joined' || result === 'already-in') {
       sessionStorage.setItem('join_room_id', roomId)
+      // The game views consume join_room_id in their MOUNT effect — but a
+      // view stays mounted after the panel closes (gameScreen keeps its
+      // value), so a second invite would land on a stale view that never
+      // re-reads the pending room. Bump the key to force a fresh mount.
+      setGameJoinNonce((n) => n + 1)
       setGameScreen(type)
       setGameOpen(true)
     }
@@ -948,6 +957,7 @@ function CollabPageInner({ user }: Props) {
           )}
           {gameScreen === 'chess' && (
             <ChessView
+              key={gameJoinNonce}
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}
@@ -957,6 +967,7 @@ function CollabPageInner({ user }: Props) {
           )}
           {gameScreen === 'falling_blocks' && (
             <FallingBlocksView
+              key={gameJoinNonce}
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}
@@ -967,6 +978,7 @@ function CollabPageInner({ user }: Props) {
           )}
           {gameScreen === 'poker' && (
             <PokerView
+              key={gameJoinNonce}
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}
@@ -977,6 +989,7 @@ function CollabPageInner({ user }: Props) {
           )}
           {gameScreen === 'ear_training' && (
             <EarTrainingView
+              key={gameJoinNonce}
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}

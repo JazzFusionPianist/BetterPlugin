@@ -109,6 +109,7 @@
   height: 500px;
   background: var(--bg);
   overflow: hidden;
+  overflow: clip;   /* see .content — never let focus scrolls pan the shell */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -331,7 +332,13 @@
 .content {
   flex: 1;
   position: relative;
+  /* clip, not hidden: hidden still allows PROGRAMMATIC scrolling, and
+     WKWebView's focus-restoration quietly scrolls the whole view stack
+     sideways to "reveal" a focused element parked in an offscreen panel
+     (the invite-opens-the-language-panel mystery). clip removes the
+     scrolling mechanism entirely; hidden stays as the fallback. */
   overflow: hidden;
+  overflow: clip;
 }
 
 .view {

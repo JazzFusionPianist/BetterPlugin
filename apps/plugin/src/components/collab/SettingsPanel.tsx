@@ -43,6 +43,9 @@ export default function SettingsPanel({
         <div className="settings-card settings-signout" onClick={onSignOut} role="button" tabIndex={0}>
           {t('settings.signOut')}
         </div>
+        {/* Which bundle is this instance actually running? Ends the
+            "did the deploy reach the plugin?" guessing game. */}
+        <div className="settings-build">build {__BUILD_ID__}</div>
       </div>
     </div>
   )

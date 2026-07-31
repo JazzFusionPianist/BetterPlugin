@@ -168,10 +168,13 @@ OrbAudioProcessor::OrbAudioProcessor()
 
     // Append ?plugin=1 so the web app can tailor UX for in-plugin context
     // (e.g. hide camera sources that hang WKWebView inside an Audio Unit).
+    // The v= cache-buster defeats WKWebView's disk cache, which otherwise
+    // keeps serving a stale index.html (and so a stale bundle) across
+    // fresh instances and even host restarts.
     {
         juce::String url (ORB_APP_URL);
         url += (url.contains ("?") ? "&" : "?");
-        url += "plugin=1";
+        url += "plugin=1&v=" + juce::String (juce::Time::currentTimeMillis());
         browser->goToURL (url);
     }
 

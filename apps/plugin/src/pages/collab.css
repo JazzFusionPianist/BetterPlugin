@@ -8899,6 +8899,16 @@
    punch through the apron's pointer shield */
 .fx-art-halo svg .fx-hot { pointer-events: all; }
 
+/* quiet build stamp under the sign-out card — which bundle is this? */
+.settings-build {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--t3);
+  padding: 10px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* glue's gain-reduction plumb line: dropped from the very top of the
    room (over the toolbar too), it reaches down exactly as far as the
    clamp is holding, with the dB reading riding the tip */

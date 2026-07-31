@@ -15,13 +15,25 @@ function DebugState () {
   useEffect(() => {
     const el = document.querySelector('.plugin')
     if (!el) return
-    const read = () => setTxt(
-      `[${el.className.replace('plugin', '').trim() || 'no-classes'}] opens:${(window as unknown as { __langOpens?: number }).__langOpens ?? 0}`,
-    )
+    const left = (sel: string) => {
+      const v = document.querySelector(sel)
+      if (!v) return 'x'
+      const cs = getComputedStyle(v)
+      return `${Math.round(v.getBoundingClientRect().left)}/z${cs.zIndex}/${cs.transform === 'none' ? 'NOTF' : 'tf'}`
+    }
+    const read = () => {
+      const centre = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2))
+      const topView = centre?.closest('.view')?.className.replace('view', '').trim() ?? 'none'
+      setTxt(
+        `top:${topView} | lng:${left('.lngview')} g:${left('.gview')} c:${left('.cview')} f:${left('.fview')} w:${window.innerWidth}` +
+        ` | [${el.className.replace('plugin', '').trim() || 'no-classes'}] opens:${(window as unknown as { __langOpens?: number }).__langOpens ?? 0}`,
+      )
+    }
     read()
+    const iv = setInterval(read, 500)
     const mo = new MutationObserver(read)
     mo.observe(el, { attributes: true, attributeFilter: ['class'] })
-    return () => mo.disconnect()
+    return () => { clearInterval(iv); mo.disconnect() }
   }, [])
   return <div className="settings-build" style={{ wordBreak: 'break-all', padding: '6px 12px' }}>{txt}</div>
 }

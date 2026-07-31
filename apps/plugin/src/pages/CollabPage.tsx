@@ -824,7 +824,12 @@ function CollabPageInner({ user }: Props) {
             onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }}
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
-            onOpenLanguage={() => setLanguageOpen(true)}
+            onOpenLanguage={() => {
+              // TEMP-DEBUG counter (read by LanguagePanel's DebugState)
+              const w = window as unknown as { __langOpens?: number }
+              w.__langOpens = (w.__langOpens ?? 0) + 1
+              setLanguageOpen(true)
+            }}
             onOpenFindPeople={() => setAddFriendOpen(true)}
             onSignOut={() => client.auth.signOut()}
           />

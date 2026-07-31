@@ -134,11 +134,25 @@ function TapeArt ({ a }: { a: number }) {
   return <g>{rings}</g>
 }
 
-/* ── space: echoes ringing out from a blue source; an echo ladder in
-      the right margin is the decay control — drag it up and down ──────── */
-function SpaceArt ({ a, decay = 0.5, onDecay }: {
+/** The reverb's real ring time, mirrored from the processor: the decay
+ *  hand trims roomSize around each flavour's centre, roomSize sets the
+ *  Freeverb comb feedback (0.7 + 0.28·rs), and −60 dB through the
+ *  ~32 ms comb loop gives the seconds. Display only. */
+function fmtDecay (variant: number, d: number): string {
+  const rs = variant === 0 ? Math.min(1, Math.max(0, 0.99 + (d - 0.5) * 0.22))
+    : variant === 1 ? Math.min(1, Math.max(0.02, 0.16 + (d - 0.5) * 0.44))
+    : Math.min(1, Math.max(0, 0.50 + (d - 0.5) * 0.70))
+  const g = 0.7 + 0.28 * rs
+  const t = 0.096 / -Math.log10(g)
+  return `${t >= 10 ? t.toFixed(1) : t.toFixed(2)}s`
+}
+
+/* ── space: echoes ringing out from a blue source; an echo ladder under
+      the plate is the decay control — drag it east-west ────────────────── */
+function SpaceArt ({ a, decay = 0.5, variant = 0, onDecay }: {
   a: number
   decay?: number
+  variant?: number
   onDecay?: (next: number, force?: boolean) => void
 }) {
   const s = strokeFor(a), acc = accentFor(a)
@@ -192,7 +206,7 @@ function SpaceArt ({ a, decay = 0.5, onDecay }: {
         <rect x={C - 68} y={197} width={150} height={23} fill="transparent" stroke="none" />
         {rungs}
         <text x={C + 52} y={212.5} fontSize="9" letterSpacing="0.5"
-          fill={s} opacity={0.85}>{Math.round(decay * 100)}</text>
+          fill={s} opacity={0.85}>{fmtDecay(variant, decay)}</text>
       </g>
     </g>
   )
@@ -506,7 +520,7 @@ export default function FxPanel ({ isOpen }: Props) {
           <div ref={haloRef} className="fx-art-halo" aria-hidden="true">
             <svg viewBox="0 0 220 220">
               {mode === 2
-                ? <SpaceArt a={a} decay={decays[variant] ?? 0.5} onDecay={applyDecay} />
+                ? <SpaceArt a={a} decay={decays[variant] ?? 0.5} variant={variant} onDecay={applyDecay} />
                 : mode === 5
                   ? <GainArt a={a} pol={variant} onFlip={(bit) => pickVariant(variant ^ bit)} />
                   : <Art a={a} />}

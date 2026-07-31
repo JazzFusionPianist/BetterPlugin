@@ -950,7 +950,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 fxSpaceDecay[(size_t) juce::jlimit (0, 2, variant)].load (std::memory_order_relaxed));
             juce::Reverb::Parameters p;
             float wetScale;
-            if (variant == 0)      { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.99f + (d - 0.5f) * 0.22f); p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall
+            if (variant == 0)      { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.769f + d * 0.191f);        p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall — RT60 2.5..7 s
             else if (variant == 1) { p.roomSize = juce::jlimit (0.02f, 1.0f, 0.16f + (d - 0.5f) * 0.44f); p.damping = 0.80f; p.width = 0.65f; wetScale = 0.60f; }  // room
             else                   { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.50f + (d - 0.5f) * 0.70f); p.damping = 0.03f; p.width = 1.0f;  wetScale = 0.85f; }  // plate
             p.wetLevel   = 1.0f;

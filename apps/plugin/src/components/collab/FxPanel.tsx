@@ -139,7 +139,7 @@ function TapeArt ({ a }: { a: number }) {
  *  Freeverb comb feedback (0.7 + 0.28·rs), and −60 dB through the
  *  ~32 ms comb loop gives the seconds. Display only. */
 function fmtDecay (variant: number, d: number): string {
-  const rs = variant === 0 ? Math.min(1, Math.max(0, 0.99 + (d - 0.5) * 0.22))
+  const rs = variant === 0 ? Math.min(1, Math.max(0, 0.769 + d * 0.191))
     : variant === 1 ? Math.min(1, Math.max(0.02, 0.16 + (d - 0.5) * 0.44))
     : Math.min(1, Math.max(0, 0.50 + (d - 0.5) * 0.70))
   const g = 0.7 + 0.28 * rs

@@ -183,6 +183,12 @@ function CollabPageInner({ user }: Props) {
       // value), so a second invite would land on a stale view that never
       // re-reads the pending room. Bump the key to force a fresh mount.
       setGameJoinNonce((n) => n + 1)
+      // Clear every other panel, exactly like the games toolbar button —
+      // the settings sub-panels (display/info/language, z 30-32) overlay
+      // the game view (z 22) by design, so any of them left open would
+      // greet the player instead of the lobby.
+      setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false)
+      setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
       setGameScreen(type)
       setGameOpen(true)
     }
@@ -476,8 +482,8 @@ function CollabPageInner({ user }: Props) {
     // game/add-friend stay open underneath) and renders above them via
     // z-index, so closing Settings returns you exactly where you were.
     // Only the in-Settings sub-panels (display/info) and search are reset.
-    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setFxOpen(false); closeSearch() }
-    else { setDisplayOpen(false); setInfoOpen(false) }
+    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setFxOpen(false); closeSearch() }
+    else { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
     return !prev
   })
   // Called by every "open a main panel" handler (messages/live/games/

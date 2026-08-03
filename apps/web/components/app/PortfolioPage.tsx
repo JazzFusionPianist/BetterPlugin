@@ -13,7 +13,7 @@ interface Props {
   onClose: () => void
 }
 
-const fmtYear = (r: Release) =>
+export const fmtYear = (r: Release) =>
   r.released_on ? String(new Date(r.released_on + 'T00:00:00').getFullYear()) : new Date(r.created_at).getFullYear().toString()
 
 const fmtDate = (iso: string) =>
@@ -187,7 +187,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
 }
 
 /** A release opened — cover, notes, playable tracklist. */
-function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onUpdate, onDelete, onClose }: {
+export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onUpdate, onDelete, onClose }: {
   release: Release
   isMine: boolean
   playingTrack: string | null
@@ -269,7 +269,7 @@ function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onUpdate, 
 }
 
 /** New release — cover, title, date, notes, audio files as the tracklist. */
-function ReleaseComposer({ currentUserId, onCreate, onClose }: {
+export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
   currentUserId: string
   onCreate: (input: { title: string; cover_url?: string | null; description?: string | null; released_on?: string | null; tracks: { title: string; media_url: string }[] }) => Promise<boolean>
   onClose: () => void
@@ -398,7 +398,7 @@ function ReleaseComposer({ currentUserId, onCreate, onClose }: {
 }
 
 /** A gallery photo, full size — caption below, editable on your own page. */
-function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
+export function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
   photo: GalleryPhoto
   isMine: boolean
   onCaption: (caption: string | null) => void

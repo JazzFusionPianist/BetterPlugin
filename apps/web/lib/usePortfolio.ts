@@ -24,6 +24,7 @@ export interface Release {
   cover_url: string | null
   description: string | null
   released_on: string | null
+  position: number
   created_at: string
   tracks: ReleaseTrack[]
 }
@@ -44,7 +45,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
   const refetch = useCallback(async () => {
     const [rel, tr, ph] = await Promise.all([
       supabase.from('releases').select('*').eq('user_id', ownerId)
-        .order('released_on', { ascending: false, nullsFirst: false })
+        .order('position', { ascending: true })
         .order('created_at', { ascending: false }),
       supabase.from('release_tracks')
         .select('*, releases!inner(user_id)')
@@ -81,12 +82,14 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     released_on?: string | null
     tracks: { title: string; media_url: string }[]
   }): Promise<boolean> => {
+    const nextPos = releases.reduce((m, r) => Math.max(m, r.position + 1), 0)
     const { data, error } = await supabase.from('releases').insert({
       user_id: ownerId,
       title: input.title,
       cover_url: input.cover_url ?? null,
       description: input.description ?? null,
       released_on: input.released_on ?? null,
+      position: nextPos,
     }).select('id').single()
     if (error || !data) { console.error('[portfolio] addRelease', error); return false }
     if (input.tracks.length > 0) {
@@ -97,7 +100,27 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     }
     await refetch()
     return true
-  }, [supabase, ownerId, refetch])
+  }, [supabase, ownerId, releases, refetch])
+
+  /** Swap this release with its neighbour — the artist's own sequencing. */
+  const moveRelease = useCallback(async (id: string, dir: 'up' | 'down') => {
+    const idx = releases.findIndex((r) => r.id === id)
+    const other = releases[idx + (dir === 'up' ? -1 : 1)]
+    const me = releases[idx]
+    if (!me || !other) return
+    // Optimistic swap so the row moves under the finger.
+    setReleases((prev) => {
+      const next = [...prev]
+      next[idx] = { ...other, position: me.position }
+      next[idx + (dir === 'up' ? -1 : 1)] = { ...me, position: other.position }
+      return next
+    })
+    await Promise.all([
+      supabase.from('releases').update({ position: other.position }).eq('id', me.id),
+      supabase.from('releases').update({ position: me.position }).eq('id', other.id),
+    ])
+    await refetch()
+  }, [supabase, releases, refetch])
 
   const updateRelease = useCallback(async (id: string, patch: Partial<Pick<Release, 'title' | 'description' | 'released_on' | 'cover_url'>>) => {
     const { error } = await supabase.from('releases').update(patch).eq('id', id)
@@ -131,5 +154,5 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     await refetch()
   }, [supabase, refetch])
 
-  return { releases, photos, loading, addRelease, updateRelease, deleteRelease, addPhotos, updatePhoto, deletePhoto, refetch }
+  return { releases, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addPhotos, updatePhoto, deletePhoto, refetch }
 }

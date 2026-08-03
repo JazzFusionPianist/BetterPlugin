@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import {
   useProfiles, useFollows, usePresence, useConversations,
   useConversationNotifications, useCalendarEvents, useEventCategories,
-  useCanvasItems,
+  useCanvasItems, useFollowAlerts,
   type Profile, type CalendarEvent,
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
@@ -29,9 +29,11 @@ import type { JoinResult, GameType } from '@/lib/games/gameRooms'
 // The whole game suite (4 games + rooms) only loads when someone opens it.
 const GamesPanel = dynamic(() => import('../games/GamesPanel'), { ssr: false })
 import SettingsSheet from './SettingsSheet'
+import FollowAlerts from './FollowAlerts'
 import AddFriendsSheet from './AddFriendsSheet'
 import NewGroupSheet from './NewGroupSheet'
 import PortfolioPage from './PortfolioPage'
+import HomePortfolio from './HomePortfolio'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -47,6 +49,7 @@ export default function AppShell({ user }: { user: User }) {
   const { events, addEvents, deleteEvent, updateEvent, refetch: refetchEvents } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory, renameCategory, deleteCategory } = useEventCategories(supabase, user.id)
   const { items: canvasItems, addItem: addCanvasItem, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
+  const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(supabase, user.id)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [pinning, setPinning] = useState(false)
@@ -328,7 +331,7 @@ export default function AppShell({ user }: { user: User }) {
       />
 
       <main
-        className="webapp-main"
+        className={`webapp-main${bookPage === 2 ? ' on-p3' : ''}`}
         ref={mainRef}
         onPointerDown={zoomDown}
         onPointerMove={zoomMove}
@@ -475,6 +478,10 @@ export default function AppShell({ user }: { user: User }) {
               />
             )}
           </section>
+
+          <section className="home-page">
+            {me && <HomePortfolio supabase={supabase} me={me} />}
+          </section>
         </div>
 
         {/* You — fixed chrome: outside the zoom, above both pages, so
@@ -484,7 +491,6 @@ export default function AppShell({ user }: { user: User }) {
           friendCount={friends.length}
           groupCount={groupConversations.length}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenPortfolio={me ? () => setPortfolioOwner(me as Profile & { isOnline?: boolean }) : undefined}
         />
 
         {/* Colophon — version + deploy stamp, quiet corner print. */}
@@ -505,10 +511,18 @@ export default function AppShell({ user }: { user: User }) {
         <div className="home-dots">
           <button className={`home-dot${bookPage === 0 ? ' on' : ''}`} onClick={() => goPage(0)} aria-label="People" />
           <button className={`home-dot${bookPage === 1 ? ' on' : ''}`} onClick={() => goPage(1)} aria-label="Wall" />
+          <button className={`home-dot${bookPage === 2 ? ' on' : ''}`} onClick={() => goPage(2)} aria-label="Portfolio" />
         </div>
 
         <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
       </main>
+
+      <FollowAlerts
+        alerts={followAlerts}
+        followingIds={followingIds}
+        onFollowBack={follow}
+        onDismiss={dismissFollowAlert}
+      />
 
       <ProfileSheet
         friend={sheetFriend}

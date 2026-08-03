@@ -21,6 +21,7 @@ interface RawProfile {
   avatar_url?: string | null
   is_verified?: boolean | null
   is_admin?: boolean | null
+  member_no?: number | null
 }
 
 const PAGE_SIZE = 1000
@@ -32,7 +33,7 @@ async function fetchAllProfiles(supabase: SupabaseClient): Promise<RawProfile[]>
   while (true) {
     let { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, username, avatar_color, avatar_url, is_verified, is_admin')
+      .select('id, display_name, username, avatar_color, avatar_url, is_verified, is_admin, member_no')
       .range(from, from + PAGE_SIZE - 1)
 
     // Fall back to basic columns if newer columns don't exist yet
@@ -74,6 +75,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
       isOnline: false,
       is_verified: p.is_verified ?? false,
       is_admin: p.is_admin ?? false,
+      member_no: p.member_no ?? null,
     }))
 
     setProfiles(all.filter(p => p.id !== currentUserId))

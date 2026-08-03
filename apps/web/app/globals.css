@@ -1870,3 +1870,13 @@ button { font-family: inherit; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Membership number — the catalogue's edition stamp under your handle */
+.orbhome-member {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--t3);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}

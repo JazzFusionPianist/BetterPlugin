@@ -46,6 +46,11 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
       </div>
       <div className="orbhome-name">{me?.display_name ?? '…'}</div>
       {me?.username && <div className="orbhome-user">@{me.username}</div>}
+      {me?.member_no != null && (
+        <div className="orbhome-member" title={`member #${me.member_no}`}>
+          #{String(me.member_no).padStart(6, '0')}
+        </div>
+      )}
       <div className="orbhome-count">
         {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
       </div>

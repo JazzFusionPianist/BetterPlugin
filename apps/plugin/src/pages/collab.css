@@ -9109,3 +9109,12 @@
   font-variant-numeric: tabular-nums;
   padding: 6px 0 0;
 }
+
+/* Membership number — edition stamp under the @handle */
+.orbit-member {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--t3);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}

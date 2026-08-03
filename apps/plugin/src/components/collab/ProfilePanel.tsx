@@ -859,6 +859,11 @@ export default function ProfilePanel ({
         <div className="orbit-namewrap" ref={nameRef}>
           <div className="orbit-name-under">{displayName}</div>
           {me?.username && <div className="orbit-handle">@{me.username}</div>}
+          {me?.member_no != null && (
+            <div className="orbit-member" title={`member #${me.member_no}`}>
+              #{String(me.member_no).padStart(6, '0')}
+            </div>
+          )}
         </div>
 
         {/* Group hover card — pops above/below the hovered constellation.

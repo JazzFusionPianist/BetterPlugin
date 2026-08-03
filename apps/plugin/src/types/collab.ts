@@ -9,6 +9,8 @@ export interface Profile {
   isOnline: boolean
   is_verified: boolean
   is_admin: boolean
+  /** Signup-order membership number (#000001 = first user). */
+  member_no?: number | null
 }
 
 export type AttachType =

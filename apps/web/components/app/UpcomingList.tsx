@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CalendarEvent } from '@orb/core'
 
 interface Props {
@@ -15,6 +15,21 @@ const fmtTime = (iso: string) =>
  *  into TODAY (times only, full ink) and NEXT (the following few days).
  *  Tapping any line opens the calendar. */
 export default function UpcomingList({ events, onOpen }: Props) {
+  // The list splits on "now", so an app left open must re-split as time
+  // passes — tick every minute and whenever the tab comes back.
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') setNowTick(Date.now())
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
+
   const { todayRows, nextRows } = useMemo(() => {
     const now = new Date()
     const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -27,7 +42,7 @@ export default function UpcomingList({ events, onOpen }: Props) {
       todayRows: coming.filter((e) => new Date(e.starts_at) < dayEnd).slice(0, 4),
       nextRows: coming.filter((e) => new Date(e.starts_at) >= dayEnd).slice(0, 4),
     }
-  }, [events])
+  }, [events, nowTick])
 
   if (todayRows.length === 0 && nextRows.length === 0) return null
 

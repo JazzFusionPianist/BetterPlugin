@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type CanvasKind = 'photo' | 'video' | 'drawing'
+export type CanvasKind = 'photo' | 'video' | 'drawing' | 'track' | 'caption' | 'plaque'
 export type CanvasVisibility = 'friends' | 'private'
 
 /** One coloured-pencil stroke. `p` is a flat list of 0..1 canvas

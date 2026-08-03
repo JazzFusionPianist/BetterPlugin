@@ -5,9 +5,20 @@ import type { CanvasItem, CanvasPatch } from '@orb/core'
 import { strokePath, strokePathScaled, strokesBBox } from '@/lib/strokes'
 import { WALL_REF_W, wallSheet } from '@/lib/wall'
 
+/** What the auto-plaque prints. The owner's card is the same for every
+ *  visitor except `line`, which the parent computes viewer-relative
+ *  (e.g. "chess vs you · 3W 1D 2L"). */
+export interface PlaqueData {
+  name: string
+  username?: string | null
+  memberNo?: number | null
+  line?: string | null
+}
+
 interface Props {
   items: CanvasItem[]
   isMine: boolean
+  plaque?: PlaqueData
   onUpdate: (id: string, patch: CanvasPatch) => void
   onDelete: (id: string) => void
 }
@@ -20,9 +31,25 @@ const fmtDate = (iso: string) =>
  * passing behind them. Your own can be dragged to rearrange and tapped to
  * open a detail card; a friend's are look-only.
  */
-export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props) {
+export default function CanvasLayer({ items, isMine, plaque, onUpdate, onDelete }: Props) {
   const layerRef = useRef<HTMLDivElement>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // One shared player for every track plate on the wall.
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const toggleTrack = (item: CanvasItem) => {
+    const a = audioRef.current
+    if (!a || !item.media_url) return
+    if (playingId === item.id) {
+      a.pause()
+      setPlayingId(null)
+    } else {
+      a.src = item.media_url
+      a.play().catch(() => {})
+      setPlayingId(item.id)
+    }
+  }
 
   // Layer pixel size — doodle strokes render in raw pixels (Safari's
   // vector-effect:non-scaling-stroke is unreliable under non-uniform
@@ -145,10 +172,12 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
   }
 
   const doodles = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
-  const pinned = items.filter((i) => i.kind !== 'drawing')
+  const plates = items.filter((i) => i.kind === 'track' || i.kind === 'caption' || i.kind === 'plaque')
+  const pinned = items.filter((i) => i.kind === 'photo' || i.kind === 'video')
 
   return (
     <div className="canvas-layer" ref={layerRef}>
+      <audio ref={audioRef} preload="none" onEnded={() => setPlayingId(null)} />
       {/* Doodles — each drawing is its own movable object. Stroke points
           live in unit-space centred on the doodle's own bbox centre, and
           item x/y (or lx/ly) anchor that centre on the sheet — same
@@ -187,6 +216,61 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           </div>
         )
       })}
+      {/* Gallery plates — track player / caption / auto-plaque. Same
+          drag-pinch machinery as polaroids, different chrome. */}
+      {sheet && plates.map((item) => (
+        <div
+          key={item.id}
+          className={`plate plate-${item.kind}${isMine ? ' movable' : ''}`}
+          style={{ left: sheet.x + ix(item) * sheet.w, top: sheet.y + iy(item) * sheet.h, transform: baseTransform(item, iscale(item)), zIndex: item.z }}
+          onPointerDown={(e) => onPointerDown(e, item)}
+          onPointerMove={(e) => onPointerMove(e, item)}
+          onPointerUp={(e) => onPointerUp(e, item)}
+          onClick={() => {
+            if (justDragged.current) { justDragged.current = false; return }
+            if (isMine) setOpenId(item.id)
+          }}
+          role="button"
+          aria-label={item.title || item.kind}
+        >
+          {item.kind === 'track' && (
+            <>
+              <button
+                className={`plate-track-play${playingId === item.id ? ' on' : ''}`}
+                onClick={(e) => { e.stopPropagation(); toggleTrack(item) }}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label={playingId === item.id ? 'Pause' : 'Play'}
+              >
+                {playingId === item.id ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+                )}
+              </button>
+              <span className="plate-track-title">{item.title || 'untitled'}</span>
+              <span className={`plate-track-line${playingId === item.id ? ' on' : ''}`} aria-hidden="true" />
+            </>
+          )}
+          {item.kind === 'caption' && (
+            <span className="plate-caption-text">{item.caption || '…'}</span>
+          )}
+          {item.kind === 'plaque' && (
+            <>
+              <span className="plate-plaque-name">{plaque?.name ?? '…'}</span>
+              <span className="plate-plaque-meta">
+                {plaque?.username ? `@${plaque.username}` : ''}
+                {plaque?.memberNo != null ? ` · #${String(plaque.memberNo).padStart(6, '0')}` : ''}
+              </span>
+              {plaque?.line && <span className="plate-plaque-line">{plaque.line}</span>}
+            </>
+          )}
+          {item.visibility === 'private' && (
+            <span className="polad-lock plate-lock" aria-label="Private">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="11" width="15" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+            </span>
+          )}
+        </div>
+      ))}
       {sheet && pinned.map((item) => (
         <div
           key={item.id}
@@ -240,12 +324,17 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
   return (
     <div className="polad-sheet-overlay" onClick={onClose}>
       <div className="polad-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="polad-sheet-photo">
-          {item.media_url && <img src={item.media_url} alt={item.title || ''} />}
-          {item.kind === 'drawing' && item.strokes?.length ? (
-            <DoodlePreview strokes={item.strokes} />
-          ) : null}
-        </div>
+        {(item.kind === 'photo' || item.kind === 'video' || item.kind === 'drawing') && (
+          <div className="polad-sheet-photo">
+            {item.media_url && <img src={item.media_url} alt={item.title || ''} />}
+            {item.kind === 'drawing' && item.strokes?.length ? (
+              <DoodlePreview strokes={item.strokes} />
+            ) : null}
+          </div>
+        )}
+        {item.kind === 'plaque' && (
+          <div className="polad-sheet-plaquenote">the plaque prints your name, number and record — visitors see it relative to themselves</div>
+        )}
 
         {isMine ? (
           <input

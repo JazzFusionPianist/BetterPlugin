@@ -2165,3 +2165,116 @@ button { font-family: inherit; }
   pointer-events: none; user-select: none;
   font-variant-numeric: tabular-nums;
 }
+
+/* ═══ Gallery plates — the wall becomes a curated exhibition ═══════════ */
+.plate {
+  position: absolute;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(26, 25, 23, 0.05), 0 4px 12px rgba(26, 25, 23, 0.05);
+  touch-action: none;
+}
+.plate.movable { cursor: grab; }
+
+/* Track — a small player card */
+.plate-track {
+  display: flex; align-items: center; gap: 9px;
+  width: 208px; padding: 10px 12px;
+}
+.plate-track-play {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--hair); background: var(--paper); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.plate-track-play.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.plate-track-title {
+  flex: 1; min-width: 0;
+  font-family: var(--f-serif); font-size: 15px; text-transform: lowercase;
+  color: var(--ink); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.plate-track-line {
+  position: absolute; left: 12px; right: 12px; bottom: 5px; height: 1px;
+  background: var(--line);
+}
+.plate-track-line.on {
+  background: linear-gradient(90deg, var(--blue) 0%, var(--line) 100%);
+  animation: trackline 2.2s linear infinite;
+  background-size: 200% 100%;
+}
+@keyframes trackline { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Caption — bare serif text, no card chrome */
+.plate-caption {
+  background: none; border: none; box-shadow: none;
+  max-width: 240px; padding: 4px 6px;
+}
+.plate-caption-text {
+  font-family: var(--f-serif); font-style: italic; font-size: 16px;
+  color: var(--ink); line-height: 1.45; white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Plaque — the museum label */
+.plate-plaque {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 190px; padding: 12px 14px 11px;
+  border-radius: 2px;
+}
+.plate-plaque-name {
+  font-family: var(--f-serif); font-size: 18px; text-transform: lowercase;
+  color: var(--ink); line-height: 1.1;
+}
+.plate-plaque-meta {
+  font-size: 10.5px; color: var(--t3); font-variant-numeric: tabular-nums;
+}
+.plate-plaque-line {
+  margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line);
+  font-size: 10.5px; color: var(--t2); font-variant-numeric: tabular-nums;
+}
+.plate-lock { position: absolute; top: 5px; right: 5px; }
+.polad-sheet-plaquenote {
+  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  padding: 4px 0 2px;
+}
+
+/* Caption composer — the little writing card */
+.capcomposer-overlay {
+  position: fixed; inset: 0; z-index: 46;
+  background: rgba(26, 25, 23, 0.28);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.capcomposer {
+  width: min(360px, 100%);
+  background: var(--card); border: 1px solid var(--hair); border-radius: 8px;
+  padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.capcomposer-label { font-size: 10.5px; letter-spacing: 0.03em; color: var(--t3); }
+.capcomposer-input {
+  border: none; outline: none; background: none; resize: none;
+  font-family: var(--f-serif); font-style: italic; font-size: 17px; color: var(--ink);
+  line-height: 1.4;
+}
+.capcomposer-row { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+.capcomposer-cancel {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--t3);
+}
+.capcomposer-place {
+  background: var(--ink); color: var(--paper); border: none; border-radius: 3px;
+  font-size: 12px; padding: 6px 16px; cursor: pointer;
+}
+.capcomposer-place:disabled { opacity: 0.35; }
+
+/* Portfolio header extras */
+.fwall-record {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+}
+.fwall-colophon {
+  position: absolute; right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 6;
+  font-size: 10px; color: var(--t3);
+  pointer-events: none; user-select: none;
+}

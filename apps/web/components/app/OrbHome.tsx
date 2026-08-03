@@ -54,6 +54,7 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
       <div className="orbhome-count">
         {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
       </div>
+      {me?.bio && <div className="orbhome-bio">{me.bio}</div>}
     </div>
   )
 }

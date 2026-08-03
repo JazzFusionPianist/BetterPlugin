@@ -11,6 +11,8 @@ export interface Profile {
   is_admin: boolean
   /** Signup-order membership number (#000001 = first user). */
   member_no?: number | null
+  /** Personal description, shown under the profile on the orb home. */
+  bio?: string | null
 }
 
 export type AttachType =

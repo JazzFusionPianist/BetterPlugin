@@ -33,7 +33,7 @@ async function fetchAllProfiles(supabase: SupabaseClient): Promise<RawProfile[]>
   while (true) {
     let { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, username, avatar_color, avatar_url, is_verified, is_admin, member_no')
+      .select('id, display_name, username, avatar_color, avatar_url, is_verified, is_admin, member_no, bio')
       .range(from, from + PAGE_SIZE - 1)
 
     // Fall back to basic columns if newer columns don't exist yet

@@ -22,14 +22,16 @@ export default function SettingsSheet({
   open, supabase, user, me, onAvatarUpdated, onMeUpdated, onFindPeople, onClose,
 }: Props) {
   const [name, setName] = useState(me?.display_name ?? '')
+  const [bio, setBio] = useState(me?.bio ?? '')
   const [saving, setSaving] = useState(false)
+  const [savingBio, setSavingBio] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  const [aboutOpen, setAboutOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setName(me?.display_name ?? '') }, [me?.display_name, open])
-  useEffect(() => { if (open) { setNote(null); setAboutOpen(false) } }, [open])
+  useEffect(() => { setBio(me?.bio ?? '') }, [me?.bio, open])
+  useEffect(() => { if (open) setNote(null) }, [open])
 
   const flash = (m: string) => { setNote(m); setTimeout(() => setNote(null), 2200) }
 
@@ -74,9 +76,25 @@ export default function SettingsSheet({
     }
   }
 
+  const saveBio = async () => {
+    const v = bio.trim()
+    if (v === (me?.bio ?? '') || savingBio) return
+    setSavingBio(true)
+    try {
+      const { error } = await supabase
+        .from('profiles').update({ bio: v || null }).eq('id', user.id)
+      if (error) { flash('Save failed'); return }
+      onMeUpdated({ bio: v || null })
+      flash('Bio updated')
+    } finally {
+      setSavingBio(false)
+    }
+  }
+
   const initials = me?.initials ?? '··'
   const color = me?.avatar_color ?? '#4A8FE7'
   const dirty = name.trim() !== '' && name.trim() !== me?.display_name
+  const bioDirty = bio.trim() !== (me?.bio ?? '')
 
   return (
     <div
@@ -115,6 +133,24 @@ export default function SettingsSheet({
         </div>
         <div className="sset-email">{user.email}</div>
 
+        {/* Personal description — a line of serif under your name on the
+            orb home. Saved on demand, cleared by emptying it. */}
+        <div className="sset-biowrap">
+          <textarea
+            className="sset-bio"
+            value={bio}
+            maxLength={160}
+            rows={2}
+            placeholder="a line about you — shown under your profile"
+            onChange={(e) => setBio(e.target.value)}
+          />
+          {bioDirty && (
+            <button className="sset-save" onClick={saveBio} disabled={savingBio}>
+              {savingBio ? '…' : 'Save'}
+            </button>
+          )}
+        </div>
+
         {note && <div className="sset-note">{note}</div>}
 
         <div className="sset-rows">
@@ -123,23 +159,13 @@ export default function SettingsSheet({
             Find people
             <span className="sset-chev">›</span>
           </button>
-          <button className="sset-row" onClick={() => setAboutOpen(o => !o)}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
-            About
-            <span className="sset-chev">{aboutOpen ? '˅' : '›'}</span>
-          </button>
-          {aboutOpen && (
-            <div className="sset-about">
-              <div className="sset-about-brand"><span className="auth-brand-dot" />Orb</div>
-              <p>Make music together — your crew, your sessions, your sound. In your DAW and in your pocket.</p>
-              <span className="sset-about-ver">Version {APP_VERSION}</span>
-            </div>
-          )}
           <button className="sset-row sset-signout" onClick={() => supabase.auth.signOut()}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
             Sign out
           </button>
         </div>
+
+        <div className="sset-ver">orb {APP_VERSION}</div>
       </div>
     </div>
   )

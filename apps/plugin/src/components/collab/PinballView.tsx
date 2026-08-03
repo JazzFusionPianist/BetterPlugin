@@ -51,7 +51,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   })
   const [standing, setStanding] = useState<WorldStanding | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [confirmKind, setConfirmKind] = useState<null | 'reset' | 'end'>(null)
   const submittedRef = useRef(false)
 
   // Start-screen leaderboard
@@ -137,11 +137,16 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
     gameRef.current!.start()
   }, [])
 
-  const confirmReset = useCallback(() => {
-    setShowResetConfirm(false)
-    submittedRef.current = false
-    gameRef.current!.reset()
-  }, [])
+  const handleConfirm = useCallback(() => {
+    const kind = confirmKind
+    setConfirmKind(null)
+    if (kind === 'reset') {
+      submittedRef.current = false
+      gameRef.current!.reset()
+    } else if (kind === 'end') {
+      gameRef.current!.endNow()   // phase → over; the submit effect records it
+    }
+  }, [confirmKind])
 
   // ── Keyboard ─────────────────────────────────────────────────────────────
   // Flippers/plunger ride arrows + space — keep them away from the DAW
@@ -287,16 +292,21 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       onBack={onClose}
       className="pinball-shell"
       controls={(ui.phase === 'captive' || ui.phase === 'live') ? (
-        <button className="game-btn" onClick={() => setShowResetConfirm(true)}>
-          {t('pb.reset')}
-        </button>
+        <>
+          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>
+            {t('pb.end')}
+          </button>
+          <button className="game-btn" onClick={() => setConfirmKind('reset')}>
+            {t('pb.reset')}
+          </button>
+        </>
       ) : undefined}
       confirm={{
-        open: showResetConfirm,
-        message: t('pb.resetConfirm'),
-        confirmLabel: t('pb.reset'),
-        onConfirm: confirmReset,
-        onCancel: () => setShowResetConfirm(false),
+        open: confirmKind != null,
+        message: confirmKind === 'end' ? t('pb.endConfirm') : t('pb.resetConfirm'),
+        confirmLabel: confirmKind === 'end' ? t('pb.end') : t('pb.reset'),
+        onConfirm: handleConfirm,
+        onCancel: () => setConfirmKind(null),
       }}
       fillBoard
       board={

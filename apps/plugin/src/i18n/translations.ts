@@ -250,6 +250,8 @@ export const T = {
   'pb.hintTouch':   { en: 'tap left / right half · pull the plunger', ko: '왼쪽/오른쪽 탭 · 플런저 당겨서 발사', ja: '左右タップ・プランジャーを引く', zh: '点按左/右 · 拉动弹射器', es: 'toca izquierda/derecha · tira del lanzador', de: 'links/rechts tippen · Abzug ziehen', fr: 'touchez gauche/droite · tirez le lanceur', hi: 'बाएँ/दाएँ टैप करें · प्लंजर खींचें' },
   'pb.rank':        { en: 'Rank',        ko: '순위',      ja: '順位',       zh: '排名',    es: 'Puesto',    de: 'Rang',       fr: 'Rang',      hi: 'रैंक' },
   'pb.reset':       { en: 'Reset',       ko: '리셋',      ja: 'リセット',   zh: '重置',    es: 'Reiniciar', de: 'Neustart',   fr: 'Réinitialiser', hi: 'रीसेट' },
+  'pb.end':         { en: 'End game',    ko: '게임 종료',  ja: 'ゲーム終了', zh: '结束游戏', es: 'Terminar',  de: 'Beenden',    fr: 'Terminer',  hi: 'गेम समाप्त' },
+  'pb.endConfirm':  { en: 'End the game now and record the score?', ko: '지금 게임을 끝내고 점수를 기록할까?', ja: '今すぐ終了してスコアを記録しますか？', zh: '现在结束游戏并记录分数？', es: '¿Terminar ahora y registrar la puntuación?', de: 'Jetzt beenden und den Punktestand speichern?', fr: 'Terminer maintenant et enregistrer le score ?', hi: 'अभी गेम समाप्त करें और स्कोर दर्ज करें?' },
   'pb.resetConfirm': { en: 'Restart the game? The current score is lost.', ko: '게임을 다시 시작할까? 지금 점수는 사라져.', ja: 'ゲームをやり直しますか？現在のスコアは失われます。', zh: '重新开始游戏？当前分数将丢失。', es: '¿Reiniciar la partida? Se pierde la puntuación actual.', de: 'Spiel neu starten? Der aktuelle Punktestand geht verloren.', fr: 'Recommencer ? Le score actuel sera perdu.', hi: 'गेम फिर से शुरू करें? वर्तमान स्कोर खो जाएगा।' },
   'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 

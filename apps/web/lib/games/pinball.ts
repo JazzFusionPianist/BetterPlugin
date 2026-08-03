@@ -102,6 +102,24 @@ export class PinballGame {
 
   // Saucer (kicker hole) — swallows the ball, scores, spits it back out.
   saucer = { x: 204, y: 505, r: 13, heat: 0, holdUntil: -1, cooldownUntil: -1, ejectSide: 1 as 1 | -1, holding: false }
+  private saucerVisits = 0
+
+  // Spinner in the left orbit — every pass spins it and pays out.
+  spinner = { x: 50, y: 380, r: 12, rot: 0, rotV: 0, cooldownUntil: -1, heat: 0 }
+
+  // Hit chain: rapid consecutive part hits multiply part scores (×2 at 6
+  // hits, ×3 at 12, ×4 at 18; 2s between hits keeps the chain alive).
+  chain = 0
+  chainMult = 1
+  private chainAt = -10
+
+  // Bumper frenzy: 15 bumper hits in one ball → bumpers pay triple for 12s.
+  private bumperHits = 0
+  frenzyUntil = -1
+
+  // Jackpot: clear BOTH drop banks during one ball.
+  private bankClearedL = false
+  private bankClearedR = false
 
   // Stuck-ball watchdog
   private anchorX = 386
@@ -145,6 +163,7 @@ export class PinballGame {
   standups: Standup[] = [
     { seg: seg(74, 292, 90, 262, 0.9, { kind: 'standup', standupIdx: 0 }), heat: 0 },
     { seg: seg(98, 252, 116, 226, 0.9, { kind: 'standup', standupIdx: 1 }), heat: 0 },
+    { seg: seg(326, 300, 342, 272, 0.9, { kind: 'standup', standupIdx: 2 }), heat: 0 },
   ]
   outlanes: OutlaneSensor[] = [
     { x: 42, y: 616, r: 14, fired: false },
@@ -192,12 +211,14 @@ export class PinballGame {
     s.push(seg(354, 540, 354, 610, 0.4))
     s.push(seg(280, 668, 354, 610, 0.35))
     // Slingshots — outer face kicks
+    // Sling bottoms sit HIGH (y=616): the inlane floor passes underneath,
+    // and the old y=634 corners narrowed that passage to ~3u — a ball wedge.
     s.push(seg(100, 560, 148, 628, 1.05, { kind: 'sling-l' }))
-    s.push(seg(148, 628, 100, 634, 0.4))
-    s.push(seg(100, 634, 100, 560, 0.4))
+    s.push(seg(148, 628, 100, 616, 0.4))
+    s.push(seg(100, 616, 100, 560, 0.4))
     s.push(seg(272, 628, 320, 560, 1.05, { kind: 'sling-r' }))
-    s.push(seg(320, 560, 320, 634, 0.4))
-    s.push(seg(320, 634, 272, 628, 0.4))
+    s.push(seg(320, 560, 320, 616, 0.4))
+    s.push(seg(320, 616, 272, 628, 0.4))
     // Drop-target bank backing walls (targets themselves are dynamic).
     // Caps are sloped TOWARD the open side so a ball can neither nap on
     // top of a bank nor settle in the pocket behind a dropped target.
@@ -224,6 +245,7 @@ export class PinballGame {
     this.saucer.holding = false
     this.saucer.holdUntil = -1
     this.saucer.cooldownUntil = -1
+    this.saucerVisits = 0
     this.newBall()
   }
 
@@ -278,7 +300,37 @@ export class PinballGame {
     this.saucer.holding = false
     for (const ro of this.rollovers) ro.lit = false
     for (const o of this.outlanes) o.fired = false
+    this.chain = 0
+    this.chainMult = 1
+    this.chainAt = -10
+    this.bumperHits = 0
+    this.frenzyUntil = -1
+    this.bankClearedL = false
+    this.bankClearedR = false
     this.resetWatchdog()
+  }
+
+  /** Finish the run right now: bank the pending bonus and go to game over. */
+  endNow() {
+    if (this.phase !== 'live' && this.phase !== 'captive') return
+    const bonus = this.bonusUnits * 100 * this.bonusMult
+    if (bonus > 0) this.score += bonus
+    this.saucer.holding = false
+    this.phase = 'over'
+  }
+
+  /** Chain bookkeeping: every part hit within 2s of the previous one grows
+   *  the chain; the multiplier steps up every 6 hits (cap ×4). */
+  private chained(base: number): number {
+    if (this.time - this.chainAt < 2.0) this.chain += 1
+    else this.chain = 1
+    this.chainAt = this.time
+    const mult = Math.min(4, 1 + Math.floor(this.chain / 6))
+    if (mult > this.chainMult) {
+      this.popups.push({ x: TABLE_W / 2, y: 330, text: `chain ×${mult}`, age: 0, ttl: 1.3, big: true })
+    }
+    this.chainMult = mult
+    return base * mult
   }
 
   private resetWatchdog() {
@@ -321,6 +373,10 @@ export class PinballGame {
     for (const st of this.standups) st.heat = Math.max(0, st.heat - dt * 3)
     this.slingHeat = [Math.max(0, this.slingHeat[0] - dt * 3), Math.max(0, this.slingHeat[1] - dt * 3)]
     this.saucer.heat = Math.max(0, this.saucer.heat - dt * 1.6)
+    this.spinner.heat = Math.max(0, this.spinner.heat - dt * 2)
+    this.spinner.rot += this.spinner.rotV * dt
+    this.spinner.rotV *= Math.max(0, 1 - dt * 2.2)
+    if (this.time - this.chainAt > 2.0 && this.chain > 0) { this.chain = 0; this.chainMult = 1 }
     this.drainFlash = Math.max(0, this.drainFlash - dt * 1.8)
     this.popups = this.popups.filter(p => (p.age += dt) < p.ttl)
 
@@ -442,7 +498,8 @@ export class PinballGame {
       if (this.collideSeg(st.seg)) {
         if (st.heat < 0.5) {
           this.bonusUnits += 1
-          this.addScore(150, (st.seg.ax + st.seg.bx) / 2 + 14, (st.seg.ay + st.seg.by) / 2, '+150')
+          const stPts = this.chained(150)
+          this.addScore(stPts, (st.seg.ax + st.seg.bx) / 2 + 14, (st.seg.ay + st.seg.by) / 2, `+${stPts}`)
         }
         st.heat = 1
       }
@@ -456,12 +513,21 @@ export class PinballGame {
         t.down = true
         t.heat = 1
         this.bonusUnits += 2
-        this.addScore(300, t.x + t.face * 26, (t.y0 + t.y1) / 2, '+300')
+        const tPts = this.chained(300)
+        this.addScore(tPts, t.x + t.face * 26, (t.y0 + t.y1) / 2, `+${tPts}`)
         const bank = this.targets.filter(tt => tt.face === t.face)
         if (bank.every(tt => tt.down)) {
           this.bonusMult = Math.min(6, this.bonusMult + 1)
           this.addScore(2500, t.face === 1 ? 150 : 270, 380, `bank +2500 · bonus ×${this.bonusMult}`)
           this.targetResetAt = this.time + 0.9
+          if (t.face === 1) this.bankClearedL = true
+          else this.bankClearedR = true
+          if (this.bankClearedL && this.bankClearedR) {
+            this.bankClearedL = false
+            this.bankClearedR = false
+            this.addScore(10_000)
+            this.popups.push({ x: TABLE_W / 2, y: 400, text: 'jackpot +10,000', age: 0, ttl: 1.8, big: true })
+          }
         }
       }
     }
@@ -505,7 +571,8 @@ export class PinballGame {
         b.vx += nx * 90; b.vy += ny * 90
         this.slingHeat[s.kind === 'sling-l' ? 0 : 1] = 1
         this.bonusUnits += 1
-        this.addScore(25, (s.ax + s.bx) / 2, (s.ay + s.by) / 2 - 14, '+25')
+        const slingPts = this.chained(25)
+        this.addScore(slingPts, (s.ax + s.bx) / 2, (s.ay + s.by) / 2 - 14, `+${slingPts}`)
       }
     }
     return true
@@ -525,7 +592,7 @@ export class PinballGame {
         const e = post.bouncy ? 1.75 : 1.5
         b.vx -= e * vn * nx; b.vy -= e * vn * ny
         post.heat = 1
-        if (post.bouncy) this.addScore(10)
+        if (post.bouncy) this.addScore(this.chained(10))
       }
     }
     for (const bp of this.bumpers) {
@@ -540,7 +607,14 @@ export class PinballGame {
       b.vy = ny * BUMPER_KICK
       bp.heat = 1
       this.bonusUnits += 1
-      this.addScore(150, bp.x, bp.y - bp.r - 10, '+150')
+      this.bumperHits += 1
+      if (this.bumperHits === 15) {
+        this.frenzyUntil = this.time + 12
+        this.popups.push({ x: TABLE_W / 2, y: 360, text: 'bumper frenzy', age: 0, ttl: 1.5, big: true })
+      }
+      const base = this.time < this.frenzyUntil ? 450 : 150
+      const pts = this.chained(base)
+      this.addScore(pts, bp.x, bp.y - bp.r - 10, `+${pts}`)
     }
   }
 
@@ -588,7 +662,8 @@ export class PinballGame {
           ro.lit = true
           ro.heat = 1
           this.bonusUnits += 1
-          this.addScore(50, ro.x, ro.y - 20, '+50')
+          const roPts = this.chained(50)
+          this.addScore(roPts, ro.x, ro.y - 20, `+${roPts}`)
           if (this.rollovers.every(r => r.lit)) {
             this.bonusMult = Math.min(6, this.bonusMult + 1)
             this.addScore(3000, 204, 210, `lanes +3000 · bonus ×${this.bonusMult}`)
@@ -608,8 +683,22 @@ export class PinballGame {
         sc.holdUntil = this.time + 0.9
         sc.heat = 1
         this.bonusUnits += 3
+        this.saucerVisits += 1
         this.addScore(2500, sc.x, sc.y - 24, 'saucer +2500')
+        if (this.saucerVisits % 2 === 0 && this.bonusMult < 6) {
+          this.bonusMult += 1
+          this.popups.push({ x: sc.x, y: sc.y - 44, text: `bonus ×${this.bonusMult}`, age: 0, ttl: 1.3, big: true })
+        }
       }
+    }
+    // Spinner — every pass through the left orbit spins it and pays out.
+    const sp = this.spinner
+    if (this.time > sp.cooldownUntil && Math.hypot(b.x - sp.x, b.y - sp.y) < sp.r + BALL_R) {
+      sp.cooldownUntil = this.time + 0.45
+      sp.rotV += 26
+      sp.heat = 1
+      const spPts = this.chained(250)
+      this.addScore(spPts, sp.x + 26, sp.y, `+${spPts}`)
     }
     for (const o of this.outlanes) {
       if (o.fired) continue
@@ -753,8 +842,8 @@ export function drawPinball(
 
   // Slingshots — vermilion plates, glow on kick
   const slingTris: [number, number][][] = [
-    [[100, 560], [148, 628], [100, 634]],
-    [[320, 560], [272, 628], [320, 634]],
+    [[100, 560], [148, 628], [100, 616]],
+    [[320, 560], [272, 628], [320, 616]],
   ]
   slingTris.forEach((pts, i) => {
     const heat = g.slingHeat[i]
@@ -819,13 +908,36 @@ export function drawPinball(
     ctx.fillText(ro.label, ro.x, ro.y + 0.5)
   }
 
+  // Spinner — a bar that whirls in the left orbit when the ball rips past
+  {
+    const sp = g.spinner
+    setGlow(ctx, INK_BLUE, sp.heat)
+    ctx.beginPath()
+    ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2)
+    ctx.strokeStyle = withAlpha(INK_BLUE, 0.45)
+    ctx.lineWidth = 1
+    ctx.setLineDash([2, 3])
+    ctx.stroke()
+    ctx.setLineDash([])
+    const c = Math.cos(sp.rot), s2 = Math.sin(sp.rot)
+    ctx.beginPath()
+    ctx.moveTo(sp.x - c * sp.r, sp.y - s2 * sp.r * 0.35)
+    ctx.lineTo(sp.x + c * sp.r, sp.y + s2 * sp.r * 0.35)
+    ctx.strokeStyle = sp.heat > 0.05 ? INK_BLUE : th.ink
+    ctx.lineWidth = 3
+    ctx.stroke()
+    clearGlow(ctx)
+  }
+
   // Pop bumpers — ink ring, blue heart, glow bloom on hit
+  const frenzyOn = g.time < g.frenzyUntil
   for (const bp of g.bumpers) {
-    setGlow(ctx, INK_BLUE, bp.heat)
-    if (bp.heat > 0) {
+    const heatEff = Math.max(bp.heat, frenzyOn ? 0.45 : 0)
+    setGlow(ctx, INK_BLUE, heatEff)
+    if (heatEff > 0) {
       ctx.beginPath()
-      ctx.arc(bp.x, bp.y, bp.r + 6 * bp.heat, 0, Math.PI * 2)
-      ctx.fillStyle = withAlpha(INK_BLUE, bp.heat * 0.35)
+      ctx.arc(bp.x, bp.y, bp.r + 6 * heatEff, 0, Math.PI * 2)
+      ctx.fillStyle = withAlpha(INK_BLUE, heatEff * 0.35)
       ctx.fill()
     }
     ctx.beginPath()

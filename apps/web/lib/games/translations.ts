@@ -50,6 +50,11 @@ export const T = {
   'notifSettings.gameTurn':     { en: 'Game turn alert',  ko: '게임 차례 알림', ja: 'ゲームのターン通知', zh: '游戏轮次提醒', es: 'Alerta de turno de juego', de: 'Spielzug-Hinweis', fr: 'Alerte de tour de jeu', hi: 'गेम टर्न अलर्ट' },
   'notifSettings.gameTurnDesc': { en: 'When it\'s your turn', ko: '당신 차례일 때', ja: 'あなたの番になったとき', zh: '轮到你时', es: 'Cuando sea tu turno', de: 'Wenn du am Zug bist', fr: 'Lorsque c’est à votre tour', hi: 'जब आपकी बारी हो' },
 
+  // ───── Follow alert cards ("{name}" is replaced with the follower) ──────
+  'notif.followsYou': { en: '{name} follows you', ko: '{name}님이 팔로우했어요', ja: '{name}さんにフォローされました', zh: '{name} 关注了你', es: '{name} te sigue', de: '{name} folgt dir jetzt', fr: '{name} vous suit', hi: '{name} ने आपको फ़ॉलो किया' },
+  'notif.followBack': { en: 'follow back', ko: '맞팔로우', ja: 'フォローバック', zh: '回关', es: 'seguir también', de: 'zurückfolgen', fr: 'suivre en retour', hi: 'फ़ॉलो बैक' },
+  'notif.mutual':     { en: 'you follow each other', ko: '서로 팔로우 중', ja: '相互フォロー中', zh: '互相关注', es: 'os seguís mutuamente', de: 'ihr folgt einander', fr: 'vous vous suivez', hi: 'आप एक-दूसरे को फ़ॉलो करते हैं' },
+
   // ───── Header sub-bar (chat) ────────────────────────────────────────────
   'chat.headerOnLive':  { en: '● LIVE',  ko: '● 라이브',  ja: '● ライブ', zh: '● 直播',  es: '● EN VIVO', de: '● LIVE',  fr: '● EN DIRECT', hi: '● लाइव' },
   'chat.joinLive':      { en: 'Join',    ko: '참여',     ja: '参加',     zh: '加入',    es: 'Unirse',    de: 'Beitreten', fr: 'Rejoindre', hi: 'जुड़ें' },
@@ -245,6 +250,8 @@ export const T = {
   'pb.hintTouch':   { en: 'tap left / right half · pull the plunger', ko: '왼쪽/오른쪽 탭 · 플런저 당겨서 발사', ja: '左右タップ・プランジャーを引く', zh: '点按左/右 · 拉动弹射器', es: 'toca izquierda/derecha · tira del lanzador', de: 'links/rechts tippen · Abzug ziehen', fr: 'touchez gauche/droite · tirez le lanceur', hi: 'बाएँ/दाएँ टैप करें · प्लंजर खींचें' },
   'pb.rank':        { en: 'Rank',        ko: '순위',      ja: '順位',       zh: '排名',    es: 'Puesto',    de: 'Rang',       fr: 'Rang',      hi: 'रैंक' },
   'pb.reset':       { en: 'Reset',       ko: '리셋',      ja: 'リセット',   zh: '重置',    es: 'Reiniciar', de: 'Neustart',   fr: 'Réinitialiser', hi: 'रीसेट' },
+  'pb.end':         { en: 'End game',    ko: '게임 종료',  ja: 'ゲーム終了', zh: '结束游戏', es: 'Terminar',  de: 'Beenden',    fr: 'Terminer',  hi: 'गेम समाप्त' },
+  'pb.endConfirm':  { en: 'End the game now and record the score?', ko: '지금 게임을 끝내고 점수를 기록할까?', ja: '今すぐ終了してスコアを記録しますか？', zh: '现在结束游戏并记录分数？', es: '¿Terminar ahora y registrar la puntuación?', de: 'Jetzt beenden und den Punktestand speichern?', fr: 'Terminer maintenant et enregistrer le score ?', hi: 'अभी गेम समाप्त करें और स्कोर दर्ज करें?' },
   'pb.resetConfirm': { en: 'Restart the game? The current score is lost.', ko: '게임을 다시 시작할까? 지금 점수는 사라져.', ja: 'ゲームをやり直しますか？現在のスコアは失われます。', zh: '重新开始游戏？当前分数将丢失。', es: '¿Reiniciar la partida? Se pierde la puntuación actual.', de: 'Spiel neu starten? Der aktuelle Punktestand geht verloren.', fr: 'Recommencer ? Le score actuel sera perdu.', hi: 'गेम फिर से शुरू करें? वर्तमान स्कोर खो जाएगा।' },
   'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 

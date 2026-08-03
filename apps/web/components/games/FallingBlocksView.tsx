@@ -566,74 +566,104 @@ export default function FallingBlocksView({
     [distributeGarbage]
   )
 
-  // ── Keyboard controls ────────────────────────────────────────────────────
+  // ── Keyboard controls — DAS/ARR like tetr.io ─────────────────────────────
+  // The OS key-repeat is slow and laggy; we run our own auto-shift instead:
+  // instant first step, then after DAS_MS the piece marches at ARR_MS.
+  // Soft drop repeats at a fixed fast rate. Rotations/hold/drop never repeat.
+  const dasRef = useRef<{ dir: -1 | 1 | 0; das: number | null; arr: number | null; soft: number | null }>({
+    dir: 0, das: null, arr: null, soft: null,
+  })
   useEffect(() => {
     if (!localActive) return
+    const DAS_MS = 130
+    const ARR_MS = 35
+    const SOFT_MS = 35
+
+    const clearSide = () => {
+      const d = dasRef.current
+      if (d.das != null) window.clearTimeout(d.das)
+      if (d.arr != null) window.clearInterval(d.arr)
+      d.das = null; d.arr = null; d.dir = 0
+    }
+    const clearSoft = () => {
+      const d = dasRef.current
+      if (d.soft != null) window.clearInterval(d.soft)
+      d.soft = null
+    }
+
+    const move = (dir: -1 | 1) => setGame(prev => tryMove(prev, dir, 0))
+    const softStep = () => setGame(prev => {
+      const m = tryMove(prev, 0, 1)
+      return m !== prev ? { ...m, score: m.score + 1 } : m
+    })
+
+    const startSide = (dir: -1 | 1) => {
+      if (dasRef.current.dir === dir) return
+      clearSide()
+      dasRef.current.dir = dir
+      move(dir)
+      dasRef.current.das = window.setTimeout(() => {
+        dasRef.current.arr = window.setInterval(() => move(dir), ARR_MS)
+      }, DAS_MS)
+    }
+    const startSoft = () => {
+      if (dasRef.current.soft != null) return
+      softStep()
+      dasRef.current.soft = window.setInterval(softStep, SOFT_MS)
+    }
+
+    const isTyping = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+    }
 
     function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null
-      if (target) {
-        const tag = target.tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return
-      }
-
+      if (isTyping(e)) return
       const key = e.key
-      if (
-        key === 'ArrowLeft' ||
-        key === 'ArrowRight' ||
-        key === 'ArrowDown' ||
-        key === 'ArrowUp' ||
-        key === ' ' ||
-        key === 'z' ||
-        key === 'Z' ||
-        key === 'x' ||
-        key === 'X' ||
-        key === 'c' ||
-        key === 'C' ||
-        key === 'Shift'
-      ) {
-        e.preventDefault()
-      }
+      const handled =
+        key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowDown' ||
+        key === 'ArrowUp' || key === ' ' ||
+        key === 'z' || key === 'Z' || key === 'x' || key === 'X' ||
+        key === 'c' || key === 'C' || key === 'Shift'
+      if (handled) e.preventDefault()
+      if (e.repeat) return   // our own DAS handles repetition
 
-      setGame(prev => {
-        if (prev.topOut || !prev.current) return prev
-        switch (key) {
-          case 'ArrowLeft':
-            return tryMove(prev, -1, 0)
-          case 'ArrowRight':
-            return tryMove(prev, 1, 0)
-          case 'ArrowDown': {
-            const moved = tryMove(prev, 0, 1)
-            // Soft drop: +1 score per cell when moved
-            if (moved !== prev) {
-              return { ...moved, score: moved.score + 1 }
-            }
-            return moved
-          }
-          case 'ArrowUp':
-          case 'x':
-          case 'X':
-            return tryRotate(prev, 1)
-          case 'z':
-          case 'Z':
-            return tryRotate(prev, -1)
-          case 'Shift':
-          case 'c':
-          case 'C':
-            return holdSwap(prev)
-          case ' ': {
+      switch (key) {
+        case 'ArrowLeft': startSide(-1); return
+        case 'ArrowRight': startSide(1); return
+        case 'ArrowDown': startSoft(); return
+        case 'ArrowUp': case 'x': case 'X':
+          setGame(prev => tryRotate(prev, 1)); return
+        case 'z': case 'Z':
+          setGame(prev => tryRotate(prev, -1)); return
+        case 'Shift': case 'c': case 'C':
+          setGame(prev => holdSwap(prev)); return
+        case ' ':
+          setGame(prev => {
+            if (prev.topOut || !prev.current) return prev
             const result = hardDrop(prev)
             if (result.garbageToSend > 0) distributeGarbage(result.garbageToSend)
             return spawnPiece(result.state)
-          }
-          default:
-            return prev
-        }
-      })
+          })
+          return
+      }
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      switch (e.key) {
+        case 'ArrowLeft': if (dasRef.current.dir === -1) clearSide(); break
+        case 'ArrowRight': if (dasRef.current.dir === 1) clearSide(); break
+        case 'ArrowDown': clearSoft(); break
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      clearSide()
+      clearSoft()
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   }, [localActive, distributeGarbage])
 
   // ── Touch controls: drag sideways to move, drag down to soft drop,
@@ -955,9 +985,17 @@ export default function FallingBlocksView({
       onBack={handleBack}
       className={`falling-blocks-shell${solo ? ' fb-solo-shell' : ''}`}
       controls={solo && !game.topOut ? (
-        <button className="game-btn" onClick={startSolo}>
-          {t('pb.reset')}
-        </button>
+        <>
+          <button
+            className="game-btn game-btn-danger"
+            onClick={() => setGame(prev => ({ ...prev, topOut: true }))}
+          >
+            {t('pb.end')}
+          </button>
+          <button className="game-btn" onClick={startSolo}>
+            {t('pb.reset')}
+          </button>
+        </>
       ) : isPlaying && !myTopOutServer ? (
         <button
           className="game-btn game-btn-danger"

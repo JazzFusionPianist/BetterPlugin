@@ -9496,3 +9496,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   pointer-events: none; align-self: center;
   font-family: var(--f-sans); font-size: 9.5px; color: var(--t3);
 }
+
+/* Game boards are fast-twitch: the room-dim wash gave each piece move a
+   long colour cross-fade. Cells snap instantly; the wall still eases. */
+.plugin .falling-blocks-cell,
+.plugin .falling-blocks-board,
+.plugin .fb-combo-flash { transition: none; }

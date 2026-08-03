@@ -3290,3 +3290,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
     margin: 0 auto; width: 100%;
   }
 }
+
+/* Game boards are fast-twitch: the room-dim wash (1.4s colour easing on
+   every div) gave each piece move a long cross-fade — "블록이 fading 되면서
+   움직여". Cells snap instantly; the wall still eases. */
+.games-panel .falling-blocks-cell,
+.games-panel .falling-blocks-board,
+.games-panel .fb-combo-flash { transition: none; }

@@ -2911,28 +2911,90 @@
 }
 
 /* ═══ Chess fills the phone — the dock takes the floor it deserves ═══
-   The board block keeps its size; every spare pixel below it goes to
-   the score sheet + chat instead of hanging as empty paper.
+   The board block keeps its size; below it the score sheet LIES DOWN
+   into a single scrolling line and the chat takes every remaining
+   pixel, input pinned to the floor.
    (Phone only — ≥821px keeps its two-column grid with the side dock.) */
 @media (max-width: 820px) {
   .games-panel .game-view.chess-shell { display: flex; flex-direction: column; }
   .games-panel .game-view.chess-shell .game-area { flex: 0 0 auto; }
   .games-panel .game-view.chess-shell .chess-dock {
     flex: 1 1 0;
-    min-height: 132px;
-    grid-template-rows: auto 1fr;
-    align-content: stretch;
+    min-height: 148px;
+    display: flex; flex-direction: column;
     overflow: hidden;
   }
+  /* the score sheet as a one-line score strip */
   .games-panel .game-view.chess-shell .chess-dock .chess-moves {
-    max-height: none; min-height: 0; height: auto;
+    display: flex; align-items: center; gap: 12px;
+    overflow-x: auto; overflow-y: hidden;
+    height: 36px; min-height: 36px; max-height: 36px; flex: 0 0 auto;
+    border-right: none; border-bottom: 1px solid var(--line);
+    padding: 0 2px; white-space: nowrap;
   }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-row { display: contents; }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-num { font-size: 11px; }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-cell { font-size: 12.5px; }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-cell:empty { display: none; }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-empty { padding: 0; }
   .games-panel .game-view.chess-shell .chess-dock .game-chat {
-    display: flex; flex-direction: column; min-height: 0;
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
   }
   .games-panel .game-view.chess-shell .chess-dock .game-chat-scroll {
     flex: 1 1 auto; max-height: none; min-height: 0;
   }
+}
+
+/* Desktop side dock: the chat earns the taller share (35 / 65) */
+@media (min-width: 821px) {
+  .games-panel .game-view .chess-dock .chess-moves { flex: 0 1 35%; }
+  .games-panel .game-view .chess-dock .game-chat { flex: 1 1 65%; }
+}
+
+/* ═══ Game walls — each game washes the page its own colour ═══ */
+div.games-panel {
+  --gwall: var(--paper);
+  background: var(--gwall);
+  transition: background 0.9s ease;
+}
+.games-panel.wall-chess          { --gwall: color-mix(in srgb, #2440FF 6%, var(--paper)); }
+.games-panel.wall-falling_blocks { --gwall: color-mix(in srgb, #7A5CFF 7%, var(--paper)); }
+.games-panel.wall-poker          { --gwall: color-mix(in srgb, #1E9E63 7%, var(--paper)); }
+.games-panel.wall-ear_training   { --gwall: color-mix(in srgb, #FFB22C 9%, var(--paper)); }
+.games-panel .game-view .game-action-row,
+.games-panel .game-view .chess-dock {
+  background: var(--gwall);
+  transition: background 0.9s ease;
+}
+
+/* ═══ Head-to-head crosstable — lichess-style score strip under the board ═══ */
+.games-panel .chess-h2h {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0; padding: 4px 0 0;
+}
+.games-panel .chess-h2h-name {
+  font-family: var(--f-serif); font-style: italic; text-transform: lowercase;
+  font-size: 13px; color: var(--t2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+.games-panel .chess-h2h-bar {
+  flex: 1 1 auto; min-width: 80px;
+  display: flex; height: 18px;
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+.games-panel .chess-h2h-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 16px;
+}
+.games-panel .chess-h2h-w { background: var(--blue); color: #FFFFFF; }
+.games-panel .chess-h2h-d { background: transparent; color: var(--t2); }
+.games-panel .chess-h2h-l { background: var(--ink); color: var(--paper); }
+.games-panel .chess-h2h-score {
+  font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums;
+  white-space: nowrap; flex: 0 0 auto;
 }
 
 /* Player rows carry more ink: serif names a size up, captured pieces

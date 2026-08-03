@@ -317,13 +317,35 @@ function ChessBoard({
   )
 }
 
+
+// ─── Head-to-head crosstable — a lichess-style score strip ────────────────────
+
+function H2HBar ({ name, w, d, l }: { name: string; w: number; d: number; l: number }) {
+  const total = w + d + l
+  if (total === 0) return null
+  const half = (n: number) => (n % 1 !== 0 ? `${Math.floor(n)}\u00bd` : `${n}`)
+  const my = w + d * 0.5
+  const their = l + d * 0.5
+  return (
+    <div className="chess-h2h" aria-label={`versus ${name}: ${w} wins, ${d} draws, ${l} losses`}>
+      <span className="chess-h2h-name">vs {name}</span>
+      <span className="chess-h2h-bar">
+        {w > 0 && <span className="chess-h2h-seg chess-h2h-w" style={{ flexGrow: w }}>{w}</span>}
+        {d > 0 && <span className="chess-h2h-seg chess-h2h-d" style={{ flexGrow: d }}>{d}</span>}
+        {l > 0 && <span className="chess-h2h-seg chess-h2h-l" style={{ flexGrow: l }}>{l}</span>}
+      </span>
+      <span className="chess-h2h-score">{half(my)}{'\u2013'}{half(their)}</span>
+    </div>
+  )
+}
+
 // ─── Move sheet — lichess-style score column in the dock ──────────────────────
 
 function MoveSheet({ moves }: { moves: string[] }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (el) { el.scrollTop = el.scrollHeight; el.scrollLeft = el.scrollWidth }
   }, [moves.length])
   const last = moves.length - 1
   const rows: [number, string, string | null][] = []
@@ -1010,12 +1032,10 @@ export default function ChessView({
       chat={!computerStartPending ? (
         <div className="chess-dock">
           {record && (
-            <div className="chess-dock-h2h">
-              {t('chess.record', {
-                name: opponentProfile?.display_name ?? t('common.opponent'),
-                w: record.w, d: record.d, l: record.l,
-              })}
-            </div>
+            <H2HBar
+              name={opponentProfile?.display_name ?? t('common.opponent')}
+              w={record.w} d={record.d} l={record.l}
+            />
           )}
           <MoveSheet moves={isPlaying || isFinished ? (room?.move_history ?? []) : []} />
           <GameChat

@@ -615,6 +615,9 @@ function CollabPageInner({ user }: Props) {
     fxOpen            ? 'fx-open'            : '',
     fxClosing         ? 'fx-closing'         : '',
     gameOpen          ? 'game-open'          : '',
+    // Each game paints the room its own colour, fx-room style — the wash
+    // rides the .plugin background transition already in place.
+    gameOpen && gameScreen !== 'list' ? `gwall-${gameScreen}` : '',
     calendarOpen      ? 'calendar-open'      : '',
   ].filter(Boolean).join(' ')
 

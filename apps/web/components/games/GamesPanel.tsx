@@ -31,7 +31,8 @@ interface Props {
 export default function GamesPanel({ supabase, me, friends, screen, onScreenChange, onClose }: Props) {
   const onlineIds = new Set(friends.filter((f) => f.isOnline).map((f) => f.id))
   return (
-    <div className="games-panel">
+    // Each game washes the whole page its own colour (wall-*), fx-room style.
+    <div className={`games-panel${screen !== 'list' ? ` wall-${screen}` : ''}`}>
       <LanguageProvider>
         {screen === 'list' && (
           <button className="games-close" onClick={onClose} aria-label="Close games">

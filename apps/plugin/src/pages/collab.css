@@ -9157,3 +9157,57 @@
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Expired attachments keep their name — only the file is gone */
+.att-expired { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.att-expired-name { color: var(--t1); overflow-wrap: anywhere; }
+.att-expired-text { color: var(--t3); font-style: italic; }
+
+/* ── Game walls: each game paints the room its own colour ─────────────
+   Rides the .plugin background transition the fx room installed; the
+   gview goes transparent so the wash shows through. The washes are
+   mixed over var(--bg), so dark mode tints its own paper. */
+.plugin.gwall-chess          { background: color-mix(in srgb, #2440FF 7%, var(--bg)); }
+.plugin.gwall-falling_blocks { background: color-mix(in srgb, #7A5CFF 8%, var(--bg)); }
+.plugin.gwall-poker          { background: color-mix(in srgb, #1E9E63 8%, var(--bg)); }
+.plugin.gwall-ear_training   { background: color-mix(in srgb, #FFB22C 10%, var(--bg)); }
+.plugin[class*="gwall-"] .gview { background: transparent; }
+
+/* ── Head-to-head crosstable — lichess-style score strip ──────────────
+   wins in klein blue, draws on paper, losses in ink; the running score
+   (½ counted) sits at the end. */
+.chess-h2h {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0 2px;
+  min-width: 0;
+}
+.chess-h2h-name {
+  font-family: var(--f-serif); font-style: italic; text-transform: lowercase;
+  font-size: 11px; color: var(--t2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+.chess-h2h-bar {
+  flex: 1 1 auto; min-width: 60px;
+  display: flex; height: 15px;
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+.chess-h2h-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 14px;
+}
+.chess-h2h-w { background: var(--blue); color: #FFFFFF; }
+.chess-h2h-d { background: transparent; color: var(--t2); }
+.chess-h2h-l { background: var(--ink); color: var(--paper); }
+.chess-h2h-score {
+  font-size: 10px; color: var(--t1); font-variant-numeric: tabular-nums;
+  white-space: nowrap; flex: 0 0 auto;
+}
+
+/* ── Small window: the board owns the room — score sheet and chat step
+      aside entirely (they return on the large split screen) ──────────── */
+.plugin:not(.screen-wide) .chess-dock { display: none; }
+.plugin.screen-wide .chess-moves { max-height: 90px; }

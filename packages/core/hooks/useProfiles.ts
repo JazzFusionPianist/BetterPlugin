@@ -22,6 +22,7 @@ interface RawProfile {
   is_verified?: boolean | null
   is_admin?: boolean | null
   member_no?: number | null
+  bio?: string | null
 }
 
 const PAGE_SIZE = 1000
@@ -76,6 +77,7 @@ export function useProfiles(supabase: SupabaseClient, currentUserId: string) {
       is_verified: p.is_verified ?? false,
       is_admin: p.is_admin ?? false,
       member_no: p.member_no ?? null,
+      bio: p.bio ?? null,
     }))
 
     setProfiles(all.filter(p => p.id !== currentUserId))

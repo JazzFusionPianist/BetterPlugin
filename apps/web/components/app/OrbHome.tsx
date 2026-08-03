@@ -41,16 +41,17 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
   const color = me?.avatar_color ?? '#4A8FE7'
   return (
     <div className="orbhome-center">
-      <div className="orbhome-me" style={{ background: color }} onClick={onOpenSettings} role="button" aria-label="Profile & settings">
-        {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
-      </div>
-      <div className="orbhome-name">{me?.display_name ?? '…'}</div>
-      {me?.username && <div className="orbhome-user">@{me.username}</div>}
+      {/* Edition stamp — the membership number sits above the print */}
       {me?.member_no != null && (
         <div className="orbhome-member" title={`member #${me.member_no}`}>
           #{String(me.member_no).padStart(6, '0')}
         </div>
       )}
+      <div className="orbhome-me" style={{ background: color }} onClick={onOpenSettings} role="button" aria-label="Profile & settings">
+        {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : <span>{initials}</span>}
+      </div>
+      <div className="orbhome-name">{me?.display_name ?? '…'}</div>
+      {me?.username && <div className="orbhome-user">@{me.username}</div>}
       <div className="orbhome-count">
         {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
       </div>

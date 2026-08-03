@@ -1,4 +1,9 @@
-const { app, BrowserWindow, shell } = require('electron')
+const { app, BrowserWindow, shell, nativeTheme } = require('electron')
+
+// The catalogue is printed on paper — macOS dark mode must not let
+// Chromium auto-darken it into navy.
+nativeTheme.themeSource = 'light'
+app.commandLine.appendSwitch('disable-features', 'WebContentsForceDark')
 
 // The desktop shell wraps the deployed web app, so every push to main
 // updates this app too — no re-download needed.

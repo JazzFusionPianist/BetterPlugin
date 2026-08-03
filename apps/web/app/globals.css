@@ -37,7 +37,9 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html {
-  color-scheme: light;
+  /* 'only light' opts out of Chromium's Auto Dark (the Electron shell
+     was auto-darkening the catalogue into navy under macOS dark mode). */
+  color-scheme: only light;
   /* iOS flashes a grey wash over any tapped element — on full-screen
      surfaces (the drawing board) that reads as the whole page dimming
      on every touch. We provide our own active states. */
@@ -1402,18 +1404,19 @@ button { font-family: inherit; }
 }
 .games-close:active { transform: scale(0.94); }
 
-/* Game invite in a chat thread — an admission ticket with a tear-off
-   stub. The two punch-notches at the perforation are cut with a CSS
-   mask so they read as real holes on any bubble colour. */
+/* Game invite — an admission ticket, printed like the rest of the
+   catalogue: ink on paper, one dashed perforation, two punch-notches
+   (cut with a CSS mask so the page shows through), a toned stub.
+   No bubble chrome — the ticket itself is the artefact. */
 .msg-game-invite {
-  --stubw: 72px;
+  --stubw: 78px;
   display: flex; align-items: stretch;
-  min-width: 224px; max-width: 268px;
-  border: 1px solid var(--line); border-radius: 6px;
-  background: var(--paper); color: var(--ink);
+  min-width: 236px; max-width: 276px;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--card); color: var(--ink);
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(26, 25, 23, 0.08);
-  transform: rotate(0.8deg);
+  box-shadow: 0 1px 2px rgba(26, 25, 23, 0.05), 0 5px 16px rgba(26, 25, 23, 0.06);
+  transform: rotate(0.5deg);
   -webkit-mask-image:
     radial-gradient(circle 5px at calc(100% - var(--stubw)) 0, transparent 4.5px, #000 5px),
     radial-gradient(circle 5px at calc(100% - var(--stubw)) 100%, transparent 4.5px, #000 5px);
@@ -1423,44 +1426,60 @@ button { font-family: inherit; }
     radial-gradient(circle 5px at calc(100% - var(--stubw)) 100%, transparent 4.5px, #000 5px);
   mask-composite: intersect;
 }
-/* Mine hangs off the left edge of the bubble, like a ticket in a
-   pocket — and never touches the screen's right side. */
-.chatt-row.mine .msg-game-invite {
-  transform: rotate(-1.3deg);
-  margin-left: -26px; margin-right: 10px;
+.chatt-row.mine .msg-game-invite { transform: rotate(-0.5deg); }
+/* The ticket rides in a stripped bubble — keep it off the hard edges. */
+.chatt-bubble.ticket-carrier {
+  background: none; border: none; padding: 0; max-width: none; width: auto;
+  box-shadow: none;
+}
+.chatt-row.mine .chatt-bubble.ticket-carrier {
+  margin-right: 14px;
+  background: none; border: none; box-shadow: none;
+}
+.chatt-row:not(.mine) .chatt-bubble.ticket-carrier { margin-left: 14px; }
+.chatt-bubble.ticket-carrier .chatt-time {
+  color: var(--t3); opacity: 1; padding: 4px 4px 0;
 }
 .mgi-main {
   flex: 1; min-width: 0;
-  padding: 10px 12px 11px;
+  padding: 11px 14px 12px;
   border-right: 1px dashed var(--line);
 }
 .mgi-eyebrow {
-  font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.13em;
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.16em;
   text-transform: lowercase; color: var(--t3);
 }
 .mgi-title {
-  font-family: var(--f-serif); font-weight: 400; font-size: 22px;
+  font-family: var(--f-serif); font-weight: 400; font-size: 23px;
   text-transform: lowercase; color: var(--ink);
-  margin: 1px 0 0;
+  margin: 2px 0 0; line-height: 1.15;
 }
 .mgi-admit {
   font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.1em;
   text-transform: lowercase; color: var(--t3);
-  margin-top: 9px;
+  margin-top: 10px;
+  display: flex; align-items: baseline; gap: 5px;
+}
+.mgi-admit::before {
+  content: ''; flex: 0 0 14px; height: 1px; background: var(--line);
+  align-self: center;
 }
 .mgi-stub {
   flex: 0 0 var(--stubw);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  background: var(--blue); color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  background: #F5F2E9; color: var(--ink);
   border: none; cursor: pointer; padding: 0;
-  transition: background .15s;
+  transition: background .15s, color .15s;
 }
-.mgi-stub:hover { background: #1B31D9; }
-.mgi-stub:disabled { opacity: 0.55; cursor: default; }
-.mgi-mark { font-size: 19px; line-height: 1; }
+.mgi-stub:hover:not(:disabled) { background: #EFEBDE; color: var(--blue); }
+.mgi-stub:disabled { cursor: default; }
+.mgi-stub:disabled .mgi-stub-label { color: var(--t3); }
+.mgi-mark { font-size: 18px; line-height: 1; }
 .mgi-stub-label {
-  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em;
-  text-transform: lowercase; font-weight: 500;
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: lowercase; color: var(--blue);
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgba(36, 64, 255, 0.4);
 }
 .mgi-note {
   font-family: var(--f-serif); font-style: italic; font-size: 11.5px; color: var(--t3);

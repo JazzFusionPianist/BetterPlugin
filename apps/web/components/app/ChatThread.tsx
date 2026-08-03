@@ -533,6 +533,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           const grouped = prev && prev.sender_id === m.sender_id &&
             new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 4 * 60 * 1000
           const hasAttach = !!m.attachment_url || m.attachment_expired
+          const isTicket = m.attachment_type === 'game_invite'
           const sender = isGroup && !mine && !grouped ? profileById.get(m.sender_id) : null
           return (
             <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
@@ -542,7 +543,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                     {sender.display_name}
                   </span>
                 )}
-                <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
+                <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}${isTicket ? ' ticket-carrier' : ''}`}>
                   {hasAttach && <Attachment m={m} mine={mine} onJoinGame={onJoinGame} />}
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>

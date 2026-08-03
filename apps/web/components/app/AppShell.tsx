@@ -572,6 +572,7 @@ export default function AppShell({ user }: { user: User }) {
           profileById={profileById}
           onSeen={markSeen}
           onJoinGame={joinGameFromChat}
+          friends={friends}
           onClose={() => setThread(null)}
         />
       )}

@@ -49,7 +49,7 @@ interface Row {
   target: ThreadTarget
   avatar:
     | { kind: 'profile'; p: Profile & { isOnline?: boolean } }
-    | { kind: 'group' }
+    | { kind: 'group'; url?: string | null }
 }
 
 /** Slide-up sheet listing every conversation — DMs and groups together,
@@ -81,8 +81,8 @@ export default function ConversationsList({
         title: g.title || 'Group',
         previewText: preview(g.lastMessage),
         when: g.lastMessage ? fmtWhen(g.lastMessage.created_at) : null,
-        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length },
-        avatar: { kind: 'group' },
+        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
+        avatar: { kind: 'group', url: g.avatarUrl ?? null },
       })
     }
     return out.sort((a, b) => b.at - a.at)
@@ -114,7 +114,9 @@ export default function ConversationsList({
                 </div>
               ) : (
                 <div className="convs-av convs-av-group">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>
+                  {r.avatar.url
+                    ? <img src={r.avatar.url} alt="" />
+                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>}
                 </div>
               )}
               <div className="convs-info">

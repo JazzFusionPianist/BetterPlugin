@@ -4,11 +4,12 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useMessages, type Profile, type Message } from '@orb/core'
 import { uploadAttachment, attachTypeFor, type UploadedAttachment } from '@/lib/upload'
+import ChatSettingsSheet from './ChatSettingsSheet'
 
 /** What a thread points at — a DM partner or a group conversation. */
 export type ThreadTarget =
   | { kind: 'dm'; friend: Profile & { isOnline?: boolean } }
-  | { kind: 'group'; conversationId: string; title: string; memberCount: number }
+  | { kind: 'group'; conversationId: string; title: string; memberCount: number; avatarUrl?: string | null }
 
 interface Props {
   supabase: SupabaseClient
@@ -20,6 +21,8 @@ interface Props {
   onSeen?: (conversationId: string) => void
   /** Join a game room from an invite bubble (opens the games page). */
   onJoinGame?: GameInviteBubbleJoin
+  /** Invite pool for the settings sheet (group member adding). */
+  friends?: Profile[]
   onClose: () => void
 }
 
@@ -163,19 +166,27 @@ function NowPlayingBar() {
 const GAME_NAMES: Record<string, string> = {
   chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training',
 }
-function GameInviteBubble({ roomId, gameType, onJoin }: {
+const GAME_MARKS: Record<string, string> = {
+  chess: '♞', falling_blocks: '▚', poker: '♠', ear_training: '♪',
+}
+function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
   roomId: string
   gameType: string
+  mine: boolean
   onJoin?: (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
 }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   return (
     <div className="msg-game-invite">
-      <span className="msg-game-name">🎮 {GAME_NAMES[gameType] ?? gameType}</span>
+      <div className="mgi-top">
+        <span className="mgi-eyebrow">{mine ? 'invitation sent' : 'game invitation'}</span>
+        <span className="mgi-mark" aria-hidden="true">{GAME_MARKS[gameType] ?? '♞'}</span>
+      </div>
+      <div className="mgi-title">{GAME_NAMES[gameType] ?? gameType}</div>
       {onJoin && (
         <button
-          className="msg-game-join"
+          className="mgi-join"
           disabled={busy}
           onClick={async () => {
             setBusy(true)
@@ -185,18 +196,29 @@ function GameInviteBubble({ roomId, gameType, onJoin }: {
             else if (r === 'missing') setNote('this game has ended')
           }}
         >
-          join
+          {busy ? 'joining…' : mine ? 'enter room' : 'join game'}
         </button>
       )}
-      {note && <span className="msg-game-note">{note}</span>}
+      {note && <div className="mgi-note">{note}</div>}
     </div>
   )
 }
 
 /** Render whatever a message carries as an attachment. */
-function Attachment({ m, onJoinGame }: { m: Message; onJoinGame?: GameInviteBubbleJoin }) {
+function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoinGame?: GameInviteBubbleJoin }) {
   if (m.attachment_expired) {
-    return <div className="msg-tomb">🎵 This attachment has expired</div>
+    const icon =
+      m.attachment_type === 'image' ? '🖼️'
+      : m.attachment_type === 'video' ? '🎬'
+      : m.attachment_type === 'audio' || m.attachment_type === 'multi-audio' ? '🎵'
+      : '📎'
+    return (
+      <div className="msg-tomb">
+        <span aria-hidden="true">{icon}</span>
+        <span className="msg-tomb-name">{m.attachment_name ?? 'attachment'}</span>
+        <span className="msg-tomb-note">expired</span>
+      </div>
+    )
   }
   const url = m.attachment_url
   const name = m.attachment_name ?? 'Audio'
@@ -218,14 +240,14 @@ function Attachment({ m, onJoinGame }: { m: Message; onJoinGame?: GameInviteBubb
     case 'video':
       return <video className="msg-video" src={url} controls playsInline preload="metadata" />
     case 'game_invite':
-      return <GameInviteBubble roomId={url} gameType={name} onJoin={onJoinGame} />
+      return <GameInviteBubble roomId={url} gameType={name} mine={mine} onJoin={onJoinGame} />
     default:
       return <a className="msg-file" href={url} target="_blank" rel="noreferrer">📎 {name}</a>
   }
 }
 
 /** Full-screen thread — 1:1 or group — over the orb home on mobile. */
-export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, onClose }: Props) {
+export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, friends, onClose }: Props) {
   const { messages, loading, send, conversationId } = useMessages(
     supabase,
     currentUserId,
@@ -235,6 +257,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   )
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [uploads, setUploads] = useState<PendingUpload[]>([])
   const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [kbInset, setKbInset] = useState(0)
@@ -490,6 +513,14 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
               : target.friend.isOnline ? 'Online now' : 'Offline'}
           </div>
         </div>
+        <button
+          className="chatt-settings"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Chat settings"
+          title="Chat settings"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+        </button>
       </header>
 
       <div className="chatt-scroll" ref={scrollRef}>
@@ -512,7 +543,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   </span>
                 )}
                 <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}`}>
-                  {hasAttach && <Attachment m={m} onJoinGame={onJoinGame} />}
+                  {hasAttach && <Attachment m={m} mine={mine} onJoinGame={onJoinGame} />}
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>
                 </div>
@@ -581,6 +612,20 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           </div>
         )}
       </div>
+      {settingsOpen && conversationId && (
+        <ChatSettingsSheet
+          supabase={supabase}
+          currentUserId={currentUserId}
+          conversationId={conversationId}
+          chatKind={isGroup ? 'group' : 'dm'}
+          title={title}
+          avatarUrl={isGroup ? target.avatarUrl : null}
+          friends={friends ?? []}
+          profileById={profileById}
+          onClose={() => setSettingsOpen(false)}
+          onLeft={() => { setSettingsOpen(false); onClose() }}
+        />
+      )}
     </div>
     </NowPlayingCtx.Provider>
   )

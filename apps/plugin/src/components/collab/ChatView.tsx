@@ -598,12 +598,13 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
   )
 }
 
-function ExpiredAttachment({ type }: { type: AttachType }) {
+function ExpiredAttachment({ type, name }: { type: AttachType; name?: string | null }) {
   const { t } = useT()
-  const icon = type === 'image' ? '🖼️' : type === 'video' ? '🎬' : '🎵'
+  const icon = type === 'image' ? '🖼️' : type === 'video' ? '🎬' : type === 'audio' || type === 'multi-audio' ? '🎵' : '📎'
   return (
     <div className="att-expired">
       <span className="att-expired-icon">{icon}</span>
+      {name && <span className="att-expired-name">{name}</span>}
       <span className="att-expired-text">{t('chat.fileExpired')}</span>
     </div>
   )
@@ -1518,7 +1519,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                 )}
                 {g.msg.attachment_type && g.msg.attachment_type !== 'game_invite' && (
                   g.msg.attachment_expired
-                    ? <ExpiredAttachment type={g.msg.attachment_type} />
+                    ? <ExpiredAttachment type={g.msg.attachment_type} name={g.msg.attachment_name} />
                     : g.msg.attachment_url
                       ? <AttachmentView
                           url={g.msg.attachment_url}

@@ -48,7 +48,7 @@ interface Row {
   target: ThreadTarget
   avatar:
     | { kind: 'profile'; p: Profile & { isOnline?: boolean } }
-    | { kind: 'group' }
+    | { kind: 'group'; url?: string | null }
 }
 
 /** Desktop conversations rail — the same catalogue index as the mobile
@@ -80,8 +80,8 @@ export default function Sidebar({
         title: g.title || 'Group',
         previewText: preview(g.lastMessage, g.lastMessage?.sender_id === currentUserId),
         when: g.lastMessage ? fmtWhen(g.lastMessage.created_at) : null,
-        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length },
-        avatar: { kind: 'group' },
+        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
+        avatar: { kind: 'group', url: g.avatarUrl ?? null },
       })
     }
     return out.sort((a, b) => b.at - a.at)
@@ -102,7 +102,9 @@ export default function Sidebar({
           <button key={r.key} className="rail-row" onClick={() => onOpen(r.target)}>
             {r.avatar.kind === 'group' ? (
               <div className="rail-av rail-av-group">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>
+                {r.avatar.url
+                  ? <img src={r.avatar.url} alt="" />
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.4" /><path d="M3.5 19c0-3 2.6-4.6 5.5-4.6s5.5 1.6 5.5 4.6M15 18.6c0-1.8.9-3 2.6-3.2" /></svg>}
               </div>
             ) : (
               <div className="rail-av" style={{ background: r.avatar.p.avatar_color }}>

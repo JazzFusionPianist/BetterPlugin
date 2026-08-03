@@ -1402,24 +1402,38 @@ button { font-family: inherit; }
 }
 .games-close:active { transform: scale(0.94); }
 
-/* Game invite bubble in a chat thread. */
+/* Game invite in a chat thread — a small admission ticket. */
 .msg-game-invite {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 2px 0;
+  display: block; min-width: 196px; max-width: 240px;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--paper);
+  padding: 10px 12px 12px;
 }
-.msg-game-name {
-  font-family: var(--f-mono); font-size: 12.5px; text-transform: lowercase;
+.mgi-top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
-.msg-game-join {
+.mgi-eyebrow {
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: lowercase; color: var(--t3);
+}
+.mgi-mark { font-size: 16px; line-height: 1; color: var(--ink); }
+.mgi-title {
+  font-family: var(--f-serif); font-weight: 400; font-size: 21px;
+  text-transform: lowercase; color: var(--ink);
+  margin: 1px 0 10px;
+}
+.mgi-join {
+  display: block; width: 100%;
   background: var(--blue); color: #fff; border: none; cursor: pointer;
   font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: lowercase;
-  padding: 5px 14px; border-radius: 3px;
+  padding: 8px 0; border-radius: 3px;
   transition: background .15s;
 }
-.msg-game-join:hover { background: #1B31D9; }
-.msg-game-join:disabled { opacity: 0.5; cursor: default; }
-.msg-game-note {
+.mgi-join:hover { background: #1B31D9; }
+.mgi-join:disabled { opacity: 0.5; cursor: default; }
+.mgi-note {
   font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t3);
+  margin-top: 7px;
 }
 
 /* ── Friend's wall (look-only canvas) ────────────────────────────────── */
@@ -1561,7 +1575,19 @@ button { font-family: inherit; }
 .msg-img { max-width: 240px; border-radius: 4px; display: block; cursor: pointer; }
 .msg-video { max-width: 240px; border-radius: 4px; display: block; }
 .msg-file { display: inline-block; padding: 8px 12px; font-family: var(--f-mono); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: inherit; }
-.msg-tomb { padding: 8px 12px; font-family: var(--f-serif); font-style: italic; font-size: 14px; opacity: 0.6; }
+.msg-tomb {
+  padding: 8px 12px;
+  display: flex; align-items: baseline; gap: 7px;
+  font-size: 13px; opacity: 0.75;
+}
+.msg-tomb-name {
+  font-family: var(--f-sans); color: var(--t2);
+  overflow-wrap: anywhere;
+}
+.msg-tomb-note {
+  font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t3);
+  flex-shrink: 0;
+}
 
 .msg-uploading { min-width: 200px; padding: 7px 9px 5px; }
 .msg-uploading-name { display: block; font-family: var(--f-mono); font-size: 11px; margin-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1886,4 +1912,153 @@ button { font-family: inherit; }
    after the base .chatt rule so it wins over its inset: 0. */
 @media (min-width: 821px) {
   .chatt { left: 320px; }
+}
+
+/* ═══ Chat settings sheet ═══════════════════════════════════════════ */
+.chatt-settings {
+  flex-shrink: 0; margin-left: auto;
+  width: 34px; height: 34px; border: none; background: none;
+  color: var(--t2); cursor: pointer; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.chatt-settings:hover { color: var(--ink); }
+
+.sset.chset {
+  max-height: min(82dvh, 720px); overflow-y: auto;
+  align-items: stretch; text-align: left;
+}
+.chset-id { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 10px; }
+.chset-photo {
+  position: relative; width: 64px; height: 64px; border-radius: 50%;
+  border: 1px solid var(--hair); background: var(--card); color: var(--t2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; overflow: visible; padding: 0;
+}
+.chset-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.chset-photo-edit {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ink); color: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--paper);
+}
+.chset-title {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--f-serif); font-size: 21px; font-weight: 400; color: var(--ink);
+  text-transform: lowercase;
+}
+.chset-title.as-text { cursor: default; }
+.chset-sub { font-size: 11.5px; color: var(--t3); }
+.chset-rename { display: flex; gap: 8px; align-items: center; }
+.chset-rename-input {
+  border: 1px solid var(--line); border-radius: 4px; background: var(--card);
+  font-family: var(--f-serif); font-size: 17px; color: var(--ink);
+  padding: 5px 10px; outline: none; min-width: 0; width: 190px;
+}
+.chset-rename-input:focus { border-color: var(--ink); }
+.chset-rename-save {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 11px; text-transform: lowercase;
+  padding: 7px 13px; cursor: pointer;
+}
+.chset-rename-save:disabled { opacity: 0.4; }
+.chset-error { font-size: 12px; color: #C0392B; margin: 4px 0; }
+
+.chset-label {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: lowercase; color: var(--t3);
+  margin: 14px 0 7px;
+}
+.chset-label-row { display: flex; align-items: baseline; justify-content: space-between; }
+.chset-link {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--f-mono); font-size: 11px; color: var(--blue); text-transform: lowercase;
+}
+.chset-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.chset-tab {
+  background: none; border: 1px solid var(--line); border-radius: 999px;
+  font-family: var(--f-mono); font-size: 10.5px; text-transform: lowercase;
+  color: var(--t2); padding: 4px 11px; cursor: pointer;
+}
+.chset-tab.on { border-color: var(--ink); color: var(--ink); }
+.chset-empty {
+  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  padding: 6px 0 2px;
+}
+.chset-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+}
+.chset-thumb {
+  width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px;
+  border: 1px solid var(--hair); cursor: pointer; display: block;
+  background: var(--card);
+}
+.chset-thumb.expired {
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px; cursor: default;
+}
+.chset-thumb.expired span {
+  font-size: 9.5px; color: var(--t3); text-align: center;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.chset-rows { display: flex; flex-direction: column; }
+.chset-filerow {
+  display: flex; align-items: baseline; gap: 8px;
+  background: none; border: none; border-bottom: 1px solid var(--hair);
+  padding: 8px 2px; cursor: pointer; text-align: left;
+  font-size: 13px; color: var(--ink);
+}
+.chset-filerow:last-child { border-bottom: none; }
+.chset-filerow.expired { cursor: default; }
+.chset-filerow.expired .chset-filename { color: var(--t3); }
+.chset-filename { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chset-filemeta {
+  flex-shrink: 0; font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+}
+.chset-member {
+  display: flex; align-items: center; gap: 10px;
+  background: none; border: none; text-align: left; width: 100%;
+  padding: 6px 2px; font-size: 14px; color: var(--ink);
+}
+.chset-member em { font-style: normal; color: var(--t3); font-size: 12px; }
+.chset-member-av {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; overflow: hidden;
+}
+.chset-member-av img { width: 100%; height: 100%; object-fit: cover; }
+.chset-member-name { flex: 1; min-width: 0; }
+.chset-host {
+  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
+  border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px;
+}
+.chset-kick {
+  background: none; border: none; color: var(--t3); cursor: pointer;
+  width: 26px; height: 26px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.chset-kick:hover { color: #C0392B; }
+.chset-addbox { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; }
+.chset-member.picked .chset-member-name { color: var(--blue); }
+.chset-member.dim { opacity: 0.4; }
+.chset-member { cursor: default; }
+.chset-addbox .chset-member { cursor: pointer; }
+.chset-check {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid var(--line); flex-shrink: 0;
+}
+.chset-check.on { background: var(--blue); border-color: var(--blue); }
+.chset-addrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 4px; }
+.chset-leave {
+  margin-top: 16px; align-self: center;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--f-mono); font-size: 11px; text-transform: lowercase;
+  color: #C0392B; text-decoration: underline; text-underline-offset: 3px;
+  padding: 4px 2px;
+}
+
+/* Group photos in the rails */
+.rail-av-group img, .convs-av-group img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
 }

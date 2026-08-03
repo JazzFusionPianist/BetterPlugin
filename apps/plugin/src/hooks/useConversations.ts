@@ -28,6 +28,7 @@ export interface Conversation {
 export interface GroupConversation {
   conversationId: string
   title: string
+  avatarUrl?: string | null
   memberIds: string[]            // includes the current user
   lastMessage: Message | null    // null for brand-new groups
   createdAt: string
@@ -41,13 +42,13 @@ export function useConversations(supabase: SupabaseClient, userId: string) {
     // 0. Every conversation I'm a member of (kind + title + created_at).
     const { data: allMine, error: e0 } = await supabase
       .from('conversation_members')
-      .select('conversation_id, conversations!inner(id, kind, title, created_at)')
+      .select('conversation_id, conversations!inner(id, kind, title, created_at, avatar_url)')
       .eq('user_id', userId)
     if (e0) { console.error('[useConversations] step 0', e0); return }
 
     type Row = {
       conversation_id: string
-      conversations: { id: string; kind: 'dm' | 'group'; title: string | null; created_at: string }
+      conversations: { id: string; kind: 'dm' | 'group'; title: string | null; created_at: string; avatar_url?: string | null }
     }
     const rows = (allMine ?? []) as unknown as Row[]
     const dmConvIds    = rows.filter(r => r.conversations.kind === 'dm').map(r => r.conversation_id)
@@ -127,6 +128,7 @@ export function useConversations(supabase: SupabaseClient, userId: string) {
       const out: GroupConversation[] = groupRows.map(r => ({
         conversationId: r.conversation_id,
         title:          r.conversations.title ?? 'Unnamed group',
+        avatarUrl:      r.conversations.avatar_url ?? null,
         memberIds:      membersByConv.get(r.conversation_id) ?? [userId],
         lastMessage:    latestByGroup.get(r.conversation_id) ?? null,
         createdAt:      r.conversations.created_at,

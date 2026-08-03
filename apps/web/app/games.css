@@ -2951,20 +2951,40 @@
   .games-panel .game-view .chess-dock .game-chat { flex: 1 1 65%; }
 }
 
-/* ═══ Game walls — each game washes the page its own colour ═══ */
+/* ═══ Game walls — every game plays in its own darkened room ═══
+   Dark-mode style: each game gets a hue-tinted near-black wall, and a
+   full dark token set rides along so text, cards, chat and inputs all
+   invert with it. The board keeps its paper squares — a lit artwork
+   on the dark wall, fx-room style. */
 div.games-panel {
   --gwall: var(--paper);
   background: var(--gwall);
-  transition: background 0.9s ease;
 }
-.games-panel.wall-chess          { --gwall: color-mix(in srgb, #2440FF 6%, var(--paper)); }
-.games-panel.wall-falling_blocks { --gwall: color-mix(in srgb, #7A5CFF 7%, var(--paper)); }
-.games-panel.wall-poker          { --gwall: color-mix(in srgb, #1E9E63 7%, var(--paper)); }
-.games-panel.wall-ear_training   { --gwall: color-mix(in srgb, #FFB22C 9%, var(--paper)); }
+.games-panel.wall-chess          { --gwall: color-mix(in srgb, #2440FF 22%, #101014); }
+.games-panel.wall-falling_blocks { --gwall: color-mix(in srgb, #7A5CFF 20%, #111016); }
+.games-panel.wall-poker          { --gwall: color-mix(in srgb, #1E9E63 18%, #0E1310); }
+.games-panel.wall-ear_training   { --gwall: color-mix(in srgb, #FFB22C 13%, #151209); }
+.games-panel[class*="wall-"] {
+  --paper: var(--gwall);
+  --card: color-mix(in srgb, #FFFFFF 7%, var(--gwall));
+  --ink: #F0EEE9;
+  --hair: rgba(240, 238, 233, 0.40);
+  --line: rgba(240, 238, 233, 0.15);
+  --t2: #B4B0A8;
+  --t3: #8B8880;
+  --bg: var(--gwall);
+  --bg2: color-mix(in srgb, #FFFFFF 6%, var(--gwall));
+  --bg3: color-mix(in srgb, #FFFFFF 11%, var(--gwall));
+  --border: rgba(240, 238, 233, 0.15);
+  --border2: rgba(240, 238, 233, 0.34);
+  --t1: var(--ink);
+  --mine-bg: #F0EEE9;
+  --mine-t: #131313;
+  color: var(--ink);
+}
 .games-panel .game-view .game-action-row,
 .games-panel .game-view .chess-dock {
   background: var(--gwall);
-  transition: background 0.9s ease;
 }
 
 /* ═══ Head-to-head crosstable — lichess-style score strip under the board ═══ */

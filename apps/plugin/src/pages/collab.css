@@ -9163,14 +9163,17 @@
 .att-expired-name { color: var(--t1); overflow-wrap: anywhere; }
 .att-expired-text { color: var(--t3); font-style: italic; }
 
-/* ── Game walls: each game paints the room its own colour ─────────────
-   Rides the .plugin background transition the fx room installed; the
-   gview goes transparent so the wash shows through. The washes are
-   mixed over var(--bg), so dark mode tints its own paper. */
-.plugin.gwall-chess          { background: color-mix(in srgb, #2440FF 7%, var(--bg)); }
-.plugin.gwall-falling_blocks { background: color-mix(in srgb, #7A5CFF 8%, var(--bg)); }
-.plugin.gwall-poker          { background: color-mix(in srgb, #1E9E63 8%, var(--bg)); }
-.plugin.gwall-ear_training   { background: color-mix(in srgb, #FFB22C 10%, var(--bg)); }
+/* ── Game walls: every game plays in its own darkened room ────────────
+   The gwall class arrives WITH the dark token set (CollabPage emits
+   `dark` alongside it), so text, cards and chat all invert; the wall
+   itself is the game's hue mixed into near-black, and the gview goes
+   transparent so it shows through. Entering is instant, dark-mode
+   style; leaving rides the fx room's slow fade back to paper. */
+.plugin.gwall-chess          { background: color-mix(in srgb, #2440FF 22%, #101014); }
+.plugin.gwall-falling_blocks { background: color-mix(in srgb, #7A5CFF 20%, #111016); }
+.plugin.gwall-poker          { background: color-mix(in srgb, #1E9E63 18%, #0E1310); }
+.plugin.gwall-ear_training   { background: color-mix(in srgb, #FFB22C 13%, #151209); }
+.plugin[class*="gwall-"] { transition: none; }
 .plugin[class*="gwall-"] .gview { background: transparent; }
 
 /* ── Head-to-head crosstable — lichess-style score strip ──────────────

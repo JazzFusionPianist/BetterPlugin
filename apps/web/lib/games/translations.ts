@@ -244,6 +244,9 @@ export const T = {
   'pb.hintKeys':    { en: '← → flippers · space to launch', ko: '← → 플리퍼 · 스페이스로 발사', ja: '← → フリッパー・スペースで発射', zh: '← → 挡板 · 空格发射', es: '← → flippers · espacio para lanzar', de: '← → Flipper · Leertaste zum Start', fr: '← → flippers · espace pour lancer', hi: '← → फ्लिपर · स्पेस से लॉन्च' },
   'pb.hintTouch':   { en: 'tap left / right half · pull the plunger', ko: '왼쪽/오른쪽 탭 · 플런저 당겨서 발사', ja: '左右タップ・プランジャーを引く', zh: '点按左/右 · 拉动弹射器', es: 'toca izquierda/derecha · tira del lanzador', de: 'links/rechts tippen · Abzug ziehen', fr: 'touchez gauche/droite · tirez le lanceur', hi: 'बाएँ/दाएँ टैप करें · प्लंजर खींचें' },
   'pb.rank':        { en: 'Rank',        ko: '순위',      ja: '順位',       zh: '排名',    es: 'Puesto',    de: 'Rang',       fr: 'Rang',      hi: 'रैंक' },
+  'pb.reset':       { en: 'Reset',       ko: '리셋',      ja: 'リセット',   zh: '重置',    es: 'Reiniciar', de: 'Neustart',   fr: 'Réinitialiser', hi: 'रीसेट' },
+  'pb.resetConfirm': { en: 'Restart the game? The current score is lost.', ko: '게임을 다시 시작할까? 지금 점수는 사라져.', ja: 'ゲームをやり直しますか？現在のスコアは失われます。', zh: '重新开始游戏？当前分数将丢失。', es: '¿Reiniciar la partida? Se pierde la puntuación actual.', de: 'Spiel neu starten? Der aktuelle Punktestand geht verloren.', fr: 'Recommencer ? Le score actuel sera perdu.', hi: 'गेम फिर से शुरू करें? वर्तमान स्कोर खो जाएगा।' },
+  'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 
   // ───── Information Panel ────────────────────────────────────────────────
   'info.yourName':         { en: 'your name', ko: '이름', ja: '名前', zh: '你的名字', es: 'tu nombre', de: 'dein Name', fr: 'votre nom', hi: 'आपका नाम' },

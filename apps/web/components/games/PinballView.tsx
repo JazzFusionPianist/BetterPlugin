@@ -6,8 +6,8 @@ import type { Profile } from '@/lib/games/types'
 import { useT } from '@/lib/games/i18n'
 import { PinballGame, drawPinball, TABLE_W, TABLE_H } from '@/lib/games/pinball'
 import type { PinballTheme, PinballPhase } from '@/lib/games/pinball'
-import { usePinballScores } from '@/lib/games/usePinballScores'
-import type { PinballStanding } from '@/lib/games/usePinballScores'
+import { useWorldScores } from '@/lib/games/useWorldScores'
+import type { WorldStanding } from '@/lib/games/useWorldScores'
 import GameShell, { GameOverlayCard } from './GameShell'
 
 interface Props {
@@ -35,7 +35,7 @@ function readTheme(el: HTMLElement): PinballTheme {
 
 export default function PinballView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
-  const { submitScore, loadStanding } = usePinballScores(supabase, currentUserId)
+  const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'pinball_scores')
 
   const gameRef = useRef<PinballGame | null>(null)
   if (!gameRef.current) gameRef.current = new PinballGame()
@@ -49,8 +49,9 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   const [ui, setUi] = useState<{ phase: PinballPhase; score: number; ball: number; ballsTotal: number; bonusMult: number }>({
     phase: 'ready', score: 0, ball: 1, ballsTotal: 3, bonusMult: 1,
   })
-  const [standing, setStanding] = useState<PinballStanding | null>(null)
+  const [standing, setStanding] = useState<WorldStanding | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const submittedRef = useRef(false)
 
   // Start-screen leaderboard
@@ -134,6 +135,12 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   const handleStart = useCallback(() => {
     submittedRef.current = false
     gameRef.current!.start()
+  }, [])
+
+  const confirmReset = useCallback(() => {
+    setShowResetConfirm(false)
+    submittedRef.current = false
+    gameRef.current!.reset()
   }, [])
 
   // ── Keyboard ─────────────────────────────────────────────────────────────
@@ -276,6 +283,18 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       title={t('game.pinball')}
       onBack={onClose}
       className="pinball-shell"
+      controls={(ui.phase === 'captive' || ui.phase === 'live') ? (
+        <button className="game-btn" onClick={() => setShowResetConfirm(true)}>
+          {t('pb.reset')}
+        </button>
+      ) : undefined}
+      confirm={{
+        open: showResetConfirm,
+        message: t('pb.resetConfirm'),
+        confirmLabel: t('pb.reset'),
+        onConfirm: confirmReset,
+        onCancel: () => setShowResetConfirm(false),
+      }}
       fillBoard
       board={
         <div className="pinball-layout">

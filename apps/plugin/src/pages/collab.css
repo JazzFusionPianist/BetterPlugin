@@ -6300,8 +6300,10 @@
 .falling-blocks-cell--L { background: #A855F7; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2); }   /* violet (was orange) */
 .falling-blocks-cell--G { background: #6E6E73; box-shadow: inset 0 -2px 0 rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.4); }
 .falling-blocks-cell--ghost {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.45);
+  /* Drop shadow marker: same colour as the piece, barely-there fill.
+     The old white ring read as a "fading duplicate" of the piece. */
+  opacity: 0.16;
+  box-shadow: none;
 }
 
 /* Side info (next pieces, score, lines, garbage) */
@@ -6329,7 +6331,6 @@
   aspect-ratio: 4 / 2;
   flex: 0 0 auto;
 }
-.falling-blocks-next-piece .falling-blocks-cell { background: transparent; }
 .falling-blocks-stat {
   display: flex; flex-direction: column; gap: 1px;
   min-width: 0;

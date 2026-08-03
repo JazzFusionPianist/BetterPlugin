@@ -1639,8 +1639,10 @@
 /* violet (was orange) */
 .falling-blocks-cell--G { background: #6E6E73; box-shadow: inset 0 -2px 0 rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.4); }
 .falling-blocks-cell--ghost {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.45);
+  /* Drop shadow marker: same colour as the piece, barely-there fill.
+     The old white ring read as a "fading duplicate" of the piece. */
+  opacity: 0.16;
+  box-shadow: none;
 }
 /* Side info (next pieces, score, lines, garbage) */
 .falling-blocks-side-info {
@@ -1667,7 +1669,6 @@
   aspect-ratio: 4 / 2;
   flex: 0 0 auto;
 }
-.falling-blocks-next-piece .falling-blocks-cell { background: transparent; }
 .falling-blocks-stat {
   display: flex; flex-direction: column; gap: 1px;
   min-width: 0;
@@ -3264,3 +3265,28 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .games-panel .pinball-head { max-width: 440px; }
 .games-panel .pinball-score { font-size: 24px; }
 .games-panel .pinball-canvas-wrap { max-height: 100%; }
+
+/* Solo falling blocks: no opponents column */
+.falling-blocks-playfield.fb-solo {
+  grid-template-columns: clamp(44px, 16%, 56px) minmax(0, 1fr);
+}
+.games-panel .falling-blocks-playfield.fb-solo {
+  grid-template-columns: clamp(56px, 15%, 72px) minmax(0, 1fr);
+  max-width: 460px;
+}
+/* Pinball table sits dead-centre */
+.pinball-canvas-wrap { margin: 0 auto; align-self: center; }
+.pinball-layout { width: 100%; }
+
+/* Chatless shells (pinball, solo falling blocks): no side-panel column on
+   desktop — the empty 320px chat track was shoving the table left. */
+@media (min-width: 821px) {
+  .games-panel .game-view.pinball-shell,
+  .games-panel .game-view.fb-solo-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .games-panel .game-view.pinball-shell .game-area,
+  .games-panel .game-view.fb-solo-shell .game-area {
+    margin: 0 auto; width: 100%;
+  }
+}

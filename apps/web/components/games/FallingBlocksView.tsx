@@ -15,7 +15,6 @@ import {
   spawnPiece,
   getGhostPiece,
   pieceCells,
-  cellsToBoard,
   levelForLines,
   gravityMsForLevel,
   BOARD_ROWS,
@@ -23,7 +22,8 @@ import {
 } from '@/lib/games/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '@/lib/games/useFallingBlocks'
 import { useT } from '@/lib/games/i18n'
-import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
+import { useWorldScores } from '@/lib/games/useWorldScores'
+import type { WorldStanding } from '@/lib/games/useWorldScores'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 
@@ -45,12 +45,6 @@ const PIECE_CLASS: Record<string, string> = {
   J: 'falling-blocks-cell--J',
   L: 'falling-blocks-cell--L',
   G: 'falling-blocks-cell--G',
-}
-
-function boardWithCurrentPiece(state: FallingBlocksState): Board {
-  return state.current
-    ? cellsToBoard(pieceCells(state.current), state.current.type, state.board)
-    : state.board
 }
 
 // ─── Board renderer ───────────────────────────────────────────────────────────
@@ -222,14 +216,20 @@ export default function FallingBlocksView({
     sendGarbage,
     setPlayerTopOut,
   } = useFallingBlocksRoom(supabase, currentUserId)
+  const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'falling_blocks_scores')
 
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-  const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3>(1)
-  const [computerStartPending, setComputerStartPending] = useState(false)
   // Combo flash — bumps `seq` so the CSS animation restarts per combo step.
   const [comboFlash, setComboFlash] = useState<{ mult: number; seq: number } | null>(null)
+
+  // Solo run (no room, world leaderboard)
+  const [solo, setSolo] = useState(false)
+  const [standing, setStanding] = useState<WorldStanding | null>(null)
+  const [soloSubmitting, setSoloSubmitting] = useState(false)
+  const soloSubmittedRef = useRef(false)
+  const mpSubmittedRef = useRef(false)
 
   // Local game state
   const [game, setGame] = useState<FallingBlocksState>(() => ({
@@ -249,7 +249,6 @@ export default function FallingBlocksView({
   }))
   const gameRef = useRef(game)
   useEffect(() => { gameRef.current = game }, [game])
-  const botStatesRef = useRef<Map<string, FallingBlocksState>>(new Map())
 
   const playerStatesRef = useRef(playerStates)
   useEffect(() => { playerStatesRef.current = playerStates }, [playerStates])
@@ -271,6 +270,13 @@ export default function FallingBlocksView({
     if (!room) findActiveRoom()
   }, [joinRoom, findActiveRoom, room])
 
+  // Start-screen leaderboard
+  useEffect(() => {
+    let cancelled = false
+    loadStanding().then(s => { if (!cancelled && s) setStanding(s) })
+    return () => { cancelled = true }
+  }, [loadStanding])
+
   // ── Status helpers ───────────────────────────────────────────────────────
   const status = room?.status ?? 'lobby'
   const isLobby = status === 'lobby'
@@ -287,6 +293,9 @@ export default function FallingBlocksView({
   const myPlayerState = playerStates.get(currentUserId)
   const myTopOutServer = !!myPlayerState?.top_out
 
+  // The one gate that matters for input + gravity, in both modes.
+  const localActive = solo ? !game.topOut : (isPlaying && !myTopOutServer)
+
   const opponentIds = useMemo(() => {
     if (!room) return []
     return room.player_ids.filter(id => id !== currentUserId)
@@ -300,19 +309,15 @@ export default function FallingBlocksView({
     }
     return map
   }, [opponentIds, friendProfiles])
-  const chatOpponentId = opponentIds.length === 1 && !isComputerPlayerId(opponentIds[0]) ? opponentIds[0] : null
+  const chatOpponentId = opponentIds.length === 1 ? opponentIds[0] : null
   const chatOpponentProfile = chatOpponentId ? opponentProfilesById.get(chatOpponentId) ?? null : null
-  const isComputerMatch = opponentIds.some(isComputerPlayerId)
 
   const nameFor = useCallback((id: string): string => {
     if (id === currentUserId) return currentUserProfile?.display_name ?? 'me'
-    if (isComputerPlayerId(id)) return computerPlayerName(id)
     return friendProfiles.find(p => p.id === id)?.display_name ?? 'player'
   }, [currentUserId, currentUserProfile, friendProfiles])
 
   // ── Score helpers — the round is decided on points, not survival ─────────
-  /** Latest known score for a player: my local state beats the throttled
-   *  server copy; opponents come from the realtime player states. */
   const scoreFor = useCallback((id: string): number => {
     if (id === currentUserId) {
       return Math.max(gameRef.current.score, playerStatesRef.current.get(id)?.score ?? 0)
@@ -335,6 +340,37 @@ export default function FallingBlocksView({
     return tied ? null : best
   }, [scoreFor])
 
+  // ── Solo flow ────────────────────────────────────────────────────────────
+  const startSolo = useCallback(() => {
+    // A lobby draft room isn't needed any more.
+    if (roomRef.current && roomRef.current.status !== 'playing') deleteCurrentRoom()
+    soloSubmittedRef.current = false
+    setSolo(true)
+    const fresh = initialFallingBlocksState()
+    setGame(fresh)
+    playStartRef.current = Date.now()
+    setComboFlash(null)
+  }, [deleteCurrentRoom])
+
+  // Solo game over → record the score, refresh the world ranking.
+  useEffect(() => {
+    if (!solo || !game.topOut || soloSubmittedRef.current) return
+    soloSubmittedRef.current = true
+    setSoloSubmitting(true)
+    submitScore(gameRef.current.score).then(s => {
+      if (s) setStanding(s)
+      setSoloSubmitting(false)
+    })
+  }, [solo, game.topOut, submitScore])
+
+  // Multiplayer finish → quietly bank my final score on the same board.
+  useEffect(() => {
+    if (!isFinished) { mpSubmittedRef.current = false; return }
+    if (solo || mpSubmittedRef.current) return
+    mpSubmittedRef.current = true
+    submitScore(Math.max(gameRef.current.score, playerStatesRef.current.get(currentUserId)?.score ?? 0))
+  }, [isFinished, solo, submitScore, currentUserId])
+
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
@@ -347,6 +383,7 @@ export default function FallingBlocksView({
 
   // ── Invite flow ─────────────────────────────────────────────────────────
   const handleOpenInvite = useCallback(async () => {
+    setSolo(false)
     let targetRoom = room
     if (!targetRoom) targetRoom = await createRoom(MAX_PLAYERS as 2 | 3 | 4)
     if (!targetRoom) return
@@ -376,53 +413,6 @@ export default function FallingBlocksView({
     [room, invitedIds, createRoom, inviteFriend, cancelInvite]
   )
 
-  const handlePlayComputer = useCallback(async () => {
-    setComputerStartPending(true)
-    try {
-      const bots = computerPlayerIds(computerOpponents)
-      const playerIds = [currentUserId, ...bots]
-      let targetRoom = room
-      if (!targetRoom) {
-        targetRoom = await createRoom(playerIds.length as 2 | 3 | 4)
-      }
-      if (!targetRoom) {
-        setComputerStartPending(false)
-        return
-      }
-      const nextRoom = {
-        ...targetRoom,
-        player_count: playerIds.length as 2 | 3 | 4,
-        player_ids: playerIds,
-        ready_ids: playerIds,
-        winner_id: null,
-      }
-      await startGame(nextRoom)
-      const botRows = bots.map(botId => {
-        const initial = initialFallingBlocksState()
-        botStatesRef.current.set(botId, initial)
-        return {
-          room_id: targetRoom.id,
-          user_id: botId,
-          board: boardWithCurrentPiece(initial),
-          score: 0,
-          lines: 0,
-          top_out: false,
-          garbage_pending: 0,
-          updated_at: new Date().toISOString(),
-        }
-      })
-      applyPlayerStates(botRows)
-      await supabase.from('falling_blocks_player_states').upsert(botRows, { onConflict: 'room_id,user_id' })
-    } catch (error) {
-      console.error('[FallingBlocksView.handlePlayComputer]', error)
-      setComputerStartPending(false)
-    }
-  }, [computerOpponents, currentUserId, room, createRoom, startGame, applyPlayerStates, supabase])
-
-  useEffect(() => {
-    if (status === 'playing') setComputerStartPending(false)
-  }, [status])
-
   // ── Auto-start (host) when all ready ─────────────────────────────────────
   useEffect(() => {
     if (!room || !isHost) return
@@ -432,20 +422,17 @@ export default function FallingBlocksView({
     startGame()
   }, [room, isHost, startGame])
 
-  // ── On game start: reset local state ─────────────────────────────────────
+  // ── On multiplayer game start: reset local state, drop out of solo ──────
   const prevStatusRef = useRef<string | null>(null)
   useEffect(() => {
     const prev = prevStatusRef.current
     prevStatusRef.current = status
     if (prev !== 'playing' && status === 'playing') {
+      setSolo(false)
       const fresh = initialFallingBlocksState()
       setGame(fresh)
       playStartRef.current = Date.now()
       setComboFlash(null)
-      const activeBotIds = new Set(room?.player_ids.filter(isComputerPlayerId) ?? [])
-      for (const botId of botStatesRef.current.keys()) {
-        if (!activeBotIds.has(botId)) botStatesRef.current.delete(botId)
-      }
       // Push initial state to server
       updateMyState({
         board: fresh.board,
@@ -469,7 +456,7 @@ export default function FallingBlocksView({
 
   // ── Apply incoming garbage from server inbox ─────────────────────────────
   useEffect(() => {
-    if (!isPlaying) return
+    if (!isPlaying || solo) return
     const ps = playerStates.get(currentUserId)
     if (!ps) return
     if (ps.garbage_pending > 0) {
@@ -480,12 +467,12 @@ export default function FallingBlocksView({
       }))
       updateMyState({ garbage_pending: 0 })
     }
-  }, [playerStates, currentUserId, isPlaying, updateMyState])
+  }, [playerStates, currentUserId, isPlaying, solo, updateMyState])
 
   // ── Sync my local state to server, throttled ─────────────────────────────
   const lastSyncRef = useRef(0)
   useEffect(() => {
-    if (!isPlaying) return
+    if (!isPlaying || solo) return
     const now = Date.now()
     if (now - lastSyncRef.current < SYNC_THROTTLE_MS) return
     lastSyncRef.current = now
@@ -494,12 +481,12 @@ export default function FallingBlocksView({
       score: game.score,
       lines: game.lines,
     })
-  }, [game.board, game.score, game.lines, isPlaying, updateMyState])
+  }, [game.board, game.score, game.lines, isPlaying, solo, updateMyState])
 
   // ── On local top-out: notify server ──────────────────────────────────────
   const reportedTopOutRef = useRef(false)
   useEffect(() => {
-    if (!isPlaying) {
+    if (!isPlaying || solo) {
       reportedTopOutRef.current = false
       return
     }
@@ -512,13 +499,13 @@ export default function FallingBlocksView({
         lines: game.lines,
       })
     }
-  }, [game.topOut, game.board, game.score, game.lines, isPlaying, updateMyState])
+  }, [game.topOut, game.board, game.score, game.lines, isPlaying, solo, updateMyState])
 
   // ── End detection: last player standing ends the round, but the WINNER is
   //    whoever has the most points — surviving only decides when it's over.
   const localTopOutEndedRef = useRef(false)
   useEffect(() => {
-    if (!isPlaying) {
+    if (!isPlaying || solo) {
       localTopOutEndedRef.current = false
       return
     }
@@ -532,10 +519,10 @@ export default function FallingBlocksView({
       endGame(scoreWinner())
     }
     // 2+ alive opponents → they keep playing; the round ends later.
-  }, [game.topOut, isPlaying, opponentIds, endGame, scoreWinner])
+  }, [game.topOut, isPlaying, solo, opponentIds, endGame, scoreWinner])
 
   useEffect(() => {
-    if (!room || !isPlaying) return
+    if (!room || !isPlaying || solo) return
     if (myTopOutServer) return
     if (opponentIds.length === 0) return
     const allDead = opponentIds.every(id => {
@@ -549,12 +536,12 @@ export default function FallingBlocksView({
         endGame(scoreWinner())
       }
     }
-  }, [room, isPlaying, opponentIds, playerStates, myTopOutServer, currentUserId, endGame, scoreWinner])
+  }, [room, isPlaying, solo, opponentIds, playerStates, myTopOutServer, currentUserId, endGame, scoreWinner])
 
   // ── Distribute garbage to opponents ──────────────────────────────────────
   const distributeGarbage = useCallback(
     (lines: number) => {
-      if (lines <= 0) return
+      if (lines <= 0 || !roomRef.current) return
       const aliveOpponents = opponentIds.filter(id => {
         const ps = playerStatesRef.current.get(id)
         return ps && !ps.top_out
@@ -581,8 +568,7 @@ export default function FallingBlocksView({
 
   // ── Keyboard controls ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isPlaying) return
-    if (myTopOutServer || game.topOut) return
+    if (!localActive) return
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
@@ -648,7 +634,7 @@ export default function FallingBlocksView({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isPlaying, myTopOutServer, game.topOut, distributeGarbage])
+  }, [localActive, distributeGarbage])
 
   // ── Touch controls: drag sideways to move, drag down to soft drop,
   //    flick down to hard drop, tap to rotate, tap the hold box to hold. ────
@@ -659,14 +645,14 @@ export default function FallingBlocksView({
   const boardWrapRef = useRef<HTMLDivElement | null>(null)
 
   const onBoardPointerDown = useCallback((e: React.PointerEvent) => {
-    if (!isPlaying || myTopOutServer) return
+    if (!localActive) return
     if (e.pointerType === 'mouse') return
     touchRef.current = {
       active: true, id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: Date.now(),
       lastX: e.clientX, lastY: e.clientY, moved: false, dropped: false,
     }
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* synthetic events throw */ }
-  }, [isPlaying, myTopOutServer])
+  }, [localActive])
 
   const onBoardPointerMove = useCallback((e: React.PointerEvent) => {
     const tc = touchRef.current
@@ -720,14 +706,13 @@ export default function FallingBlocksView({
   }, [distributeGarbage])
 
   const handleHoldTap = useCallback(() => {
-    if (!isPlaying || myTopOutServer) return
+    if (!localActive) return
     setGame(prev => holdSwap(prev))
-  }, [isPlaying, myTopOutServer])
+  }, [localActive])
 
   // ── Game loop: gravity tick + lock timer ─────────────────────────────────
   useEffect(() => {
-    if (!isPlaying) return
-    if (myTopOutServer) return
+    if (!localActive) return
 
     let lastTick = Date.now()
     let gravityAccum = 0
@@ -765,52 +750,7 @@ export default function FallingBlocksView({
     }, TICK_MS)
 
     return () => window.clearInterval(interval)
-  }, [isPlaying, myTopOutServer, handleLockAndSpawn])
-
-  useEffect(() => {
-    if (!room || !isPlaying || room.host_id !== currentUserId) return
-    const botIds = room.player_ids.filter(isComputerPlayerId)
-    if (botIds.length === 0) return
-    for (const botId of botIds) {
-      if (!botStatesRef.current.has(botId)) {
-        botStatesRef.current.set(botId, initialFallingBlocksState())
-      }
-    }
-    const interval = window.setInterval(async () => {
-      const rows = botIds.map((botId, index) => {
-        const prev = playerStatesRef.current.get(botId)
-        let bot = botStatesRef.current.get(botId) ?? initialFallingBlocksState()
-        if (!bot.topOut) {
-          if (Math.random() < 0.22) bot = tryMove(bot, Math.random() < 0.5 ? -1 : 1, 0)
-          if (Math.random() < 0.10) bot = tryRotate(bot, 1)
-          if (Math.random() < 0.04) {
-            const dropped = hardDrop(bot)
-            bot = spawnPiece(dropped.state)
-          } else {
-            bot = softDropTick(bot, 460 + index * 90)
-            if (bot.lockTimer !== null && bot.lockTimer <= 0) {
-              const locked = lockPiece(bot)
-              bot = spawnPiece(locked.state)
-            }
-          }
-        }
-        botStatesRef.current.set(botId, bot)
-        return {
-          room_id: room.id,
-          user_id: botId,
-          board: boardWithCurrentPiece(bot),
-          score: Math.max(prev?.score ?? 0, bot.score),
-          lines: Math.max(prev?.lines ?? 0, bot.lines),
-          top_out: bot.topOut,
-          garbage_pending: prev?.garbage_pending ?? 0,
-          updated_at: new Date().toISOString(),
-        }
-      })
-      applyPlayerStates(rows)
-      await supabase.from('falling_blocks_player_states').upsert(rows, { onConflict: 'room_id,user_id' })
-    }, 1100)
-    return () => window.clearInterval(interval)
-  }, [room, isPlaying, currentUserId, supabase, applyPlayerStates])
+  }, [localActive, handleLockAndSpawn])
 
   // ── Forfeit ──────────────────────────────────────────────────────────────
   // Tops out the current player. Also explicitly ends the game when only one
@@ -858,12 +798,12 @@ export default function FallingBlocksView({
   const ghost = useMemo(() => getGhostPiece(game), [game])
 
   // ── Display board for self ───────────────────────────────────────────────
-  const selfDisplayBoard: Board = isPlaying || isFinished
+  const selfDisplayBoard: Board = isPlaying || isFinished || solo
     ? game.board
     : Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
 
   // ── Level readout (same curve the game loop uses, minus the ms jitter) ──
-  const displayLevel = levelForLines(game.lines) + (isPlaying
+  const displayLevel = levelForLines(game.lines) + (localActive
     ? Math.floor((Date.now() - playStartRef.current) / TIME_LEVEL_MS)
     : 0)
 
@@ -901,10 +841,48 @@ export default function FallingBlocksView({
   const canInviteMore = (id: string) =>
     invitedIds.has(id) || ((room?.player_ids.length ?? 1) + pendingInviteCount < MAX_PLAYERS)
 
-  // ── Overlay (lobby → ready → finished); null while playing ─────────────────
+  // Shared world-ranking block (start card + solo game-over card)
+  const leaderboardBlock = (
+    <div className="pb-lb">
+      <div className="pb-lb-title">{t('pb.leaderboard')}</div>
+      {soloSubmitting && <div className="pb-lb-loading">…</div>}
+      {!soloSubmitting && standing && standing.top.length > 0 && (
+        <div className="pb-lb-rows">
+          {standing.top.map((row, i) => (
+            <div key={row.user_id} className={`pb-lb-row${row.user_id === currentUserId ? ' me' : ''}`}>
+              <span className="pb-lb-rank">{i + 1}</span>
+              <span className="pb-lb-name">{row.display_name}</span>
+              <span className="pb-lb-score">{row.best_score.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!soloSubmitting && standing && (
+        <div className="pb-lb-mine">
+          {t('pb.yourBest')} {standing.myBest.toLocaleString()}
+          {standing.myRank != null && standing.totalPlayers > 0 && (
+            <> · {t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Overlay (lobby → ready → finished / solo game-over) ──────────────────
   let overlay: React.ReactNode = null
-  if (computerStartPending) {
-    overlay = null
+  if (solo) {
+    if (game.topOut) {
+      overlay = (
+        <GameOverlayCard title={t('fb.gameOver')} className="pb-overlay-card">
+          <div className="pb-final-score">{game.score.toLocaleString()}</div>
+          {standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
+          {leaderboardBlock}
+          <button className="game-invite-btn pb-start-btn" onClick={startSolo}>
+            {t('pb.playAgain')}
+          </button>
+        </GameOverlayCard>
+      )
+    }
   } else if (isFinished && room) {
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
@@ -923,19 +901,11 @@ export default function FallingBlocksView({
             ))}
           </div>
         )}
-        {isComputerMatch ? (
-          <GameReadyControl
-            ready={false}
-            label={t('common.rematch')}
-            onToggle={handlePlayComputer}
-          />
-        ) : (
-          <GameReadyControl
-            ready={myReady}
-            count={`${readyCount} / ${joinedCount} ready`}
-            onToggle={toggleReady}
-          />
-        )}
+        <GameReadyControl
+          ready={myReady}
+          count={`${readyCount} / ${joinedCount} ready`}
+          onToggle={toggleReady}
+        />
       </GameOverlayCard>
     )
   } else if (isLobby && room && !allReady) {
@@ -956,25 +926,6 @@ export default function FallingBlocksView({
             {t('game.inviteFriends')}
           </button>
         )}
-        {isHost && (
-          <>
-            <div className="game-computer-picker" aria-label={t('game.computerCount')}>
-              {[1, 2, 3].map(n => (
-                <button
-                  key={n}
-                  className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
-                  onClick={() => setComputerOpponents(n as 1 | 2 | 3)}
-                  type="button"
-                >
-                  1:{n}
-                </button>
-              ))}
-            </div>
-            <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
-              {t('game.playComputer')}
-            </button>
-          </>
-        )}
         {!hasEnoughPlayers && (
           <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
         )}
@@ -985,28 +936,13 @@ export default function FallingBlocksView({
     )
   } else if (!isPlaying && !isFinished && !room) {
     overlay = (
-      <GameOverlayCard emoji="🧱" title={t('game.fallingBlocks')}>
-        <button
-          className="game-invite-btn"
-          onClick={handleOpenInvite}
-          disabled={loading}
-        >
-          {t('game.inviteFriends')}
+      <GameOverlayCard title={t('game.fallingBlocks')} className="pb-overlay-card">
+        {leaderboardBlock}
+        <button className="game-invite-btn pb-start-btn" onClick={startSolo} disabled={loading}>
+          {t('fb.playSolo')}
         </button>
-        <div className="game-computer-picker" aria-label={t('game.computerCount')}>
-          {[1, 2, 3].map(n => (
-            <button
-              key={n}
-              className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
-              onClick={() => setComputerOpponents(n as 1 | 2 | 3)}
-              type="button"
-            >
-              1:{n}
-            </button>
-          ))}
-        </div>
-        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
-          {t('game.playComputer')}
+        <button className="game-invite-btn game-computer-btn" onClick={handleOpenInvite} disabled={loading}>
+          {t('game.inviteFriends')}
         </button>
       </GameOverlayCard>
     )
@@ -1017,8 +953,12 @@ export default function FallingBlocksView({
     <GameShell
       title={t('game.fallingBlocks')}
       onBack={handleBack}
-      className="falling-blocks-shell"
-      controls={isPlaying && !myTopOutServer ? (
+      className={`falling-blocks-shell${solo ? ' fb-solo-shell' : ''}`}
+      controls={solo && !game.topOut ? (
+        <button className="game-btn" onClick={startSolo}>
+          {t('pb.reset')}
+        </button>
+      ) : isPlaying && !myTopOutServer ? (
         <button
           className="game-btn game-btn-danger"
           onClick={handleForfeit}
@@ -1027,11 +967,9 @@ export default function FallingBlocksView({
         </button>
       ) : undefined}
       fillBoard
-      board={computerStartPending ? (
-        <div className="game-transition-blank" />
-      ) : (
+      board={(
         <div className="falling-blocks-game-layout">
-          <div className="falling-blocks-playfield">
+          <div className={`falling-blocks-playfield${solo ? ' fb-solo' : ''}`}>
             {/* Left rail: hold box + next queue */}
             <div className="falling-blocks-rail">
               <button
@@ -1072,13 +1010,13 @@ export default function FallingBlocksView({
               >
                 <FallingBlocksBoard
                   board={selfDisplayBoard}
-                  currentPiece={isPlaying && !myTopOutServer ? game.current : null}
-                  ghost={isPlaying && !myTopOutServer ? ghost : null}
+                  currentPiece={localActive ? game.current : null}
+                  ghost={localActive ? ghost : null}
                   size="self"
                 />
 
                 {/* Combo flash — restarts its animation on every step up. */}
-                {isPlaying && !myTopOutServer && comboFlash && game.combo >= 2 && (
+                {localActive && comboFlash && game.combo >= 2 && (
                   <div key={comboFlash.seq} className="fb-combo-flash" aria-hidden="true">
                     ×{Math.min(comboFlash.mult, 10)}
                   </div>
@@ -1086,7 +1024,7 @@ export default function FallingBlocksView({
 
                 {/* Self topped out (game still going) — stays anchored to the
                     board because it's a "you specifically are out" indicator. */}
-                {isPlaying && myTopOutServer && (
+                {isPlaying && !solo && myTopOutServer && (
                   <div className="falling-blocks-topout-overlay">
                     <span>{t('fb.youAreOut')}</span>
                   </div>
@@ -1094,30 +1032,32 @@ export default function FallingBlocksView({
               </div>
             </div>
 
-            <div className={`falling-blocks-opponents-row opponents-${Math.max(1, opponentIds.length)}`}>
-              {opponentIds.length === 0 ? (
-                <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
-                  <div className="falling-blocks-opponent-header">
-                    <span className="falling-blocks-opponent-name">Waiting…</span>
+            {!solo && (
+              <div className={`falling-blocks-opponents-row opponents-${Math.max(1, opponentIds.length)}`}>
+                {opponentIds.length === 0 ? (
+                  <div className="falling-blocks-opponent" style={{ opacity: 0.5 }}>
+                    <div className="falling-blocks-opponent-header">
+                      <span className="falling-blocks-opponent-name">Waiting…</span>
+                    </div>
+                    <FallingBlocksBoard
+                      board={Array.from({ length: BOARD_ROWS }, () =>
+                        Array.from({ length: BOARD_COLS }, () => null)
+                      )}
+                      size="opponent"
+                    />
                   </div>
-                  <FallingBlocksBoard
-                    board={Array.from({ length: BOARD_ROWS }, () =>
-                      Array.from({ length: BOARD_COLS }, () => null)
-                    )}
-                    size="opponent"
-                  />
-                </div>
-              ) : (
-                opponentIds.map((id, idx) => (
-                  <OpponentBoard
-                    key={id}
-                    profile={opponentProfilesById.get(id) ?? null}
-                    state={playerStates.get(id)}
-                    fallbackName={isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`}
-                  />
-                ))
-              )}
-            </div>
+                ) : (
+                  opponentIds.map((id, idx) => (
+                    <OpponentBoard
+                      key={id}
+                      profile={opponentProfilesById.get(id) ?? null}
+                      state={playerStates.get(id)}
+                      fallbackName={`Player ${idx + 2}`}
+                    />
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bottom info */}
@@ -1139,14 +1079,14 @@ export default function FallingBlocksView({
             <div className="falling-blocks-stat">
               <span className="falling-blocks-stat-label">{t('fb.incoming')}</span>
               <span className="falling-blocks-stat-value">
-                {game.garbagePending + (myPlayerState?.garbage_pending ?? 0)}
+                {solo ? 0 : game.garbagePending + (myPlayerState?.garbage_pending ?? 0)}
               </span>
             </div>
           </div>
         </div>
       )}
       overlay={overlay}
-      chat={!computerStartPending && !isComputerMatch ? (
+      chat={!solo ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}

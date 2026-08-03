@@ -48,8 +48,6 @@ export default function AppShell({ user }: { user: User }) {
   const { items: canvasItems, addItem: addCanvasItem, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const audioInputRef = useRef<HTMLInputElement>(null)
-  const [captionDraft, setCaptionDraft] = useState<string | null>(null)  // null = composer closed
   const [pinning, setPinning] = useState(false)
   const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
   const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
@@ -201,55 +199,6 @@ export default function AppShell({ user }: { user: User }) {
     } finally {
       setPinning(false)
     }
-  }
-
-  // A track plate: upload the audio, pin a player card to the wall.
-  const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setPinning(true)
-    try {
-      const { url } = await uploadAttachment(file, user.id)
-      await addCanvasItem({
-        kind: 'track',
-        media_url: url,
-        title: file.name.replace(/\.[^.]+$/, ''),
-        x: 0.2 + Math.random() * 0.6,
-        y: 0.2 + Math.random() * 0.3,
-        rotation: (Math.random() - 0.5) * 5,
-      })
-    } catch (err) {
-      console.error('[canvas] track pin failed', err)
-    } finally {
-      setPinning(false)
-    }
-  }
-
-  const addCaptionPlate = async () => {
-    const text = (captionDraft ?? '').trim()
-    setCaptionDraft(null)
-    if (!text) return
-    try {
-      await addCanvasItem({
-        kind: 'caption',
-        caption: text,
-        x: 0.22 + Math.random() * 0.56,
-        y: 0.25 + Math.random() * 0.3,
-        rotation: (Math.random() - 0.5) * 4,
-      })
-    } catch (err) { console.error('[canvas] caption failed', err) }
-  }
-
-  const addPlaquePlate = async () => {
-    try {
-      await addCanvasItem({
-        kind: 'plaque',
-        x: 0.3 + Math.random() * 0.4,
-        y: 0.3 + Math.random() * 0.25,
-        rotation: (Math.random() - 0.5) * 4,
-      })
-    } catch (err) { console.error('[canvas] plaque failed', err) }
   }
 
   const [calOpen, setCalOpen] = useState(false)
@@ -452,10 +401,6 @@ export default function AppShell({ user }: { user: User }) {
         </button>
         {addOpen && (
           <div className="addmenu">
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); audioInputRef.current?.click() }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V6l11-2v12" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></svg>
-              track
-            </button>
             <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); photoInputRef.current?.click() }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" /></svg>
               photo
@@ -464,45 +409,9 @@ export default function AppShell({ user }: { user: User }) {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
               draw
             </button>
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setCaptionDraft('') }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V5h16v2M9 20h6M12 5v15" /></svg>
-              caption
-            </button>
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); addPlaquePlate() }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="12" rx="1.5" /><path d="M7 10h7M7 14h4" /></svg>
-              plaque
-            </button>
           </div>
         )}
         <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
-        <input ref={audioInputRef} type="file" accept="audio/*" hidden onChange={onPickAudio} />
-
-        {/* Caption composer — a small card, writes one caption plate. */}
-        {captionDraft !== null && (
-          <div className="capcomposer-overlay" onClick={(e) => { if (e.target === e.currentTarget) setCaptionDraft(null) }}>
-            <div className="capcomposer">
-              <div className="capcomposer-label">wall caption</div>
-              <textarea
-                className="capcomposer-input"
-                placeholder="a line for the wall…"
-                value={captionDraft}
-                maxLength={140}
-                rows={2}
-                autoFocus
-                onChange={(e) => setCaptionDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addCaptionPlate() }
-                  if (e.key === 'Escape') setCaptionDraft(null)
-                }}
-              />
-              <div className="capcomposer-row">
-                <button className="capcomposer-cancel" onClick={() => setCaptionDraft(null)}>cancel</button>
-                <button className="capcomposer-place" onClick={addCaptionPlate} disabled={!captionDraft.trim()}>place</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* The booklet spread. Page 1 = people (orbs + programme), page 2
             = the wall (polaroids + doodles). Phones swipe between them;
@@ -545,12 +454,6 @@ export default function AppShell({ user }: { user: User }) {
             <CanvasLayer
               items={canvasItems}
               isMine
-              plaque={{
-                name: me?.display_name ?? '…',
-                username: me?.username || null,
-                memberNo: me?.member_no ?? null,
-                line: null,
-              }}
               onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
               onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
             />

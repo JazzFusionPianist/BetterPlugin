@@ -550,6 +550,22 @@ export default function ProfilePanel ({
           <button className="orbit-back-btn" onClick={onClose} title="Back">← back</button>
         )}
 
+        {/* Colophon — build stamp, same corner print as the app's home.
+            Styled inline so it needs no collab.css entry. */}
+        {!viewOnly && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute', zIndex: 6, right: 10, bottom: 8,
+              fontSize: 9, letterSpacing: '0.02em', color: 'var(--t3)',
+              pointerEvents: 'none', userSelect: 'none',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            build {__BUILD_ID__}
+          </div>
+        )}
+
         {/* Friend-orb backdrop. Always-on ambient style — translucent and
             slightly bright so the foreground glass UI reads cleanly on
             top while the orbs still register motion. */}

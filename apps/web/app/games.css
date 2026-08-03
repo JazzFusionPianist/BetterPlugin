@@ -2959,11 +2959,34 @@
 div.games-panel {
   --gwall: var(--paper);
   background: var(--gwall);
+  transition: background-color 1.4s ease;
 }
-.games-panel.wall-chess          { --gwall: color-mix(in srgb, #2440FF 22%, #101014); }
-.games-panel.wall-falling_blocks { --gwall: color-mix(in srgb, #7A5CFF 20%, #111016); }
-.games-panel.wall-poker          { --gwall: color-mix(in srgb, #1E9E63 18%, #0E1310); }
-.games-panel.wall-ear_training   { --gwall: color-mix(in srgb, #FFB22C 13%, #151209); }
+/* four dark GREYS, told apart by temperature only — no colour */
+.games-panel.wall-chess          { --gwall: #16171B; }
+.games-panel.wall-falling_blocks { --gwall: #1B1A1F; }
+.games-panel.wall-poker          { --gwall: #161A17; }
+.games-panel.wall-ear_training   { --gwall: #1B1815; }
+
+/* The room dims SLOWLY: every persistent surface eases its colours.
+   :where() keeps specificity at zero, so any element with its own
+   transition rule keeps it. */
+.games-panel :where(div, span, p, button, input, h1, h2, h3) {
+  transition: background-color 1.4s ease, color 1.4s ease, border-color 1.4s ease;
+}
+/* Freshly-mounted game content can't transition — it materialises
+   instead, reaching full presence as the wall reaches full dark. */
+.games-panel[class*="wall-"] .game-view,
+.games-panel .game-cd-view {
+  animation: gwall-view-in 1.2s ease both;
+}
+@keyframes gwall-view-in { from { opacity: 0 } to { opacity: 1 } }
+
+/* Lobby / finish states: the veil over the (hidden) board must not
+   glow paper-bright in a dark room */
+.games-panel[class*="wall-"] .game-finish-overlay {
+  background: rgba(8, 8, 10, 0.3);
+  backdrop-filter: none;
+}
 .games-panel[class*="wall-"] {
   --paper: var(--gwall);
   --card: color-mix(in srgb, #FFFFFF 7%, var(--gwall));

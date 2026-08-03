@@ -9169,12 +9169,24 @@
    itself is the game's hue mixed into near-black, and the gview goes
    transparent so it shows through. Entering is instant, dark-mode
    style; leaving rides the fx room's slow fade back to paper. */
-.plugin.gwall-chess          { background: color-mix(in srgb, #2440FF 22%, #101014); }
-.plugin.gwall-falling_blocks { background: color-mix(in srgb, #7A5CFF 20%, #111016); }
-.plugin.gwall-poker          { background: color-mix(in srgb, #1E9E63 18%, #0E1310); }
-.plugin.gwall-ear_training   { background: color-mix(in srgb, #FFB22C 13%, #151209); }
-.plugin[class*="gwall-"] { transition: none; }
+/* four dark GREYS, told apart by temperature only — no colour */
+.plugin.gwall-chess          { background: #16171B; }
+.plugin.gwall-falling_blocks { background: #1B1A1F; }
+.plugin.gwall-poker          { background: #161A17; }
+.plugin.gwall-ear_training   { background: #1B1815; }
 .plugin[class*="gwall-"] .gview { background: transparent; }
+
+/* The room dims SLOWLY — the wall rides the .plugin 1.3s background
+   fade, and every persistent surface eases its colours with it.
+   :where() keeps specificity at zero so real transition rules win. */
+.plugin :where(.top-bar, .top-bar *, .gview, .gview *) {
+  transition: background-color 1.2s ease, color 1.2s ease, border-color 1.2s ease, stroke 1.2s ease;
+}
+/* Fresh game content materialises as the wall darkens */
+.plugin[class*="gwall-"] .gview > * {
+  animation: gwall-view-in 1.2s ease both;
+}
+@keyframes gwall-view-in { from { opacity: 0 } to { opacity: 1 } }
 
 /* ── Head-to-head crosstable — lichess-style score strip ──────────────
    wins in klein blue, draws on paper, losses in ink; the running score

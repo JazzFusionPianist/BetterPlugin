@@ -31,6 +31,7 @@ const GamesPanel = dynamic(() => import('../games/GamesPanel'), { ssr: false })
 import SettingsSheet from './SettingsSheet'
 import AddFriendsSheet from './AddFriendsSheet'
 import NewGroupSheet from './NewGroupSheet'
+import PortfolioPage from './PortfolioPage'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -222,6 +223,7 @@ export default function AppShell({ user }: { user: User }) {
   const [newGroupOpen, setNewGroupOpen] = useState(false)                // create a group
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
   const [wallFriend, setWallFriend] = useState<(Profile & { isOnline?: boolean }) | null>(null) // friend's wall
+  const [portfolioOwner, setPortfolioOwner] = useState<(Profile & { isOnline?: boolean }) | null>(null) // artist page (mine or a friend's)
   const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
 
   // Where new events go: personal, or shared with one of my groups.
@@ -482,6 +484,7 @@ export default function AppShell({ user }: { user: User }) {
           friendCount={friends.length}
           groupCount={groupConversations.length}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenPortfolio={me ? () => setPortfolioOwner(me as Profile & { isOnline?: boolean }) : undefined}
         />
 
         {/* Colophon — version + deploy stamp, quiet corner print. */}
@@ -513,7 +516,17 @@ export default function AppShell({ user }: { user: User }) {
         onClose={() => setSheetFriend(null)}
         onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f }) }}
         onVisitWall={(f) => { setSheetFriend(null); setWallFriend(f as Profile & { isOnline?: boolean }) }}
+        onVisitPortfolio={(f) => { setSheetFriend(null); setPortfolioOwner(f as Profile & { isOnline?: boolean }) }}
       />
+
+      {portfolioOwner && (
+        <PortfolioPage
+          supabase={supabase}
+          currentUserId={user.id}
+          owner={portfolioOwner}
+          onClose={() => setPortfolioOwner(null)}
+        />
+      )}
 
       {wallFriend && (
         <FriendWall

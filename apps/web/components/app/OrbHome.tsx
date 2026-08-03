@@ -31,11 +31,12 @@ interface Props {
  * AppShell OUTSIDE the zoomable stage and outside the booklet pages, so
  * it holds its place while the canvas zooms and while pages turn.
  */
-export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
+export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings, onOpenPortfolio }: {
   me: Profile | null
   friendCount: number
   groupCount: number
   onOpenSettings: () => void
+  onOpenPortfolio?: () => void
 }) {
   const initials = me?.initials ?? '··'
   const color = me?.avatar_color ?? '#4A8FE7'
@@ -56,6 +57,9 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings }: {
         {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
       </div>
       {me?.bio && <div className="orbhome-bio">{me.bio}</div>}
+      {onOpenPortfolio && (
+        <button className="orbhome-portfolio" onClick={onOpenPortfolio}>portfolio ›</button>
+      )}
     </div>
   )
 }

@@ -2909,3 +2909,49 @@
     border-bottom: 1px solid var(--line);
   }
 }
+
+/* ═══ Chess fills the phone — the dock takes the floor it deserves ═══
+   The board block keeps its size; every spare pixel below it goes to
+   the score sheet + chat instead of hanging as empty paper.
+   (Phone only — ≥821px keeps its two-column grid with the side dock.) */
+@media (max-width: 820px) {
+  .games-panel .game-view.chess-shell { display: flex; flex-direction: column; }
+  .games-panel .game-view.chess-shell .game-area { flex: 0 0 auto; }
+  .games-panel .game-view.chess-shell .chess-dock {
+    flex: 1 1 0;
+    min-height: 132px;
+    grid-template-rows: auto 1fr;
+    align-content: stretch;
+    overflow: hidden;
+  }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves {
+    max-height: none; min-height: 0; height: auto;
+  }
+  .games-panel .game-view.chess-shell .chess-dock .game-chat {
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .games-panel .game-view.chess-shell .chess-dock .game-chat-scroll {
+    flex: 1 1 auto; max-height: none; min-height: 0;
+  }
+}
+
+/* Player rows carry more ink: serif names a size up, captured pieces
+   readable instead of specks */
+.games-panel .game-view.chess-shell .game-player-row { min-height: 26px; gap: 10px; }
+.games-panel .game-view.chess-shell .game-player-name { font-size: 17px; }
+.games-panel .game-view.chess-shell .chess-captured {
+  height: 18px; min-height: 18px; max-height: 18px; line-height: 18px; gap: 2px;
+}
+.games-panel .game-view.chess-shell .chess-captured-piece { width: 17px; height: 17px; }
+
+/* The record line reads like a catalogue caption, not a log line */
+.games-panel .game-view .chess-dock .chess-dock-h2h {
+  font-family: var(--f-serif); font-style: italic; font-size: 12.5px;
+  letter-spacing: 0; text-transform: lowercase;
+}
+
+/* Desktop: the left column uses its room */
+@media (min-width: 821px) {
+  .games-panel .game-view .game-area { max-width: 760px; }
+  .games-panel .game-view.chess-shell .chess-dock { min-height: 0; flex: 1 1 auto; }
+}

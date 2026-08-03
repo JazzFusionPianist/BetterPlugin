@@ -9102,10 +9102,49 @@
 .plugin.fx-closing .view { background: transparent !important; }
 .plugin.fx-closing .view .s-body { background: transparent !important; }
 
-/* Head-to-head score — lives with the score sheet */
+/* ── Chess dock — bottom bar halved: score sheet | chat ──────────────
+   (restored: an fx-room cleanup accidentally swept this whole block,
+   leaving the dock unstyled — giant serif "no moves yet" and all) */
+.chess-dock {
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px;
+  padding: 0 12px 6px;
+}
+.chess-dock .game-chat { border-top: none; margin: 0; padding: 6px 0 0; }
+.chess-moves {
+  overflow-y: auto; max-height: 110px;
+  padding: 8px 12px 4px 0;
+  border-right: 1px solid var(--border);
+  font-size: 11px; color: var(--t2);
+  scrollbar-width: none;
+}
+.chess-moves::-webkit-scrollbar { display: none; }
+.chess-moves-row {
+  display: grid; grid-template-columns: 16px 1fr 1fr; gap: 4px;
+  line-height: 1.7; font-variant-numeric: tabular-nums;
+}
+.chess-moves-num { color: var(--t3); }
+.chess-moves-cell.latest { color: var(--t1); font-weight: 600; }
+.chess-moves-empty {
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 11px; color: var(--t3); padding-top: 8px;
+}
+
+/* Chat meta line — real-chat feel: who said it, when (same sweep) */
+.game-chat-scroll { padding-right: 3px; }
+.game-chat-msg { max-width: 86%; }
+.game-chat-msg.with-meta { margin-top: 6px; }
+.game-chat-meta { display: flex; align-items: baseline; gap: 6px; margin-bottom: 1px; }
+.game-chat-msg.mine .game-chat-meta { justify-content: flex-end; }
+.game-chat-meta-name { font-family: var(--f-serif); font-size: 11px; color: var(--t1); text-transform: lowercase; }
+.game-chat-meta-time { font-size: 9px; color: var(--t3); font-variant-numeric: tabular-nums; }
+.game-chat-text { display: block; overflow-wrap: anywhere; }
+
+/* Head-to-head score — a catalogue caption over the score sheet */
 .chess-dock .chess-dock-h2h {
   grid-column: 1 / -1;
-  font-size: 10.5px; color: var(--t2);
+  font-family: var(--f-serif); font-style: italic; text-transform: lowercase;
+  font-size: 11px; color: var(--t2);
   font-variant-numeric: tabular-nums;
   padding: 6px 0 0;
 }

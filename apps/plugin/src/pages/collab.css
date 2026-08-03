@@ -9421,3 +9421,77 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .pb-hint { display: none; }
   .pb-hint-touch { display: block; }
 }
+
+/* Solo falling blocks: no opponents column */
+.falling-blocks-playfield.fb-solo {
+  grid-template-columns: clamp(40px, 15%, 52px) minmax(0, 1fr);
+}
+.plugin.screen-medium .falling-blocks-playfield.fb-solo,
+.plugin.screen-large .falling-blocks-playfield.fb-solo {
+  grid-template-columns: clamp(48px, 12%, 64px) minmax(0, 1fr);
+}
+/* Pinball table sits dead-centre */
+.pinball-canvas-wrap { margin: 0 auto; align-self: center; }
+.pinball-layout { width: 100%; }
+
+/* ── Follow alerts — "{name} follows you" cards under the toolbar ─────
+   Token-based throughout so dark mode and the game rooms invert them;
+   hidden in the fx room (the prints keep the wall to themselves — the
+   card returns when the room closes). */
+.fnotif-stack {
+  position: absolute; z-index: 60;
+  top: 54px; left: 10px; right: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.plugin.fx-open .fnotif-stack { display: none; }
+.fnotif {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+  padding: 7px 8px 7px 9px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.10);
+  animation: fnotif-in 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes fnotif-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fnotif-orb {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  color: #fff; font-family: var(--f-sans); font-size: 9.5px; font-weight: 600;
+}
+.fnotif-orb img { width: 100%; height: 100%; object-fit: cover; }
+.fnotif-text {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--f-sans); font-size: 11px; color: var(--t2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fnotif-name { font-family: var(--f-serif); font-size: 12.5px; color: var(--t1); }
+.fnotif-back {
+  flex-shrink: 0;
+  background: var(--blue); color: #fff; border: none; cursor: pointer;
+  font-family: var(--f-sans); font-size: 10px; font-weight: 500;
+  text-transform: lowercase; white-space: nowrap;
+  padding: 4px 9px; border-radius: 3px;
+  transition: opacity .15s;
+}
+.fnotif-back:hover { opacity: 0.88; }
+.fnotif-back:disabled { opacity: 0.55; cursor: default; }
+.fnotif-mutual {
+  flex-shrink: 0;
+  font-family: var(--f-serif); font-style: italic; font-size: 11px;
+  color: var(--t3); white-space: nowrap;
+}
+.fnotif-x {
+  flex-shrink: 0; width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; color: var(--t3);
+  border-radius: 3px;
+}
+.fnotif-x:hover { color: var(--t1); }
+.fnotif-more {
+  pointer-events: none; align-self: center;
+  font-family: var(--f-sans); font-size: 9.5px; color: var(--t3);
+}

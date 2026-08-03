@@ -8,6 +8,7 @@ import { useConversationNotifications } from '../hooks/useConversationNotificati
 import { useConversationReads } from '../hooks/useConversationReads'
 import { getOrCreateDmConversation, createGroupConversation } from '../lib/conversations'
 import { useFollows } from '../hooks/useFollows'
+import { useFollowAlerts } from '../hooks/useFollowAlerts'
 import { useConversations } from '../hooks/useConversations'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import { useEventCategories } from '../hooks/useEventCategories'
@@ -25,6 +26,7 @@ import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
 import FxPanel from '../components/collab/FxPanel'
+import FollowAlerts from '../components/collab/FollowAlerts'
 import UpcomingList from '../components/collab/UpcomingList'
 import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
@@ -199,6 +201,7 @@ function CollabPageInner({ user }: Props) {
   // still friend-keyed, so we adapt below via the DM conversations list.
   const { unread: convUnread, lastMessages: convLastMessages, markSeen: markConvSeen } = useConversationNotifications(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
+  const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(client, user.id)
   const { conversations, groupConversations } = useConversations(client, user.id)
 
   // ── Calendar (shared by the home schedule prompt + the calendar view) ────
@@ -721,6 +724,14 @@ function CollabPageInner({ user }: Props) {
           </svg>
         </div>
       </div>
+
+      {/* Follow alerts — under the toolbar, above every sliding view */}
+      <FollowAlerts
+        alerts={followAlerts}
+        followingIds={followingIds}
+        onFollowBack={follow}
+        onDismiss={dismissFollowAlert}
+      />
 
       {/* Search bar */}
       <div className={`search-bar${searchOpen ? ' open' : ''}`}>

@@ -50,6 +50,11 @@ export const T = {
   'notifSettings.gameTurn':     { en: 'Game turn alert',  ko: '게임 차례 알림', ja: 'ゲームのターン通知', zh: '游戏轮次提醒', es: 'Alerta de turno de juego', de: 'Spielzug-Hinweis', fr: 'Alerte de tour de jeu', hi: 'गेम टर्न अलर्ट' },
   'notifSettings.gameTurnDesc': { en: 'When it\'s your turn', ko: '당신 차례일 때', ja: 'あなたの番になったとき', zh: '轮到你时', es: 'Cuando sea tu turno', de: 'Wenn du am Zug bist', fr: 'Lorsque c’est à votre tour', hi: 'जब आपकी बारी हो' },
 
+  // ───── Follow alert cards ("{name}" is replaced with the follower) ──────
+  'notif.followsYou': { en: '{name} follows you', ko: '{name}님이 팔로우했어요', ja: '{name}さんにフォローされました', zh: '{name} 关注了你', es: '{name} te sigue', de: '{name} folgt dir jetzt', fr: '{name} vous suit', hi: '{name} ने आपको फ़ॉलो किया' },
+  'notif.followBack': { en: 'follow back', ko: '맞팔로우', ja: 'フォローバック', zh: '回关', es: 'seguir también', de: 'zurückfolgen', fr: 'suivre en retour', hi: 'फ़ॉलो बैक' },
+  'notif.mutual':     { en: 'you follow each other', ko: '서로 팔로우 중', ja: '相互フォロー中', zh: '互相关注', es: 'os seguís mutuamente', de: 'ihr folgt einander', fr: 'vous vous suivez', hi: 'आप एक-दूसरे को फ़ॉलो करते हैं' },
+
   // ───── Header sub-bar (chat) ────────────────────────────────────────────
   'chat.headerOnLive':  { en: '● LIVE',  ko: '● 라이브',  ja: '● ライブ', zh: '● 直播',  es: '● EN VIVO', de: '● LIVE',  fr: '● EN DIRECT', hi: '● लाइव' },
   'chat.joinLive':      { en: 'Join',    ko: '참여',     ja: '参加',     zh: '加入',    es: 'Unirse',    de: 'Beitreten', fr: 'Rejoindre', hi: 'जुड़ें' },

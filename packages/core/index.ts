@@ -18,6 +18,7 @@ export * from './lib/conversations'
 // Hooks.
 export * from './hooks/useProfiles'
 export * from './hooks/useFollows'
+export * from './hooks/useFollowAlerts'
 export * from './hooks/usePresence'
 export * from './hooks/useConversations'
 export * from './hooks/useConversationNotifications'

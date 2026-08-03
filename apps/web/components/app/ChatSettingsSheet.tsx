@@ -226,7 +226,7 @@ export default function ChatSettingsSheet({
     new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toLowerCase()
 
   return (
-    <div className="sset-overlay open" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="sset-overlay open chset-center" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="sset chset">
         <span className="psheet-grab" />
 

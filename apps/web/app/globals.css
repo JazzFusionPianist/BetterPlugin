@@ -1402,38 +1402,69 @@ button { font-family: inherit; }
 }
 .games-close:active { transform: scale(0.94); }
 
-/* Game invite in a chat thread — a small admission ticket. */
+/* Game invite in a chat thread — an admission ticket with a tear-off
+   stub. The two punch-notches at the perforation are cut with a CSS
+   mask so they read as real holes on any bubble colour. */
 .msg-game-invite {
-  display: block; min-width: 196px; max-width: 240px;
-  border: 1px solid var(--line); border-radius: 4px;
-  background: var(--paper);
-  padding: 10px 12px 12px;
+  --stubw: 72px;
+  display: flex; align-items: stretch;
+  min-width: 224px; max-width: 268px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--paper); color: var(--ink);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(26, 25, 23, 0.08);
+  transform: rotate(0.8deg);
+  -webkit-mask-image:
+    radial-gradient(circle 5px at calc(100% - var(--stubw)) 0, transparent 4.5px, #000 5px),
+    radial-gradient(circle 5px at calc(100% - var(--stubw)) 100%, transparent 4.5px, #000 5px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle 5px at calc(100% - var(--stubw)) 0, transparent 4.5px, #000 5px),
+    radial-gradient(circle 5px at calc(100% - var(--stubw)) 100%, transparent 4.5px, #000 5px);
+  mask-composite: intersect;
 }
-.mgi-top {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+/* Mine hangs off the left edge of the bubble, like a ticket in a
+   pocket — and never touches the screen's right side. */
+.chatt-row.mine .msg-game-invite {
+  transform: rotate(-1.3deg);
+  margin-left: -26px; margin-right: 10px;
+}
+.mgi-main {
+  flex: 1; min-width: 0;
+  padding: 10px 12px 11px;
+  border-right: 1px dashed var(--line);
 }
 .mgi-eyebrow {
-  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.12em;
+  font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.13em;
   text-transform: lowercase; color: var(--t3);
 }
-.mgi-mark { font-size: 16px; line-height: 1; color: var(--ink); }
 .mgi-title {
-  font-family: var(--f-serif); font-weight: 400; font-size: 21px;
+  font-family: var(--f-serif); font-weight: 400; font-size: 22px;
   text-transform: lowercase; color: var(--ink);
-  margin: 1px 0 10px;
+  margin: 1px 0 0;
 }
-.mgi-join {
-  display: block; width: 100%;
-  background: var(--blue); color: #fff; border: none; cursor: pointer;
-  font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: lowercase;
-  padding: 8px 0; border-radius: 3px;
+.mgi-admit {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.1em;
+  text-transform: lowercase; color: var(--t3);
+  margin-top: 9px;
+}
+.mgi-stub {
+  flex: 0 0 var(--stubw);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--blue); color: #fff;
+  border: none; cursor: pointer; padding: 0;
   transition: background .15s;
 }
-.mgi-join:hover { background: #1B31D9; }
-.mgi-join:disabled { opacity: 0.5; cursor: default; }
+.mgi-stub:hover { background: #1B31D9; }
+.mgi-stub:disabled { opacity: 0.55; cursor: default; }
+.mgi-mark { font-size: 19px; line-height: 1; }
+.mgi-stub-label {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: lowercase; font-weight: 500;
+}
 .mgi-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t3);
-  margin-top: 7px;
+  font-family: var(--f-serif); font-style: italic; font-size: 11.5px; color: var(--t3);
+  margin-top: 5px;
 }
 
 /* ── Friend's wall (look-only canvas) ────────────────────────────────── */
@@ -2061,4 +2092,12 @@ button { font-family: inherit; }
 /* Group photos in the rails */
 .rail-av-group img, .convs-av-group img {
   width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+}
+
+/* Chat settings opens as a centred window, not a bottom sheet */
+.sset-overlay.chset-center { align-items: center; padding: 20px; z-index: 60; }
+.sset-overlay.chset-center .sset.chset {
+  border-radius: 10px; border-bottom: 1px solid var(--hair);
+  max-width: 480px;
+  padding-bottom: 22px;
 }

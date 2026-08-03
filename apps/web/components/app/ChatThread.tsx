@@ -179,27 +179,27 @@ function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
   const [note, setNote] = useState<string | null>(null)
   return (
     <div className="msg-game-invite">
-      <div className="mgi-top">
+      <div className="mgi-main">
         <span className="mgi-eyebrow">{mine ? 'invitation sent' : 'game invitation'}</span>
-        <span className="mgi-mark" aria-hidden="true">{GAME_MARKS[gameType] ?? '♞'}</span>
+        <div className="mgi-title">{GAME_NAMES[gameType] ?? gameType}</div>
+        <div className="mgi-admit">admit one · no. {roomId.slice(0, 4)}</div>
+        {note && <div className="mgi-note">{note}</div>}
       </div>
-      <div className="mgi-title">{GAME_NAMES[gameType] ?? gameType}</div>
-      {onJoin && (
-        <button
-          className="mgi-join"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true)
-            const r = await onJoin(gameType, roomId)
-            setBusy(false)
-            if (r === 'full') setNote('room is full')
-            else if (r === 'missing') setNote('this game has ended')
-          }}
-        >
-          {busy ? 'joining…' : mine ? 'enter room' : 'join game'}
-        </button>
-      )}
-      {note && <div className="mgi-note">{note}</div>}
+      <button
+        className="mgi-stub"
+        disabled={busy || !onJoin}
+        onClick={async () => {
+          if (!onJoin) return
+          setBusy(true)
+          const r = await onJoin(gameType, roomId)
+          setBusy(false)
+          if (r === 'full') setNote('room is full')
+          else if (r === 'missing') setNote('this game has ended')
+        }}
+      >
+        <span className="mgi-mark" aria-hidden="true">{GAME_MARKS[gameType] ?? '♞'}</span>
+        <span className="mgi-stub-label">{busy ? '…' : mine ? 'enter' : 'join'}</span>
+      </button>
     </div>
   )
 }

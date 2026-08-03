@@ -9,8 +9,9 @@ import ChessView from './ChessView'
 import FallingBlocksView from './FallingBlocksView'
 import PokerView from './PokerView'
 import EarTrainingView from './EarTrainingView'
+import PinballView from './PinballView'
 
-export type GameScreen = 'list' | GameType
+export type GameScreen = 'list' | GameType | 'pinball'
 
 interface Props {
   supabase: SupabaseClient
@@ -43,10 +44,13 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
           <GameListView
             inviteContext={null}
             onSelectGame={async (g) => {
-              // Resume an in-flight room of this game if one exists.
-              const { findActiveGame } = await import('@/lib/games/gameRooms')
-              const active = await findActiveGame(supabase, me.id)
-              if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
+              // Pinball is solo — no room to resume.
+              if (g !== 'pinball') {
+                // Resume an in-flight room of this game if one exists.
+                const { findActiveGame } = await import('@/lib/games/gameRooms')
+                const active = await findActiveGame(supabase, me.id)
+                if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
+              }
               onScreenChange(g)
             }}
             onClose={onClose}
@@ -78,6 +82,14 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
             currentUserId={me.id}
             currentUserProfile={me}
             friendProfiles={friends}
+            onClose={() => onScreenChange('list')}
+          />
+        )}
+        {screen === 'pinball' && (
+          <PinballView
+            supabase={supabase}
+            currentUserId={me.id}
+            currentUserProfile={me}
             onClose={() => onScreenChange('list')}
           />
         )}

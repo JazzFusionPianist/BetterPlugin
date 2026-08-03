@@ -229,6 +229,21 @@ export const T = {
   'fb.youAreOut':   { en: "You're out", ko: '탈락',     ja: '脱落',       zh: '你出局了', es: 'Has perdido', de: 'Ausgeschieden', fr: 'Vous êtes éliminé', hi: 'आप बाहर' },
   'fb.gameOver':    { en: 'Game over',  ko: '게임 종료', ja: 'ゲーム終了', zh: '游戏结束', es: 'Fin del juego', de: 'Spiel vorbei', fr: 'Partie terminée', hi: 'गेम समाप्त' },
   'fb.playerWon':   { en: '{name} won', ko: '{name} 승리', ja: '{name} の勝ち', zh: '{name} 获胜', es: '{name} ganó', de: '{name} hat gewonnen', fr: '{name} a gagné', hi: '{name} जीते' },
+  'fb.hold':        { en: 'Hold',       ko: '홀드',     ja: 'ホールド',   zh: '暂存',    es: 'Reserva',   de: 'Halten',     fr: 'Réserve',   hi: 'होल्ड' },
+  'fb.combo':       { en: 'Combo',      ko: '콤보',     ja: 'コンボ',     zh: '连击',    es: 'Combo',     de: 'Combo',      fr: 'Combo',     hi: 'कॉम्बो' },
+  'fb.level':       { en: 'Level',      ko: '레벨',     ja: 'レベル',     zh: '等级',    es: 'Nivel',     de: 'Level',      fr: 'Niveau',    hi: 'स्तर' },
+
+  // ───── Pinball ──────────────────────────────────────────────────────────
+  'pb.ball':        { en: 'Ball',        ko: '볼',        ja: 'ボール',    zh: '球',      es: 'Bola',      de: 'Kugel',      fr: 'Bille',     hi: 'बॉल' },
+  'pb.gameOver':    { en: 'Game over',   ko: '게임 종료',  ja: 'ゲーム終了', zh: '游戏结束', es: 'Fin del juego', de: 'Spiel vorbei', fr: 'Partie terminée', hi: 'गेम समाप्त' },
+  'pb.leaderboard': { en: 'World ranking', ko: '월드 랭킹', ja: '世界ランキング', zh: '世界排名', es: 'Ranking mundial', de: 'Weltrangliste', fr: 'Classement mondial', hi: 'विश्व रैंकिंग' },
+  'pb.yourBest':    { en: 'Your best',   ko: '내 최고 기록', ja: '自己ベスト', zh: '你的最佳', es: 'Tu récord', de: 'Dein Rekord', fr: 'Ton record', hi: 'आपका सर्वश्रेष्ठ' },
+  'pb.newBest':     { en: 'New best!',   ko: '신기록!',    ja: '自己ベスト更新!', zh: '新纪录!', es: '¡Nuevo récord!', de: 'Neuer Rekord!', fr: 'Nouveau record !', hi: 'नया रिकॉर्ड!' },
+  'pb.playAgain':   { en: 'Play again',  ko: '다시 하기',  ja: 'もう一度',   zh: '再玩一次', es: 'Jugar de nuevo', de: 'Nochmal', fr: 'Rejouer', hi: 'फिर खेलें' },
+  'pb.start':       { en: 'Play',        ko: '시작',      ja: 'プレイ',     zh: '开始',    es: 'Jugar',     de: 'Spielen',    fr: 'Jouer',     hi: 'खेलें' },
+  'pb.hintKeys':    { en: '← → flippers · space to launch', ko: '← → 플리퍼 · 스페이스로 발사', ja: '← → フリッパー・スペースで発射', zh: '← → 挡板 · 空格发射', es: '← → flippers · espacio para lanzar', de: '← → Flipper · Leertaste zum Start', fr: '← → flippers · espace pour lancer', hi: '← → फ्लिपर · स्पेस से लॉन्च' },
+  'pb.hintTouch':   { en: 'tap left / right half · pull the plunger', ko: '왼쪽/오른쪽 탭 · 플런저 당겨서 발사', ja: '左右タップ・プランジャーを引く', zh: '点按左/右 · 拉动弹射器', es: 'toca izquierda/derecha · tira del lanzador', de: 'links/rechts tippen · Abzug ziehen', fr: 'touchez gauche/droite · tirez le lanceur', hi: 'बाएँ/दाएँ टैप करें · प्लंजर खींचें' },
+  'pb.rank':        { en: 'Rank',        ko: '순위',      ja: '順位',       zh: '排名',    es: 'Puesto',    de: 'Rang',       fr: 'Rang',      hi: 'रैंक' },
 
   // ───── Information Panel ────────────────────────────────────────────────
   'info.yourName':         { en: 'your name', ko: '이름', ja: '名前', zh: '你的名字', es: 'tu nombre', de: 'dein Name', fr: 'votre nom', hi: 'आपका नाम' },
@@ -276,6 +291,8 @@ export const T = {
   // ───── Ear Training Duel ────────────────────────────────────────────────
   'game.earTraining':       { en: 'Ear Training', ko: '청음 훈련', ja: '聴音トレーニング', zh: '听音训练', es: 'Entrenamiento auditivo', de: 'Gehörbildung', fr: 'Entraînement auditif', hi: 'कान का अभ्यास' },
   'game.earTrainingDesc':   { en: 'Identify intervals & chords', ko: '음정과 화음 알아맞히기', ja: '音程と和音を当てる', zh: '识别音程和和弦', es: 'Identifica intervalos y acordes', de: 'Intervalle und Akkorde erkennen', fr: 'Identifier intervalles et accords', hi: 'अंतराल और कॉर्ड पहचानें' },
+  'game.pinball':           { en: 'Pinball', ko: '핀볼', ja: 'ピンボール', zh: '弹球', es: 'Pinball', de: 'Flipper', fr: 'Flipper', hi: 'पिनबॉल' },
+  'game.pinballDesc':       { en: 'Solo · world ranking', ko: '혼자서 · 월드 랭킹', ja: 'ソロ・世界ランキング', zh: '单人 · 世界排名', es: 'Solo · ranking mundial', de: 'Solo · Weltrangliste', fr: 'Solo · classement mondial', hi: 'सोलो · विश्व रैंकिंग' },
   'et.round':               { en: 'Round {n} / {total}', ko: '라운드 {n} / {total}', ja: 'ラウンド {n} / {total}', zh: '回合 {n} / {total}', es: 'Ronda {n} / {total}', de: 'Runde {n} / {total}', fr: 'Manche {n} / {total}', hi: 'राउंड {n} / {total}' },
   'et.play':                { en: 'Play', ko: '재생', ja: '再生', zh: '播放', es: 'Reproducir', de: 'Abspielen', fr: 'Jouer', hi: 'चलाएं' },
   'et.replaysLeft':         { en: '{n} replays left', ko: '재생 {n}회 남음', ja: '残り {n} 回', zh: '剩余 {n} 次', es: '{n} repeticiones restantes', de: 'Noch {n} Wiederh.', fr: '{n} relectures restantes', hi: '{n} रिप्ले शेष' },

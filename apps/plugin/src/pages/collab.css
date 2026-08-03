@@ -359,7 +359,8 @@
 .plugin.live-open          .fview > * { visibility: hidden; }
 .plugin.display-open       .sview > *,
 .plugin.info-open          .sview > *,
-.plugin.language-open      .sview > * { visibility: hidden; }
+.plugin.language-open      .sview > *,
+.plugin.addfriend-open     .sview > * { visibility: hidden; }
 
 /* Leaving the fx room straight for the calendar: the home content must
    not flash through the gap while the calendar slides in — it stays
@@ -378,7 +379,10 @@
    whatever you were viewing and, when closed, reveal it again unchanged. */
 .sview { transform: translateX(100%); z-index: 30; background: var(--bg); }
 .pview { transform: translateX(100%); z-index: 16; background: var(--bg); }
-.afview { transform: translateX(100%); z-index: 17; background: var(--bg); }
+/* Find People opens FROM Settings, so it must layer above the sview
+   (z 30) exactly like the Display/Info/Language sub-panels — at 17 it
+   slid in invisibly BEHIND the settings list. */
+.afview { transform: translateX(100%); z-index: 31; background: var(--bg); }
 .dview  { transform: translateX(100%); z-index: 31; background: var(--bg); }
 .iview  { transform: translateX(100%); z-index: 31; background: var(--bg); }
 .lngview { transform: translateX(100%); z-index: 32; background: var(--bg); }
@@ -5448,7 +5452,7 @@
 }
 .plugin.screen-medium .falling-blocks-playfield,
 .plugin.screen-large .falling-blocks-playfield {
-  grid-template-columns: minmax(0, 1fr) clamp(120px, 24%, 220px);
+  grid-template-columns: clamp(48px, 12%, 64px) minmax(0, 1fr) clamp(110px, 22%, 200px);
   gap: 12px;
 }
 .plugin.screen-medium .falling-blocks-self-row,
@@ -5458,7 +5462,6 @@
 }
 .plugin.screen-medium .falling-blocks-self-board-wrap,
 .plugin.screen-large .falling-blocks-self-board-wrap {
-  height: 100%;
   max-width: 100%;
 }
 .plugin.screen-medium .falling-blocks-side-info,
@@ -6204,7 +6207,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(70px, 28%, 92px);
+  grid-template-columns: clamp(40px, 15%, 52px) minmax(0, 1fr) clamp(60px, 22%, 84px);
   gap: 7px;
   align-items: stretch;
   justify-content: center;
@@ -6218,22 +6221,29 @@
 }
 .falling-blocks-self-row {
   min-width: 0; min-height: 0;
-  display: flex; gap: 6px; align-items: stretch; justify-content: center;
+  display: flex; gap: 6px; align-items: center; justify-content: center;
+  container-type: size;
 }
 /* Wrapper for self board + overlays — sized so width matches the actual
-   board (8/18 aspect). */
+   board (10/20 aspect). touch-action none: drags are game input, not scroll. */
 .falling-blocks-self-board-wrap {
   position: relative;
-  height: 100%;
-  aspect-ratio: 8 / 18;
+  /* Contain-fit: as wide as the column allows, but never taller than the
+     row (50cqh = height × 10/20). Height-only sizing overflowed the grid
+     column on phones and the fr tracks couldn't shrink below the cells'
+     aspect-ratio min-content. */
+  width: min(100%, 50cqh);
+  height: auto;
+  aspect-ratio: 10 / 20;
   flex-shrink: 0;
   max-width: 100%;
+  touch-action: none;
 }
 
-/* Board (8 cols × 18 rows) */
+/* Board (10 cols × 20 rows) */
 .falling-blocks-board {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   background: #36383d;
   border: 1px solid rgba(0, 0, 0, 0.18);
   border-radius: 12px;
@@ -6256,7 +6266,7 @@
 /* Opponent board: fills opponents-row height. */
 .falling-blocks-board.is-opponent {
   height: auto;
-  aspect-ratio: 8 / 18;
+  aspect-ratio: 10 / 20;
   width: min(100%, 64px);
   max-width: 100%;
   flex-shrink: 1; min-width: 0;
@@ -6331,7 +6341,7 @@
 .falling-blocks-stat-label {
   font-size: 7px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: uppercase; letter-spacing: 0.4px;
+  text-transform: lowercase; letter-spacing: 0.4px;
 }
 .falling-blocks-stat-value {
   font-size: 12px; color: var(--t1); font-weight: 700;
@@ -9101,6 +9111,13 @@
    background over it */
 .plugin.fx-closing .view { background: transparent !important; }
 .plugin.fx-closing .view .s-body { background: transparent !important; }
+/* coming home from the fx room: orbit, cards and prompt all surface
+   together at the wall's pace — without this they pop to full opacity
+   the instant fx-open lifts, each element at its own speed, while the
+   wall is still dark. Overlay-open states keep their visibility:hidden
+   rules, so this only plays on the straight fx → home path. */
+.plugin.fx-closing .fview > * { animation: fview-home-in 1.3s ease both; }
+@keyframes fview-home-in { from { opacity: 0 } to { opacity: 1 } }
 
 /* ── Chess dock — bottom bar halved: score sheet | chat ──────────────
    (restored: an fx-room cleanup accidentally swept this whole block,
@@ -9226,3 +9243,181 @@
       aside entirely (they return on the large split screen) ──────────── */
 .plugin:not(.screen-wide) .chess-dock { display: none; }
 .plugin.screen-wide .chess-moves { max-height: 90px; }
+
+/* ═══ Falling blocks · tetr.io refit (plugin) ═══════════════════════════
+   Hold + next rail, combo flash, score-decided finish. Token-based so
+   .plugin.dark keeps working. */
+.falling-blocks-rail {
+  min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  align-items: stretch; justify-content: center;
+  overflow: hidden;
+}
+.fb-rail-box {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 3px;
+  background: var(--bg2);
+  border: none; border-radius: 8px;
+  font-family: var(--f-sans);
+}
+button.fb-rail-box { cursor: pointer; }
+button.fb-rail-box.used { opacity: 0.55; cursor: default; }
+.fb-rail-label {
+  font-size: 8px; color: var(--t3);
+  font-family: var(--f-sans);
+  text-transform: lowercase; letter-spacing: 0.4px;
+}
+.fb-rail-piece {
+  min-height: 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fb-hold-empty { font-size: 12px; color: var(--t3); line-height: 1; }
+.fb-next-queue {
+  display: flex; flex-direction: column; gap: 6px;
+  align-items: center;
+  overflow: hidden;
+}
+.falling-blocks-rail .falling-blocks-next-piece { width: auto; aspect-ratio: auto; }
+.fb-rail-level {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 3px;
+}
+.fb-rail-level-num {
+  font-size: 13px; font-weight: 700; color: var(--t1);
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums; line-height: 1;
+}
+.fb-combo-flash {
+  position: absolute; top: 16%; left: 0; right: 0; z-index: 6;
+  display: flex; justify-content: center;
+  pointer-events: none;
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 26px; color: var(--accent, #2440FF);
+  animation: fb-combo-pop 0.9s ease-out forwards;
+}
+@keyframes fb-combo-pop {
+  0%   { opacity: 0; transform: scale(0.7) translateY(6px); }
+  18%  { opacity: 1; transform: scale(1.12) translateY(0); }
+  38%  { transform: scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1) translateY(-10px); }
+}
+.falling-blocks-stat-value.combo-hot { color: var(--accent, #2440FF); }
+.fb-final-scores {
+  width: 100%; max-width: 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 2px 0 4px;
+}
+.fb-final-score-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 3px 2px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--f-sans);
+}
+.fb-final-score-row:last-child { border-bottom: none; }
+.fb-final-score-name {
+  font-family: var(--f-serif, Georgia, serif);
+  font-size: 12px; text-transform: lowercase;
+  color: var(--t1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fb-final-score-row.me .fb-final-score-name { color: var(--accent, #2440FF); font-style: italic; }
+.fb-final-score-value {
+  font-size: 12px; font-weight: 600; color: var(--t1);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.fb-final-score-diff {
+  margin-left: 6px; font-size: 9px; font-weight: 400; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══ Pinball (plugin) ══════════════════════════════════════════════════ */
+.pinball-layout {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 2px 6px 6px; gap: 5px;
+  position: relative;
+}
+.pinball-head {
+  display: flex; align-items: baseline; gap: 10px;
+  width: 100%; max-width: 320px;
+  padding: 2px 4px;
+  font-family: var(--f-sans);
+}
+.pinball-score {
+  font-size: 17px; font-weight: 700; color: var(--t1);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.pinball-balls { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.pb-ball-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  border: 1.5px solid var(--t1);
+  background: transparent;
+  display: inline-block;
+}
+.pb-ball-dot.current { background: var(--accent, #2440FF); border-color: var(--accent, #2440FF); }
+.pb-ball-dot.spent { border-color: var(--t3); opacity: 0.4; }
+.pinball-mult {
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 12px; color: var(--accent, #2440FF);
+}
+.pinball-canvas-wrap {
+  flex: 1; min-height: 0;
+  width: auto; max-width: 100%;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pinball-canvas { display: block; width: 100%; height: 100%; }
+.pb-overlay-card { max-width: 270px; }
+.pb-final-score {
+  font-size: 28px; font-weight: 700; color: var(--t1);
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pb-newbest {
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 14px; color: var(--accent, #2440FF);
+}
+.pb-lb { width: 100%; display: flex; flex-direction: column; gap: 5px; }
+.pb-lb-title {
+  font-family: var(--f-serif, Georgia, serif);
+  font-size: 12px; text-transform: lowercase; color: var(--t2);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+}
+.pb-lb-loading { font-size: 11px; color: var(--t3); text-align: center; padding: 6px 0; }
+.pb-lb-rows { display: flex; flex-direction: column; }
+.pb-lb-row {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 2px;
+  font-family: var(--f-sans); font-size: 11px;
+}
+.pb-lb-rank {
+  width: 14px; flex-shrink: 0; text-align: right;
+  color: var(--t3); font-variant-numeric: tabular-nums; font-size: 10px;
+}
+.pb-lb-name {
+  font-family: var(--f-serif, Georgia, serif); text-transform: lowercase;
+  font-size: 12px; color: var(--t1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+.pb-lb-row.me .pb-lb-name { color: var(--accent, #2440FF); font-style: italic; }
+.pb-lb-score { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--t1); }
+.pb-lb-mine {
+  font-size: 10px; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.pb-start-btn { margin-top: 2px; }
+.pb-hint {
+  font-size: 10px; color: var(--t3);
+  font-family: var(--f-sans); text-align: center;
+}
+.pb-hint-touch { display: none; }
+@media (pointer: coarse) {
+  .pb-hint { display: none; }
+  .pb-hint-touch { display: block; }
+}

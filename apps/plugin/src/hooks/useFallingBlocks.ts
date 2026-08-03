@@ -1,5 +1,13 @@
 // Pure-functions FallingBlocks game logic for multiplayer battle FallingBlocks.
 // No React. All functions are pure (return new state, do not mutate inputs).
+//
+// Guideline-flavoured ruleset (tetr.io-style):
+//   - 10×20 board, 7-bag randomizer, 5-piece preview
+//   - Hold piece (once per piece, Shift/C)
+//   - SRS wall kicks on rotation
+//   - Scoring: base line score × level × combo multiplier, back-to-back
+//     tetris ×1.5, soft drop +1/cell, hard drop +2/cell
+//   - Level rises every 10 lines; gravity follows the guideline curve
 
 export type Cell = string | null
 export type Board = Cell[][]
@@ -17,6 +25,10 @@ export interface FallingBlocksState {
   current: Piece | null // null between piece-lock and next-spawn (briefly)
   next: PieceType[] // upcoming pieces (at least 5 visible)
   bag: PieceType[] // remaining in current 7-bag (internal)
+  hold: PieceType | null // held piece (tetr.io-style swap)
+  holdUsed: boolean // true once hold was used for the current piece
+  combo: number // consecutive line-clearing placements (0 = none)
+  b2b: boolean // last clear was a tetris (back-to-back armed)
   score: number
   lines: number
   topOut: boolean // true if game over
@@ -34,10 +46,12 @@ export interface LockResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const BOARD_ROWS = 18
-export const BOARD_COLS = 8
+export const BOARD_ROWS = 20
+export const BOARD_COLS = 10
 export const LOCK_DELAY_MS = 500
 const PREVIEW_SIZE = 5
+/** Combo multiplier cap — 10× is already apocalyptic. */
+const COMBO_CAP = 10
 const ALL_PIECES: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
 // Each piece described as a 4×4 matrix per rotation, with 1 = filled, 0 = empty.
@@ -238,6 +252,32 @@ const LINE_SCORES: Record<number, number> = {
   4: 800,
 }
 
+// SRS wall-kick offsets. Tables are in guideline (x, y) coordinates with +y
+// pointing UP — converted to (col, row) at test time (row = -y).
+type KickTable = Record<string, readonly (readonly [number, number])[]>
+
+const KICKS_JLSTZ: KickTable = {
+  '0>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+  '1>0': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+  '1>2': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+  '2>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+  '2>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+  '3>2': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+  '3>0': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+  '0>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+}
+
+const KICKS_I: KickTable = {
+  '0>1': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+  '1>0': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+  '1>2': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+  '2>1': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+  '2>3': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+  '3>2': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+  '3>0': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+  '0>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -297,9 +337,9 @@ function drawPiece(
 }
 
 function makePiece(type: PieceType): Piece {
-  // All pieces use a 4×4 bounding box. Centered for an 8-wide board: col=2
-  // puts 3-wide pieces in cols 2-4 and the I piece in cols 2-5.
-  return { type, rotation: 0, row: 0, col: 2 }
+  // All pieces use a 4×4 bounding box. col=3 centres them on a 10-wide
+  // board: 3-wide pieces span cols 3-5, the I piece spans cols 3-6.
+  return { type, rotation: 0, row: 0, col: 3 }
 }
 
 function isOnGround(board: Board, piece: Piece): boolean {
@@ -340,6 +380,20 @@ function clearLines(board: Board): { board: Board; cleared: number } {
 // ---------------------------------------------------------------------------
 // Public utility functions
 // ---------------------------------------------------------------------------
+
+/** Level rises every 10 cleared lines. Level 1 at the start. */
+export function levelForLines(lines: number): number {
+  return 1 + Math.floor(lines / 10)
+}
+
+/** Guideline gravity curve: (0.8 − (L−1)·0.007)^(L−1) seconds per row.
+ *  L1 = 1000ms, L5 ≈ 718ms, L10 ≈ 387ms, L15 ≈ 180ms — a slow, steady
+ *  creep at first that compounds, like classic marathon Tetris. */
+export function gravityMsForLevel(level: number): number {
+  const l = Math.max(1, level)
+  const seconds = Math.pow(0.8 - (l - 1) * 0.007, l - 1)
+  return Math.max(60, Math.round(seconds * 1000))
+}
 
 export function pieceCells(piece: Piece): [number, number][] {
   const shape = SHAPES[piece.type][piece.rotation]
@@ -464,6 +518,7 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
     current: piece,
     next: queue,
     bag,
+    holdUsed: false,
     garbagePending: 0,
     topOut: false,
     lockTimer: null,
@@ -477,6 +532,10 @@ export function initialFallingBlocksState(): FallingBlocksState {
     current: null,
     next: [],
     bag: freshBag(),
+    hold: null,
+    holdUsed: false,
+    combo: 0,
+    b2b: false,
     score: 0,
     lines: 0,
     topOut: false,
@@ -499,13 +558,52 @@ export function tryMove(state: FallingBlocksState, dx: number, dy: number): Fall
 
 export function tryRotate(state: FallingBlocksState, dir: 1 | -1): FallingBlocksState {
   if (!state.current || state.topOut) return state
-  const rot = (((state.current.rotation + dir) % 4) + 4) % 4
-  const candidate: Piece = {
-    ...state.current,
-    rotation: rot as 0 | 1 | 2 | 3,
+  if (state.current.type === 'O') return state // O never changes shape
+  const from = state.current.rotation
+  const to = ((((from + dir) % 4) + 4) % 4) as 0 | 1 | 2 | 3
+  const table = state.current.type === 'I' ? KICKS_I : KICKS_JLSTZ
+  const kicks = table[`${from}>${to}`] ?? [[0, 0] as const]
+  for (const [kx, ky] of kicks) {
+    const candidate: Piece = {
+      ...state.current,
+      rotation: to,
+      col: state.current.col + kx,
+      row: state.current.row - ky, // kick tables use +y = up
+    }
+    if (isValidPosition(state.board, candidate)) {
+      return applyLockTimer({ ...state, current: candidate })
+    }
   }
-  if (!isValidPosition(state.board, candidate)) return state
-  return applyLockTimer({ ...state, current: candidate })
+  return state
+}
+
+/** tetr.io-style hold: stash the current piece and continue with the held
+ *  one (or the next from the queue on first use). Once per piece — the
+ *  flag resets when the next piece spawns after a lock. */
+export function holdSwap(state: FallingBlocksState): FallingBlocksState {
+  if (!state.current || state.topOut || state.holdUsed) return state
+  const stashed = state.current.type
+  if (state.hold) {
+    const piece = makePiece(state.hold)
+    if (!isValidPosition(state.board, piece)) return state
+    return applyLockTimer({
+      ...state,
+      current: piece,
+      hold: stashed,
+      holdUsed: true,
+    })
+  }
+  const { piece: nextType, bag, queue } = drawPiece(state.bag, state.next)
+  const piece = makePiece(nextType)
+  if (!isValidPosition(state.board, piece)) return state
+  return applyLockTimer({
+    ...state,
+    current: piece,
+    next: queue,
+    bag,
+    hold: stashed,
+    holdUsed: true,
+  })
 }
 
 export function lockPiece(state: FallingBlocksState): LockResult {
@@ -515,13 +613,30 @@ export function lockPiece(state: FallingBlocksState): LockResult {
   const cells = pieceCells(state.current)
   const written = cellsToBoard(cells, state.current.type, state.board)
   const { board: cleared, cleared: linesCleared } = clearLines(written)
-  const score = state.score + (LINE_SCORES[linesCleared] ?? 0)
+
+  // tetr.io-style combo: every consecutive line-clearing placement bumps the
+  // multiplier — 1st clear ×1, next ×2, then ×3… A placement that clears
+  // nothing breaks the chain.
+  const combo = linesCleared > 0 ? state.combo + 1 : 0
+  const level = levelForLines(state.lines)
+  let gained = 0
+  if (linesCleared > 0) {
+    const base = LINE_SCORES[linesCleared] ?? 0
+    const comboMult = Math.min(combo, COMBO_CAP)
+    const b2bBonus = linesCleared === 4 && state.b2b ? 1.5 : 1
+    gained = Math.round(base * level * comboMult * b2bBonus)
+  }
+  const b2b = linesCleared === 0 ? state.b2b : linesCleared === 4
+
+  const score = state.score + gained
   const lines = state.lines + linesCleared
   const garbageToSend = Math.max(0, linesCleared - 1)
   const next: FallingBlocksState = {
     ...state,
     board: cleared,
     current: null,
+    combo,
+    b2b,
     score,
     lines,
     lockTimer: null,
@@ -534,12 +649,19 @@ export function hardDrop(state: FallingBlocksState): LockResult {
     return { state, linesCleared: 0, garbageToSend: 0 }
   }
   let piece = state.current
+  let distance = 0
   while (true) {
     const candidate: Piece = { ...piece, row: piece.row + 1 }
     if (!isValidPosition(state.board, candidate)) break
     piece = candidate
+    distance++
   }
-  const dropped: FallingBlocksState = { ...state, current: piece }
+  // Hard drop scores +2 per cell travelled (guideline).
+  const dropped: FallingBlocksState = {
+    ...state,
+    current: piece,
+    score: state.score + distance * 2,
+  }
   return lockPiece(dropped)
 }
 

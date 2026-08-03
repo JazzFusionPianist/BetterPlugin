@@ -5,7 +5,7 @@ import FloatingOrbs from './FloatingOrbs'
 import { useT } from '@/lib/games/i18n'
 import type { TKey } from '@/lib/games/translations'
 
-export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -76,6 +76,22 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.poker',
     descKey: 'game.pokerDesc',
+  },
+  {
+    id: 'pinball',
+    coverBg: 'radial-gradient(circle at 30% 30%, #93a4ff 0%, #2440FF 55%, #0c1550 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="9" r="3.4" fill="currentColor" />
+        <path d="M5 18 L13.5 23.5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+        <path d="M27 18 L18.5 23.5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+        <path d="M8 6 Q16 1 24 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="8.5" cy="12" r="1.6" fill="currentColor" opacity="0.75" />
+        <circle cx="23.5" cy="12" r="1.6" fill="currentColor" opacity="0.75" />
+      </svg>
+    ),
+    nameKey: 'game.pinball',
+    descKey: 'game.pinballDesc',
   },
   {
     id: 'ear_training',

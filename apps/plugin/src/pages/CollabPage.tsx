@@ -32,6 +32,7 @@ import GameListView from '../components/collab/GameListView'
 import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
+import PinballView from '../components/collab/PinballView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
 import type { Profile, Message, ChatTarget } from '../types/collab'
@@ -109,7 +110,7 @@ function CollabPageInner({ user }: Props) {
     return () => clearTimeout(t)
   }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball'>('list')
   // True while the user is using the GameList specifically to invite
   // people in the chat they just left open. Cleared when they pick a
   // game (we create the room + send the invite bubble) or close the
@@ -479,11 +480,14 @@ function CollabPageInner({ user }: Props) {
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
   const handleToggleSettings  = () => setSettingsOpen(prev => {
     // Settings overlays on top of whatever you were viewing (messages/live/
-    // game/add-friend stay open underneath) and renders above them via
-    // z-index, so closing Settings returns you exactly where you were.
-    // Only the in-Settings sub-panels (display/info) and search are reset.
-    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setFxOpen(false); closeSearch() }
-    else { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
+    // game stay open underneath) and renders above them via z-index, so
+    // closing Settings returns you exactly where you were. The in-Settings
+    // sub-panels (display/info/language/find-people) and search are reset
+    // on BOTH edges — leaving any of them open past a gear-close strands
+    // an invisible overlay above the next screen (the language-panel bug,
+    // and again with find-people).
+    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false); setFxOpen(false); closeSearch() }
+    else { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false) }
     return !prev
   })
   // Called by every "open a main panel" handler (messages/live/games/
@@ -825,7 +829,7 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view sview">
           <SettingsPanel
-            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }}
+            onClose={() => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false) }}
             onOpenDisplay={() => setDisplayOpen(true)}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenLanguage={() => setLanguageOpen(true)}
@@ -942,25 +946,38 @@ function CollabPageInner({ user }: Props) {
             <GameListView
               inviteContext={chatGameInvite}
               onSelectGame={async (g) => {
-                // Normal path — user picked a game to play / browse.
-                if (!chatGameInvite) {
-                  const { findActiveGame } = await import('../lib/gameRooms')
-                  const active = await findActiveGame(client, user.id)
-                  if (active?.gameType === g) {
-                    sessionStorage.setItem('join_room_id', active.roomId)
+                // Everything async here (dynamic chunk load, room lookup,
+                // room create, invite send) runs BEFORE the screen switch,
+                // so any rejection used to leave the tap doing nothing at
+                // all — a dead-looking game button. The finally guarantees
+                // the game opens no matter what; the async work is only
+                // resume/invite sugar on top.
+                try {
+                  // Pinball is solo — no rooms, no invites.
+                  if (g === 'pinball') return
+                  if (!chatGameInvite) {
+                    // Normal path — user picked a game to play / browse.
+                    const { findActiveGame } = await import('../lib/gameRooms')
+                    const active = await findActiveGame(client, user.id)
+                    if (active?.gameType === g) {
+                      sessionStorage.setItem('join_room_id', active.roomId)
+                    }
+                  } else {
+                    // Invite path — create the room, post the invite bubble
+                    // into the chat, then drop the user into the lobby.
+                    const { createGameRoom } = await import('../lib/gameRooms')
+                    const roomId = await createGameRoom(client, g, user.id)
+                    if (roomId) {
+                      await send('', { url: roomId, type: 'game_invite', name: g })
+                      sessionStorage.setItem('join_room_id', roomId)
+                    }
                   }
+                } catch (err) {
+                  console.error('[selectGame]', err)
+                } finally {
+                  setChatGameInvite(null)
                   setGameScreen(g)
-                  return
                 }
-                // Invite path — create the room, post the invite bubble
-                // into the chat, then drop the user into the lobby.
-                const { createGameRoom } = await import('../lib/gameRooms')
-                const roomId = await createGameRoom(client, g, user.id)
-                if (!roomId) { setGameScreen(g); return }
-                await send('', { url: roomId, type: 'game_invite', name: g })
-                sessionStorage.setItem('join_room_id', roomId)
-                setChatGameInvite(null)
-                setGameScreen(g)
               }}
               onClose={() => { setGameOpen(false); setChatGameInvite(null) }}
             />
@@ -994,6 +1011,15 @@ function CollabPageInner({ user }: Props) {
               currentUserProfile={me}
               friendProfiles={friendProfiles}
               onlineIds={onlineIds}
+              onClose={() => setGameScreen('list')}
+            />
+          )}
+          {gameScreen === 'pinball' && (
+            <PinballView
+              key={gameJoinNonce}
+              supabase={client}
+              currentUserId={user.id}
+              currentUserProfile={me}
               onClose={() => setGameScreen('list')}
             />
           )}

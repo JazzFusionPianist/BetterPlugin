@@ -484,6 +484,11 @@ export default function AppShell({ user }: { user: User }) {
           onOpenSettings={() => setSettingsOpen(true)}
         />
 
+        {/* Colophon — version + deploy stamp, quiet corner print. */}
+        <div className="home-colophon" aria-hidden="true">
+          v{process.env.NEXT_PUBLIC_APP_VERSION} · {process.env.NEXT_PUBLIC_BUILD_SHA}
+        </div>
+
         {/* Zoom control — hairline chip, bottom-right. */}
         <div className="home-zoomctl">
           <button onClick={() => zoomStep(1 / 1.25)} aria-label="Zoom out">−</button>

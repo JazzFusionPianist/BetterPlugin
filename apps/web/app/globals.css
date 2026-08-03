@@ -2153,3 +2153,14 @@ button { font-family: inherit; }
   max-width: 480px;
   padding-bottom: 22px;
 }
+
+/* Home colophon — the printer's mark in the page corner */
+.home-colophon {
+  position: absolute; z-index: 6;
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  font-family: var(--f-sans); font-size: 10px; letter-spacing: 0.02em;
+  color: var(--t3);
+  pointer-events: none; user-select: none;
+  font-variant-numeric: tabular-nums;
+}

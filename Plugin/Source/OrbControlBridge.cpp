@@ -4,6 +4,7 @@
 namespace
 {
 constexpr uint8_t kHeader[] { 0xF0, 0x7D, 0x4F, 0x52, 0x42 };
+constexpr juce::int64 kAdapterFreshnessMs = 5000;
 
 juce::String decodePayload (const uint8_t* data, size_t size)
 {
@@ -18,6 +19,51 @@ juce::String encodePayload (const juce::String& value)
 {
     return juce::URL::addEscapeChars (value, false, false);
 }
+}
+
+juce::String OrbControlBridge::getFileAdapterId() const
+{
+    if (host.containsIgnoreCase ("Pro Tools")) return "protools";
+    if (host.containsIgnoreCase ("REAPER")) return "reaper";
+    return {};
+}
+
+juce::File OrbControlBridge::getControlDirectory() const
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+        .getChildFile ("Orb").getChildFile ("HostControl");
+}
+
+juce::File OrbControlBridge::getAdapterStatusFile() const
+{
+    const auto id = getFileAdapterId();
+    return id.isEmpty() ? juce::File() : getControlDirectory().getChildFile ("status-" + id + ".json");
+}
+
+bool OrbControlBridge::readFileAdapterStatus (juce::var& status) const
+{
+    const auto file = getAdapterStatusFile();
+    if (! file.existsAsFile()) return false;
+    const auto parsed = juce::JSON::parse (file.loadFileAsString());
+    auto* object = parsed.getDynamicObject();
+    if (object == nullptr) return false;
+    const auto updatedAt = static_cast<juce::int64> (object->getProperty ("updatedAtMs"));
+    if (updatedAt <= 0 || juce::Time::currentTimeMillis() - updatedAt > kAdapterFreshnessMs)
+        return false;
+    status = parsed;
+    return true;
+}
+
+bool OrbControlBridge::writeFileRequest (const juce::var& request) const
+{
+    const auto id = getFileAdapterId();
+    if (id.isEmpty()) return false;
+    const auto directory = getControlDirectory();
+    if (! directory.createDirectory()) return false;
+    const auto requestFile = directory.getChildFile ("request-" + id + ".json");
+    const auto temporary = directory.getNonexistentChildFile ("request-" + id, ".tmp", false);
+    if (! temporary.replaceWithText (juce::JSON::toString (request, false))) return false;
+    return temporary.replaceFileIn (requestFile);
 }
 
 OrbControlBridge::OrbControlBridge (juce::String hostName)
@@ -179,6 +225,8 @@ void OrbControlBridge::sendRaw (const std::vector<uint8_t>& message)
 
 bool OrbControlBridge::requestTracks()
 {
+    juce::var fileStatus;
+    if (readFileAdapterStatus (fileStatus)) return true;
     send (0x01);
     // Also announce/query as an MCU device. DAWs configured with their
     // built-in Mackie Control surface respond with scribble-strip labels.
@@ -188,6 +236,17 @@ bool OrbControlBridge::requestTracks()
 
 bool OrbControlBridge::setTrackSelected (int index, bool selected)
 {
+    juce::var fileStatus;
+    if (readFileAdapterStatus (fileStatus))
+    {
+        auto object = new juce::DynamicObject();
+        object->setProperty ("id", juce::Uuid().toString());
+        object->setProperty ("action", "select");
+        object->setProperty ("trackIndex", index);
+        object->setProperty ("selected", selected);
+        object->setProperty ("createdAtMs", juce::Time::currentTimeMillis());
+        return writeFileRequest (juce::var (object));
+    }
     bool isMcu = false;
     {
         std::lock_guard<std::mutex> lock (stateMutex);
@@ -201,16 +260,32 @@ bool OrbControlBridge::setTrackSelected (int index, bool selected)
     return source != 0;
 }
 
-bool OrbControlBridge::requestExport (const std::vector<int>& trackIndices, bool editSelection)
+juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndices, bool editSelection)
 {
+    juce::var fileStatus;
+    if (readFileAdapterStatus (fileStatus))
+    {
+        const auto requestId = juce::Uuid().toString().removeCharacters ("-");
+        juce::Array<juce::var> indices;
+        for (const int index : trackIndices) indices.add (index);
+        auto object = new juce::DynamicObject();
+        object->setProperty ("id", requestId);
+        object->setProperty ("action", "export");
+        object->setProperty ("trackIndices", indices);
+        object->setProperty ("rangeMode", editSelection ? "selection" : "session");
+        object->setProperty ("createdAtMs", juce::Time::currentTimeMillis());
+        return writeFileRequest (juce::var (object)) ? requestId : juce::String();
+    }
     juce::StringArray ids;
     for (const int index : trackIndices) ids.add (juce::String (index));
     send (0x04, juce::String (editSelection ? "selection" : "session") + "|" + ids.joinIntoString (","));
-    return source != 0;
+    return {};
 }
 
 juce::String OrbControlBridge::getStatusJson() const
 {
+    juce::var fileStatus;
+    if (readFileAdapterStatus (fileStatus)) return juce::JSON::toString (fileStatus, false);
     std::lock_guard<std::mutex> lock (stateMutex);
     const bool connected = adapterConnected
         && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
@@ -230,6 +305,12 @@ juce::String OrbControlBridge::getStatusJson() const
 
 juce::String OrbControlBridge::getTracksJson() const
 {
+    juce::var fileStatus;
+    if (readFileAdapterStatus (fileStatus))
+    {
+        if (auto* object = fileStatus.getDynamicObject())
+            return juce::JSON::toString (object->getProperty ("tracks"), false);
+    }
     std::lock_guard<std::mutex> lock (stateMutex);
     juce::Array<juce::var> result;
     for (const auto& track : tracks)
@@ -243,4 +324,16 @@ juce::String OrbControlBridge::getTracksJson() const
         result.add (juce::var (object));
     }
     return juce::JSON::toString (result, false);
+}
+
+juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestId) const
+{
+    if (requestId.isEmpty() || requestId.containsAnyOf ("/\\."))
+        return "{\"status\":\"error\",\"message\":\"Invalid export request\"}";
+    const auto file = getControlDirectory().getChildFile ("export-" + requestId + ".json");
+    if (! file.existsAsFile())
+        return "{\"status\":\"queued\",\"progress\":0}";
+    const auto contents = file.loadFileAsString();
+    return juce::JSON::parse (contents).isVoid()
+        ? juce::String ("{\"status\":\"queued\",\"progress\":0}") : contents;
 }

@@ -144,10 +144,20 @@ if [ "$INSTALL" = true ]; then
   fi
 
   if [ -n "$AAX_PATH" ]; then
-    sudo mkdir -p "$AAX_DEST"
-    sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
-    sudo cp -R "$AAX_PATH" "$AAX_DEST/"
+    if [ -w "$AAX_DEST" ]; then
+      rm -rf "$AAX_DEST/Orb.aaxplugin"
+      cp -R "$AAX_PATH" "$AAX_DEST/"
+    else
+      sudo mkdir -p "$AAX_DEST"
+      sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
+      sudo cp -R "$AAX_PATH" "$AAX_DEST/"
+    fi
     echo "✓ AAX  installed → $AAX_DEST/Orb.aaxplugin"
+  fi
+
+  if [ -x "$SCRIPT_DIR/HostAdapters/install_adapters.sh" ]; then
+    "$SCRIPT_DIR/HostAdapters/install_adapters.sh"
+    echo "✓ Pro Tools / REAPER automatic stem adapters installed"
   fi
 
   # Notify Logic Pro / AudioComponentRegistrar

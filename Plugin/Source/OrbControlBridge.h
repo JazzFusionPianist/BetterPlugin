@@ -23,7 +23,8 @@ public:
     juce::String getTracksJson() const;
     bool requestTracks();
     bool setTrackSelected (int index, bool selected);
-    bool requestExport (const std::vector<int>& trackIndices, bool editSelection);
+    juce::String requestExport (const std::vector<int>& trackIndices, bool editSelection);
+    juce::String getExportStatusJson (const juce::String& requestId) const;
 
 private:
     static void readProc (const MIDIPacketList* packets, void* refCon, void*);
@@ -32,6 +33,11 @@ private:
     void sendRaw (const std::vector<uint8_t>& message);
     void receiveMackieControl (const uint8_t* data, size_t size);
     void updateConnected();
+    juce::String getFileAdapterId() const;
+    juce::File getControlDirectory() const;
+    juce::File getAdapterStatusFile() const;
+    bool readFileAdapterStatus (juce::var& status) const;
+    bool writeFileRequest (const juce::var& request) const;
 
     juce::String host;
     MIDIClientRef client = 0;

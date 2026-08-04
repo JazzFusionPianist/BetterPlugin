@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
-import type { ConversationStem, HostStemCapabilities, HostStemTrack, StemDropRequest } from '../../types/stems'
+import type { ConversationStem, HostRenderedStemFile, HostStemCapabilities, HostStemExportStatus, HostStemTrack, StemDropRequest } from '../../types/stems'
 import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudioFormat, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
@@ -54,6 +54,7 @@ export default function StemPanel({
   const [rangeMode, setRangeMode] = useState<'session' | 'selection'>('session')
   const [hostLoading, setHostLoading] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [shareStatus, setShareStatus] = useState('')
   const consumed = useRef(new Set<string>())
 
   const load = useCallback(async () => {
@@ -133,24 +134,6 @@ export default function StemPanel({
     })
   }, [])
 
-  const shareSelectedTracks = useCallback(async () => {
-    if (selectedTracks.size === 0) return
-    setSharing(true)
-    try {
-      const result = await callJuceNative(
-        'startHostStemExport',
-        [[...selectedTracks].sort((a, b) => a - b).join(','), rangeMode],
-        10_000,
-      )
-      if (result.startsWith('error:')) throw new Error(result)
-      setAddOpen(false)
-    } catch {
-      setError('Could not start the DAW stem export.')
-    } finally {
-      setSharing(false)
-    }
-  }, [hostStatus?.exportMode, rangeMode, selectedTracks])
-
   useEffect(() => {
     const missing = stems.filter(stem => stem.timeline_metadata?.position.bit_depth == null && audioFormats[stem.file_url] === undefined)
     if (missing.length === 0) return
@@ -219,6 +202,90 @@ export default function StemPanel({
       })
     }
   }, [conversationId, currentUserId, load, pendingDrop?.fallbackMetadata, supabase])
+
+  const uploadRenderedStem = useCallback(async (file: HostRenderedStemFile) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'wav'
+    const contentType = file.mimeType || 'audio/wav'
+    setUploading(previous => [...previous, { name: file.name, progress: 0.15 }])
+    try {
+      const presign = await fetch('/api/r2-upload-url', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
+      })
+      if (!presign.ok) throw new Error('presign')
+      const { uploadUrl, publicUrl } = await presign.json() as { uploadUrl: string; publicUrl: string }
+      setUploading(previous => previous.map(item => item.name === file.name ? { ...item, progress: 0.5 } : item))
+      const nativeResult = await callJuceNative('uploadHostStemFile', [file.path, uploadUrl, contentType], 60 * 60 * 1000)
+      if (nativeResult !== 'ok') throw new Error(nativeResult)
+      setUploading(previous => previous.map(item => item.name === file.name ? { ...item, progress: 1 } : item))
+
+      const sourceSamples = file.sourceSamples ?? 0
+      const seconds = sourceSamples / file.sampleRate
+      const timeline: AttachmentTimelineMetadata = {
+        schema_version: 1,
+        position: {
+          source_samples: sourceSamples,
+          sample_rate: file.sampleRate,
+          bit_depth: file.bitDepth,
+          seconds,
+          source: 'daw_playhead',
+          confidence: 'exact',
+        },
+        tempo_map: hostTimeline?.tempo_map,
+        time_signature_map: hostTimeline?.time_signature_map,
+        captured_at: new Date().toISOString(),
+      }
+      const { error: insertError } = await supabase.from('conversation_stems').insert({
+        conversation_id: conversationId,
+        uploader_id: currentUserId,
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: contentType,
+        timeline_metadata: timeline,
+      })
+      if (insertError) throw insertError
+    } finally {
+      setUploading(previous => previous.filter(item => item.name !== file.name))
+    }
+  }, [conversationId, currentUserId, hostTimeline, supabase])
+
+  const shareSelectedTracks = useCallback(async () => {
+    if (selectedTracks.size === 0) return
+    setSharing(true)
+    setShareStatus('Starting DAW export…')
+    try {
+      const requestId = await callJuceNative(
+        'startHostStemExport',
+        [[...selectedTracks].sort((a, b) => a - b).join(','), rangeMode],
+        10_000,
+      )
+      if (requestId.startsWith('error:')) throw new Error(requestId)
+      let result: HostStemExportStatus = { status: 'queued' }
+      const deadline = Date.now() + 6 * 60 * 60 * 1000
+      while (Date.now() < deadline) {
+        const raw = await callJuceNative('getHostStemExportStatus', [requestId], 5000)
+        result = JSON.parse(raw) as HostStemExportStatus
+        setShareStatus(result.message || (result.status === 'queued' ? 'Waiting for DAW…' : `Rendering ${Math.round((result.progress ?? 0) * 100)}%`))
+        if (result.status === 'complete' || result.status === 'error') break
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      if (result.status === 'error') throw new Error(result.message || 'DAW export failed')
+      if (result.status !== 'complete' || !result.files?.length) throw new Error('DAW export timed out')
+      for (let index = 0; index < result.files.length; index++) {
+        setShareStatus(`Uploading ${index + 1} of ${result.files.length}…`)
+        await uploadRenderedStem(result.files[index])
+      }
+      await load()
+      setAddOpen(false)
+      setShareStatus('')
+    } catch (shareError) {
+      console.error('[StemPanel] automatic export failed', shareError)
+      setError(shareError instanceof Error ? shareError.message : 'Could not export and share DAW stems.')
+    } finally {
+      setSharing(false)
+    }
+  }, [load, rangeMode, selectedTracks, uploadRenderedStem])
 
   const uploadFiles = useCallback(async (files: File[], fallback = pendingDrop?.fallbackMetadata ?? null) => {
     for (const file of files) await uploadOne(file, fallback)
@@ -340,7 +407,7 @@ export default function StemPanel({
               <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none'} onClick={() => void shareSelectedTracks()}>
                 {hostStatus.exportMode === 'none'
                   ? 'Automatic export unavailable'
-                  : sharing ? 'Starting…' : `Share ${selectedTracks.size || ''} Stem${selectedTracks.size === 1 ? '' : 's'}`}
+                  : sharing ? (shareStatus || 'Working…') : `Share ${selectedTracks.size || ''} Stem${selectedTracks.size === 1 ? '' : 's'}`}
               </button>
             </>
           )}

@@ -67,12 +67,13 @@ target_sources(OrbPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/OrbControlBridge.cpp
+    Source/HostStemUploader.mm
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
     Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
 
 # ObjC++ files require ARC (rest of the project uses MRC)
-set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm
+set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm Source/HostStemUploader.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
@@ -106,6 +107,7 @@ if(APPLE)
         "-framework UniformTypeIdentifiers"
         "-framework CoreMIDI"
         "-framework CoreAudio"
+        "-framework Foundation"
     )
 endif()
 

@@ -41,3 +41,21 @@ export interface HostStemCapabilities {
   inputPort?: string
   outputPort?: string
 }
+
+export interface HostRenderedStemFile {
+  path: string
+  name: string
+  size: number
+  mimeType: string
+  sampleRate: number
+  bitDepth: number
+  sourceSamples?: number
+}
+
+export interface HostStemExportStatus {
+  id?: string
+  status: 'queued' | 'rendering' | 'complete' | 'error'
+  progress?: number
+  message?: string
+  files?: HostRenderedStemFile[]
+}

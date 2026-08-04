@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "HostStemUploader.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
 #include <thread>
@@ -158,6 +159,18 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleStartHostStemExport (args, std::move (completion));
+                })
+            .withNativeFunction ("getHostStemExportStatus",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetHostStemExportStatus (args, std::move (completion));
+                })
+            .withNativeFunction ("uploadHostStemFile",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleUploadHostStemFile (args, std::move (completion));
                 })
             .withNativeFunction ("setFx",
                 [this] (const juce::var& args,
@@ -851,8 +864,41 @@ void OrbAudioProcessor::handleStartHostStemExport (
     const auto tokens = juce::StringArray::fromTokens (args[0].toString(), ",", "");
     for (const auto& token : tokens)
         if (token.trim().isNotEmpty()) indices.push_back (token.getIntValue());
-    completion (controlBridge->requestExport (indices, args[1].toString() == "selection")
-        ? "started" : "error:no-port");
+    const auto requestId = controlBridge->requestExport (indices, args[1].toString() == "selection");
+    completion (requestId.isNotEmpty() ? requestId : "error:no-adapter");
+}
+
+void OrbAudioProcessor::handleGetHostStemExportStatus (
+    const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (controlBridge == nullptr || ! args.isArray() || args.size() < 1)
+    {
+        completion ("{\"status\":\"error\",\"message\":\"Bad request\"}");
+        return;
+    }
+    completion (controlBridge->getExportStatusJson (args[0].toString()));
+}
+
+void OrbAudioProcessor::handleUploadHostStemFile (
+    const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (! args.isArray() || args.size() < 3)
+    {
+        completion ("error:bad-args");
+        return;
+    }
+    const juce::File file (args[0].toString());
+    const auto exportRoot = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+        .getChildFile ("Orb").getChildFile ("HostControl").getChildFile ("Exports");
+    if (! file.existsAsFile() || ! file.isAChildOf (exportRoot))
+    {
+        completion ("error:invalid-file");
+        return;
+    }
+    HostStemUploader::upload (file, args[1].toString(), args[2].toString(),
+        [completion = std::move (completion)] (bool ok, juce::String message) mutable {
+            completion (ok ? juce::String ("ok") : "error:" + message);
+        });
 }
 
 

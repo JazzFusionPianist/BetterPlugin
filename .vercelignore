@@ -1,0 +1,6 @@
+Plugin/build
+Plugin/build/**
+.git
+.vercel
+desktop
+apps/web/ios

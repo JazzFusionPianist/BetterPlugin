@@ -7,16 +7,16 @@ How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 | # | Item | Status (2026-08-05) | Needed for |
 |---|------|---------------------|------------|
 | 1 | Apple Developer Program membership | ✅ enrolled | all formats |
-| 2 | **Developer ID Application** cert | ❌ not created yet | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
-| 3 | **Developer ID Installer** cert | ❌ not created yet | sign the `.pkg` |
+| 2 | **Developer ID Application** cert | ✅ created in Apple Developer; local import pending | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
+| 3 | **Developer ID Installer** cert | ✅ created in Apple Developer; local import pending | sign the `.pkg` |
 | 4 | App-specific password / notary profile | ❌ | notarize the `.pkg` |
 | 5 | Avid Developer + AAX agreement | SDK present (`../aax-sdk-2-9-0`) | build AAX |
 | 6 | **PACE / Eden developer account → `wraptool`** | ⏳ application submitted to PACE; awaiting onboarding | sign AAX for release Pro Tools |
 | 7 | PACE product registration → `wcguid` | ❌ | sign AAX |
 
-**Create #2 + #3:** Xcode ▸ Settings ▸ Accounts ▸ (your Apple ID) ▸ Manage
-Certificates ▸ **+** ▸ "Developer ID Application", then again "Developer ID
-Installer". Verify: `security find-identity -v -p codesigning`.
+**Install #2 + #3:** Download both certificates from Apple Developer and
+import them into the login keychain. Their private keys were created with the
+matching CSRs on this Mac. Verify: `security find-identity -v -p codesigning`.
 
 **Create #4:** `xcrun notarytool store-credentials orb-notary --apple-id
 <id> --team-id <TEAMID> --password <app-specific-pw>` (app-specific password

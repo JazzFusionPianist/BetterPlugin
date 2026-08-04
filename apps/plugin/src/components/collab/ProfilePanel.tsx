@@ -100,8 +100,13 @@ export default function ProfilePanel ({
   const statsRef      = useRef<HTMLDivElement>(null)
   const avatarRef     = useRef<HTMLButtonElement>(null)
   const nameRef       = useRef<HTMLDivElement>(null)
+  const promptRef     = useRef<HTMLDivElement>(null)
   const orbsRef       = useRef<Orb[]>([])
   const sizeRef       = useRef({ w: 300, h: 480 })
+  // Y coordinate of the physical floor in container-local space. On the
+  // home screen this follows the top edge of the fixed schedule controls,
+  // keeping friend orbs visible and making them bounce off the panel.
+  const bottomBoundaryRef = useRef(476)
   // Solid obstacles the orbs bounce off, in container-local coords.
   // `rects` are AABB boxes (stats panel, name chip); `circles` are
   // round obstacles (the centre avatar). Recomputed on resize /
@@ -299,6 +304,12 @@ export default function ProfilePanel ({
     const H = rect.height
     sizeRef.current = { w: W, h: H }
 
+    const promptRect = promptRef.current?.getBoundingClientRect()
+    const bottomBoundary = promptRect
+      ? Math.max(1, promptRect.top - rect.top - 6)
+      : H - 4
+    bottomBoundaryRef.current = bottomBoundary
+
     const N = renderProfiles.length + safeGroupOrbs.length
     if (N === 0) {
       orbsRef.current = []
@@ -306,8 +317,8 @@ export default function ProfilePanel ({
       return
     }
 
-    const reservedBottom = 4
-    const usable      = Math.max(1, W * (H - reservedBottom) * 0.22)
+    const usableHeight = Math.max(1, bottomBoundary)
+    const usable      = Math.max(1, W * usableHeight * 0.22)
     const rRaw        = Math.sqrt(usable / (N * Math.PI))
     const baseR       = Math.max(4, Math.min(14, rRaw))
     const favR        = Math.max(baseR * 1.4, baseR + 5)
@@ -324,7 +335,7 @@ export default function ProfilePanel ({
     for (const p of renderProfiles) {
       const r = favorites.has(p.id) ? favR : baseR
       const x = r + Math.random() * (W - 2 * r)
-      const y = r + Math.random() * (H - reservedBottom - 2 * r)
+      const y = r + Math.random() * Math.max(1, usableHeight - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.06 + Math.random() * 0.08) * speedFactor
       orbs.push({ kind: 'dm', profile: p, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
@@ -332,7 +343,7 @@ export default function ProfilePanel ({
     for (const g of safeGroupOrbs) {
       const r = groupR(Math.max(2, g.memberCount))
       const x = r + Math.random() * (W - 2 * r)
-      const y = r + Math.random() * (H - reservedBottom - 2 * r)
+      const y = r + Math.random() * Math.max(1, usableHeight - 2 * r)
       const angle = Math.random() * Math.PI * 2
       const speed = (0.05 + Math.random() * 0.06) * speedFactor   // groups drift a hair slower
       orbs.push({ kind: 'group', group: g, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, frozen: false, el: null })
@@ -358,6 +369,12 @@ export default function ProfilePanel ({
       const c = containerRef.current
       if (!c) { obstaclesRef.current = { rects: [], circles: [] }; return }
       const cr = c.getBoundingClientRect()
+      sizeRef.current = { w: cr.width, h: cr.height }
+
+      const promptRect = promptRef.current?.getBoundingClientRect()
+      bottomBoundaryRef.current = promptRect
+        ? Math.max(1, promptRect.top - cr.top - 6)
+        : cr.height - 4
       const toLocalRect = (el: Element | null) => {
         if (!el) return null
         const r = el.getBoundingClientRect()
@@ -383,6 +400,7 @@ export default function ProfilePanel ({
     if (statsRef.current)     ro.observe(statsRef.current)
     if (nameRef.current)      ro.observe(nameRef.current)
     if (avatarRef.current)    ro.observe(avatarRef.current)
+    if (promptRef.current)    ro.observe(promptRef.current)
     if (containerRef.current) ro.observe(containerRef.current)
     window.addEventListener('resize', measure)
     return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
@@ -399,7 +417,7 @@ export default function ProfilePanel ({
     const tick = () => {
       const orbs = orbsRef.current
       const { w: W, h: H } = sizeRef.current
-      const reservedBottom = 4
+      const bottomBoundary = Math.min(H - 4, bottomBoundaryRef.current)
       const sf = speedFactorRef.current
 
       for (const o of orbs) {
@@ -421,7 +439,7 @@ export default function ProfilePanel ({
         if (o.x < o.r) { o.x = o.r; o.vx = Math.abs(o.vx) }
         if (o.x > W - o.r) { o.x = W - o.r; o.vx = -Math.abs(o.vx) }
         if (o.y < o.r) { o.y = o.r; o.vy = Math.abs(o.vy) }
-        if (o.y > H - reservedBottom - o.r) { o.y = H - reservedBottom - o.r; o.vy = -Math.abs(o.vy) }
+        if (o.y > bottomBoundary - o.r) { o.y = Math.max(o.r, bottomBoundary - o.r); o.vy = -Math.abs(o.vy) }
       }
 
       // Solid obstacles — stats panel, name chip (AABB) and the centre
@@ -944,7 +962,7 @@ export default function ProfilePanel ({
 
         {/* Schedule prompt — bottom of the home panel (self only). */}
         {onSchedule && scheduleTargets && (
-          <div className="orbit-prompt">
+          <div className="orbit-prompt" ref={promptRef}>
             <SchedulePrompt onSubmit={onSchedule} targets={scheduleTargets} />
           </div>
         )}

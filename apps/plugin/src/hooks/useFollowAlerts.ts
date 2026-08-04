@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getInitials } from '../types/collab'
 
 /** The slice of a profile the alert card needs — kept local so the hook
  *  stays self-contained (it resolves actors itself; the caller's loaded
@@ -53,11 +54,17 @@ export function useFollowAlerts(supabase: SupabaseClient, currentUserId: string)
     const actorIds = [...new Set(rows.map((r) => r.actor_id))]
     const profileById = new Map<string, FollowAlertActor>()
     if (actorIds.length > 0) {
-      const { data: profs } = await supabase
+      // NOTE: `initials` is NOT a profiles column — it's always derived
+      // client-side (see useProfiles). Selecting it made PostgREST reject
+      // the whole query, so every actor came back null → "?" cards.
+      const { data: profs, error: profErr } = await supabase
         .from('profiles')
-        .select('id, display_name, initials, avatar_color, avatar_url, username')
+        .select('id, display_name, avatar_color, avatar_url, username')
         .in('id', actorIds)
-      for (const p of (profs ?? []) as FollowAlertActor[]) profileById.set(p.id, p)
+      if (profErr) console.error('[useFollowAlerts] profiles fetch:', profErr)
+      for (const p of (profs ?? []) as Omit<FollowAlertActor, 'initials'>[]) {
+        profileById.set(p.id, { ...p, initials: getInitials(p.display_name || '?') })
+      }
     }
     setAlerts(rows.map((r) => ({ id: r.id, actorId: r.actor_id, actor: profileById.get(r.actor_id) ?? null })))
   }, [supabase, currentUserId])

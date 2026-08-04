@@ -53,6 +53,7 @@ def status_payload(engine, tracks) -> dict:
         "updatedAtMs": int(time.time() * 1000),
         "sampleRate": engine.session_sample_rate() or 48000,
         "bitDepth": engine.session_bit_depth() or 24,
+        "sessionOpen": True,
         "tracks": [
             {
                 "id": track.id,
@@ -63,6 +64,22 @@ def status_payload(engine, tracks) -> dict:
             }
             for track in tracks if track.type in SUPPORTED_TYPES
         ],
+    }
+
+
+def no_session_status() -> dict:
+    return {
+        "hostName": "Pro Tools",
+        "adapter": "Orb Pro Tools (PTSL)",
+        "connected": True,
+        "trackListing": False,
+        "exportMode": "native",
+        "sessionOpen": False,
+        "message": "Open a Pro Tools session to read its tracks.",
+        "updatedAtMs": int(time.time() * 1000),
+        "sampleRate": 48000,
+        "bitDepth": 24,
+        "tracks": [],
     }
 
 
@@ -191,7 +208,14 @@ def run() -> None:
                 continue
             with ptsl.open_engine(company_name="Orb", application_name="Orb Pro Tools Adapter") as engine:
                 while True:
-                    tracks = engine.track_list()
+                    try:
+                        tracks = engine.track_list()
+                    except Exception as error:
+                        if "PT_NoOpenedSession" not in str(error):
+                            raise
+                        write_json(STATUS, no_session_status())
+                        time.sleep(0.75)
+                        continue
                     write_json(STATUS, status_payload(engine, tracks))
                     if REQUEST.is_file():
                         request = json.loads(REQUEST.read_text(encoding="utf-8"))

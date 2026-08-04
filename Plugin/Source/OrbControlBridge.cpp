@@ -25,6 +25,19 @@ juce::String OrbControlBridge::getFileAdapterId() const
 {
     if (host.containsIgnoreCase ("Pro Tools")) return "protools";
     if (host.containsIgnoreCase ("REAPER")) return "reaper";
+    if (host.containsIgnoreCase ("Standalone"))
+    {
+        const auto directory = getControlDirectory();
+        const auto proTools = directory.getChildFile ("status-protools.json");
+        const auto reaper = directory.getChildFile ("status-reaper.json");
+        const auto now = juce::Time::currentTimeMillis();
+        const auto proToolsAge = now - proTools.getLastModificationTime().toMilliseconds();
+        const auto reaperAge = now - reaper.getLastModificationTime().toMilliseconds();
+        if (proTools.existsAsFile() && proToolsAge >= 0 && proToolsAge < kAdapterFreshnessMs)
+            return "protools";
+        if (reaper.existsAsFile() && reaperAge >= 0 && reaperAge < kAdapterFreshnessMs)
+            return "reaper";
+    }
     return {};
 }
 

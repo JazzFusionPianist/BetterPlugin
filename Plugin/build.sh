@@ -112,6 +112,7 @@ if [ "$INSTALL" = true ]; then
   STANDALONE_DEST=~/Applications
   AAX_DEST="/Library/Application Support/Avid/Audio/Plug-Ins"
   AAX_PATH=$(find "$BUILD_DIR" -name "Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
+  [ -z "$AAX_SDK_PATH" ] && AAX_PATH=""
 
   mkdir -p "$AU_DEST" "$VST3_DEST" "$STANDALONE_DEST"
 
@@ -144,15 +145,24 @@ if [ "$INSTALL" = true ]; then
   fi
 
   if [ -n "$AAX_PATH" ]; then
-    if [ -w "$AAX_DEST" ]; then
-      rm -rf "$AAX_DEST/Orb.aaxplugin"
-      cp -R "$AAX_PATH" "$AAX_DEST/"
-    else
-      sudo mkdir -p "$AAX_DEST"
-      sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
-      sudo cp -R "$AAX_PATH" "$AAX_DEST/"
+    AAX_PACE_SIGNED=false
+    if command -v wraptool >/dev/null 2>&1 && wraptool verify --in "$AAX_PATH" >/dev/null 2>&1; then
+      AAX_PACE_SIGNED=true
     fi
-    echo "✓ AAX  installed → $AAX_DEST/Orb.aaxplugin"
+    if [ "$AAX_PACE_SIGNED" = true ]; then
+      if [ -w "$AAX_DEST" ]; then
+        rm -rf "$AAX_DEST/Orb.aaxplugin"
+        cp -R "$AAX_PATH" "$AAX_DEST/"
+      else
+        sudo mkdir -p "$AAX_DEST"
+        sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
+        sudo cp -R "$AAX_PATH" "$AAX_DEST/"
+      fi
+      echo "✓ AAX  installed → $AAX_DEST/Orb.aaxplugin"
+    else
+      echo "⚠ AAX build is not PACE-signed; skipped release Pro Tools installation."
+      echo "  Run sign-aax.sh after PACE onboarding, then install again."
+    fi
   fi
 
   if [ -x "$SCRIPT_DIR/HostAdapters/install_adapters.sh" ]; then

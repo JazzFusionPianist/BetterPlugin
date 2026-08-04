@@ -375,6 +375,12 @@ export default function StemPanel({
               <span>Choose “Orb Control” in your DAW’s Remote or Control Surface setup. No screen access is used.</span>
               <button onClick={() => void refreshHostTracks()}>Refresh</button>
             </div>
+          ) : hostStatus.sessionOpen === false ? (
+            <div className="stem-host-notice">
+              <strong>Open a Pro Tools session</strong>
+              <span>The PTSL adapter is connected. Track listing starts automatically when a session is open.</span>
+              <button onClick={() => void refreshHostTracks()}>Refresh</button>
+            </div>
           ) : (
             <>
               <div className="stem-host-state">

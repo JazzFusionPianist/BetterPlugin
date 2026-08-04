@@ -38,6 +38,8 @@ export interface HostStemCapabilities {
   connected: boolean
   trackListing: boolean
   exportMode: 'native' | 'realtime' | 'none'
+  sessionOpen?: boolean
+  message?: string
   inputPort?: string
   outputPort?: string
 }

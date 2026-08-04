@@ -8584,67 +8584,6 @@
   display: block;
 }
 
-/* ── Upcoming programme column (top-left of the orbit home) ── */
-.uplist {
-  position: absolute; z-index: 5;
-  top: 8px;
-  left: 0;
-  width: fit-content;
-  max-width: 78%;
-  /* stop before the centre avatar; overflow fades out like ink */
-  max-height: 132px;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
-          mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
-  pointer-events: auto;
-}
-.uplist-head {
-  display: flex; justify-content: flex-end;
-  width: 62px;
-  margin-bottom: 4px;
-}
-.uplist-head span {
-  font-family: var(--f-sans); font-size: 10px; color: var(--t3);
-  text-transform: lowercase;
-}
-.uplist ul { list-style: none; margin: 0; padding: 4px 0 6px; border-top: 1px solid var(--border); }
-.uplist-today .uplist-title { color: var(--t1); font-weight: 600; }
-.uplist-today .uplist-date { color: var(--t1); }
-.uplist-today .uplist-time { width: 0; }
-.uplist-head-next { margin-top: 6px; }
-.uplist-none {
-  border-top: 1px solid var(--border);
-  font-family: var(--f-serif); font-style: italic; font-size: 11.5px; color: var(--t3);
-  padding: 5px 0 6px 10px;
-}
-.uplist-row {
-  display: flex; align-items: center; gap: 7px; width: 100%;
-  background: none; border: none;
-  padding: 2px 22px 2px 10px; cursor: pointer;
-  font-family: inherit; text-align: left;
-}
-.uplist-date {
-  font-family: var(--f-sans); font-size: 10px; color: var(--t3);
-  text-transform: lowercase; font-variant-numeric: tabular-nums;
-  width: 52px; flex-shrink: 0; text-align: right;
-  white-space: nowrap;
-}
-.uplist-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-.uplist-title {
-  font-family: var(--f-sans);
-  font-size: 11px; font-weight: 500; color: var(--t2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 128px;
-  transition: color .12s;
-}
-.uplist-time {
-  font-family: var(--f-sans); font-size: 9.5px; color: var(--t3);
-  font-variant-numeric: tabular-nums;
-  width: 30px; flex-shrink: 0; text-align: right;
-  white-space: nowrap;
-}
-.uplist-row:hover .uplist-title { color: var(--t1); }
-
 /* ── Calendar upgrade: filters edit, category manager, event page ── */
 .cal-filters-edit { color: var(--t3); margin-left: auto; }
 .cal-filters-edit.on { color: var(--t1); }

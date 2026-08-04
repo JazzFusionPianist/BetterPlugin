@@ -27,7 +27,6 @@ import AddFriendPanel from '../components/collab/AddFriendPanel'
 import LivePanel from '../components/collab/LivePanel'
 import FxPanel from '../components/collab/FxPanel'
 import FollowAlerts from '../components/collab/FollowAlerts'
-import UpcomingList from '../components/collab/UpcomingList'
 import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
@@ -745,9 +744,6 @@ function CollabPageInner({ user }: Props) {
       {/* Sliding content */}
       <div className="content">
         <div className="view fview">
-          {!viewingProfileId && viewMode === 'default' && (
-            <UpcomingList events={calEvents} onOpen={() => setCalendarOpen(true)} />
-          )}
           {viewingProfileId && viewingProfile
             ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} viewOnly />
             : viewMode === 'default'

@@ -66,6 +66,7 @@ juce_add_plugin(OrbPlugin
 target_sources(OrbPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/OrbControlBridge.cpp
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
     Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
@@ -103,6 +104,8 @@ if(APPLE)
         "-framework CoreImage"
         "-framework ImageIO"
         "-framework UniformTypeIdentifiers"
+        "-framework CoreMIDI"
+        "-framework CoreAudio"
     )
 endif()
 

@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Profile, Message, AttachType } from '../../types/collab'
+import type { Profile, Message, AttachType, AttachmentTimelineMetadata } from '../../types/collab'
+import type { StemDropRequest } from '../../types/stems'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import { linkify, firstUrl } from '../../lib/linkify'
 import LinkPreviewCard from './LinkPreviewCard'
 import { mergeDroppedRegions } from '../../lib/audioMerge'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
 
-interface Attachment { url: string; type: AttachType; name: string }
+interface Attachment {
+  url: string
+  type: AttachType
+  name: string
+  metadata?: AttachmentTimelineMetadata
+}
 type GameInviteJoinResult = 'joined' | 'already-in' | 'full' | 'missing'
 
 interface Props {
@@ -45,6 +52,9 @@ interface Props {
    *  the parent usually wires this to open the partner's profile; for
    *  groups it opens ChatSettingsPanel. */
   onOpenSettings?: () => void
+  onOpenStems?: () => void
+  stemsActive?: boolean
+  onStemDrop?: (request: StemDropRequest) => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
   /** Called when the user taps "Join Game" on a chat invite bubble.
@@ -189,7 +199,115 @@ function callJuceNative(name: string, params: unknown[]): Promise<string> {
 type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback' | 'imported'
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
-function AudioAttachment({ url, name }: { url: string; name: string }) {
+interface TimelineDisplay {
+  position?: string
+  timecode?: string
+  tempo?: string
+  meter?: string
+  sampleRate?: string
+  bitDepth?: string
+}
+
+function compactNumber(value: number): string {
+  return value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
+}
+
+function formatTimelineTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = (seconds % 60).toFixed(3).padStart(6, '0')
+  return `${String(minutes).padStart(2, '0')}:${remainder}`
+}
+
+function formatSampleRate(sampleRate: number): string {
+  const khz = sampleRate / 1000
+  return `${Number.isInteger(khz) ? khz : Number(khz.toFixed(1))}k`
+}
+
+function timelineDisplay(metadata?: AttachmentTimelineMetadata): TimelineDisplay | null {
+  if (!metadata) return null
+  const { position } = metadata
+  const tempoPoints = metadata.tempo_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
+  const signaturePoints = metadata.time_signature_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
+  const lastTempo = tempoPoints[tempoPoints.length - 1]
+  const lastSignature = signaturePoints[signaturePoints.length - 1]
+  const inferredPpq = position.ppq ?? lastTempo?.ppq ?? lastSignature?.ppq
+  const matchingTempos = inferredPpq == null ? [] : tempoPoints.filter(point => point.ppq <= inferredPpq)
+  const matchingSignatures = inferredPpq == null ? [] : signaturePoints.filter(point => point.ppq <= inferredPpq)
+  const tempo = inferredPpq == null
+    ? lastTempo
+    : matchingTempos[matchingTempos.length - 1] ?? tempoPoints[0]
+  const signature = inferredPpq == null
+    ? lastSignature
+    : matchingSignatures[matchingSignatures.length - 1] ?? signaturePoints[0]
+
+  let bar = position.bar
+  let beat = position.beat
+  if (bar == null && inferredPpq != null && signature) {
+    const beatPpq = 4 / signature.denominator
+    const barPpq = signature.numerator * beatPpq
+    bar = Math.floor(Math.max(0, inferredPpq) / barPpq) + 1
+    beat = (Math.max(0, inferredPpq) % barPpq) / beatPpq + 1
+  }
+
+  const rawSeconds = position.seconds
+  const projectSeconds = rawSeconds == null
+    ? undefined
+    : Math.max(0, rawSeconds - ((position.source === 'bwf' || position.source === 'ixml') && rawSeconds >= 3600 ? 3600 : 0))
+  const display: TimelineDisplay = {
+    position: bar != null && beat != null ? `${bar} | ${compactNumber(beat)}` : undefined,
+    timecode: projectSeconds != null ? formatTimelineTime(projectSeconds) : undefined,
+    tempo: tempo ? `${compactNumber(tempo.bpm)} BPM` : undefined,
+    meter: signature ? `${signature.numerator}/${signature.denominator}` : undefined,
+    sampleRate: position.sample_rate ? formatSampleRate(position.sample_rate) : undefined,
+    bitDepth: position.bit_depth ? `${position.bit_depth}-bit` : undefined,
+  }
+  return Object.values(display).some(Boolean) ? display : null
+}
+
+function timelineLabel(metadata?: AttachmentTimelineMetadata): string | null {
+  const display = timelineDisplay(metadata)
+  if (!display) return null
+  const parts = ['Original Position']
+  if (display.position) parts.push(`Position ${display.position}`)
+  if (display.timecode) parts.push(`Timecode ${display.timecode}`)
+  if (display.tempo) parts.push(display.tempo)
+  if (display.meter) parts.push(display.meter)
+  if (display.sampleRate) parts.push(display.sampleRate)
+  if (display.bitDepth) parts.push(display.bitDepth)
+  return parts.join(' · ')
+}
+
+function StemPlacement({ metadata }: { metadata?: AttachmentTimelineMetadata }) {
+  const display = timelineDisplay(metadata)
+  if (!display) return null
+  const fields = [
+    { label: 'Position', value: display.position },
+    { label: 'Timecode', value: display.timecode },
+    { label: 'Tempo', value: display.tempo },
+    { label: 'Meter', value: display.meter },
+    { label: 'Sample Rate', value: display.sampleRate },
+    { label: 'Bit Depth', value: display.bitDepth },
+  ].filter((field): field is { label: string; value: string } => !!field.value)
+
+  return (
+    <section className={`stem-placement-card ${metadata?.position.confidence ?? 'estimated'}`}>
+      <div className="stem-placement-title">
+        <span className="stem-placement-pin" />
+        <span>Original Position</span>
+      </div>
+      <div className="stem-placement-grid">
+        {fields.map(field => (
+          <div className={`stem-placement-field ${field.label.toLowerCase().replace(' ', '-')}`} key={field.label}>
+            <small>{field.label}</small>
+            <strong>{field.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export function AudioAttachment({ url, name, metadata, compact = false }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean }) {
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
@@ -198,6 +316,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
   const armedResetTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cachedBase64     = useRef<string | null>(null)   // 다운로드된 base64 캐시 (재드래그용)
   const [totalBytes, setTotalBytes] = useState(-1)
+  const [compactExpanded, setCompactExpanded] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const juceBackend = !!window.__JUCE__?.backend
@@ -380,6 +499,79 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
     audioRef.current.currentTime = ratio * duration
   }
 
+  const player = (
+    <div className="msg-att-audio-player">
+      <audio
+        ref={audioRef}
+        src={url}
+        onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+        onEnded={() => setPlaying(false)}
+      />
+      <button className="msg-att-play-pause" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
+        {playing
+          ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+        }
+      </button>
+      <div className="msg-att-progress-track" onClick={seek}>
+        <div className="msg-att-progress-fill" style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }} />
+      </div>
+      <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
+    </div>
+  )
+
+  if (compact) {
+    const ready = dragState === 'armed' || dragState === 'dragging' || dragState === 'imported'
+    return (
+      <div className={`msg-att-audio stem-audio-compact${compactExpanded ? ' expanded' : ''}`}>
+        <div className="stem-audio-main">
+          <span className="stem-audio-name" title={name}>{name}</span>
+          <button
+            className={`stem-import-square${ready ? ' ready' : ''}`}
+            onMouseEnter={handleMouseEnter}
+            onMouseDown={handleMouseDown}
+            onClick={event => event.stopPropagation()}
+            title={dragLabel[dragState]}
+            aria-label={dragLabel[dragState]}
+          >
+            {dragState === 'fetching' ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+              </svg>
+            ) : ready ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8.5 11V5.5a1.7 1.7 0 0 1 3.4 0V10" />
+                <path d="M11.9 10V8.2a1.7 1.7 0 0 1 3.4 0V11" />
+                <path d="M15.3 11v-.8a1.7 1.7 0 0 1 3.4 0v3.3c0 4.4-2.4 7-6.8 7H11c-2.3 0-3.4-1.1-4.5-2.8l-2.3-3.6a1.8 1.8 0 0 1 2.9-2.2l1.4 1.4V11Z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v12M7 11l5 5 5-5M6 20h12"/>
+              </svg>
+            )}
+          </button>
+        </div>
+        {compactExpanded && (
+          <div className="stem-audio-details">
+            {player}
+            <StemPlacement metadata={metadata} />
+          </div>
+        )}
+        <button
+          className="stem-expand"
+          onClick={() => setCompactExpanded(value => !value)}
+          aria-expanded={compactExpanded}
+          aria-label={compactExpanded ? 'Hide stem details' : 'Show stem details'}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 9l5 5 5-5" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="msg-att-audio">
       <div className="msg-att-audio-header">
@@ -390,29 +582,16 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
         <span className="msg-att-audio-name">{name}</span>
       </div>
 
-      {/* Player bar — always visible (no expand/collapse) */}
-      <div className="msg-att-audio-player">
-        <audio
-          ref={audioRef}
-          src={url}
-          onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
-          onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
-          onEnded={() => setPlaying(false)}
-        />
-        <button className="msg-att-play-pause" onClick={toggle}>
-          {playing
-            ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
-          }
-        </button>
-        <div className="msg-att-progress-track" onClick={seek}>
-          <div
-            className="msg-att-progress-fill"
-            style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }}
-          />
+      {timelineLabel(metadata) && (
+        <div className={`msg-att-timeline ${metadata?.position.confidence ?? 'estimated'}`}>
+          <span className="msg-att-timeline-dot" />
+          <span>
+            {timelineLabel(metadata)}
+          </span>
         </div>
-        <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
-      </div>
+      )}
+
+      {player}
 
       {/* Import / Drag button — its own row under the player */}
       <button
@@ -444,7 +623,7 @@ function AudioAttachment({ url, name }: { url: string; name: string }) {
 
 // ── 첨부 렌더러 ──────────────────────────────────────────────
 // ── 멀티 트랙 그룹 첨부 ──────────────────────────────────────
-interface TrackInfo { url: string; name: string }
+interface TrackInfo { url: string; name: string; metadata?: AttachmentTimelineMetadata }
 type GroupDragState = 'idle' | 'fetching' | 'armed' | 'imported'
 
 function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; groupUrl: string }) {
@@ -590,7 +769,7 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
       {expanded && (
         <div className="msg-att-group-tracks">
           {tracks.map(t => (
-            <AudioAttachment key={t.url} url={t.url} name={t.name} />
+            <AudioAttachment key={t.url} url={t.url} name={t.name} metadata={t.metadata} />
           ))}
         </div>
       )}
@@ -679,10 +858,10 @@ function GameInviteBubble ({
   )
 }
 
-function AttachmentView({ url, type, name }: { url: string; type: AttachType; name: string }) {
+function AttachmentView({ url, type, name, metadata }: { url: string; type: AttachType; name: string; metadata?: AttachmentTimelineMetadata }) {
   if (type === 'image') return <ImageAttachment url={url} name={name} />
   if (type === 'video') return <VideoAttachment url={url} />
-  if (type === 'audio') return <AudioAttachment url={url} name={name} />
+  if (type === 'audio') return <AudioAttachment url={url} name={name} metadata={metadata} />
   if (type === 'multi-audio') {
     let tracks: TrackInfo[] = []
     try { tracks = JSON.parse(url) } catch {}
@@ -692,7 +871,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite }: Props) {
+export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
   const [sendError, setSendError] = useState(false)
@@ -704,6 +883,8 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   // the sheet and attach directly. Holds the base64 payloads from C++.
   const [dropChoice, setDropChoice] = useState<{ name: string; data: string }[] | null>(null)
   const [merging, setMerging] = useState(false)
+
+  useEffect(() => { initAudioTimelineTracking() }, [])
 
   // In-flight uploads — rendered as optimistic ghost bubbles in the chat with
   // their own progress bar so the user can see the file is actually moving.
@@ -733,8 +914,8 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const removePending = (id: string) => {
     setPendingUploads(prev => prev.filter(p => p.id !== id))
   }
-  const [dragOver, setDragOver]   = useState(false)
-  const [dragType, setDragType]   = useState<'attach' | 'cancel'>('attach')
+  const [, setDragOver]   = useState(false)
+  const [, setDragType]   = useState<'attach' | 'cancel'>('attach')
   const chatAreaRef = useRef<HTMLDivElement>(null)
   const imgRef  = useRef<HTMLInputElement>(null)
   const vidRef  = useRef<HTMLInputElement>(null)
@@ -746,6 +927,8 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   const isCancelDrag         = useRef(false)  // set by C++ __juceDragEnterCancel
   const juceDragIsActive     = useRef(false)  // true while C++ is managing the overlay
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropTimelineRef      = useRef<AttachmentTimelineMetadata | null>(null)
+  const dropTimelinePromiseRef = useRef<Promise<AttachmentTimelineMetadata | null> | null>(null)
 
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
@@ -815,6 +998,10 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     const handler = (e: Event) => {
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
       dropBuffer.current = []
+      // Freeze the host context at the actual drop, before async file promises
+      // and uploads introduce seconds of delay.
+      dropTimelineRef.current = getDawTimelineSnapshot()
+      dropTimelinePromiseRef.current = refreshDawTimelineSnapshot()
     }
     window.addEventListener('__juceDropGroupStart', handler)
     return () => window.removeEventListener('__juceDropGroupStart', handler)
@@ -836,6 +1023,18 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       dropBuffer.current = []
       dropGroupCount.current = 1
 
+      if (onStemDrop) {
+        const freshTimeline = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
+        onStemDrop({
+          id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          nativeFiles: batch,
+          fallbackMetadata: freshTimeline ?? dropTimelineRef.current,
+        })
+        dropTimelineRef.current = null
+        dropTimelinePromiseRef.current = null
+        return
+      }
+
       // Instead of attaching immediately, offer a choice: send the dragged
       // region as-is, or open the bar-range capture flow. The dropped
       // files are stashed so "attach directly" can resume the old path.
@@ -843,7 +1042,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     }
     window.addEventListener('__juceFileDrop', handler)
     return () => window.removeEventListener('__juceFileDrop', handler)
-  }, [])
+  }, [onStemDrop])
 
   // __localDragArmed: AudioAttachment dispatches this (in JS) the moment a
   // drag-out file is ready to drag.  More reliable than __juceOutDragStart
@@ -1157,7 +1356,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     }
   }
 
-  const processDroppedFile = async (file: File) => {
+  const processDroppedFile = async (file: File, metadata?: AttachmentTimelineMetadata) => {
     const mime = file.type
     const ext  = file.name.split('.').pop()?.toLowerCase() ?? ''
     const AUDIO_EXTS = new Set(['mp3','wav','aif','aiff','m4a','ogg','flac','caf','opus','aac'])
@@ -1173,7 +1372,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     const att = await uploadFile(file, type)
     setUploading(false)
     if (!att) showErr('Upload failed. Check file size or connection.')
-    else await onSend('', att)
+    else await onSend('', { ...att, metadata })
   }
 
   // base64 audio payload (from a DAW region drop) → File
@@ -1213,7 +1412,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     setUploading(true)
     const att = await uploadFile(file, 'audio')
     setUploading(false)
-    if (att) await onSend('', att)
+    if (att) await onSend('', { ...att, metadata: dropTimelineRef.current ?? undefined })
     else showErr('Upload failed.')
   }
 
@@ -1221,7 +1420,10 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
   // region(s) as-is (single audio, or a multi-track message).
   const attachDroppedBatch = async (batch: { name: string; data: string }[]) => {
     if (batch.length === 1) {
-      await processDroppedFile(b64ToAudioFile(batch[0]!.name, batch[0]!.data))
+      const file = b64ToAudioFile(batch[0]!.name, batch[0]!.data)
+      const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
+      await processDroppedFile(file, metadata ?? undefined)
+      dropTimelineRef.current = null
       return
     }
     setUploading(true)
@@ -1229,15 +1431,27 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     for (const { name: n, data: d } of batch) {
       const file = b64ToAudioFile(n, d)
       if (file.size > MAX_SIZE) { showErr(`${n}: too large (max ${MAX_SIZE_MB}MB)`); continue }
+      const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
       const att = await uploadFile(file, 'audio')
-      if (att) uploaded.push({ url: att.url, name: att.name })
+      if (att) uploaded.push({ url: att.url, name: att.name, metadata: metadata ?? undefined })
     }
     setUploading(false)
     if (uploaded.length === 1) {
-      await onSend('', { url: uploaded[0]!.url, type: 'audio', name: uploaded[0]!.name })
+      await onSend('', {
+        url: uploaded[0]!.url,
+        type: 'audio',
+        name: uploaded[0]!.name,
+        metadata: uploaded[0]!.metadata,
+      })
     } else if (uploaded.length > 1) {
-      await onSend('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks` })
+      await onSend('', {
+        url: JSON.stringify(uploaded),
+        type: 'multi-audio',
+        name: `${uploaded.length} Tracks`,
+        metadata: dropTimelineRef.current ?? undefined,
+      })
     }
+    dropTimelineRef.current = null
   }
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -1293,31 +1507,19 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
     const audioFiles = files.filter(isAudioFile)
     const otherFiles = files.filter(f => !isAudioFile(f))
 
-    // 오디오 여러 개 → 멀티 트랙 메시지 하나로
-    if (audioFiles.length > 1) {
-      setUploading(true)
-      const uploaded: TrackInfo[] = []
-      for (const file of audioFiles) {
-        if (file.size > MAX_SIZE) { showErr(`${file.name}: too large (max ${MAX_SIZE_MB}MB)`); continue }
-        const att = await uploadFile(file, 'audio')
-        if (att) uploaded.push({ url: att.url, name: att.name })
-      }
-      setUploading(false)
-      if (uploaded.length === 1) {
-        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
-      } else if (uploaded.length > 1) {
-        await onSend('', {
-          url:  JSON.stringify(uploaded),
-          type: 'multi-audio',
-          name: `${uploaded.length} Tracks`,
-        })
-      }
-      // 오디오 외 파일이 섞여 있으면 각각 처리
-      for (const f of otherFiles) await processDroppedFile(f)
-      return
+    if (audioFiles.length > 0 && onStemDrop) {
+      const freshTimeline = await refreshDawTimelineSnapshot()
+      onStemDrop({
+        id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        files: audioFiles,
+        fallbackMetadata: freshTimeline ?? getDawTimelineSnapshot(),
+      })
     }
 
-    // 단일 파일 (기존 동작)
+    // Images and video remain regular chat attachments.
+    for (const file of otherFiles) await processDroppedFile(file)
+    if (audioFiles.length > 0) return
+
     const file = files[0]
     if (file) await processDroppedFile(file)
   }
@@ -1343,30 +1545,6 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
       onDrop={handleDrop}
     >
       <FloatingOrbs count={28} />
-      {dragOver && (
-        <div className={`drop-overlay${dragType === 'cancel' ? ' cancel' : ''}`}>
-          <div className="drop-overlay-inner">
-            {dragType === 'cancel' ? (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M15 9l-6 6M9 9l6 6"/>
-                </svg>
-                <span>{t('chat.releaseToCancel')}</span>
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <span>{t('chat.dropToAttach')}</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
       {/* Sub-bar */}
       <div className="csub">
         <div className="back" onClick={onBack}>&#8249;</div>
@@ -1444,6 +1622,15 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             )}
           </>
         ) : null}
+        {(groupHeader || otherProfile) && onOpenStems && (
+          <button
+            type="button"
+            className={`chdr-stems-btn${stemsActive ? ' active' : ''}`}
+            onClick={event => { event.stopPropagation(); onOpenStems() }}
+          >
+            Stems ››
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -1525,6 +1712,7 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                           url={g.msg.attachment_url}
                           type={g.msg.attachment_type}
                           name={g.msg.attachment_name ?? ''}
+                          metadata={g.msg.attachment_metadata ?? undefined}
                         />
                       : null
                 )}

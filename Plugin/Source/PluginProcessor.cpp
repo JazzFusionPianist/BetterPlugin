@@ -129,6 +129,36 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleGetClipboardText (args, std::move (completion));
                 })
+            .withNativeFunction ("getDawTimeline",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetDawTimeline (args, std::move (completion));
+                })
+            .withNativeFunction ("getHostControlStatus",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetHostControlStatus (args, std::move (completion));
+                })
+            .withNativeFunction ("getHostTracks",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetHostTracks (args, std::move (completion));
+                })
+            .withNativeFunction ("setHostTrackSelected",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleSetHostTrackSelected (args, std::move (completion));
+                })
+            .withNativeFunction ("startHostStemExport",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleStartHostStemExport (args, std::move (completion));
+                })
             .withNativeFunction ("setFx",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -151,6 +181,9 @@ OrbAudioProcessor::OrbAudioProcessor()
                         DragMonitor::setKeyboardCapture ((bool) arr->getReference (0));
                     completion (juce::var (true));
                 }));
+
+    controlBridge = std::make_unique<OrbControlBridge> (
+        juce::PluginHostType().getHostDescription());
 
     // Build the video capture helper. Frames are dispatched as
     // __juceVideoFrame CustomEvents; start/stop results come back through
@@ -232,8 +265,27 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         if (auto pos = ph->getPosition())
         {
-            if (auto ppq = pos->getPpqPosition())  playheadPpq.store (*ppq);
+            if (auto ppq = pos->getPpqPosition())
+            {
+                playheadPpq.store (*ppq);
+                playheadPpqValid.store (true);
+            }
+            if (auto bar = pos->getPpqPositionOfLastBarStart())
+            {
+                playheadBarPpq.store (*bar);
+                playheadBarPpqValid.store (true);
+            }
             if (auto bpm = pos->getBpm())          playheadBpm.store (*bpm);
+            if (auto smp = pos->getTimeInSamples())
+            {
+                playheadSamples.store (*smp);
+                playheadSamplesValid.store (true);
+            }
+            if (auto bars = pos->getBarCount())
+            {
+                playheadBarCount.store (*bars);
+                playheadBarCountValid.store (true);
+            }
             if (auto ts  = pos->getTimeSignature())
             {
                 playheadTsNum.store (ts->numerator);
@@ -330,7 +382,10 @@ void OrbAudioProcessor::timerCallback()
            << "samples:'" << b64 << "',"
            << "sr:"       << sr << ","
            << "ch:"       << ch << ","
-           << "ppq:"      << juce::String (playheadPpq.load(), 6) << ","
+           << "ppq:"      << (playheadPpqValid.load() ? juce::String (playheadPpq.load(), 6) : "null") << ","
+           << "barPpq:"   << (playheadBarPpqValid.load() ? juce::String (playheadBarPpq.load(), 6) : "null") << ","
+           << "barCount:" << (playheadBarCountValid.load() ? juce::String (playheadBarCount.load()) : "null") << ","
+           << "projectSamples:" << (playheadSamplesValid.load() ? juce::String (playheadSamples.load()) : "null") << ","
            << "bpm:"      << juce::String (playheadBpm.load(), 4) << ","
            << "tnum:"     << playheadTsNum.load() << ","
            << "tden:"     << playheadTsDen.load() << ","
@@ -740,6 +795,64 @@ void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
     // Result is a plain string — no JSON wrapping. The JS bridge resolves
     // with the raw string so the caller can use it as-is.
     completion (text);
+}
+
+void OrbAudioProcessor::handleGetDawTimeline (
+    const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    juce::String json;
+    json << "{\"sr\":" << getCaptureSampleRate() << ","
+         << "\"ppq\":" << (playheadPpqValid.load() ? juce::String (playheadPpq.load(), 9) : "null") << ","
+         << "\"barPpq\":" << (playheadBarPpqValid.load() ? juce::String (playheadBarPpq.load(), 9) : "null") << ","
+         << "\"barCount\":" << (playheadBarCountValid.load() ? juce::String (playheadBarCount.load()) : "null") << ","
+         << "\"projectSamples\":" << (playheadSamplesValid.load() ? juce::String (playheadSamples.load()) : "null") << ","
+         << "\"bpm\":" << juce::String (playheadBpm.load(), 6) << ","
+         << "\"tnum\":" << playheadTsNum.load() << ","
+         << "\"tden\":" << playheadTsDen.load() << ","
+         << "\"playing\":" << (transportPlaying.load() ? "true" : "false") << "}";
+    completion (json);
+}
+
+void OrbAudioProcessor::handleGetHostControlStatus (
+    const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    completion (controlBridge != nullptr ? controlBridge->getStatusJson()
+                                         : juce::String ("{\"connected\":false,\"exportMode\":\"none\"}"));
+}
+
+void OrbAudioProcessor::handleGetHostTracks (
+    const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (controlBridge == nullptr) { completion ("[]"); return; }
+    controlBridge->requestTracks();
+    completion (controlBridge->getTracksJson());
+}
+
+void OrbAudioProcessor::handleSetHostTrackSelected (
+    const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (controlBridge == nullptr || ! args.isArray() || args.size() < 2)
+    {
+        completion ("error:bad-args");
+        return;
+    }
+    completion (controlBridge->setTrackSelected ((int) args[0], (bool) args[1]) ? "ok" : "error:no-port");
+}
+
+void OrbAudioProcessor::handleStartHostStemExport (
+    const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (controlBridge == nullptr || ! args.isArray() || args.size() < 2)
+    {
+        completion ("error:bad-args");
+        return;
+    }
+    std::vector<int> indices;
+    const auto tokens = juce::StringArray::fromTokens (args[0].toString(), ",", "");
+    for (const auto& token : tokens)
+        if (token.trim().isNotEmpty()) indices.push_back (token.getIntValue());
+    completion (controlBridge->requestExport (indices, args[1].toString() == "selection")
+        ? "started" : "error:no-port");
 }
 
 

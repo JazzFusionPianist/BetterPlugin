@@ -5,7 +5,10 @@ OrbAudioProcessorEditor::OrbAudioProcessorEditor (OrbAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processorRef (p)
 {
-    setSize (kWidth, kHeight);
+    // The processor and its WebView survive while the host merely closes the
+    // editor window. Restore the last requested size so a saved Large web
+    // layout never reopens inside a fresh 300×500 native frame.
+    setSize (processorRef.getSavedEditorWidth(), processorRef.getSavedEditorHeight());
     // Enable resizing so DAWs honor programmatic setSize() (called from
     // the Expand View button on the live viewer). Min/max bounds avoid
     // pathological sizes if the JS calls it with bad args.

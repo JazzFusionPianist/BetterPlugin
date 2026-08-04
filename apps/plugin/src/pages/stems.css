@@ -1,0 +1,118 @@
+.chdr-stems-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(74, 143, 231, 0.24);
+  border-radius: 9px;
+  padding: 5px 8px;
+  background: rgba(74, 143, 231, 0.08);
+  color: #4a8fe7;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chdr-stems-btn:hover,
+.chdr-stems-btn.active { background: #4a8fe7; color: #fff; }
+/* ── Conversation Stems dock ───────────────────────────────────────── */
+.stem-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 17px 16px 14px;
+  overflow: hidden;
+  color: var(--t1);
+  background:
+    radial-gradient(circle at 86% 10%, rgba(191,224,255,.18), transparent 28%),
+    radial-gradient(circle at 8% 86%, rgba(244,188,210,.12), transparent 30%),
+    var(--bg);
+}
+.stem-panel.drag-over { box-shadow: inset 0 0 0 2px #4a8fe7; }
+.stem-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.stem-head h2 { margin: 0; font-family: 'DM Sans', sans-serif; font-size: 22px; line-height: 1; letter-spacing: -.04em; }
+.stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }
+.stem-error { border: none; border-radius: 8px; padding: 7px 9px; background: rgba(229,72,77,.12); color: #e5484d; font-size: 9px; cursor: pointer; }
+.stem-upload { padding: 8px 9px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); }
+.stem-upload > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; color: var(--t2); }
+.stem-upload > div:first-child span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stem-upload-track { height: 3px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: var(--bg3); }
+.stem-upload-track i { display: block; height: 100%; border-radius: inherit; background: #4a8fe7; transition: width .15s; }
+.stem-list { min-height: 0; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 2px; }
+.stem-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center; color: var(--t3); font-size: 10px; }
+.stem-empty strong { color: var(--t2); font-size: 12px; }
+.stem-item { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
+.stem-sender-avatar { flex: 0 0 28px; width: 28px; height: 28px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--bg3); color: #fff; font-size: 9px; font-weight: 700; }
+.stem-sender-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.stem-item .msg-att-audio { flex: 1; width: auto; max-width: none; min-width: 0; margin: 0; }
+.stem-audio-compact { gap: 2px; padding: 5px 6px 2px; border-radius: 11px; }
+.stem-audio-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.stem-audio-name { flex: 1; min-width: 0; padding-left: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--t1); font-size: 11.5px; font-weight: 680; letter-spacing: -.015em; }
+.stem-import-square { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid var(--border2); border-radius: 8px; display: grid; place-items: center; background: var(--bg3); color: var(--t1); cursor: grab; }
+.stem-import-square:active { cursor: grabbing; }
+.stem-import-square:hover, .stem-import-square.ready { border-color: rgba(74,143,231,.68); background: rgba(74,143,231,.14); color: #73adf5; }
+.stem-import-square svg { width: 14px; height: 14px; }
+.stem-audio-details { display: flex; flex-direction: column; gap: 9px; padding: 6px 1px 3px; }
+.stem-audio-details .msg-att-audio-player { margin: 0; }
+.stem-audio-details .msg-att-play-pause { width: 25px; height: 25px; }
+.stem-audio-details .msg-att-time { font-size: 10.5px; }
+.stem-placement-card { padding: 9px; border: 1px solid rgba(74,143,231,.13); border-radius: 10px; background: linear-gradient(145deg, rgba(74,143,231,.10), rgba(74,143,231,.055)); }
+.stem-placement-card.exact { border-color: rgba(57,181,117,.16); background: linear-gradient(145deg, rgba(57,181,117,.11), rgba(74,143,231,.055)); }
+.stem-placement-title { display: flex; align-items: center; gap: 6px; margin: 0 1px 8px; color: var(--t2); font-size: 10px; font-weight: 700; letter-spacing: .01em; }
+.stem-placement-pin { width: 7px; height: 7px; border: 2px solid #4a8fe7; border-radius: 50%; box-shadow: 0 0 0 3px rgba(74,143,231,.10); }
+.stem-placement-card.exact .stem-placement-pin { border-color: #39b575; box-shadow: 0 0 0 3px rgba(57,181,117,.10); }
+.stem-placement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.stem-placement-field { min-width: 0; padding: 7px 8px; border: 1px solid rgba(127,127,127,.08); border-radius: 8px; background: color-mix(in srgb, var(--bg) 74%, transparent); }
+.stem-placement-field small { display: block; margin-bottom: 2px; color: var(--t3); font-size: 8.5px; font-weight: 650; line-height: 1; text-transform: uppercase; letter-spacing: .07em; }
+.stem-placement-field strong { display: block; overflow: hidden; color: var(--t1); font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 650; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; }
+.stem-placement-field.position strong { color: #3f83d6; font-size: 13px; letter-spacing: -.02em; }
+.plugin.dark .stem-placement-field.position strong { color: #73adf5; }
+.stem-expand { width: 100%; height: 14px; padding: 0; border: 0; display: grid; place-items: center; background: transparent; color: var(--t3); cursor: pointer; }
+.stem-expand:hover { color: var(--t1); }
+.stem-expand svg { width: 12px; height: 12px; transition: transform .16s ease; }
+.stem-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
+.stem-footer { flex: 0 0 auto; padding-top: 7px; border-top: 1px solid var(--border); }
+.stem-footer > button { width: 100%; height: 40px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg2); color: var(--t1); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.stem-footer > button:hover { border-color: rgba(74,143,231,.55); background: rgba(74,143,231,.1); }
+.stem-footer > button span { font-size: 18px; line-height: 1; color: #4a8fe7; }
+.stem-add-sheet { position: absolute; inset: 60px 10px 64px; z-index: 4; min-height: 0; padding: 12px; border: 1px solid var(--border2); border-radius: 15px; display: flex; flex-direction: column; gap: 9px; background: color-mix(in srgb, var(--bg) 96%, transparent); box-shadow: 0 18px 45px rgba(0,0,0,.22); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.stem-panel { position: relative; }
+.stem-add-head { display: flex; align-items: center; justify-content: space-between; }
+.stem-add-head > div { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.stem-add-head strong { font-size: 15px; letter-spacing: -.02em; }
+.stem-add-head span { color: var(--t3); font-size: 9px; }
+.stem-add-head > button { width: 25px; height: 25px; padding: 0; border: 0; border-radius: 8px; background: var(--bg3); color: var(--t2); font-size: 16px; cursor: pointer; }
+.stem-host-notice { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 18px; border: 1px dashed var(--border2); border-radius: 12px; color: var(--t3); font-size: 10px; line-height: 1.5; text-align: center; }
+.stem-host-notice strong { color: var(--t1); font-size: 13px; }
+.stem-host-notice button { border: 0; border-radius: 8px; padding: 6px 11px; background: var(--bg3); color: var(--t1); font-family: inherit; font-size: 10px; cursor: pointer; }
+.stem-host-state { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 9px; background: var(--bg2); color: var(--t2); font-size: 9px; }
+.stem-host-state i { width: 7px; height: 7px; border-radius: 50%; background: #39b575; box-shadow: 0 0 0 3px rgba(57,181,117,.12); }
+.stem-host-state span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+.stem-host-state small { color: #39a46e; font-size: 8px; font-weight: 700; }
+.stem-range-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 10px; background: var(--bg3); }
+.stem-range-tabs button { height: 29px; border: 0; border-radius: 8px; background: transparent; color: var(--t3); font-family: inherit; font-size: 9.5px; font-weight: 650; cursor: pointer; }
+.stem-range-tabs button.on { background: var(--bg); color: var(--t1); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.stem-track-tools { display: flex; align-items: center; justify-content: space-between; color: var(--t3); font-size: 9px; }
+.stem-track-tools button { border: 0; background: transparent; color: #4a8fe7; font-family: inherit; font-size: 9px; cursor: pointer; }
+.stem-track-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.stem-track-list > button { flex: 0 0 auto; min-width: 0; height: 31px; padding: 0 8px; border: 1px solid transparent; border-radius: 9px; display: flex; align-items: center; gap: 7px; background: transparent; color: var(--t2); font-family: inherit; font-size: 10px; text-align: left; cursor: pointer; }
+.stem-track-list > button:hover { background: var(--bg2); }
+.stem-track-list > button.on { border-color: rgba(74,143,231,.2); background: rgba(74,143,231,.09); color: var(--t1); }
+.stem-track-list > button > i { flex: 0 0 4px; width: 4px; height: 17px; border-radius: 3px; background: var(--t3); }
+.stem-track-list > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stem-track-list > button > b { flex: 0 0 17px; width: 17px; height: 17px; border: 1px solid var(--border2); border-radius: 5px; display: grid; place-items: center; color: #fff; font-size: 9px; }
+.stem-track-list > button.on > b { border-color: #4a8fe7; background: #4a8fe7; }
+.stem-share-project { flex: 0 0 38px; height: 38px; border: 0; border-radius: 11px; background: linear-gradient(135deg,#6b8afd,#4a8fe7); color: #fff; font-family: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.stem-share-project:disabled { opacity: .42; cursor: default; }
+
+/* Catalogue-theme alignment for the restored Stems workspace. */
+.plugin .chdr-stems-btn { font-family: var(--f-sans); border-color: var(--border); border-radius: 3px; }
+.plugin .chdr-stems-btn:hover,
+.plugin .chdr-stems-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.plugin .stem-panel { background: var(--paper); font-family: var(--f-sans); }
+.plugin .stem-head h2 { font-family: var(--f-serif); font-weight: 400; }
+.plugin .stem-close,
+.plugin .stem-footer > button,
+.plugin .stem-audio-compact,
+.plugin .stem-add-sheet,
+.plugin .stem-share-project { border-radius: 6px; }
+

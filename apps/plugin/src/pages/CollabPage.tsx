@@ -21,6 +21,7 @@ import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
 import CalendarPanel from '../components/collab/CalendarPanel'
+import StemPanel from '../components/collab/StemPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
@@ -38,6 +39,7 @@ import PinballView from '../components/collab/PinballView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
 import type { Profile, Message, ChatTarget } from '../types/collab'
+import type { StemDropRequest } from '../types/stems'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
@@ -46,6 +48,7 @@ import { useLiveChat } from '../hooks/useLiveChat'
 import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
 import './collab.css'
+import './stems.css'
 
 interface Props { user: User }
 interface TooltipInfo { profile: Profile; x: number; y: number; arrowX: number; arrowUp: boolean }
@@ -86,6 +89,8 @@ function CollabPageInner({ user }: Props) {
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [calendarOpen, setCalendarOpen]         = useState(false)
+  const [stemsOpen, setStemsOpen]               = useState(false)
+  const [pendingStemDrop, setPendingStemDrop]   = useState<StemDropRequest | null>(null)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
@@ -354,6 +359,13 @@ function CollabPageInner({ user }: Props) {
     return Array.from(byId.values())
   }, [followerProfiles, friendUnread, profilesWithStatus])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
+  const stemParticipants = useMemo(() => {
+    const members: Profile[] = []
+    if (me) members.push({ ...me, isOnline: true })
+    if (selectedGroup) members.push(...selectedGroup.members.filter(member => member.id !== user.id))
+    else if (selectedProfile) members.push(selectedProfile)
+    return Array.from(new Map(members.map(member => [member.id, member])).values())
+  }, [me, selectedGroup, selectedProfile, user.id])
 
   // Friend orbit viewing
   const [friendFollowerIds, setFriendFollowerIds] = useState<Set<string>>(new Set())
@@ -465,6 +477,20 @@ function CollabPageInner({ user }: Props) {
     localStorage.setItem('collab_screen_size', size)
     applyScreenSize(size)
   }
+  const openStems = useCallback(() => {
+    setStemsOpen(true)
+    setScreenSize('large')
+    localStorage.setItem('collab_screen_size', 'large')
+    void applyScreenSize('large')
+  }, [])
+  const handleStemDrop = useCallback((request: StemDropRequest) => {
+    setPendingStemDrop(request)
+    openStems()
+  }, [openStems])
+  const closeStems = useCallback(() => {
+    setStemsOpen(false)
+    setPendingStemDrop(null)
+  }, [])
   // Re-apply the saved window size when the plugin (re)loads so a Large
   // preference is restored on host launch. No-op without the JUCE bridge.
   useEffect(() => { applyScreenSize(screenSize) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
@@ -597,6 +623,7 @@ function CollabPageInner({ user }: Props) {
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
+    closeStems()
     setWatchingSession(null)
     closeSearch()
   }
@@ -627,6 +654,7 @@ function CollabPageInner({ user }: Props) {
     // inverts with the wall.
     gameOpen && gameScreen !== 'list' ? `gwall-${gameScreen} dark` : '',
     calendarOpen      ? 'calendar-open'      : '',
+    stemsOpen         ? 'stems-open'         : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -770,9 +798,12 @@ function CollabPageInner({ user }: Props) {
             }}
             reads={conversationReads}
             onOpenSettings={() => setChatSettingsOpen(true)}
+            onOpenStems={openStems}
+            stemsActive={stemsOpen}
+            onStemDrop={handleStemDrop}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
-            onBack={() => { setChatSettingsOpen(false); setSelectedId(null) }}
+            onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedId(null) }}
           />}
           {selectedGroup && (
             <ChatView
@@ -788,9 +819,12 @@ function CollabPageInner({ user }: Props) {
               loading={messagesLoading}
               reads={conversationReads}
               onOpenSettings={() => setChatSettingsOpen(true)}
+              onOpenStems={openStems}
+              stemsActive={stemsOpen}
+              onStemDrop={handleStemDrop}
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}
-              onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
+              onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedGroupConvId(null) }}
             />
           )}
           {/* ChatSettingsPanel covers both DM and group. We mount when
@@ -1064,7 +1098,17 @@ function CollabPageInner({ user }: Props) {
           plugin height (above the toolbar row) so its header sits at the top.
           A sibling of .content — not inside it — so top:0 means the very top. */}
       <div className="cal-dock">
-        <CalendarPanel
+        {stemsOpen && activeConvId ? (
+          <StemPanel
+            supabase={client}
+            conversationId={activeConvId}
+            currentUserId={user.id}
+            participants={stemParticipants}
+            pendingDrop={pendingStemDrop}
+            onDropConsumed={(id) => setPendingStemDrop(current => current?.id === id ? null : current)}
+            onClose={closeStems}
+          />
+        ) : <CalendarPanel
           events={calEvents}
           categories={calCategories}
           currentUserId={user.id}
@@ -1075,7 +1119,7 @@ function CollabPageInner({ user }: Props) {
           onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
           onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
           onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-        />
+        />}
       </div>
 
       {galleryPopup && (

@@ -4,14 +4,14 @@ How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 
 ## Prerequisites (one-time, human — cannot be scripted)
 
-| # | Item | Status (2026-06-16) | Needed for |
+| # | Item | Status (2026-08-05) | Needed for |
 |---|------|---------------------|------------|
 | 1 | Apple Developer Program membership | ✅ enrolled | all formats |
 | 2 | **Developer ID Application** cert | ❌ not created yet | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
 | 3 | **Developer ID Installer** cert | ❌ not created yet | sign the `.pkg` |
 | 4 | App-specific password / notary profile | ❌ | notarize the `.pkg` |
 | 5 | Avid Developer + AAX agreement | SDK present (`../aax-sdk-2-9-0`) | build AAX |
-| 6 | **PACE / Eden developer account → `wraptool`** | ❌ **not held** (iLok is a consumer account, no signing cert) | sign AAX for release Pro Tools |
+| 6 | **PACE / Eden developer account → `wraptool`** | ⏳ application submitted to PACE; awaiting onboarding | sign AAX for release Pro Tools |
 | 7 | PACE product registration → `wcguid` | ❌ | sign AAX |
 
 **Create #2 + #3:** Xcode ▸ Settings ▸ Accounts ▸ (your Apple ID) ▸ Manage

@@ -79,17 +79,29 @@ build_component() {
 }
 
 # Auto-sign AAX with PACE/iLok before packaging when credentials are present.
-# Without this the bundled .aaxplugin only loads in Pro Tools Developer builds.
-# See sign-aax.sh for the one-time account prerequisites.
-if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/Orb.aaxplugin" ]; then
+# A release installer must never contain an unsigned AAX: release Pro Tools
+# rejects it, and installing it can cause the plug-in to be quarantined in the
+# "Plug-Ins (Unused)" folder. Verify the PACE signature before including it.
+AAX_SOURCE="$ARTEFACTS/AAX/Orb.aaxplugin"
+AAX_READY=0
+if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$AAX_SOURCE" ]; then
   echo "  • signing AAX (PACE_ACCOUNT set) …"
-  "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — packaging the unsigned bundle"
+  "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — AAX will be omitted"
+fi
+if [ -d "$AAX_SOURCE" ] && command -v wraptool >/dev/null 2>&1; then
+  if wraptool verify --in "$AAX_SOURCE" >/dev/null 2>&1; then
+    AAX_READY=1
+  else
+    echo "  ⚠ AAX is not PACE-signed — omitted from the release installer"
+  fi
+elif [ -d "$AAX_SOURCE" ]; then
+  echo "  ⚠ wraptool is unavailable, so the AAX signature cannot be verified — omitted"
 fi
 
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
 build_component vst3       "$ARTEFACTS/VST3/Orb.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
 build_component au         "$ARTEFACTS/AU/Orb.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
-build_component aax        "$ARTEFACTS/AAX/Orb.aaxplugin"       "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
+[ "$AAX_READY" -eq 1 ] && build_component aax "$AAX_SOURCE" "/Library/Application Support/Avid/Audio/Plug-Ins" && HAVE_AAX=1 || true
 build_component standalone "$ARTEFACTS/Standalone/Orb.app"      "/Applications"                                     && HAVE_APP=1  || true
 
 if [ $((HAVE_VST3 + HAVE_AU + HAVE_AAX + HAVE_APP)) -eq 0 ]; then

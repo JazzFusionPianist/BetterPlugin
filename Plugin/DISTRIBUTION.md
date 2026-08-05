@@ -9,7 +9,7 @@ How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 | 1 | Apple Developer Program membership | ✅ enrolled | all formats |
 | 2 | **Developer ID Application** cert | ✅ installed; expires 2031-08-05 | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
 | 3 | **Developer ID Installer** cert | ✅ installed; expires 2031-08-05 | sign the `.pkg` |
-| 4 | App-specific password / notary profile | ⏳ App Store Connect sign-in required | notarize the `.pkg` |
+| 4 | App Store Connect API key / notary profile | ✅ `orb-notary` saved in login keychain | notarize the `.pkg` |
 | 5 | Avid Developer + AAX agreement | SDK present (`../aax-sdk-2-9-0`) | build AAX |
 | 6 | **PACE / Eden developer account → `wraptool`** | ⏳ application submitted to PACE; awaiting onboarding | sign AAX for release Pro Tools |
 | 7 | PACE product registration → `wcguid` | ❌ | sign AAX |
@@ -21,9 +21,10 @@ private keys were created with the matching CSRs on this Mac. Verify the app
 identity with `security find-identity -v -p codesigning` and the finished
 installer with `pkgutil --check-signature <pkg>`.
 
-**Create #4:** `xcrun notarytool store-credentials orb-notary --apple-id
-<id> --team-id <TEAMID> --password <app-specific-pw>` (app-specific password
-from account.apple.com ▸ Sign-In and Security).
+**#4 is configured on this Mac:** use the `orb-notary` keychain profile. It
+uses a dedicated App Store Connect team API key with the Product Developer
+role. The private key is stored outside the repository with user-only file
+permissions; never commit or share it.
 
 **#6/#7 (AAX, the long pole):** apply at paceap.com for the Eden developer
 program, install PACE Eden Tools (gives `wraptool`), and register Orb to get

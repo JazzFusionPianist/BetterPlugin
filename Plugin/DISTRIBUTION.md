@@ -7,16 +7,19 @@ How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 | # | Item | Status (2026-08-05) | Needed for |
 |---|------|---------------------|------------|
 | 1 | Apple Developer Program membership | ✅ enrolled | all formats |
-| 2 | **Developer ID Application** cert | ✅ created in Apple Developer; local import pending | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
-| 3 | **Developer ID Installer** cert | ✅ created in Apple Developer; local import pending | sign the `.pkg` |
-| 4 | App-specific password / notary profile | ❌ | notarize the `.pkg` |
+| 2 | **Developer ID Application** cert | ✅ installed; expires 2031-08-05 | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
+| 3 | **Developer ID Installer** cert | ✅ installed; expires 2031-08-05 | sign the `.pkg` |
+| 4 | App-specific password / notary profile | ⏳ App Store Connect sign-in required | notarize the `.pkg` |
 | 5 | Avid Developer + AAX agreement | SDK present (`../aax-sdk-2-9-0`) | build AAX |
 | 6 | **PACE / Eden developer account → `wraptool`** | ⏳ application submitted to PACE; awaiting onboarding | sign AAX for release Pro Tools |
 | 7 | PACE product registration → `wcguid` | ❌ | sign AAX |
 
-**Install #2 + #3:** Download both certificates from Apple Developer and
-import them into the login keychain. Their private keys were created with the
-matching CSRs on this Mac. Verify: `security find-identity -v -p codesigning`.
+**#2 + #3 are installed on this Mac:** the Application identity is
+`Developer ID Application: Sanghyun Park (2RRXTY96WF)` and the Installer
+identity is `Developer ID Installer: Sanghyun Park (2RRXTY96WF)`. Their
+private keys were created with the matching CSRs on this Mac. Verify the app
+identity with `security find-identity -v -p codesigning` and the finished
+installer with `pkgutil --check-signature <pkg>`.
 
 **Create #4:** `xcrun notarytool store-credentials orb-notary --apple-id
 <id> --team-id <TEAMID> --password <app-specific-pw>` (app-specific password
@@ -49,7 +52,8 @@ SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
 ## Partial release (PACE not ready)
 
-You can ship a fully official **AU + VST3 + Standalone** installer now (steps
-2–4 only) and add AAX later once the PACE account lands. `build.sh` without the
-AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
-formats notarize and install cleanly.
+You can prepare a Developer ID-signed **AU + VST3 + Standalone** installer now
+and add AAX later once the PACE account lands. `package.sh` excludes AAX unless
+`wraptool verify` confirms its PACE signature, so a release package cannot
+accidentally install an unsigned AAX. Complete #4 before public distribution so
+the installer can be notarized and stapled for Gatekeeper.

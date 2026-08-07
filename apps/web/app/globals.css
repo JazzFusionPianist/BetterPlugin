@@ -2512,21 +2512,78 @@ button { font-family: inherit; }
   font-size: 13px;
 }
 
-/* Desktop: the column mirrors the programme column, bound to the
-   RIGHT page edge — hairlines run off the edge the same way. */
+/* ── The record shelf (desktop): covers standing on hairline shelves,
+   right side of the room, clear of the button column above. ── */
+.pfolio-shelf-wrap { display: none; }
 @media (min-width: 821px) {
   .home-pfolio {
     position: absolute; z-index: 5;
-    top: calc(67.5px + env(safe-area-inset-top));
+    top: calc(196px + env(safe-area-inset-top));
     right: 0; height: auto;
-    width: min(300px, 26vw);
-    max-height: calc(100dvh - 240px);
-    padding: 0 0 16px 0;
+    width: min(340px, 30vw);
+    max-height: calc(100dvh - 340px);
+    overflow: visible;
+    padding: 0;
   }
-  .home-pfolio-labelrow,
-  .home-pfolio-item { margin-right: 0; padding-right: 18px; }
-  .home-pfolio-labelrow { border-bottom: 1px solid var(--hair); }
+  .home-pfolio-book { display: none; }
+  .pfolio-shelf-wrap { display: block; }
 }
+.pfolio-shelf-label {
+  text-align: right; padding-right: 26px; margin-bottom: 18px;
+  font-size: 10.5px; letter-spacing: 0.04em; color: var(--t3);
+  text-transform: lowercase;
+}
+.pfolio-shelf {
+  display: flex; flex-wrap: wrap; justify-content: flex-end;
+  column-gap: 16px; row-gap: 44px;
+  padding-right: 26px;
+}
+.pfolio-shelf-slot { position: relative; }
+.pfolio-shelf-cover {
+  display: block; width: 68px; height: 68px;
+  padding: 0; border: 1px solid var(--hair); border-radius: 2px;
+  overflow: hidden; background: var(--card); cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.pfolio-shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* the shelf itself — segments join across the gaps into one line */
+.pfolio-shelf-slot::after {
+  content: ''; position: absolute;
+  left: -8px; right: -8px; bottom: -7px; height: 1px;
+  background: var(--line);
+}
+.pfolio-shelf-slot:hover .pfolio-shelf-cover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(26, 25, 23, 0.13);
+}
+.pfolio-shelf-cap {
+  position: absolute; top: calc(100% + 12px); right: 0;
+  white-space: nowrap;
+  font-family: var(--f-serif); font-size: 13px; text-transform: lowercase;
+  color: var(--t2);
+  opacity: 0; transition: opacity .15s ease; pointer-events: none;
+}
+.pfolio-shelf-slot:hover .pfolio-shelf-cap,
+.pfolio-shelf-cap.always { opacity: 1; }
+.pfolio-shelf-order {
+  position: absolute; top: -20px; right: 0;
+  display: flex; gap: 4px;
+  opacity: 0; transition: opacity .15s ease;
+}
+.pfolio-shelf-slot:hover .pfolio-shelf-order { opacity: 1; }
+.pfolio-shelf-order button {
+  background: none; border: none; cursor: pointer; padding: 0 2px;
+  font-size: 13px; line-height: 1; color: var(--t3);
+}
+.pfolio-shelf-order button:hover:not(:disabled) { color: var(--ink); }
+.pfolio-shelf-order button:disabled { opacity: 0.25; cursor: default; }
+.pfolio-shelf-add {
+  width: 68px; height: 68px;
+  border: 1px dashed var(--line); border-radius: 2px; background: none;
+  color: var(--t3); font-size: 18px; cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.pfolio-shelf-add:hover { color: var(--ink); border-color: var(--hair); }
 
 /* Phones: while the booklet shows page 3, the fixed centre block
    would sit over the lists — fade it (and let taps through). */

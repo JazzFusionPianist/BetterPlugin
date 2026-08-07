@@ -62,6 +62,45 @@ export default function HomePortfolio({ supabase, me }: Props) {
     <div className="home-pfolio">
       <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
 
+      {/* ── Desktop: the record shelf — covers standing on hairlines,
+          bottom-right of the room. Hover lifts a cover and prints its
+          caption; ‹ › reorder; the dashed slot adds. ── */}
+      <div className="pfolio-shelf-wrap">
+        <div className="pfolio-shelf-label">discography</div>
+        <div className="pfolio-shelf">
+          {releases.map((r, i) => (
+            <div key={r.id} className="pfolio-shelf-slot">
+              <span className="pfolio-shelf-order">
+                <button
+                  onClick={() => moveRelease(r.id, 'up')}
+                  disabled={i === 0}
+                  aria-label="Move earlier"
+                >‹</button>
+                <button
+                  onClick={() => moveRelease(r.id, 'down')}
+                  disabled={i === releases.length - 1}
+                  aria-label="Move later"
+                >›</button>
+              </span>
+              <button className="pfolio-shelf-cover" onClick={() => setOpenRelease(r.id)} aria-label={r.title}>
+                {r.cover_url
+                  ? <img src={r.cover_url} alt="" loading="lazy" />
+                  : <span className="pfolio-cover-blank" aria-hidden="true" />}
+              </button>
+              <span className="pfolio-shelf-cap">{r.title} — {fmtYear(r)}</span>
+            </div>
+          ))}
+          <div className="pfolio-shelf-slot">
+            <button className="pfolio-shelf-add" onClick={() => setComposerOpen(true)} aria-label="Add release">+</button>
+            {releases.length === 0 && (
+              <span className="pfolio-shelf-cap always">your first release</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Phones: booklet page 3 — the full list + gallery. ── */}
+      <div className="home-pfolio-book">
       <div className="home-pfolio-labelrow">
         <span className="home-pfolio-label">discography</span>
         <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ release</button>
@@ -121,6 +160,8 @@ export default function HomePortfolio({ supabase, me }: Props) {
             )}
           </button>
         ))}
+      </div>
+
       </div>
 
       {release && (

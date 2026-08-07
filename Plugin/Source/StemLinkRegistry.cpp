@@ -346,8 +346,8 @@ juce::String getExportStatusJson (const juce::String& requestId)
         result->setProperty ("progress", 0.5);
         result->setProperty ("message",
             requestObject->getProperty ("rangeMode").toString() == "session"
-                ? "Capturing all selected tracks in one offline pass…"
-                : "Recording the edit selection… Stop when the range finishes.");
+                ? "Capturing all selected tracks in one offline pass..."
+                : "Recording the edit selection... Stop when the range finishes.");
     }
     else
     {
@@ -355,9 +355,9 @@ juce::String getExportStatusJson (const juce::String& requestId)
         result->setProperty ("progress", 0.0);
         const bool session = requestObject->getProperty ("rangeMode").toString() == "session";
         result->setProperty ("message", armed == expected
-            ? (session ? juce::String ("Starting the DAW offline bounce…")
-                       : juce::String ("Ready — press Play in the DAW, then Stop when the range finishes."))
-            : "Arming Orb StemLink tracks…");
+            ? (session ? juce::String ("Starting the DAW offline bounce...")
+                       : juce::String ("Ready - press Play in the DAW, then Stop when the range finishes."))
+            : "Arming Orb StemLink tracks...");
     }
     return juce::JSON::toString (juce::var (result), false);
 }

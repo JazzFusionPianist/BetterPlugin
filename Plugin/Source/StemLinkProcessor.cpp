@@ -171,15 +171,15 @@ juce::String StemLinkAudioProcessor::getCaptureStatus() const
     switch (captureState.load())
     {
         case CaptureState::armed: return captureEntireSession.load()
-            ? "Armed · waiting for offline bounce" : "Armed · press Play in the DAW";
+            ? "Armed - waiting for offline bounce" : "Armed - press Play in the DAW";
         case CaptureState::recording: return captureEntireSession.load()
-            ? "Capturing offline render" : "Recording · stop when the range ends";
-        case CaptureState::finishing: return "Finishing WAV…";
+            ? "Capturing offline render" : "Recording - stop when the range ends";
+        case CaptureState::finishing: return "Finishing WAV...";
         case CaptureState::complete: return "Shared capture ready";
         case CaptureState::error: return "Capture failed";
         case CaptureState::idle: break;
     }
-    return "Linked to Orb · " + hostName;
+    return "Linked to Orb - " + hostName;
 }
 
 bool StemLinkAudioProcessor::armExport (const StemLinkRegistry::ExportRequest& request)
@@ -217,7 +217,7 @@ bool StemLinkAudioProcessor::armExport (const StemLinkRegistry::ExportRequest& r
     lastAudioBlockAtMs.store (juce::Time::currentTimeMillis());
     captureState.store (CaptureState::armed);
     publishCaptureStatus ("armed", request.rangeMode == "session"
-        ? "Ready for one-pass offline bounce." : "Ready — press Play in the DAW.");
+        ? "Ready for one-pass offline bounce." : "Ready - press Play in the DAW.");
     return true;
 }
 
@@ -297,7 +297,7 @@ void StemLinkAudioProcessor::timerCallback()
         finishRecording();
 
     if (statusDirty.exchange (false))
-        publishCaptureStatus ("recording", "Recording this track…");
+        publishCaptureStatus ("recording", "Recording this track...");
 
     const auto state = captureState.load();
     if (state == CaptureState::idle || state == CaptureState::complete)

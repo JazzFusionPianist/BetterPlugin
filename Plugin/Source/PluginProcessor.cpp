@@ -166,6 +166,12 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleGetHostStemExportStatus (args, std::move (completion));
                 })
+            .withNativeFunction ("finishHostStemExport",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleFinishHostStemExport (args, std::move (completion));
+                })
             .withNativeFunction ("uploadHostStemFile",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -879,6 +885,17 @@ void OrbAudioProcessor::handleGetHostStemExportStatus (
     completion (controlBridge->getExportStatusJson (args[0].toString()));
 }
 
+void OrbAudioProcessor::handleFinishHostStemExport (
+    const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    if (controlBridge == nullptr || ! args.isArray() || args.size() < 1)
+    {
+        completion ("error:bad-args");
+        return;
+    }
+    completion (controlBridge->finishExport (args[0].toString()) ? "ok" : "error:cleanup-failed");
+}
+
 void OrbAudioProcessor::handleUploadHostStemFile (
     const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
@@ -890,7 +907,10 @@ void OrbAudioProcessor::handleUploadHostStemFile (
     const juce::File file (args[0].toString());
     const auto exportRoot = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
         .getChildFile ("Orb").getChildFile ("HostControl").getChildFile ("Exports");
-    if (! file.existsAsFile() || ! file.isAChildOf (exportRoot))
+    const auto stemLinkExportRoot = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+        .getChildFile ("Orb").getChildFile ("StemLink").getChildFile ("Exports");
+    if (! file.existsAsFile()
+        || (! file.isAChildOf (exportRoot) && ! file.isAChildOf (stemLinkExportRoot)))
     {
         completion ("error:invalid-file");
         return;

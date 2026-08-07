@@ -305,6 +305,11 @@ juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndic
         object->setProperty ("createdAtMs", juce::Time::currentTimeMillis());
         return writeFileRequest (juce::var (object)) ? requestId : juce::String();
     }
+
+    if (const auto requestId = StemLinkRegistry::createExportRequest (host, trackIndices, editSelection);
+        requestId.isNotEmpty())
+        return requestId;
+
     juce::StringArray ids;
     for (const int index : trackIndices) ids.add (juce::String (index));
     send (0x04, juce::String (editSelection ? "selection" : "session") + "|" + ids.joinIntoString (","));
@@ -324,21 +329,23 @@ juce::String OrbControlBridge::getStatusJson() const
             && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
         currentAdapter = adapterName;
     }
-    const auto stemLinkTracks = controlConnected
-        ? std::vector<StemLinkRegistry::Track>()
-        : StemLinkRegistry::getActiveTracks (host);
+    const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
     const bool stemLinkConnected = ! stemLinkTracks.empty();
     const bool connected = controlConnected || stemLinkConnected;
+    const bool nativeControlExport = controlConnected
+        && host.containsIgnoreCase ("Cubase") && currentAdapter.contains ("Cubase");
+    const auto displayedAdapter = nativeControlExport ? currentAdapter
+        : (stemLinkConnected ? juce::String ("Orb StemLink")
+                             : (currentAdapter.isNotEmpty() ? currentAdapter
+                                                            : juce::String ("Orb Control")));
 
     auto object = new juce::DynamicObject();
     object->setProperty ("hostName", host);
-    object->setProperty ("adapter", stemLinkConnected ? "Orb StemLink"
-        : (currentAdapter.isNotEmpty() ? currentAdapter : "Orb Control"));
+    object->setProperty ("adapter", displayedAdapter);
     object->setProperty ("connected", connected);
     object->setProperty ("trackListing", connected);
-    object->setProperty ("exportMode",
-        controlConnected && host.containsIgnoreCase ("Cubase") && currentAdapter.contains ("Cubase")
-            ? "native" : "none");
+    object->setProperty ("exportMode", nativeControlExport ? "native"
+        : (stemLinkConnected ? "realtime" : "none"));
     if (stemLinkConnected)
         object->setProperty ("message", juce::String (stemLinkTracks.size())
             + (stemLinkTracks.size() == 1 ? " linked track" : " linked tracks"));
@@ -355,12 +362,15 @@ juce::String OrbControlBridge::getTracksJson() const
         if (auto* object = fileStatus.getDynamicObject())
             return juce::JSON::toString (object->getProperty ("tracks"), false);
     }
+    const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
     juce::Array<juce::var> result;
     {
         std::lock_guard<std::mutex> lock (stateMutex);
         const bool controlConnected = adapterConnected
             && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
-        if (controlConnected && ! tracks.empty())
+        const bool nativeControlExport = controlConnected
+            && host.containsIgnoreCase ("Cubase") && adapterName.contains ("Cubase");
+        if ((nativeControlExport || stemLinkTracks.empty()) && controlConnected && ! tracks.empty())
         {
             for (const auto& track : tracks)
             {
@@ -376,7 +386,6 @@ juce::String OrbControlBridge::getTracksJson() const
         }
     }
 
-    const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
     std::lock_guard<std::mutex> lock (stateMutex);
     for (const auto& track : stemLinkTracks)
     {
@@ -398,9 +407,21 @@ juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestI
     if (requestId.isEmpty() || requestId.containsAnyOf ("/\\."))
         return "{\"status\":\"error\",\"message\":\"Invalid export request\"}";
     const auto file = getControlDirectory().getChildFile ("export-" + requestId + ".json");
-    if (! file.existsAsFile())
-        return "{\"status\":\"queued\",\"progress\":0}";
-    const auto contents = file.loadFileAsString();
-    return juce::JSON::parse (contents).isVoid()
-        ? juce::String ("{\"status\":\"queued\",\"progress\":0}") : contents;
+    if (file.existsAsFile())
+    {
+        const auto contents = file.loadFileAsString();
+        if (! juce::JSON::parse (contents).isVoid()) return contents;
+    }
+    if (const auto stemLinkStatus = StemLinkRegistry::getExportStatusJson (requestId);
+        stemLinkStatus.isNotEmpty())
+        return stemLinkStatus;
+    return "{\"status\":\"queued\",\"progress\":0}";
+}
+
+bool OrbControlBridge::finishExport (const juce::String& requestId) const
+{
+    if (StemLinkRegistry::getExportStatusJson (requestId).isNotEmpty())
+        return StemLinkRegistry::finishExport (requestId);
+    const auto file = getControlDirectory().getChildFile ("export-" + requestId + ".json");
+    return ! file.existsAsFile() || file.deleteFile();
 }

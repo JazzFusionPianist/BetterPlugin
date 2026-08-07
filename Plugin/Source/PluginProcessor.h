@@ -196,6 +196,7 @@ private:
     void handleSetHostTrackSelected (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleStartHostStemExport  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetHostStemExportStatus (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleFinishHostStemExport     (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleUploadHostStemFile      (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     //── Active editor resize callback (registered by editor on construct) ────

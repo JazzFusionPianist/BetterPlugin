@@ -120,6 +120,7 @@ target_compile_definitions(OrbStemLink PUBLIC
 
 target_link_libraries(OrbStemLink
     PRIVATE
+        juce::juce_audio_formats
         juce::juce_audio_processors
         juce::juce_gui_basics
     PUBLIC

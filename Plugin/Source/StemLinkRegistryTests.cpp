@@ -24,6 +24,8 @@ int main()
         return fail ("Master bridge did not connect to StemLink registry");
     if (statusObject->getProperty ("adapter").toString() != "Orb StemLink")
         return fail ("Master bridge reported the wrong adapter");
+    if (statusObject->getProperty ("exportMode").toString() != "realtime")
+        return fail ("StemLink did not advertise realtime export");
 
     const auto tracks = juce::JSON::parse (bridge.getTracksJson());
     auto* array = tracks.getArray();
@@ -47,6 +49,44 @@ int main()
         || ! static_cast<bool> (selectedTrack->getProperty ("selected")))
         return fail ("StemLink track selection was not retained");
 
-    std::cout << "Orb StemLink registry integration passed\n";
+    const auto requestId = bridge.requestExport ({ index }, false);
+    if (requestId.isEmpty())
+        return fail ("StemLink export request was not created");
+    const auto request = StemLinkRegistry::getPendingExportRequest (
+        host, publisher.getId(), {}, 0);
+    if (! request.has_value() || request->id != requestId
+        || request->trackName != "Lead Vocal" || request->rangeMode != "session")
+        return fail ("StemLink instance did not receive its export request");
+
+    const auto audioFile = StemLinkRegistry::getExportAudioFile (
+        requestId, publisher.getId(), request->trackName);
+    audioFile.getParentDirectory().createDirectory();
+    if (! audioFile.replaceWithText ("test wav payload"))
+        return fail ("Could not create export test file");
+    auto fileObject = new juce::DynamicObject();
+    fileObject->setProperty ("path", audioFile.getFullPathName());
+    fileObject->setProperty ("name", audioFile.getFileName());
+    fileObject->setProperty ("size", audioFile.getSize());
+    fileObject->setProperty ("mimeType", "audio/wav");
+    fileObject->setProperty ("sampleRate", 48000);
+    fileObject->setProperty ("bitDepth", 24);
+    auto completeObject = new juce::DynamicObject();
+    completeObject->setProperty ("status", "complete");
+    completeObject->setProperty ("file", juce::var (fileObject));
+    if (! StemLinkRegistry::writeExportStatus (
+            requestId, publisher.getId(), juce::var (completeObject)))
+        return fail ("Could not publish StemLink export completion");
+
+    const auto exportStatus = juce::JSON::parse (bridge.getExportStatusJson (requestId));
+    auto* exportObject = exportStatus.getDynamicObject();
+    auto* exportedFiles = exportObject == nullptr
+        ? nullptr : exportObject->getProperty ("files").getArray();
+    if (exportObject == nullptr || exportObject->getProperty ("status").toString() != "complete"
+        || exportedFiles == nullptr || exportedFiles->size() != 1)
+        return fail ("Master bridge did not aggregate the completed StemLink WAV");
+    if (! bridge.finishExport (requestId) || audioFile.existsAsFile())
+        return fail ("StemLink export files were not cleaned up after upload");
+
+    std::cout << "Orb StemLink discovery and export integration passed\n";
     return 0;
 }

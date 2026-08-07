@@ -33,7 +33,7 @@ void StemLinkAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colours::white.withAlpha (0.48f));
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Linked to Orb · " + stemLinkProcessor.getHostName(), area,
+    g.drawText (stemLinkProcessor.getCaptureStatus(), area,
                 juce::Justification::centredLeft);
 }
 

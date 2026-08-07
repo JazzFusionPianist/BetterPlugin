@@ -26,6 +26,7 @@ public:
     bool setTrackSelected (int index, bool selected);
     juce::String requestExport (const std::vector<int>& trackIndices, bool editSelection);
     juce::String getExportStatusJson (const juce::String& requestId) const;
+    bool finishExport (const juce::String& requestId) const;
 
 private:
     static void readProc (const MIDIPacketList* packets, void* refCon, void*);

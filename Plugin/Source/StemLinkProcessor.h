@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
+#include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_events/juce_events.h>
 #include "StemLinkRegistry.h"
@@ -11,8 +14,8 @@ public:
     StemLinkAudioProcessor();
     ~StemLinkAudioProcessor() override;
 
-    void prepareToPlay (double, int) override {}
-    void releaseResources() override {}
+    void prepareToPlay (double sampleRate, int) override;
+    void releaseResources() override;
     bool isBusesLayoutSupported (const BusesLayout&) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -38,15 +41,36 @@ public:
     juce::String getTrackName() const;
     juce::Colour getTrackColour() const;
     juce::String getHostName() const { return hostName; }
+    juce::String getCaptureStatus() const;
 
 private:
+    enum class CaptureState { idle, armed, recording, finishing, complete, error };
     void timerCallback() override;
+    bool armExport (const StemLinkRegistry::ExportRequest&);
+    void publishCaptureStatus (const juce::String& status, const juce::String& message = {});
+    void finishRecording();
 
     mutable juce::CriticalSection propertyLock;
     juce::String trackName { "Waiting for track name…" };
     juce::Colour trackColour { 0xff7c6cff };
     juce::String hostName;
     StemLinkRegistry::Publisher publisher;
+
+    juce::TimeSliceThread writerThread { "Orb StemLink WAV writer" };
+    juce::SpinLock writerLock;
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> threadedWriter;
+    juce::File captureFile;
+    StemLinkRegistry::ExportRequest currentRequest;
+    juce::String lastHandledRequestId;
+    std::atomic<CaptureState> captureState { CaptureState::idle };
+    std::atomic<juce::int64> samplesWritten { 0 };
+    std::atomic<juce::int64> sourceStartSamples { 0 };
+    std::atomic<juce::int64> lastPlayheadSamples { 0 };
+    std::atomic<bool> statusDirty { false };
+    double captureSampleRate = 44100.0;
+    int captureChannels = 2;
+    juce::int64 processorStartedAtMs = 0;
+    juce::int64 lastHeartbeatMs = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StemLinkAudioProcessor)
 };

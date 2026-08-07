@@ -276,6 +276,7 @@ export default function StemPanel({
         setShareStatus(`Uploading ${index + 1} of ${result.files.length}…`)
         await uploadRenderedStem(result.files[index])
       }
+      await callJuceNative('finishHostStemExport', [requestId], 5000)
       await load()
       setAddOpen(false)
       setShareStatus('')
@@ -392,6 +393,16 @@ export default function StemPanel({
                 <button className={rangeMode === 'session' ? 'on' : ''} onClick={() => setRangeMode('session')}>Entire Session</button>
                 <button className={rangeMode === 'selection' ? 'on' : ''} onClick={() => setRangeMode('selection')}>Edit Selection</button>
               </div>
+              {hostStatus.exportMode === 'realtime' && (
+                <div className="stem-host-notice compact">
+                  <strong>One-pass automatic stem capture</strong>
+                  <span>
+                    {rangeMode === 'session'
+                      ? 'Move the playhead to the session start. Share arms every selected StemLink; press Play once, then Stop at the end.'
+                      : 'Start playback at the beginning of your DAW edit selection, then Stop at its end. All selected tracks record together.'}
+                  </span>
+                </div>
+              )}
               <div className="stem-track-tools">
                 <span>{selectedTracks.size} selected</span>
                 <button onClick={() => {

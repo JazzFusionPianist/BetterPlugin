@@ -187,27 +187,20 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Top Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */
-/* One panel, five rooms — chat · knob · live · games · settings share
-   a single hairline card, split by thin rules (Steven, 2026-08-07:
-   separate door cards ate too much of the top; one panel reads
-   lighter while every feature still wears its serif name). */
+/* The running head — five bare serif words, no cards, no icons
+   (Steven, 2026-08-07, third pass: every chrome treatment read as
+   clutter; the words themselves are the navigation, catalogue-style,
+   and the orbs drift behind the letters). */
 .top-bar {
   display: flex;
-  align-items: stretch;
-  margin: 12px 14px 0;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 16px 0;
   box-sizing: border-box;
   flex-shrink: 0;
   position: relative;
   z-index: 100;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.018);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: background .15s, border-color .15s;
-}
-.plugin.dark .top-bar {
-  background: rgba(255, 255, 255, 0.025);
-  border-color: rgba(255, 255, 255, 0.07);
+  background: transparent;
 }
 /* In Expand View the plugin shell goes to 100vw, but space-evenly
    would smear the 4 icons across the whole width. Pin the bar to its
@@ -227,45 +220,33 @@
 }
 
 .icon-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 7px 2px 6px;
-  opacity: 1;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  padding: 2px 0 3px;
   cursor: pointer;
   background: none;
   border: none;
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: none;
-  transition: background .15s;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s;
 }
-.icon-btn:first-child { border-left: none; border-radius: 9px 0 0 9px; }
-.icon-btn:last-child { border-radius: 0 9px 9px 0; }
 .icon-btn .icon-label {
   font-family: var(--f-serif);
-  font-size: 10.5px;
+  font-size: 13px;
   text-transform: lowercase;
   color: var(--t2);
   line-height: 1;
   transition: color .15s;
 }
+.icon-btn:hover .icon-label { color: var(--t1); }
+.icon-btn.active { border-bottom-color: var(--hair); }
 .icon-btn.active .icon-label { color: var(--t1); }
-.icon-btn:hover { background: rgba(0, 0, 0, 0.035); }
-.icon-btn.active { background: rgba(0, 0, 0, 0.055); }
-.plugin.dark .icon-btn { border-left-color: rgba(255, 255, 255, 0.07); }
-.plugin.dark .icon-btn:hover { background: rgba(255, 255, 255, 0.045); }
-.plugin.dark .icon-btn.active { background: rgba(255, 255, 255, 0.07); }
-.icon-btn svg { width: 14px; height: 14px; stroke: var(--t1); fill: none; }
 
-/* Wide: the panel keeps its compact footprint, centred. */
+/* Wide: the words keep their compact footprint, centred. */
 .plugin.screen-wide .top-bar {
-  max-width: 356px;
+  max-width: 360px;
   width: 100%;
-  margin: 12px auto 0;
+  margin: 0 auto;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -3073,9 +3054,9 @@
    Live – toolbar button
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .live-btn-dot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
+  position: static;
+  align-self: center;
+  margin-left: 4px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -8262,26 +8243,8 @@
    hairline borders, small print-corner radii, no glow.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* Toolbar */
-.plugin .icon-btn,
-.plugin.dark .icon-btn {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: none;
-}
-.plugin .icon-btn:hover,
-.plugin.dark .icon-btn:hover {
-  background: var(--bg2);
-  border-color: var(--border2);
-  box-shadow: none;
-}
-.plugin .icon-btn.active,
-.plugin.dark .icon-btn.active {
-  background: var(--bg3);
-  border-color: var(--hair);
-  box-shadow: none;
-}
+/* Toolbar — the running head styles itself at the top of the file;
+   no card materials here (the words are bare by design). */
 
 /* Chat bubbles — card for theirs, ink for mine, like the app. */
 .plugin .mb {
@@ -8793,22 +8756,12 @@
 .plugin.fx-open { background: var(--fx-wall, #161410); }
 .plugin.fx-live { transition: background 0.12s linear; }
 .plugin.fx-open .fxview { background: transparent; }
-.plugin.fx-open .top-bar {
-  background: rgba(246, 243, 234, 0.08);
-  border-color: rgba(246, 243, 234, 0.25);
-  box-shadow: none;
-}
-.plugin.fx-open .icon-btn,
-.plugin.fx-open .icon-btn:hover {
-  background: none;
-  border-left-color: rgba(246, 243, 234, 0.18);
-  color: #F6F3EA;
-}
-.plugin.fx-open .icon-btn svg { stroke: #F6F3EA; }
-.plugin.fx-open .icon-btn .icon-label { color: rgba(246, 243, 234, 0.75); }
-.plugin.fx-open .icon-btn.active {
-  background: rgba(246, 243, 234, 0.2);
-}
+/* The running-head words dim to warm paper on the wall; only the open
+   room's word stays lit, underlined by a paper hairline. */
+.plugin.fx-open .icon-btn .icon-label { color: rgba(246, 243, 234, 0.55); }
+.plugin.fx-open .icon-btn:hover .icon-label { color: rgba(246, 243, 234, 0.85); }
+.plugin.fx-open .icon-btn.active { border-bottom-color: rgba(246, 243, 234, 0.6); }
+.plugin.fx-open .icon-btn.active .icon-label { color: #F6F3EA; }
 
 .fx-stage {
   flex: 1; min-height: 0;
@@ -9023,20 +8976,7 @@
    to ink, in step with the wall. The card background returns at the
    end, invisibly — white on paper. */
 .plugin.fx-closing { transition: background 1.3s ease; }
-.plugin.fx-closing .top-bar {
-  background: rgba(246, 243, 234, 0.05);
-  box-shadow: none;
-  border-color: var(--border);
-  transition: border-color 1.3s ease, background 1.3s ease;
-}
-.plugin.fx-closing .icon-btn,
-.plugin.fx-closing .icon-btn:hover {
-  background: none;
-  border-left-color: var(--border);
-  color: var(--t1);
-  transition: border-color 1.3s ease, color 1.3s ease;
-}
-.plugin.fx-closing .icon-btn svg { stroke: var(--t1); transition: stroke 1.3s ease; }
+.plugin.fx-closing .icon-btn { transition: border-color 1.3s ease; }
 .plugin.fx-closing .icon-btn .icon-label { color: var(--t2); transition: color 1.3s ease; }
 /* incoming panels ride the fading wall instead of slamming their own
    background over it */
@@ -9371,7 +9311,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
    card returns when the room closes). */
 .fnotif-stack {
   position: absolute; z-index: 60;
-  top: 62px; left: 10px; right: 10px;
+  top: 44px; left: 10px; right: 10px;
   display: flex; flex-direction: column; gap: 6px;
   pointer-events: none;
 }
@@ -9504,3 +9444,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
    mechanism entirely — same cure as .plugin/.content. */
 .fx-body { overflow: hidden; overflow: clip; }
 .fx-stage { overflow: visible; }
+
+/* chain names are handles: drag along the line to re-plumb the path */
+.fx-chain-link { cursor: grab; touch-action: none; }
+.fx-chain-link.drag { color: #5A6BFF; cursor: grabbing; }

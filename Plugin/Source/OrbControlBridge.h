@@ -67,6 +67,7 @@ private:
         double bpm = 120.0;
         int timeSigNumerator = 4;
         int timeSigDenominator = 4;
+        bool starting = false;
         bool started = false;
         bool published = false;
     };
@@ -85,6 +86,7 @@ private:
     std::set<int> stemLinkSelections;
     std::map<juce::String, juce::String> pendingStemLinkTriggers;
     std::map<juce::String, LunaExport> lunaExports;
+    juce::ThreadPool lunaWorkers { 1 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbControlBridge)
 };

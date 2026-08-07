@@ -278,6 +278,7 @@ export default function StemPanel({
       const deadline = Date.now() + 6 * 60 * 60 * 1000
       while (Date.now() < deadline) {
         const raw = await callJuceNative('getHostStemExportStatus', [requestId], 5000)
+        if (raw.startsWith('error:')) throw new Error(raw.slice('error:'.length))
         result = JSON.parse(raw) as HostStemExportStatus
         const queuedMessage = hostStatus?.exportMode === 'onepass' && !hostStatus.automaticTrigger
           ? 'Waiting for one offline master export in the DAW…'

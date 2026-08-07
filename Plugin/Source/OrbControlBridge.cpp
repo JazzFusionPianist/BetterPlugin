@@ -75,8 +75,13 @@ bool OrbControlBridge::startLunaExport (const juce::String& requestId)
         job = found->second;
     }
 
-    const auto sessions = lunaRequest ("GET", "/sessions");
-    const auto sessionUid = propertyValue (sessions, "focused_session").toString();
+    juce::String sessionUid;
+    for (int attempt = 0; attempt < 20 && sessionUid.isEmpty(); ++attempt)
+    {
+        const auto sessions = lunaRequest ("GET", "/sessions");
+        sessionUid = propertyValue (sessions, "focused_session").toString();
+        if (sessionUid.isEmpty() && attempt < 19) juce::Thread::sleep (100);
+    }
     if (sessionUid.isEmpty()) job.error = "LUNA has no focused session.";
 
     const auto sessionPath = "/sessions/" + sessionUid;
@@ -751,19 +756,42 @@ juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestI
             if (static_cast<bool> (object->getProperty ("ready")))
             {
                 bool hasLunaExport = false;
+                bool startLunaInBackground = false;
                 bool lunaStarted = false;
                 {
                     std::lock_guard<std::mutex> lock (stateMutex);
                     const auto found = lunaExports.find (requestId);
                     hasLunaExport = found != lunaExports.end();
                     lunaStarted = hasLunaExport && found->second.started;
+                    if (hasLunaExport && ! found->second.starting && ! lunaStarted)
+                    {
+                        found->second.starting = true;
+                        startLunaInBackground = true;
+                    }
                 }
                 if (hasLunaExport)
                 {
-                    if (! lunaStarted) startLunaExport (requestId);
+                    // Native-function callbacks run on LUNA's UI thread. Its
+                    // localhost API also needs that thread, so synchronous
+                    // requests here deadlock until the web bridge times out.
+                    if (startLunaInBackground)
+                        lunaWorkers.addJob ([this, requestId]
+                        {
+                            startLunaExport (requestId);
+                        });
                     if (const auto lunaStatus = pollLunaExport (requestId);
                         lunaStatus.isNotEmpty())
                         return lunaStatus;
+                    if (! lunaStarted)
+                    {
+                        auto starting = new juce::DynamicObject();
+                        starting->setProperty ("id", requestId);
+                        starting->setProperty ("status", "rendering");
+                        starting->setProperty ("ready", true);
+                        starting->setProperty ("progress", 0.0);
+                        starting->setProperty ("message", "Starting LUNA offline export...");
+                        return juce::JSON::toString (juce::var (starting), false);
+                    }
                     return StemLinkRegistry::getExportStatusJson (requestId);
                 }
 

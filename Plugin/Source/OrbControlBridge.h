@@ -3,6 +3,7 @@
 #include <juce_core/juce_core.h>
 #include <CoreMIDI/CoreMIDI.h>
 #include <mutex>
+#include <set>
 #include <vector>
 
 class OrbControlBridge
@@ -50,6 +51,7 @@ private:
     juce::String adapterName;
     juce::int64 lastMessageMs = 0;
     juce::StringArray mcuStripNames;
+    std::set<int> stemLinkSelections;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbControlBridge)
 };

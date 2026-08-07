@@ -45,6 +45,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTEFACTS="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release"
+STEMLINK_ARTEFACTS="$SCRIPT_DIR/build/OrbStemLink_artefacts/Release"
 OUT_DIR="$SCRIPT_DIR/installer"
 WORK="$OUT_DIR/work"
 
@@ -59,8 +60,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # $1 = format key (vst3/au/aax/standalone)
 # $2 = source bundle path
 # $3 = install destination dir
+# $4 = optional companion bundle (Orb StemLink)
 build_component() {
-  local key="$1" src="$2" dest="$3"
+  local key="$1" src="$2" dest="$3" companion="${4:-}"
   if [ ! -d "$src" ]; then
     echo "  ⚠ $key: not built — skipped ($src)"
     return 1
@@ -68,6 +70,9 @@ build_component() {
   local root="$WORK/roots/$key"
   mkdir -p "$root$dest"
   cp -R "$src" "$root$dest/"
+  if [ -n "$companion" ] && [ -d "$companion" ]; then
+    cp -R "$companion" "$root$dest/"
+  fi
   pkgbuild \
     --root "$root" \
     --identifier "$IDENTIFIER_BASE.$key" \
@@ -99,8 +104,8 @@ elif [ -d "$AAX_SOURCE" ]; then
 fi
 
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
-build_component vst3       "$ARTEFACTS/VST3/Orb.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
-build_component au         "$ARTEFACTS/AU/Orb.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
+build_component vst3       "$ARTEFACTS/VST3/Orb.vst3"           "/Library/Audio/Plug-Ins/VST3" "$STEMLINK_ARTEFACTS/VST3/Orb StemLink.vst3" && HAVE_VST3=1 || true
+build_component au         "$ARTEFACTS/AU/Orb.component"        "/Library/Audio/Plug-Ins/Components" "$STEMLINK_ARTEFACTS/AU/Orb StemLink.component" && HAVE_AU=1 || true
 [ "$AAX_READY" -eq 1 ] && build_component aax "$AAX_SOURCE" "/Library/Application Support/Avid/Audio/Plug-Ins" && HAVE_AAX=1 || true
 build_component standalone "$ARTEFACTS/Standalone/Orb.app"      "/Applications"                                     && HAVE_APP=1  || true
 
@@ -129,8 +134,8 @@ DIST="$WORK/distribution.xml"
     echo '  </choice>'
     echo "  <pkg-ref id=\"$IDENTIFIER_BASE.$1\" version=\"$VERSION\">Orb-$1.pkg</pkg-ref>"
   }
-  [ $HAVE_AU   -eq 1 ] && emit_choice au         "Audio Unit (AU)"  "For Logic Pro, GarageBand and other AU hosts."
-  [ $HAVE_VST3 -eq 1 ] && emit_choice vst3       "VST3"             "For Cubase, Ableton Live, FL Studio and other VST3 hosts."
+  [ $HAVE_AU   -eq 1 ] && emit_choice au         "Audio Unit (AU)"  "Orb and Orb StemLink for Logic Pro, GarageBand and other AU hosts."
+  [ $HAVE_VST3 -eq 1 ] && emit_choice vst3       "VST3"             "Orb and Orb StemLink for Cubase, Ableton Live, FL Studio and other VST3 hosts."
   [ $HAVE_AAX  -eq 1 ] && emit_choice aax        "AAX"              "For Pro Tools. Requires PACE-signed builds for release Pro Tools."
   [ $HAVE_APP  -eq 1 ] && emit_choice standalone "Standalone App"   "Run Orb without a DAW. Installs to /Applications."
   echo '</installer-gui-script>'
@@ -155,4 +160,6 @@ rm -rf "$WORK"
 echo ""
 echo "✓ Installer ready:"
 echo "    $FINAL"
-[ -z "$SIGN_ID" ] && echo "  (unsigned — set SIGN_ID env to sign for distribution)"
+if [ -z "$SIGN_ID" ]; then
+  echo "  (unsigned — set SIGN_ID env to sign for distribution)"
+fi

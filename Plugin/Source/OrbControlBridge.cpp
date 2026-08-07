@@ -1,4 +1,5 @@
 #include "OrbControlBridge.h"
+#include "StemLinkRegistry.h"
 #include <algorithm>
 
 namespace
@@ -240,6 +241,7 @@ bool OrbControlBridge::requestTracks()
 {
     juce::var fileStatus;
     if (readFileAdapterStatus (fileStatus)) return true;
+    if (! StemLinkRegistry::getActiveTracks (host).empty()) return true;
     send (0x01);
     // Also announce/query as an MCU device. DAWs configured with their
     // built-in Mackie Control surface respond with scribble-strip labels.
@@ -259,6 +261,20 @@ bool OrbControlBridge::setTrackSelected (int index, bool selected)
         object->setProperty ("selected", selected);
         object->setProperty ("createdAtMs", juce::Time::currentTimeMillis());
         return writeFileRequest (juce::var (object));
+    }
+
+    const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
+    const auto stemLinkMatch = std::find_if (stemLinkTracks.begin(), stemLinkTracks.end(),
+        [index] (const StemLinkRegistry::Track& track)
+        {
+            return StemLinkRegistry::makeTrackIndex (track.id) == index;
+        });
+    if (stemLinkMatch != stemLinkTracks.end())
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        if (selected) stemLinkSelections.insert (index);
+        else stemLinkSelections.erase (index);
+        return true;
     }
     bool isMcu = false;
     {
@@ -299,18 +315,33 @@ juce::String OrbControlBridge::getStatusJson() const
 {
     juce::var fileStatus;
     if (readFileAdapterStatus (fileStatus)) return juce::JSON::toString (fileStatus, false);
-    std::lock_guard<std::mutex> lock (stateMutex);
-    const bool connected = adapterConnected
-        && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
+
+    bool controlConnected = false;
+    juce::String currentAdapter;
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        controlConnected = adapterConnected
+            && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
+        currentAdapter = adapterName;
+    }
+    const auto stemLinkTracks = controlConnected
+        ? std::vector<StemLinkRegistry::Track>()
+        : StemLinkRegistry::getActiveTracks (host);
+    const bool stemLinkConnected = ! stemLinkTracks.empty();
+    const bool connected = controlConnected || stemLinkConnected;
 
     auto object = new juce::DynamicObject();
     object->setProperty ("hostName", host);
-    object->setProperty ("adapter", adapterName.isNotEmpty() ? adapterName : "Orb Control");
+    object->setProperty ("adapter", stemLinkConnected ? "Orb StemLink"
+        : (currentAdapter.isNotEmpty() ? currentAdapter : "Orb Control"));
     object->setProperty ("connected", connected);
     object->setProperty ("trackListing", connected);
     object->setProperty ("exportMode",
-        connected && host.containsIgnoreCase ("Cubase") && adapterName.contains ("Cubase")
+        controlConnected && host.containsIgnoreCase ("Cubase") && currentAdapter.contains ("Cubase")
             ? "native" : "none");
+    if (stemLinkConnected)
+        object->setProperty ("message", juce::String (stemLinkTracks.size())
+            + (stemLinkTracks.size() == 1 ? " linked track" : " linked tracks"));
     object->setProperty ("inputPort", "Orb Control Out");
     object->setProperty ("outputPort", "Orb Control In");
     return juce::JSON::toString (juce::var (object), false);
@@ -324,16 +355,39 @@ juce::String OrbControlBridge::getTracksJson() const
         if (auto* object = fileStatus.getDynamicObject())
             return juce::JSON::toString (object->getProperty ("tracks"), false);
     }
-    std::lock_guard<std::mutex> lock (stateMutex);
     juce::Array<juce::var> result;
-    for (const auto& track : tracks)
     {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        const bool controlConnected = adapterConnected
+            && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
+        if (controlConnected && ! tracks.empty())
+        {
+            for (const auto& track : tracks)
+            {
+                auto object = new juce::DynamicObject();
+                object->setProperty ("id", juce::String (track.index));
+                object->setProperty ("index", track.index);
+                object->setProperty ("name", track.name);
+                object->setProperty ("selected", track.selected);
+                object->setProperty ("color", track.colour);
+                result.add (juce::var (object));
+            }
+            return juce::JSON::toString (result, false);
+        }
+    }
+
+    const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
+    std::lock_guard<std::mutex> lock (stateMutex);
+    for (const auto& track : stemLinkTracks)
+    {
+        const int index = StemLinkRegistry::makeTrackIndex (track.id);
         auto object = new juce::DynamicObject();
-        object->setProperty ("id", juce::String (track.index));
-        object->setProperty ("index", track.index);
+        object->setProperty ("id", "stemlink:" + track.id);
+        object->setProperty ("index", index);
         object->setProperty ("name", track.name);
-        object->setProperty ("selected", track.selected);
+        object->setProperty ("selected", stemLinkSelections.count (index) != 0);
         object->setProperty ("color", track.colour);
+        object->setProperty ("source", "stemlink");
         result.add (juce::var (object));
     }
     return juce::JSON::toString (result, false);

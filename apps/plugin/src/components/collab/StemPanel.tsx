@@ -371,8 +371,8 @@ export default function StemPanel({
             <div className="stem-host-notice">Reading tracks from the DAW…</div>
           ) : !hostStatus?.connected ? (
             <div className="stem-host-notice">
-              <strong>Connect Orb Control</strong>
-              <span>Choose “Orb Control” in your DAW’s Remote or Control Surface setup. No screen access is used.</span>
+              <strong>Add Orb StemLink to your tracks</strong>
+              <span>Insert StemLink on each track you want Orb to discover, or connect “Orb Control” as a DAW control surface. No screen access is used.</span>
               <button onClick={() => void refreshHostTracks()}>Refresh</button>
             </div>
           ) : hostStatus.sessionOpen === false ? (
@@ -386,7 +386,7 @@ export default function StemPanel({
               <div className="stem-host-state">
                 <i />
                 <span>{hostStatus.adapter}</span>
-                <small>{hostStatus.exportMode === 'native' ? 'Native Export' : 'DAW Render'}</small>
+                <small>{hostStatus.exportMode === 'native' ? 'Native Export' : hostStatus.exportMode === 'realtime' ? 'DAW Render' : 'Track Discovery'}</small>
               </div>
               <div className="stem-range-tabs">
                 <button className={rangeMode === 'session' ? 'on' : ''} onClick={() => setRangeMode('session')}>Entire Session</button>

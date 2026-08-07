@@ -19,6 +19,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REL="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release"
+STEMLINK_REL="$SCRIPT_DIR/build/OrbStemLink_artefacts/Release"
 ENTITLEMENTS="$SCRIPT_DIR/Resources/Orb.entitlements"
 APPLE_SIGN_ID="${APPLE_SIGN_ID:-}"
 
@@ -48,5 +49,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 sign_bundle "$REL/VST3/Orb.vst3"
 sign_bundle "$REL/AU/Orb.component"
 sign_bundle "$REL/Standalone/Orb.app"
+sign_bundle "$STEMLINK_REL/VST3/Orb StemLink.vst3"
+sign_bundle "$STEMLINK_REL/AU/Orb StemLink.component"
 echo ""
 echo "✓ Apple bundles signed. Next: ./package.sh then ./notarize.sh"

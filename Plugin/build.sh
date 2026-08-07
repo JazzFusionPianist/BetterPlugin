@@ -61,16 +61,17 @@ if [ "$STANDALONE_ONLY" = true ]; then
   BUILD_TARGETS="OrbPlugin_Standalone"
   echo "  Format : Standalone only (fast dev iteration)"
 elif [ -n "$AAX_SDK_PATH" ]; then
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX OrbStemLink_AU OrbStemLink_VST3 OrbStemLink_AAX"
   echo "  AAX    : $AAX_SDK_PATH"
 else
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbStemLink_AU OrbStemLink_VST3"
   echo "  AAX    : (skipped — no SDK)"
 fi
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
       -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+      -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
       -DORB_APP_URL="$ORB_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \
       -G Xcode \
@@ -90,10 +91,14 @@ echo ""
 AU_PATH=$(find "$BUILD_DIR" -name "Orb.component"  -maxdepth 6 2>/dev/null | head -1)
 VST3_PATH=$(find "$BUILD_DIR" -name "Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
 STANDALONE_PATH=$(find "$BUILD_DIR" -name "Orb.app"        -maxdepth 6 2>/dev/null | head -1)
+STEMLINK_AU_PATH=$(find "$BUILD_DIR" -name "Orb StemLink.component" -maxdepth 6 2>/dev/null | head -1)
+STEMLINK_VST3_PATH=$(find "$BUILD_DIR" -name "Orb StemLink.vst3" -maxdepth 6 2>/dev/null | head -1)
 
 [ -n "$AU_PATH"         ] && echo "  AU         → $AU_PATH"
 [ -n "$VST3_PATH"       ] && echo "  VST3       → $VST3_PATH"
 [ -n "$STANDALONE_PATH" ] && echo "  Standalone → $STANDALONE_PATH"
+[ -n "$STEMLINK_AU_PATH" ] && echo "  StemLink AU    → $STEMLINK_AU_PATH"
+[ -n "$STEMLINK_VST3_PATH" ] && echo "  StemLink VST3  → $STEMLINK_VST3_PATH"
 echo ""
 
 # ── Launch standalone (optional, for fast iteration) ─────────────────────────
@@ -126,6 +131,18 @@ if [ "$INSTALL" = true ]; then
     rm -rf "$VST3_DEST/Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
     echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
+  fi
+
+  if [ -n "$STEMLINK_AU_PATH" ]; then
+    rm -rf "$AU_DEST/Orb StemLink.component"
+    cp -R "$STEMLINK_AU_PATH" "$AU_DEST/"
+    echo "✓ StemLink AU   installed → $AU_DEST/Orb StemLink.component"
+  fi
+
+  if [ -n "$STEMLINK_VST3_PATH" ]; then
+    rm -rf "$VST3_DEST/Orb StemLink.vst3"
+    cp -R "$STEMLINK_VST3_PATH" "$VST3_DEST/"
+    echo "✓ StemLink VST3 installed → $VST3_DEST/Orb StemLink.vst3"
   fi
 
   if [ -n "$STANDALONE_PATH" ]; then

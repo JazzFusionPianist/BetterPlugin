@@ -1,6 +1,7 @@
 # Orb — official distribution
 
-How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
+How to produce a signed, notarized installer for Orb, Orb StemLink, AU / VST3 /
+AAX, and Standalone.
 
 ## Prerequisites (one-time, human — cannot be scripted)
 
@@ -53,8 +54,9 @@ SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
 ## Partial release (PACE not ready)
 
-You can prepare a Developer ID-signed **AU + VST3 + Standalone** installer now
-and add AAX later once the PACE account lands. `package.sh` excludes AAX unless
+You can prepare a Developer ID-signed **AU + VST3 + Standalone** installer now.
+The AU and VST3 choices include both Orb and Orb StemLink. You can add AAX later
+once the PACE account lands. `package.sh` excludes AAX unless
 `wraptool verify` confirms its PACE signature, so a release package cannot
 accidentally install an unsigned AAX. Complete #4 before public distribution so
 the installer can be notarized and stapled for Gatekeeper.

@@ -30,6 +30,7 @@ export interface HostStemTrack {
   name: string
   selected: boolean
   color?: string
+  source?: 'stemlink' | 'adapter'
 }
 
 export interface HostStemCapabilities {

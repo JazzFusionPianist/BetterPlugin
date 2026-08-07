@@ -2557,22 +2557,22 @@ button { font-family: inherit; }
   position: relative;
   display: block; width: 14px; height: 76px;
   border-radius: 1px;
-  filter: brightness(0.9) saturate(0.82);
+  filter: brightness(0.955) saturate(0.93);
   box-shadow:
-    inset 0 0 0 1px rgba(26, 25, 23, 0.18),
-    inset 1.5px 0 0 rgba(255, 255, 255, 0.26),
-    inset -1.5px 0 0 rgba(26, 25, 23, 0.14),
-    0 2px 2px -1px rgba(26, 25, 23, 0.3);
+    inset 0 0 0 1px rgba(26, 25, 23, 0.12),
+    inset 1.5px 0 0 rgba(255, 255, 255, 0.2),
+    inset -1.5px 0 0 rgba(26, 25, 23, 0.1),
+    0 2px 2px -1px rgba(26, 25, 23, 0.28);
   transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
 }
 .pfolio-spine::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.16),
-    transparent 24%,
-    transparent 60%,
-    rgba(26, 25, 23, 0.2) 96%
+    rgba(255, 255, 255, 0.1),
+    transparent 22%,
+    transparent 68%,
+    rgba(26, 25, 23, 0.13) 97%
   );
   pointer-events: none;
 }
@@ -2587,10 +2587,10 @@ button { font-family: inherit; }
   transform: translateY(-9px);
   filter: none;
   box-shadow:
-    inset 0 0 0 1px rgba(26, 25, 23, 0.18),
-    inset 1.5px 0 0 rgba(255, 255, 255, 0.26),
-    inset -1.5px 0 0 rgba(26, 25, 23, 0.14),
-    0 12px 14px -8px rgba(26, 25, 23, 0.35);
+    inset 0 0 0 1px rgba(26, 25, 23, 0.12),
+    inset 1.5px 0 0 rgba(255, 255, 255, 0.2),
+    inset -1.5px 0 0 rgba(26, 25, 23, 0.1),
+    0 12px 14px -8px rgba(26, 25, 23, 0.32);
 }
 .pfolio-spine:first-child:not(:only-child):not(.ghost):hover {
   transform: rotate(-8deg) translateY(-9px);
@@ -2606,13 +2606,15 @@ button { font-family: inherit; }
 .pfolio-shelfboard {
   display: block; position: absolute;
   left: 0; right: 0; top: 100%;
-  height: 7px;
-  background: linear-gradient(to bottom, #FEFDFB, #EFECE2);
-  border: 1px solid rgba(26, 25, 23, 0.4);
-  border-radius: 1px 1px 2px 2px;
+  height: 6px;
+  background: linear-gradient(to bottom, #FFFFFF, #F3F0E8 55%, #E8E4D8);
+  border: none;
+  border-radius: 1px;
   box-shadow:
-    0 6px 9px -5px rgba(93, 80, 58, 0.45),
-    0 16px 26px -16px rgba(26, 25, 23, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(26, 25, 23, 0.14),
+    0 6px 9px -5px rgba(93, 80, 58, 0.38),
+    0 16px 26px -16px rgba(26, 25, 23, 0.24);
 }
 .pfolio-shelfcap {
   display: flex; align-items: baseline; gap: 6px;

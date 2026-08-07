@@ -147,13 +147,31 @@
   width: min(440px, calc(100% - 28px));
 }
 
-/* Large: one full-width pane. The always-on calendar dock is gone
-   (Steven, 2026-08-07: the schedule summary made the main window feel
-   cluttered) — the calendar lives behind its toolbar icon at every
-   size, sliding in like any other view. */
-/* Keep the play area's default vertical scroll at large (the
-   co-worker's screen-large `overflow:hidden` is dormant here, but pin
-   it so games always scroll). */
+/* Large: two panes. Existing sliding views fill the LEFT pane; the
+   calendar docks on the RIGHT. */
+.cal-dock { display: none; }
+/* Exact 50/50: left pane holds the sliding views, right half is the dock. */
+.plugin.screen-wide .content > .view { right: 50%; }
+.plugin.screen-wide .calview-pane { display: none; }     /* docked instead */
+.plugin.screen-wide .cal-dock {
+  display: block; position: absolute; top: 0; right: 0; bottom: 0;
+  width: 50%; z-index: 50;   /* above every sliding view */
+  background: var(--bg);
+}
+/* Full-height divider at the 50% seam — runs top to bottom (through the
+   toolbar row), unlike a border on the dock which starts below it. */
+.plugin.screen-wide::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 1px; background: var(--border); z-index: 51; pointer-events: none;
+}
+/* Toolbar spans the left pane only; base space-evenly then spreads the
+   icons across it — centred above the profile column, not in a corner. */
+.plugin.screen-wide .top-bar { width: 50%; }
+/* Hide the calendar toggle icon at large — the dock is always present. */
+.plugin.screen-wide .icon-btn.cal-toggle { display: none; }
+/* Mini-games render compact in the 300px left pane; make sure their play
+   area keeps the default vertical scroll (the co-worker's screen-large
+   `overflow:hidden` is dormant here, but pin it so games always scroll). */
 .plugin.screen-wide .game-area { overflow-y: auto; }
 /* Centre the prompt within the left pane. */
 .plugin.screen-wide .orbit-prompt {
@@ -348,8 +366,9 @@
    not flash through the gap while the calendar slides in — it stays
    hidden for the whole closing linger. (Calendar is the one overlay
    missing from the list above, on purpose: opening it FROM home should
-   show home behind the slide. From the fx room there is nothing to show.) */
-.plugin.fx-closing.calendar-open .fview > * { visibility: hidden; }
+   show home behind the slide. From the fx room there is nothing to show.)
+   Skipped on the wide split, where home legitimately shares the screen. */
+.plugin.fx-closing.calendar-open:not(.screen-wide) .fview > * { visibility: hidden; }
 
 .fview { transform: translateX(0); background: transparent; }
 .fview .s-body { background: transparent; }
@@ -5262,6 +5281,9 @@
 }
 .plugin.screen-large.game-open .content > .view {
   right: 0;
+}
+.plugin.screen-large.game-open .cal-dock {
+  display: none;
 }
 .plugin.screen-medium .game-action-row,
 .plugin.screen-large .game-action-row {

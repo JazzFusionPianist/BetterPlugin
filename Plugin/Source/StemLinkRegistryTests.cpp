@@ -60,6 +60,18 @@ int main()
 
     const auto audioFile = StemLinkRegistry::getExportAudioFile (
         requestId, publisher.getId(), request->trackName);
+    auto armedObject = new juce::DynamicObject();
+    armedObject->setProperty ("status", "armed");
+    if (! StemLinkRegistry::writeExportStatus (
+            requestId, publisher.getId(), juce::var (armedObject)))
+        return fail ("Could not arm the one-pass export");
+    const auto readyStatus = juce::JSON::parse (bridge.getExportStatusJson (requestId));
+    auto* readyObject = readyStatus.getDynamicObject();
+    if (readyObject == nullptr
+        || ! static_cast<bool> (readyObject->getProperty ("ready"))
+        || readyObject->getProperty ("rangeMode").toString() != "session")
+        return fail ("Master bridge did not wait for every StemLink to arm");
+
     audioFile.getParentDirectory().createDirectory();
     if (! audioFile.replaceWithText ("test wav payload"))
         return fail ("Could not create export test file");

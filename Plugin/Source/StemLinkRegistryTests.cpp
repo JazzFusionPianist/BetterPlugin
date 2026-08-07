@@ -49,13 +49,16 @@ int main()
         || ! static_cast<bool> (selectedTrack->getProperty ("selected")))
         return fail ("StemLink track selection was not retained");
 
-    const auto requestId = bridge.requestExport ({ index }, false);
+    if (bridge.requestExport ({ index }, false).isNotEmpty())
+        return fail ("StemLink incorrectly accepted an Entire Session realtime capture");
+
+    const auto requestId = bridge.requestExport ({ index }, true);
     if (requestId.isEmpty())
         return fail ("StemLink export request was not created");
     const auto request = StemLinkRegistry::getPendingExportRequest (
         host, publisher.getId(), {}, 0);
     if (! request.has_value() || request->id != requestId
-        || request->trackName != "Lead Vocal" || request->rangeMode != "session")
+        || request->trackName != "Lead Vocal" || request->rangeMode != "selection")
         return fail ("StemLink instance did not receive its export request");
 
     const auto audioFile = StemLinkRegistry::getExportAudioFile (

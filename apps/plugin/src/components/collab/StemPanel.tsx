@@ -252,6 +252,10 @@ export default function StemPanel({
 
   const shareSelectedTracks = useCallback(async () => {
     if (selectedTracks.size === 0) return
+    if (rangeMode === 'session' && hostStatus?.exportMode !== 'native') {
+      setError('Entire Session requires a native DAW export adapter. Realtime playback capture is disabled for this mode.')
+      return
+    }
     setSharing(true)
     setShareStatus('Starting DAW export…')
     try {
@@ -286,7 +290,7 @@ export default function StemPanel({
     } finally {
       setSharing(false)
     }
-  }, [load, rangeMode, selectedTracks, uploadRenderedStem])
+  }, [hostStatus?.exportMode, load, rangeMode, selectedTracks, uploadRenderedStem])
 
   const uploadFiles = useCallback(async (files: File[], fallback = pendingDrop?.fallbackMetadata ?? null) => {
     for (const file of files) await uploadOne(file, fallback)
@@ -393,14 +397,18 @@ export default function StemPanel({
                 <button className={rangeMode === 'session' ? 'on' : ''} onClick={() => setRangeMode('session')}>Entire Session</button>
                 <button className={rangeMode === 'selection' ? 'on' : ''} onClick={() => setRangeMode('selection')}>Edit Selection</button>
               </div>
-              {hostStatus.exportMode === 'realtime' && (
+              {hostStatus.exportMode === 'realtime' && rangeMode === 'selection' && (
                 <div className="stem-host-notice compact">
-                  <strong>One-pass automatic stem capture</strong>
+                  <strong>Realtime selection capture</strong>
                   <span>
-                    {rangeMode === 'session'
-                      ? 'Move the playhead to the session start. Share arms every selected StemLink; press Play once, then Stop at the end.'
-                      : 'Start playback at the beginning of your DAW edit selection, then Stop at its end. All selected tracks record together.'}
+                    Start playback at the beginning of your DAW edit selection, then Stop at its end. All selected tracks record together.
                   </span>
+                </div>
+              )}
+              {hostStatus.exportMode === 'realtime' && rangeMode === 'session' && (
+                <div className="stem-host-notice compact">
+                  <strong>Native session export required</strong>
+                  <span>Entire Session never uses playback capture. This DAW needs an Orb native export adapter before it can render and upload the selected tracks automatically.</span>
                 </div>
               )}
               <div className="stem-track-tools">
@@ -421,9 +429,11 @@ export default function StemPanel({
                   </button>
                 ))}
               </div>
-              <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none'} onClick={() => void shareSelectedTracks()}>
-                {hostStatus.exportMode === 'none'
-                  ? 'Automatic export unavailable'
+              <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none' || (rangeMode === 'session' && hostStatus.exportMode !== 'native')} onClick={() => void shareSelectedTracks()}>
+                {rangeMode === 'session' && hostStatus.exportMode !== 'native'
+                  ? 'Native session export unavailable'
+                  : hostStatus.exportMode === 'none'
+                    ? 'Automatic export unavailable'
                   : sharing ? (shareStatus || 'Working…') : `Share ${selectedTracks.size || ''} Stem${selectedTracks.size === 1 ? '' : 's'}`}
               </button>
             </>

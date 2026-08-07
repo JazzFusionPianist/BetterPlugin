@@ -306,9 +306,14 @@ juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndic
         return writeFileRequest (juce::var (object)) ? requestId : juce::String();
     }
 
-    if (const auto requestId = StemLinkRegistry::createExportRequest (host, trackIndices, editSelection);
-        requestId.isNotEmpty())
-        return requestId;
+    // A plug-in only receives audio while the host renders/processes it. Never
+    // pretend that a StemLink realtime capture is an Entire Session export.
+    // Session exports must be handled by a DAW-native adapter (PTSL/ReaScript,
+    // or another host API); StemLink remains available for explicit selections.
+    if (editSelection)
+        if (const auto requestId = StemLinkRegistry::createExportRequest (host, trackIndices, true);
+            requestId.isNotEmpty())
+            return requestId;
 
     juce::StringArray ids;
     for (const int index : trackIndices) ids.add (juce::String (index));

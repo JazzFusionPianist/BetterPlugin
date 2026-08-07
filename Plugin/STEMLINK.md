@@ -20,10 +20,13 @@ on every track that should appear in the master Orb's **Add Stems** list.
 ## Export workflow
 
 1. Insert Orb StemLink on each track that should be available to the master Orb.
-2. Open **Stems → Add Stems**, select tracks, and choose Entire Session or Edit
-   Selection.
-3. Click Share, place the DAW playhead at the desired start, and press Play.
-4. Stop at the desired end. Orb finalizes and uploads all selected tracks.
+2. Open **Stems → Add Stems**, select tracks, and choose Edit Selection.
+3. Click Share, start playback at the selection start, and stop at its end. Orb
+   finalizes and uploads all selected tracks.
+
+**Entire Session** is deliberately restricted to DAW-native adapters. It never
+falls back to playback capture: Share invokes the host's offline track export
+and uploads the results, or reports that the current DAW has no native adapter.
 
 DAW-native adapters may provide a true offline bounce. StemLink is the portable
 automatic fallback because the standard AU/VST3 plug-in API does not allow a

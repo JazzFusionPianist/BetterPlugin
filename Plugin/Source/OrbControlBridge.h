@@ -42,7 +42,6 @@ private:
     bool readFileAdapterStatus (juce::var& status) const;
     bool writeFileRequest (const juce::var& request) const;
     bool isLunaHost() const;
-    bool isLunaApiAvailable() const;
     juce::var lunaRequest (const juce::String& method,
                            const juce::String& path,
                            const juce::var& body = {}) const;

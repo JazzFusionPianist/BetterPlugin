@@ -43,23 +43,25 @@ juce::var OrbControlBridge::lunaRequest (const juce::String& method,
                                          const juce::String& path,
                                          const juce::var& body) const
 {
-    auto url = juce::URL ("http://127.0.0.1:4718" + path);
-    if (! body.isVoid()) url = url.withPOSTData (juce::JSON::toString (body, false));
-    auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
-        .withHttpRequestCmd (method)
-        .withConnectionTimeoutMs (1500)
-        .withExtraHeaders ("Content-Type: application/json\r\n");
-    if (auto stream = url.createInputStream (options))
-        return juce::JSON::parse (stream->readEntireStreamAsString());
+    // LUNA's localhost service occasionally cancels the first NSURLSession
+    // request while a plug-in window is being opened. Retry the short request
+    // instead of silently falling back to the transport-capture workflow.
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        auto url = juce::URL ("http://127.0.0.1:4718" + path);
+        if (! body.isVoid()) url = url.withPOSTData (juce::JSON::toString (body, false));
+        auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+            .withHttpRequestCmd (method)
+            .withConnectionTimeoutMs (2000)
+            .withExtraHeaders ("Content-Type: application/json\r\nConnection: close\r\n");
+        if (auto stream = url.createInputStream (options))
+        {
+            const auto parsed = juce::JSON::parse (stream->readEntireStreamAsString());
+            if (! parsed.isVoid()) return parsed;
+        }
+        if (attempt < 2) juce::Thread::sleep (25);
+    }
     return {};
-}
-
-bool OrbControlBridge::isLunaApiAvailable() const
-{
-    if (! isLunaHost()) return false;
-    const auto response = lunaRequest ("GET", "/health");
-    auto* object = response.getDynamicObject();
-    return object != nullptr && object->getProperty ("path").toString() == "/health";
 }
 
 bool OrbControlBridge::startLunaExport (const juce::String& requestId)
@@ -603,7 +605,11 @@ juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndic
         return writeFileRequest (juce::var (object)) ? requestId : juce::String();
     }
 
-    const bool lunaDirect = ! editSelection && isLunaApiAvailable();
+    // Entire-session exports in LUNA must always use its native offline
+    // renderer. A transient localhost health-check failure used to classify
+    // the request as a StemLink transport capture and leave the UI waiting
+    // forever for playback that Orb never intended to request.
+    const bool lunaDirect = ! editSelection && isLunaHost();
 
     // LUNA can render selected tracks straight to Orb paths. Other hosts arm
     // the selected StemLinks first, then ask the DAW control adapter for one

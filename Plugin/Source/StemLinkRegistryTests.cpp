@@ -128,9 +128,11 @@ int main()
         const auto registryFile = registryDirectory.getChildFile (
             "luna-smoke-" + juce::String (static_cast<int> (::getpid())) + ".json");
         auto registry = new juce::DynamicObject();
+        const auto lunaTrackName = juce::SystemStats::getEnvironmentVariable (
+            "ORB_TEST_LUNA_TRACK", "INSTRUMENT");
         registry->setProperty ("schema", 1);
         registry->setProperty ("id", lunaInstanceId);
-        registry->setProperty ("name", "INSTRUMENT");
+        registry->setProperty ("name", lunaTrackName);
         registry->setProperty ("color", "#6E8BFF");
         registry->setProperty ("hostName", "LUNA");
         registry->setProperty ("processId", static_cast<int> (::getpid()));

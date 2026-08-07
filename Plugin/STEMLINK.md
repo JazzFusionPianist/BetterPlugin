@@ -16,6 +16,10 @@ on every track that should appear in the master Orb's **Add Stems** list.
   writers and truncate a stem.
 - Edit Selection may still use a single realtime pass when no native selection
   renderer is available.
+- LUNA uses its local rendering service for Entire Session. Orb resolves each
+  StemLink name to the matching LUNA track UID and supplies one `output_paths`
+  entry per selected track. LUNA renders Float32 WAV files directly into Orb's
+  upload request without playback, a Mixdown dialog, or a new project track.
 - The master Orb reads only live StemLink instances belonging to the same DAW
   process tree. Removing an instance removes that track from Orb automatically.
 - DAW control-surface/PTSL adapters remain preferred when available; StemLink is
@@ -32,6 +36,10 @@ on every track that should appear in the master Orb's **Add Stems** list.
 If the DAW has no automatic Orb command adapter yet, all StemLinks remain armed
 while the user starts one normal offline master export in the DAW. Entire
 Session never falls back to realtime playback capture.
+
+LUNA is fully automatic for Entire Session. Its Edit Selection path continues
+to use the portable selection workflow until LUNA exposes a selection range to
+the same renderer.
 
 DAW-native adapters may still provide a direct track bounce. StemLink is the
 portable graph-capture path; the small host adapter only has to start one master

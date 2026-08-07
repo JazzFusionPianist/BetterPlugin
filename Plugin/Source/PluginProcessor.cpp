@@ -2,6 +2,7 @@
 #include "HostStemUploader.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
+#include "StemLinkRegistry.h"
 #include <thread>
 
 //==============================================================================
@@ -202,7 +203,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                 }));
 
     controlBridge = std::make_unique<OrbControlBridge> (
-        juce::PluginHostType().getHostDescription());
+        StemLinkRegistry::getHostDescription());
 
     // Build the video capture helper. Frames are dispatched as
     // __juceVideoFrame CustomEvents; start/stop results come back through

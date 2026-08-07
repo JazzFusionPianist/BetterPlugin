@@ -20,6 +20,303 @@ juce::String encodePayload (const juce::String& value)
 {
     return juce::URL::addEscapeChars (value, false, false);
 }
+
+juce::var propertyValue (const juce::var& response, const juce::String& name)
+{
+    auto* responseObject = response.getDynamicObject();
+    auto* dataObject = responseObject == nullptr
+        ? nullptr : responseObject->getProperty ("data").getDynamicObject();
+    auto* properties = dataObject == nullptr
+        ? nullptr : dataObject->getProperty ("properties").getDynamicObject();
+    auto* property = properties == nullptr
+        ? nullptr : properties->getProperty (name).getDynamicObject();
+    return property == nullptr ? juce::var() : property->getProperty ("value");
+}
+}
+
+bool OrbControlBridge::isLunaHost() const
+{
+    return host.containsIgnoreCase ("LUNA");
+}
+
+juce::var OrbControlBridge::lunaRequest (const juce::String& method,
+                                         const juce::String& path,
+                                         const juce::var& body) const
+{
+    auto url = juce::URL ("http://127.0.0.1:4718" + path);
+    if (! body.isVoid()) url = url.withPOSTData (juce::JSON::toString (body, false));
+    auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+        .withHttpRequestCmd (method)
+        .withConnectionTimeoutMs (1500)
+        .withExtraHeaders ("Content-Type: application/json\r\n");
+    if (auto stream = url.createInputStream (options))
+        return juce::JSON::parse (stream->readEntireStreamAsString());
+    return {};
+}
+
+bool OrbControlBridge::isLunaApiAvailable() const
+{
+    if (! isLunaHost()) return false;
+    const auto response = lunaRequest ("GET", "/health");
+    auto* object = response.getDynamicObject();
+    return object != nullptr && object->getProperty ("path").toString() == "/health";
+}
+
+bool OrbControlBridge::startLunaExport (const juce::String& requestId)
+{
+    LunaExport job;
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        const auto found = lunaExports.find (requestId);
+        if (found == lunaExports.end()) return false;
+        if (found->second.started) return found->second.error.isEmpty();
+        job = found->second;
+    }
+
+    const auto sessions = lunaRequest ("GET", "/sessions");
+    const auto sessionUid = propertyValue (sessions, "focused_session").toString();
+    if (sessionUid.isEmpty()) job.error = "LUNA has no focused session.";
+
+    const auto sessionPath = "/sessions/" + sessionUid;
+    const auto session = job.error.isEmpty() ? lunaRequest ("GET", sessionPath) : juce::var();
+    if (job.error.isEmpty() && propertyValue (session, "session_id").isVoid())
+        job.error = "Orb could not read the active LUNA session.";
+
+    const auto sampleRateResponse = job.error.isEmpty()
+        ? lunaRequest ("GET", "/sample_rate") : juce::var();
+    if (auto* object = sampleRateResponse.getDynamicObject())
+        if (auto* data = object->getProperty ("data").getDynamicObject())
+            job.sampleRate = static_cast<double> (data->getProperty ("value"));
+    if (job.sampleRate <= 0.0) job.sampleRate = 48000.0;
+
+    auto readFirstMapValue = [this, &sessionPath] (const juce::String& map,
+                                                   const juce::String& property,
+                                                   double fallback)
+    {
+        const auto root = lunaRequest ("GET", sessionPath + "/" + map);
+        auto* rootObject = root.getDynamicObject();
+        auto* data = rootObject == nullptr
+            ? nullptr : rootObject->getProperty ("data").getDynamicObject();
+        auto* children = data == nullptr ? nullptr : data->getProperty ("children").getArray();
+        if (children == nullptr || children->isEmpty()) return fallback;
+        auto* child = children->getReference (0).getDynamicObject();
+        const auto childPath = child == nullptr ? juce::String()
+                                                : child->getProperty ("path").toString();
+        if (childPath.isEmpty()) return fallback;
+        const auto item = lunaRequest ("GET", sessionPath + "/" + map + "/" + childPath);
+        const auto value = propertyValue (item, property);
+        return value.isVoid() ? fallback : static_cast<double> (value);
+    };
+    if (job.error.isEmpty())
+    {
+        job.bpm = readFirstMapValue ("tempo_map", "tempo", 120.0);
+        job.timeSigNumerator = static_cast<int> (
+            readFirstMapValue ("time_signatures", "numerator", 4.0));
+        job.timeSigDenominator = static_cast<int> (
+            readFirstMapValue ("time_signatures", "denominator", 4.0));
+    }
+
+    std::vector<std::pair<juce::String, juce::String>> lunaTracks;
+    if (job.error.isEmpty())
+    {
+        const auto trackRoot = lunaRequest ("GET", sessionPath + "/tracks");
+        auto* rootObject = trackRoot.getDynamicObject();
+        auto* data = rootObject == nullptr
+            ? nullptr : rootObject->getProperty ("data").getDynamicObject();
+        auto* children = data == nullptr ? nullptr : data->getProperty ("children").getArray();
+        if (children != nullptr)
+        {
+            for (const auto& childValue : *children)
+            {
+                auto* child = childValue.getDynamicObject();
+                const auto uid = child == nullptr ? juce::String()
+                                                  : child->getProperty ("path").toString();
+                if (uid.isEmpty()) continue;
+                const auto track = lunaRequest ("GET", sessionPath + "/tracks/" + uid);
+                const auto name = propertyValue (track, "name").toString();
+                if (name.isNotEmpty()) lunaTracks.emplace_back (name, uid);
+            }
+        }
+    }
+
+    auto tracksObject = new juce::DynamicObject();
+    auto pathsObject = new juce::DynamicObject();
+    const auto activeTracks = StemLinkRegistry::getActiveTracks (host);
+    if (job.error.isEmpty())
+    {
+        for (const auto& selected : activeTracks)
+        {
+            const auto index = StemLinkRegistry::makeTrackIndex (selected.id);
+            if (std::find (job.trackIndices.begin(), job.trackIndices.end(), index)
+                == job.trackIndices.end())
+                continue;
+            const auto lunaTrack = std::find_if (lunaTracks.begin(), lunaTracks.end(),
+                [&selected] (const auto& candidate)
+                {
+                    return candidate.first.equalsIgnoreCase (selected.name);
+                });
+            if (lunaTrack == lunaTracks.end())
+            {
+                job.error = "LUNA track not found: " + selected.name;
+                break;
+            }
+            LunaOutput output;
+            output.instanceId = selected.id;
+            output.trackName = selected.name;
+            output.fileUid = juce::Uuid().toString().removeCharacters ("-");
+            output.file = StemLinkRegistry::getExportAudioFile (
+                requestId, selected.id, selected.name);
+            output.file.getParentDirectory().createDirectory();
+            output.file.deleteFile();
+            tracksObject->setProperty (lunaTrack->second, output.fileUid);
+            pathsObject->setProperty (output.fileUid, output.file.getFullPathName());
+            job.outputs.push_back (std::move (output));
+        }
+        if (job.outputs.empty() && job.error.isEmpty())
+            job.error = "No selected StemLink tracks matched the LUNA session.";
+    }
+
+    if (job.error.isEmpty())
+    {
+        job.renderUid = juce::Uuid().toString().removeCharacters ("-");
+        job.sessionUid = sessionUid;
+        auto request = new juce::DynamicObject();
+        request->setProperty ("uid", job.renderUid);
+        request->setProperty ("type", "bounce");
+        request->setProperty ("name", "Orb Stem Export");
+        request->setProperty ("real_time", false);
+        request->setProperty ("add_to_session", false);
+        request->setProperty ("record_point", "post_pan");
+        request->setProperty ("session_uid", sessionUid);
+        request->setProperty ("tracks", juce::var (tracksObject));
+        request->setProperty ("buses", juce::var (new juce::DynamicObject()));
+        request->setProperty ("outputs", juce::var (new juce::DynamicObject()));
+        // LUNA 2.9 advertises this as output_path, but the renderer itself
+        // consumes output_paths. Using the engine spelling keeps files out of
+        // the project while preserving them at the requested Orb paths.
+        request->setProperty ("output_paths", juce::var (pathsObject));
+
+        const auto created = lunaRequest ("POST", "/renders/new", juce::var (request));
+        auto* createdObject = created.getDynamicObject();
+        auto* createdData = createdObject == nullptr
+            ? nullptr : createdObject->getProperty ("data").getDynamicObject();
+        if (createdData == nullptr
+            || createdData->getProperty ("uid").toString() != job.renderUid)
+            job.error = "LUNA rejected the offline stem render.";
+        else
+        {
+            auto start = new juce::DynamicObject();
+            start->setProperty ("uid", job.renderUid);
+            const auto started = lunaRequest ("POST", "/renders/start", juce::var (start));
+            if (started.getDynamicObject() == nullptr)
+                job.error = "LUNA could not start the offline stem render.";
+        }
+    }
+
+    job.started = true;
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        lunaExports[requestId] = job;
+    }
+    if (job.error.isNotEmpty())
+    {
+        for (const auto& selected : activeTracks)
+        {
+            const auto index = StemLinkRegistry::makeTrackIndex (selected.id);
+            if (std::find (job.trackIndices.begin(), job.trackIndices.end(), index)
+                == job.trackIndices.end())
+                continue;
+            auto error = new juce::DynamicObject();
+            error->setProperty ("status", "error");
+            error->setProperty ("message", job.error);
+            StemLinkRegistry::writeExportStatus (
+                requestId, selected.id, juce::var (error));
+        }
+    }
+    return job.error.isEmpty();
+}
+
+juce::String OrbControlBridge::pollLunaExport (const juce::String& requestId)
+{
+    LunaExport job;
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        const auto found = lunaExports.find (requestId);
+        if (found == lunaExports.end()) return {};
+        job = found->second;
+    }
+    if (! job.started || job.error.isNotEmpty()) return {};
+
+    const auto response = lunaRequest ("GET", "/renders/" + job.renderUid);
+    const auto state = propertyValue (response, "state").toString().toLowerCase();
+    const auto progressValue = propertyValue (response, "percent_complete");
+    const double progress = progressValue.isVoid() ? 0.0
+        : juce::jlimit (0.0, 1.0, static_cast<double> (progressValue) / 100.0);
+    const bool filesReady = std::all_of (job.outputs.begin(), job.outputs.end(),
+        [] (const LunaOutput& output) { return output.file.existsAsFile()
+            && output.file.getSize() > 44; });
+
+    if ((state == "completed" || (state.isEmpty() && filesReady)) && filesReady)
+    {
+        if (! job.published)
+        {
+            for (const auto& output : job.outputs)
+            {
+                auto file = new juce::DynamicObject();
+                file->setProperty ("path", output.file.getFullPathName());
+                file->setProperty ("name", output.file.getFileName());
+                file->setProperty ("size", output.file.getSize());
+                file->setProperty ("mimeType", "audio/wav");
+                file->setProperty ("sampleRate", job.sampleRate);
+                file->setProperty ("bitDepth", 32);
+                file->setProperty ("sourceSamples", 0);
+                file->setProperty ("sourcePpq", 0.0);
+                file->setProperty ("bpm", job.bpm);
+                file->setProperty ("timeSigNumerator", job.timeSigNumerator);
+                file->setProperty ("timeSigDenominator", job.timeSigDenominator);
+                file->setProperty ("captureMode", "luna-offline-track");
+                auto complete = new juce::DynamicObject();
+                complete->setProperty ("status", "complete");
+                complete->setProperty ("message", "LUNA offline stem export complete");
+                complete->setProperty ("file", juce::var (file));
+                StemLinkRegistry::writeExportStatus (
+                    requestId, output.instanceId, juce::var (complete));
+            }
+            auto removeRender = new juce::DynamicObject();
+            removeRender->setProperty ("uid", job.renderUid);
+            lunaRequest ("POST", "/renders/delete", juce::var (removeRender));
+            std::lock_guard<std::mutex> lock (stateMutex);
+            lunaExports[requestId].published = true;
+            lunaExports[requestId].renderUid.clear();
+        }
+        return {};
+    }
+
+    if (state == "error" || state == "aborted" || (state == "completed" && ! filesReady))
+    {
+        auto message = propertyValue (response, "error").toString();
+        if (message.isEmpty()) message = "LUNA did not create the requested stem files.";
+        for (const auto& output : job.outputs)
+        {
+            auto error = new juce::DynamicObject();
+            error->setProperty ("status", "error");
+            error->setProperty ("message", message);
+            StemLinkRegistry::writeExportStatus (
+                requestId, output.instanceId, juce::var (error));
+        }
+        auto removeRender = new juce::DynamicObject();
+        removeRender->setProperty ("uid", job.renderUid);
+        lunaRequest ("POST", "/renders/delete", juce::var (removeRender));
+        return {};
+    }
+
+    auto status = new juce::DynamicObject();
+    status->setProperty ("id", requestId);
+    status->setProperty ("status", "rendering");
+    status->setProperty ("ready", true);
+    status->setProperty ("progress", progress);
+    status->setProperty ("message", "LUNA is exporting the selected tracks offline...");
+    return juce::JSON::toString (juce::var (status), false);
 }
 
 juce::String OrbControlBridge::getFileAdapterId() const
@@ -306,12 +603,23 @@ juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndic
         return writeFileRequest (juce::var (object)) ? requestId : juce::String();
     }
 
-    // Arm the selected StemLinks first, then ask the DAW control adapter for
-    // one ordinary master export. Every armed instance is processed during
-    // that graph render and writes its own input to a separate WAV.
+    const bool lunaDirect = ! editSelection && isLunaApiAvailable();
+
+    // LUNA can render selected tracks straight to Orb paths. Other hosts arm
+    // the selected StemLinks first, then ask the DAW control adapter for one
+    // ordinary master export.
     if (const auto requestId = StemLinkRegistry::createExportRequest (
-            host, trackIndices, editSelection); requestId.isNotEmpty())
+            host, trackIndices, editSelection, lunaDirect ? "luna" : "stemlink");
+        requestId.isNotEmpty())
     {
+        if (lunaDirect)
+        {
+            LunaExport exportState;
+            exportState.trackIndices = trackIndices;
+            std::lock_guard<std::mutex> lock (stateMutex);
+            lunaExports[requestId] = std::move (exportState);
+            return requestId;
+        }
         juce::StringArray ids;
         for (const int index : trackIndices) ids.add (juce::String (index));
         const auto payload = juce::String (editSelection ? "selection" : "onepass")
@@ -350,7 +658,8 @@ juce::String OrbControlBridge::getStatusJson() const
     const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
     const bool stemLinkConnected = ! stemLinkTracks.empty();
     const bool connected = controlConnected || stemLinkConnected;
-    const bool automaticOnePassTrigger = controlConnected && currentAdapter != "Mackie Control";
+    const bool automaticOnePassTrigger = isLunaHost()
+        || (controlConnected && currentAdapter != "Mackie Control");
     const auto displayedAdapter = stemLinkConnected ? juce::String ("Orb StemLink")
                              : (currentAdapter.isNotEmpty() ? currentAdapter
                                                             : juce::String ("Orb Control"));
@@ -435,6 +744,23 @@ juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestI
         {
             if (static_cast<bool> (object->getProperty ("ready")))
             {
+                bool hasLunaExport = false;
+                bool lunaStarted = false;
+                {
+                    std::lock_guard<std::mutex> lock (stateMutex);
+                    const auto found = lunaExports.find (requestId);
+                    hasLunaExport = found != lunaExports.end();
+                    lunaStarted = hasLunaExport && found->second.started;
+                }
+                if (hasLunaExport)
+                {
+                    if (! lunaStarted) startLunaExport (requestId);
+                    if (const auto lunaStatus = pollLunaExport (requestId);
+                        lunaStatus.isNotEmpty())
+                        return lunaStatus;
+                    return StemLinkRegistry::getExportStatusJson (requestId);
+                }
+
                 juce::String payload;
                 {
                     std::lock_guard<std::mutex> lock (stateMutex);
@@ -455,9 +781,24 @@ juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestI
 
 bool OrbControlBridge::finishExport (const juce::String& requestId)
 {
+    juce::String lunaRenderUid;
     {
         std::lock_guard<std::mutex> lock (stateMutex);
         pendingStemLinkTriggers.erase (requestId);
+        const auto luna = lunaExports.find (requestId);
+        if (luna != lunaExports.end())
+        {
+            lunaRenderUid = luna->second.renderUid;
+            lunaExports.erase (luna);
+        }
+    }
+    if (lunaRenderUid.isNotEmpty())
+    {
+        auto render = new juce::DynamicObject();
+        render->setProperty ("uid", lunaRenderUid);
+        const juce::var renderRequest (render);
+        lunaRequest ("POST", "/renders/abort", renderRequest);
+        lunaRequest ("POST", "/renders/delete", renderRequest);
     }
     if (StemLinkRegistry::getExportStatusJson (requestId).isNotEmpty())
         return StemLinkRegistry::finishExport (requestId);

@@ -41,6 +41,36 @@ private:
     juce::File getAdapterStatusFile() const;
     bool readFileAdapterStatus (juce::var& status) const;
     bool writeFileRequest (const juce::var& request) const;
+    bool isLunaHost() const;
+    bool isLunaApiAvailable() const;
+    juce::var lunaRequest (const juce::String& method,
+                           const juce::String& path,
+                           const juce::var& body = {}) const;
+    bool startLunaExport (const juce::String& requestId);
+    juce::String pollLunaExport (const juce::String& requestId);
+
+    struct LunaOutput
+    {
+        juce::String instanceId;
+        juce::String trackName;
+        juce::String fileUid;
+        juce::File file;
+    };
+
+    struct LunaExport
+    {
+        std::vector<int> trackIndices;
+        std::vector<LunaOutput> outputs;
+        juce::String renderUid;
+        juce::String sessionUid;
+        juce::String error;
+        double sampleRate = 0.0;
+        double bpm = 120.0;
+        int timeSigNumerator = 4;
+        int timeSigDenominator = 4;
+        bool started = false;
+        bool published = false;
+    };
 
     juce::String host;
     MIDIClientRef client = 0;
@@ -55,6 +85,7 @@ private:
     juce::StringArray mcuStripNames;
     std::set<int> stemLinkSelections;
     std::map<juce::String, juce::String> pendingStemLinkTriggers;
+    std::map<juce::String, LunaExport> lunaExports;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbControlBridge)
 };

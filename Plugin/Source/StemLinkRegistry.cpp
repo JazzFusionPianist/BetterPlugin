@@ -3,6 +3,9 @@
 
 #if JUCE_WINDOWS
  #include <windows.h>
+#elif JUCE_MAC
+ #include <libproc.h>
+ #include <unistd.h>
 #else
  #include <unistd.h>
 #endif
@@ -82,9 +85,27 @@ void cleanupOldExports()
 }
 }
 
+juce::String getHostDescription()
+{
+    juce::String description (juce::PluginHostType().getHostDescription());
+    if (description.equalsIgnoreCase ("Unknown") || description.isEmpty())
+    {
+        auto executable = juce::File::getSpecialLocation (
+            juce::File::currentExecutableFile).getFileNameWithoutExtension();
+#if JUCE_MAC
+        char processPath[PROC_PIDPATHINFO_MAXSIZE] {};
+        if (::proc_pidpath (::getpid(), processPath, sizeof (processPath)) > 0)
+            executable = juce::File (juce::String::fromUTF8 (processPath))
+                .getFileNameWithoutExtension();
+#endif
+        if (executable.containsIgnoreCase ("LUNA")) return "LUNA";
+    }
+    return description;
+}
+
 Publisher::Publisher()
     : instanceId (juce::Uuid().toString().removeCharacters ("-")),
-      host (juce::PluginHostType().getHostDescription())
+      host (getHostDescription())
 {
     const auto directory = registryDirectory();
     directory.createDirectory();
@@ -186,7 +207,8 @@ std::vector<Track> getActiveTracks (const juce::String& hostDescription)
 
 juce::String createExportRequest (const juce::String& hostDescription,
                                   const std::vector<int>& trackIndices,
-                                  bool editSelection)
+                                  bool editSelection,
+                                  const juce::String& captureProvider)
 {
     cleanupOldExports();
     const auto activeTracks = getActiveTracks (hostDescription);
@@ -212,11 +234,32 @@ juce::String createExportRequest (const juce::String& hostDescription,
     object->setProperty ("processId", currentProcessId());
     object->setProperty ("processGroupId", currentProcessGroupId());
     object->setProperty ("rangeMode", editSelection ? "selection" : "session");
+    object->setProperty ("captureProvider", captureProvider);
     object->setProperty ("createdAtMs", juce::Time::currentTimeMillis());
     object->setProperty ("tracks", requestedTracks);
 
-    const auto requestFile = exportsDirectory().getChildFile (requestId).getChildFile ("request.json");
-    return replaceJsonFile (requestFile, juce::var (object)) ? requestId : juce::String();
+    const auto requestDirectory = exportsDirectory().getChildFile (requestId);
+    const auto requestFile = requestDirectory.getChildFile ("request.json");
+    if (! replaceJsonFile (requestFile, juce::var (object))) return {};
+
+    // Host-native renderers (currently LUNA) write directly into Orb's export
+    // folder, so the satellite instances must not also arm their audio taps.
+    // Seed an armed status for the normal aggregation path instead.
+    if (captureProvider != "stemlink")
+    {
+        for (const auto& item : requestedTracks)
+        {
+            auto* track = item.getDynamicObject();
+            if (track == nullptr) continue;
+            auto armed = new juce::DynamicObject();
+            armed->setProperty ("status", "armed");
+            armed->setProperty ("message", "Ready for host-native offline export.");
+            armed->setProperty ("samplesWritten", 0);
+            writeExportStatus (requestId, track->getProperty ("id").toString(),
+                               juce::var (armed));
+        }
+    }
+    return requestId;
 }
 
 std::optional<ExportRequest> getPendingExportRequest (const juce::String& hostDescription,
@@ -245,6 +288,8 @@ std::optional<ExportRequest> getPendingExportRequest (const juce::String& hostDe
         const int processGroupId = static_cast<int> (object->getProperty ("processGroupId"));
         if (! isSafeId (requestId)
             || object->getProperty ("hostName").toString() != hostDescription
+            || (object->hasProperty ("captureProvider")
+                && object->getProperty ("captureProvider").toString() != "stemlink")
             || ! sameProcessTree (processId, processGroupId)
             || createdAtMs < minimumCreatedAtMs || now - createdAtMs > kExportLifetimeMs)
             continue;

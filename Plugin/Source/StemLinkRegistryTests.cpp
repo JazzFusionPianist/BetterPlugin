@@ -1,6 +1,9 @@
 #include "StemLinkRegistry.h"
 #include "OrbControlBridge.h"
 #include <iostream>
+#if ! JUCE_WINDOWS
+ #include <unistd.h>
+#endif
 
 namespace
 {
@@ -98,6 +101,81 @@ int main()
         return fail ("Master bridge did not aggregate the completed StemLink WAV");
     if (! bridge.finishExport (requestId) || audioFile.existsAsFile())
         return fail ("StemLink export files were not cleaned up after upload");
+
+    const auto nativeRequestId = StemLinkRegistry::createExportRequest (
+        host, { index }, false, "luna");
+    if (nativeRequestId.isEmpty())
+        return fail ("Host-native export request was not created");
+    if (StemLinkRegistry::getPendingExportRequest (
+            host, publisher.getId(), {}, 0).has_value())
+        return fail ("StemLink incorrectly armed during host-native export");
+    const auto nativeStatus = juce::JSON::parse (
+        StemLinkRegistry::getExportStatusJson (nativeRequestId));
+    auto* nativeObject = nativeStatus.getDynamicObject();
+    if (nativeObject == nullptr || ! static_cast<bool> (nativeObject->getProperty ("ready")))
+        return fail ("Host-native export did not seed the armed barrier");
+    if (! StemLinkRegistry::finishExport (nativeRequestId))
+        return fail ("Host-native export request was not cleaned up");
+
+#if ! JUCE_WINDOWS
+    if (juce::SystemStats::getEnvironmentVariable ("ORB_TEST_LUNA", {}) == "1")
+    {
+        const juce::String lunaInstanceId { "11111111111141118111111111111111" };
+        const auto registryDirectory = juce::File::getSpecialLocation (
+            juce::File::userApplicationDataDirectory).getChildFile ("Orb")
+            .getChildFile ("StemLink");
+        registryDirectory.createDirectory();
+        const auto registryFile = registryDirectory.getChildFile (
+            "luna-smoke-" + juce::String (static_cast<int> (::getpid())) + ".json");
+        auto registry = new juce::DynamicObject();
+        registry->setProperty ("schema", 1);
+        registry->setProperty ("id", lunaInstanceId);
+        registry->setProperty ("name", "INSTRUMENT");
+        registry->setProperty ("color", "#6E8BFF");
+        registry->setProperty ("hostName", "LUNA");
+        registry->setProperty ("processId", static_cast<int> (::getpid()));
+        registry->setProperty ("processGroupId", static_cast<int> (::getpgrp()));
+        registry->setProperty ("updatedAtMs", juce::Time::currentTimeMillis());
+        if (! registryFile.replaceWithText (
+                juce::JSON::toString (juce::var (registry), false)))
+            return fail ("Could not seed the LUNA smoke-test registry");
+
+        OrbControlBridge lunaBridge ("LUNA");
+        const int lunaIndex = StemLinkRegistry::makeTrackIndex (lunaInstanceId);
+        const auto lunaRequestId = lunaBridge.requestExport ({ lunaIndex }, false);
+        if (lunaRequestId.isEmpty())
+            return fail ("LUNA native export request was not created");
+
+        bool lunaCompleted = false;
+        for (int attempt = 0; attempt < 240; ++attempt)
+        {
+            const auto lunaStatus = juce::JSON::parse (
+                lunaBridge.getExportStatusJson (lunaRequestId));
+            auto* lunaObject = lunaStatus.getDynamicObject();
+            const auto state = lunaObject == nullptr ? juce::String()
+                                                     : lunaObject->getProperty ("status").toString();
+            if (state == "error")
+            {
+                std::cerr << lunaObject->getProperty ("message").toString() << '\n';
+                return fail ("LUNA native export failed");
+            }
+            if (state == "complete")
+            {
+                auto* files = lunaObject->getProperty ("files").getArray();
+                if (files == nullptr || files->size() != 1)
+                    return fail ("LUNA native export did not publish its WAV");
+                lunaCompleted = true;
+                break;
+            }
+            juce::Thread::sleep (250);
+        }
+        registryFile.deleteFile();
+        if (! lunaCompleted)
+            return fail ("LUNA native export timed out");
+        if (! lunaBridge.finishExport (lunaRequestId))
+            return fail ("LUNA native export was not cleaned up");
+    }
+#endif
 
     std::cout << "Orb StemLink discovery and export integration passed\n";
     return 0;

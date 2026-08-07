@@ -6,6 +6,8 @@
 
 namespace StemLinkRegistry
 {
+juce::String getHostDescription();
+
 struct Track
 {
     juce::String id;
@@ -52,7 +54,8 @@ int makeTrackIndex (const juce::String& instanceId);
 
 juce::String createExportRequest (const juce::String& hostDescription,
                                   const std::vector<int>& trackIndices,
-                                  bool editSelection);
+                                  bool editSelection,
+                                  const juce::String& captureProvider = "stemlink");
 std::optional<ExportRequest> getPendingExportRequest (const juce::String& hostDescription,
                                                        const juce::String& instanceId,
                                                        const juce::String& lastHandledRequestId,

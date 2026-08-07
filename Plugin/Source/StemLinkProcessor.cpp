@@ -5,7 +5,7 @@ StemLinkAudioProcessor::StemLinkAudioProcessor()
     : AudioProcessor (BusesProperties()
         .withInput ("Input", juce::AudioChannelSet::stereo(), true)
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      hostName (juce::PluginHostType().getHostDescription())
+      hostName (StemLinkRegistry::getHostDescription())
 {
     processorStartedAtMs = juce::Time::currentTimeMillis();
     writerThread.startThread();

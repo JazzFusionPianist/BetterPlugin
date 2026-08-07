@@ -2547,44 +2547,72 @@ button { font-family: inherit; }
   padding: 0 24px 0 58px;
 }
 .pfolio-spines {
-  display: flex; justify-content: flex-end; align-items: flex-end; gap: 2px;
-  min-height: 74px;
+  display: flex; justify-content: flex-end; align-items: flex-end; gap: 2.5px;
+  min-height: 78px;
 }
+/* A record, seen across the room: its cover's average colour, dimmed a
+   step by distance. Light falls from the upper left; the foot sits in
+   the shelf's own shadow. Pulling it out (hover) restores true colour. */
 .pfolio-spine {
-  display: block; width: 14px; height: 72px;
-  background-size: cover; background-position: center;
-  border: 1px solid rgba(26, 25, 23, 0.42);
-  border-radius: 1.5px 1.5px 0 0;
-  box-shadow: inset 1.5px 0 0 rgba(251, 250, 247, 0.22);
-  filter: drop-shadow(0 1px 1px rgba(26, 25, 23, 0.18));
-  transition: transform .16s ease;
+  position: relative;
+  display: block; width: 14px; height: 76px;
+  border-radius: 1px;
+  filter: brightness(0.9) saturate(0.82);
+  box-shadow:
+    inset 0 0 0 1px rgba(26, 25, 23, 0.18),
+    inset 1.5px 0 0 rgba(255, 255, 255, 0.26),
+    inset -1.5px 0 0 rgba(26, 25, 23, 0.14),
+    0 2px 2px -1px rgba(26, 25, 23, 0.3);
+  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
 }
-/* records aren't machine-filed — small height differences */
-.pfolio-spine:nth-child(3n) { height: 76px; }
-.pfolio-spine:nth-child(4n) { height: 68px; }
-.pfolio-spine:nth-child(7n) { height: 74px; }
+.pfolio-spine::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.16),
+    transparent 24%,
+    transparent 60%,
+    rgba(26, 25, 23, 0.2) 96%
+  );
+  pointer-events: none;
+}
 /* the first record leans back against the row */
 .pfolio-spine:first-child:not(:only-child):not(.ghost) {
-  transform: rotate(-9deg);
+  transform: rotate(-8deg);
   transform-origin: bottom right;
   margin-right: 6px;
 }
-/* fingering a record pulls it up */
-.pfolio-spine:hover { transform: translateY(-8px); }
+/* pulled from the shelf, into the light */
+.pfolio-spine:hover {
+  transform: translateY(-9px);
+  filter: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(26, 25, 23, 0.18),
+    inset 1.5px 0 0 rgba(255, 255, 255, 0.26),
+    inset -1.5px 0 0 rgba(26, 25, 23, 0.14),
+    0 12px 14px -8px rgba(26, 25, 23, 0.35);
+}
 .pfolio-spine:first-child:not(:only-child):not(.ghost):hover {
-  transform: rotate(-9deg) translateY(-8px);
+  transform: rotate(-8deg) translateY(-9px);
 }
 .pfolio-spine.ghost {
-  border: 1px dashed var(--line); background: none;
-  box-shadow: none; filter: none; height: 60px;
+  width: 13px; height: 64px;
+  background: none; border: 1px dashed var(--line);
+  box-shadow: none; filter: none;
 }
-/* the board — thick enough to hold weight, shadow gives it depth */
+.pfolio-spine.ghost::after { display: none; }
+/* The plank — paper in section, drawn with a hairline, warm shadow on
+   the wall behind. Thick enough to carry the records' weight. */
 .pfolio-shelfboard {
   display: block; position: absolute;
   left: 0; right: 0; top: 100%;
-  height: 3.5px; border-radius: 1px;
-  background: var(--ink);
-  box-shadow: 0 5px 10px -4px rgba(26, 25, 23, 0.4);
+  height: 7px;
+  background: linear-gradient(to bottom, #FEFDFB, #EFECE2);
+  border: 1px solid rgba(26, 25, 23, 0.4);
+  border-radius: 1px 1px 2px 2px;
+  box-shadow:
+    0 6px 9px -5px rgba(93, 80, 58, 0.45),
+    0 16px 26px -16px rgba(26, 25, 23, 0.3);
 }
 .pfolio-shelfcap {
   display: flex; align-items: baseline; gap: 6px;

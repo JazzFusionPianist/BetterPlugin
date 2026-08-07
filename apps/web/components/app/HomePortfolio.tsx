@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@orb/core'
 import { usePortfolio, groupByShelf, spineTint } from '@/lib/usePortfolio'
+import { sampleCoverColor } from '@/lib/coverColor'
 import { compressImage, uploadAttachment } from '@/lib/upload'
 import { ReleaseSheet, ReleaseComposer, PhotoLightbox, fmtYear } from './PortfolioPage'
 
@@ -12,10 +13,6 @@ interface Props {
   supabase: SupabaseClient
   me: Profile
 }
-
-/** The pale label strip every spine wears near its foot. */
-const SPINE_BAND =
-  'linear-gradient(to top, transparent 9px, rgba(251,250,247,0.4) 9px, rgba(251,250,247,0.4) 11.5px, transparent 11.5px)'
 
 /**
  * Your discography ON the main screen — real shelves. Each shelf is a
@@ -46,6 +43,24 @@ export default function HomePortfolio({ supabase, me }: Props) {
   }
 
   const groups = useMemo(() => groupByShelf(releases, shelves), [releases, shelves])
+
+  // Each record's across-the-room colour — the cover's average, sampled
+  // once; releases without readable art fall back to their title tint.
+  const [coverColors, setCoverColors] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let cancelled = false
+    for (const r of releases) {
+      if (!r.cover_url || coverColors[r.id]) continue
+      sampleCoverColor(r.cover_url).then((c) => {
+        if (!cancelled && c) setCoverColors((prev) => (prev[r.id] ? prev : { ...prev, [r.id]: c }))
+      })
+    }
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [releases])
+
+  /** Sleeve thickness follows the record — more tracks, fatter spine. */
+  const spineWidth = (tracks: number) => 10 + Math.min(8, Math.max(1, tracks)) * 0.9
 
   const onPickPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -96,9 +111,8 @@ export default function HomePortfolio({ supabase, me }: Props) {
                       key={r.id}
                       className="pfolio-spine"
                       style={{
-                        backgroundImage: `${SPINE_BAND}, ${r.cover_url
-                          ? `url(${r.cover_url})`
-                          : `linear-gradient(${spineTint(r.title)}, ${spineTint(r.title)})`}`,
+                        backgroundColor: coverColors[r.id] ?? spineTint(r.title),
+                        width: spineWidth(r.tracks.length),
                       }}
                       title={r.title}
                     />

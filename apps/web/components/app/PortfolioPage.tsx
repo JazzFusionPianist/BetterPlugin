@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@orb/core'
 import { usePortfolio, type GalleryPhoto, type Release } from '@/lib/usePortfolio'
@@ -196,7 +197,7 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
   onDelete: (id: string) => void
   onClose: () => void
 }) {
-  return (
+  return createPortal(
     <div className="pfolio-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pfolio-sheet">
         <div className="pfolio-sheet-cover">
@@ -264,7 +265,8 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
           <button className="pfolio-close" onClick={onClose}>close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -326,7 +328,7 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
     if (!ok) setSaving(false)
   }
 
-  return (
+  return createPortal(
     <div className="pfolio-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pfolio-sheet pfolio-composer">
         <div className="pfolio-composer-head">new release</div>
@@ -393,7 +395,8 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -405,7 +408,7 @@ export function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
   onDelete: () => void
   onClose: () => void
 }) {
-  return (
+  return createPortal(
     <div className="pfolio-overlay dark" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pfolio-lightbox">
         <img src={photo.media_url} alt={photo.caption ?? ''} />
@@ -431,6 +434,7 @@ export function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

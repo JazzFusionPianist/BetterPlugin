@@ -3,6 +3,7 @@
 #include <juce_core/juce_core.h>
 #include <CoreMIDI/CoreMIDI.h>
 #include <mutex>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -25,8 +26,8 @@ public:
     bool requestTracks();
     bool setTrackSelected (int index, bool selected);
     juce::String requestExport (const std::vector<int>& trackIndices, bool editSelection);
-    juce::String getExportStatusJson (const juce::String& requestId) const;
-    bool finishExport (const juce::String& requestId) const;
+    juce::String getExportStatusJson (const juce::String& requestId);
+    bool finishExport (const juce::String& requestId);
 
 private:
     static void readProc (const MIDIPacketList* packets, void* refCon, void*);
@@ -53,6 +54,7 @@ private:
     juce::int64 lastMessageMs = 0;
     juce::StringArray mcuStripNames;
     std::set<int> stemLinkSelections;
+    std::map<juce::String, juce::String> pendingStemLinkTriggers;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OrbControlBridge)
 };

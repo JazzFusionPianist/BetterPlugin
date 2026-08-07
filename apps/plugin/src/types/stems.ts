@@ -38,9 +38,11 @@ export interface HostStemCapabilities {
   adapter: string
   connected: boolean
   trackListing: boolean
-  exportMode: 'native' | 'realtime' | 'none'
+  exportMode: 'native' | 'onepass' | 'realtime' | 'none'
   sessionOpen?: boolean
   message?: string
+  automaticTrigger?: boolean
+  requiresBounceConfirmation?: boolean
   inputPort?: string
   outputPort?: string
 }
@@ -53,6 +55,11 @@ export interface HostRenderedStemFile {
   sampleRate: number
   bitDepth: number
   sourceSamples?: number
+  sourcePpq?: number
+  bpm?: number
+  timeSigNumerator?: number
+  timeSigDenominator?: number
+  captureMode?: 'offline-one-pass' | 'realtime-selection' | 'native'
 }
 
 export interface HostStemExportStatus {

@@ -331,6 +331,8 @@ juce::String getExportStatusJson (const juce::String& requestId)
     const int expected = requestedTracks->size();
     auto result = new juce::DynamicObject();
     result->setProperty ("id", requestId);
+    result->setProperty ("ready", armed == expected);
+    result->setProperty ("rangeMode", requestObject->getProperty ("rangeMode"));
     if (complete == expected)
     {
         result->setProperty ("status", "complete");
@@ -342,14 +344,19 @@ juce::String getExportStatusJson (const juce::String& requestId)
     {
         result->setProperty ("status", "rendering");
         result->setProperty ("progress", 0.5);
-        result->setProperty ("message", "Recording stems… Stop the DAW when the range finishes.");
+        result->setProperty ("message",
+            requestObject->getProperty ("rangeMode").toString() == "session"
+                ? "Capturing all selected tracks in one offline pass…"
+                : "Recording the edit selection… Stop when the range finishes.");
     }
     else
     {
         result->setProperty ("status", "queued");
         result->setProperty ("progress", 0.0);
+        const bool session = requestObject->getProperty ("rangeMode").toString() == "session";
         result->setProperty ("message", armed == expected
-            ? "Ready — press Play in the DAW, then Stop when the range finishes."
+            ? (session ? juce::String ("Starting the DAW offline bounce…")
+                       : juce::String ("Ready — press Play in the DAW, then Stop when the range finishes."))
             : "Arming Orb StemLink tracks…");
     }
     return juce::JSON::toString (juce::var (result), false);

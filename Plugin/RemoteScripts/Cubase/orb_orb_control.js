@@ -110,8 +110,13 @@ midiInput.mOnSysex = function (activeDevice, msg) {
     } else if (command === 0x04) {
         var exportParts = payload.split('|')
         var requested = exportParts.length > 1 && exportParts[1] ? exportParts[1].split(',') : []
-        for (var i = 0; i < selectedButtons.length; ++i)
-            selectedButtons[i].mSurfaceValue.setProcessValue(activeDevice, requested.indexOf(String(i)) >= 0 ? 1 : 0)
+        // One-pass StemLink capture needs one ordinary master export. Keep the
+        // user's channel selection untouched; every armed StemLink captures
+        // itself while Cubase renders the graph.
+        if (exportParts[0] !== 'onepass') {
+            for (var i = 0; i < selectedButtons.length; ++i)
+                selectedButtons[i].mSurfaceValue.setProcessValue(activeDevice, requested.indexOf(String(i)) >= 0 ? 1 : 0)
+        }
         exportButton.mSurfaceValue.setProcessValue(activeDevice, 1)
         exportButton.mSurfaceValue.setProcessValue(activeDevice, 0)
     }

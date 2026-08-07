@@ -9,9 +9,13 @@ on every track that should appear in the master Orb's **Add Stems** list.
   track-properties callback.
 - StemLink publishes a lightweight heartbeat containing that metadata. It is a
   transparent pass-through until the user starts an export from Orb.
-- A Share request arms all selected StemLink instances. One DAW playback pass
-  records every selected track concurrently to synchronized 24-bit WAV files.
-  Stopping playback closes the files and Orb uploads them to the current room.
+- An Entire Session Share request arms all selected StemLink instances. One
+  ordinary DAW master offline bounce processes the full graph; every armed
+  StemLink writes its own input concurrently to synchronized 24-bit WAV files.
+  Offline capture applies back-pressure so a fast host cannot outrun the WAV
+  writers and truncate a stem.
+- Edit Selection may still use a single realtime pass when no native selection
+  renderer is available.
 - The master Orb reads only live StemLink instances belonging to the same DAW
   process tree. Removing an instance removes that track from Orb automatically.
 - DAW control-surface/PTSL adapters remain preferred when available; StemLink is
@@ -20,17 +24,18 @@ on every track that should appear in the master Orb's **Add Stems** list.
 ## Export workflow
 
 1. Insert Orb StemLink on each track that should be available to the master Orb.
-2. Open **Stems → Add Stems**, select tracks, and choose Edit Selection.
-3. Click Share, start playback at the selection start, and stop at its end. Orb
-   finalizes and uploads all selected tracks.
+2. Open **Stems → Add Stems**, select tracks, and choose Entire Session.
+3. Click Share. An Orb host adapter starts one master offline bounce when the
+   DAW exposes that command. All selected StemLinks finalize and Orb uploads
+   them without creating tracks or regions in the project.
 
-**Entire Session** is deliberately restricted to DAW-native adapters. It never
-falls back to playback capture: Share invokes the host's offline track export
-and uploads the results, or reports that the current DAW has no native adapter.
+If the DAW has no automatic Orb command adapter yet, all StemLinks remain armed
+while the user starts one normal offline master export in the DAW. Entire
+Session never falls back to realtime playback capture.
 
-DAW-native adapters may provide a true offline bounce. StemLink is the portable
-automatic fallback because the standard AU/VST3 plug-in API does not allow a
-plug-in to command the host transport or invoke its export dialog. AAX will be
+DAW-native adapters may still provide a direct track bounce. StemLink is the
+portable graph-capture path; the small host adapter only has to start one master
+bounce rather than implement a complete per-track exporter. AAX will be
 added after Avid/PACE code-signing approval; the signed distribution currently
 contains AU and VST3.
 

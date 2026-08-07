@@ -59,6 +59,7 @@ private:
     juce::TimeSliceThread writerThread { "Orb StemLink WAV writer" };
     juce::SpinLock writerLock;
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> threadedWriter;
+    std::unique_ptr<juce::AudioFormatWriter> offlineWriter;
     juce::File captureFile;
     StemLinkRegistry::ExportRequest currentRequest;
     juce::String lastHandledRequestId;
@@ -66,7 +67,14 @@ private:
     std::atomic<juce::int64> samplesWritten { 0 };
     std::atomic<juce::int64> sourceStartSamples { 0 };
     std::atomic<juce::int64> lastPlayheadSamples { 0 };
+    std::atomic<juce::int64> lastAudioBlockAtMs { 0 };
     std::atomic<bool> statusDirty { false };
+    std::atomic<bool> lastBlockWasOffline { false };
+    std::atomic<bool> captureEntireSession { false };
+    std::atomic<double> sourcePpq { 0.0 };
+    std::atomic<double> sourceBpm { 120.0 };
+    std::atomic<int> sourceTimeSigNumerator { 4 };
+    std::atomic<int> sourceTimeSigDenominator { 4 };
     double captureSampleRate = 44100.0;
     int captureChannels = 2;
     juce::int64 processorStartedAtMs = 0;

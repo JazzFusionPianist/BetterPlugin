@@ -221,6 +221,10 @@ export default function StemPanel({
 
       const sourceSamples = file.sourceSamples ?? 0
       const seconds = sourceSamples / file.sampleRate
+      const sourcePpq = file.sourcePpq ?? hostTimeline?.position.ppq ?? 0
+      const bpm = file.bpm ?? hostTimeline?.tempo_map?.[0]?.bpm
+      const timeSigNumerator = file.timeSigNumerator ?? hostTimeline?.time_signature_map?.[0]?.numerator
+      const timeSigDenominator = file.timeSigDenominator ?? hostTimeline?.time_signature_map?.[0]?.denominator
       const timeline: AttachmentTimelineMetadata = {
         schema_version: 1,
         position: {
@@ -228,11 +232,14 @@ export default function StemPanel({
           sample_rate: file.sampleRate,
           bit_depth: file.bitDepth,
           seconds,
+          ppq: sourcePpq,
           source: 'daw_playhead',
           confidence: 'exact',
         },
-        tempo_map: hostTimeline?.tempo_map,
-        time_signature_map: hostTimeline?.time_signature_map,
+        tempo_map: hostTimeline?.tempo_map ?? (bpm != null ? [{ ppq: sourcePpq, bpm }] : undefined),
+        time_signature_map: hostTimeline?.time_signature_map ?? (timeSigNumerator && timeSigDenominator
+          ? [{ ppq: sourcePpq, numerator: timeSigNumerator, denominator: timeSigDenominator }]
+          : undefined),
         captured_at: new Date().toISOString(),
       }
       const { error: insertError } = await supabase.from('conversation_stems').insert({
@@ -252,12 +259,14 @@ export default function StemPanel({
 
   const shareSelectedTracks = useCallback(async () => {
     if (selectedTracks.size === 0) return
-    if (rangeMode === 'session' && hostStatus?.exportMode !== 'native') {
-      setError('Entire Session requires a native DAW export adapter. Realtime playback capture is disabled for this mode.')
+    if (rangeMode === 'session' && hostStatus?.exportMode !== 'native' && hostStatus?.exportMode !== 'onepass') {
+      setError('This DAW is not ready for an offline session export.')
       return
     }
     setSharing(true)
-    setShareStatus('Starting DAW export…')
+    setShareStatus(hostStatus?.exportMode === 'onepass' && !hostStatus.automaticTrigger
+      ? 'Waiting for one offline master export in the DAW…'
+      : 'Starting DAW export…')
     try {
       const requestId = await callJuceNative(
         'startHostStemExport',
@@ -270,7 +279,12 @@ export default function StemPanel({
       while (Date.now() < deadline) {
         const raw = await callJuceNative('getHostStemExportStatus', [requestId], 5000)
         result = JSON.parse(raw) as HostStemExportStatus
-        setShareStatus(result.message || (result.status === 'queued' ? 'Waiting for DAW…' : `Rendering ${Math.round((result.progress ?? 0) * 100)}%`))
+        const queuedMessage = hostStatus?.exportMode === 'onepass' && !hostStatus.automaticTrigger
+          ? 'Waiting for one offline master export in the DAW…'
+          : 'Waiting for DAW…'
+        setShareStatus(result.message && !(result.status === 'queued' && !hostStatus?.automaticTrigger)
+          ? result.message
+          : result.status === 'queued' ? queuedMessage : `Rendering ${Math.round((result.progress ?? 0) * 100)}%`)
         if (result.status === 'complete' || result.status === 'error') break
         await new Promise(resolve => setTimeout(resolve, 500))
       }
@@ -290,7 +304,7 @@ export default function StemPanel({
     } finally {
       setSharing(false)
     }
-  }, [hostStatus?.exportMode, load, rangeMode, selectedTracks, uploadRenderedStem])
+  }, [hostStatus?.automaticTrigger, hostStatus?.exportMode, load, rangeMode, selectedTracks, uploadRenderedStem])
 
   const uploadFiles = useCallback(async (files: File[], fallback = pendingDrop?.fallbackMetadata ?? null) => {
     for (const file of files) await uploadOne(file, fallback)
@@ -391,7 +405,7 @@ export default function StemPanel({
               <div className="stem-host-state">
                 <i />
                 <span>{hostStatus.adapter}</span>
-                <small>{hostStatus.exportMode === 'native' ? 'Native Export' : hostStatus.exportMode === 'realtime' ? 'DAW Render' : 'Track Discovery'}</small>
+                <small>{hostStatus.exportMode === 'native' ? 'Native Export' : hostStatus.exportMode === 'onepass' ? 'One-Pass Offline' : hostStatus.exportMode === 'realtime' ? 'DAW Render' : 'Track Discovery'}</small>
               </div>
               <div className="stem-range-tabs">
                 <button className={rangeMode === 'session' ? 'on' : ''} onClick={() => setRangeMode('session')}>Entire Session</button>
@@ -409,6 +423,14 @@ export default function StemPanel({
                 <div className="stem-host-notice compact">
                   <strong>Native session export required</strong>
                   <span>Entire Session never uses playback capture. This DAW needs an Orb native export adapter before it can render and upload the selected tracks automatically.</span>
+                </div>
+              )}
+              {hostStatus.exportMode === 'onepass' && rangeMode === 'session' && (
+                <div className="stem-host-notice compact">
+                  <strong>One-pass offline export</strong>
+                  <span>{hostStatus.automaticTrigger
+                    ? 'Orb will start one master offline bounce. Every selected StemLink will be captured at the same length and uploaded automatically.'
+                    : 'Orb will arm every selected StemLink. Start one normal offline master export in the DAW; Orb will collect and upload all selected tracks automatically.'}</span>
                 </div>
               )}
               <div className="stem-track-tools">
@@ -429,10 +451,8 @@ export default function StemPanel({
                   </button>
                 ))}
               </div>
-              <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none' || (rangeMode === 'session' && hostStatus.exportMode !== 'native')} onClick={() => void shareSelectedTracks()}>
-                {rangeMode === 'session' && hostStatus.exportMode !== 'native'
-                  ? 'Native session export unavailable'
-                  : hostStatus.exportMode === 'none'
+              <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none' || (rangeMode === 'session' && hostStatus.exportMode !== 'native' && hostStatus.exportMode !== 'onepass')} onClick={() => void shareSelectedTracks()}>
+                {hostStatus.exportMode === 'none'
                     ? 'Automatic export unavailable'
                   : sharing ? (shareStatus || 'Working…') : `Share ${selectedTracks.size || ''} Stem${selectedTracks.size === 1 ? '' : 's'}`}
               </button>

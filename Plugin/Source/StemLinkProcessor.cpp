@@ -46,7 +46,12 @@ void StemLinkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                            juce::MidiBuffer&)
 {
     bool playing = false;
+    const bool offline = isNonRealtime();
     juce::int64 playheadSamples = lastPlayheadSamples.load();
+    double ppq = sourcePpq.load();
+    double bpm = sourceBpm.load();
+    int timeSigNumerator = sourceTimeSigNumerator.load();
+    int timeSigDenominator = sourceTimeSigDenominator.load();
     if (auto* playhead = getPlayHead())
     {
         if (const auto position = playhead->getPosition())
@@ -54,13 +59,28 @@ void StemLinkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             playing = position->getIsPlaying();
             if (const auto samples = position->getTimeInSamples())
                 playheadSamples = *samples;
+            if (const auto musicalPosition = position->getPpqPosition())
+                ppq = *musicalPosition;
+            if (const auto currentBpm = position->getBpm())
+                bpm = *currentBpm;
+            if (const auto signature = position->getTimeSignature())
+            {
+                timeSigNumerator = signature->numerator;
+                timeSigDenominator = signature->denominator;
+            }
         }
     }
 
     auto state = captureState.load();
-    if (state == CaptureState::armed && playing)
+    const bool sessionCapture = captureEntireSession.load();
+    const bool shouldStart = sessionCapture ? offline : playing;
+    if (state == CaptureState::armed && shouldStart)
     {
         sourceStartSamples.store (playheadSamples);
+        sourcePpq.store (ppq);
+        sourceBpm.store (bpm);
+        sourceTimeSigNumerator.store (timeSigNumerator);
+        sourceTimeSigDenominator.store (timeSigDenominator);
         samplesWritten.store (0);
         captureState.store (CaptureState::recording);
         statusDirty.store (true);
@@ -70,29 +90,47 @@ void StemLinkAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (state == CaptureState::recording)
     {
         const auto previous = lastPlayheadSamples.load();
-        if (! playing || (samplesWritten.load() > 0 && playheadSamples < previous))
+        const bool renderEnded = sessionCapture ? ! offline : ! playing;
+        if (renderEnded || (samplesWritten.load() > 0 && playheadSamples < previous))
         {
             captureState.store (CaptureState::finishing);
         }
         else
         {
-            const juce::SpinLock::ScopedTryLockType lock (writerLock);
-            if (lock.isLocked() && threadedWriter != nullptr)
+            const int channels = juce::jmin (captureChannels, buffer.getNumChannels());
+            if (sessionCapture)
             {
-                const int channels = juce::jmin (captureChannels, buffer.getNumChannels());
-                const float* channelData[2] { nullptr, nullptr };
-                for (int channel = 0; channel < channels; ++channel)
-                    channelData[channel] = buffer.getReadPointer (channel);
-                if (channels == 1 && captureChannels == 2)
-                    channelData[1] = channelData[0];
-                if (threadedWriter->write (channelData, buffer.getNumSamples()))
+                // Offline rendering has no realtime deadline. A synchronous
+                // writer gives every StemLink back-pressure, so a fast host
+                // cannot overflow a realtime FIFO and silently truncate a stem.
+                const juce::SpinLock::ScopedLockType lock (writerLock);
+                if (offlineWriter != nullptr && channels > 0
+                    && offlineWriter->writeFromAudioSampleBuffer (buffer, 0, buffer.getNumSamples()))
                     samplesWritten.fetch_add (buffer.getNumSamples());
                 else
                     captureState.store (CaptureState::error);
             }
+            else
+            {
+                const juce::SpinLock::ScopedTryLockType lock (writerLock);
+                if (lock.isLocked() && threadedWriter != nullptr)
+                {
+                    const float* channelData[2] { nullptr, nullptr };
+                    for (int channel = 0; channel < channels; ++channel)
+                        channelData[channel] = buffer.getReadPointer (channel);
+                    if (channels == 1 && captureChannels == 2)
+                        channelData[1] = channelData[0];
+                    if (threadedWriter->write (channelData, buffer.getNumSamples()))
+                        samplesWritten.fetch_add (buffer.getNumSamples());
+                    else
+                        captureState.store (CaptureState::error);
+                }
+            }
         }
     }
     lastPlayheadSamples.store (playheadSamples);
+    lastBlockWasOffline.store (offline);
+    lastAudioBlockAtMs.store (juce::Time::currentTimeMillis());
 }
 
 juce::AudioProcessorEditor* StemLinkAudioProcessor::createEditor()
@@ -132,8 +170,10 @@ juce::String StemLinkAudioProcessor::getCaptureStatus() const
 {
     switch (captureState.load())
     {
-        case CaptureState::armed: return "Armed · press Play in the DAW";
-        case CaptureState::recording: return "Recording · stop when the range ends";
+        case CaptureState::armed: return captureEntireSession.load()
+            ? "Armed · waiting for offline bounce" : "Armed · press Play in the DAW";
+        case CaptureState::recording: return captureEntireSession.load()
+            ? "Capturing offline render" : "Recording · stop when the range ends";
         case CaptureState::finishing: return "Finishing WAV…";
         case CaptureState::complete: return "Shared capture ready";
         case CaptureState::error: return "Capture failed";
@@ -162,15 +202,22 @@ bool StemLinkAudioProcessor::armExport (const StemLinkRegistry::ExportRequest& r
 
     {
         const juce::SpinLock::ScopedLockType lock (writerLock);
-        threadedWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (
-            writer.release(), writerThread, juce::jmax (32768, (int) captureSampleRate * 2));
+        if (request.rangeMode == "session")
+            offlineWriter = std::move (writer);
+        else
+            threadedWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (
+                writer.release(), writerThread, juce::jmax (32768, (int) captureSampleRate * 2));
     }
     currentRequest = request;
+    captureEntireSession.store (request.rangeMode == "session");
     lastHandledRequestId = request.id;
     samplesWritten.store (0);
     sourceStartSamples.store (0);
+    lastBlockWasOffline.store (false);
+    lastAudioBlockAtMs.store (juce::Time::currentTimeMillis());
     captureState.store (CaptureState::armed);
-    publishCaptureStatus ("armed", "Ready — press Play in the DAW.");
+    publishCaptureStatus ("armed", request.rangeMode == "session"
+        ? "Ready for one-pass offline bounce." : "Ready — press Play in the DAW.");
     return true;
 }
 
@@ -193,6 +240,7 @@ void StemLinkAudioProcessor::finishRecording()
     {
         const juce::SpinLock::ScopedLockType lock (writerLock);
         threadedWriter.reset();
+        offlineWriter.reset();
     }
 
     if (state == CaptureState::error || samplesWritten.load() <= 0 || ! captureFile.existsAsFile())
@@ -210,6 +258,12 @@ void StemLinkAudioProcessor::finishRecording()
     file->setProperty ("sampleRate", captureSampleRate);
     file->setProperty ("bitDepth", 24);
     file->setProperty ("sourceSamples", sourceStartSamples.load());
+    file->setProperty ("sourcePpq", sourcePpq.load());
+    file->setProperty ("bpm", sourceBpm.load());
+    file->setProperty ("timeSigNumerator", sourceTimeSigNumerator.load());
+    file->setProperty ("timeSigDenominator", sourceTimeSigDenominator.load());
+    file->setProperty ("captureMode", captureEntireSession.load()
+        ? "offline-one-pass" : "realtime-selection");
 
     auto object = new juce::DynamicObject();
     object->setProperty ("status", "complete");
@@ -229,6 +283,14 @@ void StemLinkAudioProcessor::timerCallback()
         publisher.heartbeat();
         lastHeartbeatMs = now;
     }
+
+    // Many hosts do not deliver a final realtime block after a fast offline
+    // bounce. Once offline callbacks have gone quiet, close the WAV here.
+    if (captureState.load() == CaptureState::recording
+        && captureEntireSession.load()
+        && lastBlockWasOffline.load()
+        && juce::Time::currentTimeMillis() - lastAudioBlockAtMs.load() > 750)
+        captureState.store (CaptureState::finishing);
 
     if (captureState.load() == CaptureState::finishing
         || captureState.load() == CaptureState::error)

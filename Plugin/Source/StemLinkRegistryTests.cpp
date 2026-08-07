@@ -24,8 +24,8 @@ int main()
         return fail ("Master bridge did not connect to StemLink registry");
     if (statusObject->getProperty ("adapter").toString() != "Orb StemLink")
         return fail ("Master bridge reported the wrong adapter");
-    if (statusObject->getProperty ("exportMode").toString() != "realtime")
-        return fail ("StemLink did not advertise realtime export");
+    if (statusObject->getProperty ("exportMode").toString() != "onepass")
+        return fail ("StemLink did not advertise one-pass offline export");
 
     const auto tracks = juce::JSON::parse (bridge.getTracksJson());
     auto* array = tracks.getArray();
@@ -49,16 +49,13 @@ int main()
         || ! static_cast<bool> (selectedTrack->getProperty ("selected")))
         return fail ("StemLink track selection was not retained");
 
-    if (bridge.requestExport ({ index }, false).isNotEmpty())
-        return fail ("StemLink incorrectly accepted an Entire Session realtime capture");
-
-    const auto requestId = bridge.requestExport ({ index }, true);
+    const auto requestId = bridge.requestExport ({ index }, false);
     if (requestId.isEmpty())
         return fail ("StemLink export request was not created");
     const auto request = StemLinkRegistry::getPendingExportRequest (
         host, publisher.getId(), {}, 0);
     if (! request.has_value() || request->id != requestId
-        || request->trackName != "Lead Vocal" || request->rangeMode != "selection")
+        || request->trackName != "Lead Vocal" || request->rangeMode != "session")
         return fail ("StemLink instance did not receive its export request");
 
     const auto audioFile = StemLinkRegistry::getExportAudioFile (

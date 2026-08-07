@@ -306,14 +306,27 @@ juce::String OrbControlBridge::requestExport (const std::vector<int>& trackIndic
         return writeFileRequest (juce::var (object)) ? requestId : juce::String();
     }
 
-    // A plug-in only receives audio while the host renders/processes it. Never
-    // pretend that a StemLink realtime capture is an Entire Session export.
-    // Session exports must be handled by a DAW-native adapter (PTSL/ReaScript,
-    // or another host API); StemLink remains available for explicit selections.
-    if (editSelection)
-        if (const auto requestId = StemLinkRegistry::createExportRequest (host, trackIndices, true);
-            requestId.isNotEmpty())
-            return requestId;
+    // Arm the selected StemLinks first, then ask the DAW control adapter for
+    // one ordinary master export. Every armed instance is processed during
+    // that graph render and writes its own input to a separate WAV.
+    if (const auto requestId = StemLinkRegistry::createExportRequest (
+            host, trackIndices, editSelection); requestId.isNotEmpty())
+    {
+        juce::StringArray ids;
+        for (const int index : trackIndices) ids.add (juce::String (index));
+        const auto payload = juce::String (editSelection ? "selection" : "onepass")
+            + "|" + ids.joinIntoString (",");
+        // Do not trigger the host yet: StemLink timers still need to observe
+        // and arm the request. getExportStatusJson sends this only after every
+        // selected instance has published ready=true.
+        {
+            std::lock_guard<std::mutex> lock (stateMutex);
+            if (adapterConnected && adapterName != "Mackie Control"
+                && juce::Time::currentTimeMillis() - lastMessageMs < 15000)
+                pendingStemLinkTriggers[requestId] = payload;
+        }
+        return requestId;
+    }
 
     juce::StringArray ids;
     for (const int index : trackIndices) ids.add (juce::String (index));
@@ -337,20 +350,19 @@ juce::String OrbControlBridge::getStatusJson() const
     const auto stemLinkTracks = StemLinkRegistry::getActiveTracks (host);
     const bool stemLinkConnected = ! stemLinkTracks.empty();
     const bool connected = controlConnected || stemLinkConnected;
-    const bool nativeControlExport = controlConnected
-        && host.containsIgnoreCase ("Cubase") && currentAdapter.contains ("Cubase");
-    const auto displayedAdapter = nativeControlExport ? currentAdapter
-        : (stemLinkConnected ? juce::String ("Orb StemLink")
+    const bool automaticOnePassTrigger = controlConnected && currentAdapter != "Mackie Control";
+    const auto displayedAdapter = stemLinkConnected ? juce::String ("Orb StemLink")
                              : (currentAdapter.isNotEmpty() ? currentAdapter
-                                                            : juce::String ("Orb Control")));
+                                                            : juce::String ("Orb Control"));
 
     auto object = new juce::DynamicObject();
     object->setProperty ("hostName", host);
     object->setProperty ("adapter", displayedAdapter);
     object->setProperty ("connected", connected);
     object->setProperty ("trackListing", connected);
-    object->setProperty ("exportMode", nativeControlExport ? "native"
-        : (stemLinkConnected ? "realtime" : "none"));
+    object->setProperty ("exportMode", stemLinkConnected ? "onepass" : "none");
+    object->setProperty ("automaticTrigger", automaticOnePassTrigger);
+    object->setProperty ("requiresBounceConfirmation", stemLinkConnected && ! automaticOnePassTrigger);
     if (stemLinkConnected)
         object->setProperty ("message", juce::String (stemLinkTracks.size())
             + (stemLinkTracks.size() == 1 ? " linked track" : " linked tracks"));
@@ -373,9 +385,7 @@ juce::String OrbControlBridge::getTracksJson() const
         std::lock_guard<std::mutex> lock (stateMutex);
         const bool controlConnected = adapterConnected
             && juce::Time::currentTimeMillis() - lastMessageMs < 15000;
-        const bool nativeControlExport = controlConnected
-            && host.containsIgnoreCase ("Cubase") && adapterName.contains ("Cubase");
-        if ((nativeControlExport || stemLinkTracks.empty()) && controlConnected && ! tracks.empty())
+        if (stemLinkTracks.empty() && controlConnected && ! tracks.empty())
         {
             for (const auto& track : tracks)
             {
@@ -407,7 +417,7 @@ juce::String OrbControlBridge::getTracksJson() const
     return juce::JSON::toString (result, false);
 }
 
-juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestId) const
+juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestId)
 {
     if (requestId.isEmpty() || requestId.containsAnyOf ("/\\."))
         return "{\"status\":\"error\",\"message\":\"Invalid export request\"}";
@@ -419,12 +429,36 @@ juce::String OrbControlBridge::getExportStatusJson (const juce::String& requestI
     }
     if (const auto stemLinkStatus = StemLinkRegistry::getExportStatusJson (requestId);
         stemLinkStatus.isNotEmpty())
+    {
+        const auto parsed = juce::JSON::parse (stemLinkStatus);
+        if (auto* object = parsed.getDynamicObject())
+        {
+            if (static_cast<bool> (object->getProperty ("ready")))
+            {
+                juce::String payload;
+                {
+                    std::lock_guard<std::mutex> lock (stateMutex);
+                    const auto found = pendingStemLinkTriggers.find (requestId);
+                    if (found != pendingStemLinkTriggers.end())
+                    {
+                        payload = found->second;
+                        pendingStemLinkTriggers.erase (found);
+                    }
+                }
+                if (payload.isNotEmpty()) send (0x04, payload);
+            }
+        }
         return stemLinkStatus;
+    }
     return "{\"status\":\"queued\",\"progress\":0}";
 }
 
-bool OrbControlBridge::finishExport (const juce::String& requestId) const
+bool OrbControlBridge::finishExport (const juce::String& requestId)
 {
+    {
+        std::lock_guard<std::mutex> lock (stateMutex);
+        pendingStemLinkTriggers.erase (requestId);
+    }
     if (StemLinkRegistry::getExportStatusJson (requestId).isNotEmpty())
         return StemLinkRegistry::finishExport (requestId);
     const auto file = getControlDirectory().getChildFile ("export-" + requestId + ".json");

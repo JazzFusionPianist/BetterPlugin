@@ -13,6 +13,10 @@ interface Props {
   me: Profile
 }
 
+/** The pale label strip every spine wears near its foot. */
+const SPINE_BAND =
+  'linear-gradient(to top, transparent 9px, rgba(251,250,247,0.4) 9px, rgba(251,250,247,0.4) 11.5px, transparent 11.5px)'
+
 /**
  * Your discography ON the main screen — real shelves. Each shelf is a
  * category you name ("mixed and mastered"); releases sit in it edge-on
@@ -84,23 +88,27 @@ export default function HomePortfolio({ supabase, me }: Props) {
           const key = g.shelf?.id ?? 'default'
           return (
             <button key={key} className="pfolio-shelfrow" onClick={() => setOpenShelf(key)}>
-              <span className="pfolio-spines">
-                {g.releases.length === 0 && <span className="pfolio-spine ghost" />}
-                {g.releases.map((r) => (
-                  <span
-                    key={r.id}
-                    className="pfolio-spine"
-                    style={r.cover_url
-                      ? { backgroundImage: `url(${r.cover_url})` }
-                      : { background: spineTint(r.title) }}
-                    title={r.title}
-                  />
-                ))}
+              <span className="pfolio-shelfunit">
+                <span className="pfolio-spines">
+                  {g.releases.length === 0 && <span className="pfolio-spine ghost" />}
+                  {g.releases.map((r) => (
+                    <span
+                      key={r.id}
+                      className="pfolio-spine"
+                      style={{
+                        backgroundImage: `${SPINE_BAND}, ${r.cover_url
+                          ? `url(${r.cover_url})`
+                          : `linear-gradient(${spineTint(r.title)}, ${spineTint(r.title)})`}`,
+                      }}
+                      title={r.title}
+                    />
+                  ))}
+                </span>
+                <span className="pfolio-shelfboard" aria-hidden="true" />
               </span>
-              <span className="pfolio-shelfboard" aria-hidden="true" />
               <span className="pfolio-shelfcap">
                 <span className="pfolio-shelfcap-title">{g.shelf?.title ?? 'releases'}</span>
-                <span className="pfolio-shelfcap-count">{g.releases.length}</span>
+                <span className="pfolio-shelfcap-count">· {g.releases.length}</span>
               </span>
             </button>
           )
@@ -212,6 +220,7 @@ export default function HomePortfolio({ supabase, me }: Props) {
           <div className="pfolio-sheet pfolio-shelfpanel">
             <div className="pfolio-shelfpanel-head">
               {panelGroup.shelf ? (
+                <span className="pfolio-shelfpanel-titlewrap">
                 <input
                   className="pfolio-shelfpanel-title"
                   defaultValue={panelGroup.shelf.title}
@@ -222,6 +231,8 @@ export default function HomePortfolio({ supabase, me }: Props) {
                     if (v && v !== panelGroup.shelf!.title) renameShelf(panelGroup.shelf!.id, v)
                   }}
                 />
+                <svg className="pfolio-shelfpanel-pen" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2l2 2-8 8H4v-2l8-8z" /></svg>
+                </span>
               ) : (
                 <div className="pfolio-shelfpanel-title as-text">releases</div>
               )}

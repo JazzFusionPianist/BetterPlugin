@@ -2535,43 +2535,68 @@ button { font-family: inherit; }
   text-transform: lowercase;
 }
 .pfolio-shelfrow {
-  display: block; width: 100%;
+  display: flex; flex-direction: column; align-items: flex-end;
+  width: 100%;
   background: none; border: none; cursor: pointer; padding: 0;
-  margin-bottom: 30px;
+  margin-bottom: 34px;
+}
+/* The shelf as one object: lead space, records, board. The board spans
+   the unit, so a fuller shelf is a longer shelf. */
+.pfolio-shelfunit {
+  display: inline-block; position: relative;
+  padding: 0 24px 0 58px;
 }
 .pfolio-spines {
-  display: flex; justify-content: flex-end; align-items: flex-end; gap: 3px;
-  min-height: 56px; padding-right: 26px;
-  transition: transform .18s ease;
+  display: flex; justify-content: flex-end; align-items: flex-end; gap: 2px;
+  min-height: 74px;
 }
-.pfolio-shelfrow:hover .pfolio-spines { transform: translateY(-3px); }
 .pfolio-spine {
-  display: block; width: 11px; height: 52px;
+  display: block; width: 14px; height: 72px;
   background-size: cover; background-position: center;
-  border: 1px solid rgba(26, 25, 23, 0.3); border-radius: 1px 1px 0 0;
-  box-shadow: inset 1px 0 0 rgba(251, 250, 247, 0.25);
+  border: 1px solid rgba(26, 25, 23, 0.42);
+  border-radius: 1.5px 1.5px 0 0;
+  box-shadow: inset 1.5px 0 0 rgba(251, 250, 247, 0.22);
+  filter: drop-shadow(0 1px 1px rgba(26, 25, 23, 0.18));
+  transition: transform .16s ease;
 }
 /* records aren't machine-filed — small height differences */
-.pfolio-spine:nth-child(3n) { height: 56px; }
-.pfolio-spine:nth-child(4n) { height: 49px; }
-.pfolio-spine:nth-child(7n) { height: 54px; }
-.pfolio-spine.ghost { border: 1px dashed var(--line); background: none; box-shadow: none; }
-/* the board they stand on — runs off the right page edge */
+.pfolio-spine:nth-child(3n) { height: 76px; }
+.pfolio-spine:nth-child(4n) { height: 68px; }
+.pfolio-spine:nth-child(7n) { height: 74px; }
+/* the first record leans back against the row */
+.pfolio-spine:first-child:not(:only-child):not(.ghost) {
+  transform: rotate(-9deg);
+  transform-origin: bottom right;
+  margin-right: 6px;
+}
+/* fingering a record pulls it up */
+.pfolio-spine:hover { transform: translateY(-8px); }
+.pfolio-spine:first-child:not(:only-child):not(.ghost):hover {
+  transform: rotate(-9deg) translateY(-8px);
+}
+.pfolio-spine.ghost {
+  border: 1px dashed var(--line); background: none;
+  box-shadow: none; filter: none; height: 60px;
+}
+/* the board — thick enough to hold weight, shadow gives it depth */
 .pfolio-shelfboard {
-  display: block; height: 2.5px; margin-top: 0;
+  display: block; position: absolute;
+  left: 0; right: 0; top: 100%;
+  height: 3.5px; border-radius: 1px;
   background: var(--ink);
+  box-shadow: 0 5px 10px -4px rgba(26, 25, 23, 0.4);
 }
 .pfolio-shelfcap {
-  display: flex; justify-content: flex-end; align-items: baseline; gap: 8px;
-  padding: 7px 26px 0 0;
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 13px 24px 0 0;
 }
 .pfolio-shelfcap-title {
-  font-family: var(--f-serif); font-size: 14.5px; text-transform: lowercase;
-  color: var(--ink);
+  font-family: var(--f-serif); font-size: 16px; text-transform: lowercase;
+  color: var(--ink); letter-spacing: 0;
 }
 .pfolio-shelfrow:hover .pfolio-shelfcap-title { color: var(--blue); }
 .pfolio-shelfcap-count {
-  font-size: 10.5px; color: var(--t3); font-variant-numeric: tabular-nums;
+  font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums;
 }
 .pfolio-newshelf {
   display: block; width: 100%; text-align: right;
@@ -2597,12 +2622,21 @@ button { font-family: inherit; }
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   border-bottom: 1px solid var(--hair); padding-bottom: 8px; margin-bottom: 6px;
 }
+.pfolio-shelfpanel-titlewrap {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+}
 .pfolio-shelfpanel-title {
   flex: 1; min-width: 0;
-  background: none; border: none; outline: none; padding: 0;
+  background: none; border: none; outline: none; padding: 0 0 1px;
+  border-bottom: 1px dashed transparent;
   font-family: var(--f-serif); font-size: 23px; font-weight: 400;
   text-transform: lowercase; color: var(--ink);
 }
+.pfolio-shelfpanel-titlewrap:hover .pfolio-shelfpanel-title,
+.pfolio-shelfpanel-title:focus { border-bottom-color: var(--line); }
+.pfolio-shelfpanel-pen { flex-shrink: 0; color: var(--t3); }
+.pfolio-shelfpanel-titlewrap:hover .pfolio-shelfpanel-pen { color: var(--ink); }
 .pfolio-shelfpanel-title.as-text { cursor: default; }
 .pfolio-shelfpanel-count {
   flex-shrink: 0; font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums;

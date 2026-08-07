@@ -17,6 +17,15 @@ interface Props {
 export const fmtYear = (r: Release) =>
   r.released_on ? String(new Date(r.released_on + 'T00:00:00').getFullYear()) : new Date(r.created_at).getFullYear().toString()
 
+/** "2026", "2026.3", "2026-03-15", "2026년 3월" → a date, or null. */
+export function parseReleaseDate(text: string): string | null {
+  const m = text.trim().match(/^(\d{4})(?:[.\-\/년\s]+(\d{1,2}))?(?:[.\-\/월\s]+(\d{1,2}))?/)
+  if (!m) return null
+  const mo = Math.min(12, Math.max(1, m[2] ? +m[2] : 1))
+  const d = Math.min(31, Math.max(1, m[3] ? +m[3] : 1))
+  return `${m[1]}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).toLowerCase()
 
@@ -333,7 +342,7 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
       title: title.trim(),
       cover_url: coverUrl,
       description: desc.trim() || null,
-      released_on: date || null,
+      released_on: date.trim() ? parseReleaseDate(date) : null,
       tracks,
     })
     if (!ok) setSaving(false)
@@ -361,7 +370,9 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
         />
         <input
           className="pfolio-datein"
-          type="date"
+          type="text"
+          inputMode="numeric"
+          placeholder="released — 2026 or 2026.03.15"
           value={date}
           onChange={(e) => setDate(e.target.value)}
           aria-label="Release date"

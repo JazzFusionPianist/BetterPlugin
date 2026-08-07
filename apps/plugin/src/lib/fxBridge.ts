@@ -1,11 +1,8 @@
 /**
- * One-knob FX bridge. The effects live in the JUCE processor
- * (setFx / getFx native functions); in a plain browser the setters
- * no-op and the getter resolves to defaults so the panel still renders.
- *
- * v2: eleven effects and a CHAIN — any subset can be enabled at once
- * (`enabled` bitmask, bit = FxMode). The processor runs them in a fixed
- * studio order; `mode` is just the plate the room is looking at.
+ * One-knob FX bridge. The eleven effects live in the JUCE processor
+ * (setFx / getFx native functions); one runs at a time. In a plain
+ * browser the setters no-op and the getter resolves to defaults so the
+ * panel still renders.
  */
 
 import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
@@ -26,14 +23,14 @@ export interface FxState {
   variants: number[]
   /** Space's second hand: decay per flavour [hall, room, plate], 0.5 = stock. */
   decays: number[]
-  /** Chain membership — one bit per FxMode. */
-  enabled: number
   /** Delay's two hands: division index into {1/16, 1/8t, 1/8, 1/8., 1/4,
    *  1/4., 1/2} and feedback 0..1. */
   delayDiv: number
   delayFb: number
-  /** The chain's running order — a permutation of all FxMode ids. */
-  order: number[]
+  /** True when the running JUCE binary predates the new prints (its getFx
+   *  reported fewer than FX_COUNT amounts) — cut/amp/doubler/delay would
+   *  alias onto the old engine's modes until the plugin is rebuilt. */
+  stale: boolean
 }
 
 export const FX_DEFAULTS: FxState = {
@@ -41,10 +38,9 @@ export const FX_DEFAULTS: FxState = {
   amounts: [0.5, 0, 0, 0, 0, 0.75, 0, 0, 0, 0, 0],
   variants: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   decays: [0.5, 0.5, 0.5],
-  enabled: 0,
   delayDiv: 2,
   delayFb: 0.35,
-  order: [7, 8, 0, 1, 6, 9, 10, 2, 3, 4, 5],
+  stale: false,
 }
 
 export function hasFxBridge (): boolean {
@@ -57,7 +53,6 @@ export async function getFx (): Promise<FxState> {
     amounts: [...FX_DEFAULTS.amounts],
     variants: [...FX_DEFAULTS.variants],
     decays: [...FX_DEFAULTS.decays],
-    order: [...FX_DEFAULTS.order],
   })
   if (!hasFxBridge()) return fallback()
   try {
@@ -79,15 +74,9 @@ export async function getFx (): Promise<FxState> {
           const n = Number(s.decays?.[i])
           return isFinite(n) ? Math.min(1, Math.max(0, n)) : d
         }),
-        enabled: isFinite(Number(s.enabled)) ? (Number(s.enabled) & ((1 << FX_COUNT) - 1)) : 0,
         delayDiv: isFinite(Number(s.delayDiv)) ? Math.min(6, Math.max(0, Math.round(Number(s.delayDiv)))) : 2,
         delayFb: isFinite(Number(s.delayFb)) ? Math.min(1, Math.max(0, Number(s.delayFb))) : 0.35,
-        order: (() => {
-          const o = Array.isArray(s.order) ? s.order.map(Number) : []
-          const valid = o.length === FX_COUNT && new Set(o).size === FX_COUNT
-            && o.every((x) => Number.isInteger(x) && x >= 0 && x < FX_COUNT)
-          return valid ? o : [...FX_DEFAULTS.order]
-        })(),
+        stale: (s.amounts?.length ?? 0) < FX_COUNT,
       }
     }
   } catch { /* fall through */ }
@@ -99,10 +88,8 @@ export function setFx (patch: {
   amount?: number
   variant?: number
   decay?: number
-  enabled?: boolean
   delayDiv?: number
   delayFb?: number
-  order?: number[]
 }): void {
   if (!hasFxBridge()) return
   void callJuceNative('setFx', [patch]).catch(() => {})

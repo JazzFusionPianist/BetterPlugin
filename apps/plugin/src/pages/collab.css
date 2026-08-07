@@ -187,15 +187,15 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Top Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */
-/* The running head — five bare serif words, no cards, no icons
-   (Steven, 2026-08-07, third pass: every chrome treatment read as
-   clutter; the words themselves are the navigation, catalogue-style,
-   and the orbs drift behind the letters). */
+/* Five bare glyphs on the paper — no cards, no borders, no labels
+   (Steven, 2026-08-07, fourth pass: icons again, but refined — the
+   chrome was the clutter, so the glyphs stand alone; the open room's
+   glyph holds ink over a short hairline). */
 .top-bar {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 14px 16px 0;
+  padding: 14px 20px 0;
   box-sizing: border-box;
   flex-shrink: 0;
   position: relative;
@@ -222,25 +222,20 @@
 .icon-btn {
   position: relative;
   display: inline-flex;
-  align-items: baseline;
-  padding: 2px 0 3px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 2px 5px;
   cursor: pointer;
   background: none;
   border: none;
   border-bottom: 1px solid transparent;
-  transition: border-color .15s;
+  color: rgba(26, 25, 23, 0.42);
+  transition: border-color .15s, color .15s;
 }
-.icon-btn .icon-label {
-  font-family: var(--f-serif);
-  font-size: 13px;
-  text-transform: lowercase;
-  color: var(--t2);
-  line-height: 1;
-  transition: color .15s;
-}
-.icon-btn:hover .icon-label { color: var(--t1); }
-.icon-btn.active { border-bottom-color: var(--hair); }
-.icon-btn.active .icon-label { color: var(--t1); }
+.plugin.dark .icon-btn { color: rgba(240, 238, 233, 0.4); }
+.icon-btn:hover { color: var(--t1); }
+.icon-btn.active { color: var(--t1); border-bottom-color: var(--hair); }
+.icon-btn svg { width: 16px; height: 16px; display: block; }
 
 /* Wide: the words keep their compact footprint, centred. */
 .plugin.screen-wide .top-bar {
@@ -3054,9 +3049,9 @@
    Live – toolbar button
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .live-btn-dot {
-  position: static;
-  align-self: center;
-  margin-left: 4px;
+  position: absolute;
+  top: -1px;
+  right: -3px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -8756,12 +8751,11 @@
 .plugin.fx-open { background: var(--fx-wall, #161410); }
 .plugin.fx-live { transition: background 0.12s linear; }
 .plugin.fx-open .fxview { background: transparent; }
-/* The running-head words dim to warm paper on the wall; only the open
-   room's word stays lit, underlined by a paper hairline. */
-.plugin.fx-open .icon-btn .icon-label { color: rgba(246, 243, 234, 0.55); }
-.plugin.fx-open .icon-btn:hover .icon-label { color: rgba(246, 243, 234, 0.85); }
-.plugin.fx-open .icon-btn.active { border-bottom-color: rgba(246, 243, 234, 0.6); }
-.plugin.fx-open .icon-btn.active .icon-label { color: #F6F3EA; }
+/* The glyphs dim to warm paper on the wall; only the open room's
+   glyph stays lit over its paper hairline. */
+.plugin.fx-open .icon-btn { color: rgba(246, 243, 234, 0.45); }
+.plugin.fx-open .icon-btn:hover { color: rgba(246, 243, 234, 0.85); }
+.plugin.fx-open .icon-btn.active { color: #F6F3EA; border-bottom-color: rgba(246, 243, 234, 0.6); }
 
 .fx-stage {
   flex: 1; min-height: 0;
@@ -8976,8 +8970,7 @@
    to ink, in step with the wall. The card background returns at the
    end, invisibly — white on paper. */
 .plugin.fx-closing { transition: background 1.3s ease; }
-.plugin.fx-closing .icon-btn { transition: border-color 1.3s ease; }
-.plugin.fx-closing .icon-btn .icon-label { color: var(--t2); transition: color 1.3s ease; }
+.plugin.fx-closing .icon-btn { transition: color 1.3s ease, border-color 1.3s ease; }
 /* incoming panels ride the fading wall instead of slamming their own
    background over it */
 .plugin.fx-closing .view { background: transparent !important; }
@@ -9403,40 +9396,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* Offline orbs are dimmed as a whole; the name dims with them, which is
    the right read (present ≠ absent). */
 
-/* ── FX chain strip: the signal path spelled out under the plate ────── */
-.fx-chain {
-  min-height: 18px;
-  display: flex; align-items: center; justify-content: center;
-  gap: 6px; flex-wrap: wrap;
-  padding: 0 18px;
-  margin-bottom: 2px;
-}
-.fx-chain-item { display: inline-flex; align-items: center; gap: 6px; }
-.fx-chain-link {
-  background: none; border: none; padding: 1px 2px; cursor: pointer;
-  font-family: var(--f-serif); font-size: 12.5px; text-transform: lowercase;
-  color: rgba(246, 243, 234, 0.55);
-  transition: color 0.3s;
-}
-.fx-chain-link.here { color: #5A6BFF; font-style: italic; }
-.fx-chain-link:hover { color: rgba(246, 243, 234, 0.9); }
-.fx-chain-sep { color: rgba(246, 243, 234, 0.3); font-size: 11px; }
-.fx-chain-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 11.5px;
-  color: rgba(246, 243, 234, 0.35); text-transform: lowercase;
-}
-/* in-chain toggle riding the pager row */
-.fx-add {
-  width: 26px; height: 26px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: 1px solid rgba(246, 243, 234, 0.25);
-  border-radius: 50%;
-  color: rgba(246, 243, 234, 0.5);
-  font-size: 10px; line-height: 1; cursor: pointer;
-  transition: color 0.25s, border-color 0.25s;
-}
-.fx-add.on { color: #5A6BFF; border-color: #5A6BFF; }
-.fx-add:hover { border-color: rgba(246, 243, 234, 0.6); }
 
 /* The halo apron overflows the body sideways; focus restoration would
    silently PAN the room to chase a focused pager button (the WKWebView
@@ -9444,7 +9403,3 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
    mechanism entirely — same cure as .plugin/.content. */
 .fx-body { overflow: hidden; overflow: clip; }
 .fx-stage { overflow: visible; }
-
-/* chain names are handles: drag along the line to re-plumb the path */
-.fx-chain-link { cursor: grab; touch-action: none; }
-.fx-chain-link.drag { color: #5A6BFF; cursor: grabbing; }

@@ -557,10 +557,9 @@ export default function FxPanel ({ isOpen }: Props) {
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
   const [variants, setVariants] = useState<number[]>([...FX_DEFAULTS.variants])
   const [decays, setDecays] = useState<number[]>([...FX_DEFAULTS.decays])
-  const [enabled, setEnabled] = useState<number>(FX_DEFAULTS.enabled)
   const [delayDiv, setDelayDiv] = useState<number>(FX_DEFAULTS.delayDiv)
   const [delayFb, setDelayFb] = useState<number>(FX_DEFAULTS.delayFb)
-  const [order, setOrder] = useState<number[]>([...FX_DEFAULTS.order])
+  const [stale, setStale] = useState(false)
   const [bridge] = useState(() => hasFxBridge())
   const [showValue, setShowValue] = useState(false)
   const [lit, setLit] = useState(false)          // false = still paper; true = the room is dark
@@ -590,8 +589,7 @@ export default function FxPanel ({ isOpen }: Props) {
     (document.activeElement as HTMLElement | null)?.blur?.()
     void getFx().then((s) => {
       setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants); setDecays(s.decays)
-      setEnabled(s.enabled); setDelayDiv(s.delayDiv); setDelayFb(s.delayFb)
-      setOrder(s.order)
+      setDelayDiv(s.delayDiv); setDelayFb(s.delayFb); setStale(s.stale)
     })
     // let the paper render once, then dim the room slowly
     const t = setTimeout(() => setLit(true), 40)
@@ -698,36 +696,15 @@ export default function FxPanel ({ isOpen }: Props) {
     hideTimer.current = setTimeout(() => setShowValue(false), 750)
   }
 
-  const inChain = (enabled & (1 << mode)) !== 0
-
   const apply = (next: number, force = false) => {
     const clamped = Math.min(1, Math.max(0, next))
     setAmounts((prev) => prev.map((v, i) => (i === mode ? clamped : v)))
     flashValue()
-    // Turning a print IS reaching for the effect — it joins the chain.
-    const joining = ! inChain
-    if (joining) setEnabled((e) => e | (1 << mode))
     const now = performance.now()
-    if (force || joining || now - lastSent.current > 33) {
+    if (force || now - lastSent.current > 33) {
       lastSent.current = now
-      setFx(joining ? { mode, amount: clamped, enabled: true } : { mode, amount: clamped })
+      setFx({ mode, amount: clamped })
     }
-  }
-
-  const toggleChain = () => {
-    const en = ! inChain
-    setEnabled((e) => (en ? e | (1 << mode) : e & ~(1 << mode)))
-    setFx({ mode, enabled: en })
-  }
-
-  const jumpTo = (id: FxMode) => {
-    if (id === mode) return
-    setMode(id)
-    setShowValue(false)
-    setSlide(null)
-    setFx({ mode: id })
-    grTarget.current = 0
-    grDisp.current = 0
   }
 
   const applyDiv = (d: number) => {
@@ -765,8 +742,8 @@ export default function FxPanel ({ isOpen }: Props) {
   }
 
   const step = (dir: 1 | -1) => {
-    const di = Math.max(0, order.indexOf(mode))
-    const next = order[(di + dir + order.length) % order.length] as FxMode
+    const di = MODES.findIndex((mm) => mm.id === mode)
+    const next = MODES[(di + dir + MODES.length) % MODES.length].id
     setMode(next)
     setShowValue(false)
     setSlide(dir === 1 ? 'r' : 'l')
@@ -774,51 +751,6 @@ export default function FxPanel ({ isOpen }: Props) {
     grTarget.current = 0
     grDisp.current = 0
   }
-
-  // ── Chain reordering: drag a name along the line; the permutation is
-  //    rebuilt around the enabled effects (disabled ones hold their slots)
-  //    and sent once on release. A quiet drag (no movement) is a jump.
-  const chainRef = useRef<HTMLDivElement>(null)
-  const chainDrag = useRef<{ id: number; startX: number; moved: boolean } | null>(null)
-
-  const reorderTo = (dragId: number, pointerX: number) => {
-    const host = chainRef.current
-    if (!host) return
-    const links = Array.from(host.querySelectorAll<HTMLElement>('[data-chain-id]'))
-    const othersRects = links
-      .filter((el) => Number(el.dataset.chainId) !== dragId)
-      .map((el) => ({ id: Number(el.dataset.chainId), cx: el.getBoundingClientRect().left + el.offsetWidth / 2 }))
-    const targetIdx = othersRects.filter((r) => r.cx < pointerX).length
-    const on = (id: number) => (enabled & (1 << id)) !== 0
-    const visible = order.filter(on)
-    const others = visible.filter((v) => v !== dragId)
-    if (targetIdx === visible.indexOf(dragId) && visible.includes(dragId)) return
-    others.splice(targetIdx, 0, dragId)
-    let vi = 0
-    const next = order.map((id) => (on(id) ? others[vi++] : id))
-    if (next.some((v, i) => v !== order[i])) setOrder(next)
-  }
-
-  const chainPointerDown = (id: number) => (e: React.PointerEvent) => {
-    e.preventDefault()
-    chainDrag.current = { id, startX: e.clientX, moved: false }
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
-  }
-  const chainPointerMove = (e: React.PointerEvent) => {
-    const d = chainDrag.current
-    if (!d) return
-    if (Math.abs(e.clientX - d.startX) > 6) d.moved = true
-    if (d.moved) reorderTo(d.id, e.clientX)
-  }
-  const chainPointerUp = () => {
-    const d = chainDrag.current
-    chainDrag.current = null
-    if (!d) return
-    if (d.moved) setFx({ order })
-    else jumpTo(d.id as FxMode)
-  }
-  // `order` in chainPointerUp closes over the latest render because a
-  // reorder re-renders before the pointer is released.
 
   const pluginEl = document.querySelector('.plugin')
 
@@ -862,28 +794,6 @@ export default function FxPanel ({ isOpen }: Props) {
         </div>
       </div>
 
-      {/* the chain: every effect currently in the signal path, in the
-          user's order — drag a name along the line to re-plumb it */}
-      <div className="fx-chain" aria-label="Effect chain" ref={chainRef}>
-        {enabled === 0
-          ? <span className="fx-chain-empty">nothing in the chain — turn a print</span>
-          : order.filter((id) => (enabled & (1 << id)) !== 0).map((id, ci, arr) => (
-            <span key={id} className="fx-chain-item">
-              <button
-                data-chain-id={id}
-                className={`fx-chain-link${id === mode ? ' here' : ''}${chainDrag.current?.id === id && chainDrag.current?.moved ? ' drag' : ''}`}
-                onPointerDown={chainPointerDown(id)}
-                onPointerMove={chainPointerMove}
-                onPointerUp={chainPointerUp}
-                onPointerCancel={chainPointerUp}
-              >
-                {MODES.find((mm) => mm.id === id)?.name}
-              </button>
-              {ci < arr.length - 1 && <span className="fx-chain-sep">›</span>}
-            </span>
-          ))}
-      </div>
-
       <div className="fx-pager">
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} aria-label="Previous effect">‹</button>
         <div className="fx-chip">
@@ -892,14 +802,6 @@ export default function FxPanel ({ isOpen }: Props) {
           </span>
         </div>
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} aria-label="Next effect">›</button>
-        <button
-          className={`fx-add${inChain ? ' on' : ''}`}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={toggleChain}
-          aria-label={inChain ? 'Remove from chain' : 'Add to chain'}
-        >
-          {inChain ? '●' : '○'}
-        </button>
       </div>
       <div className="fx-variants">
         {VARIANTS[mode].map((name, vi) => (
@@ -916,6 +818,9 @@ export default function FxPanel ({ isOpen }: Props) {
 
       {!bridge && (
         <p className="fx-note">browser mode — the audio itself runs inside the daw.</p>
+      )}
+      {bridge && stale && (
+        <p className="fx-note">this room grew new prints — rebuild the plugin to hear them.</p>
       )}
 
       {mode === 4 && pluginEl && createPortal(

@@ -807,7 +807,8 @@ void OrbAudioProcessor::resetFxOne (int m)
             phFb[0] = phFb[1] = 0.0f;
             break;
         case kCut:
-            for (int ch = 0; ch < 2; ++ch) { cutBqHp[ch] = {}; cutBqLp[ch] = {}; }
+            for (int ch = 0; ch < 2; ++ch)
+            { cutBqHp[ch] = {}; cutBqLp[ch] = {}; cutBqHp2[ch] = {}; cutBqLp2[ch] = {}; }
             cutBakedA = -1.0f;
             cutBakedVar = -1;
             cutUseHp = cutUseLp = false;
@@ -900,33 +901,20 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     const float sr = (float) juce::jmax (8000, captureSampleRate.load());
     if (n == 0 || nc == 0) return;
 
-    // Effects freshly added to the chain start clean and fade in from zero.
-    if (const int rst = fxResetMask.exchange (0, std::memory_order_acq_rel); rst != 0)
-        for (int m = 0; m < (int) kNumFx; ++m)
-            if ((rst & (1 << m)) != 0)
-            {
-                resetFxOne (m);
-                fxAmtSm[m] = m == kGain ? 0.75f : m == kTone ? 0.5f : 0.0f;
-            }
-
-    const int enabled = fxEnabled.load (std::memory_order_relaxed);
-    if ((enabled & (1 << kGlue)) == 0)
-        glueGrDb.store (0.0f, std::memory_order_relaxed);
-    if (enabled == 0) return;
+    const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load (std::memory_order_relaxed));
+    if (mode != fxLastMode)
+    {
+        // Fresh start for the incoming effect; the amount glides up from
+        // zero so switching never clicks (the old tail simply stops).
+        resetFxState();
+        fxLastMode = mode;
+        fxAmtSm[mode] = mode == kGain ? 0.75f : mode == kTone ? 0.5f : 0.0f;
+    }
+    if (mode != kGlue) glueGrDb.store (0.0f, std::memory_order_relaxed);
 
     float* L = buffer.getWritePointer (0);
     float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
-
-    // The chain runs in the user's order (defaults to studio convention:
-    // corrective cut first, drive and colour, motion, ghosts and echoes,
-    // rooms, imaging, dynamics, the fader last).
-    for (int slot = 0; slot < (int) kNumFx; ++slot)
-    {
-        const int m = juce::jlimit (0, (int) kNumFx - 1,
-                                    fxOrder[(size_t) slot].load (std::memory_order_relaxed));
-        if ((enabled & (1 << m)) != 0)
-            processFxOne (m, sr, n, L, R);
-    }
+    processFxOne (mode, sr, n, L, R);
 }
 
 void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R)
@@ -1000,10 +988,18 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                 cutUseLp = lpF > 0.0f && lpF < 19000.0f;
                 for (int ch = 0; ch < 2; ++ch)
                 {
-                    if (cutUseHp) bakeCutFilter (true,  juce::jlimit (10.0f, sr * 0.45f, hpF), sr,
-                                                 cutBqHp[ch].b0, cutBqHp[ch].b1, cutBqHp[ch].b2, cutBqHp[ch].a1, cutBqHp[ch].a2);
-                    if (cutUseLp) bakeCutFilter (false, juce::jlimit (40.0f, sr * 0.45f, lpF), sr,
-                                                 cutBqLp[ch].b0, cutBqLp[ch].b1, cutBqLp[ch].b2, cutBqLp[ch].a1, cutBqLp[ch].a2);
+                    if (cutUseHp)
+                    {
+                        const float f = juce::jlimit (10.0f, sr * 0.45f, hpF);
+                        bakeCutFilter (true, f, sr, cutBqHp[ch].b0,  cutBqHp[ch].b1,  cutBqHp[ch].b2,  cutBqHp[ch].a1,  cutBqHp[ch].a2);
+                        bakeCutFilter (true, f, sr, cutBqHp2[ch].b0, cutBqHp2[ch].b1, cutBqHp2[ch].b2, cutBqHp2[ch].a1, cutBqHp2[ch].a2);
+                    }
+                    if (cutUseLp)
+                    {
+                        const float f = juce::jlimit (40.0f, sr * 0.45f, lpF);
+                        bakeCutFilter (false, f, sr, cutBqLp[ch].b0,  cutBqLp[ch].b1,  cutBqLp[ch].b2,  cutBqLp[ch].a1,  cutBqLp[ch].a2);
+                        bakeCutFilter (false, f, sr, cutBqLp2[ch].b0, cutBqLp2[ch].b1, cutBqLp2[ch].b2, cutBqLp2[ch].a1, cutBqLp2[ch].a2);
+                    }
                 }
                 cutBakedA = a; cutBakedVar = variant;
             }
@@ -1011,14 +1007,14 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
             for (int i = 0; i < n; ++i)
             {
                 float x = L[i];
-                if (cutUseHp) x = cutBqHp[0].run (x);
-                if (cutUseLp) x = cutBqLp[0].run (x);
+                if (cutUseHp) x = cutBqHp2[0].run (cutBqHp[0].run (x));
+                if (cutUseLp) x = cutBqLp2[0].run (cutBqLp[0].run (x));
                 L[i] = x;
                 if (R != nullptr)
                 {
                     float y = R[i];
-                    if (cutUseHp) y = cutBqHp[1].run (y);
-                    if (cutUseLp) y = cutBqLp[1].run (y);
+                    if (cutUseHp) y = cutBqHp2[1].run (cutBqHp[1].run (y));
+                    if (cutUseLp) y = cutBqLp2[1].run (cutBqLp[1].run (y));
                     R[i] = y;
                 }
             }
@@ -1460,42 +1456,10 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
         if (v.hasProperty ("decay"))
             fxSpaceDecay[(size_t) juce::jlimit (0, 2, fxVariant[kSpace].load())]
                 .store (juce::jlimit (0.0f, 1.0f, (float) (double) v["decay"]));
-        if (v.hasProperty ("enabled"))
-        {
-            // Chain membership for `mode`. Freshly enabled effects get a
-            // state reset on the audio thread so old tails never leak in.
-            const bool en  = (bool) v["enabled"];
-            const int  bit = 1 << mode;
-            int bits = fxEnabled.load();
-            if (en && (bits & bit) == 0)
-                fxResetMask.fetch_or (bit, std::memory_order_acq_rel);
-            bits = en ? (bits | bit) : (bits & ~bit);
-            fxEnabled.store (bits);
-        }
         if (v.hasProperty ("delayDiv"))
             fxDelayDiv.store (juce::jlimit (0, 6, (int) v["delayDiv"]));
         if (v.hasProperty ("delayFb"))
             fxDelayFb.store (juce::jlimit (0.0f, 1.0f, (float) (double) v["delayFb"]));
-        if (v.hasProperty ("order"))
-        {
-            // Must be a full permutation of 0..kNumFx-1 or it's ignored.
-            if (auto* oa = v["order"].getArray(); oa != nullptr && oa->size() == (int) kNumFx)
-            {
-                int seen = 0;
-                bool ok = true;
-                std::array<int, kNumFx> tmp {};
-                for (int i = 0; i < (int) kNumFx; ++i)
-                {
-                    const int mi = (int) oa->getReference (i);
-                    if (mi < 0 || mi >= (int) kNumFx || (seen & (1 << mi)) != 0) { ok = false; break; }
-                    seen |= 1 << mi;
-                    tmp[(size_t) i] = mi;
-                }
-                if (ok)
-                    for (int i = 0; i < (int) kNumFx; ++i)
-                        fxOrder[(size_t) i].store (tmp[(size_t) i]);
-            }
-        }
     }
     completion (juce::var (true));
 }
@@ -1514,12 +1478,8 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     juce::Array<juce::var> decays;
     for (auto& dc : fxSpaceDecay) decays.add ((double) dc.load());
     obj->setProperty ("decays", decays);
-    obj->setProperty ("enabled", fxEnabled.load());
     obj->setProperty ("delayDiv", fxDelayDiv.load());
     obj->setProperty ("delayFb", (double) fxDelayFb.load());
-    juce::Array<juce::var> order;
-    for (auto& o : fxOrder) order.add (o.load());
-    obj->setProperty ("order", order);
     completion (juce::var (obj));
 }
 
@@ -1530,12 +1490,8 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     juce::XmlElement xml ("OrbState");
     xml.setAttribute ("fxMode", fxMode.load());
-    xml.setAttribute ("fxEnabled", fxEnabled.load());
     xml.setAttribute ("fxDelayDiv", fxDelayDiv.load());
     xml.setAttribute ("fxDelayFb", (double) fxDelayFb.load());
-    juce::StringArray orderStr;
-    for (auto& o : fxOrder) orderStr.add (juce::String (o.load()));
-    xml.setAttribute ("fxOrder", orderStr.joinIntoString (","));
     for (int i = 0; i < (int) kNumFx; ++i)
     {
         xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
@@ -1564,40 +1520,6 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         fxDelayDiv.store (juce::jlimit (0, 6, xml->getIntAttribute ("fxDelayDiv", 2)));
         fxDelayFb.store (juce::jlimit (0.0f, 1.0f,
             (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
-        int en = xml->getIntAttribute ("fxEnabled", -1);
-        if (en < 0)
-        {
-            // Pre-chain states knew only one active mode — it joins the
-            // chain if it was actually doing something.
-            const int   m   = fxMode.load();
-            const float amt = fxAmount[(size_t) m].load();
-            const bool active = m == kTone ? std::abs (amt - 0.5f) > 0.004f
-                              : m == kGain ? std::abs (amt - 0.75f) > 0.002f || fxVariant[kGain].load() != 0
-                              : amt > 0.004f;
-            en = active ? (1 << m) : 0;
-        }
-        fxEnabled.store (en & ((1 << (int) kNumFx) - 1));
-        {
-            juce::StringArray toks;
-            toks.addTokens (xml->getStringAttribute ("fxOrder", ""), ",", "");
-            if (toks.size() == (int) kNumFx)
-            {
-                int seen = 0;
-                bool ok = true;
-                std::array<int, kNumFx> tmp {};
-                for (int i = 0; i < (int) kNumFx; ++i)
-                {
-                    const int mi = toks[i].getIntValue();
-                    if (mi < 0 || mi >= (int) kNumFx || (seen & (1 << mi)) != 0) { ok = false; break; }
-                    seen |= 1 << mi;
-                    tmp[(size_t) i] = mi;
-                }
-                if (ok)
-                    for (int i = 0; i < (int) kNumFx; ++i)
-                        fxOrder[(size_t) i].store (tmp[(size_t) i]);
-            }
-        }
-        fxResetMask.store ((1 << (int) kNumFx) - 1);   // fresh tails for the loaded chain
     }
 }
 

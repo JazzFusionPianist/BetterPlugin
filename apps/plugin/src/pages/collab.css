@@ -9462,3 +9462,45 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 /* Offline orbs are dimmed as a whole; the name dims with them, which is
    the right read (present ≠ absent). */
+
+/* ── FX chain strip: the signal path spelled out under the plate ────── */
+.fx-chain {
+  min-height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; flex-wrap: wrap;
+  padding: 0 18px;
+  margin-bottom: 2px;
+}
+.fx-chain-item { display: inline-flex; align-items: center; gap: 6px; }
+.fx-chain-link {
+  background: none; border: none; padding: 1px 2px; cursor: pointer;
+  font-family: var(--f-serif); font-size: 12.5px; text-transform: lowercase;
+  color: rgba(246, 243, 234, 0.55);
+  transition: color 0.3s;
+}
+.fx-chain-link.here { color: #5A6BFF; font-style: italic; }
+.fx-chain-link:hover { color: rgba(246, 243, 234, 0.9); }
+.fx-chain-sep { color: rgba(246, 243, 234, 0.3); font-size: 11px; }
+.fx-chain-empty {
+  font-family: var(--f-serif); font-style: italic; font-size: 11.5px;
+  color: rgba(246, 243, 234, 0.35); text-transform: lowercase;
+}
+/* in-chain toggle riding the pager row */
+.fx-add {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid rgba(246, 243, 234, 0.25);
+  border-radius: 50%;
+  color: rgba(246, 243, 234, 0.5);
+  font-size: 10px; line-height: 1; cursor: pointer;
+  transition: color 0.25s, border-color 0.25s;
+}
+.fx-add.on { color: #5A6BFF; border-color: #5A6BFF; }
+.fx-add:hover { border-color: rgba(246, 243, 234, 0.6); }
+
+/* The halo apron overflows the body sideways; focus restoration would
+   silently PAN the room to chase a focused pager button (the WKWebView
+   programmatic-scroll monster, browser edition). clip removes the scroll
+   mechanism entirely — same cure as .plugin/.content. */
+.fx-body { overflow: hidden; overflow: clip; }
+.fx-stage { overflow: visible; }

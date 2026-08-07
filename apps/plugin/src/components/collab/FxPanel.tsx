@@ -1,30 +1,40 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
-/** The seven one-knob effects, in processor order. Each is drawn as a
- *  print on a darkened room wall — the print itself is the control,
- *  and the wall warms toward each effect's own colour as you turn it. */
+/** The eleven one-knob effects. Each is drawn as a print on a darkened
+ *  room wall — the print itself is the control, and the wall warms toward
+ *  each effect's own colour as you turn it. Any subset can be IN THE
+ *  CHAIN at once; display order here = the processor's chain order, so
+ *  paging left-to-right reads like the signal path. */
 const MODES: Array<{ id: FxMode; name: string }> = [
+  { id: 7, name: 'cut' },
+  { id: 8, name: 'amp' },
   { id: 0, name: 'tone' },
   { id: 1, name: 'tape' },
+  { id: 6, name: 'mod' },
+  { id: 9, name: 'doubler' },
+  { id: 10, name: 'delay' },
   { id: 2, name: 'space' },
   { id: 3, name: 'stereo' },
   { id: 4, name: 'glue' },
   { id: 5, name: 'gain' },
-  { id: 6, name: 'mod' },
 ]
 
-/** Sub-flavours, shown under the mode slot. Gain's row is special-cased
- *  in the render: two independent polarity toggles, not a radio. */
+/** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
+ *  row is special-cased in the render: two polarity toggles, not a radio. */
 const VARIANTS: string[][] = [
-  [],
-  ['hard', 'clean'],
-  ['hall', 'room', 'plate'],
-  [],
-  [],
-  [],
-  ['chorus', 'flanger', 'phaser'],
+  [],                              // tone
+  ['hard', 'clean'],               // tape
+  ['hall', 'room', 'plate'],       // space
+  [],                              // stereo
+  [],                              // glue
+  [],                              // gain
+  ['chorus', 'flanger', 'phaser'], // mod
+  ['low', 'high', 'band'],         // cut
+  ['crunch', 'lead', 'fuzz'],      // amp
+  ['tight', 'wide'],               // doubler
+  ['clean', 'tape', 'pingpong'],   // delay
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -44,6 +54,10 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [52, 199, 118],   // glue — signal green
   [255, 56, 84],    // gain — scarlet meter
   [255, 84, 200],   // mod/chorus — rose neon
+  [140, 190, 255],  // cut/low — surgical ice
+  [236, 62, 34],    // amp/crunch — ember
+  [64, 220, 200],   // doubler — twin aqua
+  [255, 204, 64],   // delay/clean — echo gold
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -62,6 +76,21 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
     [70, 215, 205],   // flanger — jet turquoise
     [178, 232, 66],   // phaser — acid lime
   ],
+  7: [
+    [140, 190, 255],  // low — surgical ice
+    [255, 150, 110],  // high — warm dusk
+    [186, 120, 255],  // band — radio violet
+  ],
+  8: [
+    [236, 92, 40],    // crunch — ember
+    [255, 48, 96],    // lead — stage red
+    [186, 255, 60],   // fuzz — acid
+  ],
+  10: [
+    [255, 204, 64],   // clean — echo gold
+    [255, 140, 50],   // tape — worn amber
+    [120, 214, 255],  // pingpong — table-tennis sky
+  ],
 }
 
 /** Glow colour (as an "r, g, b" triple): the flavour tint pushed most
@@ -77,7 +106,7 @@ function glowRgb (mode: FxMode, variant: number): string {
 
 /** Sparse plates emit less light per hit (space is a few thin rings vs
  *  tone's dense hatching) — even the score with a per-plate boost. */
-const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15]
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -329,9 +358,180 @@ function ModArt ({ a }: { a: number }) {
   return <g>{rows}</g>
 }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt]
+/* ── cut: a forest of spectrum hairlines; the cut side erodes away and a
+      blue boundary marks the knife ────────────────────────────────────── */
+function CutArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const bars = []
+  const N = 27
+  let lo = 0, hi = 1
+  if (variant === 0) lo = a * 0.78
+  else if (variant === 1) hi = 1 - a * 0.78
+  else { const w = 1 - a * 0.86; lo = 0.5 - w / 2; hi = 0.5 + w / 2 }
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1)
+    const x = C - R + 8 + t * (2 * R - 16)
+    const half = Math.sqrt(Math.max(0, R * R - (x - C) * (x - C))) * 0.82
+    const kept = t >= lo && t <= hi
+    bars.push(
+      <line key={i} x1={x} y1={C - half} x2={x} y2={C + half}
+        stroke={s} strokeWidth={kept ? 1.5 : 0.6} opacity={kept ? 0.95 : 0.16} />,
+    )
+  }
+  const edges: ReactNode[] = []
+  const edge = (t: number, k: string) => {
+    const x = C - R + 8 + t * (2 * R - 16)
+    const half = Math.sqrt(Math.max(0, R * R - (x - C) * (x - C))) * 0.92
+    edges.push(<line key={k} x1={x} y1={C - half} x2={x} y2={C + half} stroke={acc} strokeWidth={1.8} />)
+  }
+  if (variant !== 1 && lo > 0.01) edge(lo, 'lo')
+  if (variant !== 0 && hi < 0.99) edge(hi, 'hi')
+  return <g>{bars}{edges}</g>
+}
 
-function fmtValue (mode: FxMode, a: number): string {
+/* ── amp: rows of sine pressed into the ceiling — flat-tops grow with the
+      drive until the wave is a wall ───────────────────────────────────── */
+function AmpArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const rows = []
+  for (let k = 0; k < 7; k++) {
+    const y0 = C - 57 + k * 19
+    const half = Math.sqrt(Math.max(0, R * R - (y0 - C) * (y0 - C))) - 8
+    if (half < 16) continue
+    const pts: string[] = []
+    for (let i = 0; i <= 60; i++) {
+      const x = -half + (i / 60) * half * 2
+      let v = Math.sin(x / 9 + k * 0.9) * (1 + a * 6)
+      v = Math.max(-1, Math.min(1, v))
+      pts.push(`${(C + x).toFixed(1)} ${(y0 - v * 7.4).toFixed(1)}`)
+    }
+    rows.push(
+      <path key={k} d={`M ${pts.join(' L ')}`} fill="none"
+        stroke={k === 3 ? acc : s} strokeWidth={k === 3 ? 1.7 : 1.1 + a * 0.7} />,
+    )
+  }
+  return <g>{rows}</g>
+}
+
+/* ── doubler: the same print registered twice — the ghost pass drifts off
+      the master as the second take gets louder ──────────────────────────── */
+function DoublerArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const dx = 3 + a * 22
+  const dy = 2 + a * 7
+  const ghost = []
+  const master = []
+  for (let y = -R + 16; y <= R - 16; y += 11) {
+    const half = Math.sqrt(Math.max(0, R * R - y * y)) * 0.62
+    ghost.push(
+      <line key={'g' + y} x1={C - half + dx} y1={C + y + dy} x2={C + half + dx} y2={C + y + dy}
+        stroke={acc} strokeWidth={2.1} opacity={0.25 + a * 0.5} />,
+    )
+    master.push(
+      <line key={'m' + y} x1={C - half} y1={C + y} x2={C + half} y2={C + y}
+        stroke={s} strokeWidth={2.1} />,
+    )
+  }
+  return <g>{ghost}{master}</g>
+}
+
+/* ── delay: one strike and its echoes — spacing is the division, fade is
+      the feedback. Both hands live in the print: the division reads at the
+      top (drag east-west, snaps per step), the feedback ladder sits under
+      the plate like space's decay ────────────────────────────────────────── */
+const DIV_LABELS = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2']
+const DIV_BEATS = [0.25, 1 / 3, 0.5, 0.75, 1, 1.5, 2]
+function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
+  a: number
+  div?: number
+  fb?: number
+  onDiv?: (next: number) => void
+  onFb?: (next: number, force?: boolean) => void
+}) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const dragDiv = useRef<{ x: number; d: number } | null>(null)
+  const dragFb = useRef<{ x: number; f: number; last: number } | null>(null)
+  const sp = 10 + DIV_BEATS[div] * 26
+  const gain = 0.25 + fb * 0.72
+  const marks = []
+  let x = C - R + 18
+  let op = 1
+  let i = 0
+  while (x <= C + R - 10 && op > 0.045) {
+    const half = (i === 0 ? 46 : 40) * (0.55 + 0.45 * op)
+    marks.push(
+      <line key={i} x1={x} y1={C - half} x2={x} y2={C + half}
+        stroke={i === 0 ? acc : s} strokeWidth={i === 0 ? 4 : 2.4} opacity={i === 0 ? 1 : op} />,
+    )
+    x += sp
+    op *= gain
+    i++
+  }
+  const fbRungs = []
+  for (let k = 0; k < 13; k++) {
+    fbRungs.push(
+      <line key={k} x1={C - 60 + k * 8} y1={204} x2={C - 60 + k * 8} y2={214}
+        stroke={k === 0 ? acc : s} strokeWidth={1.3}
+        opacity={Math.max(0.04, Math.pow(0.3 + fb * 0.68, k))} />,
+    )
+  }
+  return (
+    <g>
+      {marks}
+      <g
+        className="fx-hot"
+        style={{ cursor: 'ew-resize' }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          dragDiv.current = { x: e.clientX, d: div }
+          try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
+        }}
+        onPointerMove={(e) => {
+          if (!dragDiv.current) return
+          const steps = Math.round((e.clientX - dragDiv.current.x) / 34)
+          onDiv?.(Math.min(6, Math.max(0, dragDiv.current.d + steps)))
+        }}
+        onPointerUp={() => { dragDiv.current = null }}
+        onDoubleClick={(e) => { e.stopPropagation(); onDiv?.(2) }}
+        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDiv?.(Math.min(6, Math.max(0, div + Math.sign(e.deltaY)))) }}
+      >
+        <rect x={C - 44} y={4} width={88} height={28} fill="transparent" stroke="none" />
+        <text x={C} y={23} textAnchor="middle" fontSize="13" letterSpacing="1"
+          fill={acc} fontStyle="italic">{DIV_LABELS[div]}</text>
+      </g>
+      <g
+        className="fx-hot"
+        style={{ cursor: 'ew-resize' }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          dragFb.current = { x: e.clientX, f: fb, last: fb }
+          try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
+        }}
+        onPointerMove={(e) => {
+          if (!dragFb.current) return
+          const next = dragFb.current.f + (e.clientX - dragFb.current.x) / 150
+          dragFb.current.last = Math.min(1, Math.max(0, next))
+          onFb?.(next)
+        }}
+        onPointerUp={() => {
+          if (dragFb.current) onFb?.(dragFb.current.last, true)
+          dragFb.current = null
+        }}
+        onDoubleClick={(e) => { e.stopPropagation(); onFb?.(0.35, true) }}
+        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onFb?.(fb + Math.sign(e.deltaY) * 0.03, true) }}
+      >
+        <rect x={C - 68} y={197} width={150} height={23} fill="transparent" stroke="none" />
+        {fbRungs}
+        <text x={C + 52} y={212.5} fontSize="9" letterSpacing="0.5"
+          fill={s} opacity={0.85}>{Math.round(fb * 100)}</text>
+      </g>
+    </g>
+  )
+}
+
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt]
+
+function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 0) {
     const db = (a - 0.5) * 12
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
@@ -339,6 +539,11 @@ function fmtValue (mode: FxMode, a: number): string {
   if (mode === 5) {
     const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
+  }
+  if (mode === 7) {
+    if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
+    const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)
+    return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`
   }
   return `${Math.round(a * 100)}`
 }
@@ -352,6 +557,9 @@ export default function FxPanel ({ isOpen }: Props) {
   const [amounts, setAmounts] = useState<number[]>([...FX_DEFAULTS.amounts])
   const [variants, setVariants] = useState<number[]>([...FX_DEFAULTS.variants])
   const [decays, setDecays] = useState<number[]>([...FX_DEFAULTS.decays])
+  const [enabled, setEnabled] = useState<number>(FX_DEFAULTS.enabled)
+  const [delayDiv, setDelayDiv] = useState<number>(FX_DEFAULTS.delayDiv)
+  const [delayFb, setDelayFb] = useState<number>(FX_DEFAULTS.delayFb)
   const [bridge] = useState(() => hasFxBridge())
   const [showValue, setShowValue] = useState(false)
   const [lit, setLit] = useState(false)          // false = still paper; true = the room is dark
@@ -379,7 +587,10 @@ export default function FxPanel ({ isOpen }: Props) {
     // Nothing in the room may hold keyboard focus — space and every other
     // key must fall through the responder chain to the DAW transport.
     (document.activeElement as HTMLElement | null)?.blur?.()
-    void getFx().then((s) => { setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants); setDecays(s.decays) })
+    void getFx().then((s) => {
+      setMode(s.mode); setAmounts(s.amounts); setVariants(s.variants); setDecays(s.decays)
+      setEnabled(s.enabled); setDelayDiv(s.delayDiv); setDelayFb(s.delayFb)
+    })
     // let the paper render once, then dim the room slowly
     const t = setTimeout(() => setLit(true), 40)
     return () => clearTimeout(t)
@@ -485,14 +696,53 @@ export default function FxPanel ({ isOpen }: Props) {
     hideTimer.current = setTimeout(() => setShowValue(false), 750)
   }
 
+  const inChain = (enabled & (1 << mode)) !== 0
+
   const apply = (next: number, force = false) => {
     const clamped = Math.min(1, Math.max(0, next))
     setAmounts((prev) => prev.map((v, i) => (i === mode ? clamped : v)))
     flashValue()
+    // Turning a print IS reaching for the effect — it joins the chain.
+    const joining = ! inChain
+    if (joining) setEnabled((e) => e | (1 << mode))
     const now = performance.now()
-    if (force || now - lastSent.current > 33) {
+    if (force || joining || now - lastSent.current > 33) {
       lastSent.current = now
-      setFx({ mode, amount: clamped })
+      setFx(joining ? { mode, amount: clamped, enabled: true } : { mode, amount: clamped })
+    }
+  }
+
+  const toggleChain = () => {
+    const en = ! inChain
+    setEnabled((e) => (en ? e | (1 << mode) : e & ~(1 << mode)))
+    setFx({ mode, enabled: en })
+  }
+
+  const jumpTo = (id: FxMode) => {
+    if (id === mode) return
+    setMode(id)
+    setShowValue(false)
+    setSlide(null)
+    setFx({ mode: id })
+    grTarget.current = 0
+    grDisp.current = 0
+  }
+
+  const applyDiv = (d: number) => {
+    const c = Math.min(6, Math.max(0, Math.round(d)))
+    if (c === delayDiv) return
+    setDelayDiv(c)
+    setFx({ delayDiv: c })
+  }
+
+  const lastFbSent = useRef(0)
+  const applyFb = (next: number, force = false) => {
+    const clamped = Math.min(1, Math.max(0, next))
+    setDelayFb(clamped)
+    const now = performance.now()
+    if (force || now - lastFbSent.current > 33) {
+      lastFbSent.current = now
+      setFx({ delayFb: clamped })
     }
   }
 
@@ -513,7 +763,8 @@ export default function FxPanel ({ isOpen }: Props) {
   }
 
   const step = (dir: 1 | -1) => {
-    const next = MODES[(mode + dir + MODES.length) % MODES.length].id
+    const di = MODES.findIndex((mm) => mm.id === mode)
+    const next = MODES[(di + dir + MODES.length) % MODES.length].id
     setMode(next)
     setShowValue(false)
     setSlide(dir === 1 ? 'r' : 'l')
@@ -531,7 +782,7 @@ export default function FxPanel ({ isOpen }: Props) {
           ref={artRef}
           className="fx-art"
           role="slider"
-          aria-label={`${MODES[mode].name} amount`}
+          aria-label={`${MODES.find((mm) => mm.id === mode)?.name ?? ''} amount`}
           aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(a * 100)}
           onPointerDown={(e) => {
             dragging.current = true
@@ -553,21 +804,51 @@ export default function FxPanel ({ isOpen }: Props) {
                 ? <SpaceArt a={a} decay={decays[variant] ?? 0.5} variant={variant} onDecay={applyDecay} />
                 : mode === 5
                   ? <GainArt a={a} pol={variant} onFlip={(bit) => pickVariant(variant ^ bit)} />
-                  : <Art a={a} />}
+                  : mode === 7
+                    ? <CutArt a={a} variant={variant} />
+                    : mode === 10
+                      ? <DelayArt a={a} div={delayDiv} fb={delayFb} onDiv={applyDiv} onFb={applyFb} />
+                      : <Art a={a} />}
             </svg>
           </div>
-          <span className={`fx-art-value${showValue ? ' show' : ''}`} style={{ color: strokeFor(a) }}>{fmtValue(mode, a)}</span>
+          <span className={`fx-art-value${showValue ? ' show' : ''}`} style={{ color: strokeFor(a) }}>{fmtValue(mode, a, variant)}</span>
         </div>
+      </div>
+
+      {/* the chain: every effect currently in the signal path, in order */}
+      <div className="fx-chain" aria-label="Effect chain">
+        {enabled === 0
+          ? <span className="fx-chain-empty">nothing in the chain — turn a print</span>
+          : MODES.filter((mm) => (enabled & (1 << mm.id)) !== 0).map((mm, ci, arr) => (
+            <span key={mm.id} className="fx-chain-item">
+              <button
+                className={`fx-chain-link${mm.id === mode ? ' here' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => jumpTo(mm.id)}
+              >
+                {mm.name}
+              </button>
+              {ci < arr.length - 1 && <span className="fx-chain-sep">·</span>}
+            </span>
+          ))}
       </div>
 
       <div className="fx-pager">
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} aria-label="Previous effect">‹</button>
         <div className="fx-chip">
           <span key={mode} className={`fx-chip-label${slide ? ` from-${slide}` : ''}`}>
-            {MODES[mode].name}
+            {MODES.find((mm) => mm.id === mode)?.name}
           </span>
         </div>
         <button className="fx-arrow" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} aria-label="Next effect">›</button>
+        <button
+          className={`fx-add${inChain ? ' on' : ''}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={toggleChain}
+          aria-label={inChain ? 'Remove from chain' : 'Add to chain'}
+        >
+          {inChain ? '●' : '○'}
+        </button>
       </div>
       <div className="fx-variants">
         {VARIANTS[mode].map((name, vi) => (

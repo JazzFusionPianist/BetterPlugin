@@ -100,20 +100,34 @@ private:
     std::atomic<bool>   transportPlaying { false };
 
     //── One-knob FX rack ─────────────────────────────────────────────────────
-    // Five switchable single-parameter effects, applied in processBlock
-    // BEFORE the capture FIFO (what you hear is what you share). Mode and
-    // per-mode amounts are set from the web UI via setFx / getFx and
-    // persisted in plugin state. amounts[kTone] is bipolar around 0.5.
-    enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod, kNumFx };
+    // Eleven single-parameter effects, applied in processBlock BEFORE the
+    // capture FIFO (what you hear is what you share). Any subset can be
+    // ENABLED simultaneously — the chain runs in a fixed studio order
+    // (cut → amp → tone → tape → mod → doubler → delay → space → stereo →
+    // glue → gain). fxMode is only the plate the UI is looking at; the
+    // knob edits that mode's amount. amounts[kTone] is bipolar around 0.5.
+    enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
+                  kCut, kAmp, kDoubler, kDelay, kNumFx };
     std::atomic<int> fxMode { kTone };
+    // Which effects are in the chain — one bit per FxMode.
+    std::atomic<int> fxEnabled { 0 };
+    // Bits set by handleSetFx when an effect is (re-)enabled: the audio
+    // thread resets that effect's state and glides its amount in from zero.
+    std::atomic<int> fxResetMask { 0 };
     // amounts[kGain] is a fader: 0.75 = unity, 0 = −60 dB, 1 = +12 dB.
-    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.75f}, {0.0f} }};
+    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.75f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} }};
     // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate;
     // gain is a polarity BITMASK (bit0 = invert L, bit1 = invert R);
-    // mod 0=chorus 1=flanger 2=phaser.
-    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
+    // mod 0=chorus 1=flanger 2=phaser; cut 0=low 1=high 2=band;
+    // amp 0=crunch 1=lead 2=fuzz; doubler 0=tight 1=wide;
+    // delay 0=clean 1=tape 2=pingpong.
+    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
     // Space's second hand: decay per flavour [hall, room, plate], 0.5 = stock.
     std::array<std::atomic<float>, 3> fxSpaceDecay {{ {0.5f}, {0.5f}, {0.5f} }};
+    // Delay's two hands: beat division index into {1/16, 1/8T, 1/8, 1/8.,
+    // 1/4, 1/4., 1/2} and feedback 0..1. Time follows the host BPM.
+    std::atomic<int>   fxDelayDiv { 2 };
+    std::atomic<float> fxDelayFb  { 0.35f };
 
     void handleSetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);
@@ -125,8 +139,8 @@ private:
                     inline float run (float x) noexcept {
                         const float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
                         x2 = x1; x1 = x; y2 = y1; y1 = y; return y; } };
-    float fxAmtSm = 0.0f;        // smoothed amount for the active mode
-    int   fxLastMode = kTone;
+    float fxAmtSm[kNumFx] {};    // smoothed amount, one per effect
+    int   fxLastVar[kNumFx] {};  // per-effect variant (for light-touch rebakes)
     float tiltApplied = 999.0f;  // dB of the currently-baked shelf coeffs
     Biquad tiltLow[2], tiltHigh[2];
     float tapeLpState[2] { 0, 0 };
@@ -137,7 +151,6 @@ private:
     juce::Reverb fxReverb;
     juce::AudioBuffer<float> fxWetBuf { 2, 2048 };
     float sendHpState[2] { 0, 0 };      // reverb send low-cut state
-    int   fxLastVariant = 0;
     float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
     float sideHpState = 0.0f;
     float glueEnv = 0.0f;        // linear peak envelope
@@ -155,8 +168,28 @@ private:
     int   modWrite = 0;
     float phX1[6][2] {}, phY1[6][2] {};
     float phFb[2] { 0.0f, 0.0f };
+    // kCut: low/high/band 12 dB/oct pair. Baked when knob or flavour moves.
+    Biquad cutBqHp[2], cutBqLp[2];
+    bool  cutUseHp = false, cutUseLp = false;
+    float cutBakedA = -1.0f;
+    int   cutBakedVar = -1;
+    // kAmp: input tightener HP, DC blocker after the asymmetric shaper,
+    // darkening one-pole.
+    float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
+    // kDoubler: its own short modulated delay pair (independent of kMod's).
+    std::vector<float> dblDl[2];
+    int   dblWrite = 0;
+    float dblLfoPhase = 0.0f;
+    // kDelay: BPM-synced echo, ~3 s line; the read head GLIDES to the new
+    // length on tempo/division change (tape-style repitch, no clicks).
+    std::vector<float> dlyBuf[2];
+    int   dlyWrite = 0;
+    float dlySmSamp = -1.0f;       // smoothed delay length in samples
+    float dlyFbLp[2] {};           // tape-flavour feedback damping state
     void resetFxState();
+    void resetFxOne (int m);
     void processFx (juce::AudioBuffer<float>& buffer);
+    void processFxOne (int m, float sr, int n, float* L, float* R);
 
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;

@@ -201,6 +201,14 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     const int mlen = (int) (sampleRate * 0.06) + 64;
     modDl[0].assign ((size_t) mlen, 0.0f);
     modDl[1].assign ((size_t) mlen, 0.0f);
+    // Doubler ghosts live within ~35 ms; the echo line holds a half note
+    // down to 43 BPM (~2.8 s) with headroom.
+    const int dlen = (int) (sampleRate * 0.06) + 64;
+    dblDl[0].assign ((size_t) dlen, 0.0f);
+    dblDl[1].assign ((size_t) dlen, 0.0f);
+    const int elen = (int) (sampleRate * 3.0) + 64;
+    dlyBuf[0].assign ((size_t) elen, 0.0f);
+    dlyBuf[1].assign ((size_t) elen, 0.0f);
     resetFxState();
 }
 
@@ -744,38 +752,85 @@ void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
 
 
 //==============================================================================
-// One-knob FX rack — five tiny effects, one amount each.
+// One-knob FX rack — eleven tiny effects, one amount each, chained.
 
 void OrbAudioProcessor::resetFxState()
 {
-    for (int ch = 0; ch < 2; ++ch)
+    for (int m = 0; m < (int) kNumFx; ++m)
     {
-        tiltLow[ch]  = {};
-        tiltHigh[ch] = {};
-        tapeLpState[ch] = 0.0f;
+        resetFxOne (m);
+        fxAmtSm[m] = m == kGain ? 0.75f : m == kTone ? 0.5f : 0.0f;
+        fxLastVar[m] = fxVariant[(size_t) m].load();
     }
-    tiltApplied = 999.0f;
-    for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
-    sideHpState = 0.0f;
-    glueEnv = 0.0f;
-    for (int ch = 0; ch < 2; ++ch)
+}
+
+void OrbAudioProcessor::resetFxOne (int m)
+{
+    switch (m)
     {
-        cleanXoState[ch] = 0.0f;
-        cleanXoState2[ch] = 0.0f;
-        cleanShelf[ch] = {};
-        sendHpState[ch] = 0.0f;
+        case kTone:
+            for (int ch = 0; ch < 2; ++ch) { tiltLow[ch] = {}; tiltHigh[ch] = {}; }
+            tiltApplied = 999.0f;
+            break;
+        case kTape:
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                tapeLpState[ch] = 0.0f;
+                cleanXoState[ch] = 0.0f;
+                cleanXoState2[ch] = 0.0f;
+                cleanShelf[ch] = {};
+            }
+            cleanShelfBaked = -1.0f;
+            break;
+        case kSpace:
+            fxReverb.reset();
+            sendHpState[0] = sendHpState[1] = 0.0f;
+            break;
+        case kStereoize:
+            for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
+            sideHpState = 0.0f;
+            break;
+        case kGlue:
+            glueEnv = 0.0f;
+            glueGrDb.store (0.0f, std::memory_order_relaxed);
+            break;
+        case kGain:
+            gainPrimed = false;
+            break;
+        case kMod:
+            modLfoPhase = 0.0f;
+            modWrite = 0;
+            std::fill (modDl[0].begin(), modDl[0].end(), 0.0f);
+            std::fill (modDl[1].begin(), modDl[1].end(), 0.0f);
+            for (int st = 0; st < 6; ++st)
+                for (int ch = 0; ch < 2; ++ch) { phX1[st][ch] = 0.0f; phY1[st][ch] = 0.0f; }
+            phFb[0] = phFb[1] = 0.0f;
+            break;
+        case kCut:
+            for (int ch = 0; ch < 2; ++ch) { cutBqHp[ch] = {}; cutBqLp[ch] = {}; }
+            cutBakedA = -1.0f;
+            cutBakedVar = -1;
+            cutUseHp = cutUseLp = false;
+            break;
+        case kAmp:
+            for (int ch = 0; ch < 2; ++ch)
+            { ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f; }
+            break;
+        case kDoubler:
+            dblWrite = 0;
+            dblLfoPhase = 0.0f;
+            std::fill (dblDl[0].begin(), dblDl[0].end(), 0.0f);
+            std::fill (dblDl[1].begin(), dblDl[1].end(), 0.0f);
+            break;
+        case kDelay:
+            dlyWrite = 0;
+            dlySmSamp = -1.0f;
+            dlyFbLp[0] = dlyFbLp[1] = 0.0f;
+            std::fill (dlyBuf[0].begin(), dlyBuf[0].end(), 0.0f);
+            std::fill (dlyBuf[1].begin(), dlyBuf[1].end(), 0.0f);
+            break;
+        default: break;
     }
-    cleanShelfBaked = -1.0f;
-    fxReverb.reset();
-    fxAmtSm = 0.0f;
-    gainPrimed = false;
-    modLfoPhase = 0.0f;
-    modWrite = 0;
-    std::fill (modDl[0].begin(), modDl[0].end(), 0.0f);
-    std::fill (modDl[1].begin(), modDl[1].end(), 0.0f);
-    for (int st = 0; st < 6; ++st)
-        for (int ch = 0; ch < 2; ++ch) { phX1[st][ch] = 0.0f; phY1[st][ch] = 0.0f; }
-    phFb[0] = phFb[1] = 0.0f;
 }
 
 // RBJ shelf (S = 1). type: false = low shelf, true = high shelf.
@@ -811,6 +866,33 @@ static void bakeShelf (bool high, float gainDb, float freq, float sr,
     b0 = bb0 / aa0; b1 = bb1 / aa0; b2 = bb2 / aa0; a1 = aa1 / aa0; a2 = aa2 / aa0;
 }
 
+// RBJ 2nd-order LP/HP (Q = 1/sqrt 2) for the cut effect.
+static void bakeCutFilter (bool hp, float freq, float sr,
+                           float& b0, float& b1, float& b2, float& a1, float& a2)
+{
+    const float w0    = juce::MathConstants<float>::twoPi * freq / sr;
+    const float cosw  = std::cos (w0);
+    const float sinw  = std::sin (w0);
+    const float alpha = sinw / (2.0f * 0.70710678f);
+    float bb0, bb1, bb2;
+    const float aa0 = 1.0f + alpha;
+    const float aa1 = -2.0f * cosw;
+    const float aa2 = 1.0f - alpha;
+    if (hp)
+    {
+        bb0 = (1.0f + cosw) * 0.5f;
+        bb1 = -(1.0f + cosw);
+        bb2 = (1.0f + cosw) * 0.5f;
+    }
+    else
+    {
+        bb0 = (1.0f - cosw) * 0.5f;
+        bb1 = 1.0f - cosw;
+        bb2 = (1.0f - cosw) * 0.5f;
+    }
+    b0 = bb0 / aa0; b1 = bb1 / aa0; b2 = bb2 / aa0; a1 = aa1 / aa0; a2 = aa2 / aa0;
+}
+
 void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 {
     const int n  = buffer.getNumSamples();
@@ -818,46 +900,62 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     const float sr = (float) juce::jmax (8000, captureSampleRate.load());
     if (n == 0 || nc == 0) return;
 
-    const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load (std::memory_order_relaxed));
-    const int variant = fxVariant[(size_t) mode].load (std::memory_order_relaxed);
-    if (mode != fxLastMode)
-    {
-        // Fresh start for the incoming effect; the amount glides up from
-        // zero so switching never clicks (the old tail simply stops).
-        resetFxState();
-        fxLastMode = mode;
-        fxLastVariant = variant;
-        // The fader is the one mode where zero means silence, not bypass —
-        // arrive at unity and glide to the stored position from there.
-        if (mode == kGain) fxAmtSm = 0.75f;
-    }
-    else if (variant != fxLastVariant)
-    {
-        // Flavour switch is a LIGHT touch: keep the amount and the tails
-        // so A/B is instant — just force filter re-bakes.
-        fxLastVariant = variant;
-        cleanShelfBaked = -1.0f;
-        tiltApplied = 999.0f;
-    }
+    // Effects freshly added to the chain start clean and fade in from zero.
+    if (const int rst = fxResetMask.exchange (0, std::memory_order_acq_rel); rst != 0)
+        for (int m = 0; m < (int) kNumFx; ++m)
+            if ((rst & (1 << m)) != 0)
+            {
+                resetFxOne (m);
+                fxAmtSm[m] = m == kGain ? 0.75f : m == kTone ? 0.5f : 0.0f;
+            }
 
-    const float target = juce::jlimit (0.0f, 1.0f, fxAmount[(size_t) mode].load (std::memory_order_relaxed));
-    const float alpha  = 1.0f - std::exp (-(float) n / (0.05f * sr));
-    fxAmtSm += (target - fxAmtSm) * alpha;
-    const float a = fxAmtSm;
-
-    if (mode != kGlue) glueGrDb.store (0.0f, std::memory_order_relaxed);
-
-    // Neutral positions cost nothing.
-    if (mode == kTone)      { if (std::abs (a - 0.5f) < 0.004f) return; }
-    else if (mode == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
-                                               && std::abs (target - 0.75f) < 0.002f) return; }
-    else                    { if (a < 0.004f && target < 0.004f)
-                              { glueGrDb.store (0.0f, std::memory_order_relaxed); return; } }
+    const int enabled = fxEnabled.load (std::memory_order_relaxed);
+    if ((enabled & (1 << kGlue)) == 0)
+        glueGrDb.store (0.0f, std::memory_order_relaxed);
+    if (enabled == 0) return;
 
     float* L = buffer.getWritePointer (0);
     float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
 
-    switch (mode)
+    // Fixed studio order: corrective cut first, drive and colour, motion,
+    // the ghosts and echoes, rooms, imaging, dynamics, the fader last.
+    static constexpr int kOrder[] = { kCut, kAmp, kTone, kTape, kMod,
+                                      kDoubler, kDelay, kSpace, kStereoize,
+                                      kGlue, kGain };
+    for (const int m : kOrder)
+        if ((enabled & (1 << m)) != 0)
+            processFxOne (m, sr, n, L, R);
+}
+
+void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R)
+{
+    const float twoPi = juce::MathConstants<float>::twoPi;
+    const int variant = fxVariant[(size_t) m].load (std::memory_order_relaxed);
+    if (variant != fxLastVar[m])
+    {
+        // Flavour switch is a LIGHT touch: keep the amount and the tails
+        // so A/B is instant — just force filter re-bakes.
+        fxLastVar[m] = variant;
+        if (m == kTape) cleanShelfBaked = -1.0f;
+        if (m == kTone) tiltApplied = 999.0f;
+        if (m == kCut)  cutBakedA = -1.0f;
+    }
+
+    const float target = juce::jlimit (0.0f, 1.0f, fxAmount[(size_t) m].load (std::memory_order_relaxed));
+    const float alpha  = 1.0f - std::exp (-(float) n / (0.05f * sr));
+    fxAmtSm[m] += (target - fxAmtSm[m]) * alpha;
+    const float a = fxAmtSm[m];
+
+    // Neutral positions cost nothing.
+    if (m == kTone)      { if (std::abs (a - 0.5f) < 0.004f) return; }
+    else if (m == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
+                                            && std::abs (target - 0.75f) < 0.002f)
+                           { gainPrimed = false; return; } }
+    else                 { if (a < 0.004f && target < 0.004f)
+                           { if (m == kGlue) glueGrDb.store (0.0f, std::memory_order_relaxed);
+                             return; } }
+
+    switch (m)
     {
         case kTone:
         {
@@ -880,6 +978,82 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             break;
         }
 
+        case kCut:
+        {
+            // One knob, three scalpels: low cut sweeps 20 Hz → 5 kHz,
+            // high cut sweeps 20 kHz → 63 Hz, band narrows a passband
+            // around 800 Hz until only the telephone is left.
+            if (std::abs (a - cutBakedA) > 0.0015f || variant != cutBakedVar)
+            {
+                float hpF = 0.0f, lpF = 0.0f;
+                if (variant == 0)      hpF = 20.0f * std::pow (2.0f, a * 8.0f);
+                else if (variant == 1) lpF = 20000.0f * std::pow (2.0f, -a * 8.3f);
+                else
+                {
+                    const float w = 0.3f + (1.0f - a) * 9.0f;   // width, octaves
+                    hpF = 800.0f / std::pow (2.0f, w * 0.5f);
+                    lpF = 800.0f * std::pow (2.0f, w * 0.5f);
+                }
+                cutUseHp = hpF > 21.0f;
+                cutUseLp = lpF > 0.0f && lpF < 19000.0f;
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    if (cutUseHp) bakeCutFilter (true,  juce::jlimit (10.0f, sr * 0.45f, hpF), sr,
+                                                 cutBqHp[ch].b0, cutBqHp[ch].b1, cutBqHp[ch].b2, cutBqHp[ch].a1, cutBqHp[ch].a2);
+                    if (cutUseLp) bakeCutFilter (false, juce::jlimit (40.0f, sr * 0.45f, lpF), sr,
+                                                 cutBqLp[ch].b0, cutBqLp[ch].b1, cutBqLp[ch].b2, cutBqLp[ch].a1, cutBqLp[ch].a2);
+                }
+                cutBakedA = a; cutBakedVar = variant;
+            }
+            if (! cutUseHp && ! cutUseLp) break;
+            for (int i = 0; i < n; ++i)
+            {
+                float x = L[i];
+                if (cutUseHp) x = cutBqHp[0].run (x);
+                if (cutUseLp) x = cutBqLp[0].run (x);
+                L[i] = x;
+                if (R != nullptr)
+                {
+                    float y = R[i];
+                    if (cutUseHp) y = cutBqHp[1].run (y);
+                    if (cutUseLp) y = cutBqLp[1].run (y);
+                    R[i] = y;
+                }
+            }
+            break;
+        }
+
+        case kAmp:
+        {
+            // crunch / lead / fuzz. A tight input HP keeps the lows from
+            // blowing up, the asymmetric tanh stage adds even harmonics
+            // (DC-blocked right after), and a one-pole LP darkens with the
+            // drive so the fizz never runs away.
+            const float drive = variant == 0 ? 1.0f + a * 7.0f
+                              : variant == 1 ? 1.0f + a * 16.0f
+                              :                1.5f + a * 30.0f;
+            const float asym  = variant == 2 ? 0.30f : 0.12f;
+            const float comp  = (variant == 2 ? 0.8f : 1.0f) / std::pow (drive, 0.6f);
+            const float hpK   = 1.0f - std::exp (-twoPi * (variant == 2 ? 150.0f : 90.0f) / sr);
+            const float lpF   = variant == 1 ? 8000.0f - a * 3500.0f : 9000.0f - a * 4500.0f;
+            const float lpK   = 1.0f - std::exp (-twoPi * lpF / sr);
+            const float dcK   = 1.0f - std::exp (-twoPi * 12.0f / sr);
+            const int chs = R != nullptr ? 2 : 1;
+            for (int i = 0; i < n; ++i)
+                for (int ch = 0; ch < chs; ++ch)
+                {
+                    float* S = ch == 1 ? R : L;
+                    ampHpState[ch] += (S[i] - ampHpState[ch]) * hpK;
+                    const float t = S[i] - ampHpState[ch];
+                    float y = std::tanh (drive * (t + asym * t * t)) * comp;
+                    ampDcState[ch] += (y - ampDcState[ch]) * dcK;
+                    y -= ampDcState[ch];
+                    ampLpState[ch] += (y - ampLpState[ch]) * lpK;
+                    S[i] = ampLpState[ch];
+                }
+            break;
+        }
+
         case kTape:
         {
             if (variant == 0)
@@ -889,7 +1063,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 const float drive = 1.0f + a * 9.0f;
                 const float comp  = 1.0f / std::sqrt (drive);
                 const float fc    = 16000.0f - a * 9500.0f;
-                const float k     = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * fc / sr);
+                const float k     = 1.0f - std::exp (-twoPi * fc / sr);
                 for (int i = 0; i < n; ++i)
                 {
                     {
@@ -913,7 +1087,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 // the low band genuinely clean. Cool, airy, still glued.
                 const float drive = 1.0f + a * 2.5f;
                 const float comp  = 1.0f / std::sqrt (drive);
-                const float xok   = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 800.0f / sr);
+                const float xok   = 1.0f - std::exp (-twoPi * 800.0f / sr);
                 const float shelfDb = a * 4.5f;
                 if (std::abs (shelfDb - cleanShelfBaked) > 0.05f)
                 {
@@ -945,6 +1119,109 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             break;
         }
 
+        case kDoubler:
+        {
+            if (dblDl[0].empty()) break;
+            // Two detuned ghosts on asymmetric taps — reads as extra takes,
+            // not an effect. A slow quadrature LFO drifts the pitch the way
+            // human timing does.
+            const int len = (int) dblDl[0].size();
+            const bool wide = variant == 1;
+            const float baseL = (wide ? 0.023f : 0.013f) * sr;
+            const float baseR = (wide ? 0.031f : 0.018f) * sr;
+            const float depth = (wide ? 0.0035f : 0.0020f) * sr;
+            const float inc   = 0.32f / sr;
+            const float mix   = a * 0.72f;
+            const float duck  = 1.0f - mix * 0.30f;
+            for (int i = 0; i < n; ++i)
+            {
+                dblLfoPhase += inc; if (dblLfoPhase >= 1.0f) dblLfoPhase -= 1.0f;
+                dblDl[0][(size_t) dblWrite] = L[i];
+                dblDl[1][(size_t) dblWrite] = R != nullptr ? R[i] : L[i];
+                const float lfoL = std::sin (twoPi * dblLfoPhase);
+                const float lfoR = std::sin (twoPi * dblLfoPhase + 1.5708f);
+                const auto tap = [&] (int ch, float pos) -> float
+                {
+                    float rp = (float) dblWrite - pos;
+                    while (rp < 0.0f) rp += (float) len;
+                    const int   i0 = (int) rp;
+                    const float fr = rp - (float) i0;
+                    const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
+                    return dblDl[ch][(size_t) i0] * (1.0f - fr) + dblDl[ch][(size_t) i1] * fr;
+                };
+                L[i] = L[i] * duck + tap (0, baseL + depth * (0.5f + 0.5f * lfoL)) * mix;
+                if (R != nullptr)
+                    R[i] = R[i] * duck + tap (1, baseR + depth * (0.5f + 0.5f * lfoR)) * mix;
+                dblWrite = dblWrite + 1 < len ? dblWrite + 1 : 0;
+            }
+            break;
+        }
+
+        case kDelay:
+        {
+            if (dlyBuf[0].empty()) break;
+            // BPM-synced echo. The knob is the mix; the print's two hands
+            // set the beat division and the feedback. The read head GLIDES
+            // to a new length (tape-style repitch) so tempo and division
+            // changes bend instead of clicking.
+            static constexpr float divBeats[7] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
+            const int   di   = juce::jlimit (0, 6, fxDelayDiv.load (std::memory_order_relaxed));
+            const float bpm  = (float) juce::jlimit (30.0, 300.0, playheadBpm.load());
+            const int   len  = (int) dlyBuf[0].size();
+            const float secs = juce::jlimit (0.03f, 2.8f, (60.0f / bpm) * divBeats[di]);
+            const float targ = juce::jmin ((float) len - 4.0f, secs * sr);
+            if (dlySmSamp < 0.0f) dlySmSamp = targ;
+            const float smK  = 1.0f - std::exp (-1.0f / (0.12f * sr));
+            const float fb   = juce::jlimit (0.0f, 0.85f, fxDelayFb.load (std::memory_order_relaxed) * 0.85f);
+            const float mix  = a * 0.62f;
+            const float duck = 1.0f - mix * 0.25f;
+            const bool  tapeFl = variant == 1;
+            const bool  ping   = variant == 2;
+            const float lpK  = 1.0f - std::exp (-twoPi * 3200.0f / sr);
+            for (int i = 0; i < n; ++i)
+            {
+                dlySmSamp += (targ - dlySmSamp) * smK;
+                const auto rd = [&] (int ch) -> float
+                {
+                    float rp = (float) dlyWrite - dlySmSamp;
+                    while (rp < 0.0f) rp += (float) len;
+                    const int   i0 = (int) rp;
+                    const float fr = rp - (float) i0;
+                    const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
+                    return dlyBuf[ch][(size_t) i0] * (1.0f - fr) + dlyBuf[ch][(size_t) i1] * fr;
+                };
+                const float wetL = rd (0);
+                const float wetR = rd (1);
+                const float inL = L[i];
+                const float inR = R != nullptr ? R[i] : inL;
+                float fbL = wetL, fbR = wetR;
+                if (tapeFl)
+                {
+                    // tape loop: darker and softer with every pass
+                    dlyFbLp[0] += (wetL - dlyFbLp[0]) * lpK;
+                    dlyFbLp[1] += (wetR - dlyFbLp[1]) * lpK;
+                    fbL = std::tanh (dlyFbLp[0] * 1.15f);
+                    fbR = std::tanh (dlyFbLp[1] * 1.15f);
+                }
+                if (ping)
+                {
+                    // mono into the left line; each side regenerates the other
+                    const float mono = 0.5f * (inL + inR);
+                    dlyBuf[0][(size_t) dlyWrite] = mono + fbR * fb;
+                    dlyBuf[1][(size_t) dlyWrite] = fbL * fb;
+                }
+                else
+                {
+                    dlyBuf[0][(size_t) dlyWrite] = inL + fbL * fb;
+                    dlyBuf[1][(size_t) dlyWrite] = inR + fbR * fb;
+                }
+                L[i] = inL * duck + wetL * mix;
+                if (R != nullptr) R[i] = inR * duck + wetR * mix;
+                dlyWrite = dlyWrite + 1 < len ? dlyWrite + 1 : 0;
+            }
+            break;
+        }
+
         case kSpace:
         {
             // The reverb hears a high-passed send (~170 Hz), so the lows
@@ -955,21 +1232,21 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             // it trims roomSize around each flavour's centre.
             const float d = juce::jlimit (0.0f, 1.0f,
                 fxSpaceDecay[(size_t) juce::jlimit (0, 2, variant)].load (std::memory_order_relaxed));
-            juce::Reverb::Parameters p;
+            juce::Reverb::Parameters pr;
             float wetScale;
-            if (variant == 0)      { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.769f + d * 0.191f);        p.damping = 0.12f; p.width = 1.0f;  wetScale = 0.95f; }  // hall — RT60 2.5..7 s
-            else if (variant == 1) { p.roomSize = juce::jlimit (0.02f, 1.0f, 0.16f + (d - 0.5f) * 0.44f); p.damping = 0.80f; p.width = 0.65f; wetScale = 0.60f; }  // room
-            else                   { p.roomSize = juce::jlimit (0.0f,  1.0f, 0.50f + (d - 0.5f) * 0.70f); p.damping = 0.03f; p.width = 1.0f;  wetScale = 0.85f; }  // plate
-            p.wetLevel   = 1.0f;
-            p.dryLevel   = 0.0f;
-            p.freezeMode = 0.0f;
-            fxReverb.setParameters (p);
+            if (variant == 0)      { pr.roomSize = juce::jlimit (0.0f,  1.0f, 0.769f + d * 0.191f);        pr.damping = 0.12f; pr.width = 1.0f;  wetScale = 0.95f; }  // hall — RT60 2.5..7 s
+            else if (variant == 1) { pr.roomSize = juce::jlimit (0.02f, 1.0f, 0.16f + (d - 0.5f) * 0.44f); pr.damping = 0.80f; pr.width = 0.65f; wetScale = 0.60f; }  // room
+            else                   { pr.roomSize = juce::jlimit (0.0f,  1.0f, 0.50f + (d - 0.5f) * 0.70f); pr.damping = 0.03f; pr.width = 1.0f;  wetScale = 0.85f; }  // plate
+            pr.wetLevel   = 1.0f;
+            pr.dryLevel   = 0.0f;
+            pr.freezeMode = 0.0f;
+            fxReverb.setParameters (pr);
 
             if (fxWetBuf.getNumSamples() < n)
                 fxWetBuf.setSize (2, n, false, false, true);
             float* wl = fxWetBuf.getWritePointer (0);
             float* wr = fxWetBuf.getWritePointer (1);
-            const float hpk = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 170.0f / sr);
+            const float hpk = 1.0f - std::exp (-twoPi * 170.0f / sr);
             for (int i = 0; i < n; ++i)
             {
                 sendHpState[0] += (L[i] - sendHpState[0]) * hpk;
@@ -1008,7 +1285,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
                 const float t = std::tan (juce::MathConstants<float>::pi * apFreqs[st] / sr);
                 c[st] = (t - 1.0f) / (t + 1.0f);
             }
-            const float hpK  = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 180.0f / sr);
+            const float hpK  = 1.0f - std::exp (-twoPi * 180.0f / sr);
             const float gain = a * 0.85f;
             for (int i = 0; i < n; ++i)
             {
@@ -1089,7 +1366,6 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
             // the phaser sweeps a six-stage allpass ladder with feedback.
             if (modDl[0].empty()) break;
             const int len = (int) modDl[0].size();
-            const float twoPi = juce::MathConstants<float>::twoPi;
 
             if (variant == 2)
             {
@@ -1163,7 +1439,8 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 void OrbAudioProcessor::handleSetFx (const juce::var& args,
                                      juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    // Args arrive as [ { mode?, amount? } ]; amount applies to the given
+    // Args arrive as [ { mode?, amount?, variant?, decay?, enabled?,
+    // delayDiv?, delayFb? } ]; amount/variant/enabled apply to the given
     // (or current) mode so each effect remembers its own setting.
     if (auto* arr = args.getArray(); arr != nullptr && ! arr->isEmpty())
     {
@@ -1181,6 +1458,22 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
         if (v.hasProperty ("decay"))
             fxSpaceDecay[(size_t) juce::jlimit (0, 2, fxVariant[kSpace].load())]
                 .store (juce::jlimit (0.0f, 1.0f, (float) (double) v["decay"]));
+        if (v.hasProperty ("enabled"))
+        {
+            // Chain membership for `mode`. Freshly enabled effects get a
+            // state reset on the audio thread so old tails never leak in.
+            const bool en  = (bool) v["enabled"];
+            const int  bit = 1 << mode;
+            int bits = fxEnabled.load();
+            if (en && (bits & bit) == 0)
+                fxResetMask.fetch_or (bit, std::memory_order_acq_rel);
+            bits = en ? (bits | bit) : (bits & ~bit);
+            fxEnabled.store (bits);
+        }
+        if (v.hasProperty ("delayDiv"))
+            fxDelayDiv.store (juce::jlimit (0, 6, (int) v["delayDiv"]));
+        if (v.hasProperty ("delayFb"))
+            fxDelayFb.store (juce::jlimit (0.0f, 1.0f, (float) (double) v["delayFb"]));
     }
     completion (juce::var (true));
 }
@@ -1199,6 +1492,9 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     juce::Array<juce::var> decays;
     for (auto& dc : fxSpaceDecay) decays.add ((double) dc.load());
     obj->setProperty ("decays", decays);
+    obj->setProperty ("enabled", fxEnabled.load());
+    obj->setProperty ("delayDiv", fxDelayDiv.load());
+    obj->setProperty ("delayFb", (double) fxDelayFb.load());
     completion (juce::var (obj));
 }
 
@@ -1209,6 +1505,9 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     juce::XmlElement xml ("OrbState");
     xml.setAttribute ("fxMode", fxMode.load());
+    xml.setAttribute ("fxEnabled", fxEnabled.load());
+    xml.setAttribute ("fxDelayDiv", fxDelayDiv.load());
+    xml.setAttribute ("fxDelayFb", (double) fxDelayFb.load());
     for (int i = 0; i < (int) kNumFx; ++i)
     {
         xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
@@ -1234,6 +1533,23 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         for (int i = 0; i < 3; ++i)
             fxSpaceDecay[(size_t) i].store (juce::jlimit (0.0f, 1.0f,
                 (float) xml->getDoubleAttribute ("fxDecay" + juce::String (i), 0.5)));
+        fxDelayDiv.store (juce::jlimit (0, 6, xml->getIntAttribute ("fxDelayDiv", 2)));
+        fxDelayFb.store (juce::jlimit (0.0f, 1.0f,
+            (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
+        int en = xml->getIntAttribute ("fxEnabled", -1);
+        if (en < 0)
+        {
+            // Pre-chain states knew only one active mode — it joins the
+            // chain if it was actually doing something.
+            const int   m   = fxMode.load();
+            const float amt = fxAmount[(size_t) m].load();
+            const bool active = m == kTone ? std::abs (amt - 0.5f) > 0.004f
+                              : m == kGain ? std::abs (amt - 0.75f) > 0.002f || fxVariant[kGain].load() != 0
+                              : amt > 0.004f;
+            en = active ? (1 << m) : 0;
+        }
+        fxEnabled.store (en & ((1 << (int) kNumFx) - 1));
+        fxResetMask.store ((1 << (int) kNumFx) - 1);   // fresh tails for the loaded chain
     }
 }
 

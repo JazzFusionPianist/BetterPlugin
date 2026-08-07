@@ -1056,24 +1056,6 @@ function CollabPageInner({ user }: Props) {
         </div>
       </div>
 
-      {/* Wide layout only: calendar docked on the right, spanning the full
-          plugin height (above the toolbar row) so its header sits at the top.
-          A sibling of .content — not inside it — so top:0 means the very top. */}
-      <div className="cal-dock">
-        <CalendarPanel
-          events={calEvents}
-          categories={calCategories}
-          currentUserId={user.id}
-          groupTitleById={calGroupTitleById}
-          onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-          onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
-          onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-          onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-          onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-          onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-        />
-      </div>
-
       {galleryPopup && (
         <div
           className={`orbit-tooltip gallery-popup${galleryPopup.below ? ' below' : ''}`}

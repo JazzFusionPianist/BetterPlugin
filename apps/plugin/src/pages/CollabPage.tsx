@@ -614,6 +614,7 @@ function CollabPageInner({ user }: Props) {
           <svg viewBox="0 0 16 16" fill="currentColor">
             <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7A1.5 1.5 0 0112.5 12H9.5l-3 2.5c-.3.25-.5.1-.5-.25V12H3.5A1.5 1.5 0 012 10.5v-7z"/>
           </svg>
+          <span className="icon-label">chat</span>
         </div>
 
         {/* Live */}
@@ -630,6 +631,7 @@ function CollabPageInner({ user }: Props) {
             <path d="M12.7 3.3a6.7 6.7 0 010 9.4" />
             <circle cx="8" cy="8" r="1.4" fill={mySession ? '#FF3B30' : 'var(--t1)'} stroke="none" />
           </svg>
+          <span className="icon-label">live</span>
           {mySession && <span className="live-btn-dot" />}
         </div>
 
@@ -644,6 +646,7 @@ function CollabPageInner({ user }: Props) {
             <path d="M8 8L4.9 4.9" strokeWidth="1.5" />
             <path d="M3.4 12.6l1 -1M12.6 12.6l-1 -1M12.6 3.4l-1 1" strokeWidth="1" />
           </svg>
+          <span className="icon-label">knob</span>
         </div>
 
         {/* Mini Games */}
@@ -673,15 +676,16 @@ function CollabPageInner({ user }: Props) {
             <circle cx="10.5" cy="8" r=".6" fill="currentColor" stroke="none" />
             <circle cx="12" cy="9.5" r=".6" fill="currentColor" stroke="none" />
           </svg>
+          <span className="icon-label">games</span>
         </div>
+      </div>
 
-        {/* Settings */}
-        <div className={`icon-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">
-          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.2" stroke="var(--t1)" strokeLinejoin="round" strokeLinecap="round">
-            <path d="M8 1.6l.9 1.6 1.8-.4.5 1.8 1.7.7-.5 1.8 1.3 1.3-1.3 1.3.5 1.8-1.7.7-.5 1.8-1.8-.4L8 14.4l-.9-1.6-1.8.4-.5-1.8-1.7-.7.5-1.8L2.3 7.6l1.3-1.3-.5-1.8 1.7-.7.5-1.8 1.8.4z" />
-            <circle cx="8" cy="8" r="2" />
-          </svg>
-        </div>
+      {/* Settings — a quiet gear in the corner, outside the doors row. */}
+      <div className={`gear-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" strokeWidth="1.2" stroke="currentColor" strokeLinejoin="round" strokeLinecap="round">
+          <path d="M8 1.6l.9 1.6 1.8-.4.5 1.8 1.7.7-.5 1.8 1.3 1.3-1.3 1.3.5 1.8-1.7.7-.5 1.8-1.8-.4L8 14.4l-.9-1.6-1.8.4-.5-1.8-1.7-.7.5-1.8L2.3 7.6l1.3-1.3-.5-1.8 1.7-.7.5-1.8 1.8.4z" />
+          <circle cx="8" cy="8" r="2" />
+        </svg>
       </div>
 
       {/* Follow alerts — under the toolbar, above every sliding view */}

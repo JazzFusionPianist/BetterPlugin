@@ -601,6 +601,18 @@ export default function ProfilePanel ({
                   {hasNotif && unread > 1 && (
                     <div className="orbit-orb-notif-count">{unread > 9 ? '9+' : unread}</div>
                   )}
+                  {/* Name (and what they're up to) under the orb — the
+                      lobby reads as people doing things, not anonymous
+                      circles. Rides the drifting orb; hover card still
+                      carries the full profile. */}
+                  <div className="orbit-orb-tag">
+                    <div className="orbit-orb-tag-name">{p.display_name}</div>
+                    {liveHostIds?.has(p.id) && (
+                      <div className="orbit-orb-tag-live">
+                        ● {liveSessions?.find(s => s.host_id === p.id)?.title || 'live'}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             }

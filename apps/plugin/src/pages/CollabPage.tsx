@@ -10,9 +10,6 @@ import { getOrCreateDmConversation, createGroupConversation } from '../lib/conve
 import { useFollows } from '../hooks/useFollows'
 import { useFollowAlerts } from '../hooks/useFollowAlerts'
 import { useConversations } from '../hooks/useConversations'
-import { useCalendarEvents } from '../hooks/useCalendarEvents'
-import { useEventCategories } from '../hooks/useEventCategories'
-import { parseSchedule } from '../lib/parseSchedule'
 import ChatView from '../components/collab/ChatView'
 import ConversationsPanel from '../components/collab/ConversationsPanel'
 import NewGroupPanel from '../components/collab/NewGroupPanel'
@@ -20,7 +17,6 @@ import ChatSettingsPanel from '../components/collab/ChatSettingsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
 import DisplayPanel from '../components/collab/DisplayPanel'
-import CalendarPanel from '../components/collab/CalendarPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
@@ -84,7 +80,6 @@ function CollabPageInner({ user }: Props) {
   const [selectedGroupConvId, setSelectedGroupConvId]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
-  const [calendarOpen, setCalendarOpen]         = useState(false)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
@@ -203,23 +198,10 @@ function CollabPageInner({ user }: Props) {
   const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(client, user.id)
   const { conversations, groupConversations } = useConversations(client, user.id)
 
-  // ── Calendar (shared by the home schedule prompt + the calendar view) ────
-  const { events: calEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(client, user.id)
-  const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(client, user.id)
-  const calTargets = useMemo(
-    () => [{ id: null as string | null, label: 'Personal' }, ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'Group' }))],
-    [groupConversations],
-  )
-  const calGroupTitleById = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const g of groupConversations) m.set(g.conversationId, g.title || 'Group')
-    return m
-  }, [groupConversations])
-  const handleSchedule = useCallback(async (text: string, conversationId: string | null) => {
-    const parsed = await parseSchedule(client, text)
-    const withMeta = await Promise.all(parsed.map(async (e) => ({ ...e, category_color: await calEnsureCategory(e.category), conversation_id: conversationId })))
-    return calAddEvents(withMeta)
-  }, [client, calEnsureCategory, calAddEvents])
+  // Calendar was pulled from the plugin on 2026-08-07 (Steven: 5 features
+  // in a 300×500 window blurred the plugin's identity — scheduling lives
+  // in the app). CalendarPanel/SchedulePrompt/useCalendarEvents survive as
+  // files for an easy revival; nothing mounts them here.
 
   // ── conv-keyed → friend-keyed adapters ──────────────────────────────────
   // ProfilePanel renders friend-orb-anchored cues, so we translate
@@ -493,11 +475,9 @@ function CollabPageInner({ user }: Props) {
     return !prev
   })
   // Called by every "open a main panel" handler (messages/live/games/
-  // add-friend/chat). The calendar sliding view sits above those in the
-  // z-stack, so close it here too — otherwise a newly-opened panel would be
-  // hidden behind it. Settings (z-index 30) intentionally overlays instead,
-  // so it does NOT go through here and keeps working over the calendar.
-  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setCalendarOpen(false) }
+  // add-friend/chat). Settings (z-index 30) intentionally overlays instead,
+  // so it does NOT go through here.
+  const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
   const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleConv      = () => setConvOpen(prev => {
@@ -606,9 +586,8 @@ function CollabPageInner({ user }: Props) {
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
     // so the browser preview keeps its fixed 300×500 frame — unless the
     // ?screen= dev override is set, which forces it on in the browser too.
-    // 'large' emits `screen-wide` (our split layout); the mini-games' own
-    // screen-large rules stay dormant there so games render compact in the
-    // left pane while the calendar stays docked on the right.
+    // 'large' emits `screen-wide` (one full-width pane; the mini-games' own
+    // screen-large rules stay dormant there).
     ((hasJuceBridge || screenPreview) && screenSize !== 'small')
       ? (screenSize === 'large' ? 'screen-wide' : `screen-${screenSize}`) : '',
     settingsOpen      ? 'settings-open'      : '',
@@ -625,7 +604,6 @@ function CollabPageInner({ user }: Props) {
     // `dark` token set rides along so every surface (chat included)
     // inverts with the wall.
     gameOpen && gameScreen !== 'list' ? `gwall-${gameScreen} dark` : '',
-    calendarOpen      ? 'calendar-open'      : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -697,24 +675,6 @@ function CollabPageInner({ user }: Props) {
           </svg>
         </div>
 
-        {/* Calendar */}
-        <div
-          className={`icon-btn cal-toggle${calendarOpen ? ' active' : ''}`}
-          onClick={() => setCalendarOpen(prev => {
-            if (!prev) {
-              setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false)
-              setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
-            }
-            return !prev
-          })}
-          title="Calendar"
-        >
-          <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.3" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="12" height="11" rx="2" />
-            <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
-          </svg>
-        </div>
-
         {/* Settings */}
         <div className={`icon-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">
           <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.2" stroke="var(--t1)" strokeLinejoin="round" strokeLinecap="round">
@@ -747,7 +707,7 @@ function CollabPageInner({ user }: Props) {
           {viewingProfileId && viewingProfile
             ? <ProfilePanel key={`view-${viewingProfileId}`} supabase={client} user={user} me={viewingProfile} followingProfiles={[]} followerProfiles={viewingFollowerProfiles} onClose={() => setViewingProfileId(null)} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} viewOnly />
             : viewMode === 'default'
-              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} orbProfiles={orbPool} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} groupOrbs={groupOrbs} groupUnread={groupUnread} groupLastMessages={groupLastMessages} onOpenGroupChat={handleOpenGroupChat} onSchedule={handleSchedule} scheduleTargets={calTargets} />
+              ? <ProfilePanel key="self" supabase={client} user={user} me={me} followingProfiles={followingProfiles} followerProfiles={followerProfiles} orbProfiles={orbPool} onClose={() => {}} onUpdated={refetchProfiles} onOpenChat={handleOpenChat} onRemoveFriend={unfollow} favorites={favorites} onToggleFav={handleToggleFav} onViewProfile={handleViewProfile} onAvatarUpdated={updateMyAvatar} liveHostIds={liveHostIds} liveSessions={liveSessions} onWatchLive={sessionId => { handleOpenWatching(sessionId); setLiveOpen(true) }} friendUnread={friendUnread} friendLastMessages={friendLastMessages} groupOrbs={groupOrbs} groupUnread={groupUnread} groupLastMessages={groupLastMessages} onOpenGroupChat={handleOpenGroupChat} />
               : <FriendsList profiles={friendProfiles} favorites={favorites} loading={profilesLoading} viewMode={viewMode} searchQuery={searchQuery} liveHostIds={liveHostIds} liveTitleByHost={liveTitleByHost} onSelect={handleOpenChat} onToggleFav={handleToggleFav} onGalleryCellClick={handleGalleryCellClick} />
           }
         </div>
@@ -846,20 +806,6 @@ function CollabPageInner({ user }: Props) {
         </div>
         <div className="view dview">
           <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
-        </div>
-        <div className="view calview-pane">
-          <CalendarPanel
-            events={calEvents}
-            categories={calCategories}
-            currentUserId={user.id}
-            groupTitleById={calGroupTitleById}
-            onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-            onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
-            onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-            onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-            onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-            onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-          />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />
@@ -1054,24 +1000,6 @@ function CollabPageInner({ user }: Props) {
             onClose={() => setAddFriendOpen(false)}
           />
         </div>
-      </div>
-
-      {/* Wide layout only: calendar docked on the right, spanning the full
-          plugin height (above the toolbar row) so its header sits at the top.
-          A sibling of .content — not inside it — so top:0 means the very top. */}
-      <div className="cal-dock">
-        <CalendarPanel
-          events={calEvents}
-          categories={calCategories}
-          currentUserId={user.id}
-          groupTitleById={calGroupTitleById}
-          onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-          onSetCategory={async (id, name) => { const color = await calEnsureCategory(name); calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {}) }}
-          onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-          onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-          onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-          onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-        />
       </div>
 
       {galleryPopup && (

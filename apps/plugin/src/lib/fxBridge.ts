@@ -32,6 +32,8 @@ export interface FxState {
    *  1/4., 1/2} and feedback 0..1. */
   delayDiv: number
   delayFb: number
+  /** The chain's running order — a permutation of all FxMode ids. */
+  order: number[]
 }
 
 export const FX_DEFAULTS: FxState = {
@@ -42,6 +44,7 @@ export const FX_DEFAULTS: FxState = {
   enabled: 0,
   delayDiv: 2,
   delayFb: 0.35,
+  order: [7, 8, 0, 1, 6, 9, 10, 2, 3, 4, 5],
 }
 
 export function hasFxBridge (): boolean {
@@ -54,6 +57,7 @@ export async function getFx (): Promise<FxState> {
     amounts: [...FX_DEFAULTS.amounts],
     variants: [...FX_DEFAULTS.variants],
     decays: [...FX_DEFAULTS.decays],
+    order: [...FX_DEFAULTS.order],
   })
   if (!hasFxBridge()) return fallback()
   try {
@@ -78,6 +82,12 @@ export async function getFx (): Promise<FxState> {
         enabled: isFinite(Number(s.enabled)) ? (Number(s.enabled) & ((1 << FX_COUNT) - 1)) : 0,
         delayDiv: isFinite(Number(s.delayDiv)) ? Math.min(6, Math.max(0, Math.round(Number(s.delayDiv)))) : 2,
         delayFb: isFinite(Number(s.delayFb)) ? Math.min(1, Math.max(0, Number(s.delayFb))) : 0.35,
+        order: (() => {
+          const o = Array.isArray(s.order) ? s.order.map(Number) : []
+          const valid = o.length === FX_COUNT && new Set(o).size === FX_COUNT
+            && o.every((x) => Number.isInteger(x) && x >= 0 && x < FX_COUNT)
+          return valid ? o : [...FX_DEFAULTS.order]
+        })(),
       }
     }
   } catch { /* fall through */ }
@@ -92,6 +102,7 @@ export function setFx (patch: {
   enabled?: boolean
   delayDiv?: number
   delayFb?: number
+  order?: number[]
 }): void {
   if (!hasFxBridge()) return
   void callJuceNative('setFx', [patch]).catch(() => {})

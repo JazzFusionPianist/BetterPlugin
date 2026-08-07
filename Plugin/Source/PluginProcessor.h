@@ -128,6 +128,10 @@ private:
     // 1/4, 1/4., 1/2} and feedback 0..1. Time follows the host BPM.
     std::atomic<int>   fxDelayDiv { 2 };
     std::atomic<float> fxDelayFb  { 0.35f };
+    // The chain's running order — a user-arranged permutation of FxMode.
+    // Defaults to studio convention; the web UI reorders it by dragging
+    // the chain line.
+    std::array<std::atomic<int>, kNumFx> fxOrder {{ {kCut}, {kAmp}, {kTone}, {kTape}, {kMod}, {kDoubler}, {kDelay}, {kSpace}, {kStereoize}, {kGlue}, {kGain} }};
 
     void handleSetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);

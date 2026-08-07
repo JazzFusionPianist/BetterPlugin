@@ -917,14 +917,16 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     float* L = buffer.getWritePointer (0);
     float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
 
-    // Fixed studio order: corrective cut first, drive and colour, motion,
-    // the ghosts and echoes, rooms, imaging, dynamics, the fader last.
-    static constexpr int kOrder[] = { kCut, kAmp, kTone, kTape, kMod,
-                                      kDoubler, kDelay, kSpace, kStereoize,
-                                      kGlue, kGain };
-    for (const int m : kOrder)
+    // The chain runs in the user's order (defaults to studio convention:
+    // corrective cut first, drive and colour, motion, ghosts and echoes,
+    // rooms, imaging, dynamics, the fader last).
+    for (int slot = 0; slot < (int) kNumFx; ++slot)
+    {
+        const int m = juce::jlimit (0, (int) kNumFx - 1,
+                                    fxOrder[(size_t) slot].load (std::memory_order_relaxed));
         if ((enabled & (1 << m)) != 0)
             processFxOne (m, sr, n, L, R);
+    }
 }
 
 void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R)
@@ -1474,6 +1476,26 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
             fxDelayDiv.store (juce::jlimit (0, 6, (int) v["delayDiv"]));
         if (v.hasProperty ("delayFb"))
             fxDelayFb.store (juce::jlimit (0.0f, 1.0f, (float) (double) v["delayFb"]));
+        if (v.hasProperty ("order"))
+        {
+            // Must be a full permutation of 0..kNumFx-1 or it's ignored.
+            if (auto* oa = v["order"].getArray(); oa != nullptr && oa->size() == (int) kNumFx)
+            {
+                int seen = 0;
+                bool ok = true;
+                std::array<int, kNumFx> tmp {};
+                for (int i = 0; i < (int) kNumFx; ++i)
+                {
+                    const int mi = (int) oa->getReference (i);
+                    if (mi < 0 || mi >= (int) kNumFx || (seen & (1 << mi)) != 0) { ok = false; break; }
+                    seen |= 1 << mi;
+                    tmp[(size_t) i] = mi;
+                }
+                if (ok)
+                    for (int i = 0; i < (int) kNumFx; ++i)
+                        fxOrder[(size_t) i].store (tmp[(size_t) i]);
+            }
+        }
     }
     completion (juce::var (true));
 }
@@ -1495,6 +1517,9 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     obj->setProperty ("enabled", fxEnabled.load());
     obj->setProperty ("delayDiv", fxDelayDiv.load());
     obj->setProperty ("delayFb", (double) fxDelayFb.load());
+    juce::Array<juce::var> order;
+    for (auto& o : fxOrder) order.add (o.load());
+    obj->setProperty ("order", order);
     completion (juce::var (obj));
 }
 
@@ -1508,6 +1533,9 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
     xml.setAttribute ("fxEnabled", fxEnabled.load());
     xml.setAttribute ("fxDelayDiv", fxDelayDiv.load());
     xml.setAttribute ("fxDelayFb", (double) fxDelayFb.load());
+    juce::StringArray orderStr;
+    for (auto& o : fxOrder) orderStr.add (juce::String (o.load()));
+    xml.setAttribute ("fxOrder", orderStr.joinIntoString (","));
     for (int i = 0; i < (int) kNumFx; ++i)
     {
         xml.setAttribute ("fxAmount" + juce::String (i), (double) fxAmount[(size_t) i].load());
@@ -1549,6 +1577,26 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
             en = active ? (1 << m) : 0;
         }
         fxEnabled.store (en & ((1 << (int) kNumFx) - 1));
+        {
+            juce::StringArray toks;
+            toks.addTokens (xml->getStringAttribute ("fxOrder", ""), ",", "");
+            if (toks.size() == (int) kNumFx)
+            {
+                int seen = 0;
+                bool ok = true;
+                std::array<int, kNumFx> tmp {};
+                for (int i = 0; i < (int) kNumFx; ++i)
+                {
+                    const int mi = toks[i].getIntValue();
+                    if (mi < 0 || mi >= (int) kNumFx || (seen & (1 << mi)) != 0) { ok = false; break; }
+                    seen |= 1 << mi;
+                    tmp[(size_t) i] = mi;
+                }
+                if (ok)
+                    for (int i = 0; i < (int) kNumFx; ++i)
+                        fxOrder[(size_t) i].store (tmp[(size_t) i]);
+            }
+        }
         fxResetMask.store ((1 << (int) kNumFx) - 1);   // fresh tails for the loaded chain
     }
 }

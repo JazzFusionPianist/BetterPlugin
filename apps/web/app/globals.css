@@ -2512,8 +2512,9 @@ button { font-family: inherit; }
   font-size: 13px;
 }
 
-/* ── The record shelf (desktop): covers standing on hairline shelves,
-   right side of the room, clear of the button column above. ── */
+/* ── The record shelves (desktop): LPs stored edge-on, spines only.
+   Each shelf is a named discography category; clicking one opens its
+   panel. Sits right of the room, clear of the button column. ── */
 .pfolio-shelf-wrap { display: none; }
 @media (min-width: 821px) {
   .home-pfolio {
@@ -2521,7 +2522,7 @@ button { font-family: inherit; }
     top: calc(196px + env(safe-area-inset-top));
     right: 0; height: auto;
     width: min(340px, 30vw);
-    max-height: calc(100dvh - 340px);
+    max-height: calc(100dvh - 330px);
     overflow: visible;
     padding: 0;
   }
@@ -2529,61 +2530,123 @@ button { font-family: inherit; }
   .pfolio-shelf-wrap { display: block; }
 }
 .pfolio-shelf-label {
-  text-align: right; padding-right: 26px; margin-bottom: 18px;
+  text-align: right; padding-right: 26px; margin-bottom: 20px;
   font-size: 10.5px; letter-spacing: 0.04em; color: var(--t3);
   text-transform: lowercase;
 }
-.pfolio-shelf {
-  display: flex; flex-wrap: wrap; justify-content: flex-end;
-  column-gap: 16px; row-gap: 44px;
-  padding-right: 26px;
+.pfolio-shelfrow {
+  display: block; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 0;
+  margin-bottom: 30px;
 }
-.pfolio-shelf-slot { position: relative; }
-.pfolio-shelf-cover {
-  display: block; width: 68px; height: 68px;
-  padding: 0; border: 1px solid var(--hair); border-radius: 2px;
-  overflow: hidden; background: var(--card); cursor: pointer;
-  transition: transform .18s ease, box-shadow .18s ease;
+.pfolio-spines {
+  display: flex; justify-content: flex-end; align-items: flex-end; gap: 3px;
+  min-height: 56px; padding-right: 26px;
+  transition: transform .18s ease;
 }
-.pfolio-shelf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* the shelf itself — segments join across the gaps into one line */
-.pfolio-shelf-slot::after {
-  content: ''; position: absolute;
-  left: -8px; right: -8px; bottom: -7px; height: 1px;
-  background: var(--line);
+.pfolio-shelfrow:hover .pfolio-spines { transform: translateY(-3px); }
+.pfolio-spine {
+  display: block; width: 11px; height: 52px;
+  background-size: cover; background-position: center;
+  border: 1px solid rgba(26, 25, 23, 0.3); border-radius: 1px 1px 0 0;
+  box-shadow: inset 1px 0 0 rgba(251, 250, 247, 0.25);
 }
-.pfolio-shelf-slot:hover .pfolio-shelf-cover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(26, 25, 23, 0.13);
+/* records aren't machine-filed — small height differences */
+.pfolio-spine:nth-child(3n) { height: 56px; }
+.pfolio-spine:nth-child(4n) { height: 49px; }
+.pfolio-spine:nth-child(7n) { height: 54px; }
+.pfolio-spine.ghost { border: 1px dashed var(--line); background: none; box-shadow: none; }
+/* the board they stand on — runs off the right page edge */
+.pfolio-shelfboard {
+  display: block; height: 2.5px; margin-top: 0;
+  background: var(--ink);
 }
-.pfolio-shelf-cap {
-  position: absolute; top: calc(100% + 12px); right: 0;
-  white-space: nowrap;
-  font-family: var(--f-serif); font-size: 13px; text-transform: lowercase;
-  color: var(--t2);
-  opacity: 0; transition: opacity .15s ease; pointer-events: none;
+.pfolio-shelfcap {
+  display: flex; justify-content: flex-end; align-items: baseline; gap: 8px;
+  padding: 7px 26px 0 0;
 }
-.pfolio-shelf-slot:hover .pfolio-shelf-cap,
-.pfolio-shelf-cap.always { opacity: 1; }
-.pfolio-shelf-order {
-  position: absolute; top: -20px; right: 0;
-  display: flex; gap: 4px;
-  opacity: 0; transition: opacity .15s ease;
+.pfolio-shelfcap-title {
+  font-family: var(--f-serif); font-size: 14.5px; text-transform: lowercase;
+  color: var(--ink);
 }
-.pfolio-shelf-slot:hover .pfolio-shelf-order { opacity: 1; }
-.pfolio-shelf-order button {
-  background: none; border: none; cursor: pointer; padding: 0 2px;
-  font-size: 13px; line-height: 1; color: var(--t3);
+.pfolio-shelfrow:hover .pfolio-shelfcap-title { color: var(--blue); }
+.pfolio-shelfcap-count {
+  font-size: 10.5px; color: var(--t3); font-variant-numeric: tabular-nums;
 }
-.pfolio-shelf-order button:hover:not(:disabled) { color: var(--ink); }
-.pfolio-shelf-order button:disabled { opacity: 0.25; cursor: default; }
-.pfolio-shelf-add {
-  width: 68px; height: 68px;
-  border: 1px dashed var(--line); border-radius: 2px; background: none;
-  color: var(--t3); font-size: 18px; cursor: pointer;
-  transition: color .15s, border-color .15s;
+.pfolio-newshelf {
+  display: block; width: 100%; text-align: right;
+  background: none; border: none; cursor: pointer;
+  padding: 0 26px 0 0;
+  font-size: 11.5px; color: var(--t3);
 }
-.pfolio-shelf-add:hover { color: var(--ink); border-color: var(--hair); }
+.pfolio-newshelf:hover { color: var(--ink); }
+.pfolio-newshelf-input {
+  display: block; width: 200px; margin-left: auto; margin-right: 26px;
+  background: none; border: none; border-bottom: 1px solid var(--hair);
+  outline: none; text-align: right;
+  font-family: var(--f-serif); font-size: 14.5px; text-transform: lowercase;
+  color: var(--ink); padding: 2px 0 3px;
+}
+.pfolio-newshelf.book, .pfolio-newshelf-input.book {
+  text-align: left; margin: 4px 0 22px; padding: 0; width: 100%;
+}
+
+/* ── The shelf, taken down: its panel ── */
+.pfolio-shelfpanel { max-width: 560px; }
+.pfolio-shelfpanel-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--hair); padding-bottom: 8px; margin-bottom: 6px;
+}
+.pfolio-shelfpanel-title {
+  flex: 1; min-width: 0;
+  background: none; border: none; outline: none; padding: 0;
+  font-family: var(--f-serif); font-size: 23px; font-weight: 400;
+  text-transform: lowercase; color: var(--ink);
+}
+.pfolio-shelfpanel-title.as-text { cursor: default; }
+.pfolio-shelfpanel-count {
+  flex-shrink: 0; font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums;
+}
+.pfolio-shelfpanel-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 14px;
+  padding: 8px 0 4px;
+}
+.pfolio-shelfpanel-item { position: relative; min-width: 0; }
+.pfolio-shelfpanel-cover {
+  display: block; width: 100%; aspect-ratio: 1;
+  border: 1px solid var(--hair); border-radius: 2px; overflow: hidden;
+  background: var(--card); padding: 0; cursor: pointer;
+  transition: transform .15s ease;
+}
+.pfolio-shelfpanel-cover:hover { transform: translateY(-2px); }
+.pfolio-shelfpanel-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pfolio-shelfpanel-item-title {
+  font-family: var(--f-serif); font-size: 14px; text-transform: lowercase;
+  color: var(--ink); margin-top: 6px; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pfolio-shelfpanel-item-sub {
+  font-size: 10px; color: var(--t3); font-variant-numeric: tabular-nums;
+}
+.pfolio-shelfpanel-item-note {
+  font-family: var(--f-serif); font-style: italic; font-size: 11.5px; color: var(--t2);
+  margin-top: 3px; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pfolio-shelfpanel-order {
+  position: absolute; top: 4px; right: 4px; z-index: 2;
+  display: flex; gap: 2px; opacity: 0; transition: opacity .15s;
+}
+.pfolio-shelfpanel-item:hover .pfolio-shelfpanel-order { opacity: 1; }
+.pfolio-shelfpanel-order button {
+  width: 20px; height: 20px; border-radius: 3px;
+  background: var(--paper); border: 1px solid var(--line);
+  color: var(--t2); cursor: pointer; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.pfolio-shelfpanel-order button:hover:not(:disabled) { color: var(--ink); }
+.pfolio-shelfpanel-order button:disabled { opacity: 0.3; cursor: default; }
+.pfolio-shelfpanel-actions { display: flex; align-items: center; gap: 16px; }
 
 /* Phones: while the booklet shows page 3, the fixed centre block
    would sit over the lists — fade it (and let taps through). */

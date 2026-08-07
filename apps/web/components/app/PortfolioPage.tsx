@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@orb/core'
-import { usePortfolio, type GalleryPhoto, type Release } from '@/lib/usePortfolio'
+import { usePortfolio, groupByShelf, type GalleryPhoto, type Release } from '@/lib/usePortfolio'
 import { compressImage, uploadAttachment } from '@/lib/upload'
 
 interface Props {
@@ -27,8 +27,9 @@ const fmtDate = (iso: string) =>
  */
 export default function PortfolioPage({ supabase, currentUserId, owner, onClose }: Props) {
   const isMine = owner.id === currentUserId
-  const { releases, photos, loading, addRelease, updateRelease, deleteRelease, addPhotos, updatePhoto, deletePhoto } =
+  const { releases, shelves, photos, loading, addRelease, updateRelease, deleteRelease, addPhotos, updatePhoto, deletePhoto } =
     usePortfolio(supabase, owner.id)
+  const shelfGroups = groupByShelf(releases, shelves)
 
   const [openRelease, setOpenRelease] = useState<string | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
@@ -90,19 +91,28 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
           </div>
         </div>
 
-        {/* ── Discography ── */}
-        <section className="pfolio-section">
+        {/* ── Discography — one section per shelf ── */}
+        {!loading && releases.length === 0 && shelfGroups.length <= 1 && (
+          <section className="pfolio-section">
+            <div className="pfolio-label-row">
+              <h2 className="pfolio-label">discography</h2>
+              {isMine && (
+                <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ add release</button>
+              )}
+            </div>
+            <div className="pfolio-empty">{isMine ? 'no releases yet — add your first' : 'no releases yet'}</div>
+          </section>
+        )}
+        {shelfGroups.filter((g) => g.releases.length > 0).map((g) => (
+        <section className="pfolio-section" key={g.shelf?.id ?? 'default'}>
           <div className="pfolio-label-row">
-            <h2 className="pfolio-label">discography</h2>
+            <h2 className="pfolio-label">{g.shelf?.title ?? 'releases'}</h2>
             {isMine && (
               <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ add release</button>
             )}
           </div>
-          {!loading && releases.length === 0 && (
-            <div className="pfolio-empty">{isMine ? 'no releases yet — add your first' : 'no releases yet'}</div>
-          )}
           <ol className="pfolio-releases">
-            {releases.map((r, i) => (
+            {g.releases.map((r, i) => (
               <li key={r.id}>
                 <button className="pfolio-release-row" onClick={() => setOpenRelease(r.id)}>
                   <span className="pfolio-release-num">{String(i + 1).padStart(2, '0')}</span>
@@ -123,6 +133,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
             ))}
           </ol>
         </section>
+        ))}
 
         {/* ── Gallery ── */}
         <section className="pfolio-section">

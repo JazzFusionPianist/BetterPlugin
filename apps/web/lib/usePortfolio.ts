@@ -24,9 +24,18 @@ export interface Release {
   cover_url: string | null
   description: string | null
   released_on: string | null
+  shelf_id: string | null
   position: number
   created_at: string
   tracks: ReleaseTrack[]
+}
+
+export interface Shelf {
+  id: string
+  user_id: string
+  title: string
+  position: number
+  created_at: string
 }
 
 export interface GalleryPhoto {
@@ -37,13 +46,37 @@ export interface GalleryPhoto {
   created_at: string
 }
 
+/** A shelf group — the unnamed default shelf carries shelf null. */
+export interface ShelfGroup {
+  shelf: Shelf | null
+  releases: Release[]
+}
+
+export function groupByShelf(releases: Release[], shelves: Shelf[]): ShelfGroup[] {
+  const groups: ShelfGroup[] = []
+  const defaultReleases = releases.filter((r) => !r.shelf_id)
+  if (defaultReleases.length > 0 || shelves.length === 0) {
+    groups.push({ shelf: null, releases: defaultReleases })
+  }
+  for (const s of shelves) {
+    groups.push({ shelf: s, releases: releases.filter((r) => r.shelf_id === s.id) })
+  }
+  return groups
+}
+
+/** Spine tint when a release has no cover — deterministic per title. */
+const SPINE_TINTS = ['#1A1917', '#2440FF', '#B8552F', '#4C5B3F', '#8B7355', '#5B4C6E']
+export const spineTint = (title: string) =>
+  SPINE_TINTS[[...title].reduce((a, c) => a + c.charCodeAt(0), 0) % SPINE_TINTS.length]!
+
 export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
   const [releases, setReleases] = useState<Release[]>([])
+  const [shelves, setShelves] = useState<Shelf[]>([])
   const [photos, setPhotos] = useState<GalleryPhoto[]>([])
   const [loading, setLoading] = useState(true)
 
   const refetch = useCallback(async () => {
-    const [rel, tr, ph] = await Promise.all([
+    const [rel, tr, ph, sh] = await Promise.all([
       supabase.from('releases').select('*').eq('user_id', ownerId)
         .order('position', { ascending: true })
         .order('created_at', { ascending: false }),
@@ -53,6 +86,8 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
         .order('idx', { ascending: true }),
       supabase.from('gallery_photos').select('*').eq('user_id', ownerId)
         .order('created_at', { ascending: false }),
+      supabase.from('shelves').select('*').eq('user_id', ownerId)
+        .order('position', { ascending: true }),
     ])
     if (!rel.error && rel.data) {
       const tracksByRelease = new Map<string, ReleaseTrack[]>()
@@ -67,6 +102,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
       })))
     }
     if (!ph.error && ph.data) setPhotos(ph.data as GalleryPhoto[])
+    if (!sh.error && sh.data) setShelves(sh.data as Shelf[])
     setLoading(false)
   }, [supabase, ownerId])
 
@@ -80,6 +116,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     cover_url?: string | null
     description?: string | null
     released_on?: string | null
+    shelf_id?: string | null
     tracks: { title: string; media_url: string }[]
   }): Promise<boolean> => {
     const nextPos = releases.reduce((m, r) => Math.max(m, r.position + 1), 0)
@@ -89,6 +126,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
       cover_url: input.cover_url ?? null,
       description: input.description ?? null,
       released_on: input.released_on ?? null,
+      shelf_id: input.shelf_id ?? null,
       position: nextPos,
     }).select('id').single()
     if (error || !data) { console.error('[portfolio] addRelease', error); return false }
@@ -102,19 +140,27 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     return true
   }, [supabase, ownerId, releases, refetch])
 
-  /** Swap this release with its neighbour — the artist's own sequencing. */
+  /** Swap this release with its neighbour ON THE SAME SHELF — the
+   *  artist's own sequencing. Positions are global; swapping the two
+   *  rows' values reorders them relative to each other. */
   const moveRelease = useCallback(async (id: string, dir: 'up' | 'down') => {
-    const idx = releases.findIndex((r) => r.id === id)
-    const other = releases[idx + (dir === 'up' ? -1 : 1)]
-    const me = releases[idx]
-    if (!me || !other) return
+    const me = releases.find((r) => r.id === id)
+    if (!me) return
+    const group = releases.filter((r) => (r.shelf_id ?? null) === (me.shelf_id ?? null))
+    const gIdx = group.findIndex((r) => r.id === id)
+    const other = group[gIdx + (dir === 'up' ? -1 : 1)]
+    if (!other) return
+    const idx = releases.findIndex((r) => r.id === me.id)
     // Optimistic swap so the row moves under the finger.
     setReleases((prev) => {
-      const next = [...prev]
-      next[idx] = { ...other, position: me.position }
-      next[idx + (dir === 'up' ? -1 : 1)] = { ...me, position: other.position }
+      const next = prev.map((r) =>
+        r.id === me.id ? { ...r, position: other.position }
+        : r.id === other.id ? { ...r, position: me.position }
+        : r)
+      next.sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
       return next
     })
+    void idx
     await Promise.all([
       supabase.from('releases').update({ position: other.position }).eq('id', me.id),
       supabase.from('releases').update({ position: me.position }).eq('id', other.id),
@@ -154,5 +200,31 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     await refetch()
   }, [supabase, refetch])
 
-  return { releases, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addPhotos, updatePhoto, deletePhoto, refetch }
+  const addShelf = useCallback(async (title: string): Promise<boolean> => {
+    const t = title.trim()
+    if (!t) return false
+    const nextPos = shelves.reduce((m, x) => Math.max(m, x.position + 1), 0)
+    const { error } = await supabase.from('shelves').insert({ user_id: ownerId, title: t, position: nextPos })
+    if (error) { console.error('[portfolio] addShelf', error); return false }
+    await refetch()
+    return true
+  }, [supabase, ownerId, shelves, refetch])
+
+  const renameShelf = useCallback(async (id: string, title: string) => {
+    const t = title.trim()
+    if (!t) return
+    const { error } = await supabase.from('shelves').update({ title: t }).eq('id', id)
+    if (error) console.error('[portfolio] renameShelf', error)
+    await refetch()
+  }, [supabase, refetch])
+
+  /** Deleting a shelf keeps its releases — they fall back to the
+   *  unnamed default shelf (shelf_id null via FK on delete set null). */
+  const deleteShelf = useCallback(async (id: string) => {
+    const { error } = await supabase.from('shelves').delete().eq('id', id)
+    if (error) console.error('[portfolio] deleteShelf', error)
+    await refetch()
+  }, [supabase, refetch])
+
+  return { releases, shelves, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, renameShelf, deleteShelf, addPhotos, updatePhoto, deletePhoto, refetch }
 }

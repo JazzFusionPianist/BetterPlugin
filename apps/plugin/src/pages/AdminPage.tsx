@@ -109,7 +109,7 @@ function DetailPanel({
         boxShadow: '-4px 0 24px rgba(0,0,0,.1)',
         display: 'flex', flexDirection: 'column',
         animation: 'slideIn .2s ease',
-        fontFamily: "'Instrument Sans', 'Apple SD Gothic Neo', sans-serif",
+        fontFamily: "'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif",
       }}>
         {/* Panel header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -334,7 +334,7 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: "'Instrument Sans', 'Apple SD Gothic Neo', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#f8f9fa', fontFamily: "'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif" }}>
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 15, letterSpacing: 1 }}>Orb</span>

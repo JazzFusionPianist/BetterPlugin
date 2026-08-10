@@ -6,7 +6,7 @@ html, body, #root {
   /* Same pair as the app: Instrument for Latin, Apple SD Gothic Neo for
      Hangul. Set here (not just on .plugin) so portals and overlays
      rendered outside the shell inherit it too. */
-  font-family: 'Instrument Sans', 'Apple SD Gothic Neo', sans-serif;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-weight: 450;
   font-variant-numeric: tabular-nums;
 }

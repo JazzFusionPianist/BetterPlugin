@@ -35,6 +35,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
           rel="stylesheet"
         />
+        {/* Korean: Pretendard everywhere (Steven, 2026-08-11 — one family
+            for Hangul across both voices; Latin stays Instrument).
+            Dynamic subset — only the glyphs on screen are fetched. */}
+        <link
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+          rel="stylesheet"
+        />
       </head>
       <body>{children}</body>
     </html>

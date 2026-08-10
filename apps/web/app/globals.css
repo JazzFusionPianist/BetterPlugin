@@ -30,8 +30,8 @@
      (titles, names, captions, blue-italic emphasis) and Instrument Sans
      for everything else — including the machinery (times, labels, plate
      numbers), set lowercase with a little tracking and tabular numerals. */
-  --f-serif: 'Instrument Serif', 'Apple SD Gothic Neo', serif;
-  --f-sans: 'Instrument Sans', 'Apple SD Gothic Neo', sans-serif;
+  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   --f-mono: var(--f-sans);
   --f-body: var(--f-sans);
 }

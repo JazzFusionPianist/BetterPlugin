@@ -8733,7 +8733,10 @@
      is the control. Labels live in one small chip at the bottom. ── */
 .fxview { transform: translateX(100%); z-index: 21; background: var(--bg); }
 .plugin.fx-open .fxview { transform: translateX(0); }
-.plugin.fx-open .fview > * { visibility: hidden; }
+/* The fx room hides EVERY view behind its darkened wall — the chat,
+   the panels, all of it — not just the home. Whatever was open stays
+   mounted and reappears when the room closes. */
+.plugin.fx-open .view:not(.fxview) > * { visibility: hidden; }
 
 .fx-body {
   display: flex; flex-direction: column;

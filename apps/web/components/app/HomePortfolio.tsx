@@ -59,8 +59,8 @@ export default function HomePortfolio({ supabase, me }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [releases])
 
-  /** Sleeve thickness follows the record — more tracks, fatter spine. */
-  const spineWidth = (tracks: number) => 10 + Math.min(8, Math.max(1, tracks)) * 0.9
+  /** Disc diameter follows the record — more tracks, bigger record. */
+  const discSize = (tracks: number) => 13 + Math.min(8, Math.max(1, tracks)) * 0.9
 
   const onPickPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -96,33 +96,38 @@ export default function HomePortfolio({ supabase, me }: Props) {
     <div className="home-pfolio">
       <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
 
-      {/* ── Desktop: the shelves — LPs edge-on, spines only. ── */}
+      {/* ── Desktop: each category is a small constellation of records —
+          the release as a vinyl seen face-on (cover-average colour,
+          paper centre hole), the same circle language as the friend
+          orbs. A hairline runs off the right page edge under each
+          caption, mirroring the programme column on the left. ── */}
       <div className="pfolio-shelf-wrap">
         <div className="pfolio-shelf-label">discography</div>
         {groups.map((g) => {
           const key = g.shelf?.id ?? 'default'
           return (
-            <button key={key} className="pfolio-shelfrow" onClick={() => setOpenShelf(key)}>
-              <span className="pfolio-shelfunit">
-                <span className="pfolio-spines">
-                  {g.releases.length === 0 && <span className="pfolio-spine ghost" />}
-                  {g.releases.map((r) => (
+            <button key={key} className="pfolio-constel" onClick={() => setOpenShelf(key)}>
+              <span className="pfolio-discs">
+                {g.releases.length === 0 && <span className="pfolio-disc ghost" />}
+                {g.releases.map((r) => {
+                  const c = coverColors[r.id] ?? spineTint(r.title)
+                  const d = discSize(r.tracks.length)
+                  return (
                     <span
                       key={r.id}
-                      className="pfolio-spine"
+                      className="pfolio-disc"
                       style={{
-                        backgroundColor: coverColors[r.id] ?? spineTint(r.title),
-                        width: spineWidth(r.tracks.length),
+                        width: d, height: d,
+                        background: `radial-gradient(circle, var(--paper) 0 ${d * 0.14}px, ${c} ${d * 0.14}px)`,
                       }}
                       title={r.title}
                     />
-                  ))}
-                </span>
-                <span className="pfolio-shelfboard" aria-hidden="true" />
+                  )
+                })}
               </span>
-              <span className="pfolio-shelfcap">
-                <span className="pfolio-shelfcap-title">{g.shelf?.title ?? 'releases'}</span>
-                <span className="pfolio-shelfcap-count">· {g.releases.length}</span>
+              <span className="pfolio-constel-cap">
+                <span className="pfolio-constel-title">{g.shelf?.title ?? 'releases'}</span>
+                <span className="pfolio-constel-count">{g.releases.length}</span>
               </span>
             </button>
           )

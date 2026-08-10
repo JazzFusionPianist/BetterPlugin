@@ -2534,99 +2534,54 @@ button { font-family: inherit; }
   font-size: 10.5px; letter-spacing: 0.04em; color: var(--t3);
   text-transform: lowercase;
 }
-.pfolio-shelfrow {
+/* A category of records — a small constellation. Discs are vinyl seen
+   face-on: cover-average colour, paper centre hole, a faint groove
+   ring. The caption's hairline runs off the right page edge, the
+   mirror of the programme column's left-edge rules. */
+.pfolio-constel {
   display: flex; flex-direction: column; align-items: flex-end;
   width: 100%;
   background: none; border: none; cursor: pointer; padding: 0;
-  margin-bottom: 34px;
+  margin-bottom: 26px;
 }
-/* The shelf as one object: lead space, records, board. The board spans
-   the unit, so a fuller shelf is a longer shelf. */
-.pfolio-shelfunit {
-  display: inline-block; position: relative;
-  padding: 0 24px 0 58px;
+.pfolio-discs {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
+  gap: 7px;
+  padding: 0 26px 10px 0;
+  min-height: 22px;
 }
-.pfolio-spines {
-  display: flex; justify-content: flex-end; align-items: flex-end; gap: 2.5px;
-  min-height: 78px;
-}
-/* A record, seen across the room: its cover's average colour, dimmed a
-   step by distance. Light falls from the upper left; the foot sits in
-   the shelf's own shadow. Pulling it out (hover) restores true colour. */
-.pfolio-spine {
-  position: relative;
-  display: block; width: 14px; height: 76px;
-  border-radius: 1px;
-  filter: brightness(0.955) saturate(0.93);
+.pfolio-disc {
+  display: block; width: 16px; height: 16px; border-radius: 50%;
   box-shadow:
-    inset 0 0 0 1px rgba(26, 25, 23, 0.12),
-    inset 1.5px 0 0 rgba(255, 255, 255, 0.2),
-    inset -1.5px 0 0 rgba(26, 25, 23, 0.1),
-    0 2px 2px -1px rgba(26, 25, 23, 0.28);
-  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    inset 0 0 0 1px rgba(26, 25, 23, 0.16),
+    inset 0 0 0 4px rgba(251, 250, 247, 0.14);
+  transition: transform .16s ease, box-shadow .16s ease;
 }
-.pfolio-spine::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.1),
-    transparent 22%,
-    transparent 68%,
-    rgba(26, 25, 23, 0.13) 97%
-  );
-  pointer-events: none;
-}
-/* the first record leans back against the row */
-.pfolio-spine:first-child:not(:only-child):not(.ghost) {
-  transform: rotate(-8deg);
-  transform-origin: bottom right;
-  margin-right: 6px;
-}
-/* pulled from the shelf, into the light */
-.pfolio-spine:hover {
-  transform: translateY(-9px);
-  filter: none;
+.pfolio-disc:hover {
+  transform: scale(1.5);
   box-shadow:
-    inset 0 0 0 1px rgba(26, 25, 23, 0.12),
-    inset 1.5px 0 0 rgba(255, 255, 255, 0.2),
-    inset -1.5px 0 0 rgba(26, 25, 23, 0.1),
-    0 12px 14px -8px rgba(26, 25, 23, 0.32);
+    inset 0 0 0 1px rgba(26, 25, 23, 0.16),
+    inset 0 0 0 4px rgba(251, 250, 247, 0.14),
+    0 3px 8px rgba(26, 25, 23, 0.18);
 }
-.pfolio-spine:first-child:not(:only-child):not(.ghost):hover {
-  transform: rotate(-8deg) translateY(-9px);
-}
-.pfolio-spine.ghost {
-  width: 13px; height: 64px;
+.pfolio-disc.ghost {
+  width: 15px; height: 15px;
   background: none; border: 1px dashed var(--line);
-  box-shadow: none; filter: none;
+  box-shadow: none;
 }
-.pfolio-spine.ghost::after { display: none; }
-/* The plank — paper in section, drawn with a hairline, warm shadow on
-   the wall behind. Thick enough to carry the records' weight. */
-.pfolio-shelfboard {
-  display: block; position: absolute;
-  left: 0; right: 0; top: 100%;
-  height: 6px;
-  background: linear-gradient(to bottom, #FFFFFF, #F3F0E8 55%, #E8E4D8);
-  border: none;
-  border-radius: 1px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(26, 25, 23, 0.14),
-    0 6px 9px -5px rgba(93, 80, 58, 0.38),
-    0 16px 26px -16px rgba(26, 25, 23, 0.24);
+.pfolio-constel-cap {
+  display: flex; align-items: baseline; justify-content: flex-end; gap: 8px;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+  padding: 0 26px 7px 0;
 }
-.pfolio-shelfcap {
-  display: flex; align-items: baseline; gap: 6px;
-  padding: 13px 24px 0 0;
+.pfolio-constel-title {
+  font-family: var(--f-serif); font-size: 15.5px; text-transform: lowercase;
+  color: var(--ink);
 }
-.pfolio-shelfcap-title {
-  font-family: var(--f-serif); font-size: 16px; text-transform: lowercase;
-  color: var(--ink); letter-spacing: 0;
-}
-.pfolio-shelfrow:hover .pfolio-shelfcap-title { color: var(--blue); }
-.pfolio-shelfcap-count {
-  font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums;
+.pfolio-constel:hover .pfolio-constel-title { color: var(--blue); }
+.pfolio-constel-count {
+  font-size: 10.5px; color: var(--t3); font-variant-numeric: tabular-nums;
 }
 .pfolio-newshelf {
   display: block; width: 100%; text-align: right;

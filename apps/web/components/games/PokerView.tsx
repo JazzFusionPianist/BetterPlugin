@@ -10,6 +10,7 @@ import { useT } from '@/lib/games/i18n'
 import type { TKey } from '@/lib/games/translations'
 import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -375,7 +376,7 @@ export default function PokerView({
   }, [quitGame])
 
   // ── Action handlers ──────────────────────────────────────────────────────
-  const handleFold = useCallback(() => { fold() }, [fold])
+  const handleFold = useCallback(() => { sfx('fold'); fold() }, [fold])
 
   const handleCallOrCheck = useCallback(() => { callOrCheck() }, [callOrCheck])
 
@@ -417,6 +418,30 @@ export default function PokerView({
   const minRaiseTotal = roomCurrentBet + minRaiseDelta
   const maxRaiseTotal = myChips + myBet
   const canRaise = maxRaiseTotal > roomCurrentBet
+  // ── Sounds: cards swish on each betting round, chips clatter as the
+  // pot grows, and the hand's end plays its stinger.
+  const roundSfxRef = useRef<string>('')
+  useEffect(() => {
+    const key = `${roomState.hand_number ?? 0}:${roomState.betting_round ?? ''}`
+    if (roundSfxRef.current && roundSfxRef.current !== key) sfx('cardDeal')
+    roundSfxRef.current = key
+  }, [roomState.hand_number, roomState.betting_round])
+
+  const potSfxRef = useRef(0)
+  useEffect(() => {
+    const p = roomState.pot ?? 0
+    if (p > potSfxRef.current && potSfxRef.current > 0) sfx('chipBet')
+    potSfxRef.current = p
+  }, [roomState.pot])
+
+  const pokerFinishRef = useRef(false)
+  useEffect(() => {
+    if (room?.status !== 'finished') { pokerFinishRef.current = false; return }
+    if (pokerFinishRef.current) return
+    pokerFinishRef.current = true
+    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId])
+
   const pot = roomState.pot ?? 0
 
   // Quick raise helpers

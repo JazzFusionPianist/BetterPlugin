@@ -16,6 +16,7 @@ import { useTurnSound } from '@/lib/games/useTurnSound'
 import { useT } from '@/lib/games/i18n'
 import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
 import { PieceGlyph } from './ChessPieces'
 
@@ -846,6 +847,27 @@ export default function ChessView({
     }
   }
 
+  // ── Sounds: every move (mine or theirs) ticks; captures thud; checks
+  // chime; the finish plays its stinger once.
+  const moveCountRef = useRef(0)
+  useEffect(() => {
+    const hist = room?.move_history ?? []
+    if (hist.length > moveCountRef.current && moveCountRef.current > 0) {
+      const last = hist[hist.length - 1] ?? ''
+      sfx(last.includes('x') ? 'chessCapture' : 'chessMove')
+      if (last.includes('+') || last.includes('#')) sfx('chessCheck')
+    }
+    moveCountRef.current = hist.length
+  }, [room?.move_history])
+
+  const finishSfxRef = useRef(false)
+  useEffect(() => {
+    if (room?.status !== 'finished') { finishSfxRef.current = false; return }
+    if (finishSfxRef.current) return
+    finishSfxRef.current = true
+    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId])
+
   const readyCountStr = room
     ? t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })
     : ''
@@ -999,7 +1021,7 @@ export default function ChessView({
             isMyTurn={isMyTurn && isPlaying}
             canPremove={isPlaying}
             premove={isPlaying ? premove : null}
-            onPremove={setPremove}
+            onPremove={(m) => { if (m) sfx('premove'); setPremove(m) }}
           />
         </div>
       )}

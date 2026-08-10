@@ -13,6 +13,7 @@ import {
 import { useT } from '@/lib/games/i18n'
 import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
 
 interface Props {
@@ -123,6 +124,14 @@ export default function EarTrainingView ({
   const opponentAnswer = seat === 'player1' ? room?.player2_answer : room?.player1_answer
   const bothAnswered   = !!(room?.player1_answer && room?.player2_answer)
 
+  const etFinishRef = useRef(false)
+  useEffect(() => {
+    if (room?.status !== 'finished') { etFinishRef.current = false; return }
+    if (etFinishRef.current) return
+    etFinishRef.current = true
+    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId])
+
   const roundStarted = room?.round_started_at ? new Date(room.round_started_at).getTime() : 0
   const elapsed = roundStarted ? now - roundStarted : 0
   const remainingMs = Math.max(0, ROUND_DURATION_MS - elapsed)
@@ -188,6 +197,15 @@ export default function EarTrainingView ({
     }, REVEAL_DURATION_MS)
     return () => clearTimeout(id)
   }, [bothAnswered, room?.current_round, question?.answer])
+
+  // ── Sound on the reveal: my answer chimes or buzzes, once per round.
+  const revealSfxRef = useRef(-1)
+  useEffect(() => {
+    if (!bothAnswered || !question || !room) return
+    if (revealSfxRef.current === room.current_round) return
+    revealSfxRef.current = room.current_round
+    if (myAnswer) sfx(isCorrect(question, myAnswer) ? 'etCorrect' : 'etWrong')
+  }, [bothAnswered, room?.current_round, question, myAnswer, room])
 
   // Once both ready, either client kicks off the game (idempotent).
   useEffect(() => {

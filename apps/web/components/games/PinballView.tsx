@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/games/types'
 import { useT } from '@/lib/games/i18n'
 import { PinballGame, drawPinball, TABLE_W, TABLE_H } from '@/lib/games/pinball'
+import { sfx } from '@/lib/games/sfx'
 import type { PinballTheme, PinballPhase } from '@/lib/games/pinball'
 import { useWorldScores } from '@/lib/games/useWorldScores'
 import type { WorldStanding } from '@/lib/games/useWorldScores'
@@ -122,6 +123,29 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   }, [])
 
   // ── Game over → record the score, show the world ranking ────────────────
+  // ── Sounds from the table itself: phase edges + score jumps.
+  const phaseSfxRef = useRef<string>('ready')
+  useEffect(() => {
+    const prev = phaseSfxRef.current
+    if (prev !== ui.phase) {
+      if (prev === 'captive' && ui.phase === 'live') sfx('pinLaunch')
+      if (prev === 'live' && ui.phase === 'captive') sfx('pinDrain')
+      if (ui.phase === 'over') sfx('pinDrain')
+      phaseSfxRef.current = ui.phase
+    }
+  }, [ui.phase])
+
+  const scoreSfxRef = useRef({ score: 0, at: 0 })
+  useEffect(() => {
+    const now = performance.now()
+    const d = ui.score - scoreSfxRef.current.score
+    if (d > 0 && ui.phase === 'live' && now - scoreSfxRef.current.at > 70) {
+      sfx('pinBumper')
+      scoreSfxRef.current.at = now
+    }
+    scoreSfxRef.current.score = ui.score
+  }, [ui.score, ui.phase])
+
   useEffect(() => {
     if (ui.phase !== 'over' || submittedRef.current) return
     submittedRef.current = true
@@ -159,9 +183,9 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       if (isTyping(e)) return
       switch (e.key) {
         case 'ArrowLeft': case 'z': case 'Z':
-          e.preventDefault(); g.setFlipper('left', true); break
+          e.preventDefault(); if (!e.repeat) sfx('pinFlipper'); g.setFlipper('left', true); break
         case 'ArrowRight': case 'm': case 'M': case '/':
-          e.preventDefault(); g.setFlipper('right', true); break
+          e.preventDefault(); if (!e.repeat) sfx('pinFlipper'); g.setFlipper('right', true); break
         case 'ArrowDown': case ' ':
           e.preventDefault()
           if (g.phase === 'captive') g.setPlungerDown(true)
@@ -206,6 +230,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
     }
     const side = e.clientX < rect.left + rect.width / 2 ? 'left' : 'right'
     touchesRef.current.set(e.pointerId, side)
+    sfx('pinFlipper')
     g.setFlipper(side, true)
   }, [])
 

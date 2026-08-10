@@ -14,10 +14,11 @@ import type { PartyState, PartyItem } from '@/lib/games/orbParty'
 import { useT } from '@/lib/games/i18n'
 import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
 
 const MAX_PLAYERS = 4
-const STEP_MS = 380
+const STEP_MS = 560
 
 interface Props {
   supabase: SupabaseClient
@@ -53,16 +54,28 @@ const FACE_ROT: Record<number, string> = {
   4: 'rotateX(90deg)', 5: 'rotateY(90deg)', 6: 'rotateY(180deg)',
 }
 
+const PAWN_BODY = 'M9 7.2 C10.7 9.6 11.7 12.7 12 16.1 L13.5 17.3 C14.3 18 14.8 19 14.8 20 L14.8 21 C14.8 21.7 14.2 22.3 13.5 22.3 L4.5 22.3 C3.8 22.3 3.2 21.7 3.2 21 L3.2 20 C3.2 19 3.7 18 4.5 17.3 L6 16.1 C6.3 12.7 7.3 9.6 9 7.2 Z'
+
+/** Two crossed planes = a pawn with volume from any camera angle. */
 function Pawn({ color, active }: { color: string; active?: boolean }) {
-  return (
-    <svg className={`party-pawn${active ? ' active' : ''}`} viewBox="0 0 18 24" width="18" height="24">
-      <path
-        d="M9 7.2 C10.7 9.6 11.7 12.7 12 16.1 L13.5 17.3 C14.3 18 14.8 19 14.8 20 L14.8 21 C14.8 21.7 14.2 22.3 13.5 22.3 L4.5 22.3 C3.8 22.3 3.2 21.7 3.2 21 L3.2 20 C3.2 19 3.7 18 4.5 17.3 L6 16.1 C6.3 12.7 7.3 9.6 9 7.2 Z"
-        fill={color}
-      />
+  const art = (cls: string) => (
+    <svg className={`party-pawn ${cls}${active ? ' active' : ''}`} viewBox="0 0 18 24">
+      <defs>
+        <linearGradient id="pawnlite" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.5" />
+          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.06" />
+          <stop offset="1" stopColor="#101010" stopOpacity="0.24" />
+        </linearGradient>
+      </defs>
+      <path d={PAWN_BODY} fill={color} />
       <circle cx="9" cy="4.9" r="3.7" fill={color} />
+      <g fill="url(#pawnlite)">
+        <path d={PAWN_BODY} />
+        <circle cx="9" cy="4.9" r="3.7" />
+      </g>
     </svg>
   )
+  return <>{art('pp-front')}{art('pp-side')}</>
 }
 
 function DieCube({ v, phase }: { v: number; phase: 'tumble' | 'settle' }) {
@@ -102,7 +115,10 @@ export default function OrbPartyView({
   // Local render positions (animated). Keyed by uid → node id.
   const [drawPos, setDrawPos] = useState<Record<string, number>>({})
   const [walking, setWalking] = useState(false)
+  const [walkInfo, setWalkInfo] = useState<{ id: string; left: number } | null>(null)
   const animRef = useRef<number | null>(null)
+  const drawPosRef = useRef<Record<string, number>>({})
+  useEffect(() => { drawPosRef.current = drawPos }, [drawPos])
   // ── presentation: dice tumble, floating text, event cards ──
   const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle'; seq: number } | null>(null)
   const [floats, setFloats] = useState<{ x: number; y: number; text: string; tone: string; key: number }[]>([])
@@ -127,6 +143,14 @@ export default function OrbPartyView({
   const isLobby = status === 'lobby'
   const isPlaying = status === 'playing'
   const isFinished = status === 'finished'
+
+  const partyFinishRef = useRef(false)
+  useEffect(() => {
+    if (room?.status !== 'finished') { partyFinishRef.current = false; return }
+    if (partyFinishRef.current) return
+    partyFinishRef.current = true
+    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId])
   const isHost = !!(room && room.host_id === currentUserId)
   const ids = useMemo(() => room?.player_ids ?? [], [room])
 
@@ -178,6 +202,7 @@ export default function OrbPartyView({
     const r = st?.lastRoll
     if (!r || !r.value || r.seq === seqRef.current.roll) return
     seqRef.current.roll = r.seq
+    sfx('diceRoll')
     const seq = r.seq
     setDieShow({ value: r.value, phase: 'tumble', seq })
     fxTimersRef.current.push(window.setTimeout(
@@ -221,19 +246,32 @@ export default function OrbPartyView({
     const key = JSON.stringify([st.trail, st.positions])
     if (key === lastTrailRef.current) return
     lastTrailRef.current = key
-    const mover = st.trail.length > 0 ? Object.keys(st.positions).find(
-      id => st.positions[id] === st.trail[st.trail.length - 1]
-    ) : null
+    const mover = st.trail.length > 0
+      ? (st.trailBy || Object.keys(st.positions).find(
+          id => st.positions[id] === st.trail[st.trail.length - 1]
+        ) || null)
+      : null
     if (!st.trail.length || !mover) {
+      setDrawPos({ ...st.positions })
+      setWalkInfo(null)
+      return
+    }
+    // Resume from wherever the pawn is drawn — a junction pick extends the
+    // trail and must NOT replay the walk from the beginning.
+    const drawnAt = drawPosRef.current[mover]
+    const resumeAt = drawnAt != null ? st.trail.indexOf(drawnAt) : -1
+    let i = resumeAt >= 0 ? resumeAt + 1 : 0
+    if (i >= st.trail.length) {
       setDrawPos({ ...st.positions })
       return
     }
     // animate the mover through the trail; everyone else snaps
     setWalking(true)
-    let i = 0
     const base = { ...st.positions }
+    const pending = st.stepsLeft ?? 0
     const stepFn = () => {
       setDrawPos({ ...base, [mover]: st.trail[i] })
+      setWalkInfo({ id: mover, left: (st.trail.length - 1 - i) + pending })
       i++
       if (i < st.trail.length) {
         animRef.current = window.setTimeout(stepFn, STEP_MS) as unknown as number
@@ -437,7 +475,7 @@ export default function OrbPartyView({
   const doRoll = useCallback((item?: PartyItem) => {
     if (!st || !iDrive || st.phase !== 'idle' || walking) return
     const me = ids[st.turn]
-    let s: PartyState = { ...st, trail: [] }
+    let s: PartyState = { ...st, trail: [], trailBy: me }
     let steps: number
     if (item === 'double') steps = rollD6() + rollD6()
     else if (item === 'pick') steps = 6
@@ -522,7 +560,7 @@ export default function OrbPartyView({
       } else if (st.phase === 'buy') {
         answerBuy(true)
       }
-    }, 1100)
+    }, 2200)
     return () => window.clearTimeout(timer)
   }, [room, isPlaying, isHost, st, walking, ids, doRoll, pickExit, answerBuy])
 
@@ -753,7 +791,7 @@ export default function OrbPartyView({
                       className="party-world"
                       style={{
                         transform: worldTransform,
-                        transitionDuration: walking ? '0.42s' : '0.9s',
+                        transitionDuration: walking ? '0.58s' : '0.9s',
                         transitionTimingFunction: walking ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',
                       }}
                     >
@@ -815,22 +853,31 @@ export default function OrbPartyView({
                         )
                       })}
 
-                      {/* player pieces — standing; inner div remounts per node to replay the hop */}
+                      {/* piece ground shadows (flat on the board) */}
+                      {ids.map((id, pi) => {
+                        const at = drawPos[id] ?? st.positions[id] ?? 0
+                        const node = PARTY_BOARD[at]
+                        const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
+                        return <span key={id} className="party-piece-shadow" style={{ left: node.x + off[0], top: node.y + off[1] }} />
+                      })}
+                      {/* player pieces — standing pawns; inner div remounts per node to replay the hop */}
                       {ids.map((id, pi) => {
                         const at = drawPos[id] ?? st.positions[id] ?? 0
                         const node = PARTY_BOARD[at]
                         const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
                         return (
-                          <div key={id} className="party-piece-slot" style={{ left: node.x + off[0], top: node.y + off[1] }}>
-                            <span className="party-piece-shadow" />
-                            <div className="party-piece">
-                              <div key={`hop-${at}`} className="party-piece-hop">
-                                <Pawn color={colorFor(id)} active={id === currentTurnId} />
-                              </div>
+                          <div key={id} className="party-piece" style={{ left: node.x + off[0], top: node.y + off[1] }}>
+                            <div key={`hop-${at}`} className="party-piece-hop">
+                              <Pawn color={colorFor(id)} active={id === currentTurnId} />
                             </div>
                           </div>
                         )
                       })}
+                      {/* steps-left counter above the walking pawn */}
+                      {walkInfo && walkInfo.left > 0 && (() => {
+                        const n = PARTY_BOARD[drawPos[walkInfo.id] ?? 0]
+                        return <div className="party-steps3d" style={{ left: n.x, top: n.y - 18 }}>{walkInfo.left}</div>
+                      })()}
 
                       {/* floating landing text (standing) */}
                       {floats.map(f => (

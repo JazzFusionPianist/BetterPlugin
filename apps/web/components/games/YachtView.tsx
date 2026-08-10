@@ -16,6 +16,7 @@ import {
 } from '@/lib/games/yacht'
 import type { YachtCard } from '@/lib/games/yacht'
 import { useT } from '@/lib/games/i18n'
+import { sfx } from '@/lib/games/sfx'
 import { useWorldScores } from '@/lib/games/useWorldScores'
 import type { WorldStanding } from '@/lib/games/useWorldScores'
 import { computerPlayerIds, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
@@ -172,6 +173,14 @@ export default function YachtView({
   const isLobby = status === 'lobby'
   const isPlaying = status === 'playing' && !solo
   const isFinished = status === 'finished' && !solo
+
+  const yachtFinishRef = useRef(false)
+  useEffect(() => {
+    if (room?.status !== 'finished') { yachtFinishRef.current = false; return }
+    if (yachtFinishRef.current) return
+    yachtFinishRef.current = true
+    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId])
   const isHost = !!(room && room.host_id === currentUserId)
   const playerIds = useMemo(() => room?.player_ids ?? [], [room])
 
@@ -209,6 +218,7 @@ export default function YachtView({
     prevRollRef.current = { rollsLeft: st.rollsLeft, turn: st.turn }
     const rolledNow = prev && prev.turn === st.turn && st.rollsLeft < prev.rollsLeft
     if (!rolledNow) return
+    sfx('diceRoll')
     const idxs = st.dice.map((_, i) => i).filter(i => !st.held[i])
     if (idxs.length === 0) return
     for (const t of tumbleTimers.current) window.clearTimeout(t)
@@ -286,6 +296,7 @@ export default function YachtView({
   }, [st, myTurn, solo, writeState])
 
   const toggleHold = useCallback((i: number) => {
+    sfx('diceLock')
     if (!st || !myTurn || !rolled || st.rollsLeft === 0) return   // nothing to protect after the last roll
     const held = st.held.slice()
     held[i] = !held[i]
@@ -301,6 +312,7 @@ export default function YachtView({
     const card = (st.cards[me] ?? emptyCard()).slice()
     if (card[cat] !== null) return
     card[cat] = scoreCategory(cat, st.dice)
+    sfx('scoreWrite')
     setStampSeq(s => ({ cat, seq: (s?.seq ?? 0) + 1 }))
     window.setTimeout(() => setLedgerOpen(false), 520)
     const withCard: YachtState = { ...st, cards: { ...st.cards, [me]: card } }

@@ -21,6 +21,7 @@ import {
   BOARD_COLS,
 } from '@/lib/games/useFallingBlocks'
 import type { FallingBlocksState, Board, Piece, PieceType } from '@/lib/games/useFallingBlocks'
+import { sfx } from '@/lib/games/sfx'
 import { useT } from '@/lib/games/i18n'
 import { useWorldScores } from '@/lib/games/useWorldScores'
 import type { WorldStanding } from '@/lib/games/useWorldScores'
@@ -232,6 +233,11 @@ export default function FallingBlocksView({
   const mpSubmittedRef = useRef(false)
 
   // Local game state
+  // ── Sounds: clears arpeggiate (tetris gets the long one), topping
+  // out plays the descent. State-driven so keyboard AND touch count.
+  const linesSfxRef = useRef(0)
+  const topOutSfxRef = useRef(false)
+
   const [game, setGame] = useState<FallingBlocksState>(() => ({
     board: Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null)),
     current: null,
@@ -483,6 +489,17 @@ export default function FallingBlocksView({
     })
   }, [game.board, game.score, game.lines, isPlaying, solo, updateMyState])
 
+  useEffect(() => {
+    const d = game.lines - linesSfxRef.current
+    if (d > 0 && linesSfxRef.current >= 0 && game.lines > 0) sfx(d >= 4 ? 'fbTetris' : 'fbLine')
+    linesSfxRef.current = game.lines
+  }, [game.lines])
+
+  useEffect(() => {
+    if (game.topOut && !topOutSfxRef.current) sfx('fbOver')
+    topOutSfxRef.current = game.topOut
+  }, [game.topOut])
+
   // ── On local top-out: notify server ──────────────────────────────────────
   const reportedTopOutRef = useRef(false)
   useEffect(() => {
@@ -633,12 +650,13 @@ export default function FallingBlocksView({
         case 'ArrowRight': startSide(1); return
         case 'ArrowDown': startSoft(); return
         case 'ArrowUp': case 'x': case 'X':
-          setGame(prev => tryRotate(prev, 1)); return
+          sfx('fbRotate'); setGame(prev => tryRotate(prev, 1)); return
         case 'z': case 'Z':
-          setGame(prev => tryRotate(prev, -1)); return
+          sfx('fbRotate'); setGame(prev => tryRotate(prev, -1)); return
         case 'Shift': case 'c': case 'C':
-          setGame(prev => holdSwap(prev)); return
+          sfx('fbHold'); setGame(prev => holdSwap(prev)); return
         case ' ':
+          sfx('fbHard')
           setGame(prev => {
             if (prev.topOut || !prev.current) return prev
             const result = hardDrop(prev)

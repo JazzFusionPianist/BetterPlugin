@@ -38,33 +38,43 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[30, 26], [70, 26], [30, 50], [70, 50], [30, 74], [70, 74]],
 }
 
-function Die({ value, held, rolling, onClick, disabled }: {
+function Die({ idx, value, held, tumbling, landed, onClick, disabled, refCb }: {
+  idx: number
   value: number
   held: boolean
-  rolling?: boolean
+  tumbling?: boolean
+  landed?: boolean
   onClick?: () => void
   disabled?: boolean
+  refCb?: (el: HTMLButtonElement | null) => void
 }) {
+  // Every die comes to rest at its own small tilt — thrown, not typeset.
+  const rest = ((idx * 37 + value * 13) % 9) - 4
   return (
     <button
       type="button"
-      className={`yacht-die${held ? ' held' : ''}${value === 0 ? ' blank' : ''}${rolling ? ' rolling' : ''}`}
+      ref={refCb}
+      data-die-idx={idx}
+      className={`yacht-die${held ? ' held' : ''}${value === 0 ? ' blank' : ''}${tumbling ? ' tumble' : ''}${landed ? ' land' : ''}`}
       onClick={onClick}
       disabled={disabled}
       aria-label={value === 0 ? 'die' : `die showing ${value}`}
     >
-      {/* The die face stays paper-white on every wall, so the pips are
-          always INK — held dice flip both to klein blue. */}
-      <svg viewBox="0 0 100 100">
-        <rect x="4" y="4" width="92" height="92" rx="14"
-          fill="#FFFFFF"
-          stroke={value === 0 ? '#8A8782' : held ? '#2440FF' : '#1A1917'}
-          strokeWidth="3"
-          strokeDasharray={value === 0 ? '7 7' : undefined} />
-        {(PIPS[value] ?? []).map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="9" fill={held ? '#2440FF' : '#1A1917'} />
-        ))}
-      </svg>
+      <span className="yacht-die-body" style={{ transform: value > 0 && !tumbling ? `rotate(${rest}deg)` : undefined }}>
+        {/* The die face stays paper-white on every wall, so the pips are
+            always INK — held dice flip both to klein blue. */}
+        <svg viewBox="0 0 100 100">
+          <rect x="4" y="4" width="92" height="92" rx="18"
+            fill="#FFFFFF"
+            stroke={value === 0 ? '#8A8782' : held ? '#2440FF' : '#1A1917'}
+            strokeWidth="3"
+            strokeDasharray={value === 0 ? '7 7' : undefined} />
+          {(PIPS[value] ?? []).map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r="9.5" fill={held ? '#2440FF' : '#1A1917'} />
+          ))}
+        </svg>
+      </span>
+      <span className="yacht-die-shadow" aria-hidden="true" />
     </button>
   )
 }
@@ -101,7 +111,15 @@ export default function YachtView({
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   const [computerOpponents, setComputerOpponents] = useState<1 | 2 | 3>(1)
   const [startPending, setStartPending] = useState(false)
-  const [rollNonce, setRollNonce] = useState(0)     // retriggers the shake
+  // ── Presentation: tumbling dice, landing bounce, FLIP to the shelf ──
+  const [tumbling, setTumbling] = useState<Set<number>>(new Set())
+  const [landedSet, setLandedSet] = useState<Set<number>>(new Set())
+  const [flicker, setFlicker] = useState<number[]>([1, 1, 1, 1, 1])
+  const tumbleTimers = useRef<number[]>([])
+  const dieRefs = useRef<Map<number, HTMLElement>>(new Map())
+  const lastRects = useRef<Map<number, DOMRect>>(new Map())
+  const [ledgerOpen, setLedgerOpen] = useState(false)
+  const [stampSeq, setStampSeq] = useState<{ cat: number; seq: number } | null>(null)
 
   // Solo run
   const [solo, setSolo] = useState(false)
@@ -109,6 +127,27 @@ export default function YachtView({
   const [standing, setStanding] = useState<WorldStanding | null>(null)
   const [soloSubmitting, setSoloSubmitting] = useState(false)
   const soloSubmittedRef = useRef(false)
+
+  // FLIP: whenever a die moves between the table and the keep shelf, it
+  // slides there instead of teleporting.
+  useEffect(() => {
+    const map = dieRefs.current
+    for (const [i, el] of map) {
+      const prev = lastRects.current.get(i)
+      const now = el.getBoundingClientRect()
+      if (prev && (Math.abs(prev.left - now.left) > 2 || Math.abs(prev.top - now.top) > 2)) {
+        const dx = prev.left - now.left
+        const dy = prev.top - now.top
+        el.style.transition = 'none'
+        el.style.transform = `translate(${dx}px, ${dy}px)`
+        requestAnimationFrame(() => {
+          el.style.transition = 'transform 0.34s cubic-bezier(0.2, 1, 0.3, 1)'
+          el.style.transform = ''
+        })
+      }
+      lastRects.current.set(i, now)
+    }
+  })
 
   // ── Mount: resume ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,6 +199,56 @@ export default function YachtView({
     return friendProfiles.find(p => p.id === id)?.display_name ?? 'player'
   }, [currentUserId, currentUserProfile, friendProfiles])
 
+  // ── Tumble: any time dice change with a roll spent, the fresh dice
+  //    flicker faces and land one after another (remote rolls included). ──
+  const prevRollRef = useRef<{ rollsLeft: number; turn: number } | null>(null)
+  useEffect(() => {
+    if (!st) { prevRollRef.current = null; return }
+    const prev = prevRollRef.current
+    prevRollRef.current = { rollsLeft: st.rollsLeft, turn: st.turn }
+    const rolledNow = prev && prev.turn === st.turn && st.rollsLeft < prev.rollsLeft
+    if (!rolledNow) return
+    const idxs = st.dice.map((_, i) => i).filter(i => !st.held[i])
+    if (idxs.length === 0) return
+    for (const t of tumbleTimers.current) window.clearTimeout(t)
+    tumbleTimers.current = []
+    setTumbling(new Set(idxs))
+    setLandedSet(new Set())
+    const flickerIv = window.setInterval(() => {
+      setFlicker(f => f.map(() => 1 + Math.floor(Math.random() * 6)))
+    }, 70)
+    tumbleTimers.current.push(flickerIv as unknown as number)
+    idxs.forEach((idx, k) => {
+      const t = window.setTimeout(() => {
+        setTumbling(prev2 => {
+          const n = new Set(prev2); n.delete(idx)
+          if (n.size === 0) window.clearInterval(flickerIv)
+          return n
+        })
+        setLandedSet(prev2 => new Set(prev2).add(idx))
+        const t2 = window.setTimeout(() => {
+          setLandedSet(prev2 => { const n = new Set(prev2); n.delete(idx); return n })
+        }, 340)
+        tumbleTimers.current.push(t2 as unknown as number)
+      }, 430 + k * 120)
+      tumbleTimers.current.push(t as unknown as number)
+    })
+    return () => {
+      window.clearInterval(flickerIv)
+    }
+  }, [st?.rollsLeft, st?.turn, st?.dice])
+  useEffect(() => () => { for (const t of tumbleTimers.current) window.clearTimeout(t) }, [])
+  const animating = tumbling.size > 0
+
+  // The ledger presents itself when the last roll settles (you must write),
+  // and retires when the turn passes on.
+  useEffect(() => {
+    if (myTurn && rolled && st?.rollsLeft === 0 && !animating) setLedgerOpen(true)
+  }, [myTurn, rolled, st?.rollsLeft, animating])
+  useEffect(() => {
+    if (!myTurn) setLedgerOpen(false)
+  }, [myTurn, st?.turn])
+
   // ── Turn helpers ─────────────────────────────────────────────────────────
   const freshTurn = (s: YachtState): YachtState => ({
     ...s,
@@ -191,7 +280,6 @@ export default function YachtView({
     if (!st || !myTurn || st.rollsLeft <= 0) return
     const dice = st.dice.map((d, i) => (st.held[i] && d > 0 ? d : 1 + Math.floor(Math.random() * 6)))
     const next: YachtState = { ...st, dice, rollsLeft: st.rollsLeft - 1 }
-    setRollNonce(n => n + 1)
     if (solo) setSoloState(next)
     else writeState(next)
   }, [st, myTurn, solo, writeState])
@@ -212,6 +300,8 @@ export default function YachtView({
     const card = (st.cards[me] ?? emptyCard()).slice()
     if (card[cat] !== null) return
     card[cat] = scoreCategory(cat, st.dice)
+    setStampSeq(s => ({ cat, seq: (s?.seq ?? 0) + 1 }))
+    window.setTimeout(() => setLedgerOpen(false), 520)
     const withCard: YachtState = { ...st, cards: { ...st.cards, [me]: card } }
     if (solo) {
       if (cardComplete(card)) setSoloState(withCard)
@@ -233,14 +323,12 @@ export default function YachtView({
       const card = s.cards[cur] ?? emptyCard()
       if (s.rollsLeft === 3) {
         const dice = s.dice.map(() => 1 + Math.floor(Math.random() * 6))
-        setRollNonce(n => n + 1)
         writeState({ ...s, dice, rollsLeft: 2 })
         return
       }
       const holds = botHolds(s.dice, card)
       if (s.rollsLeft > 0 && !holds.every(Boolean)) {
         const dice = s.dice.map((d, i) => (holds[i] ? d : 1 + Math.floor(Math.random() * 6)))
-        setRollNonce(n => n + 1)
         writeState({ ...s, dice, held: holds, rollsLeft: s.rollsLeft - 1 })
         return
       }
@@ -495,10 +583,8 @@ export default function YachtView({
   }
 
   // ── Status line ──────────────────────────────────────────────────────────
-  const statusLine = st
-    ? solo
-      ? `${t('y.round')} ${Math.min(st.round, 12)} / 12`
-      : myTurn ? t('y.yourTurn') : t('y.turnOf', { name: nameFor(currentTurnId ?? '') })
+  const statusLine = st && !solo
+    ? myTurn ? t('y.yourTurn') : t('y.turnOf', { name: nameFor(currentTurnId ?? '') })
     : null
 
   const showBoard = (solo && soloState) || isPlaying || isFinished
@@ -517,89 +603,150 @@ export default function YachtView({
         <div className="yacht-layout">
           {showBoard && st ? (
             <>
+              {/* totals strip — everyone's running score at a glance */}
+              <div className="yacht-topline">
+                {ids.map(id => (
+                  <span key={id} className={`yacht-total-chip${id === currentTurnId && !solo ? ' turn' : ''}${id === currentUserId ? ' me' : ''}`}>
+                    <em>{nameFor(id).slice(0, 7).toLowerCase()}</em>
+                    <b>{cardTotal(cards[id] ?? emptyCard())}</b>
+                  </span>
+                ))}
+                <span className="yacht-round">{t('y.round')} {Math.min(st.round, 12)}/12</span>
+              </div>
+
               <div className="yacht-status">
                 {statusLine && <span className={`yacht-status-line${myTurn ? ' mine' : ''}`}>{statusLine}</span>}
-                {!solo && <span className="yacht-round">{t('y.round')} {Math.min(st.round, 12)} / 12</span>}
               </div>
 
-              <div className="yacht-tray">
-                <div className="yacht-dice" key={rollNonce}>
-                  {st.dice.map((d, i) => (
+              <div className="yacht-stage">
+                {/* the keep shelf — held dice slide up here and wait */}
+                <div className="yacht-shelf">
+                  <span className="yacht-shelf-label">{t('y.keep')}</span>
+                  <div className="yacht-shelf-dice">
+                    {st.dice.map((d, i) => st.held[i] ? (
+                      <Die
+                        key={i}
+                        idx={i}
+                        value={tumbling.has(i) ? flicker[i] : d}
+                        held
+                        disabled={!myTurn || !rolled || st.rollsLeft === 0 || animating}
+                        onClick={() => toggleHold(i)}
+                        refCb={el => { if (el) dieRefs.current.set(i, el); else dieRefs.current.delete(i) }}
+                      />
+                    ) : null)}
+                    {st.held.every(h => !h) && (
+                      <span className="yacht-shelf-hint">{rolled ? t('y.keepHint') : '\u00a0'}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* the table — live dice tumble here */}
+                <div className="yacht-table-dice">
+                  {st.dice.map((d, i) => !st.held[i] ? (
                     <Die
                       key={i}
-                      value={d}
-                      held={st.held[i]}
-                      rolling={d > 0 && !st.held[i]}
-                      disabled={!myTurn || !rolled || st.rollsLeft === 0}
+                      idx={i}
+                      value={tumbling.has(i) ? flicker[i] : d}
+                      held={false}
+                      tumbling={tumbling.has(i)}
+                      landed={landedSet.has(i)}
+                      disabled={!myTurn || !rolled || st.rollsLeft === 0 || animating}
                       onClick={() => toggleHold(i)}
+                      refCb={el => { if (el) dieRefs.current.set(i, el); else dieRefs.current.delete(i) }}
                     />
-                  ))}
+                  ) : null)}
                 </div>
-                <button
-                  className="yacht-roll-btn"
-                  onClick={doRoll}
-                  disabled={!myTurn || st.rollsLeft <= 0 || (solo && soloOver)}
-                >
-                  {t('y.roll')}
-                  <span className="yacht-roll-pips">
-                    {[0, 1, 2].map(i => (
-                      <span key={i} className={`yacht-roll-pip${i < st.rollsLeft ? ' on' : ''}`} />
-                    ))}
-                  </span>
-                </button>
+
+                <div className="yacht-actions">
+                  <button
+                    className="yacht-roll-btn"
+                    onClick={doRoll}
+                    disabled={!myTurn || st.rollsLeft <= 0 || animating || (solo && soloOver)}
+                  >
+                    {t('y.roll')}
+                    <span className="yacht-roll-pips">
+                      {[0, 1, 2].map(i => (
+                        <span key={i} className={`yacht-roll-pip${i < st.rollsLeft ? ' on' : ''}`} />
+                      ))}
+                    </span>
+                  </button>
+                  <button
+                    className="yacht-write-btn"
+                    onClick={() => setLedgerOpen(true)}
+                    disabled={!myTurn || !rolled || animating}
+                  >
+                    {t('y.write')}
+                  </button>
+                </div>
               </div>
 
-              <div className="yacht-card">
-                <div className="yacht-card-head">
-                  <span className="yacht-card-cat" />
-                  {ids.map(id => (
-                    <span key={id} className={`yacht-card-player${id === currentTurnId && !solo ? ' turn' : ''}${id === currentUserId ? ' me' : ''}`}>
-                      {nameFor(id).slice(0, 6).toLowerCase()}
-                    </span>
-                  ))}
+              {/* the ledger — a sheet that rises to take the score */}
+              {ledgerOpen && <div className="yacht-ledger-veil" onClick={() => setLedgerOpen(false)} />}
+              <div className={`yacht-ledger${ledgerOpen ? ' open' : ''}`} aria-hidden={!ledgerOpen}>
+                <div className="yacht-ledger-head">
+                  <span className="yacht-ledger-title">{t('y.ledger')}</span>
+                  <button className="yacht-ledger-x" onClick={() => setLedgerOpen(false)} aria-label={t('common.close')}>×</button>
                 </div>
-                {CAT_LABELS.map((label, cat) => (
-                  <div key={cat} className="yacht-card-row">
-                    <span className="yacht-card-cat">{label}</span>
+                <div className="yacht-card">
+                  <div className="yacht-card-head">
+                    <span className="yacht-card-cat" />
+                    {ids.map(id => (
+                      <span key={id} className={`yacht-card-player${id === currentTurnId && !solo ? ' turn' : ''}${id === currentUserId ? ' me' : ''}`}>
+                        {nameFor(id).slice(0, 6).toLowerCase()}
+                      </span>
+                    ))}
+                  </div>
+                  {CAT_LABELS.map((label, cat) => (
+                    <div key={cat} className="yacht-card-row">
+                      <span className="yacht-card-cat">{label}</span>
+                      {ids.map(id => {
+                        const v = (cards[id] ?? [])[cat]
+                        const isMe = id === currentUserId
+                        const preview = isMe ? previewFor(cat) : null
+                        if (v !== null && v !== undefined) {
+                          return (
+                            <span
+                              key={id}
+                              className={`yacht-card-cell filled${v === 0 ? ' zero' : ''}${isMe && stampSeq?.cat === cat ? ' stamped' : ''}`}
+                              {...(isMe && stampSeq?.cat === cat ? { 'data-stamp': stampSeq.seq } : {})}
+                            >
+                              {v}
+                            </span>
+                          )
+                        }
+                        if (preview !== null) {
+                          return (
+                            <button key={id} className={`yacht-card-cell pick${preview === 0 ? ' zero' : ''}`}
+                              onClick={() => pickCategory(cat)}>
+                              {preview}
+                            </button>
+                          )
+                        }
+                        return <span key={id} className="yacht-card-cell open">·</span>
+                      })}
+                    </div>
+                  ))}
+                  <div className="yacht-card-row bonus">
+                    <span className="yacht-card-cat">{t('y.bonus')} <em>({YACHT_LABEL_BONUS})</em></span>
                     {ids.map(id => {
-                      const v = (cards[id] ?? [])[cat]
-                      const isMe = id === currentUserId
-                      const preview = isMe ? previewFor(cat) : null
-                      if (v !== null && v !== undefined) {
-                        return <span key={id} className={`yacht-card-cell filled${v === 0 ? ' zero' : ''}`}>{v}</span>
-                      }
-                      if (preview !== null) {
-                        return (
-                          <button key={id} className={`yacht-card-cell pick${preview === 0 ? ' zero' : ''}`}
-                            onClick={() => pickCategory(cat)}>
-                            {preview}
-                          </button>
-                        )
-                      }
-                      return <span key={id} className="yacht-card-cell open">·</span>
+                      const card = cards[id] ?? emptyCard()
+                      const up = upperTotal(card)
+                      const b = upperBonus(card)
+                      return (
+                        <span key={id} className={`yacht-card-cell${b > 0 ? ' bonus-hit' : ''}`}>
+                          {b > 0 ? `+${b}` : `${up}/63`}
+                        </span>
+                      )
                     })}
                   </div>
-                ))}
-                <div className="yacht-card-row bonus">
-                  <span className="yacht-card-cat">{t('y.bonus')} <em>({YACHT_LABEL_BONUS})</em></span>
-                  {ids.map(id => {
-                    const card = cards[id] ?? emptyCard()
-                    const up = upperTotal(card)
-                    const b = upperBonus(card)
-                    return (
-                      <span key={id} className={`yacht-card-cell${b > 0 ? ' bonus-hit' : ''}`}>
-                        {b > 0 ? `+${b}` : `${up}/63`}
+                  <div className="yacht-card-row total">
+                    <span className="yacht-card-cat">{t('y.total')}</span>
+                    {ids.map(id => (
+                      <span key={id} className="yacht-card-cell total-cell">
+                        {cardTotal(cards[id] ?? emptyCard())}
                       </span>
-                    )
-                  })}
-                </div>
-                <div className="yacht-card-row total">
-                  <span className="yacht-card-cat">{t('y.total')}</span>
-                  {ids.map(id => (
-                    <span key={id} className="yacht-card-cell total-cell">
-                      {cardTotal(cards[id] ?? emptyCard())}
-                    </span>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </>

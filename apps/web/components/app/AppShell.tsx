@@ -34,6 +34,7 @@ import AddFriendsSheet from './AddFriendsSheet'
 import NewGroupSheet from './NewGroupSheet'
 import PortfolioPage from './PortfolioPage'
 import HomePortfolio from './HomePortfolio'
+import DiscographyPanel from './DiscographyPanel'
 
 /**
  * Hybrid desktop layout: a persistent conversations rail on the left +
@@ -227,6 +228,7 @@ export default function AppShell({ user }: { user: User }) {
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
   const [wallFriend, setWallFriend] = useState<(Profile & { isOnline?: boolean }) | null>(null) // friend's wall
   const [portfolioOwner, setPortfolioOwner] = useState<(Profile & { isOnline?: boolean }) | null>(null) // artist page (mine or a friend's)
+  const [discoOpen, setDiscoOpen] = useState(false)                      // my discography panel
   const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
 
   // Where new events go: personal, or shared with one of my groups.
@@ -491,6 +493,7 @@ export default function AppShell({ user }: { user: User }) {
           friendCount={friends.length}
           groupCount={groupConversations.length}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenDiscography={me ? () => setDiscoOpen(true) : undefined}
         />
 
         {/* Colophon — version + deploy stamp, quiet corner print. */}
@@ -532,6 +535,15 @@ export default function AppShell({ user }: { user: User }) {
         onVisitWall={(f) => { setSheetFriend(null); setWallFriend(f as Profile & { isOnline?: boolean }) }}
         onVisitPortfolio={(f) => { setSheetFriend(null); setPortfolioOwner(f as Profile & { isOnline?: boolean }) }}
       />
+
+      {discoOpen && me && (
+        <DiscographyPanel
+          supabase={supabase}
+          owner={me}
+          isMine
+          onClose={() => setDiscoOpen(false)}
+        />
+      )}
 
       {portfolioOwner && (
         <PortfolioPage

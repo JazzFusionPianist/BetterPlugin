@@ -213,6 +213,25 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     return true
   }, [supabase, ownerId, shelves, refetch])
 
+  /** Commit a full hand-arranged order for one shelf's releases —
+   *  ids in the desired order get sequential positions. */
+  const reorderShelf = useCallback(async (ids: string[]) => {
+    setReleases((prev) => {
+      const next = prev.map((r) => {
+        const i = ids.indexOf(r.id)
+        return i >= 0 ? { ...r, position: i } : r
+      })
+      next.sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
+      return next
+    })
+    const updates = ids
+      .map((id, i) => ({ id, i, r: releases.find((x) => x.id === id) }))
+      .filter(({ r, i }) => r && r.position !== i)
+      .map(({ id, i }) => supabase.from('releases').update({ position: i }).eq('id', id))
+    if (updates.length) await Promise.all(updates)
+    await refetch()
+  }, [supabase, releases, refetch])
+
   /** Renaming the unnamed default shelf materialises it: a real shelf
    *  is created with the new name (in front of the others) and every
    *  loose release moves onto it. */
@@ -248,5 +267,5 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     await refetch()
   }, [supabase, refetch])
 
-  return { releases, shelves, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, nameDefaultShelf, renameShelf, deleteShelf, addPhotos, updatePhoto, deletePhoto, refetch }
+  return { releases, shelves, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, reorderShelf, nameDefaultShelf, renameShelf, deleteShelf, addPhotos, updatePhoto, deletePhoto, refetch }
 }

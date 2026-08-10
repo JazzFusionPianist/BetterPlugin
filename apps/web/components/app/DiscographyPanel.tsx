@@ -20,7 +20,7 @@ interface Props {
  * title and notes above the row. Tap it again to open the release.
  */
 export default function DiscographyPanel({ supabase, owner, isMine, onClose }: Props) {
-  const { releases, shelves, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, nameDefaultShelf, renameShelf, deleteShelf } =
+  const { releases, shelves, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, reorderShelf, nameDefaultShelf, renameShelf, deleteShelf } =
     usePortfolio(supabase, owner.id)
 
   const [selected, setSelected] = useState<string | null>(null)
@@ -44,6 +44,65 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   }
 
   const groups = useMemo(() => groupByShelf(releases, shelves), [releases, shelves])
+
+  // ── Arrange mode: one shelf at a time spreads its records out and
+  // lets them be dragged into a new order (iOS home-screen style).
+  const [arranging, setArranging] = useState<string | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dragDx, setDragDx] = useState(0)
+  const [dragTarget, setDragTarget] = useState<number | null>(null)
+  const dragRef = useRef<{ id: string; startX: number; origIdx: number; slot: number } | null>(null)
+
+  const startArrange = (key: string) => {
+    setArranging(key)
+    setSelected(null)
+  }
+  const endArrange = () => { setArranging(null); setDragId(null); setDragTarget(null) }
+
+  const onRecPointerDown = (e: React.PointerEvent, id: string, idx: number) => {
+    if (!arranging) return
+    const el = e.currentTarget as HTMLElement
+    try { el.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    // slot = one record's footprint in the spread row (width + gap)
+    const slot = el.offsetWidth + 12
+    dragRef.current = { id, startX: e.clientX, origIdx: idx, slot }
+    setDragId(id)
+    setDragDx(0)
+    setDragTarget(idx)
+  }
+  const onRecPointerMove = (e: React.PointerEvent, count: number) => {
+    const d = dragRef.current
+    if (!d) return
+    const dx = e.clientX - d.startX
+    setDragDx(dx)
+    const target = Math.min(count - 1, Math.max(0, Math.round(d.origIdx + dx / d.slot)))
+    setDragTarget(target)
+  }
+  const onRecPointerUp = (ids: string[]) => {
+    const d = dragRef.current
+    dragRef.current = null
+    if (!d) return
+    const target = dragTarget ?? d.origIdx
+    setDragId(null)
+    setDragDx(0)
+    setDragTarget(null)
+    if (target !== d.origIdx) {
+      const next = [...ids]
+      const [moved] = next.splice(d.origIdx, 1)
+      next.splice(target, 0, moved!)
+      reorderShelf(next)
+    }
+  }
+
+  /** While dragging, every other record steps aside toward the gap. */
+  const arrangeShift = (idx: number): number => {
+    const d = dragRef.current
+    if (!d || dragTarget === null) return 0
+    if (idx === d.origIdx) return 0
+    if (d.origIdx < idx && idx <= dragTarget) return -d.slot
+    if (dragTarget <= idx && idx < d.origIdx) return d.slot
+    return 0
+  }
 
   const submitNewShelf = async () => {
     const t = (newShelfDraft ?? '').trim()
@@ -122,6 +181,13 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
                 )}
                 {isMine && (
                   <span className="disco-shelf-tools">
+                    {g.releases.length > 1 && (
+                      arranging === key ? (
+                        <button className="disco-shelf-add" onClick={endArrange}>done</button>
+                      ) : (
+                        <button className="disco-shelf-arrange" onClick={() => startArrange(key)}>arrange</button>
+                      )
+                    )}
                     <button className="disco-shelf-add" onClick={() => setComposerShelf(g.shelf?.id ?? 'default')}>+ release</button>
                     {g.shelf && g.releases.length === 0 && (
                       <button className="disco-shelf-rm" onClick={() => deleteShelf(g.shelf!.id)}>remove</button>
@@ -144,13 +210,27 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
               {g.releases.length === 0 ? (
                 <div className="disco-row-empty">an empty shelf</div>
               ) : (
-                <div className="disco-row" role="listbox" aria-label={g.shelf?.title ?? 'releases'}>
+                <div
+                  className={`disco-row${arranging === key ? ' arranging' : ''}`}
+                  role="listbox"
+                  aria-label={g.shelf?.title ?? 'releases'}
+                >
                   {g.releases.map((r, i) => (
                     <button
                       key={r.id}
-                      className={`disco-rec${selected === r.id ? ' up' : ''}`}
-                      style={{ zIndex: g.releases.length - i, animationDelay: `${Math.min(i, 10) * 55}ms` }}
-                      onClick={() => pick(r.id)}
+                      className={`disco-rec${selected === r.id ? ' up' : ''}${dragId === r.id ? ' dragging' : ''}`}
+                      style={{
+                        zIndex: dragId === r.id ? 120 : g.releases.length - i,
+                        animationDelay: `${Math.min(i, 10) * 55}ms`,
+                        transform: arranging === key
+                          ? (dragId === r.id ? `translateX(${dragDx}px) scale(1.05)` : `translateX(${arrangeShift(i)}px)`)
+                          : undefined,
+                      }}
+                      onClick={() => { if (!arranging) pick(r.id) }}
+                      onPointerDown={(e) => onRecPointerDown(e, r.id, i)}
+                      onPointerMove={(e) => onRecPointerMove(e, g.releases.length)}
+                      onPointerUp={() => onRecPointerUp(g.releases.map((x) => x.id))}
+                      onPointerCancel={() => onRecPointerUp(g.releases.map((x) => x.id))}
                       aria-label={r.title}
                     >
                       <span className="disco-rec-vinyl" aria-hidden="true" />

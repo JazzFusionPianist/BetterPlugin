@@ -2798,3 +2798,31 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 }
 .pfolio-sheet-artist.as-text { cursor: default; }
 .pfolio-artistin::placeholder, .pfolio-sheet-artist::placeholder { color: var(--t3); }
+
+/* ═══ Arrange mode — the crate spreads out and wiggles ═══ */
+.disco-shelf-arrange {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-size: 12px; color: var(--t2);
+}
+.disco-shelf-arrange:hover { color: var(--ink); }
+.disco-row.arranging { padding-top: 20px; }
+.disco-row.arranging .disco-rec {
+  touch-action: none; cursor: grab;
+  transition: transform .18s cubic-bezier(.2, .9, .3, 1);
+}
+.disco-row.arranging .disco-rec + .disco-rec { margin-left: 12px; }
+.disco-row.arranging .disco-rec.dragging {
+  transition: none; cursor: grabbing;
+  box-shadow:
+    0 4px 6px rgba(26, 25, 23, 0.22),
+    0 22px 32px -14px rgba(26, 25, 23, 0.4);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .disco-row.arranging .disco-rec:not(.dragging) { animation: disco-wiggle .32s ease-in-out infinite alternate; }
+  .disco-row.arranging .disco-rec:nth-child(2n) { animation-delay: .08s; }
+  .disco-row.arranging .disco-rec:nth-child(3n) { animation-delay: .16s; }
+  @keyframes disco-wiggle {
+    from { rotate: -1.1deg; }
+    to   { rotate: 1.1deg; }
+  }
+}

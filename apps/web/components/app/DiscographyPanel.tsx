@@ -20,7 +20,7 @@ interface Props {
  * title and notes above the row. Tap it again to open the release.
  */
 export default function DiscographyPanel({ supabase, owner, isMine, onClose }: Props) {
-  const { releases, shelves, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, renameShelf, deleteShelf } =
+  const { releases, shelves, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, nameDefaultShelf, renameShelf, deleteShelf } =
     usePortfolio(supabase, owner.id)
 
   const [selected, setSelected] = useState<string | null>(null)
@@ -100,15 +100,21 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
           return (
             <section key={key} className="disco-shelf">
               <div className="disco-shelf-head">
-                {isMine && g.shelf ? (
+                {isMine ? (
                   <input
                     className="disco-shelf-title"
-                    defaultValue={g.shelf.title}
+                    defaultValue={g.shelf?.title ?? 'releases'}
                     maxLength={60}
                     onKeyDown={(e) => { if (!e.nativeEvent.isComposing && e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                     onBlur={(e) => {
                       const v = e.target.value.trim()
-                      if (v && v !== g.shelf!.title) renameShelf(g.shelf!.id, v)
+                      if (!v) return
+                      if (g.shelf) {
+                        if (v !== g.shelf.title) renameShelf(g.shelf.id, v)
+                      } else if (v !== 'releases') {
+                        // naming the unnamed shelf turns it into a real one
+                        nameDefaultShelf(v)
+                      }
                     }}
                   />
                 ) : (

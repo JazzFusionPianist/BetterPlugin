@@ -213,6 +213,25 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     return true
   }, [supabase, ownerId, shelves, refetch])
 
+  /** Renaming the unnamed default shelf materialises it: a real shelf
+   *  is created with the new name (in front of the others) and every
+   *  loose release moves onto it. */
+  const nameDefaultShelf = useCallback(async (title: string) => {
+    const t = title.trim()
+    if (!t) return
+    const frontPos = shelves.reduce((m, x) => Math.min(m, x.position), 0) - 1
+    const { data, error } = await supabase.from('shelves')
+      .insert({ user_id: ownerId, title: t, position: frontPos })
+      .select('id').single()
+    if (error || !data) { console.error('[portfolio] nameDefaultShelf', error); return }
+    const { error: mvErr } = await supabase.from('releases')
+      .update({ shelf_id: data.id })
+      .eq('user_id', ownerId)
+      .is('shelf_id', null)
+    if (mvErr) console.error('[portfolio] nameDefaultShelf move', mvErr)
+    await refetch()
+  }, [supabase, ownerId, shelves, refetch])
+
   const renameShelf = useCallback(async (id: string, title: string) => {
     const t = title.trim()
     if (!t) return
@@ -229,5 +248,5 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     await refetch()
   }, [supabase, refetch])
 
-  return { releases, shelves, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, renameShelf, deleteShelf, addPhotos, updatePhoto, deletePhoto, refetch }
+  return { releases, shelves, photos, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, nameDefaultShelf, renameShelf, deleteShelf, addPhotos, updatePhoto, deletePhoto, refetch }
 }

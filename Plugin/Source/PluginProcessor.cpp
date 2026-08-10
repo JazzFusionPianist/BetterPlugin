@@ -1055,7 +1055,7 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
             const float limN = isClean ? 0.80f : isFuzz ? 0.55f : 0.62f;
 
             const float midG = isClean ? 0.2f : isCrunch ? 1.1f : isLead ? 1.6f : 0.5f;
-            const float outT = isClean ? 0.9f : isCrunch ? 0.75f : isLead ? 0.7f : 0.72f;   // fixed trim
+            const float outT = isClean ? 0.95f : isCrunch ? 0.95f : isLead ? 0.9f : 0.92f;  // fixed trim — sits ~-3.5 dBFS like the loud plugins
             const float pres = isClean ? 0.5f : isCrunch ? 0.4f : isLead ? 0.3f : 0.2f;
 
             const float hpF = isFuzz ? 55.0f : isLead ? 110.0f : isCrunch ? 85.0f : 70.0f;

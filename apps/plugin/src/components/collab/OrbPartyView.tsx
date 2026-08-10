@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { CSSProperties } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useOrbPartyRoom } from '../../hooks/useOrbPartyRoom'
@@ -17,6 +16,8 @@ import GameChat from './GameChat'
 
 const MAX_PLAYERS = 4
 const STEP_MS = 560
+/** The pawn waits for the die to land before it starts hopping. */
+const WALK_HOLD_MS = 1500
 
 interface Props {
   supabase: SupabaseClient
@@ -54,26 +55,30 @@ const FACE_ROT: Record<number, string> = {
 
 const PAWN_BODY = 'M9 7.2 C10.7 9.6 11.7 12.7 12 16.1 L13.5 17.3 C14.3 18 14.8 19 14.8 20 L14.8 21 C14.8 21.7 14.2 22.3 13.5 22.3 L4.5 22.3 C3.8 22.3 3.2 21.7 3.2 21 L3.2 20 C3.2 19 3.7 18 4.5 17.3 L6 16.1 C6.3 12.7 7.3 9.6 9 7.2 Z'
 
-/** Two crossed planes = a pawn with volume from any camera angle. */
+/** A shaded standee — drawn like a little painted miniature. */
 function Pawn({ color, active }: { color: string; active?: boolean }) {
-  const art = (cls: string) => (
-    <svg className={`party-pawn ${cls}${active ? ' active' : ''}`} viewBox="0 0 18 24">
+  return (
+    <svg className={`party-pawn${active ? ' active' : ''}`} viewBox="0 0 18 24">
       <defs>
         <linearGradient id="pawnlite" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.5" />
-          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.06" />
-          <stop offset="1" stopColor="#101010" stopOpacity="0.24" />
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.55" />
+          <stop offset="0.42" stopColor="#FFFFFF" stopOpacity="0.08" />
+          <stop offset="1" stopColor="#000000" stopOpacity="0.32" />
         </linearGradient>
+        <radialGradient id="pawngloss" cx="0.35" cy="0.3" r="0.75">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.75" />
+          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.12" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
       </defs>
+      <ellipse cx="9" cy="22" rx="6.6" ry="1.7" fill="#000000" opacity="0.28" />
       <path d={PAWN_BODY} fill={color} />
       <circle cx="9" cy="4.9" r="3.7" fill={color} />
-      <g fill="url(#pawnlite)">
-        <path d={PAWN_BODY} />
-        <circle cx="9" cy="4.9" r="3.7" />
-      </g>
+      <path d={PAWN_BODY} fill="url(#pawnlite)" />
+      <circle cx="9" cy="4.9" r="3.7" fill="url(#pawnlite)" />
+      <circle cx="9" cy="4.9" r="3.7" fill="url(#pawngloss)" />
     </svg>
   )
-  return <>{art('pp-front')}{art('pp-side')}</>
 }
 
 function DieCube({ v, phase }: { v: number; phase: 'tumble' | 'settle' }) {
@@ -82,7 +87,7 @@ function DieCube({ v, phase }: { v: number; phase: 'tumble' | 'settle' }) {
     <span
       className={`party-die3d ${phase}`}
       style={phase === 'settle'
-        ? { transform: `rotateX(-16deg) rotateY(12deg) ${FACE_ROT[shown]}` }
+        ? { transform: `rotateX(-24deg) rotateY(30deg) ${FACE_ROT[shown]}` }
         : undefined}
     >
       {[1, 2, 3, 4, 5, 6].map(f => (
@@ -117,10 +122,11 @@ export default function OrbPartyView({
   const animRef = useRef<number | null>(null)
   const drawPosRef = useRef<Record<string, number>>({})
   useEffect(() => { drawPosRef.current = drawPos }, [drawPos])
+  const walkedRollRef = useRef(0)
   // ── presentation: dice tumble, floating text, event cards ──
   const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle'; seq: number } | null>(null)
   const [floats, setFloats] = useState<{ x: number; y: number; text: string; tone: string; key: number }[]>([])
-  const [card, setCard] = useState<{ title: string; sub: string; key: number } | null>(null)
+  const [card, setCard] = useState<{ title: string; sub: string; key: number; node: number | null } | null>(null)
   const seqRef = useRef({ primed: false, roll: 0, fx: 0, card: 0 })
   // Delayed fx timers survive state re-writes; cleared only on unmount.
   const fxTimersRef = useRef<number[]>([])
@@ -142,12 +148,6 @@ export default function OrbPartyView({
   const isPlaying = status === 'playing'
   const isFinished = status === 'finished'
 
-  const partyFinishRef = useRef(false)
-  useEffect(() => {
-    if (room?.status !== 'finished') { partyFinishRef.current = false; return }
-    if (partyFinishRef.current) return
-    partyFinishRef.current = true
-  }, [room?.status, room?.winner_id, currentUserId])
   const isHost = !!(room && room.host_id === currentUserId)
   const ids = useMemo(() => room?.player_ids ?? [], [room])
 
@@ -212,7 +212,7 @@ export default function OrbPartyView({
     const f = st?.lastFx
     if (!f || !f.text || f.seq === seqRef.current.fx) return
     seqRef.current.fx = f.seq
-    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS
+    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS + WALK_HOLD_MS
     const n = PARTY_BOARD[f.node] ?? PARTY_BOARD[0]
     const item = { x: n.x, y: n.y, text: f.text, tone: f.tone, key: f.seq }
     fxTimersRef.current.push(window.setTimeout(() => {
@@ -227,11 +227,12 @@ export default function OrbPartyView({
     const c = st?.lastCard
     if (!c || !c.title || c.seq === seqRef.current.card) return
     seqRef.current.card = c.seq
-    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS + 180
+    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS + WALK_HOLD_MS + 180
+    const focus = st?.trail?.length ? st.trail[st.trail.length - 1] : (st?.lastFx?.node ?? null)
     fxTimersRef.current.push(window.setTimeout(() => {
-      setCard({ title: c.title, sub: c.sub, key: c.seq })
+      setCard({ title: c.title, sub: c.sub, key: c.seq, node: focus })
       fxTimersRef.current.push(window.setTimeout(
-        () => setCard(cur => (cur?.key === c.seq ? null : cur)), 2400))
+        () => setCard(cur => (cur?.key === c.seq ? null : cur)), 4200))
     }, delay))
   }, [st?.lastCard, st?.trail])
 
@@ -265,6 +266,11 @@ export default function OrbPartyView({
     setWalking(true)
     const base = { ...st.positions }
     const pending = st.stepsLeft ?? 0
+    // fresh roll → let the cube fall, spin and land BEFORE the first hop,
+    // with the countdown chip already announcing the full distance
+    const freshRoll = !!st.lastRoll && st.lastRoll.seq !== walkedRollRef.current
+    if (freshRoll && st.lastRoll) walkedRollRef.current = st.lastRoll.seq
+    setWalkInfo({ id: mover, left: (st.trail.length - i) + pending })
     const stepFn = () => {
       setDrawPos({ ...base, [mover]: st.trail[i] })
       setWalkInfo({ id: mover, left: (st.trail.length - 1 - i) + pending })
@@ -275,7 +281,7 @@ export default function OrbPartyView({
         setWalking(false)
       }
     }
-    stepFn()
+    animRef.current = window.setTimeout(stepFn, freshRoll ? WALK_HOLD_MS : 120) as unknown as number
     return () => {
       if (animRef.current) window.clearTimeout(animRef.current as unknown as number)
       setWalking(false)
@@ -550,7 +556,7 @@ export default function OrbPartyView({
 
   // ── Bot driver (host client) ─────────────────────────────────────────────
   useEffect(() => {
-    if (!room || !isPlaying || !isHost || !st || walking) return
+    if (!room || !isPlaying || !isHost || !st || walking || card) return
     const cur = ids[st.turn]
     if (!cur || !isComputerPlayerId(cur)) return
     const timer = window.setTimeout(() => {
@@ -566,7 +572,7 @@ export default function OrbPartyView({
       }
     }, 2200)
     return () => window.clearTimeout(timer)
-  }, [room, isPlaying, isHost, st, walking, ids, doRoll, pickExit, answerBuy])
+  }, [room, isPlaying, isHost, st, walking, card, ids, doRoll, pickExit, answerBuy])
 
   // ── Lobby plumbing ───────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
@@ -650,14 +656,36 @@ export default function OrbPartyView({
   const [overview, setOverview] = useState(false)
   const camPaused = st?.phase === 'junction' || st?.phase === 'buy'
   const focusAt = st && currentTurnId ? (drawPos[currentTurnId] ?? st.positions[currentTurnId] ?? 0) : 0
+  const cardHold = card && card.node != null ? PARTY_BOARD[card.node] : null
   const camT = !st || overview
     ? { x: PARTY_W / 2, y: PARTY_H / 2 }
-    : { x: PARTY_BOARD[focusAt].x, y: PARTY_BOARD[focusAt].y }
+    : cardHold
+      ? { x: cardHold.x, y: cardHold.y }
+      : { x: PARTY_BOARD[focusAt].x, y: PARTY_BOARD[focusAt].y }
   const fitZ = Math.min(sceneDims.w / (PARTY_W + 28), sceneDims.h / (PARTY_H + 28))
   const followZ = Math.max(fitZ * 1.7, Math.min(sceneDims.w, sceneDims.h) / 235)
   const camZ = !st || overview ? fitZ : camPaused ? Math.max(fitZ * 1.2, followZ * 0.6) : followZ
   const tilt = overview ? 16 : 52
   const worldTransform = `translate3d(${sceneDims.w / 2 - camT.x * camZ}px, ${sceneDims.h * (overview ? 0.5 : 0.58) - camT.y * camZ}px, 0) scale(${camZ})`
+  const camDur = walking ? '0.58s' : '0.9s'
+  const camEase = walking ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)'
+  // Screen-space projection of a board point through the same camera the
+  // floor renders with (perspective 1050px @ 50%/38%, tilt about centre).
+  // Sprites are drawn flat at these coords — no nested CSS 3D, so every
+  // engine renders them identically.
+  const proj = (bx: number, by: number) => {
+    const w = sceneDims.w, h = sceneDims.h
+    const u = w / 2 + camZ * (bx - camT.x)
+    const v = h * (overview ? 0.5 : 0.58) + camZ * (by - camT.y)
+    const th = (tilt * Math.PI) / 180
+    const cy = h / 2
+    const yr = cy + (v - cy) * Math.cos(th)
+    const zz = (v - cy) * Math.sin(th)
+    const s = 1050 / (1050 - zz)
+    const ox = w / 2
+    const oy = h * 0.38
+    return { X: ox + (u - ox) * s, Y: oy + (yr - oy) * s, S: Math.max(0.35, Math.min(2.2, s)) }
+  }
 
   // ── How-to-play card: auto-opens once per fresh game, ? chip reopens ─────
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -785,18 +813,14 @@ export default function OrbPartyView({
 
               {/* board — 3D scene, the camera follows whoever is moving */}
               <div className="party-board-wrap">
-                <div
-                  ref={sceneRef}
-                  className="party-scene"
-                  style={{ '--pt-stand': `${-tilt}deg` } as CSSProperties}
-                >
-                  <div className="party-tilt" style={{ transform: `rotateX(${tilt}deg)` }}>
+                <div ref={sceneRef} className="party-scene">
+                  <div className="party-tilt" style={{ transform: `rotateX(${tilt}deg)`, transitionDuration: camDur, transitionTimingFunction: camEase }}>
                     <div
                       className="party-world"
                       style={{
                         transform: worldTransform,
-                        transitionDuration: walking ? '0.58s' : '0.9s',
-                        transitionTimingFunction: walking ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',
+                        transitionDuration: camDur,
+                        transitionTimingFunction: camEase,
                       }}
                     >
                       <div className="party-table" />
@@ -836,60 +860,75 @@ export default function OrbPartyView({
                           return <circle cx={n.x} cy={n.y} r={17.5} className="party-here" />
                         })()}
                       </svg>
+                    </div>
+                  </div>
 
-                      {/* the star, standing on its tile */}
-                      <div className="party-star3d" style={{ left: PARTY_BOARD[st.starNode].x, top: PARTY_BOARD[st.starNode].y - 8 }}>★</div>
-
-                      {/* junction choices — standing signposts with tiles-to-star */}
-                      {junctionExits.map(e => {
-                        const dists = junctionExits.map(x => stepsToStar(x, st.starNode))
-                        const d = stepsToStar(e, st.starNode)
-                        return (
-                          <button
-                            key={e} type="button"
-                            className={`party-exit3d${d === Math.min(...dists) ? ' best' : ''}`}
-                            style={{ left: PARTY_BOARD[e].x, top: PARTY_BOARD[e].y }}
-                            onClick={() => pickExit(e)}
-                          >
-                            <span className="party-exit3d-arrow">▾</span>
-                            <small>★ {d}</small>
-                          </button>
-                        )
-                      })}
-
-                      {/* piece ground shadows (flat on the board) */}
-                      {ids.map((id, pi) => {
-                        const at = drawPos[id] ?? st.positions[id] ?? 0
-                        const node = PARTY_BOARD[at]
-                        const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
-                        return <span key={id} className="party-piece-shadow" style={{ left: node.x + off[0], top: node.y + off[1] }} />
-                      })}
-                      {/* player pieces — standing pawns; inner div remounts per node to replay the hop */}
-                      {ids.map((id, pi) => {
-                        const at = drawPos[id] ?? st.positions[id] ?? 0
-                        const node = PARTY_BOARD[at]
-                        const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
-                        return (
-                          <div key={id} className="party-piece" style={{ left: node.x + off[0], top: node.y + off[1] }}>
-                            <div key={`hop-${at}`} className="party-piece-hop">
-                              <Pawn color={colorFor(id)} active={id === currentTurnId} />
-                            </div>
+                  {/* sprites — hand-projected to screen space, flat and engine-proof */}
+                  <div className="party-sprites">
+                    {/* the star on its tile */}
+                    {(() => {
+                      const n = PARTY_BOARD[st.starNode]
+                      const p = proj(n.x, n.y - 6)
+                      return (
+                        <div className="party-sp-star" style={{ left: p.X, top: p.Y, fontSize: Math.round(11 * camZ * p.S), zIndex: Math.round(p.Y) }}>★</div>
+                      )
+                    })()}
+                    {/* player pieces */}
+                    {ids.map((id, pi) => {
+                      const at = drawPos[id] ?? st.positions[id] ?? 0
+                      const node = PARTY_BOARD[at]
+                      const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
+                      const p = proj(node.x + off[0], node.y + off[1])
+                      const k = Math.min(3, camZ * p.S)
+                      return (
+                        <div
+                          key={id}
+                          className="party-piece"
+                          style={{
+                            left: p.X, top: p.Y, zIndex: Math.round(p.Y),
+                            transform: `translate(-50%, -100%) scale(${k.toFixed(3)})`,
+                            transitionDuration: `${camDur}, ${camDur}, ${camDur}`,
+                            transitionTimingFunction: `${camEase}, ${camEase}, ${camEase}`,
+                          }}
+                        >
+                          <div key={`hop-${at}`} className="party-piece-hop">
+                            <Pawn color={colorFor(id)} active={id === currentTurnId} />
                           </div>
-                        )
-                      })}
-                      {/* steps-left counter above the walking pawn */}
-                      {walkInfo && walkInfo.left > 0 && (() => {
-                        const n = PARTY_BOARD[drawPos[walkInfo.id] ?? 0]
-                        return <div className="party-steps3d" style={{ left: n.x, top: n.y - 18 }}>{walkInfo.left}</div>
-                      })()}
-
-                      {/* floating landing text (standing) */}
-                      {floats.map(f => (
-                        <div key={f.key} className={`party-float3d ${f.tone}`} style={{ left: f.x, top: f.y - 4 }}>
+                        </div>
+                      )
+                    })}
+                    {/* junction signposts */}
+                    {junctionExits.map(e => {
+                      const dists = junctionExits.map(x => stepsToStar(x, st.starNode))
+                      const d = stepsToStar(e, st.starNode)
+                      const p = proj(PARTY_BOARD[e].x, PARTY_BOARD[e].y - 10)
+                      return (
+                        <button
+                          key={e} type="button"
+                          className={`party-exit3d${d === Math.min(...dists) ? ' best' : ''}`}
+                          style={{ left: p.X, top: p.Y, zIndex: 8000 }}
+                          onClick={() => pickExit(e)}
+                        >
+                          <span className="party-exit3d-arrow">▾</span>
+                          <small>★ {d}</small>
+                        </button>
+                      )
+                    })}
+                    {/* steps-left counter above the walking pawn */}
+                    {walkInfo && walkInfo.left > 0 && (() => {
+                      const n = PARTY_BOARD[drawPos[walkInfo.id] ?? 0]
+                      const p = proj(n.x, n.y - 28)
+                      return <div className="party-steps3d" style={{ left: p.X, top: p.Y, zIndex: 9000 }}>{walkInfo.left}</div>
+                    })()}
+                    {/* floating landing text */}
+                    {floats.map(f => {
+                      const p = proj(f.x, f.y - 12)
+                      return (
+                        <div key={f.key} className={`party-float3d ${f.tone}`} style={{ left: p.X, top: p.Y, zIndex: 9500 }}>
                           <span>{f.text}</span>
                         </div>
-                      ))}
-                    </div>
+                      )
+                    })}
                   </div>
 
                   <button type="button" className="party-view-toggle" onClick={() => setOverview(o => !o)}>

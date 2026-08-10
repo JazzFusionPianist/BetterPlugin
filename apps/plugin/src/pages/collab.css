@@ -9822,7 +9822,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   border-radius: 10px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
   transition: none; pointer-events: none;
   animation: party-card-flip 0.42s cubic-bezier(0.2, 1.2, 0.35, 1) both,
-             party-card-out 0.3s ease 2s forwards;
+             party-card-out 0.3s ease 3.8s forwards;
 }
 @keyframes party-card-flip {
   0% { opacity: 0; transform: translate(-50%, -50%) perspective(500px) rotateX(78deg) scale(0.9); }
@@ -9861,13 +9861,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .party-tilt {
   position: absolute; inset: 0;
-  transform-style: preserve-3d;
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .party-world {
   position: absolute; left: 0; top: 0; width: 340px; height: 500px;
   transform-origin: 0 0;
-  transform-style: preserve-3d;
   transition-property: transform;
 }
 .party-floor-svg { position: absolute; left: 0; top: 0; overflow: visible; }
@@ -9878,66 +9876,55 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   background: rgba(127, 127, 127, 0.05);
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.14), inset 0 0 0 6px rgba(127, 127, 127, 0.04);
 }
-.party-piece-shadow {
-  position: absolute; width: 14px; height: 6px;
-  margin-left: -7px; margin-top: -3px;
-  border-radius: 50%; background: rgba(0, 0, 0, 0.28);
-  transition: left 0.5s ease, top 0.5s ease;
-}
+.party-sprites { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .party-piece {
-  /* direct child of the world — real box, single 3D transform (zero-size
-     anchors + deep nesting flatten in WebKit) */
-  position: absolute; width: 20px; height: 26px;
-  margin-left: -10px; margin-top: -25px;
+  /* screen-space sprite — position and scale are projected in JS, so every
+     engine draws the same thing (nested CSS 3D dies quietly in WebKit) */
+  position: absolute; width: 18px; height: 24px;
   transform-origin: 50% 100%;
-  transform: rotateX(var(--pt-stand, -52deg));
-  transform-style: preserve-3d;
-  transition: left 0.5s ease, top 0.5s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-property: left, top, transform;
+  transition-duration: 0.58s;
   pointer-events: none;
 }
-.party-piece-hop {
-  position: absolute; inset: 0;
-  transform-style: preserve-3d;
-  animation: party-hop 0.5s ease;
-}
+.party-piece-hop { position: absolute; inset: 0; animation: party-hop 0.5s ease; }
 .party-pawn {
   position: absolute; left: 0; top: 0; width: 100%; height: 100%;
   display: block; overflow: visible;
 }
-.party-pawn.pp-side { transform: rotateY(90deg); }
 .party-pawn path, .party-pawn circle {
   paint-order: stroke;
-  stroke: #FCFBF9; stroke-width: 1.8;
+  stroke: #FCFBF9; stroke-width: 1.4;
 }
-.party-pawn g path, .party-pawn g circle { stroke: none; }
-.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 2.4; }
-.party-pawn.active g path, .party-pawn.active g circle { stroke: none; }
+.party-pawn ellipse { stroke: none; }
+.party-pawn path[fill^='url'], .party-pawn circle[fill^='url'] { stroke: none; }
+.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 1.9; }
+.party-pawn.active path[fill^='url'], .party-pawn.active circle[fill^='url'] { stroke: none; }
 .party-steps3d {
-  position: absolute; z-index: 3;
-  transform-origin: 50% 100%;
-  transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
-  transition: left 0.5s ease, top 0.5s ease;
+  position: absolute;
+  transform: translate(-50%, -100%);
+  transition: left 0.58s linear, top 0.58s linear;
   background: #2440FF; color: #FFFFFF;
-  font-family: var(--f-sans); font-size: 12px; font-weight: 700;
+  font-family: var(--f-sans); font-size: 13px; font-weight: 700;
   font-variant-numeric: tabular-nums;
-  padding: 2px 8px; border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  padding: 3px 10px; border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   pointer-events: none;
 }
-.party-star3d {
-  position: absolute; transform-origin: 50% 100%;
-  transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), left 0.5s ease, top 0.5s ease;
-  font-size: 15px; color: #E9A13B;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+.party-sp-star {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1), top 0.9s cubic-bezier(0.22, 1, 0.36, 1), font-size 0.9s ease;
+  color: #E9A13B;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
 .party-exit3d {
-  position: absolute; transform-origin: 50% 100%;
-  transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
+  position: absolute;
+  transform: translate(-50%, -100%);
   display: flex; flex-direction: column; align-items: center;
   background: none; border: none; padding: 2px 6px 12px; cursor: pointer;
   font-family: var(--f-sans);
+  pointer-events: auto;
 }
 .party-exit3d-arrow { color: #2440FF; font-size: 16px; line-height: 1; animation: party-exit-pulse 1s ease-in-out infinite; }
 .party-exit3d small {
@@ -9948,8 +9935,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .party-exit3d.best small { color: #FFFFFF; background: #2440FF; border-color: #2440FF; }
 .party-float3d {
-  position: absolute; transform-origin: 50% 100%;
-  transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
+  position: absolute;
+  transform: translate(-50%, -100%);
   pointer-events: none;
 }
 .party-float3d span {

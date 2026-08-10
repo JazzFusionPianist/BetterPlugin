@@ -624,7 +624,13 @@ function CollabPageInner({ user }: Props) {
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={pluginClass} ref={pluginRef}>
+    <div
+      className={pluginClass}
+      ref={pluginRef}
+      // With the freely-resizable window the shell must always fill it —
+      // the fixed 300×500 frame is only for plain-browser previews.
+      style={(hasJuceBridge || screenPreview) ? { width: '100vw', height: '100vh' } : undefined}
+    >
       <ResizeGrip />
       <div className="top-bar">
         {/* Chat list */}

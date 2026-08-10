@@ -818,6 +818,7 @@ void OrbAudioProcessor::resetFxOne (int m)
             {
                 ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f;
                 ampLp2State[ch] = 0.0f; ampMidLo[ch] = 0.0f; ampMidHi[ch] = 0.0f; ampEnv[ch] = 0.0f;
+                ampStageHp[ch] = 0.0f;
             }
             break;
         case kDoubler:
@@ -1026,44 +1027,57 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
 
         case kAmp:
         {
-            // clean / crunch / lead / fuzz — a real guitar-amp chain:
-            // tight input HP → pre-clip MID EMPHASIS (the tube-screamer
-            // trick that makes clipping sing instead of buzz) → the
-            // nonlinearity (cascaded for lead; bias-sagged hard clip for
-            // fuzz) → DC block → TWO-POLE cabinet rolloff (12 dB/oct —
-            // this is what makes it sound like an amp in a room, not a
-            // pedal into a DI).
+            // clean / crunch / lead / fuzz — waveform-first this time.
+            // Real amp gain structure: crunch lives around +36 dB, lead
+            // stacks two stages to ~+58 dB, fuzz slams ~+52 dB into a
+            // near-square. The shaper is a DIODE curve, not tanh —
+            // lim * (1 - e^(-|x|/lim)) has the harder knee that actually
+            // flattens the tops — and it's ASYMMETRIC (the negative lobe
+            // clips earlier), which is where the amp "bark" lives.
+            // Output stays LOUD: no drive-dependent shrink — a clipped
+            // waveform is pinned near full scale like a real amp, only a
+            // fixed trim per variant. Post: two-pole cab + a presence
+            // tap (pole-1 minus pole-2 mixed back in).
             const bool isClean  = variant == 0;
             const bool isCrunch = variant == 1;
             const bool isLead   = variant == 2;
             const bool isFuzz   = variant == 3;
 
-            const float drive = isClean  ? 1.0f + a * 2.5f
-                              : isCrunch ? 2.0f + a * 12.0f
-                              : isLead   ? 3.0f + a * 20.0f
-                              :            6.0f + a * 60.0f;
-            const float asym  = isClean ? 0.06f : isCrunch ? 0.18f : isLead ? 0.15f : 0.55f;
-            const float midG  = isClean ? 0.0f  : isCrunch ? 0.8f  : isLead ? 1.4f  : 0.4f;
-            const float comp  = isClean  ? 1.0f / std::pow (drive, 0.45f)
-                              : isCrunch ? 1.0f / std::pow (drive, 0.60f)
-                              : isLead   ? 0.9f / std::pow (drive, 0.65f)
-                              :            0.8f / std::pow (drive, 0.50f);
-            const float hpF   = isFuzz ? 60.0f : isLead ? 110.0f : isCrunch ? 90.0f : 70.0f;
-            const float lpF   = isClean  ? 7500.0f - a * 1500.0f
-                              : isCrunch ? 6000.0f - a * 1200.0f
-                              : isLead   ? 5200.0f - a * 1000.0f
-                              :            4800.0f - a * 800.0f;
-            const float hpK   = 1.0f - std::exp (-twoPi * hpF / sr);
-            const float lpK   = 1.0f - std::exp (-twoPi * lpF / sr);
-            const float dcK   = 1.0f - std::exp (-twoPi * 12.0f / sr);
-            // mid-emphasis band edges (~350 Hz – 1.8 kHz)
-            const float mLoK  = 1.0f - std::exp (-twoPi * 350.0f / sr);
-            const float mHiK  = 1.0f - std::exp (-twoPi * 1800.0f / sr);
-            // fuzz bias envelope: fast attack, slow release — the sag
-            // that makes a fuzz sputter and gate as notes decay.
-            const float envA  = 1.0f - std::exp (-twoPi * 30.0f / sr);
-            const float envR  = 1.0f - std::exp (-twoPi * 2.0f / sr);
-            const float stage2 = std::sqrt (drive);   // lead's second stage
+            // input gain — the whole game
+            const float g1 = isClean  ? 2.0f  + a * 6.0f
+                           : isCrunch ? 8.0f  + a * 60.0f
+                           : isLead   ? 6.0f  + a * 28.0f
+                           :            30.0f + a * 400.0f;
+            const float g2 = isLead ? 4.0f + a * 22.0f : 0.0f;   // lead stage 2
+
+            // clip ceilings: positive/negative lobes (asymmetric)
+            const float limP = isFuzz ? 0.75f : 0.70f;
+            const float limN = isClean ? 0.80f : isFuzz ? 0.55f : 0.62f;
+
+            const float midG = isClean ? 0.2f : isCrunch ? 1.1f : isLead ? 1.6f : 0.5f;
+            const float outT = isClean ? 0.9f : isCrunch ? 0.75f : isLead ? 0.7f : 0.72f;   // fixed trim
+            const float pres = isClean ? 0.5f : isCrunch ? 0.4f : isLead ? 0.3f : 0.2f;
+
+            const float hpF = isFuzz ? 55.0f : isLead ? 110.0f : isCrunch ? 85.0f : 70.0f;
+            const float lpF = isClean  ? 7500.0f - a * 1500.0f
+                            : isCrunch ? 5800.0f - a * 1000.0f
+                            : isLead   ? 5200.0f - a * 900.0f
+                            :            4600.0f - a * 700.0f;
+            const float hpK  = 1.0f - std::exp (-twoPi * hpF / sr);
+            const float lpK  = 1.0f - std::exp (-twoPi * lpF / sr);
+            const float dcK  = 1.0f - std::exp (-twoPi * 12.0f / sr);
+            const float cplK = 1.0f - std::exp (-twoPi * 40.0f / sr);   // stage coupling cap
+            const float mLoK = 1.0f - std::exp (-twoPi * 350.0f / sr);
+            const float mHiK = 1.0f - std::exp (-twoPi * 1800.0f / sr);
+            const float envA = 1.0f - std::exp (-twoPi * 30.0f / sr);
+            const float envR = 1.0f - std::exp (-twoPi * 2.0f / sr);
+
+            // diode-knee clipper: hard-ish, per-lobe ceiling
+            auto diode = [limP, limN] (float x) noexcept -> float
+            {
+                if (x >= 0.0f) return limP * (1.0f - std::exp (-x / limP));
+                return -limN * (1.0f - std::exp (x / limN));
+            };
 
             const int chs = R != nullptr ? 2 : 1;
             for (int i = 0; i < n; ++i)
@@ -1081,32 +1095,36 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                     float y;
                     if (isFuzz)
                     {
+                        // bias sag: the envelope pulls the operating point
+                        // down so decaying notes sputter and gate.
                         const float at = std::abs (t);
                         ampEnv[ch] += (at - ampEnv[ch]) * (at > ampEnv[ch] ? envA : envR);
-                        const float bias = -0.9f * juce::jmin (1.0f, ampEnv[ch] * drive * 0.25f);
-                        float x = drive * t + bias + asym * drive * t * std::abs (t) * 0.2f;
-                        y = x / (1.0f + std::abs (x));                    // hard-ish square
-                        y = juce::jlimit (-0.9f, 0.9f, y * 1.4f);         // squash the corners
-                        y *= comp;
+                        const float bias = -0.55f * juce::jmin (1.0f, ampEnv[ch] * g1 * 0.15f);
+                        y = diode (g1 * t + bias);
+                        // second squash toward square
+                        y = juce::jlimit (-limN, limP, y * 1.6f);
                     }
                     else if (isLead)
                     {
-                        // two cascaded stages: the first compresses, the
-                        // second sings.
-                        const float s1 = std::tanh (stage2 * (t + asym * t * t));
-                        y = std::tanh (stage2 * (s1 + asym * s1 * s1)) * comp;
+                        // stage 1 clips, the coupling cap re-centres,
+                        // stage 2 clips again — cascaded like channels
+                        // in a high-gain preamp.
+                        const float s1 = diode (g1 * t);
+                        ampStageHp[ch] += (s1 - ampStageHp[ch]) * cplK;
+                        y = diode (g2 * (s1 - ampStageHp[ch]));
                     }
                     else
                     {
-                        y = std::tanh (drive * (t + asym * t * t)) * comp;
+                        y = diode (g1 * t);
                     }
 
                     ampDcState[ch] += (y - ampDcState[ch]) * dcK;
                     y -= ampDcState[ch];
-                    // two-pole cabinet
+
+                    // two-pole cab + presence tap
                     ampLpState[ch]  += (y - ampLpState[ch]) * lpK;
                     ampLp2State[ch] += (ampLpState[ch] - ampLp2State[ch]) * lpK;
-                    S[i] = ampLp2State[ch];
+                    S[i] = (ampLp2State[ch] + pres * (ampLpState[ch] - ampLp2State[ch])) * outT;
                 }
             break;
         }

@@ -22,6 +22,36 @@ function getCtx(): AudioContext | null {
   } catch { return null }
 }
 
+// ── Gesture unlock ──────────────────────────────────────────────────
+// Autoplay policy: an AudioContext only runs after being created or
+// resumed INSIDE a user gesture (iOS is strict about this). Our sounds
+// fire from state effects — never gestures — so a one-time global
+// listener wakes the context on the first tap/keypress and plays the
+// canonical silent tick that unmutes iOS WebAudio for the session.
+let unlocked = false
+function tryUnlock() {
+  if (unlocked) return
+  const ac = getCtx()
+  if (!ac) return
+  ac.resume().catch(() => {})
+  try {
+    const b = ac.createBuffer(1, 1, 22050)
+    const src = ac.createBufferSource()
+    src.buffer = b
+    src.connect(ac.destination)
+    src.start(0)
+  } catch { /* ignore */ }
+  if (ac.state === 'running') {
+    unlocked = true
+    ;['pointerdown', 'touchend', 'keydown'].forEach((ev) =>
+      window.removeEventListener(ev, tryUnlock))
+  }
+}
+if (typeof window !== 'undefined') {
+  ;['pointerdown', 'touchend', 'keydown'].forEach((ev) =>
+    window.addEventListener(ev, tryUnlock, { passive: true }))
+}
+
 function enabled(): boolean {
   try {
     const raw = localStorage.getItem('orb_notif_settings') ?? localStorage.getItem('coop_notif_settings')

@@ -5,12 +5,13 @@
 // loop, an inner cut that skips the top (and its star), and a risky
 // mid-board shortcut. Land on tiles to earn/lose coins, draw events,
 // pick up items and duel; pass the star spot with 20 coins to buy a
-// star (it relocates afterwards). Most stars after 20 rounds wins,
-// coins break ties.
+// star (it relocates afterwards). FIRST TO 4 STARS WINS — rounds are
+// only a distant safety cap (stars→coins decide if it ever trips).
 
 export const PARTY_W = 340
 export const PARTY_H = 500
-export const PARTY_ROUNDS = 20
+export const PARTY_ROUNDS = 60          // safety cap only — the real goal is stars
+export const PARTY_STARS_TO_WIN = 4
 export const STAR_COST = 20
 export const START_COINS = 10
 export const PASS_START_PAY = 5

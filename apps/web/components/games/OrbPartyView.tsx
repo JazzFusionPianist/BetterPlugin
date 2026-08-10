@@ -9,6 +9,7 @@ import {
   PARTY_BOARD, PARTY_W, PARTY_H, PARTY_ROUNDS, STAR_COST, PASS_START_PAY,
   MAX_ITEMS, ITEM_NAMES, pushLog, randomItem, randomEvent,
   nextStarNode, rollD6, partyWinner, botPickExit, stepsToStar,
+  PARTY_STARS_TO_WIN,
 } from '@/lib/games/orbParty'
 import type { PartyState, PartyItem } from '@/lib/games/orbParty'
 import { useT } from '@/lib/games/i18n'
@@ -527,14 +528,22 @@ export default function OrbPartyView({
     const me = ids[st.turn]
     let s: PartyState = { ...st, phase: 'idle', pendingNode: null }
     if (buy) {
+      const newStars = (s.stars[me] ?? 0) + 1
       s = {
         ...s,
         coins: { ...s.coins, [me]: (s.coins[me] ?? 0) - STAR_COST },
-        stars: { ...s.stars, [me]: (s.stars[me] ?? 0) + 1 },
+        stars: { ...s.stars, [me]: newStars },
         starNode: nextStarNode(s.starNode),
         log: pushLog(s.log, `★ ${nameFor(me)} bought a star`),
         lastFx: { node: st.pendingNode, text: '★', tone: 'good', seq: (s.lastFx?.seq ?? 0) + 1 },
-        lastCard: { title: '★ a star', sub: `${nameFor(me)} — and the star moves on`, seq: (s.lastCard?.seq ?? 0) + 1 },
+        lastCard: newStars >= PARTY_STARS_TO_WIN
+          ? { title: `★ ${PARTY_STARS_TO_WIN} stars`, sub: `${nameFor(me)} takes the game`, seq: (s.lastCard?.seq ?? 0) + 1 }
+          : { title: '★ a star', sub: `${nameFor(me)} — and the star moves on`, seq: (s.lastCard?.seq ?? 0) + 1 },
+      }
+      // the real win condition: first to the star goal
+      if (newStars >= PARTY_STARS_TO_WIN) {
+        endGame(me, { ...s, phase: 'end' })
+        return
       }
     }
     if (s.stepsLeft > 0) {
@@ -542,7 +551,7 @@ export default function OrbPartyView({
     } else {
       finishMove(s, st.pendingNode)
     }
-  }, [st, iDrive, ids, nameFor, walkFrom, finishMove])
+  }, [st, iDrive, ids, nameFor, walkFrom, finishMove, endGame])
 
   // ── Bot driver (host client) ─────────────────────────────────────────────
   useEffect(() => {
@@ -775,7 +784,7 @@ export default function OrbPartyView({
                     <span className="party-chip-stat">¢{st.coins[id] ?? 0}</span>
                   </div>
                 ))}
-                <span className="party-round">{t('y.round')} {Math.min(st.round, PARTY_ROUNDS)}/{PARTY_ROUNDS}</span>
+                <span className="party-round">{t('y.round')} {st.round} · {t('op.starsToWin')}</span>
                 <button type="button" className="party-help-chip" onClick={() => setRulesOpen(true)} aria-label={t('op.howto')}>?</button>
               </div>
 

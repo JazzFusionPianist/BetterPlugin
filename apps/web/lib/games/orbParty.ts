@@ -5,12 +5,12 @@
 // loop, an inner cut that skips the top (and its star), and a risky
 // mid-board shortcut. Land on tiles to earn/lose coins, draw events,
 // pick up items and duel; pass the star spot with 20 coins to buy a
-// star (it relocates afterwards). Most stars after 12 rounds wins,
+// star (it relocates afterwards). Most stars after 20 rounds wins,
 // coins break ties.
 
 export const PARTY_W = 340
 export const PARTY_H = 500
-export const PARTY_ROUNDS = 12
+export const PARTY_ROUNDS = 20
 export const STAR_COST = 20
 export const START_COINS = 10
 export const PASS_START_PAY = 5
@@ -101,6 +101,9 @@ export interface PartyState {
   /** Nodes traversed in the move being written — remote clients animate
    *  along this trail instead of teleporting. */
   trail: number[]
+  /** Who owns the trail — events like swap can leave OTHER players on the
+   *  trail's end node, so walkers must never be inferred from positions. */
+  trailBy?: string
   /** Short serif ticker lines, newest last (kept to 4). */
   log: string[]
   /** The number just rolled — every client tumbles a die on seq change. */
@@ -132,6 +135,7 @@ export function initialPartyState(ids: string[]): PartyState {
     stepsLeft: 0,
     pendingNode: null,
     trail: [],
+    trailBy: '',
     log: [],
     lastRoll: { by: '', value: 0, seq: 0 },
     lastFx: { node: 0, text: '', tone: 'info', seq: 0 },

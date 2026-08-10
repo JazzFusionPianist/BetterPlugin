@@ -9733,8 +9733,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 @keyframes party-hop {
   0% { transform: translateY(0) scale(1, 1); }
-  40% { transform: translateY(-8px) scale(0.9, 1.12); }
-  78% { transform: translateY(1.5px) scale(1.08, 0.92); }
+  42% { transform: translateY(-10px) scale(0.93, 1.09); }
+  80% { transform: translateY(1.5px) scale(1.07, 0.93); }
   100% { transform: translateY(0) scale(1, 1); }
 }
 .party-here {
@@ -9780,30 +9780,37 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .party-die i { width: 8px; height: 8px; margin: auto; border-radius: 50%; background: transparent; transition: none; }
 .party-die i.on { background: #1A1917; }
 .party-die3d {
-  position: relative; width: 58px; height: 58px;
+  position: relative; display: block;
+  width: 62px; height: 62px;
   transform-style: preserve-3d;
   transition: transform 0.5s cubic-bezier(0.2, 1.3, 0.4, 1);
-  /* NO filter here — filter is a grouping property and flattens preserve-3d */
+  /* NO filter here — filter is a grouping property and flattens preserve-3d.
+     display:block matters too: transforms don't apply to inline boxes. */
 }
 .party-dice-fx::after {
-  content: ''; position: absolute; left: 50%; top: calc(50% + 44px);
-  width: 84px; height: 18px; transform: translateX(-50%);
+  content: ''; position: absolute; left: 50%; top: calc(50% + 48px);
+  width: 90px; height: 20px; transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.26), transparent);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.28), transparent);
 }
-.pd3f { position: absolute; inset: 0; backface-visibility: hidden; }
+.pd3f { position: absolute; inset: 0; display: block; backface-visibility: hidden; }
 .pd3f .party-die { width: 100%; height: 100%; }
-.pd3-1 { transform: translateZ(29px); }
-.pd3-2 { transform: rotateY(90deg) translateZ(29px); }
-.pd3-3 { transform: rotateX(90deg) translateZ(29px); }
-.pd3-4 { transform: rotateX(-90deg) translateZ(29px); }
-.pd3-5 { transform: rotateY(-90deg) translateZ(29px); }
-.pd3-6 { transform: rotateY(180deg) translateZ(29px); }
-.party-dice-fx.tumble .party-die3d { animation: pd3-spin 0.72s linear infinite; }
-.party-dice-fx.tumble .party-die3d + .party-die3d { animation-duration: 0.61s; animation-direction: reverse; }
+.pd3-1 { transform: translateZ(31px); }
+.pd3-2 { transform: rotateY(90deg) translateZ(31px); }
+.pd3-3 { transform: rotateX(90deg) translateZ(31px); }
+.pd3-4 { transform: rotateX(-90deg) translateZ(31px); }
+.pd3-5 { transform: rotateY(-90deg) translateZ(31px); }
+.pd3-6 { transform: rotateY(180deg) translateZ(31px); }
+/* fake lighting per face — sells the volume even mid-blur */
+.pd3-3 .party-die { background: #F6F3EC; }
+.pd3-6 .party-die { background: #F1EDE5; }
+.pd3-2 .party-die, .pd3-5 .party-die { background: #EAE6DD; }
+.pd3-4 .party-die { background: #DFDACF; }
+.party-dice-fx.tumble .party-die3d { animation: pd3-spin 0.9s linear infinite; }
+.party-dice-fx.tumble .party-die3d + .party-die3d { animation-duration: 0.78s; animation-direction: reverse; }
 @keyframes pd3-spin {
-  0% { transform: translateY(-46px) rotateX(-30deg) rotateY(10deg); }
-  100% { transform: translateY(0) rotateX(330deg) rotateY(370deg); }
+  0% { transform: translateY(-52px) rotate3d(1, 0.75, 0.4, 0deg); }
+  100% { transform: translateY(0) rotate3d(1, 0.75, 0.4, 720deg); }
 }
 .party-dice-fx.settle .party-die3d { animation: pd3-fade 0.34s ease 0.95s forwards; }
 @keyframes pd3-fade { to { opacity: 0; } }
@@ -9871,32 +9878,52 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   background: rgba(127, 127, 127, 0.05);
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.14), inset 0 0 0 6px rgba(127, 127, 127, 0.04);
 }
-.party-piece-slot { position: absolute; width: 0; height: 0; transform-style: preserve-3d; }
 .party-piece-shadow {
-  position: absolute; left: -7px; top: -3px; width: 14px; height: 6px;
-  border-radius: 50%; background: rgba(0, 0, 0, 0.25);
+  position: absolute; width: 14px; height: 6px;
+  margin-left: -7px; margin-top: -3px;
+  border-radius: 50%; background: rgba(0, 0, 0, 0.28);
+  transition: left 0.5s ease, top 0.5s ease;
 }
 .party-piece {
-  position: absolute; left: -9px; bottom: -1px; width: 18px; height: 24px;
+  /* direct child of the world — real box, single 3D transform (zero-size
+     anchors + deep nesting flatten in WebKit) */
+  position: absolute; width: 20px; height: 26px;
+  margin-left: -10px; margin-top: -25px;
   transform-origin: 50% 100%;
   transform: rotateX(var(--pt-stand, -52deg));
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+  transition: left 0.5s ease, top 0.5s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .party-piece-hop {
   position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center;
-  animation: party-hop 0.32s ease;
+  transform-style: preserve-3d;
+  animation: party-hop 0.5s ease;
 }
 .party-pawn {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
   display: block; overflow: visible;
-  filter: drop-shadow(0 1.5px 1.5px rgba(0, 0, 0, 0.3));
 }
+.party-pawn.pp-side { transform: rotateY(90deg); }
 .party-pawn path, .party-pawn circle {
   paint-order: stroke;
-  stroke: #FCFBF9; stroke-width: 2;
+  stroke: #FCFBF9; stroke-width: 1.8;
 }
-.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 2.6; }
+.party-pawn g path, .party-pawn g circle { stroke: none; }
+.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 2.4; }
+.party-pawn.active g path, .party-pawn.active g circle { stroke: none; }
+.party-steps3d {
+  position: absolute; z-index: 3;
+  transform-origin: 50% 100%;
+  transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
+  transition: left 0.5s ease, top 0.5s ease;
+  background: #2440FF; color: #FFFFFF;
+  font-family: var(--f-sans); font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px; border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
 .party-star3d {
   position: absolute; transform-origin: 50% 100%;
   transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));

@@ -51,6 +51,18 @@ const FACE_ROT: Record<number, string> = {
   4: 'rotateX(90deg)', 5: 'rotateY(90deg)', 6: 'rotateY(180deg)',
 }
 
+function Pawn({ color, active }: { color: string; active?: boolean }) {
+  return (
+    <svg className={`party-pawn${active ? ' active' : ''}`} viewBox="0 0 18 24" width="18" height="24">
+      <path
+        d="M9 7.2 C10.7 9.6 11.7 12.7 12 16.1 L13.5 17.3 C14.3 18 14.8 19 14.8 20 L14.8 21 C14.8 21.7 14.2 22.3 13.5 22.3 L4.5 22.3 C3.8 22.3 3.2 21.7 3.2 21 L3.2 20 C3.2 19 3.7 18 4.5 17.3 L6 16.1 C6.3 12.7 7.3 9.6 9 7.2 Z"
+        fill={color}
+      />
+      <circle cx="9" cy="4.9" r="3.7" fill={color} />
+    </svg>
+  )
+}
+
 function DieCube({ v, phase }: { v: number; phase: 'tumble' | 'settle' }) {
   const shown = Math.min(6, Math.max(1, v))
   return (
@@ -90,7 +102,7 @@ export default function OrbPartyView({
   const [walking, setWalking] = useState(false)
   const animRef = useRef<number | null>(null)
   // ── presentation: dice tumble, floating text, event cards ──
-  const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle' } | null>(null)
+  const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle'; seq: number } | null>(null)
   const [floats, setFloats] = useState<{ x: number; y: number; text: string; tone: string; key: number }[]>([])
   const [card, setCard] = useState<{ title: string; sub: string; key: number } | null>(null)
   const seqRef = useRef({ primed: false, roll: 0, fx: 0, card: 0 })
@@ -164,10 +176,12 @@ export default function OrbPartyView({
     const r = st?.lastRoll
     if (!r || !r.value || r.seq === seqRef.current.roll) return
     seqRef.current.roll = r.seq
-    setDieShow({ value: r.value, phase: 'tumble' })
-    const t1 = window.setTimeout(() => setDieShow(s => (s ? { ...s, phase: 'settle' } : s)), 700)
-    const t2 = window.setTimeout(() => setDieShow(null), 2000)
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
+    const seq = r.seq
+    setDieShow({ value: r.value, phase: 'tumble', seq })
+    fxTimersRef.current.push(window.setTimeout(
+      () => setDieShow(s => (s && s.seq === seq ? { ...s, phase: 'settle' } : s)), 700))
+    fxTimersRef.current.push(window.setTimeout(
+      () => setDieShow(s => (s && s.seq === seq ? null : s)), 2000))
   }, [st?.lastRoll])
 
   // Floating text at the landing node — held back until the walk lands.
@@ -809,11 +823,7 @@ export default function OrbPartyView({
                             <span className="party-piece-shadow" />
                             <div className="party-piece">
                               <div key={`hop-${at}`} className="party-piece-hop">
-                                <span
-                                  className={`party-piece-head${id === currentTurnId ? ' active' : ''}`}
-                                  style={{ background: colorFor(id) }}
-                                />
-                                <span className="party-piece-stem" />
+                                <Pawn color={colorFor(id)} active={id === currentTurnId} />
                               </div>
                             </div>
                           </div>

@@ -9783,7 +9783,13 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   position: relative; width: 58px; height: 58px;
   transform-style: preserve-3d;
   transition: transform 0.5s cubic-bezier(0.2, 1.3, 0.4, 1);
-  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.32));
+  /* NO filter here — filter is a grouping property and flattens preserve-3d */
+}
+.party-dice-fx::after {
+  content: ''; position: absolute; left: 50%; top: calc(50% + 44px);
+  width: 84px; height: 18px; transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.26), transparent);
 }
 .pd3f { position: absolute; inset: 0; backface-visibility: hidden; }
 .pd3f .party-die { width: 100%; height: 100%; }
@@ -9805,7 +9811,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   position: absolute; left: 50%; top: 40%; z-index: 6;
   min-width: 190px; max-width: 84%;
   padding: 13px 22px 14px; text-align: center;
-  background: var(--bg0, #FCFBF9); border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.14);
   border-radius: 10px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
   transition: none; pointer-events: none;
   animation: party-card-flip 0.42s cubic-bezier(0.2, 1.2, 0.35, 1) both,
@@ -9819,8 +9825,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .party-card-title {
   font-family: var(--f-serif, Georgia, serif);
   font-size: 16px; letter-spacing: 0.01em; margin-bottom: 3px;
+  color: #1A1917;
 }
-.party-card-sub { font-size: 12.5px; color: var(--t2, #77746E); }
+.party-card-sub { font-size: 12.5px; color: #77746E; }
 .party-legend {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 12px;
   padding: 2px 10px 0; font-size: 11.5px; color: var(--t2, #77746E);
@@ -9866,11 +9873,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .party-piece-slot { position: absolute; width: 0; height: 0; transform-style: preserve-3d; }
 .party-piece-shadow {
-  position: absolute; left: -6px; top: -2.5px; width: 12px; height: 5px;
-  border-radius: 50%; background: rgba(26, 25, 23, 0.22);
+  position: absolute; left: -7px; top: -3px; width: 14px; height: 6px;
+  border-radius: 50%; background: rgba(0, 0, 0, 0.25);
 }
 .party-piece {
-  position: absolute; left: -8px; bottom: 0; width: 16px; height: 21px;
+  position: absolute; left: -9px; bottom: -1px; width: 18px; height: 24px;
   transform-origin: 50% 100%;
   transform: rotateX(var(--pt-stand, -52deg));
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
@@ -9881,13 +9888,15 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   display: flex; flex-direction: column; align-items: center;
   animation: party-hop 0.32s ease;
 }
-.party-piece-head {
-  width: 13px; height: 13px; border-radius: 50%;
-  border: 1.2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.35);
+.party-pawn {
+  display: block; overflow: visible;
+  filter: drop-shadow(0 1.5px 1.5px rgba(0, 0, 0, 0.3));
 }
-.party-piece-head.active { border-color: #FFFFFF; border-width: 2px; }
-.party-piece-stem { width: 1.6px; flex: 1; background: rgba(26, 25, 23, 0.5); }
+.party-pawn path, .party-pawn circle {
+  paint-order: stroke;
+  stroke: #FCFBF9; stroke-width: 2;
+}
+.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 2.6; }
 .party-star3d {
   position: absolute; transform-origin: 50% 100%;
   transform: translate(-50%, -100%) rotateX(var(--pt-stand, -52deg));
@@ -9906,8 +9915,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .party-exit3d-arrow { color: #2440FF; font-size: 16px; line-height: 1; animation: party-exit-pulse 1s ease-in-out infinite; }
 .party-exit3d small {
   font-size: 9.5px; margin-top: 2px; padding: 1px 6px; white-space: nowrap;
-  color: var(--t2, #77746E); background: var(--bg0, #FCFBF9);
-  border: 1px solid rgba(127, 127, 127, 0.35); border-radius: 999px;
+  color: #55524C; background: #FCFBF9;
+  border: 1px solid rgba(0, 0, 0, 0.22); border-radius: 999px;
   transition: none;
 }
 .party-exit3d.best small { color: #FFFFFF; background: #2440FF; border-color: #2440FF; }
@@ -9927,11 +9936,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .party-view-toggle {
   position: absolute; top: 8px; right: 8px; z-index: 7;
   font-family: var(--f-sans); font-size: 10.5px; text-transform: lowercase;
-  color: var(--t2, #77746E); background: var(--bg0, #FCFBF9);
-  border: 1px solid rgba(127, 127, 127, 0.35); border-radius: 999px;
+  color: #55524C; background: #FCFBF9;
+  border: 1px solid rgba(0, 0, 0, 0.22); border-radius: 999px;
   padding: 3px 10px; cursor: pointer;
 }
-.party-view-toggle:hover { color: var(--t1); border-color: var(--t1); }
+.party-view-toggle:hover { color: #1A1917; border-color: #1A1917; }
 .party-help-chip {
   width: 20px; height: 20px; border-radius: 50%; padding: 0;
   border: 1px solid rgba(127, 127, 127, 0.4); background: none;
@@ -9947,7 +9956,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .party-rules-inner {
   max-width: 340px; width: 100%;
-  background: var(--bg0, #FCFBF9); border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  color: #1A1917;
+  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.14);
   border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   padding: 16px 18px 14px;
   display: flex; flex-direction: column; gap: 9px;
@@ -9958,8 +9968,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   0% { opacity: 0; transform: translateY(12px) scale(0.97); }
   100% { opacity: 1; transform: none; }
 }
-.party-rules-title { font-family: var(--f-serif, Georgia, serif); font-size: 16px; }
-.party-rules-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.55; color: var(--t1); }
+.party-rules-title { font-family: var(--f-serif, Georgia, serif); font-size: 16px; color: #1A1917; }
+.party-rules-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.55; color: #1A1917; }
 .party-rules-row .prr-g { flex: 0 0 16px; text-align: center; color: #2440FF; }
 .party-rules-inner .party-roll-btn { margin-top: 5px; align-self: center; }
 .party-item-btn { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.25; }

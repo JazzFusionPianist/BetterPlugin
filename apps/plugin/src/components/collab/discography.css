@@ -11,6 +11,8 @@
   animation: pdisco-in .22s cubic-bezier(.3, 1, .4, 1);
 }
 @keyframes pdisco-in { from { transform: translateX(100%); } to { transform: none; } }
+.pdisco.closing { animation: pdisco-out .23s cubic-bezier(.5, 0, .8, .4) forwards; }
+@keyframes pdisco-out { from { transform: none; } to { transform: translateX(100%); } }
 
 .pdisco-head {
   flex-shrink: 0; display: flex; align-items: baseline; gap: 9px;

@@ -23,6 +23,14 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   const { releases, shelves, loading, addRelease, moveRelease, updateRelease, deleteRelease, addShelf, reorderShelf, nameDefaultShelf, renameShelf, deleteShelf } =
     usePortfolio(supabase, owner.id)
 
+  // Slide back out before unmounting — the reverse of the entrance.
+  const [closing, setClosing] = useState(false)
+  const requestClose = () => {
+    if (closing) return
+    setClosing(true)
+    setTimeout(onClose, 240)
+  }
+
   const [selected, setSelected] = useState<string | null>(null)
   // The last risen record — kept so the caption can animate closed with
   // its text still printed, instead of vanishing mid-collapse.
@@ -135,11 +143,11 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   )
 
   return (
-    <div className="disco">
+    <div className={`disco${closing ? ' closing' : ''}`}>
       <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
 
       <header className="disco-head">
-        <button className="chatt-back" onClick={onClose} aria-label="Back">
+        <button className="chatt-back" onClick={requestClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
         <span className="disco-head-title">discography</span>

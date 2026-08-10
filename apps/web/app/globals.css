@@ -2854,3 +2854,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   border-color: var(--hair);
   color: var(--ink);
 }
+
+/* Discography leaves the way it came */
+.disco.closing { animation: disco-out .24s cubic-bezier(.5, 0, .8, .4) forwards; }
+@keyframes disco-out { from { transform: none; } to { transform: translateX(100%); } }

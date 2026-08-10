@@ -84,6 +84,14 @@ interface Props {
 }
 
 export default function DiscographyPanel({ supabase, owner, isMine, onClose }: Props) {
+  // Slide back out before unmounting — the reverse of the entrance.
+  const [closing, setClosing] = useState(false)
+  const requestClose = () => {
+    if (closing) return
+    setClosing(true)
+    setTimeout(onClose, 230)
+  }
+
   const [releases, setReleases] = useState<Release[]>([])
   const [shelves, setShelves] = useState<Shelf[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,11 +167,11 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   }
 
   return (
-    <div className="pdisco">
+    <div className={`pdisco${closing ? ' closing' : ''}`}>
       <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
 
       <header className="pdisco-head">
-        <button className="pdisco-back" onClick={onClose} aria-label="Back">‹</button>
+        <button className="pdisco-back" onClick={requestClose} aria-label="Back">‹</button>
         <span className="pdisco-title">discography</span>
         <span className="pdisco-owner">{owner.display_name}</span>
       </header>

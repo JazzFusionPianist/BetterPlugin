@@ -1,0 +1,238 @@
+/* Discography crate, plugin-scale. Self-contained — imported by
+   DiscographyPanel.tsx only, so it stays clear of collab.css. Tokens
+   come from the plugin theme (--bg/--bg2/--t1/--t2/--t3/--line/--blue). */
+
+.pdisco {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  animation: pdisco-in .22s cubic-bezier(.3, 1, .4, 1);
+}
+@keyframes pdisco-in { from { transform: translateX(100%); } to { transform: none; } }
+
+.pdisco-head {
+  flex-shrink: 0; display: flex; align-items: baseline; gap: 9px;
+  padding: 10px 12px 8px;
+}
+.pdisco-back {
+  align-self: center; width: 26px; height: 26px;
+  background: none; border: none; cursor: pointer;
+  color: var(--t1); font-size: 18px; line-height: 1; padding: 0;
+}
+.pdisco-title {
+  font-family: 'Instrument Serif', serif; font-size: 17px;
+  text-transform: lowercase; color: var(--t1);
+}
+.pdisco-owner { font-size: 10px; color: var(--t3); }
+
+.pdisco-scroll {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 10px 14px 28px;
+  scrollbar-width: none;
+}
+.pdisco-scroll::-webkit-scrollbar { display: none; }
+.pdisco-empty {
+  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-size: 12px; color: var(--t3);
+  padding: 28px 0; text-align: center;
+}
+
+.pdisco-shelf { margin-bottom: 26px; }
+.pdisco-shelf-head {
+  display: flex; align-items: baseline; gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px; margin-bottom: 8px;
+}
+.pdisco-shelf-title {
+  font-family: 'Instrument Serif', serif; font-size: 14px; color: var(--t1);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pdisco-add {
+  margin-left: auto; flex-shrink: 0;
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-size: 10.5px; color: var(--blue);
+}
+.pdisco-row-empty {
+  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-size: 11px; color: var(--t3); padding: 10px 0;
+}
+
+/* The crate row — overlapping records, sideways scroll */
+.pdisco-row {
+  display: flex; align-items: flex-end;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 20px 4px 10px;
+}
+.pdisco-row::-webkit-scrollbar { display: none; }
+.pdisco-rec {
+  position: relative; flex: 0 0 auto;
+  width: 104px; height: 104px; border-radius: 50%;
+  padding: 0; border: none; cursor: pointer;
+  background: radial-gradient(circle at 34% 30%, #26242A, #141317 62%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 7px 14px -7px rgba(0, 0, 0, 0.35);
+  transition: transform .2s cubic-bezier(.2, 1, .35, 1), box-shadow .2s ease;
+}
+.pdisco-rec + .pdisco-rec { margin-left: -64px; }
+.pdisco-rec:hover { transform: translateY(-5px); }
+.pdisco-rec.up {
+  transform: translateY(-14px) rotate(-4deg);
+  z-index: 99 !important;
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.22),
+    0 16px 24px -10px rgba(0, 0, 0, 0.4);
+}
+.pdisco-rec-vinyl {
+  position: absolute; inset: 0; border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%,
+      transparent 0 2.2px, rgba(255, 255, 255, 0.035) 2.2px 2.8px),
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.09), transparent 46%);
+  pointer-events: none;
+}
+.pdisco-rec-label {
+  position: absolute; left: 50%; top: 50%;
+  width: 68%; height: 68%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%; object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.pdisco-rec-label.tint { display: block; }
+.pdisco-rec-hole {
+  position: absolute; left: 50%; top: 50%;
+  width: 5%; height: 5%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%; background: var(--bg);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* Caption folds open above the row */
+.pdisco-capwrap {
+  display: grid; grid-template-rows: 0fr;
+  opacity: 0; transform: translateY(6px);
+  transition:
+    grid-template-rows .34s cubic-bezier(.2, .9, .3, 1),
+    opacity .24s ease,
+    transform .34s cubic-bezier(.2, .9, .3, 1);
+}
+.pdisco-capwrap.show { grid-template-rows: 1fr; opacity: 1; transform: none; }
+.pdisco-capclip { overflow: hidden; min-height: 0; }
+.pdisco-caption { padding: 2px 2px 8px; }
+.pdisco-caption-title {
+  font-family: 'Instrument Serif', serif; font-size: 16px;
+  color: var(--t1); line-height: 1.15;
+}
+.pdisco-caption-sub {
+  font-size: 10px; color: var(--t3); margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.pdisco-caption-actions { display: flex; align-items: baseline; gap: 12px; margin-top: 5px; }
+.pdisco-open {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-size: 10.5px; color: var(--blue);
+}
+.pdisco-order { display: flex; gap: 5px; }
+.pdisco-order button {
+  background: none; border: none; cursor: pointer; padding: 0 2px;
+  font-size: 12px; color: var(--t3);
+}
+.pdisco-order button:disabled { opacity: 0.3; cursor: default; }
+
+/* Overlays: release sheet / composer */
+.pdisco-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center; padding: 14px;
+}
+.pdisco-sheet {
+  width: min(320px, 100%); max-height: 88%; overflow-y: auto;
+  background: var(--bg2, var(--bg)); border: 1px solid var(--line);
+  border-radius: 8px; padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 7px;
+  scrollbar-width: none;
+}
+.pdisco-sheet::-webkit-scrollbar { display: none; }
+.pdisco-sheet-cover {
+  align-self: center; width: min(170px, 70%);
+  border: 1px solid var(--line); border-radius: 2px; overflow: hidden;
+}
+.pdisco-sheet-cover img { width: 100%; display: block; }
+.pdisco-sheet-title {
+  font-family: 'Instrument Serif', serif; font-size: 18px;
+  color: var(--t1); text-align: center;
+}
+.pdisco-sheet-sub {
+  font-size: 10.5px; color: var(--t3); text-align: center; margin-top: -3px;
+  font-variant-numeric: tabular-nums;
+}
+.pdisco-sheet-desc {
+  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-size: 12px; color: var(--t2); text-align: center; line-height: 1.45;
+  white-space: pre-wrap;
+}
+.pdisco-tracks { list-style: none; margin: 4px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.pdisco-track {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 7px 2px; border-bottom: 1px solid var(--line);
+  font-size: 12px; color: var(--t1);
+}
+.pdisco-track.on .pdisco-track-title { color: var(--blue); }
+.pdisco-track-num { flex-shrink: 0; width: 14px; font-size: 9.5px; color: var(--t3); }
+.pdisco-track-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdisco-track-play { flex-shrink: 0; font-size: 9px; color: var(--t2); }
+.pdisco-track.as-row { cursor: default; align-items: center; }
+.pdisco-track-edit {
+  flex: 1; min-width: 0; border: none; outline: none; background: none;
+  font-size: 12px; color: var(--t1); padding: 0;
+}
+.pdisco-track-rm { background: none; border: none; color: var(--t3); cursor: pointer; font-size: 10px; }
+.pdisco-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--t2); align-self: flex-end; padding: 4px 0 0;
+}
+.pdisco-composer-head { text-align: center; font-size: 9.5px; letter-spacing: 0.04em; color: var(--t3); }
+.pdisco-composer-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }
+.pdisco-coverpick {
+  align-self: center; width: 110px; height: 110px;
+  border: 1px dashed var(--line); border-radius: 3px; background: none;
+  cursor: pointer; overflow: hidden; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; color: var(--t3);
+}
+.pdisco-coverpick img { width: 100%; height: 100%; object-fit: cover; }
+.pdisco-in {
+  border: none; outline: none; background: none; width: 100%;
+  text-align: center; font-size: 12px; color: var(--t1); padding: 0;
+}
+.pdisco-in.title { font-family: 'Instrument Serif', serif; font-size: 17px; }
+.pdisco-in.notes { resize: none; font-family: 'Instrument Serif', serif; font-style: italic; line-height: 1.4; }
+.pdisco-in::placeholder { color: var(--t3); }
+.pdisco-publish {
+  background: var(--blue); color: #fff; border: none; border-radius: 3px;
+  font-size: 11px; padding: 7px 16px; cursor: pointer;
+}
+.pdisco-publish:disabled { opacity: 0.4; }
+
+/* Motion — same records, smaller room */
+@media (prefers-reduced-motion: no-preference) {
+  .pdisco-rec { animation: pdisco-rollin .58s cubic-bezier(.2, .9, .3, 1) backwards; }
+  @keyframes pdisco-rollin {
+    from { opacity: 0; transform: translateX(80px) rotate(150deg); }
+    to   { opacity: 1; transform: none; }
+  }
+  .pdisco-rec.up .pdisco-rec-label { animation: pdisco-spin 3.8s linear infinite; }
+  @keyframes pdisco-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  .pdisco-caption { animation: pdisco-cap .28s cubic-bezier(.2, .9, .3, 1) backwards; }
+  @keyframes pdisco-cap {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: none; }
+  }
+}

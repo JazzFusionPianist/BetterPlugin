@@ -7,6 +7,7 @@ import HoverTooltip from './HoverTooltip'
 import SchedulePrompt from './SchedulePrompt'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import { useT } from '../../i18n/LanguageContext'
+import DiscographyPanel from './DiscographyPanel'
 
 /** A group conversation as the parent prepared it for orb rendering —
  *  member profiles already joined, plus a memberCount in case the
@@ -94,6 +95,7 @@ export default function ProfilePanel ({
   onSchedule, scheduleTargets,
 }: Props) {
   const { t } = useT()
+  const [discoOpen, setDiscoOpen] = useState(false)
   void onRemoveFriend // retained on the props contract for future use
   const fileRef       = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
@@ -545,6 +547,14 @@ export default function ProfilePanel ({
 
   return (
     <div className="s-body profile-orbit-body">
+      {discoOpen && me && (
+        <DiscographyPanel
+          supabase={supabase}
+          owner={me}
+          isMine={me.id === user.id}
+          onClose={() => setDiscoOpen(false)}
+        />
+      )}
       <div className="profile-orbit" ref={containerRef}>
         {viewOnly && (
           <button className="orbit-back-btn" onClick={onClose} title="Back">← back</button>
@@ -887,6 +897,19 @@ export default function ProfilePanel ({
         <div className="orbit-namewrap" ref={nameRef}>
           <div className="orbit-name-under">{displayName}</div>
           {me?.username && <div className="orbit-handle">@{me.username}</div>}
+          {me && (
+            <button
+              onClick={() => setDiscoOpen(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                fontFamily: "'Instrument Serif', serif", fontStyle: 'italic',
+                fontSize: 12, textTransform: 'lowercase', color: 'var(--blue)',
+                marginTop: 2, pointerEvents: 'auto',
+              }}
+            >
+              discography
+            </button>
+          )}
           {me?.member_no != null && (
             <div className="orbit-member" title={`member #${me.member_no}`}>
               #{String(me.member_no).padStart(6, '0')}

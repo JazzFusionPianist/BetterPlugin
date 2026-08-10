@@ -42,6 +42,7 @@ import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
 import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
+import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
 
 interface Props { user: User }
@@ -624,6 +625,7 @@ function CollabPageInner({ user }: Props) {
 
   return (
     <div className={pluginClass} ref={pluginRef}>
+      <ResizeGrip />
       <div className="top-bar">
         {/* Chat list */}
         <div className={`icon-btn${convOpen ? ' active' : ''}`} onClick={handleToggleConv} title="Messages">

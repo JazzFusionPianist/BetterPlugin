@@ -49,7 +49,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   const open = releases.find((r) => r.id === openRelease) ?? null
 
   const caption = (r: Release, idx: number, count: number) => (
-    <div className="disco-caption">
+    <div className="disco-caption" key={r.id}>
       <div className="disco-caption-title">{r.title}</div>
       <div className="disco-caption-sub">
         {fmtYear(r)}{r.tracks.length > 0 ? ` · ${r.tracks.length} track${r.tracks.length === 1 ? '' : 's'}` : ''}
@@ -128,7 +128,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
                     <button
                       key={r.id}
                       className={`disco-rec${selected === r.id ? ' up' : ''}`}
-                      style={{ zIndex: g.releases.length - i }}
+                      style={{ zIndex: g.releases.length - i, animationDelay: `${Math.min(i, 10) * 55}ms` }}
                       onClick={() => setSelected(selected === r.id ? null : r.id)}
                       aria-label={r.title}
                     >

@@ -198,10 +198,14 @@ function CollabPageInner({ user }: Props) {
   const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(client, user.id)
   const { conversations, groupConversations } = useConversations(client, user.id)
 
-  // Calendar was pulled from the plugin on 2026-08-07 (Steven: 5 features
-  // in a 300×500 window blurred the plugin's identity — scheduling lives
-  // in the app). CalendarPanel/SchedulePrompt/useCalendarEvents survive as
-  // files for an easy revival; nothing mounts them here.
+  // The calendar lives INSIDE chats now (2026-08-10) — ChatView mounts
+  // the hooks itself; this page only supplies conversation ids and the
+  // group-title map for shared-event tags.
+  const groupTitleById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const g of groupConversations) m.set(g.conversationId, g.title || 'Group')
+    return m
+  }, [groupConversations])
 
   // ── conv-keyed → friend-keyed adapters ──────────────────────────────────
   // ProfilePanel renders friend-orb-anchored cues, so we translate
@@ -728,6 +732,7 @@ function CollabPageInner({ user }: Props) {
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
             conversationId={activeConvId}
+            groupTitleById={groupTitleById}
             onBack={() => { setChatSettingsOpen(false); setSelectedId(null) }}
           />}
           {selectedGroup && (
@@ -747,6 +752,7 @@ function CollabPageInner({ user }: Props) {
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}
               conversationId={selectedGroupConvId}
+              groupTitleById={groupTitleById}
               onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
             />
           )}

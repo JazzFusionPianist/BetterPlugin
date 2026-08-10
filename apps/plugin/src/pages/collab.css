@@ -9478,30 +9478,45 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .schip:disabled { cursor: default; }
 .schip.muted { color: var(--t3); cursor: default; }
+/* The confirm card is not a card — a printed fragment: hairline rule,
+   serif title against a tabular date, then two bare words of action.
+   No box, no fill; it reads like a line the conversation underlined. */
 .schip-card {
-  margin-top: 4px;
-  max-width: 230px;
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
-  padding: 7px 9px 6px;
+  margin-top: 6px;
+  min-width: 176px;
+  max-width: 236px;
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
 }
-.schip-ev { margin-bottom: 5px; }
-.schip-ev-t { font-family: var(--f-serif); font-size: 12px; color: var(--t1); }
+.schip-ev {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin-bottom: 2px;
+}
+.schip-ev-t {
+  font-family: var(--f-serif); font-size: 12.5px; color: var(--t1);
+  text-transform: lowercase;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .schip-ev-w {
   font-family: var(--f-sans); font-size: 9.5px; color: var(--t3);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; text-transform: lowercase;
+  flex-shrink: 0;
 }
-.schip-actions { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.schip-actions {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 3px;
+}
 .schip-save {
-  background: var(--blue); color: #fff; border: none; border-radius: 3px;
-  padding: 3px 11px; cursor: pointer;
+  background: none; border: none; padding: 0; cursor: pointer;
   font-family: var(--f-sans); font-size: 10px; font-weight: 500;
-  text-transform: lowercase;
+  color: var(--blue); text-transform: lowercase;
   transition: opacity .15s;
 }
-.schip-save:hover { opacity: 0.88; }
-.schip-save:disabled { opacity: 0.55; cursor: default; }
+.schip-save:hover { opacity: 0.8; }
+.schip-save:disabled { opacity: 0.5; cursor: default; }
 .schip-x {
-  background: none; border: none; cursor: pointer;
-  color: var(--t3); font-size: 10px; padding: 0;
+  background: none; border: none; cursor: pointer; padding: 0;
+  display: flex; align-items: center;
+  color: var(--t3);
 }
 .schip-x:hover { color: var(--t1); }

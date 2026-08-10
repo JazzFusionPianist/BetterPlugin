@@ -61,6 +61,10 @@ interface Props {
    *  slide-over + schedule-detection chips). Events created here are
    *  shared with the conversation via conversation_id. */
   conversationId?: string | null
+  /** Group-conversation titles for the calendar's shared-event tags —
+   *  the in-chat calendar shows the user's WHOLE schedule, so events
+   *  from other groups need their names. */
+  groupTitleById?: Map<string, string>
 }
 
 function formatTime(iso: string): string {
@@ -688,15 +692,17 @@ function ScheduleChip({
       <div className="schip-card">
         {found.slice(0, 3).map((e, i) => (
           <div className="schip-ev" key={i}>
-            <div className="schip-ev-t">{e.title}</div>
-            <div className="schip-ev-w">{fmtChipWhen(e)}{e.location ? ` · ${e.location}` : ''}</div>
+            <span className="schip-ev-t">{e.title}</span>
+            <span className="schip-ev-w">{fmtChipWhen(e)}{e.location ? ` · ${e.location}` : ''}</span>
           </div>
         ))}
         <div className="schip-actions">
           <button className="schip-save" disabled={state === 'saving'} onClick={save}>
             {t('chatcal.save')}
           </button>
-          <button className="schip-x" onClick={onDone}>✕</button>
+          <button className="schip-x" onClick={onDone} aria-label={t('common.close')}>
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 1l8 8M9 1L1 9" /></svg>
+          </button>
         </div>
       </div>
     )
@@ -796,7 +802,7 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite, conversationId }: Props) {
+export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
 
@@ -808,20 +814,19 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
   const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
   const chatTitle = groupHeader?.title ?? otherProfile?.display_name ?? ''
-  const chatEvents = useMemo(
-    () => (conversationId ? allCalEvents.filter(e => e.conversation_id === conversationId) : []),
-    [allCalEvents, conversationId],
-  )
+  // The panel shows the user's WHOLE schedule (same pool as the app) —
+  // Steven: any chat's calendar is MY calendar; only writes are scoped
+  // to this conversation.
   // Header badge = plans from today onward; past ones stay in the panel.
   const upcomingCount = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    return chatEvents.filter(e => new Date(e.starts_at) >= today).length
-  }, [chatEvents])
+    return allCalEvents.filter(e => new Date(e.starts_at) >= today).length
+  }, [allCalEvents])
   const chatGroupTitleById = useMemo(() => {
-    const m = new Map<string, string>()
-    if (conversationId) m.set(conversationId, chatTitle)
+    const m = new Map<string, string>(groupTitleById ?? [])
+    if (conversationId && !m.has(conversationId)) m.set(conversationId, chatTitle)
     return m
-  }, [conversationId, chatTitle])
+  }, [groupTitleById, conversationId, chatTitle])
   // Chip verdicts survive reloads so an already-saved (or waved-off)
   // message doesn't re-offer itself forever.
   const [chipDone, setChipDone] = useState<Set<string>>(() => {
@@ -1891,7 +1896,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         <ChatCalendar
           title={chatTitle}
           currentUserId={currentUserId}
-          events={chatEvents}
+          events={allCalEvents}
           categories={calCategories}
           groupTitleById={chatGroupTitleById}
           onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}

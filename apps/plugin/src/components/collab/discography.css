@@ -3,7 +3,9 @@
    come from the plugin theme (--bg/--bg2/--t1/--t2/--t3/--line/--blue). */
 
 .pdisco {
-  position: fixed; inset: 0; z-index: 60;
+  /* absolute, not fixed: it must stay INSIDE .plugin so the theme
+     tokens (--bg etc.) resolve — a body portal rendered transparent. */
+  position: absolute; inset: 0; z-index: 60;
   background: var(--bg);
   display: flex; flex-direction: column;
   animation: pdisco-in .22s cubic-bezier(.3, 1, .4, 1);
@@ -144,7 +146,7 @@
 
 /* Overlays: release sheet / composer */
 .pdisco-overlay {
-  position: fixed; inset: 0; z-index: 70;
+  position: absolute; inset: 0; z-index: 70;
   background: rgba(0, 0, 0, 0.4);
   display: flex; align-items: center; justify-content: center; padding: 14px;
 }

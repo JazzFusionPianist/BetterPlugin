@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import './discography.css'
@@ -159,7 +158,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
     await refetch()
   }
 
-  return createPortal(
+  return (
     <div className="pdisco">
       <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
 
@@ -279,8 +278,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
           onClose={() => setComposerShelf(null)}
         />
       )}
-    </div>,
-    document.body,
+    </div>
   )
 }
 

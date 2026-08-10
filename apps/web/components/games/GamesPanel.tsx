@@ -10,6 +10,7 @@ import FallingBlocksView from './FallingBlocksView'
 import PokerView from './PokerView'
 import EarTrainingView from './EarTrainingView'
 import PinballView from './PinballView'
+import YachtView from './YachtView'
 
 export type GameScreen = 'list' | GameType | 'pinball'
 
@@ -90,6 +91,16 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
             supabase={supabase}
             currentUserId={me.id}
             currentUserProfile={me}
+            onClose={() => onScreenChange('list')}
+          />
+        )}
+        {screen === 'yacht' && (
+          <YachtView
+            supabase={supabase}
+            onlineIds={onlineIds}
+            currentUserId={me.id}
+            currentUserProfile={me}
+            friendProfiles={friends}
             onClose={() => onScreenChange('list')}
           />
         )}

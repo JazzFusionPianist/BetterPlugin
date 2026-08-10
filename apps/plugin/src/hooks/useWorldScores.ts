@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Generic world leaderboard: one row per user (personal best) in a
 // `<game>_scores` table. Used by pinball and solo falling blocks.
 
-export type WorldScoreTable = 'pinball_scores' | 'falling_blocks_scores'
+export type WorldScoreTable = 'pinball_scores' | 'falling_blocks_scores' | 'yacht_scores'
 
 export interface WorldLeaderRow {
   user_id: string

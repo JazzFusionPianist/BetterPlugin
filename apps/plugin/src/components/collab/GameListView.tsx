@@ -3,7 +3,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
 
-export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball'
+export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -90,6 +90,24 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.pinball',
     descKey: 'game.pinballDesc',
+  },
+  {
+    id: 'yacht',
+    coverBg: 'radial-gradient(circle at 30% 30%, #ffe08a 0%, #e0a63c 55%, #57320a 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="5" y="5" width="13" height="13" rx="3" fill="currentColor" opacity="0.92" />
+        <circle cx="9" cy="9" r="1.5" fill="#1a1a1a" />
+        <circle cx="14" cy="14" r="1.5" fill="#1a1a1a" />
+        <rect x="14" y="14" width="13" height="13" rx="3" fill="currentColor" opacity="0.7" />
+        <circle cx="18" cy="18" r="1.4" fill="#1a1a1a" />
+        <circle cx="23" cy="20.5" r="1.4" fill="#1a1a1a" />
+        <circle cx="18" cy="23" r="1.4" fill="#1a1a1a" />
+        <circle cx="23" cy="25.5" r="1.4" fill="#1a1a1a" />
+      </svg>
+    ),
+    nameKey: 'game.yacht',
+    descKey: 'game.yachtDesc',
   },
   {
     id: 'ear_training',

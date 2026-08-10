@@ -12,7 +12,7 @@ import { isComputerPlayerId } from './computerPlayers'
  * we don't need at the chat layer.
  */
 
-export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht'
 
 function hasMultiplePlayers(playerIds: unknown): boolean {
   return Array.isArray(playerIds) && playerIds.filter(Boolean).length > 1
@@ -40,6 +40,7 @@ export const GAME_TABLE: Record<GameType, string> = {
   falling_blocks: 'falling_blocks_rooms',
   poker:          'poker_rooms',
   ear_training:   'ear_training_rooms',
+  yacht:          'yacht_rooms',
 }
 
 interface RoomCapacity {
@@ -55,7 +56,7 @@ interface RoomCapacity {
 // When everyone currently in the lobby readies up, the game start path
 // locks `player_count` down to the actual joined player count.
 const DEFAULT_PLAYER_COUNT: Record<GameType, number> = {
-  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6,
+  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4,
 }
 
 /** Maximum seats currently configured for a room. Reads the row, then
@@ -157,19 +158,22 @@ export async function createGameRoom (
     if (error) { console.error('[createGameRoom.ear_training]', error); return null }
     return (data as { id: string }).id
   }
-  if (gameType === 'falling_blocks') {
+  if (gameType === 'falling_blocks' || gameType === 'yacht') {
+    const table = GAME_TABLE[gameType]
+    const insert: Record<string, unknown> = {
+      host_id: userId,
+      player_count: playerCount,
+      status: 'lobby',
+      player_ids: [userId],
+      ready_ids: [],
+    }
+    if (gameType === 'yacht') insert.state = {}
     const { data, error } = await supabase
-      .from('falling_blocks_rooms')
-      .insert({
-        host_id: userId,
-        player_count: playerCount,
-        status: 'lobby',
-        player_ids: [userId],
-        ready_ids: [],
-      })
+      .from(table)
+      .insert(insert)
       .select()
       .single()
-    if (error) { console.error('[createGameRoom.falling_blocks]', error); return null }
+    if (error) { console.error('[createGameRoom.' + gameType + ']', error); return null }
     return (data as { id: string }).id
   }
   // poker
@@ -238,7 +242,7 @@ export async function findActiveGame (
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
-  const [chess, fb, poker, et] = await Promise.all([
+  const [chess, fb, poker, et, yacht] = await Promise.all([
     supabase.from('game_rooms')
       .select('id, updated_at, status, host_id, guest_id, captured')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
@@ -263,6 +267,12 @@ export async function findActiveGame (
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(5),
+    supabase.from('yacht_rooms')
+      .select('id, updated_at, status, player_ids')
+      .contains('player_ids', [userId])
+      .in('status', ['lobby', 'playing'])
+      .order('updated_at', { ascending: false })
+      .limit(5),
   ])
 
   const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
@@ -270,10 +280,12 @@ export async function findActiveGame (
   const fbRoom = fb.data?.find(isResumableMultiPlayerRoom)
   const pokerRoom = poker.data?.find(isResumableMultiPlayerRoom)
   const etRoom = et.data?.find(isResumableEarTrainingRoom)
+  const yachtRoom = yacht.data?.find(isResumableMultiPlayerRoom)
   if (chessRoom) candidates.push({ gameType: 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
   if (fbRoom)    candidates.push({ gameType: 'falling_blocks', roomId: fbRoom.id, updatedAt: fbRoom.updated_at })
   if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
   if (etRoom)    candidates.push({ gameType: 'ear_training', roomId: etRoom.id, updatedAt: etRoom.updated_at })
+  if (yachtRoom) candidates.push({ gameType: 'yacht', roomId: yachtRoom.id, updatedAt: yachtRoom.updated_at })
 
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

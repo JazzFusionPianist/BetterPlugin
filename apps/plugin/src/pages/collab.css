@@ -9520,3 +9520,110 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   color: var(--t3);
 }
 .schip-x:hover { color: var(--t1); }
+
+/* ═══ Yacht Dice ════════════════════════════════════════════════════════
+   Paper dice with ink pips; the scorecard is a hairline ledger. */
+.yacht-layout {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  padding: 2px 8px 8px;
+  width: 100%;
+}
+.yacht-status {
+  width: 100%; max-width: 340px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 0 2px;
+}
+.yacht-status-line {
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 13px; color: var(--t2, #77746E); text-transform: lowercase;
+}
+.yacht-status-line.mine { color: #2440FF; }
+.yacht-round {
+  font-size: 10px; color: var(--t3);
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+}
+.yacht-tray { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.yacht-dice { display: flex; gap: 7px; }
+.yacht-die {
+  width: 42px; height: 42px; padding: 0;
+  background: none; border: none; cursor: pointer;
+  color: var(--t1);
+  transition: transform 0.12s ease, color 0.12s;
+}
+.yacht-die svg { display: block; width: 100%; height: 100%; }
+.yacht-die.held { color: #2440FF; transform: translateY(-5px); }
+.yacht-die.blank { color: var(--t3); }
+.yacht-die:disabled { cursor: default; }
+.yacht-die.rolling { animation: yacht-shake 0.32s ease; }
+@keyframes yacht-shake {
+  0% { transform: rotate(0deg) translateY(0); }
+  30% { transform: rotate(-9deg) translateY(-3px); }
+  60% { transform: rotate(7deg) translateY(-1px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+.yacht-die.held.rolling { animation: none; }
+.yacht-roll-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 22px;
+  background: #2440FF; color: #fff;
+  border: none; border-radius: 3px; cursor: pointer;
+  font-family: var(--f-sans); font-size: 13px; font-weight: 600;
+  text-transform: lowercase;
+  transition: background 0.15s, opacity 0.15s;
+}
+.yacht-roll-btn:hover:not(:disabled) { background: #1B31D9; }
+.yacht-roll-btn:disabled { opacity: 0.35; cursor: default; }
+.yacht-roll-pips { display: flex; gap: 4px; }
+.yacht-roll-pip {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+.yacht-roll-pip.on { background: #fff; }
+.yacht-card {
+  width: 100%; max-width: 340px;
+  flex: 1; min-height: 0; overflow-y: auto;
+  font-family: var(--f-sans);
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+}
+.yacht-card-head, .yacht-card-row {
+  display: flex; align-items: center; gap: 4px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+  min-height: 21px;
+}
+.yacht-card-cat {
+  flex: 1; min-width: 0;
+  font-family: var(--f-serif, Georgia, serif);
+  font-size: 11.5px; text-transform: lowercase; color: var(--t2, #77746E);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.yacht-card-cat em { font-size: 9px; color: var(--t3); font-style: normal; }
+.yacht-card-player {
+  width: 46px; flex-shrink: 0; text-align: center;
+  font-family: var(--f-serif, Georgia, serif); font-size: 11px;
+  text-transform: lowercase; color: var(--t3);
+  white-space: nowrap; overflow: hidden;
+}
+.yacht-card-player.turn { color: #2440FF; font-style: italic; }
+.yacht-card-cell {
+  width: 46px; flex-shrink: 0; text-align: center;
+  font-size: 12px; color: var(--t1);
+  font-variant-numeric: tabular-nums;
+  background: none; border: none; padding: 2px 0;
+}
+.yacht-card-cell.open { color: var(--t3); }
+.yacht-card-cell.filled.zero { color: var(--t3); text-decoration: line-through; }
+.yacht-card-cell.pick {
+  color: #2440FF; font-style: italic; cursor: pointer;
+  border: 1px solid rgba(36, 64, 255, 0.4); border-radius: 3px;
+}
+.yacht-card-cell.pick:hover { background: rgba(36, 64, 255, 0.1); }
+.yacht-card-cell.pick.zero { opacity: 0.55; }
+.yacht-card-row.bonus .yacht-card-cell { font-size: 10px; color: var(--t3); }
+.yacht-card-row.bonus .yacht-card-cell.bonus-hit { color: #2440FF; font-weight: 600; }
+.yacht-card-row.total { border-bottom: none; border-top: 1.5px solid var(--t1); }
+.yacht-card-row.total .yacht-card-cell { font-weight: 700; font-size: 13px; }
+
+.plugin.gwall-yacht { background: #1B1812; }

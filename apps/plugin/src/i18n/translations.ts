@@ -55,14 +55,6 @@ export const T = {
   'notif.followBack': { en: 'follow back', ko: '맞팔로우', ja: 'フォローバック', zh: '回关', es: 'seguir también', de: 'zurückfolgen', fr: 'suivre en retour', hi: 'फ़ॉलो बैक' },
   'notif.mutual':     { en: 'you follow each other', ko: '서로 팔로우 중', ja: '相互フォロー中', zh: '互相关注', es: 'os seguís mutuamente', de: 'ihr folgt einander', fr: 'vous vous suivez', hi: 'आप एक-दूसरे को फ़ॉलो करते हैं' },
 
-  // ───── In-chat calendar ─────────────────────────────────────────────────
-  'chatcal.title':    { en: 'calendar', ko: '캘린더', ja: 'カレンダー', zh: '日历', es: 'calendario', de: 'Kalender', fr: 'calendrier', hi: 'कैलेंडर' },
-  'chatcal.addChip':  { en: 'add to calendar', ko: '캘린더에 추가', ja: 'カレンダーに追加', zh: '添加到日历', es: 'añadir al calendario', de: 'in den Kalender', fr: 'ajouter au calendrier', hi: 'कैलेंडर में जोड़ें' },
-  'chatcal.reading':  { en: 'reading…', ko: '읽는 중…', ja: '読み取り中…', zh: '解析中…', es: 'leyendo…', de: 'liest…', fr: 'lecture…', hi: 'पढ़ रहा है…' },
-  'chatcal.noEvents': { en: 'no plans found', ko: '일정을 못 찾았어요', ja: '予定が見つかりません', zh: '未找到日程', es: 'no se encontraron planes', de: 'keine Termine gefunden', fr: 'aucun plan trouvé', hi: 'कोई योजना नहीं मिली' },
-  'chatcal.save':     { en: 'save', ko: '저장', ja: '保存', zh: '保存', es: 'guardar', de: 'speichern', fr: 'enregistrer', hi: 'सहेजें' },
-  'chatcal.saved':    { en: 'noted ✓', ko: '저장됨 ✓', ja: '保存済み ✓', zh: '已保存 ✓', es: 'anotado ✓', de: 'notiert ✓', fr: 'noté ✓', hi: 'सहेजा गया ✓' },
-
   // ───── Header sub-bar (chat) ────────────────────────────────────────────
   'chat.headerOnLive':  { en: '● LIVE',  ko: '● 라이브',  ja: '● ライブ', zh: '● 直播',  es: '● EN VIVO', de: '● LIVE',  fr: '● EN DIRECT', hi: '● लाइव' },
   'chat.joinLive':      { en: 'Join',    ko: '참여',     ja: '参加',     zh: '加入',    es: 'Unirse',    de: 'Beitreten', fr: 'Rejoindre', hi: 'जुड़ें' },
@@ -234,6 +226,14 @@ export const T = {
   'poker.rankRoyalFlush': { en: 'Royal Flush', ko: '로열 플러시', ja: 'ロイヤルフラッシュ', zh: '皇家同花顺', es: 'Escalera real', de: 'Royal Flush', fr: 'Quinte flush royale', hi: 'रॉयल फ्लश' },
 
   // ───── Falling Blocks in-progress ───────────────────────────────────────
+  // ───── In-chat calendar ─────────────────────────────────────────────────
+  'chatcal.title':    { en: 'calendar', ko: '캘린더', ja: 'カレンダー', zh: '日历', es: 'calendario', de: 'Kalender', fr: 'calendrier', hi: 'कैलेंडर' },
+  'chatcal.addChip':  { en: 'add to calendar', ko: '캘린더에 추가', ja: 'カレンダーに追加', zh: '添加到日历', es: 'añadir al calendario', de: 'in den Kalender', fr: 'ajouter au calendrier', hi: 'कैलेंडर में जोड़ें' },
+  'chatcal.reading':  { en: 'reading…', ko: '읽는 중…', ja: '読み取り中…', zh: '解析中…', es: 'leyendo…', de: 'liest…', fr: 'lecture…', hi: 'पढ़ रहा है…' },
+  'chatcal.noEvents': { en: 'no plans found', ko: '일정을 못 찾았어요', ja: '予定が見つかりません', zh: '未找到日程', es: 'no se encontraron planes', de: 'keine Termine gefunden', fr: 'aucun plan trouvé', hi: 'कोई योजना नहीं मिली' },
+  'chatcal.save':     { en: 'save', ko: '저장', ja: '保存', zh: '保存', es: 'guardar', de: 'speichern', fr: 'enregistrer', hi: 'सहेजें' },
+  'chatcal.saved':    { en: 'noted ✓', ko: '저장됨 ✓', ja: '保存済み ✓', zh: '已保存 ✓', es: 'anotado ✓', de: 'notiert ✓', fr: 'noté ✓', hi: 'सहेजा गया ✓' },
+
   'fb.score':       { en: 'Score',      ko: '점수',     ja: 'スコア',     zh: '分数',    es: 'Puntos',    de: 'Punkte',     fr: 'Score',     hi: 'स्कोर' },
   'fb.lines':       { en: 'Lines',      ko: '라인',     ja: 'ライン',     zh: '行数',    es: 'Líneas',    de: 'Reihen',     fr: 'Lignes',    hi: 'लाइनें' },
   'fb.incoming':    { en: 'Incoming',   ko: '받는 줄',  ja: '受信',       zh: '来袭',    es: 'Entrante',  de: 'Eingehend',  fr: 'Entrant',   hi: 'आगामी' },
@@ -261,6 +261,12 @@ export const T = {
   'pb.end':         { en: 'End game',    ko: '게임 종료',  ja: 'ゲーム終了', zh: '结束游戏', es: 'Terminar',  de: 'Beenden',    fr: 'Terminer',  hi: 'गेम समाप्त' },
   'pb.endConfirm':  { en: 'End the game now and record the score?', ko: '지금 게임을 끝내고 점수를 기록할까?', ja: '今すぐ終了してスコアを記録しますか？', zh: '现在结束游戏并记录分数？', es: '¿Terminar ahora y registrar la puntuación?', de: 'Jetzt beenden und den Punktestand speichern?', fr: 'Terminer maintenant et enregistrer le score ?', hi: 'अभी गेम समाप्त करें और स्कोर दर्ज करें?' },
   'pb.resetConfirm': { en: 'Restart the game? The current score is lost.', ko: '게임을 다시 시작할까? 지금 점수는 사라져.', ja: 'ゲームをやり直しますか？現在のスコアは失われます。', zh: '重新开始游戏？当前分数将丢失。', es: '¿Reiniciar la partida? Se pierde la puntuación actual.', de: 'Spiel neu starten? Der aktuelle Punktestand geht verloren.', fr: 'Recommencer ? Le score actuel sera perdu.', hi: 'गेम फिर से शुरू करें? वर्तमान स्कोर खो जाएगा।' },
+  'y.roll':         { en: 'Roll',        ko: '굴리기',    ja: 'ロール',     zh: '掷骰',    es: 'Tirar',     de: 'Würfeln',    fr: 'Lancer',    hi: 'रोल' },
+  'y.yourTurn':     { en: 'your turn',   ko: '내 차례',    ja: 'あなたの番', zh: '你的回合', es: 'tu turno',  de: 'du bist dran', fr: 'à toi', hi: 'आपकी बारी' },
+  'y.turnOf':       { en: "{name}'s turn", ko: '{name} 차례', ja: '{name}の番', zh: '{name} 的回合', es: 'turno de {name}', de: '{name} ist dran', fr: 'tour de {name}', hi: '{name} की बारी' },
+  'y.round':        { en: 'round',       ko: '라운드',    ja: 'ラウンド',   zh: '回合',    es: 'ronda',     de: 'Runde',      fr: 'manche',    hi: 'राउंड' },
+  'y.bonus':        { en: 'bonus',       ko: '보너스',    ja: 'ボーナス',   zh: '奖励',    es: 'bono',      de: 'Bonus',      fr: 'bonus',     hi: 'बोनस' },
+  'y.total':        { en: 'total',       ko: '합계',      ja: '合計',       zh: '总分',    es: 'total',     de: 'Summe',      fr: 'total',     hi: 'कुल' },
   'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 
   // ───── Information Panel ────────────────────────────────────────────────
@@ -310,6 +316,8 @@ export const T = {
   'game.earTraining':       { en: 'Ear Training', ko: '청음 훈련', ja: '聴音トレーニング', zh: '听音训练', es: 'Entrenamiento auditivo', de: 'Gehörbildung', fr: 'Entraînement auditif', hi: 'कान का अभ्यास' },
   'game.earTrainingDesc':   { en: 'Identify intervals & chords', ko: '음정과 화음 알아맞히기', ja: '音程と和音を当てる', zh: '识别音程和和弦', es: 'Identifica intervalos y acordes', de: 'Intervalle und Akkorde erkennen', fr: 'Identifier intervalles et accords', hi: 'अंतराल और कॉर्ड पहचानें' },
   'game.pinball':           { en: 'Pinball', ko: '핀볼', ja: 'ピンボール', zh: '弹球', es: 'Pinball', de: 'Flipper', fr: 'Flipper', hi: 'पिनबॉल' },
+  'game.yacht':             { en: 'Yacht Dice', ko: '야추 다이스', ja: 'ヨットダイス', zh: '快艇骰子', es: 'Yacht', de: 'Yacht', fr: 'Yacht', hi: 'यॉट डाइस' },
+  'game.yachtDesc':         { en: 'Roll · hold · score', ko: '굴리고 · 킵하고 · 채우고', ja: '振って・残して・埋める', zh: '掷骰 · 保留 · 计分', es: 'Tira · guarda · anota', de: 'Würfeln · halten · punkten', fr: 'Lance · garde · marque', hi: 'रोल · होल्ड · स्कोर' },
   'game.pinballDesc':       { en: 'Solo · world ranking', ko: '혼자서 · 월드 랭킹', ja: 'ソロ・世界ランキング', zh: '单人 · 世界排名', es: 'Solo · ranking mundial', de: 'Solo · Weltrangliste', fr: 'Solo · classement mondial', hi: 'सोलो · विश्व रैंकिंग' },
   'et.round':               { en: 'Round {n} / {total}', ko: '라운드 {n} / {total}', ja: 'ラウンド {n} / {total}', zh: '回合 {n} / {total}', es: 'Ronda {n} / {total}', de: 'Runde {n} / {total}', fr: 'Manche {n} / {total}', hi: 'राउंड {n} / {total}' },
   'et.play':                { en: 'Play', ko: '재생', ja: '再生', zh: '播放', es: 'Reproducir', de: 'Abspielen', fr: 'Jouer', hi: 'चलाएं' },

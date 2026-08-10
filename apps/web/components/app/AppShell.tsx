@@ -389,7 +389,7 @@ export default function AppShell({ user }: { user: User }) {
               setGamesOpen(true)
             }}
           >
-            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training' })[activeGame.gameType]}
+            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice' })[activeGame.gameType]}
           </button>
         )}
 
@@ -517,7 +517,18 @@ export default function AppShell({ user }: { user: User }) {
           <button className={`home-dot${bookPage === 2 ? ' on' : ''}`} onClick={() => goPage(2)} aria-label="Portfolio" />
         </div>
 
-        <SchedulePrompt onSubmit={handleSchedule} onOpenCalendar={() => setCalOpen(true)} targets={targets} />
+        <SchedulePrompt
+          onSubmit={handleSchedule}
+          onOpenCalendar={() => setCalOpen(true)}
+          targets={targets}
+          categories={categories}
+          onUpdate={(id, patch) => { updateEvent(id, patch).catch(() => {}) }}
+          onSetCategory={async (id, name) => {
+            const color = name ? await ensureCategory(name) : null
+            updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
+            return color
+          }}
+        />
       </main>
 
       <FollowAlerts

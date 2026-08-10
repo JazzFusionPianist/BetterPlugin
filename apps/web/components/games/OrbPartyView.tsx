@@ -31,6 +31,21 @@ const TILE_GLYPH: Record<string, string> = {
   event: '⚡', item: '✦', duel: '⚔',
 }
 
+// 3×3 pip grid per die face
+const PIP_AT: Record<number, number[]> = {
+  1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+}
+
+function DieFace({ v }: { v: number }) {
+  return (
+    <span className="party-die">
+      {Array.from({ length: 9 }, (_, i) => (
+        <i key={i} className={PIP_AT[v]?.includes(i) ? 'on' : ''} />
+      ))}
+    </span>
+  )
+}
+
 export default function OrbPartyView({
   supabase,
   currentUserId,
@@ -53,7 +68,15 @@ export default function OrbPartyView({
   const [drawPos, setDrawPos] = useState<Record<string, number>>({})
   const [walking, setWalking] = useState(false)
   const animRef = useRef<number | null>(null)
-  const [diceFace, setDiceFace] = useState<number | null>(null)
+  // ── presentation: dice tumble, floating text, event cards ──
+  const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle' } | null>(null)
+  const [dieFlick, setDieFlick] = useState(1)
+  const [floats, setFloats] = useState<{ x: number; y: number; text: string; tone: string; key: number }[]>([])
+  const [card, setCard] = useState<{ title: string; sub: string; key: number } | null>(null)
+  const seqRef = useRef({ primed: false, roll: 0, fx: 0, card: 0 })
+  // Delayed fx timers survive state re-writes; cleared only on unmount.
+  const fxTimersRef = useRef<number[]>([])
+  useEffect(() => () => { fxTimersRef.current.forEach(id => window.clearTimeout(id)) }, [])
 
   // ── Mount: resume ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -102,6 +125,63 @@ export default function OrbPartyView({
     return friendProfiles.find(p => p.id === id)?.avatar_color ?? '#555'
   }, [currentUserId, currentUserProfile, friendProfiles, ids])
 
+  // ── Presentation watchers ────────────────────────────────────────────────
+  // Prime seq counters on (re)entry so a resumed game doesn't replay stale fx.
+  useEffect(() => {
+    if (!st) { seqRef.current.primed = false; return }
+    if (!seqRef.current.primed) {
+      seqRef.current = {
+        primed: true,
+        roll: st.lastRoll?.seq ?? 0,
+        fx: st.lastFx?.seq ?? 0,
+        card: st.lastCard?.seq ?? 0,
+      }
+    }
+  }, [st])
+
+  // Dice tumble — same path for local and remote rolls.
+  useEffect(() => {
+    const r = st?.lastRoll
+    if (!r || !r.value || r.seq === seqRef.current.roll) return
+    seqRef.current.roll = r.seq
+    setDieShow({ value: r.value, phase: 'tumble' })
+    const flick = window.setInterval(() => setDieFlick(f => (f % 6) + 1), 75)
+    const t1 = window.setTimeout(() => {
+      window.clearInterval(flick)
+      setDieShow(s => (s ? { ...s, phase: 'settle' } : s))
+    }, 640)
+    const t2 = window.setTimeout(() => setDieShow(null), 1850)
+    return () => { window.clearInterval(flick); window.clearTimeout(t1); window.clearTimeout(t2) }
+  }, [st?.lastRoll])
+
+  // Floating text at the landing node — held back until the walk lands.
+  useEffect(() => {
+    const f = st?.lastFx
+    if (!f || !f.text || f.seq === seqRef.current.fx) return
+    seqRef.current.fx = f.seq
+    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS
+    const n = PARTY_BOARD[f.node] ?? PARTY_BOARD[0]
+    const item = { x: n.x, y: n.y, text: f.text, tone: f.tone, key: f.seq }
+    fxTimersRef.current.push(window.setTimeout(() => {
+      setFloats(cur => [...cur.slice(-2), item])
+      fxTimersRef.current.push(window.setTimeout(
+        () => setFloats(cur => cur.filter(i => i.key !== item.key)), 1500))
+    }, delay))
+  }, [st?.lastFx, st?.trail])
+
+  // Event / duel / star card — flips over the board after the walk lands.
+  useEffect(() => {
+    const c = st?.lastCard
+    if (!c || !c.title || c.seq === seqRef.current.card) return
+    seqRef.current.card = c.seq
+    const delay = Math.max(0, (st?.trail?.length ?? 0) - 1) * STEP_MS + 180
+    fxTimersRef.current.push(window.setTimeout(() => {
+      setCard({ title: c.title, sub: c.sub, key: c.seq })
+      fxTimersRef.current.push(window.setTimeout(
+        () => setCard(cur => (cur?.key === c.seq ? null : cur)), 2400))
+    }, delay))
+  }, [st?.lastCard, st?.trail])
+
   // ── Remote animation: walk drawPos along st.trail on every new state ────
   const lastTrailRef = useRef<string>('')
   useEffect(() => {
@@ -148,16 +228,28 @@ export default function OrbPartyView({
     const stars = { ...next.stars }
     const items = { ...next.items }
     let log = next.log
+    let fx: NonNullable<PartyState['lastFx']> | undefined
+    let card: NonNullable<PartyState['lastCard']> | undefined
+    const fxSeq = (s.lastFx?.seq ?? 0) + 1
+    const cardSeq = (s.lastCard?.seq ?? 0) + 1
 
     const give = (id: string, n: number) => { coins[id] = Math.max(0, (coins[id] ?? 0) + n) }
 
     switch (node.t) {
-      case 'blue': give(me, 3); log = pushLog(log, `${name} +3`); break
-      case 'red': give(me, -3); log = pushLog(log, `${name} −3`); break
+      case 'blue':
+        give(me, 3); log = pushLog(log, `${name} +3`)
+        fx = { node: landed, text: '+3', tone: 'good', seq: fxSeq }
+        break
+      case 'red':
+        give(me, -3); log = pushLog(log, `${name} −3`)
+        fx = { node: landed, text: '−3', tone: 'bad', seq: fxSeq }
+        break
       case 'item': {
         const it = randomItem()
         items[me] = [...(items[me] ?? []).slice(0, MAX_ITEMS - 1), it]
         log = pushLog(log, `${name} picked up ${ITEM_NAMES[it]}`)
+        fx = { node: landed, text: `✦ ${ITEM_NAMES[it]}`, tone: 'good', seq: fxSeq }
+        card = { title: '✦ an item', sub: `${name} pockets the ${ITEM_NAMES[it]}`, seq: cardSeq }
         break
       }
       case 'duel': {
@@ -170,37 +262,50 @@ export default function OrbPartyView({
             const pot = Math.min(5, coins[loser] ?? 0)
             give(loser, -pot); give(winner, pot)
             log = pushLog(log, `duel ${a}:${b} — ${nameFor(winner)} takes ¢${pot}`)
+            card = { title: `⚔ duel ${a} : ${b}`, sub: `${nameFor(winner)} takes ¢${pot} from ${nameFor(loser)}`, seq: cardSeq }
           } else {
             log = pushLog(log, `duel ${a}:${b} — a draw`)
+            card = { title: `⚔ duel ${a} : ${b}`, sub: 'dead even — nobody pays', seq: cardSeq }
           }
         }
         break
       }
       case 'event': {
         const ev = randomEvent()
+        fx = { node: landed, text: '⚡', tone: 'info', seq: fxSeq }
         switch (ev) {
-          case 'windfall': give(me, 10); log = pushLog(log, `${name} found ¢10`); break
-          case 'tax': give(me, -8); log = pushLog(log, `${name} taxed ¢8`); break
+          case 'windfall':
+            give(me, 10); log = pushLog(log, `${name} found ¢10`)
+            card = { title: '⚡ windfall', sub: `${name} finds ¢10 on the road`, seq: cardSeq }
+            break
+          case 'tax':
+            give(me, -8); log = pushLog(log, `${name} taxed ¢8`)
+            card = { title: '⚡ the tax man', sub: `${name} pays ¢8, no receipts`, seq: cardSeq }
+            break
           case 'gift': {
             const it = randomItem()
             items[me] = [...(items[me] ?? []).slice(0, MAX_ITEMS - 1), it]
             log = pushLog(log, `${name} was gifted ${ITEM_NAMES[it]}`)
+            card = { title: '⚡ a gift', sub: `${name} receives the ${ITEM_NAMES[it]}`, seq: cardSeq }
             break
           }
           case 'storm': {
             for (const id of ids) if (id !== me) give(id, -4)
             log = pushLog(log, `${name} called the storm — everyone else −4`)
+            card = { title: '⚡ the storm', sub: 'everyone else loses ¢4', seq: cardSeq }
             break
           }
           case 'warp': {
             const dest = Math.floor(Math.random() * PARTY_BOARD.length)
             next = { ...next, positions: { ...next.positions, [me]: dest } }
             log = pushLog(log, `${name} warped`)
+            card = { title: '⚡ warp', sub: `${name} is somewhere else entirely`, seq: cardSeq }
             break
           }
           case 'starMoves': {
             next = { ...next, starNode: nextStarNode(next.starNode) }
             log = pushLog(log, 'the star moved')
+            card = { title: '⚡ the star moves', sub: 'look at the board again', seq: cardSeq }
             break
           }
           case 'swap': {
@@ -211,6 +316,7 @@ export default function OrbPartyView({
               const tmp = p[me]; p[me] = p[foe]; p[foe] = tmp
               next = { ...next, positions: p }
               log = pushLog(log, `${name} swapped places with ${nameFor(foe)}`)
+              card = { title: '⚡ trading places', sub: `${name} ⇄ ${nameFor(foe)}`, seq: cardSeq }
             }
             break
           }
@@ -221,6 +327,8 @@ export default function OrbPartyView({
     }
 
     next = { ...next, coins, stars, items, log }
+    if (fx) next = { ...next, lastFx: fx }
+    if (card) next = { ...next, lastCard: card }
 
     // advance turn / round
     const nextTurn = (next.turn + 1) % ids.length
@@ -316,7 +424,7 @@ export default function OrbPartyView({
       }
       steps = rollD6()
     }
-    setDiceFace(steps)
+    s = { ...s, lastRoll: { by: me, value: steps, seq: (st.lastRoll?.seq ?? 0) + 1 } }
     walkFrom({ ...s, dice: steps, stepsLeft: steps }, s.positions[me], steps, [])
   }, [st, iDrive, walking, ids, nameFor, walkFrom])
 
@@ -355,6 +463,8 @@ export default function OrbPartyView({
         stars: { ...s.stars, [me]: (s.stars[me] ?? 0) + 1 },
         starNode: nextStarNode(s.starNode),
         log: pushLog(s.log, `★ ${nameFor(me)} bought a star`),
+        lastFx: { node: st.pendingNode, text: '★', tone: 'good', seq: (s.lastFx?.seq ?? 0) + 1 },
+        lastCard: { title: '★ a star', sub: `${nameFor(me)} — and the star moves on`, seq: (s.lastCard?.seq ?? 0) + 1 },
       }
     }
     if (s.stepsLeft > 0) {
@@ -483,6 +593,7 @@ export default function OrbPartyView({
   } else if (isLobby && room && !allReady) {
     overlay = (
       <GameOverlayCard emoji="🎲" title={t('game.readyToPlay')}>
+        <div className="party-rules">{t('op.rules')}</div>
         <GameReadyControl ready={myReady} count={`${readyCount} / ${joinedCount} ready`} onToggle={toggleReady} disabled={loading} />
         {isHost && (
           <button className="game-invite-btn" onClick={handleOpenInvite}
@@ -510,6 +621,7 @@ export default function OrbPartyView({
   } else if (!isPlaying && !isFinished && !room) {
     overlay = (
       <GameOverlayCard emoji="🎲" title={t('game.orbParty')}>
+        <div className="party-rules">{t('op.rules')}</div>
         <button className="game-invite-btn" onClick={handleOpenInvite} disabled={loading}>
           {t('game.inviteFriends')}
         </button>
@@ -540,7 +652,7 @@ export default function OrbPartyView({
     <GameShell
       title={t('game.orbParty')}
       onBack={handleBack}
-      className="party-shell"
+      className={`party-shell${isComputerMatch ? ' no-chat-shell' : ''}`}
       fillBoard
       board={
         <div className="party-layout">
@@ -570,17 +682,25 @@ export default function OrbPartyView({
                     ))
                   )}
                   {/* nodes */}
-                  {PARTY_BOARD.map((n, i) => (
-                    <g key={i} className={`party-node t-${n.t}${i === st.starNode ? ' star-here' : ''}`}>
-                      <circle cx={n.x} cy={n.y} r={i === 0 ? 13 : 11} className="party-node-c" />
-                      {i === 0 && <circle cx={n.x} cy={n.y} r={16.5} className="party-node-start-ring" />}
-                      {i === st.starNode
-                        ? <text x={n.x} y={n.y + 4.5} textAnchor="middle" className="party-node-star">★</text>
-                        : TILE_GLYPH[n.t]
-                          ? <text x={n.x} y={n.y + 4} textAnchor="middle" className="party-node-glyph">{TILE_GLYPH[n.t]}</text>
-                          : null}
-                    </g>
-                  ))}
+                  {PARTY_BOARD.map((n, i) => {
+                    const tip = i === st.starNode ? `★ ¢${STAR_COST}`
+                      : n.t === 'blue' ? '+¢3' : n.t === 'red' ? '−¢3'
+                      : n.t === 'event' ? `⚡ ${t('op.lgEvent')}` : n.t === 'item' ? `✦ ${t('op.lgItem')}`
+                      : n.t === 'duel' ? `⚔ ${t('op.lgDuel')}` : t('op.lgStart')
+                    return (
+                      <g key={i} className={`party-node t-${n.t}${i === st.starNode ? ' star-here' : ''}`}>
+                        <title>{tip}</title>
+                        <circle cx={n.x} cy={n.y} r={i === 0 ? 13 : 11} className="party-node-c" />
+                        {i === 0 && <circle cx={n.x} cy={n.y} r={16.5} className="party-node-start-ring" />}
+                        {i === st.starNode && <circle cx={n.x} cy={n.y} r={16} className="party-star-ring" />}
+                        {i === st.starNode
+                          ? <text x={n.x} y={n.y + 4.5} textAnchor="middle" className="party-node-star">★</text>
+                          : TILE_GLYPH[n.t]
+                            ? <text x={n.x} y={n.y + 4} textAnchor="middle" className="party-node-glyph">{TILE_GLYPH[n.t]}</text>
+                            : null}
+                      </g>
+                    )
+                  })}
                   {/* junction arrows for me */}
                   {junctionExits.map(e => (
                     <g key={e} className="party-exit" onClick={() => pickExit(e)}>
@@ -588,22 +708,66 @@ export default function OrbPartyView({
                       <text x={PARTY_BOARD[e].x} y={PARTY_BOARD[e].y - 18} textAnchor="middle" className="party-exit-mark">▾</text>
                     </g>
                   ))}
-                  {/* player orbs */}
+                  {/* whose-turn ring */}
+                  {currentTurnId && (() => {
+                    const n = PARTY_BOARD[drawPos[currentTurnId] ?? st.positions[currentTurnId] ?? 0]
+                    return <circle cx={n.x} cy={n.y} r={17.5} className="party-here" />
+                  })()}
+                  {/* player orbs — inner group remounts per node to replay the hop */}
                   {ids.map((id, pi) => {
-                    const node = PARTY_BOARD[drawPos[id] ?? st.positions[id] ?? 0]
+                    const at = drawPos[id] ?? st.positions[id] ?? 0
+                    const node = PARTY_BOARD[at]
                     const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
                     return (
                       <g key={id} className="party-orb" style={{ transform: `translate(${node.x + off[0]}px, ${node.y + off[1]}px)` }}>
-                        <circle r={6.5} fill={colorFor(id)} className={id === currentTurnId ? 'active' : ''} />
+                        <g key={`hop-${at}`} className="party-orb-hop">
+                          <circle r={6.5} fill={colorFor(id)} className={id === currentTurnId ? 'active' : ''} />
+                        </g>
                       </g>
                     )
                   })}
+                  {/* floating landing text */}
+                  {floats.map(f => (
+                    <text key={f.key} x={f.x} y={f.y - 14} textAnchor="middle" className={`party-fx ${f.tone}`}>{f.text}</text>
+                  ))}
                 </svg>
+
+                {dieShow && (
+                  <div className={`party-dice-fx ${dieShow.phase}`}>
+                    {dieShow.phase === 'tumble' ? (
+                      dieShow.value > 6
+                        ? <><DieFace v={dieFlick} /><DieFace v={((dieFlick * 2) % 6) + 1} /></>
+                        : <DieFace v={dieFlick} />
+                    ) : (
+                      dieShow.value > 6
+                        ? <><DieFace v={Math.ceil(dieShow.value / 2)} /><DieFace v={Math.floor(dieShow.value / 2)} /></>
+                        : <DieFace v={dieShow.value} />
+                    )}
+                  </div>
+                )}
+
+                {card && (
+                  <div key={card.key} className="party-card">
+                    <div className="party-card-title">{card.title}</div>
+                    <div className="party-card-sub">{card.sub}</div>
+                  </div>
+                )}
               </div>
 
               {/* ticker */}
               <div className="party-ticker">
                 {st.log.length > 0 ? st.log[st.log.length - 1] : ' '}
+              </div>
+
+              {/* tile legend */}
+              <div className="party-legend">
+                <span><i className="pl-dot blue" />+¢3</span>
+                <span><i className="pl-dot red" />−¢3</span>
+                <span className="pl-g event">⚡ {t('op.lgEvent')}</span>
+                <span className="pl-g item">✦ {t('op.lgItem')}</span>
+                <span className="pl-g duel">⚔ {t('op.lgDuel')}</span>
+                <span className="pl-g star">★ ¢{STAR_COST}</span>
+                <span className="pl-g start">◎ {t('op.lgStart')}</span>
               </div>
 
               {/* controls */}
@@ -616,7 +780,7 @@ export default function OrbPartyView({
                       </button>
                     ))}
                     <button className="party-roll-btn" onClick={() => doRoll()}>
-                      {t('y.roll')} {diceFace != null && st.dice == null ? '' : ''}
+                      {t('y.roll')}
                     </button>
                   </>
                 )}

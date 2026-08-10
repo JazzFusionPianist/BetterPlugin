@@ -9717,6 +9717,112 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .party-buy { display: flex; align-items: center; gap: 8px; }
 
+/* ── Orb Party v2 flourishes ─────────────────────────────────────────────── */
+.party-board-wrap { position: relative; }
+.party-orb-hop {
+  animation: party-hop 0.32s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes party-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  40% { transform: translateY(-8px) scale(0.9, 1.12); }
+  78% { transform: translateY(1.5px) scale(1.08, 0.92); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+.party-here {
+  fill: none; stroke: #2440FF; stroke-width: 1.1;
+  stroke-dasharray: 3 4.5; opacity: 0.75; pointer-events: none;
+  animation: party-ring-spin 7s linear infinite;
+  transform-box: fill-box; transform-origin: center;
+}
+.party-star-ring {
+  fill: none; stroke: #E9A13B; stroke-width: 1.2;
+  stroke-dasharray: 4 5; pointer-events: none;
+  animation: party-ring-spin 9s linear infinite;
+  transform-box: fill-box; transform-origin: center;
+}
+@keyframes party-ring-spin { to { transform: rotate(360deg); } }
+.party-node.star-here .party-node-c { animation: party-star-breathe 1.7s ease-in-out infinite; }
+@keyframes party-star-breathe { 0%, 100% { stroke-width: 1.4; } 50% { stroke-width: 3; } }
+.party-fx {
+  font-family: var(--f-serif, Georgia, serif);
+  font-size: 13.5px; font-weight: 700; pointer-events: none;
+  animation: party-fx-rise 1.5s ease forwards;
+}
+.party-fx.good { fill: #2440FF; }
+.party-fx.bad { fill: #E8543F; }
+.party-fx.info { fill: #BA78FF; }
+@keyframes party-fx-rise {
+  0% { opacity: 0; transform: translateY(5px); }
+  16% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-24px); }
+}
+.party-dice-fx {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  pointer-events: none;
+}
+.party-die {
+  width: 58px; height: 58px; padding: 9px;
+  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.16); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  transition: none;
+}
+.party-die i { width: 8px; height: 8px; margin: auto; border-radius: 50%; background: transparent; transition: none; }
+.party-die i.on { background: #1A1917; }
+.party-dice-fx.tumble .party-die { animation: party-die-tumble 0.64s linear; }
+.party-dice-fx.tumble .party-die + .party-die { animation-delay: 0.05s; }
+@keyframes party-die-tumble {
+  0% { transform: translateY(-52px) rotate(-50deg) scale(0.65); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(0) rotate(348deg) scale(1); }
+}
+.party-dice-fx.settle .party-die {
+  animation: party-die-land 0.3s cubic-bezier(0.2, 1.5, 0.4, 1),
+             party-die-fade 0.32s ease 0.85s forwards;
+}
+@keyframes party-die-land { 0% { transform: scale(1.28) rotate(-6deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes party-die-fade { to { opacity: 0; transform: translateY(-10px) scale(0.9); } }
+.party-card {
+  position: absolute; left: 50%; top: 40%; z-index: 6;
+  min-width: 190px; max-width: 84%;
+  padding: 13px 22px 14px; text-align: center;
+  background: var(--bg0, #FCFBF9); border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  border-radius: 10px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
+  transition: none; pointer-events: none;
+  animation: party-card-flip 0.42s cubic-bezier(0.2, 1.2, 0.35, 1) both,
+             party-card-out 0.3s ease 2s forwards;
+}
+@keyframes party-card-flip {
+  0% { opacity: 0; transform: translate(-50%, -50%) perspective(500px) rotateX(78deg) scale(0.9); }
+  100% { opacity: 1; transform: translate(-50%, -50%) perspective(500px) rotateX(0deg) scale(1); }
+}
+@keyframes party-card-out { to { opacity: 0; transform: translate(-50%, -58%) scale(0.95); } }
+.party-card-title {
+  font-family: var(--f-serif, Georgia, serif);
+  font-size: 16px; letter-spacing: 0.01em; margin-bottom: 3px;
+}
+.party-card-sub { font-size: 12.5px; color: var(--t2, #77746E); }
+.party-legend {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 12px;
+  padding: 2px 10px 0; font-size: 11.5px; color: var(--t2, #77746E);
+}
+.party-legend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.pl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; transition: none; }
+.pl-dot.blue { background: rgba(36, 64, 255, 0.8); }
+.pl-dot.red { background: rgba(232, 84, 63, 0.8); }
+.pl-g.event { color: #BA78FF; }
+.pl-g.item { color: #E9A13B; }
+.pl-g.star { color: #E9A13B; }
+.party-rules {
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 12.5px; line-height: 1.55; color: var(--t2, #77746E);
+  max-width: 300px; text-align: center; margin: 0 auto;
+}
+
+
 .plugin.gwall-orb_party { background: #171320; }
 
 /* ═══ Yacht Dice · the expensive cut ════════════════════════════════════
@@ -9829,19 +9935,25 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 @keyframes yacht-veil-in { from { opacity: 0; } to { opacity: 1; } }
 .yacht-ledger {
-  position: absolute; left: 50%; bottom: 0; z-index: 9;
-  width: min(100%, 400px);
-  transform: translate(-50%, 104%);
-  transition: transform 0.38s cubic-bezier(0.2, 1, 0.3, 1);
+  position: absolute; left: 50%; top: 50%; z-index: 9;
+  width: min(92%, 400px);
+  transform: translate(-50%, -46%) scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.2, 1, 0.3, 1), opacity 0.24s ease;
   background: var(--bg, #FBFAF7);
-  border: 1px solid rgba(127, 127, 127, 0.35); border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
   padding: 10px 14px 14px;
-  max-height: 86%;
+  max-height: 88%;
   display: flex; flex-direction: column;
 }
-.yacht-ledger.open { transform: translate(-50%, 0); }
+.yacht-ledger.open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
 .yacht-ledger-head {
   display: flex; align-items: baseline; justify-content: space-between;
   padding-bottom: 6px;

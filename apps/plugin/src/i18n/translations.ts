@@ -274,6 +274,11 @@ export const T = {
   'op.pickPath':    { en: 'pick a path',  ko: '길을 골라',   ja: '道を選んで',   zh: '选一条路',  es: 'elige un camino', de: 'wähl einen Weg', fr: 'choisis un chemin', hi: 'रास्ता चुनें' },
   'op.buyStar':     { en: 'buy the star', ko: '별 사기',     ja: '星を買う',     zh: '买星星',    es: 'comprar la estrella', de: 'Stern kaufen', fr: 'acheter l’étoile', hi: 'सितारा खरीदें' },
   'op.pass':        { en: 'pass',         ko: '패스',        ja: 'パス',         zh: '跳过',      es: 'pasar', de: 'passen', fr: 'passer', hi: 'पास' },
+  'op.rules':       { en: 'roll · walk the winding paths — blue gives, red takes. the ★ costs ¢20; most stars after 12 rounds wins', ko: '주사위를 굴려 갈림길을 걸어 — 파랑은 주고 빨강은 뺏어. ★은 ¢20, 12라운드 뒤 별 많은 쪽이 승리', ja: 'サイコロを振って分かれ道を歩こう — 青はくれる、赤は奪う。★は¢20、12ラウンド後に星が多い方の勝ち', zh: '掷骰子走分岔路 — 蓝格给钱红格扣钱。★要¢20，12回合后星星多者获胜', es: 'tira el dado y recorre los caminos — el azul da, el rojo quita. La ★ cuesta ¢20; más estrellas tras 12 rondas gana', de: 'würfle und wandere die Wege — Blau gibt, Rot nimmt. Der ★ kostet ¢20; die meisten Sterne nach 12 Runden gewinnen', fr: 'lance le dé et suis les chemins — le bleu donne, le rouge prend. L’étoile coûte ¢20 ; le plus d’étoiles après 12 manches gagne', hi: 'पासा फेंको और रास्तों पर चलो — नीला देता है, लाल लेता है। ★ की कीमत ¢20; 12 राउंड बाद सबसे ज़्यादा सितारे जीतते हैं' },
+  'op.lgEvent':     { en: 'event',        ko: '이벤트',      ja: 'イベント',     zh: '事件',      es: 'evento', de: 'Ereignis', fr: 'événement', hi: 'इवेंट' },
+  'op.lgItem':      { en: 'item',         ko: '아이템',      ja: 'アイテム',     zh: '道具',      es: 'objeto', de: 'Gegenstand', fr: 'objet', hi: 'आइटम' },
+  'op.lgDuel':      { en: 'duel',         ko: '결투',        ja: '決闘',         zh: '决斗',      es: 'duelo', de: 'Duell', fr: 'duel', hi: 'द्वंद्व' },
+  'op.lgStart':     { en: 'lap +¢5',      ko: '한 바퀴 +¢5', ja: '1周 +¢5',      zh: '绕圈 +¢5',  es: 'vuelta +¢5', de: 'Runde +¢5', fr: 'tour +¢5', hi: 'चक्कर +¢5' },
   'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 
   // ───── Information Panel ────────────────────────────────────────────────

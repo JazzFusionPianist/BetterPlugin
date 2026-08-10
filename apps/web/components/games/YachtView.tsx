@@ -595,7 +595,7 @@ export default function YachtView({
     <GameShell
       title={t('game.yacht')}
       onBack={handleBack}
-      className="yacht-shell"
+      className={`yacht-shell${solo || isComputerMatch ? ' no-chat-shell' : ''}`}
       controls={solo && !soloOver ? (
         <button className="game-btn" onClick={startSolo}>{t('pb.reset')}</button>
       ) : undefined}

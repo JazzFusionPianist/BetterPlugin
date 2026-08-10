@@ -32,7 +32,7 @@ const VARIANTS: string[][] = [
   [],                              // gain
   ['chorus', 'flanger', 'phaser'], // mod
   ['low', 'high', 'band'],         // cut
-  ['crunch', 'lead', 'fuzz'],      // amp
+  ['clean', 'crunch', 'lead', 'fuzz'], // amp
   ['tight', 'wide'],               // doubler
   ['clean', 'tape', 'pingpong'],   // delay
 ]
@@ -82,6 +82,7 @@ const VARIANT_TINTS: Record<number, Array<[number, number, number]>> = {
     [186, 120, 255],  // band — radio violet
   ],
   8: [
+    [255, 202, 120],  // clean — warm tungsten
     [236, 92, 40],    // crunch — ember
     [255, 48, 96],    // lead — stage red
     [186, 255, 60],   // fuzz — acid

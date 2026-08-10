@@ -815,7 +815,10 @@ void OrbAudioProcessor::resetFxOne (int m)
             break;
         case kAmp:
             for (int ch = 0; ch < 2; ++ch)
-            { ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f; }
+            {
+                ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f;
+                ampLp2State[ch] = 0.0f; ampMidLo[ch] = 0.0f; ampMidHi[ch] = 0.0f; ampEnv[ch] = 0.0f;
+            }
             break;
         case kDoubler:
             dblWrite = 0;
@@ -1023,31 +1026,87 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
 
         case kAmp:
         {
-            // crunch / lead / fuzz. A tight input HP keeps the lows from
-            // blowing up, the asymmetric tanh stage adds even harmonics
-            // (DC-blocked right after), and a one-pole LP darkens with the
-            // drive so the fizz never runs away.
-            const float drive = variant == 0 ? 1.0f + a * 7.0f
-                              : variant == 1 ? 1.0f + a * 16.0f
-                              :                1.5f + a * 30.0f;
-            const float asym  = variant == 2 ? 0.30f : 0.12f;
-            const float comp  = (variant == 2 ? 0.8f : 1.0f) / std::pow (drive, 0.6f);
-            const float hpK   = 1.0f - std::exp (-twoPi * (variant == 2 ? 150.0f : 90.0f) / sr);
-            const float lpF   = variant == 1 ? 8000.0f - a * 3500.0f : 9000.0f - a * 4500.0f;
+            // clean / crunch / lead / fuzz — a real guitar-amp chain:
+            // tight input HP → pre-clip MID EMPHASIS (the tube-screamer
+            // trick that makes clipping sing instead of buzz) → the
+            // nonlinearity (cascaded for lead; bias-sagged hard clip for
+            // fuzz) → DC block → TWO-POLE cabinet rolloff (12 dB/oct —
+            // this is what makes it sound like an amp in a room, not a
+            // pedal into a DI).
+            const bool isClean  = variant == 0;
+            const bool isCrunch = variant == 1;
+            const bool isLead   = variant == 2;
+            const bool isFuzz   = variant == 3;
+
+            const float drive = isClean  ? 1.0f + a * 2.5f
+                              : isCrunch ? 2.0f + a * 12.0f
+                              : isLead   ? 3.0f + a * 20.0f
+                              :            6.0f + a * 60.0f;
+            const float asym  = isClean ? 0.06f : isCrunch ? 0.18f : isLead ? 0.15f : 0.55f;
+            const float midG  = isClean ? 0.0f  : isCrunch ? 0.8f  : isLead ? 1.4f  : 0.4f;
+            const float comp  = isClean  ? 1.0f / std::pow (drive, 0.45f)
+                              : isCrunch ? 1.0f / std::pow (drive, 0.60f)
+                              : isLead   ? 0.9f / std::pow (drive, 0.65f)
+                              :            0.8f / std::pow (drive, 0.50f);
+            const float hpF   = isFuzz ? 60.0f : isLead ? 110.0f : isCrunch ? 90.0f : 70.0f;
+            const float lpF   = isClean  ? 7500.0f - a * 1500.0f
+                              : isCrunch ? 6000.0f - a * 1200.0f
+                              : isLead   ? 5200.0f - a * 1000.0f
+                              :            4800.0f - a * 800.0f;
+            const float hpK   = 1.0f - std::exp (-twoPi * hpF / sr);
             const float lpK   = 1.0f - std::exp (-twoPi * lpF / sr);
             const float dcK   = 1.0f - std::exp (-twoPi * 12.0f / sr);
+            // mid-emphasis band edges (~350 Hz – 1.8 kHz)
+            const float mLoK  = 1.0f - std::exp (-twoPi * 350.0f / sr);
+            const float mHiK  = 1.0f - std::exp (-twoPi * 1800.0f / sr);
+            // fuzz bias envelope: fast attack, slow release — the sag
+            // that makes a fuzz sputter and gate as notes decay.
+            const float envA  = 1.0f - std::exp (-twoPi * 30.0f / sr);
+            const float envR  = 1.0f - std::exp (-twoPi * 2.0f / sr);
+            const float stage2 = std::sqrt (drive);   // lead's second stage
+
             const int chs = R != nullptr ? 2 : 1;
             for (int i = 0; i < n; ++i)
                 for (int ch = 0; ch < chs; ++ch)
                 {
                     float* S = ch == 1 ? R : L;
                     ampHpState[ch] += (S[i] - ampHpState[ch]) * hpK;
-                    const float t = S[i] - ampHpState[ch];
-                    float y = std::tanh (drive * (t + asym * t * t)) * comp;
+                    float t = S[i] - ampHpState[ch];
+
+                    // pre-clip mid emphasis
+                    ampMidLo[ch] += (t - ampMidLo[ch]) * mLoK;
+                    ampMidHi[ch] += (t - ampMidHi[ch]) * mHiK;
+                    t += midG * (ampMidHi[ch] - ampMidLo[ch]);
+
+                    float y;
+                    if (isFuzz)
+                    {
+                        const float at = std::abs (t);
+                        ampEnv[ch] += (at - ampEnv[ch]) * (at > ampEnv[ch] ? envA : envR);
+                        const float bias = -0.9f * juce::jmin (1.0f, ampEnv[ch] * drive * 0.25f);
+                        float x = drive * t + bias + asym * drive * t * std::abs (t) * 0.2f;
+                        y = x / (1.0f + std::abs (x));                    // hard-ish square
+                        y = juce::jlimit (-0.9f, 0.9f, y * 1.4f);         // squash the corners
+                        y *= comp;
+                    }
+                    else if (isLead)
+                    {
+                        // two cascaded stages: the first compresses, the
+                        // second sings.
+                        const float s1 = std::tanh (stage2 * (t + asym * t * t));
+                        y = std::tanh (stage2 * (s1 + asym * s1 * s1)) * comp;
+                    }
+                    else
+                    {
+                        y = std::tanh (drive * (t + asym * t * t)) * comp;
+                    }
+
                     ampDcState[ch] += (y - ampDcState[ch]) * dcK;
                     y -= ampDcState[ch];
-                    ampLpState[ch] += (y - ampLpState[ch]) * lpK;
-                    S[i] = ampLpState[ch];
+                    // two-pole cabinet
+                    ampLpState[ch]  += (y - ampLpState[ch]) * lpK;
+                    ampLp2State[ch] += (ampLpState[ch] - ampLp2State[ch]) * lpK;
+                    S[i] = ampLp2State[ch];
                 }
             break;
         }

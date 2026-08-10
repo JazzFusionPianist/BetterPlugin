@@ -173,9 +173,11 @@ private:
     bool  cutUseHp = false, cutUseLp = false;
     float cutBakedA = -1.0f;
     int   cutBakedVar = -1;
-    // kAmp: input tightener HP, DC blocker after the asymmetric shaper,
-    // darkening one-pole.
+    // kAmp: input tightener HP, pre-clip mid-emphasis band (two one-poles),
+    // DC blocker after the shaper, fuzz bias envelope, and a two-pole
+    // cabinet rolloff.
     float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
+    float ampLp2State[2] {}, ampMidLo[2] {}, ampMidHi[2] {}, ampEnv[2] {};
     // kDoubler: its own short modulated delay pair (independent of kMod's).
     std::vector<float> dblDl[2];
     int   dblWrite = 0;

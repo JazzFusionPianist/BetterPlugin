@@ -24,6 +24,12 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
     usePortfolio(supabase, owner.id)
 
   const [selected, setSelected] = useState<string | null>(null)
+  // The last risen record — kept so the caption can animate closed with
+  // its text still printed, instead of vanishing mid-collapse.
+  const [lastCapId, setLastCapId] = useState<string | null>(null)
+  const pick = (id: string) => {
+    if (selected === id) { setSelected(null) } else { setSelected(id); setLastCapId(id) }
+  }
   const [openRelease, setOpenRelease] = useState<string | null>(null)
   const [composerShelf, setComposerShelf] = useState<string | 'default' | null>(null)
   const [newShelfDraft, setNewShelfDraft] = useState<string | null>(null)
@@ -52,7 +58,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
     <div className="disco-caption" key={r.id}>
       <div className="disco-caption-title">{r.title}</div>
       <div className="disco-caption-sub">
-        {fmtYear(r)}{r.tracks.length > 0 ? ` · ${r.tracks.length} track${r.tracks.length === 1 ? '' : 's'}` : ''}
+        {fmtYear(r)}{r.artist ? ` · ${r.artist}` : ''}{r.tracks.length > 0 ? ` · ${r.tracks.length} track${r.tracks.length === 1 ? '' : 's'}` : ''}
       </div>
       {r.description && <div className="disco-caption-note">{r.description}</div>}
       <div className="disco-caption-actions">
@@ -118,7 +124,16 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
                 )}
               </div>
 
-              {sel >= 0 && caption(g.releases[sel]!, sel, g.releases.length)}
+              {(() => {
+                const capIdx = g.releases.findIndex((r) => r.id === lastCapId)
+                return (
+                  <div className={`disco-capwrap${sel >= 0 ? ' show' : ''}`}>
+                    <div className="disco-capclip">
+                      {capIdx >= 0 && caption(g.releases[capIdx]!, capIdx, g.releases.length)}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {g.releases.length === 0 ? (
                 <div className="disco-row-empty">an empty shelf</div>
@@ -129,7 +144,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
                       key={r.id}
                       className={`disco-rec${selected === r.id ? ' up' : ''}`}
                       style={{ zIndex: g.releases.length - i, animationDelay: `${Math.min(i, 10) * 55}ms` }}
-                      onClick={() => setSelected(selected === r.id ? null : r.id)}
+                      onClick={() => pick(r.id)}
                       aria-label={r.title}
                     >
                       <span className="disco-rec-vinyl" aria-hidden="true" />

@@ -133,7 +133,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
                   <span className="pfolio-release-info">
                     <span className="pfolio-release-title">{r.title}</span>
                     <span className="pfolio-release-sub">
-                      {fmtYear(r)}{r.tracks.length > 0 ? ` · ${r.tracks.length} track${r.tracks.length === 1 ? '' : 's'}` : ''}
+                      {fmtYear(r)}{r.artist ? ` · ${r.artist}` : ''}{r.tracks.length > 0 ? ` · ${r.tracks.length} track${r.tracks.length === 1 ? '' : 's'}` : ''}
                     </span>
                   </span>
                   <span className="pfolio-release-chev" aria-hidden="true">›</span>
@@ -213,7 +213,7 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
   isMine: boolean
   playingTrack: string | null
   onToggleTrack: (id: string, url: string) => void
-  onUpdate: (id: string, patch: Partial<Pick<Release, 'title' | 'description' | 'released_on'>>) => void
+  onUpdate: (id: string, patch: Partial<Pick<Release, 'title' | 'artist' | 'description' | 'released_on'>>) => void
   onDelete: (id: string) => void
   onClose: () => void
 }) {
@@ -237,6 +237,20 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
           />
         ) : (
           <div className="pfolio-sheet-title as-text">{release.title}</div>
+        )}
+        {isMine ? (
+          <input
+            className="pfolio-sheet-artist"
+            placeholder="artist…"
+            defaultValue={release.artist ?? ''}
+            maxLength={120}
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              if ((release.artist ?? '') !== v) onUpdate(release.id, { artist: v || null })
+            }}
+          />
+        ) : (
+          release.artist && <div className="pfolio-sheet-artist as-text">{release.artist}</div>
         )}
         <div className="pfolio-sheet-year">{fmtYear(release)}</div>
 
@@ -293,10 +307,11 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
 /** New release — cover, title, date, notes, audio files as the tracklist. */
 export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
   currentUserId: string
-  onCreate: (input: { title: string; cover_url?: string | null; description?: string | null; released_on?: string | null; tracks: { title: string; media_url: string }[] }) => Promise<boolean>
+  onCreate: (input: { title: string; cover_url?: string | null; artist?: string | null; description?: string | null; released_on?: string | null; tracks: { title: string; media_url: string }[] }) => Promise<boolean>
   onClose: () => void
 }) {
   const [title, setTitle] = useState('')
+  const [artist, setArtist] = useState('')
   const [date, setDate] = useState('')
   const [desc, setDesc] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
@@ -341,6 +356,7 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
     const ok = await onCreate({
       title: title.trim(),
       cover_url: coverUrl,
+      artist: artist.trim() || null,
       description: desc.trim() || null,
       released_on: date.trim() ? parseReleaseDate(date) : null,
       tracks,
@@ -367,6 +383,13 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
           maxLength={120}
           autoFocus
           onChange={(e) => setTitle(e.target.value)}
+        />
+        <input
+          className="pfolio-artistin"
+          placeholder="artist…"
+          value={artist}
+          maxLength={120}
+          onChange={(e) => setArtist(e.target.value)}
         />
         <input
           className="pfolio-datein"

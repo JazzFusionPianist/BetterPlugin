@@ -2767,10 +2767,31 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
     from { transform: translate(-50%, -50%) rotate(0deg); }
     to   { transform: translate(-50%, -50%) rotate(360deg); }
   }
-  /* the caption prints itself */
-  .disco-caption { animation: disco-cap .32s cubic-bezier(.2, .9, .3, 1) backwards; }
+  /* a caption swap re-prints itself */
+  .disco-caption { animation: disco-cap .3s cubic-bezier(.2, .9, .3, 1) backwards; }
   @keyframes disco-cap {
-    from { opacity: 0; transform: translateY(7px); }
+    from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: none; }
   }
 }
+
+/* The caption's room — folds open and closed instead of popping */
+.disco-capwrap {
+  display: grid; grid-template-rows: 0fr;
+  opacity: 0; transform: translateY(8px);
+  transition:
+    grid-template-rows .38s cubic-bezier(.2, .9, .3, 1),
+    opacity .26s ease,
+    transform .38s cubic-bezier(.2, .9, .3, 1);
+}
+.disco-capwrap.show { grid-template-rows: 1fr; opacity: 1; transform: none; }
+.disco-capclip { overflow: hidden; min-height: 0; }
+
+.pfolio-artistin, .pfolio-sheet-artist {
+  align-self: center; width: 100%;
+  border: none; outline: none; background: none; text-align: center;
+  font-family: var(--f-sans); font-size: 13px; color: var(--t2);
+  padding: 0;
+}
+.pfolio-sheet-artist.as-text { cursor: default; }
+.pfolio-artistin::placeholder, .pfolio-sheet-artist::placeholder { color: var(--t3); }

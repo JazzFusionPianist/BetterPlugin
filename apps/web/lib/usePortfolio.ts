@@ -22,6 +22,7 @@ export interface Release {
   user_id: string
   title: string
   cover_url: string | null
+  artist: string | null
   description: string | null
   released_on: string | null
   shelf_id: string | null
@@ -114,6 +115,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
   const addRelease = useCallback(async (input: {
     title: string
     cover_url?: string | null
+    artist?: string | null
     description?: string | null
     released_on?: string | null
     shelf_id?: string | null
@@ -124,6 +126,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
       user_id: ownerId,
       title: input.title,
       cover_url: input.cover_url ?? null,
+      artist: input.artist ?? null,
       description: input.description ?? null,
       released_on: input.released_on ?? null,
       shelf_id: input.shelf_id ?? null,
@@ -168,7 +171,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     await refetch()
   }, [supabase, releases, refetch])
 
-  const updateRelease = useCallback(async (id: string, patch: Partial<Pick<Release, 'title' | 'description' | 'released_on' | 'cover_url'>>) => {
+  const updateRelease = useCallback(async (id: string, patch: Partial<Pick<Release, 'title' | 'artist' | 'description' | 'released_on' | 'cover_url'>>) => {
     const { error } = await supabase.from('releases').update(patch).eq('id', id)
     if (error) console.error('[portfolio] updateRelease', error)
     await refetch()

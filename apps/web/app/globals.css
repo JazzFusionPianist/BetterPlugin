@@ -2691,7 +2691,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 /* the label — the cover art, where a label naturally is round */
 .disco-rec-label {
   position: absolute; left: 50%; top: 50%;
-  width: 58%; height: 58%;
+  width: 68%; height: 68%;
   transform: translate(-50%, -50%);
   border-radius: 50%; object-fit: cover;
   box-shadow: 0 0 0 1px rgba(26, 25, 23, 0.5);

@@ -5,11 +5,17 @@ OrbAudioProcessorEditor::OrbAudioProcessorEditor (OrbAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processorRef (p)
 {
-    setSize (kWidth, kHeight);
-    // Enable resizing so DAWs honor programmatic setSize() (called from
-    // the Expand View button on the live viewer). Min/max bounds avoid
-    // pathological sizes if the JS calls it with bad args.
-    setResizable (true, false);
+    // Restore the size this instance was last dragged/set to; fall back
+    // to the compact default for fresh instances.
+    {
+        const int w = processorRef.editorW.load();
+        const int h = processorRef.editorH.load();
+        if (w >= kWidth && h >= kHeight) setSize (w, h);
+        else                             setSize (kWidth, kHeight);
+    }
+    // Freely resizable from the bottom-right corner (second arg adds the
+    // corner grip); programmatic setSize() from JS keeps working too.
+    setResizable (true, true);
     setResizeLimits (kWidth, kHeight, 1600, 1200);
 
     // Register a callback the processor can invoke from the JS-callable
@@ -54,6 +60,11 @@ void OrbAudioProcessorEditor::resized()
 {
     if (auto* b = processorRef.getBrowser())
         b->setBounds (getLocalBounds());
+
+    // Remember the size so reopening the window (and reloading the
+    // session) comes back at the user's chosen size.
+    processorRef.editorW.store (getWidth());
+    processorRef.editorH.store (getHeight());
 }
 
 //==============================================================================

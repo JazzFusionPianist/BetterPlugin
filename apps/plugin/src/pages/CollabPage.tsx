@@ -452,9 +452,19 @@ function CollabPageInner({ user }: Props) {
     localStorage.setItem('collab_screen_size', size)
     applyScreenSize(size)
   }
-  // Re-apply the saved window size when the plugin (re)loads so a Large
-  // preference is restored on host launch. No-op without the JUCE bridge.
-  useEffect(() => { applyScreenSize(screenSize) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // The window is freely resizable now (corner drag) and JUCE itself
+  // persists/restores the editor size — so we no longer snap back to a
+  // preset on load. Instead, the LAYOUT follows the live viewport:
+  // under 520px the compact layout, at 520px+ the wide one. The
+  // ?screen=large dev override keeps its layout regardless.
+  useEffect(() => {
+    if (screenPreview) return
+    const apply = () => setScreenSize(window.innerWidth >= 520 ? 'large' : 'small')
+    apply()
+    window.addEventListener('resize', apply)
+    return () => window.removeEventListener('resize', apply)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Search/AddFriend toggles kept for re-introduction; redesign removed
   // their trigger buttons from the toolbar but the panels are still wired up.

@@ -73,6 +73,10 @@ public:
     // setPluginSize native function (called from JS Expand View) invokes it.
     using ResizeFn = std::function<void(int /*w*/, int /*h*/)>;
     void setEditorResizeFn (ResizeFn fn) { editorResizeFn = std::move(fn); }
+
+    // Last editor size, persisted with the plugin state so the window
+    // reopens where the user dragged it. 0 = never resized.
+    std::atomic<int> editorW { 0 }, editorH { 0 };
     void requestEditorResize (int w, int h)
     {
         if (editorResizeFn) editorResizeFn (w, h);

@@ -1499,6 +1499,8 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
     }
     for (int i = 0; i < 3; ++i)
         xml.setAttribute ("fxDecay" + juce::String (i), (double) fxSpaceDecay[(size_t) i].load());
+    xml.setAttribute ("editorW", editorW.load());
+    xml.setAttribute ("editorH", editorH.load());
     copyXmlToBinary (xml, dest);
 }
 
@@ -1520,6 +1522,8 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         fxDelayDiv.store (juce::jlimit (0, 6, xml->getIntAttribute ("fxDelayDiv", 2)));
         fxDelayFb.store (juce::jlimit (0.0f, 1.0f,
             (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
+        editorW.store (xml->getIntAttribute ("editorW", 0));
+        editorH.store (xml->getIntAttribute ("editorH", 0));
     }
 }
 

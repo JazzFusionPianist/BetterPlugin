@@ -267,6 +267,9 @@ export const T = {
   'y.round':        { en: 'round',       ko: '라운드',    ja: 'ラウンド',   zh: '回合',    es: 'ronda',     de: 'Runde',      fr: 'manche',    hi: 'राउंड' },
   'y.bonus':        { en: 'bonus',       ko: '보너스',    ja: 'ボーナス',   zh: '奖励',    es: 'bono',      de: 'Bonus',      fr: 'bonus',     hi: 'बोनस' },
   'y.total':        { en: 'total',       ko: '합계',      ja: '合計',       zh: '总分',    es: 'total',     de: 'Summe',      fr: 'total',     hi: 'कुल' },
+  'op.pickPath':    { en: 'pick a path',  ko: '길을 골라',   ja: '道を選んで',   zh: '选一条路',  es: 'elige un camino', de: 'wähl einen Weg', fr: 'choisis un chemin', hi: 'रास्ता चुनें' },
+  'op.buyStar':     { en: 'buy the star', ko: '별 사기',     ja: '星を買う',     zh: '买星星',    es: 'comprar la estrella', de: 'Stern kaufen', fr: 'acheter l’étoile', hi: 'सितारा खरीदें' },
+  'op.pass':        { en: 'pass',         ko: '패스',        ja: 'パス',         zh: '跳过',      es: 'pasar', de: 'passen', fr: 'passer', hi: 'पास' },
   'fb.playSolo':    { en: 'Play solo',   ko: '혼자 하기',  ja: 'ソロプレイ', zh: '单人游戏', es: 'Jugar solo', de: 'Solo spielen', fr: 'Jouer en solo', hi: 'अकेले खेलें' },
 
   // ───── Information Panel ────────────────────────────────────────────────
@@ -318,6 +321,8 @@ export const T = {
   'game.pinball':           { en: 'Pinball', ko: '핀볼', ja: 'ピンボール', zh: '弹球', es: 'Pinball', de: 'Flipper', fr: 'Flipper', hi: 'पिनबॉल' },
   'game.yacht':             { en: 'Yacht Dice', ko: '야추 다이스', ja: 'ヨットダイス', zh: '快艇骰子', es: 'Yacht', de: 'Yacht', fr: 'Yacht', hi: 'यॉट डाइस' },
   'game.yachtDesc':         { en: 'Roll · hold · score', ko: '굴리고 · 킵하고 · 채우고', ja: '振って・残して・埋める', zh: '掷骰 · 保留 · 计分', es: 'Tira · guarda · anota', de: 'Würfeln · halten · punkten', fr: 'Lance · garde · marque', hi: 'रोल · होल्ड · स्कोर' },
+  'game.orbParty':          { en: 'Orb Party', ko: '오브 파티', ja: 'オーブパーティ', zh: '球球派对', es: 'Orb Party', de: 'Orb Party', fr: 'Orb Party', hi: 'ऑर्ब पार्टी' },
+  'game.orbPartyDesc':      { en: 'Dice board · stars & chaos', ko: '주사위 보드 · 별과 대혼돈', ja: 'すごろく・星とカオス', zh: '骰子棋盘 · 星星与混乱', es: 'Tablero de dados · estrellas y caos', de: 'Würfelbrett · Sterne & Chaos', fr: 'Plateau de dés · étoiles et chaos', hi: 'डाइस बोर्ड · सितारे और अराजकता' },
   'game.pinballDesc':       { en: 'Solo · world ranking', ko: '혼자서 · 월드 랭킹', ja: 'ソロ・世界ランキング', zh: '单人 · 世界排名', es: 'Solo · ranking mundial', de: 'Solo · Weltrangliste', fr: 'Solo · classement mondial', hi: 'सोलो · विश्व रैंकिंग' },
   'et.round':               { en: 'Round {n} / {total}', ko: '라운드 {n} / {total}', ja: 'ラウンド {n} / {total}', zh: '回合 {n} / {total}', es: 'Ronda {n} / {total}', de: 'Runde {n} / {total}', fr: 'Manche {n} / {total}', hi: 'राउंड {n} / {total}' },
   'et.play':                { en: 'Play', ko: '재생', ja: '再生', zh: '播放', es: 'Reproducir', de: 'Abspielen', fr: 'Jouer', hi: 'चलाएं' },

@@ -9627,3 +9627,94 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .yacht-card-row.total .yacht-card-cell { font-weight: 700; font-size: 13px; }
 
 .plugin.gwall-yacht { background: #1B1812; }
+
+/* ═══ Orb Party ═════════════════════════════════════════════════════════
+   A winding hairline path on paper; tiles are tinted coins, the star is
+   the destination, orbs are the players. */
+.party-layout {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  padding: 2px 6px 6px; width: 100%;
+}
+.party-hud {
+  width: 100%; max-width: 400px;
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+  justify-content: center;
+}
+.party-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 999px;
+  font-family: var(--f-sans); font-size: 10.5px; color: var(--t1);
+}
+.party-chip.turn { border-color: #2440FF; box-shadow: 0 0 0 1px rgba(36,64,255,.35); }
+.party-chip-orb { width: 9px; height: 9px; border-radius: 50%; }
+.party-chip-name { font-family: var(--f-serif, Georgia, serif); text-transform: lowercase; }
+.party-chip-stat { font-variant-numeric: tabular-nums; color: var(--t2, #77746E); }
+.party-round {
+  font-size: 10px; color: var(--t3); font-family: var(--f-sans);
+  font-variant-numeric: tabular-nums; text-transform: lowercase;
+}
+.party-board-wrap {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.party-board { height: 100%; max-width: 100%; }
+.party-edge { stroke: rgba(127, 127, 127, 0.4); stroke-width: 1.2; }
+.party-node-c { stroke-width: 1.4; }
+.party-node.t-start .party-node-c { fill: transparent; stroke: var(--t1); }
+.party-node-start-ring { fill: none; stroke: var(--t1); stroke-width: 0.8; opacity: 0.6; }
+.party-node.t-blue .party-node-c { fill: rgba(36, 64, 255, 0.2); stroke: #2440FF; }
+.party-node.t-red .party-node-c { fill: rgba(232, 84, 63, 0.22); stroke: #E8543F; }
+.party-node.t-event .party-node-c { fill: rgba(186, 120, 255, 0.2); stroke: #BA78FF; }
+.party-node.t-item .party-node-c { fill: rgba(233, 161, 59, 0.22); stroke: #E9A13B; }
+.party-node.t-duel .party-node-c { fill: rgba(127, 127, 127, 0.18); stroke: var(--t2, #77746E); }
+.party-node.star-here .party-node-c { fill: #2440FF; stroke: #2440FF; }
+.party-node-star { fill: #FFFFFF; font-size: 13px; }
+.party-node-glyph { font-size: 10px; fill: var(--t1); opacity: 0.85; }
+.party-orb { transition: transform 0.3s ease; }
+.party-orb circle { stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.2; }
+.party-orb circle.active { stroke: #FFFFFF; stroke-width: 2; }
+.party-exit { cursor: pointer; }
+.party-exit-halo {
+  fill: rgba(36, 64, 255, 0.25); stroke: #2440FF; stroke-width: 1.5;
+  animation: party-exit-pulse 1s ease-in-out infinite;
+}
+.party-exit-mark { fill: #2440FF; font-size: 15px; animation: party-exit-pulse 1s ease-in-out infinite; }
+@keyframes party-exit-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.party-ticker {
+  min-height: 17px;
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 12px; color: var(--t2, #77746E); text-transform: lowercase;
+  text-align: center;
+}
+.party-controls {
+  min-height: 40px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.party-roll-btn {
+  padding: 8px 22px;
+  background: #2440FF; color: #fff;
+  border: none; border-radius: 3px; cursor: pointer;
+  font-family: var(--f-sans); font-size: 13px; font-weight: 600;
+  text-transform: lowercase;
+}
+.party-roll-btn:hover { background: #1B31D9; }
+.party-item-btn {
+  padding: 7px 12px;
+  background: transparent; color: var(--t1);
+  border: 1px solid rgba(127, 127, 127, 0.45); border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--f-sans); font-size: 11.5px; text-transform: lowercase;
+}
+.party-item-btn:hover { border-color: var(--t1); }
+.party-hint {
+  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-size: 12.5px; color: var(--t2, #77746E); text-transform: lowercase;
+}
+.party-buy { display: flex; align-items: center; gap: 8px; }
+
+.plugin.gwall-orb_party { background: #171320; }

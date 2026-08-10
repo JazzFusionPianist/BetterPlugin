@@ -11,6 +11,7 @@ import PokerView from './PokerView'
 import EarTrainingView from './EarTrainingView'
 import PinballView from './PinballView'
 import YachtView from './YachtView'
+import OrbPartyView from './OrbPartyView'
 
 export type GameScreen = 'list' | GameType | 'pinball'
 
@@ -96,6 +97,16 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
         )}
         {screen === 'yacht' && (
           <YachtView
+            supabase={supabase}
+            onlineIds={onlineIds}
+            currentUserId={me.id}
+            currentUserProfile={me}
+            friendProfiles={friends}
+            onClose={() => onScreenChange('list')}
+          />
+        )}
+        {screen === 'orb_party' && (
+          <OrbPartyView
             supabase={supabase}
             onlineIds={onlineIds}
             currentUserId={me.id}

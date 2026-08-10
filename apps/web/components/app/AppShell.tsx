@@ -389,7 +389,7 @@ export default function AppShell({ user }: { user: User }) {
               setGamesOpen(true)
             }}
           >
-            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice' })[activeGame.gameType]}
+            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice', orb_party: 'orb party' })[activeGame.gameType]}
           </button>
         )}
 

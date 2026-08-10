@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType } from '../../types/collab'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import { linkify, firstUrl } from '../../lib/linkify'
 import LinkPreviewCard from './LinkPreviewCard'
+import ChatCalendar from './ChatCalendar'
+import { useCalendarEvents, type CalendarEvent, type NewCalendarEvent } from '../../hooks/useCalendarEvents'
+import { useEventCategories } from '../../hooks/useEventCategories'
+import { parseSchedule } from '../../lib/parseSchedule'
 import { mergeDroppedRegions } from '../../lib/audioMerge'
 
 interface Attachment { url: string; type: AttachType; name: string }
@@ -53,6 +57,10 @@ interface Props {
    *  Resolves with the join outcome so the bubble can surface a
    *  "Room is full" / "Already in" banner. */
   onJoinGameInvite?: (gameType: string, roomId: string) => Promise<GameInviteJoinResult>
+  /** Conversation row id — unlocks the in-chat calendar (header glyph +
+   *  slide-over + schedule-detection chips). Events created here are
+   *  shared with the conversation via conversation_id. */
+  conversationId?: string | null
 }
 
 function formatTime(iso: string): string {
@@ -610,6 +618,102 @@ function ExpiredAttachment({ type, name }: { type: AttachType; name?: string | n
   )
 }
 
+// ── Schedule detection — "add to calendar" chips under bubbles ──────────────
+// A cheap client-side token sniff decides which messages LOOK like plans;
+// Claude (the parse-schedule edge function) is only called when the user
+// taps the chip. Keeps the AI out of the hot path — zero cost per message.
+const SCHEDULE_HINT = new RegExp(
+  [
+    '오늘', '내일', '모레', '글피', '(?:이번|다음|다다음|담)\\s*주', '[월화수목금토일]요일',
+    '\\d{1,2}\\s*시(?:\\s*반)?', '오전', '오후', '\\d{1,2}월\\s*\\d{1,2}일',
+    '\\d{1,2}:\\d{2}', '\\d{1,2}\\s*(?:am|pm)\\b', '\\d{1,2}/\\d{1,2}',
+    '\\btoday\\b', '\\btomorrow\\b', '\\btonight\\b', '\\bnext\\s+week\\b',
+    '\\b(?:mon|tues?|wednes|thurs?|fri|satur|sun)day\\b',
+  ].join('|'),
+  'i',
+)
+function looksLikeSchedule(text: string): boolean {
+  return text.length <= 300 && SCHEDULE_HINT.test(text)
+}
+
+const fmtChipWhen = (e: NewCalendarEvent | CalendarEvent) => {
+  const d = new Date(e.starts_at)
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  if (e.all_day || !e.starts_at.includes('T')) return day
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return e.all_day ? day : `${day} · ${time}`
+}
+
+function ScheduleChip({
+  text, onParse, onSave, onDone,
+}: {
+  text: string
+  onParse: (text: string) => Promise<NewCalendarEvent[]>
+  onSave: (events: NewCalendarEvent[]) => Promise<void>
+  onDone: () => void
+}) {
+  const { t } = useT()
+  const [state, setState] = useState<'idle' | 'busy' | 'confirm' | 'none' | 'saving' | 'saved'>('idle')
+  const [found, setFound] = useState<NewCalendarEvent[]>([])
+
+  const analyze = async () => {
+    if (state !== 'idle') return
+    setState('busy')
+    try {
+      const events = await onParse(text)
+      if (events.length === 0) { setState('none'); return }
+      setFound(events)
+      setState('confirm')
+    } catch (err) {
+      console.error('[ScheduleChip]', err)
+      setState('none')
+    }
+  }
+
+  const save = async () => {
+    if (state !== 'confirm') return
+    setState('saving')
+    try {
+      await onSave(found)
+      setState('saved')
+      setTimeout(onDone, 1400)
+    } catch (err) {
+      console.error('[ScheduleChip save]', err)
+      setState('confirm')
+    }
+  }
+
+  if (state === 'confirm' || state === 'saving') {
+    return (
+      <div className="schip-card">
+        {found.slice(0, 3).map((e, i) => (
+          <div className="schip-ev" key={i}>
+            <div className="schip-ev-t">{e.title}</div>
+            <div className="schip-ev-w">{fmtChipWhen(e)}{e.location ? ` · ${e.location}` : ''}</div>
+          </div>
+        ))}
+        <div className="schip-actions">
+          <button className="schip-save" disabled={state === 'saving'} onClick={save}>
+            {t('chatcal.save')}
+          </button>
+          <button className="schip-x" onClick={onDone}>✕</button>
+        </div>
+      </div>
+    )
+  }
+  if (state === 'saved') return <div className="schip muted">{t('chatcal.saved')}</div>
+  if (state === 'none') return <div className="schip muted">{t('chatcal.noEvents')}</div>
+  return (
+    <button className="schip" onClick={analyze} disabled={state === 'busy'}>
+      <svg viewBox="0 0 16 16" width="10" height="10" fill="none" strokeWidth="1.4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="12" height="11" rx="2" />
+        <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
+      </svg>
+      {state === 'busy' ? t('chatcal.reading') : t('chatcal.addChip')}
+    </button>
+  )
+}
+
 // ── Game invite bubble — in-chat invite card ────────────────────────────────
 // `url` is the room id, `name` is the game type. Tapping Join asks the
 // parent to handle capacity check + room navigation; we just render the
@@ -692,9 +796,55 @@ function AttachmentView({ url, type, name }: { url: string; type: AttachType; na
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase: _supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite }: Props) {
+export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onSend, onBack, onJoinGameInvite, conversationId }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
+
+  // ── In-chat calendar ──────────────────────────────────────────────────
+  // Plans live next to the conversation that made them: the header glyph
+  // opens a slide-over scoped to this conversation's shared events, and
+  // schedule-looking messages grow an "add to calendar" chip.
+  const [chatCalOpen, setChatCalOpen] = useState(false)
+  const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
+  const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
+  const chatTitle = groupHeader?.title ?? otherProfile?.display_name ?? ''
+  const chatEvents = useMemo(
+    () => (conversationId ? allCalEvents.filter(e => e.conversation_id === conversationId) : []),
+    [allCalEvents, conversationId],
+  )
+  // Header badge = plans from today onward; past ones stay in the panel.
+  const upcomingCount = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    return chatEvents.filter(e => new Date(e.starts_at) >= today).length
+  }, [chatEvents])
+  const chatGroupTitleById = useMemo(() => {
+    const m = new Map<string, string>()
+    if (conversationId) m.set(conversationId, chatTitle)
+    return m
+  }, [conversationId, chatTitle])
+  // Chip verdicts survive reloads so an already-saved (or waved-off)
+  // message doesn't re-offer itself forever.
+  const [chipDone, setChipDone] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('orb_cal_chip_done') ?? '[]') as string[]) }
+    catch { return new Set() }
+  })
+  const markChipDone = (msgId: string) => {
+    setChipDone(prev => {
+      const next = new Set(prev)
+      next.add(msgId)
+      try { localStorage.setItem('orb_cal_chip_done', JSON.stringify([...next].slice(-200))) } catch { /* full/blocked */ }
+      return next
+    })
+  }
+  const parseChatSchedule = (text: string) => parseSchedule(supabase, text)
+  const saveChatEvents = async (list: NewCalendarEvent[]): Promise<CalendarEvent[]> => {
+    const withMeta = await Promise.all(list.map(async e => ({
+      ...e,
+      category_color: await calEnsureCategory(e.category),
+      conversation_id: conversationId ?? null,
+    })))
+    return calAddEvents(withMeta)
+  }
   const [sendError, setSendError] = useState(false)
   const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1444,6 +1594,20 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
             )}
           </>
         ) : null}
+        {conversationId && (
+          <div
+            className={`chdr-cal${chatCalOpen ? ' active' : ''}`}
+            onClick={() => setChatCalOpen(o => !o)}
+            title={t('chatcal.title')}
+            role="button"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" strokeWidth="1.3" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="12" height="11" rx="2" />
+              <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
+            </svg>
+            {upcomingCount > 0 && <span className="chdr-cal-count">{upcomingCount}</span>}
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -1531,6 +1695,14 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
                 {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
                 {g.msg.content && firstUrl(g.msg.content) && (
                   <LinkPreviewCard url={firstUrl(g.msg.content)!} />
+                )}
+                {g.msg.content && conversationId && !chipDone.has(g.msg.id) && looksLikeSchedule(g.msg.content) && (
+                  <ScheduleChip
+                    text={g.msg.content}
+                    onParse={parseChatSchedule}
+                    onSave={async evs => { await saveChatEvents(evs) }}
+                    onDone={() => markChipDone(g.msg.id)}
+                  />
                 )}
                 <div className="mtime">
                   <span>{formatTime(g.msg.created_at)}</span>
@@ -1712,6 +1884,32 @@ export default function ChatView({ supabase: _supabase, currentUserId, otherProf
           </svg>
         </button>
       </div>
+
+      {/* In-chat calendar — slides over the thread, scoped to this
+          conversation's shared events. */}
+      {chatCalOpen && conversationId && (
+        <ChatCalendar
+          title={chatTitle}
+          currentUserId={currentUserId}
+          events={chatEvents}
+          categories={calCategories}
+          groupTitleById={chatGroupTitleById}
+          onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+          onSetCategory={async (id, name) => {
+            const color = await calEnsureCategory(name)
+            calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {})
+          }}
+          onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+          onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
+          onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
+          onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
+          onSubmitPrompt={async (text) => {
+            const parsed = await parseChatSchedule(text)
+            return saveChatEvents(parsed)
+          }}
+          onClose={() => setChatCalOpen(false)}
+        />
+      )}
     </div>
   )
 }

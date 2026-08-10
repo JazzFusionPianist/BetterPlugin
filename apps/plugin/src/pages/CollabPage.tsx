@@ -727,6 +727,7 @@ function CollabPageInner({ user }: Props) {
             onOpenSettings={() => setChatSettingsOpen(true)}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
+            conversationId={activeConvId}
             onBack={() => { setChatSettingsOpen(false); setSelectedId(null) }}
           />}
           {selectedGroup && (
@@ -745,6 +746,7 @@ function CollabPageInner({ user }: Props) {
               onOpenSettings={() => setChatSettingsOpen(true)}
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}
+              conversationId={selectedGroupConvId}
               onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
             />
           )}

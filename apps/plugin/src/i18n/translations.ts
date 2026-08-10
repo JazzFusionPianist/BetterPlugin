@@ -55,6 +55,14 @@ export const T = {
   'notif.followBack': { en: 'follow back', ko: '맞팔로우', ja: 'フォローバック', zh: '回关', es: 'seguir también', de: 'zurückfolgen', fr: 'suivre en retour', hi: 'फ़ॉलो बैक' },
   'notif.mutual':     { en: 'you follow each other', ko: '서로 팔로우 중', ja: '相互フォロー中', zh: '互相关注', es: 'os seguís mutuamente', de: 'ihr folgt einander', fr: 'vous vous suivez', hi: 'आप एक-दूसरे को फ़ॉलो करते हैं' },
 
+  // ───── In-chat calendar ─────────────────────────────────────────────────
+  'chatcal.title':    { en: 'calendar', ko: '캘린더', ja: 'カレンダー', zh: '日历', es: 'calendario', de: 'Kalender', fr: 'calendrier', hi: 'कैलेंडर' },
+  'chatcal.addChip':  { en: 'add to calendar', ko: '캘린더에 추가', ja: 'カレンダーに追加', zh: '添加到日历', es: 'añadir al calendario', de: 'in den Kalender', fr: 'ajouter au calendrier', hi: 'कैलेंडर में जोड़ें' },
+  'chatcal.reading':  { en: 'reading…', ko: '읽는 중…', ja: '読み取り中…', zh: '解析中…', es: 'leyendo…', de: 'liest…', fr: 'lecture…', hi: 'पढ़ रहा है…' },
+  'chatcal.noEvents': { en: 'no plans found', ko: '일정을 못 찾았어요', ja: '予定が見つかりません', zh: '未找到日程', es: 'no se encontraron planes', de: 'keine Termine gefunden', fr: 'aucun plan trouvé', hi: 'कोई योजना नहीं मिली' },
+  'chatcal.save':     { en: 'save', ko: '저장', ja: '保存', zh: '保存', es: 'guardar', de: 'speichern', fr: 'enregistrer', hi: 'सहेजें' },
+  'chatcal.saved':    { en: 'noted ✓', ko: '저장됨 ✓', ja: '保存済み ✓', zh: '已保存 ✓', es: 'anotado ✓', de: 'notiert ✓', fr: 'noté ✓', hi: 'सहेजा गया ✓' },
+
   // ───── Header sub-bar (chat) ────────────────────────────────────────────
   'chat.headerOnLive':  { en: '● LIVE',  ko: '● 라이브',  ja: '● ライブ', zh: '● 直播',  es: '● EN VIVO', de: '● LIVE',  fr: '● EN DIRECT', hi: '● लाइव' },
   'chat.joinLive':      { en: 'Join',    ko: '참여',     ja: '参加',     zh: '加入',    es: 'Unirse',    de: 'Beitreten', fr: 'Rejoindre', hi: 'जुड़ें' },

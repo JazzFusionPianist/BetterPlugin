@@ -179,6 +179,7 @@ private:
     float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
     float ampLp2State[2] {}, ampMidLo[2] {}, ampMidHi[2] {}, ampEnv[2] {};
     float ampStageHp[2] {};   // coupling cap between lead's two stages
+    float ampInEnv[2] {}, ampOutEnv[2] {}, ampMakeup[2] { 1.0f, 1.0f }; // auto-gain
     // kDoubler: its own short modulated delay pair (independent of kMod's).
     std::vector<float> dblDl[2];
     int   dblWrite = 0;

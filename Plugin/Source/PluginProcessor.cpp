@@ -819,6 +819,7 @@ void OrbAudioProcessor::resetFxOne (int m)
                 ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f;
                 ampLp2State[ch] = 0.0f; ampMidLo[ch] = 0.0f; ampMidHi[ch] = 0.0f; ampEnv[ch] = 0.0f;
                 ampStageHp[ch] = 0.0f;
+                ampInEnv[ch] = 0.0f; ampOutEnv[ch] = 0.0f; ampMakeup[ch] = 1.0f;
             }
             break;
         case kDoubler:
@@ -1055,7 +1056,10 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
             const float limN = isClean ? 0.80f : isFuzz ? 0.55f : 0.62f;
 
             const float midG = isClean ? 0.2f : isCrunch ? 1.1f : isLead ? 1.6f : 0.5f;
-            const float outT = isClean ? 0.95f : isCrunch ? 0.95f : isLead ? 0.9f : 0.92f;  // fixed trim — sits ~-3.5 dBFS like the loud plugins
+            // Character trim only — loudness is handled by the auto-gain
+            // below, which matches output energy to input energy so the
+            // amp distorts without becoming a volume jump.
+            const float outT = isClean ? 1.0f : isCrunch ? 1.05f : isLead ? 1.0f : 0.95f;
             const float pres = isClean ? 0.5f : isCrunch ? 0.4f : isLead ? 0.3f : 0.2f;
 
             const float hpF = isFuzz ? 55.0f : isLead ? 110.0f : isCrunch ? 85.0f : 70.0f;
@@ -1071,6 +1075,9 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
             const float mHiK = 1.0f - std::exp (-twoPi * 1800.0f / sr);
             const float envA = 1.0f - std::exp (-twoPi * 30.0f / sr);
             const float envR = 1.0f - std::exp (-twoPi * 2.0f / sr);
+            // auto-gain followers: slow (≈400 ms) so the makeup breathes,
+            // never pumps; the ratio is clamped so silence can't blow up.
+            const float agK  = 1.0f - std::exp (-twoPi * 0.4f / sr);
 
             // diode-knee clipper: hard-ish, per-lobe ceiling
             auto diode = [limP, limN] (float x) noexcept -> float
@@ -1124,7 +1131,19 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                     // two-pole cab + presence tap
                     ampLpState[ch]  += (y - ampLpState[ch]) * lpK;
                     ampLp2State[ch] += (ampLpState[ch] - ampLp2State[ch]) * lpK;
-                    S[i] = (ampLp2State[ch] + pres * (ampLpState[ch] - ampLp2State[ch])) * outT;
+                    const float shaped = (ampLp2State[ch] + pres * (ampLpState[ch] - ampLp2State[ch])) * outT;
+
+                    // loudness-matching makeup: track in/out energy and
+                    // ride the ratio (0.05×–1.5×), smoothed by agK.
+                    const float inSq  = S[i] * S[i];
+                    const float outSq = shaped * shaped;
+                    ampInEnv[ch]  += (inSq  - ampInEnv[ch])  * agK;
+                    ampOutEnv[ch] += (outSq - ampOutEnv[ch]) * agK;
+                    const float eps = 1.0e-6f;
+                    const float target = juce::jlimit (0.05f, 1.5f,
+                        std::sqrt ((ampInEnv[ch] + eps) / (ampOutEnv[ch] + eps)));
+                    ampMakeup[ch] += (target - ampMakeup[ch]) * agK;
+                    S[i] = shaped * ampMakeup[ch];
                 }
             break;
         }

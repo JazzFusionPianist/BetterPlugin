@@ -9857,6 +9857,13 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   transition-property: transform;
 }
 .party-floor-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.party-table {
+  position: absolute; left: -48px; top: -48px; width: 436px; height: 596px;
+  border: 1px solid rgba(127, 127, 127, 0.26);
+  border-radius: 20px;
+  background: rgba(127, 127, 127, 0.05);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.14), inset 0 0 0 6px rgba(127, 127, 127, 0.04);
+}
 .party-piece-slot { position: absolute; width: 0; height: 0; transform-style: preserve-3d; }
 .party-piece-shadow {
   position: absolute; left: -6px; top: -2.5px; width: 12px; height: 5px;

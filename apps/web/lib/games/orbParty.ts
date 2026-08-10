@@ -158,6 +158,26 @@ export function nextStarNode(current: number): number {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+/** Shortest step count from a node to the star, following any branches. */
+export function stepsToStar(from: number, starNode: number): number {
+  if (from === starNode) return 0
+  const seen = new Set<number>([from])
+  let frontier = [from]
+  let d = 0
+  while (frontier.length > 0 && d < 80) {
+    d++
+    const next: number[] = []
+    for (const n of frontier) {
+      for (const e of PARTY_BOARD[n].next) {
+        if (e === starNode) return d
+        if (!seen.has(e)) { seen.add(e); next.push(e) }
+      }
+    }
+    frontier = next
+  }
+  return 99
+}
+
 export function rollD6(): number {
   return 1 + Math.floor(Math.random() * 6)
 }

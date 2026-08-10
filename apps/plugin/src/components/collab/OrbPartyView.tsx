@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useOrbPartyRoom } from '../../hooks/useOrbPartyRoom'
 import {
   PARTY_BOARD, PARTY_W, PARTY_H, PARTY_ROUNDS, STAR_COST, PASS_START_PAY,
   MAX_ITEMS, ITEM_NAMES, pushLog, randomItem, randomEvent,
-  nextStarNode, rollD6, partyWinner, botPickExit,
+  nextStarNode, rollD6, partyWinner, botPickExit, stepsToStar,
 } from '../../lib/orbParty'
 import type { PartyState, PartyItem } from '../../lib/orbParty'
 import { useT } from '../../i18n/LanguageContext'
@@ -44,6 +45,28 @@ function DieFace({ v }: { v: number }) {
   )
 }
 
+// Which cube rotation brings face v to the front (opposite faces sum to 7).
+const FACE_ROT: Record<number, string> = {
+  1: '', 2: 'rotateY(-90deg)', 3: 'rotateX(-90deg)',
+  4: 'rotateX(90deg)', 5: 'rotateY(90deg)', 6: 'rotateY(180deg)',
+}
+
+function DieCube({ v, phase }: { v: number; phase: 'tumble' | 'settle' }) {
+  const shown = Math.min(6, Math.max(1, v))
+  return (
+    <span
+      className={`party-die3d ${phase}`}
+      style={phase === 'settle'
+        ? { transform: `rotateX(-16deg) rotateY(12deg) ${FACE_ROT[shown]}` }
+        : undefined}
+    >
+      {[1, 2, 3, 4, 5, 6].map(f => (
+        <span key={f} className={`pd3f pd3-${f}`}><DieFace v={f} /></span>
+      ))}
+    </span>
+  )
+}
+
 export default function OrbPartyView({
   supabase,
   currentUserId,
@@ -68,7 +91,6 @@ export default function OrbPartyView({
   const animRef = useRef<number | null>(null)
   // ── presentation: dice tumble, floating text, event cards ──
   const [dieShow, setDieShow] = useState<{ value: number; phase: 'tumble' | 'settle' } | null>(null)
-  const [dieFlick, setDieFlick] = useState(1)
   const [floats, setFloats] = useState<{ x: number; y: number; text: string; tone: string; key: number }[]>([])
   const [card, setCard] = useState<{ title: string; sub: string; key: number } | null>(null)
   const seqRef = useRef({ primed: false, roll: 0, fx: 0, card: 0 })
@@ -143,13 +165,9 @@ export default function OrbPartyView({
     if (!r || !r.value || r.seq === seqRef.current.roll) return
     seqRef.current.roll = r.seq
     setDieShow({ value: r.value, phase: 'tumble' })
-    const flick = window.setInterval(() => setDieFlick(f => (f % 6) + 1), 75)
-    const t1 = window.setTimeout(() => {
-      window.clearInterval(flick)
-      setDieShow(s => (s ? { ...s, phase: 'settle' } : s))
-    }, 640)
-    const t2 = window.setTimeout(() => setDieShow(null), 1850)
-    return () => { window.clearInterval(flick); window.clearTimeout(t1); window.clearTimeout(t2) }
+    const t1 = window.setTimeout(() => setDieShow(s => (s ? { ...s, phase: 'settle' } : s)), 700)
+    const t2 = window.setTimeout(() => setDieShow(null), 2000)
+    return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
   }, [st?.lastRoll])
 
   // Floating text at the landing node — held back until the walk lands.
@@ -557,6 +575,43 @@ export default function OrbPartyView({
   const canInviteMore = (id: string) =>
     invitedIds.has(id) || ((ids.length || 1) + pendingInviteCount < MAX_PLAYERS)
 
+  // ── 3D camera: the view follows whoever is moving ────────────────────────
+  const sceneRef = useRef<HTMLDivElement | null>(null)
+  const [sceneDims, setSceneDims] = useState({ w: 360, h: 420 })
+  const hasBoard = !!st
+  useEffect(() => {
+    const el = sceneRef.current
+    if (!el) return
+    const measure = () => setSceneDims({ w: el.clientWidth || 360, h: el.clientHeight || 420 })
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    measure()
+    return () => ro.disconnect()
+  }, [hasBoard])
+
+  const [overview, setOverview] = useState(false)
+  const camPaused = st?.phase === 'junction' || st?.phase === 'buy'
+  const focusAt = st && currentTurnId ? (drawPos[currentTurnId] ?? st.positions[currentTurnId] ?? 0) : 0
+  const camT = !st || overview
+    ? { x: PARTY_W / 2, y: PARTY_H / 2 }
+    : { x: PARTY_BOARD[focusAt].x, y: PARTY_BOARD[focusAt].y }
+  const fitZ = Math.min(sceneDims.w / (PARTY_W + 28), sceneDims.h / (PARTY_H + 28))
+  const followZ = Math.max(fitZ * 1.7, Math.min(sceneDims.w, sceneDims.h) / 235)
+  const camZ = !st || overview ? fitZ : camPaused ? Math.max(fitZ * 1.2, followZ * 0.6) : followZ
+  const tilt = overview ? 16 : 52
+  const worldTransform = `translate3d(${sceneDims.w / 2 - camT.x * camZ}px, ${sceneDims.h * (overview ? 0.5 : 0.58) - camT.y * camZ}px, 0) scale(${camZ})`
+
+  // ── How-to-play card: auto-opens once per fresh game, ? chip reopens ─────
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const rulesShownRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!room || !isPlaying || !st) return
+    if (rulesShownRef.current === room.id) return
+    const fresh = st.round === 1 && st.dice == null && st.trail.length === 0
+      && ids.every(id => (st.positions[id] ?? 0) === 0)
+    if (fresh) { rulesShownRef.current = room.id; setRulesOpen(true) }
+  }, [room, isPlaying, st, ids])
+
   // ── Overlays ─────────────────────────────────────────────────────────────
   let overlay: React.ReactNode = null
   if (startPending) {
@@ -667,80 +722,123 @@ export default function OrbPartyView({
                   </div>
                 ))}
                 <span className="party-round">{t('y.round')} {Math.min(st.round, PARTY_ROUNDS)}/{PARTY_ROUNDS}</span>
+                <button type="button" className="party-help-chip" onClick={() => setRulesOpen(true)} aria-label={t('op.howto')}>?</button>
               </div>
 
-              {/* board */}
+              {/* board — 3D scene, the camera follows whoever is moving */}
               <div className="party-board-wrap">
-                <svg className="party-board" viewBox={`0 0 ${PARTY_W} ${PARTY_H}`}>
-                  {/* edges */}
-                  {PARTY_BOARD.map((n, i) =>
-                    n.next.map(j => (
-                      <line key={`${i}-${j}`} x1={n.x} y1={n.y} x2={PARTY_BOARD[j].x} y2={PARTY_BOARD[j].y}
-                        className="party-edge" />
-                    ))
-                  )}
-                  {/* nodes */}
-                  {PARTY_BOARD.map((n, i) => {
-                    const tip = i === st.starNode ? `★ ¢${STAR_COST}`
-                      : n.t === 'blue' ? '+¢3' : n.t === 'red' ? '−¢3'
-                      : n.t === 'event' ? `⚡ ${t('op.lgEvent')}` : n.t === 'item' ? `✦ ${t('op.lgItem')}`
-                      : n.t === 'duel' ? `⚔ ${t('op.lgDuel')}` : t('op.lgStart')
-                    return (
-                      <g key={i} className={`party-node t-${n.t}${i === st.starNode ? ' star-here' : ''}`}>
-                        <title>{tip}</title>
-                        <circle cx={n.x} cy={n.y} r={i === 0 ? 13 : 11} className="party-node-c" />
-                        {i === 0 && <circle cx={n.x} cy={n.y} r={16.5} className="party-node-start-ring" />}
-                        {i === st.starNode && <circle cx={n.x} cy={n.y} r={16} className="party-star-ring" />}
-                        {i === st.starNode
-                          ? <text x={n.x} y={n.y + 4.5} textAnchor="middle" className="party-node-star">★</text>
-                          : TILE_GLYPH[n.t]
-                            ? <text x={n.x} y={n.y + 4} textAnchor="middle" className="party-node-glyph">{TILE_GLYPH[n.t]}</text>
-                            : null}
-                      </g>
-                    )
-                  })}
-                  {/* junction arrows for me */}
-                  {junctionExits.map(e => (
-                    <g key={e} className="party-exit" onClick={() => pickExit(e)}>
-                      <circle cx={PARTY_BOARD[e].x} cy={PARTY_BOARD[e].y} r={15} className="party-exit-halo" />
-                      <text x={PARTY_BOARD[e].x} y={PARTY_BOARD[e].y - 18} textAnchor="middle" className="party-exit-mark">▾</text>
-                    </g>
-                  ))}
-                  {/* whose-turn ring */}
-                  {currentTurnId && (() => {
-                    const n = PARTY_BOARD[drawPos[currentTurnId] ?? st.positions[currentTurnId] ?? 0]
-                    return <circle cx={n.x} cy={n.y} r={17.5} className="party-here" />
-                  })()}
-                  {/* player orbs — inner group remounts per node to replay the hop */}
-                  {ids.map((id, pi) => {
-                    const at = drawPos[id] ?? st.positions[id] ?? 0
-                    const node = PARTY_BOARD[at]
-                    const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
-                    return (
-                      <g key={id} className="party-orb" style={{ transform: `translate(${node.x + off[0]}px, ${node.y + off[1]}px)` }}>
-                        <g key={`hop-${at}`} className="party-orb-hop">
-                          <circle r={6.5} fill={colorFor(id)} className={id === currentTurnId ? 'active' : ''} />
-                        </g>
-                      </g>
-                    )
-                  })}
-                  {/* floating landing text */}
-                  {floats.map(f => (
-                    <text key={f.key} x={f.x} y={f.y - 14} textAnchor="middle" className={`party-fx ${f.tone}`}>{f.text}</text>
-                  ))}
-                </svg>
+                <div
+                  ref={sceneRef}
+                  className="party-scene"
+                  style={{ '--pt-stand': `${-tilt}deg` } as CSSProperties}
+                >
+                  <div className="party-tilt" style={{ transform: `rotateX(${tilt}deg)` }}>
+                    <div
+                      className="party-world"
+                      style={{
+                        transform: worldTransform,
+                        transitionDuration: walking ? '0.42s' : '0.9s',
+                        transitionTimingFunction: walking ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',
+                      }}
+                    >
+                      <div className="party-table" />
+                      <svg className="party-floor-svg" width={PARTY_W} height={PARTY_H} viewBox={`0 0 ${PARTY_W} ${PARTY_H}`}>
+                        {/* edges */}
+                        {PARTY_BOARD.map((n, i) =>
+                          n.next.map(j => (
+                            <line key={`${i}-${j}`} x1={n.x} y1={n.y} x2={PARTY_BOARD[j].x} y2={PARTY_BOARD[j].y}
+                              className="party-edge" />
+                          ))
+                        )}
+                        {/* tiles */}
+                        {PARTY_BOARD.map((n, i) => {
+                          const tip = i === st.starNode ? `★ ¢${STAR_COST}`
+                            : n.t === 'blue' ? '+¢3' : n.t === 'red' ? '−¢3'
+                            : n.t === 'event' ? `⚡ ${t('op.lgEvent')}` : n.t === 'item' ? `✦ ${t('op.lgItem')}`
+                            : n.t === 'duel' ? `⚔ ${t('op.lgDuel')}` : t('op.lgStart')
+                          return (
+                            <g key={i} className={`party-node t-${n.t}${i === st.starNode ? ' star-here' : ''}`}>
+                              <title>{tip}</title>
+                              <circle cx={n.x} cy={n.y} r={i === 0 ? 13 : 11} className="party-node-c" />
+                              {i === 0 && <circle cx={n.x} cy={n.y} r={16.5} className="party-node-start-ring" />}
+                              {i === st.starNode && <circle cx={n.x} cy={n.y} r={16} className="party-star-ring" />}
+                              {i !== st.starNode && TILE_GLYPH[n.t]
+                                ? <text x={n.x} y={n.y + 4} textAnchor="middle" className="party-node-glyph">{TILE_GLYPH[n.t]}</text>
+                                : null}
+                            </g>
+                          )
+                        })}
+                        {/* flat halos under pickable exits */}
+                        {junctionExits.map(e => (
+                          <circle key={e} cx={PARTY_BOARD[e].x} cy={PARTY_BOARD[e].y} r={15} className="party-exit-halo" />
+                        ))}
+                        {/* whose-turn ring */}
+                        {currentTurnId && (() => {
+                          const n = PARTY_BOARD[drawPos[currentTurnId] ?? st.positions[currentTurnId] ?? 0]
+                          return <circle cx={n.x} cy={n.y} r={17.5} className="party-here" />
+                        })()}
+                      </svg>
+
+                      {/* the star, standing on its tile */}
+                      <div className="party-star3d" style={{ left: PARTY_BOARD[st.starNode].x, top: PARTY_BOARD[st.starNode].y - 8 }}>★</div>
+
+                      {/* junction choices — standing signposts with tiles-to-star */}
+                      {junctionExits.map(e => {
+                        const dists = junctionExits.map(x => stepsToStar(x, st.starNode))
+                        const d = stepsToStar(e, st.starNode)
+                        return (
+                          <button
+                            key={e} type="button"
+                            className={`party-exit3d${d === Math.min(...dists) ? ' best' : ''}`}
+                            style={{ left: PARTY_BOARD[e].x, top: PARTY_BOARD[e].y }}
+                            onClick={() => pickExit(e)}
+                          >
+                            <span className="party-exit3d-arrow">▾</span>
+                            <small>★ {d}</small>
+                          </button>
+                        )
+                      })}
+
+                      {/* player pieces — standing; inner div remounts per node to replay the hop */}
+                      {ids.map((id, pi) => {
+                        const at = drawPos[id] ?? st.positions[id] ?? 0
+                        const node = PARTY_BOARD[at]
+                        const off = [[-7, -7], [7, -7], [-7, 7], [7, 7]][pi] ?? [0, 0]
+                        return (
+                          <div key={id} className="party-piece-slot" style={{ left: node.x + off[0], top: node.y + off[1] }}>
+                            <span className="party-piece-shadow" />
+                            <div className="party-piece">
+                              <div key={`hop-${at}`} className="party-piece-hop">
+                                <span
+                                  className={`party-piece-head${id === currentTurnId ? ' active' : ''}`}
+                                  style={{ background: colorFor(id) }}
+                                />
+                                <span className="party-piece-stem" />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {/* floating landing text (standing) */}
+                      {floats.map(f => (
+                        <div key={f.key} className={`party-float3d ${f.tone}`} style={{ left: f.x, top: f.y - 4 }}>
+                          <span>{f.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button type="button" className="party-view-toggle" onClick={() => setOverview(o => !o)}>
+                    {overview ? t('op.follow') : t('op.map')}
+                  </button>
+                </div>
 
                 {dieShow && (
                   <div className={`party-dice-fx ${dieShow.phase}`}>
-                    {dieShow.phase === 'tumble' ? (
-                      dieShow.value > 6
-                        ? <><DieFace v={dieFlick} /><DieFace v={((dieFlick * 2) % 6) + 1} /></>
-                        : <DieFace v={dieFlick} />
-                    ) : (
-                      dieShow.value > 6
-                        ? <><DieFace v={Math.ceil(dieShow.value / 2)} /><DieFace v={Math.floor(dieShow.value / 2)} /></>
-                        : <DieFace v={dieShow.value} />
-                    )}
+                    {dieShow.value > 6
+                      ? <><DieCube v={Math.ceil(dieShow.value / 2)} phase={dieShow.phase} /><DieCube v={Math.floor(dieShow.value / 2)} phase={dieShow.phase} /></>
+                      : <DieCube v={dieShow.value} phase={dieShow.phase} />}
                   </div>
                 )}
 
@@ -748,6 +846,19 @@ export default function OrbPartyView({
                   <div key={card.key} className="party-card">
                     <div className="party-card-title">{card.title}</div>
                     <div className="party-card-sub">{card.sub}</div>
+                  </div>
+                )}
+
+                {rulesOpen && (
+                  <div className="party-rules-card" onClick={() => setRulesOpen(false)}>
+                    <div className="party-rules-inner" onClick={e => e.stopPropagation()}>
+                      <div className="party-rules-title">🎲 {t('op.howto')}</div>
+                      <div className="party-rules-row"><span className="prr-g">★</span>{t('op.goal')}</div>
+                      <div className="party-rules-row"><span className="prr-g">¢</span>{t('op.coinsRule')}</div>
+                      <div className="party-rules-row"><span className="prr-g">✦</span>{t('op.itemsRule')}</div>
+                      <div className="party-rules-row"><span className="prr-g">⚡</span>{t('op.tilesRule')}</div>
+                      <button type="button" className="party-roll-btn" onClick={() => setRulesOpen(false)}>{t('op.gotIt')}</button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -774,7 +885,8 @@ export default function OrbPartyView({
                   <>
                     {myItems.map((it, i) => (
                       <button key={i} className="party-item-btn" onClick={() => doRoll(it)}>
-                        {ITEM_NAMES[it]}
+                        <span>{ITEM_NAMES[it]}</span>
+                        <small>{t(it === 'double' ? 'op.itDouble' : it === 'pick' ? 'op.itPick' : 'op.itMirror')}</small>
                       </button>
                     ))}
                     <button className="party-roll-btn" onClick={() => doRoll()}>
@@ -783,11 +895,11 @@ export default function OrbPartyView({
                   </>
                 )}
                 {myTurn && st.phase === 'junction' && (
-                  <span className="party-hint">{t('op.pickPath')}</span>
+                  <span className="party-hint">{t('op.pathHint')}</span>
                 )}
                 {showBuy && (
                   <div className="party-buy">
-                    <span className="party-hint">★ ¢{STAR_COST}</span>
+                    <span className="party-hint">★ ¢{STAR_COST} — {t('op.buyWhy')}</span>
                     <button className="party-roll-btn" onClick={() => answerBuy(true)}>{t('op.buyStar')}</button>
                     <button className="party-item-btn" onClick={() => answerBuy(false)}>{t('op.pass')}</button>
                   </div>

@@ -200,6 +200,15 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
           >
             <canvas ref={canvasRef} className="pinball-canvas" />
           </div>
+          {/* growth chain — how the orbs evolve */}
+          <div className="om-chain" aria-hidden="true">
+            {OM_COLORS.map((c, i) => (
+              <span key={i} className="om-chain-item">
+                <i style={{ background: c, width: 8 + i * 1.7, height: 8 + i * 1.7 }} />
+                {i < OM_COLORS.length - 1 && <b>›</b>}
+              </span>
+            ))}
+          </div>
         </div>
       }
       overlay={overlay}

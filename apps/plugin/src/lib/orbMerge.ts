@@ -94,13 +94,14 @@ export class OrbMergeGame {
     const h = Math.min(dt, 0.033) / SUB
     for (let s = 0; s < SUB; s++) this.substep(h)
 
-    // resting above the fill line for a while = game over
+    // any settled orb poking above the fill line for ~2s = game over.
+    // The velocity gate is loose on purpose — a jostled pile still counts.
     let above = false
     for (const o of this.orbs) {
-      if (o.age > 0.6 && Math.abs(o.vy) < 45 && o.y - OM_RADII[o.tier] < OM_TOP) { above = true; break }
+      if (o.age > 0.5 && Math.abs(o.vy) < 150 && o.y - OM_RADII[o.tier] * 0.5 < OM_TOP) { above = true; break }
     }
-    this.overTimer = above ? this.overTimer + dt : Math.max(0, this.overTimer - dt * 2)
-    if (this.overTimer > 1.1) this.over = true
+    this.overTimer = above ? this.overTimer + dt : Math.max(0, this.overTimer - dt * 0.7)
+    if (this.overTimer > 2.0) this.over = true
   }
 
   private substep(h: number): void {

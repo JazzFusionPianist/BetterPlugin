@@ -9725,3 +9725,13 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   width: min(100%, 440px, calc((100dvh - 280px) * 0.7234));
   margin: 0 auto;
 }
+.om-chain {
+  display: flex; align-items: center; justify-content: center;
+  gap: 2px; padding: 4px 6px 0; flex-wrap: wrap;
+}
+.om-chain-item { display: inline-flex; align-items: center; gap: 2px; }
+.om-chain-item i {
+  display: block; border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.3); transition: none;
+}
+.om-chain-item b { color: var(--t3, #A5A29B); font-size: 10px; font-weight: 400; }

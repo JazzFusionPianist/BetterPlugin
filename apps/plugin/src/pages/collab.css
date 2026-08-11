@@ -8988,11 +8988,12 @@
    transparent so it shows through. Entering is instant, dark-mode
    style; leaving rides the fx room's slow fade back to paper. */
 /* four dark GREYS, told apart by temperature only — no colour */
-.plugin.gwall-chess          { background: #16171B; }
-.plugin.gwall-falling_blocks { background: #1B1A1F; }
-.plugin.gwall-poker          { background: #161A17; }
-.plugin.gwall-ear_training   { background: #1B1815; }
-.plugin.gwall-orb_merge      { background: #10132B; }
+.plugin.gwall-chess          { background: #153826; }
+.plugin.gwall-falling_blocks { background: #2A1848; }
+.plugin.gwall-poker          { background: #123E28; }
+.plugin.gwall-ear_training   { background: #3B2410; }
+.plugin.gwall-orb_merge      { background: #1B2560; }
+.plugin.gwall-pinball        { background: #151F52; }
 .plugin[class*="gwall-"] .gview { background: transparent; }
 
 /* The room dims SLOWLY — the wall rides the .plugin 1.3s background
@@ -9563,7 +9564,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .yacht-card-row.total { border-bottom: none; border-top: 1.5px solid var(--t1); }
 .yacht-card-row.total .yacht-card-cell { font-weight: 700; font-size: 13px; }
 
-.plugin.gwall-yacht { background: #1B1812; }
+.plugin.gwall-yacht { background: #3A1522; }
 
 .yacht-layout { position: relative; overflow: hidden; }
 .yacht-topline {

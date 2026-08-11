@@ -2967,10 +2967,10 @@ div.games-panel {
   transition: background-color 1.4s ease;
 }
 /* four dark GREYS, told apart by temperature only — no colour */
-.games-panel.wall-chess          { --gwall: #16171B; }
-.games-panel.wall-falling_blocks { --gwall: #1B1A1F; }
-.games-panel.wall-poker          { --gwall: #161A17; }
-.games-panel.wall-ear_training   { --gwall: #1B1815; }
+.games-panel.wall-chess          { --gwall: #153826; }
+.games-panel.wall-falling_blocks { --gwall: #2A1848; }
+.games-panel.wall-poker          { --gwall: #123E28; }
+.games-panel.wall-ear_training   { --gwall: #3B2410; }
 
 /* The room dims SLOWLY: every persistent surface eases its colours.
    :where() keeps specificity at zero, so any element with its own
@@ -3165,8 +3165,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* ═══ Pinball ═══════════════════════════════════════════════════════════
    The table is a two-ink print drawn on canvas; everything around it is
    quiet catalogue chrome. */
-.games-panel.wall-pinball { --gwall: color-mix(in srgb, #2440FF 26%, #0E0F16); }
-.games-panel.wall-orb_merge { --gwall: color-mix(in srgb, #2440FF 22%, #0D0E1A); }
+.games-panel.wall-pinball { --gwall: #151F52; }
+.games-panel.wall-orb_merge { --gwall: #1B2560; }
 .pinball-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
@@ -3302,7 +3302,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 
 /* ═══ Yacht Dice ════════════════════════════════════════════════════════
    Paper dice with ink pips; the scorecard is a hairline ledger. */
-.games-panel.wall-yacht { --gwall: #1B1812; }
+.games-panel.wall-yacht { --gwall: #3A1522; }
 .yacht-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;

@@ -1,6 +1,7 @@
 'use client'
 
 import { useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CanvasItem, CanvasPatch } from '@orb/core'
 import { strokePath, strokePathScaled, strokesBBox } from '@/lib/strokes'
 import { WALL_REF_W, wallSheet } from '@/lib/wall'
@@ -189,8 +190,8 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
           </div>
         )
       })}
-      {/* Tasks — memo notes pinned with a drop of blue ink. Same moving
-          parts as a polaroid; the check circle is its own control. */}
+      {/* Tasks — small memo slips pinned with a drop of blue ink. Same
+          moving parts as a polaroid; the check circle is its own control. */}
       {sheet && tasks.map((item) => {
         const due = item.taken_at
         return (
@@ -208,14 +209,6 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
             role="button"
             aria-label={item.title || 'Task'}
           >
-            <div className="tasknote-head">
-              <span className="tasknote-tag">to do</span>
-              {due && (
-                <span className={`tasknote-due${!item.done && isOverdue(due) ? ' over' : ''}${!item.done && fmtTaskDate(due) === 'today' ? ' today' : ''}`}>
-                  {fmtTaskDate(due)}
-                </span>
-              )}
-            </div>
             <div className="tasknote-row">
               {isMine ? (
                 <button
@@ -224,16 +217,21 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onUpdate(item.id, { done: !item.done }) }}
                 >
-                  {item.done && <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
+                  {item.done && <svg width="7" height="7" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
                 </button>
               ) : (
-                <span className={`tasknote-check ro${item.done ? '' : ' empty'}`}>
-                  {item.done && <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
+                <span className="tasknote-check ro">
+                  {item.done && <svg width="7" height="7" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
                 </span>
               )}
               <span className="tasknote-title">{item.title}</span>
             </div>
             {item.caption && <div className="tasknote-desc">{item.caption}</div>}
+            {due && (
+              <div className={`tasknote-due${!item.done && isOverdue(due) ? ' over' : ''}${!item.done && fmtTaskDate(due) === 'today' ? ' today' : ''}`}>
+                {fmtTaskDate(due)}
+              </div>
+            )}
           </div>
         )
       })}
@@ -279,7 +277,9 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
 }
 
 /** Tap a polaroid → its detail card: full photo, title, caption, date,
- *  and (yours only) privacy toggle + delete. */
+ *  and (yours only) privacy toggle + delete. Portalled to <body> — the
+ *  layer lives inside the transformed .home-zoom wrapper, which traps
+ *  position:fixed and stacks under the home-centre block otherwise. */
 function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
   item: CanvasItem
   isMine: boolean
@@ -287,7 +287,10 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
   onDelete: (id: string) => void
   onClose: () => void
 }) {
-  return (
+  // Deleting is written out, never an icon that could read as "close":
+  // first tap asks, second tap acts.
+  const [sure, setSure] = useState(false)
+  return createPortal(
     <div className="polad-sheet-overlay" onClick={onClose}>
       <div className="polad-sheet" onClick={(e) => e.stopPropagation()}>
         {item.kind !== 'task' && (
@@ -375,14 +378,18 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
               >
                 {item.visibility === 'private' ? 'private' : 'friends'}
               </button>
-              <button className="polad-del" onClick={() => onDelete(item.id)} aria-label="Remove">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9" /></svg>
+              <button
+                className={`polad-del${sure ? ' sure' : ''}`}
+                onClick={() => (sure ? onDelete(item.id) : setSure(true))}
+              >
+                {sure ? 'sure?' : 'delete'}
               </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

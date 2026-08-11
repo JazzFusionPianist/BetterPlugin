@@ -715,15 +715,15 @@ button { font-family: inherit; }
 }
 .polad-cap-empty { color: var(--t3); text-transform: lowercase; }
 
-/* ── Tasks — memo notes on the wall ──────────────────────────────────
-   A plain slip of paper held by a drop of blue ink: quiet mono header
-   (tag + due date), a check circle, serif task name, small print for
-   the details. Checked-off notes fade and strike through. */
+/* ── Tasks — small memo slips on the wall ────────────────────────────
+   The quietest thing on the wall: a slip of paper held by a drop of
+   blue ink. Check circle, serif name, small print, a date. Nothing
+   else. Checked-off slips fade and strike through. */
 .tasknote {
-  position: absolute; width: 152px;
-  background: var(--card); border: 1px solid var(--hair); border-radius: 2px;
-  padding: 8px 11px 10px;
-  box-shadow: 0 9px 24px -13px rgba(26,25,23,0.45);
+  position: absolute; width: 108px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 2px;
+  padding: 7px 9px 6px;
+  box-shadow: 0 5px 14px -9px rgba(26,25,23,0.4);
   pointer-events: auto; cursor: pointer;
   touch-action: none;
   transition: opacity .18s;
@@ -733,29 +733,15 @@ button { font-family: inherit; }
 .tasknote.movable, .tasknote.movable * { touch-action: none; }
 /* the drop of ink pinning it up */
 .tasknote::before {
-  content: ''; position: absolute; top: -4px; left: 50%;
-  width: 7px; height: 7px; border-radius: 50%;
+  content: ''; position: absolute; top: -2.5px; left: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
   transform: translateX(-50%);
   background: var(--blue);
 }
-.tasknote-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 8px; margin-bottom: 5px;
-}
-.tasknote-tag {
-  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
-  text-transform: lowercase; letter-spacing: 0.02em;
-}
-.tasknote-due {
-  font-family: var(--f-mono); font-size: 10px; color: var(--t3);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.tasknote-due.today { color: var(--blue); }
-.tasknote-due.over { color: var(--red); }
-.tasknote-row { display: flex; align-items: flex-start; gap: 7px; }
+.tasknote-row { display: flex; align-items: flex-start; gap: 6px; }
 .tasknote-check {
-  flex-shrink: 0; width: 15px; height: 15px; margin-top: 2px;
-  border: 1.2px solid var(--hair); border-radius: 50%;
+  flex-shrink: 0; width: 11px; height: 11px; margin-top: 2.5px;
+  border: 1px solid var(--hair); border-radius: 50%;
   background: none; color: #fff; cursor: pointer; padding: 0;
   display: flex; align-items: center; justify-content: center;
   transition: background .14s, border-color .14s;
@@ -763,17 +749,24 @@ button { font-family: inherit; }
 .tasknote.done .tasknote-check { background: var(--blue); border-color: var(--blue); }
 .tasknote-check.ro { cursor: default; }
 .tasknote-title {
-  font-family: var(--f-serif); font-size: 15px; line-height: 1.25;
+  font-family: var(--f-serif); font-size: 12.5px; line-height: 1.3;
   color: var(--ink); overflow-wrap: anywhere;
 }
 .tasknote-desc {
-  margin-top: 5px; padding-left: 22px;
-  font-size: 11.5px; line-height: 1.45; color: var(--t2);
+  margin-top: 2px; padding-left: 17px;
+  font-size: 9.5px; line-height: 1.45; color: var(--t2);
   overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.tasknote.done { opacity: 0.6; }
+.tasknote-due {
+  margin-top: 3px; padding-left: 17px;
+  font-family: var(--f-mono); font-size: 9px; color: var(--t3);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tasknote-due.today { color: var(--blue); }
+.tasknote-due.over { color: var(--red); }
+.tasknote.done { opacity: 0.55; }
 .tasknote.done .tasknote-title { text-decoration: line-through; color: var(--t3); }
 .tasknote.done .tasknote-desc { color: var(--t3); }
 .tasknote.done .tasknote-due { color: var(--t3); }
@@ -880,11 +873,15 @@ button { font-family: inherit; }
   transition: color .12s, border-color .12s;
 }
 .polad-vis.private { border-color: var(--ink); color: var(--ink); }
+/* Deleting is a word, not an icon — an ✕ here read as "close" and cost
+   people their notes. First tap asks, second tap acts. */
 .polad-del {
-  border: none; background: none; color: var(--t3); cursor: pointer;
-  padding: 5px; display: flex; border-radius: 4px; transition: color .12s;
+  border: none; background: none; cursor: pointer;
+  font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+  text-transform: lowercase; padding: 4px 2px; transition: color .12s;
 }
-.polad-del:hover { color: var(--red); }
+.polad-del:hover { color: var(--t2); }
+.polad-del.sure { color: var(--red); }
 
 /* ── Upcoming events — a programme column bound to the page edge ──────
    Anchored at the left edge: the hairlines run off the page like a

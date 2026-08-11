@@ -11,7 +11,6 @@ import PokerView from './PokerView'
 import EarTrainingView from './EarTrainingView'
 import PinballView from './PinballView'
 import OrbMergeView from './OrbMergeView'
-import SketchView from './SketchView'
 import YachtView from './YachtView'
 
 export type GameScreen = 'list' | GameType | 'pinball' | 'orb_merge'
@@ -111,16 +110,6 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
             supabase={supabase}
             currentUserId={me.id}
             currentUserProfile={me}
-            onClose={() => onScreenChange('list')}
-          />
-        )}
-        {screen === 'sketch' && (
-          <SketchView
-            supabase={supabase}
-            onlineIds={onlineIds}
-            currentUserId={me.id}
-            currentUserProfile={me}
-            friendProfiles={friends}
             onClose={() => onScreenChange('list')}
           />
         )}

@@ -164,10 +164,10 @@ function NowPlayingBar() {
  *  the game type attachment_name. Join claims the seat and opens the
  *  games page (host taps re-enter their own room). */
 const GAME_NAMES: Record<string, string> = {
-  chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice', sketch: 'sketch',
+  chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice',
 }
 const GAME_MARKS: Record<string, string> = {
-  chess: '♞', falling_blocks: '▚', poker: '♠', ear_training: '♪', yacht: '⚄', sketch: '✎',
+  chess: '♞', falling_blocks: '▚', poker: '♠', ear_training: '♪', yacht: '⚄',
 }
 function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
   roomId: string

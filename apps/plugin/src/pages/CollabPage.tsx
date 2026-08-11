@@ -31,7 +31,6 @@ import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
 import PinballView from '../components/collab/PinballView'
 import OrbMergeView from '../components/collab/OrbMergeView'
-import SketchView from '../components/collab/SketchView'
 import YachtView from '../components/collab/YachtView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
@@ -110,7 +109,7 @@ function CollabPageInner({ user }: Props) {
     return () => clearTimeout(t)
   }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sketch'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'>('list')
   // True while the user is using the GameList specifically to invite
   // people in the chat they just left open. Cleared when they pick a
   // game (we create the room + send the invite bubble) or close the
@@ -1021,17 +1020,6 @@ function CollabPageInner({ user }: Props) {
               supabase={client}
               currentUserId={user.id}
               currentUserProfile={me}
-              onClose={() => setGameScreen('list')}
-            />
-          )}
-          {gameScreen === 'sketch' && (
-            <SketchView
-              key={gameJoinNonce}
-              supabase={client}
-              currentUserId={user.id}
-              currentUserProfile={me}
-              friendProfiles={friendProfiles}
-              onlineIds={onlineIds}
               onClose={() => setGameScreen('list')}
             />
           )}

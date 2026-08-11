@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type CanvasKind = 'photo' | 'video' | 'drawing' | 'task'
+export type CanvasKind = 'photo' | 'video' | 'drawing'
 export type CanvasVisibility = 'friends' | 'private'
 
 /** One coloured-pencil stroke. `p` is a flat list of 0..1 canvas
@@ -34,8 +34,6 @@ export interface CanvasItem {
   caption: string | null
   taken_at: string | null
   strokes: Stroke[] | null
-  /** Tasks only — checked off. */
-  done: boolean
   x: number
   y: number
   rotation: number
@@ -59,7 +57,6 @@ export interface NewCanvasItem {
   caption?: string | null
   taken_at?: string | null
   strokes?: Stroke[] | null
-  done?: boolean
   x?: number
   y?: number
   rotation?: number
@@ -72,7 +69,7 @@ export interface NewCanvasItem {
 }
 
 export type CanvasPatch = Partial<Pick<CanvasItem,
-  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'scale' | 'lx' | 'ly' | 'lscale' | 'z' | 'visibility' | 'taken_at' | 'strokes' | 'done'>>
+  'title' | 'caption' | 'x' | 'y' | 'rotation' | 'scale' | 'lx' | 'ly' | 'lscale' | 'z' | 'visibility' | 'taken_at' | 'strokes'>>
 
 /**
  * @param ownerId whose canvas to load. Defaults to the current user;
@@ -126,7 +123,6 @@ export function useCanvasItems(
         caption: item.caption ?? null,
         taken_at: item.taken_at ?? null,
         strokes: item.strokes ?? null,
-        done: item.done ?? false,
         x: item.x ?? 0.5,
         y: item.y ?? 0.32,
         rotation: item.rotation ?? 0,

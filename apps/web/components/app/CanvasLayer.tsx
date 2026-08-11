@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom'
 import type { CanvasItem, CanvasPatch } from '@orb/core'
 import { strokePath, strokePathScaled, strokesBBox } from '@/lib/strokes'
 import { WALL_REF_W, wallSheet } from '@/lib/wall'
-import { fmtTaskDate, isOverdue, parseTaskDate } from '@/lib/taskDate'
 
 interface Props {
   items: CanvasItem[]
@@ -147,8 +146,7 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
   }
 
   const doodles = items.filter((i) => i.kind === 'drawing' && i.strokes?.length)
-  const tasks = items.filter((i) => i.kind === 'task')
-  const pinned = items.filter((i) => i.kind !== 'drawing' && i.kind !== 'task')
+  const pinned = items.filter((i) => i.kind !== 'drawing')
 
   return (
     <div className="canvas-layer" ref={layerRef}>
@@ -186,51 +184,6 @@ export default function CanvasLayer({ items, isMine, onUpdate, onDelete }: Props
               <span className="polad-lock doodle-lock" aria-label="Private">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="4.5" y="11" width="15" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
               </span>
-            )}
-          </div>
-        )
-      })}
-      {/* Tasks — small memo slips pinned with a drop of blue ink. Same
-          moving parts as a polaroid; the check circle is its own control. */}
-      {sheet && tasks.map((item) => {
-        const due = item.taken_at
-        return (
-          <div
-            key={item.id}
-            className={`tasknote${isMine ? ' movable' : ''}${item.done ? ' done' : ''}`}
-            style={{ left: sheet.x + ix(item) * sheet.w, top: sheet.y + iy(item) * sheet.h, transform: baseTransform(item, iscale(item)), zIndex: item.z }}
-            onPointerDown={(e) => onPointerDown(e, item)}
-            onPointerMove={(e) => onPointerMove(e, item)}
-            onPointerUp={(e) => onPointerUp(e, item)}
-            onClick={() => {
-              if (justDragged.current) { justDragged.current = false; return }
-              setOpenId(item.id)
-            }}
-            role="button"
-            aria-label={item.title || 'Task'}
-          >
-            <div className="tasknote-row">
-              {isMine ? (
-                <button
-                  className="tasknote-check"
-                  aria-label={item.done ? 'Mark as to do' : 'Mark as done'}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onUpdate(item.id, { done: !item.done }) }}
-                >
-                  {item.done && <svg width="7" height="7" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
-                </button>
-              ) : (
-                <span className="tasknote-check ro">
-                  {item.done && <svg width="7" height="7" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 5.5l2.4 2.4L8.5 2.5" /></svg>}
-                </span>
-              )}
-              <span className="tasknote-title">{item.title}</span>
-            </div>
-            {item.caption && <div className="tasknote-desc">{item.caption}</div>}
-            {due && (
-              <div className={`tasknote-due${!item.done && isOverdue(due) ? ' over' : ''}${!item.done && fmtTaskDate(due) === 'today' ? ' today' : ''}`}>
-                {fmtTaskDate(due)}
-              </div>
             )}
           </div>
         )
@@ -293,20 +246,17 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
   return createPortal(
     <div className="polad-sheet-overlay" onClick={onClose}>
       <div className="polad-sheet" onClick={(e) => e.stopPropagation()}>
-        {item.kind !== 'task' && (
-          <div className="polad-sheet-photo">
-            {item.media_url && <img src={item.media_url} alt={item.title || ''} />}
-            {item.kind === 'drawing' && item.strokes?.length ? (
-              <DoodlePreview strokes={item.strokes} />
-            ) : null}
-          </div>
-        )}
-        {item.kind === 'task' && <div className="polad-sheet-tag">to do</div>}
+        <div className="polad-sheet-photo">
+          {item.media_url && <img src={item.media_url} alt={item.title || ''} />}
+          {item.kind === 'drawing' && item.strokes?.length ? (
+            <DoodlePreview strokes={item.strokes} />
+          ) : null}
+        </div>
 
         {isMine ? (
           <input
             className="polad-sheet-title"
-            placeholder={item.kind === 'task' ? 'task name…' : 'add a title…'}
+            placeholder="add a title…"
             defaultValue={item.title ?? ''}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
             onBlur={(e) => {
@@ -321,7 +271,7 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
         {isMine ? (
           <textarea
             className="polad-sheet-caption"
-            placeholder={item.kind === 'task' ? 'what needs doing…' : 'write about this moment…'}
+            placeholder="write about this moment…"
             defaultValue={item.caption ?? ''}
             rows={2}
             onBlur={(e) => {
@@ -334,44 +284,9 @@ function PoladSheet({ item, isMine, onUpdate, onDelete, onClose }: {
         )}
 
         <div className="polad-sheet-foot">
-          {item.kind === 'task' ? (
-            isMine ? (
-              <input
-                className="polad-sheet-date polad-sheet-duein"
-                placeholder="due — 내일 · friday · 8/15"
-                defaultValue={item.taken_at ? fmtTaskDate(item.taken_at) : ''}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur() }}
-                onBlur={(e) => {
-                  const raw = e.target.value.trim()
-                  if (!raw) {
-                    if (item.taken_at) onUpdate(item.id, { taken_at: null })
-                    return
-                  }
-                  const d = parseTaskDate(raw)
-                  if (d) {
-                    onUpdate(item.id, { taken_at: d.toISOString() })
-                    e.target.value = fmtTaskDate(d.toISOString())
-                  } else {
-                    e.target.value = item.taken_at ? fmtTaskDate(item.taken_at) : ''
-                  }
-                }}
-              />
-            ) : (
-              <span className="polad-sheet-date">{item.taken_at ? `due ${fmtTaskDate(item.taken_at)}` : ''}</span>
-            )
-          ) : (
-            <span className="polad-sheet-date">{fmtDate(item.taken_at || item.created_at)}</span>
-          )}
+          <span className="polad-sheet-date">{fmtDate(item.taken_at || item.created_at)}</span>
           {isMine && (
             <div className="polad-sheet-actions">
-              {item.kind === 'task' && (
-                <button
-                  className={`polad-vis${item.done ? ' private' : ''}`}
-                  onClick={() => onUpdate(item.id, { done: !item.done })}
-                >
-                  {item.done ? 'done ✓' : 'mark done'}
-                </button>
-              )}
               <button
                 className={`polad-vis${item.visibility === 'private' ? ' private' : ''}`}
                 onClick={() => onUpdate(item.id, { visibility: item.visibility === 'private' ? 'friends' : 'private' })}

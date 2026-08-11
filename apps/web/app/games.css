@@ -3166,6 +3166,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
    The table is a two-ink print drawn on canvas; everything around it is
    quiet catalogue chrome. */
 .games-panel.wall-pinball { --gwall: color-mix(in srgb, #2440FF 26%, #0E0F16); }
+.games-panel.wall-orb_merge { --gwall: color-mix(in srgb, #2440FF 22%, #0D0E1A); }
 .pinball-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;

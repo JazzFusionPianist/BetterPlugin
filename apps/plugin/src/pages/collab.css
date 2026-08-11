@@ -8992,6 +8992,7 @@
 .plugin.gwall-falling_blocks { background: #1B1A1F; }
 .plugin.gwall-poker          { background: #161A17; }
 .plugin.gwall-ear_training   { background: #1B1815; }
+.plugin.gwall-orb_merge      { background: #10132B; }
 .plugin[class*="gwall-"] .gview { background: transparent; }
 
 /* The room dims SLOWLY — the wall rides the .plugin 1.3s background

@@ -46,12 +46,17 @@ export function useFollows(supabase: SupabaseClient, currentUserId: string) {
   useEffect(() => {
     fetchAll()
     // 내가 팔로우한 경우 + 나를 팔로우한 경우만 각각 구독 (전체 follows 이벤트 X)
+    // Topic names carry a per-mount nonce: supabase.channel() returns the
+    // EXISTING instance for a repeated topic, and .on() after subscribe()
+    // throws — so two components mounting this hook (AppShell + a panel)
+    // would crash the whole app without it.
+    const nonce = Math.random().toString(36).slice(2, 8)
     const chOut = supabase
-      .channel(`follows_out:${currentUserId}`)
+      .channel(`follows_out:${currentUserId}:${nonce}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'follows', filter: `follower_id=eq.${currentUserId}` }, fetchAll)
       .subscribe()
     const chIn = supabase
-      .channel(`follows_in:${currentUserId}`)
+      .channel(`follows_in:${currentUserId}:${nonce}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'follows', filter: `following_id=eq.${currentUserId}` }, fetchAll)
       .subscribe()
     return () => { supabase.removeChannel(chOut); supabase.removeChannel(chIn) }

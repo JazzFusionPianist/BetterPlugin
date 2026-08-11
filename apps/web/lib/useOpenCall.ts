@@ -87,8 +87,10 @@ export function useOpenCall(supabase: SupabaseClient, currentUserId: string) {
 
   // New tracks drift in live — anyone posting shows up without a refresh.
   useEffect(() => {
+    // Per-mount nonce — a repeated fixed topic returns the already-
+    // subscribed channel and .on() then throws (see useFollows).
     const ch = supabase
-      .channel('open-call')
+      .channel(`open-call:${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'demo_tracks' }, async (payload) => {
         const row = payload.new as Omit<DemoTrack, 'author'>
         const authors = await resolveAuthors([row.user_id])

@@ -10,12 +10,10 @@ import {
   type Profile, type CalendarEvent,
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
-import { uploadAttachment, compressImage } from '@/lib/upload'
 import Sidebar from './Sidebar'
 import UpcomingList from './UpcomingList'
 import OrbHome, { OrbHomeCenter } from './OrbHome'
 import CanvasLayer from './CanvasLayer'
-import DrawingBoard from './DrawingBoard'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
@@ -49,13 +47,8 @@ export default function AppShell({ user }: { user: User }) {
   const { unread, markSeen } = useConversationNotifications(supabase, user.id)
   const { events, addEvents, deleteEvent, updateEvent, refetch: refetchEvents } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory, renameCategory, deleteCategory } = useEventCategories(supabase, user.id)
-  const { items: canvasItems, addItem: addCanvasItem, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
+  const { items: canvasItems, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
   const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(supabase, user.id)
-
-  const photoInputRef = useRef<HTMLInputElement>(null)
-  const [pinning, setPinning] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
-  const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
 
   // On phones the home is a two-page booklet spread — people / wall —
   // swiped horizontally. Desktop flattens both pages back onto one
@@ -130,7 +123,7 @@ export default function AppShell({ user }: { user: User }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const ZOOM_IGNORE = '.polad, .doodle, .drawboard, .sprompt, .addmenu, button, input, textarea'
+  const ZOOM_IGNORE = '.polad, .doodle, .sprompt, button, input, textarea'
   const zoomDown = (e: React.PointerEvent) => {
     const onItem = !!(e.target as Element).closest?.(ZOOM_IGNORE)
     zoomPts.current.set(e.pointerId, { x: e.clientX, y: e.clientY, onItem })
@@ -167,44 +160,6 @@ export default function AppShell({ user }: { user: User }) {
   }
 
   const zoomStyle = { transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.z})` }
-
-  // Every drawing session lands as its own movable doodle object,
-  // anchored where it was drawn. Drawn on a wide screen → the landscape
-  // slots get the exact spot and the portrait slots take the same
-  // fractions as a sensible starting point (and vice versa).
-  const saveDrawing = async (strokes: { c: string; w: number; p: number[] }[], cx: number, cy: number, land: boolean) => {
-    if (strokes.length === 0) return
-    try {
-      await addCanvasItem({
-        kind: 'drawing', strokes,
-        x: cx, y: cy,
-        ...(land ? { lx: cx, ly: cy } : {}),
-      })
-    } catch (err) {
-      console.error('[canvas] drawing save failed', err)
-    }
-  }
-
-  // Pin a photo to the home wall: compress → R2 → canvas_items, dropped at
-  // a tilted spot in the upper canvas (clear of the centre avatar).
-  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setPinning(true)
-    try {
-      const compressed = await compressImage(file)
-      const { url } = await uploadAttachment(compressed, user.id)
-      const x = 0.14 + Math.random() * 0.72
-      const y = 0.15 + Math.random() * 0.26
-      const rotation = (Math.random() - 0.5) * 11
-      await addCanvasItem({ kind: 'photo', media_url: url, x, y, rotation, taken_at: new Date(file.lastModified).toISOString() })
-    } catch (err) {
-      console.error('[canvas] pin failed', err)
-    } finally {
-      setPinning(false)
-    }
-  }
 
   const [calOpen, setCalOpen] = useState(false)
   const [gamesOpen, setGamesOpen] = useState(false)                      // games overlay
@@ -389,36 +344,9 @@ export default function AppShell({ user }: { user: User }) {
               setGamesOpen(true)
             }}
           >
-            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice' })[activeGame.gameType]}
+            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice', sketch: 'sketch' })[activeGame.gameType]}
           </button>
         )}
-
-        <button
-          className={`webapp-add-btn${pinning ? ' busy' : ''}${addOpen ? ' open' : ''}`}
-          onClick={() => !pinning && setAddOpen((o) => !o)}
-          aria-label="Add to your wall"
-        >
-          {pinning ? (
-            <span className="webapp-add-spin" />
-          ) : (
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          )}
-        </button>
-        {addOpen && (
-          <div className="addmenu">
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); photoInputRef.current?.click() }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" /></svg>
-              photo
-            </button>
-            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setView({ z: 1, tx: 0, ty: 0 }); setDrawOpen(true) }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
-              draw
-            </button>
-          </div>
-        )}
-        <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
 
         {/* The booklet spread. Page 1 = people (orbs + programme), page 2
             = the wall (polaroids + doodles). Phones swipe between them;
@@ -465,20 +393,6 @@ export default function AppShell({ user }: { user: User }) {
               onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
             />
             </div>
-
-            {canvasItems.length === 0 && (
-              <div className="home-wall-hint">your wall — tap + to pin a photo or draw</div>
-            )}
-
-            {/* Outside the zoom: drawing always happens at 1:1 (the draw
-                action resets the view first), so captured fractions and
-                the rendered wall agree. */}
-            {drawOpen && (
-              <DrawingBoard
-                onSave={saveDrawing}
-                onClose={() => setDrawOpen(false)}
-              />
-            )}
           </section>
 
           <section className="home-page">

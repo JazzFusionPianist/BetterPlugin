@@ -6,18 +6,16 @@ import { supabase } from '@/lib/supabase'
 import {
   useProfiles, useFollows, usePresence, useConversations,
   useConversationNotifications, useCalendarEvents, useEventCategories,
-  useCanvasItems, useFollowAlerts,
+  useFollowAlerts,
   type Profile, type CalendarEvent,
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
 import Sidebar from './Sidebar'
 import UpcomingList from './UpcomingList'
 import OrbHome, { OrbHomeCenter } from './OrbHome'
-import CanvasLayer from './CanvasLayer'
 import SchedulePrompt from './SchedulePrompt'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
-import FriendWall from './FriendWall'
 import ChatThread, { type ThreadTarget } from './ChatThread'
 import ConversationsList from './ConversationsList'
 import dynamic from 'next/dynamic'
@@ -47,7 +45,6 @@ export default function AppShell({ user }: { user: User }) {
   const { unread, markSeen } = useConversationNotifications(supabase, user.id)
   const { events, addEvents, deleteEvent, updateEvent, refetch: refetchEvents } = useCalendarEvents(supabase, user.id)
   const { categories, ensureCategory, renameCategory, deleteCategory } = useEventCategories(supabase, user.id)
-  const { items: canvasItems, updateItem: updateCanvasItem, deleteItem: deleteCanvasItem } = useCanvasItems(supabase, user.id)
   const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(supabase, user.id)
 
   // On phones the home is a two-page booklet spread — people / wall —
@@ -61,11 +58,10 @@ export default function AppShell({ user }: { user: User }) {
   }
 
   // ── Home zoom ───────────────────────────────────────────────────────
-  // One view transform shared by the orb field and the wall (the chrome
-  // — buttons, programme, prompt — stays put). Pinch on empty canvas,
-  // trackpad pinch (ctrl+wheel), or the −/+ control; plain scroll pans
-  // once zoomed in. Two fingers ON one wall item resize that item
-  // instead (handled in CanvasLayer; we skip those here).
+  // One view transform for the orb field (the chrome — buttons,
+  // programme, prompt — stays put). Pinch on empty canvas, trackpad
+  // pinch (ctrl+wheel), or the −/+ control; plain scroll pans once
+  // zoomed in.
   const ZMIN = 0.5, ZMAX = 2.5
   const [view, setView] = useState({ z: 1, tx: 0, ty: 0 })
   const viewRef = useRef(view)
@@ -123,7 +119,7 @@ export default function AppShell({ user }: { user: User }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const ZOOM_IGNORE = '.polad, .doodle, .sprompt, button, input, textarea'
+  const ZOOM_IGNORE = '.sprompt, button, input, textarea'
   const zoomDown = (e: React.PointerEvent) => {
     const onItem = !!(e.target as Element).closest?.(ZOOM_IGNORE)
     zoomPts.current.set(e.pointerId, { x: e.clientX, y: e.clientY, onItem })
@@ -181,7 +177,6 @@ export default function AppShell({ user }: { user: User }) {
   const [findOpen, setFindOpen] = useState(false)                        // find people
   const [newGroupOpen, setNewGroupOpen] = useState(false)                // create a group
   const [sheetFriend, setSheetFriend] = useState<Profile | null>(null)   // profile bottom sheet
-  const [wallFriend, setWallFriend] = useState<(Profile & { isOnline?: boolean }) | null>(null) // friend's wall
   const [portfolioOwner, setPortfolioOwner] = useState<(Profile & { isOnline?: boolean }) | null>(null) // artist page (mine or a friend's)
   const [discoOpen, setDiscoOpen] = useState(false)                      // my discography panel
   const [thread, setThread] = useState<ThreadTarget | null>(null)        // open conversation
@@ -288,7 +283,7 @@ export default function AppShell({ user }: { user: User }) {
       />
 
       <main
-        className={`webapp-main${bookPage === 2 ? ' on-p3' : ''}`}
+        className={`webapp-main${bookPage === 1 ? ' on-p3' : ''}`}
         ref={mainRef}
         onPointerDown={zoomDown}
         onPointerMove={zoomMove}
@@ -349,8 +344,8 @@ export default function AppShell({ user }: { user: User }) {
         )}
 
         {/* The booklet spread. Page 1 = people (orbs + programme), page 2
-            = the wall (polaroids + doodles). Phones swipe between them;
-            desktop flattens both pages onto the one canvas (CSS
+            = the portfolio gallery. Phones swipe between them; desktop
+            flattens both pages onto the one canvas (CSS
             display:contents), identical to before. */}
         <div
           className="home-book"
@@ -385,17 +380,6 @@ export default function AppShell({ user }: { user: User }) {
           </section>
 
           <section className="home-page">
-            <div className="home-zoom" style={zoomStyle}>
-            <CanvasLayer
-              items={canvasItems}
-              isMine
-              onUpdate={(id, patch) => { updateCanvasItem(id, patch).catch(() => {}) }}
-              onDelete={(id) => { deleteCanvasItem(id).catch(() => {}) }}
-            />
-            </div>
-          </section>
-
-          <section className="home-page">
             {me && <HomePortfolio supabase={supabase} me={me} />}
           </section>
         </div>
@@ -427,8 +411,7 @@ export default function AppShell({ user }: { user: User }) {
         {/* Page marks — phones only. */}
         <div className="home-dots">
           <button className={`home-dot${bookPage === 0 ? ' on' : ''}`} onClick={() => goPage(0)} aria-label="People" />
-          <button className={`home-dot${bookPage === 1 ? ' on' : ''}`} onClick={() => goPage(1)} aria-label="Wall" />
-          <button className={`home-dot${bookPage === 2 ? ' on' : ''}`} onClick={() => goPage(2)} aria-label="Portfolio" />
+          <button className={`home-dot${bookPage === 1 ? ' on' : ''}`} onClick={() => goPage(1)} aria-label="Portfolio" />
         </div>
 
         <SchedulePrompt
@@ -457,7 +440,6 @@ export default function AppShell({ user }: { user: User }) {
         unread={sheetFriend ? (unreadByFriend.get(sheetFriend.id) ?? 0) : 0}
         onClose={() => setSheetFriend(null)}
         onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f }) }}
-        onVisitWall={(f) => { setSheetFriend(null); setWallFriend(f as Profile & { isOnline?: boolean }) }}
         onVisitPortfolio={(f) => { setSheetFriend(null); setPortfolioOwner(f as Profile & { isOnline?: boolean }) }}
       />
 
@@ -476,15 +458,6 @@ export default function AppShell({ user }: { user: User }) {
           currentUserId={user.id}
           owner={portfolioOwner}
           onClose={() => setPortfolioOwner(null)}
-        />
-      )}
-
-      {wallFriend && (
-        <FriendWall
-          supabase={supabase}
-          currentUserId={user.id}
-          friend={wallFriend}
-          onClose={() => setWallFriend(null)}
         />
       )}
 

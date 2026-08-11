@@ -9,7 +9,6 @@ interface Props {
   unread: number
   onClose: () => void
   onMessage: (friend: Profile) => void
-  onVisitWall: (friend: Profile) => void
   onVisitPortfolio: (friend: Profile) => void
 }
 
@@ -18,7 +17,7 @@ interface Props {
  * equivalent of the plugin's hover popup. Shows the friend and a way to
  * jump into a conversation.
  */
-export default function ProfileSheet({ friend, unread, onClose, onMessage, onVisitWall, onVisitPortfolio }: Props) {
+export default function ProfileSheet({ friend, unread, onClose, onMessage, onVisitPortfolio }: Props) {
   // Retain the last friend through the close animation so the content
   // doesn't blank out as the sheet slides away.
   const [shown, setShown] = useState(friend)
@@ -55,12 +54,6 @@ export default function ProfileSheet({ friend, unread, onClose, onMessage, onVis
                 <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.6" />
               </svg>
               Portfolio
-            </button>
-            <button className="psheet-wall" onClick={() => onVisitWall(f)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l5-4 4 3 4-5 5 6" /><circle cx="9" cy="9" r="1.4" />
-              </svg>
-              Visit wall
             </button>
           </>
         )}

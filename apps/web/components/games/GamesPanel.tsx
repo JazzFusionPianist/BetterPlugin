@@ -10,9 +10,11 @@ import FallingBlocksView from './FallingBlocksView'
 import PokerView from './PokerView'
 import EarTrainingView from './EarTrainingView'
 import PinballView from './PinballView'
+import OrbMergeView from './OrbMergeView'
+import SketchView from './SketchView'
 import YachtView from './YachtView'
 
-export type GameScreen = 'list' | GameType | 'pinball'
+export type GameScreen = 'list' | GameType | 'pinball' | 'orb_merge'
 
 interface Props {
   supabase: SupabaseClient
@@ -46,7 +48,7 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
             inviteContext={null}
             onSelectGame={async (g) => {
               // Pinball is solo — no room to resume.
-              if (g !== 'pinball') {
+              if (g !== 'pinball' && g !== 'orb_merge') {
                 // Resume an in-flight room of this game if one exists.
                 const { findActiveGame } = await import('@/lib/games/gameRooms')
                 const active = await findActiveGame(supabase, me.id)
@@ -96,6 +98,24 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
         )}
         {screen === 'yacht' && (
           <YachtView
+            supabase={supabase}
+            onlineIds={onlineIds}
+            currentUserId={me.id}
+            currentUserProfile={me}
+            friendProfiles={friends}
+            onClose={() => onScreenChange('list')}
+          />
+        )}
+        {screen === 'orb_merge' && (
+          <OrbMergeView
+            supabase={supabase}
+            currentUserId={me.id}
+            currentUserProfile={me}
+            onClose={() => onScreenChange('list')}
+          />
+        )}
+        {screen === 'sketch' && (
+          <SketchView
             supabase={supabase}
             onlineIds={onlineIds}
             currentUserId={me.id}

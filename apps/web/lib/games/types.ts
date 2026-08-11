@@ -182,6 +182,19 @@ export interface YachtRoom {
   updated_at: string
 }
 
+export interface SketchRoom {
+  id: string
+  host_id: string
+  player_count: number
+  status: 'lobby' | 'playing' | 'finished'
+  player_ids: string[]    // host is always [0]
+  ready_ids: string[]
+  state: import('./sketch').SketchState | Record<string, never>   // {} during lobby
+  winner_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface EarTrainingRoom {
   id: string
   player1_id: string

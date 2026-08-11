@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { useMessages, type Profile, type Message } from '@orb/core'
+import { useMessages, useConversationReads, type Profile, type Message } from '@orb/core'
 import { uploadAttachment, attachTypeFor, type UploadedAttachment } from '@/lib/upload'
 import ChatSettingsSheet from './ChatSettingsSheet'
 
@@ -164,10 +164,10 @@ function NowPlayingBar() {
  *  the game type attachment_name. Join claims the seat and opens the
  *  games page (host taps re-enter their own room). */
 const GAME_NAMES: Record<string, string> = {
-  chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice',
+  chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice', sketch: 'sketch',
 }
 const GAME_MARKS: Record<string, string> = {
-  chess: '♞', falling_blocks: '▚', poker: '♠', ear_training: '♪', yacht: '⚄',
+  chess: '♞', falling_blocks: '▚', poker: '♠', ear_training: '♪', yacht: '⚄', sketch: '✎',
 }
 function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
   roomId: string
@@ -255,6 +255,9 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
       ? { kind: 'dm', otherUserId: target.friend.id }
       : { kind: 'group', conversationId: target.conversationId },
   )
+  // Who has read this conversation up to when — drives the small
+  // "read ✓" receipt under my latest-read bubble (live via realtime).
+  const reads = useConversationReads(supabase, conversationId, currentUserId)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -312,6 +315,32 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
   const isGroup = target.kind === 'group'
   const title = isGroup ? target.title : target.friend.display_name
+
+  // Per-message read receipts, iMessage-style: each reader appears once,
+  // anchored to the LATEST of my messages their last_seen_at covers, and
+  // slides forward as they catch up (same derivation as the plugin's
+  // ChatView, so both surfaces agree on where the mark sits).
+  const readersByMsgId = new Map<string, Profile[]>()
+  if (reads.size > 0) {
+    const mineMsgs = messages.filter(m => m.sender_id === currentUserId)
+    const candidates: Profile[] = target.kind === 'dm'
+      ? [target.friend]
+      : Array.from(reads.keys(), id => profileById.get(id)).filter((p): p is Profile => !!p)
+    for (const reader of candidates) {
+      const readerTs = reads.get(reader.id) ?? 0
+      if (readerTs <= 0) continue
+      let lastReadId: string | null = null
+      for (const m of mineMsgs) {
+        if (new Date(m.created_at).getTime() <= readerTs) lastReadId = m.id
+        else break
+      }
+      if (lastReadId) {
+        const arr = readersByMsgId.get(lastReadId) ?? []
+        arr.push(reader)
+        readersByMsgId.set(lastReadId, arr)
+      }
+    }
+  }
 
   // Keep the newest message in view.
   useLayoutEffect(() => {
@@ -535,6 +564,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           const hasAttach = !!m.attachment_url || m.attachment_expired
           const isTicket = m.attachment_type === 'game_invite'
           const sender = isGroup && !mine && !grouped ? profileById.get(m.sender_id) : null
+          const readers = mine ? readersByMsgId.get(m.id) ?? [] : []
           return (
             <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
               <div className="chatt-col">
@@ -548,6 +578,26 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>
                 </div>
+                {readers.length > 0 && (
+                  isGroup ? (
+                    <span
+                      className="chatt-read chatt-read-group"
+                      title={`Read by ${readers.map(r => r.display_name).join(', ')}`}
+                    >
+                      {readers.slice(0, 4).map(r => (
+                        <span key={r.id} className="chatt-read-av" style={{ background: r.avatar_color }}>
+                          {r.avatar_url ? <img src={r.avatar_url} alt="" /> : <span>{r.initials.slice(0, 1)}</span>}
+                        </span>
+                      ))}
+                      {readers.length > 4 && <span className="chatt-read-more">+{readers.length - 4}</span>}
+                    </span>
+                  ) : (
+                    <span className="chatt-read" title={`Read by ${readers[0].display_name}`}>
+                      read
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" /></svg>
+                    </span>
+                  )
+                )}
               </div>
             </div>
           )

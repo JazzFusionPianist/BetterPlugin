@@ -3,7 +3,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
 
-export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht'
+export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sketch'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -108,6 +108,33 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.yacht',
     descKey: 'game.yachtDesc',
+  },
+  {
+    id: 'orb_merge',
+    coverBg: 'radial-gradient(circle at 30% 30%, #9fb0ff 0%, #2440ff 55%, #101a4d 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="11" cy="21" r="6.5" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="22" cy="19" r="4.5" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="17" cy="8" r="2.8" fill="currentColor" opacity="0.85" />
+        <path d="M17 12 v3.5 M15.8 14 L17 15.5 L18.2 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    ),
+    nameKey: 'game.orbMerge',
+    descKey: 'game.orbMergeDesc',
+  },
+  {
+    id: 'sketch',
+    coverBg: 'radial-gradient(circle at 30% 30%, #ffd9a8 0%, #e8543f 55%, #401414 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M8 24 L10 18 L22 6 L26 10 L14 22 Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+        <path d="M8 24 L12.5 22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M5 27 q4 2 8 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeDasharray="1 3" />
+      </svg>
+    ),
+    nameKey: 'game.sketch',
+    descKey: 'game.sketchDesc',
   },
   {
     id: 'ear_training',

@@ -184,20 +184,6 @@ export interface YachtRoom {
   updated_at: string
 }
 
-
-export interface OrbPartyRoom {
-  id: string
-  host_id: string
-  player_count: 2 | 3 | 4
-  status: 'lobby' | 'playing' | 'finished'
-  player_ids: string[]    // host is always [0]
-  ready_ids: string[]
-  state: import('../lib/orbParty').PartyState | Record<string, never>   // {} during lobby
-  winner_id: string | null
-  created_at: string
-  updated_at: string
-}
-
 export interface EarTrainingRoom {
   id: string
   player1_id: string

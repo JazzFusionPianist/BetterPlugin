@@ -12,7 +12,7 @@ import { isComputerPlayerId } from './computerPlayers'
  * we don't need at the chat layer.
  */
 
-export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht' | 'orb_party'
+export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht'
 
 function hasMultiplePlayers(playerIds: unknown): boolean {
   return Array.isArray(playerIds) && playerIds.filter(Boolean).length > 1
@@ -41,7 +41,6 @@ export const GAME_TABLE: Record<GameType, string> = {
   poker:          'poker_rooms',
   ear_training:   'ear_training_rooms',
   yacht:          'yacht_rooms',
-  orb_party:      'orb_party_rooms',
 }
 
 interface RoomCapacity {
@@ -57,7 +56,7 @@ interface RoomCapacity {
 // When everyone currently in the lobby readies up, the game start path
 // locks `player_count` down to the actual joined player count.
 const DEFAULT_PLAYER_COUNT: Record<GameType, number> = {
-  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4, orb_party: 4,
+  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4,
 }
 
 /** Maximum seats currently configured for a room. Reads the row, then
@@ -159,7 +158,7 @@ export async function createGameRoom (
     if (error) { console.error('[createGameRoom.ear_training]', error); return null }
     return (data as { id: string }).id
   }
-  if (gameType === 'falling_blocks' || gameType === 'yacht' || gameType === 'orb_party') {
+  if (gameType === 'falling_blocks' || gameType === 'yacht') {
     const table = GAME_TABLE[gameType]
     const insert: Record<string, unknown> = {
       host_id: userId,
@@ -168,7 +167,7 @@ export async function createGameRoom (
       player_ids: [userId],
       ready_ids: [],
     }
-    if (gameType === 'yacht' || gameType === 'orb_party') insert.state = {}
+    if (gameType === 'yacht') insert.state = {}
     const { data, error } = await supabase
       .from(table)
       .insert(insert)
@@ -243,7 +242,7 @@ export async function findActiveGame (
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
-  const [chess, fb, poker, et, yacht, party] = await Promise.all([
+  const [chess, fb, poker, et, yacht] = await Promise.all([
     supabase.from('game_rooms')
       .select('id, updated_at, status, host_id, guest_id, captured')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
@@ -274,12 +273,6 @@ export async function findActiveGame (
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(5),
-    supabase.from('orb_party_rooms')
-      .select('id, updated_at, status, player_ids')
-      .contains('player_ids', [userId])
-      .in('status', ['lobby', 'playing'])
-      .order('updated_at', { ascending: false })
-      .limit(5),
   ])
 
   const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
@@ -288,13 +281,11 @@ export async function findActiveGame (
   const pokerRoom = poker.data?.find(isResumableMultiPlayerRoom)
   const etRoom = et.data?.find(isResumableEarTrainingRoom)
   const yachtRoom = yacht.data?.find(isResumableMultiPlayerRoom)
-  const partyRoom = party.data?.find(isResumableMultiPlayerRoom)
   if (chessRoom) candidates.push({ gameType: 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
   if (fbRoom)    candidates.push({ gameType: 'falling_blocks', roomId: fbRoom.id, updatedAt: fbRoom.updated_at })
   if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
   if (etRoom)    candidates.push({ gameType: 'ear_training', roomId: etRoom.id, updatedAt: etRoom.updated_at })
   if (yachtRoom) candidates.push({ gameType: 'yacht', roomId: yachtRoom.id, updatedAt: yachtRoom.updated_at })
-  if (partyRoom) candidates.push({ gameType: 'orb_party', roomId: partyRoom.id, updatedAt: partyRoom.updated_at })
 
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

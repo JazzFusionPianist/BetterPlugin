@@ -746,7 +746,6 @@ function GameInviteBubble ({
     : gameType === 'poker'        ? 'game.poker'
     : gameType === 'ear_training' ? 'game.earTraining'
     : gameType === 'yacht'        ? 'game.yacht'
-    : gameType === 'orb_party'    ? 'game.orbParty'
     : 'game.chess'
   const gameName = t(gameNameKey as 'game.chess')
 

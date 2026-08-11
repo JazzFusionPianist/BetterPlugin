@@ -160,7 +160,6 @@ export interface FallingBlocksPlayerState {
   updated_at: string
 }
 
-
 export interface YachtState {
   turn: number                 // index into player_ids
   round: number                // 1..12
@@ -178,20 +177,6 @@ export interface YachtRoom {
   player_ids: string[]    // host is always [0]
   ready_ids: string[]
   state: YachtState | Record<string, never>   // {} during lobby
-  winner_id: string | null
-  created_at: string
-  updated_at: string
-}
-
-
-export interface OrbPartyRoom {
-  id: string
-  host_id: string
-  player_count: 2 | 3 | 4
-  status: 'lobby' | 'playing' | 'finished'
-  player_ids: string[]    // host is always [0]
-  ready_ids: string[]
-  state: import('./orbParty').PartyState | Record<string, never>   // {} during lobby
   winner_id: string | null
   created_at: string
   updated_at: string

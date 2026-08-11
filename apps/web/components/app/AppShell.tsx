@@ -17,6 +17,7 @@ import OrbHome, { OrbHomeCenter } from './OrbHome'
 import CanvasLayer from './CanvasLayer'
 import DrawingBoard from './DrawingBoard'
 import SchedulePrompt from './SchedulePrompt'
+import TaskComposer, { type NewTask } from './TaskComposer'
 import CalendarView from './CalendarView'
 import ProfileSheet from './ProfileSheet'
 import FriendWall from './FriendWall'
@@ -54,8 +55,9 @@ export default function AppShell({ user }: { user: User }) {
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [pinning, setPinning] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw)
+  const [addOpen, setAddOpen] = useState(false)    // the + menu (photo / draw / task)
   const [drawOpen, setDrawOpen] = useState(false)  // colored-pencil mode
+  const [taskOpen, setTaskOpen] = useState(false)  // the task composer card
 
   // On phones the home is a two-page booklet spread — people / wall —
   // swiped horizontally. Desktop flattens both pages back onto one
@@ -130,7 +132,7 @@ export default function AppShell({ user }: { user: User }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const ZOOM_IGNORE = '.polad, .doodle, .drawboard, .sprompt, .addmenu, button, input, textarea'
+  const ZOOM_IGNORE = '.polad, .doodle, .tasknote, .drawboard, .sprompt, .addmenu, button, input, textarea'
   const zoomDown = (e: React.PointerEvent) => {
     const onItem = !!(e.target as Element).closest?.(ZOOM_IGNORE)
     zoomPts.current.set(e.pointerId, { x: e.clientX, y: e.clientY, onItem })
@@ -182,6 +184,26 @@ export default function AppShell({ user }: { user: User }) {
       })
     } catch (err) {
       console.error('[canvas] drawing save failed', err)
+    }
+  }
+
+  // A task lands as a memo note in the upper canvas, private by default
+  // (your to-dos aren't part of the show unless you flip them).
+  const saveTask = async (task: NewTask) => {
+    setTaskOpen(false)
+    try {
+      await addCanvasItem({
+        kind: 'task',
+        title: task.title,
+        caption: task.caption,
+        taken_at: task.due,
+        x: 0.14 + Math.random() * 0.72,
+        y: 0.15 + Math.random() * 0.26,
+        rotation: (Math.random() - 0.5) * 7,
+        visibility: 'private',
+      })
+    } catch (err) {
+      console.error('[canvas] task save failed', err)
     }
   }
 
@@ -389,7 +411,7 @@ export default function AppShell({ user }: { user: User }) {
               setGamesOpen(true)
             }}
           >
-            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice', orb_party: 'orb party' })[activeGame.gameType]}
+            resume {({ chess: 'chess', falling_blocks: 'falling blocks', poker: 'poker', ear_training: 'ear training', yacht: 'yacht dice' })[activeGame.gameType]}
           </button>
         )}
 
@@ -416,8 +438,13 @@ export default function AppShell({ user }: { user: User }) {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
               draw
             </button>
+            <button className="addmenu-item" onClick={() => { setAddOpen(false); goPage(1); setTaskOpen(true) }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="M8 12.4l2.7 2.7 5.3-5.7" /></svg>
+              task
+            </button>
           </div>
         )}
+        {taskOpen && <TaskComposer onCreate={saveTask} onClose={() => setTaskOpen(false)} />}
         <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPickPhoto} />
 
         {/* The booklet spread. Page 1 = people (orbs + programme), page 2
@@ -467,7 +494,7 @@ export default function AppShell({ user }: { user: User }) {
             </div>
 
             {canvasItems.length === 0 && (
-              <div className="home-wall-hint">your wall — tap + to pin a photo or draw</div>
+              <div className="home-wall-hint">your wall — tap + to pin a photo, draw, or note a task</div>
             )}
 
             {/* Outside the zoom: drawing always happens at 1:1 (the draw

@@ -210,7 +210,6 @@
   width: 300px;
 }
 
-
 .app-title {
   font-family: var(--f-sans);
   font-size: 13px;
@@ -2322,7 +2321,6 @@
   to   { transform: rotate(360deg); }
 }
 
-
 .orbit-party {
   position: absolute;
   left: 75%;
@@ -2542,48 +2540,6 @@
   background: rgba(45, 45, 45, 0.7);
   border-color: rgba(255, 255, 255, 0.28);
 }
-.party-list-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.32);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.party-list {
-  width: 80%;
-  max-height: 70%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 6px 24px rgba(0,0,0,.18);
-}
-.party-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-  font-family: var(--f-sans);
-  font-weight: 500;
-  color: var(--t1);
-}
-.party-list-close {
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--t2);
-  padding: 0 4px;
-}
-.party-list-body {
-  overflow-y: auto;
-  padding: 6px 0;
-}
 .party-list-empty {
   padding: 14px;
   text-align: center;
@@ -2591,42 +2547,9 @@
   color: var(--t3);
   font-family: var(--f-sans);
 }
-.party-list-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 14px;
-  cursor: pointer;
-}
-.party-list-row .av,
-.party-list-row .party-list-name { transform: translateY(2px); }
 
 .dview .s-row-label { font-size: 12px; }
 .dview .seg-opt { font-size: 12px; }
-.party-list-row:hover { background: var(--bg2); }
-.party-list-name {
-  flex: 1;
-  font-size: 12px;
-  color: var(--t1);
-  font-family: var(--f-sans);
-}
-.party-list-remove {
-  background: none;
-  border: none;
-  color: var(--t3);
-  font-size: 16px;
-  line-height: 1;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: background .12s, color .12s;
-}
-.party-list-remove:hover { background: var(--bg2); color: #D6402E; }
 .profile-name-row {
   display: flex;
   gap: 6px;
@@ -2732,7 +2655,6 @@
 }
 .profile-save-danger:hover:not(:disabled) { background: #e02d20 !important; }
 .profile-save-danger:disabled { background: rgba(214, 64, 46,.3) !important; }
-
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Add Friend Panel
@@ -8043,7 +7965,6 @@
 .dropchoice-label { font-size: 13px; font-weight: 700; color: var(--t1); letter-spacing: -0.01em; }
 .dropchoice-sub { font-size: 10.5px; color: var(--t3); line-height: 1.3; }
 
-
 /* ════════════════════════════════════════════════════════════════════
    Calendar panel (AI schedule → calendar). Compact + minimal, sized for
    the 300×500 plugin shell; themed via plugin tokens. Header + add-bar
@@ -9403,7 +9324,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* Offline orbs are dimmed as a whole; the name dims with them, which is
    the right read (present ≠ absent). */
 
-
 /* The halo apron overflows the body sideways; focus restoration would
    silently PAN the room to chase a focused pager button (the WKWebView
    programmatic-scroll monster, browser edition). clip removes the scroll
@@ -9635,368 +9555,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 
 .plugin.gwall-yacht { background: #1B1812; }
 
-/* ═══ Orb Party ═════════════════════════════════════════════════════════
-   A winding hairline path on paper; tiles are tinted coins, the star is
-   the destination, orbs are the players. */
-.party-layout {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: column;
-  align-items: center; gap: 4px;
-  padding: 2px 6px 6px; width: 100%;
-}
-.party-hud {
-  width: 100%; max-width: 400px;
-  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
-  justify-content: center;
-}
-.party-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 8px;
-  border: 1px solid rgba(127, 127, 127, 0.3);
-  border-radius: 999px;
-  font-family: var(--f-sans); font-size: 10.5px; color: var(--t1);
-}
-.party-chip.turn { border-color: #2440FF; box-shadow: 0 0 0 1px rgba(36,64,255,.35); }
-.party-chip-orb { width: 9px; height: 9px; border-radius: 50%; }
-.party-chip-name { font-family: var(--f-serif, Georgia, serif); text-transform: lowercase; }
-.party-chip-stat { font-variant-numeric: tabular-nums; color: var(--t2, #77746E); }
-.party-round {
-  font-size: 10px; color: var(--t3); font-family: var(--f-sans);
-  font-variant-numeric: tabular-nums; text-transform: lowercase;
-}
-.party-board-wrap {
-  flex: 1; min-height: 0; width: 100%;
-  display: flex; align-items: center; justify-content: center;
-}
-.party-board { height: 100%; max-width: 100%; }
-.party-edge { stroke: rgba(127, 127, 127, 0.4); stroke-width: 1.2; }
-.party-node-c { stroke-width: 1.4; }
-.party-node.t-start .party-node-c { fill: transparent; stroke: var(--t1); }
-.party-node-start-ring { fill: none; stroke: var(--t1); stroke-width: 0.8; opacity: 0.6; }
-.party-node.t-blue .party-node-c { fill: rgba(36, 64, 255, 0.2); stroke: #2440FF; }
-.party-node.t-red .party-node-c { fill: rgba(232, 84, 63, 0.22); stroke: #E8543F; }
-.party-node.t-event .party-node-c { fill: rgba(186, 120, 255, 0.2); stroke: #BA78FF; }
-.party-node.t-item .party-node-c { fill: rgba(233, 161, 59, 0.22); stroke: #E9A13B; }
-.party-node.t-duel .party-node-c { fill: rgba(127, 127, 127, 0.18); stroke: var(--t2, #77746E); }
-.party-node.star-here .party-node-c { fill: #2440FF; stroke: #2440FF; }
-.party-node-star { fill: #FFFFFF; font-size: 13px; }
-.party-node-glyph { font-size: 10px; fill: var(--t1); opacity: 0.85; }
-.party-orb { transition: transform 0.3s ease; }
-.party-orb circle { stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.2; }
-.party-orb circle.active { stroke: #FFFFFF; stroke-width: 2; }
-.party-exit { cursor: pointer; }
-.party-exit-halo {
-  fill: rgba(36, 64, 255, 0.25); stroke: #2440FF; stroke-width: 1.5;
-  animation: party-exit-pulse 1s ease-in-out infinite;
-}
-.party-exit-mark { fill: #2440FF; font-size: 15px; animation: party-exit-pulse 1s ease-in-out infinite; }
-@keyframes party-exit-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-.party-ticker {
-  min-height: 17px;
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 12px; color: var(--t2, #77746E); text-transform: lowercase;
-  text-align: center;
-}
-.party-controls {
-  min-height: 40px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  flex-wrap: wrap;
-}
-.party-roll-btn {
-  padding: 8px 22px;
-  background: #2440FF; color: #fff;
-  border: none; border-radius: 3px; cursor: pointer;
-  font-family: var(--f-sans); font-size: 13px; font-weight: 600;
-  text-transform: lowercase;
-}
-.party-roll-btn:hover { background: #1B31D9; }
-.party-item-btn {
-  padding: 7px 12px;
-  background: transparent; color: var(--t1);
-  border: 1px solid rgba(127, 127, 127, 0.45); border-radius: 3px;
-  cursor: pointer;
-  font-family: var(--f-sans); font-size: 11.5px; text-transform: lowercase;
-}
-.party-item-btn:hover { border-color: var(--t1); }
-.party-hint {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 12.5px; color: var(--t2, #77746E); text-transform: lowercase;
-}
-.party-buy { display: flex; align-items: center; gap: 8px; }
-
-/* ── Orb Party v2 flourishes ─────────────────────────────────────────────── */
-.party-board-wrap { position: relative; }
-.party-orb-hop {
-  animation: party-hop 0.32s ease;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-@keyframes party-hop {
-  0% { transform: translateY(0) scale(1, 1); }
-  42% { transform: translateY(-10px) scale(0.93, 1.09); }
-  80% { transform: translateY(1.5px) scale(1.07, 0.93); }
-  100% { transform: translateY(0) scale(1, 1); }
-}
-.party-here {
-  fill: none; stroke: #2440FF; stroke-width: 1.1;
-  stroke-dasharray: 3 4.5; opacity: 0.75; pointer-events: none;
-  animation: party-ring-spin 7s linear infinite;
-  transform-box: fill-box; transform-origin: center;
-}
-.party-star-ring {
-  fill: none; stroke: #E9A13B; stroke-width: 1.2;
-  stroke-dasharray: 4 5; pointer-events: none;
-  animation: party-ring-spin 9s linear infinite;
-  transform-box: fill-box; transform-origin: center;
-}
-@keyframes party-ring-spin { to { transform: rotate(360deg); } }
-.party-node.star-here .party-node-c { animation: party-star-breathe 1.7s ease-in-out infinite; }
-@keyframes party-star-breathe { 0%, 100% { stroke-width: 1.4; } 50% { stroke-width: 3; } }
-.party-fx {
-  font-family: var(--f-serif, Georgia, serif);
-  font-size: 13.5px; font-weight: 700; pointer-events: none;
-  animation: party-fx-rise 1.5s ease forwards;
-}
-.party-fx.good { fill: #2440FF; }
-.party-fx.bad { fill: #E8543F; }
-.party-fx.info { fill: #BA78FF; }
-@keyframes party-fx-rise {
-  0% { opacity: 0; transform: translateY(5px); }
-  16% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-24px); }
-}
-.party-dice-fx {
-  position: absolute; inset: 0; z-index: 5;
-  display: flex; align-items: center; justify-content: center; gap: 20px;
-  pointer-events: none;
-  perspective: 430px;
-}
-.party-die {
-  width: 58px; height: 58px; padding: 9px;
-  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.16); border-radius: 12px;
-  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  transition: none;
-}
-.party-die i { width: 8px; height: 8px; margin: auto; border-radius: 50%; background: transparent; transition: none; }
-.party-die i.on { background: #1A1917; }
-.party-die3d {
-  position: relative; display: block;
-  width: 62px; height: 62px;
-  transform-style: preserve-3d;
-  transition: transform 0.5s cubic-bezier(0.2, 1.3, 0.4, 1);
-  /* NO filter here — filter is a grouping property and flattens preserve-3d.
-     display:block matters too: transforms don't apply to inline boxes. */
-}
-.party-dice-fx::after {
-  content: ''; position: absolute; left: 50%; top: calc(50% + 48px);
-  width: 90px; height: 20px; transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.28), transparent);
-}
-.pd3f { position: absolute; inset: 0; display: block; backface-visibility: hidden; }
-.pd3f .party-die { width: 100%; height: 100%; }
-.pd3-1 { transform: translateZ(31px); }
-.pd3-2 { transform: rotateY(90deg) translateZ(31px); }
-.pd3-3 { transform: rotateX(90deg) translateZ(31px); }
-.pd3-4 { transform: rotateX(-90deg) translateZ(31px); }
-.pd3-5 { transform: rotateY(-90deg) translateZ(31px); }
-.pd3-6 { transform: rotateY(180deg) translateZ(31px); }
-/* fake lighting per face — sells the volume even mid-blur */
-.pd3-3 .party-die { background: #F6F3EC; }
-.pd3-6 .party-die { background: #F1EDE5; }
-.pd3-2 .party-die, .pd3-5 .party-die { background: #EAE6DD; }
-.pd3-4 .party-die { background: #DFDACF; }
-.party-dice-fx.tumble .party-die3d { animation: pd3-spin 0.9s linear infinite; }
-.party-dice-fx.tumble .party-die3d + .party-die3d { animation-duration: 0.78s; animation-direction: reverse; }
-@keyframes pd3-spin {
-  0% { transform: translateY(-52px) rotate3d(1, 0.75, 0.4, 0deg); }
-  100% { transform: translateY(0) rotate3d(1, 0.75, 0.4, 720deg); }
-}
-.party-dice-fx.settle .party-die3d { animation: pd3-fade 0.34s ease 0.95s forwards; }
-@keyframes pd3-fade { to { opacity: 0; } }
-.party-card {
-  position: absolute; left: 50%; top: 40%; z-index: 6;
-  min-width: 190px; max-width: 84%;
-  padding: 13px 22px 14px; text-align: center;
-  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.14);
-  border-radius: 10px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.32);
-  transition: none; pointer-events: none;
-  animation: party-card-flip 0.42s cubic-bezier(0.2, 1.2, 0.35, 1) both,
-             party-card-out 0.3s ease 3.8s forwards;
-}
-@keyframes party-card-flip {
-  0% { opacity: 0; transform: translate(-50%, -50%) perspective(500px) rotateX(78deg) scale(0.9); }
-  100% { opacity: 1; transform: translate(-50%, -50%) perspective(500px) rotateX(0deg) scale(1); }
-}
-@keyframes party-card-out { to { opacity: 0; transform: translate(-50%, -58%) scale(0.95); } }
-.party-card-title {
-  font-family: var(--f-serif, Georgia, serif);
-  font-size: 16px; letter-spacing: 0.01em; margin-bottom: 3px;
-  color: #1A1917;
-}
-.party-card-sub { font-size: 12.5px; color: #77746E; }
-.party-legend {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 12px;
-  padding: 2px 10px 0; font-size: 11.5px; color: var(--t2, #77746E);
-}
-.party-legend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.pl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; transition: none; }
-.pl-dot.blue { background: rgba(36, 64, 255, 0.8); }
-.pl-dot.red { background: rgba(232, 84, 63, 0.8); }
-.pl-g.event { color: #BA78FF; }
-.pl-g.item { color: #E9A13B; }
-.pl-g.star { color: #E9A13B; }
-.party-rules {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 12.5px; line-height: 1.55; color: var(--t2, #77746E);
-  max-width: 300px; text-align: center; margin: 0 auto;
-}
-
-/* ── Orb Party v3: the 3D table ──────────────────────────────────────────── */
-.party-scene {
-  position: absolute; inset: 0;
-  overflow: hidden;
-  perspective: 1050px;
-  perspective-origin: 50% 38%;
-}
-.party-tilt {
-  position: absolute; inset: 0;
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.party-world {
-  position: absolute; left: 0; top: 0; width: 340px; height: 500px;
-  transform-origin: 0 0;
-  transition-property: transform;
-}
-.party-floor-svg { position: absolute; left: 0; top: 0; overflow: visible; }
-.party-table {
-  position: absolute; left: -48px; top: -48px; width: 436px; height: 596px;
-  border: 1px solid rgba(127, 127, 127, 0.26);
-  border-radius: 20px;
-  background: rgba(127, 127, 127, 0.05);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.14), inset 0 0 0 6px rgba(127, 127, 127, 0.04);
-}
-.party-sprites { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.party-piece {
-  /* screen-space sprite — position and scale are projected in JS, so every
-     engine draws the same thing (nested CSS 3D dies quietly in WebKit) */
-  position: absolute; width: 18px; height: 24px;
-  transform-origin: 50% 100%;
-  transition-property: left, top, transform;
-  transition-duration: 0.58s;
-  pointer-events: none;
-}
-.party-piece-hop { position: absolute; inset: 0; animation: party-hop 0.5s ease; }
-.party-pawn {
-  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
-  display: block; overflow: visible;
-}
-.party-pawn path, .party-pawn circle {
-  paint-order: stroke;
-  stroke: #FCFBF9; stroke-width: 1.4;
-}
-.party-pawn ellipse { stroke: none; }
-.party-pawn path[fill^='url'], .party-pawn circle[fill^='url'] { stroke: none; }
-.party-pawn.active path, .party-pawn.active circle { stroke: #FFFFFF; stroke-width: 1.9; }
-.party-pawn.active path[fill^='url'], .party-pawn.active circle[fill^='url'] { stroke: none; }
-.party-steps3d {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  transition: left 0.58s linear, top 0.58s linear;
-  background: #2440FF; color: #FFFFFF;
-  font-family: var(--f-sans); font-size: 13px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  padding: 3px 10px; border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-}
-.party-sp-star {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1), top 0.9s cubic-bezier(0.22, 1, 0.36, 1), font-size 0.9s ease;
-  color: #E9A13B;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
-}
-.party-exit3d {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  display: flex; flex-direction: column; align-items: center;
-  background: none; border: none; padding: 2px 6px 12px; cursor: pointer;
-  font-family: var(--f-sans);
-  pointer-events: auto;
-}
-.party-exit3d-arrow { color: #2440FF; font-size: 16px; line-height: 1; animation: party-exit-pulse 1s ease-in-out infinite; }
-.party-exit3d small {
-  font-size: 9.5px; margin-top: 2px; padding: 1px 6px; white-space: nowrap;
-  color: #55524C; background: #FCFBF9;
-  border: 1px solid rgba(0, 0, 0, 0.22); border-radius: 999px;
-  transition: none;
-}
-.party-exit3d.best small { color: #FFFFFF; background: #2440FF; border-color: #2440FF; }
-.party-float3d {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  pointer-events: none;
-}
-.party-float3d span {
-  display: inline-block; white-space: nowrap;
-  font-family: var(--f-serif, Georgia, serif); font-size: 13.5px; font-weight: 700;
-  animation: party-fx-rise 1.5s ease forwards;
-}
-.party-float3d.good span { color: #2440FF; }
-.party-float3d.bad span { color: #E8543F; }
-.party-float3d.info span { color: #BA78FF; }
-.party-view-toggle {
-  position: absolute; top: 8px; right: 8px; z-index: 7;
-  font-family: var(--f-sans); font-size: 10.5px; text-transform: lowercase;
-  color: #55524C; background: #FCFBF9;
-  border: 1px solid rgba(0, 0, 0, 0.22); border-radius: 999px;
-  padding: 3px 10px; cursor: pointer;
-}
-.party-view-toggle:hover { color: #1A1917; border-color: #1A1917; }
-.party-help-chip {
-  width: 20px; height: 20px; border-radius: 50%; padding: 0;
-  border: 1px solid rgba(127, 127, 127, 0.4); background: none;
-  color: var(--t2, #77746E); font-size: 11px; font-family: var(--f-serif, Georgia, serif);
-  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-}
-.party-help-chip:hover { color: #2440FF; border-color: #2440FF; }
-.party-rules-card {
-  position: absolute; inset: 0; z-index: 8;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(20, 19, 17, 0.35);
-  padding: 12px;
-}
-.party-rules-inner {
-  max-width: 340px; width: 100%;
-  color: #1A1917;
-  background: #FCFBF9; border: 1px solid rgba(0, 0, 0, 0.14);
-  border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-  padding: 16px 18px 14px;
-  display: flex; flex-direction: column; gap: 9px;
-  transition: none;
-  animation: prr-in 0.38s cubic-bezier(0.2, 1.1, 0.35, 1) both;
-}
-@keyframes prr-in {
-  0% { opacity: 0; transform: translateY(12px) scale(0.97); }
-  100% { opacity: 1; transform: none; }
-}
-.party-rules-title { font-family: var(--f-serif, Georgia, serif); font-size: 16px; color: #1A1917; }
-.party-rules-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.55; color: #1A1917; }
-.party-rules-row .prr-g { flex: 0 0 16px; text-align: center; color: #2440FF; }
-.party-rules-inner .party-roll-btn { margin-top: 5px; align-self: center; }
-.party-item-btn { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.25; }
-.party-item-btn small { font-size: 9px; color: var(--t3, #A5A29B); text-transform: lowercase; }
-
-
-
-.plugin.gwall-orb_party { background: #171320; }
-
-/* ═══ Yacht Dice · the expensive cut ════════════════════════════════════
-   A stage with a keep shelf: held dice SLIDE up to the shelf (FLIP), live
-   dice tumble with flickering faces and land one by one with a bounce.
-   Scores are written in a ledger sheet that rises from the floor. */
 .yacht-layout { position: relative; overflow: hidden; }
 .yacht-topline {
   width: 100%; max-width: 360px;

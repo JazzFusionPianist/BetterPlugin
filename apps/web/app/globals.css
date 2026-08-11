@@ -2642,3 +2642,166 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 /* Discography leaves the way it came */
 .disco.closing { animation: disco-out .24s cubic-bezier(.5, 0, .8, .4) forwards; }
 @keyframes disco-out { from { transform: none; } to { transform: translateX(100%); } }
+
+/* ═══ Open call — the public demo wall (app/web only) ═══════════════════
+   A gallery's open-call board: numbered index of fresh demos from
+   everyone, each unfolding into an etched waveform with timestamped
+   comments pinned along it. The plugin stays the studio; this is the
+   square outside. */
+.ocall {
+  position: fixed; inset: 0; z-index: 47;
+  background: var(--paper);
+  display: flex; flex-direction: column;
+}
+.ocall-head {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  border-bottom: 1px solid var(--hair);
+}
+.ocall-back { border: none; background: none; color: var(--ink); cursor: pointer; padding: 6px; display: flex; }
+.ocall-masthead { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ocall-masthead h1 { font-family: var(--f-serif); font-weight: 400; font-size: 22px; line-height: 1.15; color: var(--ink); text-transform: lowercase; }
+.ocall-sub { font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t2); }
+.ocall-post-btn {
+  flex-shrink: 0; border: 1px solid var(--blue); border-radius: 2px; background: none;
+  color: var(--blue); font-size: 12px; text-transform: lowercase;
+  padding: 6px 12px; cursor: pointer; transition: background .12s;
+}
+.ocall-post-btn:hover { background: rgba(36,64,255,0.06); }
+
+.ocall-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 48px; }
+.ocall-list {
+  list-style: none; counter-reset: ocrow;
+  width: 100%; max-width: 640px; margin: 0 auto; padding: 0 18px;
+}
+.ocall-row { border-bottom: 1px solid rgba(26,25,23,0.09); counter-increment: ocrow; }
+.ocall-row-head {
+  width: 100%; display: flex; align-items: baseline; gap: 12px;
+  padding: 14px 2px; background: none; border: none; cursor: pointer;
+  text-align: left; font-family: inherit;
+}
+.ocall-row-head::before {
+  content: counter(ocrow, decimal-leading-zero);
+  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
+  width: 20px; flex-shrink: 0;
+}
+.ocall-row-title {
+  font-family: var(--f-serif); font-size: 17px; color: var(--ink);
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ocall-row.playing .ocall-row-title { color: var(--blue); }
+.ocall-row-meta {
+  display: flex; align-items: baseline; gap: 10px; flex-shrink: 0;
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+.ocall-row-by { color: var(--t2); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ocall-fold { padding: 2px 2px 16px 32px; }
+.ocall-wave { width: 100%; height: 56px; display: block; cursor: pointer; touch-action: none; }
+.ocall-ctl { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.ocall-play {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--hair); background: none; color: var(--ink);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.ocall-play:active { transform: scale(0.95); }
+.ocall-time, .ocall-plays { font-family: var(--f-mono); font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums; }
+.ocall-plays { color: var(--t3); }
+.ocall-ctl-spring { flex: 1; }
+.ocall-follow { border: none; background: none; color: var(--blue); font-size: 12.5px; text-transform: lowercase; cursor: pointer; padding: 2px 0; }
+.ocall-delword { border: none; background: none; color: var(--t3); font-size: 12px; text-transform: lowercase; cursor: pointer; padding: 2px 0; flex-shrink: 0; }
+.ocall-delword.arming { color: var(--red); }
+
+.ocall-byline { margin-top: 10px; }
+.ocall-by { display: inline-flex; align-items: center; gap: 7px; }
+.ocall-by-av {
+  width: 18px; height: 18px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 9px; font-weight: 600; border: 1px solid var(--hair);
+}
+.ocall-by-av img { width: 100%; height: 100%; object-fit: cover; }
+.ocall-by-name { font-family: var(--f-serif); font-size: 14px; color: var(--ink); }
+.ocall-by-user { font-family: var(--f-mono); font-size: 10.5px; color: var(--t3); }
+.ocall-caption {
+  font-family: var(--f-serif); font-style: italic; font-size: 13.5px;
+  color: var(--t2); margin-top: 6px; line-height: 1.5;
+}
+
+.ocall-comments { margin-top: 12px; border-top: 1px solid rgba(26,25,23,0.09); padding-top: 4px; }
+.ocall-comment { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; font-size: 13px; }
+.ocall-cstamp {
+  border: none; background: none; color: var(--blue);
+  font-family: var(--f-mono); font-size: 10.5px; font-variant-numeric: tabular-nums;
+  cursor: pointer; padding: 0; flex-shrink: 0;
+}
+.ocall-cname { font-family: var(--f-serif); color: var(--ink); flex-shrink: 0; }
+.ocall-cbody { color: var(--t2); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ocall-cwhen { font-family: var(--f-mono); font-size: 9.5px; color: var(--t3); flex-shrink: 0; }
+.ocall-cbar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.ocall-cbar input {
+  flex: 1; min-width: 0; border: none; border-bottom: 1px solid var(--line);
+  background: none; outline: none; font-family: inherit; font-size: 13px;
+  color: var(--ink); padding: 6px 1px;
+}
+.ocall-cbar input:focus { border-bottom-color: var(--hair); }
+.ocall-cstamp-toggle {
+  flex-shrink: 0; border: 1px solid var(--line); border-radius: 2px; background: none;
+  color: var(--t3); font-family: var(--f-mono); font-size: 10.5px;
+  font-variant-numeric: tabular-nums; padding: 3px 7px; cursor: pointer;
+}
+.ocall-cstamp-toggle.on { color: var(--blue); border-color: var(--blue); }
+.ocall-csend { flex-shrink: 0; border: none; background: none; color: var(--blue); font-size: 13px; cursor: pointer; }
+.ocall-empty {
+  font-family: var(--f-serif); font-style: italic; font-size: 15px;
+  color: var(--t3); text-align: center; padding: 48px 24px; line-height: 1.6;
+}
+
+/* Composer — centred card, like the settings sheet */
+.ocall-compose-overlay {
+  position: fixed; inset: 0; z-index: 52;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(26,25,23,0.35);
+}
+.ocall-compose {
+  width: 100%; max-width: 400px;
+  background: var(--card); border: 1px solid var(--hair); border-radius: 10px;
+  padding: 18px 22px 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.ocall-compose-h { font-family: var(--f-serif); font-weight: 400; font-size: 24px; color: var(--ink); }
+.ocall-pick {
+  border: 1px dashed var(--hair); border-radius: 4px; background: none;
+  padding: 18px; font-family: var(--f-serif); font-style: italic;
+  font-size: 15px; color: var(--t2); cursor: pointer;
+}
+.ocall-picked {
+  border: 1px solid var(--line); border-radius: 4px; background: none;
+  padding: 10px 12px; display: flex; align-items: baseline; gap: 10px;
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.ocall-picked-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--ink); }
+.ocall-picked-dur { font-family: var(--f-mono); font-size: 11px; color: var(--t3); flex-shrink: 0; }
+.ocall-compose-wavebox .ocall-wave { height: 44px; cursor: default; }
+.ocall-compose-title {
+  border: none; border-bottom: 1px solid var(--hair); background: none; outline: none;
+  font-family: var(--f-serif); font-size: 20px; color: var(--ink); padding: 4px 0 8px;
+}
+.ocall-compose-caption {
+  border: none; border-bottom: 1px solid var(--line); background: none; outline: none;
+  font-family: inherit; font-size: 13.5px; color: var(--ink); padding: 4px 0 8px;
+}
+.ocall-compose-err { color: var(--red); font-size: 12.5px; }
+.ocall-compose-prog { height: 2px; background: rgba(26,25,23,0.08); border-radius: 1px; overflow: hidden; }
+.ocall-compose-prog > div { height: 100%; background: var(--blue); transition: width .15s; }
+.ocall-compose-foot { display: flex; align-items: center; justify-content: flex-end; gap: 18px; margin-top: 2px; }
+.ocall-compose-cancel { border: none; background: none; color: var(--t3); font-size: 13px; cursor: pointer; }
+.ocall-compose-post {
+  border: none; border-radius: 4px; background: var(--blue); color: #fff;
+  font-size: 14px; padding: 9px 22px; cursor: pointer;
+}
+.ocall-compose-post:disabled { opacity: .4; cursor: default; }
+
+/* Home entry — the quiet italic links row under the bio */
+.orbhome-links { display: flex; align-items: baseline; gap: 14px; }
+.orbhome-links .orbhome-disco { margin-top: 0; }

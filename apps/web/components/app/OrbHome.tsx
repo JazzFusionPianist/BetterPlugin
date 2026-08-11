@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import type { Profile } from '@orb/core'
+import { supabase } from '@/lib/supabase'
+
+// The open call (public demo stream) loads only when someone opens it.
+const OpenCallPanel = dynamic(() => import('./OpenCallPanel'), { ssr: false })
 
 export interface GroupOrbMember {
   color: string
@@ -40,6 +45,9 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings, onO
 }) {
   const initials = me?.initials ?? '··'
   const color = me?.avatar_color ?? '#4A8FE7'
+  // Self-hosted here (not in AppShell) — the centre block already owns
+  // `me`, and the panel is a portal, so no shell wiring is needed.
+  const [openCall, setOpenCall] = useState(false)
   return (
     <div className="orbhome-center">
       {/* Edition stamp — the membership number sits above the print */}
@@ -57,9 +65,17 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings, onO
         {friendCount} friends{groupCount > 0 ? ` · ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}
       </div>
       {me?.bio && <div className="orbhome-bio">{me.bio}</div>}
-      {onOpenDiscography && (
-        <button className="orbhome-disco" onClick={onOpenDiscography}>discography</button>
+      {(onOpenDiscography || me) && (
+        <div className="orbhome-links">
+          {onOpenDiscography && (
+            <button className="orbhome-disco" onClick={onOpenDiscography}>discography</button>
+          )}
+          {me && (
+            <button className="orbhome-disco" onClick={() => setOpenCall(true)}>open call</button>
+          )}
+        </div>
       )}
+      {openCall && me && <OpenCallPanel supabase={supabase} me={me} onClose={() => setOpenCall(false)} />}
     </div>
   )
 }

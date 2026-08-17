@@ -4137,12 +4137,21 @@
 .display-size-card:active,
 .display-font-card:active { transform: none; }
 .display-size-label { font-weight: 500; color: var(--t1); }
-.font-seg {
-  flex-wrap: wrap;
+.display-font-select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg2);
+  color: var(--t1);
+  font-size: 13px;
+  outline: none;
+  padding: 0 12px;
+  cursor: pointer;
 }
-.font-seg .seg-opt {
-  min-width: calc(50% - 3px);
-  flex: 1 1 calc(50% - 3px);
+.display-font-select:focus {
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+  background: var(--bg);
 }
 
 /* --- Find people panel --- */

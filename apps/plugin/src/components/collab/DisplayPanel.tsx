@@ -55,17 +55,20 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
 
         <div className="settings-card display-font-card">
           <span className="display-size-label">{t('display.font')}</span>
-          <div className="seg font-seg">
+          <select
+            className="display-font-select"
+            value={uiFont}
+            onChange={(event) => onFontChange(event.target.value as UiFont)}
+          >
             {FONT_OPTIONS.map((font) => (
-              <button
+              <option
                 key={font}
-                className={`seg-opt${uiFont === font ? ' active' : ''}`}
-                onClick={() => onFontChange(font)}
+                value={font}
               >
                 {t(`display.font.${font}`)}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       </div>
     </div>

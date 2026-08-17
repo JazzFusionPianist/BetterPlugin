@@ -129,6 +129,12 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleGetClipboardText (args, std::move (completion));
                 })
+            .withNativeFunction ("listLocalFonts",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleListLocalFonts (args, std::move (completion));
+                })
             .withNativeFunction ("setFx",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -803,6 +809,24 @@ void OrbAudioProcessor::handleGetClipboardText (const juce::var&,
     // Result is a plain string — no JSON wrapping. The JS bridge resolves
     // with the raw string so the caller can use it as-is.
     completion (text);
+}
+
+// JS-callable: return local typeface family names visible to JUCE. This
+// backs the Display font picker in the standalone/plugin WebView, where
+// Chromium's browser-only Local Font Access API is not available.
+void OrbAudioProcessor::handleListLocalFonts (const juce::var&,
+                                               juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    auto names = juce::Font::findAllTypefaceNames();
+    names.removeEmptyStrings();
+    names.removeDuplicates (false);
+    names.sort (true);
+
+    juce::Array<juce::var> result;
+    for (const auto& name : names)
+        result.add (name);
+
+    completion (juce::JSON::toString (juce::var (result), false));
 }
 
 

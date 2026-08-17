@@ -4215,9 +4215,15 @@
   background: var(--bg2);
   color: var(--t1);
   font-size: 13px;
+  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 450;
   outline: none;
   padding: 0 12px;
   cursor: pointer;
+}
+.display-font-select option,
+.display-font-select optgroup {
+  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 .display-font-select:focus {
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border));

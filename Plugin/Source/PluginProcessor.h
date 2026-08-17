@@ -223,6 +223,7 @@ private:
     void handleSetPluginSize     (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleOpenExternal      (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetClipboardText  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleListLocalFonts    (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetDawTimeline    (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetHostControlStatus (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetHostTracks        (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);

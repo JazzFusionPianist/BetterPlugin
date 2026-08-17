@@ -3,6 +3,7 @@ import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
 import { WEB_UI_FONT_OPTIONS, getLocalFontFamily, type UiFont } from '../../lib/uiFonts'
+import { callJuceNative, hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
 
@@ -26,19 +27,27 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
   const [localFonts, setLocalFonts] = useState<string[]>([])
 
   useEffect(() => {
-    const queryLocalFonts = (window as LocalFontWindow).queryLocalFonts
-    if (!queryLocalFonts) return
     let cancelled = false
-    queryLocalFonts()
-      .then((fonts) => {
-        if (cancelled) return
-        const families = [...new Set(fonts.map((font) => font.family).filter(Boolean))]
-          .sort((a, b) => a.localeCompare(b))
-        setLocalFonts(families)
-      })
-      .catch(() => {
-        if (!cancelled) setLocalFonts([])
-      })
+    const applyFamilies = (families: string[]) => {
+      if (cancelled) return
+      setLocalFonts([...new Set(families.filter(Boolean))].sort((a, b) => a.localeCompare(b)))
+    }
+
+    if (hasJuceBridge && hasJuceNativeFunction('listLocalFonts')) {
+      callJuceNative('listLocalFonts', [], 5000)
+        .then((json) => {
+          const parsed = JSON.parse(json) as unknown
+          applyFamilies(Array.isArray(parsed) ? parsed.filter((font): font is string => typeof font === 'string') : [])
+        })
+        .catch(() => applyFamilies([]))
+    } else {
+      const queryLocalFonts = (window as LocalFontWindow).queryLocalFonts
+      if (!queryLocalFonts) return
+      queryLocalFonts()
+        .then((fonts) => applyFamilies(fonts.map((font) => font.family)))
+        .catch(() => applyFamilies([]))
+    }
+
     return () => { cancelled = true }
   }, [])
 

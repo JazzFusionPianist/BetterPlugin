@@ -110,7 +110,13 @@ if [ "$INSTALL" = true ]; then
   AU_DEST=~/Library/Audio/Plug-Ins/Components
   VST3_DEST=~/Library/Audio/Plug-Ins/VST3
   AAX_DEST="/Library/Application Support/Avid/Audio/Plug-Ins"
-  AAX_PATH=$(find "$BUILD_DIR" -name "Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
+  # Do not install a stale AAX bundle left by an earlier build when this run
+  # explicitly skipped AAX (otherwise a normal AU/VST3 refresh unexpectedly
+  # prompts for an administrator password and aborts before cache refresh).
+  AAX_PATH=""
+  if [ -n "$AAX_SDK_PATH" ]; then
+    AAX_PATH=$(find "$BUILD_DIR" -name "Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
+  fi
 
   mkdir -p "$AU_DEST" "$VST3_DEST"
 
@@ -124,6 +130,19 @@ if [ "$INSTALL" = true ]; then
     rm -rf "$VST3_DEST/Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
     echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
+  fi
+
+  # Cubase/Nuendo discover user MIDI Remote scripts from this documented
+  # folder. Install the Orb adapter beside the plugin so the master instance
+  # can read project tracks through Steinberg's own in-DAW API.
+  CUBASE_REMOTE_SOURCE="$SCRIPT_DIR/RemoteScripts/Cubase/orb_orb_control.js"
+  if [ -f "$CUBASE_REMOTE_SOURCE" ]; then
+    for STEINBERG_PRODUCT in "Cubase 15" "Cubase 14" "Cubase 13" "Nuendo 14" "Nuendo 13"; do
+      CUBASE_REMOTE_DEST="$HOME/Documents/Steinberg/$STEINBERG_PRODUCT/MIDI Remote/Driver Scripts/Local/Orb/Orb Control"
+      mkdir -p "$CUBASE_REMOTE_DEST"
+      cp "$CUBASE_REMOTE_SOURCE" "$CUBASE_REMOTE_DEST/orb_orb_control.js"
+    done
+    echo "✓ Cubase/Nuendo Orb Control adapter installed"
   fi
 
   if [ -n "$AAX_PATH" ]; then

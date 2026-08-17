@@ -111,6 +111,11 @@ export const T = {
   'display.screenSize':     { en: 'Screen size', ko: '화면 크기', ja: '画面サイズ', zh: '屏幕大小', es: 'Tamaño de pantalla', de: 'Bildschirmgröße', fr: 'Taille d\'écran', hi: 'स्क्रीन आकार' },
   'display.size.small':     { en: 'Small', ko: '작게', ja: '小', zh: '小', es: 'Pequeño', de: 'Klein', fr: 'Petit', hi: 'छोटा' },
   'display.size.large':     { en: 'Large', ko: '크게', ja: '大', zh: '大', es: 'Grande', de: 'Groß', fr: 'Grand', hi: 'बड़ा' },
+  'display.font':           { en: 'Font', ko: '글꼴', ja: 'フォント', zh: '字体', es: 'Fuente', de: 'Schrift', fr: 'Police', hi: 'फ़ॉन्ट' },
+  'display.font.editorial': { en: 'Serif', ko: '세리프', ja: 'セリフ', zh: '衬线', es: 'Serif', de: 'Serif', fr: 'Serif', hi: 'सेरिफ़' },
+  'display.font.system':    { en: 'System', ko: '시스템', ja: 'システム', zh: '系统', es: 'Sistema', de: 'System', fr: 'Système', hi: 'सिस्टम' },
+  'display.font.rounded':   { en: 'Rounded', ko: '둥근', ja: '丸ゴシック', zh: '圆体', es: 'Redonda', de: 'Rund', fr: 'Arrondie', hi: 'गोल' },
+  'display.font.mono':      { en: 'Mono', ko: '모노', ja: '等幅', zh: '等宽', es: 'Mono', de: 'Mono', fr: 'Mono', hi: 'मोनो' },
 
   // ───── Find people / AddFriend ──────────────────────────────────────────
   'addFriend.search':        { en: 'search by name…', ko: '이름으로 검색…', ja: '名前で検索…', zh: '按姓名搜索…', es: 'buscar por nombre…', de: 'nach Name suchen…', fr: 'rechercher par nom…', hi: 'नाम से खोजें…' },

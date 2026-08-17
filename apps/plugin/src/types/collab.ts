@@ -20,6 +20,36 @@ export type AttachType =
    *  ('chess' | 'falling_blocks' | 'poker' | 'ear_training'). */
   | 'game_invite'
 
+export interface TempoMapPoint {
+  ppq: number
+  bpm: number
+}
+
+export interface TimeSignatureMapPoint {
+  ppq: number
+  numerator: number
+  denominator: number
+}
+
+export interface AttachmentTimelineMetadata {
+  schema_version: 1
+  position: {
+    /** Absolute source timestamp in samples when the audio carries one. */
+    source_samples?: number
+    sample_rate?: number
+    bit_depth?: number
+    seconds?: number
+    ppq?: number
+    bar?: number
+    beat?: number
+    source: 'bwf' | 'ixml' | 'daw_playhead'
+    confidence: 'exact' | 'estimated'
+  }
+  tempo_map?: TempoMapPoint[]
+  time_signature_map?: TimeSignatureMapPoint[]
+  captured_at: string
+}
+
 export interface Message {
   id: string
   /** Owning conversation. Drives realtime filtering, RLS, and unread
@@ -32,6 +62,7 @@ export interface Message {
   attachment_url?: string | null
   attachment_type?: AttachType | null
   attachment_name?: string | null
+  attachment_metadata?: AttachmentTimelineMetadata | null
   attachment_expires_at?: string | null   // ISO timestamp, 7 days after upload
   attachment_expired?: boolean            // true once storage object is deleted
 }

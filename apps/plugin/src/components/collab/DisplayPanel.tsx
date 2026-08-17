@@ -3,16 +3,20 @@ import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
+export type UiFont = 'editorial' | 'system' | 'rounded' | 'mono'
+const FONT_OPTIONS: UiFont[] = ['editorial', 'system', 'rounded', 'mono']
 
 interface Props {
   isDark: boolean
   screenSize: ScreenSize
+  uiFont: UiFont
   onToggleDark: () => void
   onScreenSizeChange: (size: ScreenSize) => void
+  onFontChange: (font: UiFont) => void
   onClose: () => void
 }
 
-export default function DisplayPanel({ isDark, screenSize, onToggleDark, onScreenSizeChange, onClose }: Props) {
+export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark, onScreenSizeChange, onFontChange, onClose }: Props) {
   const { t } = useT()
 
   return (
@@ -44,6 +48,21 @@ export default function DisplayPanel({ isDark, screenSize, onToggleDark, onScree
                 onClick={() => onScreenSizeChange(size)}
               >
                 {t(`display.size.${size}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-card display-font-card">
+          <span className="display-size-label">{t('display.font')}</span>
+          <div className="seg font-seg">
+            {FONT_OPTIONS.map((font) => (
+              <button
+                key={font}
+                className={`seg-opt${uiFont === font ? ' active' : ''}`}
+                onClick={() => onFontChange(font)}
+              >
+                {t(`display.font.${font}`)}
               </button>
             ))}
           </div>

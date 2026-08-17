@@ -16,7 +16,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Message, AttachType, ChatTarget } from '../types/collab'
+import type { Message, AttachType, ChatTarget, AttachmentTimelineMetadata } from '../types/collab'
 import { getOrCreateDmConversation } from '../lib/conversations'
 
 export function useMessages(
@@ -130,7 +130,7 @@ export function useMessages(
 
   const send = useCallback(async (
     content: string,
-    attachment?: { url: string; type: AttachType; name: string },
+    attachment?: { url: string; type: AttachType; name: string; metadata?: AttachmentTimelineMetadata },
   ): Promise<boolean> => {
     const cid = convIdRef.current
     if (!cid || (!content.trim() && !attachment)) return false
@@ -148,6 +148,7 @@ export function useMessages(
       attachment_url: attachment?.url ?? null,
       attachment_type: attachment?.type ?? null,
       attachment_name: attachment?.name ?? null,
+      attachment_metadata: attachment?.metadata ?? null,
       attachment_expires_at: expiresAt,
       attachment_expired: false,
     }
@@ -161,6 +162,7 @@ export function useMessages(
       attachment_url: attachment?.url ?? null,
       attachment_type: attachment?.type ?? null,
       attachment_name: attachment?.name ?? null,
+      attachment_metadata: attachment?.metadata ?? null,
       attachment_expires_at: expiresAt,
     })
 

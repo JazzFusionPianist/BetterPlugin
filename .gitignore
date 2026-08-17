@@ -34,3 +34,4 @@ apps/web/ios/App/App/public
 apps/web/ios/App/build
 apps/web/ios/**/xcuserdata
 DerivedData
+.env*

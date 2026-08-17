@@ -16,7 +16,8 @@ import NewGroupPanel from '../components/collab/NewGroupPanel'
 import ChatSettingsPanel from '../components/collab/ChatSettingsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
-import DisplayPanel from '../components/collab/DisplayPanel'
+import DisplayPanel, { type UiFont } from '../components/collab/DisplayPanel'
+import StemPanel from '../components/collab/StemPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
 import AddFriendPanel from '../components/collab/AddFriendPanel'
@@ -35,6 +36,7 @@ import YachtView from '../components/collab/YachtView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
 import type { Profile, Message, ChatTarget } from '../types/collab'
+import type { StemDropRequest } from '../types/stems'
 import type { VideoSource } from '../types/live'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
@@ -83,6 +85,8 @@ function CollabPageInner({ user }: Props) {
   const [selectedGroupConvId, setSelectedGroupConvId]     = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
+  const [stemsOpen, setStemsOpen]               = useState(false)
+  const [pendingStemDrop, setPendingStemDrop]   = useState<StemDropRequest | null>(null)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
   const [addFriendOpen, setAddFriendOpen]       = useState(false)
@@ -123,6 +127,10 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
+  const [uiFont, setUiFont] = useState<UiFont>(() => {
+    const saved = localStorage.getItem('collab_ui_font')
+    return saved === 'system' || saved === 'rounded' || saved === 'mono' ? saved : 'editorial'
+  })
   // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.
   const screenPreview = (() => {
@@ -342,6 +350,13 @@ function CollabPageInner({ user }: Props) {
     return Array.from(byId.values())
   }, [followerProfiles, friendUnread, profilesWithStatus])
   const selectedProfile = profilesWithStatus.find(p => p.id === selectedId) ?? null
+  const stemParticipants = useMemo(() => {
+    const members: Profile[] = []
+    if (me) members.push({ ...me, isOnline: true })
+    if (selectedGroup) members.push(...selectedGroup.members.filter(member => member.id !== user.id))
+    else if (selectedProfile) members.push(selectedProfile)
+    return Array.from(new Map(members.map(member => [member.id, member])).values())
+  }, [me, selectedGroup, selectedProfile, user.id])
 
   // Friend orbit viewing
   const [friendFollowerIds, setFriendFollowerIds] = useState<Set<string>>(new Set())
@@ -453,6 +468,10 @@ function CollabPageInner({ user }: Props) {
     localStorage.setItem('collab_screen_size', size)
     applyScreenSize(size)
   }
+  const handleFontChange = (font: UiFont) => {
+    setUiFont(font)
+    localStorage.setItem('collab_ui_font', font)
+  }
   // The window is freely resizable now (corner drag) and JUCE itself
   // persists/restores the editor size — so we no longer snap back to a
   // preset on load. Instead, the LAYOUT follows the live viewport:
@@ -465,6 +484,23 @@ function CollabPageInner({ user }: Props) {
     window.addEventListener('resize', apply)
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const openStems = useCallback(() => {
+    setStemsOpen(true)
+    setScreenSize('large')
+    localStorage.setItem('collab_screen_size', 'large')
+    void applyScreenSize('large')
+  }, [])
+  const handleStemDrop = useCallback((request: StemDropRequest) => {
+    setPendingStemDrop(request)
+    setStemsOpen(true)
+    setScreenSize('large')
+    localStorage.setItem('collab_screen_size', 'large')
+    void applyScreenSize('large')
+  }, [])
+  const closeStems = useCallback(() => {
+    setStemsOpen(false)
+    setPendingStemDrop(null)
   }, [])
 
   // Search/AddFriend toggles kept for re-introduction; redesign removed
@@ -593,6 +629,7 @@ function CollabPageInner({ user }: Props) {
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
+    closeStems()
     setWatchingSession(null)
     closeSearch()
   }
@@ -600,6 +637,7 @@ function CollabPageInner({ user }: Props) {
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     isDark            ? 'dark'               : '',
+    `font-${uiFont}`,
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
     // so the browser preview keeps its fixed 300×500 frame — unless the
     // ?screen= dev override is set, which forces it on in the browser too.
@@ -621,6 +659,7 @@ function CollabPageInner({ user }: Props) {
     // `dark` token set rides along so every surface (chat included)
     // inverts with the wall.
     gameOpen && gameScreen !== 'list' ? `gwall-${gameScreen} dark` : '',
+    stemsOpen         ? 'stems-open'         : '',
   ].filter(Boolean).join(' ')
 
   return (
@@ -749,11 +788,14 @@ function CollabPageInner({ user }: Props) {
             }}
             reads={conversationReads}
             onOpenSettings={() => setChatSettingsOpen(true)}
+            onOpenStems={openStems}
+            stemsActive={stemsOpen}
+            onStemDrop={handleStemDrop}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
             conversationId={activeConvId}
             groupTitleById={groupTitleById}
-            onBack={() => { setChatSettingsOpen(false); setSelectedId(null) }}
+            onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedId(null) }}
           />}
           {selectedGroup && (
             <ChatView
@@ -769,11 +811,14 @@ function CollabPageInner({ user }: Props) {
               loading={messagesLoading}
               reads={conversationReads}
               onOpenSettings={() => setChatSettingsOpen(true)}
+              onOpenStems={openStems}
+              stemsActive={stemsOpen}
+              onStemDrop={handleStemDrop}
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}
               conversationId={selectedGroupConvId}
               groupTitleById={groupTitleById}
-              onBack={() => { setChatSettingsOpen(false); setSelectedGroupConvId(null) }}
+              onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedGroupConvId(null) }}
             />
           )}
           {/* ChatSettingsPanel covers both DM and group. We mount when
@@ -832,7 +877,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} screenSize={screenSize} uiFont={uiFont} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onFontChange={handleFontChange} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />
@@ -1048,6 +1093,20 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
       </div>
+
+      {stemsOpen && activeConvId && (
+        <div className="stem-dock">
+          <StemPanel
+            supabase={client}
+            conversationId={activeConvId}
+            currentUserId={user.id}
+            participants={stemParticipants}
+            pendingDrop={pendingStemDrop}
+            onDropConsumed={(id) => setPendingStemDrop(current => current?.id === id ? null : current)}
+            onClose={closeStems}
+          />
+        </div>
+      )}
 
       {galleryPopup && (
         <div

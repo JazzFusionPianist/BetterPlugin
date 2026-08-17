@@ -2,6 +2,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "VideoCapture.h"
+#include "OrbControlBridge.h"
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -98,9 +99,16 @@ private:
     // bar-range capture feature cross-DAW (loop/cycle points are NOT, so we
     // deliberately don't use those).
     std::atomic<double> playheadPpq      { 0.0 };
+    std::atomic<double> playheadBarPpq   { 0.0 };
     std::atomic<double> playheadBpm      { 120.0 };
     std::atomic<int>    playheadTsNum    { 4 };
     std::atomic<int>    playheadTsDen    { 4 };
+    std::atomic<juce::int64> playheadSamples { 0 };
+    std::atomic<juce::int64> playheadBarCount { 0 };
+    std::atomic<bool>   playheadPpqValid { false };
+    std::atomic<bool>   playheadBarPpqValid { false };
+    std::atomic<bool>   playheadSamplesValid { false };
+    std::atomic<bool>   playheadBarCountValid { false };
     std::atomic<bool>   transportPlaying { false };
 
     //── One-knob FX rack ─────────────────────────────────────────────────────
@@ -215,12 +223,18 @@ private:
     void handleSetPluginSize     (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleOpenExternal      (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
     void handleGetClipboardText  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleGetDawTimeline    (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleGetHostControlStatus (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleGetHostTracks        (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleSetHostTrackSelected (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    void handleStartHostStemExport  (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
 
     //── Active editor resize callback (registered by editor on construct) ────
     ResizeFn editorResizeFn;
 
     //── Native window / screen capture ───────────────────────────────────────
     std::unique_ptr<VideoCapture> videoCapture;
+    std::unique_ptr<OrbControlBridge> controlBridge;
 
     //── Prefetch / drag state (used by handlers above) ───────────────────────
     juce::File   cachedFile;

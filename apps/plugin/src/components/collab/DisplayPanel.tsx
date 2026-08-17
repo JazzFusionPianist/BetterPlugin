@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
-import { WEB_UI_FONT_OPTIONS, getLocalFontFamily, type UiFont } from '../../lib/uiFonts'
+import { WEB_UI_FONT_OPTIONS, getLocalFontFamily, isWebUiFont, type UiFont } from '../../lib/uiFonts'
 import { callJuceNative, hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
@@ -25,6 +25,8 @@ interface Props {
 export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark, onScreenSizeChange, onFontChange, onClose }: Props) {
   const { t } = useT()
   const [localFonts, setLocalFonts] = useState<string[]>([])
+  const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  const fontPickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -56,6 +58,21 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
     if (!selectedLocalFont || localFonts.includes(selectedLocalFont)) return localFonts
     return [selectedLocalFont, ...localFonts]
   }, [localFonts, selectedLocalFont])
+  const selectedFontLabel = selectedLocalFont ?? (isWebUiFont(uiFont) ? t(`display.font.${uiFont}`) : uiFont)
+
+  useEffect(() => {
+    if (!fontMenuOpen) return
+    const close = (event: MouseEvent) => {
+      if (!fontPickerRef.current?.contains(event.target as Node)) setFontMenuOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [fontMenuOpen])
+
+  const selectFont = (font: UiFont) => {
+    onFontChange(font)
+    setFontMenuOpen(false)
+  }
 
   return (
     <div className="settings-panel">
@@ -93,34 +110,55 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
 
         <div className="settings-card display-font-card">
           <span className="display-size-label">{t('display.font')}</span>
-          <select
-            className="display-font-select"
-            value={uiFont}
-            onChange={(event) => onFontChange(event.target.value as UiFont)}
-          >
-            <optgroup label={t('display.font.group.default')}>
-              {WEB_UI_FONT_OPTIONS.map((font) => (
-                <option
-                  key={font}
-                  value={font}
-                >
-                  {t(`display.font.${font}`)}
-                </option>
-              ))}
-            </optgroup>
-            {localFontOptions.length > 0 && (
-              <optgroup label={t('display.font.group.local')}>
-                {localFontOptions.map((font) => (
-                  <option
+          <div className="display-font-picker" ref={fontPickerRef}>
+            <button
+              className="display-font-select"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={fontMenuOpen}
+              onClick={() => setFontMenuOpen(open => !open)}
+            >
+              <span>{selectedFontLabel}</span>
+              <span className="display-font-chevron">⌄</span>
+            </button>
+            {fontMenuOpen && (
+              <div className="display-font-menu" role="listbox" aria-label={t('display.font')}>
+                <div className="display-font-group">{t('display.font.group.default')}</div>
+                {WEB_UI_FONT_OPTIONS.map((font) => (
+                  <button
                     key={font}
-                    value={`local:${font}`}
+                    className={`display-font-option${uiFont === font ? ' active' : ''}`}
+                    type="button"
+                    role="option"
+                    aria-selected={uiFont === font}
+                    onClick={() => selectFont(font)}
                   >
-                    {font}
-                  </option>
+                    {t(`display.font.${font}`)}
+                  </button>
                 ))}
-              </optgroup>
+                {localFontOptions.length > 0 && (
+                  <>
+                    <div className="display-font-group">{t('display.font.group.local')}</div>
+                    {localFontOptions.map((font) => {
+                      const value = `local:${font}` as UiFont
+                      return (
+                        <button
+                          key={font}
+                          className={`display-font-option${uiFont === value ? ' active' : ''}`}
+                          type="button"
+                          role="option"
+                          aria-selected={uiFont === value}
+                          onClick={() => selectFont(value)}
+                        >
+                          {font}
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
             )}
-          </select>
+          </div>
         </div>
       </div>
     </div>

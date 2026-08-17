@@ -4177,6 +4177,11 @@
 .display-size-card:active,
 .display-font-card:active { transform: none; }
 .display-size-label { font-weight: 500; color: var(--t1); }
+.display-font-picker {
+  position: relative;
+  width: 100%;
+  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+}
 .display-font-select {
   width: 100%;
   height: 38px;
@@ -4190,14 +4195,74 @@
   outline: none;
   padding: 0 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
 }
-.display-font-select option,
-.display-font-select optgroup {
-  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+.display-font-select span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.display-font-chevron {
+  flex: 0 0 auto;
+  color: var(--t3);
+  font-size: 13px;
 }
 .display-font-select:focus {
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
   background: var(--bg);
+}
+.display-font-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: min(300px, calc(100vh - 210px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 450;
+}
+.plugin.dark .display-font-menu {
+  background: color-mix(in srgb, var(--bg2) 96%, transparent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+}
+.display-font-group {
+  padding: 6px 8px 4px;
+  color: var(--t3);
+  font-size: 10px;
+  font-weight: 600;
+}
+.display-font-option {
+  width: 100%;
+  min-height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--t1);
+  padding: 0 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.display-font-option:hover {
+  background: var(--bg2);
+}
+.display-font-option.active {
+  background: var(--blue);
+  color: #fff;
 }
 
 /* --- Find people panel --- */

@@ -3,8 +3,27 @@ import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
-export type UiFont = 'editorial' | 'system' | 'rounded' | 'mono'
-const FONT_OPTIONS: UiFont[] = ['editorial', 'system', 'rounded', 'mono']
+const FONT_OPTIONS = [
+  'editorial',
+  'instrument',
+  'system',
+  'rounded',
+  'compact',
+  'mono',
+  'serif',
+  'didot',
+  'georgia',
+  'avenir',
+  'helvetica',
+  'futura',
+  'gill',
+  'palatino',
+  'courier',
+  'menlo',
+  'korean-sans',
+  'korean-serif',
+] as const
+export type UiFont = typeof FONT_OPTIONS[number]
 
 interface Props {
   isDark: boolean

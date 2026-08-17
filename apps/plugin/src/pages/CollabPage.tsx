@@ -129,7 +129,12 @@ function CollabPageInner({ user }: Props) {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [uiFont, setUiFont] = useState<UiFont>(() => {
     const saved = localStorage.getItem('collab_ui_font')
-    return saved === 'system' || saved === 'rounded' || saved === 'mono' ? saved : 'editorial'
+    const fonts: UiFont[] = [
+      'editorial', 'instrument', 'system', 'rounded', 'compact', 'mono',
+      'serif', 'didot', 'georgia', 'avenir', 'helvetica', 'futura',
+      'gill', 'palatino', 'courier', 'menlo', 'korean-sans', 'korean-serif',
+    ]
+    return fonts.includes(saved as UiFont) ? saved as UiFont : 'editorial'
   })
   // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.

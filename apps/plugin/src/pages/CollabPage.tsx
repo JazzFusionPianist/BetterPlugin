@@ -554,7 +554,13 @@ function CollabPageInner({ user }: Props) {
       setChatSettingsOpen(false)
       closeStems({ restoreSize: false })
     }
-    else { setNewGroupOpen(false) }   // closing the tab resets the new-group flow
+    else {
+      setNewGroupOpen(false)          // closing the tab resets the new-group flow
+      setChatSettingsOpen(false)
+      closeStems()
+      setSelectedId(null)
+      setSelectedGroupConvId(null)
+    }
     return !prev
   })
   const handleToggleFx        = () => setFxOpen(prev => {

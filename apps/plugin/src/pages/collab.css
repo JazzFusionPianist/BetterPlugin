@@ -59,89 +59,44 @@
   --orbit-danger-hover-bg: rgba(220, 38, 38, 0.06);
 }
 
-.plugin.font-system {
-  --f-serif: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', sans-serif;
-}
-
 .plugin.font-instrument {
   --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
   --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
 }
 
-.plugin.font-rounded {
-  --f-serif: 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Apple SD Gothic Neo', sans-serif;
+.plugin.font-inter {
+  --f-serif: 'Inter', 'Noto Sans KR', sans-serif;
+  --f-sans: 'Inter', 'Noto Sans KR', sans-serif;
 }
 
-.plugin.font-compact {
-  --f-serif: 'Avenir Next Condensed', 'Arial Narrow', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Avenir Next Condensed', 'Arial Narrow', 'Apple SD Gothic Neo', sans-serif;
+.plugin.font-roboto {
+  --f-serif: 'Roboto', 'Noto Sans KR', sans-serif;
+  --f-sans: 'Roboto', 'Noto Sans KR', sans-serif;
 }
 
-.plugin.font-mono {
-  --f-serif: 'SF Mono', 'Menlo', 'Monaco', 'Apple SD Gothic Neo', monospace;
-  --f-sans: 'SF Mono', 'Menlo', 'Monaco', 'Apple SD Gothic Neo', monospace;
+.plugin.font-ibm-plex-sans {
+  --f-serif: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
+  --f-sans: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
 }
 
-.plugin.font-serif {
-  --f-serif: 'Times New Roman', 'AppleMyungjo', serif;
-  --f-sans: 'Times New Roman', 'AppleMyungjo', serif;
+.plugin.font-ibm-plex-mono {
+  --f-serif: 'IBM Plex Mono', 'Noto Sans KR', monospace;
+  --f-sans: 'IBM Plex Mono', 'Noto Sans KR', monospace;
 }
 
-.plugin.font-didot {
-  --f-serif: 'Didot', 'Bodoni 72', 'AppleMyungjo', serif;
-  --f-sans: 'Didot', 'Bodoni 72', 'Apple SD Gothic Neo', serif;
+.plugin.font-merriweather {
+  --f-serif: 'Merriweather', 'Noto Serif KR', serif;
+  --f-sans: 'Merriweather', 'Noto Serif KR', serif;
 }
 
-.plugin.font-georgia {
-  --f-serif: 'Georgia', 'AppleMyungjo', serif;
-  --f-sans: 'Georgia', 'AppleMyungjo', serif;
+.plugin.font-noto-sans-kr {
+  --f-serif: 'Noto Sans KR', sans-serif;
+  --f-sans: 'Noto Sans KR', sans-serif;
 }
 
-.plugin.font-avenir {
-  --f-serif: 'Avenir Next', 'Avenir', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Avenir Next', 'Avenir', 'Apple SD Gothic Neo', sans-serif;
-}
-
-.plugin.font-helvetica {
-  --f-serif: 'Helvetica Neue', 'Helvetica', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Helvetica Neue', 'Helvetica', 'Apple SD Gothic Neo', sans-serif;
-}
-
-.plugin.font-futura {
-  --f-serif: 'Futura', 'Trebuchet MS', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Futura', 'Trebuchet MS', 'Apple SD Gothic Neo', sans-serif;
-}
-
-.plugin.font-gill {
-  --f-serif: 'Gill Sans', 'Avenir Next', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Gill Sans', 'Avenir Next', 'Apple SD Gothic Neo', sans-serif;
-}
-
-.plugin.font-palatino {
-  --f-serif: 'Palatino', 'Palatino Linotype', 'AppleMyungjo', serif;
-  --f-sans: 'Palatino', 'Palatino Linotype', 'AppleMyungjo', serif;
-}
-
-.plugin.font-courier {
-  --f-serif: 'Courier New', 'Courier', 'Apple SD Gothic Neo', monospace;
-  --f-sans: 'Courier New', 'Courier', 'Apple SD Gothic Neo', monospace;
-}
-
-.plugin.font-menlo {
-  --f-serif: 'Menlo', 'Monaco', 'SF Mono', 'Apple SD Gothic Neo', monospace;
-  --f-sans: 'Menlo', 'Monaco', 'SF Mono', 'Apple SD Gothic Neo', monospace;
-}
-
-.plugin.font-korean-sans {
-  --f-serif: 'Apple SD Gothic Neo', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Apple SD Gothic Neo', 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-korean-serif {
-  --f-serif: 'AppleMyungjo', 'Nanum Myeongjo', serif;
-  --f-sans: 'AppleMyungjo', 'Nanum Myeongjo', serif;
+.plugin.font-noto-serif-kr {
+  --f-serif: 'Noto Serif KR', serif;
+  --f-sans: 'Noto Serif KR', serif;
 }
 
 .plugin.dark {

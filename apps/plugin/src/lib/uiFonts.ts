@@ -4,9 +4,9 @@ export const WEB_UI_FONT_OPTIONS = [
   'inter',
   'roboto',
   'open-sans',
-  'lato',
-  'montserrat',
-  'merriweather',
+  'source-sans-3',
+  'noto-sans',
+  'libre-franklin',
 ] as const
 
 export type WebUiFont = typeof WEB_UI_FONT_OPTIONS[number]

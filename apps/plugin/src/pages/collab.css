@@ -84,19 +84,19 @@
   --f-sans: 'Open Sans', 'Pretendard Variable', sans-serif;
 }
 
-.plugin.font-lato {
-  --f-serif: 'Lato', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Lato', 'Pretendard Variable', sans-serif;
+.plugin.font-source-sans-3 {
+  --f-serif: 'Source Sans 3', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Source Sans 3', 'Pretendard Variable', sans-serif;
 }
 
-.plugin.font-montserrat {
-  --f-serif: 'Montserrat', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Montserrat', 'Pretendard Variable', sans-serif;
+.plugin.font-noto-sans {
+  --f-serif: 'Noto Sans', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Noto Sans', 'Pretendard Variable', sans-serif;
 }
 
-.plugin.font-merriweather {
-  --f-serif: 'Merriweather', 'Pretendard Variable', serif;
-  --f-sans: 'Merriweather', 'Pretendard Variable', serif;
+.plugin.font-libre-franklin {
+  --f-serif: 'Libre Franklin', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Libre Franklin', 'Pretendard Variable', sans-serif;
 }
 
 .plugin.dark {

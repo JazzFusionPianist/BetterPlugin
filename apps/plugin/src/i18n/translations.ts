@@ -119,9 +119,9 @@ export const T = {
   'display.font.inter': { en: 'Inter', ko: '인터', ja: 'Inter', zh: 'Inter', es: 'Inter', de: 'Inter', fr: 'Inter', hi: 'Inter' },
   'display.font.roboto': { en: 'Roboto', ko: '로보토', ja: 'Roboto', zh: 'Roboto', es: 'Roboto', de: 'Roboto', fr: 'Roboto', hi: 'Roboto' },
   'display.font.open-sans': { en: 'Open Sans', ko: '오픈 산스', ja: 'Open Sans', zh: 'Open Sans', es: 'Open Sans', de: 'Open Sans', fr: 'Open Sans', hi: 'Open Sans' },
-  'display.font.lato': { en: 'Lato', ko: '라토', ja: 'Lato', zh: 'Lato', es: 'Lato', de: 'Lato', fr: 'Lato', hi: 'Lato' },
-  'display.font.montserrat': { en: 'Montserrat', ko: '몬세라트', ja: 'Montserrat', zh: 'Montserrat', es: 'Montserrat', de: 'Montserrat', fr: 'Montserrat', hi: 'Montserrat' },
-  'display.font.merriweather': { en: 'Merriweather', ko: '메리웨더', ja: 'Merriweather', zh: 'Merriweather', es: 'Merriweather', de: 'Merriweather', fr: 'Merriweather', hi: 'Merriweather' },
+  'display.font.source-sans-3': { en: 'Source Sans 3', ko: '소스 산스 3', ja: 'Source Sans 3', zh: 'Source Sans 3', es: 'Source Sans 3', de: 'Source Sans 3', fr: 'Source Sans 3', hi: 'Source Sans 3' },
+  'display.font.noto-sans': { en: 'Noto Sans', ko: '노토 산스', ja: 'Noto Sans', zh: 'Noto Sans', es: 'Noto Sans', de: 'Noto Sans', fr: 'Noto Sans', hi: 'Noto Sans' },
+  'display.font.libre-franklin': { en: 'Libre Franklin', ko: '리브레 프랭클린', ja: 'Libre Franklin', zh: 'Libre Franklin', es: 'Libre Franklin', de: 'Libre Franklin', fr: 'Libre Franklin', hi: 'Libre Franklin' },
 
   // ───── Find people / AddFriend ──────────────────────────────────────────
   'addFriend.search':        { en: 'search by name…', ko: '이름으로 검색…', ja: '名前で検索…', zh: '按姓名搜索…', es: 'buscar por nombre…', de: 'nach Name suchen…', fr: 'rechercher par nom…', hi: 'नाम से खोजें…' },

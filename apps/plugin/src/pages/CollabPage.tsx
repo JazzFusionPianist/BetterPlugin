@@ -78,6 +78,7 @@ export default function CollabPage({ user }: Props) {
 function CollabPageInner({ user }: Props) {
   const client = supabase!
   const pluginRef = useRef<HTMLDivElement>(null)
+  const stemsRestoreSizeRef = useRef<ScreenSize | null>(null)
 
   // Mutually exclusive — a chat is either a DM (selectedId = friend id)
   // or a group (selectedGroupConvId = conversation id). Opening one
@@ -487,21 +488,31 @@ function CollabPageInner({ user }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const openStems = useCallback(() => {
+    if (!stemsOpen && screenSize === 'small') {
+      stemsRestoreSizeRef.current = 'small'
+      void applyScreenSize('large')
+    }
     setStemsOpen(true)
     setScreenSize('large')
-    localStorage.setItem('collab_screen_size', 'large')
-    void applyScreenSize('large')
-  }, [])
+  }, [screenSize, stemsOpen])
   const handleStemDrop = useCallback((request: StemDropRequest) => {
     setPendingStemDrop(request)
+    if (!stemsOpen && screenSize === 'small') {
+      stemsRestoreSizeRef.current = 'small'
+      void applyScreenSize('large')
+    }
     setStemsOpen(true)
     setScreenSize('large')
-    localStorage.setItem('collab_screen_size', 'large')
-    void applyScreenSize('large')
-  }, [])
+  }, [screenSize, stemsOpen])
   const closeStems = useCallback(() => {
     setStemsOpen(false)
     setPendingStemDrop(null)
+    if (stemsRestoreSizeRef.current === 'small') {
+      stemsRestoreSizeRef.current = null
+      setScreenSize('small')
+      localStorage.setItem('collab_screen_size', 'small')
+      void applyScreenSize('small')
+    }
   }, [])
 
   // Search/AddFriend toggles kept for re-introduction; redesign removed

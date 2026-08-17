@@ -57,6 +57,7 @@ interface Props {
    *  groups it opens ChatSettingsPanel. */
   onOpenSettings?: () => void
   onOpenStems?: () => void
+  onOpenCalendar?: () => void
   stemsActive?: boolean
   onStemDrop?: (request: StemDropRequest) => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
@@ -982,7 +983,7 @@ function AttachmentView({ url, type, name, metadata }: { url: string; type: Atta
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
+export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, onOpenCalendar, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
 
@@ -991,6 +992,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // opens a slide-over scoped to this conversation's shared events, and
   // schedule-looking messages grow an "add to calendar" chip.
   const [chatCalOpen, setChatCalOpen] = useState(false)
+  useEffect(() => {
+    if (stemsActive) setChatCalOpen(false)
+  }, [stemsActive])
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
   const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
   const chatTitle = groupHeader?.title ?? otherProfile?.display_name ?? ''
@@ -1781,7 +1785,13 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         {conversationId && (
           <div
             className={`chdr-cal${chatCalOpen ? ' active' : ''}`}
-            onClick={() => setChatCalOpen(o => !o)}
+            onClick={() => {
+              setChatCalOpen(open => {
+                const next = !open
+                if (next) onOpenCalendar?.()
+                return next
+              })
+            }}
             title={t('chatcal.title')}
             role="button"
           >
@@ -1796,7 +1806,11 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
           <button
             type="button"
             className={`chdr-stems-btn${stemsActive ? ' active' : ''}`}
-            onClick={event => { event.stopPropagation(); onOpenStems() }}
+            onClick={event => {
+              event.stopPropagation()
+              setChatCalOpen(false)
+              onOpenStems()
+            }}
           >
             Stems ››
           </button>

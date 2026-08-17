@@ -504,14 +504,17 @@ function CollabPageInner({ user }: Props) {
     setStemsOpen(true)
     setScreenSize('large')
   }, [screenSize, stemsOpen])
-  const closeStems = useCallback(() => {
+  const closeStems = useCallback((options: { restoreSize?: boolean } = {}) => {
+    const restoreSize = options.restoreSize ?? true
     setStemsOpen(false)
     setPendingStemDrop(null)
-    if (stemsRestoreSizeRef.current === 'small') {
+    if (restoreSize && stemsRestoreSizeRef.current === 'small') {
       stemsRestoreSizeRef.current = null
       setScreenSize('small')
       localStorage.setItem('collab_screen_size', 'small')
       void applyScreenSize('small')
+    } else if (!restoreSize) {
+      stemsRestoreSizeRef.current = null
     }
   }, [])
 
@@ -811,6 +814,7 @@ function CollabPageInner({ user }: Props) {
             reads={conversationReads}
             onOpenSettings={() => setChatSettingsOpen(true)}
             onOpenStems={openStems}
+            onOpenCalendar={() => closeStems({ restoreSize: false })}
             stemsActive={stemsOpen}
             onStemDrop={handleStemDrop}
             onSend={send}
@@ -834,6 +838,7 @@ function CollabPageInner({ user }: Props) {
               reads={conversationReads}
               onOpenSettings={() => setChatSettingsOpen(true)}
               onOpenStems={openStems}
+              onOpenCalendar={() => closeStems({ restoreSize: false })}
               stemsActive={stemsOpen}
               onStemDrop={handleStemDrop}
               onSend={send}

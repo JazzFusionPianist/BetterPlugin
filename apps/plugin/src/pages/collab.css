@@ -9926,6 +9926,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   width: 50%;
   min-width: 300px;
   pointer-events: auto;
+  animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .plugin:not(.screen-wide) .stem-dock {
   width: 50%;

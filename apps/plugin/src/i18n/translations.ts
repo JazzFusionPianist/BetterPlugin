@@ -114,14 +114,14 @@ export const T = {
   'display.font':           { en: 'Font', ko: '글꼴', ja: 'フォント', zh: '字体', es: 'Fuente', de: 'Schrift', fr: 'Police', hi: 'फ़ॉन्ट' },
   'display.font.group.default': { en: 'App fonts', ko: '앱 기본 글꼴', ja: 'アプリのフォント', zh: '应用字体', es: 'Fuentes de la app', de: 'App-Schriften', fr: 'Polices de l’app', hi: 'ऐप फ़ॉन्ट' },
   'display.font.group.local': { en: 'Local fonts', ko: '내 컴퓨터 글꼴', ja: 'ローカルフォント', zh: '本机字体', es: 'Fuentes locales', de: 'Lokale Schriften', fr: 'Polices locales', hi: 'स्थानीय फ़ॉन्ट' },
+  'display.font.editorial': { en: 'Serif', ko: '세리프', ja: 'セリフ', zh: '衬线', es: 'Serif', de: 'Serif', fr: 'Serif', hi: 'Serif' },
   'display.font.instrument': { en: 'Instrument', ko: '인스트루먼트', ja: 'Instrument', zh: 'Instrument', es: 'Instrument', de: 'Instrument', fr: 'Instrument', hi: 'Instrument' },
   'display.font.inter': { en: 'Inter', ko: '인터', ja: 'Inter', zh: 'Inter', es: 'Inter', de: 'Inter', fr: 'Inter', hi: 'Inter' },
   'display.font.roboto': { en: 'Roboto', ko: '로보토', ja: 'Roboto', zh: 'Roboto', es: 'Roboto', de: 'Roboto', fr: 'Roboto', hi: 'Roboto' },
-  'display.font.ibm-plex-sans': { en: 'IBM Plex Sans', ko: 'IBM 플렉스 산스', ja: 'IBM Plex Sans', zh: 'IBM Plex Sans', es: 'IBM Plex Sans', de: 'IBM Plex Sans', fr: 'IBM Plex Sans', hi: 'IBM Plex Sans' },
-  'display.font.ibm-plex-mono': { en: 'IBM Plex Mono', ko: 'IBM 플렉스 모노', ja: 'IBM Plex Mono', zh: 'IBM Plex Mono', es: 'IBM Plex Mono', de: 'IBM Plex Mono', fr: 'IBM Plex Mono', hi: 'IBM Plex Mono' },
+  'display.font.open-sans': { en: 'Open Sans', ko: '오픈 산스', ja: 'Open Sans', zh: 'Open Sans', es: 'Open Sans', de: 'Open Sans', fr: 'Open Sans', hi: 'Open Sans' },
+  'display.font.lato': { en: 'Lato', ko: '라토', ja: 'Lato', zh: 'Lato', es: 'Lato', de: 'Lato', fr: 'Lato', hi: 'Lato' },
+  'display.font.montserrat': { en: 'Montserrat', ko: '몬세라트', ja: 'Montserrat', zh: 'Montserrat', es: 'Montserrat', de: 'Montserrat', fr: 'Montserrat', hi: 'Montserrat' },
   'display.font.merriweather': { en: 'Merriweather', ko: '메리웨더', ja: 'Merriweather', zh: 'Merriweather', es: 'Merriweather', de: 'Merriweather', fr: 'Merriweather', hi: 'Merriweather' },
-  'display.font.noto-sans-kr': { en: 'Noto Sans KR', ko: '노토 산스 KR', ja: 'Noto Sans KR', zh: 'Noto Sans KR', es: 'Noto Sans KR', de: 'Noto Sans KR', fr: 'Noto Sans KR', hi: 'Noto Sans KR' },
-  'display.font.noto-serif-kr': { en: 'Noto Serif KR', ko: '노토 세리프 KR', ja: 'Noto Serif KR', zh: 'Noto Serif KR', es: 'Noto Serif KR', de: 'Noto Serif KR', fr: 'Noto Serif KR', hi: 'Noto Serif KR' },
 
   // ───── Find people / AddFriend ──────────────────────────────────────────
   'addFriend.search':        { en: 'search by name…', ko: '이름으로 검색…', ja: '名前で検索…', zh: '按姓名搜索…', es: 'buscar por nombre…', de: 'nach Name suchen…', fr: 'rechercher par nom…', hi: 'नाम से खोजें…' },

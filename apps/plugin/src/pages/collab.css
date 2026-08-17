@@ -59,44 +59,44 @@
   --orbit-danger-hover-bg: rgba(220, 38, 38, 0.06);
 }
 
+.plugin.font-editorial {
+  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  --f-sans: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+}
+
 .plugin.font-instrument {
   --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
   --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
 }
 
 .plugin.font-inter {
-  --f-serif: 'Inter', 'Noto Sans KR', sans-serif;
-  --f-sans: 'Inter', 'Noto Sans KR', sans-serif;
+  --f-serif: 'Inter', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Inter', 'Pretendard Variable', sans-serif;
 }
 
 .plugin.font-roboto {
-  --f-serif: 'Roboto', 'Noto Sans KR', sans-serif;
-  --f-sans: 'Roboto', 'Noto Sans KR', sans-serif;
+  --f-serif: 'Roboto', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Roboto', 'Pretendard Variable', sans-serif;
 }
 
-.plugin.font-ibm-plex-sans {
-  --f-serif: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
-  --f-sans: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
+.plugin.font-open-sans {
+  --f-serif: 'Open Sans', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Open Sans', 'Pretendard Variable', sans-serif;
 }
 
-.plugin.font-ibm-plex-mono {
-  --f-serif: 'IBM Plex Mono', 'Noto Sans KR', monospace;
-  --f-sans: 'IBM Plex Mono', 'Noto Sans KR', monospace;
+.plugin.font-lato {
+  --f-serif: 'Lato', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Lato', 'Pretendard Variable', sans-serif;
+}
+
+.plugin.font-montserrat {
+  --f-serif: 'Montserrat', 'Pretendard Variable', sans-serif;
+  --f-sans: 'Montserrat', 'Pretendard Variable', sans-serif;
 }
 
 .plugin.font-merriweather {
-  --f-serif: 'Merriweather', 'Noto Serif KR', serif;
-  --f-sans: 'Merriweather', 'Noto Serif KR', serif;
-}
-
-.plugin.font-noto-sans-kr {
-  --f-serif: 'Noto Sans KR', sans-serif;
-  --f-sans: 'Noto Sans KR', sans-serif;
-}
-
-.plugin.font-noto-serif-kr {
-  --f-serif: 'Noto Serif KR', serif;
-  --f-sans: 'Noto Serif KR', serif;
+  --f-serif: 'Merriweather', 'Pretendard Variable', serif;
+  --f-sans: 'Merriweather', 'Pretendard Variable', serif;
 }
 
 .plugin.dark {

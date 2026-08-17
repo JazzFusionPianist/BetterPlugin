@@ -405,7 +405,12 @@
 .lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
-.plugin.chat-open           .cview    { transform: translateX(0); }
+.plugin.chat-open           .cview    { transform: translateX(0); z-index: 22; }
+.plugin.chat-open           .convview {
+  transform: translateX(0);
+  transition: none;
+  z-index: 19;
+}
 .plugin.chat-open.conv-open .convview {
   transform: translateX(0);
   transition: none;
@@ -413,7 +418,6 @@
 }
 .plugin.chat-open.conv-open .cview {
   transform: translateX(100%);
-  z-index: 22;
 }
 .plugin.screen-wide.stems-open .cview {
   right: 50%;

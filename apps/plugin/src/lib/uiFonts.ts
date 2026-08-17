@@ -1,12 +1,14 @@
 export const WEB_UI_FONT_OPTIONS = [
   'editorial',
-  'instrument',
-  'inter',
-  'roboto',
+  'arial',
+  'helvetica',
   'open-sans',
-  'source-sans-3',
   'noto-sans',
-  'libre-franklin',
+  'times-new-roman',
+  'academio',
+  'copperplate',
+  'georgia',
+  'courier',
 ] as const
 
 export type WebUiFont = typeof WEB_UI_FONT_OPTIONS[number]

@@ -285,7 +285,7 @@ function CollabPageInner({ user }: Props) {
     liveSessionByHost.forEach((s, host) => { if (s.title) m.set(host, s.title) })
     return m
   }, [liveSessionByHost])
-  const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported, requestDevicePermissions } = useMediaSource()
+  const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
   const { viewerCount, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
@@ -567,8 +567,6 @@ function CollabPageInner({ user }: Props) {
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
       closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
-      // Unlock mic labels/IDs so the dropdown is populated when the panel opens
-      requestDevicePermissions()
     }
     return !prev
   })

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VideoSource, VideoSourceKind } from '../types/live'
 import { ensureDawAudioActive, initDawAudio } from '../lib/dawAudio'
 import { startNativeVideo, stopNativeVideo, initNativeVideo, getNativeVideoLastError, listNativeSources, pickNativeVideoSource, type NativeCaptureSource } from '../lib/nativeVideo'
-import { hasJuceBridge } from '../lib/juceBridge'
+import { hasJuceBridge, hasJuceNativeFunction } from '../lib/juceBridge'
 
 /**
  * True when the app is running inside the JUCE plugin's WebView.
@@ -275,7 +275,7 @@ export function useMediaSource() {
         }
       })
       if (!sources.some(s => s.kind === 'native-display')) {
-        sources.push({ kind: 'screen', label: 'Entire Screen' })
+        sources.push({ kind: 'native-display', deviceId: '0', label: 'Entire Screen' })
       }
     } else {
       // Regular browser: classic getDisplayMedia picker for window / screen.
@@ -302,9 +302,11 @@ export function useMediaSource() {
     [microphones],
   )
 
-  const screenCaptureSupported = typeof navigator !== 'undefined'
-    && !!navigator.mediaDevices
-    && 'getDisplayMedia' in navigator.mediaDevices
+  const screenCaptureSupported = hasJuceBridge
+    ? hasJuceNativeFunction('startVideoCapture') || hasJuceNativeFunction('pickCaptureSource')
+    : typeof navigator !== 'undefined'
+      && !!navigator.mediaDevices
+      && 'getDisplayMedia' in navigator.mediaDevices
 
   return {
     stream,

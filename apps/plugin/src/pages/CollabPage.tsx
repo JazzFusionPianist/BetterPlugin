@@ -549,7 +549,11 @@ function CollabPageInner({ user }: Props) {
   const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleConv      = () => setConvOpen(prev => {
-    if (!prev) { closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() }
+    if (!prev) {
+      closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
+      setChatSettingsOpen(false)
+      closeStems({ restoreSize: false })
+    }
     else { setNewGroupOpen(false) }   // closing the tab resets the new-group flow
     return !prev
   })

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, type CSSProperties } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useProfiles } from '../hooks/useProfiles'
@@ -16,7 +16,7 @@ import NewGroupPanel from '../components/collab/NewGroupPanel'
 import ChatSettingsPanel from '../components/collab/ChatSettingsPanel'
 import FriendsList from '../components/collab/FriendsList'
 import SettingsPanel from '../components/collab/SettingsPanel'
-import DisplayPanel, { type UiFont } from '../components/collab/DisplayPanel'
+import DisplayPanel from '../components/collab/DisplayPanel'
 import StemPanel from '../components/collab/StemPanel'
 import InformationPanel from '../components/collab/InformationPanel'
 import ProfilePanel from '../components/collab/ProfilePanel'
@@ -44,6 +44,7 @@ import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
 import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
+import { getLocalFontFamily, isLocalUiFont, isWebUiFont, type UiFont } from '../lib/uiFonts'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
 
@@ -129,12 +130,7 @@ function CollabPageInner({ user }: Props) {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
   const [uiFont, setUiFont] = useState<UiFont>(() => {
     const saved = localStorage.getItem('collab_ui_font')
-    const fonts: UiFont[] = [
-      'editorial', 'instrument', 'system', 'rounded', 'compact', 'mono',
-      'serif', 'didot', 'georgia', 'avenir', 'helvetica', 'futura',
-      'gill', 'palatino', 'courier', 'menlo', 'korean-sans', 'korean-serif',
-    ]
-    return fonts.includes(saved as UiFont) ? saved as UiFont : 'editorial'
+    return isWebUiFont(saved) || isLocalUiFont(saved) ? saved : 'editorial'
   })
   // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.
@@ -642,7 +638,7 @@ function CollabPageInner({ user }: Props) {
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     isDark            ? 'dark'               : '',
-    `font-${uiFont}`,
+    isWebUiFont(uiFont) ? `font-${uiFont}` : '',
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
     // so the browser preview keeps its fixed 300×500 frame — unless the
     // ?screen= dev override is set, which forces it on in the browser too.
@@ -667,13 +663,23 @@ function CollabPageInner({ user }: Props) {
     stemsOpen         ? 'stems-open'         : '',
   ].filter(Boolean).join(' ')
 
+  const localFontFamily = getLocalFontFamily(uiFont)
+  const localFontCss = localFontFamily ? JSON.stringify(localFontFamily) : null
+  const pluginStyle = {
+    ...((hasJuceBridge || screenPreview) ? { width: '100vw', height: '100vh' } : {}),
+    ...(localFontCss ? {
+      '--f-serif': `${localFontCss}, 'Pretendard Variable', serif`,
+      '--f-sans': `${localFontCss}, 'Pretendard Variable', sans-serif`,
+    } : {}),
+  } as CSSProperties
+
   return (
     <div
       className={pluginClass}
       ref={pluginRef}
       // With the freely-resizable window the shell must always fill it —
       // the fixed 300×500 frame is only for plain-browser previews.
-      style={(hasJuceBridge || screenPreview) ? { width: '100vw', height: '100vh' } : undefined}
+      style={pluginStyle}
     >
       <ResizeGrip />
       <div className="top-bar">

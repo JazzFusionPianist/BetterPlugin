@@ -1,29 +1,15 @@
+import { useEffect, useMemo, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
+import { WEB_UI_FONT_OPTIONS, getLocalFontFamily, type UiFont } from '../../lib/uiFonts'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
-const FONT_OPTIONS = [
-  'editorial',
-  'instrument',
-  'system',
-  'rounded',
-  'compact',
-  'mono',
-  'serif',
-  'didot',
-  'georgia',
-  'avenir',
-  'helvetica',
-  'futura',
-  'gill',
-  'palatino',
-  'courier',
-  'menlo',
-  'korean-sans',
-  'korean-serif',
-] as const
-export type UiFont = typeof FONT_OPTIONS[number]
+
+type LocalFontEntry = { family: string }
+type LocalFontWindow = Window & {
+  queryLocalFonts?: () => Promise<LocalFontEntry[]>
+}
 
 interface Props {
   isDark: boolean
@@ -37,6 +23,30 @@ interface Props {
 
 export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark, onScreenSizeChange, onFontChange, onClose }: Props) {
   const { t } = useT()
+  const [localFonts, setLocalFonts] = useState<string[]>([])
+
+  useEffect(() => {
+    const queryLocalFonts = (window as LocalFontWindow).queryLocalFonts
+    if (!queryLocalFonts) return
+    let cancelled = false
+    queryLocalFonts()
+      .then((fonts) => {
+        if (cancelled) return
+        const families = [...new Set(fonts.map((font) => font.family).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b))
+        setLocalFonts(families)
+      })
+      .catch(() => {
+        if (!cancelled) setLocalFonts([])
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const selectedLocalFont = getLocalFontFamily(uiFont)
+  const localFontOptions = useMemo(() => {
+    if (!selectedLocalFont || localFonts.includes(selectedLocalFont)) return localFonts
+    return [selectedLocalFont, ...localFonts]
+  }, [localFonts, selectedLocalFont])
 
   return (
     <div className="settings-panel">
@@ -79,14 +89,28 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
             value={uiFont}
             onChange={(event) => onFontChange(event.target.value as UiFont)}
           >
-            {FONT_OPTIONS.map((font) => (
-              <option
-                key={font}
-                value={font}
-              >
-                {t(`display.font.${font}`)}
-              </option>
-            ))}
+            <optgroup label={t('display.font.group.default')}>
+              {WEB_UI_FONT_OPTIONS.map((font) => (
+                <option
+                  key={font}
+                  value={font}
+                >
+                  {t(`display.font.${font}`)}
+                </option>
+              ))}
+            </optgroup>
+            {localFontOptions.length > 0 && (
+              <optgroup label={t('display.font.group.local')}>
+                {localFontOptions.map((font) => (
+                  <option
+                    key={font}
+                    value={`local:${font}`}
+                  >
+                    {font}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
       </div>

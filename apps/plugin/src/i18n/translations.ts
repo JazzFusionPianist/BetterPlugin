@@ -112,6 +112,8 @@ export const T = {
   'display.size.small':     { en: 'Small', ko: '작게', ja: '小', zh: '小', es: 'Pequeño', de: 'Klein', fr: 'Petit', hi: 'छोटा' },
   'display.size.large':     { en: 'Large', ko: '크게', ja: '大', zh: '大', es: 'Grande', de: 'Groß', fr: 'Grand', hi: 'बड़ा' },
   'display.font':           { en: 'Font', ko: '글꼴', ja: 'フォント', zh: '字体', es: 'Fuente', de: 'Schrift', fr: 'Police', hi: 'फ़ॉन्ट' },
+  'display.font.group.default': { en: 'App fonts', ko: '앱 기본 글꼴', ja: 'アプリのフォント', zh: '应用字体', es: 'Fuentes de la app', de: 'App-Schriften', fr: 'Polices de l’app', hi: 'ऐप फ़ॉन्ट' },
+  'display.font.group.local': { en: 'Local fonts', ko: '내 컴퓨터 글꼴', ja: 'ローカルフォント', zh: '本机字体', es: 'Fuentes locales', de: 'Lokale Schriften', fr: 'Polices locales', hi: 'स्थानीय फ़ॉन्ट' },
   'display.font.editorial': { en: 'Serif', ko: '세리프', ja: 'セリフ', zh: '衬线', es: 'Serif', de: 'Serif', fr: 'Serif', hi: 'सेरिफ़' },
   'display.font.instrument':{ en: 'Instrument', ko: '인스트루먼트' },
   'display.font.system':    { en: 'System', ko: '시스템', ja: 'システム', zh: '系统', es: 'Sistema', de: 'System', fr: 'Système', hi: 'सिस्टम' },

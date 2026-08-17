@@ -406,6 +406,10 @@
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
 .plugin.chat-open           .cview    { transform: translateX(0); }
+.plugin.screen-wide.stems-open .cview {
+  right: 50%;
+  width: auto;
+}
 .plugin.settings-open       .sview    { transform: translateX(0); }
 .plugin.profile-open        .pview    { transform: translateX(0); }
 .plugin.addfriend-open      .afview   { transform: translateX(0); }
@@ -9517,6 +9521,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   background: var(--bg);
   display: flex; flex-direction: column;
   animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.plugin.screen-wide .chat-drop-zone.cal-open {
+  box-sizing: border-box;
+  padding-right: 50%;
 }
 .plugin.screen-wide .chatcal {
   left: 50%;

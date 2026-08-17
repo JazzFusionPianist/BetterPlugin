@@ -1694,7 +1694,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
 
   return (
     <div
-      className="chat-drop-zone"
+      className={`chat-drop-zone${chatCalOpen ? ' cal-open' : ''}`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

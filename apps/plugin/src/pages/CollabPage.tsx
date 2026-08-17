@@ -600,6 +600,15 @@ function CollabPageInner({ user }: Props) {
     markConvSeen(convId)           // clears the constellation pulse
   }
 
+  const handleBackToConversations = () => {
+    setChatSettingsOpen(false)
+    closeStems({ restoreSize: false })
+    closeSettingsPanels()
+    setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
+    setNewGroupOpen(false)
+    setConvOpen(true)
+  }
+
   const handleGalleryCellClick = (profile: Profile, el: HTMLDivElement) => {
     // Toggle off if same profile already open
     if (galleryPopup?.profile.id === profile.id) { setGalleryPopup(null); return }
@@ -825,7 +834,7 @@ function CollabPageInner({ user }: Props) {
             onJoinGameInvite={handleJoinGameInvite}
             conversationId={activeConvId}
             groupTitleById={groupTitleById}
-            onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedId(null) }}
+            onBack={handleBackToConversations}
           />}
           {selectedGroup && (
             <ChatView
@@ -849,7 +858,7 @@ function CollabPageInner({ user }: Props) {
               onJoinGameInvite={handleJoinGameInvite}
               conversationId={selectedGroupConvId}
               groupTitleById={groupTitleById}
-              onBack={() => { setChatSettingsOpen(false); closeStems(); setSelectedGroupConvId(null) }}
+              onBack={handleBackToConversations}
             />
           )}
           {/* ChatSettingsPanel covers both DM and group. We mount when

@@ -2120,7 +2120,6 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
           conversation's shared events. */}
       {chatCalOpen && conversationId && (
         <ChatCalendar
-          title={chatTitle}
           currentUserId={currentUserId}
           events={allCalEvents}
           categories={calCategories}
@@ -2138,7 +2137,6 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             const parsed = await parseChatSchedule(text)
             return saveChatEvents(parsed)
           }}
-          onClose={() => closeChatCalendar()}
         />
       )}
     </div>

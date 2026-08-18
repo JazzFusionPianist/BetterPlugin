@@ -9448,28 +9448,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   animation-name: sidepanel-reveal-from-small-edge;
   transform: none;
 }
-.chatcal-head {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 12px 14px 9px;
-  border-bottom: 0;
-  flex-shrink: 0;
-}
-.chatcal-head .back {
-  cursor: pointer;
-  font-size: 19px; line-height: 1;
-  color: var(--t2);
-  align-self: center;
-}
-.chatcal-head .back:hover { color: var(--t1); }
-.chatcal-title {
-  font-family: var(--f-serif);
-  font-size: 15px; color: var(--t1); text-transform: lowercase;
-}
-.chatcal-sub {
-  font-family: var(--f-serif); font-style: italic;
-  font-size: 11.5px; color: var(--t3); text-transform: lowercase;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .chatcal-body { flex: 1; min-height: 0; overflow-y: auto; }
 .chatcal-prompt {
   flex-shrink: 0;
@@ -9868,7 +9846,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue); }
 .stem-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-shrink: 0; min-height: 28px; }
-.stem-head h2 { margin: 0; font-family: var(--f-serif); font-size: 22px; line-height: 1; font-weight: 400; }
 .stem-head p {
   flex: 1;
   min-width: 0;
@@ -9893,13 +9870,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   line-height: 1;
   cursor: pointer;
 }
-.stem-file-btn:hover,
-.stem-close:hover {
+.stem-file-btn:hover {
   border-color: var(--border2);
   background: var(--bg3);
   color: var(--t1);
 }
-.stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }
 .stem-error { border: none; border-radius: 8px; padding: 7px 9px; background: rgba(229,72,77,.12); color: #e5484d; font-size: 9px; cursor: pointer; }
 .stem-upload { padding: 8px 9px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); }
 .stem-upload > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; color: var(--t2); }
@@ -9950,14 +9925,12 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .plugin .game-chat-meta-name,
 .plugin .fnotif-name,
 .plugin .orbit-orb-tag-name,
-.plugin .chatcal-title,
 .plugin .schip-ev-t,
 .plugin .game-cd-hover-title {
   font-weight: 500;
   letter-spacing: -0.005em;
 }
 /* the big voice moments — display register */
-.plugin .stem-head h2,
 .plugin .evsheet-title {
   font-weight: 500;
   letter-spacing: -0.015em;

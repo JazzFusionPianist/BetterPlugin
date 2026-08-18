@@ -6,6 +6,7 @@ import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudi
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
+import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
   supabase: SupabaseClient
@@ -14,7 +15,6 @@ interface Props {
   participants: Profile[]
   pendingDrop: StemDropRequest | null
   onDropConsumed: (id: string) => void
-  onClose: () => void
 }
 
 const MAX_SIZE = 1000 * 1024 * 1024
@@ -37,8 +37,9 @@ function nativeFile(name: string, data: string): File {
 }
 
 export default function StemPanel({
-  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed, onClose,
+  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed,
 }: Props) {
+  const { t } = useT()
   const [stems, setStems] = useState<ConversationStem[]>([])
   const [loading, setLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
@@ -176,7 +177,7 @@ export default function StemPanel({
       }}
     >
       <div className="stem-head">
-        <p>Drop audio files here, or use Files to choose multiple files.</p>
+        <p>{t('stems.dropGuide')}</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -186,9 +187,8 @@ export default function StemPanel({
           onChange={event => handlePickedFiles(event.target.files)}
         />
         <button className="stem-file-btn" onClick={() => fileInputRef.current?.click()}>
-          Files
+          {t('stems.files')}
         </button>
-        <button className="stem-close" onClick={onClose} aria-label="Close stems">×</button>
       </div>
 
       {error && <button className="stem-error" onClick={() => setError('')}>{error}</button>}

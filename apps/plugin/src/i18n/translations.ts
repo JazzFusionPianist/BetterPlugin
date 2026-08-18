@@ -233,6 +233,17 @@ export const T = {
   'chatcal.noEvents': { en: 'no plans found', ko: '일정을 못 찾았어요', ja: '予定が見つかりません', zh: '未找到日程', es: 'no se encontraron planes', de: 'keine Termine gefunden', fr: 'aucun plan trouvé', hi: 'कोई योजना नहीं मिली' },
   'chatcal.save':     { en: 'save', ko: '저장', ja: '保存', zh: '保存', es: 'guardar', de: 'speichern', fr: 'enregistrer', hi: 'सहेजें' },
   'chatcal.saved':    { en: 'noted ✓', ko: '저장됨 ✓', ja: '保存済み ✓', zh: '已保存 ✓', es: 'anotado ✓', de: 'notiert ✓', fr: 'noté ✓', hi: 'सहेजा गया ✓' },
+  'stems.files':      { en: 'Files', ko: '파일', ja: 'ファイル', zh: '文件', es: 'Archivos', de: 'Dateien', fr: 'Fichiers', hi: 'फ़ाइलें' },
+  'stems.dropGuide':  {
+    en: 'Drop DAW regions, drop local audio files, or use Files to import multiple files.',
+    ko: 'DAW 리전을 드롭하거나, 로컬 오디오 파일을 드롭하거나, 파일에서 여러 파일을 직접 가져오세요.',
+    ja: 'DAWのリージョン、ローカル音声ファイルをドロップするか、ファイルから複数選択して読み込めます。',
+    zh: '可拖放 DAW 片段、本地音频文件，或通过文件一次导入多个文件。',
+    es: 'Suelta regiones del DAW, archivos de audio locales, o usa Archivos para importar varios.',
+    de: 'DAW-Regionen oder lokale Audiodateien ablegen, oder über Dateien mehrere importieren.',
+    fr: 'Déposez des régions du DAW, des fichiers audio locaux, ou importez-en plusieurs via Fichiers.',
+    hi: 'DAW regions या local audio files छोड़ें, या Files से कई फाइलें import करें.',
+  },
 
   'fb.score':       { en: 'Score',      ko: '점수',     ja: 'スコア',     zh: '分数',    es: 'Puntos',    de: 'Punkte',     fr: 'Score',     hi: 'स्कोर' },
   'fb.lines':       { en: 'Lines',      ko: '라인',     ja: 'ライン',     zh: '行数',    es: 'Líneas',    de: 'Reihen',     fr: 'Lignes',    hi: 'लाइनें' },

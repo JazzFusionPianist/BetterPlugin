@@ -1197,7 +1197,6 @@ function CollabPageInner({ user }: Props) {
             participants={stemParticipants}
             pendingDrop={pendingStemDrop}
             onDropConsumed={(id) => setPendingStemDrop(current => current?.id === id ? null : current)}
-            onClose={closeStems}
           />
         </div>
       )}

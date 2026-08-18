@@ -1,12 +1,9 @@
 import CalendarPanel, { type EventPatch } from './CalendarPanel'
 import SchedulePrompt from './SchedulePrompt'
-import { useT } from '../../i18n/LanguageContext'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import type { EventCategory } from '../../hooks/useEventCategories'
 
 interface Props {
-  /** Chat title — printed as the panel's italic sub-caption. */
-  title: string
   currentUserId: string
   /** Events already filtered to this conversation. */
   events: CalendarEvent[]
@@ -21,7 +18,6 @@ interface Props {
   /** Free-text prompt → parse → persist (scoped to this chat by the
    *  parent; the prompt's own target picker is hidden). */
   onSubmitPrompt: (text: string) => Promise<CalendarEvent[]>
-  onClose: () => void
 }
 
 /**
@@ -33,18 +29,12 @@ interface Props {
  * this chat's calendar.
  */
 export default function ChatCalendar({
-  title, currentUserId, events, categories, groupTitleById,
+  currentUserId, events, categories, groupTitleById,
   onDelete, onSetCategory, onUpdate, onAddCategory, onRenameCategory, onDeleteCategory,
-  onSubmitPrompt, onClose,
+  onSubmitPrompt,
 }: Props) {
-  const { t } = useT()
   return (
     <div className="chatcal">
-      <div className="chatcal-head">
-        <div className="back" onClick={onClose}>&#8249;</div>
-        <div className="chatcal-title">{t('chatcal.title')}</div>
-        <div className="chatcal-sub">{title}</div>
-      </div>
       <div className="chatcal-body">
         <CalendarPanel
           events={events}

@@ -16,7 +16,7 @@
   --blue: #2440FF;
   --red: #D6402E;
   --green: #1E9E63;
-  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
 
   position: relative;
@@ -235,3 +235,9 @@
 }
 
 .auth-switch button:hover { color: var(--blue); }
+
+/* One-family voice (2026-08-18): the cover speaks Instrument Sans now —
+   the title carries itself on weight and tight tracking, and the small
+   voice moments take a half-step of medium. */
+.auth-title { font-weight: 500; letter-spacing: -0.02em; }
+.auth-brand, .auth-submit, .auth-switch button, .fld label { font-weight: 500; letter-spacing: -0.005em; }

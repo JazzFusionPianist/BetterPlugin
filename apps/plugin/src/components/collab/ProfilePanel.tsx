@@ -902,7 +902,7 @@ export default function ProfilePanel ({
               onClick={() => setDiscoOpen(true)}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                fontFamily: "'Instrument Serif', serif", fontStyle: 'italic',
+                fontFamily: "'Instrument Sans', sans-serif", fontStyle: 'italic',
                 fontSize: 12, textTransform: 'lowercase', color: 'var(--blue)',
                 marginTop: 2, pointerEvents: 'auto',
               }}

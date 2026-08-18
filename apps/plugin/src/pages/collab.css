@@ -1,7 +1,9 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    CSS Theme Variables — "exhibition catalogue"
    Two-colour print (warm black ink + klein blue) on bright
-   paper, matching apps/web. Serif voice / sans machinery.
+   paper, matching apps/web. One family — Instrument Sans:
+   voice = medium weight, machinery = regular (see the
+   one-family voice layer at the end of this file).
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 
 /* Hangul runs visually larger than Instrument Serif's small caps, so
@@ -15,7 +17,12 @@
 }
 
 .plugin {
-  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  /* One family everywhere (Steven, 2026-08-18): the voice/machinery
+     split now lives in weight and tracking, not in a second face.
+     --f-serif keeps its name (hundreds of call sites) but is the VOICE
+     weight of Instrument Sans; the tuning layer at the end of this
+     file re-establishes the hierarchy the serif used to carry. */
+  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
 
   --paper: #FBFAF7;
@@ -60,8 +67,8 @@
 }
 
 .plugin.font-editorial {
-  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
-  --f-sans: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
 }
 
 .plugin.font-arial {
@@ -10039,3 +10046,29 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-footer > button { width: 100%; height: 40px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg2); color: var(--t1); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .stem-footer > button:hover { border-color: color-mix(in srgb, var(--blue) 45%, transparent); background: color-mix(in srgb, var(--blue) 10%, var(--bg2)); }
 .stem-footer > button span { font-size: 18px; line-height: 1; color: var(--blue); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   One-family voice (2026-08-18)
+   Instrument Serif left the plugin. The voice register — titles,
+   names, month heads, the words that used to speak serif — now steps
+   forward through weight and tracking instead of a second face:
+   medium (500) with tightened tracking against the 400 machinery.
+   Italic asides keep carrying the quiet register.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.plugin :where(.app-title, .cal-month, .live-go-btn, .game-cd-hover-title,
+  .game-finish-title, .game-player-name, .game-chat-meta-name,
+  .fnotif-name, .orbit-orb-tag-name, .chatcal-title, .schip-ev-t,
+  .live-ended-title, .msg-att-audio-name, .msg-link-preview-title,
+  .poker-opponent-name, .poker-showdown-name, .falling-blocks-opponent-name) {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+/* the big voice moments go a half-step lighter and tighter — large
+   sans at 500 turns into signage */
+.plugin :where(.stem-head h2, .evsheet-title) {
+  font-weight: 460;
+  letter-spacing: -0.015em;
+}
+/* the fx specimen numeral — a light, tight figure over the plate,
+   never a bold blob */
+.plugin .fx-art-value { letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }

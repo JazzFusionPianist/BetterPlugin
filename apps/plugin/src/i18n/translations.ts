@@ -119,7 +119,7 @@ export const T = {
   'display.fontSize.default': { en: 'Default', ko: '기본', ja: '標準', zh: '默认', es: 'Normal', de: 'Standard', fr: 'Normale', hi: 'सामान्य' },
   'display.fontSize.large':  { en: 'Large', ko: '크게', ja: '大', zh: '大', es: 'Grande', de: 'Groß', fr: 'Grande', hi: 'बड़ा' },
   'display.fontSize.xlarge': { en: 'Larger', ko: '더 크게', ja: '特大', zh: '特大', es: 'Más grande', de: 'Größer', fr: 'Plus grande', hi: 'और बड़ा' },
-  'display.font.editorial': { en: 'Serif', ko: '세리프', ja: 'セリフ', zh: '衬线', es: 'Serif', de: 'Serif', fr: 'Serif', hi: 'Serif' },
+  'display.font.editorial': { en: 'Instrument Sans', ko: '인스트루먼트 산스', ja: 'Instrument Sans', zh: 'Instrument Sans', es: 'Instrument Sans', de: 'Instrument Sans', fr: 'Instrument Sans', hi: 'Instrument Sans' },
   'display.font.arial': { en: 'Arial', ko: '아리얼', ja: 'Arial', zh: 'Arial', es: 'Arial', de: 'Arial', fr: 'Arial', hi: 'Arial' },
   'display.font.helvetica': { en: 'Helvetica', ko: '헬베티카', ja: 'Helvetica', zh: 'Helvetica', es: 'Helvetica', de: 'Helvetica', fr: 'Helvetica', hi: 'Helvetica' },
   'display.font.open-sans': { en: 'Open Sans', ko: '오픈 산스', ja: 'Open Sans', zh: 'Open Sans', es: 'Open Sans', de: 'Open Sans', fr: 'Open Sans', hi: 'Open Sans' },

@@ -796,7 +796,7 @@ export function drawPinball(
   for (const [cx, cy] of [[8, 8], [TABLE_W - 8, 8]] as const) {
     ctx.beginPath(); ctx.arc(cx, cy, 1.4, 0, Math.PI * 2); ctx.fill()
   }
-  ctx.font = 'italic 13px Georgia, "Instrument Serif", serif'
+  ctx.font = 'italic 13px "Instrument Sans", sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = withAlpha(INK_BLUE, 0.5)
@@ -904,7 +904,7 @@ export function drawPinball(
     ctx.stroke()
     clearGlow(ctx)
     ctx.fillStyle = ro.lit ? th.paper : th.ink
-    ctx.font = 'italic 12px Georgia, "Instrument Serif", serif'
+    ctx.font = 'italic 12px "Instrument Sans", sans-serif'
     ctx.fillText(ro.label, ro.x, ro.y + 0.5)
   }
 
@@ -988,7 +988,7 @@ export function drawPinball(
   }
 
   // Outlane markers
-  ctx.font = 'italic 10px Georgia, "Instrument Serif", serif'
+  ctx.font = 'italic 10px "Instrument Sans", sans-serif'
   ctx.fillStyle = th.t3
   ctx.fillText('500', 42, 600)
   ctx.fillText('500', 363, 596)
@@ -1083,7 +1083,7 @@ export function drawPinball(
     const t = p.age / p.ttl
     ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - Math.max(0, (t - 0.55) / 0.45)
     ctx.fillStyle = INK_BLUE
-    ctx.font = `italic ${p.big ? 22 : 13}px Georgia, "Instrument Serif", serif`
+    ctx.font = `italic ${p.big ? 22 : 13}px "Instrument Sans", sans-serif`
     ctx.fillText(p.text, p.x, p.y - t * 18)
     ctx.globalAlpha = 1
   }

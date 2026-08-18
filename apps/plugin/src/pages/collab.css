@@ -6,16 +6,6 @@
    one-family voice layer at the end of this file).
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* Hangul runs visually larger than Instrument Serif's small caps, so
-   the serif stack routes Korean through a size-adjusted alias of the
-   system face. Latin stays untouched. */
-@font-face {
-  font-family: 'Orb Serif KR';
-  src: local('Apple SD Gothic Neo');
-  size-adjust: 92%;
-  unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7A3;
-}
-
 .plugin {
   /* One family everywhere (Steven, 2026-08-18): the voice/machinery
      split now lives in weight and tracking, not in a second face.
@@ -66,60 +56,6 @@
   --orbit-danger-hover-bg: rgba(220, 38, 38, 0.06);
 }
 
-.plugin.font-editorial {
-  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-}
-
-.plugin.font-arial {
-  --f-serif: Arial, 'Pretendard Variable', sans-serif;
-  --f-sans: Arial, 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-helvetica {
-  --f-serif: Helvetica, 'Helvetica Neue', Arial, 'Pretendard Variable', sans-serif;
-  --f-sans: Helvetica, 'Helvetica Neue', Arial, 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-open-sans {
-  --f-serif: 'Open Sans', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Open Sans', 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-source-sans-3 {
-  --f-serif: 'Source Sans 3', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Source Sans 3', 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-noto-sans {
-  --f-serif: 'Noto Sans', 'Pretendard Variable', sans-serif;
-  --f-sans: 'Noto Sans', 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-times-new-roman {
-  --f-serif: 'Times New Roman', Times, 'Pretendard Variable', serif;
-  --f-sans: 'Times New Roman', Times, 'Pretendard Variable', serif;
-}
-
-.plugin.font-academio {
-  --f-serif: Academio, Academico, 'New Century Schoolbook', 'Century Schoolbook', Georgia, 'Pretendard Variable', serif;
-  --f-sans: Academio, Academico, 'New Century Schoolbook', 'Century Schoolbook', Georgia, 'Pretendard Variable', serif;
-}
-
-.plugin.font-copperplate {
-  --f-serif: Copperplate, 'Copperplate Gothic Light', 'Copperplate Gothic Bold', 'Trebuchet MS', 'Pretendard Variable', sans-serif;
-  --f-sans: Copperplate, 'Copperplate Gothic Light', 'Copperplate Gothic Bold', 'Trebuchet MS', 'Pretendard Variable', sans-serif;
-}
-
-.plugin.font-georgia {
-  --f-serif: Georgia, 'Times New Roman', 'Pretendard Variable', serif;
-  --f-sans: Georgia, 'Times New Roman', 'Pretendard Variable', serif;
-}
-
-.plugin.font-courier {
-  --f-serif: 'Courier New', Courier, 'Pretendard Variable', monospace;
-  --f-sans: 'Courier New', Courier, 'Pretendard Variable', monospace;
-}
 
 .plugin.dark {
   --paper: #171614;
@@ -4198,117 +4134,12 @@
   position: relative;
   z-index: 1;
   margin-top: 14px;
-}
-
-/* --- Display panel: screen-size card (label + segmented control) --- */
-.display-size-card,
-.display-font-card {
-  cursor: default;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.display-size-card:hover,
-.display-font-card:hover {
+}.display-size-card:hover {
   background: rgba(0, 0, 0, 0.018);
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-.plugin.dark .display-size-card:hover,
-.plugin.dark .display-font-card:hover {
-  background: rgba(255, 255, 255, 0.025);
-  border-color: rgba(255, 255, 255, 0.07);
-}
-.display-size-card:active,
-.display-font-card:active { transform: none; }
+}.display-size-card:active { transform: none; }
 .display-size-label { font-weight: 500; color: var(--t1); }
-.display-font-picker {
-  position: relative;
-  width: 100%;
-  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-.display-font-select {
-  width: 100%;
-  height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg2);
-  color: var(--t1);
-  font-size: 13px;
-  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-weight: 450;
-  outline: none;
-  padding: 0 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  text-align: left;
-}
-.display-font-select span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.display-font-chevron {
-  flex: 0 0 auto;
-  color: var(--t3);
-  font-size: 13px;
-}
-.display-font-select:focus {
-  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
-  background: var(--bg);
-}
-.display-font-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  max-height: min(300px, calc(100vh - 210px));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 94%, transparent);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
-  padding: 6px;
-  font-family: 'Instrument Sans', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12px;
-  font-weight: 450;
-}
-.plugin.dark .display-font-menu {
-  background: color-mix(in srgb, var(--bg2) 96%, transparent);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
-}
-.display-font-group {
-  padding: 6px 8px 4px;
-  color: var(--t3);
-  font-size: 10px;
-  font-weight: 600;
-}
-.display-font-option {
-  width: 100%;
-  min-height: 28px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--t1);
-  padding: 0 8px;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.display-font-option:hover {
-  background: var(--bg2);
-}
-.display-font-option.active {
-  background: var(--blue);
-  color: #fff;
-}
 
 /* --- Find people panel --- */
 .af-stack {
@@ -8260,7 +8091,7 @@
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Catalogue voice — the same rule as the app: every name and
-   title speaks Instrument Serif at 400, empty states are serif
+   title speaks the medium voice weight, empty states are serif
    italic, labels are quiet lowercase sans. Machinery stays sans.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .plugin .app-title {

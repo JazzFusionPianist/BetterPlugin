@@ -44,7 +44,6 @@ import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
 import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
-import { getLocalFontFamily, isLocalUiFont, isWebUiFont, isUiFontSize, UI_FONT_SIZE_SCALE, type UiFont, type UiFontSize } from '../lib/uiFonts'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
 
@@ -133,14 +132,6 @@ function CollabPageInner({ user }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('collab_dark') === 'true')
-  const [uiFont, setUiFont] = useState<UiFont>(() => {
-    const saved = localStorage.getItem('collab_ui_font')
-    return isWebUiFont(saved) || isLocalUiFont(saved) ? saved : 'editorial'
-  })
-  const [uiFontSize, setUiFontSize] = useState<UiFontSize>(() => {
-    const saved = localStorage.getItem('collab_ui_font_size')
-    return isUiFontSize(saved) ? saved : 'default'
-  })
   // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.
   const screenPreview = (() => {
@@ -478,14 +469,6 @@ function CollabPageInner({ user }: Props) {
     localStorage.setItem('collab_screen_size', size)
     applyScreenSize(size)
   }
-  const handleFontChange = (font: UiFont) => {
-    setUiFont(font)
-    localStorage.setItem('collab_ui_font', font)
-  }
-  const handleFontSizeChange = (size: UiFontSize) => {
-    setUiFontSize(size)
-    localStorage.setItem('collab_ui_font_size', size)
-  }
   // The window is freely resizable now (corner drag) and JUCE itself
   // persists/restores the editor size — so we no longer snap back to a
   // preset on load. Instead, the LAYOUT follows the live viewport:
@@ -493,15 +476,12 @@ function CollabPageInner({ user }: Props) {
   // ?screen=large dev override keeps its layout regardless.
   useEffect(() => {
     if (screenPreview) return
-    // Layout threshold lives in layout px — under zoom the same window
-    // holds fewer of them, so divide by the text-size scale.
-    const scale = UI_FONT_SIZE_SCALE[uiFontSize]
-    const apply = () => setScreenSize(window.innerWidth / scale >= 520 ? 'large' : 'small')
+    const apply = () => setScreenSize(window.innerWidth >= 520 ? 'large' : 'small')
     apply()
     window.addEventListener('resize', apply)
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uiFontSize])
+  }, [])
   const closeCalendar = useCallback((options: { restoreSize?: boolean } = {}) => {
     const restoreSize = options.restoreSize ?? true
     setCalendarExpandedFromSmall(false)
@@ -742,7 +722,6 @@ function CollabPageInner({ user }: Props) {
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     chatFromConvList ? 'chat-from-conv-list' : '',
     isDark            ? 'dark'               : '',
-    isWebUiFont(uiFont) ? `font-${uiFont}` : '',
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
     // so the browser preview keeps its fixed 300×500 frame — unless the
     // ?screen= dev override is set, which forces it on in the browser too.
@@ -768,28 +747,8 @@ function CollabPageInner({ user }: Props) {
     (stemsExpandedFromSmall || calendarExpandedFromSmall) ? 'sidepanel-expand-from-small' : '',
   ].filter(Boolean).join(' ')
 
-  const localFontFamily = getLocalFontFamily(uiFont)
-  const localFontCss = localFontFamily ? JSON.stringify(localFontFamily) : null
-  // Text size = browser-zoom semantics: zoom on the root scales text and
-  // chrome together so the catalogue's proportions survive every size,
-  // and the compensated width/height keep the zoomed layout filling the
-  // host window exactly (100vw would overflow under zoom).
-  const uiScale = UI_FONT_SIZE_SCALE[uiFontSize]
   const pluginStyle = {
-    // Percentages, NOT vw/vh: WKWebView resolves viewport units
-    // inconsistently inside a zoomed subtree, so the compensated root
-    // could exceed the window — the page scrolled and the toolbar
-    // vanished above the fold. % resolves against the (unzoomed) body.
-    ...((hasJuceBridge || screenPreview)
-      ? (uiScale === 1
-        ? { width: '100%', height: '100%' }
-        : { width: `calc(100% / ${uiScale})`, height: `calc(100% / ${uiScale})` })
-      : {}),
-    ...(uiScale !== 1 ? { zoom: uiScale } : {}),
-    ...(localFontCss ? {
-      '--f-serif': `${localFontCss}, 'Pretendard Variable', serif`,
-      '--f-sans': `${localFontCss}, 'Pretendard Variable', sans-serif`,
-    } : {}),
+    ...((hasJuceBridge || screenPreview) ? { width: '100%', height: '100%' } : {}),
   } as CSSProperties
 
   return (
@@ -1011,7 +970,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} screenSize={screenSize} uiFont={uiFont} uiFontSize={uiFontSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onFontChange={handleFontChange} onFontSizeChange={handleFontSizeChange} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} screenSize={screenSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

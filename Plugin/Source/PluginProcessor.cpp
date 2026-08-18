@@ -869,6 +869,8 @@ void OrbAudioProcessor::resetFxOne (int m)
             for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
             sideHpState = 0.0f;
             sideHpState2 = 0.0f;
+            stEnvM = 0.0f;
+            stEnvS = 0.0f;
             break;
         case kGlue:
             glueEnv = 0.0f;
@@ -1465,11 +1467,23 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
             // a left-leaning source stays left, just wider). The allpass
             // rotation only tops up decorrelation for near-mono sources.
             const float widthK = a * 1.7f;      // extra gain on existing side (highs)
-            const float synthK = a * 0.35f;     // synthesized side for mono material
+            const float synthK = a * 0.35f;     // synthesized side, DEAD-MONO ONLY
+            const float envK   = 1.0f - std::exp (-1.0f / (0.05f * sr));
             for (int i = 0; i < n; ++i)
             {
                 const float mid   = 0.5f * (L[i] + R[i]);
                 const float side0 = 0.5f * (L[i] - R[i]);
+                // Ozone-style law: if the source already HAS a direction
+                // (any real side energy — incl. hard-panned mono), width
+                // must be a pure side rescale, so the polar plot stays a
+                // straight line that only changes angle. The allpass
+                // decorrelation would bend it into an arc — gate it down
+                // to zero unless the input is essentially dead-centre.
+                stEnvM += (std::abs (mid)   - stEnvM) * envK;
+                stEnvS += (std::abs (side0) - stEnvS) * envK;
+                float mono = 1.0f - stEnvS / (0.10f * stEnvM + 1.0e-9f);
+                mono = juce::jlimit (0.0f, 1.0f, mono);
+                mono *= mono;
                 float x = mid;
                 for (int st = 0; st < 4; ++st)
                 {
@@ -1482,7 +1496,7 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                 const float synth = x - sideHpState;
                 sideHpState2 += (side0 - sideHpState2) * hpK;     // HP the width boost
                 const float sideHi = side0 - sideHpState2;        // lows stay centred
-                const float sideOut = side0 + sideHi * widthK + synth * synthK;
+                const float sideOut = side0 + sideHi * widthK + synth * (synthK * mono);
                 L[i] = mid + sideOut;
                 R[i] = mid - sideOut;
             }

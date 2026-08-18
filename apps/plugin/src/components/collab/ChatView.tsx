@@ -993,12 +993,18 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // opens a slide-over scoped to this conversation's shared events, and
   // schedule-looking messages grow an "add to calendar" chip.
   const [chatCalOpen, setChatCalOpen] = useState(false)
+  const openingCalendarFromStemsRef = useRef(false)
   const closeChatCalendar = useCallback((options?: { restoreSize?: boolean; preserveRestore?: boolean }) => {
     setChatCalOpen(false)
     onCloseCalendar?.(options)
   }, [onCloseCalendar])
   useEffect(() => {
-    if (stemsActive && chatCalOpen) closeChatCalendar({ restoreSize: false })
+    if (!stemsActive || !chatCalOpen) return
+    if (openingCalendarFromStemsRef.current) {
+      openingCalendarFromStemsRef.current = false
+      return
+    }
+    closeChatCalendar({ restoreSize: false })
   }, [chatCalOpen, closeChatCalendar, stemsActive])
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
   const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
@@ -1794,7 +1800,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             onClick={() => {
               setChatCalOpen(open => {
                 const next = !open
-                if (next) onOpenCalendar?.()
+                if (next) {
+                  if (stemsActive) openingCalendarFromStemsRef.current = true
+                  onOpenCalendar?.()
+                }
                 else onCloseCalendar?.()
                 return next
               })

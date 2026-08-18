@@ -20,7 +20,9 @@
   --ink: #1A1917;
   --hair: rgba(26, 25, 23, 0.55);
   --blue: #2440FF;
-  --action: #8A7357;
+  --action: #B59D7A;
+  --mine-bubble: #F1E9DC;
+  --mine-bubble-border: rgba(26, 25, 23, 0.62);
 
   --bg: #FBFAF7;
   --bg2: #F4F2EC;
@@ -65,6 +67,8 @@
   --hair: rgba(240, 238, 233, 0.45);
   --blue: #5A6BFF;
   --action: #5A6BFF;
+  --mine-bubble: #F0EEE9;
+  --mine-bubble-border: rgba(240, 238, 233, 0.4);
 
   --bg: #171614;
   --bg2: #201E1B;
@@ -8219,14 +8223,14 @@
 }
 .plugin .mg.mine .mb,
 .plugin.dark .mg.mine .mb {
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
+  background: var(--mine-bubble);
+  color: var(--ink);
+  border: 1px solid var(--mine-bubble-border);
   box-shadow: none;
   border-radius: 8px 8px 2px 8px;
 }
 .plugin .mg.theirs .mb { border-radius: 8px 8px 8px 2px; }
-.plugin .mg.mine .msg-link:hover { color: var(--paper); opacity: 0.75; }
+.plugin .mg.mine .msg-link:hover { color: var(--ink); opacity: 0.75; }
 
 /* Compose bar */
 .plugin .mi-wrap,
@@ -9909,6 +9913,15 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-placement-field small { display: block; margin-bottom: 2px; color: var(--t3); font-size: 8.5px; font-weight: 650; line-height: 1; text-transform: uppercase; }
 .stem-placement-field strong { display: block; overflow: hidden; color: var(--t1); font-family: var(--f-sans); font-size: 12px; font-weight: 650; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; }
 .stem-placement-field.position strong { color: var(--blue); font-size: 13px; }
+.plugin:not(.dark) .stem-placement-card {
+  border-color: color-mix(in srgb, var(--action) 24%, transparent);
+  background: color-mix(in srgb, var(--action) 10%, var(--bg2));
+}
+.plugin:not(.dark) .stem-placement-pin {
+  border-color: var(--action);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--action) 14%, transparent);
+}
+.plugin:not(.dark) .stem-placement-field.position strong { color: color-mix(in srgb, var(--action) 82%, var(--ink)); }
 .stem-expand { width: 100%; height: 14px; padding: 0; border: 0; display: grid; place-items: center; background: transparent; color: var(--t3); cursor: pointer; }
 .stem-expand:hover { color: var(--t1); }
 .stem-expand svg { width: 12px; height: 12px; transition: transform .16s ease; }
@@ -9985,8 +9998,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .chat-settings-action,
   .chat-settings-cta
 ):hover:not(:disabled) {
-  background: color-mix(in srgb, var(--action) 86%, var(--ink));
-  border-color: color-mix(in srgb, var(--action) 86%, var(--ink));
+  background: color-mix(in srgb, var(--action) 88%, var(--paper));
+  border-color: color-mix(in srgb, var(--action) 78%, var(--ink));
 }
 .plugin:not(.dark) :where(
   .game-ready-btn.ready,

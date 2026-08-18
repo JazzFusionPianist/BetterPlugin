@@ -221,6 +221,27 @@
 .plugin.screen-wide .settings-list {
   width: 100%; max-width: 340px; margin-left: auto; margin-right: auto;
 }
+.plugin.screen-medium .settings-header-card,
+.plugin.screen-medium .display-stack,
+.plugin.screen-medium .info-stack,
+.plugin.screen-medium .af-stack,
+.plugin.screen-wide .settings-header-card,
+.plugin.screen-wide .display-stack,
+.plugin.screen-wide .info-stack,
+.plugin.screen-wide .af-stack {
+  width: 100%;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.plugin.screen-medium .display-stack,
+.plugin.screen-medium .info-stack,
+.plugin.screen-medium .af-stack,
+.plugin.screen-wide .display-stack,
+.plugin.screen-wide .info-stack,
+.plugin.screen-wide .af-stack {
+  margin-top: 14px;
+}
 
 /* Disable rubber-band / bounce scrolling everywhere inside the plugin.
    Vertical overscroll on macOS WebView triggers the parent page's swipe

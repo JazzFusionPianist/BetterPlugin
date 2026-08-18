@@ -60,6 +60,7 @@ interface Props {
   onOpenCalendar?: () => void
   onCloseCalendar?: (options?: { restoreSize?: boolean; preserveRestore?: boolean }) => void
   stemsActive?: boolean
+  sidePanelCloseNonce?: number
   onStemDrop?: (request: StemDropRequest) => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
   onBack: () => void
@@ -984,7 +985,7 @@ function AttachmentView({ url, type, name, metadata }: { url: string; type: Atta
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, onOpenCalendar, onCloseCalendar, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
+export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, onOpenCalendar, onCloseCalendar, stemsActive, sidePanelCloseNonce, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
 
@@ -1006,6 +1007,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     }
     closeChatCalendar({ restoreSize: false })
   }, [chatCalOpen, closeChatCalendar, stemsActive])
+  useEffect(() => {
+    openingCalendarFromStemsRef.current = false
+    setChatCalOpen(false)
+  }, [sidePanelCloseNonce])
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
   const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
   const chatTitle = groupHeader?.title ?? otherProfile?.display_name ?? ''

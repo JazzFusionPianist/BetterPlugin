@@ -91,6 +91,7 @@ function CollabPageInner({ user }: Props) {
   const [stemsOpen, setStemsOpen]               = useState(false)
   const [stemsExpandedFromSmall, setStemsExpandedFromSmall] = useState(false)
   const [calendarExpandedFromSmall, setCalendarExpandedFromSmall] = useState(false)
+  const [sidePanelCloseNonce, setSidePanelCloseNonce] = useState(0)
   const [pendingStemDrop, setPendingStemDrop]   = useState<StemDropRequest | null>(null)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
@@ -558,6 +559,13 @@ function CollabPageInner({ user }: Props) {
     setScreenSize('large')
   }, [closeStems, screenSize])
 
+  const closeSidePanelsForNavigation = useCallback((options: { restoreSize?: boolean } = {}) => {
+    const restoreSize = options.restoreSize ?? true
+    setSidePanelCloseNonce(n => n + 1)
+    closeCalendar({ restoreSize })
+    closeStems({ restoreSize })
+  }, [closeCalendar, closeStems])
+
   // Search/AddFriend toggles kept for re-introduction; redesign removed
   // their trigger buttons from the toolbar but the panels are still wired up.
   const _handleToggleSearch = () => setSearchOpen(prev => {
@@ -578,7 +586,7 @@ function CollabPageInner({ user }: Props) {
     // on BOTH edges — leaving any of them open past a gear-close strands
     // an invisible overlay above the next screen (the language-panel bug,
     // and again with find-people).
-    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false); setFxOpen(false); closeSearch() }
+    if (!prev) { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false); setFxOpen(false); closeSidePanelsForNavigation(); closeSearch() }
     else { setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false); setAddFriendOpen(false) }
     return !prev
   })
@@ -586,18 +594,17 @@ function CollabPageInner({ user }: Props) {
   // add-friend/chat). Settings (z-index 30) intentionally overlays instead,
   // so it does NOT go through here.
   const closeSettingsPanels = () => { setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false); setLanguageOpen(false) }
-  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch() } return !prev })
+  const _handleToggleAddFriend = () => setAddFriendOpen(prev => { if (!prev) { closeSettingsPanels(); setConvOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSidePanelsForNavigation(); closeSearch() } return !prev })
   void _handleToggleAddFriend
   const handleToggleConv      = () => setConvOpen(prev => {
     if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
+      closeSettingsPanels(); setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSidePanelsForNavigation(); closeSearch()
       setChatSettingsOpen(false)
-      closeStems({ restoreSize: false })
     }
     else {
       setNewGroupOpen(false)          // closing the tab resets the new-group flow
       setChatSettingsOpen(false)
-      closeStems()
+      closeSidePanelsForNavigation()
       setSelectedId(null)
       setSelectedGroupConvId(null)
     }
@@ -607,12 +614,13 @@ function CollabPageInner({ user }: Props) {
     if (!prev) {
       closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false)
       setLiveOpen(false); setGameOpen(false); closeSearch()
+      closeSidePanelsForNavigation()
     }
     return !prev
   })
   const handleToggleLive      = () => setLiveOpen(prev => {
     if (!prev) {
-      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
+      closeSettingsPanels(); setAddFriendOpen(false); setConvOpen(false); setGameOpen(false); setFxOpen(false); closeSidePanelsForNavigation(); closeSearch()
     }
     return !prev
   })
@@ -628,6 +636,7 @@ function CollabPageInner({ user }: Props) {
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setNewGroupOpen(false); closeSearch()
     setTooltip(null); setGalleryPopup(null)
+    closeSidePanelsForNavigation()
   }
 
   const handleOpenChat     = (id: string, options: { fromConvList?: boolean } = {}) => {
@@ -656,7 +665,7 @@ function CollabPageInner({ user }: Props) {
 
   const handleBackToConversations = () => {
     setChatSettingsOpen(false)
-    closeStems({ restoreSize: false })
+    closeSidePanelsForNavigation()
     closeSettingsPanels()
     setAddFriendOpen(false); setLiveOpen(false); setGameOpen(false); setFxOpen(false); closeSearch()
     setNewGroupOpen(false)
@@ -713,8 +722,7 @@ function CollabPageInner({ user }: Props) {
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
     setChatFromConvList(false)
-    closeCalendar()
-    closeStems()
+    closeSidePanelsForNavigation()
     setWatchingSession(null)
     closeSearch()
   }
@@ -882,6 +890,7 @@ function CollabPageInner({ user }: Props) {
             onOpenCalendar={openCalendar}
             onCloseCalendar={closeCalendar}
             stemsActive={stemsOpen}
+            sidePanelCloseNonce={sidePanelCloseNonce}
             onStemDrop={handleStemDrop}
             onSend={send}
             onJoinGameInvite={handleJoinGameInvite}
@@ -907,6 +916,7 @@ function CollabPageInner({ user }: Props) {
               onOpenCalendar={openCalendar}
               onCloseCalendar={closeCalendar}
               stemsActive={stemsOpen}
+              sidePanelCloseNonce={sidePanelCloseNonce}
               onStemDrop={handleStemDrop}
               onSend={send}
               onJoinGameInvite={handleJoinGameInvite}

@@ -201,6 +201,9 @@ export function ReleaseSheet({ release, isMine, onUpdate, onDelete, onClose }: {
   onDelete: (id: string) => void
   onClose: () => void
 }) {
+  // Two-tap delete — the house pattern. window.confirm is both off-voice
+  // and silently broken in iOS standalone (home-screen) web apps.
+  const [delSure, setDelSure] = useState(false)
   return createPortal(
     <div className="pfolio-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pfolio-sheet">
@@ -269,7 +272,14 @@ export function ReleaseSheet({ release, isMine, onUpdate, onDelete, onClose }: {
         )}
 
         <div className="pfolio-sheet-foot">
-          {isMine && <button className="pfolio-del" onClick={() => { if (confirm('Delete this release?')) onDelete(release.id) }}>delete release</button>}
+          {isMine && (
+            <button
+              className="pfolio-del"
+              onClick={() => { if (delSure) onDelete(release.id); else setDelSure(true) }}
+            >
+              {delSure ? 'sure?' : 'delete release'}
+            </button>
+          )}
           <button className="pfolio-close" onClick={onClose}>close</button>
         </div>
       </div>
@@ -413,6 +423,7 @@ export function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
   onDelete: () => void
   onClose: () => void
 }) {
+  const [delSure, setDelSure] = useState(false)
   return createPortal(
     <div className="pfolio-overlay dark" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pfolio-lightbox">
@@ -435,7 +446,12 @@ export function PhotoLightbox({ photo, isMine, onCaption, onDelete, onClose }: {
         <div className="pfolio-lightbox-foot">
           <span className="pfolio-lightbox-date">{fmtDate(photo.created_at)}</span>
           {isMine && (
-            <button className="pfolio-del" onClick={() => { if (confirm('Delete this photo?')) onDelete() }}>delete</button>
+            <button
+              className="pfolio-del"
+              onClick={() => { if (delSure) onDelete(); else setDelSure(true) }}
+            >
+              {delSure ? 'sure?' : 'delete'}
+            </button>
           )}
         </div>
       </div>

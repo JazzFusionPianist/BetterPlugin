@@ -33,6 +33,10 @@
   flex: 1; overflow-y: auto; min-height: 0;
   padding: 10px 14px 28px;
   scrollbar-width: none;
+  /* Own stacking context — traps the risen record's z-index: 99 so it
+     can't paint over the release-sheet overlay (z 70), which is a
+     sibling, not a portal. */
+  position: relative; z-index: 0;
 }
 .pdisco-scroll::-webkit-scrollbar { display: none; }
 .pdisco-empty {
@@ -199,6 +203,17 @@
 .pdisco-close {
   background: none; border: none; cursor: pointer;
   font-size: 11px; color: var(--t2); align-self: flex-end; padding: 4px 0 0;
+}
+.pdisco-sheet-foot {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-top: 4px;
+}
+/* lone close (not mine) keeps its right-edge seat */
+.pdisco-sheet-foot .pdisco-close { margin-left: auto; padding: 0; }
+.pdisco-del {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-size: 10.5px; color: #C0392B;
+  text-decoration: underline; text-underline-offset: 3px;
 }
 .pdisco-composer-head { text-align: center; font-size: 9.5px; letter-spacing: 0.04em; color: var(--t3); }
 .pdisco-composer-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }

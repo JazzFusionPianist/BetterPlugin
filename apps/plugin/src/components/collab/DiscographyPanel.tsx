@@ -243,6 +243,14 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
       {open && (
         <ReleaseSheet
           release={open}
+          isMine={isMine}
+          onDelete={async (id) => {
+            const { error } = await supabase.from('releases').delete().eq('id', id)
+            if (error) { console.error('[discography] delete', error); return }
+            setOpenRelease(null)
+            setSelected(null)
+            await refetch()
+          }}
           onClose={() => setOpenRelease(null)}
         />
       )}
@@ -279,11 +287,16 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   )
 }
 
-/** A release opened — cover, notes, the sleeve's tracklist (view-only). */
-function ReleaseSheet({ release, onClose }: {
+/** A release opened — cover, notes, the sleeve's tracklist. */
+function ReleaseSheet({ release, isMine, onDelete, onClose }: {
   release: Release
+  isMine: boolean
+  onDelete: (id: string) => void
   onClose: () => void
 }) {
+  // Two-tap delete — the house pattern (a word, then "sure?"; never a
+  // native confirm, which the plugin's WKWebView can't even show).
+  const [delSure, setDelSure] = useState(false)
   return (
     <div className="pdisco-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="pdisco-sheet">
@@ -307,7 +320,17 @@ function ReleaseSheet({ release, onClose }: {
             ))}
           </ol>
         )}
-        <button className="pdisco-close" onClick={onClose}>close</button>
+        <div className="pdisco-sheet-foot">
+          {isMine && (
+            <button
+              className="pdisco-del"
+              onClick={() => { if (delSure) onDelete(release.id); else setDelSure(true) }}
+            >
+              {delSure ? 'sure?' : 'delete release'}
+            </button>
+          )}
+          <button className="pdisco-close" onClick={onClose}>close</button>
+        </div>
       </div>
     </div>
   )

@@ -2400,6 +2400,9 @@ button { font-family: inherit; }
   flex: 1; overflow-y: auto; min-height: 0;
   padding: 26px max(28px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left));
   max-width: 1080px; width: 100%; margin: 0 auto;
+  /* Own stacking context — traps the risen record's z-index: 99 so it
+     can't paint over the header while scrolling. */
+  position: relative; z-index: 0;
 }
 .disco-empty {
   font-family: var(--f-serif); font-style: italic; font-size: 14px; color: var(--t3);

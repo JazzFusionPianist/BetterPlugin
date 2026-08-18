@@ -19,7 +19,7 @@
   --card: #FFFFFF;
   --ink: #1A1917;
   --hair: rgba(26, 25, 23, 0.55);
-  --blue: #2440FF;
+  --blue: #8A7357;
 
   --bg: #FBFAF7;
   --bg2: #F4F2EC;
@@ -34,7 +34,7 @@
   --mine-t: #FBFAF7;
   --inp-bg: #1A1917;
   --inp-ph: rgba(251,250,247,.38);
-  --star: #2440FF;
+  --star: #8A7357;
   --ob-bg: rgba(30, 158, 99, 0.12);
   --ob-t: #1E9E63;
   /* Music panel circle edges — dark in light mode so they're visible on white */
@@ -366,7 +366,7 @@
 .iview  { transform: translateX(100%); z-index: 31; background: var(--bg); }
 .lngview { transform: translateX(100%); z-index: 32; background: var(--bg); }
 .convview { transform: translateX(100%); z-index: 20; background: var(--bg); }
-.lvview   { transform: translateX(100%); z-index: 21; background: var(--bg); }
+.lvview   { transform: translateX(100%); z-index: 24; background: var(--bg); }
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
 .plugin.chat-open           .cview    { transform: translateX(0); z-index: 22; }
@@ -395,11 +395,23 @@
 .plugin.language-open       .lngview  { transform: translateX(0); }
 .plugin.conv-open           .convview { transform: translateX(0); }
 .plugin.live-open           .lvview   { transform: translateX(0); }
-.gview    { transform: translateX(100%); z-index: 22; background: var(--bg); }
+.gview    { transform: translateX(100%); z-index: 24; background: var(--bg); }
 .plugin.game-open           .gview    { transform: translateX(0); }
+.plugin.chat-open.live-open .lvview,
+.plugin.chat-open.game-open .gview,
+.plugin.chat-open.fx-open .fxview {
+  z-index: 24;
+}
 
 .plugin.live-open .fview > * { visibility: hidden; }
 .plugin.game-open .fview > * { visibility: hidden; }
+
+.plugin.screen-wide .conv-list,
+.plugin.screen-wide .chat-drop-zone:not(.cal-open) {
+  width: min(420px, calc(100% - 48px));
+  margin-left: auto;
+  margin-right: auto;
+}
 
 .s-nav-row {
   display: flex;
@@ -8683,7 +8695,7 @@
 /* ── One-knob FX: five prints hung in a darkened room. The wall
      takes each effect's own light as the amount rises; the print
      is the control. Labels live in one small chip at the bottom. ── */
-.fxview { transform: translateX(100%); z-index: 21; background: var(--bg); }
+.fxview { transform: translateX(100%); z-index: 24; background: var(--bg); }
 .plugin.fx-open .fxview { transform: translateX(0); }
 /* The fx room hides EVERY view behind its darkened wall — the chat,
    the panels, all of it — not just the home. Whatever was open stays
@@ -9403,7 +9415,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .plugin.screen-wide .chatcal {
   left: 50%;
-  border-left: 1px solid var(--border);
+  border-left: 0;
   box-shadow: none;
 }
 @keyframes chatcal-in {
@@ -9422,7 +9434,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .chatcal-head {
   display: flex; align-items: baseline; gap: 8px;
   padding: 12px 14px 9px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
   flex-shrink: 0;
 }
 .chatcal-head .back {
@@ -9445,7 +9457,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .chatcal-prompt {
   flex-shrink: 0;
   padding: 8px 10px 10px;
-  border-top: 1px solid var(--border);
+  border-top: 0;
 }
 
 /* Chips under schedule-looking bubbles */
@@ -9822,7 +9834,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   min-height: 0;
   padding: 12px;
   border: 0;
-  border-left: 1px solid var(--border);
+  border-left: 0;
   border-radius: 0;
   display: flex;
   flex-direction: column;
@@ -9873,7 +9885,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-expand:hover { color: var(--t1); }
 .stem-expand svg { width: 12px; height: 12px; transition: transform .16s ease; }
 .stem-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
-.stem-footer { flex: 0 0 auto; padding-top: 7px; border-top: 1px solid var(--border); }
+.stem-footer { flex: 0 0 auto; padding-top: 7px; border-top: 0; }
 .stem-footer > button { width: 100%; height: 40px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg2); color: var(--t1); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .stem-footer > button:hover { border-color: color-mix(in srgb, var(--blue) 45%, transparent); background: color-mix(in srgb, var(--blue) 10%, var(--bg2)); }
 .stem-footer > button span { font-size: 18px; line-height: 1; color: var(--blue); }
@@ -9903,3 +9915,55 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* the fx specimen numeral — a light, tight figure over the plate,
    never a bold blob */
 .plugin .fx-art-value { letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+
+/* Light-mode accent pass: CTA buttons use a warm ink accent instead of
+   electric blue so they sit with the paper UI. Dark mode keeps its brighter
+   blue for contrast. */
+.plugin:not(.dark) :where(
+  .send-btn,
+  .sprompt-send,
+  .game-invite-join,
+  .chess-invite-btn,
+  .chess-invite-do-btn,
+  .game-invite-btn,
+  .game-ready-btn,
+  .game-chat-send,
+  .game-count-btn.active,
+  .game-invite-do-btn,
+  .falling-blocks-invite-do-btn,
+  .poker-invite-do-btn,
+  .chess-result-btn.primary,
+  .poker-action-btn--call,
+  .af-btn.af-btn-accept
+) {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--paper);
+}
+.plugin:not(.dark) :where(
+  .send-btn,
+  .sprompt-send,
+  .game-invite-join,
+  .chess-invite-btn,
+  .chess-invite-do-btn,
+  .game-invite-btn,
+  .game-ready-btn,
+  .game-chat-send,
+  .game-invite-do-btn,
+  .falling-blocks-invite-do-btn,
+  .poker-invite-do-btn,
+  .chess-result-btn.primary,
+  .poker-action-btn--call,
+  .af-btn.af-btn-accept
+):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--blue) 86%, var(--ink));
+  border-color: color-mix(in srgb, var(--blue) 86%, var(--ink));
+}
+.plugin:not(.dark) :where(
+  .game-ready-btn.ready,
+  .game-invite-btn.game-computer-btn
+) {
+  background: transparent;
+  color: var(--t1);
+  border-color: var(--hair);
+}

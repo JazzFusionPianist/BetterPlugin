@@ -9984,7 +9984,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .poker-invite-do-btn,
   .chess-result-btn.primary,
   .poker-action-btn--call,
-  .af-btn.af-btn-accept
+  .af-btn.af-btn-accept,
+  .orbit-group-tt-btn,
+  .chat-settings-action,
+  .chat-settings-cta
 ) {
   background: var(--action);
   border-color: var(--action);
@@ -10004,7 +10007,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .poker-invite-do-btn,
   .chess-result-btn.primary,
   .poker-action-btn--call,
-  .af-btn.af-btn-accept
+  .af-btn.af-btn-accept,
+  .orbit-group-tt-btn,
+  .chat-settings-action,
+  .chat-settings-cta
 ):hover:not(:disabled) {
   background: color-mix(in srgb, var(--action) 86%, var(--ink));
   border-color: color-mix(in srgb, var(--action) 86%, var(--ink));

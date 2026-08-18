@@ -14,7 +14,9 @@ export interface ReleaseTrack {
   release_id: string
   idx: number
   title: string
-  media_url: string
+  /** Tracks are metadata-only (the sleeve's tracklist); kept for a
+   *  possible future streaming feature. */
+  media_url: string | null
 }
 
 export interface Release {
@@ -119,7 +121,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     description?: string | null
     released_on?: string | null
     shelf_id?: string | null
-    tracks: { title: string; media_url: string }[]
+    tracks: { title: string }[]
   }): Promise<boolean> => {
     const nextPos = releases.reduce((m, r) => Math.max(m, r.position + 1), 0)
     const { data, error } = await supabase.from('releases').insert({
@@ -135,7 +137,7 @@ export function usePortfolio(supabase: SupabaseClient, ownerId: string) {
     if (error || !data) { console.error('[portfolio] addRelease', error); return false }
     if (input.tracks.length > 0) {
       const { error: tErr } = await supabase.from('release_tracks').insert(
-        input.tracks.map((t, i) => ({ release_id: data.id, idx: i, title: t.title, media_url: t.media_url })),
+        input.tracks.map((t, i) => ({ release_id: data.id, idx: i, title: t.title })),
       )
       if (tErr) console.error('[portfolio] addTracks', tErr)
     }

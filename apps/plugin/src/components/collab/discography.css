@@ -190,6 +190,7 @@
 .pdisco-track-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pdisco-track-play { flex-shrink: 0; font-size: 9px; color: var(--t2); }
 .pdisco-track.as-row { cursor: default; align-items: center; }
+.pdisco-track.as-text { cursor: default; }
 .pdisco-track-edit {
   flex: 1; min-width: 0; border: none; outline: none; background: none;
   font-size: 12px; color: var(--t1); padding: 0;

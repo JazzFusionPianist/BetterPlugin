@@ -2104,6 +2104,7 @@ button { font-family: inherit; }
 .pfolio-track-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfolio-track-play { flex-shrink: 0; color: var(--t2); }
 .pfolio-track.as-row { cursor: default; align-items: center; }
+.pfolio-track.as-text { cursor: default; }
 .pfolio-track-edit {
   flex: 1; min-width: 0; border: none; outline: none; background: none;
   font-size: 14px; color: var(--ink); padding: 0;

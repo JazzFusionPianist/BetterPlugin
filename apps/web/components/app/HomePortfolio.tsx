@@ -27,15 +27,6 @@ export default function HomePortfolio({ supabase, me }: Props) {
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [playingTrack, setPlayingTrack] = useState<string | null>(null)
-  const toggleTrack = (id: string, url: string) => {
-    const a = audioRef.current
-    if (!a) return
-    if (playingTrack === id) { a.pause(); setPlayingTrack(null) }
-    else { a.src = url; a.play().catch(() => {}); setPlayingTrack(id) }
-  }
-
   const onPickPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
@@ -59,8 +50,6 @@ export default function HomePortfolio({ supabase, me }: Props) {
 
   return (
     <div className="home-pfolio">
-      <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
-
       {/* ── Phones: booklet page 3 — shelves as sections + gallery. ── */}
       <div className="home-pfolio-book">
         <div className="home-pfolio-labelrow gallery">
@@ -89,8 +78,6 @@ export default function HomePortfolio({ supabase, me }: Props) {
         <ReleaseSheet
           release={release}
           isMine
-          playingTrack={playingTrack}
-          onToggleTrack={toggleTrack}
           onUpdate={updateRelease}
           onDelete={(id) => { deleteRelease(id); setOpenRelease(null) }}
           onClose={() => setOpenRelease(null)}

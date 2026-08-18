@@ -46,16 +46,6 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  // One player for the whole page.
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [playingTrack, setPlayingTrack] = useState<string | null>(null)
-  const toggleTrack = (id: string, url: string) => {
-    const a = audioRef.current
-    if (!a) return
-    if (playingTrack === id) { a.pause(); setPlayingTrack(null) }
-    else { a.src = url; a.play().catch(() => {}); setPlayingTrack(id) }
-  }
-
   const onPickPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
@@ -79,8 +69,6 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
 
   return (
     <div className="pfolio">
-      <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
-
       <header className="pfolio-head">
         <button className="chatt-back" onClick={onClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -174,8 +162,6 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
         <ReleaseSheet
           release={release}
           isMine={isMine}
-          playingTrack={playingTrack}
-          onToggleTrack={toggleTrack}
           onUpdate={updateRelease}
           onDelete={(id) => { deleteRelease(id); setOpenRelease(null) }}
           onClose={() => setOpenRelease(null)}
@@ -207,12 +193,10 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
   )
 }
 
-/** A release opened — cover, notes, playable tracklist. */
-export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onUpdate, onDelete, onClose }: {
+/** A release opened — cover, notes, the sleeve's tracklist. */
+export function ReleaseSheet({ release, isMine, onUpdate, onDelete, onClose }: {
   release: Release
   isMine: boolean
-  playingTrack: string | null
-  onToggleTrack: (id: string, url: string) => void
   onUpdate: (id: string, patch: Partial<Pick<Release, 'title' | 'artist' | 'description' | 'released_on'>>) => void
   onDelete: (id: string) => void
   onClose: () => void
@@ -275,20 +259,10 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
           <ol className="pfolio-tracks">
             {release.tracks.map((t, i) => (
               <li key={t.id}>
-                <button
-                  className={`pfolio-track${playingTrack === t.id ? ' on' : ''}`}
-                  onClick={() => onToggleTrack(t.id, t.media_url)}
-                >
+                <span className="pfolio-track as-text">
                   <span className="pfolio-track-num">{i + 1}</span>
                   <span className="pfolio-track-title">{t.title}</span>
-                  <span className="pfolio-track-play" aria-hidden="true">
-                    {playingTrack === t.id ? (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-                    ) : (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
-                    )}
-                  </span>
-                </button>
+                </span>
               </li>
             ))}
           </ol>
@@ -304,10 +278,12 @@ export function ReleaseSheet({ release, isMine, playingTrack, onToggleTrack, onU
   )
 }
 
-/** New release — cover, title, date, notes, audio files as the tracklist. */
+/** New release — cover, title, date, notes, and a typed tracklist.
+ *  Tracks are metadata only (no audio upload) — just the titles as
+ *  printed on the sleeve. */
 export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
   currentUserId: string
-  onCreate: (input: { title: string; cover_url?: string | null; artist?: string | null; description?: string | null; released_on?: string | null; tracks: { title: string; media_url: string }[] }) => Promise<boolean>
+  onCreate: (input: { title: string; cover_url?: string | null; artist?: string | null; description?: string | null; released_on?: string | null; tracks: { title: string }[] }) => Promise<boolean>
   onClose: () => void
 }) {
   const [title, setTitle] = useState('')
@@ -316,11 +292,9 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
   const [desc, setDesc] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
-  const [tracks, setTracks] = useState<{ title: string; media_url: string }[]>([])
-  const [trackBusy, setTrackBusy] = useState(false)
+  const [tracks, setTracks] = useState<{ title: string }[]>([])
   const [saving, setSaving] = useState(false)
   const coverRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLInputElement>(null)
 
   const onPickCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -335,21 +309,6 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
     finally { setCoverBusy(false) }
   }
 
-  const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    if (files.length === 0) return
-    setTrackBusy(true)
-    try {
-      for (const f of files.slice(0, 20)) {
-        try {
-          const { url } = await uploadAttachment(f, currentUserId)
-          setTracks((prev) => [...prev, { title: f.name.replace(/\.[^.]+$/, ''), media_url: url }])
-        } catch (err) { console.error('[portfolio] track upload', err) }
-      }
-    } finally { setTrackBusy(false) }
-  }
-
   const submit = async () => {
     if (!title.trim() || saving) return
     setSaving(true)
@@ -359,7 +318,7 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
       artist: artist.trim() || null,
       description: desc.trim() || null,
       released_on: date.trim() ? parseReleaseDate(date) : null,
-      tracks,
+      tracks: tracks.map((t) => ({ title: t.title.trim() })).filter((t) => t.title),
     })
     if (!ok) setSaving(false)
   }
@@ -415,8 +374,10 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
                 <span className="pfolio-track-num">{i + 1}</span>
                 <input
                   className="pfolio-track-edit"
+                  placeholder="track title…"
                   value={t.title}
                   maxLength={120}
+                  autoFocus={i === tracks.length - 1 && !t.title}
                   onChange={(e) => setTracks((prev) => prev.map((x, xi) => xi === i ? { ...x, title: e.target.value } : x))}
                 />
                 <button
@@ -428,14 +389,13 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
             ))}
           </ol>
         )}
-        <button className="pfolio-add" onClick={() => audioRef.current?.click()} disabled={trackBusy}>
-          {trackBusy ? 'uploading…' : '+ add tracks'}
+        <button className="pfolio-add" onClick={() => setTracks((prev) => [...prev, { title: '' }])}>
+          + add track
         </button>
-        <input ref={audioRef} type="file" accept="audio/*" multiple hidden onChange={onPickAudio} />
 
         <div className="pfolio-sheet-foot">
           <button className="pfolio-close" onClick={onClose}>cancel</button>
-          <button className="pfolio-publish" onClick={submit} disabled={!title.trim() || saving || coverBusy || trackBusy}>
+          <button className="pfolio-publish" onClick={submit} disabled={!title.trim() || saving || coverBusy}>
             {saving ? 'publishing…' : 'publish'}
           </button>
         </div>

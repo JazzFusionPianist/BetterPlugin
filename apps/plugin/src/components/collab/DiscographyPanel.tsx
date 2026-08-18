@@ -23,7 +23,9 @@ interface ReleaseTrack {
   release_id: string
   idx: number
   title: string
-  media_url: string
+  /** Tracks are metadata-only (the sleeve's tracklist); kept for a
+   *  possible future streaming feature. */
+  media_url: string | null
 }
 
 interface Release {
@@ -141,15 +143,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
     else { setSelected(id); setLastCapId(id) }
   }
 
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [playingTrack, setPlayingTrack] = useState<string | null>(null)
-  const toggleTrack = (id: string, url: string) => {
-    const a = audioRef.current
-    if (!a) return
-    if (playingTrack === id) { a.pause(); setPlayingTrack(null) }
-    else { a.src = url; a.play().catch(() => {}); setPlayingTrack(id) }
-  }
-
   const open = releases.find((r) => r.id === openRelease) ?? null
 
   const moveRelease = async (id: string, dir: 'up' | 'down') => {
@@ -168,8 +161,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
 
   return (
     <div className={`pdisco${closing ? ' closing' : ''}`}>
-      <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
-
       <header className="pdisco-head">
         <button className="pdisco-back" onClick={requestClose} aria-label="Back">‹</button>
         <span className="pdisco-title">discography</span>
@@ -252,8 +243,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
       {open && (
         <ReleaseSheet
           release={open}
-          playingTrack={playingTrack}
-          onToggleTrack={toggleTrack}
           onClose={() => setOpenRelease(null)}
         />
       )}
@@ -276,7 +265,7 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
             if (error || !data) { console.error('[discography] add', error); return false }
             if (input.tracks.length > 0) {
               await supabase.from('release_tracks').insert(
-                input.tracks.map((t, i) => ({ release_id: data.id, idx: i, title: t.title, media_url: t.media_url })),
+                input.tracks.map((t, i) => ({ release_id: data.id, idx: i, title: t.title })),
               )
             }
             await refetch()
@@ -290,11 +279,9 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   )
 }
 
-/** A release opened — cover, notes, playable tracklist (view-only). */
-function ReleaseSheet({ release, playingTrack, onToggleTrack, onClose }: {
+/** A release opened — cover, notes, the sleeve's tracklist (view-only). */
+function ReleaseSheet({ release, onClose }: {
   release: Release
-  playingTrack: string | null
-  onToggleTrack: (id: string, url: string) => void
   onClose: () => void
 }) {
   return (
@@ -312,14 +299,10 @@ function ReleaseSheet({ release, playingTrack, onToggleTrack, onClose }: {
           <ol className="pdisco-tracks">
             {release.tracks.map((t, i) => (
               <li key={t.id}>
-                <button
-                  className={`pdisco-track${playingTrack === t.id ? ' on' : ''}`}
-                  onClick={() => onToggleTrack(t.id, t.media_url)}
-                >
+                <span className="pdisco-track as-text">
                   <span className="pdisco-track-num">{i + 1}</span>
                   <span className="pdisco-track-title">{t.title}</span>
-                  <span className="pdisco-track-play">{playingTrack === t.id ? '❚❚' : '▶'}</span>
-                </button>
+                </span>
               </li>
             ))}
           </ol>
@@ -330,10 +313,11 @@ function ReleaseSheet({ release, playingTrack, onToggleTrack, onClose }: {
   )
 }
 
-/** New release — cover, title, artist, typed date, notes, tracks. */
+/** New release — cover, title, artist, typed date, notes, and a typed
+ *  tracklist. Tracks are metadata only (no audio upload). */
 function ReleaseComposer({ userId, onCreate, onClose }: {
   userId: string
-  onCreate: (input: { title: string; cover_url: string | null; artist: string | null; description: string | null; released_on: string | null; tracks: { title: string; media_url: string }[] }) => Promise<boolean>
+  onCreate: (input: { title: string; cover_url: string | null; artist: string | null; description: string | null; released_on: string | null; tracks: { title: string }[] }) => Promise<boolean>
   onClose: () => void
 }) {
   const [title, setTitle] = useState('')
@@ -341,11 +325,10 @@ function ReleaseComposer({ userId, onCreate, onClose }: {
   const [date, setDate] = useState('')
   const [desc, setDesc] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
-  const [tracks, setTracks] = useState<{ title: string; media_url: string }[]>([])
+  const [tracks, setTracks] = useState<{ title: string }[]>([])
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
   const coverRef = useRef<HTMLInputElement>(null)
-  const audioInRef = useRef<HTMLInputElement>(null)
 
   const onPickCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -354,17 +337,6 @@ function ReleaseComposer({ userId, onCreate, onClose }: {
     setBusy(true)
     const url = await uploadToR2(file, userId)
     if (url) setCoverUrl(url)
-    setBusy(false)
-  }
-  const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    if (files.length === 0) return
-    setBusy(true)
-    for (const f of files.slice(0, 20)) {
-      const url = await uploadToR2(f, userId)
-      if (url) setTracks((prev) => [...prev, { title: f.name.replace(/\.[^.]+$/, ''), media_url: url }])
-    }
     setBusy(false)
   }
   const submit = async () => {
@@ -376,7 +348,7 @@ function ReleaseComposer({ userId, onCreate, onClose }: {
       artist: artist.trim() || null,
       description: desc.trim() || null,
       released_on: date.trim() ? parseReleaseDate(date) : null,
-      tracks,
+      tracks: tracks.map((t) => ({ title: t.title.trim() })).filter((t) => t.title),
     })
     if (!ok) setSaving(false)
   }
@@ -400,8 +372,10 @@ function ReleaseComposer({ userId, onCreate, onClose }: {
                 <span className="pdisco-track-num">{i + 1}</span>
                 <input
                   className="pdisco-track-edit"
+                  placeholder="track title…"
                   value={t.title}
                   maxLength={120}
+                  autoFocus={i === tracks.length - 1 && !t.title}
                   onChange={(e) => setTracks((prev) => prev.map((x, xi) => xi === i ? { ...x, title: e.target.value } : x))}
                 />
                 <button className="pdisco-track-rm" onClick={() => setTracks((prev) => prev.filter((_, xi) => xi !== i))}>✕</button>
@@ -409,10 +383,9 @@ function ReleaseComposer({ userId, onCreate, onClose }: {
             ))}
           </ol>
         )}
-        <button className="pdisco-add" onClick={() => audioInRef.current?.click()} disabled={busy}>
-          {busy ? 'uploading…' : '+ add tracks'}
+        <button className="pdisco-add" onClick={() => setTracks((prev) => [...prev, { title: '' }])}>
+          + add track
         </button>
-        <input ref={audioInRef} type="file" accept="audio/*" multiple hidden onChange={onPickAudio} />
         <div className="pdisco-composer-foot">
           <button className="pdisco-close" onClick={onClose}>cancel</button>
           <button className="pdisco-publish" onClick={submit} disabled={!title.trim() || saving || busy}>

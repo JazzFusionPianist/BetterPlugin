@@ -42,15 +42,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
   const [composerShelf, setComposerShelf] = useState<string | 'default' | null>(null)
   const [newShelfDraft, setNewShelfDraft] = useState<string | null>(null)
 
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [playingTrack, setPlayingTrack] = useState<string | null>(null)
-  const toggleTrack = (id: string, url: string) => {
-    const a = audioRef.current
-    if (!a) return
-    if (playingTrack === id) { a.pause(); setPlayingTrack(null) }
-    else { a.src = url; a.play().catch(() => {}); setPlayingTrack(id) }
-  }
-
   const groups = useMemo(() => groupByShelf(releases, shelves), [releases, shelves])
 
   // ── Arrange mode: one shelf at a time spreads its records out and
@@ -144,8 +135,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
 
   return (
     <div className={`disco${closing ? ' closing' : ''}`}>
-      <audio ref={audioRef} preload="none" onEnded={() => setPlayingTrack(null)} />
-
       <header className="disco-head">
         <button className="chatt-back" onClick={requestClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -282,8 +271,6 @@ export default function DiscographyPanel({ supabase, owner, isMine, onClose }: P
         <ReleaseSheet
           release={open}
           isMine={isMine}
-          playingTrack={playingTrack}
-          onToggleTrack={toggleTrack}
           onUpdate={updateRelease}
           onDelete={(id) => { deleteRelease(id); setOpenRelease(null); setSelected(null) }}
           onClose={() => setOpenRelease(null)}

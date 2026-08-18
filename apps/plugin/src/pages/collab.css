@@ -20,6 +20,7 @@
   --ink: #1A1917;
   --hair: rgba(26, 25, 23, 0.55);
   --blue: #2440FF;
+  --action: #8A7357;
 
   --bg: #FBFAF7;
   --bg2: #F4F2EC;
@@ -63,6 +64,7 @@
   --ink: #F0EEE9;
   --hair: rgba(240, 238, 233, 0.45);
   --blue: #5A6BFF;
+  --action: #5A6BFF;
 
   --bg: #171614;
   --bg2: #201E1B;
@@ -9828,6 +9830,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   background: color-mix(in srgb, var(--blue) 12%, var(--bg2));
   color: var(--t1);
 }
+.plugin:not(.dark) .chdr-stems-btn:hover,
+.plugin:not(.dark) .chdr-stems-btn.active {
+  border-color: color-mix(in srgb, var(--action) 45%, transparent);
+  background: color-mix(in srgb, var(--action) 12%, var(--bg2));
+}
 .stem-dock {
   position: absolute;
   top: 50px;
@@ -9837,6 +9844,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   width: 50%;
   min-width: 300px;
   pointer-events: auto;
+  background: var(--bg);
   animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .plugin:not(.screen-wide) .stem-dock {
@@ -9855,7 +9863,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   flex-direction: column;
   gap: 9px;
   overflow: hidden;
-  background: transparent;
+  background: var(--bg);
   box-shadow: none;
 }
 .stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue); }
@@ -9978,8 +9986,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .poker-action-btn--call,
   .af-btn.af-btn-accept
 ) {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--action);
+  border-color: var(--action);
   color: var(--paper);
 }
 .plugin:not(.dark) :where(
@@ -9998,8 +10006,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   .poker-action-btn--call,
   .af-btn.af-btn-accept
 ):hover:not(:disabled) {
-  background: color-mix(in srgb, var(--blue) 86%, var(--ink));
-  border-color: color-mix(in srgb, var(--blue) 86%, var(--ink));
+  background: color-mix(in srgb, var(--action) 86%, var(--ink));
+  border-color: color-mix(in srgb, var(--action) 86%, var(--ink));
 }
 .plugin:not(.dark) :where(
   .game-ready-btn.ready,

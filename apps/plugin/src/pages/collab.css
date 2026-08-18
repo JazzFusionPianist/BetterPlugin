@@ -9551,13 +9551,14 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   from { transform: translateX(100%); }
   to   { transform: none; }
 }
-@keyframes sidepanel-expand-from-left {
-  from { transform: translateX(-100%); }
-  to   { transform: none; }
+@keyframes sidepanel-reveal-from-small-edge {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
 }
 .plugin.sidepanel-expand-from-small .chatcal,
 .plugin.sidepanel-expand-from-small .stem-dock {
-  animation-name: sidepanel-expand-from-left;
+  animation-name: sidepanel-reveal-from-small-edge;
+  transform: none;
 }
 .chatcal-head {
   display: flex; align-items: baseline; gap: 8px;

@@ -384,7 +384,7 @@
   transform: translateX(100%);
 }
 .plugin.screen-wide.stems-open .cview {
-  right: min(46%, 520px);
+  right: 50%;
   width: auto;
 }
 .plugin.settings-open       .sview    { transform: translateX(0); }
@@ -413,7 +413,7 @@
   margin-right: auto;
 }
 .plugin.screen-wide.stems-open .chat-drop-zone:not(.cal-open) {
-  width: min(520px, calc(100% - 48px));
+  width: calc(100% - 48px);
 }
 
 .s-nav-row {
@@ -9822,7 +9822,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   right: 0;
   bottom: 0;
   z-index: 28;
-  width: min(46%, 520px);
+  width: 50%;
   min-width: 300px;
   pointer-events: auto;
   animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
@@ -9847,15 +9847,15 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   box-shadow: none;
 }
 .stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue); }
-.stem-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-shrink: 0; }
+.stem-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-shrink: 0; min-height: 28px; }
 .stem-head h2 { margin: 0; font-family: var(--f-serif); font-size: 22px; line-height: 1; font-weight: 400; }
 .stem-head p {
   flex: 1;
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: var(--t3);
-  font-size: 10.5px;
+  color: var(--t2);
+  font-size: 11px;
   line-height: 1.25;
   text-align: left;
 }

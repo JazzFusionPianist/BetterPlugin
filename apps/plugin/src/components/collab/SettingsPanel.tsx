@@ -1,5 +1,6 @@
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
+import { openExternalUrl } from '../../lib/linkify'
 
 interface Props {
   onClose: () => void
@@ -42,6 +43,11 @@ export default function SettingsPanel({
       <div className="settings-list settings-list-bottom">
         <div className="settings-card settings-signout" onClick={onSignOut} role="button" tabIndex={0}>
           {t('settings.signOut')}
+        </div>
+        <div className="settings-legal">
+          <a href="https://orb-app-liard.vercel.app/terms" onClick={e => { e.preventDefault(); void openExternalUrl('https://orb-app-liard.vercel.app/terms') }}>terms</a>
+          <span>·</span>
+          <a href="https://orb-app-liard.vercel.app/privacy" onClick={e => { e.preventDefault(); void openExternalUrl('https://orb-app-liard.vercel.app/privacy') }}>privacy</a>
         </div>
         {/* Which bundle is this instance actually running? Ends the
             "did the deploy reach the plugin?" guessing game. */}

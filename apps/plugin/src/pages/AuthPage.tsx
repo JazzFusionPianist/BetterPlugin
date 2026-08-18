@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { openExternalUrl } from '../lib/linkify'
 import './auth.css'
 
 type Mode = 'signin' | 'signup'
@@ -7,6 +8,13 @@ type Mode = 'signin' | 'signup'
 /** Handles are lowercase, 3-20 chars of letters/digits/dot/underscore. */
 const USERNAME_RE = /^[a-z0-9_.]{3,20}$/
 const cleanUsername = (v: string) => v.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20)
+
+/** Legal docs live once, on the app domain — the plugin links out. */
+const LEGAL_BASE = 'https://orb-app-liard.vercel.app'
+const openLegal = (url: string) => (e: React.MouseEvent) => {
+  e.preventDefault()
+  openExternalUrl(url)
+}
 
 /* Static print-shop marginalia — the plugin's small still version of the
    app's drifting registration marks. Ink and one blue accent only. */
@@ -45,6 +53,12 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [showPw, setShowPw] = useState(false)
+  // Signup consent — required boxes gate the submit; the choices ride
+  // signUp metadata as the consent record.
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
+  const [agreeAge, setAgreeAge] = useState(false)
+  const [agreeMarketing, setAgreeMarketing] = useState(false)
 
   const toggle = () => {
     setMode(m => (m === 'signin' ? 'signup' : 'signin'))
@@ -70,9 +84,19 @@ export default function AuthPage() {
         const { data: free, error: rpcErr } = await supabase!.rpc('username_available', { u: handle })
         if (rpcErr) { setError('Could not check that username. Try again.'); return }
         if (!free) { setError(`@${handle} is taken — try another.`); return }
+        if (!agreeTerms || !agreePrivacy || !agreeAge) {
+          setError('The required agreements need a check to continue.')
+          return
+        }
         const { data, error } = await supabase!.auth.signUp({
           email, password,
-          options: { data: { display_name: name.trim() || handle, username: handle } },
+          options: { data: {
+            display_name: name.trim() || handle, username: handle,
+            // Consent record — kept in auth.users.raw_user_meta_data as
+            // proof of what was agreed to, and when, at signup.
+            tos_agreed: 'v1.0', privacy_agreed: 'v1.0', age_over_14: true,
+            marketing_opt_in: agreeMarketing, consent_at: new Date().toISOString(),
+          } },
         })
         if (error) { setError(error.message); return }
         // If email confirmation is on, there's no session yet.
@@ -138,10 +162,31 @@ export default function AuthPage() {
             )}
           </div>
 
+          {mode === 'signup' && (
+            <div className="auth-consent">
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} required />
+                <span>I agree to the <a href={`${LEGAL_BASE}/terms`} onClick={openLegal(`${LEGAL_BASE}/terms`)}>terms of service</a> <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreePrivacy} onChange={e => setAgreePrivacy(e.target.checked)} required />
+                <span>I agree to the <a href={`${LEGAL_BASE}/privacy`} onClick={openLegal(`${LEGAL_BASE}/privacy`)}>privacy policy</a> <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeAge} onChange={e => setAgreeAge(e.target.checked)} required />
+                <span>I am 14 or older <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeMarketing} onChange={e => setAgreeMarketing(e.target.checked)} />
+                <span>Send me occasional news <em>(optional)</em></span>
+              </label>
+            </div>
+          )}
+
           {error && <div className="auth-error">{error}</div>}
           {note && <div className="auth-note">{note}</div>}
 
-          <button type="submit" className="auth-submit" disabled={busy}>
+          <button type="submit" className="auth-submit" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
             {busy ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
           </button>
         </form>

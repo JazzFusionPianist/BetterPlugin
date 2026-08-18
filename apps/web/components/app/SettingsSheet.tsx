@@ -27,11 +27,16 @@ export default function SettingsSheet({
   const [savingBio, setSavingBio] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [delOpen, setDelOpen] = useState(false)
+  const [delSure, setDelSure] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setName(me?.display_name ?? '') }, [me?.display_name, open])
   useEffect(() => { setBio(me?.bio ?? '') }, [me?.bio, open])
-  useEffect(() => { if (open) setNote(null) }, [open])
+  useEffect(() => {
+    if (open) { setNote(null); setDelOpen(false); setDelSure(false) }
+  }, [open])
 
   const flash = (m: string) => { setNote(m); setTimeout(() => setNote(null), 2200) }
 
@@ -40,7 +45,7 @@ export default function SettingsSheet({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { flash('Max 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { flash('over 5mb — choose a smaller image'); return }
     setUploading(true)
     try {
       // Same storage layout the plugin uses — one avatars bucket, per-user dir.
@@ -48,13 +53,13 @@ export default function SettingsSheet({
       const path = `${user.id}/avatar-${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage
         .from('avatars').upload(path, file, { upsert: true, contentType: file.type })
-      if (upErr) { flash('Upload failed'); return }
+      if (upErr) { flash('upload failed — try again'); return }
       const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
       const { error: dbErr } = await supabase
         .from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id)
-      if (dbErr) { flash('Save failed'); return }
+      if (dbErr) { flash('couldn’t save — try again'); return }
       onAvatarUpdated(pub.publicUrl)
-      flash('Photo updated')
+      flash('saved')
     } finally {
       setUploading(false)
     }
@@ -68,9 +73,9 @@ export default function SettingsSheet({
       const initials = getInitials(v)
       const { error } = await supabase
         .from('profiles').upsert({ id: user.id, display_name: v, initials }, { onConflict: 'id' })
-      if (error) { flash('Save failed'); return }
+      if (error) { flash('couldn’t save — try again'); return }
       onMeUpdated({ display_name: v, initials })
-      flash('Name updated')
+      flash('saved')
     } finally {
       setSaving(false)
     }
@@ -83,9 +88,9 @@ export default function SettingsSheet({
     try {
       const { error } = await supabase
         .from('profiles').update({ bio: v || null }).eq('id', user.id)
-      if (error) { flash('Save failed'); return }
+      if (error) { flash('couldn’t save — try again'); return }
       onMeUpdated({ bio: v || null })
-      flash('Bio updated')
+      flash('saved')
     } finally {
       setSavingBio(false)
     }
@@ -121,13 +126,13 @@ export default function SettingsSheet({
             className="sset-name"
             value={name}
             maxLength={24}
-            placeholder="Display name"
+            placeholder="display name"
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') saveName() }}
           />
           {dirty && (
             <button className="sset-save" onClick={saveName} disabled={saving}>
-              {saving ? '…' : 'Save'}
+              {saving ? '…' : 'save'}
             </button>
           )}
         </div>
@@ -146,7 +151,7 @@ export default function SettingsSheet({
           />
           {bioDirty && (
             <button className="sset-save" onClick={saveBio} disabled={savingBio}>
-              {savingBio ? '…' : 'Save'}
+              {savingBio ? '…' : 'save'}
             </button>
           )}
         </div>
@@ -156,15 +161,54 @@ export default function SettingsSheet({
         <div className="sset-rows">
           <button className="sset-row" onClick={onFindPeople}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="8" r="4" /><path d="M2.5 21c0-4 3.5-6 7.5-6 1.2 0 2.4.2 3.4.5M19 14v6M16 17h6" /></svg>
-            Find people
+            find people
             <span className="sset-chev">›</span>
           </button>
           <button className="sset-row sset-signout" onClick={() => supabase.auth.signOut()}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
-            Sign out
+            sign out
           </button>
         </div>
 
+        {/* Account deletion — App Store 5.1.1(v) requires it in-app, and
+            PIPA requires it, period. Two-tap word, then a typed final
+            confirm; wipes the account via the delete_my_account RPC. */}
+        <div className="sset-danger">
+          {!delOpen ? (
+            <button className="sset-delacct" onClick={() => setDelOpen(true)}>delete account</button>
+          ) : (
+            <div className="sset-delbox">
+              <p>this deletes your account, messages, uploads and calendar — permanently. there is no undo.</p>
+              <button
+                className="sset-delacct strong"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!delSure) { setDelSure(true); return }
+                  setDeleting(true)
+                  const { error } = await supabase.rpc('delete_my_account')
+                  if (error) {
+                    console.error('[settings] delete account', error)
+                    flash('couldn’t delete the account — contact wtsteven123@gmail.com')
+                    setDeleting(false)
+                    return
+                  }
+                  await supabase.auth.signOut()
+                }}
+              >
+                {deleting ? 'deleting…' : delSure ? 'sure? this is forever' : 'delete my account'}
+              </button>
+              <button className="sset-delcancel" onClick={() => { setDelOpen(false); setDelSure(false) }}>cancel</button>
+            </div>
+          )}
+        </div>
+
+        <div className="sset-legal">
+          <a href="/terms" target="_blank" rel="noreferrer">terms</a>
+          <span>·</span>
+          <a href="/privacy" target="_blank" rel="noreferrer">privacy</a>
+          <span>·</span>
+          <a href="mailto:wtsteven123@gmail.com?subject=copyright%20report">report copyright</a>
+        </div>
         <div className="sset-ver">orb {APP_VERSION}</div>
       </div>
     </div>

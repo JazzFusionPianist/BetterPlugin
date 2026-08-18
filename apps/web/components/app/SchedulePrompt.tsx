@@ -25,7 +25,7 @@ interface Props {
 
 function fmtWhen(e: CalendarEvent): string {
   const d = new Date(e.starts_at)
-  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
   if (e.all_day) return `${day} · all day`
   const t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   return `${day} · ${t}`
@@ -102,7 +102,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
       setText('')
       if (taRef.current) taRef.current.style.height = 'auto'
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError(e instanceof Error ? e.message : 'couldn’t read that — try rewording.')
     } finally {
       setBusy(false)
     }
@@ -118,7 +118,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
         <div className="sconfirm">
           <div className="sconfirm-head">
             <span className="sconfirm-kicker">
-              Noted{added.length > 1 ? <em> · {added.length}</em> : ''}
+              noted{added.length > 1 ? <em> · {added.length}</em> : ''}
             </span>
             <button className="sconfirm-dismiss" onClick={() => setAdded(null)} aria-label="Dismiss">
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
@@ -168,7 +168,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
                         />
                         <div className="evsheet-daterow">
                           <span className="evsheet-date">
-                            {start.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                            {start.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).toLowerCase()}
                           </span>
                           <button className="evsheet-dstep" onClick={() => { const n = new Date(e.starts_at); n.setDate(n.getDate() - 1); applyStart(e, n) }} aria-label="Previous day">‹</button>
                           <button className="evsheet-dstep" onClick={() => { const n = new Date(e.starts_at); n.setDate(n.getDate() + 1); applyStart(e, n) }} aria-label="Next day">›</button>
@@ -242,7 +242,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
             })}
             {added.length > 5 && <li className="sconfirm-more">+{added.length - 5} more</li>}
           </ul>
-          <button className="sconfirm-open" onClick={onOpenCalendar}>View in calendar →</button>
+          <button className="sconfirm-open" onClick={onOpenCalendar}>view in calendar →</button>
         </div>
       )}
 
@@ -272,7 +272,7 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
           ref={taRef}
           rows={1}
           value={text}
-          placeholder="Add to your schedule — e.g. lunch with Min on Saturday, studio at 7pm tomorrow"
+          placeholder="add to your schedule — e.g. lunch with min on saturday, studio at 7pm tomorrow"
           onChange={(e) => { setText(e.target.value); setError(null); grow() }}
           onKeyDown={onKeyDown}
           disabled={busy}
@@ -287,6 +287,8 @@ export default function SchedulePrompt({ onSubmit, onOpenCalendar, targets, cate
           )}
         </button>
       </div>
+      {/* AI 기본법 §31 — generative-AI disclosure */}
+      <div className="sprompt-ainote">schedule parsing uses generative ai — check before saving</div>
     </div>
   )
 }

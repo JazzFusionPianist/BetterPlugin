@@ -10,6 +10,7 @@ export default function Landing() {
   const router = useRouter()
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [downloadNote, setDownloadNote] = useState(false)
 
   // Resolve platform after mount to avoid a hydration mismatch (static HTML
   // is pre-rendered as web). The focused welcome/auth gate replaces the
@@ -44,27 +45,30 @@ export default function Landing() {
           {/* On native the welcome CTAs already cover sign-in, so the
               top-right link is redundant — show it on web only. */}
           {ready && !isNative && (
-            <button className="login" onClick={() => open('signin')}>Log in</button>
+            <button className="login" onClick={() => open('signin')}>log in</button>
           )}
         </div>
 
         <main className="stage">
-          <h1>Make music <span className="hl">together.</span></h1>
+          <h1>make music <span className="hl">together.</span></h1>
           <p className="sub">your crew, your sessions, your sound,<br />in your daw and in the app</p>
 
           {ready && (
             isNative ? (
               <div className="actions actions-native">
-                <button className="download" onClick={() => open('signup')}>Get started</button>
+                <button className="download" onClick={() => open('signup')}>get started</button>
                 <button className="ghost-link" onClick={() => open('signin')}>
-                  Already have an account? <span>Log in</span>
+                  already have an account? <span>log in</span>
                 </button>
               </div>
             ) : (
               <div className="actions">
-                <button className="download" onClick={() => alert('Plugin download coming soon.')}>
-                  Download for Mac
+                <button className="download" onClick={() => setDownloadNote(true)}>
+                  download for mac
                 </button>
+                {downloadNote && (
+                  <p className="sub" style={{ fontStyle: 'italic' }}>the mac build isn&rsquo;t out yet — soon.</p>
+                )}
               </div>
             )
           )}
@@ -72,6 +76,8 @@ export default function Landing() {
 
         <div className="bottom">
           <span>© 2026 Orb</span>
+          <a className="bottom-legal" href="/terms">terms</a>
+          <a className="bottom-legal" href="/privacy">privacy</a>
         </div>
       </div>
 

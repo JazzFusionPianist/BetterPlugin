@@ -19,7 +19,7 @@
   --card: #FFFFFF;
   --ink: #1A1917;
   --hair: rgba(26, 25, 23, 0.55);
-  --blue: #8A7357;
+  --blue: #2440FF;
 
   --bg: #FBFAF7;
   --bg2: #F4F2EC;
@@ -34,7 +34,7 @@
   --mine-t: #FBFAF7;
   --inp-bg: #1A1917;
   --inp-ph: rgba(251,250,247,.38);
-  --star: #8A7357;
+  --star: #2440FF;
   --ob-bg: rgba(30, 158, 99, 0.12);
   --ob-t: #1E9E63;
   /* Music panel circle edges — dark in light mode so they're visible on white */
@@ -291,7 +291,7 @@
   color: var(--t1);
   background: transparent;
   border: none;
-  line-height: 1;
+  line-height: 1.3;
   caret-color: var(--t1);
 }
 .search-input::placeholder { color: var(--t3); }
@@ -479,7 +479,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 14px;
+  padding: 8px 14px;
   cursor: pointer;
 }
 .f-row:hover { background: var(--bg2); }
@@ -488,11 +488,11 @@
 .f-name { font-size: 12px; color: var(--t1); line-height: 1.2; font-family: var(--f-sans); }
 .f-name.bold { font-weight: 500; }
 .f-sub  { font-size: 10px; color: var(--t3); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--f-sans); }
-.f-sub-live-tag { color: #D6402E; font-weight: 600; letter-spacing: 0.04em; }
+.f-sub-live-tag { color: #D6402E; font-weight: 400; letter-spacing: 0.04em; }
 
 .badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .star   { font-size: 11px; line-height: 1; color: var(--star); cursor: pointer; }
-.ob     { font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-size: 8px; font-weight: 500; color: var(--ob-t); background: var(--ob-bg); padding: 2px 6px; border-radius: 4px; }
+.ob     { font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-size: 8px; font-weight: 500; color: var(--ob-t); background: var(--ob-bg); padding: 2px 6px; border-radius: 3px; }
 
 .sep { height: 0.5px; background: var(--border); margin: 4px 14px; }
 
@@ -519,7 +519,7 @@
   gap: 4px;
   padding: 6px 2px;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 6px;
   transition: background .12s;
 }
 .gcell:hover { background: var(--bg2); }
@@ -562,7 +562,7 @@
   width: 162px;
   background: var(--bg);
   border: 0.5px solid var(--border2);
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 10px;
   z-index: 50;
   pointer-events: none;
@@ -641,7 +641,7 @@
 .tt2-top {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 
 .tt2-av {
@@ -652,7 +652,7 @@
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: #fff;
   flex-shrink: 0;
   position: relative;
@@ -689,7 +689,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--t1);
   line-height: 1.2;
 }
@@ -713,31 +713,32 @@
   transition: color 0.15s, transform 0.1s;
 }
 .tt2-star:hover { transform: scale(1.15); }
-.tt2-star.on { color: #f5c518; }
+.tt2-star.on { color: var(--star); }
 .plugin.dark .tt2-star { color: rgba(255, 255, 255, 0.18); }
-.plugin.dark .tt2-star.on { color: #f5c518; }
+.plugin.dark .tt2-star.on { color: var(--star); }
 
 .tt2-status {
   display: inline-block;
   font-size: 9px;
-  font-weight: 500;
-  color: var(--t2);
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 5px;
-  padding: 1px 6px;
+  font-weight: 400;
+  color: var(--t3);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   width: fit-content;
-  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
   line-height: 1.2;
 }
 .plugin.dark .tt2-status {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-color: transparent;
 }
 .tt2-status-mutual {
   color: var(--ob-t);
-  background: var(--ob-bg);
-  border-color: rgba(60, 201, 122, 0.5);
+  background: transparent;
+  border-color: transparent;
 }
 
 .tt2-counts {
@@ -751,7 +752,7 @@
 }
 .tt2-count b {
   color: var(--t1);
-  font-weight: 600;
+  font-weight: 500;
   margin-right: 3px;
 }
 
@@ -768,7 +769,7 @@
   background: rgba(0, 0, 0, 0.018);
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  border-radius: 9px;
+  border-radius: 3px;
   cursor: pointer;
   color: var(--t1);
   transition: background 0.15s, border-color 0.15s, transform 0.08s;
@@ -794,13 +795,13 @@
   gap: 6px;
   width: 100%;
   padding: 6px;
-  border-radius: 9px;
+  border-radius: 3px;
   background: rgba(214, 64, 46, 0.12);
   border: 1px solid rgba(214, 64, 46, 0.35);
   color: #D6402E;
   font-family: var(--f-sans);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.08s;
 }
@@ -907,7 +908,7 @@
    followed by the broadcast title inside .chdr-sub. */
 .chdr-live-tag {
   color: #D6402E;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.04em;
   margin-right: 4px;
 }
@@ -917,17 +918,18 @@
 .chdr-join-btn {
   flex-shrink: 0;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 4px 10px;
-  border-radius: 10px;
+  border-radius: 3px;
   border: none;
   background: #D6402E;
   color: #fff;
+  text-transform: lowercase;
   cursor: pointer;
   font-family: var(--f-sans);
   transition: background .12s, transform .08s;
 }
-.chdr-join-btn:hover  { background: #D6402E; }
+.chdr-join-btn:hover  { background: color-mix(in srgb, #D6402E 85%, var(--ink)); }
 .chdr-join-btn:active { transform: scale(0.94); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -970,7 +972,7 @@
   display: inline-block;
   max-width: 220px;
   padding: 8px 12px;
-  border-radius: 14px;
+  border-radius: 6px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--t1);
@@ -1005,13 +1007,12 @@
   word-break: break-all;
 }
 .msg-link:hover { color: var(--blue); }
-.mg.mine .msg-link:hover { color: #1a4d8a; }
 
 /* ── Link preview card (Slack/iMessage style) ──────────────────── */
 .msg-link-preview {
   margin-top: 4px;
   max-width: 240px;
-  border-radius: 12px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg2);
   overflow: hidden;
@@ -1051,8 +1052,8 @@
 }
 .msg-link-preview-site {
   font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
   color: var(--t3);
   margin-bottom: 2px;
   white-space: nowrap;
@@ -1061,7 +1062,7 @@
 }
 .msg-link-preview-title {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--t1);
   line-height: 1.3;
   display: -webkit-box;
@@ -1103,7 +1104,7 @@
   margin-top: 2px;
   max-width: 240px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: var(--bg2);
   border: 1px solid var(--border);
   font-family: var(--f-sans);
@@ -1116,16 +1117,16 @@
 }
 .game-invite-icon {
   width: 32px; height: 32px;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--paper);
 }
-.game-invite-icon-chess          { background: linear-gradient(135deg, #4a5680, #1f2740); }
-.game-invite-icon-falling_blocks { background: linear-gradient(135deg, #7C8AFF, #5a3fd0); }
-.game-invite-icon-poker          { background: linear-gradient(135deg, #2f8f5a, #4a1018); }
-.game-invite-icon-ear_training   { background: linear-gradient(135deg, #ffb56b, #4a1e3a); }
+.game-invite-icon-chess          { background: var(--ink); }
+.game-invite-icon-falling_blocks { background: var(--ink); }
+.game-invite-icon-poker          { background: var(--ink); }
+.game-invite-icon-ear_training   { background: var(--ink); }
 .game-invite-text {
   font-size: 12px;
   color: var(--t1);
@@ -1137,11 +1138,11 @@
 .game-invite-join {
   font-family: var(--f-sans);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   background: var(--blue);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 3px;
   padding: 8px 12px;
   cursor: pointer;
   transition: background .12s, transform .08s, opacity .12s;
@@ -1151,7 +1152,7 @@
 .game-invite-join:disabled              { opacity: 0.55; cursor: default; }
 .game-invite-banner {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   color: #D6402E;
   text-align: center;
   padding: 4px 0 0;
@@ -1168,7 +1169,8 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .mg .mtime {
-  font-size: 8.5px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
   color: var(--t4);
   font-family: var(--f-sans);
   margin-top: 2px;
@@ -1178,14 +1180,14 @@
   align-items: center;
   gap: 5px;
 }
-.ts { font-size: 8.5px; color: var(--t4); text-align: center; margin: 4px 0; font-family: var(--f-sans); }
+.ts { font-size: 9px; letter-spacing: 0.04em; color: var(--t4); text-align: center; margin: 4px 0; font-family: var(--f-sans); }
 
 /* ── 첨부파일 ─────────────────────────────────────────── */
 /* 이미지 */
 .msg-att-img {
   max-width: 180px;
   max-height: 180px;
-  border-radius: 10px;
+  border-radius: 6px;
   display: block;
   object-fit: cover;
   cursor: pointer;
@@ -1196,7 +1198,7 @@
 .msg-att-video-wrap {
   position: relative;
   max-width: 200px;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
   margin-bottom: 2px;
   cursor: pointer;
@@ -1234,7 +1236,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--bg3);
   border: 1px dashed var(--border);
   opacity: 0.6;
@@ -1259,7 +1261,7 @@
   min-width: 200px;
   max-width: 240px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--bg3);
   font-family: var(--f-sans);
   box-sizing: border-box;
@@ -1287,7 +1289,8 @@
   font-size: 10px;
   color: var(--t2);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 .msg-att-pending-bar {
   height: 3px;
@@ -1298,7 +1301,7 @@
 }
 .msg-att-pending-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--blue), #7B5CF6);
+  background: var(--blue);
   transition: width 0.15s ease-out;
 }
 .msg-att-pending-size {
@@ -1356,7 +1359,7 @@
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1401,7 +1404,8 @@
 }
 
 .msg-att-time {
-  font-size: 9.5px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
   color: var(--t3);
   font-family: var(--f-sans);
   font-feature-settings: 'tnum' 1;
@@ -1416,14 +1420,14 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 11px;
-  border-radius: 9px;
+  padding: 6px 12px;
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--t1);
   font-family: var(--f-sans);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.01em;
   white-space: nowrap;
   cursor: grab;
@@ -1492,11 +1496,11 @@
 }
 .plugin.dark .msg-att-group-tracks { border-top-color: rgba(255, 255, 255, 0.1); }
 .msg-att-group-tracks .msg-att-audio {
-  padding: 7px 9px;
+  padding: 8px;
   background: rgba(0, 0, 0, 0.03);
   border: none;
   box-shadow: none;
-  border-radius: 10px;
+  border-radius: 6px;
   max-width: none;
   min-width: 0;
   margin-bottom: 0;
@@ -1567,7 +1571,7 @@
   font-family: var(--f-sans);
   cursor: pointer;
   text-align: left;
-  border-radius: 8px;
+  border-radius: 6px;
   transition: background 0.1s;
 }
 .attach-menu-item:hover { background: rgba(0, 0, 0, 0.05); }
@@ -1594,7 +1598,7 @@
   pointer-events: none;
 }
 .drop-overlay.cancel {
-  background: rgba(231, 74, 74, 0.18);
+  background: rgba(214, 64, 46, 0.18);
   border-color: #D6402E;
 }
 .drop-overlay-inner {
@@ -1664,7 +1668,7 @@
   outline: none;
   font-family: var(--f-sans);
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.3;
   color: var(--t1);
   background: transparent;
   border: none;
@@ -1745,11 +1749,11 @@
 
 .s-section { margin-bottom: 24px; }
 .s-section-label {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: .12em;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--t3);
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin-bottom: 12px;
   font-family: var(--f-sans);
 }
@@ -1783,22 +1787,16 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--paper);
-  border: 1px solid var(--border2);
+  /* ink knob / paper knob — the tokens invert in dark mode, so one
+     pair of rules stays legible in both themes */
+  background: var(--ink);
+  border: none;
   top: 2px;
   left: 2px;
   transition: transform .18s;
   box-shadow: none;
 }
-.pill-toggle.on::after { transform: translateX(18px); border-color: var(--ink); }
-.plugin.dark .pill-toggle {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: none;
-}
-.plugin.dark .pill-toggle.on { background: var(--paper); border-color: var(--paper); }
-.plugin.dark .pill-toggle.on::after { background: var(--ink); border-color: var(--ink); }
-.plugin.dark .pill-toggle::after { background: var(--paper); }
+.pill-toggle.on::after { transform: translateX(18px); background: var(--paper); }
 
 /* Segmented control — quiet printed choices, no box: the active word
    is inked and underlined, the rest sit back (same grammar as the
@@ -1817,7 +1815,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--t3);
   border-radius: 0;
   cursor: pointer;
@@ -1984,33 +1982,13 @@
   animation: orbit-orb-notif-pulse 1.6s ease-in-out infinite;
 }
 @keyframes orbit-orb-notif-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(36, 64, 255, 0);     }
-  50%      { box-shadow: 0 0 22px 10px rgba(36, 64, 255, 0.55); }
+  0%, 100% { box-shadow: 0 0 0 2px var(--blue); }
+  50%      { box-shadow: 0 0 0 5px transparent; }
 }
 
-/* Soft halo bloom underneath the orb — wide radial gradient that
-   layers with the pulse so the cue reads as a glowing aura the orb
-   is sitting inside, not just a thin ring around it. */
-.orbit-orb-notif-halo {
-  position: absolute;
-  inset: -90%;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(36, 64, 255, 0.65) 0%,
-    rgba(36, 64, 255, 0.32) 30%,
-    rgba(36, 64, 255, 0.08) 55%,
-    rgba(36, 64, 255, 0) 75%
-  );
-  pointer-events: none;
-  z-index: -1;
-  animation: orbit-orb-halo-breathe 2.4s ease-in-out infinite;
-  filter: blur(2px);
-}
-@keyframes orbit-orb-halo-breathe {
-  0%, 100% { opacity: 0.85; transform: scale(1);    }
-  50%      { opacity: 1;    transform: scale(1.25); }
-}
+/* The old radial halo bloom is retired — the unread cue is the
+   hairline ring pulse on the orb itself (no blur, no glow). */
+.orbit-orb-notif-halo { display: none; }
 
 /* ── Message preview banners ──────────────────────────────────────────
    Stacks below the stat chips on the home panel. Each banner is one
@@ -2032,9 +2010,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   padding: 8px 10px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow:
@@ -2071,7 +2049,7 @@
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
   color: #fff;
   position: relative;
 }
@@ -2090,7 +2068,7 @@
 }
 .orbit-msg-preview-name {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--t1);
   white-space: nowrap;
   overflow: hidden;
@@ -2156,11 +2134,11 @@
   min-width: 13px;
   height: 13px;
   padding: 0 3px;
-  border-radius: 7px;
+  border-radius: 999px;
   background: #D6402E;
   color: #fff;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 13px;
   text-align: center;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
@@ -2237,7 +2215,7 @@
 }
 .orbit-stat-count {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.2;
   color: var(--t1);
 }
@@ -2305,7 +2283,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-family: var(--f-sans);
   transition: background 0.12s;
@@ -2474,7 +2452,7 @@
   transform: translate(-50%, -100%);
   background: var(--bg);
   border: 0.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 10px;
   box-shadow: 0 4px 14px rgba(0,0,0,.18);
   z-index: 20;
@@ -2498,7 +2476,7 @@
   right: -2px;
   font-size: 11px;
   line-height: 1;
-  color: #f5c518;
+  color: var(--star);
   text-shadow: 0 0 2px rgba(0,0,0,.5);
   pointer-events: none;
   transform: translate(35%, -35%);
@@ -2522,7 +2500,7 @@
   align-items: center;
   transition: color .12s, transform .12s;
 }
-.orbit-tt-star.on { color: #f5c518; }
+.orbit-tt-star.on { color: var(--star); }
 .orbit-tt-star:hover { transform: scale(1.15); }
 .orbit-tt-status {
   font-size: 9px;
@@ -2563,7 +2541,7 @@
   font-family: var(--f-sans);
   cursor: pointer;
   padding: 4px 6px;
-  border-radius: 4px;
+  border-radius: 3px;
   z-index: 4;
 }
 .orbit-inactive-toggle:hover { color: var(--t1); background: var(--bg2); }
@@ -2620,7 +2598,7 @@
 .profile-input {
   flex: 1;
   height: 30px;
-  border-radius: 7px;
+  border-radius: 3px;
   border: 0.5px solid var(--border);
   background: var(--bg2);
   padding: 0 10px;
@@ -2640,7 +2618,7 @@
 .profile-save {
   height: 30px;
   padding: 0 12px;
-  border-radius: 7px;
+  border-radius: 3px;
   border: none;
   background: var(--blue);
   color: #fff;
@@ -2656,7 +2634,7 @@
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   padding: 8px 10px;
   background: var(--bg2);
-  border-radius: 7px;
+  border-radius: 3px;
 }
 .profile-msg {
   position: absolute;
@@ -2679,8 +2657,8 @@
   justify-content: space-between;
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 9px 12px;
+  border-radius: 6px;
+  padding: 8px 12px;
   font-size: 12px;
   color: var(--t1);
   font-family: var(--f-sans);
@@ -2715,7 +2693,7 @@
   background: #D6402E !important;
   color: #fff !important;
 }
-.profile-save-danger:hover:not(:disabled) { background: #e02d20 !important; }
+.profile-save-danger:hover:not(:disabled) { background: color-mix(in srgb, #D6402E 85%, #1A1917) !important; }
 .profile-save-danger:disabled { background: rgba(214, 64, 46,.3) !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -2740,7 +2718,7 @@
   color: var(--t1);
   background: transparent;
   border: none;
-  line-height: 1;
+  line-height: 1.3;
   caret-color: var(--t1);
 }
 .af-search-input::placeholder { color: var(--t3); }
@@ -2756,7 +2734,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 14px;
+  padding: 8px 14px;
 }
 
 .af-btn {
@@ -2828,11 +2806,11 @@
   margin-left: auto;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #D6402E;
   color: #fff;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--f-sans);
   display: flex;
   align-items: center;
@@ -2845,11 +2823,11 @@
 }
 
 .af-section-label {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: .12em;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--t3);
-  text-transform: uppercase;
+  text-transform: lowercase;
   padding: 10px 14px 6px;
   font-family: var(--f-sans);
 }
@@ -2941,7 +2919,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   cursor: pointer;
   position: relative;
   border-radius: 12px;
@@ -2973,7 +2951,7 @@
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: #fff;
   flex-shrink: 0;
   position: relative;
@@ -3003,8 +2981,8 @@
   margin-bottom: 2px;
 }
 .conv-name {
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--t1);
   white-space: nowrap;
   overflow: hidden;
@@ -3024,7 +3002,7 @@
 }
 .conv-fav-star {
   font-size: 11px;
-  color: #F4C542;
+  color: var(--star);
   flex-shrink: 0;
   margin-left: 2px;
 }
@@ -3049,14 +3027,15 @@
 
 /* LIVE badge in friends list / gallery */
 .live-badge {
-  font-size: 8px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 400;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  letter-spacing: .06em;
-  color: #fff;
-  background: #D6402E;
-  border-radius: 3px;
-  padding: 1px 4px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: #D6402E;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   line-height: 1.4;
   flex-shrink: 0;
 }
@@ -3187,7 +3166,7 @@
 }
 .live-ended-title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--t1);
 }
 .live-ended-sub {
@@ -3202,19 +3181,19 @@
   padding: 12px 6px;
   width: 100%;
   justify-content: center;
-  border-top: 1px solid var(--bo);
-  border-bottom: 1px solid var(--bo);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .live-ended-stat { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
-.live-ended-stat-val { font-size: 17px; font-weight: 700; color: var(--t1); font-variant-numeric: tabular-nums; }
-.live-ended-stat-lbl { font-size: 9px; color: var(--t3); margin-top: 2px; letter-spacing: .3px; text-transform: uppercase; }
+.live-ended-stat-val { font-size: 17px; font-weight: 500; color: var(--t1); font-variant-numeric: tabular-nums; }
+.live-ended-stat-lbl { font-size: 9px; color: var(--t3); margin-top: 2px; letter-spacing: 0.04em; text-transform: lowercase; }
 
 /* ── In-stream source switcher ── */
 .live-switch-toggle {
   width: 100%;
-  padding: 7px;
-  border-radius: 8px;
-  border: 1px solid var(--bo);
+  padding: 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--t2);
   font-size: 11px;
@@ -3222,23 +3201,23 @@
   cursor: pointer;
   transition: background .1s;
 }
-.live-switch-toggle:hover { background: var(--s2); }
+.live-switch-toggle:hover { background: var(--bg2); }
 .live-switch-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--bo);
-  border-radius: 8px;
-  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg2);
 }
 .live-switch-cancel {
   padding: 8px 12px;
-  border: 1px solid var(--bo);
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--t2);
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 12px;
   cursor: pointer;
 }
@@ -3279,7 +3258,7 @@
 }
 .live-stream-title {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--t1);
   font-family: var(--f-sans);
   text-align: center;
@@ -3293,12 +3272,12 @@
 .live-end-btn {
   margin-top: 4px;
   padding: 8px 24px;
-  border-radius: 8px;
-  border: 1.5px solid #D6402E;
+  border-radius: 3px;
+  border: 1px solid #D6402E;
   background: var(--bg, #fff);
   color: #D6402E;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--f-sans);
   cursor: pointer;
   transition: background .15s, color .15s;
@@ -3359,7 +3338,7 @@
   font-size: 10px;
   font-family: var(--f-sans);
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: 3px;
   border: 0.5px solid var(--border2);
   background: var(--bg2);
   color: var(--t1);
@@ -3387,12 +3366,12 @@
   background: #D6402E;
   color: #fff;
   border-color: #D6402E;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: .04em;
 }
 .orbit-tt-btn.orbit-tt-join-live:hover {
-  background: #B93526;
-  border-color: #B93526;
+  background: color-mix(in srgb, #D6402E 85%, #1A1917);
+  border-color: color-mix(in srgb, #D6402E 85%, #1A1917);
   color: #fff;
 }
 
@@ -3405,7 +3384,7 @@
   min-height: 100px;
   max-height: 200px;
   border: 0.5px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg2);
   overflow: hidden;
 }
@@ -3448,7 +3427,7 @@
   background: var(--bg);
   border: 0.5px solid var(--border);
   padding: 3px 7px;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 .live-chat-msg.mine .live-chat-text {
   background: var(--mine-bg);
@@ -3481,7 +3460,7 @@
   color: #fff;
   background: #D6402E;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 4px 10px;
   cursor: pointer;
   transition: opacity .12s;
@@ -3623,7 +3602,7 @@
   z-index: 1;
   flex-shrink: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 /* Host broadcaster audio-only avatar */
 .live-pulse-avatar-host {
@@ -3654,13 +3633,11 @@
   left: 0;
   right: 0;
   border-radius: 3px;
-  /* green at bottom, yellow in mid, red at top */
+  /* green through the working range, live red only at the top */
   background: linear-gradient(
     to top,
     #1E9E63 0%,
-    #1E9E63 55%,
-    #FFCC00 70%,
-    #FF9500 85%,
+    #1E9E63 70%,
     #D6402E 100%
   );
   transition: height 60ms linear;
@@ -3670,7 +3647,7 @@
   width: 100%;
   max-width: 240px;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #000;
   object-fit: cover;
   border: 0.5px solid var(--border);
@@ -3747,7 +3724,7 @@
   width: 100%;
   max-height: 320px;
   background: #000;
-  border-radius: 8px;
+  border-radius: 6px;
   object-fit: contain;
 }
 
@@ -3757,7 +3734,7 @@
   right: 18px;
   bottom: 18px;
   width: 32px; height: 32px;
-  border-radius: 8px;
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #fff;
@@ -3785,7 +3762,7 @@
   transition: background .12s, color .12s, border-color .12s;
 }
 .live-viewer-expand-btn:hover {
-  background: var(--surf2);
+  background: var(--bg2);
   color: var(--t1);
   border-color: var(--t3);
 }
@@ -3956,14 +3933,8 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  /* Glass-CD layered shadow — matches `.orbit-track-cover` so the
-     two galleries read as the same component family. */
-  box-shadow:
-    0 6px 22px rgba(0, 0, 0, 0.16),
-    0 1px 4px rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-    inset 0 -10px 28px rgba(0, 0, 0, 0.08),
-    inset 0 10px 28px rgba(255, 255, 255, 0.18);
+  /* Quiet print shadow — the glass stack is retired. */
+  box-shadow: 0 1px 4px rgba(26, 25, 23, 0.12);
   transition: opacity 0.15s;
 }
 /* Diagonal sheen — same recipe as the track CD. */
@@ -3976,11 +3947,11 @@
   z-index: 2;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.32) 0%,
-    rgba(255, 255, 255, 0.05) 28%,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.02) 28%,
     rgba(255, 255, 255, 0) 50%,
     rgba(255, 255, 255, 0) 70%,
-    rgba(255, 255, 255, 0.18) 100%
+    rgba(255, 255, 255, 0.09) 100%
   );
 }
 .game-cd-icon {
@@ -4065,7 +4036,7 @@
    bare paper rows split by hairlines, the voice weight speaking. */
 .settings-card {
   font-family: var(--f-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.005em;
   color: var(--t1);
@@ -4211,7 +4182,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 .af-search-clear:hover { background: rgba(0, 0, 0, 0.05); }
@@ -4244,7 +4215,7 @@
 }
 .af-result-card .f-name {
   font-family: var(--f-sans);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--t1);
   overflow: hidden;
@@ -4295,7 +4266,7 @@
 .info-save-btn {
   background: rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.16);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 5px 12px;
   font-family: var(--f-sans);
   font-size: 11px;
@@ -4390,7 +4361,7 @@
 }
 .info-desc-card strong {
   color: #D6402E;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .info-error {
@@ -4430,7 +4401,7 @@
 .language-row-check {
   font-size: 14px;
   color: #1E9E63;
-  font-weight: 700;
+  font-weight: 500;
   flex-shrink: 0;
 }
 .language-row.active .language-row-native { color: var(--t1); }
@@ -4462,7 +4433,7 @@
 }
 .chess-back-btn:hover { background: var(--bg2); }
 .chess-title {
-  font-size: 13px; font-weight: 600;
+  font-size: 13px; font-weight: 500;
   color: var(--t1); font-family: var(--f-sans); flex: 1;
 }
 .chess-controls { display: flex; gap: 6px; margin-left: auto; }
@@ -4492,9 +4463,9 @@
 .plugin.dark .chess-preview-sq.sq-light { background: rgba(255, 255, 255, 0.16); }
 .plugin.dark .chess-preview-sq.sq-dark  { background: rgba(0, 0, 0, 0.28); }
 .chess-invite-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
+  width: 100%; padding: 11px; border-radius: 3px;
   background: var(--accent, var(--blue)); color: #fff;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; font-size: 13px; font-weight: 500;
   font-family: var(--f-sans);
 }
 .chess-invite-btn:hover { opacity: .88; }
@@ -4505,16 +4476,16 @@
 .chess-lobby-guest {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; background: var(--bg2);
-  border-radius: 10px; width: 100%;
+  border-radius: 6px; width: 100%;
 }
 .chess-lobby-guest-name {
   font-size: 12px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans);
 }
 .chess-start-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
+  width: 100%; padding: 11px; border-radius: 3px;
   background: #1E9E63; color: #fff;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; font-size: 13px; font-weight: 500;
   font-family: var(--f-sans);
 }
 .chess-start-btn:hover { opacity: .88; }
@@ -4527,7 +4498,7 @@
 }
 .chess-invite-modal {
   width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
+  border-radius: 6px 6px 0 0;
   height: 75%; max-height: 75%;
   display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 0);
@@ -4538,7 +4509,7 @@
   border-bottom: 1px solid var(--border);
 }
 .chess-invite-modal-title {
-  font-size: 16px; font-weight: 700; color: var(--t1);
+  font-size: 16px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans);
 }
 .chess-invite-modal-close {
@@ -4557,7 +4528,7 @@
   position: relative; display: flex; align-items: center;
   margin: 10px 14px 6px; flex-shrink: 0;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 30px 0 32px; height: 34px;
+  border-radius: 3px; padding: 0 30px 0 32px; height: 34px;
 }
 .chess-invite-search-icon {
   position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
@@ -4608,9 +4579,9 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .chess-invite-do-btn {
-  font-size: 11px; font-weight: 600;
+  font-size: 11px; font-weight: 500;
   background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
+  border: none; border-radius: 3px; padding: 4px 10px;
   cursor: pointer; font-family: var(--f-sans);
   white-space: nowrap;
   transition: background .12s;
@@ -4621,7 +4592,7 @@
 .chess-invite-do-btn:disabled { background: #1E9E63; cursor: default; }
 /* Already-invited row — green confirmation. Click again to cancel. */
 .chess-invite-do-btn.invited                       { background: #1E9E63; }
-.chess-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
+.chess-invite-do-btn.invited:hover:not(:disabled)  { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 
 /* Game area */
 .chess-game-area {
@@ -4635,7 +4606,7 @@
 .chess-player-av {
   width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 600; color: #fff;
+  font-size: 10px; font-weight: 500; color: #fff;
   flex-shrink: 0; overflow: hidden;
 }
 .chess-player-av img { width: 100%; height: 100%; object-fit: cover; }
@@ -4645,12 +4616,13 @@
 }
 .chess-player-turn {
   font-size: 9px; color: #1E9E63;
-  font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600;
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 400;
+  letter-spacing: 0.04em;
 }
 .chess-captured {
   height: 14px; min-height: 14px; max-height: 14px;
   overflow: hidden;
-  font-size: 11px; line-height: 14px; letter-spacing: -1px;
+  font-size: 11px; line-height: 14px; letter-spacing: -0.02em;
   flex-shrink: 0;
 }
 .chess-captured-piece {
@@ -4779,7 +4751,7 @@
   flex: 1; overflow-y: auto; min-height: 40px;
   display: flex; flex-wrap: wrap; gap: 2px 6px;
   align-content: flex-start; padding: 6px 8px;
-  background: var(--bg2); border-radius: 8px;
+  background: var(--bg2); border-radius: 6px;
   border: 1px solid var(--border);
 }
 .chess-move-item {
@@ -4810,17 +4782,17 @@
   display: flex; align-items: center; justify-content: center;
 }
 .chess-promo-modal {
-  background: var(--bg); border-radius: 14px;
+  background: var(--bg); border-radius: 6px;
   padding: 16px; display: flex; flex-direction: column;
   align-items: center; gap: 12px;
 }
 .chess-promo-title {
-  font-size: 12px; font-weight: 600; color: var(--t1);
+  font-size: 12px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans);
 }
 .chess-promo-choices { display: flex; gap: 8px; }
 .chess-promo-choice {
-  width: 48px; height: 48px; border-radius: 10px;
+  width: 48px; height: 48px; border-radius: 3px;
   background: var(--bg2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 28px; cursor: pointer; transition: background .1s;
@@ -4830,9 +4802,9 @@
 /* Ready button (lobby + finish overlay) */
 .chess-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
+  border-radius: 3px; border: 1px solid var(--border);
   background: var(--bg2); color: var(--t1);
-  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-size: 13px; font-weight: 500; cursor: pointer;
   font-family: var(--f-sans);
   transition: background .15s, border-color .15s, transform .08s;
 }
@@ -4841,16 +4813,17 @@
 .chess-ready-btn.ready {
   background: #1E9E63; color: #fff; border-color: #1E9E63;
 }
-.chess-ready-btn.ready:hover { background: #2bb14d; }
+.chess-ready-btn.ready:hover { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 
 .chess-ready-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 3px 7px; border-radius: 4px;
-  background: var(--bg3); color: var(--t3);
+  font-size: 9px; font-weight: 400;
+  letter-spacing: 0.04em; text-transform: lowercase;
+  padding: 0; border-radius: 0;
+  background: transparent; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 .chess-ready-badge.ready {
-  background: rgba(30, 158, 99, 0.18); color: #1E9E63;
+  background: transparent; color: #1E9E63;
 }
 
 .chess-finish-readystate {
@@ -4863,7 +4836,7 @@
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   animation: chessFinishIn 0.3s ease-out;
 }
 @keyframes chessFinishIn {
@@ -4875,7 +4848,7 @@
   gap: 10px; padding: 18px 22px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   min-width: 180px;
 }
@@ -4927,7 +4900,7 @@
   color: var(--t1);
   font-size: 11px;
   font-family: var(--f-sans);
-  font-weight: 700;
+  font-weight: 500;
 }
 .game-row-controls {
   grid-column: 3;
@@ -5080,15 +5053,15 @@
 
 /* Invite button (lobby CTA) */
 .game-invite-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
+  width: 100%; padding: 11px; border-radius: 3px;
   background: var(--accent, var(--blue)); color: #fff;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; font-size: 13px; font-weight: 500;
   font-family: var(--f-sans);
 }
 .game-invite-btn:hover { opacity: .88; }
 .game-invite-btn:disabled { opacity: .5; cursor: default; }
 .game-computer-btn {
-  background: #2f9d63;
+  background: #1E9E63;
 }
 .game-computer-picker {
   width: 100%;
@@ -5102,41 +5075,45 @@
   min-width: 42px;
   height: 30px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--t2);
   cursor: pointer;
-  font: 700 12px var(--f-sans);
+  font-family: var(--f-sans);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .game-computer-count:hover,
 .game-computer-count.selected {
   color: var(--t1);
-  border-color: rgba(72, 187, 120, 0.65);
-  background: rgba(72, 187, 120, 0.18);
+  border-color: var(--ink);
+  background: transparent;
 }
 
 /* Ready / Rematch button */
 .game-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
+  border-radius: 3px; border: 1px solid var(--border);
   background: var(--bg2); color: var(--t1);
-  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-size: 13px; font-weight: 500; cursor: pointer;
   font-family: var(--f-sans);
   transition: background .15s, border-color .15s, transform .08s;
 }
 .game-ready-btn:hover { background: var(--bg3); }
 .game-ready-btn:active { transform: scale(0.97); }
 .game-ready-btn.ready { background: #1E9E63; color: #fff; border-color: #1E9E63; }
-.game-ready-btn.ready:hover { background: #2bb14d; }
+.game-ready-btn.ready:hover { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 
 .game-ready-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 3px 7px; border-radius: 4px;
-  background: var(--bg3); color: var(--t3);
+  font-size: 9px; font-weight: 400;
+  letter-spacing: 0.04em; text-transform: lowercase;
+  padding: 0; border-radius: 0;
+  background: transparent; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
-.game-ready-badge.ready { background: rgba(30, 158, 99, 0.18); color: #1E9E63; }
+.game-ready-badge.ready { background: transparent; color: #1E9E63; }
 
 .game-finish-readystate { font-size: 11px; color: var(--t3); font-family: var(--f-sans); font-variant-numeric: tabular-nums; }
 
@@ -5145,7 +5122,7 @@
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   animation: gameFinishIn 0.3s ease-out;
 }
 @keyframes gameFinishIn {
@@ -5157,13 +5134,12 @@
   gap: 10px; padding: 18px 22px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   min-width: 180px;
 }
 .plugin.dark .game-finish-card { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
-.game-finish-emoji { font-size: 40px; line-height: 1; }
-.game-finish-title { font-size: 15px; font-weight: 700; color: var(--t1); font-family: var(--f-sans); text-align: center; }
+.game-finish-title { font-size: 15px; font-weight: 500; color: var(--t1); font-family: var(--f-sans); text-align: center; }
 .game-result-mark {
   width: 112px;
   height: 42px;
@@ -5177,9 +5153,9 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .game-result-mark.win {
-  color: #d9a400;
-  border-color: rgba(217, 164, 0, 0.42);
-  background: rgba(255, 214, 10, 0.12);
+  color: var(--blue);
+  border-color: rgba(36, 64, 255, 0.42);
+  background: rgba(36, 64, 255, 0.08);
 }
 .game-result-mark.loss {
   color: var(--t2);
@@ -5187,15 +5163,16 @@
   background: rgba(127, 127, 140, 0.1);
 }
 .game-result-mark.draw {
-  color: var(--blue);
-  border-color: rgba(36, 64, 255, 0.36);
-  background: rgba(36, 64, 255, 0.1);
+  color: var(--t1);
+  border-color: var(--border2);
+  background: transparent;
 }
 .game-result-mark-label {
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
 }
 .game-result-mark-line {
   width: 18px;
@@ -5252,7 +5229,7 @@
 .plugin.screen-large .game-player-row {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--bg2);
 }
 .plugin.screen-medium .game-player-name,
@@ -5565,13 +5542,13 @@
 .game-player-av {
   width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 600; color: #fff;
+  font-size: 10px; font-weight: 500; color: #fff;
   flex-shrink: 0; overflow: hidden;
 }
 .game-player-av img { width: 100%; height: 100%; object-fit: cover; }
 .game-player-name { font-size: 11px; font-weight: 500; color: var(--t1); font-family: var(--f-sans); flex: 1; }
 .game-player-name--unknown { color: var(--t3); }
-.game-player-turn { font-size: 9px; color: #1E9E63; font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600; }
+.game-player-turn { font-size: 9px; color: #1E9E63; font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 400; letter-spacing: 0.04em; }
 
 .game-chat {
   flex: 0 0 94px;
@@ -5588,7 +5565,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 7px 8px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -5640,13 +5617,13 @@
 .game-chat-send {
   flex-shrink: 0;
   border: none;
-  border-radius: 7px;
+  border-radius: 3px;
   padding: 4px 9px;
   background: var(--accent, var(--blue));
   color: #fff;
   font-family: var(--f-sans);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 .game-chat-send:disabled {
@@ -5657,9 +5634,9 @@
 /* Player-count picker (N-player games) */
 .game-count-picker { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .game-count-btn {
-  min-width: 34px; padding: 6px 8px; border-radius: 8px;
-  border: 1.5px solid var(--border); background: var(--bg2);
-  color: var(--t1); font-size: 12px; font-weight: 600; cursor: pointer;
+  min-width: 34px; padding: 6px 8px; border-radius: 3px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--t1); font-size: 12px; font-weight: 500; cursor: pointer;
   font-family: var(--f-sans); transition: background .12s, border-color .12s;
 }
 .game-count-btn:hover { background: var(--bg3); }
@@ -5673,7 +5650,7 @@
 }
 .game-invite-modal {
   width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
+  border-radius: 6px 6px 0 0;
   height: 75%; max-height: 75%;
   display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 0);
@@ -5683,7 +5660,7 @@
   padding: 22px 18px 12px; flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
-.game-invite-modal-title { font-size: 16px; font-weight: 700; color: var(--t1); font-family: var(--f-sans); }
+.game-invite-modal-title { font-size: 16px; font-weight: 500; color: var(--t1); font-family: var(--f-sans); }
 .game-invite-modal-close {
   background: none; border: none; cursor: pointer;
   color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
@@ -5695,7 +5672,7 @@
   position: relative; display: flex; align-items: center;
   margin: 10px 14px 6px; flex-shrink: 0;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 30px 0 32px; height: 34px;
+  border-radius: 3px; padding: 0 30px 0 32px; height: 34px;
 }
 .game-invite-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
 .game-invite-search-input { flex: 1; height: 100%; background: transparent; border: none; outline: none; font-size: 13px; font-family: var(--f-sans); color: var(--t1); min-width: 0; }
@@ -5717,9 +5694,9 @@
 .game-invite-online-dot { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: #1E9E63; border: 2px solid var(--bg); }
 .game-invite-name { flex: 1; min-width: 0; font-size: 13px; color: var(--t1); font-family: var(--f-sans); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .game-invite-do-btn {
-  font-size: 11px; font-weight: 600;
+  font-size: 11px; font-weight: 500;
   background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
+  border: none; border-radius: 3px; padding: 4px 10px;
   cursor: pointer; font-family: var(--f-sans);
   white-space: nowrap; transition: background .12s;
 }
@@ -5728,17 +5705,17 @@
    greyed/muted — never green, so it can't be mistaken for an "Invited" row. */
 .game-invite-do-btn:disabled { background: var(--bg3); color: var(--t3); cursor: default; }
 .game-invite-do-btn.invited { background: #1E9E63; }
-.game-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
+.game-invite-do-btn.invited:hover:not(:disabled) { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Ear Training Duel
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .et-scorebar {
   display: inline-flex; align-items: center; gap: 4px;
-  font-family: var(--f-sans);
-  font-size: 14px; font-weight: 700;
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums;
+  font-size: 14px; font-weight: 600;
   background: var(--bg2); border: 1px solid var(--border);
-  padding: 3px 10px; border-radius: 10px;
+  padding: 3px 10px; border-radius: 3px;
 }
 .et-score-mine   { color: var(--blue); }
 .et-score-theirs { color: var(--t2); }
@@ -5767,7 +5744,7 @@
 }
 .et-setup-label {
   font-size: 9px; color: var(--t3);
-  text-transform: uppercase; letter-spacing: 0.06em;
+  text-transform: lowercase; letter-spacing: 0.04em;
   font-family: var(--f-sans);
 }
 .et-setup-row {
@@ -5775,10 +5752,10 @@
 }
 .et-chip {
   font-family: var(--f-sans);
-  font-size: 11px; font-weight: 600;
+  font-size: 11px; font-weight: 500;
   background: var(--bg2); color: var(--t2);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 3px;
   padding: 4px 10px;
   cursor: pointer;
   transition: background .12s, color .12s, border-color .12s;
@@ -5797,19 +5774,19 @@
 .et-round-label {
   font-family: var(--f-sans);
   font-size: 10px; color: var(--t3);
-  text-transform: uppercase; letter-spacing: 0.06em;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .et-play-btn {
   width: 46px; height: 46px;
   border-radius: 50%;
-  background: #d96a3a; color: #fff;
+  background: var(--blue); color: #fff;
   border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(217, 106, 58, 0.4);
+  box-shadow: none;
   transition: transform .08s, background .12s, box-shadow .12s;
 }
 .et-play-btn svg { width: 22px; height: 22px; }
-.et-play-btn:hover:not(:disabled)  { background: #c25a30; }
+.et-play-btn:hover:not(:disabled)  { background: #1B31D9; }
 .et-play-btn:active:not(:disabled) { transform: scale(0.95); }
 .et-play-btn:disabled              { background: var(--bg2); color: var(--t3); box-shadow: none; cursor: default; }
 .et-replays {
@@ -5830,9 +5807,9 @@
 }
 .et-option {
   font-family: var(--f-sans);
-  font-size: 12px; font-weight: 600;
+  font-size: 12px; font-weight: 500;
   padding: 6px 0;
-  border-radius: 8px;
+  border-radius: 3px;
   background: var(--bg2); color: var(--t1);
   border: 1px solid var(--border);
   cursor: pointer;
@@ -5851,8 +5828,8 @@
 
 .et-feedback {
   font-family: var(--f-sans);
-  font-size: 12px; font-weight: 600;
-  padding: 6px 10px; border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  padding: 6px 10px; border-radius: 3px;
   text-align: center;
 }
 .et-feedback.ok  { color: #1E9E63; }
@@ -5878,7 +5855,7 @@
 }
 .et-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--blue), #7C8AFF);
+  background: var(--blue);
   border-radius: 3px;
   transition: width 0.25s linear, background 0.2s;
 }
@@ -5909,8 +5886,8 @@
 }
 .et-bulb svg { width: 100%; height: 100%; display: block; }
 .et-bulb.lit {
-  color: #ffb43a;
-  filter: drop-shadow(0 0 5px rgba(255, 180, 58, 0.65));
+  color: var(--t1);
+  filter: drop-shadow(0 0 5px rgba(26, 25, 23, 0.35));
   transform: scale(1.05);
 }
 .et-bulb.lit.mine {
@@ -5938,14 +5915,14 @@
   max-width: 260px;
   margin-top: 2px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--bg2);
   border: 1px solid var(--border);
 }
 .et-reveal-answer {
   font-family: var(--f-sans);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--t1);
   text-align: center;
   letter-spacing: 0.01em;
@@ -5960,8 +5937,8 @@
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
-  padding: 7px 11px;
-  border-radius: 9px;
+  padding: 8px 12px;
+  border-radius: 6px;
   background: var(--bg);
   font-family: var(--f-sans);
   font-size: 12px;
@@ -5969,19 +5946,19 @@
   border: 1px solid transparent;
 }
 .et-reveal-row.ok  { border-color: rgba(30, 158, 99, 0.45); background: rgba(30, 158, 99, 0.08); }
-.et-reveal-row.bad { border-color: rgba(255, 82, 82, 0.45); background: rgba(255, 82, 82, 0.08); }
-.et-reveal-row-label  { font-weight: 600; }
+.et-reveal-row.bad { border-color: rgba(214, 64, 46, 0.45); background: rgba(214, 64, 46, 0.08); }
+.et-reveal-row-label  { font-weight: 500; }
 .et-reveal-row.mine .et-reveal-row-label { color: var(--blue); }
 .et-reveal-row-pick   { color: var(--t2); font-variant-numeric: tabular-nums; }
-.et-reveal-row-mark   { font-weight: 800; font-size: 13px; }
+.et-reveal-row-mark   { font-weight: 500; font-size: 13px; }
 .et-reveal-row.ok  .et-reveal-row-mark { color: #1E9E63; }
 .et-reveal-row.bad .et-reveal-row-mark { color: #D6402E; }
 
 .et-reveal-score {
   display: flex; align-items: baseline; justify-content: center;
   gap: 6px;
-  font-family: var(--f-sans);
-  font-size: 19px; font-weight: 800;
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums;
+  font-size: 19px; font-weight: 600;
   color: var(--t1);
   padding-top: 2px;
   border-top: 1px solid var(--border);
@@ -6009,7 +5986,7 @@
   max-width: 260px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 6px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 .et-confirm-text {
@@ -6028,9 +6005,9 @@
   flex: 1;
   font-family: var(--f-sans);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--t1);
@@ -6044,18 +6021,17 @@
   border-color: #D6402E;
   color: #fff;
 }
-.et-confirm-danger:hover { background: #D6402E; }
+.et-confirm-danger:hover { background: color-mix(in srgb, #D6402E 85%, #1A1917); }
 
 .et-final-score {
   display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--f-sans);
-  font-size: 24px; font-weight: 800;
+  font-family: var(--f-sans); font-variant-numeric: tabular-nums;
+  font-size: 24px; font-weight: 600;
   color: var(--t1);
   margin-top: 6px;
 }
-.chess-finish-emoji { font-size: 40px; line-height: 1; }
 .chess-finish-title {
-  font-size: 18px; font-weight: 700; color: var(--t1);
+  font-size: 18px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans); text-align: center;
 }
 
@@ -6066,7 +6042,7 @@
   gap: 14px; padding: 20px;
 }
 .chess-result-title {
-  font-size: 22px; font-weight: 700; color: var(--t1);
+  font-size: 22px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans); text-align: center;
 }
 .chess-result-sub {
@@ -6074,8 +6050,8 @@
   font-family: var(--f-sans); text-align: center;
 }
 .chess-result-btn {
-  padding: 10px 24px; border-radius: 10px;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  padding: 10px 24px; border-radius: 3px;
+  border: none; cursor: pointer; font-size: 13px; font-weight: 500;
   font-family: var(--f-sans);
 }
 .chess-result-btn.primary { background: var(--accent, var(--blue)); color: #fff; }
@@ -6099,20 +6075,20 @@
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 20px; border-radius: 8px;
+  color: var(--t1); font-size: 20px; border-radius: 3px;
   font-family: var(--f-sans);
   transition: background 0.12s;
 }
 .falling-blocks-back-btn:hover { background: var(--bg2); }
 .falling-blocks-title {
-  font-size: 13px; font-weight: 600;
+  font-size: 13px; font-weight: 500;
   color: var(--t1); font-family: var(--f-sans); flex: 1;
 }
 .falling-blocks-controls { display: flex; gap: 6px; margin-left: auto; }
 .falling-blocks-btn {
   font-size: 10px; font-weight: 500;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 4px 10px; cursor: pointer;
   /* Theme-aware glass — was hardcoded to a white-ish tint that
      vanished against the dark theme's white text. Now follows the
@@ -6266,18 +6242,18 @@
 .falling-blocks-stat {
   display: flex; flex-direction: column; gap: 1px;
   min-width: 0;
-  padding: 4px 5px;
-  border-radius: 8px;
+  padding: 4px;
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.04);
 }
 .plugin.dark .falling-blocks-stat { background: rgba(255, 255, 255, 0.06); }
 .falling-blocks-stat-label {
-  font-size: 7px; color: var(--t3);
+  font-size: 9px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: lowercase; letter-spacing: 0.4px;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .falling-blocks-stat-value {
-  font-size: 12px; color: var(--t1); font-weight: 700;
+  font-size: 12px; color: var(--t1); font-weight: 500;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums; line-height: 1;
 }
 .falling-blocks-stat-value.warning {
@@ -6317,13 +6293,13 @@
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,.65);
   color: #D6402E;
-  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  font-size: 9px; font-weight: 500; letter-spacing: 0.04em;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .falling-blocks-topout-overlay.is-self {
   font-size: 14px;
-  letter-spacing: 2px;
+  letter-spacing: 0.04em;
 }
 
 /* Player count picker (lobby) */
@@ -6406,7 +6382,7 @@
 .falling-blocks-ready-btn.ready {
   background: #1E9E63; color: #fff; border-color: #1E9E63;
 }
-.falling-blocks-ready-btn.ready:hover { background: #2bb14d; }
+.falling-blocks-ready-btn.ready:hover { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 
 /* Invite modal — reuse chess-invite-* shapes */
 .falling-blocks-invite-modal-overlay {
@@ -6492,7 +6468,7 @@
 .falling-blocks-invite-do-btn:hover:not(:disabled)             { background: #1B31D9; }
 .falling-blocks-invite-do-btn:disabled:not(.invited)            { opacity: 0.45; cursor: default; }
 .falling-blocks-invite-do-btn.invited                           { background: #1E9E63; }
-.falling-blocks-invite-do-btn.invited:hover:not(:disabled)      { background: #2caa4d; }
+.falling-blocks-invite-do-btn.invited:hover:not(:disabled)      { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 .falling-blocks-invite-do-btn.invited:disabled                  { background: #1E9E63; cursor: default; }
 .falling-blocks-invite-empty {
   color: var(--t3); font-size: 13px;
@@ -7031,7 +7007,7 @@
    invited" (which is what a green background would imply). */
 .poker-invite-do-btn:disabled:not(.invited)        { opacity: 0.45; cursor: default; }
 .poker-invite-do-btn.invited                       { background: #1E9E63; }
-.poker-invite-do-btn.invited:hover:not(:disabled)  { background: #2caa4d; }
+.poker-invite-do-btn.invited:hover:not(:disabled)  { background: color-mix(in srgb, #1E9E63 85%, #1A1917); }
 .poker-invite-do-btn.invited:disabled              { background: #1E9E63; cursor: default; }
 .poker-invite-empty {
   color: var(--t3); font-size: 13px;
@@ -7416,7 +7392,7 @@
   cursor: pointer;
   transition: background 0.12s;
 }
-.orbit-group-tt-btn:hover { background: #3E7BCC; }
+.orbit-group-tt-btn:hover { background: #1B31D9; }
 
 /* Group ChatView header — constellation glyph avatar */
 .chdr-av-group {
@@ -7708,7 +7684,7 @@
   cursor: pointer;
   transition: background 0.12s, opacity 0.12s;
 }
-.chat-settings-action:hover { background: #3E7BCC; }
+.chat-settings-action:hover { background: #1B31D9; }
 .chat-settings-action:disabled { opacity: 0.4; cursor: default; }
 .chat-settings-action-ghost {
   background: transparent;
@@ -8213,15 +8189,8 @@
   color: var(--t3);
 }
 
-/* Wall labels — the machinery register: small, quiet, a touch wide,
-   like the pre-printed fields on a track sheet. */
-.plugin .s-section-label,
-.plugin .af-section-label {
-  font-family: var(--f-sans);
-  font-weight: 400;
-  text-transform: lowercase;
-  letter-spacing: 0.04em;
-}
+/* Wall labels — machinery register now lives at the source rules
+   (.s-section-label / .af-section-label above). */
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Catalogue materials — the glass era is over. Plugin-only
@@ -8446,7 +8415,7 @@
 .plugin .game-cd-hover-desc { text-transform: lowercase; }
 .plugin .falling-blocks-btn,
 .plugin.dark .falling-blocks-btn {
-  border-radius: 4px;
+  border-radius: 3px;
   box-shadow: none;
   text-transform: lowercase;
 }
@@ -8820,7 +8789,7 @@
 }
 .fx-gr-line {
   width: 4px; height: 0;
-  background: #FF3B30;
+  background: #D6402E;
   opacity: 0;
   transition: opacity 0.25s ease;
 }
@@ -8830,7 +8799,7 @@
   transform: translateY(-100%);
   font-size: 10px; letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  color: #FF3B30;
+  color: #D6402E;
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.25s ease;
@@ -9406,7 +9375,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   margin-top: 1px;
   font-family: var(--f-sans);
   font-size: 8.5px;
-  color: #FF3B30;
+  color: #D6402E;
   text-transform: lowercase;
 }
 /* Offline orbs are dimmed as a whole; the name dims with them, which is
@@ -10034,3 +10003,12 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   color: var(--t1);
   border-color: var(--hair);
 }
+
+/* ── Settings legal links + AI disclosure ──────────────────────────── */
+.settings-legal {
+  display: flex; justify-content: center; gap: 7px;
+  font-size: 9.5px; color: var(--t4);
+  padding-top: 6px;
+}
+.settings-legal a { color: var(--t3); text-decoration: underline; text-underline-offset: 2px; }
+.sprompt-ainote { font-size: 8.5px; color: var(--t4); margin-top: 3px; text-align: right; }

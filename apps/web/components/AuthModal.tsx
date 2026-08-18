@@ -28,6 +28,12 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [showPw, setShowPw] = useState(false)
+  // Signup consent — required boxes gate the submit; the choices ride
+  // signUp metadata as the consent record.
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
+  const [agreeAge, setAgreeAge] = useState(false)
+  const [agreeMarketing, setAgreeMarketing] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
 
   // Reset to the requested mode + focus the email field when it opens.
@@ -59,31 +65,51 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
     try {
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) { setError(error.message); return }
+        if (error) {
+          setError(/invalid login credentials/i.test(error.message)
+            ? 'email and password don’t match — try again.'
+            : 'couldn’t sign you in — try again.')
+          return
+        }
         onAuthed()
       } else {
         const handle = username.trim()
         if (!USERNAME_RE.test(handle)) {
-          setError('Username must be 3–20 characters: lowercase letters, numbers, dots or underscores.')
+          setError('usernames are 3–20 characters — lowercase letters, numbers, dots or underscores.')
           return
         }
         // Availability first — the DB's unique index is the real gate,
         // but this gives a human answer instead of a database error.
         const { data: free, error: rpcErr } = await supabase.rpc('username_available', { u: handle })
-        if (rpcErr) { setError('Could not check that username. Try again.'); return }
+        if (rpcErr) { setError('couldn’t check that username — try again.'); return }
         if (!free) { setError(`@${handle} is taken — try another.`); return }
+        if (!agreeTerms || !agreePrivacy || !agreeAge) {
+          setError('the required agreements need a check to continue.')
+          return
+        }
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { display_name: name.trim() || handle, username: handle } },
+          options: { data: {
+            display_name: name.trim() || handle, username: handle,
+            // Consent record — kept in auth.users.raw_user_meta_data as
+            // proof of what was agreed to, and when, at signup.
+            tos_agreed: 'v1.0', privacy_agreed: 'v1.0', age_over_14: true,
+            marketing_opt_in: agreeMarketing, consent_at: new Date().toISOString(),
+          } },
         })
-        if (error) { setError(error.message); return }
+        if (error) {
+          setError(/already registered/i.test(error.message)
+            ? 'that email already has an account — sign in instead.'
+            : 'couldn’t create the account — try again.')
+          return
+        }
         // If email confirmation is on, there's no session yet.
         if (data.session) onAuthed()
-        else setNote('Check your email to confirm your account, then sign in.')
+        else setNote('check your email to confirm the account, then sign in.')
       }
     } catch (err) {
       console.error('[auth]', err)
-      setError('Something went wrong. Try again.')
+      setError('something went wrong — try again.')
     } finally {
       setBusy(false)
     }
@@ -102,12 +128,12 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
         <header className="auth-head">
           <span className="auth-brand"><span className="auth-brand-dot" />Orb</span>
           <h2 className="auth-title">
-            {mode === 'signin' ? 'Welcome back.' : 'Let’s get you set up.'}
+            {mode === 'signin' ? 'welcome back.' : 'create your account.'}
           </h2>
           <p className="auth-lede">
             {mode === 'signin'
-              ? 'Sign in to jump back into your sessions.'
-              : 'A name, an email, a password — and you’re in.'}
+              ? 'back to your sessions.'
+              : 'a name, an email, a password.'}
           </p>
         </header>
 
@@ -117,45 +143,66 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
               <div className="fld">
                 <input id="auth-name" type="text" placeholder=" " autoComplete="name"
                   value={name} onChange={e => setName(e.target.value)} />
-                <label htmlFor="auth-name">Name</label>
+                <label htmlFor="auth-name">name</label>
               </div>
               <div className="fld fld-username">
                 <input id="auth-username" type="text" placeholder=" " autoComplete="username" required
                   autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   value={username} onChange={e => setUsername(cleanUsername(e.target.value))} />
-                <label htmlFor="auth-username">Username</label>
+                <label htmlFor="auth-username">username</label>
               </div>
             </>
           )}
           <div className="fld">
             <input id="auth-email" ref={emailRef} type="email" placeholder=" " autoComplete="email" required
               value={email} onChange={e => setEmail(e.target.value)} />
-            <label htmlFor="auth-email">Email</label>
+            <label htmlFor="auth-email">email</label>
           </div>
           <div className="fld">
             <input id="auth-password" type={showPw ? 'text' : 'password'} placeholder=" "
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required
               value={password} onChange={e => setPassword(e.target.value)} />
-            <label htmlFor="auth-password">Password</label>
+            <label htmlFor="auth-password">password</label>
             {password && (
               <button type="button" className="fld-toggle" onClick={() => setShowPw(s => !s)}
                 tabIndex={-1} aria-label={showPw ? 'Hide password' : 'Show password'}>
-                {showPw ? 'Hide' : 'Show'}
+                {showPw ? 'hide' : 'show'}
               </button>
             )}
           </div>
 
+          {mode === 'signup' && (
+            <div className="auth-consent">
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} required />
+                <span>I agree to the <a href="/terms" target="_blank" rel="noreferrer">terms of service</a> <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreePrivacy} onChange={e => setAgreePrivacy(e.target.checked)} required />
+                <span>I agree to the <a href="/privacy" target="_blank" rel="noreferrer">privacy policy</a> <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeAge} onChange={e => setAgreeAge(e.target.checked)} required />
+                <span>I am 14 or older <em>(required)</em></span>
+              </label>
+              <label className="auth-check">
+                <input type="checkbox" checked={agreeMarketing} onChange={e => setAgreeMarketing(e.target.checked)} />
+                <span>Send me occasional news <em>(optional)</em></span>
+              </label>
+            </div>
+          )}
+
           {error && <div className="auth-error">{error}</div>}
           {note && <div className="auth-note">{note}</div>}
 
-          <button type="submit" className="auth-submit" disabled={busy}>
-            {busy ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+          <button type="submit" className="auth-submit" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
+            {busy ? (mode === 'signin' ? 'signing in…' : 'creating account…') : (mode === 'signin' ? 'sign in' : 'create account')}
           </button>
         </form>
 
         <footer className="auth-switch">
-          {mode === 'signin' ? 'New here?' : 'Already have an account?'}
-          <button type="button" onClick={toggle}>{mode === 'signin' ? 'Create an account' : 'Sign in instead'}</button>
+          {mode === 'signin' ? 'new here?' : 'already have an account?'}
+          <button type="button" onClick={toggle}>{mode === 'signin' ? 'create an account' : 'sign in instead'}</button>
         </footer>
       </div>
     </div>

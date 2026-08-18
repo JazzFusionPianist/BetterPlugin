@@ -23,21 +23,3 @@ export interface StemDropRequest {
   nativeFiles?: NativeStemFile[]
   fallbackMetadata?: AttachmentTimelineMetadata | null
 }
-
-export interface HostStemTrack {
-  id: string
-  index: number
-  name: string
-  selected: boolean
-  color?: string
-}
-
-export interface HostStemCapabilities {
-  hostName: string
-  adapter: string
-  connected: boolean
-  trackListing: boolean
-  exportMode: 'native' | 'realtime' | 'none'
-  inputPort?: string
-  outputPort?: string
-}

@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
-import type { ConversationStem, HostStemCapabilities, HostStemTrack, StemDropRequest } from '../../types/stems'
+import type { ConversationStem, StemDropRequest } from '../../types/stems'
 import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudioFormat, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
-import { callJuceNative, hasJuceBridge } from '../../lib/juceBridge'
 
 interface Props {
   supabase: SupabaseClient
@@ -47,14 +46,8 @@ export default function StemPanel({
   const [error, setError] = useState('')
   const [hostTimeline, setHostTimeline] = useState<AttachmentTimelineMetadata | null>(null)
   const [audioFormats, setAudioFormats] = useState<Record<string, AudioFormatProbe | null>>({})
-  const [addOpen, setAddOpen] = useState(false)
-  const [hostStatus, setHostStatus] = useState<HostStemCapabilities | null>(null)
-  const [hostTracks, setHostTracks] = useState<HostStemTrack[]>([])
-  const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set())
-  const [rangeMode, setRangeMode] = useState<'session' | 'selection'>('session')
-  const [hostLoading, setHostLoading] = useState(false)
-  const [sharing, setSharing] = useState(false)
   const consumed = useRef(new Set<string>())
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     const { data, error: loadError } = await supabase
@@ -83,73 +76,6 @@ export default function StemPanel({
   useEffect(() => {
     void refreshDawTimelineSnapshot().then(setHostTimeline)
   }, [conversationId])
-
-  const refreshHostTracks = useCallback(async () => {
-    setHostLoading(true)
-    try {
-      const statusText = await callJuceNative('getHostControlStatus')
-      if (statusText.startsWith('error:')) {
-        setHostStatus(null)
-        setHostTracks([])
-        return
-      }
-      const status = JSON.parse(statusText) as HostStemCapabilities
-      setHostStatus(status)
-      if (!status.connected) {
-        await callJuceNative('getHostTracks')
-        await new Promise(resolve => setTimeout(resolve, 350))
-      }
-      const trackText = await callJuceNative('getHostTracks')
-      const tracks = trackText.startsWith('error:') ? [] : JSON.parse(trackText) as HostStemTrack[]
-      setHostTracks(tracks)
-      setSelectedTracks(previous => {
-        if (previous.size > 0) return previous
-        return new Set(tracks.filter(track => track.selected).map(track => track.index))
-      })
-      const refreshedStatusText = await callJuceNative('getHostControlStatus')
-      if (!refreshedStatusText.startsWith('error:'))
-        setHostStatus(JSON.parse(refreshedStatusText) as HostStemCapabilities)
-    } catch {
-      setHostStatus(null)
-      setHostTracks([])
-    } finally {
-      setHostLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!addOpen) return
-    void refreshHostTracks()
-  }, [addOpen, refreshHostTracks])
-
-  const toggleTrack = useCallback((track: HostStemTrack) => {
-    setSelectedTracks(previous => {
-      const next = new Set(previous)
-      const selected = !next.has(track.index)
-      if (selected) next.add(track.index)
-      else next.delete(track.index)
-      void callJuceNative('setHostTrackSelected', [track.index, selected])
-      return next
-    })
-  }, [])
-
-  const shareSelectedTracks = useCallback(async () => {
-    if (selectedTracks.size === 0) return
-    setSharing(true)
-    try {
-      const result = await callJuceNative(
-        'startHostStemExport',
-        [[...selectedTracks].sort((a, b) => a - b).join(','), rangeMode],
-        10_000,
-      )
-      if (result.startsWith('error:')) throw new Error(result)
-      setAddOpen(false)
-    } catch {
-      setError('Could not start the DAW stem export.')
-    } finally {
-      setSharing(false)
-    }
-  }, [hostStatus?.exportMode, rangeMode, selectedTracks])
 
   useEffect(() => {
     const missing = stems.filter(stem => stem.timeline_metadata?.position.bit_depth == null && audioFormats[stem.file_url] === undefined)
@@ -231,6 +157,12 @@ export default function StemPanel({
     void uploadFiles(files, pendingDrop.fallbackMetadata).finally(() => onDropConsumed(pendingDrop.id))
   }, [onDropConsumed, pendingDrop, uploadFiles])
 
+  const handlePickedFiles = useCallback((fileList: FileList | null) => {
+    const files = fileList ? Array.from(fileList) : []
+    if (files.length > 0) void uploadFiles(files)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [uploadFiles])
+
   return (
     <div
       className={`stem-panel${dragOver ? ' drag-over' : ''}`}
@@ -257,7 +189,7 @@ export default function StemPanel({
 
       <div className="stem-list">
         {loading ? <div className="stem-empty">Loading stems…</div> : stems.length === 0 ? (
-          <div className="stem-empty"><strong>No stems yet</strong><span>Audio dropped from the DAW will appear here.</span></div>
+          <div className="stem-empty"><strong>No stems yet</strong><span>Drop audio here or choose files from your computer.</span></div>
         ) : stems.map(stem => {
           const uploader = participants.find(profile => profile.id === stem.uploader_id)
           const mergedTimeline = mergeEmbeddedTimelineWithProject(stem.timeline_metadata, hostTimeline)
@@ -288,67 +220,16 @@ export default function StemPanel({
         })}
       </div>
 
-      {addOpen && (
-        <section className="stem-add-sheet" aria-label="Add stems from project">
-          <div className="stem-add-head">
-            <div>
-              <strong>Add Stems</strong>
-              <span>{hostStatus?.hostName || 'DAW project'}</span>
-            </div>
-            <button onClick={() => setAddOpen(false)} aria-label="Close">×</button>
-          </div>
-
-          {!hasJuceBridge ? (
-            <div className="stem-host-notice">Open Orb inside your DAW to read project tracks.</div>
-          ) : hostLoading && hostTracks.length === 0 ? (
-            <div className="stem-host-notice">Reading tracks from the DAW…</div>
-          ) : !hostStatus?.connected ? (
-            <div className="stem-host-notice">
-              <strong>Connect Orb Control</strong>
-              <span>Choose “Orb Control” in your DAW’s Remote or Control Surface setup. No screen access is used.</span>
-              <button onClick={() => void refreshHostTracks()}>Refresh</button>
-            </div>
-          ) : (
-            <>
-              <div className="stem-host-state">
-                <i />
-                <span>{hostStatus.adapter}</span>
-                <small>{hostStatus.exportMode === 'native' ? 'Native Export' : 'DAW Render'}</small>
-              </div>
-              <div className="stem-range-tabs">
-                <button className={rangeMode === 'session' ? 'on' : ''} onClick={() => setRangeMode('session')}>Entire Session</button>
-                <button className={rangeMode === 'selection' ? 'on' : ''} onClick={() => setRangeMode('selection')}>Edit Selection</button>
-              </div>
-              <div className="stem-track-tools">
-                <span>{selectedTracks.size} selected</span>
-                <button onClick={() => {
-                  const all = selectedTracks.size !== hostTracks.length
-                  setSelectedTracks(new Set(all ? hostTracks.map(track => track.index) : []))
-                  for (const track of hostTracks)
-                    void callJuceNative('setHostTrackSelected', [track.index, all])
-                }}>{selectedTracks.size === hostTracks.length ? 'Clear' : 'Select all'}</button>
-              </div>
-              <div className="stem-track-list">
-                {hostTracks.map(track => (
-                  <button className={selectedTracks.has(track.index) ? 'on' : ''} key={track.id} onClick={() => toggleTrack(track)}>
-                    <i style={track.color ? { background: track.color } : undefined} />
-                    <span>{track.name}</span>
-                    <b>{selectedTracks.has(track.index) ? '✓' : ''}</b>
-                  </button>
-                ))}
-              </div>
-              <button className="stem-share-project" disabled={sharing || selectedTracks.size === 0 || hostStatus.exportMode === 'none'} onClick={() => void shareSelectedTracks()}>
-                {hostStatus.exportMode === 'none'
-                  ? 'Automatic export unavailable'
-                  : sharing ? 'Starting…' : `Share ${selectedTracks.size || ''} Stem${selectedTracks.size === 1 ? '' : 's'}`}
-              </button>
-            </>
-          )}
-        </section>
-      )}
-
       <footer className="stem-footer">
-        <button onClick={() => setAddOpen(open => !open)}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*,.mp3,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac"
+          multiple
+          style={{ display: 'none' }}
+          onChange={event => handlePickedFiles(event.target.files)}
+        />
+        <button onClick={() => fileInputRef.current?.click()}>
           <span>＋</span> Add Stems
         </button>
       </footer>

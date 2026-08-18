@@ -10009,31 +10009,3 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-footer > button { width: 100%; height: 40px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg2); color: var(--t1); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .stem-footer > button:hover { border-color: color-mix(in srgb, var(--blue) 45%, transparent); background: color-mix(in srgb, var(--blue) 10%, var(--bg2)); }
 .stem-footer > button span { font-size: 18px; line-height: 1; color: var(--blue); }
-.stem-add-sheet { position: absolute; inset: 60px 10px 64px; z-index: 4; min-height: 0; padding: 12px; border: 1px solid var(--border2); border-radius: 15px; display: flex; flex-direction: column; gap: 9px; background: color-mix(in srgb, var(--bg) 96%, transparent); box-shadow: 0 18px 45px rgba(0,0,0,.22); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-.stem-add-head { display: flex; align-items: center; justify-content: space-between; }
-.stem-add-head > div { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.stem-add-head strong { font-size: 15px; }
-.stem-add-head span { color: var(--t3); font-size: 9px; }
-.stem-add-head > button { width: 25px; height: 25px; padding: 0; border: 0; border-radius: 8px; background: var(--bg3); color: var(--t2); font-size: 16px; cursor: pointer; }
-.stem-host-notice { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 18px; border: 1px dashed var(--border2); border-radius: 12px; color: var(--t3); font-size: 10px; line-height: 1.5; text-align: center; }
-.stem-host-notice strong { color: var(--t1); font-size: 13px; }
-.stem-host-notice button { border: 0; border-radius: 8px; padding: 6px 11px; background: var(--bg3); color: var(--t1); font-family: inherit; font-size: 10px; cursor: pointer; }
-.stem-host-state { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 9px; background: var(--bg2); color: var(--t2); font-size: 9px; }
-.stem-host-state i { width: 7px; height: 7px; border-radius: 50%; background: #39b575; box-shadow: 0 0 0 3px rgba(57,181,117,.12); }
-.stem-host-state span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
-.stem-host-state small { color: #39a46e; font-size: 8px; font-weight: 700; }
-.stem-range-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 10px; background: var(--bg3); }
-.stem-range-tabs button { height: 29px; border: 0; border-radius: 8px; background: transparent; color: var(--t3); font-family: inherit; font-size: 9.5px; font-weight: 650; cursor: pointer; }
-.stem-range-tabs button.on { background: var(--bg); color: var(--t1); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-.stem-track-tools { display: flex; align-items: center; justify-content: space-between; color: var(--t3); font-size: 9px; }
-.stem-track-tools button { border: 0; background: transparent; color: var(--blue); font-family: inherit; font-size: 9px; cursor: pointer; }
-.stem-track-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-.stem-track-list > button { flex: 0 0 auto; min-width: 0; height: 31px; padding: 0 8px; border: 1px solid transparent; border-radius: 9px; display: flex; align-items: center; gap: 7px; background: transparent; color: var(--t2); font-family: inherit; font-size: 10px; text-align: left; cursor: pointer; }
-.stem-track-list > button:hover { background: var(--bg2); }
-.stem-track-list > button.on { border-color: color-mix(in srgb, var(--blue) 20%, transparent); background: color-mix(in srgb, var(--blue) 9%, var(--bg)); color: var(--t1); }
-.stem-track-list > button > i { flex: 0 0 4px; width: 4px; height: 17px; border-radius: 3px; background: var(--t3); }
-.stem-track-list > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stem-track-list > button > b { flex: 0 0 17px; width: 17px; height: 17px; border: 1px solid var(--border2); border-radius: 5px; display: grid; place-items: center; color: #fff; font-size: 9px; }
-.stem-track-list > button.on > b { border-color: var(--blue); background: var(--blue); }
-.stem-share-project { flex: 0 0 38px; height: 38px; border: 0; border-radius: 11px; background: var(--blue); color: #fff; font-family: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
-.stem-share-project:disabled { opacity: .42; cursor: default; }

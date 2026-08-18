@@ -179,6 +179,10 @@ export default function StemPanel({
         <h2>Stems</h2>
         <button className="stem-close" onClick={onClose} aria-label="Close stems">×</button>
       </div>
+      <div className="stem-drop-guide">
+        <strong>Drag audio files here</strong>
+        <span>Drop stems onto this panel, or use Add Stems to choose multiple files from your computer.</span>
+      </div>
 
       {error && <button className="stem-error" onClick={() => setError('')}>{error}</button>}
       {uploading.map((item, index) => (
@@ -190,7 +194,7 @@ export default function StemPanel({
 
       <div className="stem-list">
         {loading ? <div className="stem-empty">Loading stems…</div> : stems.length === 0 ? (
-          <div className="stem-empty"><strong>No stems yet</strong><span>Drop audio here or choose files from your computer.</span></div>
+          <div className="stem-empty"><strong>No stems yet</strong><span>Add audio files to share them in this conversation.</span></div>
         ) : stems.map(stem => {
           const uploader = participants.find(profile => profile.id === stem.uploader_id)
           const mergedTimeline = mergeEmbeddedTimelineWithProject(stem.timeline_metadata, hostTimeline)

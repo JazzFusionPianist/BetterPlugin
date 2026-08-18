@@ -1471,10 +1471,15 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                     apState[st][1] = y;
                     x = y;
                 }
-                // remove the correlated part so the send is pure "rotation"
-                float side = x - mid;
+                // Inject the ROTATED signal itself, not (rotated − mid):
+                // subtracting mid leaves a component correlated with the
+                // input that always boosts one channel and cuts the other
+                // (a hard right lean at full width). The pure rotation
+                // alternates which side leads per band — that reads as
+                // width, and the mono sum stays bit-identical.
+                float side = x;
                 sideHpState += (side - sideHpState) * hpK;
-                side = (side - sideHpState) * gain;
+                side = (side - sideHpState) * (gain * 0.6f);
                 L[i] += side;
                 R[i] -= side;
             }

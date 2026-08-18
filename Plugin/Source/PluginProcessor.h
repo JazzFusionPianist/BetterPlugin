@@ -160,6 +160,7 @@ private:
     float sendHpState[2] { 0, 0 };      // reverb send low-cut state
     float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
     float sideHpState = 0.0f;
+    float sideHpState2 = 0.0f;
     float glueEnv = 0.0f;        // linear peak envelope
     // UI meter: glue's current gain reduction in dB (positive number),
     // block max, zeroed whenever glue isn't working. Read by timerCallback.

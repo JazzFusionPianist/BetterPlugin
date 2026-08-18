@@ -868,6 +868,7 @@ void OrbAudioProcessor::resetFxOne (int m)
         case kStereoize:
             for (auto& st : apState) { st[0] = 0.0f; st[1] = 0.0f; }
             sideHpState = 0.0f;
+            sideHpState2 = 0.0f;
             break;
         case kGlue:
             glueEnv = 0.0f;
@@ -1458,11 +1459,17 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                 const float t = std::tan (juce::MathConstants<float>::pi * apFreqs[st] / sr);
                 c[st] = (t - 1.0f) / (t + 1.0f);
             }
-            const float hpK  = 1.0f - std::exp (-twoPi * 180.0f / sr);
-            const float gain = a * 0.85f;
+            const float hpK = 1.0f - std::exp (-twoPi * 180.0f / sr);
+            // Ozone-style imaging: WIDTH scales the side that is already
+            // there (polar samples pushed outward, direction preserved —
+            // a left-leaning source stays left, just wider). The allpass
+            // rotation only tops up decorrelation for near-mono sources.
+            const float widthK = a * 1.7f;      // extra gain on existing side (highs)
+            const float synthK = a * 0.35f;     // synthesized side for mono material
             for (int i = 0; i < n; ++i)
             {
-                const float mid = 0.5f * (L[i] + R[i]);
+                const float mid   = 0.5f * (L[i] + R[i]);
+                const float side0 = 0.5f * (L[i] - R[i]);
                 float x = mid;
                 for (int st = 0; st < 4; ++st)
                 {
@@ -1471,17 +1478,13 @@ void OrbAudioProcessor::processFxOne (int m, float sr, int n, float* L, float* R
                     apState[st][1] = y;
                     x = y;
                 }
-                // Inject the ROTATED signal itself, not (rotated − mid):
-                // subtracting mid leaves a component correlated with the
-                // input that always boosts one channel and cuts the other
-                // (a hard right lean at full width). The pure rotation
-                // alternates which side leads per band — that reads as
-                // width, and the mono sum stays bit-identical.
-                float side = x;
-                sideHpState += (side - sideHpState) * hpK;
-                side = (side - sideHpState) * (gain * 0.6f);
-                L[i] += side;
-                R[i] -= side;
+                sideHpState  += (x - sideHpState) * hpK;          // HP the synth send
+                const float synth = x - sideHpState;
+                sideHpState2 += (side0 - sideHpState2) * hpK;     // HP the width boost
+                const float sideHi = side0 - sideHpState2;        // lows stay centred
+                const float sideOut = side0 + sideHi * widthK + synth * synthK;
+                L[i] = mid + sideOut;
+                R[i] = mid - sideOut;
             }
             break;
         }

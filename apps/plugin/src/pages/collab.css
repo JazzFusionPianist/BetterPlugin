@@ -9562,7 +9562,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 
 .chatcal {
   position: absolute; inset: 0; z-index: 8;
-  background: var(--bg);
+  background: transparent;
   display: flex; flex-direction: column;
   animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -9573,7 +9573,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .plugin.screen-wide .chatcal {
   left: 50%;
   border-left: 1px solid var(--border);
-  box-shadow: -10px 0 24px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 @keyframes chatcal-in {
   from { transform: translateX(100%); }
@@ -9997,10 +9997,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   flex-direction: column;
   gap: 9px;
   overflow: hidden;
-  background: var(--bg);
-  box-shadow: -10px 0 24px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  box-shadow: none;
 }
-.stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue), -10px 0 24px rgba(0, 0, 0, 0.10); }
+.stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue); }
 .stem-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .stem-head h2 { margin: 0; font-family: var(--f-serif); font-size: 22px; line-height: 1; font-weight: 400; }
 .stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }

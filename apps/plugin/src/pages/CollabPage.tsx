@@ -689,8 +689,9 @@ function CollabPageInner({ user }: Props) {
     const POPUP_W = 160
     const x = Math.max(4, Math.min(rect.left + rect.width / 2 - POPUP_W / 2, window.innerWidth - POPUP_W - 4))
     // Prefer above the cell; fall back to below if not enough space
-    const spaceAbove = rect.top - 8
-    const below = spaceAbove <= 120
+    const POPUP_H = 126
+    const TOP_SAFE = 116
+    const below = rect.top - 8 - POPUP_H < TOP_SAFE
     const y = below ? rect.bottom + 8 : rect.top - 8
     setGalleryPopup({ profile, x, y, below })
   }

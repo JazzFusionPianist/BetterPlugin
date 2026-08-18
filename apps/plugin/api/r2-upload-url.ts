@@ -3,13 +3,19 @@
  *
  * Client flow:
  *   1. POST /api/r2-upload-url with body:
- *        { ext: 'mp3', contentType: 'audio/mpeg', userId: '<uuid>' }
+ *        { ext: 'mp3', contentType: 'audio/mpeg', userId: '<uuid>', scope: 'temp' | 'perm' }
  *   2. Receives: { uploadUrl, publicUrl, key }
  *   3. PUT the file to uploadUrl with the same Content-Type header.
  *   4. Store publicUrl in messages.attachment_url.
  *
- * The presigned URL is valid for 15 minutes. R2 has a 7-day lifecycle rule
- * that auto-deletes objects, matching the chat attachment expiry policy.
+ * The presigned URL is valid for 15 minutes.
+ *
+ * Expiry: R2's 7-day lifecycle rule is scoped to the `temp/` key prefix.
+ * `scope: 'temp'` (chat attachments, stems) keys the object under
+ * `temp/<userId>/…` so it auto-deletes after 7 days; anything else
+ * (release covers/tracks, gallery photos — and any caller that doesn't
+ * send `scope`, deliberately the safe default) is stored permanently
+ * under `<userId>/…`.
  *
  * Required env vars (Vercel Project Settings → Environment Variables):
  *   CLOUDFLARE_ACCOUNT_ID
@@ -32,6 +38,8 @@ interface Body {
   ext?: string
   contentType?: string
   userId?: string
+  /** 'temp' = 7-day expiring key (chat/stems); anything else = permanent. */
+  scope?: string
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -69,7 +77,7 @@ export default async function handler(req: Request): Promise<Response> {
   try { body = await req.json() }
   catch { return json({ error: 'invalid JSON body' }, 400) }
 
-  const { ext, contentType, userId } = body
+  const { ext, contentType, userId, scope } = body
   if (!ext || !contentType || !userId) {
     return json({ error: 'ext, contentType, userId required' }, 400)
   }
@@ -77,7 +85,11 @@ export default async function handler(req: Request): Promise<Response> {
   const safeExt = String(ext).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'bin'
   const safeUserId = String(userId).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64)
 
-  const key = `${safeUserId}/${Date.now()}-${cryptoRandom(16)}.${safeExt}`
+  // temp/ keys fall under the bucket's 7-day lifecycle rule; unprefixed
+  // keys live forever. Missing scope = permanent on purpose: a stale
+  // client losing data is worse than a stale client costing pennies.
+  const prefix = scope === 'temp' ? 'temp/' : ''
+  const key = `${prefix}${safeUserId}/${Date.now()}-${cryptoRandom(16)}.${safeExt}`
 
   const client = new AwsClient({
     accessKeyId: accessKey,

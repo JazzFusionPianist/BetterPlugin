@@ -104,7 +104,8 @@ export default function StemPanel({
       const contentType = file.type || 'application/octet-stream'
       const presign = await fetch('/api/r2-upload-url', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
+        // scope temp = 7-day expiring key, same policy as chat attachments
+        body: JSON.stringify({ ext, contentType, userId: currentUserId, scope: 'temp' }),
       })
       if (!presign.ok) throw new Error('presign')
       const { uploadUrl, publicUrl } = await presign.json() as { uploadUrl: string; publicUrl: string }

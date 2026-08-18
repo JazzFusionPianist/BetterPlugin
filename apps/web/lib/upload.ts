@@ -62,11 +62,16 @@ export function attachTypeFor(file: File): AttachType {
 /**
  * Presign + PUT one file to R2. `onProgress` gets 0..1 (throttled by the
  * caller's render, not here — XHR events are already coarse on mobile).
+ *
+ * `scope: 'temp'` keys the object under R2's 7-day-expiry prefix — chat
+ * attachments only. Everything else (release covers/tracks, gallery,
+ * open call) defaults to 'perm' and is stored forever.
  */
 export async function uploadAttachment(
   file: File,
   userId: string,
   onProgress?: (ratio: number) => void,
+  scope: 'temp' | 'perm' = 'perm',
 ): Promise<UploadedAttachment> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
   const contentType = file.type || 'application/octet-stream'
@@ -74,7 +79,7 @@ export async function uploadAttachment(
   const presignRes = await fetch(`${UPLOAD_API_BASE}/api/r2-upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ext, contentType, userId }),
+    body: JSON.stringify({ ext, contentType, userId, scope }),
   })
   if (!presignRes.ok) {
     throw new UploadError(`Could not start the upload (${presignRes.status}).`)

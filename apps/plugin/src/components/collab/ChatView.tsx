@@ -1397,7 +1397,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       const presignRes = await fetch('/api/r2-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
+        // scope temp = 7-day expiring key; chat attachments only
+        body: JSON.stringify({ ext, contentType, userId: currentUserId, scope: 'temp' }),
       })
       if (!presignRes.ok) {
         const errText = await presignRes.text()

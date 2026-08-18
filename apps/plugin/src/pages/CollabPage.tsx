@@ -482,15 +482,16 @@ function CollabPageInner({ user }: Props) {
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const closeCalendar = useCallback((options: { restoreSize?: boolean } = {}) => {
+  const closeCalendar = useCallback((options: { restoreSize?: boolean; preserveRestore?: boolean } = {}) => {
     const restoreSize = options.restoreSize ?? true
+    const preserveRestore = options.preserveRestore ?? false
     setCalendarExpandedFromSmall(false)
     if (restoreSize && calendarRestoreSizeRef.current === 'small') {
       calendarRestoreSizeRef.current = null
       setScreenSize('small')
       localStorage.setItem('collab_screen_size', 'small')
       void applyScreenSize('small')
-    } else if (!restoreSize) {
+    } else if (!restoreSize && !preserveRestore) {
       calendarRestoreSizeRef.current = null
     }
   }, [])

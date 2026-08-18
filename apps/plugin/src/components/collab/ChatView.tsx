@@ -58,7 +58,7 @@ interface Props {
   onOpenSettings?: () => void
   onOpenStems?: () => void
   onOpenCalendar?: () => void
-  onCloseCalendar?: (options?: { restoreSize?: boolean }) => void
+  onCloseCalendar?: (options?: { restoreSize?: boolean; preserveRestore?: boolean }) => void
   stemsActive?: boolean
   onStemDrop?: (request: StemDropRequest) => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
@@ -993,7 +993,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // opens a slide-over scoped to this conversation's shared events, and
   // schedule-looking messages grow an "add to calendar" chip.
   const [chatCalOpen, setChatCalOpen] = useState(false)
-  const closeChatCalendar = useCallback((options?: { restoreSize?: boolean }) => {
+  const closeChatCalendar = useCallback((options?: { restoreSize?: boolean; preserveRestore?: boolean }) => {
     setChatCalOpen(false)
     onCloseCalendar?.(options)
   }, [onCloseCalendar])
@@ -1815,7 +1815,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             className={`chdr-stems-btn${stemsActive ? ' active' : ''}`}
             onClick={event => {
               event.stopPropagation()
-              if (chatCalOpen) closeChatCalendar({ restoreSize: false })
+              if (chatCalOpen) closeChatCalendar({ restoreSize: false, preserveRestore: true })
               onOpenStems()
             }}
           >

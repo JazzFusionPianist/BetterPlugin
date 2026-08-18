@@ -555,6 +555,13 @@ function CollabPageInner({ user }: Props) {
       stemsRestoreSizeRef.current = null
     }
   }, [])
+  const toggleStems = useCallback(() => {
+    if (stemsOpen) {
+      closeStems()
+      return
+    }
+    openStems()
+  }, [closeStems, openStems, stemsOpen])
   const openCalendar = useCallback(() => {
     const restoreFromSmall = screenSize === 'small' || stemsRestoreSizeRef.current === 'small'
     closeStems({ restoreSize: false })
@@ -893,7 +900,7 @@ function CollabPageInner({ user }: Props) {
             }}
             reads={conversationReads}
             onOpenSettings={() => setChatSettingsOpen(true)}
-            onOpenStems={openStems}
+            onOpenStems={toggleStems}
             onOpenCalendar={openCalendar}
             onCloseCalendar={closeCalendar}
             stemsActive={stemsOpen}
@@ -918,7 +925,7 @@ function CollabPageInner({ user }: Props) {
               loading={messagesLoading}
               reads={conversationReads}
               onOpenSettings={() => setChatSettingsOpen(true)}
-              onOpenStems={openStems}
+              onOpenStems={toggleStems}
               onOpenCalendar={openCalendar}
               onCloseCalendar={closeCalendar}
               stemsActive={stemsOpen}

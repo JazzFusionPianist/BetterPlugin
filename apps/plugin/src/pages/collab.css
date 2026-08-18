@@ -9428,7 +9428,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   position: absolute; inset: 0; z-index: 8;
   background: transparent;
   display: flex; flex-direction: column;
-  animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .plugin.screen-wide .chat-drop-zone.cal-open {
   box-sizing: border-box;
@@ -9438,19 +9437,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   left: 50%;
   border-left: 0;
   box-shadow: none;
-}
-@keyframes chatcal-in {
-  from { transform: translateX(100%); }
-  to   { transform: none; }
-}
-@keyframes sidepanel-reveal-from-small-edge {
-  from { clip-path: inset(0 100% 0 0); }
-  to   { clip-path: inset(0 0 0 0); }
-}
-.plugin.sidepanel-expand-from-small .chatcal,
-.plugin.sidepanel-expand-from-small .stem-dock {
-  animation-name: sidepanel-reveal-from-small-edge;
-  transform: none;
 }
 .chatcal-body { flex: 1; min-height: 0; overflow-y: auto; }
 .chatcal-prompt {
@@ -9827,7 +9813,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   min-width: 300px;
   pointer-events: auto;
   background: var(--bg);
-  animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .plugin:not(.screen-wide) .stem-dock {
   width: 50%;
@@ -9979,6 +9964,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   border-color: var(--action);
   color: var(--paper);
 }
+.plugin:not(.dark) .send-btn svg { fill: var(--paper); }
 .plugin:not(.dark) :where(
   .send-btn,
   .sprompt-send,

@@ -384,7 +384,7 @@
   transform: translateX(100%);
 }
 .plugin.screen-wide.stems-open .cview {
-  right: 50%;
+  right: min(46%, 520px);
   width: auto;
 }
 .plugin.settings-open       .sview    { transform: translateX(0); }
@@ -411,6 +411,9 @@
   width: min(420px, calc(100% - 48px));
   margin-left: auto;
   margin-right: auto;
+}
+.plugin.screen-wide.stems-open .chat-drop-zone:not(.cal-open) {
+  width: min(520px, calc(100% - 48px));
 }
 
 .s-nav-row {
@@ -9819,7 +9822,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   right: 0;
   bottom: 0;
   z-index: 28;
-  width: 50%;
+  width: min(46%, 520px);
   min-width: 300px;
   pointer-events: auto;
   animation: chatcal-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
@@ -9844,28 +9847,19 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   box-shadow: none;
 }
 .stem-panel.drag-over { box-shadow: inset 0 0 0 2px var(--blue); }
-.stem-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.stem-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-shrink: 0; }
 .stem-head h2 { margin: 0; font-family: var(--f-serif); font-size: 22px; line-height: 1; font-weight: 400; }
-.stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }
-.stem-drop-guide {
-  flex-shrink: 0;
-  padding: 10px 11px;
-  border: 1px dashed color-mix(in srgb, var(--blue) 36%, var(--border));
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  background: color-mix(in srgb, var(--blue) 6%, var(--bg2));
-  color: var(--t2);
+.stem-head p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--t3);
   font-size: 10.5px;
-  line-height: 1.35;
+  line-height: 1.25;
+  text-align: left;
 }
-.stem-drop-guide strong {
-  color: var(--t1);
-  font-size: 12px;
-  line-height: 1.15;
-}
-.stem-drop-guide span { max-width: 36ch; }
+.stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }
 .stem-error { border: none; border-radius: 8px; padding: 7px 9px; background: rgba(229,72,77,.12); color: #e5484d; font-size: 9px; cursor: pointer; }
 .stem-upload { padding: 8px 9px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); }
 .stem-upload > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; color: var(--t2); }

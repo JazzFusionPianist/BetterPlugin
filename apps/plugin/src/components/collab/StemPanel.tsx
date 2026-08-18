@@ -177,11 +177,8 @@ export default function StemPanel({
     >
       <div className="stem-head">
         <h2>Stems</h2>
+        <p>Drop audio files here, or use Add Stems to choose multiple files.</p>
         <button className="stem-close" onClick={onClose} aria-label="Close stems">×</button>
-      </div>
-      <div className="stem-drop-guide">
-        <strong>Drag audio files here</strong>
-        <span>Drop stems onto this panel, or use Add Stems to choose multiple files from your computer.</span>
       </div>
 
       {error && <button className="stem-error" onClick={() => setError('')}>{error}</button>}

@@ -384,9 +384,13 @@
 .plugin.chat-open.conv-open .cview {
   transform: translateX(100%);
 }
-.plugin.screen-wide.stems-open .cview {
+.plugin.screen-wide.stems-open:not(.sidepanel-expand-from-small) .cview {
   right: 50%;
   width: auto;
+}
+.plugin.screen-wide.sidepanel-expand-from-small.stems-open .cview {
+  right: auto;
+  width: 300px;
 }
 .plugin.settings-open       .sview    { transform: translateX(0); }
 .plugin.profile-open        .pview    { transform: translateX(0); }
@@ -413,8 +417,10 @@
   margin-left: auto;
   margin-right: auto;
 }
-.plugin.screen-wide.stems-open .chat-drop-zone:not(.cal-open) {
-  width: calc(100% - 48px);
+.plugin.screen-wide.sidepanel-expand-from-small.stems-open .chat-drop-zone:not(.cal-open) {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .s-nav-row {

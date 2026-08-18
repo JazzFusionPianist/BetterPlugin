@@ -775,10 +775,14 @@ function CollabPageInner({ user }: Props) {
   // host window exactly (100vw would overflow under zoom).
   const uiScale = UI_FONT_SIZE_SCALE[uiFontSize]
   const pluginStyle = {
+    // Percentages, NOT vw/vh: WKWebView resolves viewport units
+    // inconsistently inside a zoomed subtree, so the compensated root
+    // could exceed the window — the page scrolled and the toolbar
+    // vanished above the fold. % resolves against the (unzoomed) body.
     ...((hasJuceBridge || screenPreview)
       ? (uiScale === 1
-        ? { width: '100vw', height: '100vh' }
-        : { width: `calc(100vw / ${uiScale})`, height: `calc(100vh / ${uiScale})` })
+        ? { width: '100%', height: '100%' }
+        : { width: `calc(100% / ${uiScale})`, height: `calc(100% / ${uiScale})` })
       : {}),
     ...(uiScale !== 1 ? { zoom: uiScale } : {}),
     ...(localFontCss ? {

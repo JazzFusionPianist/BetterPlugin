@@ -132,24 +132,24 @@ export default function ChatSettingsPanel({
       setEditingTitle(false)
     } catch (err) {
       console.error('[ChatSettings] rename', err)
-      setError('Failed to rename. Are you the host?')
+      setError('couldn\'t rename — only the host can.')
     } finally { setBusy(false) }
   }
 
   const handleKick = async (userId: string) => {
-    if (!confirm('Remove this member from the group?')) return
+    if (!confirm('remove this member from the group?')) return
     setBusy(true); setError(null)
     try {
       await removeGroupMember(supabase, conversationId, userId)
       await refetchMembers()
     } catch (err) {
       console.error('[ChatSettings] kick', err)
-      setError('Failed to remove member.')
+      setError('couldn\'t remove them.')
     } finally { setBusy(false) }
   }
 
   const handleLeave = async () => {
-    const msg = isGroup ? 'Leave this group?' : 'Delete this chat?'
+    const msg = isGroup ? 'leave this group?' : 'delete this chat?'
     if (!confirm(msg)) return
     setBusy(true); setError(null)
     try {
@@ -157,7 +157,7 @@ export default function ChatSettingsPanel({
       onLeft()
     } catch (err) {
       console.error('[ChatSettings] leave/delete', err)
-      setError(isGroup ? 'Failed to leave.' : 'Failed to delete.')
+      setError(isGroup ? 'couldn\'t leave.' : 'couldn\'t delete.')
       setBusy(false)
     }
   }
@@ -170,14 +170,14 @@ export default function ChatSettingsPanel({
     try {
       const newConvId = await onPromoteToGroup(t, Array.from(addSelected))
       if (!newConvId) {
-        setError('Failed to create group. Try again?')
+        setError('couldn\'t create the group. try again.')
         return
       }
       // CollabPage navigates on success — close ourselves.
       onClose()
     } catch (err) {
       console.error('[ChatSettings] promote', err)
-      setError('Failed to create group.')
+      setError('couldn\'t create the group. try again.')
     } finally { setBusy(false) }
   }
 
@@ -192,7 +192,7 @@ export default function ChatSettingsPanel({
       await refetchMembers()
     } catch (err) {
       console.error('[ChatSettings] addMembers', err)
-      setError('Failed to add members. Are you the host?')
+      setError('couldn\'t add them — only the host can.')
     } finally { setBusy(false) }
   }
 
@@ -236,10 +236,10 @@ export default function ChatSettingsPanel({
           ) : <span />}
           <div className="chat-settings-heading">
             {mode === 'view'
-              ? (isGroup ? 'Group info' : 'Chat info')
+              ? (isGroup ? 'group info' : 'chat info')
               : mode === 'add'
-                ? 'Add members'
-                : 'Add people'}
+                ? 'add members'
+                : 'add people'}
           </div>
           <button className="chat-settings-close" onClick={onClose} aria-label="Close">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -271,17 +271,17 @@ export default function ChatSettingsPanel({
                     className="chat-settings-action"
                     onClick={handleRename}
                     disabled={busy || !titleDraft.trim()}
-                  >Save</button>
+                  >save</button>
                   <button
                     className="chat-settings-action chat-settings-action-ghost"
                     onClick={() => { setEditingTitle(false); setTitleDraft(title) }}
-                  >Cancel</button>
+                  >cancel</button>
                 </div>
               ) : (
                 <div
                   className={`chat-settings-title-view${meIsAdmin ? ' editable' : ''}`}
                   onClick={meIsAdmin ? () => setEditingTitle(true) : undefined}
-                  title={meIsAdmin ? 'Tap to rename' : 'Only the host can rename the group'}
+                  title={meIsAdmin ? 'click to rename' : 'only the host can rename the group'}
                 >
                   <span>{title}</span>
                   {meIsAdmin && (
@@ -297,7 +297,7 @@ export default function ChatSettingsPanel({
             {/* Member roster */}
             <div className="chat-settings-section">
               <div className="chat-settings-section-row">
-                <div className="chat-settings-label">Members · {members.length}</div>
+                <div className="chat-settings-label">members · {members.length}</div>
                 {/* Group host: invite straight into this conversation.
                     DM: tapping Add promotes the chat into a brand-new
                     group via the 'promote' sub-mode. */}
@@ -311,8 +311,8 @@ export default function ChatSettingsPanel({
                   <button
                     className="chat-settings-link"
                     onClick={() => setMode('promote')}
-                    title="Add people — converts this DM into a new group"
-                  >+ Add people</button>
+                    title="add people — converts this DM into a new group"
+                  >+ add people</button>
                 )}
               </div>
               {loading ? (
@@ -350,7 +350,7 @@ export default function ChatSettingsPanel({
                       onClick={() => handleKick(m.userId)}
                       disabled={busy}
                       aria-label={`Remove ${m.profile.display_name}`}
-                      title="Remove from group"
+                      title="remove from group"
                     >
                       <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                         <path d="M2 2l8 8M10 2l-8 8" />
@@ -367,7 +367,7 @@ export default function ChatSettingsPanel({
               onClick={handleLeave}
               disabled={busy}
             >
-              {isGroup ? 'Leave group' : 'Delete chat'}
+              {isGroup ? 'leave group' : 'delete chat'}
             </button>
           </>
         )}
@@ -375,10 +375,10 @@ export default function ChatSettingsPanel({
         {mode === 'promote' && (
           <>
             <div className="chat-settings-section">
-              <div className="chat-settings-label">New group name</div>
+              <div className="chat-settings-label">new group name</div>
               <input
                 className="chat-settings-input chat-settings-search"
-                placeholder="Name your new group…"
+                placeholder="name your new group…"
                 value={promoteTitle}
                 onChange={e => setPromoteTitle(e.target.value)}
                 maxLength={40}
@@ -386,10 +386,10 @@ export default function ChatSettingsPanel({
               />
             </div>
             <div className="chat-settings-section">
-              <div className="chat-settings-label">Add people</div>
+              <div className="chat-settings-label">add people</div>
               <input
                 className="chat-settings-input chat-settings-search"
-                placeholder="Search friends…"
+                placeholder="search friends…"
                 value={addQuery}
                 onChange={e => setAddQuery(e.target.value)}
               />
@@ -400,7 +400,7 @@ export default function ChatSettingsPanel({
               </div>
               {invitePool.length === 0 && (
                 <div className="chat-settings-empty">
-                  {addQuery.trim() ? 'No matches' : 'No friends to add'}
+                  {addQuery.trim() ? 'no matches' : 'no friends to add'}
                 </div>
               )}
               {invitePool.map(p => {
@@ -436,12 +436,12 @@ export default function ChatSettingsPanel({
               disabled={busy || !promoteTitle.trim() || addSelected.size === 0}
             >
               {busy
-                ? 'Creating…'
+                ? 'creating…'
                 : !promoteTitle.trim()
-                  ? 'Name the group first'
+                  ? 'name the group first'
                   : addSelected.size === 0
-                    ? 'Pick people to add'
-                    : `Create group with ${addSelected.size + 2} people`}
+                    ? 'pick people to add'
+                    : `create group with ${addSelected.size + 2} people`}
             </button>
           </>
         )}
@@ -451,7 +451,7 @@ export default function ChatSettingsPanel({
             <div className="chat-settings-section">
               <input
                 className="chat-settings-input chat-settings-search"
-                placeholder="Search friends…"
+                placeholder="search friends…"
                 value={addQuery}
                 onChange={e => setAddQuery(e.target.value)}
                 autoFocus
@@ -461,7 +461,7 @@ export default function ChatSettingsPanel({
               </div>
               {invitePool.length === 0 && (
                 <div className="chat-settings-empty">
-                  {addQuery.trim() ? 'No matches' : 'No more friends to add'}
+                  {addQuery.trim() ? 'no matches' : 'no more friends to add'}
                 </div>
               )}
               {invitePool.map(p => {
@@ -493,7 +493,7 @@ export default function ChatSettingsPanel({
               onClick={handleConfirmAdd}
               disabled={busy || addSelected.size === 0}
             >
-              {busy ? 'Adding…' : addSelected.size === 0 ? 'Select people to add' : `Add ${addSelected.size}`}
+              {busy ? 'adding…' : addSelected.size === 0 ? 'pick people to add' : `add ${addSelected.size}`}
             </button>
           </>
         )}

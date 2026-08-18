@@ -197,8 +197,8 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
           <button
             className="live-viewer-expand-btn"
             onClick={toggleExpanded}
-            title={expanded ? 'Collapse view' : 'Expand view'}
-            aria-label={expanded ? 'Collapse view' : 'Expand view'}
+            title={expanded ? 'collapse view' : 'expand view'}
+            aria-label={expanded ? 'collapse view' : 'expand view'}
           >
             {/* Double-chevron arrows: » to expand wider, « to collapse
                 back. Strokes drawn as SVG so they pick up currentColor
@@ -246,8 +246,8 @@ export default function LiveViewer({ supabase, viewerId, session, host, currentU
                   v.requestFullscreen().catch(e => console.warn('fullscreen failed', e))
                 }
               }}
-              title="Fullscreen"
-              aria-label="Enter fullscreen"
+              title="fullscreen"
+              aria-label="enter fullscreen"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 6V2.5h3.5" />

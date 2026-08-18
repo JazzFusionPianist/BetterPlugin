@@ -32,9 +32,9 @@
   margin-top: 2px;
   max-width: 240px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: var(--bg2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   font-family: var(--f-sans);
 }
 .mg.mine .game-invite-bubble { align-self: flex-end; }
@@ -45,32 +45,32 @@
 }
 .game-invite-icon {
   width: 32px; height: 32px;
-  border-radius: 8px;
+  border-radius: 3px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 17px;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--ink);
+  background: var(--bg3);
+  border: 1px solid var(--line);
 }
-.game-invite-icon-chess { background: linear-gradient(135deg, #4a5680, #1f2740); }
-.game-invite-icon-falling_blocks { background: linear-gradient(135deg, #7C8AFF, #5a3fd0); }
-.game-invite-icon-poker { background: linear-gradient(135deg, #2f8f5a, #4a1018); }
-.game-invite-icon-ear_training { background: linear-gradient(135deg, #ffb56b, #4a1e3a); }
+/* per-game identity comes from the icon glyph, not a gradient tile */
 .game-invite-text {
   font-size: 12px;
   color: var(--t1);
-  line-height: 1.35;
+  line-height: 1.45;
   font-weight: 500;
   flex: 1;
   min-width: 0;
 }
 .game-invite-join {
-  font-family: var(--f-sans);
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: lowercase;
   background: var(--blue);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 3px;
   padding: 8px 12px;
   cursor: pointer;
   transition: background .12s, transform .08s, opacity .12s;
@@ -79,9 +79,11 @@
 .game-invite-join:active:not(:disabled) { transform: scale(0.97); }
 .game-invite-join:disabled { opacity: 0.55; cursor: default; }
 .game-invite-banner {
+  font-family: var(--f-serif);
+  font-style: italic;
   font-size: 11px;
-  font-weight: 600;
-  color: #D6402E;
+  font-weight: 400;
+  color: var(--t2);
   text-align: center;
   padding: 4px 0 0;
 }
@@ -239,7 +241,7 @@
   white-space: nowrap;
   font-family: var(--f-sans);
   padding: 6px 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -267,174 +269,8 @@
   display: flex; flex-direction: column;
   height: 100%; overflow: hidden;
 }
-.chess-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 10px; height: 44px; flex-shrink: 0;
-  border-bottom: 0.5px solid var(--border);
-}
-.chess-back-btn {
-  width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 20px; border-radius: 6px;
-}
-.chess-back-btn:hover { background: var(--bg2); }
-.chess-title {
-  font-size: 13px; font-weight: 600;
-  color: var(--t1); font-family: var(--f-sans); flex: 1;
-}
-.chess-controls { display: flex; gap: 6px; margin-left: auto; }
-.chess-btn {
-  font-size: 10px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: 6px;
-  padding: 4px 8px; cursor: pointer; background: var(--bg2);
-  color: var(--t1); font-family: var(--f-sans);
-}
-.chess-btn:hover { background: var(--bg3); }
-.chess-btn-resign { border-color: rgba(214, 64, 46,.35); color: #D6402E; }
-.chess-btn-resign:hover { background: rgba(214, 64, 46,.08); }
-/* Lobby */
-.chess-lobby {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; padding: 20px 16px; gap: 16px; overflow-y: auto;
-}
-.chess-lobby-board-preview {
-  display: grid; grid-template-columns: repeat(8, 1fr);
-  width: 200px; height: 200px; border-radius: 6px; overflow: hidden;
-  border: 1px solid var(--border); flex-shrink: 0;
-}
-.chess-preview-sq { width: 100%; aspect-ratio: 1; }
-.chess-preview-sq.sq-light { background: rgba(255, 255, 255, 0.55); }
-.chess-preview-sq.sq-dark { background: rgba(70, 75, 90, 0.22); }
-.chess-invite-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
-  background: var(--accent, var(--blue)); color: #fff;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
-  font-family: var(--f-sans);
-}
-.chess-invite-btn:hover { opacity: .88; }
-.chess-waiting {
-  font-size: 11px; color: var(--t3);
-  font-family: var(--f-sans); text-align: center;
-}
-.chess-lobby-guest {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: var(--bg2);
-  border-radius: 10px; width: 100%;
-}
-.chess-lobby-guest-name {
-  font-size: 12px; font-weight: 500; color: var(--t1);
-  font-family: var(--f-sans);
-}
-.chess-start-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
-  background: #1E9E63; color: #fff;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
-  font-family: var(--f-sans);
-}
-.chess-start-btn:hover { opacity: .88; }
-/* Invite modal */
-.chess-invite-modal-overlay {
-  position: absolute; inset: 0; z-index: 50;
-  background: rgba(0,0,0,.45);
-  display: flex; align-items: flex-end;
-}
-.chess-invite-modal {
-  width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
-  height: 75%; max-height: 75%;
-  display: flex; flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-.chess-invite-modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 18px 12px; flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-.chess-invite-modal-title {
-  font-size: 16px; font-weight: 700; color: var(--t1);
-  font-family: var(--f-sans);
-}
-.chess-invite-modal-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
-  opacity: 0.6; transition: opacity .12s;
-}
-.chess-invite-modal-close:hover { opacity: 1; }
-.chess-invite-empty {
-  color: var(--t3); font-size: 13px;
-  font-family: var(--f-sans);
-  text-align: center; padding: 24px 16px; margin: 0;
-}
-/* Search input inside the invite modal */
-.chess-invite-search-wrap {
-  position: relative; display: flex; align-items: center;
-  margin: 10px 14px 6px; flex-shrink: 0;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 30px 0 32px; height: 34px;
-}
-.chess-invite-search-icon {
-  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-  color: var(--t3); pointer-events: none;
-}
-.chess-invite-search-input {
-  flex: 1; height: 100%; background: transparent; border: none; outline: none;
-  font-size: 13px; font-family: var(--f-sans);
-  color: var(--t1); min-width: 0;
-}
-.chess-invite-search-input::placeholder { color: var(--t3); }
-.chess-invite-search-clear {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--bg3); border: none; cursor: pointer;
-  color: var(--t1); font-size: 14px; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0.7; transition: opacity .12s;
-}
-.chess-invite-search-clear:hover { opacity: 1; }
-.chess-invite-list {
-  flex: 1; overflow-y: auto; padding: 4px 0 8px;
-  /* GPU-accelerate scrolling for long friend lists */
-  -webkit-overflow-scrolling: touch;
-  contain: strict;
-}
-.chess-invite-list::-webkit-scrollbar { width: 4px; }
-.chess-invite-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-.chess-invite-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px;
-  /* Stable height so very long lists render predictably without layout shift */
-  height: 52px; box-sizing: border-box; flex-shrink: 0;
-}
-.chess-invite-av-wrap {
-  position: relative; flex-shrink: 0;
-  width: 36px; height: 36px;
-}
-.chess-invite-online-dot {
-  position: absolute; right: -1px; bottom: -1px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #1E9E63; border: 2px solid var(--bg);
-}
-.chess-invite-name {
-  flex: 1; min-width: 0; font-size: 13px; color: var(--t1);
-  font-family: var(--f-sans); font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.chess-invite-do-btn {
-  font-size: 11px; font-weight: 600;
-  background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
-  cursor: pointer; font-family: var(--f-sans);
-  white-space: nowrap;
-  transition: background .12s;
-}
-/* Subtle darker shade on hover for both blue (invite) and green
-   (invited) states so the buttons feel interactive. */
-.chess-invite-do-btn:hover:not(:disabled) { background: #1B31D9; }
-.chess-invite-do-btn:disabled { background: #1E9E63; cursor: default; }
-/* Already-invited row — green confirmation. Click again to cancel. */
-.chess-invite-do-btn.invited { background: #1E9E63; }
-.chess-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
+/* (dead plugin-era chess header/lobby chrome removed — GameShell owns the shared chrome) */
+/* (dead plugin-era chess invite modal removed — GameShell's game-invite-* sheet is the one source) */
 /* Game area */
 .chess-game-area {
   flex: 1; display: flex; flex-direction: column;
@@ -456,13 +292,13 @@
   font-family: var(--f-sans); flex: 1;
 }
 .chess-player-turn {
-  font-size: 9px; color: #1E9E63;
+  font-size: 10px; color: var(--blue);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600;
 }
 .chess-captured {
   height: 14px; min-height: 14px; max-height: 14px;
   overflow: hidden;
-  font-size: 11px; line-height: 14px; letter-spacing: -1px;
+  font-size: 11px;
   flex-shrink: 0;
 }
 .chess-captured-piece {
@@ -602,7 +438,7 @@
   display: flex; align-items: center; justify-content: center;
 }
 .chess-promo-modal {
-  background: var(--bg); border-radius: 14px;
+  background: var(--bg); border-radius: 8px;
   padding: 16px; display: flex; flex-direction: column;
   align-items: center; gap: 12px;
 }
@@ -612,7 +448,7 @@
 }
 .chess-promo-choices { display: flex; gap: 8px; }
 .chess-promo-choice {
-  width: 48px; height: 48px; border-radius: 10px;
+  width: 48px; height: 48px; border-radius: 3px;
   background: var(--bg2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 28px; cursor: pointer; transition: background .1s;
@@ -621,7 +457,7 @@
 /* Ready button (lobby + finish overlay) */
 .chess-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
+  border-radius: 3px; border: 2px solid var(--border);
   background: var(--bg2); color: var(--t1);
   font-size: 13px; font-weight: 600; cursor: pointer;
   font-family: var(--f-sans);
@@ -630,17 +466,17 @@
 .chess-ready-btn:hover { background: var(--bg3); }
 .chess-ready-btn:active { transform: scale(0.97); }
 .chess-ready-btn.ready {
-  background: #1E9E63; color: #fff; border-color: #1E9E63;
+  background: none; color: var(--blue); border-color: var(--blue);
 }
-.chess-ready-btn.ready:hover { background: #2bb14d; }
+.chess-ready-btn.ready:hover { background: rgba(36, 64, 255, 0.06); }
 .chess-ready-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 3px 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 500;
+  padding: 3px 7px; border-radius: 3px;
   background: var(--bg3); color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 .chess-ready-badge.ready {
-  background: rgba(30, 158, 99, 0.18); color: #1E9E63;
+  background: rgba(36, 64, 255, 0.08); color: var(--blue);
 }
 .chess-finish-readystate {
   font-size: 11px; color: var(--t3);
@@ -651,7 +487,7 @@
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 0;
   animation: chessFinishIn 0.3s ease-out;
 }
 .chess-finish-card {
@@ -659,8 +495,8 @@
   gap: 10px; padding: 18px 22px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   min-width: 180px;
 }
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -690,7 +526,7 @@
   justify-content: center;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   background: transparent;
   color: var(--t1);
   cursor: pointer;
@@ -707,7 +543,7 @@
   color: var(--t1);
   font-size: 11px;
   font-family: var(--f-sans);
-  font-weight: 700;
+  font-weight: 500;
 }
 .game-row-controls {
   grid-column: 3;
@@ -719,12 +555,12 @@
 }
 .game-btn {
   font-size: 10px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: 3px;
   padding: 4px 8px; cursor: pointer; background: var(--bg2);
   color: var(--t1); font-family: var(--f-sans);
 }
 .game-btn:hover { background: var(--bg3); }
-.game-btn-danger { border-color: rgba(214, 64, 46,.35); color: #D6402E; }
+.game-btn-danger { border-color: rgba(214, 64, 46,.35); color: var(--red); }
 .game-btn-danger:hover { background: rgba(214, 64, 46,.08); }
 /* Content area + board wrap (overlay anchors here) */
 .game-area {
@@ -782,9 +618,9 @@
   white-space: nowrap;
 }
 .game-view.chess-shell .game-action-status.active {
-  color: #1E9E63;
+  color: var(--blue);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  font-size: 9px;
+  font-size: 10px;
 }
 .chess-row-controls {
   flex: 0 0 auto;
@@ -794,7 +630,7 @@
 }
 .game-view.chess-shell .chess-row-controls .game-btn {
   padding: 3px 7px;
-  font-size: 9px;
+  font-size: 10px;
 }
 .chess-player-captured-row {
   align-items: center;
@@ -857,7 +693,7 @@
 }
 /* Invite button (lobby CTA) */
 .game-invite-btn {
-  width: 100%; padding: 11px; border-radius: 10px;
+  width: 100%; padding: 11px; border-radius: 3px;
   background: var(--accent, var(--blue)); color: #fff;
   border: none; cursor: pointer; font-size: 13px; font-weight: 600;
   font-family: var(--f-sans);
@@ -865,7 +701,9 @@
 .game-invite-btn:hover { opacity: .88; }
 .game-invite-btn:disabled { opacity: .5; cursor: default; }
 .game-computer-btn {
-  background: #2f9d63;
+  background: none;
+  color: var(--ink);
+  border: 1px solid var(--hair);
 }
 .game-computer-picker {
   width: 100%;
@@ -879,22 +717,23 @@
   min-width: 42px;
   height: 30px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--t2);
   cursor: pointer;
-  font: 700 12px var(--f-sans);
+  font: 500 11px var(--f-mono);
+  text-transform: lowercase;
 }
 .game-computer-count:hover, .game-computer-count.selected {
-  color: var(--t1);
-  border-color: rgba(72, 187, 120, 0.65);
-  background: rgba(72, 187, 120, 0.18);
+  color: var(--blue);
+  border-color: var(--blue);
+  background: rgba(36, 64, 255, 0.08);
 }
 /* Ready / Rematch button */
 .game-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
+  border-radius: 3px; border: 2px solid var(--border);
   background: var(--bg2); color: var(--t1);
   font-size: 13px; font-weight: 600; cursor: pointer;
   font-family: var(--f-sans);
@@ -902,22 +741,22 @@
 }
 .game-ready-btn:hover { background: var(--bg3); }
 .game-ready-btn:active { transform: scale(0.97); }
-.game-ready-btn.ready { background: #1E9E63; color: #fff; border-color: #1E9E63; }
-.game-ready-btn.ready:hover { background: #2bb14d; }
+.game-ready-btn.ready { background: none; color: var(--blue); border-color: var(--blue); }
+.game-ready-btn.ready:hover { background: rgba(36, 64, 255, 0.06); }
 .game-ready-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 3px 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 500;
+  padding: 3px 7px; border-radius: 3px;
   background: var(--bg3); color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
-.game-ready-badge.ready { background: rgba(30, 158, 99, 0.18); color: #1E9E63; }
+.game-ready-badge.ready { background: rgba(36, 64, 255, 0.08); color: var(--blue); }
 .game-finish-readystate { font-size: 11px; color: var(--t3); font-family: var(--f-sans); font-variant-numeric: tabular-nums; }
 /* Overlay (over the board) — lobby / ready / finish cards */
 .game-finish-overlay {
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 0;
   animation: gameFinishIn 0.3s ease-out;
 }
 .game-finish-card {
@@ -925,12 +764,12 @@
   gap: 10px; padding: 18px 22px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   min-width: 180px;
 }
-.game-finish-emoji { font-size: 40px; line-height: 1; }
-.game-finish-title { font-size: 15px; font-weight: 700; color: var(--t1); font-family: var(--f-sans); text-align: center; }
+.game-finish-emoji { display: none; }
+.game-finish-title { font-size: 15px; font-weight: 400; color: var(--t1); font-family: var(--f-sans); text-align: center; }
 .game-result-mark {
   width: 112px;
   height: 42px;
@@ -938,30 +777,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   border: 1px solid var(--border);
   background: var(--bg2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .game-result-mark.win {
-  color: #d9a400;
-  border-color: rgba(217, 164, 0, 0.42);
-  background: rgba(255, 214, 10, 0.12);
+  color: var(--blue);
+  border-color: rgba(36, 64, 255, 0.36);
+  background: rgba(36, 64, 255, 0.08);
 }
 .game-result-mark.loss {
   color: var(--t2);
-  border-color: rgba(127, 127, 140, 0.32);
-  background: rgba(127, 127, 140, 0.1);
+  border-color: var(--line);
+  background: var(--bg2);
 }
 .game-result-mark.draw {
-  color: var(--blue);
-  border-color: rgba(36, 64, 255, 0.36);
-  background: rgba(36, 64, 255, 0.1);
+  color: var(--ink);
+  border-color: var(--hair);
+  background: none;
 }
 .game-result-mark-label {
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.08em;
 }
 .game-result-mark-line {
@@ -997,7 +835,7 @@
 .game-player-av img { width: 100%; height: 100%; object-fit: cover; }
 .game-player-name { font-size: 11px; font-weight: 500; color: var(--t1); font-family: var(--f-sans); flex: 1; }
 .game-player-name--unknown { color: var(--t3); }
-.game-player-turn { font-size: 9px; color: #1E9E63; font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600; }
+.game-player-turn { font-size: 10px; color: var(--blue); font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600; }
 .game-chat {
   flex: 0 0 94px;
   display: flex;
@@ -1005,7 +843,7 @@
   min-height: 0;
   margin: 0 10px 8px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg2);
   overflow: hidden;
 }
@@ -1028,13 +866,13 @@
   align-self: flex-start;
   max-width: 84%;
   padding: 4px 8px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--bg);
   color: var(--t1);
   border: 1px solid var(--border);
   font-family: var(--f-sans);
   font-size: 11px;
-  line-height: 1.3;
+  line-height: 1.45;
   word-break: break-word;
 }
 .game-chat-msg.mine {
@@ -1065,13 +903,13 @@
 .game-chat-send {
   flex-shrink: 0;
   border: none;
-  border-radius: 7px;
+  border-radius: 3px;
   padding: 4px 9px;
   background: var(--accent, var(--blue));
   color: #fff;
   font-family: var(--f-sans);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 .game-chat-send:disabled {
@@ -1081,7 +919,7 @@
 /* Player-count picker (N-player games) */
 .game-count-picker { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .game-count-btn {
-  min-width: 34px; padding: 6px 8px; border-radius: 8px;
+  min-width: 34px; padding: 6px 8px; border-radius: 3px;
   border: 1.5px solid var(--border); background: var(--bg2);
   color: var(--t1); font-size: 12px; font-weight: 600; cursor: pointer;
   font-family: var(--f-sans); transition: background .12s, border-color .12s;
@@ -1096,20 +934,20 @@
 }
 .game-invite-modal {
   width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
+  border-radius: 8px 8px 0 0;
   height: 75%; max-height: 75%;
   display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 .game-invite-modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 18px 12px; flex-shrink: 0;
+  padding: 20px 16px 12px; flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
-.game-invite-modal-title { font-size: 16px; font-weight: 700; color: var(--t1); font-family: var(--f-sans); }
+.game-invite-modal-title { font-size: 17px; font-weight: 400; color: var(--t1); font-family: var(--f-sans); }
 .game-invite-modal-close {
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
+  color: var(--t1); font-size: 19px; line-height: 1; padding: 2px 6px;
   opacity: 0.6; transition: opacity .12s;
 }
 .game-invite-modal-close:hover { opacity: 1; }
@@ -1118,7 +956,7 @@
   position: relative; display: flex; align-items: center;
   margin: 10px 14px 6px; flex-shrink: 0;
   background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 30px 0 32px; height: 34px;
+  border-radius: 6px; padding: 0 30px 0 32px; height: 34px;
 }
 .game-invite-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
 .game-invite-search-input { flex: 1; height: 100%; background: transparent; border: none; outline: none; font-size: 13px; font-family: var(--f-sans); color: var(--t1); min-width: 0; }
@@ -1127,7 +965,7 @@
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
   width: 22px; height: 22px; border-radius: 50%;
   background: var(--bg3); border: none; cursor: pointer;
-  color: var(--t1); font-size: 14px; line-height: 1;
+  color: var(--t1); font-size: 13px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   opacity: 0.7; transition: opacity .12s;
 }
@@ -1142,7 +980,7 @@
 .game-invite-do-btn {
   font-size: 11px; font-weight: 600;
   background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
+  border: none; border-radius: 3px; padding: 4px 10px;
   cursor: pointer; font-family: var(--f-sans);
   white-space: nowrap; transition: background .12s;
 }
@@ -1150,17 +988,18 @@
 /* Disabled = invite cap reached (N-player games), NOT yet invited. Show it
    greyed/muted — never green, so it can't be mistaken for an "Invited" row. */
 .game-invite-do-btn:disabled { background: var(--bg3); color: var(--t3); cursor: default; }
-.game-invite-do-btn.invited { background: #1E9E63; }
-.game-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
+.game-invite-do-btn.invited { background: none; color: var(--blue); border: 1px solid var(--blue); }
+.game-invite-do-btn.invited:hover:not(:disabled) { background: rgba(36, 64, 255, 0.06); }
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Ear Training Duel
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .et-scorebar {
   display: inline-flex; align-items: center; gap: 4px;
   font-family: var(--f-sans);
-  font-size: 14px; font-weight: 700;
+  font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
   background: var(--bg2); border: 1px solid var(--border);
-  padding: 3px 10px; border-radius: 10px;
+  padding: 3px 10px; border-radius: 8px;
 }
 .et-score-mine { color: var(--blue); }
 .et-score-theirs { color: var(--t2); }
@@ -1185,54 +1024,55 @@
   width: 100%; margin: 8px 0 6px;
 }
 .et-setup-label {
-  font-size: 9px; color: var(--t3);
-  text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 10px; color: var(--t3);
+  text-transform: lowercase; letter-spacing: 0.04em;
   font-family: var(--f-sans);
 }
 .et-setup-row {
   display: flex; gap: 6px; flex-wrap: wrap;
 }
 .et-chip {
-  font-family: var(--f-sans);
-  font-size: 11px; font-weight: 600;
+  font-family: var(--f-mono);
+  font-size: 11px; font-weight: 500;
+  text-transform: lowercase;
   background: var(--bg2); color: var(--t2);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 3px;
   padding: 4px 10px;
   cursor: pointer;
   transition: background .12s, color .12s, border-color .12s;
 }
 .et-chip.on {
-  background: var(--blue); color: #fff; border-color: var(--blue);
+  background: none; color: var(--blue); border-color: var(--blue);
 }
 .et-chip:disabled { cursor: default; opacity: 0.6; }
 /* Round / play — sized to fit a single 300×500 plugin screen without
    scrolling. Everything here is deliberately compact. */
 .et-round {
   display: flex; flex-direction: column; align-items: center;
-  gap: 9px; width: 100%; max-width: 260px;
+  gap: 8px; width: 100%; max-width: 260px;
 }
 .et-round-label {
   font-family: var(--f-sans);
   font-size: 10px; color: var(--t3);
-  text-transform: uppercase; letter-spacing: 0.06em;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .et-play-btn {
   width: 46px; height: 46px;
   border-radius: 50%;
-  background: #d96a3a; color: #fff;
+  background: var(--blue); color: #fff;
   border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(217, 106, 58, 0.4);
-  transition: transform .08s, background .12s, box-shadow .12s;
+  box-shadow: none;
+  transition: transform .08s, background .12s;
 }
 .et-play-btn svg { width: 22px; height: 22px; }
-.et-play-btn:hover:not(:disabled) { background: #c25a30; }
+.et-play-btn:hover:not(:disabled) { background: #1B31D9; }
 .et-play-btn:active:not(:disabled) { transform: scale(0.95); }
 .et-play-btn:disabled { background: var(--bg2); color: var(--t3); box-shadow: none; cursor: default; }
 .et-replays {
   font-family: var(--f-sans);
-  font-size: 9px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
 }
 .et-prompt {
   font-family: var(--f-sans);
@@ -1261,10 +1101,10 @@
 .et-option:disabled { cursor: default; }
 .et-option.picked { border-color: var(--blue); }
 .et-option.correct {
-  background: #1E9E63; color: #fff; border-color: #1E9E63;
+  background: none; color: var(--blue); border-color: var(--blue);
 }
 .et-option.wrong {
-  background: #D6402E; color: #fff; border-color: #D6402E;
+  background: none; color: var(--red); border-color: rgba(214, 64, 46, 0.35);
 }
 .et-feedback {
   font-family: var(--f-sans);
@@ -1272,13 +1112,13 @@
   padding: 6px 10px; border-radius: 8px;
   text-align: center;
 }
-.et-feedback.ok { color: #1E9E63; }
-.et-feedback.bad { color: #D6402E; }
+.et-feedback.ok { color: var(--blue); }
+.et-feedback.bad { color: var(--red); }
 .et-timer {
   font-family: var(--f-sans);
   font-size: 11px; color: var(--t3);
 }
-.et-timer.out { color: #D6402E; }
+.et-timer.out { color: var(--red); }
 /* Countdown progress bar — drains from 100 % to 0 % as the round
    timer runs out. Width is set inline by JS each tick; the
    transition smooths the cross-frame deltas so the bar doesn't
@@ -1293,11 +1133,11 @@
 }
 .et-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--blue), #7C8AFF);
+  background: var(--blue);
   border-radius: 3px;
   transition: width 0.25s linear, background 0.2s;
 }
-.et-progress.out .et-progress-fill { background: #D6402E; }
+.et-progress.out .et-progress-fill { background: var(--red); }
 /* Hero row — the two players' bulbs flank the central play button so
    the screen reads "two listeners, one sound source". My bulb left
    (blue), opponent right (amber). */
@@ -1350,14 +1190,14 @@
   max-width: 260px;
   margin-top: 2px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--bg2);
   border: 1px solid var(--border);
 }
 .et-reveal-answer {
   font-family: var(--f-sans);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--t1);
   text-align: center;
   letter-spacing: 0.01em;
@@ -1373,26 +1213,27 @@
   align-items: center;
   gap: 8px;
   padding: 7px 11px;
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--bg);
   font-family: var(--f-sans);
   font-size: 12px;
   color: var(--t1);
   border: 1px solid transparent;
 }
-.et-reveal-row.ok { border-color: rgba(30, 158, 99, 0.45); background: rgba(30, 158, 99, 0.08); }
+.et-reveal-row.ok { border-color: rgba(36, 64, 255, 0.45); background: rgba(36, 64, 255, 0.08); }
 .et-reveal-row.bad { border-color: rgba(255, 82, 82, 0.45); background: rgba(255, 82, 82, 0.08); }
 .et-reveal-row-label { font-weight: 600; }
 .et-reveal-row.mine .et-reveal-row-label { color: var(--blue); }
 .et-reveal-row-pick { color: var(--t2); font-variant-numeric: tabular-nums; }
-.et-reveal-row-mark { font-weight: 800; font-size: 13px; }
-.et-reveal-row.ok  .et-reveal-row-mark { color: #1E9E63; }
-.et-reveal-row.bad .et-reveal-row-mark { color: #D6402E; }
+.et-reveal-row-mark { font-weight: 500; font-size: 13px; }
+.et-reveal-row.ok  .et-reveal-row-mark { color: var(--blue); }
+.et-reveal-row.bad .et-reveal-row-mark { color: var(--red); }
 .et-reveal-score {
   display: flex; align-items: baseline; justify-content: center;
   gap: 6px;
   font-family: var(--f-sans);
-  font-size: 19px; font-weight: 800;
+  font-size: 19px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--t1);
   padding-top: 2px;
   border-top: 1px solid var(--border);
@@ -1419,15 +1260,15 @@
   max-width: 260px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
 }
 .et-confirm-text {
   font-family: var(--f-sans);
   font-size: 13px;
   color: var(--t1);
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 .et-confirm-actions {
   display: flex;
@@ -1450,44 +1291,20 @@
 .et-confirm-btn:hover { background: var(--bg3); }
 .et-confirm-btn:active { transform: scale(0.97); }
 .et-confirm-danger {
-  background: #D6402E;
-  border-color: #D6402E;
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 }
-.et-confirm-danger:hover { background: #D6402E; }
+.et-confirm-danger:hover { background: var(--red); opacity: 0.88; }
 .et-final-score {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: var(--f-sans);
-  font-size: 24px; font-weight: 800;
+  font-size: 24px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--t1);
   margin-top: 6px;
 }
-.chess-finish-emoji { font-size: 40px; line-height: 1; }
-.chess-finish-title {
-  font-size: 18px; font-weight: 700; color: var(--t1);
-  font-family: var(--f-sans); text-align: center;
-}
-/* Result screen (legacy — kept for any unhandled fallback) */
-.chess-result {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 14px; padding: 20px;
-}
-.chess-result-title {
-  font-size: 22px; font-weight: 700; color: var(--t1);
-  font-family: var(--f-sans); text-align: center;
-}
-.chess-result-sub {
-  font-size: 12px; color: var(--t3);
-  font-family: var(--f-sans); text-align: center;
-}
-.chess-result-btn {
-  padding: 10px 24px; border-radius: 10px;
-  border: none; cursor: pointer; font-size: 13px; font-weight: 600;
-  font-family: var(--f-sans);
-}
-.chess-result-btn.primary { background: var(--accent, var(--blue)); color: #fff; }
-.chess-result-btn.secondary { background: var(--bg2); color: var(--t1); border: 1px solid var(--border); }
+/* (dead plugin-era chess finish/result chrome removed — GameShell owns the finish card) */
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    FallingBlocks View
 ━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -1506,7 +1323,7 @@
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 20px; border-radius: 8px;
+  color: var(--t1); font-size: 19px; border-radius: 8px;
   font-family: var(--f-sans);
   transition: background 0.12s;
 }
@@ -1526,18 +1343,18 @@
      same --bg2 / --t1 tokens as .chess-btn so both themes work. */
   background: var(--bg2);
   color: var(--t1); font-family: var(--f-sans);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+  box-shadow: none;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
 }
 .falling-blocks-btn:hover { background: var(--bg3); }
 .falling-blocks-btn:disabled { opacity: 0.5; cursor: default; }
-.falling-blocks-btn-forfeit { border-color: rgba(214, 64, 46,.35); color: #D6402E; }
+.falling-blocks-btn-forfeit { border-color: rgba(214, 64, 46,.35); color: var(--red); }
 .falling-blocks-btn-forfeit:hover { background: rgba(214, 64, 46,.08); }
 /* Layout — sized to fit the small plugin window */
 .falling-blocks-game-layout {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  padding: 4px 6px 6px; gap: 7px;
+  padding: 4px 6px 6px; gap: 8px;
   overflow: hidden;
   position: relative;
 }
@@ -1546,7 +1363,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: clamp(44px, 16%, 56px) minmax(0, 1fr) clamp(64px, 24%, 86px);
-  gap: 7px;
+  gap: 8px;
   align-items: stretch;
   justify-content: center;
 }
@@ -1674,19 +1491,19 @@
   min-width: 0;
   padding: 4px 5px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--bg2);
 }
 .falling-blocks-stat-label {
-  font-size: 7px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: lowercase; letter-spacing: 0.4px;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .falling-blocks-stat-value {
-  font-size: 12px; color: var(--t1); font-weight: 700;
+  font-size: 12px; color: var(--t1); font-weight: 600;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums; line-height: 1;
 }
 .falling-blocks-stat-value.warning {
-  color: #D6402E;
+  color: var(--red);
 }
 /* Opponent (above small board) */
 .falling-blocks-opponent {
@@ -1705,13 +1522,13 @@
   min-height: 10px;
 }
 .falling-blocks-opponent-name {
-  font-size: 8px; font-weight: 500; color: var(--t1);
+  font-size: 10px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 64px;
 }
 .falling-blocks-opponent-score {
-  font-size: 8px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 /* Top-out overlay (small, inside opponent or self board) */
@@ -1719,14 +1536,14 @@
   position: absolute; inset: 0; z-index: 5;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,.65);
-  color: #D6402E;
-  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  color: var(--red);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .falling-blocks-topout-overlay.is-self {
-  font-size: 14px;
-  letter-spacing: 2px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
 }
 /* Player count picker (lobby) */
 .falling-blocks-player-count-picker {
@@ -1748,14 +1565,13 @@
 .falling-blocks-player-count-btn.selected, .falling-blocks-player-count-btn.active {
   background: var(--bg);
   color: var(--t1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 /* Reuse chess overlay/finish/ready styles via falling-blocks-* aliases */
 .falling-blocks-finish-overlay {
   position: absolute; inset: 0; z-index: 10;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
+  border-radius: 4px;
   font-family: var(--f-sans);
 }
 /* Theme-aware card — the old hardcoded white fill kept the card light
@@ -1767,13 +1583,13 @@
   background: var(--bg);
   color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   min-width: 200px; max-width: 90%;
 }
-.falling-blocks-finish-emoji { font-size: 40px; line-height: 1; }
+.falling-blocks-finish-emoji { display: none; }
 .falling-blocks-finish-title {
-  font-size: 18px; font-weight: 700; color: var(--t1);
+  font-size: 19px; font-weight: 400; color: var(--t1);
   font-family: var(--f-sans); text-align: center;
 }
 .falling-blocks-finish-readystate {
@@ -1785,7 +1601,7 @@
    Mirrors .chess-ready-btn. */
 .falling-blocks-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 12px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--t1);
@@ -1796,89 +1612,10 @@
 .falling-blocks-ready-btn:hover { background: var(--bg3); }
 .falling-blocks-ready-btn:active { transform: scale(0.97); }
 .falling-blocks-ready-btn.ready {
-  background: #1E9E63; color: #fff; border-color: #1E9E63;
+  background: none; color: var(--blue); border-color: var(--blue);
 }
-.falling-blocks-ready-btn.ready:hover { background: #2bb14d; }
-/* Invite modal — reuse chess-invite-* shapes */
-.falling-blocks-invite-modal-overlay {
-  position: absolute; inset: 0; z-index: 50;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex; align-items: flex-end;
-}
-.falling-blocks-invite-modal {
-  width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
-  height: 75%; max-height: 75%;
-  display: flex; flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.85);
-  font-family: var(--f-sans);
-}
-.falling-blocks-invite-modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 18px 12px; flex-shrink: 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-.falling-blocks-invite-modal-title {
-  font-size: 16px; font-weight: 700; color: var(--t1);
-  font-family: var(--f-sans);
-}
-.falling-blocks-invite-modal-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
-  opacity: 0.6;
-  font-family: var(--f-sans);
-}
-.falling-blocks-invite-modal-close:hover { opacity: 1; }
-.falling-blocks-invite-search-wrap {
-  position: relative; display: flex; align-items: center;
-  margin: 10px 14px 6px; flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
-  padding: 0 30px 0 32px;
-  height: 34px;
-}
-.falling-blocks-invite-search-input {
-  flex: 1; height: 100%; background: transparent; border: none; outline: none;
-  font-size: 13px; font-family: var(--f-sans);
-  color: var(--t1); min-width: 0;
-}
-.falling-blocks-invite-search-input::placeholder { color: var(--t3); }
-.falling-blocks-invite-list { flex: 1; overflow-y: auto; padding: 4px 0 8px; }
-.falling-blocks-invite-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px; height: 52px; box-sizing: border-box;
-}
-.falling-blocks-invite-av-wrap { position: relative; flex-shrink: 0; width: 36px; height: 36px; }
-.falling-blocks-invite-online-dot {
-  position: absolute; right: -1px; bottom: -1px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #1E9E63; border: 2px solid var(--bg);
-}
-.falling-blocks-invite-name {
-  flex: 1; min-width: 0; font-size: 13px; color: var(--t1);
-  font-family: var(--f-sans); font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.falling-blocks-invite-do-btn {
-  font-size: 11px; font-weight: 600;
-  background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 8px; padding: 5px 12px;
-  cursor: pointer; font-family: var(--f-sans);
-  white-space: nowrap;
-  transition: background .12s;
-}
-.falling-blocks-invite-do-btn:hover:not(:disabled) { background: #1B31D9; }
-.falling-blocks-invite-do-btn:disabled:not(.invited) { opacity: 0.45; cursor: default; }
-.falling-blocks-invite-do-btn.invited { background: #1E9E63; }
-.falling-blocks-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
-.falling-blocks-invite-do-btn.invited:disabled { background: #1E9E63; cursor: default; }
-.falling-blocks-invite-empty {
-  color: var(--t3); font-size: 13px;
-  font-family: var(--f-sans);
-  text-align: center; padding: 24px 16px; margin: 0;
-}
+.falling-blocks-ready-btn.ready:hover { background: rgba(36, 64, 255, 0.06); }
+/* (dead falling-blocks invite sheet removed — GameShell's game-invite-* sheet is the one source) */
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Poker View
 ━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -1896,7 +1633,7 @@
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 20px; border-radius: 6px;
+  color: var(--t1); font-size: 19px; border-radius: 6px;
 }
 .poker-back-btn:hover { background: var(--bg2); }
 .poker-title {
@@ -1911,7 +1648,7 @@
   color: var(--t1); font-family: var(--f-sans);
 }
 .poker-btn:hover { background: var(--bg3); }
-.poker-btn-forfeit { border-color: rgba(214, 64, 46,.35); color: #D6402E; }
+.poker-btn-forfeit { border-color: rgba(214, 64, 46,.35); color: var(--red); }
 /* Game layout */
 .poker-game-layout {
   flex: 1; min-height: 0; position: relative;
@@ -1934,32 +1671,32 @@
   border-radius: 8px;
 }
 .poker-opponent.is-acting {
-  border-color: #1E9E63;
-  box-shadow: 0 0 0 1px rgba(30, 158, 99, 0.4);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(36, 64, 255, 0.4);
 }
 .poker-opponent.is-folded { opacity: 0.45; }
 .poker-opponent-av-wrap { width: 28px; height: 28px; flex-shrink: 0; }
 .poker-opponent-name {
-  font-size: 9px; font-weight: 500; color: var(--t1);
+  font-size: 10px; font-weight: 500; color: var(--t1);
   font-family: var(--f-sans);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 80px;
 }
 .poker-opponent-chips {
-  font-size: 9px; color: var(--t1);
+  font-size: 10px; color: var(--t1);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums; font-weight: 600;
 }
 .poker-opponent-bet {
-  font-size: 8px; color: #FFD60A;
+  font-size: 10px; color: #FFD60A;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 .poker-opponent-status {
-  font-size: 8px; font-weight: 700;
+  font-size: 10px; font-weight: 500;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  text-transform: uppercase; letter-spacing: 0.5px;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .poker-opponent-status.folded { color: var(--t3); }
-.poker-opponent-status.allin { color: #D6402E; }
+.poker-opponent-status.allin { color: var(--red); }
 .poker-opponent-cards {
   display: flex; gap: 2px; margin-top: 2px;
 }
@@ -1970,15 +1707,12 @@
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #14532d 0%, #166534 100%);
-  border-radius: 14px;
+  background: linear-gradient(135deg, #1a6e3a 0%, #228547 100%);
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
   padding: 12px 8px;
   position: relative;
-}
-.poker-table-area {
-  background: linear-gradient(135deg, #1a6e3a 0%, #228547 100%);
 }
 .poker-community {
   display: flex; gap: 3px; justify-content: center;
@@ -1995,9 +1729,9 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 .poker-pot-row span:first-child {
-  font-size: 14px;
+  font-size: 15px;
   color: #FFD60A;
-  font-weight: 700;
+  font-weight: 600;
 }
 .poker-pot-amount { color: #FFD60A; }
 /* Self row: hole cards + chips + actions */
@@ -2012,7 +1746,7 @@
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 .poker-self-chips {
-  font-size: 12px; color: var(--t1); font-weight: 700;
+  font-size: 12px; color: var(--t1); font-weight: 600;
 }
 .poker-self-bet {
   font-size: 11px; color: #FFD60A; font-weight: 600;
@@ -2032,12 +1766,12 @@
 }
 .poker-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .poker-action-btn:active:not(:disabled) { transform: scale(0.97); }
-.poker-action-btn--fold { background: #D6402E; color: #fff; }
+.poker-action-btn--fold { background: var(--red); color: #fff; }
 .poker-action-btn--fold:hover:not(:disabled) { opacity: 0.88; }
 .poker-action-btn--call { background: var(--accent, var(--blue)); color: #fff; }
 .poker-action-btn--call:hover:not(:disabled) { opacity: 0.88; }
-.poker-action-btn--raise { background: #1E9E63; color: #fff; }
-.poker-action-btn--raise:hover:not(:disabled) { opacity: 0.88; }
+.poker-action-btn--raise { background: none; color: var(--blue); border: 1px solid var(--blue); }
+.poker-action-btn--raise:hover:not(:disabled) { background: rgba(36, 64, 255, 0.06); }
 .poker-raise-controls {
   display: flex; flex-direction: column; gap: 4px;
   width: 100%; max-width: 290px;
@@ -2073,16 +1807,16 @@
   padding: 4px 2px;
   background: var(--bg3);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--t1);
-  font-size: 9px; font-weight: 600;
+  font-size: 10px; font-weight: 600;
   font-family: var(--f-sans);
   cursor: pointer;
   white-space: nowrap;
 }
 .poker-raise-quick button:hover { background: var(--bg); }
 .poker-thinking {
-  font-size: 9px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
 }
 /* Playing card rendering — compact for small plugin window */
@@ -2093,7 +1827,7 @@
   border-radius: 4px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--f-sans);
-  font-weight: 700;
+  font-weight: 600;
   position: relative;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -2138,60 +1872,60 @@
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
-  background: linear-gradient(180deg, rgba(28,28,32,0.95) 0%, rgba(18,18,22,0.95) 100%);
-  border: 1px solid rgba(255, 214, 10, 0.35);
-  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
   padding: 12px;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04) inset, 0 1px 0 rgba(255,255,255,0.06) inset;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   z-index: 4;
   width: min(272px, 92%);
   max-height: calc(100% - 18px);
   box-sizing: border-box;
-  animation: pokerHandEndIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: pokerHandEndIn 0.32s ease-out;
 }
 .poker-handend-status {
   padding: 5px 14px;
   border-radius: 999px;
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.08em;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  color: var(--t2);
+  background: var(--bg2);
 }
 .poker-handend-status.win {
-  color: #FFD60A;
-  border-color: rgba(255, 214, 10, 0.42);
-  background: rgba(255, 214, 10, 0.14);
+  color: var(--blue);
+  border-color: rgba(36, 64, 255, 0.36);
+  background: rgba(36, 64, 255, 0.08);
 }
 .poker-handend-status.loss {
-  color: rgba(255, 255, 255, 0.58);
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--t3);
+  border-color: var(--line);
+  background: none;
 }
 .poker-handend-status.draw {
-  color: #8ec5ff;
-  border-color: rgba(142, 197, 255, 0.34);
-  background: rgba(36, 64, 255, 0.16);
+  color: var(--ink);
+  border-color: var(--hair);
+  background: none;
 }
 .poker-handend-headline {
-  font-size: 15px; font-weight: 800;
-  color: #FFD60A;
-  font-family: var(--f-sans);
+  font-size: 19px; font-weight: 400;
+  color: var(--ink);
+  font-family: var(--f-serif);
   letter-spacing: 0;
+  text-transform: lowercase;
   text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   max-width: 100%;
   overflow-wrap: anywhere;
 }
 .poker-handend-sub {
-  font-size: 9px; font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px; font-weight: 400;
+  color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
   margin-bottom: 4px;
 }
 .poker-showdown-list {
@@ -2199,7 +1933,7 @@
   display: flex; flex-direction: column; gap: 3px;
   margin-top: 4px;
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
   overflow-y: auto;
   max-height: 190px;
 }
@@ -2207,14 +1941,14 @@
   display: flex; flex-direction: column; gap: 5px;
   padding: 7px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg2);
+  border: 1px solid var(--line);
   font-family: var(--f-sans);
   font-size: 11px;
 }
 .poker-showdown-player.winner {
-  background: rgba(255, 214, 10, 0.14);
-  border: 1px solid rgba(255, 214, 10, 0.3);
+  background: rgba(36, 64, 255, 0.08);
+  border: 1px solid rgba(36, 64, 255, 0.36);
 }
 .poker-showdown-player-head {
   display: flex; align-items: center; gap: 6px;
@@ -2223,35 +1957,36 @@
 .poker-showdown-name {
   flex: 1;
   min-width: 0;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--t1);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .poker-showdown-player.winner .poker-showdown-name {
-  color: #FFD60A;
-  font-weight: 700;
+  color: var(--blue);
+  font-weight: 600;
 }
 .poker-showdown-badge {
   flex-shrink: 0;
   padding: 2px 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.56);
+  background: var(--bg3);
+  color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
 }
 .poker-showdown-badge.winner {
-  background: rgba(255, 214, 10, 0.18);
-  color: #FFD60A;
+  background: rgba(36, 64, 255, 0.12);
+  color: var(--blue);
 }
 .poker-showdown-rank {
-  color: #fff;
+  color: var(--t1);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
 }
 .poker-showdown-cards-row {
   display: flex; align-items: center; gap: 6px;
@@ -2259,11 +1994,12 @@
 }
 .poker-showdown-cards-row > span {
   flex: 0 0 46px;
-  color: rgba(255, 255, 255, 0.48);
+  color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
 }
 .poker-showdown-cards {
   display: flex; gap: 3px;
@@ -2282,13 +2018,13 @@
   gap: 10px; padding: 18px 22px;
   background: var(--bg); color: var(--t1);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   min-width: 200px; max-width: 90%;
 }
-.poker-finish-emoji { font-size: 40px; line-height: 1; }
+.poker-finish-emoji { display: none; }
 .poker-finish-title {
-  font-size: 18px; font-weight: 700; color: var(--t1);
+  font-size: 19px; font-weight: 400; color: var(--t1);
   font-family: var(--f-sans); text-align: center;
 }
 .poker-finish-readystate {
@@ -2297,14 +2033,14 @@
 }
 .poker-ready-btn {
   width: 100%; max-width: 220px; padding: 11px;
-  border-radius: 10px; border: 2px solid var(--border);
+  border-radius: 3px; border: 2px solid var(--border);
   background: var(--bg2); color: var(--t1);
   font-size: 13px; font-weight: 600; cursor: pointer;
   font-family: var(--f-sans);
 }
 .poker-ready-btn:hover { background: var(--bg3); }
 .poker-ready-btn.ready {
-  background: #1E9E63; color: #fff; border-color: #1E9E63;
+  background: none; color: var(--blue); border-color: var(--blue);
 }
 /* Player count picker (lobby) */
 .poker-player-count-picker {
@@ -2323,84 +2059,8 @@
 .poker-player-count-btn.selected, .poker-player-count-btn.active {
   background: var(--bg);
   color: var(--t1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
-/* Invite modal — same shapes as falling-blocks */
-.poker-invite-modal-overlay {
-  position: absolute; inset: 0; z-index: 50;
-  background: rgba(0,0,0,.45);
-  display: flex; align-items: flex-end;
-}
-.poker-invite-modal {
-  width: 100%; background: var(--bg);
-  border-radius: 16px 16px 0 0;
-  height: 75%; max-height: 75%;
-  display: flex; flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-.poker-invite-modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 18px 12px; flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-.poker-invite-modal-title {
-  font-size: 16px; font-weight: 700; color: var(--t1);
-  font-family: var(--f-sans);
-}
-.poker-invite-modal-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 22px; line-height: 1; padding: 2px 6px;
-  opacity: 0.6;
-}
-.poker-invite-modal-close:hover { opacity: 1; }
-.poker-invite-search-wrap {
-  position: relative; display: flex; align-items: center;
-  margin: 10px 14px 6px; flex-shrink: 0;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 0 12px; height: 34px;
-}
-.poker-invite-search-input {
-  flex: 1; height: 100%; background: transparent; border: none; outline: none;
-  font-size: 13px; font-family: var(--f-sans);
-  color: var(--t1); min-width: 0;
-}
-.poker-invite-list { flex: 1; overflow-y: auto; padding: 4px 0 8px; }
-.poker-invite-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px; height: 52px; box-sizing: border-box;
-}
-.poker-invite-av-wrap { position: relative; flex-shrink: 0; width: 36px; height: 36px; }
-.poker-invite-online-dot {
-  position: absolute; right: -1px; bottom: -1px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #1E9E63; border: 2px solid var(--bg);
-}
-.poker-invite-name {
-  flex: 1; min-width: 0; font-size: 13px; color: var(--t1);
-  font-family: var(--f-sans); font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.poker-invite-do-btn {
-  font-size: 11px; font-weight: 600;
-  background: var(--accent, var(--blue)); color: #fff;
-  border: none; border-radius: 6px; padding: 4px 10px;
-  cursor: pointer; font-family: var(--f-sans);
-  white-space: nowrap;
-  transition: background .12s;
-}
-.poker-invite-do-btn:hover:not(:disabled) { background: #1B31D9; }
-/* Disabled NON-invited (seat cap reached) — keep blue base, just dim
-   so the row clearly reads as "can't invite" instead of "already
-   invited" (which is what a green background would imply). */
-.poker-invite-do-btn:disabled:not(.invited) { opacity: 0.45; cursor: default; }
-.poker-invite-do-btn.invited { background: #1E9E63; }
-.poker-invite-do-btn.invited:hover:not(:disabled) { background: #2caa4d; }
-.poker-invite-do-btn.invited:disabled { background: #1E9E63; cursor: default; }
-.poker-invite-empty {
-  color: var(--t3); font-size: 13px;
-  font-family: var(--f-sans);
-  text-align: center; padding: 24px 16px; margin: 0;
-}
+/* (dead poker invite sheet removed — GameShell's game-invite-* sheet is the one source) */
 /* Names — people, groups, senders, opponents. */
 .conv-name, .chdr-name, .live-chat-name, .mg-sender-name, .f-name, .f-name.bold, .orbit-name-under, .tt2-name-text, .orbit-tt-name, .orbit-group-tt-title, .orbit-msg-preview-name, .orbit-stat-row-name, .orbit-constellation-label, .chat-settings-member-name, .live-others-name, .ng-row-name, .ng-chip-name, .game-player-name, .poker-opponent-name, .poker-showdown-name, .falling-blocks-opponent-name {
   font-family: var(--f-serif);
@@ -2408,7 +2068,7 @@
   letter-spacing: 0;
 }
 /* Empty states — a quiet italic aside, like the app. */
-.af-empty, .cal-agenda-empty, .chat-settings-empty, .chess-invite-empty, .falling-blocks-invite-empty, .game-chat-empty, .game-invite-empty, .live-chat-empty, .party-list-empty, .poker-card-empty, .poker-invite-empty {
+.af-empty, .cal-agenda-empty, .chat-settings-empty, .chess-invite-empty, .falling-blocks-invite-empty, .game-chat-empty, .game-invite-empty, .live-chat-empty, .party-list-empty, .poker-invite-empty {
   font-family: var(--f-serif);
   font-style: italic;
   font-weight: 400;
@@ -2426,6 +2086,7 @@
   font-family: var(--f-serif);
   font-weight: 400;
   font-size: 13px;
+  letter-spacing: 0;
 }
 .game-cd-hover-desc { text-transform: lowercase; }
 .falling-blocks-btn {
@@ -2433,15 +2094,9 @@
   box-shadow: none;
   text-transform: lowercase;
 }
-.falling-blocks-invite-modal {
-  background: var(--card);
-  border: 1px solid var(--hair);
-  border-radius: 6px;
-  box-shadow: 0 12px 32px -14px rgba(26, 25, 23, 0.3);
-}
 .et-setup-label {
   text-transform: lowercase;
-  letter-spacing: normal;
+  letter-spacing: 0.04em;
 }
 
 @keyframes chessFinishIn {
@@ -2545,7 +2200,6 @@
   padding: 26px 28px;
   gap: 12px;
 }
-.games-panel .game-finish-emoji { font-size: 30px; }
 .games-panel .game-finish-title {
   font-family: var(--f-serif); font-size: 24px; font-weight: 400;
   color: var(--ink); text-transform: lowercase; letter-spacing: 0;
@@ -2575,7 +2229,7 @@
 }
 .games-panel .game-result-mark { gap: 10px; }
 .games-panel .game-result-mark-label {
-  font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.14em; color: var(--ink);
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; color: var(--ink);
 }
 .games-panel .game-result-mark-line { background: var(--hair); height: 1px; width: 34px; }
 
@@ -2587,11 +2241,11 @@
   transition: color .12s, border-color .12s;
 }
 .games-panel .game-btn:hover { color: var(--ink); border-color: var(--hair); }
-.games-panel .game-btn.game-btn-danger { color: #C03A28; border-color: rgba(192, 58, 40, 0.35); }
+.games-panel .game-btn.game-btn-danger { color: var(--red); border-color: rgba(214, 64, 46, 0.35); }
 
 /* Invite sheet — white card, hairline rows */
 .games-panel .game-invite-modal {
-  background: var(--card); border: 1px solid var(--hair); border-radius: 10px;
+  background: var(--card); border: 1px solid var(--hair); border-radius: 8px;
 }
 .games-panel .game-invite-modal-title {
   font-family: var(--f-serif); font-size: 19px; font-weight: 400;
@@ -2607,7 +2261,6 @@
 /* ── Game chat — quiet log under the board (phones) ── */
 .games-panel .game-chat {
   flex-basis: auto;
-  margin: 0;
   padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   background: var(--paper);
@@ -2620,7 +2273,7 @@
   padding: 2px 0 6px;
 }
 .games-panel .game-chat-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
   padding: 4px 0;
 }
 .games-panel .game-chat-msg {
@@ -2638,7 +2291,7 @@
 .games-panel .game-chat-inputrow:focus-within { border-color: var(--ink); }
 .games-panel .game-chat-input {
   flex: 1; border: none; outline: none; background: none;
-  font-family: inherit; font-size: 14px; color: var(--ink);
+  font-family: inherit; font-size: 13px; color: var(--ink);
   padding: 7px 0;
 }
 .games-panel .game-chat-input::placeholder { color: var(--t3); }
@@ -2675,7 +2328,7 @@
   display: flex; justify-content: center;
 }
 .games-panel .game-view .chess-board { width: 100%; max-width: none; }
-.games-panel .game-view .game-chat { flex-basis: auto; margin: 0 auto; }
+.games-panel .game-view .game-chat { flex-basis: auto; margin: 0 auto; border-radius: 0; }
 @media (min-width: 821px) {
   .games-panel .game-view .chess-board-wrap { max-width: min(100%, max(320px, 100dvh - 250px), 820px); }
   .games-panel .game-view .game-chat { margin: 0; }
@@ -2691,7 +2344,6 @@
   width: 100%; height: auto;
   max-width: none; max-height: none;
 }
-.games-panel .game-view .game-chat { border-radius: 0; }
 @media (min-width: 821px) {
   .games-panel .game-view.chess-shell .chess-board-wrap { max-width: min(100%, max(320px, 100dvh - 250px), 820px); }
 }
@@ -2720,9 +2372,9 @@
 .games-panel .poker-opponent-chips, .games-panel .poker-opponent-bet { font-size: 11px; }
 .games-panel .poker-actions { max-width: 460px; gap: 8px; }
 .games-panel .poker-action-btn { font-size: 13px; padding: 12px 10px; border-radius: 4px; }
-.games-panel .poker-pot-amount { font-size: 18px; }
+.games-panel .poker-pot-amount { font-size: 17px; }
 .games-panel .poker-self-chips, .games-panel .poker-self-bet { font-size: 13px; }
-.games-panel .poker-raise-input { font-size: 14px; }
+.games-panel .poker-raise-input { font-size: 13px; }
 .games-panel .poker-title { font-family: var(--f-serif); text-transform: lowercase; font-weight: 400; }
 
 /* Falling blocks */
@@ -2744,7 +2396,7 @@
 .games-panel .et-play-btn { width: 64px; height: 64px; }
 .games-panel .et-play-btn svg { width: 30px; height: 30px; }
 .games-panel .et-bulb { width: 32px; height: 32px; }
-.games-panel .et-option { font-size: 14px; padding: 11px 0; border-radius: 4px; }
+.games-panel .et-option { font-size: 15px; padding: 11px 0; border-radius: 4px; }
 .games-panel .et-options { gap: 8px; max-width: 420px; width: 100%; }
 .games-panel .et-prompt { font-size: 15px; }
 .games-panel .et-timer { font-size: 13px; }
@@ -2786,7 +2438,7 @@
 .games-panel .chess-moves-num { color: var(--t3); }
 .games-panel .chess-moves-cell.latest { color: var(--ink); font-weight: 600; }
 .games-panel .chess-moves-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 12.5px; color: var(--t3);
+  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
   padding-top: 10px;
 }
 
@@ -2830,7 +2482,8 @@
   text-transform: lowercase;
 }
 .games-panel .game-chat-meta-time {
-  font-family: var(--f-mono); font-size: 9.5px; color: var(--t3);
+  font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 .games-panel .game-chat-text { display: block; overflow-wrap: anywhere; }
@@ -2871,7 +2524,7 @@
 @media (min-width: 821px) {
   .games-panel .game-view .chess-dock { max-width: none; }
   .games-panel .chess-captured-piece { width: 18px; height: 18px; }
-  .games-panel .game-player-name { font-size: 18px; }
+  .games-panel .game-player-name { font-size: 19px; }
 }
 @media (min-width: 1440px) {
   .games-panel .game-view { grid-template-columns: minmax(0, 1fr) 380px; }
@@ -2939,7 +2592,7 @@
   }
   .games-panel .game-view.chess-shell .chess-dock .chess-moves-row { display: contents; }
   .games-panel .game-view.chess-shell .chess-dock .chess-moves-num { font-size: 11px; }
-  .games-panel .game-view.chess-shell .chess-dock .chess-moves-cell { font-size: 12.5px; }
+  .games-panel .game-view.chess-shell .chess-dock .chess-moves-cell { font-size: 13px; }
   .games-panel .game-view.chess-shell .chess-dock .chess-moves-cell:empty { display: none; }
   .games-panel .game-view.chess-shell .chess-dock .chess-moves-empty { padding: 0; }
   .games-panel .game-view.chess-shell .chess-dock .game-chat {
@@ -2966,7 +2619,8 @@ div.games-panel {
   background: var(--gwall);
   transition: background-color 1.4s ease;
 }
-/* four dark GREYS, told apart by temperature only — no colour */
+/* each game gets a deep hue-tinted wall — chess green, blocks violet,
+   poker felt, ear-training umber */
 .games-panel.wall-chess          { --gwall: #153826; }
 .games-panel.wall-falling_blocks { --gwall: #2A1848; }
 .games-panel.wall-poker          { --gwall: #123E28; }
@@ -3050,13 +2704,13 @@ div.games-panel {
 .games-panel .game-view.chess-shell .game-player-row { min-height: 26px; gap: 10px; }
 .games-panel .game-view.chess-shell .game-player-name { font-size: 17px; }
 .games-panel .game-view.chess-shell .chess-captured {
-  height: 18px; min-height: 18px; max-height: 18px; line-height: 18px; gap: 2px;
+  height: 18px; min-height: 18px; max-height: 18px; gap: 2px;
 }
 .games-panel .game-view.chess-shell .chess-captured-piece { width: 17px; height: 17px; }
 
 /* The record line reads like a catalogue caption, not a log line */
 .games-panel .game-view .chess-dock .chess-dock-h2h {
-  font-family: var(--f-serif); font-style: italic; font-size: 12.5px;
+  font-family: var(--f-serif); font-style: italic; font-size: 13px;
   letter-spacing: 0; text-transform: lowercase;
 }
 
@@ -3078,16 +2732,16 @@ div.games-panel {
 .fb-rail-box {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 6px 4px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--bg2);
   border: none; border-radius: 8px;
   font-family: var(--f-sans);
 }
 button.fb-rail-box { cursor: pointer; }
 button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .fb-rail-label {
-  font-size: 8px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
   font-family: var(--f-sans);
-  text-transform: lowercase; letter-spacing: 0.4px;
+  text-transform: lowercase; letter-spacing: 0.04em;
 }
 .fb-rail-piece {
   min-height: 22px;
@@ -3095,7 +2749,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .fb-hold-empty { font-size: 13px; color: var(--t3); line-height: 1; }
 .fb-next-queue {
-  display: flex; flex-direction: column; gap: 7px;
+  display: flex; flex-direction: column; gap: 8px;
   align-items: center;
   overflow: hidden;
 }
@@ -3107,7 +2761,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   padding: 6px 4px;
 }
 .fb-rail-level-num {
-  font-size: 14px; font-weight: 700; color: var(--t1);
+  font-size: 15px; font-weight: 600; color: var(--t1);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums; line-height: 1;
 }
 /* Combo flash — a serif italic multiplier that blooms over the board and
@@ -3116,8 +2770,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   position: absolute; top: 16%; left: 0; right: 0; z-index: 6;
   display: flex; justify-content: center;
   pointer-events: none;
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 30px; color: #2440FF;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 30px; color: var(--blue);
   text-shadow: 0 1px 0 rgba(255,255,255,0.35);
   animation: fb-combo-pop 0.9s ease-out forwards;
 }
@@ -3128,7 +2782,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   70%  { opacity: 1; }
   100% { opacity: 0; transform: scale(1) translateY(-10px); }
 }
-.falling-blocks-stat-value.combo-hot { color: #2440FF; }
+.falling-blocks-stat-value.combo-hot { color: var(--blue); }
 /* Final score table in the finish card */
 .fb-final-scores {
   width: 100%; max-width: 240px;
@@ -3138,17 +2792,17 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .fb-final-score-row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
   padding: 3px 2px;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid var(--line);
   font-family: var(--f-sans);
 }
 .fb-final-score-row:last-child { border-bottom: none; }
 .fb-final-score-name {
-  font-family: var(--f-serif, Georgia, serif);
+  font-family: var(--f-serif);
   font-size: 13px; text-transform: lowercase;
   color: var(--t1);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fb-final-score-row.me .fb-final-score-name { color: #2440FF; font-style: italic; }
+.fb-final-score-row.me .fb-final-score-name { color: var(--blue); font-style: italic; }
 .fb-final-score-value {
   font-size: 13px; font-weight: 600; color: var(--t1);
   font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -3181,7 +2835,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-family: var(--f-sans);
 }
 .pinball-score {
-  font-size: 20px; font-weight: 700; color: var(--t1);
+  font-size: 19px; font-weight: 600; color: var(--t1);
   font-variant-numeric: tabular-nums; line-height: 1;
 }
 .pinball-balls { display: flex; gap: 5px; align-items: center; margin-left: auto; }
@@ -3191,11 +2845,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   background: transparent;
   display: inline-block;
 }
-.pb-ball-dot.current { background: #2440FF; border-color: #2440FF; }
+.pb-ball-dot.current { background: var(--blue); border-color: var(--blue); }
 .pb-ball-dot.spent { border-color: var(--t3); opacity: 0.4; }
 .pinball-mult {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 13px; color: #2440FF;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 13px; color: var(--blue);
 }
 .pinball-canvas-wrap {
   flex: 1; min-height: 0;
@@ -3209,19 +2863,19 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* Overlay card additions */
 .pb-overlay-card { max-width: 300px; }
 .pb-final-score {
-  font-size: 34px; font-weight: 700; color: var(--t1);
+  font-size: 30px; font-weight: 600; color: var(--t1);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .pb-newbest {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 15px; color: #2440FF;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 15px; color: var(--blue);
 }
 .pb-lb { width: 100%; display: flex; flex-direction: column; gap: 5px; }
 .pb-lb-title {
-  font-family: var(--f-serif, Georgia, serif);
-  font-size: 13px; text-transform: lowercase; color: var(--t2, #55524C);
-  border-bottom: 1px solid rgba(0,0,0,0.12);
+  font-family: var(--f-serif);
+  font-size: 13px; text-transform: lowercase; color: var(--t2);
+  border-bottom: 1px solid var(--line);
   padding-bottom: 3px;
 }
 .pb-lb-loading { font-size: 12px; color: var(--t3); text-align: center; padding: 6px 0; }
@@ -3236,12 +2890,12 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   color: var(--t3); font-variant-numeric: tabular-nums; font-size: 11px;
 }
 .pb-lb-name {
-  font-family: var(--f-serif, Georgia, serif); text-transform: lowercase;
+  font-family: var(--f-serif); text-transform: lowercase;
   font-size: 13px; color: var(--t1);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   flex: 1; min-width: 0;
 }
-.pb-lb-row.me .pb-lb-name { color: #2440FF; font-style: italic; }
+.pb-lb-row.me .pb-lb-name { color: var(--blue); font-style: italic; }
 .pb-lb-score { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--t1); }
 .pb-lb-mine {
   font-size: 11px; color: var(--t3);
@@ -3250,7 +2904,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .pb-start-btn { margin-top: 2px; }
 .pb-hint {
-  font-size: 10.5px; color: var(--t3);
+  font-size: 11px; color: var(--t3);
   font-family: var(--f-sans); text-align: center;
 }
 /* touch hint only where it matters */
@@ -3316,17 +2970,17 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   padding: 0 2px;
 }
 .yacht-status-line {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 13px; color: var(--t2, #77746E); text-transform: lowercase;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 13px; color: var(--t2); text-transform: lowercase;
 }
-.yacht-status-line.mine { color: #2440FF; }
+.yacht-status-line.mine { color: var(--blue); }
 .yacht-round {
   font-size: 10px; color: var(--t3);
   font-family: var(--f-sans); font-variant-numeric: tabular-nums;
   text-transform: lowercase;
 }
 .yacht-tray { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.yacht-dice { display: flex; gap: 7px; }
+.yacht-dice { display: flex; gap: 8px; }
 .yacht-die {
   width: 42px; height: 42px; padding: 0;
   background: none; border: none; cursor: pointer;
@@ -3334,7 +2988,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   transition: transform 0.12s ease, color 0.12s;
 }
 .yacht-die svg { display: block; width: 100%; height: 100%; }
-.yacht-die.held { color: #2440FF; transform: translateY(-5px); }
+.yacht-die.held { color: var(--blue); transform: translateY(-5px); }
 .yacht-die.blank { color: var(--t3); }
 .yacht-die:disabled { cursor: default; }
 .yacht-die.rolling { animation: yacht-shake 0.32s ease; }
@@ -3348,9 +3002,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .yacht-roll-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 22px;
-  background: #2440FF; color: #fff;
+  background: var(--blue); color: #fff;
   border: none; border-radius: 3px; cursor: pointer;
-  font-family: var(--f-sans); font-size: 13px; font-weight: 600;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500;
   text-transform: lowercase;
   transition: background 0.15s, opacity 0.15s;
 }
@@ -3366,27 +3020,27 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   width: 100%; max-width: 340px;
   flex: 1; min-height: 0; overflow-y: auto;
   font-family: var(--f-sans);
-  border-top: 1px solid rgba(127, 127, 127, 0.25);
+  border-top: 1px solid var(--hair);
 }
 .yacht-card-head, .yacht-card-row {
   display: flex; align-items: center; gap: 4px;
-  border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+  border-bottom: 1px solid var(--line);
   min-height: 21px;
 }
 .yacht-card-cat {
   flex: 1; min-width: 0;
-  font-family: var(--f-serif, Georgia, serif);
-  font-size: 11.5px; text-transform: lowercase; color: var(--t2, #77746E);
+  font-family: var(--f-serif);
+  font-size: 12px; text-transform: lowercase; color: var(--t2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.yacht-card-cat em { font-size: 9px; color: var(--t3); font-style: normal; }
+.yacht-card-cat em { font-size: 10px; color: var(--t3); font-style: normal; }
 .yacht-card-player {
   width: 46px; flex-shrink: 0; text-align: center;
-  font-family: var(--f-serif, Georgia, serif); font-size: 11px;
+  font-family: var(--f-serif); font-size: 11px;
   text-transform: lowercase; color: var(--t3);
   white-space: nowrap; overflow: hidden;
 }
-.yacht-card-player.turn { color: #2440FF; font-style: italic; }
+.yacht-card-player.turn { color: var(--blue); font-style: italic; }
 .yacht-card-cell {
   width: 46px; flex-shrink: 0; text-align: center;
   font-size: 12px; color: var(--t1);
@@ -3396,21 +3050,21 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .yacht-card-cell.open { color: var(--t3); }
 .yacht-card-cell.filled.zero { color: var(--t3); text-decoration: line-through; }
 .yacht-card-cell.pick {
-  color: #2440FF; font-style: italic; cursor: pointer;
+  color: var(--blue); font-style: italic; cursor: pointer;
   border: 1px solid rgba(36, 64, 255, 0.4); border-radius: 3px;
 }
 .yacht-card-cell.pick:hover { background: rgba(36, 64, 255, 0.1); }
 .yacht-card-cell.pick.zero { opacity: 0.55; }
 .yacht-card-row.bonus .yacht-card-cell { font-size: 10px; color: var(--t3); }
-.yacht-card-row.bonus .yacht-card-cell.bonus-hit { color: #2440FF; font-weight: 600; }
+.yacht-card-row.bonus .yacht-card-cell.bonus-hit { color: var(--blue); font-weight: 600; }
 .yacht-card-row.total { border-bottom: none; border-top: 1.5px solid var(--t1); }
-.yacht-card-row.total .yacht-card-cell { font-weight: 700; font-size: 13px; }
+.yacht-card-row.total .yacht-card-cell { font-weight: 600; font-size: 13px; }
 /* App scale-up */
 .games-panel .yacht-die { width: 54px; height: 54px; }
 .games-panel .yacht-card { max-width: 430px; }
 .games-panel .yacht-card-cell, .games-panel .yacht-card-player { width: 58px; }
 .games-panel .yacht-card-cat { font-size: 13px; }
-.games-panel .yacht-card-cell { font-size: 13.5px; }
+.games-panel .yacht-card-cell { font-size: 13px; }
 .games-panel .yacht-status { max-width: 430px; }
 .games-panel .yacht-card-head, .games-panel .yacht-card-row { min-height: 24px; }
 
@@ -3429,11 +3083,11 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-family: var(--f-sans); font-size: 11px; color: var(--t3);
 }
 .yacht-total-chip em {
-  font-family: var(--f-serif, Georgia, serif); font-style: normal;
+  font-family: var(--f-serif); font-style: normal;
   text-transform: lowercase; font-size: 12px;
 }
 .yacht-total-chip b { font-variant-numeric: tabular-nums; color: var(--t1); font-weight: 600; }
-.yacht-total-chip.turn em { color: #2440FF; font-style: italic; }
+.yacht-total-chip.turn em { color: var(--blue); font-style: italic; }
 .yacht-stage {
   flex: 1; min-height: 0; width: 100%; max-width: 380px;
   display: flex; flex-direction: column;
@@ -3444,7 +3098,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 .yacht-shelf-label {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-family: var(--f-serif); font-style: italic;
   font-size: 11px; color: var(--t3); text-transform: lowercase;
   letter-spacing: 0.06em;
 }
@@ -3452,17 +3106,17 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   min-height: 54px;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 4px 18px 8px;
-  border-bottom: 1px solid rgba(127, 127, 127, 0.35);
+  border-bottom: 1px solid var(--hair);
   min-width: 240px;
 }
 .yacht-shelf-hint {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
+  font-family: var(--f-serif); font-style: italic;
   font-size: 12px; color: var(--t3); text-transform: lowercase;
 }
 .yacht-shelf-dice .yacht-die { width: 44px; height: 44px; }
 .yacht-table-dice {
   min-height: 72px;
-  display: flex; align-items: center; justify-content: center; gap: 9px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 /* the die itself: a body that tumbles + a soft cast shadow underneath */
 .yacht-die {
@@ -3508,13 +3162,13 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .yacht-write-btn {
   padding: 9px 18px;
   background: transparent; color: var(--t1);
-  border: 1px solid rgba(127, 127, 127, 0.5); border-radius: 3px;
+  border: 1px solid var(--hair); border-radius: 3px;
   cursor: pointer;
-  font-family: var(--f-serif, Georgia, serif); font-size: 13px;
-  text-transform: lowercase; font-style: italic;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+  text-transform: lowercase;
   transition: border-color 0.15s, color 0.15s, opacity 0.15s;
 }
-.yacht-write-btn:hover:not(:disabled) { border-color: #2440FF; color: #2440FF; }
+.yacht-write-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
 .yacht-write-btn:disabled { opacity: 0.3; cursor: default; }
 /* the ledger sheet */
 .yacht-ledger-veil {
@@ -3530,10 +3184,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   opacity: 0;
   pointer-events: none;
   transition: transform 0.32s cubic-bezier(0.2, 1, 0.3, 1), opacity 0.24s ease;
-  background: var(--bg, #FBFAF7);
-  border: 1px solid rgba(127, 127, 127, 0.35);
-  border-radius: 12px;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px -30px rgba(26, 25, 23, 0.5);
   padding: 10px 14px 14px;
   max-height: 88%;
   display: flex; flex-direction: column;
@@ -3548,16 +3202,16 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   padding-bottom: 6px;
 }
 .yacht-ledger-title {
-  font-family: var(--f-serif, Georgia, serif); font-style: italic;
-  font-size: 14px; color: var(--t2, #77746E); text-transform: lowercase;
+  font-family: var(--f-serif); font-style: italic;
+  font-size: 13px; color: var(--t2); text-transform: lowercase;
 }
 .yacht-ledger-x {
   background: none; border: none; cursor: pointer;
-  font-size: 16px; color: var(--t3); line-height: 1; padding: 2px 4px;
+  font-size: 15px; color: var(--t3); line-height: 1; padding: 2px 4px;
 }
-.yacht-ledger .yacht-card { border-top: 1px solid rgba(127, 127, 127, 0.25); }
+.yacht-ledger .yacht-card { border-top: 1px solid var(--hair); }
 /* the committed number stamps itself into the row */
-.yacht-card-cell.stamped { animation: yacht-stamp 0.4s cubic-bezier(0.2, 1.2, 0.4, 1); color: #2440FF; }
+.yacht-card-cell.stamped { animation: yacht-stamp 0.4s cubic-bezier(0.2, 1.2, 0.4, 1); color: var(--blue); }
 @keyframes yacht-stamp {
   0%   { transform: scale(1.9) rotate(-7deg); opacity: 0; }
   60%  { transform: scale(0.94) rotate(1deg); opacity: 1; }
@@ -3571,7 +3225,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 /* ── Orb Merge ───────────────────────────────────────────────────────────── */
 .om-next {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border: 1px solid rgba(127, 127, 127, 0.35);
+  width: 34px; height: 34px; border: 1px solid var(--hair);
   border-radius: 50%;
 }
 .om-next i { display: block; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.3); transition: none; }
@@ -3591,4 +3245,4 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   display: block; border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.3); transition: none;
 }
-.om-chain-item b { color: var(--t3, #A5A29B); font-size: 10px; font-weight: 400; }
+.om-chain-item b { color: var(--t3); font-size: 10px; font-weight: 400; }

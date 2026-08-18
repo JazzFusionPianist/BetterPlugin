@@ -24,7 +24,7 @@ import GameChat from './GameChat'
 const MAX_PLAYERS = 4
 const CAT_LABELS = [
   'ones', 'twos', 'threes', 'fours', 'fives', 'sixes',
-  'choice', '4 of a kind', 'full house', 'sm. straight', 'bg. straight', 'yacht',
+  'choice', '4 of a kind', 'full house', 'sm. straight', 'lg. straight', 'yacht',
 ]
 
 // ─── Die ──────────────────────────────────────────────────────────────────────

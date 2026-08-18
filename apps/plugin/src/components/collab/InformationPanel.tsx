@@ -47,7 +47,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
     const { error } = await supabase
       .from('profiles').upsert({ id: user.id, display_name: name.trim() }, { onConflict: 'id' })
     setSaving(false)
-    if (error) showMsg('failed: ' + error.message)
+    if (error) { console.error('[info] save', error.message); showMsg('couldn\'t save. try again.') }
     else { onNameSaved?.(name.trim()); showMsg(t('info.saved')); onUpdated() }
   }
 
@@ -68,7 +68,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
     }
     const { error } = await supabase.auth.updateUser({ password: newPw })
     setSavingPw(false)
-    if (error) setPwError('error: ' + error.message)
+    if (error) { console.error('[info] password', error.message); setPwError('couldn\'t change the password. try again.') }
     else {
       showMsg(t('info.passwordChanged'))
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
@@ -80,7 +80,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
     if (deleteInput !== 'DELETE') { showMsg(t('info.typeDeleteToConfirm')); return }
     setDeleting(true)
     const { error } = await supabase.rpc('delete_my_account')
-    if (error) { setDeleting(false); showMsg('error: ' + error.message); return }
+    if (error) { setDeleting(false); console.error('[info] delete', error.message); showMsg('couldn\'t delete the account. try again.'); return }
     await supabase.auth.signOut()
   }
 
@@ -109,7 +109,7 @@ export default function InformationPanel({ supabase, user, me, onClose, onUpdate
             onClick={handleSaveName}
             disabled={saving || !name.trim() || name === me?.display_name}
           >
-            {saving ? '...' : t('common.save')}
+            {saving ? '…' : t('common.save')}
           </button>
         </div>
 

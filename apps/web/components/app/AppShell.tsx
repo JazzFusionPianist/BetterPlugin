@@ -184,14 +184,14 @@ export default function AppShell({ user }: { user: User }) {
   // Where new events go: personal, or shared with one of my groups.
   const targets = useMemo(
     () => [
-      { id: null as string | null, label: 'Personal' },
-      ...groupConversations.map((g) => ({ id: g.conversationId, label: g.title || 'Group' })),
+      { id: null as string | null, label: 'personal' },
+      ...groupConversations.map((g) => ({ id: g.conversationId, label: g.title || 'group' })),
     ],
     [groupConversations],
   )
   const groupTitleById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const g of groupConversations) m.set(g.conversationId, g.title || 'Group')
+    for (const g of groupConversations) m.set(g.conversationId, g.title || 'group')
     return m
   }, [groupConversations])
 
@@ -361,7 +361,7 @@ export default function AppShell({ user }: { user: User }) {
               friends={friends}
               groups={groupConversations.map((g) => ({
                 conversationId: g.conversationId,
-                title: g.title || 'Group',
+                title: g.title || 'group',
                 memberCount: g.memberIds.length,
                 members: g.memberIds
                   .map((id) => (id === user.id ? me : profileById.get(id)))

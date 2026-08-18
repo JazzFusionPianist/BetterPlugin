@@ -69,7 +69,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
     const convId = await onCreate(t, Array.from(selected))
     setSubmitting(false)
     if (!convId) {
-      setError('Failed to create group. Try again?')
+      setError('couldn\'t create the group. try again.')
       return
     }
     // CollabPage navigates on success — we just close.
@@ -89,7 +89,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
       >
         <span className="settings-header-back">‹</span>
         <span className="settings-header-title">
-          {step === 'pick' ? 'New group' : 'Name your group'}
+          {step === 'pick' ? 'new group' : 'name your group'}
         </span>
       </div>
 
@@ -104,7 +104,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
               onClick={() => toggle(p.id)}
               role="button"
               tabIndex={0}
-              title={`Remove ${p.display_name}`}
+              title={`remove ${p.display_name}`}
             >
               <div className="ng-chip-av" style={{ background: p.avatar_color }}>
                 {p.avatar_url
@@ -131,7 +131,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
             <input
               className="af-search-input"
               type="text"
-              placeholder="search friends..."
+              placeholder="search friends…"
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
@@ -155,7 +155,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
           <div className="af-results ng-friend-list">
             {filtered.length === 0 && (
               <div className="settings-card af-empty">
-                {query.trim() ? 'No matches' : 'No mutual friends yet'}
+                {query.trim() ? 'no matches' : 'no mutual friends yet'}
               </div>
             )}
             {filtered.map(p => {
@@ -205,7 +205,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
             <input
               className="af-search-input"
               type="text"
-              placeholder="group name..."
+              placeholder="group name…"
               value={title}
               onChange={e => setTitle(e.target.value)}
               autoFocus
@@ -220,7 +220,7 @@ export default function NewGroupPanel({ friendProfiles, onCreate, onClose }: Pro
             onClick={handleCreate}
             disabled={!title.trim() || submitting}
           >
-            {submitting ? 'Creating...' : 'Create group'}
+            {submitting ? 'creating…' : 'create group'}
           </button>
         </>
       )}

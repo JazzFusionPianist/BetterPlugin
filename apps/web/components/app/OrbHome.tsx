@@ -58,7 +58,7 @@ export function OrbHomeCenter({ me, friendCount, groupCount, onOpenSettings, onO
       </div>
       {me?.bio && <div className="orbhome-bio">{me.bio}</div>}
       {onOpenDiscography && (
-        <button className="orbhome-disco" onClick={onOpenDiscography}>discography</button>
+        <button className="orbhome-disco" onClick={onOpenDiscography}>portfolio</button>
       )}
     </div>
   )

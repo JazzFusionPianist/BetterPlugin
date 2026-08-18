@@ -44,7 +44,7 @@ export default function NewGroupSheet({ open, supabase, currentUserId, friends, 
       onCreated(convId, t, picked.size + 1)
     } catch (e) {
       console.error('[newGroup]', e)
-      setErr('Could not create the group. Try again.')
+      setErr('couldn’t create the group — try again.')
     } finally {
       setBusy(false)
     }
@@ -54,7 +54,7 @@ export default function NewGroupSheet({ open, supabase, currentUserId, friends, 
     <div className={`ngr${open ? ' open' : ''}`} aria-hidden={!open}>
       <div className="ngr-sheet">
         <header className="afr-head">
-          <h2>New group</h2>
+          <h2>new group</h2>
           <button className="convs-close" onClick={onClose} aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
           </button>
@@ -64,16 +64,16 @@ export default function NewGroupSheet({ open, supabase, currentUserId, friends, 
           className="ngr-title"
           value={title}
           maxLength={40}
-          placeholder="Group name"
+          placeholder="group name"
           onChange={(e) => setTitle(e.target.value)}
         />
 
         <div className="ngr-label">
-          Add friends <em>{picked.size > 0 ? `· ${picked.size} selected` : ''}</em>
+          add friends <em>{picked.size > 0 ? `· ${picked.size} selected` : ''}</em>
         </div>
         <div className="afr-list">
           {friends.length === 0 && (
-            <div className="convs-empty">No friends yet — find people first, then start a group.</div>
+            <div className="convs-empty">no friends yet — find people first, then start a group.</div>
           )}
           {friends.map((p) => {
             const on = picked.has(p.id)
@@ -95,7 +95,7 @@ export default function NewGroupSheet({ open, supabase, currentUserId, friends, 
         {err && <div className="sprompt-error">{err}</div>}
 
         <button className="ngr-create" onClick={create} disabled={busy || !title.trim() || picked.size === 0}>
-          {busy ? 'Creating…' : `Create group${picked.size > 0 ? ` (${picked.size + 1})` : ''}`}
+          {busy ? 'creating…' : `create group${picked.size > 0 ? ` (${picked.size + 1})` : ''}`}
         </button>
       </div>
     </div>

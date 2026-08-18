@@ -56,7 +56,7 @@ export default function StemPanel({
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
-    if (loadError) setError('Could not load stems.')
+    if (loadError) setError('couldn\'t load stems. try again.')
     else setStems((data as ConversationStem[]) ?? [])
     setLoading(false)
   }, [supabase, conversationId])
@@ -139,7 +139,7 @@ export default function StemPanel({
       await load()
     } catch (uploadError) {
       console.error('[StemPanel] upload failed', uploadError, key)
-      setError(`Could not share ${file.name}.`)
+      setError(`couldn't share ${file.name}. try again.`)
     } finally {
       setUploading(prev => {
         const index = prev.findIndex(item => item.name === file.name)
@@ -200,8 +200,8 @@ export default function StemPanel({
       ))}
 
       <div className="stem-list">
-        {loading ? <div className="stem-empty">Loading stems…</div> : stems.length === 0 ? (
-          <div className="stem-empty"><strong>No stems yet</strong><span>Add audio files to share them in this conversation.</span></div>
+        {loading ? <div className="stem-empty">loading stems…</div> : stems.length === 0 ? (
+          <div className="stem-empty"><strong>no stems yet</strong><span>add audio files to share them in this conversation.</span></div>
         ) : stems.map(stem => {
           const uploader = participants.find(profile => profile.id === stem.uploader_id)
           const mergedTimeline = mergeEmbeddedTimelineWithProject(stem.timeline_metadata, hostTimeline)

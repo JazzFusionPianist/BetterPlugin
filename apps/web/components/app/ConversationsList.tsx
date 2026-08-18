@@ -17,15 +17,15 @@ interface Props {
 
 /** One-line preview for the last message (attachments get a label). */
 function preview(m: Message | null): string {
-  if (!m) return 'New group'
+  if (!m) return 'new group'
   if (m.content) return m.content
   switch (m.attachment_type) {
-    case 'audio': return '🎵 Audio'
-    case 'multi-audio': return '🎵 Tracks'
-    case 'image': return '🖼️ Photo'
-    case 'video': return '🎬 Video'
-    case 'game_invite': return '🎮 Game invite'
-    default: return 'Attachment'
+    case 'audio': return 'audio'
+    case 'multi-audio': return 'tracks'
+    case 'image': return 'photo'
+    case 'video': return 'video'
+    case 'game_invite': return 'game invite'
+    default: return 'attachment'
   }
 }
 
@@ -78,10 +78,10 @@ export default function ConversationsList({
         key: g.conversationId,
         at: g.lastMessage ? new Date(g.lastMessage.created_at).getTime() : new Date(g.createdAt).getTime(),
         unread: unread.get(g.conversationId) ?? 0,
-        title: g.title || 'Group',
+        title: g.title || 'group',
         previewText: preview(g.lastMessage),
         when: g.lastMessage ? fmtWhen(g.lastMessage.created_at) : null,
-        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
+        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
         avatar: { kind: 'group', url: g.avatarUrl ?? null },
       })
     }
@@ -92,7 +92,7 @@ export default function ConversationsList({
     <div className={`convs${open ? ' open' : ''}`} aria-hidden={!open}>
       <div className="convs-sheet">
         <header className="convs-head">
-          <h2>Chats</h2>
+          <h2>chats</h2>
           <button className="convs-newgroup" onClick={onNewGroup} aria-label="New group">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.4" /><path d="M2.8 20c0-3.4 2.8-5.2 6.2-5.2 1.4 0 2.7.3 3.7.9M18 13v7M14.5 16.5h7" /></svg>
           </button>
@@ -103,7 +103,7 @@ export default function ConversationsList({
 
         <div className="convs-list">
           {rows.length === 0 && (
-            <div className="convs-empty">No conversations yet — tap a friend orb to start one.</div>
+            <div className="convs-empty">no conversations yet — tap a friend orb to start one.</div>
           )}
           {rows.map((r) => (
             <button key={r.key} className="convs-row" onClick={() => onOpen(r.target)}>

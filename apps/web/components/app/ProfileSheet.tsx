@@ -40,20 +40,20 @@ export default function ProfileSheet({ friend, unread, onClose, onMessage, onVis
             <div className="psheet-name">{f.display_name}</div>
             {f.username
               ? <div className="psheet-user">@{f.username}</div>
-              : <div className="psheet-status">{f.isOnline ? 'Online now' : 'Offline'}</div>}
+              : <div className="psheet-status">{f.isOnline ? 'online now' : 'offline'}</div>}
 
             <button className="psheet-msg" onClick={() => onMessage(f)}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 11.5a8.4 8.4 0 0 1-11.7 7.7L3 21l1.9-6.3A8.4 8.4 0 1 1 21 11.5Z" />
               </svg>
-              Message
+              message
               {unread > 0 && <span className="psheet-msg-badge">{unread > 9 ? '9+' : unread}</span>}
             </button>
             <button className="psheet-wall" onClick={() => onVisitPortfolio(f)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.6" />
               </svg>
-              Portfolio
+              portfolio
             </button>
           </>
         )}

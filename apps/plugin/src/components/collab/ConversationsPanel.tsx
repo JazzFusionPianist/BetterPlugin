@@ -110,13 +110,13 @@ export default function ConversationsPanel({
             // Sender name for group previews — falls back to "someone"
             // when the profile hasn't loaded yet (rare, self-heals).
             const senderName = isMine
-              ? 'You'
+              ? 'you'
               : profiles.find(p => p.id === msg.sender_id)?.display_name ?? 'someone'
             const body = msg.attachment_type
-              ? msg.attachment_type === 'image' ? '📷 Photo'
-                : msg.attachment_type === 'video' ? '🎬 Video'
-                : msg.attachment_type === 'game_invite' ? '🎮 Game invite'
-                : '🎵 Audio'
+              ? msg.attachment_type === 'image' ? 'photo'
+                : msg.attachment_type === 'video' ? 'video'
+                : msg.attachment_type === 'game_invite' ? 'game invite'
+                : 'audio'
               : msg.content
             preview = `${senderName}: ${body}`
           }
@@ -152,8 +152,8 @@ export default function ConversationsPanel({
       <button
         className="conv-new-group"
         onClick={onNewGroup}
-        aria-label="New group"
-        title="New group"
+        aria-label="new group"
+        title="new group"
       >
         + new group
       </button>

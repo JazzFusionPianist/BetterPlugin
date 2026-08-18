@@ -16,15 +16,15 @@ interface Props {
 
 /** One-line preview for the last message (attachments get a label). */
 function preview(m: Message | null, mine: boolean): string {
-  if (!m) return 'New group'
-  if (m.content) return mine ? `You: ${m.content}` : m.content
+  if (!m) return 'new group'
+  if (m.content) return mine ? `you: ${m.content}` : m.content
   switch (m.attachment_type) {
-    case 'audio': return '🎵 Audio'
-    case 'multi-audio': return '🎵 Tracks'
-    case 'image': return '🖼️ Photo'
-    case 'video': return '🎬 Video'
-    case 'game_invite': return '🎮 Game invite'
-    default: return 'Attachment'
+    case 'audio': return 'audio'
+    case 'multi-audio': return 'tracks'
+    case 'image': return 'photo'
+    case 'video': return 'video'
+    case 'game_invite': return 'game invite'
+    default: return 'attachment'
   }
 }
 
@@ -77,10 +77,10 @@ export default function Sidebar({
         key: g.conversationId,
         at: g.lastMessage ? new Date(g.lastMessage.created_at).getTime() : new Date(g.createdAt).getTime(),
         unread: unread.get(g.conversationId) ?? 0,
-        title: g.title || 'Group',
+        title: g.title || 'group',
         previewText: preview(g.lastMessage, g.lastMessage?.sender_id === currentUserId),
         when: g.lastMessage ? fmtWhen(g.lastMessage.created_at) : null,
-        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'Group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
+        target: { kind: 'group', conversationId: g.conversationId, title: g.title || 'group', memberCount: g.memberIds.length, avatarUrl: g.avatarUrl ?? null },
         avatar: { kind: 'group', url: g.avatarUrl ?? null },
       })
     }
@@ -93,10 +93,10 @@ export default function Sidebar({
         <span className="word"><span className="mark" />Orb</span>
       </div>
 
-      <div className="rail-section-label">Conversations</div>
+      <div className="rail-section-label">chats</div>
       <div className="rail-list">
         {rows.length === 0 && (
-          <div className="rail-empty">No conversations yet</div>
+          <div className="rail-empty">no conversations yet — tap a friend to start one</div>
         )}
         {rows.map((r) => (
           <button key={r.key} className="rail-row" onClick={() => onOpen(r.target)}>
@@ -124,7 +124,7 @@ export default function Sidebar({
         ))}
       </div>
 
-      <button className="rail-signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
+      <button className="rail-signout" onClick={() => supabase.auth.signOut()}>sign out</button>
     </aside>
   )
 }

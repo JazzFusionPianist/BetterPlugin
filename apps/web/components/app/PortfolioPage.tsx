@@ -94,7 +94,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
             <div className="pfolio-label-row">
               <h2 className="pfolio-label">discography</h2>
               {isMine && (
-                <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ add release</button>
+                <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ release</button>
               )}
             </div>
             <div className="pfolio-empty">{isMine ? 'no releases yet — add your first' : 'no releases yet'}</div>
@@ -105,7 +105,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
           <div className="pfolio-label-row">
             <h2 className="pfolio-label">{g.shelf?.title ?? 'releases'}</h2>
             {isMine && (
-              <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ add release</button>
+              <button className="pfolio-add" onClick={() => setComposerOpen(true)}>+ release</button>
             )}
           </div>
           <ol className="pfolio-releases">
@@ -138,7 +138,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
             <h2 className="pfolio-label">gallery</h2>
             {isMine && (
               <button className="pfolio-add" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhotos}>
-                {uploadingPhotos ? 'uploading…' : '+ add photos'}
+                {uploadingPhotos ? 'uploading…' : '+ photos'}
               </button>
             )}
           </div>

@@ -3,11 +3,11 @@
 html, body, #root {
   width: 100%;
   height: 100%;
-  /* Same pair as the app: Instrument for Latin, Apple SD Gothic Neo for
-     Hangul. Set here (not just on .plugin) so portals and overlays
-     rendered outside the shell inherit it too. */
+  /* Instrument Sans for Latin, Pretendard for Hangul (Apple SD Gothic
+     Neo fallback). Set here (not just on .plugin) so portals and
+     overlays rendered outside the shell inherit it too. */
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-  font-weight: 450;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 

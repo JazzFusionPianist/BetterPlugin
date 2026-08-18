@@ -113,7 +113,7 @@ export default function ChatSettingsSheet({
         try {
           const tracks = JSON.parse(m.attachment_url) as { url: string; name: string }[]
           tracks.forEach((t, i) => items.push({
-            key: `${m.id}:${i}`, url: t.url, name: t.name || `Track ${i + 1}`,
+            key: `${m.id}:${i}`, url: t.url, name: t.name || `track ${i + 1}`,
             type: 'audio', expired: false, at: m.created_at,
           }))
           continue
@@ -152,7 +152,7 @@ export default function ChatSettingsSheet({
       setEditingTitle(false)
     } catch (err) {
       console.error('[ChatSettings] rename', err)
-      setError('Could not rename — only the host can.')
+      setError('couldn’t rename — only the host can.')
     } finally { setBusy(false) }
   }
 
@@ -160,43 +160,43 @@ export default function ChatSettingsSheet({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setError('Max 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('over 5mb — choose a smaller image'); return }
     setUploading(true); setError(null)
     try {
       const ext = file.name.split('.').pop() || 'png'
       const path = `groups/${conversationId}/photo-${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage
         .from('avatars').upload(path, file, { upsert: true, contentType: file.type })
-      if (upErr) { setError('Upload failed'); return }
+      if (upErr) { setError('upload failed — try again'); return }
       const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
       const { error: dbErr } = await supabase
         .from('conversations').update({ avatar_url: pub.publicUrl }).eq('id', conversationId)
-      if (dbErr) { setError('Save failed'); return }
+      if (dbErr) { setError('couldn’t save — try again'); return }
       setPhotoUrl(pub.publicUrl)
     } finally { setUploading(false) }
   }
 
   const handleKick = async (userId: string) => {
-    if (!confirm('Remove this member from the group?')) return
+    if (!confirm('remove them from the group?')) return
     setBusy(true); setError(null)
     try {
       await removeGroupMember(supabase, conversationId, userId)
       await refetchMembers()
     } catch (err) {
       console.error('[ChatSettings] kick', err)
-      setError('Could not remove member.')
+      setError('couldn’t remove them — try again.')
     } finally { setBusy(false) }
   }
 
   const handleLeave = async () => {
-    if (!confirm(isGroup ? 'Leave this group?' : 'Delete this chat?')) return
+    if (!confirm(isGroup ? 'leave this group?' : 'delete this chat?')) return
     setBusy(true); setError(null)
     try {
       await removeGroupMember(supabase, conversationId, currentUserId)
       onLeft()
     } catch (err) {
       console.error('[ChatSettings] leave', err)
-      setError(isGroup ? 'Could not leave.' : 'Could not delete.')
+      setError(isGroup ? 'couldn’t leave — try again.' : 'couldn’t delete — try again.')
       setBusy(false)
     }
   }
@@ -218,7 +218,7 @@ export default function ChatSettingsSheet({
       await refetchMembers()
     } catch (err) {
       console.error('[ChatSettings] add', err)
-      setError('Could not add members.')
+      setError('couldn’t add them — try again.')
     } finally { setBusy(false) }
   }
 
@@ -320,7 +320,7 @@ export default function ChatSettingsSheet({
                 onClick={() => { if (s.url) window.open(s.url, '_blank') }}
                 disabled={!s.url}
               >
-                <span aria-hidden="true">{s.type === 'audio' ? '🎵' : '📎'}</span>
+                <span aria-hidden="true">{s.type === 'audio' ? 'audio' : 'file'}</span>
                 <span className="chset-filename">{s.name}</span>
                 <span className="chset-filemeta">{s.expired ? 'expired' : fmtDate(s.at)}</span>
               </button>

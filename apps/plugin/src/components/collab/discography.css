@@ -15,16 +15,17 @@
 @keyframes pdisco-out { from { transform: none; } to { transform: translateX(100%); } }
 
 .pdisco-head {
-  flex-shrink: 0; display: flex; align-items: baseline; gap: 9px;
+  flex-shrink: 0; display: flex; align-items: baseline; gap: 8px;
   padding: 10px 12px 8px;
 }
 .pdisco-back {
   align-self: center; width: 26px; height: 26px;
   background: none; border: none; cursor: pointer;
-  color: var(--t1); font-size: 18px; line-height: 1; padding: 0;
+  color: var(--t1); font-size: 17px; line-height: 1; padding: 0;
 }
 .pdisco-title {
   font-family: 'Instrument Sans', sans-serif; font-size: 17px;
+  font-weight: 500; letter-spacing: -0.01em;
   text-transform: lowercase; color: var(--t1);
 }
 .pdisco-owner { font-size: 10px; color: var(--t3); }
@@ -33,8 +34,8 @@
   flex: 1; overflow-y: auto; min-height: 0;
   padding: 10px 14px 28px;
   scrollbar-width: none;
-  /* Own stacking context — traps the risen record's z-index: 99 so it
-     can't paint over the release-sheet overlay (z 70), which is a
+  /* Own stacking context — traps the risen record's raised z-index so
+     it can't paint over the release-sheet overlay (z 70), which is a
      sibling, not a portal. */
   position: relative; z-index: 0;
 }
@@ -45,24 +46,25 @@
   padding: 28px 0; text-align: center;
 }
 
-.pdisco-shelf { margin-bottom: 26px; }
+.pdisco-shelf { margin-bottom: 28px; }
 .pdisco-shelf-head {
   display: flex; align-items: baseline; gap: 10px;
   border-bottom: 1px solid var(--line);
   padding-bottom: 4px; margin-bottom: 8px;
 }
 .pdisco-shelf-title {
-  font-family: 'Instrument Sans', sans-serif; font-size: 14px; color: var(--t1);
+  font-family: 'Instrument Sans', sans-serif; font-size: 14px;
+  font-weight: 500; letter-spacing: -0.01em; color: var(--t1);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .pdisco-add {
   margin-left: auto; flex-shrink: 0;
   background: none; border: none; cursor: pointer; padding: 0;
-  font-size: 10.5px; color: var(--blue);
+  font-size: 10px; color: var(--blue);
 }
 .pdisco-row-empty {
   font-family: 'Instrument Sans', sans-serif; font-style: italic;
-  font-size: 11px; color: var(--t3); padding: 10px 0;
+  font-size: 12px; color: var(--t3); padding: 10px 0;
 }
 
 /* The crate row — overlapping records, sideways scroll */
@@ -87,7 +89,7 @@
 .pdisco-rec:hover { transform: translateY(-5px); }
 .pdisco-rec.up {
   transform: translateY(-14px) rotate(-4deg);
-  z-index: 99 !important;
+  z-index: 1;
   box-shadow:
     0 3px 4px rgba(0, 0, 0, 0.22),
     0 16px 24px -10px rgba(0, 0, 0, 0.4);
@@ -131,19 +133,20 @@
 .pdisco-capclip { overflow: hidden; min-height: 0; }
 .pdisco-caption { padding: 2px 2px 8px; }
 .pdisco-caption-title {
-  font-family: 'Instrument Sans', sans-serif; font-size: 16px;
+  font-family: 'Instrument Sans', sans-serif; font-size: 17px;
+  font-weight: 500; letter-spacing: -0.01em;
   color: var(--t1); line-height: 1.15;
 }
 .pdisco-caption-sub {
   font-size: 10px; color: var(--t3); margin-top: 1px;
   font-variant-numeric: tabular-nums;
 }
-.pdisco-caption-actions { display: flex; align-items: baseline; gap: 12px; margin-top: 5px; }
+.pdisco-caption-actions { display: flex; align-items: baseline; gap: 12px; margin-top: 4px; }
 .pdisco-open {
   background: none; border: none; cursor: pointer; padding: 0;
-  font-size: 10.5px; color: var(--blue);
+  font-size: 10px; color: var(--blue);
 }
-.pdisco-order { display: flex; gap: 5px; }
+.pdisco-order { display: flex; gap: 4px; }
 .pdisco-order button {
   background: none; border: none; cursor: pointer; padding: 0 2px;
   font-size: 12px; color: var(--t3);
@@ -153,14 +156,14 @@
 /* Overlays: release sheet / composer */
 .pdisco-overlay {
   position: absolute; inset: 0; z-index: 70;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(26, 25, 23, 0.45);
   display: flex; align-items: center; justify-content: center; padding: 14px;
 }
 .pdisco-sheet {
   width: min(320px, 100%); max-height: 88%; overflow-y: auto;
   background: var(--bg2, var(--bg)); border: 1px solid var(--line);
-  border-radius: 8px; padding: 14px 16px 12px;
-  display: flex; flex-direction: column; gap: 7px;
+  border-radius: 6px; padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 8px;
   scrollbar-width: none;
 }
 .pdisco-sheet::-webkit-scrollbar { display: none; }
@@ -170,11 +173,12 @@
 }
 .pdisco-sheet-cover img { width: 100%; display: block; }
 .pdisco-sheet-title {
-  font-family: 'Instrument Sans', sans-serif; font-size: 18px;
+  font-family: 'Instrument Sans', sans-serif; font-size: 17px;
+  font-weight: 500; letter-spacing: -0.01em;
   color: var(--t1); text-align: center;
 }
 .pdisco-sheet-sub {
-  font-size: 10.5px; color: var(--t3); text-align: center; margin-top: -3px;
+  font-size: 10px; color: var(--t3); text-align: center; margin-top: -3px;
   font-variant-numeric: tabular-nums;
 }
 .pdisco-sheet-desc {
@@ -186,13 +190,13 @@
 .pdisco-track {
   display: flex; align-items: baseline; gap: 8px; width: 100%;
   background: none; border: none; cursor: pointer; text-align: left;
-  padding: 7px 2px; border-bottom: 1px solid var(--line);
+  padding: 8px 2px; border-bottom: 1px solid var(--line);
   font-size: 12px; color: var(--t1);
 }
 .pdisco-track.on .pdisco-track-title { color: var(--blue); }
-.pdisco-track-num { flex-shrink: 0; width: 14px; font-size: 9.5px; color: var(--t3); }
+.pdisco-track-num { flex-shrink: 0; width: 14px; font-size: 10px; color: var(--t3); }
 .pdisco-track-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pdisco-track-play { flex-shrink: 0; font-size: 9px; color: var(--t2); }
+.pdisco-track-play { flex-shrink: 0; font-size: 10px; color: var(--t2); }
 .pdisco-track.as-row { cursor: default; align-items: center; }
 .pdisco-track.as-text { cursor: default; }
 .pdisco-track-edit {
@@ -202,7 +206,7 @@
 .pdisco-track-rm { background: none; border: none; color: var(--t3); cursor: pointer; font-size: 10px; }
 .pdisco-close {
   background: none; border: none; cursor: pointer;
-  font-size: 11px; color: var(--t2); align-self: flex-end; padding: 4px 0 0;
+  font-size: 12px; color: var(--t2); align-self: flex-end; padding: 4px 0 0;
 }
 .pdisco-sheet-foot {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -212,29 +216,30 @@
 .pdisco-sheet-foot .pdisco-close { margin-left: auto; padding: 0; }
 .pdisco-del {
   background: none; border: none; cursor: pointer; padding: 0;
-  font-size: 10.5px; color: #C0392B;
+  font-size: 10px; color: #D6402E;
   text-decoration: underline; text-underline-offset: 3px;
 }
-.pdisco-composer-head { text-align: center; font-size: 9.5px; letter-spacing: 0.04em; color: var(--t3); }
+.pdisco-composer-head { text-align: center; font-size: 10px; color: var(--t3); }
 .pdisco-composer-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 6px; }
 .pdisco-coverpick {
   align-self: center; width: 110px; height: 110px;
   border: 1px dashed var(--line); border-radius: 3px; background: none;
   cursor: pointer; overflow: hidden; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 10.5px; color: var(--t3);
+  font-size: 10px; color: var(--t3);
 }
 .pdisco-coverpick img { width: 100%; height: 100%; object-fit: cover; }
 .pdisco-in {
   border: none; outline: none; background: none; width: 100%;
   text-align: center; font-size: 12px; color: var(--t1); padding: 0;
 }
-.pdisco-in.title { font-family: 'Instrument Sans', sans-serif; font-size: 17px; }
-.pdisco-in.notes { resize: none; font-family: 'Instrument Sans', sans-serif; font-style: italic; line-height: 1.4; }
+.pdisco-in.title { font-family: 'Instrument Sans', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+.pdisco-in.notes { resize: none; font-family: 'Instrument Sans', sans-serif; font-style: italic; line-height: 1.45; }
 .pdisco-in::placeholder { color: var(--t3); }
 .pdisco-publish {
   background: var(--blue); color: #fff; border: none; border-radius: 3px;
-  font-size: 11px; padding: 7px 16px; cursor: pointer;
+  font-size: 12px; font-weight: 500; letter-spacing: -0.01em;
+  padding: 8px 16px; cursor: pointer;
 }
 .pdisco-publish:disabled { opacity: 0.4; }
 
@@ -257,10 +262,14 @@
   }
 }
 
-/* One-family voice (2026-08-18): with the serif gone, titles step
-   forward on weight and tracking instead of a second face. */
-.pdisco-title, .pdisco-shelf-title, .pdisco-caption-title,
-.pdisco-sheet-title, .pdisco-in.title {
-  font-weight: 500;
-  letter-spacing: -0.01em;
+/* Machinery register (2026-08-18): the small working text — owner
+   stamps, sub-lines, track numbers, quiet actions — reads 400 with a
+   touch of wide tracking and tabular numerals, per the type spec. */
+.pdisco-owner, .pdisco-caption-sub, .pdisco-sheet-sub,
+.pdisco-track-num, .pdisco-track-play, .pdisco-track-rm,
+.pdisco-composer-head, .pdisco-add, .pdisco-open,
+.pdisco-coverpick, .pdisco-del {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }

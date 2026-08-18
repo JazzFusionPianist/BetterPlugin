@@ -306,7 +306,7 @@ export default function CalendarPanel({
                           ))}
                           <input
                             className="cal-catpick-new"
-                            placeholder="New category…"
+                            placeholder="new category…"
                             onKeyDown={(ev) => {
                               if (ev.key === 'Enter') {
                                 const v = (ev.target as HTMLInputElement).value.trim()

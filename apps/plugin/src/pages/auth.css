@@ -56,7 +56,7 @@
   box-sizing: border-box;
 }
 
-.auth-head { margin-bottom: 18px; }
+.auth-head { margin-bottom: 16px; }
 
 .auth-brand {
   display: inline-flex;
@@ -66,7 +66,7 @@
   font-weight: 500;
   letter-spacing: -0.005em;
   color: var(--t2);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   text-transform: lowercase;
 }
 
@@ -157,7 +157,7 @@
   color: var(--t3);
   font-size: 12px;
   font-weight: 400;
-  padding: 5px 8px;
+  padding: 4px 8px;
   transition: color 0.15s;
   text-transform: lowercase;
   letter-spacing: normal;
@@ -168,7 +168,7 @@
 /* --- Notices --- */
 .auth-error,
 .auth-note {
-  margin: 4px 0 10px;
+  margin: 4px 0 12px;
   padding: 8px 12px;
   border-radius: 3px;
   font-size: 12px;
@@ -207,8 +207,8 @@
 
 /* --- Mode switch --- */
 .auth-switch {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 14px;
   color: var(--t2);
@@ -234,11 +234,12 @@
 .auth-switch button:hover { color: var(--blue); }
 
 /* ── Signup consent checkboxes ─────────────────────────────────────── */
-.auth-consent { display: flex; flex-direction: column; gap: 5px; margin: 2px 0; }
+.auth-consent { display: flex; flex-direction: column; gap: 4px; margin: 2px 0; }
 .auth-check {
-  display: flex; gap: 7px; align-items: baseline;
-  font-size: 10.5px; color: var(--t2, #6E6B63); cursor: pointer; text-align: left;
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 10px; font-weight: 400; letter-spacing: 0.04em;
+  color: var(--t2, #6E6B63); cursor: pointer; text-align: left;
 }
-.auth-check input { accent-color: #2440FF; margin: 0; position: relative; top: 1px; flex-shrink: 0; }
-.auth-check a { color: #2440FF; }
+.auth-check input { accent-color: var(--blue); margin: 0; position: relative; top: 1px; flex-shrink: 0; }
+.auth-check a { color: var(--blue); }
 .auth-check em { font-style: normal; color: var(--t3, #A5A199); font-size: 9.5px; }

@@ -20,7 +20,9 @@ export default function AddFriendsSheet({
   open, profiles, followingIds, followerIds, mutualIds, onFollow, onUnfollow, onClose,
 }: Props) {
   const [q, setQ] = useState('')
-  useEffect(() => { if (open) setQ('') }, [open])
+  // Two-tap unfollow: first tap arms the button ('unfollow?'), second confirms.
+  const [armedUnfollow, setArmedUnfollow] = useState<string | null>(null)
+  useEffect(() => { if (open) { setQ(''); setArmedUnfollow(null) } }, [open])
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -40,7 +42,7 @@ export default function AddFriendsSheet({
     <div className={`afr${open ? ' open' : ''}`} aria-hidden={!open}>
       <div className="afr-sheet">
         <header className="afr-head">
-          <h2>Find people</h2>
+          <h2>find people</h2>
           <button className="convs-close" onClick={onClose} aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
           </button>
@@ -50,7 +52,7 @@ export default function AddFriendsSheet({
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
           <input
             value={q}
-            placeholder="Search by name…"
+            placeholder="search by name…"
             onChange={(e) => setQ(e.target.value)}
           />
           {q && (
@@ -61,7 +63,7 @@ export default function AddFriendsSheet({
         </div>
 
         <div className="afr-list">
-          {rows.length === 0 && <div className="convs-empty">No one found{q ? ` for “${q}”` : ''}.</div>}
+          {rows.length === 0 && <div className="convs-empty">no one found{q ? ` for “${q}”` : ''}.</div>}
           {rows.map((p) => {
             const friend = mutualIds.has(p.id)
             const following = followingIds.has(p.id)
@@ -75,18 +77,24 @@ export default function AddFriendsSheet({
                 <div className="afr-info">
                   <span className="convs-name">{p.display_name}</span>
                   {friend
-                    ? <span className="afr-sub">Friends</span>
+                    ? <span className="afr-sub">friends</span>
                     : followsYou
-                      ? <span className="afr-sub afr-sub-hot">Follows you</span>
-                      : following ? <span className="afr-sub">Following</span> : null}
+                      ? <span className="afr-sub afr-sub-hot">follows you</span>
+                      : following ? <span className="afr-sub">following</span> : null}
                 </div>
                 {friend || following ? (
-                  <button className="afr-btn afr-btn-off" onClick={() => onUnfollow(p.id)}>
-                    {friend ? 'Friends ✓' : 'Following'}
+                  <button
+                    className="afr-btn afr-btn-off"
+                    onClick={() => {
+                      if (armedUnfollow === p.id) { onUnfollow(p.id); setArmedUnfollow(null) }
+                      else setArmedUnfollow(p.id)
+                    }}
+                  >
+                    {armedUnfollow === p.id ? 'unfollow?' : friend ? 'friends' : 'following'}
                   </button>
                 ) : (
                   <button className="afr-btn" onClick={() => onFollow(p.id)}>
-                    {followsYou ? 'Follow back' : 'Follow'}
+                    {followsYou ? 'follow back' : 'follow'}
                   </button>
                 )}
               </div>

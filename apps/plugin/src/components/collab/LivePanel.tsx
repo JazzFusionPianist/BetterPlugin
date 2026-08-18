@@ -71,6 +71,7 @@ function InStreamSourceSwitcher({
   screenCaptureSupported: boolean
   onApply: (videoKey: string, micDeviceId: string) => Promise<void>
 }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [videoKey, setVideoKey] = useState(currentVideoKey)
   const [micId, setMicId]       = useState(currentMicId)
@@ -91,7 +92,7 @@ function InStreamSourceSwitcher({
   return (
     <div className="live-switch-panel">
       <div className="live-field">
-        <label className="live-field-label">Video source</label>
+        <label className="live-field-label">{t('live.videoSource')}</label>
         <select className="live-select" value={videoKey} onChange={e => setVideoKey(e.target.value)}>
           {sources.map(s => {
             const disabled = (s.kind === 'daw' || s.kind === 'screen') && !screenCaptureSupported
@@ -105,9 +106,9 @@ function InStreamSourceSwitcher({
       </div>
       {microphones.length > 0 && (
         <div className="live-field">
-          <label className="live-field-label">Microphone</label>
+          <label className="live-field-label">{t('live.microphone')}</label>
           <select className="live-select" value={micId} onChange={e => setMicId(e.target.value)}>
-            <option value="">None (DAW Only)</option>
+            <option value="">none — DAW audio only</option>
             {microphones.map(m => (
               <option key={m.deviceId} value={m.deviceId}>{m.label}</option>
             ))}
@@ -115,7 +116,7 @@ function InStreamSourceSwitcher({
         </div>
       )}
       <div style={{ display: 'flex', gap: 6 }}>
-        <button className="live-switch-cancel" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+        <button className="live-switch-cancel" onClick={() => setOpen(false)} disabled={busy}>{t('common.cancel')}</button>
         <button
           className="live-go-btn"
           style={{ flex: 1 }}
@@ -126,7 +127,7 @@ function InStreamSourceSwitcher({
             finally { setBusy(false) }
           }}
         >
-          {busy ? 'Applying…' : 'Apply'}
+          {busy ? 'applying…' : 'apply'}
         </button>
       </div>
     </div>
@@ -411,7 +412,7 @@ export default function LivePanel({
                   value={micDeviceId}
                   onChange={e => setMicDeviceId(e.target.value)}
                 >
-                  <option value="">None (DAW Only)</option>
+                  <option value="">none — DAW audio only</option>
                   {microphones.map(m => (
                     <option key={m.deviceId} value={m.deviceId}>{m.label}</option>
                   ))}

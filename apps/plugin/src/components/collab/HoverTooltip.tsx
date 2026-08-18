@@ -106,8 +106,8 @@ export default function HoverTooltip({
               <button
                 className={`tt2-star${isFavorite ? ' on' : ''}`}
                 onClick={onToggleFavorite}
-                title={isFavorite ? 'Unfavorite' : 'Favorite'}
-                aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
+                title={isFavorite ? 'unfavorite' : 'favorite'}
+                aria-label={isFavorite ? 'unfavorite' : 'favorite'}
               >★</button>
             )}
           </div>
@@ -122,12 +122,12 @@ export default function HoverTooltip({
       </div>
 
       <div className="tt2-actions">
-        <button className="tt2-action-btn" onClick={onMessage} title="Message">
+        <button className="tt2-action-btn" onClick={onMessage} title="message">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
           </svg>
         </button>
-        <button className="tt2-action-btn" onClick={onViewProfile} title="View profile">
+        <button className="tt2-action-btn" onClick={onViewProfile} title="view profile">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
             <circle cx="12" cy="7" r="4" />

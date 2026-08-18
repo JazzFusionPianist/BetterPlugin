@@ -124,7 +124,7 @@ export default function AddFriendPanel({
                     onClick={() => withPending(p.id, () => onUnfollow(p.id))}
                     title={t('addFriend.unfollow')}
                   >
-                    {isLoading ? '...' : t('addFriend.mutualBtn')}
+                    {isLoading ? '…' : t('addFriend.mutualBtn')}
                   </button>
                 ) : isFollowing ? (
                   <button
@@ -133,7 +133,7 @@ export default function AddFriendPanel({
                     onClick={() => withPending(p.id, () => onUnfollow(p.id))}
                     title={t('addFriend.unfollow')}
                   >
-                    {isLoading ? '...' : t('addFriend.following')}
+                    {isLoading ? '…' : t('addFriend.following')}
                   </button>
                 ) : (
                   <button
@@ -141,7 +141,7 @@ export default function AddFriendPanel({
                     disabled={isLoading}
                     onClick={() => withPending(p.id, () => onFollow(p.id))}
                   >
-                    {isLoading ? '...' : isFollower ? t('addFriend.followBack') : t('addFriend.follow')}
+                    {isLoading ? '…' : isFollower ? t('addFriend.followBack') : t('addFriend.follow')}
                   </button>
                 )}
               </div>

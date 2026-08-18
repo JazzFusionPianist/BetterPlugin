@@ -33,7 +33,7 @@ export default function SchedulePrompt({ onSubmit, targets }: Props) {
       const ins = await onSubmit(value, target)
       setAdded(ins); setText(''); if (taRef.current) taRef.current.style.height = 'auto'
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError('couldn\'t save that. try again.')
     } finally { setBusy(false) }
   }
 
@@ -66,7 +66,7 @@ export default function SchedulePrompt({ onSubmit, targets }: Props) {
         </div>
       )}
       <div className={`sprompt-bar${busy ? ' busy' : ''}`}>
-        <textarea ref={taRef} rows={1} value={text} placeholder="Add to your schedule…" disabled={busy}
+        <textarea ref={taRef} rows={1} value={text} placeholder="add to your schedule…" disabled={busy}
           onChange={(e) => { setText(e.target.value); setError(null); grow() }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }} />
         <button className="sprompt-send" onClick={submit} disabled={busy || !text.trim()} aria-label="Add to calendar">

@@ -271,7 +271,7 @@ function timelineDisplay(metadata?: AttachmentTimelineMetadata): TimelineDisplay
   const display: TimelineDisplay = {
     position: bar != null && beat != null ? `${bar} | ${compactNumber(beat)}` : undefined,
     timecode: projectSeconds != null ? formatTimelineTime(projectSeconds) : undefined,
-    tempo: tempo ? `${compactNumber(tempo.bpm)} BPM` : undefined,
+    tempo: tempo ? `${compactNumber(tempo.bpm)} bpm` : undefined,
     meter: signature ? `${signature.numerator}/${signature.denominator}` : undefined,
     sampleRate: position.sample_rate ? formatSampleRate(position.sample_rate) : undefined,
     bitDepth: position.bit_depth ? `${position.bit_depth}-bit` : undefined,
@@ -282,9 +282,9 @@ function timelineDisplay(metadata?: AttachmentTimelineMetadata): TimelineDisplay
 function timelineLabel(metadata?: AttachmentTimelineMetadata): string | null {
   const display = timelineDisplay(metadata)
   if (!display) return null
-  const parts = ['Original Position']
-  if (display.position) parts.push(`Position ${display.position}`)
-  if (display.timecode) parts.push(`Timecode ${display.timecode}`)
+  const parts = ['original position']
+  if (display.position) parts.push(`position ${display.position}`)
+  if (display.timecode) parts.push(`timecode ${display.timecode}`)
   if (display.tempo) parts.push(display.tempo)
   if (display.meter) parts.push(display.meter)
   if (display.sampleRate) parts.push(display.sampleRate)
@@ -296,19 +296,19 @@ function StemPlacement({ metadata }: { metadata?: AttachmentTimelineMetadata }) 
   const display = timelineDisplay(metadata)
   if (!display) return null
   const fields = [
-    { label: 'Position', value: display.position },
-    { label: 'Timecode', value: display.timecode },
-    { label: 'Tempo', value: display.tempo },
-    { label: 'Meter', value: display.meter },
-    { label: 'Sample Rate', value: display.sampleRate },
-    { label: 'Bit Depth', value: display.bitDepth },
+    { label: 'position', value: display.position },
+    { label: 'timecode', value: display.timecode },
+    { label: 'tempo', value: display.tempo },
+    { label: 'meter', value: display.meter },
+    { label: 'sample rate', value: display.sampleRate },
+    { label: 'bit depth', value: display.bitDepth },
   ].filter((field): field is { label: string; value: string } => !!field.value)
 
   return (
     <section className={`stem-placement-card ${metadata?.position.confidence ?? 'estimated'}`}>
       <div className="stem-placement-title">
         <span className="stem-placement-pin" />
-        <span>Original Position</span>
+        <span>original position</span>
       </div>
       <div className="stem-placement-grid">
         {fields.map(field => (
@@ -491,14 +491,14 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
 
   const fetchingLabel = dlBytes > 0
     ? (totalBytes > 0 ? `${Math.round(dlBytes * 100 / totalBytes)}%` : `${Math.round(dlBytes / 1024)} KB`)
-    : 'Preparing…'
+    : 'preparing…'
   const dragLabel: Record<DragState, string> = {
-    idle:     'Import to DAW',
+    idle:     'import to DAW',
     fetching: fetchingLabel,
-    armed:    'Drag to track ↗',
-    dragging: 'Dragging…',
-    fallback: 'Link copied!',
-    imported: 'Drag to track ↗',
+    armed:    'drag to track ↗',
+    dragging: 'dragging…',
+    fallback: 'couldn\'t import — link copied',
+    imported: 'drag to track ↗',
   }
 
   const toggle = () => {
@@ -736,8 +736,8 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
   const isReady    = dragState === 'armed' || dragState === 'imported'
   const isFetching = dragState === 'fetching'
   const btnLabel   = isFetching
-    ? (fetchedCount > 0 ? `${fetchedCount}/${tracks.length}…` : 'Preparing…')
-    : (isReady ? 'Drag to track ↗' : 'Import to DAW')
+    ? (fetchedCount > 0 ? `${fetchedCount}/${tracks.length}…` : 'preparing…')
+    : (isReady ? 'drag to track ↗' : 'import to DAW')
 
   return (
     <div className="msg-att-audio-group">
@@ -1508,7 +1508,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     const att = await uploadFile(file, type)
     setUploading(false)
     if (!att) {
-      showErr('Upload failed. Check file size or connection.')
+      showErr('upload failed — check the file size or your connection.')
     } else {
       await onSend('', att)
     }
@@ -1541,14 +1541,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     if      (mime.startsWith('image/'))                            type = 'image'
     else if (mime.startsWith('video/'))                            type = 'video'
     else if (mime.startsWith('audio/') || AUDIO_EXTS.has(ext))    type = 'audio'
-    else { showErr('Only image, video, or audio files supported.'); return }
+    else { showErr('only image, video, or audio files can be sent.'); return }
 
     if (file.size > MAX_SIZE) { showErr(`File too large (max ${MAX_SIZE_MB}MB)`); return }
 
     setUploading(true)
     const att = await uploadFile(file, type)
     setUploading(false)
-    if (!att) showErr('Upload failed. Check file size or connection.')
+    if (!att) showErr('upload failed — check the file size or your connection.')
     else await onSend('', { ...att, metadata })
   }
 
@@ -1584,13 +1584,13 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     const file = await mergeDroppedRegions(batch)
     setMerging(false)
     setDropChoice(null)
-    if (!file) { showErr('Could not merge these regions.'); return }
-    if (file.size > MAX_SIZE) { showErr(`Merged file too large (max ${MAX_SIZE_MB}MB)`); return }
+    if (!file) { showErr('couldn\'t merge these regions. send them separately.'); return }
+    if (file.size > MAX_SIZE) { showErr(`merged file too large (max ${MAX_SIZE_MB} MB)`); return }
     setUploading(true)
     const att = await uploadFile(file, 'audio')
     setUploading(false)
     if (att) await onSend('', { ...att, metadata: dropTimelineRef.current ?? undefined })
-    else showErr('Upload failed.')
+    else showErr('upload failed — check the file size or your connection.')
   }
 
   // "Attach directly" branch of the drop choice — sends the dragged
@@ -1939,7 +1939,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                     groupHeader ? (
                       <span
                         className="mg-readby"
-                        title={`Read by ${readers.map(r => r.display_name).join(', ')}`}
+                        title={`read by ${readers.map(r => r.display_name).join(', ')}`}
                       >
                         {readers.slice(0, 4).map(r => (
                           <span
@@ -2050,7 +2050,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             {merging ? (
               <div className="dawcap-progress">
                 <div className="dawcap-progress-spinner" />
-                <div className="dawcap-progress-text">Merging {dropChoice.length} regions…</div>
+                <div className="dawcap-progress-text">merging {dropChoice.length} regions…</div>
               </div>
             ) : (
               <div className="dropchoice-grid">
@@ -2060,8 +2060,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                       <path d="M7 8l-4 4 4 4M17 8l4 4-4 4M3 12h18"/>
                     </svg>
                   </div>
-                  <div className="dropchoice-label">Merge into one</div>
-                  <div className="dropchoice-sub">Regions on one track</div>
+                  <div className="dropchoice-label">merge into one</div>
+                  <div className="dropchoice-sub">regions on one track</div>
                 </button>
                 <button className="dropchoice-card" onClick={() => { const b = dropChoice; setDropChoice(null); void attachDroppedBatch(b) }}>
                   <div className="dropchoice-icon">
@@ -2069,8 +2069,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                       <rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="15" width="18" height="5" rx="1.5"/>
                     </svg>
                   </div>
-                  <div className="dropchoice-label">Send separately</div>
-                  <div className="dropchoice-sub">One file per region</div>
+                  <div className="dropchoice-label">send separately</div>
+                  <div className="dropchoice-sub">one file per region</div>
                 </button>
               </div>
             )}

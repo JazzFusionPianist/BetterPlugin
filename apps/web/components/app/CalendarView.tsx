@@ -23,8 +23,8 @@ interface Props {
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december']
 const DEFAULT_COLOR = '#7C7C86'
 
 const dayKey = (d: Date) =>
@@ -125,7 +125,7 @@ export default function CalendarView({
           <h2 className="cal-month">{MONTHS[view.m]} <span>{view.y}</span></h2>
           <div className="cal-tools">
             {!onCurrentMonth && (
-              <button className="cal-today" onClick={() => { setView({ y: today.getFullYear(), m: today.getMonth() }); setSelected(todayKey) }}>Today</button>
+              <button className="cal-today" onClick={() => { setView({ y: today.getFullYear(), m: today.getMonth() }); setSelected(todayKey) }}>today</button>
             )}
             <button className="cal-chev" onClick={() => step(-1)} aria-label="Previous month">‹</button>
             <button className="cal-chev" onClick={() => step(1)} aria-label="Next month">›</button>
@@ -250,10 +250,10 @@ export default function CalendarView({
 
         <div className="cal-agenda">
           <div className="cal-agenda-date">
-            {new Date(selected + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            {new Date(selected + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
           </div>
           {selectedEvents.length === 0 ? (
-            <div className="cal-agenda-empty">Nothing scheduled{filter ? ` · ${filter}` : ''}</div>
+            <div className="cal-agenda-empty">nothing scheduled{filter ? ` · ${filter}` : ''}</div>
           ) : (
             <ul className="cal-agenda-list">
               {selectedEvents.map((e) => {
@@ -316,7 +316,7 @@ export default function CalendarView({
                           ))}
                           <input
                             className="cal-catpick-new"
-                            placeholder="New category…"
+                            placeholder="new category…"
                             onKeyDown={(ev) => {
                               if (ev.key === 'Enter') {
                                 const v = (ev.target as HTMLInputElement).value.trim()
@@ -357,7 +357,7 @@ export default function CalendarView({
    misheard), place, and room for notes. Everything saves as you go. */
 
 const fmtSheetDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
 
 function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose }: {
   event: CalendarEvent

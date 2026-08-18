@@ -1092,7 +1092,7 @@ export default function FallingBlocksView({
                       key={id}
                       profile={opponentProfilesById.get(id) ?? null}
                       state={playerStates.get(id)}
-                      fallbackName={`Player ${idx + 2}`}
+                      fallbackName={`player ${idx + 2}`}
                     />
                   ))
                 )}

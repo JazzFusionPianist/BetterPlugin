@@ -207,21 +207,15 @@ function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
 /** Render whatever a message carries as an attachment. */
 function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoinGame?: GameInviteBubbleJoin }) {
   if (m.attachment_expired) {
-    const icon =
-      m.attachment_type === 'image' ? '🖼️'
-      : m.attachment_type === 'video' ? '🎬'
-      : m.attachment_type === 'audio' || m.attachment_type === 'multi-audio' ? '🎵'
-      : '📎'
     return (
       <div className="msg-tomb">
-        <span aria-hidden="true">{icon}</span>
         <span className="msg-tomb-name">{m.attachment_name ?? 'attachment'}</span>
         <span className="msg-tomb-note">expired</span>
       </div>
     )
   }
   const url = m.attachment_url
-  const name = m.attachment_name ?? 'Audio'
+  const name = m.attachment_name ?? 'audio'
   if (!url) return null
   switch (m.attachment_type) {
     case 'audio':
@@ -231,7 +225,7 @@ function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoin
       try { tracks = JSON.parse(url) } catch { /* ignore */ }
       return (
         <div className="msg-audio-multi">
-          {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `Track ${i + 1}`} />)}
+          {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `track ${i + 1}`} />)}
         </div>
       )
     }
@@ -242,7 +236,7 @@ function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoin
     case 'game_invite':
       return <GameInviteBubble roomId={url} gameType={name} mine={mine} onJoin={onJoinGame} />
     default:
-      return <a className="msg-file" href={url} target="_blank" rel="noreferrer">📎 {name}</a>
+      return <a className="msg-file" href={url} target="_blank" rel="noreferrer">{name}</a>
   }
 }
 
@@ -407,7 +401,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
       rec.start(250)
     } catch (err) {
       console.error('[voice-memo]', err)
-      setUploadErr('Microphone unavailable — check the app permission.')
+      setUploadErr('microphone unavailable — check the app permission.')
     }
   }
 
@@ -435,7 +429,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
     const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('webm') ? 'webm' : 'audio'
     const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-    const file = new File([blob], `Voice memo ${stamp}.${ext}`, { type: blob.type || 'audio/mp4' })
+    const file = new File([blob], `voice memo ${stamp}.${ext}`, { type: blob.type || 'audio/mp4' })
 
     const pid = `up-${Date.now()}-vm`
     setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
@@ -444,7 +438,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
         setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: ratio } : u)), 'temp')
       await send('', att)
     } catch (err) {
-      setUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+      setUploadErr(err instanceof Error ? err.message : 'upload failed — try again.')
     } finally {
       setUploads(prev => prev.filter(u => u.id !== pid))
     }
@@ -480,7 +474,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: r } : u)), 'temp')
         done.push(att)
       } catch (err) {
-        setUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+        setUploadErr(err instanceof Error ? err.message : 'upload failed — try again.')
       } finally {
         setUploads(prev => prev.filter(u => u.id !== pid))
       }
@@ -494,7 +488,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
       await send('', {
         url: JSON.stringify(done.map(a => ({ url: a.url, name: a.name }))),
         type: 'multi-audio',
-        name: `${done.length} Tracks`,
+        name: `${done.length} tracks`,
       })
     } else {
       for (const a of done) await send('', a)
@@ -539,7 +533,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           <div className="chatt-status">
             {isGroup
               ? `${target.memberCount} members`
-              : target.friend.isOnline ? 'Online now' : 'Offline'}
+              : target.friend.isOnline ? 'online now' : 'offline'}
           </div>
         </div>
         <button
@@ -554,7 +548,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
       <div className="chatt-scroll" ref={scrollRef}>
         {!loading && messages.length === 0 && uploads.length === 0 && (
-          <div className="chatt-empty">Say hi{isGroup ? '' : ` to ${title}`} 👋</div>
+          <div className="chatt-empty">{isGroup ? 'no messages yet — say hi' : `no messages yet — say hi to ${title}`}</div>
         )}
         {messages.map((m, i) => {
           const mine = m.sender_id === currentUserId
@@ -582,7 +576,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   isGroup ? (
                     <span
                       className="chatt-read chatt-read-group"
-                      title={`Read by ${readers.map(r => r.display_name).join(', ')}`}
+                      title={`read by ${readers.map(r => r.display_name).join(', ')}`}
                     >
                       {readers.slice(0, 4).map(r => (
                         <span key={r.id} className="chatt-read-av" style={{ background: r.avatar_color }}>
@@ -592,7 +586,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                       {readers.length > 4 && <span className="chatt-read-more">+{readers.length - 4}</span>}
                     </span>
                   ) : (
-                    <span className="chatt-read" title={`Read by ${readers[0].display_name}`}>
+                    <span className="chatt-read" title={`read by ${readers[0].display_name}`}>
                       read
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" /></svg>
                     </span>
@@ -624,8 +618,8 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           <div className="chatt-bar chatt-recbar">
             <span className="chatt-recdot" />
             <span className="chatt-rectime">{fmtDur(recElapsed)}</span>
-            <span className="chatt-reclabel">Recording…</span>
-            <button className="chatt-reccancel" onClick={cancelRecording}>Cancel</button>
+            <span className="chatt-reclabel">recording…</span>
+            <button className="chatt-reccancel" onClick={cancelRecording}>cancel</button>
             <button className="chatt-send" onClick={sendRecording} aria-label="Send voice memo">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </button>
@@ -647,7 +641,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
               ref={taRef}
               rows={1}
               value={text}
-              placeholder={`Message ${title}…`}
+              placeholder={`message ${title}…`}
               onChange={(e) => { setText(e.target.value); grow() }}
               onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
             />

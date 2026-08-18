@@ -737,10 +737,10 @@ export default function ProfilePanel ({
               const text = (msg.content ?? '').trim()
               const isAttach = !text && !!msg.attachment_type
               const label = isAttach
-                ? (msg.attachment_type === 'image'       ? '📷 Photo'
-                  : msg.attachment_type === 'video'      ? '🎬 Video'
-                  : msg.attachment_type === 'game_invite' ? '🎮 Game invite'
-                  : '🎵 Audio')
+                ? (msg.attachment_type === 'image'       ? 'photo'
+                  : msg.attachment_type === 'video'      ? 'video'
+                  : msg.attachment_type === 'game_invite' ? 'game invite'
+                  : 'audio')
                 : text
               return (
                 <div
@@ -787,10 +787,10 @@ export default function ProfilePanel ({
               const text = (msg.content ?? '').trim()
               const isAttach = !text && !!msg.attachment_type
               const label = isAttach
-                ? (msg.attachment_type === 'image'       ? '📷 Photo'
-                  : msg.attachment_type === 'video'      ? '🎬 Video'
-                  : msg.attachment_type === 'game_invite' ? '🎮 Game invite'
-                  : '🎵 Audio')
+                ? (msg.attachment_type === 'image'       ? 'photo'
+                  : msg.attachment_type === 'video'      ? 'video'
+                  : msg.attachment_type === 'game_invite' ? 'game invite'
+                  : 'audio')
                 : text
               const senderName = sender?.display_name ?? 'someone'
               return (
@@ -883,7 +883,7 @@ export default function ProfilePanel ({
           </div>
           {viewOnly ? null : (
             <div className="profile-av-overlay">
-              {uploading ? '...' : (
+              {uploading ? '…' : (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
                   <circle cx="12" cy="13" r="4" />
@@ -946,7 +946,7 @@ export default function ProfilePanel ({
               className="orbit-group-tt-btn"
               onClick={() => onOpenGroupChat?.(hoveredGroup.conversationId)}
             >
-              Open chat
+              open chat
             </button>
           </div>
         )}

@@ -52,7 +52,7 @@ export function GameAvatar ({ profile, size = 28 }: { profile: Profile; size?: n
 }
 
 // ── Overlay card (lobby / ready / finished) ───────────────────────────────────
-export function GameOverlayCard ({ emoji, title, children, className }: {
+export function GameOverlayCard ({ title, children, className }: {
   emoji?: ReactNode
   title?: ReactNode
   children?: ReactNode
@@ -61,7 +61,6 @@ export function GameOverlayCard ({ emoji, title, children, className }: {
   return (
     <div className={`game-finish-card${className ? ' ' + className : ''}`}>
 
-      {emoji != null && <div className="game-finish-emoji">{emoji}</div>}
       {title != null && <div className="game-finish-title">{title}</div>}
       {children}
     </div>

@@ -18,10 +18,10 @@ import GameChat from './GameChat'
 import { PieceGlyph } from './ChessPieces'
 
 const PIECE_NAMES: Record<string, string> = {
-  wK: 'White King', wQ: 'White Queen', wR: 'White Rook',
-  wB: 'White Bishop', wN: 'White Knight', wP: 'White Pawn',
-  bK: 'Black King', bQ: 'Black Queen', bR: 'Black Rook',
-  bB: 'Black Bishop', bN: 'Black Knight', bP: 'Black Pawn',
+  wK: 'white king', wQ: 'white queen', wR: 'white rook',
+  wB: 'white bishop', wN: 'white knight', wP: 'white pawn',
+  bK: 'black king', bQ: 'black queen', bR: 'black rook',
+  bB: 'black bishop', bN: 'black knight', bP: 'black pawn',
 }
 
 const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']

@@ -566,7 +566,7 @@ export default function PokerView({
                   className={`poker-opponent${folded ? ' folded' : ''}${isTheirTurn ? ' active' : ''}`}
                 >
                   <span className="poker-opponent-name">
-                    {profile?.display_name ?? (isComputerPlayerId(id) ? computerPlayerName(id) : `Player ${idx + 2}`)}
+                    {profile?.display_name ?? (isComputerPlayerId(id) ? computerPlayerName(id) : `player ${idx + 2}`)}
                   </span>
                   <span className="poker-opponent-chips">
                     {ps?.chips ?? '—'} chips
@@ -620,10 +620,10 @@ export default function PokerView({
           {/* Pot info */}
           <div className="poker-pot-info">
             <div className="poker-pot-row">
-              <span>Pot: {pot}</span>
-              {roomCurrentBet > 0 && <span>Bet: {roomCurrentBet}</span>}
+              <span>pot: {pot}</span>
+              {roomCurrentBet > 0 && <span>bet: {roomCurrentBet}</span>}
               {typeof roomState.hand_number === 'number' && (
-                <span>Hand #{roomState.hand_number}</span>
+                <span>hand #{roomState.hand_number}</span>
               )}
               {bettingRound && (
                 <span>{bettingRound}</span>
@@ -726,10 +726,10 @@ export default function PokerView({
           </div>
           <div className="poker-self-info">
             <span className="poker-self-chips">
-              {currentUserProfile?.display_name ?? 'You'}: {myState?.chips ?? 0} chips
+              {currentUserProfile?.display_name ?? 'you'}: {myState?.chips ?? 0} chips
             </span>
             {(myState?.current_bet ?? 0) > 0 && (
-              <span className="poker-self-bet">Bet {myState?.current_bet}</span>
+              <span className="poker-self-bet">bet {myState?.current_bet}</span>
             )}
             {myState?.folded && <span className="poker-opponent-status">{t('poker.folded')}</span>}
             {myState?.all_in && !myState.folded && <span className="poker-opponent-status">{t('poker.allInShort')}</span>}

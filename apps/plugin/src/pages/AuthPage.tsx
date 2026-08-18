@@ -76,16 +76,16 @@ export default function AuthPage() {
       } else {
         const handle = username.trim()
         if (!USERNAME_RE.test(handle)) {
-          setError('Username must be 3–20 characters: lowercase letters, numbers, dots or underscores.')
+          setError('usernames are 3–20 characters: lowercase letters, numbers, dots or underscores.')
           return
         }
         // Availability first — the DB's unique index is the real gate,
         // but this gives a human answer instead of a database error.
         const { data: free, error: rpcErr } = await supabase!.rpc('username_available', { u: handle })
-        if (rpcErr) { setError('Could not check that username. Try again.'); return }
+        if (rpcErr) { setError('couldn\'t check that username. try again.'); return }
         if (!free) { setError(`@${handle} is taken — try another.`); return }
         if (!agreeTerms || !agreePrivacy || !agreeAge) {
-          setError('The required agreements need a check to continue.')
+          setError('the required agreements need a check to continue.')
           return
         }
         const { data, error } = await supabase!.auth.signUp({
@@ -100,11 +100,11 @@ export default function AuthPage() {
         })
         if (error) { setError(error.message); return }
         // If email confirmation is on, there's no session yet.
-        if (!data.session) setNote('Check your email to confirm your account, then sign in.')
+        if (!data.session) setNote('check your email to confirm, then sign in.')
       }
     } catch (err) {
       console.error('[auth]', err)
-      setError('Something went wrong. Try again.')
+      setError('couldn\'t reach the server. try again.')
     } finally {
       setBusy(false)
     }
@@ -119,12 +119,12 @@ export default function AuthPage() {
         <header className="auth-head">
           <span className="auth-brand"><span className="auth-brand-dot" />Orb</span>
           <h1 className="auth-title">
-            {mode === 'signin' ? 'Welcome back.' : 'Let’s get you set up.'}
+            {mode === 'signin' ? 'welcome back.' : 'make an account.'}
           </h1>
           <p className="auth-lede">
             {mode === 'signin'
-              ? 'Sign in to jump back into your sessions.'
-              : 'A name, an email, a password — and you’re in.'}
+              ? 'sign in to get back to your sessions.'
+              : 'a name, an email, a password.'}
           </p>
         </header>
 
@@ -134,30 +134,30 @@ export default function AuthPage() {
               <div className="fld">
                 <input id="auth-name" type="text" placeholder=" " autoComplete="name"
                   value={name} onChange={e => setName(e.target.value)} />
-                <label htmlFor="auth-name">Display name</label>
+                <label htmlFor="auth-name">display name</label>
               </div>
               <div className="fld">
                 <input id="auth-username" type="text" placeholder=" " autoComplete="username" required
                   autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   value={username} onChange={e => setUsername(cleanUsername(e.target.value))} />
-                <label htmlFor="auth-username">Username</label>
+                <label htmlFor="auth-username">username</label>
               </div>
             </>
           )}
           <div className="fld">
             <input id="auth-email" type="email" placeholder=" " autoComplete="email" required
               value={email} onChange={e => setEmail(e.target.value)} />
-            <label htmlFor="auth-email">Email</label>
+            <label htmlFor="auth-email">email</label>
           </div>
           <div className="fld">
             <input id="auth-password" type={showPw ? 'text' : 'password'} placeholder=" "
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required
               value={password} onChange={e => setPassword(e.target.value)} />
-            <label htmlFor="auth-password">Password</label>
+            <label htmlFor="auth-password">password</label>
             {password && (
               <button type="button" className="fld-toggle" onClick={() => setShowPw(s => !s)}
-                tabIndex={-1} aria-label={showPw ? 'Hide password' : 'Show password'}>
-                {showPw ? 'Hide' : 'Show'}
+                tabIndex={-1} aria-label={showPw ? 'hide password' : 'show password'}>
+                {showPw ? 'hide' : 'show'}
               </button>
             )}
           </div>
@@ -178,7 +178,7 @@ export default function AuthPage() {
               </label>
               <label className="auth-check">
                 <input type="checkbox" checked={agreeMarketing} onChange={e => setAgreeMarketing(e.target.checked)} />
-                <span>Send me occasional news <em>(optional)</em></span>
+                <span>send me occasional news <em>(optional)</em></span>
               </label>
             </div>
           )}
@@ -187,13 +187,13 @@ export default function AuthPage() {
           {note && <div className="auth-note">{note}</div>}
 
           <button type="submit" className="auth-submit" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
-            {busy ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+            {busy ? (mode === 'signin' ? 'signing in…' : 'creating account…') : (mode === 'signin' ? 'sign in' : 'create account')}
           </button>
         </form>
 
         <footer className="auth-switch">
-          {mode === 'signin' ? 'New here?' : 'Already have an account?'}
-          <button type="button" onClick={toggle}>{mode === 'signin' ? 'Create an account' : 'Sign in instead'}</button>
+          {mode === 'signin' ? 'new here?' : 'already have an account?'}
+          <button type="button" onClick={toggle}>{mode === 'signin' ? 'create an account' : 'sign in instead'}</button>
         </footer>
       </div>
     </div>

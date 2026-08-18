@@ -176,7 +176,18 @@ export default function StemPanel({
       }}
     >
       <div className="stem-head">
-        <p>Drop audio files here, or use Add Stems to choose multiple files.</p>
+        <p>Drop audio files here, or use Files to choose multiple files.</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*,.mp3,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac"
+          multiple
+          style={{ display: 'none' }}
+          onChange={event => handlePickedFiles(event.target.files)}
+        />
+        <button className="stem-file-btn" onClick={() => fileInputRef.current?.click()}>
+          Files
+        </button>
         <button className="stem-close" onClick={onClose} aria-label="Close stems">×</button>
       </div>
 
@@ -220,20 +231,6 @@ export default function StemPanel({
           )
         })}
       </div>
-
-      <footer className="stem-footer">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*,.mp3,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac"
-          multiple
-          style={{ display: 'none' }}
-          onChange={event => handlePickedFiles(event.target.files)}
-        />
-        <button onClick={() => fileInputRef.current?.click()}>
-          <span>＋</span> Add Stems
-        </button>
-      </footer>
     </div>
   )
 }

@@ -9859,6 +9859,26 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   line-height: 1.25;
   text-align: left;
 }
+.stem-file-btn {
+  flex: 0 0 auto;
+  height: 27px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--t2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+}
+.stem-file-btn:hover,
+.stem-close:hover {
+  border-color: var(--border2);
+  background: var(--bg3);
+  color: var(--t1);
+}
 .stem-close { width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--t2); cursor: pointer; font-size: 17px; line-height: 1; }
 .stem-error { border: none; border-radius: 8px; padding: 7px 9px; background: rgba(229,72,77,.12); color: #e5484d; font-size: 9px; cursor: pointer; }
 .stem-upload { padding: 8px 9px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); }
@@ -9898,11 +9918,6 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-expand:hover { color: var(--t1); }
 .stem-expand svg { width: 12px; height: 12px; transition: transform .16s ease; }
 .stem-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
-.stem-footer { flex: 0 0 auto; padding-top: 7px; border-top: 0; }
-.stem-footer > button { width: 100%; height: 40px; border: 1px solid var(--border2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg2); color: var(--t1); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.stem-footer > button:hover { border-color: color-mix(in srgb, var(--blue) 45%, transparent); background: color-mix(in srgb, var(--blue) 10%, var(--bg2)); }
-.stem-footer > button span { font-size: 18px; line-height: 1; color: var(--blue); }
-
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    One-family voice (2026-08-18)
    Instrument Serif left the plugin. The voice register — titles,

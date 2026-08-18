@@ -26,3 +26,23 @@ export function isLocalUiFont(value: string | null): value is LocalUiFont {
 export function getLocalFontFamily(value: UiFont): string | null {
   return isLocalUiFont(value) ? value.slice('local:'.length) : null
 }
+
+/* ── Text size ──────────────────────────────────────────────────────────
+   Implemented as browser-zoom on the plugin root (with compensated
+   width/height so the layout still fills the host window exactly).
+   Zoom scales text and chrome together, so the catalogue's proportions
+   — badge heights, line-heights, hairline spacing — survive every size;
+   font-size-only scaling would clip the hundreds of px-sized boxes. */
+export const UI_FONT_SIZE_OPTIONS = ['small', 'default', 'large', 'xlarge'] as const
+export type UiFontSize = typeof UI_FONT_SIZE_OPTIONS[number]
+
+export const UI_FONT_SIZE_SCALE: Record<UiFontSize, number> = {
+  small: 0.9,
+  default: 1,
+  large: 1.12,
+  xlarge: 1.25,
+}
+
+export function isUiFontSize(value: string | null): value is UiFontSize {
+  return UI_FONT_SIZE_OPTIONS.includes(value as UiFontSize)
+}

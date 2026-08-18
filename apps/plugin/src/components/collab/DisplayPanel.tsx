@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { ScreenSize } from '../../lib/pluginWindow'
-import { WEB_UI_FONT_OPTIONS, getLocalFontFamily, isWebUiFont, type UiFont } from '../../lib/uiFonts'
+import { WEB_UI_FONT_OPTIONS, UI_FONT_SIZE_OPTIONS, getLocalFontFamily, isWebUiFont, type UiFont, type UiFontSize } from '../../lib/uiFonts'
 import { callJuceNative, hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 
 const SCREEN_OPTIONS: ScreenSize[] = ['small', 'large']
@@ -16,13 +16,15 @@ interface Props {
   isDark: boolean
   screenSize: ScreenSize
   uiFont: UiFont
+  uiFontSize: UiFontSize
   onToggleDark: () => void
   onScreenSizeChange: (size: ScreenSize) => void
   onFontChange: (font: UiFont) => void
+  onFontSizeChange: (size: UiFontSize) => void
   onClose: () => void
 }
 
-export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark, onScreenSizeChange, onFontChange, onClose }: Props) {
+export default function DisplayPanel({ isDark, screenSize, uiFont, uiFontSize, onToggleDark, onScreenSizeChange, onFontChange, onFontSizeChange, onClose }: Props) {
   const { t } = useT()
   const [localFonts, setLocalFonts] = useState<string[]>([])
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
@@ -158,6 +160,21 @@ export default function DisplayPanel({ isDark, screenSize, uiFont, onToggleDark,
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="settings-card display-size-card">
+          <span className="display-size-label">{t('display.fontSize')}</span>
+          <div className="seg">
+            {UI_FONT_SIZE_OPTIONS.map((size) => (
+              <button
+                key={size}
+                className={`seg-opt${uiFontSize === size ? ' active' : ''}`}
+                onClick={() => onFontSizeChange(size)}
+              >
+                {t(`display.fontSize.${size}`)}
+              </button>
+            ))}
           </div>
         </div>
       </div>

@@ -44,7 +44,7 @@ import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
 import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
-import { getLocalFontFamily, isLocalUiFont, isWebUiFont, type UiFont } from '../lib/uiFonts'
+import { getLocalFontFamily, isLocalUiFont, isWebUiFont, isUiFontSize, UI_FONT_SIZE_SCALE, type UiFont, type UiFontSize } from '../lib/uiFonts'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
 
@@ -132,6 +132,10 @@ function CollabPageInner({ user }: Props) {
   const [uiFont, setUiFont] = useState<UiFont>(() => {
     const saved = localStorage.getItem('collab_ui_font')
     return isWebUiFont(saved) || isLocalUiFont(saved) ? saved : 'editorial'
+  })
+  const [uiFontSize, setUiFontSize] = useState<UiFontSize>(() => {
+    const saved = localStorage.getItem('collab_ui_font_size')
+    return isUiFontSize(saved) ? saved : 'default'
   })
   // Dev override: ?screen=large lets us preview the larger layout
   // in a plain browser (no JUCE bridge). Never present in production URLs.
@@ -474,6 +478,10 @@ function CollabPageInner({ user }: Props) {
     setUiFont(font)
     localStorage.setItem('collab_ui_font', font)
   }
+  const handleFontSizeChange = (size: UiFontSize) => {
+    setUiFontSize(size)
+    localStorage.setItem('collab_ui_font_size', size)
+  }
   // The window is freely resizable now (corner drag) and JUCE itself
   // persists/restores the editor size — so we no longer snap back to a
   // preset on load. Instead, the LAYOUT follows the live viewport:
@@ -481,12 +489,15 @@ function CollabPageInner({ user }: Props) {
   // ?screen=large dev override keeps its layout regardless.
   useEffect(() => {
     if (screenPreview) return
-    const apply = () => setScreenSize(window.innerWidth >= 520 ? 'large' : 'small')
+    // Layout threshold lives in layout px — under zoom the same window
+    // holds fewer of them, so divide by the text-size scale.
+    const scale = UI_FONT_SIZE_SCALE[uiFontSize]
+    const apply = () => setScreenSize(window.innerWidth / scale >= 520 ? 'large' : 'small')
     apply()
     window.addEventListener('resize', apply)
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [uiFontSize])
   const openStems = useCallback(() => {
     if (!stemsOpen && screenSize === 'small') {
       stemsRestoreSizeRef.current = 'small'
@@ -696,8 +707,18 @@ function CollabPageInner({ user }: Props) {
 
   const localFontFamily = getLocalFontFamily(uiFont)
   const localFontCss = localFontFamily ? JSON.stringify(localFontFamily) : null
+  // Text size = browser-zoom semantics: zoom on the root scales text and
+  // chrome together so the catalogue's proportions survive every size,
+  // and the compensated width/height keep the zoomed layout filling the
+  // host window exactly (100vw would overflow under zoom).
+  const uiScale = UI_FONT_SIZE_SCALE[uiFontSize]
   const pluginStyle = {
-    ...((hasJuceBridge || screenPreview) ? { width: '100vw', height: '100vh' } : {}),
+    ...((hasJuceBridge || screenPreview)
+      ? (uiScale === 1
+        ? { width: '100vw', height: '100vh' }
+        : { width: `calc(100vw / ${uiScale})`, height: `calc(100vh / ${uiScale})` })
+      : {}),
+    ...(uiScale !== 1 ? { zoom: uiScale } : {}),
     ...(localFontCss ? {
       '--f-serif': `${localFontCss}, 'Pretendard Variable', serif`,
       '--f-sans': `${localFontCss}, 'Pretendard Variable', sans-serif`,
@@ -921,7 +942,7 @@ function CollabPageInner({ user }: Props) {
           />
         </div>
         <div className="view dview">
-          <DisplayPanel isDark={isDark} screenSize={screenSize} uiFont={uiFont} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onFontChange={handleFontChange} onClose={() => setDisplayOpen(false)} />
+          <DisplayPanel isDark={isDark} screenSize={screenSize} uiFont={uiFont} uiFontSize={uiFontSize} onToggleDark={handleToggleDark} onScreenSizeChange={handleScreenSize} onFontChange={handleFontChange} onFontSizeChange={handleFontSizeChange} onClose={() => setDisplayOpen(false)} />
         </div>
         <div className="view iview">
           <InformationPanel supabase={client} user={user} me={me} onClose={() => setInfoOpen(false)} onUpdated={refetchProfiles} onNameSaved={(n) => updateMe({ display_name: n, initials: n.split(' ').slice(0,2).map(w => w[0] ?? '').join('').toUpperCase() })} />

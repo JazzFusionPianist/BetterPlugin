@@ -9075,6 +9075,9 @@
    background over it */
 .plugin.fx-closing .view { background: transparent !important; }
 .plugin.fx-closing .view .s-body { background: transparent !important; }
+.plugin.chat-open.fx-closing:not(.conv-open) .convview {
+  visibility: hidden;
+}
 /* coming home from the fx room: orbit, cards and prompt all surface
    together at the wall's pace — without this they pop to full opacity
    the instant fx-open lifts, each element at its own speed, while the

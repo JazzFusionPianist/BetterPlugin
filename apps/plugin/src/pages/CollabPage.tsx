@@ -86,6 +86,7 @@ function CollabPageInner({ user }: Props) {
   // clears the other.
   const [selectedId, setSelectedId]                       = useState<string | null>(null)
   const [selectedGroupConvId, setSelectedGroupConvId]     = useState<string | null>(null)
+  const [chatFromConvList, setChatFromConvList]           = useState(false)
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [stemsOpen, setStemsOpen]               = useState(false)
@@ -648,18 +649,28 @@ function CollabPageInner({ user }: Props) {
     setTooltip(null); setGalleryPopup(null)
   }
 
-  const handleOpenChat     = (id: string) => {
+  const handleOpenChat     = (id: string, options: { fromConvList?: boolean } = {}) => {
     closeAllOverlays()
+    setChatFromConvList(!!options.fromConvList)
     setSelectedGroupConvId(null)   // mutual exclusion with group chats
     setSelectedId(id)
     markFriendSeen(id)  // clears the orb pulse for that friend
   }
 
-  const handleOpenGroupChat = (convId: string) => {
+  const handleOpenGroupChat = (convId: string, options: { fromConvList?: boolean } = {}) => {
     closeAllOverlays()
+    setChatFromConvList(!!options.fromConvList)
     setSelectedId(null)            // mutual exclusion with DM chats
     setSelectedGroupConvId(convId)
     markConvSeen(convId)           // clears the constellation pulse
+  }
+
+  const handleOpenChatFromConvList = (id: string) => {
+    handleOpenChat(id, { fromConvList: true })
+  }
+
+  const handleOpenGroupChatFromConvList = (convId: string) => {
+    handleOpenGroupChat(convId, { fromConvList: true })
   }
 
   const handleBackToConversations = () => {
@@ -719,6 +730,7 @@ function CollabPageInner({ user }: Props) {
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
+    setChatFromConvList(false)
     closeCalendar()
     closeStems()
     setWatchingSession(null)
@@ -727,6 +739,7 @@ function CollabPageInner({ user }: Props) {
 
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
+    chatFromConvList ? 'chat-from-conv-list' : '',
     isDark            ? 'dark'               : '',
     isWebUiFont(uiFont) ? `font-${uiFont}` : '',
     // Grow the shell to fill the resized host window. Gated on the JUCE bridge
@@ -1031,8 +1044,8 @@ function CollabPageInner({ user }: Props) {
               profiles={profilesWithStatus}
               favorites={favorites}
               currentUserId={user.id}
-              onOpenChat={handleOpenChat}
-              onOpenGroupChat={handleOpenGroupChat}
+              onOpenChat={handleOpenChatFromConvList}
+              onOpenGroupChat={handleOpenGroupChatFromConvList}
               onNewGroup={() => setNewGroupOpen(true)}
             />
           )}

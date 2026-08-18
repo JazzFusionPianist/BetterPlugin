@@ -406,7 +406,7 @@
 
 .plugin.chat-open           .fview    { transform: translateX(-100%); }
 .plugin.chat-open           .cview    { transform: translateX(0); z-index: 22; }
-.plugin.chat-open           .convview {
+.plugin.chat-open.chat-from-conv-list .convview {
   transform: translateX(0);
   transition: none;
   z-index: 19;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType, AttachmentTimelineMetadata } from '../../types/collab'
 import type { StemDropRequest } from '../../types/stems'
@@ -58,6 +58,7 @@ interface Props {
   onOpenSettings?: () => void
   onOpenStems?: () => void
   onOpenCalendar?: () => void
+  onCloseCalendar?: (options?: { restoreSize?: boolean }) => void
   stemsActive?: boolean
   onStemDrop?: (request: StemDropRequest) => void
   onSend: (content: string, attachment?: Attachment) => Promise<boolean>
@@ -983,7 +984,7 @@ function AttachmentView({ url, type, name, metadata }: { url: string; type: Atta
 }
 
 // ── 메인 ChatView ─────────────────────────────────────────────
-export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, onOpenCalendar, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
+export default function ChatView({ supabase, currentUserId, otherProfile, groupHeader, messages, loading, otherIsLive, otherLiveTitle, onJoinLive, groupMembers, reads, onOpenSettings, onOpenStems, onOpenCalendar, onCloseCalendar, stemsActive, onStemDrop, onSend, onBack, onJoinGameInvite, conversationId, groupTitleById }: Props) {
   const { t } = useT()
   const [input, setInput]         = useState('')
 
@@ -992,9 +993,13 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // opens a slide-over scoped to this conversation's shared events, and
   // schedule-looking messages grow an "add to calendar" chip.
   const [chatCalOpen, setChatCalOpen] = useState(false)
+  const closeChatCalendar = useCallback((options?: { restoreSize?: boolean }) => {
+    setChatCalOpen(false)
+    onCloseCalendar?.(options)
+  }, [onCloseCalendar])
   useEffect(() => {
-    if (stemsActive) setChatCalOpen(false)
-  }, [stemsActive])
+    if (stemsActive && chatCalOpen) closeChatCalendar({ restoreSize: false })
+  }, [chatCalOpen, closeChatCalendar, stemsActive])
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, currentUserId)
   const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, currentUserId)
   const chatTitle = groupHeader?.title ?? otherProfile?.display_name ?? ''
@@ -1708,7 +1713,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       <FloatingOrbs count={28} />
       {/* Sub-bar */}
       <div className="csub">
-        <div className="back" onClick={onBack}>&#8249;</div>
+        <div className="back" onClick={() => { if (chatCalOpen) closeChatCalendar(); onBack() }}>&#8249;</div>
         {groupHeader ? (
           <div
             className="chdr-tap"
@@ -1790,6 +1795,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
               setChatCalOpen(open => {
                 const next = !open
                 if (next) onOpenCalendar?.()
+                else onCloseCalendar?.()
                 return next
               })
             }}
@@ -1809,7 +1815,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             className={`chdr-stems-btn${stemsActive ? ' active' : ''}`}
             onClick={event => {
               event.stopPropagation()
-              setChatCalOpen(false)
+              if (chatCalOpen) closeChatCalendar({ restoreSize: false })
               onOpenStems()
             }}
           >
@@ -2123,7 +2129,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
             const parsed = await parseChatSchedule(text)
             return saveChatEvents(parsed)
           }}
-          onClose={() => setChatCalOpen(false)}
+          onClose={() => closeChatCalendar()}
         />
       )}
     </div>

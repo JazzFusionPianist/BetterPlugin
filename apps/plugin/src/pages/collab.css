@@ -9551,6 +9551,14 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   from { transform: translateX(100%); }
   to   { transform: none; }
 }
+@keyframes sidepanel-expand-from-left {
+  from { transform: translateX(-100%); }
+  to   { transform: none; }
+}
+.plugin.sidepanel-expand-from-small .chatcal,
+.plugin.sidepanel-expand-from-small .stem-dock {
+  animation-name: sidepanel-expand-from-left;
+}
 .chatcal-head {
   display: flex; align-items: baseline; gap: 8px;
   padding: 12px 14px 9px;

@@ -79,6 +79,7 @@ function CollabPageInner({ user }: Props) {
   const client = supabase!
   const pluginRef = useRef<HTMLDivElement>(null)
   const stemsRestoreSizeRef = useRef<ScreenSize | null>(null)
+  const calendarRestoreSizeRef = useRef<ScreenSize | null>(null)
 
   // Mutually exclusive — a chat is either a DM (selectedId = friend id)
   // or a group (selectedGroupConvId = conversation id). Opening one
@@ -88,6 +89,8 @@ function CollabPageInner({ user }: Props) {
   const [settingsOpen, setSettingsOpen]         = useState(false)
   const [displayOpen, setDisplayOpen]           = useState(false)
   const [stemsOpen, setStemsOpen]               = useState(false)
+  const [stemsExpandedFromSmall, setStemsExpandedFromSmall] = useState(false)
+  const [calendarExpandedFromSmall, setCalendarExpandedFromSmall] = useState(false)
   const [pendingStemDrop, setPendingStemDrop]   = useState<StemDropRequest | null>(null)
   const [infoOpen, setInfoOpen]                 = useState(false)
   const [languageOpen, setLanguageOpen]         = useState(false)
@@ -498,26 +501,50 @@ function CollabPageInner({ user }: Props) {
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiFontSize])
+  const closeCalendar = useCallback((options: { restoreSize?: boolean } = {}) => {
+    const restoreSize = options.restoreSize ?? true
+    setCalendarExpandedFromSmall(false)
+    if (restoreSize && calendarRestoreSizeRef.current === 'small') {
+      calendarRestoreSizeRef.current = null
+      setScreenSize('small')
+      localStorage.setItem('collab_screen_size', 'small')
+      void applyScreenSize('small')
+    } else if (!restoreSize) {
+      calendarRestoreSizeRef.current = null
+    }
+  }, [])
+
   const openStems = useCallback(() => {
-    if (!stemsOpen && screenSize === 'small') {
+    const restoreFromSmall = (!stemsOpen && screenSize === 'small') || calendarRestoreSizeRef.current === 'small'
+    closeCalendar({ restoreSize: false })
+    if (restoreFromSmall) {
       stemsRestoreSizeRef.current = 'small'
+      setStemsExpandedFromSmall(true)
       void applyScreenSize('large')
+    } else {
+      setStemsExpandedFromSmall(false)
     }
     setStemsOpen(true)
     setScreenSize('large')
-  }, [screenSize, stemsOpen])
+  }, [closeCalendar, screenSize, stemsOpen])
   const handleStemDrop = useCallback((request: StemDropRequest) => {
     setPendingStemDrop(request)
-    if (!stemsOpen && screenSize === 'small') {
+    const restoreFromSmall = (!stemsOpen && screenSize === 'small') || calendarRestoreSizeRef.current === 'small'
+    closeCalendar({ restoreSize: false })
+    if (restoreFromSmall) {
       stemsRestoreSizeRef.current = 'small'
+      setStemsExpandedFromSmall(true)
       void applyScreenSize('large')
+    } else {
+      setStemsExpandedFromSmall(false)
     }
     setStemsOpen(true)
     setScreenSize('large')
-  }, [screenSize, stemsOpen])
+  }, [closeCalendar, screenSize, stemsOpen])
   const closeStems = useCallback((options: { restoreSize?: boolean } = {}) => {
     const restoreSize = options.restoreSize ?? true
     setStemsOpen(false)
+    setStemsExpandedFromSmall(false)
     setPendingStemDrop(null)
     if (restoreSize && stemsRestoreSizeRef.current === 'small') {
       stemsRestoreSizeRef.current = null
@@ -528,6 +555,19 @@ function CollabPageInner({ user }: Props) {
       stemsRestoreSizeRef.current = null
     }
   }, [])
+  const openCalendar = useCallback(() => {
+    const restoreFromSmall = screenSize === 'small' || stemsRestoreSizeRef.current === 'small'
+    closeStems({ restoreSize: false })
+    if (restoreFromSmall) {
+      calendarRestoreSizeRef.current = 'small'
+      setCalendarExpandedFromSmall(true)
+      void applyScreenSize('large')
+    } else {
+      calendarRestoreSizeRef.current = null
+      setCalendarExpandedFromSmall(false)
+    }
+    setScreenSize('large')
+  }, [closeStems, screenSize])
 
   // Search/AddFriend toggles kept for re-introduction; redesign removed
   // their trigger buttons from the toolbar but the panels are still wired up.
@@ -672,6 +712,7 @@ function CollabPageInner({ user }: Props) {
     setSettingsOpen(false); setDisplayOpen(false); setInfoOpen(false)
     setAddFriendOpen(false); setConvOpen(false); setLiveOpen(false); setFxOpen(false)
     setGameOpen(false); setGameScreen('list')
+    closeCalendar()
     closeStems()
     setWatchingSession(null)
     closeSearch()
@@ -703,6 +744,7 @@ function CollabPageInner({ user }: Props) {
     // inverts with the wall.
     gameOpen && gameScreen !== 'list' ? `gwall-${gameScreen} dark` : '',
     stemsOpen         ? 'stems-open'         : '',
+    (stemsExpandedFromSmall || calendarExpandedFromSmall) ? 'sidepanel-expand-from-small' : '',
   ].filter(Boolean).join(' ')
 
   const localFontFamily = getLocalFontFamily(uiFont)
@@ -852,7 +894,8 @@ function CollabPageInner({ user }: Props) {
             reads={conversationReads}
             onOpenSettings={() => setChatSettingsOpen(true)}
             onOpenStems={openStems}
-            onOpenCalendar={() => closeStems({ restoreSize: false })}
+            onOpenCalendar={openCalendar}
+            onCloseCalendar={closeCalendar}
             stemsActive={stemsOpen}
             onStemDrop={handleStemDrop}
             onSend={send}
@@ -876,7 +919,8 @@ function CollabPageInner({ user }: Props) {
               reads={conversationReads}
               onOpenSettings={() => setChatSettingsOpen(true)}
               onOpenStems={openStems}
-              onOpenCalendar={() => closeStems({ restoreSize: false })}
+              onOpenCalendar={openCalendar}
+              onCloseCalendar={closeCalendar}
               stemsActive={stemsOpen}
               onStemDrop={handleStemDrop}
               onSend={send}

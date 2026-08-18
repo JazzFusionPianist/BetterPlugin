@@ -240,8 +240,8 @@ export function useMediaSource() {
   const listSources = useCallback((): VideoSource[] => {
     const sources: VideoSource[] = []
 
-    // (None) is always first — audio-only mode, shows host avatar
-    sources.push({ kind: 'none', label: '(None)' })
+    // audio-only is always first — shows the host avatar instead of video
+    sources.push({ kind: 'none', label: 'no video — audio only' })
 
     if (hasJuceBridge) {
       // "Choose window…" uses Apple's system-wide SCContentSharingPicker

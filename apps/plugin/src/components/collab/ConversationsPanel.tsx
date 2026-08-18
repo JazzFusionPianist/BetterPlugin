@@ -148,17 +148,14 @@ export default function ConversationsPanel({
         })}
       </div>
 
-      {/* Floating + button — opens the new-group flow. Sits bottom-right
-          of the chat list so it's reachable without occluding any row. */}
+      {/* Quiet corner action — a printed word, not a floating disc. */}
       <button
         className="conv-new-group"
         onClick={onNewGroup}
         aria-label="New group"
         title="New group"
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M10 4v12M4 10h12" />
-        </svg>
+        + new group
       </button>
     </>
   )

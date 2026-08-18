@@ -112,7 +112,8 @@
   flex-direction: column;
   position: relative;
   font-family: var(--f-sans);
-  font-weight: 450;
+  /* machinery register — the voice (500) steps forward from this */
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   color: var(--t1);
 }
@@ -838,23 +839,25 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
    Chat Sub-Bar
 ━━━━━━━━━━━━━━━━━━━━━━━ */
+/* Chat header — a running head on the page, not a floating box. */
 .csub {
   display: flex;
   align-items: center;
-  margin: 10px 14px 6px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  margin: 0;
+  padding: 10px 14px 8px;
+  border-radius: 0;
   flex-shrink: 0;
   gap: 10px;
   position: relative;
   z-index: 1;
-  background: rgba(0, 0, 0, 0.018);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 .plugin.dark .csub {
-  background: rgba(255, 255, 255, 0.025);
-  border-color: rgba(255, 255, 255, 0.07);
+  background: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.12);
 }
 
 .back {
@@ -1310,30 +1313,30 @@
    import pill. Tints invert when sent by the current user so it
    sits cleanly on the dark "mine" bubble. */
 /* ── Audio attachment ────────────────────────────────────────────────
-   Surface follows the THEME (light in light mode, dark in dark mode)
-   for both sent and received — the sender is conveyed by bubble
-   alignment, not by colour. Compact, DM Sans throughout. */
+   The core music-sharing bubble: a plain catalogue card — paper,
+   hairline, small corner. Surface follows the THEME for both sent and
+   received; the sender is conveyed by bubble alignment, not colour. */
 .msg-att-audio,
 .msg-att-audio-group {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   min-width: 188px;
   max-width: 230px;
-  padding: 9px 11px;
-  border-radius: 13px;
-  background: rgba(0, 0, 0, 0.045);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: none;
   margin-bottom: 2px;
   font-family: var(--f-sans);
   color: var(--t1);
 }
 .plugin.dark .msg-att-audio,
 .plugin.dark .msg-att-audio-group {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 /* Header — small note glyph + filename (+ inline group actions) */
@@ -1754,79 +1757,87 @@
 .s-row-label { font-size: 13px; color: var(--t1); font-family: var(--f-sans); }
 
 /* iOS-style pill toggle */
+/* Print toggle — flat, two-colour: paper track with a drawn edge,
+   ink when on. No gradients, no glow (the glass era is over). */
 .pill-toggle {
-  width: 44px;
-  height: 26px;
-  border-radius: 13px;
-  background: rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  box-shadow: none;
   position: relative;
   cursor: pointer;
-  transition: background .2s, border-color .2s, box-shadow .2s;
+  transition: background .18s, border-color .18s;
   flex-shrink: 0;
   padding: 0;
 }
 .pill-toggle.on {
-  background: rgba(30, 158, 99, 0.5);
-  border-color: rgba(30, 158, 99, 0.7);
-  box-shadow: inset 0 1px 2px rgba(30, 158, 99, 0.25),
-              inset 0 -1px 0 rgba(255, 255, 255, 0.5),
-              0 0 12px rgba(30, 158, 99, 0.25);
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: none;
 }
 .pill-toggle::after {
   content: '';
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--paper);
+  border: 1px solid var(--border2);
   top: 2px;
   left: 2px;
-  transition: transform .2s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform .18s;
+  box-shadow: none;
 }
-.pill-toggle.on::after { transform: translateX(18px); }
+.pill-toggle.on::after { transform: translateX(18px); border-color: var(--ink); }
 .plugin.dark .pill-toggle {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
 }
-.plugin.dark .pill-toggle::after {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(230, 230, 230, 0.9));
-}
+.plugin.dark .pill-toggle.on { background: var(--paper); border-color: var(--paper); }
+.plugin.dark .pill-toggle.on::after { background: var(--ink); border-color: var(--ink); }
+.plugin.dark .pill-toggle::after { background: var(--paper); }
 
-/* Segmented control (view mode) */
+/* Segmented control — quiet printed choices, no box: the active word
+   is inked and underlined, the rest sit back (same grammar as the
+   toolbar's active glyph). */
 .seg {
   display: flex;
   align-items: center;
-  background: var(--bg3);
-  border-radius: 8px;
-  padding: 2px;
-  gap: 2px;
+  gap: 18px;
+  background: none;
+  border-radius: 0;
+  padding: 0;
 }
 .seg-opt {
-  flex: 1;
-  height: 28px;
+  flex: 0 0 auto;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--t3);
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
-  transition: all .15s;
+  transition: color .15s;
   font-weight: 400;
   font-family: var(--f-sans);
   border: none;
   background: none;
+  padding: 0 1px;
+  text-transform: lowercase;
+  border-bottom: 1px solid transparent;
 }
+.seg-opt:hover { color: var(--t1); }
 .seg-opt.active {
-  background: var(--bg);
+  background: none;
   color: var(--t1);
   font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  letter-spacing: -0.005em;
+  box-shadow: none;
+  border-bottom-color: var(--hair);
 }
 
 .s-note {
@@ -4043,77 +4054,83 @@
 .settings-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   position: relative;
   z-index: 1;
 }
 .settings-list-bottom {
   margin-top: auto;
 }
+/* Settings rows — a page of the catalogue, not a stack of boxes:
+   bare paper rows split by hairlines, the voice weight speaking. */
 .settings-card {
   font-family: var(--f-sans);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
+  letter-spacing: -0.005em;
   color: var(--t1);
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 13px 2px;
+  border-radius: 0;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.018);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(26, 25, 23, 0.09);
+  box-shadow: none;
+  transition: background 0.12s;
 }
 .settings-card:hover {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.16);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  background: rgba(26, 25, 23, 0.03);
 }
-.settings-card:active { transform: scale(0.99); }
+.settings-card:active { transform: none; }
 .settings-card.settings-signout {
   color: #D6402E;
-  border-color: rgba(214, 64, 46, 0.18);
-  background: rgba(214, 64, 46, 0.025);
+  border-bottom: none;
+  background: none;
 }
 .settings-card.settings-signout:hover {
-  background: rgba(214, 64, 46, 0.06);
-  border-color: rgba(214, 64, 46, 0.32);
+  background: rgba(214, 64, 46, 0.05);
 }
+.settings-list-bottom .settings-card { border-top: 1px solid rgba(26, 25, 23, 0.09); }
 .plugin.dark .settings-card {
-  background: rgba(255, 255, 255, 0.025);
-  border-color: rgba(255, 255, 255, 0.07);
+  background: none;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 .plugin.dark .settings-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
 }
-.plugin.dark .settings-card.settings-signout {
-  background: rgba(214, 64, 46, 0.06);
-  border-color: rgba(214, 64, 46, 0.32);
-}
+.plugin.dark .settings-card.settings-signout { border-bottom: none; }
+.plugin.dark .settings-list-bottom .settings-card { border-top-color: rgba(255, 255, 255, 0.1); }
 
-/* --- Header card (back arrow + title in one glass row) --- */
+/* --- Header row (back arrow + title) --- */
 .settings-header-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  padding: 4px 2px 12px;
   position: relative;
   z-index: 1;
+  border-bottom: 1px solid var(--hair);
+  border-radius: 0;
+  margin-bottom: 4px;
 }
+.settings-header-card:hover { background: none; }
 .settings-header-back {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
-  color: var(--t1);
+  color: var(--t2);
   font-family: var(--f-sans);
   font-weight: 400;
   margin-top: -2px;
 }
 .settings-header-title {
   font-family: var(--f-sans);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--t1);
 }
+/* Wide window: settings read as a single centred column. */
+.plugin.screen-wide .settings-panel { padding-left: calc(50% - 200px); padding-right: calc(50% - 200px); }
 
 /* --- Row card variant: label on left, control on right --- */
 .settings-row-card {
@@ -7026,35 +7043,40 @@
    Floating + button on the chat list + the multi-step group creator
    that opens when it's tapped. */
 
+/* "+ new group" — a printed word in the corner, hairline-chipped;
+   the gradient FAB was the last of the app-store chrome. */
 .conv-new-group {
   position: absolute;
   right: 14px;
   bottom: 14px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, var(--blue) 0%, #1B31D9 100%);
-  color: #fff;
+  width: auto;
+  height: auto;
+  border-radius: 3px;
+  border: 1px solid var(--border2);
+  background: var(--paper);
+  color: var(--t1);
+  font-family: var(--f-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-transform: lowercase;
+  padding: 7px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow:
-    0 8px 22px rgba(46, 111, 207, 0.42),
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.12s, box-shadow 0.18s;
+  box-shadow: none;
+  transition: background 0.12s, border-color 0.12s;
   z-index: 5;
 }
 .conv-new-group:hover {
-  transform: scale(1.06);
-  box-shadow:
-    0 10px 26px rgba(46, 111, 207, 0.52),
-    0 3px 8px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: none;
+  background: var(--bg2);
+  border-color: var(--hair);
+  box-shadow: none;
 }
-.conv-new-group:active { transform: scale(0.96); }
+.conv-new-group:active { transform: none; }
+.plugin.dark .conv-new-group { background: var(--bg2); border-color: rgba(255,255,255,0.2); }
 
 /* Selected-people chip strip */
 .ng-chips {
@@ -8111,10 +8133,10 @@
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 .plugin .app-title {
   font-family: var(--f-serif);
-  font-weight: 400;
-  font-size: 16px;
+  font-weight: 500;
+  font-size: 15px;
   text-transform: lowercase;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 /* Names — people, groups, senders, opponents. */
@@ -8139,9 +8161,10 @@
 .plugin .poker-opponent-name,
 .plugin .poker-showdown-name,
 .plugin .falling-blocks-opponent-name {
+  /* names speak the voice register — medium, a hair tighter */
   font-family: var(--f-serif);
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
 .plugin .conv-name { font-size: 15px; }
@@ -8155,8 +8178,8 @@
 .plugin .msg-att-audio-name,
 .plugin .msg-link-preview-title {
   font-family: var(--f-serif);
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .plugin .settings-header-title {
@@ -8166,8 +8189,9 @@
 
 .plugin .cal-month {
   font-family: var(--f-serif);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 15px;
+  letter-spacing: -0.01em;
   text-transform: lowercase;
 }
 
@@ -8189,13 +8213,14 @@
   color: var(--t3);
 }
 
-/* Wall labels — lowercase, natural spacing. */
+/* Wall labels — the machinery register: small, quiet, a touch wide,
+   like the pre-printed fields on a track sheet. */
 .plugin .s-section-label,
 .plugin .af-section-label {
   font-family: var(--f-sans);
   font-weight: 400;
   text-transform: lowercase;
-  letter-spacing: normal;
+  letter-spacing: 0.04em;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -8332,22 +8357,11 @@
 .plugin .tt2-action-btn:hover,
 .plugin .tt2-live-btn:hover { border-color: var(--border2); background: var(--bg2); }
 
-/* Settings */
+/* Settings — rows, not cards; the index styles itself at the source
+   rule (see .settings-card near the top of the settings section). */
 .plugin .settings-card,
 .plugin.dark .settings-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: none;
-  font-weight: 450;
   text-transform: lowercase;
-}
-.plugin .settings-card:hover,
-.plugin.dark .settings-card:hover {
-  background: var(--bg2);
-  border-color: var(--border2);
-  box-shadow: none;
-  transform: none;
 }
 
 /* Live */
@@ -8362,36 +8376,66 @@
   font-size: 14px;
   text-transform: lowercase;
 }
+/* Fields — ruled lines on the page, not boxes: label register above,
+   a hairline underneath, ink on focus. */
 .plugin .live-title-input,
 .plugin .live-select,
 .plugin.dark .live-title-input,
 .plugin.dark .live-select {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  border-radius: 0;
   box-shadow: none;
+  padding-left: 1px;
+  padding-right: 1px;
+  font-size: 13px;
 }
 .plugin .live-title-input:focus,
-.plugin .live-select:focus { border-color: var(--ink); background: var(--card); box-shadow: none; }
+.plugin .live-select:focus { border-color: transparent; border-bottom-color: var(--ink); background: transparent; box-shadow: none; }
 .plugin .live-field-label {
   font-family: var(--f-sans);
   font-weight: 400;
   text-transform: lowercase;
-  letter-spacing: normal;
+  letter-spacing: 0.04em;
 }
+/* "● go live" — a hairline chip carrying the broadcast dot; red is the
+   STATE colour, so the resting control wears it as a line, not a slab. */
 .plugin .live-go-btn,
 .plugin.dark .live-go-btn {
-  background: #D6402E;
-  color: #fff;
-  border: none;
+  background: transparent;
+  color: #D6402E;
+  border: 1px solid #D6402E;
   border-radius: 3px;
   box-shadow: none;
-  font-family: var(--f-serif);
-  font-weight: 400;
-  font-size: 15px;
+  font-family: var(--f-sans);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: -0.005em;
   text-transform: lowercase;
 }
-.plugin .live-go-btn:hover:not(:disabled) { background: #B93526; box-shadow: none; }
+.plugin .live-setup .live-go-btn {
+  width: auto;
+  margin: 4px auto 0;
+  padding: 9px 22px;
+}
+.plugin .live-go-btn::before {
+  content: '●';
+  font-size: 8px;
+  margin-right: 8px;
+  position: relative;
+  top: -1px;
+}
+.plugin .live-go-btn:hover:not(:disabled) { background: rgba(214, 64, 46, 0.06); box-shadow: none; }
+/* The setup badge — a drawn ring, not a frosted disc. */
+.plugin .live-setup-icon,
+.plugin.dark .live-setup-icon {
+  background: transparent;
+  border: 1px solid var(--border2);
+  box-shadow: none;
+}
+/* One readable column in any window. */
+.plugin .live-setup > *:not(.float-orbs-layer) { max-width: 380px; margin-left: auto; margin-right: auto; }
 
 /* Games — lobby + shared chrome (boards keep their own world). */
 .plugin .game-cd-hover-title {
@@ -8415,7 +8459,7 @@
 }
 .plugin .et-setup-label {
   text-transform: lowercase;
-  letter-spacing: normal;
+  letter-spacing: 0.04em;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━
@@ -8436,31 +8480,24 @@
 .plugin .orbit-stat-label,
 .plugin .orbit-group-tt-btn { text-transform: lowercase; }
 
-/* Live panel: full serif. */
+/* Live panel: one family; weight belongs to the registers, never a
+   blanket — the old `* { font-weight: 400 }` flattened the panel. */
 .plugin .live-body,
-.plugin .live-body *,
 .plugin .live-body input,
 .plugin .live-body select,
 .plugin .live-body textarea,
 .plugin .live-body button {
   font-family: var(--f-serif);
-  letter-spacing: 0;
 }
-.plugin .live-body,
-.plugin .live-body * { font-weight: 400; }
 
 /* Settings (list + find people / display / user info / language). */
 .plugin .settings-panel,
-.plugin .settings-panel *,
 .plugin .settings-panel input,
 .plugin .settings-panel select,
 .plugin .settings-panel textarea,
 .plugin .settings-panel button {
   font-family: var(--f-serif);
-  letter-spacing: 0;
 }
-.plugin .settings-panel,
-.plugin .settings-panel * { font-weight: 400; }
 
 /* ── @username handles ── */
 /* The name block is a positioned stack: serif name, handle right under,
@@ -9919,25 +9956,27 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-expand svg { width: 12px; height: 12px; transition: transform .16s ease; }
 .stem-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
 /* ━━━━━━━━━━━━━━━━━━━━━━━
-   One-family voice (2026-08-18)
-   Instrument Serif left the plugin. The voice register — titles,
-   names, month heads, the words that used to speak serif — now steps
-   forward through weight and tracking instead of a second face:
-   medium (500) with tightened tracking against the 400 machinery.
-   Italic asides keep carrying the quiet register.
+   One-family voice (2026-08-18, second pass)
+   The voice register lives AT THE SOURCE rules now (the catalogue-voice
+   block above carries 500/-0.005em); this block only covers the
+   holdouts that have no source rule of their own. Full-strength
+   selectors — the first pass used :where() and lost every specificity
+   fight, which is why the retype looked flat.
 ━━━━━━━━━━━━━━━━━━━━━━━ */
-.plugin :where(.app-title, .cal-month, .live-go-btn, .game-cd-hover-title,
-  .game-finish-title, .game-player-name, .game-chat-meta-name,
-  .fnotif-name, .orbit-orb-tag-name, .chatcal-title, .schip-ev-t,
-  .live-ended-title, .msg-att-audio-name, .msg-link-preview-title,
-  .poker-opponent-name, .poker-showdown-name, .falling-blocks-opponent-name) {
+.plugin .game-finish-title,
+.plugin .game-chat-meta-name,
+.plugin .fnotif-name,
+.plugin .orbit-orb-tag-name,
+.plugin .chatcal-title,
+.plugin .schip-ev-t,
+.plugin .game-cd-hover-title {
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
 }
-/* the big voice moments go a half-step lighter and tighter — large
-   sans at 500 turns into signage */
-.plugin :where(.stem-head h2, .evsheet-title) {
-  font-weight: 460;
+/* the big voice moments — display register */
+.plugin .stem-head h2,
+.plugin .evsheet-title {
+  font-weight: 500;
   letter-spacing: -0.015em;
 }
 /* the fx specimen numeral — a light, tight figure over the plate,

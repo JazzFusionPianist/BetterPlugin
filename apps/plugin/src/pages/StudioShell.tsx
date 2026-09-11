@@ -97,6 +97,32 @@ function mixHexColors(hexes: string[]): string {
   return `#${to2(r)}${to2(g)}${to2(b)}`
 }
 
+/* Region-color math — the audio cards render as DAW clips tinted by
+   the SENDER's avatar_color, so every derived surface is a two-color
+   mix against the studio's paper/ink. */
+const WD_PAPER = '#FBFAF7'
+const WD_INK = '#1A1917'
+
+function hexRgb(h: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
+  const v = m ? parseInt(m[1]!, 16) : 0x4a8fe7 // fallback = default avatar blue
+  return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff]
+}
+
+/** mixHex(a, b, t) — a moved t of the way toward b (t=0 → a, t=1 → b). */
+function mixHex(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexRgb(a)
+  const [br, bg, bb] = hexRgb(b)
+  const to2 = (x: number) => Math.round(x).toString(16).padStart(2, '0')
+  return `#${to2(ar + (br - ar) * t)}${to2(ag + (bg - ag) * t)}${to2(ab + (bb - ab) * t)}`
+}
+
+/** #RRGGBB at an alpha — for the unplayed waveform bars. */
+function hexAlpha(h: string, a: number): string {
+  const [r, g, b] = hexRgb(h)
+  return `rgba(${r},${g},${b},${a})`
+}
+
 /** Same-sender messages closer than this form one bubble burst. */
 const BURST_MS = 4 * 60 * 1000
 
@@ -236,9 +262,13 @@ function useWaveMeta(url: string): WaveMeta | null {
  *  needle. Pointer-down anywhere seeks and dragging keeps scrubbing
  *  (pointer capture — works while paused too). Peaks still decoding →
  *  a quiet 2px dotted baseline in the same grammar. */
-function StudioWaveform({ peaks, frac, height, head, onSeek }: {
+function StudioWaveform({ peaks, frac, height, head, onSeek, playedColor, unplayedColor, needleColor }: {
   peaks: number[] | null; frac: number; height: number; head?: boolean
   onSeek: (frac: number) => void
+  /** Bar/needle inks — default to the catalogue ink/accent grammar;
+   *  the DAW-region cards pass sender-mixed colors, the dark now-bar
+   *  passes paper alphas. */
+  playedColor?: string; unplayedColor?: string; needleColor?: string
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -279,14 +309,16 @@ function StudioWaveform({ peaks, frac, height, head, onSeek }: {
         h = Math.max(2, v * height)
       }
       const played = x + BAR / 2 <= playX
-      g.fillStyle = played ? 'rgba(26,25,23,0.85)' : 'rgba(26,25,23,0.18)'
+      g.fillStyle = played
+        ? (playedColor ?? 'rgba(26,25,23,0.85)')
+        : (unplayedColor ?? 'rgba(26,25,23,0.18)')
       g.fillRect(x, Math.round((height - h) / 2), BAR, Math.round(h))
     }
     if (head || frac > 0) {
-      g.fillStyle = '#1B6E48'
+      g.fillStyle = needleColor ?? '#1B6E48'
       g.fillRect(Math.max(0, Math.min(width - 1.5, playX - 0.75)), 0, 1.5, height)
     }
-  }, [peaks, frac, width, height, head])
+  }, [peaks, frac, width, height, head, playedColor, unplayedColor, needleColor])
 
   const seekAt = (clientX: number) => {
     const el = wrapRef.current
@@ -321,11 +353,13 @@ function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) 
     : <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><path d="M8 5v14l11-7z" /></svg>
 }
 
-/* ── studio audio cards ──────────────────────────────────────────────
-   The studio's OWN card component replaces AudioAttachment's chrome in
-   this chat — but the real AudioAttachment still mounts inside each
-   card (hidden by .wd-ac-import CSS, import button excepted), so the
-   whole import-to-DAW machinery — prefetch → writeAudioFile → drag-out
+/* ── studio audio = DAW regions ──────────────────────────────────────
+   An audio attachment renders as a colored REGION block — a Logic/
+   Ableton clip on the chat lane — tinted by the SENDER's avatar_color.
+   The studio's OWN component replaces AudioAttachment's chrome, but
+   the real AudioAttachment still mounts inside each region (hidden by
+   .wd-ac-import CSS, import button excepted), so the whole
+   import-to-DAW machinery — prefetch → writeAudioFile → drag-out
    arming, __juceImported / cooldown handling — runs byte-for-byte
    unchanged. Playback is a remote control on the shared engine. */
 
@@ -355,63 +389,64 @@ function useStudioTrack(url: string, name: string) {
   return { peaks: meta?.peaks ?? null, active, playing, cur, total, toggle, seek }
 }
 
-/** Single track — the full grammar: [glyph · name · total], the 40px
- *  waveform, then [elapsed · import word]. */
-function StudioAudioSingle({ track }: { track: StudioTrack }) {
+/** One track = one region block. Clip-title strip across the top,
+ *  44px waveform on the region fill, then a quiet transport footer
+ *  [glyph · elapsed ··· total · import word]. All chrome colors are
+ *  mixed from the sender color in-line; geometry lives in CSS. */
+function StudioAudioRegion({ track, color }: { track: StudioTrack; color: string }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
+  const look = useMemo(() => {
+    const played = mixHex(color, WD_INK, 0.45) // bars: sender color deepened
+    return {
+      fill: mixHex(color, WD_PAPER, 0.72),     // region fill: 72% toward paper
+      border: mixHex(color, WD_INK, 0.25),     // edge: 25% toward ink
+      strip: mixHex(color, WD_PAPER, 0.55),    // name band: 55% toward paper
+      played,
+      unplayed: hexAlpha(played, 0.38),        // same bar ink at 38% alpha
+    }
+  }, [color])
   return (
-    <div className="wd-acard">
-      <div className="wd-ac-top">
-        <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
-          <PlayGlyph playing={playing} size={16} />
-        </button>
-        <span className="wd-ac-namewrap"><span className="wd-ac-name">{track.name}</span></span>
-        <span className="wd-ac-dur">{fmtDur(total)}</span>
+    <div className="wd-region" style={{ background: look.fill, borderColor: look.border }}>
+      <div className="wd-rg-strip" style={{ background: look.strip }}>
+        <span className="wd-rg-name" title={track.name}>{track.name}</span>
       </div>
-      <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={40} head={active} onSeek={seek} />
-      <div className="wd-ac-foot">
-        <span className="wd-ac-cur">{fmtDur(cur)}</span>
-        <span className="wd-ac-import">
-          <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+      <StudioWaveform
+        peaks={peaks} frac={total ? cur / total : 0} height={44} head={active} onSeek={seek}
+        playedColor={look.played} unplayedColor={look.unplayed} needleColor={WD_INK}
+      />
+      <div className="wd-rg-foot">
+        <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
+          <PlayGlyph playing={playing} size={14} />
+        </button>
+        <span className="wd-rg-cur">{fmtDur(cur)}</span>
+        <span className="wd-rg-right">
+          <span className="wd-rg-dur">{fmtDur(total)}</span>
+          <span className="wd-ac-import">
+            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+          </span>
         </span>
       </div>
     </div>
   )
 }
 
-/** Multi-audio row — compact grammar: glyph · name · mini 24px
- *  waveform · time · its own import word. */
-function StudioAudioRow({ track }: { track: StudioTrack }) {
-  const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  return (
-    <div className="wd-ac-row">
-      <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
-        <PlayGlyph playing={playing} size={13} />
-      </button>
-      <span className="wd-ac-namewrap"><span className="wd-ac-name" title={track.name}>{track.name}</span></span>
-      <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={24} head={active} onSeek={seek} />
-      <span className="wd-ac-time">{active ? `${fmtDur(cur)} / ${fmtDur(total)}` : fmtDur(total)}</span>
-      <span className="wd-ac-import">
-        <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
-      </span>
-    </div>
-  )
-}
-
-function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
+/** Multi-audio = adjacent clips on a lane: each track its own region
+ *  block, stacked with 5px gaps, all in the sender's color. */
+function StudioAudioCard({ tracks, color }: { tracks: StudioTrack[]; color: string }) {
   if (tracks.length === 0) return null
-  if (tracks.length === 1) return <StudioAudioSingle track={tracks[0]!} />
+  if (tracks.length === 1) return <StudioAudioRegion track={tracks[0]!} color={color} />
   return (
-    <div className="wd-acard multi">
-      {tracks.map(t => <StudioAudioRow key={t.url} track={t} />)}
+    <div className="wd-rgstack">
+      {tracks.map(t => <StudioAudioRegion key={t.url} track={t} color={color} />)}
     </div>
   )
 }
 
-/** Docked now-playing bar — 56px, white over a hairline top rule.
- *  Fixed left cluster (glyph · name · elapsed/total); the REST of the
- *  width is the playing track's waveform (28px, same bar rendering,
- *  same seek-drag) — the waveform IS the scrubber. Grey ✕ far right. */
+/** Floating now-playing bar — the DARK TRANSPORT: an ink object
+ *  floating on paper. Fixed left cluster (glyph · name ·
+ *  elapsed/total); the REST of the width is the playing track's
+ *  waveform (28px, paper bars, accent needle, same seek-drag) — the
+ *  waveform IS the scrubber. Quiet paper ✕ far right. */
 function StudioNowBar({ url, name, playing, cur, dur, onToggle, onSeek, onClose }: {
   url: string; name: string; playing: boolean; cur: number; dur: number
   onToggle: () => void; onSeek: (sec: number) => void; onClose: () => void
@@ -431,6 +466,9 @@ function StudioNowBar({ url, name, playing, cur, dur, onToggle, onSeek, onClose 
           height={28}
           head
           onSeek={f => { if (dur) onSeek(f * dur) }}
+          playedColor="rgba(251,250,247,0.88)"
+          unplayedColor="rgba(251,250,247,0.32)"
+          needleColor="#1B6E48"
         />
       </div>
       <button className="wd-nowbar-x" onClick={onClose} aria-label="close player">
@@ -1737,6 +1775,9 @@ function StudioShellInner({ supabase, user }: Props) {
         } else if (m.attachment_url) {
           const url = m.attachment_url
           const name = m.attachment_name ?? 'file'
+          // DAW regions are tinted by their SENDER — mine included
+          // (profileById carries my own profile row).
+          const regionColor = profileById.get(m.sender_id)?.avatar_color ?? '#4A8FE7'
           if (m.attachment_type === 'image') {
             pieces.push(
               <img key="att" className={`wd-img${tailCls()}`} src={url} alt={name}
@@ -1748,13 +1789,14 @@ function StudioShellInner({ supabase, user }: Props) {
             )
           } else if (m.attachment_type === 'audio') {
             pieces.push(
-              <StudioAudioCard key="att" tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined }]} />,
+              <StudioAudioCard key="att" color={regionColor}
+                tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined }]} />,
             )
           } else if (m.attachment_type === 'multi-audio') {
             let tracks: { url: string; name: string }[] = []
             try { tracks = JSON.parse(url) } catch { /* fall through to chip */ }
             pieces.push(tracks.length > 0
-              ? <StudioAudioCard key="att" tracks={tracks} />
+              ? <StudioAudioCard key="att" tracks={tracks} color={regionColor} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
           } else {
             pieces.push(<div key="att" className="wd-file"><i>▤</i><span>{name}</span></div>)

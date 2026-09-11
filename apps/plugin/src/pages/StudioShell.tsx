@@ -81,7 +81,7 @@ function dayLabel(iso: string): string {
   const yest = new Date(); yest.setDate(today.getDate() - 1)
   if (dayKey(iso) === dayKey(today.toISOString())) return 'today'
   if (dayKey(iso) === dayKey(yest.toISOString())) return 'yesterday'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toLowerCase()
 }
 
 /** One-line preview of a message for the rail rows. */
@@ -829,7 +829,7 @@ function StudioShellInner({ supabase, user }: Props) {
                     {messagesLoading
                       ? <div className="wd-quiet">…</div>
                       : chatRows.length > 0
-                        ? <>{chatRows}<div ref={chatEndRef} /></>
+                        ? <div className="wd-chat-col">{chatRows}<div ref={chatEndRef} /></div>
                         : <div className="wd-quiet">no messages yet — say hi</div>}
                   </div>
                   {uploads.length > 0 && (

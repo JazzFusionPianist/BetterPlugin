@@ -10,13 +10,21 @@ OrbAudioProcessorEditor::OrbAudioProcessorEditor (OrbAudioProcessor& p)
     {
         const int w = processorRef.editorW.load();
         const int h = processorRef.editorH.load();
+       #ifdef ORB_SURFACE
+        if (w >= 900 && h >= 600)        setSize (w, h);   // anything above the workspace floor restores
+       #else
         if (w >= kWidth && h >= kHeight) setSize (w, h);
+       #endif
         else                             setSize (kWidth, kHeight);
     }
     // Freely resizable from the bottom-right corner (second arg adds the
     // corner grip); programmatic setSize() from JS keeps working too.
     setResizable (true, true);
+    #ifdef ORB_SURFACE
+    setResizeLimits (900, 600, 2200, 1400);   // wide workspace: roomy ceiling, laptop-friendly floor
+   #else
     setResizeLimits (kWidth, kHeight, 1600, 1200);
+   #endif
 
     // Register a callback the processor can invoke from the JS-callable
     // setPluginSize native function.

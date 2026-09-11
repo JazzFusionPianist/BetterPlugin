@@ -15,7 +15,7 @@
 }
 
 .wd {
-  width: 820px; height: 560px; display: flex; background: #FBFAF7; color: #1A1917;
+  width: 100%; height: 100%; display: flex; background: #FBFAF7; color: #1A1917;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13px; border: 1px solid rgba(26,25,23,.5); overflow: hidden;
 
@@ -68,7 +68,7 @@
 .wd-sec { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase; padding: 12px 16px 5px; }
 .wd-row { display: flex; align-items: center; gap: 9px; padding: 7px 16px; cursor: pointer; }
 .wd-row:hover { background: rgba(26,25,23,.03); }
-.wd-row.on { background: var(--acc-06); box-shadow: inset 2px 0 0 var(--acc); }
+.wd-row.on { background: var(--acc-10); box-shadow: inset 2px 0 0 var(--acc); }
 .wd-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 11px; position: relative; }
 .wd-av.grp { border-radius: 8px; }
@@ -102,12 +102,23 @@
 .wd-tab.off i { color: #C0BCB3; }
 
 /* ── chat tab ─────────────────────────────────────────────────────── */
-.wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; min-height: 0; }
-.wd-day { text-align: center; font-size: 10px; color: #A5A199; margin: 4px 0 8px; flex-shrink: 0; }
-.wd-meta { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; }
+.wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0;
+  scrollbar-width: none; }
+.wd-chat::-webkit-scrollbar { display: none; }
+/* One readable Slack-style column — everything (own messages included)
+   left-aligned inside it; on wide windows it stays put at the left. */
+.wd-chat-col { width: 100%; max-width: 640px; margin-right: auto;
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+/* Day divider — hairline rules extending both sides of the label. */
+.wd-day { display: flex; align-items: center; gap: 10px; text-align: center; font-size: 10px;
+  color: #A5A199; text-transform: lowercase; margin: 10px 0; flex-shrink: 0; }
+.wd-day::before, .wd-day::after { content: ''; flex: 1; height: 1px; background: rgba(26,25,23,.08); }
+.wd-chat-col > .wd-day:first-child { margin-top: 0; }
+.wd-meta { display: flex; align-items: baseline; gap: 7px; margin-top: 14px; }  /* + 2px gap = 16px */
+.wd-day + .wd-meta { margin-top: 2px; }                                         /* + 2px gap = 4px  */
 .wd-meta b { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 13.5px; }
 .wd-meta span { font-size: 9.5px; color: #A5A199; }
-.wd-msg { font-size: 13px; line-height: 1.5; max-width: 520px; word-break: break-word; white-space: pre-wrap; }
+.wd-msg { font-size: 13.5px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
 .wd-file { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(26,25,23,.16); background: #fff;
   padding: 8px 12px; margin-top: 5px; max-width: 320px; border-radius: 4px; }
 .wd-file i { font-style: normal; color: var(--acc); }
@@ -124,37 +135,40 @@
 .wd-quiet { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
   font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; font-size: 13px; color: #A5A199; }
 
-/* Read receipts — quiet fine-print under my latest-read message.
+/* Read receipts — quiet fine-print tucked right under my latest-read
+   message, right-aligned INSIDE the message column (never outside it).
    DMs get "read ✓" (accent check); groups get a tiny avatar stack. */
 .wd-read { display: flex; justify-content: flex-end; align-items: center; gap: 3px;
-  max-width: 520px; margin-top: 2px; font-size: 9px; color: #A5A199; }
+  width: 100%; font-size: 10px; line-height: 1; color: #A5A199; }
 .wd-read svg { color: var(--acc); display: block; }
 .wd-read-avs { display: flex; padding-left: 3px; }
-.wd-read-avs > span { width: 13px; height: 13px; border-radius: 50%; margin-left: -4px; overflow: hidden;
+.wd-read-avs > span { width: 12px; height: 12px; border-radius: 50%; margin-left: -4px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px;
   border: 1.5px solid #FBFAF7; }
+.wd-read-avs > span:first-child { margin-left: 0; }
 .wd-read-avs img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ── input bar ────────────────────────────────────────────────────── */
 .wd-uploading { margin: 0 22px 6px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px;
   font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
   font-size: 11px; color: #A5A199; }
-.wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center;
-  border: 1px solid rgba(26,25,23,.5); background: #fff; border-radius: 6px; padding: 9px 12px; flex-shrink: 0; }
+.wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center; min-height: 44px;
+  border: 1px solid rgba(26,25,23,.5); background: #fff; border-radius: 6px; padding: 7px 8px 7px 8px; flex-shrink: 0; }
 .wd-input textarea { flex: 1; border: none; outline: none; resize: none; background: transparent;
-  font-family: inherit; font-size: 13px; line-height: 1.4; color: #1A1917; padding: 0;
+  font-family: inherit; font-size: 13px; line-height: 1.4; color: #1A1917; padding: 0; align-self: center;
   max-height: 90px; min-height: 18px; }
-.wd-input textarea::placeholder { color: #A5A199; }
-.wd-input .wd-attach { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 4px; background: transparent;
-  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; font-size: 14px; line-height: 1; padding: 0;
+.wd-input textarea::placeholder { color: var(--t3); }
+.wd-input .wd-attach { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: transparent;
+  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; font-size: 14px; line-height: 1; padding: 0; align-self: center;
   display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; }
 .wd-input .wd-attach:hover { border-color: rgba(26,25,23,.4); color: #1A1917; }
-.wd-input .wd-send { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 4px; background: var(--acc); display: flex; align-items: center;
-  justify-content: center; color: #fff; font-size: 12px; border: none; cursor: pointer; font-family: inherit; }
+.wd-input .wd-send { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: var(--acc); display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 12px; border: none; cursor: pointer; font-family: inherit; align-self: center; }
 .wd-input .wd-send:disabled { background: #C0BCB3; cursor: default; }
 
 /* ── home (no selection) + my calendar ────────────────────────────── */
-.wd-home { flex: 1; min-height: 0; overflow-y: auto; padding: 46px 48px 24px; }
+.wd-home { flex: 1; min-height: 0; overflow-y: auto; padding: 46px 48px 24px; scrollbar-width: none; }
+.wd-home::-webkit-scrollbar { display: none; }
 .wd-home-greet { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 26px; }
 .wd-home-date { font-size: 11px; color: #A5A199; margin-top: 3px; }
 .wd-home .wd-up { margin-top: 28px; }
@@ -172,7 +186,8 @@
   font-style: italic; font-size: 13px; color: #A5A199; }
 
 .wd-me { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.wd-me-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 8px; }
+.wd-me-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 8px; scrollbar-width: none; }
+.wd-me-scroll::-webkit-scrollbar { display: none; }
 .wd-sprompt { margin: 0 22px 14px; flex-shrink: 0; }
 
 /* ── notes tab ────────────────────────────────────────────────────── */

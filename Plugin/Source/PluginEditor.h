@@ -36,8 +36,8 @@ private:
    #ifdef ORB_SURFACE
     // Split-out single-purpose builds (Orb Chat → Orb Studio) open as a
     // wide workspace, not the compact tower.
-    static constexpr int kWidth  = 820;
-    static constexpr int kHeight = 560;
+    static constexpr int kWidth  = 1120;
+    static constexpr int kHeight = 720;
    #else
     static constexpr int kWidth  = 300;
     static constexpr int kHeight = 500;

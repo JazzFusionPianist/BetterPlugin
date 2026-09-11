@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, PAPER, BLUE, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES } from './FxPanel'
+import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
@@ -85,6 +85,9 @@ const MIX_FAN = 26   // degrees between a mix print's input ports
  *  at the cuts, the first share in the second ink. */
 function MixArt ({ shares }: { shares: number[] }) {
   const RR = 86, C = 110
+  const lvl = useContext(StrokeLevel) ?? 0
+  const PAPER = strokeFor(lvl)
+  const BLUE = lvl > 0.62 ? strokeFor(lvl) : BLUE_INK
   const total = shares.reduce((s, x) => s + x, 0) || 1
   let ang = -Math.PI / 2
   const arcs = shares.map((s, i) => {
@@ -459,10 +462,11 @@ export default function FxWall ({ size }: Props) {
 
 
   return (
-    <>
+    <StrokeLevel.Provider value={litLevel}>
       <div
         ref={wallRef}
         className={`sg-wall${drag ? ` dragging ${drag.kind}` : ''}`}
+        style={{ '--sg-ink': strokeFor(litLevel) } as React.CSSProperties}
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
         onPointerDown={(e) => { setSel(null); setConfirm(null); setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y }) }}
@@ -654,7 +658,7 @@ export default function FxWall ({ size }: Props) {
         {oldEngine && <p className="fx-note sg-note">this room grew a wall — rebuild the plugin to patch it.</p>}
       </div>
 
-      <div className={`sg-shelf${full ? ' full' : ''}`}>
+      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ '--sg-ink': strokeFor(litLevel) } as React.CSSProperties}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
           <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
@@ -663,6 +667,6 @@ export default function FxWall ({ size }: Props) {
           </div>
         ))}
       </div>
-    </>
+    </StrokeLevel.Provider>
   )
 }

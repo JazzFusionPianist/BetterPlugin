@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
 
@@ -140,10 +140,21 @@ function mixHex (h1: string, h2: string, t: number): string {
 }
 const strokeFor = (a: number) => mixHex(PAPER, INK, Math.min(1, Math.max(0, (a - 0.5) * 1.7)))
 const accentFor = (a: number) => mixHex(BLUE, INK, Math.min(1, Math.max(0, (a - 0.62) * 2.4)))
+/* On the wall many prints share one room: the ink must follow how
+   bright the WALL is, not each print's own hand — a low print on a
+   bright wall would otherwise draw paper on paper. The wall provides
+   its level here; the single room leaves it unset and each print
+   reads its own hand as before. */
+const StrokeLevel = createContext<number | null>(null)
+function useInks (a: number): { s: string; acc: string } {
+  const lvl = useContext(StrokeLevel)
+  const x = lvl ?? a
+  return { s: strokeFor(x), acc: accentFor(x) }
+}
 
 /* ── tone: a field of horizontal hairlines whose weight tilts ────────── */
 function ToneArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const tilt = (a - 0.5) * 2
   const lines = []
   for (let y = -R + 4; y <= R - 4; y += 6) {
@@ -159,7 +170,7 @@ function ToneArt ({ a }: { a: number }) {
 
 /* ── tape: concentric pressings that warp and thicken with drive ─────── */
 function TapeArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const rings = []
   for (let ri = 0; ri < 10; ri++) {
     const r = 12 + ri * 8.2
@@ -200,7 +211,7 @@ function SpaceArt ({ a, decay = 0.5, variant = 0, onDecay }: {
   variant?: number
   onDecay?: (next: number, force?: boolean) => void
 }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const drag = useRef<{ y: number; d: number; last: number } | null>(null)
   const count = Math.round(a * 7)
   const rings = []
@@ -259,7 +270,7 @@ function SpaceArt ({ a, decay = 0.5, variant = 0, onDecay }: {
 
 /* ── stereo: one circle becomes two; the shared lens turns blue ──────── */
 function StereoArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const r = 60
   const d = a * 30
   const h = Math.sqrt(Math.max(0, r * r - d * d))
@@ -280,7 +291,7 @@ function StereoArt ({ a }: { a: number }) {
 /* ── glue: a scattered field pulled into a sunflower cluster ─────────── */
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))
 function GlueArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const dots = []
   for (let i = 0; i < 46; i++) {
     const th = i * GOLDEN
@@ -309,7 +320,7 @@ function GainArt ({ a, pol = 0, onFlip }: {
   pol?: number
   onFlip?: (bit: number) => void
 }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const top = C - R + 10, bot = C + R - 10
   const y = bot + (top - bot) * a
   const ticks = []
@@ -352,7 +363,7 @@ function GainArt ({ a, pol = 0, onFlip }: {
 
 /* ── mod: stacked waves drifting out of phase into shimmer ───────────── */
 function ModArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const rows = []
   for (let k = 0; k < 9; k++) {
     const y0 = C - 64 + k * 16
@@ -376,7 +387,7 @@ function ModArt ({ a }: { a: number }) {
 /* ── cut: a forest of spectrum hairlines; the cut side erodes away and a
       blue boundary marks the knife ────────────────────────────────────── */
 function CutArt ({ a, variant = 0 }: { a: number; variant?: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const bars = []
   const N = 27
   let lo = 0, hi = 1
@@ -407,7 +418,7 @@ function CutArt ({ a, variant = 0 }: { a: number; variant?: number }) {
 /* ── amp: rows of sine pressed into the ceiling — flat-tops grow with the
       drive until the wave is a wall ───────────────────────────────────── */
 function AmpArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const rows = []
   for (let k = 0; k < 7; k++) {
     const y0 = C - 57 + k * 19
@@ -431,7 +442,7 @@ function AmpArt ({ a }: { a: number }) {
 /* ── doubler: the same print registered twice — the ghost pass drifts off
       the master as the second take gets louder ──────────────────────────── */
 function DoublerArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const dx = 3 + a * 22
   const dy = 2 + a * 7
   const ghost = []
@@ -463,7 +474,7 @@ function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
   onDiv?: (next: number) => void
   onFb?: (next: number, force?: boolean) => void
 }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const dragDiv = useRef<{ x: number; d: number } | null>(null)
   const dragFb = useRef<{ x: number; f: number; last: number } | null>(null)
   const sp = 10 + DIV_BEATS[div] * 26
@@ -562,7 +573,7 @@ function TremoloArt ({ a, variant = 0, curve, onDraw }: {
   curve?: number[]
   onDraw?: (index: number, value: number, done?: boolean) => void
 }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
   const pts: string[] = []
   for (let i = 0; i <= 64; i++) {
@@ -619,7 +630,7 @@ function TremoloArt ({ a, variant = 0, curve, onDraw }: {
 
 /* ── arp: the ladder the pitch climbs, one rung per step ────────────── */
 function ArpArt ({ a, variant = 0, interval = 12 }: { a: number; variant?: number; interval?: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const range = a * 24
   const count = Math.max(1, Math.floor(range / Math.max(1, interval) + 1e-4) + 1)
   const order: number[] = []
@@ -646,7 +657,7 @@ function ArpArt ({ a, variant = 0, interval = 12 }: { a: number; variant?: numbe
 
 /* ── radio: a dial; the needle swings up the band as the knob goes ─── */
 function RadioArt ({ a }: { a: number }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const ticks = []
   for (let i = 0; i <= 24; i++) {
     const ang = Math.PI + (i / 24) * Math.PI
@@ -679,7 +690,7 @@ export const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯
 function HarmonyArt ({ a, degrees = 2, keyRoot = 0, scale = 0, chromatic = false }: {
   a: number; degrees?: number; keyRoot?: number; scale?: number; chromatic?: boolean
 }) {
-  const s = strokeFor(a), acc = accentFor(a)
+  const { s, acc } = useInks(a)
   const line = (dy: number) => {
     const pts: string[] = []
     for (let i = 0; i <= 40; i++) {
@@ -1013,4 +1024,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel }

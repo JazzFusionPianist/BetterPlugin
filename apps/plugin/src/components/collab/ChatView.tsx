@@ -818,7 +818,7 @@ const SCHEDULE_HINT = new RegExp(
   ].join('|'),
   'i',
 )
-function looksLikeSchedule(text: string): boolean {
+export function looksLikeSchedule(text: string): boolean {
   return text.length <= 300 && SCHEDULE_HINT.test(text)
 }
 
@@ -830,7 +830,7 @@ const fmtChipWhen = (e: NewCalendarEvent | CalendarEvent) => {
   return e.all_day ? day : `${day} · ${time}`
 }
 
-function ScheduleChip({
+export function ScheduleChip({
   text, onParse, onSave, onDone,
 }: {
   text: string

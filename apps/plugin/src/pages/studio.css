@@ -101,44 +101,94 @@
 .wd-tab i { font-style: normal; color: var(--acc); margin-left: 4px; font-size: 10px; }
 .wd-tab.off i { color: #C0BCB3; }
 
-/* ── chat tab ─────────────────────────────────────────────────────── */
+/* ── chat tab — messenger grammar (kakao/imessage) ────────────────── */
 .wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0;
   scrollbar-width: none; }
 .wd-chat::-webkit-scrollbar { display: none; }
-/* One readable Slack-style column — everything (own messages included)
-   left-aligned inside it; on wide windows it stays put at the left. */
-.wd-chat-col { width: 100%; max-width: 640px; margin-right: auto;
-  display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
-/* Day divider — hairline rules extending both sides of the label. */
+/* Full-pane message column — their bubbles hang left off the avatar
+   column, mine hug the right edge. No max-width cap on the column. */
+.wd-chat-col { width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+/* Day divider — label dead-centred, hairline rules to both pane edges. */
 .wd-day { display: flex; align-items: center; gap: 10px; text-align: center; font-size: 10px;
-  color: #A5A199; text-transform: lowercase; margin: 10px 0; flex-shrink: 0; }
+  color: #A5A199; text-transform: lowercase; margin: 14px 0 10px; flex-shrink: 0; }
 .wd-day::before, .wd-day::after { content: ''; flex: 1; height: 1px; background: rgba(26,25,23,.08); }
 .wd-chat-col > .wd-day:first-child { margin-top: 0; }
-.wd-meta { display: flex; align-items: baseline; gap: 7px; margin-top: 14px; }  /* + 2px gap = 16px */
-.wd-day + .wd-meta { margin-top: 2px; }                                         /* + 2px gap = 4px  */
-.wd-meta b { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 13.5px; }
-.wd-meta span { font-size: 9.5px; color: #A5A199; }
-.wd-msg { font-size: 13.5px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+
+/* Message rows. Burst spacing: 2px inside a burst, 12px between bursts. */
+.wd-mrow { display: flex; align-items: flex-start; margin-top: 2px; }
+.wd-mrow.first { margin-top: 12px; }
+.wd-day + .wd-mrow { margin-top: 0; }
+.wd-mrow.mine { justify-content: flex-end; }
+
+/* 28px avatar column — reserved on every their-row so burst bubbles
+   align; the avatar itself paints only on a burst's first message. */
+.wd-mav { width: 28px; flex-shrink: 0; margin-right: 8px; }
+.wd-mav > span { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 11.5px; overflow: hidden; }
+.wd-mav img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+.wd-mcol { display: flex; flex-direction: column; align-items: flex-start; max-width: min(60%, 520px); min-width: 0; }
+.wd-mrow.mine .wd-mcol { align-items: flex-end; }
+/* Sender name — tiny serif above a burst's first bubble (groups only). */
+.wd-mname { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 11px;
+  color: #6E6B63; margin: 0 0 3px 2px; }
+
+/* Bubble line: bubble + tiny timestamp OUTSIDE at the tail, tied to the
+   bubble's bottom. Time sits right of their last bubble, left of mine. */
+.wd-mline { display: flex; align-items: flex-end; gap: 6px; max-width: 100%; margin-top: 2px; min-width: 0; }
+.wd-mcol > .wd-mline:first-child, .wd-mname + .wd-mline { margin-top: 0; }
+.wd-mtime { font-size: 9.5px; color: #A5A199; flex-shrink: 0; margin-bottom: 1px; white-space: nowrap; }
+
+/* Bubbles. Theirs: white card + hairline; mine: ink on paper text.
+   The .tail notch (4px corner) marks the corner nearest the avatar —
+   mirrored top-right on my side. */
+.wd-bub { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 8px 12px;
+  font-size: 13.5px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; min-width: 0; }
+.wd-mrow.theirs .wd-bub.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-bub { background: #1A1917; border-color: #1A1917; color: #FBFAF7; }
+.wd-mrow.mine .wd-bub.tail { border-top-right-radius: 4px; }
+.wd-mrow.mine .wd-bub .msg-link:hover { color: #FBFAF7; opacity: .8; }
+
+/* Images / video render AS the bubble. min-width 0 lets the replaced
+   element shrink inside the flex line (timestamp shares the row). */
+.wd-img { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); cursor: pointer; min-width: 0; height: auto; }
+.wd-mrow.theirs .wd-img.tail, .wd-mrow.theirs .wd-vid.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-img.tail, .wd-mrow.mine .wd-vid.tail { border-top-right-radius: 4px; }
+.wd-vid { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); background: #000; min-width: 0; }
+
+/* Non-media attachments — small white card chip on either side. */
 .wd-file { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(26,25,23,.16); background: #fff;
-  padding: 8px 12px; margin-top: 5px; max-width: 320px; border-radius: 4px; }
+  padding: 8px 12px; max-width: 320px; border-radius: 12px; }
 .wd-file i { font-style: normal; color: var(--acc); }
 .wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
-.wd-att-audio { margin-top: 5px; max-width: 360px; }
+
+/* Audio keeps the white AudioAttachment card on BOTH sides. */
+.wd-att-audio { width: min(100%, 360px); display: flex; flex-direction: column; gap: 4px; }
 .wd-att-audio .msg-att-audio,
-.wd-att-audio .msg-att-audio-group { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 4px; }
+.wd-att-audio .msg-att-audio-group { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 10px; }
 .wd-att-audio .msg-att-audio-header svg,
 .wd-att-audio .msg-att-audio-group-header svg { color: var(--acc); }
 .wd-att-audio .msg-att-time { color: #A5A199; }
-.wd-img { display: block; margin-top: 5px; max-width: 260px; max-height: 200px; border-radius: 4px;
-  border: 1px solid rgba(26,25,23,.16); cursor: pointer; object-fit: cover; }
+
+/* Expired attachment (7-day temp files) — quiet italic line, no bubble. */
+.wd-expired { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 12px; color: #A5A199; padding: 2px; }
+
+/* Under-bubble extras — link preview card + calendar chip stay inside
+   the bubble column; the card stays a white card on my side too. */
+.wd-linkcard { max-width: 100%; margin-top: 2px; }
+.wd-linkcard .msg-link-preview { margin-top: 0; max-width: 320px; }
+.wd-chip { margin-top: 2px; display: flex; max-width: 100%; }
+
 .wd-quiet { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
   font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; font-size: 13px; color: #A5A199; }
 
-/* Read receipts — quiet fine-print tucked right under my latest-read
-   message, right-aligned INSIDE the message column (never outside it).
-   DMs get "read ✓" (accent check); groups get a tiny avatar stack. */
-.wd-read { display: flex; justify-content: flex-end; align-items: center; gap: 3px;
+/* Read receipts — right edge, tucked 2px under my latest-read bubble.
+   DMs get "read ✓" (accent check); groups get a 12px avatar stack. */
+.wd-read { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px;
   width: 100%; font-size: 10px; line-height: 1; color: #A5A199; }
 .wd-read svg { color: var(--acc); display: block; }
 .wd-read-avs { display: flex; padding-left: 3px; }

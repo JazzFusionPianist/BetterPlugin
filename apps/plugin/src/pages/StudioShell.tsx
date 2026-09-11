@@ -30,10 +30,12 @@ import { useMessages } from '../hooks/useMessages'
 import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '../hooks/useCalendarEvents'
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
+import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
-import { AudioAttachment } from '../components/collab/ChatView'
+import LinkPreviewCard from '../components/collab/LinkPreviewCard'
+import { AudioAttachment, ScheduleChip, looksLikeSchedule } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { ChatTarget, Message, Profile } from '../types/collab'
 import './studio.css'
@@ -64,6 +66,9 @@ function mixHexColors(hexes: string[]): string {
   const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
   return `#${to2(r)}${to2(g)}${to2(b)}`
 }
+
+/** Same-sender messages closer than this form one bubble burst. */
+const BURST_MS = 4 * 60 * 1000
 
 function fmtTime(iso: string): string {
   const d = new Date(iso)
@@ -207,8 +212,9 @@ function UpcomingRows({ events, groupTitleById, limit, nowTick }: {
 }
 
 /** Shared per-conversation notepad. One serif page per conversation,
- *  autosaved (800ms debounce) and kept live over realtime. Degrades to a
- *  quiet line if the conversation_notes table hasn't been deployed yet. */
+ *  autosaved (800ms debounce) and kept live over realtime. The
+ *  conversation_notes table is live in prod; the quiet fallback line
+ *  only shows if the initial load errors out. */
 function StudioNotes({ supabase, conversationId, userId, nameOf }: {
   supabase: SupabaseClient; conversationId: string; userId: string
   nameOf: (id: string | null) => string
@@ -241,7 +247,7 @@ function StudioNotes({ supabase, conversationId, userId, nameOf }: {
       .maybeSingle()
       .then(({ data, error }) => {
         if (!alive) return
-        if (error) { setState('missing'); return }  // table not deployed yet
+        if (error) { setState('missing'); return }  // load error — quiet fallback
         setContent(data?.content ?? '')
         latestRef.current = data?.content ?? ''
         setMeta({ by: data?.updated_by ?? null, at: data?.updated_at ?? null })
@@ -281,7 +287,7 @@ function StudioNotes({ supabase, conversationId, userId, nameOf }: {
   }
 
   if (state === 'loading') return <div className="wd-quiet">…</div>
-  if (state === 'missing') return <div className="wd-quiet">notes arrive after the next deploy</div>
+  if (state === 'missing') return <div className="wd-quiet">couldn’t load notes — try again in a moment</div>
 
   return (
     <div className="wd-notes">
@@ -571,11 +577,42 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE])
 
-  // Auto-scroll chat to the newest message.
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  // Chat scroll — jump to the bottom whenever a conversation (re)opens;
+  // after that, new messages re-pin the view only while the reader is
+  // already near the bottom (<120px). Scrolled up = reading history —
+  // leave them exactly where they are.
+  const NEAR_BOTTOM_PX = 120
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const stickRef = useRef(true)          // near-bottom as of the last scroll event
+  const chatKeyRef = useRef('')          // which conversation the pane last showed
   useEffect(() => {
-    if (tab === 'chat') chatEndRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages, tab, sel])
+    const el = chatScrollRef.current
+    if (tab !== 'chat' || !el) { chatKeyRef.current = ''; return }
+    const key = JSON.stringify(sel)
+    const opened = chatKeyRef.current !== key
+    chatKeyRef.current = key
+    if (opened || stickRef.current) {
+      el.scrollTop = el.scrollHeight
+      stickRef.current = true
+    }
+  }, [messages, messagesLoading, tab, sel])
+  // Track the reader's position, and keep the view pinned while
+  // late-loading content (images, link-preview cards) grows the list —
+  // but only when they were already at the bottom.
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (tab !== 'chat' || !el) return
+    const onScroll = () => {
+      stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    const ro = new ResizeObserver(() => {
+      if (stickRef.current) el.scrollTop = el.scrollHeight
+    })
+    ro.observe(el)
+    for (const child of Array.from(el.children)) ro.observe(child)
+    return () => { el.removeEventListener('scroll', onScroll); ro.disconnect() }
+  }, [messages, messagesLoading, tab, sel])
 
   const openSel = useCallback((next: Sel) => {
     setSel(next)
@@ -622,94 +659,169 @@ function StudioShellInner({ supabase, user }: Props) {
     return map
   }, [reads, messages, selectedGroup, selectedProfile, profileById, user.id])
 
-  // ── slack-style message rows ────────────────────────────────────────
+  // ── messenger rows (kakao/imessage grammar) ─────────────────────────
+  // Calendar-chip verdicts survive reloads (ChatView parity) — a message
+  // already saved (or waved off) doesn't re-offer its chip forever.
+  const [chipDone, setChipDone] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('orb_cal_chip_done') ?? '[]') as string[]) }
+    catch { return new Set() }
+  })
+  const markChipDone = useCallback((msgId: string) => {
+    setChipDone(prev => {
+      const next = new Set(prev)
+      next.add(msgId)
+      try { localStorage.setItem('orb_cal_chip_done', JSON.stringify([...next].slice(-200))) } catch { /* full/blocked */ }
+      return next
+    })
+  }, [])
+
   const chatRows = useMemo(() => {
     const rows: ReactNode[] = []
-    let prevSender: string | null = null
-    let prevTime = 0
-    let prevDay = ''
-    for (const m of messages) {
+    const isGroup = !!selectedGroup
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]!
+      const prev = i > 0 ? messages[i - 1]! : null
+      const next = i < messages.length - 1 ? messages[i + 1]! : null
       const t = new Date(m.created_at).getTime()
       const dk = dayKey(m.created_at)
-      if (dk !== prevDay) {
-        rows.push(<div key={`day-${dk}-${m.id}`} className="wd-day">{dayLabel(m.created_at)}</div>)
-        prevDay = dk
-        prevSender = null
+      const newDay = !prev || dayKey(prev.created_at) !== dk
+      // Burst = consecutive same-sender messages under 4 minutes apart.
+      const first = newDay || prev!.sender_id !== m.sender_id
+        || t - new Date(prev!.created_at).getTime() > BURST_MS
+      const lastInBurst = !next || dayKey(next.created_at) !== dk
+        || next.sender_id !== m.sender_id
+        || new Date(next.created_at).getTime() - t > BURST_MS
+      const isMine = m.sender_id === user.id
+      const senderP = isMine ? undefined : profileById.get(m.sender_id)
+
+      if (newDay) {
+        rows.push(<div key={`day-${dk}`} className="wd-day">{dayLabel(m.created_at)}</div>)
       }
-      if (m.sender_id !== prevSender || t - prevTime > 5 * 60 * 1000) {
-        const name = m.sender_id === user.id
-          ? (me?.display_name ?? 'me')
-          : (profileById.get(m.sender_id)?.display_name ?? '…')
-        rows.push(
-          <div key={`meta-${m.id}`} className="wd-meta">
-            <b>{name}</b><span>{fmtTime(m.created_at)}</span>
+
+      // Bubble-like pieces, attachment first then text (ChatView's paint
+      // order). The tail notch sits on the burst's first piece; the
+      // outside timestamp rides the burst's last piece.
+      const pieces: ReactNode[] = []
+      const tailCls = () => (first && pieces.length === 0 ? ' tail' : '')
+      if (m.attachment_type === 'game_invite') {
+        pieces.push(
+          <div key="att" className="wd-file">
+            <i>◳</i><span>game invite</span><small>{m.attachment_name ?? ''}</small>
           </div>,
         )
-      }
-      prevSender = m.sender_id
-      prevTime = t
-      if (m.content) rows.push(<div key={`c-${m.id}`} className="wd-msg">{m.content}</div>)
-      if (m.attachment_url && m.attachment_type && !m.attachment_expired) {
-        const { attachment_url: url, attachment_type: type } = m
-        const name = m.attachment_name ?? 'file'
-        if (type === 'audio') {
-          rows.push(
-            <div key={`a-${m.id}`} className="wd-att-audio">
-              <AudioAttachment url={url} name={name} metadata={m.attachment_metadata ?? undefined} />
-            </div>,
-          )
-        } else if (type === 'multi-audio') {
-          let tracks: { url: string; name: string }[] = []
-          try { tracks = JSON.parse(url) } catch { /* fall through to card */ }
-          if (tracks.length > 0) {
-            rows.push(
-              <div key={`a-${m.id}`} className="wd-att-audio">
-                {tracks.map(tr => <AudioAttachment key={tr.url} url={tr.url} name={tr.name} />)}
+      } else if (m.attachment_type) {
+        if (m.attachment_expired) {
+          pieces.push(<div key="att" className="wd-expired">file expired (7 days)</div>)
+        } else if (m.attachment_url) {
+          const url = m.attachment_url
+          const name = m.attachment_name ?? 'file'
+          if (m.attachment_type === 'image') {
+            pieces.push(
+              <img key="att" className={`wd-img${tailCls()}`} src={url} alt={name}
+                onClick={() => { void openExternalUrl(url) }} />,
+            )
+          } else if (m.attachment_type === 'video') {
+            pieces.push(
+              <video key="att" className={`wd-vid${tailCls()}`} src={url} controls preload="metadata" />,
+            )
+          } else if (m.attachment_type === 'audio') {
+            pieces.push(
+              <div key="att" className="wd-att-audio">
+                <AudioAttachment url={url} name={name} metadata={m.attachment_metadata ?? undefined} />
               </div>,
             )
+          } else if (m.attachment_type === 'multi-audio') {
+            let tracks: { url: string; name: string }[] = []
+            try { tracks = JSON.parse(url) } catch { /* fall through to chip */ }
+            pieces.push(tracks.length > 0
+              ? (
+                <div key="att" className="wd-att-audio">
+                  {tracks.map(tr => <AudioAttachment key={tr.url} url={tr.url} name={tr.name} />)}
+                </div>
+              )
+              : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
           } else {
-            rows.push(<div key={`a-${m.id}`} className="wd-file"><i>♪</i><span>{name}</span></div>)
+            pieces.push(<div key="att" className="wd-file"><i>▤</i><span>{name}</span></div>)
           }
-        } else if (type === 'image') {
-          rows.push(
-            <img key={`a-${m.id}`} className="wd-img" src={url} alt={name}
-              onClick={() => window.open(url, '_blank')} />,
-          )
-        } else if (type === 'game_invite') {
-          rows.push(<div key={`a-${m.id}`} className="wd-file"><i>◳</i><span>game invite</span><small>{name}</small></div>)
-        } else {
-          rows.push(<div key={`a-${m.id}`} className="wd-file"><i>▤</i><span>{name}</span></div>)
         }
       }
-      // Read receipt under my latest-read message — "read ✓" for DMs,
-      // tiny avatar stack for groups.
-      const readers = m.sender_id === user.id ? readersByMsgId.get(m.id) : undefined
-      if (readers && readers.length > 0) {
-        rows.push(
-          <div key={`r-${m.id}`} className="wd-read">
-            {selectedGroup ? (
-              <span className="wd-read-avs">
-                {readers.slice(0, 4).map(r => (
-                  <span key={r.id} style={{ background: r.avatar_color }}>
-                    {r.avatar_url ? <img src={r.avatar_url} alt="" /> : r.initials.slice(0, 1)}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <>
-                <span>read</span>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 12.5l5 5L20 6.5" />
-                </svg>
-              </>
-            )}
-          </div>,
+      if (m.content) {
+        pieces.push(
+          <div key="txt" className={`wd-bub${tailCls()}`}>{linkify(m.content)}</div>,
         )
       }
+      if (pieces.length === 0) continue
+
+      const previewUrl = m.content ? firstUrl(m.content) : null
+      const readers = isMine ? readersByMsgId.get(m.id) : undefined
+      const time = fmtTime(m.created_at)
+
+      rows.push(
+        <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}`}>
+          {!isMine && (
+            <div className="wd-mav">
+              {first && (
+                <span style={{ background: senderP?.avatar_color ?? '#C0BCB3' }}>
+                  {senderP?.avatar_url
+                    ? <img src={senderP.avatar_url} alt="" />
+                    : (senderP?.initials ?? '·').slice(0, 1)}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="wd-mcol">
+            {!isMine && first && isGroup && (
+              <div className="wd-mname">{senderP?.display_name ?? '…'}</div>
+            )}
+            {pieces.map((p, idx) => {
+              const withTime = lastInBurst && idx === pieces.length - 1
+              return (
+                <div key={idx} className="wd-mline">
+                  {isMine && withTime && <span className="wd-mtime">{time}</span>}
+                  {p}
+                  {!isMine && withTime && <span className="wd-mtime">{time}</span>}
+                </div>
+              )
+            })}
+            {previewUrl && <div className="wd-linkcard"><LinkPreviewCard url={previewUrl} /></div>}
+            {m.content && activeConvId && !chipDone.has(m.id) && looksLikeSchedule(m.content) && (
+              <div className="wd-chip">
+                <ScheduleChip
+                  text={m.content}
+                  onParse={(text) => parseSchedule(supabase, text)}
+                  onSave={async evs => { await saveChatEvents(evs) }}
+                  onDone={() => markChipDone(m.id)}
+                />
+              </div>
+            )}
+            {readers && readers.length > 0 && (
+              <div className="wd-read">
+                {isGroup ? (
+                  <span className="wd-read-avs">
+                    {readers.slice(0, 4).map(r => (
+                      <span key={r.id} style={{ background: r.avatar_color }}>
+                        {r.avatar_url ? <img src={r.avatar_url} alt="" /> : r.initials.slice(0, 1)}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <>
+                    <span>read</span>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12.5l5 5L20 6.5" />
+                    </svg>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+      )
     }
     return rows
-  }, [messages, user.id, me, profileById, readersByMsgId, selectedGroup])
+  }, [messages, user.id, profileById, readersByMsgId, selectedGroup, chipDone,
+    activeConvId, supabase, saveChatEvents, markChipDone])
 
   const myName = me?.display_name ?? user.email?.split('@')[0] ?? 'me'
   const nameOf = useCallback((id: string | null): string => {
@@ -825,11 +937,11 @@ function StudioShellInner({ supabase, user }: Props) {
 
               {tab === 'chat' && (
                 <>
-                  <div className="wd-chat">
+                  <div className="wd-chat" ref={chatScrollRef}>
                     {messagesLoading
                       ? <div className="wd-quiet">…</div>
                       : chatRows.length > 0
-                        ? <div className="wd-chat-col">{chatRows}<div ref={chatEndRef} /></div>
+                        ? <div className="wd-chat-col">{chatRows}</div>
                         : <div className="wd-quiet">no messages yet — say hi</div>}
                   </div>
                   {uploads.length > 0 && (

@@ -279,17 +279,40 @@ export default function FxWall ({ size }: Props) {
     return r ? { x: e.clientX - r.left, y: e.clientY - r.top } : { x: e.clientX, y: e.clientY }
   }
 
-  // ── wall colour: the chosen print's light, low ─────────────────────
-  const selNode = sel?.node !== undefined ? nodeById(sel.node) : undefined
-  const lit = selNode && selNode.type !== FX_MIX_TYPE ? selNode : graph.nodes.find(n => n.type !== FX_MIX_TYPE)
+  // A print the signal never reaches (or that never reaches out) hangs
+  // dimmed — the engine ignores it, the wall says so.
+  const live = useMemo(() => {
+    const fwd = new Set<number>(), bwd = new Set<number>()
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const e of graph.edges) {
+        if ((e.from === FX_PORT_IN || fwd.has(e.from)) && e.to !== FX_PORT_OUT && !fwd.has(e.to)) { fwd.add(e.to); grew = true }
+        if ((e.to === FX_PORT_OUT || bwd.has(e.to)) && e.from !== FX_PORT_IN && !bwd.has(e.from)) { bwd.add(e.from); grew = true }
+      }
+    }
+    return new Set(graph.nodes.filter(n => fwd.has(n.id) && bwd.has(n.id)).map(n => n.id))
+  }, [graph])
+
+  // ── wall colour: the loudest hand on the wall lights the room ───────
+  // Not a blend (four tints average to mud) and not the selection: the
+  // live print whose hand is furthest from rest paints the wall in its
+  // own tint, as bright as that hand. Every other print keeps its glow.
+  const intensityOf = (n: FxGraphNode) =>
+    n.type === 0 ? Math.abs(n.amount - 0.5) * 2
+    : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
+    : n.amount
+  const lit = graph.nodes
+    .filter(n => n.type !== FX_MIX_TYPE && live.has(n.id))
+    .reduce<FxGraphNode | null>((best, n) => (!best || intensityOf(n) > intensityOf(best)) ? n : best, null)
+  const litLevel = lit ? Math.min(1, intensityOf(lit)) : 0
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
-    // the single room's law: the chosen print's light, as bright as its hand
-    el.style.setProperty('--fx-wall', lit ? wallColor(lit.type as FxMode, lit.variant, lit.amount) : 'rgb(22, 20, 16)')
+    el.style.setProperty('--fx-wall', lit ? wallColor(lit.type as FxMode, lit.variant, litLevel) : 'rgb(22, 20, 16)')
     return () => { el.style.removeProperty('--fx-wall') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lit?.type, lit?.variant, lit?.amount])
+  }, [lit?.type, lit?.variant, litLevel])
 
   // ── structure edits ────────────────────────────────────────────────
   const freeId = () => { for (let i = 0; i < FX_MAX_NODES; i++) if (!graph.nodes.some(n => n.id === i)) return i; return -1 }
@@ -426,20 +449,6 @@ export default function FxWall ({ size }: Props) {
   const sharesOf = (id: number) => inputsOf(id).map(x => x.e.gain)
   const full = graph.nodes.length >= FX_MAX_NODES
 
-  // A print the signal never reaches (or that never reaches out) hangs
-  // dimmed — the engine ignores it, the wall says so.
-  const live = useMemo(() => {
-    const fwd = new Set<number>(), bwd = new Set<number>()
-    let grew = true
-    while (grew) {
-      grew = false
-      for (const e of graph.edges) {
-        if ((e.from === FX_PORT_IN || fwd.has(e.from)) && e.to !== FX_PORT_OUT && !fwd.has(e.to)) { fwd.add(e.to); grew = true }
-        if ((e.to === FX_PORT_OUT || bwd.has(e.to)) && e.from !== FX_PORT_IN && !bwd.has(e.from)) { bwd.add(e.from); grew = true }
-      }
-    }
-    return new Set(graph.nodes.filter(n => fwd.has(n.id) && bwd.has(n.id)).map(n => n.id))
-  }, [graph])
 
   return (
     <>

@@ -61,3 +61,47 @@ export function compactPluginWindow () { return setPluginSize(_baseSize.w, _base
 
 export const isExpandSupported = () =>
   hasJuceBridge && hasJuceNativeFunction('setPluginSize')
+
+/* ── One window size across the split-out plugins ─────────────────────────
+   Orb, Orb Chat and Orb Sounds all load the same origin, so their
+   WKWebViews share localStorage. Every instance remembers the size the
+   user drags it to; a FRESH instance (still at the compact default) opens
+   at that remembered size instead — so Orb Sounds comes up exactly as big
+   as Orb Chat was left, and vice versa. Instances the user already sized
+   keep their own JUCE-restored size. */
+const SHARED_SIZE_KEY = 'orb_window_size'
+
+function readSharedSize (): { w: number; h: number } | null {
+  try {
+    const raw = localStorage.getItem(SHARED_SIZE_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw) as { w?: unknown; h?: unknown }
+    const w = Number(v.w), h = Number(v.h)
+    if (!isFinite(w) || !isFinite(h) || w < COMPACT_W || h < COMPACT_H) return null
+    return { w: Math.round(w), h: Math.round(h) }
+  } catch { return null }
+}
+
+/** Fresh instance at the compact default → adopt the shared size (if any). */
+export async function adoptSharedWindowSize (): Promise<boolean> {
+  if (!hasJuceBridge) return false
+  if (window.innerWidth !== COMPACT_W || window.innerHeight !== COMPACT_H) return false
+  const s = readSharedSize()
+  if (!s || (s.w === COMPACT_W && s.h === COMPACT_H)) return false
+  return setPluginSize(s.w, s.h)
+}
+
+/** Remember every host-window resize as the shared size. Returns a cleanup. */
+export function watchSharedWindowSize (): () => void {
+  if (!hasJuceBridge) return () => {}
+  let t: ReturnType<typeof setTimeout> | null = null
+  const save = () => {
+    if (t) clearTimeout(t)
+    t = setTimeout(() => {
+      try { localStorage.setItem(SHARED_SIZE_KEY, JSON.stringify({ w: window.innerWidth, h: window.innerHeight })) }
+      catch { /* storage unavailable — nothing to share */ }
+    }, 250)
+  }
+  window.addEventListener('resize', save)
+  return () => { if (t) clearTimeout(t); window.removeEventListener('resize', save) }
+}

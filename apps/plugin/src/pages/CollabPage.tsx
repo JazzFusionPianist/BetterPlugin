@@ -42,7 +42,7 @@ import { useLive, type LiveSession } from '../hooks/useLive'
 import { useMediaSource } from '../hooks/useMediaSource'
 import { useLiveBroadcaster } from '../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../hooks/useLiveChat'
-import { applyScreenSize, type ScreenSize } from '../lib/pluginWindow'
+import { applyScreenSize, adoptSharedWindowSize, watchSharedWindowSize, type ScreenSize } from '../lib/pluginWindow'
 import { hasJuceBridge } from '../lib/juceBridge'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
@@ -491,6 +491,12 @@ function CollabPageInner({ user }: Props) {
     window.addEventListener('resize', apply)
     return () => window.removeEventListener('resize', apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // One window size across Orb / Orb Chat / Orb Sounds: a fresh instance
+  // opens at whatever size the last one was dragged to.
+  useEffect(() => {
+    void adoptSharedWindowSize()
+    return watchSharedWindowSize()
   }, [])
   const closeCalendar = useCallback((options: { restoreSize?: boolean; preserveRestore?: boolean } = {}) => {
     const restoreSize = options.restoreSize ?? true

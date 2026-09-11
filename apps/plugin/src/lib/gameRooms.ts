@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getOrCreateDmConversation } from './conversations'
 import { isComputerPlayerId } from './computerPlayers'
+import type { BoardGameType } from '../types/collab'
 
 /**
  * Shared helpers for the chat-driven game invite flow.
@@ -12,7 +13,11 @@ import { isComputerPlayerId } from './computerPlayers'
  * we don't need at the chat layer.
  */
 
-export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht'
+export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht' | BoardGameType
+
+/** The three grid board games share one table (board_rooms). */
+const BOARD_TYPES: ReadonlySet<string> = new Set(['connect4', 'gomoku', 'reversi'])
+export function isBoardGameType(g: string): g is BoardGameType { return BOARD_TYPES.has(g) }
 
 function hasMultiplePlayers(playerIds: unknown): boolean {
   return Array.isArray(playerIds) && playerIds.filter(Boolean).length > 1
@@ -35,12 +40,20 @@ function isResumableEarTrainingRoom(room: { player2_id?: string | null }): boole
   return !!room.player2_id || isComputerPlayerId(room.player2_id)
 }
 
+function isResumableBoardRoom(room: { status: string; host_id: string; guest_id: string | null; computer: boolean }, userId: string): boolean {
+  if (room.guest_id) return true
+  return room.status === 'playing' && room.computer && room.host_id === userId
+}
+
 export const GAME_TABLE: Record<GameType, string> = {
   chess:          'game_rooms',
   falling_blocks: 'falling_blocks_rooms',
   poker:          'poker_rooms',
   ear_training:   'ear_training_rooms',
   yacht:          'yacht_rooms',
+  connect4:       'board_rooms',
+  gomoku:         'board_rooms',
+  reversi:        'board_rooms',
 }
 
 interface RoomCapacity {
@@ -57,6 +70,7 @@ interface RoomCapacity {
 // locks `player_count` down to the actual joined player count.
 const DEFAULT_PLAYER_COUNT: Record<GameType, number> = {
   chess: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4,
+  connect4: 2, gomoku: 2, reversi: 2,
 }
 
 /** Maximum seats currently configured for a room. Reads the row, then
@@ -71,7 +85,7 @@ export async function getRoomCapacity (
   const { data, error } = await supabase.from(table).select('*').eq('id', roomId).maybeSingle()
   if (error || !data) return null
 
-  if (gameType === 'chess') {
+  if (gameType === 'chess' || isBoardGameType(gameType)) {
     const r = data as { host_id: string; guest_id: string | null; status: string }
     return {
       capacity: 2,
@@ -144,6 +158,15 @@ export async function createGameRoom (
       .select()
       .single()
     if (error) { console.error('[createGameRoom.chess]', error); return null }
+    return (data as { id: string }).id
+  }
+  if (isBoardGameType(gameType)) {
+    const { data, error } = await supabase
+      .from('board_rooms')
+      .insert({ game_type: gameType, host_id: userId, status: 'lobby' })
+      .select()
+      .single()
+    if (error) { console.error('[createGameRoom.' + gameType + ']', error); return null }
     return (data as { id: string }).id
   }
   if (gameType === 'ear_training') {
@@ -242,7 +265,7 @@ export async function findActiveGame (
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ gameType: GameType; roomId: string; updatedAt: string } | null> {
-  const [chess, fb, poker, et, yacht] = await Promise.all([
+  const [chess, fb, poker, et, yacht, board] = await Promise.all([
     supabase.from('game_rooms')
       .select('id, updated_at, status, host_id, guest_id, captured')
       .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
@@ -273,6 +296,12 @@ export async function findActiveGame (
       .in('status', ['lobby', 'playing'])
       .order('updated_at', { ascending: false })
       .limit(5),
+    supabase.from('board_rooms')
+      .select('id, updated_at, status, host_id, guest_id, computer, game_type')
+      .or(`host_id.eq.${userId},guest_id.eq.${userId}`)
+      .in('status', ['lobby', 'playing'])
+      .order('updated_at', { ascending: false })
+      .limit(5),
   ])
 
   const candidates: { gameType: GameType; roomId: string; updatedAt: string }[] = []
@@ -286,6 +315,8 @@ export async function findActiveGame (
   if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
   if (etRoom)    candidates.push({ gameType: 'ear_training', roomId: etRoom.id, updatedAt: etRoom.updated_at })
   if (yachtRoom) candidates.push({ gameType: 'yacht', roomId: yachtRoom.id, updatedAt: yachtRoom.updated_at })
+  const boardRoom = board.data?.find(r => isResumableBoardRoom(r, userId))
+  if (boardRoom) candidates.push({ gameType: boardRoom.game_type as BoardGameType, roomId: boardRoom.id, updatedAt: boardRoom.updated_at })
 
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -367,9 +398,9 @@ export async function joinGameRoom (
   if (cap.status !== 'lobby') return 'missing'
   if (cap.occupied >= cap.capacity) return 'full'
 
-  if (gameType === 'chess') {
+  if (gameType === 'chess' || isBoardGameType(gameType)) {
     const { data, error } = await supabase
-      .from('game_rooms')
+      .from(GAME_TABLE[gameType])
       .update({ guest_id: userId })
       .eq('id', roomId)
       .is('guest_id', null)

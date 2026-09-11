@@ -10053,7 +10053,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .sg-shelf {
   flex-shrink: 0; height: 112px; box-sizing: border-box;
   border-top: 1px solid rgba(246, 243, 234, 0.14);
-  display: flex; align-items: center; justify-content: center; gap: 30px;
+  display: flex; align-items: center; justify-content: center; gap: 18px;
   padding: 0 24px;
 }
 .sg-shelf-item {
@@ -10148,3 +10148,162 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 .sg-val.hand { color: rgba(246, 243, 234, 0.7); }
 .sg-val.hand:hover { color: #F6F3EA; }
 .sg-share-who { fill: rgba(246, 243, 234, 0.55); font-weight: 400; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Six more games (2026-09-11). Each darkens the room in its own hue,
+   like the others; the solo boards reuse the pinball start card. */
+.plugin.gwall-sudoku      { background: #1E2A3A; }
+.plugin.gwall-minesweeper { background: #2E2A24; }
+.plugin.gwall-solitaire   { background: #163A2C; }
+.plugin.gwall-connect4    { background: #1C2456; }
+.plugin.gwall-gomoku      { background: #3A2A18; }
+.plugin.gwall-reversi     { background: #14331F; }
+
+/* ── grid board games (BoardGameView) ──────────────────────────────── */
+.bg-shell-connect4 { --bg-first: #F6F3EA; --bg-second: #1A1917; }
+.bg-shell-gomoku,
+.bg-shell-reversi  { --bg-first: #1A1917; --bg-second: #F6F3EA; }
+.game-view.bg-shell .chess-board-wrap {
+  aspect-ratio: auto; height: 100%; max-height: none; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.bg-board {
+  display: grid; width: 100%; max-width: 100%; max-height: 100%;
+  border-radius: 10px; overflow: hidden;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.plugin.screen-wide .bg-board { width: auto; height: 100%; }
+.bg-cell { position: relative; display: flex; align-items: center; justify-content: center; cursor: default; }
+.bg-board.my-turn .bg-cell { cursor: pointer; }
+.bg-stone { display: block; width: 78%; height: 78%; border-radius: 50%; box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.35); }
+.bg-stone-first  { background: var(--bg-first); }
+.bg-stone-second { background: var(--bg-second); }
+.bg-stone-ghost  { background: rgba(246, 243, 234, 0.28); box-shadow: none; }
+.bg-cell.last .bg-stone { outline: 2px solid rgba(255, 216, 77, 0.9); outline-offset: 1px; }
+.bg-board[class*="bg-"] .bg-cell > .bg-stone { animation: bg-stone-in 0.18s ease-out both; }
+@keyframes bg-stone-in { from { transform: scale(0.4); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+/* connect4 — a blue frame with holes; the disc drops with gravity */
+.bg-connect4 { background: #2440FF; padding: 2.2%; gap: 2%; border-radius: 12px; }
+.bg-connect4 .bg-cell { background: rgba(0, 0, 0, 0.42); border-radius: 50%; }
+.bg-connect4 .bg-stone { width: 92%; height: 92%; }
+.bg-connect4 .bg-cell.last .bg-stone { outline-offset: -2px; }
+
+/* gomoku — tan wood, lines drawn through each cell so stones sit on the crossings */
+.bg-gomoku { background: #D8B77A; padding: 2.5%; border-radius: 6px; }
+.bg-gomoku .bg-cell {
+  background-image: linear-gradient(#6b4a22, #6b4a22), linear-gradient(#6b4a22, #6b4a22);
+  background-size: 100% 1px, 1px 100%;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}
+.bg-gomoku .bg-stone { width: 86%; height: 86%; }
+.bg-gomoku .bg-stone-second { border: 1px solid rgba(0, 0, 0, 0.35); }
+.bg-gomoku.my-turn .bg-cell.legal:hover::after {
+  content: ''; position: absolute; width: 34%; height: 34%; border-radius: 50%; background: rgba(0, 0, 0, 0.28);
+}
+
+/* reversi — felt board, legal squares get a soft dot */
+.bg-reversi { background: #0F4D2A; gap: 1.5px; padding: 1.5px; border-radius: 6px; }
+.bg-reversi .bg-cell { background: #1E8A4C; }
+.bg-reversi .bg-cell.legal::after { content: ''; width: 24%; height: 24%; border-radius: 50%; background: rgba(246, 243, 234, 0.35); }
+.bg-reversi .bg-stone { width: 82%; height: 82%; transition: background 0.25s ease; }
+.bg-reversi .bg-stone-second { border: 1px solid rgba(0, 0, 0, 0.25); }
+
+.bg-player-row { gap: 6px; }
+.bg-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(246, 243, 234, 0.45); box-sizing: border-box; }
+.bg-count { font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums; font-family: var(--f-sans); }
+
+/* ── sudoku ────────────────────────────────────────────────────────── */
+.sd-layout { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 0; }
+.sd-board {
+  display: grid; grid-template-columns: repeat(9, 1fr);
+  width: 100%; max-width: 440px; aspect-ratio: 1;
+  background: var(--bg); border: 1.5px solid var(--t1); border-radius: 6px; overflow: hidden;
+  user-select: none; -webkit-user-select: none; container-type: inline-size;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.plugin.screen-wide .sd-board { width: auto; max-width: 100%; height: min(100%, 440px); flex: 0 1 auto; }
+.sd-cell {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  font-family: var(--f-sans); font-size: 16px; font-size: 5.2cqw; color: var(--blue); cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.sd-cell:nth-child(9n) { border-right: none; }
+.sd-cell:nth-child(n+73) { border-bottom: none; }
+.sd-cell.br { border-right: 1.5px solid var(--t1); }
+.sd-cell.bb { border-bottom: 1.5px solid var(--t1); }
+.sd-cell.given { color: var(--t1); font-weight: 500; }
+.sd-cell.peer { background: rgba(127, 127, 127, 0.10); }
+.sd-cell.same { background: rgba(36, 64, 255, 0.14); }
+.sd-cell.selected { background: rgba(36, 64, 255, 0.26); }
+.sd-cell.wrong { color: #D6402E; }
+.sd-notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; font-size: 1.8cqw; color: var(--t3); }
+.sd-notes i { font-style: normal; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.sd-pad { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 440px; }
+.sd-key {
+  position: relative; flex: 1 0 28px; height: 36px; min-width: 28px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); color: var(--t1);
+  font-family: var(--f-sans); font-size: 15px; font-weight: 500; cursor: pointer;
+}
+.sd-key:hover { background: var(--bg3); }
+.sd-key:disabled { opacity: 0.4; cursor: default; }
+.sd-key small { position: absolute; bottom: 2px; right: 4px; font-size: 8px; font-weight: 400; color: var(--t3); }
+.sd-key.done { opacity: 0.35; }
+.sd-key-tool { font-size: 10px; flex-basis: 52px; letter-spacing: 0.02em; }
+.sd-key-tool.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* ── minesweeper ───────────────────────────────────────────────────── */
+.ms-layout { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 2px; }
+.ms-board {
+  /* no grid gap — every pixel belongs to a cell, so no click falls through */
+  display: grid; gap: 0; border: 1px solid var(--border2); background: var(--border2);
+  user-select: none; -webkit-user-select: none; font-family: var(--f-sans); font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.ms-board.idle { opacity: 0.6; }
+.ms-cell { display: flex; align-items: center; justify-content: center; cursor: pointer; font-variant-numeric: tabular-nums; line-height: 1; }
+.ms-cell.hidden { background: var(--bg3); box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35), inset -1px -1px 0 rgba(0, 0, 0, 0.35); }
+.ms-cell.hidden:hover { filter: brightness(1.08); }
+.ms-board.flag-mode .ms-cell.hidden { cursor: cell; }
+.ms-cell.open { background: var(--bg); color: var(--t1); cursor: default; box-shadow: inset -1px -1px 0 var(--border); }
+.ms-cell.open.n1 { color: #2440FF; } .ms-cell.open.n2 { color: #1E9E63; } .ms-cell.open.n3 { color: #D6402E; }
+.ms-cell.open.n4 { color: #5A3FD0; } .ms-cell.open.n5 { color: #8A4B12; } .ms-cell.open.n6 { color: #0E8F8F; }
+.ms-cell.open.n7 { color: var(--t1); } .ms-cell.open.n8 { color: var(--t2); }
+.ms-cell.flag { color: #D6402E; }
+.ms-cell.mine { background: var(--bg2); color: var(--t1); }
+.ms-cell.mine.blown { background: #D6402E; color: #fff; }
+.ms-cell.wrongflag { text-decoration: line-through; opacity: 0.55; }
+.game-btn.ms-flag-on { background: #D6402E; color: #fff; border-color: #D6402E; }
+
+/* ── solitaire ─────────────────────────────────────────────────────── */
+.sol-layout {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px;
+  --sol-gap: 5px; --sol-step-down: 6px; --sol-step-up: 18px;
+  user-select: none; -webkit-user-select: none;
+}
+.plugin.screen-wide .sol-layout { --sol-gap: 10px; --sol-step-down: 8px; --sol-step-up: 26px; max-width: 640px; width: 100%; margin: 0 auto; }
+.sol-layout.idle { opacity: 0.6; }
+.sol-top, .sol-tableau { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--sol-gap); }
+.sol-tableau { flex: 1 1 auto; min-height: 0; }
+.sol-stock, .sol-waste, .sol-foundation, .sol-pile { position: relative; }
+.sol-stock { cursor: pointer; }
+.sol-count { position: absolute; bottom: -12px; left: 0; right: 0; text-align: center; font-size: 9px; color: var(--t3); font-variant-numeric: tabular-nums; }
+.sol-waste .sol-fan { position: absolute; top: 0; }
+.sol-waste .sol-fan.under { pointer-events: none; }
+.sol-pile { height: 100%; }
+.sol-pile .sol-stacked { position: absolute; left: 0; }
+.sol-card {
+  width: 100%; aspect-ratio: 5 / 7; border-radius: 5px; box-sizing: border-box; position: relative;
+  container-type: inline-size; cursor: pointer;
+}
+.sol-face { background: #FBFAF7; color: #1A1917; border: 1px solid rgba(0, 0, 0, 0.28); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.sol-face.red { color: #D6402E; }
+.sol-rank { position: absolute; top: 2px; left: 4px; font-family: var(--f-sans); font-weight: 600; font-size: 12px; font-size: clamp(9px, 28cqw, 16px); line-height: 1; }
+.sol-suit { position: absolute; bottom: 2px; right: 4px; font-size: 12px; font-size: clamp(9px, 30cqw, 18px); line-height: 1; }
+.sol-back { background: repeating-linear-gradient(45deg, #2440FF 0 4px, #1B33C4 4px 8px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.sol-slot { border: 1px dashed rgba(246, 243, 234, 0.35); background: rgba(0, 0, 0, 0.15); }
+.sol-recycle { display: flex; align-items: center; justify-content: center; color: rgba(246, 243, 234, 0.6); font-size: 18px; }
+.sol-card.selected { outline: 2px solid #FFD84D; outline-offset: -1px; }

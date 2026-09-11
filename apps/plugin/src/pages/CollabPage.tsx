@@ -35,6 +35,10 @@ import OrbMergeView from '../components/collab/OrbMergeView'
 import YachtView from '../components/collab/YachtView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
+import SudokuView from '../components/collab/SudokuView'
+import MinesweeperView from '../components/collab/MinesweeperView'
+import SolitaireView from '../components/collab/SolitaireView'
+import BoardGameView from '../components/collab/BoardGameView'
 import type { Profile, Message, ChatTarget } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
 import type { VideoSource } from '../types/live'
@@ -124,7 +128,7 @@ function CollabPageInner({ user }: Props) {
     return () => clearTimeout(t)
   }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'>('list')
   // True while the user is using the GameList specifically to invite
   // people in the chat they just left open. Cleared when they pick a
   // game (we create the room + send the invite bubble) or close the
@@ -194,7 +198,7 @@ function CollabPageInner({ user }: Props) {
   // as expired, even if the current user's id is still on the room row.
   const handleJoinGameInvite = useCallback(async (gameType: string, roomId: string) => {
     const { joinGameRoom } = await import('../lib/gameRooms')
-    const type = gameType as 'chess' | 'falling_blocks' | 'poker' | 'ear_training'
+    const type = gameType as import('../lib/gameRooms').GameType
     const result = await joinGameRoom(client, type, roomId, user.id, { onlineIds })
     if (result === 'joined' || result === 'already-in') {
       sessionStorage.setItem('join_room_id', roomId)
@@ -1098,8 +1102,8 @@ function CollabPageInner({ user }: Props) {
                 // the game opens no matter what; the async work is only
                 // resume/invite sugar on top.
                 try {
-                  // Pinball / orb merge are solo — no rooms, no invites.
-                  if (g === 'pinball' || g === 'orb_merge') return
+                  // Solo games — no rooms, no invites.
+                  if (g === 'pinball' || g === 'orb_merge' || g === 'sudoku' || g === 'minesweeper' || g === 'solitaire') return
                   if (!chatGameInvite) {
                     // Normal path — user picked a game to play / browse.
                     const { findActiveGame } = await import('../lib/gameRooms')
@@ -1197,6 +1201,26 @@ function CollabPageInner({ user }: Props) {
               friendProfiles={friendProfiles}
               onClose={() => setGameScreen('list')}
               pendingInviteRoomId={sessionStorage.getItem('join_room_id')}
+            />
+          )}
+          {gameScreen === 'sudoku' && (
+            <SudokuView key={gameJoinNonce} supabase={client} currentUserId={user.id} currentUserProfile={me} onClose={() => setGameScreen('list')} />
+          )}
+          {gameScreen === 'minesweeper' && (
+            <MinesweeperView key={gameJoinNonce} supabase={client} currentUserId={user.id} currentUserProfile={me} onClose={() => setGameScreen('list')} />
+          )}
+          {gameScreen === 'solitaire' && (
+            <SolitaireView key={gameJoinNonce} supabase={client} currentUserId={user.id} currentUserProfile={me} onClose={() => setGameScreen('list')} />
+          )}
+          {(gameScreen === 'connect4' || gameScreen === 'gomoku' || gameScreen === 'reversi') && (
+            <BoardGameView
+              key={`${gameScreen}-${gameJoinNonce}`}
+              game={gameScreen}
+              supabase={client}
+              currentUserId={user.id}
+              currentUserProfile={me}
+              friendProfiles={friendProfiles}
+              onClose={() => setGameScreen('list')}
             />
           )}
         </div>

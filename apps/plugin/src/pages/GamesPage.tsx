@@ -11,6 +11,10 @@ import OrbMergeView from '../components/collab/OrbMergeView'
 import YachtView from '../components/collab/YachtView'
 import PokerView from '../components/collab/PokerView'
 import EarTrainingView from '../components/collab/EarTrainingView'
+import SudokuView from '../components/collab/SudokuView'
+import MinesweeperView from '../components/collab/MinesweeperView'
+import SolitaireView from '../components/collab/SolitaireView'
+import BoardGameView from '../components/collab/BoardGameView'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
@@ -68,8 +72,8 @@ export default function GamesPage({ supabase, user }: Props) {
 
   const openGame = async (g: GameId) => {
     try {
-      // Pinball / orb merge are solo — no rooms to resume.
-      if (g === 'pinball' || g === 'orb_merge') return
+      // Solo games — no rooms to resume.
+      if (g === 'pinball' || g === 'orb_merge' || g === 'sudoku' || g === 'minesweeper' || g === 'solitaire') return
       const { findActiveGame } = await import('../lib/gameRooms')
       const active = await findActiveGame(supabase, user.id)
       if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
@@ -135,6 +139,12 @@ export default function GamesPage({ supabase, user }: Props) {
           {screen === 'ear_training' && (
             <EarTrainingView key={joinNonce} {...common} friendProfiles={friendProfiles}
               pendingInviteRoomId={sessionStorage.getItem('join_room_id')} />
+          )}
+          {screen === 'sudoku' && <SudokuView key={joinNonce} {...common} />}
+          {screen === 'minesweeper' && <MinesweeperView key={joinNonce} {...common} />}
+          {screen === 'solitaire' && <SolitaireView key={joinNonce} {...common} />}
+          {(screen === 'connect4' || screen === 'gomoku' || screen === 'reversi') && (
+            <BoardGameView key={`${screen}-${joinNonce}`} game={screen} {...common} friendProfiles={friendProfiles} />
           )}
         </div>
       </div>

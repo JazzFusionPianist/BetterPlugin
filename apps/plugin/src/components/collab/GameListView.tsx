@@ -4,6 +4,7 @@ import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
 
 export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'
+  | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'
 
 interface Props {
   onSelectGame: (game: GameId) => void
@@ -135,6 +136,92 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.earTraining',
     descKey: 'game.earTrainingDesc',
+  },
+  {
+    id: 'sudoku',
+    coverBg: 'radial-gradient(circle at 30% 30%, #8fa6c9 0%, #3d5a86 55%, #14213a 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M12 4v24M20 4v24M4 12h24M4 20h24" stroke="currentColor" strokeWidth="1.2" opacity="0.8" />
+        <text x="6.2" y="10.6" fontSize="6" fontFamily="'Instrument Sans', sans-serif" fontWeight="600" fill="currentColor">5</text>
+        <text x="22.2" y="18.6" fontSize="6" fontFamily="'Instrument Sans', sans-serif" fontWeight="600" fill="currentColor">3</text>
+        <text x="14.2" y="26.6" fontSize="6" fontFamily="'Instrument Sans', sans-serif" fontWeight="600" fill="currentColor">9</text>
+      </svg>
+    ),
+    nameKey: 'game.sudoku',
+    descKey: 'game.sudokuDesc',
+  },
+  {
+    id: 'minesweeper',
+    coverBg: 'radial-gradient(circle at 30% 30%, #b8ad98 0%, #6e6350 55%, #2a241c 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="17" r="7.5" fill="currentColor" />
+        <path d="M16 6v4M16 24v4M5 17h4M23 17h4M8.5 9.5l2.8 2.8M20.7 20.7l2.8 2.8M23.5 9.5l-2.8 2.8M11.3 20.7l-2.8 2.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="13.5" cy="14.5" r="1.6" fill="#1a1a1a" opacity="0.6" />
+      </svg>
+    ),
+    nameKey: 'game.minesweeper',
+    descKey: 'game.minesweeperDesc',
+  },
+  {
+    id: 'solitaire',
+    coverBg: 'radial-gradient(circle at 30% 30%, #3fa06a 0%, #1f6b43 55%, #0c2a1a 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="4" y="8" width="13" height="18" rx="2" fill="currentColor" opacity="0.5" transform="rotate(-8 10 17)" />
+        <rect x="12" y="6" width="13" height="18" rx="2" fill="currentColor" />
+        <path d="M18.5 11.2c-1.3-2.4-4.6-.9-3.8 1.6.5 1.4 2.4 2.6 3.8 3.9 1.4-1.3 3.3-2.5 3.8-3.9.8-2.5-2.5-4-3.8-1.6z" fill="#1a1a1a" opacity="0.85" />
+      </svg>
+    ),
+    nameKey: 'game.solitaire',
+    descKey: 'game.solitaireDesc',
+  },
+  {
+    id: 'connect4',
+    coverBg: 'radial-gradient(circle at 30% 30%, #7d8dff 0%, #2440FF 55%, #0a1350 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="3" y="5" width="26" height="22" rx="3" fill="currentColor" opacity="0.35" />
+        {[0, 1, 2, 3].map(c => [0, 1, 2].map(r => (
+          <circle key={`${c}${r}`} cx={7.5 + c * 5.7} cy={9.5 + r * 6.2} r="2.1" fill="currentColor" opacity={(c + r) % 2 === 0 ? 1 : 0.45} />
+        )))}
+      </svg>
+    ),
+    nameKey: 'game.connect4',
+    descKey: 'game.connect4Desc',
+  },
+  {
+    id: 'gomoku',
+    coverBg: 'radial-gradient(circle at 30% 30%, #e0c08a 0%, #a5763f 55%, #3a2412 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M6 10h20M6 16h20M6 22h20M10 6v20M16 6v20M22 6v20" stroke="currentColor" strokeWidth="1.1" opacity="0.7" />
+        <circle cx="10" cy="10" r="2.6" fill="currentColor" />
+        <circle cx="16" cy="16" r="2.6" fill="currentColor" />
+        <circle cx="22" cy="22" r="2.6" fill="currentColor" />
+        <circle cx="22" cy="10" r="2.6" fill="#1a1a1a" opacity="0.8" />
+        <circle cx="10" cy="22" r="2.6" fill="#1a1a1a" opacity="0.8" />
+      </svg>
+    ),
+    nameKey: 'game.gomoku',
+    descKey: 'game.gomokuDesc',
+  },
+  {
+    id: 'reversi',
+    coverBg: 'radial-gradient(circle at 30% 30%, #4fbf7a 0%, #1e8a4c 55%, #0a2e1a 100%)',
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7" />
+        <circle cx="12" cy="12" r="3.2" fill="currentColor" />
+        <circle cx="20" cy="20" r="3.2" fill="currentColor" />
+        <circle cx="20" cy="12" r="3.2" fill="#1a1a1a" opacity="0.8" />
+        <circle cx="12" cy="20" r="3.2" fill="#1a1a1a" opacity="0.8" />
+      </svg>
+    ),
+    nameKey: 'game.reversi',
+    descKey: 'game.reversiDesc',
   },
 ]
 

@@ -262,3 +262,27 @@ export interface GameRoom {
   created_at: string
   updated_at: string
 }
+
+/** connect4 / gomoku / reversi — one shared room shape (board_rooms).
+ *  Seats are host / guest; `turn` and `first_player` name a seat. The
+ *  board is a plain grid of 'h' | 'g' | null (see lib/boardGames). */
+export type BoardGameType = 'connect4' | 'gomoku' | 'reversi'
+export type BoardSeat = 'host' | 'guest'
+export interface BoardRoom {
+  id: string
+  game_type: BoardGameType
+  host_id: string
+  guest_id: string | null
+  status: 'lobby' | 'playing' | 'finished'
+  board: (string | null)[][] | null
+  turn: BoardSeat
+  first_player: BoardSeat
+  computer: boolean
+  winner_id: string | null
+  last_move: [number, number] | null
+  move_count: number
+  host_ready: boolean
+  guest_ready: boolean
+  created_at: string
+  updated_at: string
+}

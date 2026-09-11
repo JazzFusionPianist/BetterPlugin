@@ -14,7 +14,7 @@
  *   uploads        → ChatView's presign → XHR PUT flow, verbatim
  *   stems tab      → StemPanel (existing component, collab.css styles)
  *   calendar tab   → ChatCalendar, events filtered to this conversation
- *   notes tab      → conversation_notes (shared notepad, realtime)
+ *   notes tab      → conversation_notes (document list per room, realtime)
  *   presence       → 'studio-presence' realtime channel (client-only)
  */
 
@@ -211,96 +211,266 @@ function UpcomingRows({ events, groupTitleById, limit, nowTick }: {
   )
 }
 
-/** Shared per-conversation notepad. One serif page per conversation,
- *  autosaved (800ms debounce) and kept live over realtime. The
- *  conversation_notes table is live in prod; the quiet fallback line
- *  only shows if the initial load errors out. */
-function StudioNotes({ supabase, conversationId, userId, nameOf }: {
-  supabase: SupabaseClient; conversationId: string; userId: string
-  nameOf: (id: string | null) => string
-}) {
-  const [content, setContent] = useState('')
-  const [meta, setMeta] = useState<{ by: string | null; at: string | null }>({ by: null, at: null })
-  const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading')
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const latestRef = useRef('')
+/** ── notes — one document per show ──────────────────────────────────
+ *  A band's room accumulates a note per show/broadcast/flight sheet
+ *  (일정 · 타임테이블 · 셋리스트 · 예약번호), each opened and edited on
+ *  its own. conversation_notes is the v2 document table (uuid rows). */
 
-  const persist = useCallback(async (text: string) => {
-    const { error } = await supabase.from('conversation_notes').upsert({
-      conversation_id: conversationId,
-      content: text,
-      updated_by: userId,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'conversation_id' })
-    if (error) console.error('[StudioNotes] save failed', error)
-    else setMeta({ by: userId, at: new Date().toISOString() })
-  }, [supabase, conversationId, userId])
+interface NoteRow {
+  id: string
+  conversation_id: string
+  title: string
+  content: string
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** "just now" → "4m ago" → "2h ago" → "yesterday" → "12 aug". */
+function relTime(iso: string, now: number): string {
+  const min = Math.floor((now - new Date(iso).getTime()) / 60000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  if (min < 24 * 60) return `${Math.floor(min / 60)}h ago`
+  const d = new Date(iso)
+  const dayStart = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
+  const days = Math.floor((dayStart(new Date(now)) - dayStart(d)) / 86400000)
+  if (days <= 1) return 'yesterday'
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toLowerCase()
+}
+
+/** Note documents for the open conversation — list + realtime refresh.
+ *  Lives at the shell level so the notes tab can badge its count the
+ *  way calendar does. Any INSERT/UPDATE/DELETE on this conversation's
+ *  rows re-pulls the ordered list. */
+function useConversationNotes(supabase: SupabaseClient, conversationId: string | null) {
+  const [notes, setNotes] = useState<NoteRow[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  const refresh = useCallback(async () => {
+    if (!conversationId) return
+    const { data, error } = await supabase
+      .from('conversation_notes')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('updated_at', { ascending: false })
+    if (error) { console.error('[StudioNotes] load failed', error); setLoaded(true); return }
+    setNotes((data ?? []) as NoteRow[])
+    setLoaded(true)
+  }, [supabase, conversationId])
 
   useEffect(() => {
-    let alive = true
-    setState('loading'); setContent(''); latestRef.current = ''
-    setMeta({ by: null, at: null })
-    supabase
-      .from('conversation_notes')
-      .select('content, updated_by, updated_at')
-      .eq('conversation_id', conversationId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!alive) return
-        if (error) { setState('missing'); return }  // load error — quiet fallback
-        setContent(data?.content ?? '')
-        latestRef.current = data?.content ?? ''
-        setMeta({ by: data?.updated_by ?? null, at: data?.updated_at ?? null })
-        setState('ready')
-      })
-
+    setNotes([]); setLoaded(false)
+    if (!conversationId) return
+    void refresh()
     const ch = supabase
       .channel(`studio-notes:${conversationId}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'conversation_notes',
           filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const row = payload.new as { content?: string; updated_by?: string | null; updated_at?: string } | null
-          if (!row || typeof row.content !== 'string') return
-          setMeta({ by: row.updated_by ?? null, at: row.updated_at ?? null })
-          // Only adopt remote text when someone ELSE wrote it — otherwise
-          // the echo of our own save would clobber in-flight typing.
-          if (row.updated_by !== userId) {
-            setContent(row.content)
-            latestRef.current = row.content
-          }
-        })
+        () => { void refresh() })
       .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, conversationId, refresh])
 
-    return () => {
-      alive = false
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      supabase.removeChannel(ch)
+  return { notes, loaded, refresh }
+}
+
+/** The notes tab — a document list (default) and a per-note editor. */
+function StudioNotes({ supabase, conversationId, userId, nameOf, notes, loaded, refresh, nowTick }: {
+  supabase: SupabaseClient; conversationId: string; userId: string
+  nameOf: (id: string | null) => string
+  notes: NoteRow[]; loaded: boolean; refresh: () => Promise<void>; nowTick: number
+}) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [focusNew, setFocusNew] = useState(false)
+  const creatingRef = useRef(false)
+
+  // Conversation switched under the tab — back to that room's list.
+  useEffect(() => { setOpenId(null); setFocusNew(false) }, [conversationId])
+
+  const openNote = openId ? notes.find(n => n.id === openId) ?? null : null
+
+  // The open note deleted elsewhere (another member, another device) —
+  // fall back to the list quietly.
+  useEffect(() => {
+    if (openId && loaded && !notes.some(n => n.id === openId)) {
+      setOpenId(null); setFocusNew(false)
     }
-  }, [supabase, conversationId, userId])
+  }, [openId, loaded, notes])
 
-  const onChange = (text: string) => {
-    setContent(text)
-    latestRef.current = text
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => { void persist(latestRef.current) }, 800)
+  const createNote = useCallback(async () => {
+    if (creatingRef.current) return
+    creatingRef.current = true
+    const { data, error } = await supabase
+      .from('conversation_notes')
+      .insert({ conversation_id: conversationId, created_by: userId, updated_by: userId })
+      .select()
+      .single()
+    creatingRef.current = false
+    if (error || !data) { console.error('[StudioNotes] create failed', error); return }
+    await refresh()
+    setFocusNew(true)
+    setOpenId((data as NoteRow).id)
+  }, [supabase, conversationId, userId, refresh])
+
+  const deleteNote = useCallback(async (id: string) => {
+    const { error } = await supabase.from('conversation_notes').delete().eq('id', id)
+    if (error) { console.error('[StudioNotes] delete failed', error); return }
+    setOpenId(null); setFocusNew(false)
+    void refresh()
+  }, [supabase, refresh])
+
+  if (openNote) {
+    return (
+      <NoteEditor
+        key={openNote.id}
+        supabase={supabase}
+        note={openNote}
+        userId={userId}
+        nameOf={nameOf}
+        nowTick={nowTick}
+        autoFocusTitle={focusNew}
+        onBack={() => { setOpenId(null); setFocusNew(false) }}
+        onDelete={() => { void deleteNote(openNote.id) }}
+      />
+    )
   }
-
-  if (state === 'loading') return <div className="wd-quiet">…</div>
-  if (state === 'missing') return <div className="wd-quiet">couldn’t load notes — try again in a moment</div>
 
   return (
     <div className="wd-notes">
+      <div className="wd-notes-bar">
+        <button className="wd-notes-new" onClick={() => void createNote()}>+ new note</button>
+      </div>
+      <div className="wd-notes-list">
+        {!loaded
+          ? <div className="wd-quiet">…</div>
+          : notes.length === 0
+            ? <div className="wd-quiet">no notes yet — keep setlists, schedules, anything the band needs</div>
+            : notes.map(n => {
+              const title = n.title.trim()
+              const snip = n.content.replace(/\s+/g, ' ').trim()
+              return (
+                <div key={n.id} className="wd-note-row" onClick={() => { setFocusNew(false); setOpenId(n.id) }}>
+                  <div className={`wd-note-title${title ? '' : ' untitled'}`}>{title || 'untitled'}</div>
+                  {snip && <div className="wd-note-snip">{snip}</div>}
+                  <div className="wd-note-meta">
+                    {`edited by ${n.updated_by ? nameOf(n.updated_by) : '—'} · ${relTime(n.updated_at, nowTick)}`}
+                  </div>
+                </div>
+              )
+            })}
+      </div>
+    </div>
+  )
+}
+
+/** One note opened — borderless serif title + quiet paper body, both
+ *  autosaved (800ms debounce). Remote realtime edits arrive as new
+ *  `note` props and are adopted ONLY while the local editor is clean —
+ *  mid-typing or mid-save, local text wins (v1's typing guard). */
+function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, onBack, onDelete }: {
+  supabase: SupabaseClient; note: NoteRow; userId: string
+  nameOf: (id: string | null) => string; nowTick: number
+  autoFocusTitle: boolean; onBack: () => void; onDelete: () => void
+}) {
+  const [title, setTitle] = useState(note.title)
+  const [content, setContent] = useState(note.content)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [delSure, setDelSure] = useState(false)
+
+  const titleRef = useRef(note.title)
+  const contentRef = useRef(note.content)
+  const dirtyRef = useRef(false)
+  const inFlightRef = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // A fresh note opens with the title ready to type.
+  useEffect(() => {
+    if (autoFocusTitle) titleInputRef.current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const persist = useCallback(async () => {
+    const snapTitle = titleRef.current
+    const snapContent = contentRef.current
+    inFlightRef.current = true
+    const { error } = await supabase
+      .from('conversation_notes')
+      .update({
+        title: snapTitle,
+        content: snapContent,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', note.id)
+    inFlightRef.current = false
+    if (error) { console.error('[StudioNotes] save failed', error); return }
+    // Still dirty only if more typing landed while the save flew.
+    if (titleRef.current === snapTitle && contentRef.current === snapContent) dirtyRef.current = false
+    setSavedAt(Date.now())
+  }, [supabase, note.id, userId])
+
+  const queueSave = useCallback(() => {
+    dirtyRef.current = true
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => { void persist() }, 800)
+  }, [persist])
+
+  // Closing the editor (back, tab switch, unmount) flushes a pending edit.
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (dirtyRef.current) void persist()
+  }, [persist])
+
+  // Remote realtime edits arrive as new note props — adopt them only
+  // while the local editor is clean, protecting in-flight typing.
+  useEffect(() => {
+    if (dirtyRef.current || inFlightRef.current) return
+    setTitle(note.title); titleRef.current = note.title
+    setContent(note.content); contentRef.current = note.content
+  }, [note.title, note.content, note.updated_at])
+
+  const fine = savedAt !== null && note.updated_by === userId
+    ? `saved · ${relTime(new Date(savedAt).toISOString(), Math.max(nowTick, savedAt))}`
+    : `edited by ${note.updated_by ? nameOf(note.updated_by) : '—'} · ${relTime(note.updated_at, nowTick)}`
+
+  return (
+    <div className="wd-note-ed">
+      <div className="wd-note-ed-head">
+        <button className="wd-note-back" onClick={onBack} aria-label="back to notes">‹</button>
+        <input
+          ref={titleInputRef}
+          className="wd-note-ed-title"
+          value={title}
+          placeholder="title…"
+          spellCheck={false}
+          onChange={e => { setTitle(e.target.value); titleRef.current = e.target.value; queueSave() }}
+        />
+        <span className="wd-note-ed-fine">{fine}</span>
+      </div>
       <textarea
+        className="wd-note-ed-body"
         value={content}
-        placeholder="a shared page for this room — lyrics, credits, todo…"
-        onChange={e => onChange(e.target.value)}
+        placeholder="setlists, timetables, flight numbers — anything worth keeping"
         spellCheck={false}
+        onChange={e => { setContent(e.target.value); contentRef.current = e.target.value; queueSave() }}
       />
-      <div className="wd-notes-meta">
-        {meta.at
-          ? `edited by ${nameOf(meta.by)} · ${dayLabel(meta.at)} ${fmtTime(meta.at)}`
-          : 'nothing written yet'}
+      <div className="wd-note-ed-foot">
+        <button
+          className={`wd-note-del${delSure ? ' sure' : ''}`}
+          onClick={() => {
+            if (!delSure) { setDelSure(true); return }
+            // A dying row shouldn't get a farewell autosave.
+            if (timerRef.current) clearTimeout(timerRef.current)
+            dirtyRef.current = false
+            onDelete()
+          }}
+        >
+          {delSure ? 'sure?' : 'delete note'}
+        </button>
       </div>
     </div>
   )
@@ -451,6 +621,9 @@ function StudioShellInner({ supabase, user }: Props) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     return convCalEvents.filter(e => new Date(e.starts_at) >= today).length
   }, [convCalEvents])
+
+  // ── notes wiring — list lives up here so the tab can badge count ────
+  const { notes, loaded: notesLoaded, refresh: refreshNotes } = useConversationNotes(supabase, activeConvId ?? null)
 
   const groupTitleById = useMemo(() => {
     const m = new Map<string, string>()
@@ -825,9 +998,9 @@ function StudioShellInner({ supabase, user }: Props) {
 
   const myName = me?.display_name ?? user.email?.split('@')[0] ?? 'me'
   const nameOf = useCallback((id: string | null): string => {
-    if (!id) return 'someone'
+    if (!id) return '—'
     if (id === user.id) return myName
-    return profileById.get(id)?.display_name ?? 'someone'
+    return profileById.get(id)?.display_name ?? '—'
   }, [user.id, myName, profileById])
 
   const greeting = useMemo(() => {
@@ -931,7 +1104,9 @@ function StudioShellInner({ supabase, user }: Props) {
                   <span className={`wd-tab${tab === 'calendar' ? ' on' : ''}`} onClick={() => activeConvId && setTab('calendar')}>
                     calendar{convUpcomingCount > 0 && <i>{convUpcomingCount}</i>}
                   </span>
-                  <span className={`wd-tab${tab === 'notes' ? ' on' : ''}`} onClick={() => activeConvId && setTab('notes')}>notes</span>
+                  <span className={`wd-tab${tab === 'notes' ? ' on' : ''}`} onClick={() => activeConvId && setTab('notes')}>
+                    notes{notes.length > 0 && <i>{notes.length}</i>}
+                  </span>
                 </div>
               </div>
 
@@ -1022,7 +1197,18 @@ function StudioShellInner({ supabase, user }: Props) {
 
               {tab === 'notes' && (
                 activeConvId
-                  ? <StudioNotes supabase={supabase} conversationId={activeConvId} userId={user.id} nameOf={nameOf} />
+                  ? (
+                    <StudioNotes
+                      supabase={supabase}
+                      conversationId={activeConvId}
+                      userId={user.id}
+                      nameOf={nameOf}
+                      notes={notes}
+                      loaded={notesLoaded}
+                      refresh={refreshNotes}
+                      nowTick={nowTick}
+                    />
+                  )
                   : <div className="wd-quiet">loading…</div>
               )}
             </>

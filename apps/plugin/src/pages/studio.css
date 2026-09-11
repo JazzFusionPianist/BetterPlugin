@@ -240,13 +240,51 @@
 .wd-me-scroll::-webkit-scrollbar { display: none; }
 .wd-sprompt { margin: 0 22px 14px; flex-shrink: 0; }
 
-/* ── notes tab ────────────────────────────────────────────────────── */
-.wd-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 22px 10px; }
-.wd-notes textarea { flex: 1; min-height: 0; resize: none; border: none; outline: none; background: transparent;
-  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 14.5px; line-height: 1.75;
-  color: #1A1917; padding: 0; }
-.wd-notes textarea::placeholder { color: #C0BCB3; font-style: italic; }
-.wd-notes-meta { flex-shrink: 0; padding: 8px 0 4px; font-size: 9.5px; color: #A5A199; text-align: right; }
+/* ── notes tab — one document per show ────────────────────────────── */
+/* List view: hairline document rows (serif title · grey snippet ·
+   fine-print byline), with a quiet accent "+ new note" up right. */
+.wd-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wd-notes-bar { flex-shrink: 0; display: flex; justify-content: flex-end; padding: 10px 22px 0; }
+.wd-notes-new { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: var(--acc); }
+.wd-notes-new:hover { text-decoration: underline; text-underline-offset: 3px; }
+.wd-notes-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  padding: 4px 22px 14px; scrollbar-width: none; }
+.wd-notes-list::-webkit-scrollbar { display: none; }
+.wd-note-row { flex-shrink: 0; padding: 11px 2px 10px; border-bottom: 1px solid rgba(26,25,23,.08); cursor: pointer; }
+.wd-note-row:hover { background: rgba(26,25,23,.02); }
+.wd-note-title { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15px; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-title.untitled { font-style: italic; color: #A5A199; }
+.wd-note-snip { margin-top: 2px; font-size: 11.5px; color: #6E6B63;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-meta { margin-top: 3px; font-size: 9.5px; color: #A5A199; }
+
+/* Editor view: quiet paper — ‹ back, borderless serif title, fine
+   print, body that flex-fills the pane. Whitespace preserved so long
+   structured pages (timetables, setlists) read as typed. */
+.wd-note-ed { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 22px 10px; }
+.wd-note-ed-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.wd-note-back { background: none; border: none; padding: 0 2px; cursor: pointer; font-family: inherit;
+  font-size: 18px; line-height: 1; color: #6E6B63; }
+.wd-note-back:hover { color: #1A1917; }
+.wd-note-ed-title { flex: 1; min-width: 0; border: none; outline: none; background: transparent; padding: 0;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 18px; color: #1A1917; }
+.wd-note-ed-title::placeholder { color: #C0BCB3; font-style: italic; }
+.wd-note-ed-fine { flex-shrink: 0; font-size: 9.5px; color: #A5A199; white-space: nowrap; }
+.wd-note-ed-body { flex: 1; min-height: 0; margin-top: 12px; resize: none; border: none; outline: none;
+  background: transparent; padding: 0; white-space: pre-wrap;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13.5px; line-height: 1.7; color: #1A1917; }
+.wd-note-ed-body::placeholder { color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; }
+.wd-note-ed-foot { flex-shrink: 0; padding: 8px 0 2px; display: flex; }
+/* House two-tap delete — a word, then "sure?" in red; never a native
+   confirm (the plugin's WKWebView can't show one). */
+.wd-note-del { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: #A5A199; text-decoration: underline; text-underline-offset: 3px; }
+.wd-note-del:hover { color: #6E6B63; }
+.wd-note-del.sure { color: #D6402E; }
 
 /* ── stems / calendar tab panes ───────────────────────────────────── */
 .wd-pane { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }

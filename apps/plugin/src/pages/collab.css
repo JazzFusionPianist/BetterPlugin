@@ -10143,3 +10143,8 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 .sg-val { cursor: ns-resize; color: rgba(246, 243, 234, 0.85); font-variant-numeric: tabular-nums; }
 .sg-val:hover { color: #F6F3EA; }
 .sg-val.quiet { cursor: default; color: rgba(246, 243, 234, 0.5); }
+
+/* second hands in the caption; the mix names each wire's source */
+.sg-val.hand { color: rgba(246, 243, 234, 0.7); }
+.sg-val.hand:hover { color: #F6F3EA; }
+.sg-share-who { fill: rgba(246, 243, 234, 0.55); font-weight: 400; }

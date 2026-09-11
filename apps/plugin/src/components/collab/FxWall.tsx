@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, PAPER, BLUE } from './FxPanel'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, PAPER, BLUE, fmtDecay, DIV_LABELS } from './FxPanel'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
@@ -29,6 +29,7 @@ type Drag =
   | { kind: 'move'; id: number; dx: number; dy: number }
   | { kind: 'wire'; from: number; at: Pt }
   | { kind: 'share'; edge: number; y0: number; g0: number }
+  | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
 
 const uid = () => Math.random().toString(36).slice(2, 8)
@@ -369,6 +370,13 @@ export default function FxWall ({ size }: Props) {
       updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
     }
     else if (drag.kind === 'share') setShare(drag.edge, drag.g0 + (drag.y0 - e.clientY) / 160)
+    else if (drag.kind === 'hand') {
+      const n = nodeById(drag.id); if (!n) return
+      const dy = drag.y0 - e.clientY
+      if (drag.hand === 'decay') { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, drag.v0 + dy / 160)); updateNode(drag.id, { decay: d }) }
+      else if (drag.hand === 'fb') updateNode(drag.id, { delayFb: Math.min(1, Math.max(0, drag.v0 + dy / 160)) })
+      else updateNode(drag.id, { delayDiv: Math.min(6, Math.max(0, Math.round(drag.v0 + dy / 18))) }, true)
+    }
     else if (drag.kind === 'wire' || drag.kind === 'shelf') setDrag({ ...drag, at: p })
   }
   const onWallUp = (e: RPointerEvent) => {
@@ -383,7 +391,7 @@ export default function FxWall ({ size }: Props) {
     else if (drag.kind === 'shelf') {
       if (p.x > 0 && p.y > 0 && p.x < size.w && p.y < size.h) addNode(drag.type, p)
     }
-    else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'move') push(graphRef.current, true)
+    else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'move' || drag.kind === 'hand') push(graphRef.current, true)
     setDrag(null)
   }
 
@@ -444,6 +452,7 @@ export default function FxWall ({ size }: Props) {
                   <text className="sg-share" x={lp.x} y={lp.y - 7} textAnchor="middle"
                     onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setDrag({ kind: 'share', edge: i, y0: ev.clientY, g0: e.gain }) }}
                     onDoubleClick={(ev) => { ev.stopPropagation(); setShare(i, mixIn ? 1 / Math.max(1, inputsOf(e.to).length) : 1, true) }}>
+                    {mixIn && <tspan className="sg-share-who">{e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(e.from)?.type ?? -1)} </tspan>}
                     {Math.round(e.gain * 100)}
                   </text>
                 )}
@@ -503,7 +512,33 @@ export default function FxWall ({ size }: Props) {
                       {' '}{fmtValue(n.type, n.amount, n.variant)}
                     </span>
                   )}
-                  {isMix && <span className="sg-val quiet"> {sharesOf(n.id).map(s => Math.round(s * 100)).join(' / ') || '—'}</span>}
+                  {/* the second hands, out here where they stay legible at any zoom */}
+                  {n.type === 2 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'decay', y0: e.clientY, v0: n.decay[n.variant] ?? 0.5 }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const d = [...n.decay]; d[n.variant] = 0.5; updateNode(n.id, { decay: d }, true) }}>
+                      {' · '}{fmtDecay(n.variant, n.decay[n.variant] ?? 0.5)}
+                    </span>
+                  )}
+                  {n.type === 10 && (
+                    <>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
+                        {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                      </span>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'fb', y0: e.clientY, v0: n.delayFb }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayFb: 0.35, }, true) }}>
+                        {' · fb '}{Math.round(n.delayFb * 100)}
+                      </span>
+                    </>
+                  )}
+                  {isMix && (
+                    <span className="sg-val quiet">
+                      {ins.length === 0 ? ' —' : ins.map(x => ` · ${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join('')}
+                    </span>
+                  )}
                 </div>
                 {isSel && (
                   <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>

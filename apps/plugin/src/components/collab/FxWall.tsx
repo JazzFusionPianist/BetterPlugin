@@ -180,6 +180,9 @@ export default function FxWall ({ size }: Props) {
   })
   const cx = size.w / 2, cy = size.h / 2
   const Rz = R * zoom, NODEz = NODE * zoom
+  // captions shrink slower than the prints and never below ~8px — the
+  // words must stay legible when the flow is zoomed far out
+  const capScale = Math.max(0.72, Math.sqrt(zoom))
   const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom, y: cy + (p.y - cy) * zoom })
   const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - cx) / zoom, y: cy + (p.y - cy) / zoom })
   // Native, non-passive: React's onWheel is passive, and the wall must
@@ -475,7 +478,7 @@ export default function FxWall ({ size }: Props) {
                 : <span className="sg-dot l" />}
               <span className="sg-dot r" onPointerDown={startWire(n.id)} />
               {/* under the print, scaled with it: caption, then the chosen print's words */}
-              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${zoom})` }}>
+              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> · {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}

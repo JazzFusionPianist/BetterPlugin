@@ -6,12 +6,13 @@ import AdminPage from './pages/AdminPage'
 import StudioShell from './pages/StudioShell'
 import SoundsPage from './pages/SoundsPage'
 import SoundsGraphDemo from './pages/SoundsGraphDemo'
+import GamesPage from './pages/GamesPage'
 import type { User } from '@supabase/supabase-js'
 
 /** Split-out single-purpose builds load the page with ?surface=<name>.
  *  Orb Sounds needs no account — it boots straight into the fx room,
- *  before auth. (Orb Chat keeps the auth flow; CollabPage reads the
- *  same param to boot chat-only.) */
+ *  before auth. Orb Chat and Orb Games keep the auth flow and branch
+ *  below it (StudioShell / GamesPage). */
 const SURFACE = new URLSearchParams(window.location.search).get('surface')
 
 export default function App() {
@@ -69,6 +70,10 @@ export default function App() {
   // Orb Chat surface (?surface=chat) gets the Studio workspace.
   if (supabase && new URLSearchParams(window.location.search).get('surface') === 'chat') {
     return <StudioShell supabase={supabase} user={user} />
+  }
+  // Orb Games surface (?surface=games) — the CD wall, nothing else.
+  if (supabase && SURFACE === 'games') {
+    return <GamesPage supabase={supabase} user={user} />
   }
 
   return (

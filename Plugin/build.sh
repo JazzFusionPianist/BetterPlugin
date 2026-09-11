@@ -9,7 +9,7 @@
 #   ./build.sh --release --install # Build & install to ~/Library/...
 #   ./build.sh --standalone-only  # Only build the standalone .app (fastest)
 #   ./build.sh --run              # Build then open the standalone .app
-#   ./build.sh --only=sounds      # Just one split-out (orb | chat | sounds)
+#   ./build.sh --only=sounds      # Just one split-out (orb | chat | sounds | games)
 #
 # Requirements:
 #   - Xcode (xcode-select --install)
@@ -62,8 +62,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # ── CMake configure ────────────────────────────────────────────────────────────
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
 # the full Orb: CMake target → product name, one line each.
-SPLIT_TARGETS=(OrbChat OrbSounds)
-SPLIT_NAMES=("Orb Chat" "Orb Sounds")
+SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
+SPLIT_NAMES=("Orb Chat" "Orb Sounds" "Orb Games")
 
 split_targets() { # AU + VST3 for every split-out (filtered by --only)
   local i out=""
@@ -73,6 +73,7 @@ split_targets() { # AU + VST3 for every split-out (filtered by --only)
       "")      ;;
       chat)    [ "$t" = OrbChat ]   || continue ;;
       sounds)  [ "$t" = OrbSounds ] || continue ;;
+      games)   [ "$t" = OrbGames ]  || continue ;;
       *)       continue ;;
     esac
     out="$out ${t}_AU ${t}_VST3"
@@ -93,7 +94,7 @@ else
   BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone$(split_targets)"
   echo "  AAX    : (skipped — no SDK)"
 fi
-[ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds)" >&2; exit 1; }
+[ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds | games)" >&2; exit 1; }
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
@@ -178,6 +179,7 @@ if [ "$INSTALL" = true ]; then
     case "$ONLY" in
       chat)   [ "$SPLIT_NAME" = "Orb Chat" ]   || continue ;;
       sounds) [ "$SPLIT_NAME" = "Orb Sounds" ] || continue ;;
+      games)  [ "$SPLIT_NAME" = "Orb Games" ]  || continue ;;
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)

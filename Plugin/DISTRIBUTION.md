@@ -54,7 +54,7 @@ You can ship a fully official **AU + VST3 + Standalone** installer now (steps
 AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
 formats notarize and install cleanly.
 
-## Split-out plugins (Orb Chat, Orb Sounds)
+## Split-out plugins (Orb Chat, Orb Sounds, Orb Games)
 
 Each single-purpose plugin is its own download with its own bundle id, so
 installing one never touches the full Orb or another split-out.
@@ -64,7 +64,9 @@ cd Plugin
 ./build.sh --release --only=sounds        # or --only=chat; omit for everything
 ./package.sh --product=sounds --version=1.0.0   # → installer/Orb Sounds-1.0.0.pkg
 ./package.sh --product=chat   --version=1.0.0   # → installer/Orb Chat-1.0.0.pkg
+./package.sh --product=games  --version=1.0.0   # → installer/Orb Games-1.0.0.pkg
 ```
 
 Sign and notarize exactly as above. Orb Sounds needs no account — it boots
-straight into the one-knob room.
+straight into the one-knob room. Orb Games keeps the sign-in (multiplayer rooms,
+invites and world scores are account-bound) and boots onto the CD wall.

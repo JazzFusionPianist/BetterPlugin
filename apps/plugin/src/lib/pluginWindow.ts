@@ -63,10 +63,10 @@ export const isExpandSupported = () =>
   hasJuceBridge && hasJuceNativeFunction('setPluginSize')
 
 /* ── One window size across the split-out plugins ─────────────────────────
-   Orb, Orb Chat and Orb Sounds all load the same origin, so their
+   Orb, Orb Chat, Orb Sounds and Orb Games all load the same origin, so their
    WKWebViews share localStorage. Every instance remembers the size the
    user drags it to; a FRESH instance (still at the compact default) opens
-   at that remembered size instead — so Orb Sounds comes up exactly as big
+   at that remembered size instead — so Orb Games comes up exactly as big
    as Orb Chat was left, and vice versa. Instances the user already sized
    keep their own JUCE-restored size. */
 const SHARED_SIZE_KEY = 'orb_window_size'

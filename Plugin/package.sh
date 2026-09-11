@@ -15,7 +15,7 @@
 # Usage:
 #   ./package.sh                  # package whatever exists in build/…/Release
 #   ./package.sh --version 1.2.0  # stamp a version (default 1.0.0)
-#   ./package.sh --product=sounds # one of the split-outs: orb (default) | chat | sounds
+#   ./package.sh --product=sounds # one of the split-outs: orb (default) | chat | sounds | games
 #                                 # → installer/Orb Sounds-1.0.0.pkg, its own identifier
 #   SIGN_ID="Developer ID Installer: …" ./package.sh   # signed pkg
 #
@@ -52,7 +52,8 @@ case "$PRODUCT" in
   orb)    TARGET="OrbPlugin"; NAME="Orb";        IDENTIFIER_BASE="com.orb.plugin" ;;
   chat)   TARGET="OrbChat";   NAME="Orb Chat";   IDENTIFIER_BASE="com.orb.chat"   ;;
   sounds) TARGET="OrbSounds"; NAME="Orb Sounds"; IDENTIFIER_BASE="com.orb.sounds" ;;
-  *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds)" >&2; exit 1 ;;
+  games)  TARGET="OrbGames";  NAME="Orb Games";  IDENTIFIER_BASE="com.orb.games"  ;;
+  *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds | games)" >&2; exit 1 ;;
 esac
 SLUG="${NAME// /}"   # inner component pkgs get a space-free name
 

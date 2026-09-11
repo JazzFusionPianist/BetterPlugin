@@ -10063,3 +10063,28 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .sg-shelf-item span {
   font-family: var(--f-sans); font-size: 10.5px; color: #F6F3EA;
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Orb Games — the CD wall as its own plugin (GamesPage). The room is
+   always open, so the view never slides in and nothing else exists to
+   hide; the wordmark sits where the toolbar glyphs would, in their
+   dimmed tone, and inverts with the per-game wall like every glyph. */
+.plugin.games .gview { transform: none; transition: none; }
+.plugin.games .top-bar { justify-content: space-between; }
+/* the wordmark reads from the room's top-left corner at every width —
+   not from the centred 360px slot the glyph cluster uses in wide mode */
+.plugin.games.screen-wide .top-bar { max-width: none; margin: 0; }
+.games-mark,
+.games-signout {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(26, 25, 23, 0.42);
+  /* match .icon-btn's box so the toolbar keeps its exact height */
+  padding: 2px 0 5px;
+  line-height: 16px;
+  user-select: none;
+}
+.plugin.games.dark .games-mark,
+.plugin.games.dark .games-signout { color: rgba(246, 243, 234, 0.45); }
+.games-signout { cursor: pointer; }
+.games-signout:hover { color: var(--t1); }

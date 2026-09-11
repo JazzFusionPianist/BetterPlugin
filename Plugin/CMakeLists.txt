@@ -210,3 +210,7 @@ orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbCh
 # Orb Sounds — the one-knob fx chain, no account needed: the plugin boots
 # straight into the darkened room.
 orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Orb Sounds" sounds OrbSoundsAU)
+
+# Orb Games — the mini-games CD wall. Keeps the account (rooms, invites,
+# world scores), drops every other room.
+orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Orb Games"  games  OrbGamesAU)

@@ -197,20 +197,20 @@
 .wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
 
-/* ── audio = DAW regions ──────────────────────────────────────────────
-   An audio attachment is a colored REGION block — a Logic/Ableton
-   clip sitting on the chat lane — not a white card. No hairline, no
-   card chrome: fill / border / name-strip / bar inks are all mixed
-   from the SENDER's avatar_color in TSX (mixHex against paper
-   #FBFAF7 and ink #1A1917) and arrive inline; only geometry lives
-   here. Music escapes the text-bubble cap: the column widens
-   (.wd-mcol.wide) and the region takes min(640px, all the room).
+/* ── audio = printed plates ───────────────────────────────────────────
+   An audio attachment is a PLATE from the exhibition catalogue: a
+   white figure card (1px hairline, bubble-family radius 12) whose
+   artwork is the waveform in FINE print texture — 1.5px ink bars /
+   1px gap, unplayed .22 / played .85, 1.5px stage-green needle —
+   above a full-width interior hairline (the plate/caption divider,
+   the catalogue signature) and ONE baseline caption row: bare ink
+   glyph · name · elapsed/total · the underlined import word. Music
+   escapes the text-bubble cap: the column widens (.wd-mcol.wide) and
+   the plate takes min(640px, all the room).
 
-   The body is a REAL waveform — fetch → decodeAudioData → ~90 peak
-   buckets (the web app's audioPeaks recipe), 2px bars / 1px gap on a
-   canvas, played bars = the sender color deepened, unplayed the same
-   at .38 alpha, 1.5px ink needle. The waveform IS the scrubber —
-   pointer capture, drags while paused.
+   The figure is a REAL waveform — fetch → decodeAudioData → ~90 peak
+   buckets (the web app's audioPeaks recipe) resampled on a canvas.
+   The waveform IS the scrubber — pointer capture, drags while paused.
 
    The real AudioAttachment mounts invisibly inside .wd-ac-import so
    its import-to-DAW machinery (prefetch → writeAudioFile → drag-out
@@ -220,40 +220,45 @@
 /* A text bubble sharing the message keeps the normal reading measure. */
 .wd-mcol.wide .wd-bub { max-width: min(100%, 520px); }
 
-/* The region block. Fill + border colors come inline from TSX. */
-.wd-region { width: 640px; max-width: 100%; min-width: 0;
-  border: 1px solid transparent; border-radius: 8px; overflow: hidden; }
-/* Multi-audio — adjacent clips on a lane: stacked, 5px gaps. */
-.wd-rgstack { width: 640px; max-width: 100%; min-width: 0;
-  display: flex; flex-direction: column; gap: 5px; }
-.wd-rgstack .wd-region { width: 100%; }
+/* The plate. White ground, hairline frame, bubble-family radius. */
+.wd-plate { width: 640px; max-width: 100%; min-width: 0; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; overflow: hidden; }
 
-/* Name strip — the Logic clip-title band across the region top.
-   Band color inline (sender color mixed 55% toward paper). */
-.wd-rg-strip { padding: 4px 10px; border-radius: 8px 8px 0 0; }
-.wd-rg-name { display: block; min-width: 0;
-  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-  font-size: 10.5px; font-weight: 600; line-height: 1.35; color: rgba(26,25,23,.82);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The figure — the waveform artwork, margined like a print. */
+.wd-plate-art { padding: 14px 16px 10px; }
 
-/* The waveform strip — full region width; the canvas fills it. */
+/* The waveform strip — the canvas fills it. */
 .wd-wave { position: relative; width: 100%; min-width: 0; cursor: pointer; touch-action: none; }
 .wd-wave canvas { display: block; width: 100%; height: 100%; }
 
-/* Transport footer inside the region — bare ink glyph + elapsed on
-   the left; total + the import word on the right. */
-.wd-rg-foot { display: flex; align-items: center; gap: 8px; padding: 4px 10px 8px; }
-.wd-ac-play { flex-shrink: 0; width: 14px; height: 14px; padding: 0;
+/* Caption row under the plate rule — one baseline-aligned line:
+   glyph, name (wraps if needed), then time + import at the right. */
+.wd-plate-cap { display: flex; align-items: baseline; gap: 8px;
+  border-top: 1px solid rgba(26,25,23,.16); padding: 8px 16px 10px; }
+.wd-plate-name { flex: 1; min-width: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; font-weight: 500; line-height: 1.4; word-break: break-word; }
+.wd-plate-right { flex-shrink: 0; display: flex; align-items: baseline; gap: 10px; }
+.wd-plate-time { font-size: 10.5px; color: rgba(26,25,23,.55);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* Multi-audio — ONE plate; each track a section (caption-style row
+   over its own 24px fine wave) behind interior hairlines. */
+.wd-plate-sec + .wd-plate-sec { border-top: 1px solid rgba(26,25,23,.16); }
+.wd-plate-secrow { display: flex; align-items: baseline; gap: 8px; padding: 8px 16px 5px; }
+.wd-plate-secname { flex: 1; min-width: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 12.5px; font-weight: 500; line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-plate-secwave { padding: 0 16px 10px; }
+
+/* Bare ink play glyph — sits on the caption baseline. */
+.wd-ac-play { flex-shrink: 0; padding: 0;
   background: none; border: none; border-radius: 0; color: #1A1917; opacity: .72; cursor: pointer;
   display: flex; align-items: center; justify-content: center; }
 .wd-ac-play svg { display: block; }
 .wd-ac-play:hover { opacity: 1; background: none; }
 .wd-ac-play:active { transform: none; }
-.wd-rg-cur { font-size: 10px; color: rgba(26,25,23,.55);
-  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-.wd-rg-right { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.wd-rg-dur { flex-shrink: 0; font-size: 10.5px; color: rgba(26,25,23,.55);
-  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
 /* Import machinery — hide the ride-along AudioAttachment's chrome;
    only its real import button (with all its drag handlers) surfaces,
@@ -323,39 +328,38 @@
 .wd-upcard-pct { flex-shrink: 0; min-width: 32px; text-align: right; font-size: 10.5px;
   color: #A5A199; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
-/* ── now-playing bar — the DARK TRANSPORT ─────────────────────────────
-   One shared engine for the whole shell; the cards are its remotes.
-   The approved floating rounded card (margins / radius / slide-in)
-   flipped dark: an ink #1A1917 object floating on paper, no border,
-   shadow a touch deeper. Fixed left cluster — [paper play glyph]
-   [chat-sans name 13/500, paper 92%, ellipsis] [elapsed/total, paper
-   55% tabular] — then the REST of the width is the playing track's
-   waveform (28px tall, paper bars .32/.88, accent green needle, same
-   pointer-capture seek-drag): the waveform IS the scrubber, no
-   separate strip. Quiet paper ✕ at the far right. */
-.wd-nowbar { flex-shrink: 0; height: 56px; margin: 0 22px 10px; background: #1A1917;
-  border: none; border-radius: 12px;
-  box-shadow: 0 3px 6px rgba(26,25,23,.14), 0 12px 28px -12px rgba(26,25,23,.45);
+/* ── now-playing bar — a floating paper plate ─────────────────────────
+   One shared engine for the whole shell; the plates are its remotes.
+   The approved floating geometry (margins / radius 12 / slide-in) on
+   the plate ground: white card, 1px hairline, soft shadow. Fixed
+   left cluster — [ink play glyph] [chat-sans name 13/500, ellipsis]
+   [elapsed/total, grey tabular] — then the REST of the width is the
+   playing track's fine ink waveform (28px tall, .22/.85 inks, green
+   needle, same pointer-capture seek-drag): the waveform IS the
+   scrubber, no separate strip. Quiet grey ✕ at the far right. */
+.wd-nowbar { flex-shrink: 0; height: 56px; margin: 0 22px 10px; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(26,25,23,.10), 0 12px 28px -12px rgba(26,25,23,.28);
   display: flex; align-items: center; gap: 12px; padding: 0 16px;
   animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }
 @keyframes wd-nowbar-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .wd-nowbar-btn { flex-shrink: 0; width: 18px; height: 18px; padding: 0;
-  border-radius: 0; background: none; border: none; color: rgba(251,250,247,.9);
+  border-radius: 0; background: none; border: none; color: #1A1917; opacity: .72;
   display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wd-nowbar-btn:hover { color: #FBFAF7; background: none; }
+.wd-nowbar-btn:hover { opacity: 1; background: none; }
 .wd-nowbar-btn svg { display: block; }
 .wd-nowbar-name { flex: 0 1 auto; min-width: 36px; max-width: 220px;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25;
-  color: rgba(251,250,247,.92);
+  color: #1A1917;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: rgba(251,250,247,.55);
+.wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: rgba(26,25,23,.55);
   font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .wd-nowbar-wave { flex: 1 1 0; min-width: 0; }
 .wd-nowbar-x { flex-shrink: 0; width: 22px; height: 22px; padding: 0;
-  background: none; border: none; color: rgba(251,250,247,.45);
+  background: none; border: none; color: #A5A199;
   display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wd-nowbar-x:hover { color: rgba(251,250,247,.9); }
+.wd-nowbar-x:hover { color: #1A1917; }
 
 /* ── input bar ────────────────────────────────────────────────────── */
 .wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center; min-height: 44px;

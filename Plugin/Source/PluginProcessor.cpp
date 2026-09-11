@@ -147,6 +147,18 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleGetFx (args, std::move (completion));
                 })
+            .withNativeFunction ("setGraph",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleSetGraph (args, std::move (completion));
+                })
+            .withNativeFunction ("getGraph",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    handleGetGraph (args, std::move (completion));
+                })
             .withNativeFunction ("setKeyboardCapture",
                 [] (const juce::var& args,
                     juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -241,7 +253,14 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // The FX engine allocates its lines per node here; the chain itself
     // (which slots run) is published from the message thread.
     fxChain.prepare (sampleRate, samplesPerBlock);
-    publishFxChain();
+    {
+        // Re-publish whatever patch is current (state may have loaded
+        // before the engine existed at this sample rate).
+        juce::String err;
+        const juce::ScopedLock sl (fxGraphLock);
+        if (fxGraph.nodes.empty() && fxGraph.edges.empty()) rebuildLegacyGraph();
+        else applyGraph (fxGraph, err);
+    }
 }
 
 void OrbAudioProcessor::releaseResources()
@@ -825,15 +844,54 @@ void OrbAudioProcessor::handleListLocalFonts (const juce::var&,
 
 //==============================================================================
 // One-knob FX rack — the engine lives in FxEngine.cpp; this is the
-// bridge between the UI's per-effect memories and the chain. Phase 0:
-// the chain is [the current mode], published from the message thread.
+// bridge between the UI and the patch.
 
-void OrbAudioProcessor::publishFxChain()
+void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
 {
-    orbfx::Schedule s;
-    s.count = 1;
-    s.slot[0] = juce::jlimit (0, (int) kNumFx - 1, fxMode.load());
-    fxChain.publish (s);
+    if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) return;
+    auto& s = fxSlots[(size_t) nd.id];
+    s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
+    s.variant.store (juce::jlimit (0, 3, nd.variant), std::memory_order_relaxed);
+    for (int i = 0; i < 3; ++i)
+        s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
+    s.delayDiv.store (juce::jlimit (0, 6, nd.delayDiv), std::memory_order_relaxed);
+    s.delayFb.store (juce::jlimit (0.0f, 1.0f, nd.delayFb), std::memory_order_relaxed);
+    s.wet.store (nd.wet, std::memory_order_relaxed);
+}
+
+bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
+{
+    orbfx::Program prog;
+    if (! orbfx::compile (g, prog, error)) return false;
+    {
+        const juce::ScopedLock sl (fxGraphLock);
+        fxGraph = g;
+    }
+    for (auto& nd : g.nodes) writeSlot (nd);
+    fxChain.publish (prog);
+    return true;
+}
+
+void OrbAudioProcessor::rebuildLegacyGraph()
+{
+    // The single-print room: one node, wired straight through. Its id is
+    // its effect, so the per-effect memories map onto slots 1:1.
+    const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load());
+    orbfx::Graph g;
+    orbfx::Graph::Node nd;
+    nd.id = mode; nd.type = mode;
+    nd.amount   = fxAmount[(size_t) mode].load();
+    nd.variant  = fxVariant[(size_t) mode].load();
+    for (int i = 0; i < 3; ++i) nd.decay[i] = fxSpaceDecay[(size_t) i].load();
+    nd.delayDiv = fxDelayDiv.load();
+    nd.delayFb  = fxDelayFb.load();
+    nd.wet      = false;
+    g.nodes.push_back (nd);
+    g.edges.push_back ({ orbfx::kPortIn, mode, 1.0f });
+    g.edges.push_back ({ mode, orbfx::kPortOut, 1.0f });
+    juce::String err;
+    applyGraph (g, err);
+    fxGraphMode.store (false);
 }
 
 void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
@@ -843,24 +901,138 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     const float sr = (float) juce::jmax (8000, captureSampleRate.load());
     if (n == 0 || nc == 0) return;
 
-    // Snapshot the UI-owned atomics once per block, one entry per slot
-    // (slot == effect in phase 0).
+    // Snapshot the per-slot atomics once per block.
     orbfx::NodeParams params[orbfx::kMaxNodes];
     const float bpm = (float) playheadBpm.load();
-    for (int i = 0; i < (int) kNumFx; ++i)
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
+        auto& s = fxSlots[(size_t) i];
         auto& p = params[i];
-        p.amount   = fxAmount[(size_t) i].load (std::memory_order_relaxed);
-        p.variant  = fxVariant[(size_t) i].load (std::memory_order_relaxed);
-        p.decay    = fxSpaceDecay[(size_t) juce::jlimit (0, 2, p.variant)].load (std::memory_order_relaxed);
-        p.delayDiv = fxDelayDiv.load (std::memory_order_relaxed);
-        p.delayFb  = fxDelayFb.load (std::memory_order_relaxed);
+        p.amount   = s.amount.load (std::memory_order_relaxed);
+        p.variant  = s.variant.load (std::memory_order_relaxed);
+        p.decay    = s.decay[(size_t) juce::jlimit (0, 2, p.variant)].load (std::memory_order_relaxed);
+        p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);
+        p.delayFb  = s.delayFb.load (std::memory_order_relaxed);
+        p.wet      = s.wet.load (std::memory_order_relaxed);
         p.bpm      = bpm;
     }
 
     float gr = 0.0f;
     fxChain.process (buffer, sr, params, gr);
     glueGrDb.store (gr, std::memory_order_relaxed);
+}
+
+//==============================================================================
+// Patch ⇄ JSON. Shape:
+//   { nodes: [{ id, type, amount, variant, decay:[3], delayDiv, delayFb, wet, x, y }],
+//     edges: [{ from, to, gain }] }          from/to: node id, -1 = in, -2 = out
+
+juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
+{
+    juce::Array<juce::var> nodes;
+    for (auto& nd : g.nodes)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("id", nd.id);
+        o->setProperty ("type", nd.type);
+        o->setProperty ("amount", (double) nd.amount);
+        o->setProperty ("variant", nd.variant);
+        juce::Array<juce::var> dec;
+        for (int i = 0; i < 3; ++i) dec.add ((double) nd.decay[i]);
+        o->setProperty ("decay", dec);
+        o->setProperty ("delayDiv", nd.delayDiv);
+        o->setProperty ("delayFb", (double) nd.delayFb);
+        o->setProperty ("wet", nd.wet);
+        o->setProperty ("x", (double) nd.x);
+        o->setProperty ("y", (double) nd.y);
+        nodes.add (juce::var (o));
+    }
+    juce::Array<juce::var> edges;
+    for (auto& e : g.edges)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("from", e.from);
+        o->setProperty ("to", e.to);
+        o->setProperty ("gain", (double) e.gain);
+        edges.add (juce::var (o));
+    }
+    auto* root = new juce::DynamicObject();
+    root->setProperty ("nodes", nodes);
+    root->setProperty ("edges", edges);
+    return juce::JSON::toString (juce::var (root), true);
+}
+
+bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error)
+{
+    juce::var v = juce::JSON::parse (json);
+    if (! v.isObject()) { error = "not a patch"; return false; }
+    orbfx::Graph out;
+    if (auto* nodes = v["nodes"].getArray())
+    {
+        for (auto& n : *nodes)
+        {
+            if (! n.isObject()) { error = "bad node"; return false; }
+            orbfx::Graph::Node nd;
+            nd.id       = (int) n["id"];
+            nd.type     = (int) n["type"];
+            nd.amount   = n.hasProperty ("amount")   ? (float) (double) n["amount"]  : orbfx::neutralAmount (nd.type);
+            nd.variant  = n.hasProperty ("variant")  ? (int) n["variant"] : 0;
+            if (auto* dec = n["decay"].getArray())
+                for (int i = 0; i < 3 && i < dec->size(); ++i) nd.decay[i] = (float) (double) (*dec)[i];
+            nd.delayDiv = n.hasProperty ("delayDiv") ? (int) n["delayDiv"] : 2;
+            nd.delayFb  = n.hasProperty ("delayFb")  ? (float) (double) n["delayFb"] : 0.35f;
+            nd.wet      = n.hasProperty ("wet")      ? (bool) n["wet"] : false;
+            nd.x        = (float) (double) n["x"];
+            nd.y        = (float) (double) n["y"];
+            out.nodes.push_back (nd);
+        }
+    }
+    if (auto* edges = v["edges"].getArray())
+    {
+        for (auto& e : *edges)
+        {
+            if (! e.isObject()) { error = "bad wire"; return false; }
+            orbfx::Graph::Edge ed;
+            ed.from = (int) e["from"];
+            ed.to   = (int) e["to"];
+            ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
+            out.edges.push_back (ed);
+        }
+    }
+    g = out;
+    return true;
+}
+
+void OrbAudioProcessor::handleSetGraph (const juce::var& args,
+                                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    auto reply = [&] (bool ok, const juce::String& err)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("ok", ok);
+        if (! ok) o->setProperty ("error", err);
+        completion (juce::var (o));
+    };
+    auto* arr = args.getArray();
+    if (arr == nullptr || arr->isEmpty()) { reply (false, "no patch"); return; }
+    const juce::var& v = arr->getReference (0);
+    const juce::String json = v.isString() ? v.toString() : juce::JSON::toString (v, true);
+    orbfx::Graph g; juce::String err;
+    if (! graphFromJson (json, g, err)) { reply (false, err); return; }
+    if (! applyGraph (g, err))          { reply (false, err); return; }
+    fxGraphMode.store (true);
+    reply (true, {});
+}
+
+void OrbAudioProcessor::handleGetGraph (const juce::var&,
+                                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    juce::String json;
+    {
+        const juce::ScopedLock sl (fxGraphLock);
+        json = graphToJson (fxGraph);
+    }
+    completion (json);
 }
 
 void OrbAudioProcessor::handleSetFx (const juce::var& args,
@@ -873,10 +1045,11 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
     {
         const juce::var& v = arr->getReference (0);
         int mode = fxMode.load();
+        bool modeChanged = false;
         if (v.hasProperty ("mode"))
         {
             mode = juce::jlimit (0, (int) kNumFx - 1, (int) v["mode"]);
-            if (fxMode.exchange (mode) != mode) publishFxChain();
+            modeChanged = fxMode.exchange (mode) != mode;
         }
         if (v.hasProperty ("amount"))
             fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
@@ -889,6 +1062,24 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
             fxDelayDiv.store (juce::jlimit (0, 6, (int) v["delayDiv"]));
         if (v.hasProperty ("delayFb"))
             fxDelayFb.store (juce::jlimit (0.0f, 1.0f, (float) (double) v["delayFb"]));
+
+        // The single-print room draws the one-node patch. A new print
+        // recompiles; a knob move only touches the slot atomics.
+        if (modeChanged || fxGraphMode.load())
+            rebuildLegacyGraph();
+        else
+        {
+            orbfx::Graph::Node nd;
+            nd.id = mode; nd.type = mode;
+            nd.amount   = fxAmount[(size_t) mode].load();
+            nd.variant  = fxVariant[(size_t) mode].load();
+            for (int i = 0; i < 3; ++i) nd.decay[i] = fxSpaceDecay[(size_t) i].load();
+            nd.delayDiv = fxDelayDiv.load();
+            nd.delayFb  = fxDelayFb.load();
+            writeSlot (nd);
+            const juce::ScopedLock sl (fxGraphLock);
+            for (auto& gn : fxGraph.nodes) if (gn.id == mode) { const float x = gn.x, y = gn.y; gn = nd; gn.x = x; gn.y = y; }
+        }
     }
     completion (juce::var (true));
 }
@@ -930,6 +1121,13 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml.setAttribute ("fxDecay" + juce::String (i), (double) fxSpaceDecay[(size_t) i].load());
     xml.setAttribute ("editorW", editorW.load());
     xml.setAttribute ("editorH", editorH.load());
+    // The patch itself — only once a real one was drawn; the single-print
+    // room keeps living in the per-effect attributes above.
+    if (fxGraphMode.load())
+    {
+        const juce::ScopedLock sl (fxGraphLock);
+        xml.setAttribute ("fxGraph", graphToJson (fxGraph));
+    }
     copyXmlToBinary (xml, dest);
 }
 
@@ -953,7 +1151,18 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
             (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
         editorW.store (xml->getIntAttribute ("editorW", 0));
         editorH.store (xml->getIntAttribute ("editorH", 0));
-        publishFxChain();
+
+        bool restored = false;
+        if (xml->hasAttribute ("fxGraph"))
+        {
+            orbfx::Graph g; juce::String err;
+            if (graphFromJson (xml->getStringAttribute ("fxGraph"), g, err) && applyGraph (g, err))
+            {
+                fxGraphMode.store (true);
+                restored = true;
+            }
+        }
+        if (! restored) rebuildLegacyGraph();
     }
 }
 

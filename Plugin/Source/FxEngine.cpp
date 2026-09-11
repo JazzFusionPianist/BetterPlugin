@@ -68,32 +68,33 @@ static void bakeCutFilter (bool hp, float freq, float sr,
 }
 
 //==============================================================================
-void NodeState::prepare (int newType, double sampleRate)
+void NodeState::prepare (double sampleRate)
 {
-    type = newType;
     const float srf = (float) sampleRate;
-    fxReverb.setSampleRate (sampleRate);
-    // Allocate only what this node's effect needs — the 3 s echo line is
-    // the big one. Message thread only; never resized on the audio thread.
-    auto line = [&] (std::vector<float>* dl, bool wanted, float seconds)
+    // juce::Reverb boots with its own dry at 0.4 and SMOOTHS toward the
+    // levels we set — 30 ms of leaked dry on every fresh node. Set our
+    // levels first, then setSampleRate snaps the smoothers onto them.
     {
-        if (wanted)
-        {
-            const int len = (int) (srf * seconds) + 64;
-            dl[0].assign ((size_t) len, 0.0f);
-            dl[1].assign ((size_t) len, 0.0f);
-        }
-        else
-        {
-            for (int ch = 0; ch < 2; ++ch) { dl[ch].clear(); dl[ch].shrink_to_fit(); }
-        }
+        juce::Reverb::Parameters pr;
+        pr.dryLevel = 0.0f; pr.wetLevel = 1.0f;
+        fxReverb.setParameters (pr);
+    }
+    fxReverb.setSampleRate (sampleRate);
+    // Every slot gets every line up front (~1.2 MB each), so binding a
+    // slot to a new effect is allocation-free and can happen on the audio
+    // thread the moment a Program is adopted. Message thread only.
+    auto line = [&] (std::vector<float>* dl, float seconds)
+    {
+        const int len = (int) (srf * seconds) + 64;
+        dl[0].assign ((size_t) len, 0.0f);
+        dl[1].assign ((size_t) len, 0.0f);
     };
     // Modulated delay for chorus/flanger: 60 ms is comfortably past the
     // deepest excursion. Doubler ghosts live within ~35 ms. The echo line
     // holds a half note down to 43 BPM (~2.8 s) with headroom.
-    line (modDl, type == kMod,     0.06f);
-    line (dblDl, type == kDoubler, 0.06f);
-    line (dlyBuf, type == kDelay,  3.0f);
+    line (modDl, 0.06f);
+    line (dblDl, 0.06f);
+    line (dlyBuf, 3.0f);
     reset();
 }
 
@@ -167,8 +168,17 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                                                && std::abs (target - 0.75f) < 0.002f)
                               { gainPrimed = false; return; } }
     else                    { if (a < 0.004f && target < 0.004f)
-                              { if (type == kGlue) grDb = 0.0f;
-                                return; } }
+                              {
+                                  if (type == kGlue) grDb = 0.0f;
+                                  // Wet Solo at zero is silence, not a dry copy —
+                                  // a parallel branch must not double the source.
+                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod))
+                                  {
+                                      juce::FloatVectorOperations::clear (L, n);
+                                      if (R != nullptr) juce::FloatVectorOperations::clear (R, n);
+                                  }
+                                  return;
+                              } }
 
     switch (type)
     {
@@ -446,7 +456,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             const float depth = (wide ? 0.0035f : 0.0020f) * sr;
             const float inc   = 0.32f / sr;
             const float mix   = a * 0.72f;
-            const float duck  = 1.0f - mix * 0.30f;
+            const float duck  = p.wet ? 0.0f : 1.0f - mix * 0.30f;   // wet: ghosts only
             for (int i = 0; i < n; ++i)
             {
                 dblLfoPhase += inc; if (dblLfoPhase >= 1.0f) dblLfoPhase -= 1.0f;
@@ -488,7 +498,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             const float smK  = 1.0f - std::exp (-1.0f / (0.12f * sr));
             const float fb   = juce::jlimit (0.0f, 0.85f, p.delayFb * 0.85f);
             const float mix  = a * 0.62f;
-            const float duck = 1.0f - mix * 0.25f;
+            const float duck = p.wet ? 0.0f : 1.0f - mix * 0.25f;   // wet: echoes only
             const bool  tapeFl = variant == 1;
             const bool  ping   = variant == 2;
             const float lpK  = 1.0f - std::exp (-twoPi * 3200.0f / sr);
@@ -575,7 +585,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             fxReverb.processStereo (wl, wr, n);
 
             const float wet = a * wetScale;
-            const float dry = 1.0f - a * 0.2f;
+            const float dry = p.wet ? 0.0f : 1.0f - a * 0.2f;   // wet: the room only
             for (int i = 0; i < n; ++i)
             {
                 L[i] = L[i] * dry + wl[i] * wet;
@@ -706,6 +716,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 const float inc = 0.35f / sr;
                 const float fb  = 0.55f * a;
                 const float mix = 0.5f  * a;
+                const float dryK = p.wet ? 0.0f : 1.0f - mix;
                 for (int i = 0; i < n; ++i)
                 {
                     modLfoPhase += inc; if (modLfoPhase >= 1.0f) modLfoPhase -= 1.0f;
@@ -726,7 +737,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                             x = y;
                         }
                         phFb[ch] = x;
-                        S[i] = S[i] * (1.0f - mix) + x * mix;
+                        S[i] = S[i] * dryK + x * mix;
                     }
                 }
             }
@@ -740,6 +751,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 const float depth = (fl ? 0.0032f : 0.0045f) * sr * a;
                 const float fb    = fl ? 0.6f  * a : 0.0f;
                 const float mix   = fl ? 0.55f * a : 0.5f * a;
+                const float dryK  = p.wet ? 0.0f : 1.0f - mix * 0.55f;
                 for (int i = 0; i < n; ++i)
                 {
                     modLfoPhase += inc; if (modLfoPhase >= 1.0f) modLfoPhase -= 1.0f;
@@ -756,7 +768,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                                         + modDl[ch][(size_t) i1] * fr;
                         float* S = ch == 1 ? R : L;
                         modDl[ch][(size_t) modWrite] = S[i] + wet * fb;
-                        S[i] = S[i] * (1.0f - mix * 0.55f) + wet * mix;
+                        S[i] = S[i] * dryK + wet * mix;
                     }
                     if (R == nullptr) modDl[1][(size_t) modWrite] = modDl[0][(size_t) modWrite];
                     modWrite = modWrite + 1 < len ? modWrite + 1 : 0;
@@ -770,84 +782,371 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 }
 
 //==============================================================================
+// Compile: the wall's graph → a flat Program over a pool of block buffers.
+
+bool compile (const Graph& g, Program& out, juce::String& error)
+{
+    Program prog;
+
+    // ── nodes: id = slot, unique, typed ─────────────────────────────────
+    int slotType[kMaxNodes];
+    for (auto& t : slotType) t = kNone;
+    for (auto& nd : g.nodes)
+    {
+        if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
+        if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
+        const bool fx = nd.type >= 0 && nd.type < (int) kNumFx;
+        if (! fx && nd.type != kMixType)              { error = "bad node type";      return false; }
+        slotType[nd.id] = nd.type;
+    }
+    auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
+
+    // ── wires: valid endpoints, no duplicates, fan-IN only into mix ─────
+    const int E = (int) g.edges.size();
+    if (E > kMaxEdges) { error = "too many wires"; return false; }
+    for (int i = 0; i < E; ++i)
+    {
+        const auto& e = g.edges[(size_t) i];
+        if (! (e.from == kPortIn  || isNode (e.from))) { error = "wire from nowhere"; return false; }
+        if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
+        if (e.from == e.to)                            { error = "wire to itself";    return false; }
+        for (int j = 0; j < i; ++j)
+            if (g.edges[(size_t) j].from == e.from && g.edges[(size_t) j].to == e.to)
+            { error = "duplicate wire"; return false; }
+    }
+    {
+        int inDeg[kMaxNodes] {};
+        int outDeg = 0;
+        for (auto& e : g.edges)
+        {
+            if (e.to == kPortOut) ++outDeg;
+            else if (++inDeg[e.to] > 1 && slotType[e.to] != kMixType)
+            { error = "only a mix takes more than one wire"; return false; }
+        }
+        if (outDeg > 1) { error = "out takes one wire"; return false; }
+    }
+
+    // ── reachability: a node counts only if in → node → out ─────────────
+    bool fwd[kMaxNodes] {}, bwd[kMaxNodes] {};
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (auto& e : g.edges)
+            {
+                const bool srcOk = e.from == kPortIn || fwd[e.from];
+                if (srcOk && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }
+            }
+        }
+        changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (auto& e : g.edges)
+            {
+                const bool dstOk = e.to == kPortOut || bwd[e.to];
+                if (dstOk && e.from != kPortIn && ! bwd[e.from]) { bwd[e.from] = true; changed = true; }
+            }
+        }
+    }
+    bool activeNode[kMaxNodes] {};
+    for (int i = 0; i < kMaxNodes; ++i) activeNode[i] = slotType[i] != kNone && fwd[i] && bwd[i];
+    bool activeEdge[kMaxEdges] {};
+    int  outEdge = -1;
+    for (int i = 0; i < E; ++i)
+    {
+        const auto& e = g.edges[(size_t) i];
+        const bool a = (e.from == kPortIn || activeNode[e.from]) && (e.to == kPortOut || activeNode[e.to]);
+        activeEdge[i] = a;
+        if (a && e.to == kPortOut) outEdge = i;
+    }
+    if (outEdge < 0)
+    {
+        // Nothing reaches out: the wall is silent on purpose? No — a bare
+        // insert passes audio. Bypass.
+        prog.bypass = 1;
+        out = prog;
+        return true;
+    }
+
+    // ── order: Kahn over the active subgraph; leftovers = a cycle ───────
+    int order[kMaxNodes]; int nOrder = 0;
+    {
+        int inDeg[kMaxNodes] {};
+        for (int i = 0; i < E; ++i)
+            if (activeEdge[i] && g.edges[(size_t) i].to != kPortOut && g.edges[(size_t) i].from != kPortIn)
+                ++inDeg[g.edges[(size_t) i].to];
+        bool done[kMaxNodes] {};
+        int activeCount = 0;
+        for (int i = 0; i < kMaxNodes; ++i) if (activeNode[i]) ++activeCount;
+        while (nOrder < activeCount)
+        {
+            int pick = -1;
+            for (int i = 0; i < kMaxNodes; ++i)
+                if (activeNode[i] && ! done[i] && inDeg[i] == 0) { pick = i; break; }
+            if (pick < 0) { error = "cycle"; return false; }   // feedback — refused (v1)
+            done[pick] = true;
+            order[nOrder++] = pick;
+            for (int i = 0; i < E; ++i)
+                if (activeEdge[i] && g.edges[(size_t) i].from == pick && g.edges[(size_t) i].to != kPortOut)
+                    --inDeg[g.edges[(size_t) i].to];
+        }
+    }
+
+    // ── emit ────────────────────────────────────────────────────────────
+    int  bufOfEdge[kMaxEdges];
+    for (auto& b : bufOfEdge) b = -1;
+    bool used[kMaxBuffers] {};
+    used[0] = true;   // the host buffer starts owned by in's first wire
+    auto alloc = [&] () -> int
+    {
+        for (int b = 1; b < kMaxBuffers; ++b) if (! used[b]) { used[b] = true; return b; }
+        return -1;
+    };
+    auto release = [&] (int b) { if (b >= 0 && b < kMaxBuffers) used[b] = false; };
+    auto emit = [&] (Op op) -> bool
+    {
+        if (prog.numOps >= kMaxOps) { error = "patch too big"; return false; }
+        prog.ops[prog.numOps++] = op;
+        return true;
+    };
+    auto nearUnity = [] (float gn) { return std::abs (gn - 1.0f) < 1.0e-6f; };
+    auto fanOut = [&] (int fromId, int srcBuf) -> bool
+    {
+        bool first = true;
+        for (int i = 0; i < E; ++i)
+        {
+            if (! activeEdge[i] || g.edges[(size_t) i].from != fromId) continue;
+            if (first) { bufOfEdge[i] = srcBuf; first = false; continue; }
+            const int b = alloc();
+            if (b < 0) { error = "too many branches"; return false; }
+            Op op; op.kind = Op::kCopy; op.dst = b; op.src = srcBuf;
+            if (! emit (op)) return false;
+            bufOfEdge[i] = b;
+        }
+        return true;
+    };
+
+    // in: mult the host buffer to every wire leaving the in port
+    if (! fanOut (kPortIn, 0)) return false;
+
+    for (int k = 0; k < nOrder; ++k)
+    {
+        const int id = order[k];
+        int outBuf = -1;
+        if (slotType[id] == kMixType)
+        {
+            const int dst = alloc();
+            if (dst < 0) { error = "too many branches"; return false; }
+            bool first = true;
+            for (int i = 0; i < E; ++i)
+            {
+                if (! activeEdge[i] || g.edges[(size_t) i].to != id) continue;
+                Op op; op.kind = first ? Op::kScale : Op::kAccum;
+                op.dst = dst; op.src = bufOfEdge[i]; op.gain = g.edges[(size_t) i].gain;
+                if (! emit (op)) return false;
+                first = false;
+            }
+            for (int i = 0; i < E; ++i)
+                if (activeEdge[i] && g.edges[(size_t) i].to == id) release (bufOfEdge[i]);
+            outBuf = dst;
+        }
+        else
+        {
+            int in = -1;
+            for (int i = 0; i < E; ++i)
+                if (activeEdge[i] && g.edges[(size_t) i].to == id) { in = i; break; }
+            if (in < 0) { error = "unwired node"; return false; }   // cannot happen (active)
+            const int b = bufOfEdge[in];
+            if (! nearUnity (g.edges[(size_t) in].gain))
+            {
+                Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = g.edges[(size_t) in].gain;
+                if (! emit (gop)) return false;
+            }
+            Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
+            if (! emit (op)) return false;
+            outBuf = b;
+        }
+        if (! fanOut (id, outBuf)) return false;
+    }
+
+    // out: whatever lands on the out port ends up in the host buffer
+    {
+        const auto& e = g.edges[(size_t) outEdge];
+        const int b = bufOfEdge[outEdge];
+        if (! nearUnity (e.gain))
+        {
+            Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = e.gain;
+            if (! emit (gop)) return false;
+        }
+        if (b != 0)
+        {
+            Op cp; cp.kind = Op::kCopy; cp.dst = 0; cp.src = b;
+            if (! emit (cp)) return false;
+        }
+    }
+    prog.bypass = 0;
+    out = prog;
+    return true;
+}
+
+//==============================================================================
 void Chain::prepare (double sampleRate, int blockSize)
 {
-    sr = sampleRate;
-    scratch.setSize (2, juce::jmax (64, blockSize), false, false, true);
-    // Phase 0: slots 0..kNumFx-1 are pre-bound one per effect (slot ==
-    // type) so the per-effect memories the UI already keeps map 1:1; the
-    // remaining slots stay free for the graph.
-    for (int i = 0; i < kMaxNodes; ++i)
-        nodes[(size_t) i].prepare (i < (int) kNumFx ? i : (int) kNone, sampleRate);
-    last = Schedule {};
+    srHz = sampleRate;
+    const int n = juce::jmax (64, blockSize);
+    scratch.setSize (2, n, false, false, true);
+    pool.resize ((size_t) (kMaxBuffers - 1));
+    for (auto& b : pool) b.setSize (2, n, false, false, true);
+    for (auto& node : nodes) node.prepare (sampleRate);
+    for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
+    active = Program {};
 }
 
-void Chain::setNodeType (int slot, int type)
+void Chain::publish (const Program& p)
 {
-    if (slot < 0 || slot >= kMaxNodes) return;
-    const juce::SpinLock::ScopedLockType lock (writeLock);
-    nodes[(size_t) slot].prepare (type, sr);
+    // Message thread. The audio thread only ever try-locks, so holding
+    // this briefly never stalls it.
+    const juce::SpinLock::ScopedLockType lock (pendingLock);
+    pending = p;
+    pendingFlag.store (true, std::memory_order_release);
 }
 
-void Chain::publish (const Schedule& s)
+void Chain::adoptPending()
 {
-    // Seqlock writer (message thread, rare). Odd seq = write in progress;
-    // the reader retries until it sees the same even seq before and after.
-    const juce::SpinLock::ScopedLockType lock (writeLock);
-    seq.fetch_add (1, std::memory_order_acq_rel);
-    shared.count.store (juce::jlimit (0, kMaxNodes, s.count), std::memory_order_relaxed);
-    for (int i = 0; i < kMaxNodes; ++i)
-        shared.slot[i].store (s.slot[i], std::memory_order_relaxed);
-    seq.fetch_add (1, std::memory_order_acq_rel);
-}
+    if (! pendingFlag.load (std::memory_order_acquire)) return;
+    if (! pendingLock.tryEnter()) return;   // writer mid-publish: next block
 
-Schedule Chain::current() const
-{
-    Schedule s;
-    for (;;)
+    // Carry each op's smoothed gain over from the op it matches in the
+    // running program (same kind / node / buffers), so a level drag stays
+    // click-free. An op with no twin is new: a serial gain starts from
+    // unity (a missing gain op IS unity, so 100 → 99 ramps instead of
+    // jumping) and a wire landing on a mix fades in from silence.
     {
-        const unsigned s0 = seq.load (std::memory_order_acquire);
-        if (s0 & 1u) continue;
-        s.count = shared.count.load (std::memory_order_relaxed);
-        for (int i = 0; i < kMaxNodes; ++i) s.slot[i] = shared.slot[i].load (std::memory_order_relaxed);
-        if (seq.load (std::memory_order_acquire) == s0) break;
+        float next[kMaxOps];
+        for (int i = 0; i < pending.numOps; ++i)
+        {
+            const Op& b = pending.ops[i];
+            float g = b.kind == Op::kGain ? 1.0f : 0.0f;
+            for (int j = 0; j < active.numOps; ++j)
+            {
+                const Op& a = active.ops[j];
+                if (a.kind == b.kind && a.slot == b.slot && a.type == b.type && a.dst == b.dst && a.src == b.src)
+                { g = gainSm[j]; break; }
+            }
+            next[i] = g;
+        }
+        for (int i = 0; i < pending.numOps; ++i) gainSm[i] = next[i];
     }
-    return s;
+
+    // A node entering the wall (or changing effect) starts clean and
+    // glides up from neutral — exactly what switching modes always did.
+    for (int i = 0; i < pending.numOps; ++i)
+    {
+        const Op& op = pending.ops[i];
+        if (op.kind != Op::kProcess) continue;
+        bool wasRunning = false;
+        for (int j = 0; j < active.numOps; ++j)
+            if (active.ops[j].kind == Op::kProcess && active.ops[j].slot == op.slot && active.ops[j].type == op.type)
+            { wasRunning = true; break; }
+        if (! wasRunning)
+        {
+            auto& node = nodes[(size_t) op.slot];
+            node.type = op.type;
+            node.reset();
+        }
+    }
+
+    active = pending;
+    pendingFlag.store (false, std::memory_order_release);
+    pendingLock.exit();
+}
+
+float* Chain::chan (int buf, int ch, int n)
+{
+    if (buf <= 0) return host->getWritePointer (ch);
+    auto& b = pool[(size_t) (buf - 1)];
+    if (b.getNumSamples() < n) b.setSize (2, n, false, false, true);   // host grew its block: last resort
+    return b.getWritePointer (ch);
+}
+
+void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, const NodeParams* params)
+{
+    const float g0 = gainSm[opIndex];
+    const float g1 = op.gain;
+    const bool  ramp = std::abs (g1 - g0) > 1.0e-6f;
+    const float inv  = 1.0f / (float) n;
+    gainSm[opIndex] = g1;
+
+    switch (op.kind)
+    {
+        case Op::kCopy:
+            for (int ch = 0; ch < nc; ++ch)
+                juce::FloatVectorOperations::copy (chan (op.dst, ch, n), chan (op.src, ch, n), n);
+            break;
+        case Op::kGain:
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                float* d = chan (op.dst, ch, n);
+                if (ramp) for (int i = 0; i < n; ++i) d[i] *= g0 + (g1 - g0) * (float) (i + 1) * inv;
+                else      juce::FloatVectorOperations::multiply (d, g1, n);
+            }
+            break;
+        case Op::kScale:
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                float* d = chan (op.dst, ch, n); const float* s = chan (op.src, ch, n);
+                if (ramp) for (int i = 0; i < n; ++i) d[i] = s[i] * (g0 + (g1 - g0) * (float) (i + 1) * inv);
+                else      juce::FloatVectorOperations::copyWithMultiply (d, s, g1, n);
+            }
+            break;
+        case Op::kAccum:
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                float* d = chan (op.dst, ch, n); const float* s = chan (op.src, ch, n);
+                if (ramp) for (int i = 0; i < n; ++i) d[i] += s[i] * (g0 + (g1 - g0) * (float) (i + 1) * inv);
+                else      juce::FloatVectorOperations::addWithMultiply (d, s, g1, n);
+            }
+            break;
+        case Op::kProcess:
+        {
+            if (op.slot < 0 || op.slot >= kMaxNodes) break;
+            auto& node = nodes[(size_t) op.slot];
+            float* L = chan (op.dst, 0, n);
+            float* R = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            node.process (params[op.slot], sampleRate, n, L, R, scratch);
+            float pk = 0.0f;
+            for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]));
+            if (R != nullptr) for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (R[i]));
+            peaks[(size_t) op.slot].store (pk, std::memory_order_relaxed);
+            break;
+        }
+        default: break;
+    }
 }
 
 void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,
                      const NodeParams* params, float& grDbOut)
 {
     const int n  = buffer.getNumSamples();
-    const int nc = buffer.getNumChannels();
+    const int nc = juce::jmin (2, buffer.getNumChannels());
     grDbOut = 0.0f;
     if (n == 0 || nc == 0) return;
 
-    const Schedule s = current();
+    adoptPending();
+    host = &buffer;
+    for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
+    if (active.bypass) return;
 
-    // A node that just entered the chain starts clean and glides up from
-    // neutral — exactly what switching modes always did.
-    for (int i = 0; i < s.count; ++i)
+    for (int i = 0; i < active.numOps; ++i)
     {
-        const int slot = s.slot[i];
-        if (slot < 0 || slot >= kMaxNodes) continue;
-        bool wasThere = false;
-        for (int j = 0; j < last.count; ++j)
-            if (last.slot[j] == slot) { wasThere = true; break; }
-        if (! wasThere) nodes[(size_t) slot].reset();
+        const Op& op = active.ops[i];
+        runOp (op, i, sampleRate, n, nc, params);
+        if (op.kind == Op::kProcess && op.type == kGlue)
+            grDbOut = juce::jmax (grDbOut, nodes[(size_t) op.slot].grDb);
     }
-    last = s;
-
-    float* L = buffer.getWritePointer (0);
-    float* R = nc > 1 ? buffer.getWritePointer (1) : nullptr;
-    for (int i = 0; i < s.count; ++i)
-    {
-        const int slot = s.slot[i];
-        if (slot < 0 || slot >= kMaxNodes) continue;
-        auto& node = nodes[(size_t) slot];
-        node.process (params[slot], sampleRate, n, L, R, scratch);
-        if (node.type == kGlue) grDbOut = juce::jmax (grDbOut, node.grDb);
-    }
+    host = nullptr;
 }
 
 } // namespace orbfx

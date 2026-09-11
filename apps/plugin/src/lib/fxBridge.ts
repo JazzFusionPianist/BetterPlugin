@@ -94,3 +94,53 @@ export function setFx (patch: {
   if (!hasFxBridge()) return
   void callJuceNative('setFx', [patch]).catch(() => {})
 }
+
+/* ── The patchable wall (Orb Sounds) ──────────────────────────────────
+   A patch is nodes + wires. Node ids double as engine slots (0..15);
+   type 0..10 are the prints, 11 is `mix`. Wires run from a node id (or
+   -1 = in) to a node id (or -2 = out) with a send level. Feedback is
+   refused by the engine ("cycle"). */
+export const FX_MIX_TYPE = 11
+export const FX_PORT_IN = -1
+export const FX_PORT_OUT = -2
+export const FX_MAX_NODES = 16
+
+export interface FxGraphNode {
+  id: number
+  type: number            // FxMode | FX_MIX_TYPE
+  amount: number
+  variant: number
+  decay: number[]         // [hall, room, plate]
+  delayDiv: number
+  delayFb: number
+  wet: boolean            // Wet Solo — drop the dry on space/delay/doubler/mod
+  x: number
+  y: number
+}
+export interface FxGraphEdge { from: number; to: number; gain: number }
+export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
+
+export function hasGraphBridge (): boolean {
+  return hasJuceNativeFunction('setGraph')
+}
+
+export async function getGraph (): Promise<FxGraph | null> {
+  if (!hasGraphBridge()) return null
+  try {
+    const raw: unknown = await callJuceNative('getGraph')
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (v && typeof v === 'object' && Array.isArray((v as FxGraph).nodes) && Array.isArray((v as FxGraph).edges)) return v as FxGraph
+  } catch { /* fall through */ }
+  return null
+}
+
+/** Push a whole patch; resolves to the engine's verdict. */
+export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: string }> {
+  if (!hasGraphBridge()) return { ok: false, error: 'no bridge' }
+  try {
+    const raw: unknown = await callJuceNative('setGraph', [JSON.stringify(g)])
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (v && typeof v === 'object') return v as { ok: boolean; error?: string }
+  } catch (e) { return { ok: false, error: String(e) } }
+  return { ok: false, error: 'bad reply' }
+}

@@ -4,6 +4,7 @@
 #include "VideoCapture.h"
 #include "OrbControlBridge.h"
 #include "FxEngine.h"
+#include <array>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -141,12 +142,45 @@ private:
     void handleGetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);
 
-    // The engine: per-node DSP state + the published chain (FxEngine.h).
+    // The engine: per-node DSP state + the compiled patch (FxEngine.h).
     orbfx::Chain fxChain;
     // UI meter: glue's current gain reduction in dB (positive number),
     // block max, zeroed whenever glue isn't working. Read by timerCallback.
     std::atomic<float> glueGrDb { 0.0f };
-    void publishFxChain();   // message thread: chain = [fxMode] (phase 0)
+
+    //── The patch ────────────────────────────────────────────────────────────
+    // fxGraph is the wall as drawn (message thread, guarded for hosts that
+    // restore state off-thread). Two writers: setGraph (the canvas UI) and
+    // the legacy setFx bridge, which keeps the single-print room working by
+    // drawing the one-node patch in → mode → out. fxSlots are the per-slot
+    // parameter atomics the audio thread snapshots each block.
+    orbfx::Graph          fxGraph;
+    juce::CriticalSection fxGraphLock;
+    std::atomic<bool>     fxGraphMode { false };   // true once a real patch was set
+    struct SlotParams
+    {
+        std::atomic<float> amount   { 0.0f };
+        std::atomic<int>   variant  { 0 };
+        std::array<std::atomic<float>, 3> decay {{ {0.5f}, {0.5f}, {0.5f} }};
+        std::atomic<int>   delayDiv { 2 };
+        std::atomic<float> delayFb  { 0.35f };
+        std::atomic<bool>  wet      { false };
+    };
+    std::array<SlotParams, orbfx::kMaxNodes> fxSlots;
+
+    /** Write a node's params into its slot atomics (no republish). */
+    void writeSlot (const orbfx::Graph::Node& nd);
+    /** Store `g` as the patch, write every slot, compile + publish.
+     *  Returns false (with `error`) if the patch doesn't compile. */
+    bool applyGraph (const orbfx::Graph& g, juce::String& error);
+    /** Legacy bridge: patch = in → [fxMode] → out from the per-effect memories. */
+    void rebuildLegacyGraph();
+    static juce::String graphToJson (const orbfx::Graph& g);
+    static bool graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error);
+    void handleSetGraph (const juce::var& args,
+                         juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleGetGraph (const juce::var& args,
+                         juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void processFx (juce::AudioBuffer<float>& buffer);
 
     //── Live audio streaming timer ───────────────────────────────────────────

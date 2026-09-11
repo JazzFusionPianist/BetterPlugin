@@ -214,3 +214,15 @@ orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Orb Sounds" sounds OrbSo
 # Orb Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.
 orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Orb Games"  games  OrbGamesAU)
+
+# ── Engine self-test (console) ────────────────────────────────────────────────
+# Runs the FX graph compiler + program runner on synthetic audio and checks
+# the wiring semantics (mult, mix, wet, cycles). Not built by build.sh:
+#   cmake --build build --config Debug --target FxGraphTest && ./build/FxGraphTest_artefacts/Debug/FxGraphTest
+juce_add_console_app(FxGraphTest PRODUCT_NAME "FxGraphTest")
+target_sources(FxGraphTest PRIVATE Source/FxEngine.cpp Tests/FxGraphTest.cpp)
+target_include_directories(FxGraphTest PRIVATE Source)
+target_compile_definitions(FxGraphTest PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
+target_link_libraries(FxGraphTest
+    PRIVATE juce::juce_audio_basics
+    PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)

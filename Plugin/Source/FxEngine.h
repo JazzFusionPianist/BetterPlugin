@@ -4,25 +4,36 @@
 #include <atomic>
 #include <vector>
 
-/*  Orb one-knob FX engine.
+/*  Orb one-knob FX engine — the patchable wall.
 
-    Eleven single-parameter effects, each living in its own NodeState so
-    a patch can hold any number of them in any order — two delays, two
-    spaces, whatever the wall says. Chain runs a Schedule (an ordered
-    list of node slots) on the audio thread; the message thread builds a
-    new Schedule and publishes it through a seqlock, so editing the patch
-    never blocks audio and audio never sees a half-written list.
+    Eleven single-parameter effects, each living in its own NodeState, so
+    a patch can hold any number of them in any order. A Graph (nodes +
+    wires, drawn by the UI) is COMPILED on the message thread into a
+    Program: a flat list of buffer ops — process this node in place,
+    copy at a fan-out, scale/accumulate into a mix — over a small pool of
+    block buffers. The audio thread adopts a pending Program with a
+    try-lock (never blocks, never sees a half-written list) and runs it.
 
-    Phase 0 (2026-09-11): serial only, slots 0..kNumFx-1 pre-bound one
-    per effect (slot == type). The graph (parallel branches, mix nodes,
-    free-typed slots) lands on top of this without touching the DSP.  */
+    Console model: a node's output can be MULTed to several wires; every
+    wire carries a send level; a `mix` node sums whatever lands on it;
+    `wet` on a time-based node drops its dry component (Wet Solo).
+    Feedback is refused at compile time (v1 rule).                        */
 
 namespace orbfx {
 
 enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kCut, kAmp, kDoubler, kDelay, kNumFx, kNone = -1 };
+/** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
+constexpr int kMixType = 11;
 
-constexpr int kMaxNodes = 16;
+constexpr int kMaxNodes   = 16;
+constexpr int kMaxEdges   = 48;
+constexpr int kMaxOps     = 160;
+constexpr int kMaxBuffers = 32;    // 0 = the host buffer, 1.. = the pool
+
+/** Wire endpoints that are not nodes. */
+constexpr int kPortIn  = -1;
+constexpr int kPortOut = -2;
 
 /** Where each effect rests: tone is bipolar around 0.5, gain is a fader
  *  with unity at 0.75, everything else is off at 0. */
@@ -40,6 +51,7 @@ struct NodeParams
     float decay    = 0.5f;   // space: this flavour's decay
     int   delayDiv = 2;      // delay: beat division index
     float delayFb  = 0.35f;  // delay: feedback
+    bool  wet      = false;  // space/delay/doubler/mod: drop the dry (Wet Solo)
     float bpm      = 120.0f;
 };
 
@@ -53,7 +65,9 @@ struct Biquad
     }
 };
 
-/** One effect's complete audio-thread state. */
+/** One effect's complete audio-thread state. Every line is allocated
+ *  once in prepare() (for any type), so re-typing a slot is allocation
+ *  free and can happen on the audio thread when a Program is adopted. */
 struct NodeState
 {
     int   type    = kNone;
@@ -108,8 +122,8 @@ struct NodeState
     float dlySmSamp = -1.0f;
     float dlyFbLp[2] {};
 
-    /** Bind this node to an effect and allocate its lines. Message thread. */
-    void prepare (int type, double sampleRate);
+    /** Allocate every line this slot could ever need. Message thread. */
+    void prepare (double sampleRate);
     /** Clear tails and glide the amount back up from neutral. Audio thread. */
     void reset();
     /** Run one block in place. `scratch` is a shared stereo work buffer. */
@@ -117,49 +131,101 @@ struct NodeState
                   juce::AudioBuffer<float>& scratch);
 };
 
-/** An ordered list of node slots to run, in series. */
-struct Schedule
+//==============================================================================
+/** The patch as the UI draws it. Node ids double as engine slots. */
+struct Graph
 {
-    int count = 0;
-    int slot[kMaxNodes] {};
+    struct Node
+    {
+        int   id       = 0;      // 0..kMaxNodes-1, unique
+        int   type     = kNone;  // Type or kMixType
+        float amount   = 0.0f;
+        int   variant  = 0;
+        float decay[3] { 0.5f, 0.5f, 0.5f };
+        int   delayDiv = 2;
+        float delayFb  = 0.35f;
+        bool  wet      = false;
+        float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
+    };
+    struct Edge
+    {
+        int   from = kPortIn;    // node id, or kPortIn
+        int   to   = kPortOut;   // node id, or kPortOut
+        float gain = 1.0f;       // send level
+    };
+    std::vector<Node> nodes;
+    std::vector<Edge> edges;
 };
 
+/** One compiled step. Buffers are pool indices (0 = host). */
+struct Op
+{
+    enum Kind : int { kCopy = 0,   // dst = src
+                      kGain,       // dst *= gain
+                      kScale,      // dst = gain * src
+                      kAccum,      // dst += gain * src
+                      kProcess };  // node `slot` (typed `type`) in place on dst
+    int   kind = kCopy;
+    int   slot = -1;
+    int   type = kNone;
+    int   dst  = 0;
+    int   src  = 0;
+    float gain = 1.0f;
+};
+
+struct Program
+{
+    int numOps = 0;
+    Op  ops[kMaxOps];
+    int bypass = 1;   // 1 = nothing wired to out → audio passes untouched
+};
+
+/** Validate + compile. On failure `error` says why (e.g. "cycle") and
+ *  `out` is untouched. Message thread. */
+bool compile (const Graph& g, Program& out, juce::String& error);
+
+//==============================================================================
 class Chain
 {
 public:
     void prepare (double sampleRate, int blockSize);
 
-    /** Message thread: (re)bind a slot to an effect (allocates). */
-    void setNodeType (int slot, int type);
-    /** Message thread: swap in a new schedule, lock-free for audio. */
-    void publish (const Schedule& s);
+    /** Message thread: hand the audio thread a new Program (adopted at
+     *  the next block boundary; never blocks audio). */
+    void publish (const Program& p);
 
-    /** Audio thread: run the published schedule over the buffer.
-     *  `params` is indexed by slot; `grDbOut` reports glue's reduction. */
+    /** Audio thread: run the current Program. `params` is indexed by
+     *  slot; `grDbOut` reports glue's reduction (max over glue nodes). */
     void process (juce::AudioBuffer<float>& buffer, float sampleRate,
                   const NodeParams* params, float& grDbOut);
 
-    int nodeType (int slot) const noexcept
+    /** UI meters: block peak per slot (0 when the slot isn't running). */
+    float nodePeak (int slot) const noexcept
     {
-        return slot >= 0 && slot < kMaxNodes ? nodes[(size_t) slot].type : kNone;
+        return slot >= 0 && slot < kMaxNodes ? peaks[(size_t) slot].load (std::memory_order_relaxed) : 0.0f;
     }
 
 private:
-    Schedule current() const;   // seqlock reader
+    void adoptPending();
+    void runOp (const Op& op, int opIndex, float sampleRate, int n, int nc,
+                const NodeParams* params);
+    float* chan (int buf, int ch, int n);
 
     std::array<NodeState, kMaxNodes> nodes;
+    std::array<std::atomic<float>, kMaxNodes> peaks {};
     juce::AudioBuffer<float> scratch { 2, 2048 };
-    double sr = 44100.0;
+    std::vector<juce::AudioBuffer<float>> pool;   // indices 1..kMaxBuffers-1
+    juce::AudioBuffer<float>* host = nullptr;     // buffer 0, per block
+    double srHz = 44100.0;
 
-    struct SharedSchedule
-    {
-        std::atomic<int> count { 0 };
-        std::atomic<int> slot[kMaxNodes] {};
-    } shared;
-    std::atomic<unsigned> seq { 0 };
-    juce::SpinLock writeLock;
+    // message → audio hand-off
+    juce::SpinLock      pendingLock;
+    Program             pending;
+    std::atomic<bool>   pendingFlag { false };
 
-    Schedule last;   // audio thread: what ran last block (add-detection)
+    // audio-thread state
+    Program active;
+    float   gainSm[kMaxOps] {};   // smoothed op gains (click-free level drags)
 };
 
 } // namespace orbfx

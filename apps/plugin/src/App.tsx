@@ -5,6 +5,7 @@ import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
 import StudioShell from './pages/StudioShell'
 import SoundsPage from './pages/SoundsPage'
+import SoundsGraphDemo from './pages/SoundsGraphDemo'
 import type { User } from '@supabase/supabase-js'
 
 /** Split-out single-purpose builds load the page with ?surface=<name>.
@@ -19,6 +20,9 @@ export default function App() {
   }
   if (SURFACE === 'sounds') {
     return <SoundsPage />
+  }
+  if (new URLSearchParams(window.location.search).has('soundsdemo')) {
+    return <SoundsGraphDemo />
   }
 
   const [user, setUser] = useState<User | null>(null)

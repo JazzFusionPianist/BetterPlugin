@@ -10017,3 +10017,49 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   line-height: 16px;
   user-select: none;
 }
+
+/* ── Orb Sounds graph MOCKUP (?soundsdemo) — the patchable wall ──────── */
+.sg .top-bar { position: relative; z-index: 2; }
+.sg-wall { position: relative; flex: 1; min-height: 0; }
+.sg-wires { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sg-wires path { fill: none; stroke: rgba(246, 243, 234, 0.42); stroke-width: 1; }
+.sg-port { fill: #F6F3EA; }
+.sg-io, .sg-share {
+  font-family: var(--f-sans); font-size: 10.5px; font-weight: 400;
+  fill: rgba(246, 243, 234, 0.55); font-variant-numeric: tabular-nums;
+}
+.sg-share { fill: rgba(246, 243, 234, 0.85); font-weight: 500; }
+.sg-node { position: absolute; cursor: ns-resize; border-radius: 50%; }
+.sg-node > svg { display: block; }
+/* the chosen print wears a paper hairline a breath outside the plate */
+.sg-node.sel::before {
+  content: ''; position: absolute; inset: -7px; border-radius: 50%;
+  border: 1px solid rgba(246, 243, 234, 0.22);
+}
+.sg-dot {
+  position: absolute; top: 50%; width: 5px; height: 5px; margin-top: -2.5px;
+  border-radius: 50%; background: #F6F3EA;
+}
+.sg-dot.l { left: -3px; } .sg-dot.r { right: -3px; }
+.sg-label {
+  position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+  margin-top: 8px; white-space: nowrap;
+  font-family: var(--f-sans); font-size: 11px; color: rgba(246, 243, 234, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.sg-name { font-weight: 500; }
+.sg-flav, .sg-val { color: rgba(246, 243, 234, 0.5); }
+/* the shelf: every print at hand, dimmed until it is hung on the wall */
+.sg-shelf {
+  flex-shrink: 0; height: 112px; box-sizing: border-box;
+  border-top: 1px solid rgba(246, 243, 234, 0.14);
+  display: flex; align-items: center; justify-content: center; gap: 30px;
+  padding: 0 24px;
+}
+.sg-shelf-item {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: 0.5; cursor: grab;
+}
+.sg-shelf-item span {
+  font-family: var(--f-sans); font-size: 10.5px; color: #F6F3EA;
+}

@@ -837,3 +837,6 @@ export default function FxPanel ({ isOpen }: Props) {
     </div>
   )
 }
+
+/* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE }

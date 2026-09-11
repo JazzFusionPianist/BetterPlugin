@@ -3,11 +3,21 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
+import SoundsPage from './pages/SoundsPage'
 import type { User } from '@supabase/supabase-js'
+
+/** Split-out single-purpose builds load the page with ?surface=<name>.
+ *  Orb Sounds needs no account — it boots straight into the fx room,
+ *  before auth. (Orb Chat keeps the auth flow; CollabPage reads the
+ *  same param to boot chat-only.) */
+const SURFACE = new URLSearchParams(window.location.search).get('surface')
 
 export default function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPage />
+  }
+  if (SURFACE === 'sounds') {
+    return <SoundsPage />
   }
 
   const [user, setUser] = useState<User | null>(null)

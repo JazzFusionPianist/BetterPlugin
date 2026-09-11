@@ -15,6 +15,8 @@
 # Usage:
 #   ./package.sh                  # package whatever exists in build/…/Release
 #   ./package.sh --version 1.2.0  # stamp a version (default 1.0.0)
+#   ./package.sh --product=sounds # one of the split-outs: orb (default) | chat | sounds
+#                                 # → installer/Orb Sounds-1.0.0.pkg, its own identifier
 #   SIGN_ID="Developer ID Installer: …" ./package.sh   # signed pkg
 #
 # Prereqs: run ./build.sh --release first. Formats that weren't built
@@ -33,18 +35,29 @@ set -euo pipefail
 
 VERSION="1.0.0"
 SIGN_ID="${SIGN_ID:-}"
-IDENTIFIER_BASE="com.orb.plugin"
+PRODUCT="orb"
 
 for arg in "$@"; do
   case $arg in
     --version=*) VERSION="${arg#--version=}" ;;
     --version)   shift_next=1 ;;
+    --product=*) PRODUCT="${arg#--product=}" ;;
     *) if [ "${shift_next:-0}" = 1 ]; then VERSION="$arg"; shift_next=0; fi ;;
   esac
 done
 
+# Each split-out is its own downloadable installer with its own bundle
+# identifier, so installing Orb Sounds never touches an installed Orb.
+case "$PRODUCT" in
+  orb)    TARGET="OrbPlugin"; NAME="Orb";        IDENTIFIER_BASE="com.orb.plugin" ;;
+  chat)   TARGET="OrbChat";   NAME="Orb Chat";   IDENTIFIER_BASE="com.orb.chat"   ;;
+  sounds) TARGET="OrbSounds"; NAME="Orb Sounds"; IDENTIFIER_BASE="com.orb.sounds" ;;
+  *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds)" >&2; exit 1 ;;
+esac
+SLUG="${NAME// /}"   # inner component pkgs get a space-free name
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARTEFACTS="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release"
+ARTEFACTS="$SCRIPT_DIR/build/${TARGET}_artefacts/Release"
 OUT_DIR="$SCRIPT_DIR/installer"
 WORK="$OUT_DIR/work"
 
@@ -52,7 +65,7 @@ rm -rf "$WORK"
 mkdir -p "$WORK/pkgs" "$WORK/roots"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Orb Installer Packager  v$VERSION"
+echo "  $NAME Installer Packager  v$VERSION"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── Build one component package ───────────────────────────────────────────────
@@ -73,7 +86,7 @@ build_component() {
     --identifier "$IDENTIFIER_BASE.$key" \
     --version "$VERSION" \
     --install-location "/" \
-    "$WORK/pkgs/Orb-$key.pkg" > /dev/null
+    "$WORK/pkgs/$SLUG-$key.pkg" > /dev/null
   echo "  ✓ $key  →  $dest"
   return 0
 }
@@ -81,19 +94,19 @@ build_component() {
 # Auto-sign AAX with PACE/iLok before packaging when credentials are present.
 # Without this the bundled .aaxplugin only loads in Pro Tools Developer builds.
 # See sign-aax.sh for the one-time account prerequisites.
-if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/Orb.aaxplugin" ]; then
+if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/$NAME.aaxplugin" ]; then
   echo "  • signing AAX (PACE_ACCOUNT set) …"
   "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — packaging the unsigned bundle"
 fi
 
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
-build_component vst3       "$ARTEFACTS/VST3/Orb.vst3"           "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
-build_component au         "$ARTEFACTS/AU/Orb.component"        "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
-build_component aax        "$ARTEFACTS/AAX/Orb.aaxplugin"       "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
-build_component standalone "$ARTEFACTS/Standalone/Orb.app"      "/Applications"                                     && HAVE_APP=1  || true
+build_component vst3       "$ARTEFACTS/VST3/$NAME.vst3"         "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
+build_component au         "$ARTEFACTS/AU/$NAME.component"      "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
+build_component aax        "$ARTEFACTS/AAX/$NAME.aaxplugin"     "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
+build_component standalone "$ARTEFACTS/Standalone/$NAME.app"    "/Applications"                                     && HAVE_APP=1  || true
 
 if [ $((HAVE_VST3 + HAVE_AU + HAVE_AAX + HAVE_APP)) -eq 0 ]; then
-  echo "✗ Nothing to package. Run ./build.sh --release first." >&2
+  echo "✗ Nothing to package for $NAME. Run ./build.sh --release first." >&2
   exit 1
 fi
 
@@ -102,7 +115,7 @@ DIST="$WORK/distribution.xml"
 {
   echo '<?xml version="1.0" encoding="utf-8"?>'
   echo '<installer-gui-script minSpecVersion="2">'
-  echo "  <title>Orb $VERSION</title>"
+  echo "  <title>$NAME $VERSION</title>"
   echo '  <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>'
   echo '  <domains enable_localSystem="true"/>'
   echo '  <choices-outline>'
@@ -115,18 +128,18 @@ DIST="$WORK/distribution.xml"
     echo "  <choice id=\"$1\" title=\"$2\" description=\"$3\">"
     echo "    <pkg-ref id=\"$IDENTIFIER_BASE.$1\"/>"
     echo '  </choice>'
-    echo "  <pkg-ref id=\"$IDENTIFIER_BASE.$1\" version=\"$VERSION\">Orb-$1.pkg</pkg-ref>"
+    echo "  <pkg-ref id=\"$IDENTIFIER_BASE.$1\" version=\"$VERSION\">$SLUG-$1.pkg</pkg-ref>"
   }
   [ $HAVE_AU   -eq 1 ] && emit_choice au         "Audio Unit (AU)"  "For Logic Pro, GarageBand and other AU hosts."
   [ $HAVE_VST3 -eq 1 ] && emit_choice vst3       "VST3"             "For Cubase, Ableton Live, FL Studio and other VST3 hosts."
   [ $HAVE_AAX  -eq 1 ] && emit_choice aax        "AAX"              "For Pro Tools. Requires PACE-signed builds for release Pro Tools."
-  [ $HAVE_APP  -eq 1 ] && emit_choice standalone "Standalone App"   "Run Orb without a DAW. Installs to /Applications."
+  [ $HAVE_APP  -eq 1 ] && emit_choice standalone "Standalone App"   "Run $NAME without a DAW. Installs to /Applications."
   echo '</installer-gui-script>'
 } > "$DIST"
 
 # ── Final product archive ─────────────────────────────────────────────────────
 mkdir -p "$OUT_DIR"
-FINAL="$OUT_DIR/Orb-$VERSION.pkg"
+FINAL="$OUT_DIR/$NAME-$VERSION.pkg"
 # ${arr[@]+…} guard: macOS ships bash 3.2 where expanding an empty
 # array under `set -u` is an unbound-variable error.
 SIGN_ARGS=()

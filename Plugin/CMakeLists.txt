@@ -119,80 +119,92 @@ foreach(_fmt AU VST3 AAX)
     endif()
 endforeach()
 
-# ── Orb Chat ──────────────────────────────────────────────────────────────────
-# First of the split-out single-purpose plugins. Same sources, same web
-# app — the ORB_SURFACE define makes the processor append &surface=chat
-# so the UI boots chat-only. Distinct plugin identity (code/bundle/name)
-# so DAWs list it beside the full Orb.
-juce_add_plugin(OrbChat
-    COMPANY_NAME                "Orb"
-    COMPANY_WEBSITE             "https://orb.app"
-    COMPANY_EMAIL               "hello@orb.app"
-    PLUGIN_MANUFACTURER_CODE    Orb1
-    PLUGIN_CODE                 OrbC
-    FORMATS                     ${ORB_FORMATS}
-    PRODUCT_NAME                "Orb Chat"
-    BUNDLE_ID                   "com.orb.chat"
-    ICON_BIG                    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
-    PLUGIN_AU_MAIN_TYPE         "kAudioUnitType_Effect"
-    PLUGIN_AU_EXPORT_PREFIX     OrbChatAU
-    IS_SYNTH                    FALSE
-    NEEDS_MIDI_INPUT            FALSE
-    NEEDS_MIDI_OUTPUT           FALSE
-    IS_MIDI_EFFECT              FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-    VST3_CATEGORIES             "Fx" "Tools"
-    AAX_CATEGORY                "AAX_ePlugInCategory_None"
-    HARDENED_RUNTIME_ENABLED    TRUE
-    COPY_PLUGIN_AFTER_BUILD     FALSE
-)
-
-target_sources(OrbChat PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
-    Source/OrbControlBridge.cpp
-    Source/DragMonitor.mm
-    Source/VideoCapture.mm
-)
-
-target_compile_definitions(OrbChat
-    PUBLIC
-        JUCE_WEB_BROWSER=1
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-        JUCE_DISPLAY_SPLASH_SCREEN=0
-        ORB_APP_URL="${ORB_APP_URL}"
-        ORB_SURFACE="chat"
-)
-
-target_link_libraries(OrbChat
-    PRIVATE
-        juce::juce_audio_processors
-        juce::juce_audio_utils
-        juce::juce_gui_extra
-    PUBLIC
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags
-)
-
-if(APPLE)
-    target_link_libraries(OrbChat PRIVATE
-        "-framework ScreenCaptureKit"
-        "-framework CoreMedia"
-        "-framework CoreImage"
-        "-framework ImageIO"
-        "-framework UniformTypeIdentifiers"
-        "-framework CoreMIDI"
-        "-framework CoreAudio"
+# ── Split-out single-purpose plugins ─────────────────────────────────────────
+# Orb is heading toward four separate plugins (chat / sounds / live /
+# games). Each split-out shares the same sources and web app; only its
+# identity (code/bundle/name) and the ORB_SURFACE define differ — the
+# processor appends &surface=<name> to the app URL so the UI boots that
+# one room. DAWs list them beside the full Orb.
+#
+#   orb_add_surface_plugin(<target> <plugin code> <bundle id> "<product name>" <surface> <AU export prefix>)
+function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
+    juce_add_plugin(${_target}
+        COMPANY_NAME                "Orb"
+        COMPANY_WEBSITE             "https://orb.app"
+        COMPANY_EMAIL               "hello@orb.app"
+        PLUGIN_MANUFACTURER_CODE    Orb1
+        PLUGIN_CODE                 ${_code}
+        FORMATS                     ${ORB_FORMATS}
+        PRODUCT_NAME                "${_name}"
+        BUNDLE_ID                   "${_bundle}"
+        ICON_BIG                    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
+        PLUGIN_AU_MAIN_TYPE         "kAudioUnitType_Effect"
+        PLUGIN_AU_EXPORT_PREFIX     ${_au_prefix}
+        IS_SYNTH                    FALSE
+        NEEDS_MIDI_INPUT            FALSE
+        NEEDS_MIDI_OUTPUT           FALSE
+        IS_MIDI_EFFECT              FALSE
+        EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+        VST3_CATEGORIES             "Fx" "Tools"
+        AAX_CATEGORY                "AAX_ePlugInCategory_None"
+        HARDENED_RUNTIME_ENABLED    TRUE
+        COPY_PLUGIN_AFTER_BUILD     FALSE
     )
-endif()
 
-foreach(_fmt AU VST3 AAX)
-    if(TARGET OrbChat_${_fmt})
-        set_target_properties(OrbChat_${_fmt} PROPERTIES
-            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
-                "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Orb.entitlements"
+    target_sources(${_target} PRIVATE
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/OrbControlBridge.cpp
+        Source/DragMonitor.mm
+        Source/VideoCapture.mm
+    )
+
+    target_compile_definitions(${_target}
+        PUBLIC
+            JUCE_WEB_BROWSER=1
+            JUCE_USE_CURL=0
+            JUCE_VST3_CAN_REPLACE_VST2=0
+            JUCE_DISPLAY_SPLASH_SCREEN=0
+            ORB_APP_URL="${ORB_APP_URL}"
+            ORB_SURFACE="${_surface}"
+    )
+
+    target_link_libraries(${_target}
+        PRIVATE
+            juce::juce_audio_processors
+            juce::juce_audio_utils
+            juce::juce_gui_extra
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
+            juce::juce_recommended_warning_flags
+    )
+
+    if(APPLE)
+        target_link_libraries(${_target} PRIVATE
+            "-framework ScreenCaptureKit"
+            "-framework CoreMedia"
+            "-framework CoreImage"
+            "-framework ImageIO"
+            "-framework UniformTypeIdentifiers"
+            "-framework CoreMIDI"
+            "-framework CoreAudio"
         )
     endif()
-endforeach()
+
+    foreach(_fmt AU VST3 AAX)
+        if(TARGET ${_target}_${_fmt})
+            set_target_properties(${_target}_${_fmt} PROPERTIES
+                XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
+                    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Orb.entitlements"
+            )
+        endif()
+    endforeach()
+endfunction()
+
+# Orb Chat — messages only (first split-out, 2026-09-11).
+orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbChatAU)
+
+# Orb Sounds — the one-knob fx chain, no account needed: the plugin boots
+# straight into the darkened room.
+orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Orb Sounds" sounds OrbSoundsAU)

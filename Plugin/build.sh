@@ -4,11 +4,12 @@
 # Builds AU + VST3 formats. Optionally installs to system plugin folders.
 #
 # Usage:
-#   ./build.sh                    # Debug build (AU + VST3 + Standalone)
+#   ./build.sh                    # Debug build (AU + VST3 + Standalone, plus the split-outs)
 #   ./build.sh --release          # Release build
 #   ./build.sh --release --install # Build & install to ~/Library/...
 #   ./build.sh --standalone-only  # Only build the standalone .app (fastest)
 #   ./build.sh --run              # Build then open the standalone .app
+#   ./build.sh --only=sounds      # Just one split-out (orb | chat | sounds)
 #
 # Requirements:
 #   - Xcode (xcode-select --install)
@@ -25,6 +26,7 @@ INSTALL=false
 SKIP_AAX=false
 STANDALONE_ONLY=false
 RUN=false
+ONLY=""
 
 AAX_SDK_PATH="/Users/jasonpark/Documents/Coding/BetterPlugin/aax-sdk-2-9-0"
 
@@ -38,6 +40,7 @@ for arg in "$@"; do
     --url=*)           ORB_APP_URL="${arg#--url=}" ;;
     --standalone-only) STANDALONE_ONLY=true ;;
     --run)             RUN=true ;;
+    --only=*)          ONLY="${arg#--only=}" ;;
   esac
 done
 
@@ -57,16 +60,40 @@ echo "  URL    : $ORB_APP_URL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── CMake configure ────────────────────────────────────────────────────────────
+# The split-out single-purpose plugins (see CMakeLists.txt) build beside
+# the full Orb: CMake target → product name, one line each.
+SPLIT_TARGETS=(OrbChat OrbSounds)
+SPLIT_NAMES=("Orb Chat" "Orb Sounds")
+
+split_targets() { # AU + VST3 for every split-out (filtered by --only)
+  local i out=""
+  for i in "${!SPLIT_TARGETS[@]}"; do
+    local t="${SPLIT_TARGETS[$i]}"
+    case "$ONLY" in
+      "")      ;;
+      chat)    [ "$t" = OrbChat ]   || continue ;;
+      sounds)  [ "$t" = OrbSounds ] || continue ;;
+      *)       continue ;;
+    esac
+    out="$out ${t}_AU ${t}_VST3"
+  done
+  echo "$out"
+}
+
 if [ "$STANDALONE_ONLY" = true ]; then
   BUILD_TARGETS="OrbPlugin_Standalone"
   echo "  Format : Standalone only (fast dev iteration)"
+elif [ -n "$ONLY" ] && [ "$ONLY" != orb ]; then
+  BUILD_TARGETS="$(split_targets)"
+  echo "  Only   : $ONLY"
 elif [ -n "$AAX_SDK_PATH" ]; then
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX OrbChat_AU OrbChat_VST3"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX$(split_targets)"
   echo "  AAX    : $AAX_SDK_PATH"
 else
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbChat_AU OrbChat_VST3"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone$(split_targets)"
   echo "  AAX    : (skipped — no SDK)"
 fi
+[ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds)" >&2; exit 1; }
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
@@ -91,9 +118,21 @@ AU_PATH=$(find "$BUILD_DIR" -name "Orb.component"  -maxdepth 6 2>/dev/null | hea
 VST3_PATH=$(find "$BUILD_DIR" -name "Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
 STANDALONE_PATH=$(find "$BUILD_DIR" -name "Orb.app"        -maxdepth 6 2>/dev/null | head -1)
 
-[ -n "$AU_PATH"         ] && echo "  AU         → $AU_PATH"
-[ -n "$VST3_PATH"       ] && echo "  VST3       → $VST3_PATH"
-[ -n "$STANDALONE_PATH" ] && echo "  Standalone → $STANDALONE_PATH"
+# --only=<split> builds just that plugin: leave the full Orb's products
+# (and its install below) untouched.
+FULL_ORB=true
+[ -n "$ONLY" ] && [ "$ONLY" != orb ] && FULL_ORB=false
+
+if [ "$FULL_ORB" = true ]; then
+  [ -n "$AU_PATH"         ] && echo "  AU         → $AU_PATH"
+  [ -n "$VST3_PATH"       ] && echo "  VST3       → $VST3_PATH"
+  [ -n "$STANDALONE_PATH" ] && echo "  Standalone → $STANDALONE_PATH"
+fi
+for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
+  # while-read, not $(…): the product names carry spaces
+  find "$BUILD_DIR" -maxdepth 6 \( -name "$SPLIT_NAME.component" -o -name "$SPLIT_NAME.vst3" \) -path "*/$BUILD_TYPE/*" 2>/dev/null \
+    | while IFS= read -r P; do echo "  $SPLIT_NAME → $P"; done
+done
 echo ""
 
 # ── Launch standalone (optional, for fast iteration) ─────────────────────────
@@ -120,31 +159,39 @@ if [ "$INSTALL" = true ]; then
 
   mkdir -p "$AU_DEST" "$VST3_DEST"
 
-  if [ -n "$AU_PATH" ]; then
+  if [ "$FULL_ORB" = true ] && [ -n "$AU_PATH" ]; then
     rm -rf "$AU_DEST/Orb.component"
     cp -R "$AU_PATH" "$AU_DEST/"
     echo "✓ AU   installed → $AU_DEST/Orb.component"
   fi
 
-  if [ -n "$VST3_PATH" ]; then
+  if [ "$FULL_ORB" = true ] && [ -n "$VST3_PATH" ]; then
     rm -rf "$VST3_DEST/Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
     echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
   fi
 
-  # Orb Chat — the split-out chat-only plugin, installed alongside Orb.
-  CHAT_AU_PATH=$(find "$BUILD_DIR" -name "Orb Chat.component" -maxdepth 6 2>/dev/null | head -1)
-  CHAT_VST3_PATH=$(find "$BUILD_DIR" -name "Orb Chat.vst3" -maxdepth 6 2>/dev/null | head -1)
-  if [ -n "$CHAT_AU_PATH" ]; then
-    rm -rf "$AU_DEST/Orb Chat.component"
-    cp -R "$CHAT_AU_PATH" "$AU_DEST/"
-    echo "✓ AU   installed → $AU_DEST/Orb Chat.component"
-  fi
-  if [ -n "$CHAT_VST3_PATH" ]; then
-    rm -rf "$VST3_DEST/Orb Chat.vst3"
-    cp -R "$CHAT_VST3_PATH" "$VST3_DEST/"
-    echo "✓ VST3 installed → $VST3_DEST/Orb Chat.vst3"
-  fi
+  # The split-out plugins (Orb Chat, Orb Sounds, …) install alongside Orb —
+  # only the ones this run built (this config), so --only=sounds never
+  # re-installs a stale Orb Chat.
+  for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
+    case "$ONLY" in
+      chat)   [ "$SPLIT_NAME" = "Orb Chat" ]   || continue ;;
+      sounds) [ "$SPLIT_NAME" = "Orb Sounds" ] || continue ;;
+    esac
+    SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    if [ -n "$SPLIT_AU_PATH" ]; then
+      rm -rf "$AU_DEST/$SPLIT_NAME.component"
+      cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
+      echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"
+    fi
+    if [ -n "$SPLIT_VST3_PATH" ]; then
+      rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
+      cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
+      echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"
+    fi
+  done
 
   # Cubase/Nuendo discover user MIDI Remote scripts from this documented
   # folder. Install the Orb adapter beside the plugin so the master instance
@@ -159,7 +206,7 @@ if [ "$INSTALL" = true ]; then
     echo "✓ Cubase/Nuendo Orb Control adapter installed"
   fi
 
-  if [ -n "$AAX_PATH" ]; then
+  if [ "$FULL_ORB" = true ] && [ -n "$AAX_PATH" ]; then
     sudo mkdir -p "$AAX_DEST"
     sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
     sudo cp -R "$AAX_PATH" "$AAX_DEST/"

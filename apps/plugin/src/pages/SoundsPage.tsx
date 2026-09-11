@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react'
-import FxPanel from '../components/collab/FxPanel'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import FxWall from '../components/collab/FxWall'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
@@ -29,6 +29,19 @@ export default function SoundsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // (plain-browser preview keeps its fixed 300×500 frame, as CollabPage does)
+  // The wall measures itself so in/out ports sit on its real edges.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [wallSize, setWallSize] = useState({ w: 1120, h: 568 })
+  useEffect(() => {
+    const el = contentRef.current; if (!el) return
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      setWallSize({ w: Math.max(300, Math.round(r.width)), h: Math.max(200, Math.round(r.height) - 112) })
+    }
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const cls = ['plugin', 'sounds', 'fx-open', (fill && wide) ? 'screen-wide' : ''].filter(Boolean).join(' ')
   const style = (fill ? { width: '100%', height: '100%' } : {}) as CSSProperties
 
@@ -40,9 +53,9 @@ export default function SoundsPage() {
       <div className="top-bar">
         <span className="sounds-mark">orb sounds</span>
       </div>
-      <div className="content">
+      <div className="content" ref={contentRef}>
         <div className="view fxview">
-          <FxPanel isOpen />
+          <FxWall size={wallSize} />
         </div>
       </div>
     </div>

@@ -10088,3 +10088,43 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .plugin.games.dark .games-signout { color: rgba(246, 243, 234, 0.45); }
 .games-signout { cursor: pointer; }
 .games-signout:hover { color: var(--t1); }
+
+/* ── the live wall (FxWall) ────────────────────────────────────────── */
+.sg .fxview { display: flex; flex-direction: column; }
+.sg-wall { touch-action: none; user-select: none; }
+.sg-wall.dragging.wire, .sg-wall.dragging.shelf { cursor: grabbing; }
+.sg-wall.dragging.move { cursor: grabbing; }
+.sg-wall.dragging.amount, .sg-wall.dragging.share { cursor: ns-resize; }
+.sg-print { cursor: ns-resize; border-radius: 50%; }
+.sg-node .sg-print svg .fx-hot { pointer-events: all; }
+.sg-wire-hit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: pointer; }
+.sg-wire-line { fill: none; stroke: rgba(246, 243, 234, 0.42); stroke-width: 1; pointer-events: none; }
+.sg-wire.sel .sg-wire-line { stroke: #F6F3EA; }
+.sg-wire-line.ghost { stroke-dasharray: 3 4; stroke: rgba(246, 243, 234, 0.6); }
+.sg-share { cursor: ns-resize; pointer-events: all; }
+.sg-port { cursor: crosshair; pointer-events: all; }
+.sg-dot.r { cursor: crosshair; }
+.sg-dot.spare { opacity: 0.35; }
+.sg-label { cursor: grab; }
+.sg-wall.dragging.move .sg-label { cursor: grabbing; }
+/* the chosen print's words: flavours · wet · remove — lowercase, no chrome */
+.sg-words {
+  position: absolute; left: 50%; top: calc(100% + 26px); transform: translateX(-50%);
+  display: flex; gap: 12px; white-space: nowrap;
+  font-family: var(--f-sans); font-size: 10.5px;
+}
+.sg-word {
+  color: rgba(246, 243, 234, 0.5); cursor: pointer;
+  font-family: var(--f-sans); font-size: 10.5px; font-weight: 400;
+}
+text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
+.sg-word:hover { color: rgba(246, 243, 234, 0.85); }
+.sg-word.on { color: #F6F3EA; font-weight: 500; }
+.sg-word.quiet { color: rgba(246, 243, 234, 0.3); }
+.sg-word.quiet:hover { color: rgba(246, 243, 234, 0.7); }
+.sg-ghost { position: absolute; pointer-events: none; opacity: 0.7; }
+.sg-note { position: absolute; left: 0; right: 0; bottom: 10px; margin: 0; pointer-events: none; }
+.sg-shelf.full .sg-shelf-item { opacity: 0.2; cursor: default; }
+.sg-shelf-item { touch-action: none; }
+/* hung but unwired: the signal never passes through */
+.sg-node.off .sg-print, .sg-node.off .sg-label { opacity: 0.45; }

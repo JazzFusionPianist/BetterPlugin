@@ -185,22 +185,6 @@ export default function FxWall ({ size }: Props) {
   const capScale = Math.max(0.72, Math.sqrt(zoom))
   const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom, y: cy + (p.y - cy) * zoom })
   const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - cx) / zoom, y: cy + (p.y - cy) / zoom })
-  // Native, non-passive: React's onWheel is passive, and the wall must
-  // swallow the scroll. Numbers keep their own wheel (amount, share).
-  useEffect(() => {
-    const el = wallRef.current; if (!el) return
-    const onWheel = (e: WheelEvent) => {
-      if ((e.target as Element).closest('.sg-val, .sg-share, .fx-hot')) return
-      e.preventDefault()
-      setZoom(z => {
-        const next = Math.min(1.8, Math.max(0.35, z * Math.exp(-e.deltaY * 0.0015)))
-        try { localStorage.setItem('orb_wall_zoom', String(next)) } catch { /* fine */ }
-        return next
-      })
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [])
 
   // ── engine sync ────────────────────────────────────────────────────
   useEffect(() => {
@@ -231,6 +215,35 @@ export default function FxWall ({ size }: Props) {
     const g = graphRef.current
     commit({ ...g, nodes: g.nodes.map(n => n.id === id ? { ...n, ...patch } : n) }, immediate)
   }, [commit])
+  const updateNodeRef = useRef(updateNode); updateNodeRef.current = updateNode
+
+  // Native, non-passive: React's onWheel is passive, and the wall must
+  // swallow the scroll. Numbers keep their own wheel (amount, share).
+  useEffect(() => {
+    const el = wallRef.current; if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      const t = e.target as Element
+      if (t.closest('.sg-val, .sg-share, .fx-hot')) return
+      // over a print: the wheel turns its amount, as in the single room
+      const nodeEl = t.closest('.sg-node') as HTMLElement | null
+      if (nodeEl && t.closest('.sg-print')) {
+        e.preventDefault()
+        const id = Number(nodeEl.dataset.id)
+        const n = graphRef.current.nodes.find(x => x.id === id)
+        if (!n || n.type === FX_MIX_TYPE) return
+        updateNodeRef.current(id, { amount: Math.min(1, Math.max(0, n.amount - Math.sign(e.deltaY) * 0.02)) }, true)
+        return
+      }
+      e.preventDefault()
+      setZoom(z => {
+        const next = Math.min(1.8, Math.max(0.35, z * Math.exp(-e.deltaY * 0.0015)))
+        try { localStorage.setItem('orb_wall_zoom', String(next)) } catch { /* fine */ }
+        return next
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   // ── geometry ───────────────────────────────────────────────────────
   const inPort: Pt = { x: PORT_INSET, y: size.h / 2 }
@@ -457,7 +470,7 @@ export default function FxWall ({ size }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}

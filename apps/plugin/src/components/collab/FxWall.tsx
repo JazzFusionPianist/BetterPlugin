@@ -31,6 +31,7 @@ type Drag =
   | { kind: 'share'; edge: number; y0: number; g0: number }
   | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
+  | { kind: 'pan'; x0: number; y0: number; px: number; py: number }
 
 const uid = () => Math.random().toString(36).slice(2, 8)
 void uid
@@ -183,13 +184,18 @@ export default function FxWall ({ size }: Props) {
   const [zoom, setZoom] = useState(() => {
     try { const z = Number(localStorage.getItem('orb_wall_zoom')); return z >= 0.35 && z <= 1.8 ? z : 1 } catch { return 1 }
   })
+  // pan: drag the empty wall to carry the whole flow — a camera move,
+  // not a node move. in and out stay on the edges. Remembered too.
+  const [pan, setPan] = useState<Pt>(() => {
+    try { const v = JSON.parse(localStorage.getItem('orb_wall_pan') || 'null'); return v && isFinite(v.x) && isFinite(v.y) ? v : { x: 0, y: 0 } } catch { return { x: 0, y: 0 } }
+  })
   const cx = size.w / 2, cy = size.h / 2
   const Rz = R * zoom, NODEz = NODE * zoom
   // captions shrink slower than the prints and never below ~8px — the
   // words must stay legible when the flow is zoomed far out
   const capScale = Math.max(0.72, Math.sqrt(zoom))
-  const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom, y: cy + (p.y - cy) * zoom })
-  const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - cx) / zoom, y: cy + (p.y - cy) / zoom })
+  const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom + pan.x, y: cy + (p.y - cy) * zoom + pan.y })
+  const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - pan.x - cx) / zoom, y: cy + (p.y - pan.y - cy) / zoom })
 
   // ── engine sync ────────────────────────────────────────────────────
   useEffect(() => {
@@ -416,6 +422,7 @@ export default function FxWall ({ size }: Props) {
       }
     }
     else if (drag.kind === 'wire' || drag.kind === 'shelf') setDrag({ ...drag, at: p })
+    else if (drag.kind === 'pan') setPan({ x: drag.px + (e.clientX - drag.x0), y: drag.py + (e.clientY - drag.y0) })
   }
   const onWallUp = (e: RPointerEvent) => {
     if (!drag) return
@@ -430,6 +437,7 @@ export default function FxWall ({ size }: Props) {
       if (p.x > 0 && p.y > 0 && p.x < size.w && p.y < size.h) addNode(drag.type, p)
     }
     else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'move' || drag.kind === 'hand') push(graphRef.current, true)
+    else if (drag.kind === 'pan') { try { localStorage.setItem('orb_wall_pan', JSON.stringify(pan)) } catch { /* fine */ } }
     setDrag(null)
   }
 
@@ -457,7 +465,13 @@ export default function FxWall ({ size }: Props) {
         className={`sg-wall${drag ? ` dragging ${drag.kind}` : ''}`}
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
-        onPointerDown={() => { setSel(null); setConfirm(null) }}
+        onPointerDown={(e) => { setSel(null); setConfirm(null); setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y }) }}
+        onDoubleClick={(e) => {
+          // home: an empty-wall double-tap brings the flow back to 1× centred
+          if ((e.target as Element).closest('.sg-node, .sg-wire, .sg-port, .sg-share, .sg-word')) return
+          setPan({ x: 0, y: 0 }); setZoom(1)
+          try { localStorage.setItem('orb_wall_pan', '{"x":0,"y":0}'); localStorage.setItem('orb_wall_zoom', '1') } catch { /* fine */ }
+        }}
       >
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {

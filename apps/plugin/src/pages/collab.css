@@ -10307,3 +10307,6 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 .sol-slot { border: 1px dashed rgba(246, 243, 234, 0.35); background: rgba(0, 0, 0, 0.15); }
 .sol-recycle { display: flex; align-items: center; justify-content: center; color: rgba(246, 243, 234, 0.6); font-size: 18px; }
 .sol-card.selected { outline: 2px solid #FFD84D; outline-offset: -1px; }
+/* the empty wall is a camera: drag to carry the flow */
+.sg-wall { cursor: grab; }
+.sg-wall.dragging.pan { cursor: grabbing; }

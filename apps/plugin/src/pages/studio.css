@@ -197,96 +197,83 @@
 .wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
 
-/* ── audio cards — catalogue print ────────────────────────────────────
+/* ── audio cards — real waveforms, catalogue print ────────────────────
    Music is the point of this chat, so audio escapes the text-bubble
    cap: the column widens (.wd-mcol.wide) and the card takes
    min(640px, all the room it has). ONE white card, one hairline,
-   12px radius like the bubbles. Ink and paper carry everything —
-   no colored fills anywhere; the accent survives only as the 5px
-   playhead dot riding the progress line.
+   12px radius, 12/14 padding. The middle band is a REAL waveform —
+   fetch → decodeAudioData → ~90 peak buckets (the web app's
+   audioPeaks recipe), printed as 2px ink bars with a 1px gap on a
+   canvas. Unplayed bars rgba-ink .18, played .85; the only color in
+   the card is the 1.5px accent playhead needle at the boundary. The
+   waveform IS the scrubber — pointer capture, drags while paused.
 
-   Row grammar (pure CSS regrid of ChatView's markup — header and
-   player wrappers become display:contents so their children land
-   on one grid): [play glyph] [name … time], then a full-card-width
-   1px hairline underneath that fills with a 1.5px ink line as it
-   plays. Name is chat sans 13.5/500, wraps, never truncates.
-   Multi-audio: the .wd-att-audio wrapper IS the card; each track
-   is a row inside it, separated by interior hairlines. */
+   The real AudioAttachment mounts invisibly inside .wd-ac-import so
+   its import-to-DAW machinery (prefetch → writeAudioFile → drag-out
+   arming / 30s cooldown) survives byte-for-byte — only its import
+   button surfaces, restyled as the quiet underlined word. All drag
+   states keep their labels; armed/imported turn ink, never green. */
 .wd-mcol.wide { max-width: min(88%, 692px); }
 /* A text bubble sharing the message keeps the normal reading measure. */
 .wd-mcol.wide .wd-bub { max-width: min(100%, 520px); }
-.wd-att-audio { width: 640px; max-width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 0;
-  background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; overflow: hidden; }
-/* Each track = one grid row-group inside the card. */
-.wd-att-audio .msg-att-audio,
-.wd-att-audio .msg-att-audio-group { width: 100%; max-width: none; min-width: 0; margin-bottom: 0;
-  background: none; border: none; border-radius: 0; box-shadow: none;
-  padding: 10px 14px; }
-.wd-att-audio .msg-att-audio + .msg-att-audio,
-.wd-att-audio .msg-att-audio-group + .msg-att-audio { border-top: 1px solid rgba(26,25,23,.10); }
-.wd-att-audio .msg-att-audio { display: grid; grid-template-columns: 16px 1fr auto;
-  column-gap: 10px; row-gap: 0; align-items: start; }
-.wd-att-audio .msg-att-audio-header,
-.wd-att-audio .msg-att-audio-player { display: contents; }
-.wd-att-audio .msg-att-audio-player audio { display: none; }
-.wd-att-audio .msg-att-audio-header svg,
-.wd-att-audio .msg-att-audio-group-header svg { display: none; }
-/* Name — chat sans, 13.5/500, full name, wraps. Never serif here. */
-.wd-att-audio .msg-att-audio-name {
-  grid-column: 2; grid-row: 1; min-width: 0;
+
+.wd-acard { width: 640px; max-width: 100%; min-width: 0; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 12px 14px; }
+
+/* Top row — bare ink play glyph, chat-sans name (13.5/500, wraps,
+   never truncates), total duration in grey tabular at the right. */
+.wd-ac-top { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.wd-ac-play { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1.5px; padding: 0;
+  background: none; border: none; border-radius: 0; color: #1A1917; opacity: .72; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; }
+.wd-ac-play svg { display: block; }
+.wd-ac-play:hover { opacity: 1; background: none; }
+.wd-ac-play:active { transform: none; }
+.wd-ac-name { flex: 1; min-width: 0;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.4;
-  white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; }
-/* Play — bare ink glyph, 16px, no circle, no border. Hover darkens. */
-.wd-att-audio .msg-att-play-pause {
-  grid-column: 1; grid-row: 1; width: 16px; height: 16px; margin-top: 1.5px;
-  border-radius: 0; background: none; border: none; color: #1A1917; opacity: .72; }
-.wd-att-audio .msg-att-play-pause svg { width: 16px; height: 16px; }
-.wd-att-audio .msg-att-play-pause:hover { opacity: 1; background: none; }
-.wd-att-audio .msg-att-play-pause:active { transform: none; }
-/* Progress — a full-card-width 1px hairline under the name row. Ink
-   (1.5px) fills it as it plays; a 5px accent dot rides the end. The
-   13px-tall strip is the click target; the line sits at its center. */
-.wd-att-audio .msg-att-progress-track {
-  grid-column: 1 / -1; grid-row: 2; position: relative;
-  height: 13px; margin-top: 2px; flex: none;
-  background: none; border-radius: 0; overflow: visible; cursor: pointer; }
-.wd-att-audio .msg-att-progress-track::before { content: '';
-  position: absolute; left: 0; right: 0; top: 50%; margin-top: -0.5px;
-  height: 1px; background: rgba(26,25,23,.18); }
-.wd-att-audio .msg-att-progress-track:hover::before { background: rgba(26,25,23,.32); }
-.wd-att-audio .msg-att-progress-fill {
-  position: absolute; left: 0; top: 50%; margin-top: -0.75px; height: 1.5px;
-  border-radius: 0; background: #1A1917; overflow: visible; }
-.wd-att-audio .msg-att-progress-fill::after { content: '';
-  position: absolute; right: -2.5px; top: 50%; transform: translateY(-50%);
-  width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
-/* Time — grey tabular, right end of the name row. */
-.wd-att-audio .msg-att-time {
-  grid-column: 3; grid-row: 1; margin-top: 3.5px; font-size: 10.5px; color: #A5A199;
-  letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-/* DAW-timeline hint (when metadata places the clip) — quiet grey line. */
-.wd-att-audio .msg-att-timeline { grid-column: 2 / -1; font-size: 10.5px; color: #A5A199;
-  margin-top: 2px; display: flex; align-items: center; gap: 5px; }
-/* Import to DAW — a quiet underlined word, bottom-right. All drag
-   states keep their labels; armed/imported turn ink, never green. */
-.wd-att-audio .msg-att-audio > .msg-att-import-btn { width: auto; margin-top: 4px; }
-.wd-att-audio .msg-att-import-btn { grid-column: 1 / -1; justify-self: end; align-self: center;
-  padding: 0; border-radius: 0;
-  background: none; border: none; color: #6E6B63; font-size: 11px; font-weight: 400;
+  word-break: break-word; }
+.wd-ac-dur { flex-shrink: 0; margin-top: 3px; font-size: 10.5px; color: #A5A199;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* The waveform strip — full card width; the canvas fills it. */
+.wd-wave { position: relative; width: 100%; min-width: 0; cursor: pointer; touch-action: none; }
+.wd-wave canvas { display: block; width: 100%; height: 100%; }
+.wd-acard > .wd-wave { margin: 8px 0; }
+
+/* Bottom row — elapsed left, the import word right. */
+.wd-ac-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wd-ac-cur { font-size: 10.5px; color: #A5A199;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* Import machinery — hide the ride-along AudioAttachment's chrome;
+   only its real import button (with all its drag handlers) surfaces. */
+.wd-ac-import { display: flex; align-items: center; min-width: 0; }
+.wd-ac-import .msg-att-audio { display: contents; }
+.wd-ac-import .msg-att-audio-header,
+.wd-ac-import .msg-att-timeline,
+.wd-ac-import .msg-att-audio-player { display: none; }
+.wd-ac-import .msg-att-import-btn { width: auto; margin: 0; padding: 0;
+  background: none; border: none; border-radius: 0; color: #6E6B63;
+  font-size: 11px; font-weight: 400; white-space: nowrap;
   text-decoration: underline; text-underline-offset: 3px; }
-.wd-att-audio .msg-att-import-btn svg { display: none; }
-.wd-att-audio .msg-att-import-btn:hover { background: none; border: none; color: #1A1917; }
-.wd-att-audio .msg-att-import-btn:active { transform: none; }
-.wd-att-audio .msg-att-import-btn.ready { background: none; border: none; color: #1A1917; font-weight: 500; }
-/* Defensive: if the grouped variant ever renders here, its header
-   reads as a plain chat-sans row and the chevron goes quiet. */
-.wd-att-audio .msg-att-audio-group-header .msg-att-audio-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wd-att-audio .msg-att-group-chevron { background: none; border: none; color: #A5A199; }
-.wd-att-audio .msg-att-group-chevron:hover { background: none; color: #1A1917; }
-.wd-att-audio .msg-att-group-tracks { gap: 0; border-top-color: rgba(26,25,23,.10); }
-.wd-att-audio .msg-att-group-tracks .msg-att-audio { background: none; border-radius: 0; padding: 10px 0; }
-.wd-att-audio .msg-att-group-tracks .msg-att-audio + .msg-att-audio { border-top: 1px solid rgba(26,25,23,.10); }
+.wd-ac-import .msg-att-import-btn svg { display: none; }
+.wd-ac-import .msg-att-import-btn:hover { background: none; border: none; color: #1A1917; }
+.wd-ac-import .msg-att-import-btn:active { transform: none; }
+.wd-ac-import .msg-att-import-btn.ready { background: none; border: none; color: #1A1917; font-weight: 500; }
+
+/* Multi-audio — rows stacked in ONE card, interior hairlines. Each
+   row = compact grammar: glyph · name (ellipsis) · mini 24px
+   waveform · time · its own import word. */
+.wd-acard.multi { padding: 0; }
+.wd-ac-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-width: 0; }
+.wd-ac-row + .wd-ac-row { border-top: 1px solid rgba(26,25,23,.10); }
+.wd-ac-row .wd-ac-play { width: 14px; height: 14px; margin-top: 0; }
+.wd-ac-row .wd-ac-name { flex: 0 1 auto; max-width: 34%; font-size: 12.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-ac-row .wd-wave { flex: 1 1 0; width: auto; min-width: 60px; }
+.wd-ac-time { flex-shrink: 0; font-size: 10.5px; color: #A5A199;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
 /* Expired attachment (7-day temp files) — normal chat type, grey
    italic, inside a quiet hairline bubble on the sender's side. */
@@ -340,44 +327,30 @@
 
 /* ── now-playing bar — docked above the input ─────────────────────────
    One shared engine for the whole shell; the cards are its remotes.
-   Catalogue print: white bar, ONE hairline top rule, 48px. One text
-   row — [ink play glyph 16] [chat-sans name 13/500, ellipsis]
-   [elapsed/total, grey tabular] [✕] — sitting in the upper band.
-   The scrub is a full-bar-width 1px hairline baseline below it,
-   filled by a 1.5px ink line with the 5px accent playhead dot; the
-   track element is stretched absolutely over the bar's whole lower
-   half, so press-and-drag anywhere down there scrubs (its pointer-
-   capture handlers are untouched). No colored strip anywhere. */
-.wd-nowbar { position: relative; flex-shrink: 0; height: 48px; margin-bottom: 10px; background: #fff;
+   Catalogue print: 56px white bar over ONE hairline top rule. Fixed
+   left cluster — [ink play glyph] [chat-sans name 13/500, ellipsis]
+   [elapsed/total, grey tabular] — then the REST of the width is the
+   playing track's waveform (28px tall, same bar rendering, same
+   pointer-capture seek-drag): the waveform IS the scrubber, no
+   separate strip. Tiny grey ✕ at the far right. */
+.wd-nowbar { flex-shrink: 0; height: 56px; margin-bottom: 10px; background: #fff;
   border-top: 1px solid rgba(26,25,23,.16);
-  display: flex; align-items: center; gap: 10px; padding: 0 16px 13px 16px; }
-.wd-nowbar-btn { position: relative; z-index: 1; flex-shrink: 0; width: 18px; height: 18px;
+  display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+.wd-nowbar-btn { flex-shrink: 0; width: 18px; height: 18px; padding: 0;
   border-radius: 0; background: none; border: none; color: #1A1917; opacity: .72;
-  display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .wd-nowbar-btn:hover { opacity: 1; background: none; }
-.wd-nowbar-btn svg { display: block; width: 16px; height: 16px; }
-.wd-nowbar-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.wd-nowbar-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.wd-nowbar-name { min-width: 0;
+.wd-nowbar-btn svg { display: block; }
+.wd-nowbar-name { flex: 0 1 auto; min-width: 36px; max-width: 220px;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: #A5A199;
   font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-/* The scrub — whole lower half of the bar is the hit area; the
-   visible line sits at its vertical center, edge to edge. */
-.wd-nowbar-track { position: absolute; left: 0; right: 0; bottom: 0; height: 24px;
-  background: none; overflow: visible; cursor: pointer; touch-action: none; }
-.wd-nowbar-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  margin-top: -0.5px; height: 1px; background: rgba(26,25,23,.18); }
-.wd-nowbar-track:hover::before { background: rgba(26,25,23,.32); }
-.wd-nowbar-fill { position: absolute; left: 0; top: 50%; margin-top: -0.75px; height: 1.5px;
-  background: #1A1917; overflow: visible; }
-.wd-nowbar-fill::after { content: ''; position: absolute; right: -2.5px; top: 50%;
-  transform: translateY(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
-.wd-nowbar-x { position: relative; z-index: 1; flex-shrink: 0; width: 22px; height: 22px;
-  background: none; border: none;
-  padding: 0; color: #A5A199; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wd-nowbar-wave { flex: 1 1 0; min-width: 0; }
+.wd-nowbar-x { flex-shrink: 0; width: 22px; height: 22px; padding: 0;
+  background: none; border: none; color: #A5A199;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .wd-nowbar-x:hover { color: #1A1917; }
 
 /* ── input bar ────────────────────────────────────────────────────── */

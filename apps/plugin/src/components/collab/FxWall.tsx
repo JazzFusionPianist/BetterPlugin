@@ -315,6 +315,15 @@ export default function FxWall ({ size }: Props) {
     .filter(n => n.type !== FX_MIX_TYPE && live.has(n.id))
     .reduce<FxGraphNode | null>((best, n) => (!best || intensityOf(n) > intensityOf(best)) ? n : best, null)
   const litLevel = lit ? Math.min(1, intensityOf(lit)) : 0
+  // the wall's ink at every alpha the stylesheet uses — plain rgba, no
+  // color-mix (older WebKit inside the DAW)
+  const inkVars = useMemo(() => {
+    const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(strokeFor(litLevel))
+    const [r, g, b] = m ? [m[1], m[2], m[3]] : ['246', '243', '234']
+    const vars: Record<string, string> = { '--sg-ink': `rgb(${r}, ${g}, ${b})` }
+    for (const a of [85, 70, 60, 55, 50, 42, 30, 22, 14]) vars[`--sg-ink-${a}`] = `rgba(${r}, ${g}, ${b}, 0.${a})`
+    return vars as React.CSSProperties
+  }, [litLevel])
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
@@ -466,7 +475,7 @@ export default function FxWall ({ size }: Props) {
       <div
         ref={wallRef}
         className={`sg-wall${drag ? ` dragging ${drag.kind}` : ''}`}
-        style={{ '--sg-ink': strokeFor(litLevel) } as React.CSSProperties}
+        style={inkVars}
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
         onPointerDown={(e) => { setSel(null); setConfirm(null); setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y }) }}
@@ -658,7 +667,7 @@ export default function FxWall ({ size }: Props) {
         {oldEngine && <p className="fx-note sg-note">this room grew a wall — rebuild the plugin to patch it.</p>}
       </div>
 
-      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ '--sg-ink': strokeFor(litLevel) } as React.CSSProperties}>
+      <div className={`sg-shelf${full ? ' full' : ''}`} style={inkVars}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
           <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>

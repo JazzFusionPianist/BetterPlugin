@@ -10314,28 +10314,28 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 /* ── the wall's ink follows the wall's brightness (--sg-ink is set by
       FxWall from the same law the prints use: paper on a dark wall,
       ink on a lit one) ─────────────────────────────────────────────── */
-.sg-wall, .sg-shelf { --sg-ink: #F6F3EA; }
-.sg-wire-line { stroke: color-mix(in srgb, var(--sg-ink) 42%, transparent); }
+.sg-wall, .sg-shelf { --sg-ink: #F6F3EA; --sg-ink-85: rgba(246,243,234,.85); --sg-ink-70: rgba(246,243,234,.7); --sg-ink-60: rgba(246,243,234,.6); --sg-ink-55: rgba(246,243,234,.55); --sg-ink-50: rgba(246,243,234,.5); --sg-ink-42: rgba(246,243,234,.42); --sg-ink-30: rgba(246,243,234,.3); --sg-ink-22: rgba(246,243,234,.22); --sg-ink-14: rgba(246,243,234,.14); }
+.sg-wire-line { stroke: var(--sg-ink-42); }
 .sg-wire.sel .sg-wire-line { stroke: var(--sg-ink); }
-.sg-wire-line.ghost { stroke: color-mix(in srgb, var(--sg-ink) 60%, transparent); }
+.sg-wire-line.ghost { stroke: var(--sg-ink-60); }
 .sg-port, .sg-dot { fill: var(--sg-ink); background: var(--sg-ink); }
-.sg-io { fill: color-mix(in srgb, var(--sg-ink) 55%, transparent); }
-.sg-share { fill: color-mix(in srgb, var(--sg-ink) 85%, transparent); }
-.sg-share-who { fill: color-mix(in srgb, var(--sg-ink) 55%, transparent); }
-text.sg-word { fill: color-mix(in srgb, var(--sg-ink) 55%, transparent); }
-.sg-label { color: color-mix(in srgb, var(--sg-ink) 85%, transparent); }
-.sg-flav { color: color-mix(in srgb, var(--sg-ink) 50%, transparent); }
-.sg-val { color: color-mix(in srgb, var(--sg-ink) 85%, transparent); }
+.sg-io { fill: var(--sg-ink-55); }
+.sg-share { fill: var(--sg-ink-85); }
+.sg-share-who { fill: var(--sg-ink-55); }
+text.sg-word { fill: var(--sg-ink-55); }
+.sg-label { color: var(--sg-ink-85); }
+.sg-flav { color: var(--sg-ink-50); }
+.sg-val { color: var(--sg-ink-85); }
 .sg-val:hover { color: var(--sg-ink); }
-.sg-val.quiet { color: color-mix(in srgb, var(--sg-ink) 50%, transparent); }
-.sg-val.hand { color: color-mix(in srgb, var(--sg-ink) 70%, transparent); }
+.sg-val.quiet { color: var(--sg-ink-50); }
+.sg-val.hand { color: var(--sg-ink-70); }
 .sg-val.hand:hover { color: var(--sg-ink); }
-.sg-word { color: color-mix(in srgb, var(--sg-ink) 50%, transparent); }
-.sg-word:hover { color: color-mix(in srgb, var(--sg-ink) 85%, transparent); }
+.sg-word { color: var(--sg-ink-50); }
+.sg-word:hover { color: var(--sg-ink-85); }
 .sg-word.on { color: var(--sg-ink); }
-.sg-word.quiet { color: color-mix(in srgb, var(--sg-ink) 30%, transparent); }
-.sg-word.quiet:hover { color: color-mix(in srgb, var(--sg-ink) 70%, transparent); }
-.sg-node.sel::before { border-color: color-mix(in srgb, var(--sg-ink) 22%, transparent); }
-.sg-shelf { border-top-color: color-mix(in srgb, var(--sg-ink) 14%, transparent); }
+.sg-word.quiet { color: var(--sg-ink-30); }
+.sg-word.quiet:hover { color: var(--sg-ink-70); }
+.sg-node.sel::before { border-color: var(--sg-ink-22); }
+.sg-shelf { border-top-color: var(--sg-ink-14); }
 .sg-shelf-item span { color: var(--sg-ink); }
-.sg-note { color: color-mix(in srgb, var(--sg-ink) 50%, transparent); }
+.sg-note { color: var(--sg-ink-50); }

@@ -1,0 +1,122 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   Orb Studio workspace — exhibition-catalogue print.
+   Adapted 1:1 from the approved WorkspaceDemo mockup (.wd-*).
+   Paper #FBFAF7 · ink #1A1917 · klein blue #2440FF ·
+   hairlines rgba(26,25,23,.16) / .5.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.wd-stage {
+  display: flex; justify-content: center; align-items: center;
+  width: 100%; height: 100%; background: #191817;
+}
+
+.wd {
+  width: 820px; height: 560px; display: flex; background: #FBFAF7; color: #1A1917;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; border: 1px solid rgba(26,25,23,.5); overflow: hidden;
+
+  /* Variable bridge — embedded collab components (StemPanel, ChatCalendar,
+     AudioAttachment) read the .plugin light-theme tokens from collab.css.
+     Redeclare the set here so they render correctly inside the studio. */
+  --f-serif: 'Instrument Serif', 'Pretendard Variable', serif;
+  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --paper: #FBFAF7;
+  --card: #FFFFFF;
+  --ink: #1A1917;
+  --hair: rgba(26, 25, 23, 0.55);
+  --blue: #2440FF;
+  --action: #B59D7A;
+  --bg: #FBFAF7;
+  --bg2: #F4F2EC;
+  --bg3: #ECE9E1;
+  --border: rgba(26, 25, 23, 0.12);
+  --border2: rgba(26, 25, 23, 0.30);
+  --t1: #1A1917;
+  --t2: #6E6B63;
+  --t3: #A5A199;
+  --t4: #C0BCB3;
+  --mine-bg: #1A1917;
+  --mine-t: #FBFAF7;
+  --inp-bg: #1A1917;
+  --inp-ph: rgba(251,250,247,.38);
+  --star: #2440FF;
+  --ob-bg: rgba(30, 158, 99, 0.12);
+  --ob-t: #1E9E63;
+}
+.wd * { box-sizing: border-box; margin: 0; }
+.wd-serif { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-weight: 400; }
+
+/* ── rail ─────────────────────────────────────────────────────────── */
+.wd-rail { width: 232px; border-right: 1px solid rgba(26,25,23,.16); display: flex; flex-direction: column; padding: 14px 0 10px; flex-shrink: 0; }
+.wd-brand { font-family: 'Instrument Serif', serif; font-size: 17px; padding: 0 16px 12px; display: flex; align-items: center; gap: 7px; }
+.wd-brand i { width: 8px; height: 8px; border-radius: 50%; background: #2440FF; }
+.wd-rail-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.wd-rail-scroll::-webkit-scrollbar { display: none; }
+.wd-sec { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase; padding: 12px 16px 5px; }
+.wd-row { display: flex; align-items: center; gap: 9px; padding: 7px 16px; cursor: pointer; }
+.wd-row:hover { background: rgba(26,25,23,.03); }
+.wd-row.on { background: rgba(36,64,255,.06); box-shadow: inset 2px 0 0 #2440FF; }
+.wd-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; position: relative; }
+.wd-av.grp { border-radius: 8px; }
+.wd-av img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.wd-dot { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%;
+  background: #1E9E63; border: 2px solid #FBFAF7; }
+.wd-dot.studio { background: #2440FF; animation: wdbreathe 2.4s ease-in-out infinite; }
+@keyframes wdbreathe { 0%,100% { box-shadow: 0 0 0 0 rgba(36,64,255,.35);} 50% { box-shadow: 0 0 0 4px rgba(36,64,255,0);} }
+.wd-rname { flex: 1; min-width: 0; }
+.wd-rname b { display: block; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span { display: block; font-size: 10.5px; color: #A5A199; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span.studio { color: #2440FF; font-style: italic; font-family: 'Instrument Serif', serif; }
+.wd-badge { background: #2440FF; color: #fff; font-size: 9.5px; min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+.wd-rail-foot { margin-top: auto; padding: 10px 16px 0; border-top: 1px solid rgba(26,25,23,.16);
+  display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6E6B63; }
+
+/* ── main pane ────────────────────────────────────────────────────── */
+.wd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wd-head { padding: 14px 22px 0; border-bottom: 1px solid rgba(26,25,23,.16); flex-shrink: 0; }
+.wd-title { font-family: 'Instrument Serif', serif; font-size: 21px; }
+.wd-sub { font-size: 11px; color: #A5A199; margin-top: 1px; }
+.wd-tabs { display: flex; gap: 18px; margin-top: 10px; }
+.wd-tab { font-size: 12.5px; color: #6E6B63; padding-bottom: 8px; cursor: pointer; }
+.wd-tab.on { color: #1A1917; box-shadow: inset 0 -1px 0 #1A1917; }
+.wd-tab.off { color: #C0BCB3; cursor: default; }
+.wd-tab i { font-style: normal; color: #2440FF; margin-left: 4px; font-size: 10px; }
+.wd-tab.off i { color: #C0BCB3; }
+
+/* ── chat tab ─────────────────────────────────────────────────────── */
+.wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; min-height: 0; }
+.wd-day { text-align: center; font-size: 10px; color: #A5A199; margin: 4px 0 8px; flex-shrink: 0; }
+.wd-meta { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; }
+.wd-meta b { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 13.5px; }
+.wd-meta span { font-size: 9.5px; color: #A5A199; }
+.wd-msg { font-size: 13px; line-height: 1.5; max-width: 480px; word-break: break-word; white-space: pre-wrap; }
+.wd-file { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(26,25,23,.16); background: #fff;
+  padding: 8px 12px; margin-top: 5px; max-width: 320px; border-radius: 4px; }
+.wd-file i { font-style: normal; color: #2440FF; }
+.wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
+.wd-att-audio { margin-top: 5px; max-width: 360px; }
+.wd-img { display: block; margin-top: 5px; max-width: 260px; max-height: 200px; border-radius: 4px;
+  border: 1px solid rgba(26,25,23,.16); cursor: pointer; object-fit: cover; }
+.wd-quiet { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* ── input bar ────────────────────────────────────────────────────── */
+.wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: flex-end;
+  border: 1px solid rgba(26,25,23,.5); background: #fff; border-radius: 6px; padding: 9px 12px; flex-shrink: 0; }
+.wd-input textarea { flex: 1; border: none; outline: none; resize: none; background: transparent;
+  font-family: inherit; font-size: 13px; line-height: 1.4; color: #1A1917; padding: 0;
+  max-height: 90px; min-height: 18px; }
+.wd-input textarea::placeholder { color: #A5A199; }
+.wd-input .wd-send { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 4px; background: #2440FF; display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 12px; border: none; cursor: pointer; font-family: inherit; }
+.wd-input .wd-send:disabled { background: #C0BCB3; cursor: default; }
+
+/* ── stems / calendar tab panes ───────────────────────────────────── */
+.wd-pane { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* StemPanel fills the pane; its own .stem-panel styles (collab.css) apply. */
+.wd-pane .stem-panel { padding: 14px 22px 16px; }
+/* ChatCalendar positions absolute inset:0 — the pane is its containing block. */
+.wd-pane .chatcal { position: absolute; inset: 0; }

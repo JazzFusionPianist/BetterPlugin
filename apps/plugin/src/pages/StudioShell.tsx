@@ -365,7 +365,7 @@ function StudioAudioSingle({ track }: { track: StudioTrack }) {
         <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
           <PlayGlyph playing={playing} size={16} />
         </button>
-        <span className="wd-ac-name">{track.name}</span>
+        <span className="wd-ac-namewrap"><span className="wd-ac-name">{track.name}</span></span>
         <span className="wd-ac-dur">{fmtDur(total)}</span>
       </div>
       <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={40} head={active} onSeek={seek} />
@@ -388,7 +388,7 @@ function StudioAudioRow({ track }: { track: StudioTrack }) {
       <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
         <PlayGlyph playing={playing} size={13} />
       </button>
-      <span className="wd-ac-name" title={track.name}>{track.name}</span>
+      <span className="wd-ac-namewrap"><span className="wd-ac-name" title={track.name}>{track.name}</span></span>
       <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={24} head={active} onSeek={seek} />
       <span className="wd-ac-time">{active ? `${fmtDur(cur)} / ${fmtDur(total)}` : fmtDur(total)}</span>
       <span className="wd-ac-import">

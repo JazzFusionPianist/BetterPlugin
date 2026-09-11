@@ -19,7 +19,7 @@
  *   presence       → 'studio-presence' realtime channel (client-only)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { useProfiles } from '../hooks/useProfiles'
 import { usePresence } from '../hooks/usePresence'
@@ -32,6 +32,7 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
+import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
@@ -39,6 +40,7 @@ import LinkPreviewCard from '../components/collab/LinkPreviewCard'
 import { AudioAttachment, ScheduleChip, looksLikeSchedule } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { ChatTarget, Message, Profile } from '../types/collab'
+import type { StemDropRequest } from '../types/stems'
 import './studio.css'
 
 interface Props { supabase: SupabaseClient; user: User }
@@ -49,6 +51,33 @@ type Sel =
   | { kind: 'me' }
 
 type Tab = 'chat' | 'stems' | 'calendar' | 'notes'
+
+/* ── DAW / Finder drag-and-drop plumbing (ChatView's grammar) ─────── */
+
+const DROP_AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', 'caf', 'opus', 'aac'])
+
+function isAudioFile(f: File): boolean {
+  return f.type.startsWith('audio/') || DROP_AUDIO_EXTS.has(f.name.split('.').pop()?.toLowerCase() ?? '')
+}
+
+/** Native-bridge base64 payload ({name,data} from __juceFileDrop) → File.
+ *  Same decode as StemPanel.nativeFile / ChatView.b64ToAudioFile. */
+function nativeToFile(name: string, data: string): File {
+  const binary = atob(data)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  const mime: Record<string, string> = {
+    wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff', mp3: 'audio/mpeg',
+    m4a: 'audio/mp4', caf: 'audio/x-caf', ogg: 'audio/ogg', flac: 'audio/flac',
+  }
+  return new File([bytes], name, { type: mime[ext] ?? 'audio/wav' })
+}
+
+/** True when a React drag event is carrying real files (not text/UI drags). */
+function dragHasFiles(e: ReactDragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes('Files')
+}
 
 /** Average a set of #RRGGBB strings into one hex — same helper CollabPage
  *  uses for group tint (visually unifies a member set). */
@@ -912,7 +941,7 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [user.id])
 
-  const onFilesPicked = useCallback(async (list: FileList | null) => {
+  const onFilesPicked = useCallback(async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return
     const AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', 'caf', 'opus', 'aac'])
     const typed = Array.from(list)
@@ -943,6 +972,237 @@ function StudioShellInner({ supabase, user }: Props) {
       if (a) await send('', a)
     }
   }, [uploadFile, send, MAX_SIZE])
+
+  // ── DAW drag-and-drop → main pane ───────────────────────────────────
+  // Two entry paths, mirroring ChatView/CollabPage:
+  //  · HTML5 dataTransfer drops (Finder etc.) on the .wd-main handlers
+  //  · the native DragMonitor bridge — DragMonitor.mm / PluginEditor.cpp
+  //    evaluateJavaScript window CustomEvents into the WKWebView:
+  //    __juceDragEnter[Cancel] / __juceDragExit / __juceDragComplete for
+  //    the overlay, then __juceDropGroupStart{count} + N × __juceFileDrop
+  //    {name, data(base64)} for the files themselves.
+  // Routing: files tab open → StemPanel via pendingStemDrop; any other
+  // tab with a conversation open → chat attachment (the + button path).
+  const [dragOver, setDragOver] = useState(false)
+  const [dragKind, setDragKind] = useState<'attach' | 'cancel'>('attach')
+  const [pendingStemDrop, setPendingStemDrop] = useState<StemDropRequest | null>(null)
+  const dragCounter = useRef(0)
+  const juceDragActive = useRef(false)      // C++ owns the overlay while true
+  const isCancelDrag = useRef(false)        // own drag-out returning → don't attach
+  const outDragActive = useRef(false)       // an AudioAttachment drag-out is live
+  const outDragArmedUrl = useRef<string | null>(null)
+  const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropBuffer = useRef<{ name: string; data: string }[]>([])
+  const dropGroupCount = useRef(1)
+  const dropTimelineRef = useRef<ReturnType<typeof getDawTimelineSnapshot>>(null)
+  const dropTimelinePromiseRef = useRef<Promise<ReturnType<typeof getDawTimelineSnapshot>> | null>(null)
+
+  // Keep the DAW playhead/tempo snapshot warm (ChatView does the same).
+  useEffect(() => { initAudioTimelineTracking() }, [])
+
+  // Live values for the mount-once native listeners.
+  const tabRef = useRef(tab); tabRef.current = tab
+  const activeConvIdRef = useRef(activeConvId); activeConvIdRef.current = activeConvId
+  const onFilesPickedRef = useRef(onFilesPicked); onFilesPickedRef.current = onFilesPicked
+
+  // A new conversation invalidates a stale routed drop.
+  useEffect(() => { setPendingStemDrop(null) }, [activeConvId])
+
+  const consumeStemDrop = useCallback((id: string) => {
+    setPendingStemDrop(current => current?.id === id ? null : current)
+  }, [])
+
+  // __juceDragEnter / __juceDragEnterCancel — C++ heartbeats (~100 ms)
+  // while a native drag hovers the WKWebView.
+  useEffect(() => {
+    const onEnter = () => {
+      if (!activeConvIdRef.current) return
+      juceDragActive.current = true
+      if (outDragActive.current) { isCancelDrag.current = true; setDragKind('cancel') }
+      else { isCancelDrag.current = false; setDragKind('attach') }
+      dragCounter.current = 1
+      setDragOver(true)
+    }
+    const onEnterCancel = () => {
+      if (!activeConvIdRef.current) return
+      juceDragActive.current = true
+      isCancelDrag.current = true
+      setDragKind('cancel')
+      dragCounter.current = 1
+      setDragOver(true)
+    }
+    const onLeave = () => {
+      juceDragActive.current = false
+      isCancelDrag.current = false
+      dragCounter.current = 0
+      setDragOver(false)
+    }
+    window.addEventListener('__juceDragEnter', onEnter)
+    window.addEventListener('__juceDragEnterCancel', onEnterCancel)
+    window.addEventListener('__juceDragExit', onLeave)
+    window.addEventListener('__juceDragComplete', onLeave)
+    return () => {
+      window.removeEventListener('__juceDragEnter', onEnter)
+      window.removeEventListener('__juceDragEnterCancel', onEnterCancel)
+      window.removeEventListener('__juceDragExit', onLeave)
+      window.removeEventListener('__juceDragComplete', onLeave)
+    }
+  }, [])
+
+  // __juceDropGroupStart — C++ announces how many __juceFileDrop events
+  // follow, so a multi-region drag lands as ONE grouped message.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
+      dropBuffer.current = []
+      // Freeze host context at the drop, before slow async exports.
+      dropTimelineRef.current = getDawTimelineSnapshot()
+      dropTimelinePromiseRef.current = refreshDawTimelineSnapshot()
+    }
+    window.addEventListener('__juceDropGroupStart', handler)
+    return () => window.removeEventListener('__juceDropGroupStart', handler)
+  }, [])
+
+  // __juceFileDrop — one resolved base64 file per event.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if (outDragActive.current) return
+      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
+      dropBuffer.current.push({ name, data })
+      if (dropBuffer.current.length < dropGroupCount.current) return
+
+      const batch = dropBuffer.current
+      dropBuffer.current = []
+      dropGroupCount.current = 1
+      if (!activeConvIdRef.current) return
+
+      void (async () => {
+        const fresh = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
+        const fallback = fresh ?? dropTimelineRef.current
+        dropTimelineRef.current = null
+        dropTimelinePromiseRef.current = null
+        if (tabRef.current === 'stems') {
+          setPendingStemDrop({
+            id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            nativeFiles: batch,
+            fallbackMetadata: fallback,
+          })
+          return
+        }
+        await onFilesPickedRef.current(batch.map(f => nativeToFile(f.name, f.data)))
+      })()
+    }
+    window.addEventListener('__juceFileDrop', handler)
+    return () => window.removeEventListener('__juceFileDrop', handler)
+  }, [])
+
+  // Own drag-OUT tracking (AudioAttachment → DAW). Without this, a
+  // drag that comes straight back would read as a new attach drop.
+  useEffect(() => {
+    const onArmed = (e: Event) => {
+      outDragActive.current = true
+      outDragArmedUrl.current = (e as CustomEvent<{ url: string }>).detail?.url ?? null
+    }
+    const onStart = () => { outDragActive.current = true }
+    const onEnd = (e: Event) => {
+      const op = (e as CustomEvent<{ op: string }>).detail?.op ?? 'none'
+      const armedUrl = outDragArmedUrl.current
+      isCancelDrag.current = false
+      dragCounter.current = 0
+      setDragOver(false)
+      if (op === 'none') {
+        outDragActive.current = false
+        outDragArmedUrl.current = null
+        if (outDragCooldownTimer.current) { clearTimeout(outDragCooldownTimer.current); outDragCooldownTimer.current = null }
+        if (armedUrl) window.dispatchEvent(new CustomEvent('__juceOutDragCancel', { detail: { url: armedUrl } }))
+      } else {
+        // Accepted by the DAW — it may bounce our own audio back as a new
+        // NSDraggingSession, so stay "out" for 30 s (ChatView parity).
+        if (armedUrl) window.dispatchEvent(new CustomEvent('__juceImported', { detail: { url: armedUrl } }))
+        if (outDragCooldownTimer.current) clearTimeout(outDragCooldownTimer.current)
+        outDragCooldownTimer.current = setTimeout(() => {
+          outDragActive.current = false
+          outDragArmedUrl.current = null
+          outDragCooldownTimer.current = null
+        }, 30_000)
+      }
+    }
+    window.addEventListener('__localDragArmed', onArmed)
+    window.addEventListener('__juceOutDragStart', onStart)
+    window.addEventListener('__juceOutDragEnd', onEnd)
+    return () => {
+      window.removeEventListener('__localDragArmed', onArmed)
+      window.removeEventListener('__juceOutDragStart', onStart)
+      window.removeEventListener('__juceOutDragEnd', onEnd)
+    }
+  }, [])
+
+  // HTML5 dataTransfer path — Finder drops and browser-dev drags.
+  const handleMainDragEnter = useCallback((e: ReactDragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+    dragCounter.current++
+    if (!activeConvId) return
+    if (!juceDragActive.current) {
+      if (outDragActive.current) { isCancelDrag.current = true; setDragKind('cancel') }
+      else { isCancelDrag.current = false; setDragKind('attach') }
+    }
+    setDragOver(true)
+  }, [activeConvId])
+
+  const handleMainDragOver = useCallback((e: ReactDragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+  }, [])
+
+  const handleMainDragLeave = useCallback((e: ReactDragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+    // C++ owns exit timing while a native drag runs (JS dragleave is
+    // unreliable for NSFilePromise drags — relatedTarget is null).
+    if (juceDragActive.current) return
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    dragCounter.current = 0
+    setDragOver(false)
+  }, [])
+
+  const handleMainDrop = useCallback((e: ReactDragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+    dragCounter.current = 0
+    const wasCancel = isCancelDrag.current
+    isCancelDrag.current = false
+    juceDragActive.current = false
+    setDragOver(false)
+
+    if (!activeConvId) return
+    if (wasCancel || outDragActive.current) return
+
+    const files = Array.from(e.dataTransfer.files ?? [])
+    if (files.length === 0) return
+
+    if (tab === 'stems') {
+      // StemPanel's own drop zone already handled anything released over
+      // it (the event bubbles up here afterwards) — don't double-upload.
+      if ((e.target as HTMLElement | null)?.closest?.('.stem-panel')) return
+      const audio = files.filter(isAudioFile)
+      const rest = files.filter(f => !isAudioFile(f))
+      if (audio.length > 0) {
+        void (async () => {
+          const fresh = await refreshDawTimelineSnapshot()
+          setPendingStemDrop({
+            id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            files: audio,
+            fallbackMetadata: fresh ?? getDawTimelineSnapshot(),
+          })
+        })()
+      }
+      if (rest.length > 0) void onFilesPicked(rest)  // images still go to chat
+      return
+    }
+
+    void onFilesPicked(files)
+  }, [activeConvId, tab, onFilesPicked])
 
   // Chat scroll — jump to the bottom whenever a conversation (re)opens;
   // after that, new messages re-pin the view only while the reader is
@@ -1269,7 +1529,28 @@ function StudioShellInner({ supabase, user }: Props) {
         </div>
 
         {/* ── main ─────────────────────────────────────────────── */}
-        <div className="wd-main">
+        <div
+          className="wd-main"
+          onDragEnter={handleMainDragEnter}
+          onDragOver={handleMainDragOver}
+          onDragLeave={handleMainDragLeave}
+          onDrop={handleMainDrop}
+        >
+          {dragOver && activeConvId && sel && sel.kind !== 'me' && (
+            <div className={`wd-drop${dragKind === 'cancel' ? ' cancel' : ''}`}>
+              <div className="wd-drop-card">
+                <span className="wd-drop-glyph">{dragKind === 'cancel' ? '×' : '↓'}</span>
+                <span className="wd-drop-label">
+                  {dragKind === 'cancel' ? 'release to cancel' : 'drop to attach'}
+                </span>
+                <span className="wd-drop-fine">
+                  {dragKind === 'cancel'
+                    ? 'the file stays where it was'
+                    : tab === 'stems' ? 'adds to this project’s files' : `sends to ${headerTitle || 'this chat'}`}
+                </span>
+              </div>
+            </div>
+          )}
           {sel?.kind === 'me' ? (
             /* my calendar — the personal programme, fuller. The prompt
                lives on the home pane now. */
@@ -1391,8 +1672,8 @@ function StudioShellInner({ supabase, user }: Props) {
                       conversationId={activeConvId}
                       currentUserId={user.id}
                       participants={stemParticipants}
-                      pendingDrop={null}
-                      onDropConsumed={() => {}}
+                      pendingDrop={pendingStemDrop}
+                      onDropConsumed={consumeStemDrop}
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>

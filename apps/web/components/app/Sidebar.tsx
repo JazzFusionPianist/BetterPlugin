@@ -68,7 +68,7 @@ export default function Sidebar({
         title: p.display_name,
         previewText: preview(c.lastMessage, c.lastMessage.sender_id === currentUserId),
         when: fmtWhen(c.lastMessage.created_at),
-        target: { kind: 'dm', friend: p },
+        target: { kind: 'dm', friend: p, conversationId: c.conversationId },
         avatar: { kind: 'profile', p },
       })
     }

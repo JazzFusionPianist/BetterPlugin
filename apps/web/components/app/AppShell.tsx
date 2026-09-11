@@ -225,6 +225,11 @@ export default function AppShell({ user }: { user: User }) {
     }
     return out
   }, [conversations, unread])
+  const dmConversationIdByFriend = useMemo(() => {
+    const out = new Map<string, string>()
+    for (const c of conversations) out.set(c.partnerId, c.conversationId)
+    return out
+  }, [conversations])
 
   // Sender-id → profile (group sender names, conversation rows). Includes me.
   const profileById = useMemo(() => {
@@ -439,7 +444,7 @@ export default function AppShell({ user }: { user: User }) {
         friend={sheetFriend}
         unread={sheetFriend ? (unreadByFriend.get(sheetFriend.id) ?? 0) : 0}
         onClose={() => setSheetFriend(null)}
-        onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f }) }}
+        onMessage={(f) => { setSheetFriend(null); setThread({ kind: 'dm', friend: f, conversationId: dmConversationIdByFriend.get(f.id) }) }}
         onVisitPortfolio={(f) => { setSheetFriend(null); setPortfolioOwner(f as Profile & { isOnline?: boolean }) }}
       />
 

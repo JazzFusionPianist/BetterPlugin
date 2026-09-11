@@ -3,26 +3,22 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
-import WorkspaceDemo from './pages/WorkspaceDemo'
 import StudioShell from './pages/StudioShell'
+import SoundsPage from './pages/SoundsPage'
 import type { User } from '@supabase/supabase-js'
+
+/** Split-out single-purpose builds load the page with ?surface=<name>.
+ *  Orb Sounds needs no account — it boots straight into the fx room,
+ *  before auth. (Orb Chat keeps the auth flow; CollabPage reads the
+ *  same param to boot chat-only.) */
+const SURFACE = new URLSearchParams(window.location.search).get('surface')
 
 export default function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPage />
   }
-
-  // TEMP mockup branch — DELETE before commit.
-  if (new URLSearchParams(window.location.search).has('workdemo')) {
-    return <WorkspaceDemo />
-  }
-
-  // TEMP smoke route — StudioShell with a mock user (anon client, empty
-  // data) so the browser preview can exercise the real shell. Private
-  // branch only; remove before merging to main.
-  if (new URLSearchParams(window.location.search).has('studiodemo') && supabase) {
-    const mockUser = { id: '00000000-0000-0000-0000-000000000000', email: 'demo@orb.app' } as User
-    return <StudioShell supabase={supabase} user={mockUser} />
+  if (SURFACE === 'sounds') {
+    return <SoundsPage />
   }
 
   const [user, setUser] = useState<User | null>(null)

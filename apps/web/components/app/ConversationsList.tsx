@@ -69,7 +69,7 @@ export default function ConversationsList({
         title: p.display_name,
         previewText: preview(c.lastMessage),
         when: fmtWhen(c.lastMessage.created_at),
-        target: { kind: 'dm', friend: p },
+        target: { kind: 'dm', friend: p, conversationId: c.conversationId },
         avatar: { kind: 'profile', p },
       })
     }

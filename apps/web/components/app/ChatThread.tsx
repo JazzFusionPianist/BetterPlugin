@@ -8,7 +8,7 @@ import ChatSettingsSheet from './ChatSettingsSheet'
 
 /** What a thread points at — a DM partner or a group conversation. */
 export type ThreadTarget =
-  | { kind: 'dm'; friend: Profile & { isOnline?: boolean } }
+  | { kind: 'dm'; friend: Profile & { isOnline?: boolean }; conversationId?: string }
   | { kind: 'group'; conversationId: string; title: string; memberCount: number; avatarUrl?: string | null }
 
 interface Props {
@@ -246,7 +246,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
     supabase,
     currentUserId,
     target.kind === 'dm'
-      ? { kind: 'dm', otherUserId: target.friend.id }
+      ? { kind: 'dm', otherUserId: target.friend.id, conversationId: target.conversationId }
       : { kind: 'group', conversationId: target.conversationId },
   )
   // Who has read this conversation up to when — drives the small

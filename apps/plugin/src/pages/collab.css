@@ -9997,3 +9997,20 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .settings-legal a { color: var(--t3); text-decoration: underline; text-underline-offset: 2px; }
 .sprompt-ainote { font-size: 9px; letter-spacing: 0.04em; color: var(--t4); margin-top: 3px; text-align: right; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Orb Sounds — the fx room as its own plugin (SoundsPage). The room
+   is always open, so the view never slides and nothing else exists to
+   hide; the wordmark sits where the toolbar glyphs would, in their
+   dimmed-paper tone. */
+.plugin.sounds .fxview { transform: none; transition: none; }
+.plugin.sounds .top-bar { justify-content: flex-start; }
+.sounds-mark {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(246, 243, 234, 0.45);
+  /* match .icon-btn's box so the toolbar keeps its exact height */
+  padding: 2px 0 5px;
+  line-height: 16px;
+  user-select: none;
+}

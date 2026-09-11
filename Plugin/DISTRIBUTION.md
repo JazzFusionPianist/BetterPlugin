@@ -53,3 +53,18 @@ You can ship a fully official **AU + VST3 + Standalone** installer now (steps
 2–4 only) and add AAX later once the PACE account lands. `build.sh` without the
 AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
 formats notarize and install cleanly.
+
+## Split-out plugins (Orb Chat, Orb Sounds)
+
+Each single-purpose plugin is its own download with its own bundle id, so
+installing one never touches the full Orb or another split-out.
+
+```bash
+cd Plugin
+./build.sh --release --only=sounds        # or --only=chat; omit for everything
+./package.sh --product=sounds --version=1.0.0   # → installer/Orb Sounds-1.0.0.pkg
+./package.sh --product=chat   --version=1.0.0   # → installer/Orb Chat-1.0.0.pkg
+```
+
+Sign and notarize exactly as above. Orb Sounds needs no account — it boots
+straight into the one-knob room.

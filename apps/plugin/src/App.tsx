@@ -3,11 +3,17 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
+import WorkspaceDemo from './pages/WorkspaceDemo'
 import type { User } from '@supabase/supabase-js'
 
 export default function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPage />
+  }
+
+  // TEMP mockup branch — DELETE before commit.
+  if (new URLSearchParams(window.location.search).has('workdemo')) {
+    return <WorkspaceDemo />
   }
 
   const [user, setUser] = useState<User | null>(null)

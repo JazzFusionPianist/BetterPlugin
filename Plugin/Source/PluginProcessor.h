@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "VideoCapture.h"
 #include "OrbControlBridge.h"
+#include "FxEngine.h"
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -140,71 +141,13 @@ private:
     void handleGetFx (const juce::var& args,
                       juce::WebBrowserComponent::NativeFunctionCompletion completion);
 
-    // Audio-thread-only FX state.
-    struct Biquad { float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-                    inline float run (float x) noexcept {
-                        const float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-                        x2 = x1; x1 = x; y2 = y1; y1 = y; return y; } };
-    float fxAmtSm[kNumFx] {};    // smoothed amount, one per effect
-    int   fxLastVar[kNumFx] {};  // per-effect variant (for light-touch rebakes)
-    int   fxLastMode = kTone;
-    float tiltApplied = 999.0f;  // dB of the currently-baked shelf coeffs
-    Biquad tiltLow[2], tiltHigh[2];
-    float tapeLpState[2] { 0, 0 };
-    float cleanXoState[2] { 0, 0 };     // crossover low state, stage 1
-    float cleanXoState2[2] { 0, 0 };    // crossover low state, stage 2 (12 dB/oct)
-    Biquad cleanShelf[2];               // clean tape's airy 2.5k shelf
-    float cleanShelfBaked = -1.0f;
-    juce::Reverb fxReverb;
-    juce::AudioBuffer<float> fxWetBuf { 2, 2048 };
-    float sendHpState[2] { 0, 0 };      // reverb send low-cut state
-    float apState[4][2] { {0,0},{0,0},{0,0},{0,0} };  // allpass x1/y1 per stage
-    float sideHpState = 0.0f;
-    float sideHpState2 = 0.0f;
-    float stEnvM = 0.0f;   // stereoize mono-ness detector envelopes
-    float stEnvS = 0.0f;
-    float glueEnv = 0.0f;        // linear peak envelope
+    // The engine: per-node DSP state + the published chain (FxEngine.h).
+    orbfx::Chain fxChain;
     // UI meter: glue's current gain reduction in dB (positive number),
     // block max, zeroed whenever glue isn't working. Read by timerCallback.
     std::atomic<float> glueGrDb { 0.0f };
-    // kGain: per-channel signed gain (sign carries the polarity invert),
-    // ramped across each block so fader moves and flips never click.
-    float gainPrev[2] { 1.0f, 1.0f };
-    bool  gainPrimed = false;
-    // kMod: one shared LFO, a modulated delay pair (chorus/flanger) and a
-    // six-stage swept allpass ladder with feedback (phaser).
-    float modLfoPhase = 0.0f;
-    std::vector<float> modDl[2];   // sized in prepareToPlay (~60 ms)
-    int   modWrite = 0;
-    float phX1[6][2] {}, phY1[6][2] {};
-    float phFb[2] { 0.0f, 0.0f };
-    // kCut: low/high/band, two cascaded RBJ stages each (24 dB/oct) so the
-    // cut is unmistakable. Baked when knob or flavour moves.
-    Biquad cutBqHp[2], cutBqLp[2], cutBqHp2[2], cutBqLp2[2];
-    bool  cutUseHp = false, cutUseLp = false;
-    float cutBakedA = -1.0f;
-    int   cutBakedVar = -1;
-    // kAmp: input tightener HP, pre-clip mid-emphasis band (two one-poles),
-    // DC blocker after the shaper, fuzz bias envelope, and a two-pole
-    // cabinet rolloff.
-    float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
-    float ampLp2State[2] {}, ampMidLo[2] {}, ampMidHi[2] {}, ampEnv[2] {};
-    float ampStageHp[2] {};   // coupling cap between lead's two stages
-    float ampInEnv[2] {}, ampOutEnv[2] {}, ampMakeup[2] { 1.0f, 1.0f }; // auto-gain
-    // kDoubler: its own short modulated delay pair (independent of kMod's).
-    std::vector<float> dblDl[2];
-    int   dblWrite = 0;
-    float dblLfoPhase = 0.0f;
-    // kDelay: BPM-synced echo, ~3 s line; the read head GLIDES to the new
-    // length on tempo/division change (tape-style repitch, no clicks).
-    std::vector<float> dlyBuf[2];
-    int   dlyWrite = 0;
-    float dlySmSamp = -1.0f;       // smoothed delay length in samples
-    float dlyFbLp[2] {};           // tape-flavour feedback damping state
-    void resetFxState();
-    void resetFxOne (int m);
+    void publishFxChain();   // message thread: chain = [fxMode] (phase 0)
     void processFx (juce::AudioBuffer<float>& buffer);
-    void processFxOne (int m, float sr, int n, float* L, float* R);
 
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;

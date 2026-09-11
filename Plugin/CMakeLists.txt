@@ -67,6 +67,7 @@ target_sources(OrbPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/OrbControlBridge.cpp
+    Source/FxEngine.cpp
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
     Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
@@ -155,6 +156,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/OrbControlBridge.cpp
+    Source/FxEngine.cpp
         Source/DragMonitor.mm
         Source/VideoCapture.mm
     )

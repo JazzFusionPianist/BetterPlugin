@@ -173,6 +173,32 @@ export default function FxWall ({ size }: Props) {
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef(graph); graphRef.current = graph
 
+  // ── zoom: the signal flow scales about the wall's centre; in and out
+  //    stay put on the edges, so the outer wires stretch to meet it ─────
+  const [zoom, setZoom] = useState(() => {
+    try { const z = Number(localStorage.getItem('orb_wall_zoom')); return z >= 0.35 && z <= 1.8 ? z : 1 } catch { return 1 }
+  })
+  const cx = size.w / 2, cy = size.h / 2
+  const Rz = R * zoom, NODEz = NODE * zoom
+  const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom, y: cy + (p.y - cy) * zoom })
+  const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - cx) / zoom, y: cy + (p.y - cy) / zoom })
+  // Native, non-passive: React's onWheel is passive, and the wall must
+  // swallow the scroll. Numbers keep their own wheel (amount, share).
+  useEffect(() => {
+    const el = wallRef.current; if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as Element).closest('.sg-val, .sg-share, .fx-hot')) return
+      e.preventDefault()
+      setZoom(z => {
+        const next = Math.min(1.8, Math.max(0.35, z * Math.exp(-e.deltaY * 0.0015)))
+        try { localStorage.setItem('orb_wall_zoom', String(next)) } catch { /* fine */ }
+        return next
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   // ── engine sync ────────────────────────────────────────────────────
   useEffect(() => {
     if (!bridge) return
@@ -213,16 +239,18 @@ export default function FxWall ({ size }: Props) {
   const inPortOf = (id: number, edgeIndex: number): Pt => {
     if (id === FX_PORT_OUT) return { x: outPort.x - 6, y: outPort.y }
     const n = nodeById(id); if (!n) return outPort
-    if (n.type !== FX_MIX_TYPE) return { x: n.x - R, y: n.y }
+    const c = toScreen(n)
+    if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
     const count = ins.length
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
-    return { x: n.x - R * Math.cos(ang), y: n.y + R * Math.sin(ang) }
+    return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   const outPortOf = (id: number): Pt => {
     if (id === FX_PORT_IN) return { x: inPort.x + 6, y: inPort.y }
-    const n = nodeById(id); return n ? { x: n.x + R, y: n.y } : inPort
+    const n = nodeById(id); if (!n) return inPort
+    const c = toScreen(n); return { x: c.x + Rz, y: c.y }
   }
 
   const wallPt = (e: { clientX: number; clientY: number }): Pt => {
@@ -247,13 +275,14 @@ export default function FxWall ({ size }: Props) {
 
   const addNode = (type: number, at: Pt) => {
     const id = freeId(); if (id < 0) return
-    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, x: at.x, y: at.y }
+    const gp = toGraph(at)
+    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, x: gp.x, y: gp.y }
     let edges = graph.edges
     // dropped onto a wire? splice in
     let best = -1, bestD = SNAP_WIRE
     graph.edges.forEach((e, i) => {
       const d = distToWire(outPortOf(e.from), inPortOf(e.to, i), at)
-      if (d < bestD) { bestD = d; best = i }
+      if (d < bestD * Math.max(0.6, zoom)) { bestD = d; best = i }
     })
     if (best >= 0) {
       const e = graph.edges[best]
@@ -318,7 +347,7 @@ export default function FxWall ({ size }: Props) {
   const onWallMove = (e: RPointerEvent) => {
     if (!drag) return
     const p = wallPt(e)
-    if (drag.kind === 'move') updateNode(drag.id, { x: p.x - drag.dx, y: p.y - drag.dy })
+    if (drag.kind === 'move') { const gp = toGraph(p); updateNode(drag.id, { x: gp.x - drag.dx, y: gp.y - drag.dy }) }
     else if (drag.kind === 'amount') {
       const n = nodeById(drag.id); if (!n) return
       updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
@@ -331,7 +360,7 @@ export default function FxWall ({ size }: Props) {
     const p = wallPt(e)
     if (drag.kind === 'wire') {
       // landed on a node (its input) or the out port?
-      const hit = graph.nodes.find(n => Math.hypot(n.x - p.x, n.y - p.y) <= R + 10)
+      const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
       if (hit) connect(drag.from, hit.id)
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT)
     }
@@ -340,6 +369,13 @@ export default function FxWall ({ size }: Props) {
     }
     else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'move') push(graphRef.current, true)
     setDrag(null)
+  }
+
+  const startMove = (n: FxGraphNode) => (e: RPointerEvent) => {
+    if ((e.target as Element).closest('.fx-hot, .sg-val, .sg-word, .sg-dot')) return
+    e.stopPropagation(); setSel({ node: n.id }); setConfirm(null)
+    const gp = toGraph(wallPt(e))
+    setDrag({ kind: 'move', id: n.id, dx: gp.x - n.x, dy: gp.y - n.y })
   }
 
   const startWire = (from: number) => (e: RPointerEvent) => {
@@ -416,20 +452,15 @@ export default function FxWall ({ size }: Props) {
           const isMix = n.type === FX_MIX_TYPE
           const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
           const ins = inputsOf(n.id)
+          const c = toScreen(n)
           return (
             <div key={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}`}
-              style={{ left: n.x - R, top: n.y - R, width: NODE, height: NODE }}
-              onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null) }}>
+              style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
+              onPointerDown={startMove(n)}>
+              {/* the print: drag it anywhere on the wall; its number is the hand */}
               <div className="sg-print"
-                onPointerDown={(e) => {
-                  if ((e.target as Element).closest('.fx-hot')) return
-                  e.stopPropagation(); setSel({ node: n.id }); setConfirm(null)
-                  if (!isMix) setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount })
-                  else setDrag({ kind: 'move', id: n.id, dx: wallPt(e).x - n.x, dy: wallPt(e).y - n.y })
-                }}
-                onDoubleClick={() => { if (!isMix) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
-                onWheel={(e) => { if (isMix) return; e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
-                <Print node={n} size={NODE} shares={sharesOf(n.id)}
+                onDoubleClick={() => { if (!isMix) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
+                <Print node={n} size={NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
@@ -439,40 +470,48 @@ export default function FxWall ({ size }: Props) {
               {isMix
                 ? [...ins.map(x => x.i), -1].map((edgeIndex, k) => {
                     const p = inPortOf(n.id, edgeIndex)
-                    return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (n.x - R) - 2.5, top: p.y - (n.y - R) - 2.5 }} />
+                    return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} />
                   })
                 : <span className="sg-dot l" />}
               <span className="sg-dot r" onPointerDown={startWire(n.id)} />
-              {/* caption = the handle */}
-              <div className="sg-label"
-                onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'move', id: n.id, dx: wallPt(e).x - n.x, dy: wallPt(e).y - n.y }) }}>
-                <span className="sg-name">{nameOf(n.type)}</span>
-                {!isSel && flavours.length > 0 && <span className="sg-flav"> · {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
-                {!isMix && <span className="sg-val"> {fmtValue(n.type, n.amount, n.variant)}</span>}
-                {isMix && <span className="sg-val"> {sharesOf(n.id).map(s => Math.round(s * 100)).join(' / ') || '—'}</span>}
-              </div>
-              {isSel && (
-                <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
-                  {n.type !== 5 && flavours.map((f, vi) => (
-                    <span key={f} className={`sg-word${(isMix ? n.variant : n.variant) === vi ? ' on' : ''}`}
-                      onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
-                  ))}
-                  {WET_TYPES.has(n.type) && (
-                    <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
+              {/* under the print, scaled with it: caption, then the chosen print's words */}
+              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${zoom})` }}>
+                <div className="sg-label">
+                  <span className="sg-name">{nameOf(n.type)}</span>
+                  {!isSel && flavours.length > 0 && <span className="sg-flav"> · {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
+                  {!isMix && (
+                    <span className="sg-val"
+                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
+                      onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
+                      {' '}{fmtValue(n.type, n.amount, n.variant)}
+                    </span>
                   )}
-                  <span className="sg-word quiet"
-                    onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
-                    {confirm === `node:${n.id}` ? 'sure?' : 'remove'}
-                  </span>
+                  {isMix && <span className="sg-val quiet"> {sharesOf(n.id).map(s => Math.round(s * 100)).join(' / ') || '—'}</span>}
                 </div>
-              )}
+                {isSel && (
+                  <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
+                    {n.type !== 5 && flavours.map((f, vi) => (
+                      <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
+                        onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
+                    ))}
+                    {WET_TYPES.has(n.type) && (
+                      <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
+                    )}
+                    <span className="sg-word quiet"
+                      onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
+                      {confirm === `node:${n.id}` ? 'sure?' : 'remove'}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )
         })}
 
         {drag?.kind === 'shelf' && (
-          <div className="sg-ghost" style={{ left: drag.at.x - R, top: drag.at.y - R, width: NODE, height: NODE }}>
-            <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35 }} size={NODE} dim />
+          <div className="sg-ghost" style={{ left: drag.at.x - Rz, top: drag.at.y - Rz, width: NODEz, height: NODEz }}>
+            <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35 }} size={NODEz} dim />
           </div>
         )}
 

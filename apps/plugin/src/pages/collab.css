@@ -10005,6 +10005,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
    dimmed-paper tone. */
 .plugin.sounds .fxview { transform: none; transition: none; }
 .plugin.sounds .top-bar { justify-content: flex-start; }
+/* the wordmark reads from the room's top-left corner at every width —
+   not from the centred 360px slot the glyph cluster uses in wide mode */
+.plugin.sounds.screen-wide .top-bar { max-width: none; margin: 0; }
 .sounds-mark {
   font-size: 11px; font-weight: 500;
   letter-spacing: -0.01em;

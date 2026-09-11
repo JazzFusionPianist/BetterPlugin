@@ -2,8 +2,9 @@
  * greenroom — the workspace surface for the Orb Chat plugin build
  * (?surface=chat). Layout and print styling replicate the approved
  * WorkspaceDemo mockup (.wd-* classes, see studio.css): a project-first
- * rail on the left, a tabbed main pane (chat · stems · calendar · notes)
- * on the right.
+ * rail on the left, a tabbed main pane (chat / files / calendar / notes)
+ * on the right. ("files" is the StemPanel — the tab label is studio
+ * copy only; the component keeps its name.)
  *
  * Data wiring reuses CollabPage's exact hook patterns:
  *   rail projects  → useConversations().groupConversations
@@ -101,12 +102,12 @@ function snippet(m: Message | null | undefined, senderName?: string): string {
   return senderName ? `${senderName}: ${body}` : body
 }
 
-/** " · 2h" elapsed-in-the-studio suffix; empty under a minute. */
+/** " / 2h" elapsed-in-the-studio suffix; empty under a minute. */
 function studioFor(since: number, now: number): string {
   const min = Math.floor((now - since) / 60000)
   if (min < 1) return ''
-  if (min < 60) return ` · ${min}m`
-  return ` · ${Math.floor(min / 60)}h`
+  if (min < 60) return ` / ${min}m`
+  return ` / ${Math.floor(min / 60)}h`
 }
 
 /** "in the studio" presence — a client-only realtime presence channel.
@@ -135,6 +136,63 @@ function useStudioPresence(supabase: SupabaseClient, userId: string): Map<string
     return () => { supabase.removeChannel(ch) }
   }, [supabase, userId])
   return present
+}
+
+/** ── todos — the home prompt's plain-task lane ─────────────────────
+ *  todos(id, user_id, content, done, created_at) — own rows only (RLS).
+ *  Newest first; toggles and clears are optimistic with a refresh on
+ *  error, and realtime keeps other devices in step. */
+interface TodoRow {
+  id: string
+  user_id: string
+  content: string
+  done: boolean
+  created_at: string
+}
+
+function useTodos(supabase: SupabaseClient, userId: string) {
+  const [todos, setTodos] = useState<TodoRow[]>([])
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('todos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) { console.error('[StudioTodos] load failed', error); return }
+    setTodos((data ?? []) as TodoRow[])
+  }, [supabase, userId])
+
+  useEffect(() => {
+    void refresh()
+    const ch = supabase
+      .channel(`studio-todos:${userId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` },
+        () => { void refresh() })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, userId, refresh])
+
+  const add = useCallback(async (content: string) => {
+    const { error } = await supabase.from('todos').insert({ user_id: userId, content })
+    if (error) { console.error('[StudioTodos] add failed', error); throw error }
+    await refresh()
+  }, [supabase, userId, refresh])
+
+  const toggle = useCallback(async (t: TodoRow) => {
+    setTodos(prev => prev.map(x => x.id === t.id ? { ...x, done: !t.done } : x))
+    const { error } = await supabase.from('todos').update({ done: !t.done }).eq('id', t.id)
+    if (error) { console.error('[StudioTodos] toggle failed', error); void refresh() }
+  }, [supabase, refresh])
+
+  const clearDone = useCallback(async () => {
+    setTodos(prev => prev.filter(x => !x.done))
+    const { error } = await supabase.from('todos').delete().eq('user_id', userId).eq('done', true)
+    if (error) { console.error('[StudioTodos] clear failed', error); void refresh() }
+  }, [supabase, userId, refresh])
+
+  return { todos, add, toggle, clearDone }
 }
 
 function Avatar({ color, label, group, avatarUrl, dot }: {
@@ -240,6 +298,47 @@ function relTime(iso: string, now: number): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toLowerCase()
 }
 
+/** Tags the note toolbar can produce — everything else is unwrapped. */
+const NOTE_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'UL', 'OL', 'LI', 'H3', 'P', 'BR', 'DIV'])
+
+/** Small allowlist sanitizer for note HTML. script/style subtrees are
+ *  dropped whole; other off-list tags are unwrapped (children kept);
+ *  every attribute is stripped. Applied before save AND before any
+ *  remote HTML touches the editor. */
+function sanitizeNoteHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const clean = (node: Element) => {
+    for (const el of Array.from(node.children)) {
+      if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') { el.remove(); continue }
+      clean(el)
+      if (NOTE_TAGS.has(el.tagName)) {
+        for (const a of Array.from(el.attributes)) el.removeAttribute(a.name)
+      } else {
+        const parent = el.parentNode
+        if (parent) {
+          while (el.firstChild) parent.insertBefore(el.firstChild, el)
+          el.remove()
+        }
+      }
+    }
+  }
+  clean(doc.body)
+  return doc.body.innerHTML
+}
+
+/** Decode a tagless HTML fragment back to plain text (entities → chars). */
+function htmlToText(html: string): string {
+  return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? ''
+}
+
+/** One-line plain preview of note content, HTML or legacy plain text. */
+function noteSnippet(content: string): string {
+  const plain = content.includes('<')
+    ? htmlToText(content.replace(/<br\s*\/?>/gi, ' ').replace(/></g, '> <'))
+    : content
+  return plain.replace(/\s+/g, ' ').trim()
+}
+
 /** Note documents for the open conversation — list + realtime refresh.
  *  Lives at the shell level so the notes tab can badge its count the
  *  way calendar does. Any INSERT/UPDATE/DELETE on this conversation's
@@ -285,10 +384,11 @@ function StudioNotes({ supabase, conversationId, userId, nameOf, notes, loaded, 
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [focusNew, setFocusNew] = useState(false)
+  const [delSureId, setDelSureId] = useState<string | null>(null)
   const creatingRef = useRef(false)
 
   // Conversation switched under the tab — back to that room's list.
-  useEffect(() => { setOpenId(null); setFocusNew(false) }, [conversationId])
+  useEffect(() => { setOpenId(null); setFocusNew(false); setDelSureId(null) }, [conversationId])
 
   const openNote = openId ? notes.find(n => n.id === openId) ?? null : null
 
@@ -350,14 +450,28 @@ function StudioNotes({ supabase, conversationId, userId, nameOf, notes, loaded, 
             ? <div className="wd-quiet">no notes yet — keep setlists, schedules, anything the band needs</div>
             : notes.map(n => {
               const title = n.title.trim()
-              const snip = n.content.replace(/\s+/g, ' ').trim()
+              const snip = noteSnippet(n.content)
               return (
-                <div key={n.id} className="wd-note-row" onClick={() => { setFocusNew(false); setOpenId(n.id) }}>
-                  <div className={`wd-note-title${title ? '' : ' untitled'}`}>{title || 'untitled'}</div>
-                  {snip && <div className="wd-note-snip">{snip}</div>}
-                  <div className="wd-note-meta">
-                    {`edited by ${n.updated_by ? nameOf(n.updated_by) : '—'} · ${relTime(n.updated_at, nowTick)}`}
+                <div key={n.id} className="wd-note-row"
+                  onClick={() => { setFocusNew(false); setDelSureId(null); setOpenId(n.id) }}>
+                  <div className="wd-note-row-main">
+                    <div className={`wd-note-title${title ? '' : ' untitled'}`}>{title || 'untitled'}</div>
+                    {snip && <div className="wd-note-snip">{snip}</div>}
+                    <div className="wd-note-meta">
+                      {`edited by ${n.updated_by ? nameOf(n.updated_by) : '—'} / ${relTime(n.updated_at, nowTick)}`}
+                    </div>
                   </div>
+                  <button
+                    className={`wd-note-del row${delSureId === n.id ? ' sure' : ''}`}
+                    onClick={e => {
+                      e.stopPropagation()
+                      if (delSureId !== n.id) { setDelSureId(n.id); return }
+                      setDelSureId(null)
+                      void deleteNote(n.id)
+                    }}
+                  >
+                    {delSureId === n.id ? 'sure?' : 'delete'}
+                  </button>
                 </div>
               )
             })}
@@ -367,25 +481,27 @@ function StudioNotes({ supabase, conversationId, userId, nameOf, notes, loaded, 
 }
 
 /** One note opened — borderless serif title + quiet paper body, both
- *  autosaved (800ms debounce). Remote realtime edits arrive as new
- *  `note` props and are adopted ONLY while the local editor is clean —
- *  mid-typing or mid-save, local text wins (v1's typing guard). */
+ *  autosaved (800ms debounce). The body is a contentEditable storing
+ *  sanitized HTML (legacy plain text renders as before). Remote
+ *  realtime edits arrive as new `note` props and are adopted ONLY
+ *  while the local editor is clean — mid-typing or mid-save, local
+ *  text wins (v1's typing guard, now an innerHTML dirty check). */
 function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, onBack, onDelete }: {
   supabase: SupabaseClient; note: NoteRow; userId: string
   nameOf: (id: string | null) => string; nowTick: number
   autoFocusTitle: boolean; onBack: () => void; onDelete: () => void
 }) {
   const [title, setTitle] = useState(note.title)
-  const [content, setContent] = useState(note.content)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [delSure, setDelSure] = useState(false)
 
   const titleRef = useRef(note.title)
-  const contentRef = useRef(note.content)
+  const contentRef = useRef(note.content)   // raw editor innerHTML (or legacy text at open)
   const dirtyRef = useRef(false)
   const inFlightRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
   // A fresh note opens with the title ready to type.
   useEffect(() => {
@@ -396,12 +512,15 @@ function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, o
   const persist = useCallback(async () => {
     const snapTitle = titleRef.current
     const snapContent = contentRef.current
+    // Sanitize on the way out; a tagless fragment decodes back to plain
+    // text so legacy notes stay legacy until formatting is used.
+    const html = sanitizeNoteHtml(snapContent)
     inFlightRef.current = true
     const { error } = await supabase
       .from('conversation_notes')
       .update({
         title: snapTitle,
-        content: snapContent,
+        content: html.includes('<') ? html : htmlToText(html),
         updated_by: userId,
         updated_at: new Date().toISOString(),
       })
@@ -427,15 +546,57 @@ function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, o
 
   // Remote realtime edits arrive as new note props — adopt them only
   // while the local editor is clean, protecting in-flight typing.
+  // Remote HTML is sanitized before it touches the DOM; legacy plain
+  // text (no '<') goes in as text. Also paints the initial content.
   useEffect(() => {
     if (dirtyRef.current || inFlightRef.current) return
     setTitle(note.title); titleRef.current = note.title
-    setContent(note.content); contentRef.current = note.content
+    const el = bodyRef.current
+    if (!el) return
+    if (note.content.includes('<')) {
+      const target = sanitizeNoteHtml(note.content)
+      if (el.innerHTML !== target) el.innerHTML = target
+    } else if ((el.textContent ?? '') !== note.content || el.innerHTML.includes('<')) {
+      el.textContent = note.content
+    }
+    contentRef.current = el.innerHTML
   }, [note.title, note.content, note.updated_at])
 
+  const syncBody = useCallback(() => {
+    const el = bodyRef.current
+    if (!el) return
+    contentRef.current = el.innerHTML
+    queueSave()
+  }, [queueSave])
+
+  // Toolbar commands — execCommand keeps the selection's formatting in
+  // the small allowlist the sanitizer accepts.
+  const exec = useCallback((cmd: string) => {
+    const el = bodyRef.current
+    if (!el) return
+    el.focus()
+    document.execCommand(cmd)
+    syncBody()
+  }, [syncBody])
+  const block = useCallback((tag: string) => {
+    const el = bodyRef.current
+    if (!el) return
+    el.focus()
+    // Older WebKits want the bracketed form.
+    if (!document.execCommand('formatBlock', false, tag)) {
+      document.execCommand('formatBlock', false, `<${tag}>`)
+    }
+    syncBody()
+  }, [syncBody])
+  const toggleH3 = useCallback(() => {
+    const cur = String(document.queryCommandValue('formatBlock') || '').toLowerCase()
+    block(cur === 'h3' ? 'p' : 'h3')
+  }, [block])
+  const keepSel = (e: { preventDefault: () => void }) => e.preventDefault()
+
   const fine = savedAt !== null && note.updated_by === userId
-    ? `saved · ${relTime(new Date(savedAt).toISOString(), Math.max(nowTick, savedAt))}`
-    : `edited by ${note.updated_by ? nameOf(note.updated_by) : '—'} · ${relTime(note.updated_at, nowTick)}`
+    ? `saved / ${relTime(new Date(savedAt).toISOString(), Math.max(nowTick, savedAt))}`
+    : `edited by ${note.updated_by ? nameOf(note.updated_by) : '—'} / ${relTime(note.updated_at, nowTick)}`
 
   return (
     <div className="wd-note-ed">
@@ -451,12 +612,22 @@ function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, o
         />
         <span className="wd-note-ed-fine">{fine}</span>
       </div>
-      <textarea
-        className="wd-note-ed-body"
-        value={content}
-        placeholder="setlists, timetables, flight numbers — anything worth keeping"
+      <div className="wd-note-tools">
+        <button className="wd-tool" title="bold" onMouseDown={keepSel} onClick={() => exec('bold')}><b>B</b></button>
+        <button className="wd-tool" title="italic" onMouseDown={keepSel} onClick={() => exec('italic')}><i>I</i></button>
+        <button className="wd-tool" title="underline" onMouseDown={keepSel} onClick={() => exec('underline')}><u>U</u></button>
+        <button className="wd-tool" title="strikethrough" onMouseDown={keepSel} onClick={() => exec('strikeThrough')}><s>S</s></button>
+        <button className="wd-tool" title="bulleted list" onMouseDown={keepSel} onClick={() => exec('insertUnorderedList')}>• list</button>
+        <button className="wd-tool" title="numbered list" onMouseDown={keepSel} onClick={() => exec('insertOrderedList')}>1. list</button>
+        <button className="wd-tool" title="heading" onMouseDown={keepSel} onClick={toggleH3}>H</button>
+      </div>
+      <div
+        ref={bodyRef}
+        className="wd-note-ed-body rich"
+        contentEditable
         spellCheck={false}
-        onChange={e => { setContent(e.target.value); contentRef.current = e.target.value; queueSave() }}
+        data-placeholder="setlists, timetables, flight numbers — anything worth keeping"
+        onInput={syncBody}
       />
       <div className="wd-note-ed-foot">
         <button
@@ -489,7 +660,7 @@ function StudioShellInner({ supabase, user }: Props) {
   const [tab, setTab] = useState<Tab>('chat')
 
   // Minute tick — re-splits the upcoming lists and advances the
-  // "in the studio · 2h" elapsed labels while the plugin sits open.
+  // "in the studio / 2h" elapsed labels while the plugin sits open.
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNowTick(Date.now()), 60_000)
@@ -578,13 +749,25 @@ function StudioShellInner({ supabase, user }: Props) {
     : null
 
   const headerTitle = selectedGroup?.title ?? selectedProfile?.display_name ?? ''
+
+  // Inline group rename — double-click the title, type, Enter/blur
+  // saves, Escape walks away. null = not editing.
+  const [titleEdit, setTitleEdit] = useState<string | null>(null)
+  useEffect(() => { setTitleEdit(null) }, [activeConvId])
+  const commitTitle = useCallback(async () => {
+    const t = (titleEdit ?? '').trim()
+    setTitleEdit(null)
+    if (!t || t === headerTitle || !activeConvId || sel?.kind !== 'group') return
+    const { error } = await supabase.from('conversations').update({ title: t }).eq('id', activeConvId)
+    if (error) console.error('[Studio] rename failed', error)
+  }, [titleEdit, headerTitle, activeConvId, sel, supabase])
   const headerSub = useMemo(() => {
     if (selectedGroup) {
       const n = selectedGroup.memberIds.length
       const inStudio = selectedGroup.memberIds.filter(id => studioAt.has(id)).length
-      if (inStudio > 0) return `${n} members · ${inStudio} in the studio now`
+      if (inStudio > 0) return `${n} members / ${inStudio} in the studio now`
       const online = selectedGroup.memberIds.filter(id => id === user.id || onlineIds.has(id)).length
-      return `${n} members · ${online} online`
+      return `${n} members / ${online} online`
     }
     if (selectedProfile) {
       if (studioAt.has(selectedProfile.id)) return 'in the studio'
@@ -641,7 +824,7 @@ function StudioShellInner({ supabase, user }: Props) {
     return calAddEvents(withMeta)
   }, [calEnsureCategory, calAddEvents, activeConvId])
 
-  // Unscoped prompt for the "my calendar" view — personal events only.
+  // Unscoped personal events — the home prompt's schedule lane.
   const saveMyEvents = useCallback(async (text: string): Promise<CalendarEvent[]> => {
     const parsed = await parseSchedule(supabase, text)
     const withMeta = await Promise.all(parsed.map(async e => ({
@@ -651,6 +834,17 @@ function StudioShellInner({ supabase, user }: Props) {
     })))
     return calAddEvents(withMeta)
   }, [supabase, calEnsureCategory, calAddEvents])
+
+  // ── home todos ──────────────────────────────────────────────────────
+  const { todos, add: addTodo, toggle: toggleTodo, clearDone: clearDoneTodos } = useTodos(supabase, user.id)
+
+  // The home prompt takes both lanes: schedule-looking text goes down
+  // the existing parse→calendar path; anything else lands in todos.
+  const saveHomePrompt = useCallback(async (text: string): Promise<CalendarEvent[]> => {
+    if (looksLikeSchedule(text)) return saveMyEvents(text)
+    await addTodo(text)
+    return []
+  }, [saveMyEvents, addTodo])
 
   // ── input bar + uploads ─────────────────────────────────────────────
   const [draft, setDraft] = useState('')
@@ -937,7 +1131,7 @@ function StudioShellInner({ supabase, user }: Props) {
                 <span style={{ background: senderP?.avatar_color ?? '#C0BCB3' }}>
                   {senderP?.avatar_url
                     ? <img src={senderP.avatar_url} alt="" />
-                    : (senderP?.initials ?? '·').slice(0, 1)}
+                    : (senderP?.initials ?? '').slice(0, 1)}
                 </span>
               )}
             </div>
@@ -1077,8 +1271,8 @@ function StudioShellInner({ supabase, user }: Props) {
         {/* ── main ─────────────────────────────────────────────── */}
         <div className="wd-main">
           {sel?.kind === 'me' ? (
-            /* my calendar — the personal programme, fuller, with the
-               unscoped schedule prompt. */
+            /* my calendar — the personal programme, fuller. The prompt
+               lives on the home pane now. */
             <>
               <div className="wd-head plain">
                 <div className="wd-title">{myName}</div>
@@ -1088,19 +1282,54 @@ function StudioShellInner({ supabase, user }: Props) {
                 <div className="wd-me-scroll">
                   <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={30} nowTick={nowTick} />
                 </div>
-                <div className="wd-sprompt">
-                  <SchedulePrompt targets={[]} onSubmit={(text) => saveMyEvents(text)} />
-                </div>
               </div>
             </>
           ) : sel ? (
             <>
               <div className="wd-head">
-                <div className="wd-title">{headerTitle}</div>
-                <div className="wd-sub">{headerSub}</div>
+                <div className="wd-head-row">
+                  {selectedGroup ? (
+                    <span className="wd-hav grp"
+                      style={{ background: groupColorByConv.get(selectedGroup.conversationId) ?? '#4A8FE7' }}>
+                      {selectedGroup.avatarUrl
+                        ? <img src={selectedGroup.avatarUrl} alt="" />
+                        : (selectedGroup.title || 'G').slice(0, 1)}
+                    </span>
+                  ) : selectedProfile ? (
+                    <span className="wd-hav" style={{ background: selectedProfile.avatar_color }}>
+                      {selectedProfile.avatar_url
+                        ? <img src={selectedProfile.avatar_url} alt="" />
+                        : selectedProfile.initials.slice(0, 1)}
+                    </span>
+                  ) : null}
+                  <div className="wd-head-col">
+                    {titleEdit !== null && selectedGroup ? (
+                      <input
+                        className="wd-htitle-input"
+                        value={titleEdit}
+                        autoFocus
+                        spellCheck={false}
+                        onChange={e => setTitleEdit(e.target.value)}
+                        onBlur={() => void commitTitle()}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void commitTitle() }
+                          else if (e.key === 'Escape') setTitleEdit(null)
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="wd-htitle"
+                        onDoubleClick={selectedGroup ? () => setTitleEdit(headerTitle) : undefined}
+                      >
+                        {headerTitle}
+                      </div>
+                    )}
+                    <div className="wd-hsub">{headerSub}</div>
+                  </div>
+                </div>
                 <div className="wd-tabs">
                   <span className={`wd-tab${tab === 'chat' ? ' on' : ''}`} onClick={() => setTab('chat')}>chat</span>
-                  <span className={`wd-tab${tab === 'stems' ? ' on' : ''}`} onClick={() => activeConvId && setTab('stems')}>stems</span>
+                  <span className={`wd-tab${tab === 'stems' ? ' on' : ''}`} onClick={() => activeConvId && setTab('stems')}>files</span>
                   <span className={`wd-tab${tab === 'calendar' ? ' on' : ''}`} onClick={() => activeConvId && setTab('calendar')}>
                     calendar{convUpcomingCount > 0 && <i>{convUpcomingCount}</i>}
                   </span>
@@ -1122,7 +1351,7 @@ function StudioShellInner({ supabase, user }: Props) {
                   {uploads.length > 0 && (
                     <div className="wd-uploading">
                       {uploads.map(u => (
-                        <span key={u.id}>uploading {u.name} · {Math.round(u.progress * 100)}%</span>
+                        <span key={u.id}>uploading {u.name} / {Math.round(u.progress * 100)}%</span>
                       ))}
                     </div>
                   )}
@@ -1213,12 +1442,43 @@ function StudioShellInner({ supabase, user }: Props) {
               )}
             </>
           ) : (
-            /* home — a quiet page: serif greeting + my programme. */
+            /* home — a quiet page: serif greeting, the prompt, today's
+               tasks, then my programme. */
             <div className="wd-home">
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
+              <div className="wd-home-prompt">
+                <SchedulePrompt
+                  targets={[]}
+                  placeholder="add a schedule, or something to do today…"
+                  onSubmit={(text) => saveHomePrompt(text)}
+                />
+              </div>
+              {todos.length > 0 && (
+                <div className="wd-todos">
+                  <div className="wd-todos-head">
+                    <span>today</span>
+                    {todos.some(t => t.done) && (
+                      <button className="wd-todos-clear" onClick={() => void clearDoneTodos()}>clear done</button>
+                    )}
+                  </div>
+                  {todos.slice(0, 10).map(t => (
+                    <div key={t.id} className={`wd-todo${t.done ? ' done' : ''}`} onClick={() => void toggleTodo(t)}>
+                      <span className="wd-todo-box">
+                        {t.done && (
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 12.5l5 5L20 6.5" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="wd-todo-text">{t.content}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
             </div>
           )}

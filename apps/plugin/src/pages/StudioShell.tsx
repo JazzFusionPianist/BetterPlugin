@@ -19,7 +19,7 @@
  *   presence       → 'studio-presence' realtime channel (client-only)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { useProfiles } from '../hooks/useProfiles'
 import { usePresence } from '../hooks/usePresence'
@@ -39,7 +39,7 @@ import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
 import { AudioAttachment, AudioEngineContext, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
-import type { ChatTarget, Message, Profile } from '../types/collab'
+import type { AttachmentTimelineMetadata, ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
 import './studio.css'
 
@@ -113,53 +113,325 @@ function fmtDur(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** Docked now-playing bar — the web app's NowPlayingBar pattern in
- *  studio print: white bar over a hairline top rule, bare ink play
- *  glyph, chat-sans track name, and a hairline baseline scrub (ink
- *  fill + accent playhead dot) stretched over the bar's lower half —
- *  pointer-down anywhere on it seeks, and dragging keeps scrubbing
- *  (setPointerCapture guarded for older WebKits). */
-function StudioNowBar({ name, playing, cur, dur, onToggle, onSeek, onClose }: {
-  name: string; playing: boolean; cur: number; dur: number
-  onToggle: () => void; onSeek: (sec: number) => void; onClose: () => void
-}) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const draggingRef = useRef(false)
+/* ── waveform tech — the web app's audioPeaks technique, ported ──────
+   The open-call feed on the web (apps/web/lib/audioPeaks.ts + the
+   OpenCallPanel Waveform) decodes each track once and prints max-abs
+   amplitude buckets as bars. Same recipe here: fetch(url) →
+   AudioContext.decodeAudioData → ~90 normalized peak buckets, cached
+   per URL at module level so a track decodes once per session. When
+   fetch/decode can't run (CORS, odd codec), deterministic pseudo-peaks
+   seeded from the URL string stand in — a smoothed random walk that
+   reads as organic — and duration falls back to an <audio> metadata
+   probe (media elements aren't CORS-gated the way fetch is). */
 
-  const scrub = (clientX: number) => {
-    const el = trackRef.current
-    if (!el || !dur) return
+const WAVE_BUCKETS = 90
+interface WaveMeta { peaks: number[]; duration: number }
+const waveCache = new Map<string, WaveMeta>()
+const waveInflight = new Map<string, Promise<WaveMeta>>()
+
+/** URL hash → xorshift random walk with a pull to the middle and a slow
+ *  swell — stable per URL, organic enough to pass as a real print. */
+function pseudoPeaks(seed: string): number[] {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619) }
+  const phase = ((h >>> 0) % 628) / 100
+  const rand = () => {
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5
+    return ((h >>> 0) % 1000) / 1000
+  }
+  const out: number[] = []
+  let v = 0.35 + rand() * 0.35
+  for (let i = 0; i < WAVE_BUCKETS; i++) {
+    v += (rand() - 0.5) * 0.3          // walk
+    v += (0.5 - v) * 0.12              // gentle pull home
+    const swell = 0.72 + 0.28 * Math.sin(i / 9 + phase)
+    out.push(Math.min(1, Math.max(0.06, v * swell)))
+  }
+  return out
+}
+
+/** Duration via a media element — used only on the fetch-less fallback. */
+function probeDuration(url: string): Promise<number> {
+  return new Promise(resolve => {
+    const a = new Audio()
+    a.preload = 'metadata'
+    const done = (d: number) => {
+      a.onloadedmetadata = null; a.onerror = null
+      a.removeAttribute('src')
+      resolve(d)
+    }
+    const timer = setTimeout(() => done(0), 8000)
+    a.onloadedmetadata = () => { clearTimeout(timer); done(Number.isFinite(a.duration) ? a.duration : 0) }
+    a.onerror = () => { clearTimeout(timer); done(0) }
+    a.src = url
+  })
+}
+
+async function decodePeaks(url: string): Promise<WaveMeta> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const buf = await res.arrayBuffer()
+  type AC = typeof AudioContext
+  const Ctx: AC | undefined =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: AC }).webkitAudioContext
+  if (!Ctx) throw new Error('no AudioContext')
+  const ctx = new Ctx()
+  try {
+    const audio = await ctx.decodeAudioData(buf)
+    const ch0 = audio.getChannelData(0)
+    const ch1 = audio.numberOfChannels > 1 ? audio.getChannelData(1) : null
+    const n = ch0.length
+    const per = Math.max(1, Math.floor(n / WAVE_BUCKETS))
+    const peaks: number[] = []
+    for (let b = 0; b < WAVE_BUCKETS; b++) {
+      const start = b * per
+      if (start >= n) break
+      const end = Math.min(n, start + per)
+      let max = 0
+      // Stride big buckets — max-abs of every 32nd sample reads the same
+      // at bar scale and is 30× cheaper on long stems (web-app parity).
+      const step = end - start > 8192 ? 32 : 1
+      for (let i = start; i < end; i += step) {
+        const v = Math.abs(ch0[i]!) + (ch1 ? Math.abs(ch1[i]!) : 0)
+        if (v > max) max = v
+      }
+      peaks.push(max)
+    }
+    const top = Math.max(...peaks, 0.0001)
+    return { peaks: peaks.map(p => p / top), duration: audio.duration }
+  } finally {
+    ctx.close().catch(() => {})
+  }
+}
+
+function getWaveMeta(url: string): Promise<WaveMeta> {
+  const cached = waveCache.get(url)
+  if (cached) return Promise.resolve(cached)
+  const inflight = waveInflight.get(url)
+  if (inflight) return inflight
+  const p = decodePeaks(url)
+    .catch(async () => ({ peaks: pseudoPeaks(url), duration: await probeDuration(url) }))
+    .then(meta => { waveCache.set(url, meta); waveInflight.delete(url); return meta })
+  waveInflight.set(url, p)
+  return p
+}
+
+function useWaveMeta(url: string): WaveMeta | null {
+  const [meta, setMeta] = useState<WaveMeta | null>(() => waveCache.get(url) ?? null)
+  useEffect(() => {
+    const cached = waveCache.get(url)
+    if (cached) { setMeta(cached); return }
+    setMeta(null)
+    let dead = false
+    void getWaveMeta(url).then(m => { if (!dead) setMeta(m) })
+    return () => { dead = true }
+  }, [url])
+  return meta
+}
+
+/** The waveform IS the scrubber. 2px ink bars, 1px gap, min-height 2px,
+ *  vertically centered on a DPR-aware canvas; the ~90 cached buckets are
+ *  linearly resampled to however many bars the width holds. Unplayed
+ *  bars rgba-ink .18, played .85; the boundary carries a 1.5px accent
+ *  needle. Pointer-down anywhere seeks and dragging keeps scrubbing
+ *  (pointer capture — works while paused too). Peaks still decoding →
+ *  a quiet 2px dotted baseline in the same grammar. */
+function StudioWaveform({ peaks, frac, height, head, onSeek }: {
+  peaks: number[] | null; frac: number; height: number; head?: boolean
+  onSeek: (frac: number) => void
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const draggingRef = useRef(false)
+  const [width, setWidth] = useState(0)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    ro.observe(el)
+    setWidth(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || width <= 0) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(width * dpr)
+    canvas.height = Math.round(height * dpr)
+    const g = canvas.getContext('2d')
+    if (!g) return
+    g.scale(dpr, dpr)
+    const BAR = 2, GAP = 1
+    const n = Math.max(1, Math.floor((width + GAP) / (BAR + GAP)))
+    const p = peaks && peaks.length > 1 ? peaks : null
+    const playX = Math.min(1, Math.max(0, frac)) * width
+    for (let i = 0; i < n; i++) {
+      const x = i * (BAR + GAP)
+      let h = 2
+      if (p) {
+        // Linear interpolation between buckets — no plateau steps.
+        const pos = (i / Math.max(1, n - 1)) * (p.length - 1)
+        const lo = Math.floor(pos)
+        const hi = Math.min(p.length - 1, lo + 1)
+        const v = p[lo]! + (p[hi]! - p[lo]!) * (pos - lo)
+        h = Math.max(2, v * height)
+      }
+      const played = x + BAR / 2 <= playX
+      g.fillStyle = played ? 'rgba(26,25,23,0.85)' : 'rgba(26,25,23,0.18)'
+      g.fillRect(x, Math.round((height - h) / 2), BAR, Math.round(h))
+    }
+    if (head || frac > 0) {
+      g.fillStyle = '#1B6E48'
+      g.fillRect(Math.max(0, Math.min(width - 1.5, playX - 0.75)), 0, 1.5, height)
+    }
+  }, [peaks, frac, width, height, head])
+
+  const seekAt = (clientX: number) => {
+    const el = wrapRef.current
+    if (!el) return
     const r = el.getBoundingClientRect()
-    onSeek(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * dur)
+    if (r.width <= 0) return
+    onSeek(Math.min(1, Math.max(0, (clientX - r.left) / r.width)))
   }
 
-  const pct = dur ? Math.min(100, (cur / dur) * 100) : 0
+  return (
+    <div
+      ref={wrapRef}
+      className="wd-wave"
+      style={{ height }}
+      onPointerDown={e => {
+        draggingRef.current = true
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older WebKit */ }
+        seekAt(e.clientX)
+      }}
+      onPointerMove={e => { if (draggingRef.current) seekAt(e.clientX) }}
+      onPointerUp={() => { draggingRef.current = false }}
+      onPointerCancel={() => { draggingRef.current = false }}
+    >
+      <canvas ref={canvasRef} />
+    </div>
+  )
+}
+
+function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) {
+  return playing
+    ? <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+    : <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><path d="M8 5v14l11-7z" /></svg>
+}
+
+/* ── studio audio cards ──────────────────────────────────────────────
+   The studio's OWN card component replaces AudioAttachment's chrome in
+   this chat — but the real AudioAttachment still mounts inside each
+   card (hidden by .wd-ac-import CSS, import button excepted), so the
+   whole import-to-DAW machinery — prefetch → writeAudioFile → drag-out
+   arming, __juceImported / cooldown handling — runs byte-for-byte
+   unchanged. Playback is a remote control on the shared engine. */
+
+interface StudioTrack { url: string; name: string; metadata?: AttachmentTimelineMetadata }
+
+/** Bind one track to the shared engine + its cached waveform. Duration
+ *  prefers the live engine, then the decoded meta, so a card reads its
+ *  total before it has ever been played. */
+function useStudioTrack(url: string, name: string) {
+  const engine = useContext(AudioEngineContext)
+  const meta = useWaveMeta(url)
+  const active = !!engine && engine.activeUrl === url
+  const playing = active && !!engine && engine.playing
+  const cur = active && engine ? engine.current : 0
+  const total = (active && engine ? engine.duration : 0) || meta?.duration || 0
+  const toggle = useCallback(() => {
+    if (!engine) return
+    if (active) engine.toggle()
+    else engine.start({ url, name })
+  }, [engine, active, url, name])
+  const seek = useCallback((frac: number) => {
+    if (!engine || !total) return
+    const t = frac * total
+    if (active) engine.seekTo(t)
+    else engine.start({ url, name }, t)
+  }, [engine, total, active, url, name])
+  return { peaks: meta?.peaks ?? null, active, playing, cur, total, toggle, seek }
+}
+
+/** Single track — the full grammar: [glyph · name · total], the 40px
+ *  waveform, then [elapsed · import word]. */
+function StudioAudioSingle({ track }: { track: StudioTrack }) {
+  const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
+  return (
+    <div className="wd-acard">
+      <div className="wd-ac-top">
+        <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
+          <PlayGlyph playing={playing} size={16} />
+        </button>
+        <span className="wd-ac-name">{track.name}</span>
+        <span className="wd-ac-dur">{fmtDur(total)}</span>
+      </div>
+      <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={40} head={active} onSeek={seek} />
+      <div className="wd-ac-foot">
+        <span className="wd-ac-cur">{fmtDur(cur)}</span>
+        <span className="wd-ac-import">
+          <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Multi-audio row — compact grammar: glyph · name · mini 24px
+ *  waveform · time · its own import word. */
+function StudioAudioRow({ track }: { track: StudioTrack }) {
+  const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
+  return (
+    <div className="wd-ac-row">
+      <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
+        <PlayGlyph playing={playing} size={13} />
+      </button>
+      <span className="wd-ac-name" title={track.name}>{track.name}</span>
+      <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={24} head={active} onSeek={seek} />
+      <span className="wd-ac-time">{active ? `${fmtDur(cur)} / ${fmtDur(total)}` : fmtDur(total)}</span>
+      <span className="wd-ac-import">
+        <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+      </span>
+    </div>
+  )
+}
+
+function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
+  if (tracks.length === 0) return null
+  if (tracks.length === 1) return <StudioAudioSingle track={tracks[0]!} />
+  return (
+    <div className="wd-acard multi">
+      {tracks.map(t => <StudioAudioRow key={t.url} track={t} />)}
+    </div>
+  )
+}
+
+/** Docked now-playing bar — 56px, white over a hairline top rule.
+ *  Fixed left cluster (glyph · name · elapsed/total); the REST of the
+ *  width is the playing track's waveform (28px, same bar rendering,
+ *  same seek-drag) — the waveform IS the scrubber. Grey ✕ far right. */
+function StudioNowBar({ url, name, playing, cur, dur, onToggle, onSeek, onClose }: {
+  url: string; name: string; playing: boolean; cur: number; dur: number
+  onToggle: () => void; onSeek: (sec: number) => void; onClose: () => void
+}) {
+  const meta = useWaveMeta(url)
   return (
     <div className="wd-nowbar">
       <button className="wd-nowbar-btn" onClick={onToggle} aria-label={playing ? 'pause' : 'play'}>
-        {playing
-          ? <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-          : <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><path d="M8 5v14l11-7z" /></svg>}
+        <PlayGlyph playing={playing} size={14} />
       </button>
-      <div className="wd-nowbar-main">
-        <div className="wd-nowbar-top">
-          <span className="wd-nowbar-name">{name}</span>
-          <span className="wd-nowbar-time">{fmtDur(cur)} / {fmtDur(dur)}</span>
-        </div>
-        <div
-          ref={trackRef}
-          className="wd-nowbar-track"
-          onPointerDown={e => {
-            draggingRef.current = true
-            try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older WebKit */ }
-            scrub(e.clientX)
-          }}
-          onPointerMove={e => { if (draggingRef.current) scrub(e.clientX) }}
-          onPointerUp={() => { draggingRef.current = false }}
-          onPointerCancel={() => { draggingRef.current = false }}
-        >
-          <div className="wd-nowbar-fill" style={{ width: `${pct}%` }} />
-        </div>
+      <span className="wd-nowbar-name">{name}</span>
+      <span className="wd-nowbar-time">{fmtDur(cur)} / {fmtDur(dur)}</span>
+      <div className="wd-nowbar-wave">
+        <StudioWaveform
+          peaks={meta?.peaks ?? null}
+          frac={dur ? Math.min(1, cur / dur) : 0}
+          height={28}
+          head
+          onSeek={f => { if (dur) onSeek(f * dur) }}
+        />
       </div>
       <button className="wd-nowbar-x" onClick={onClose} aria-label="close player">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -1476,19 +1748,13 @@ function StudioShellInner({ supabase, user }: Props) {
             )
           } else if (m.attachment_type === 'audio') {
             pieces.push(
-              <div key="att" className="wd-att-audio">
-                <AudioAttachment url={url} name={name} metadata={m.attachment_metadata ?? undefined} />
-              </div>,
+              <StudioAudioCard key="att" tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined }]} />,
             )
           } else if (m.attachment_type === 'multi-audio') {
             let tracks: { url: string; name: string }[] = []
             try { tracks = JSON.parse(url) } catch { /* fall through to chip */ }
             pieces.push(tracks.length > 0
-              ? (
-                <div key="att" className="wd-att-audio">
-                  {tracks.map(tr => <AudioAttachment key={tr.url} url={tr.url} name={tr.name} />)}
-                </div>
-              )
+              ? <StudioAudioCard key="att" tracks={tracks} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
           } else {
             pieces.push(<div key="att" className="wd-file"><i>▤</i><span>{name}</span></div>)
@@ -1790,6 +2056,7 @@ function StudioShellInner({ supabase, user }: Props) {
                   )}
                   {npTrack && (
                     <StudioNowBar
+                      url={npTrack.url}
                       name={npTrack.name}
                       playing={npPlaying}
                       cur={npCur}

@@ -233,8 +233,8 @@
 
 /* Caption row under the plate rule — one baseline-aligned line:
    glyph, name (wraps if needed), then time + import at the right. */
-.wd-plate-cap { display: flex; align-items: baseline; gap: 8px;
-  border-top: 1px solid rgba(26,25,23,.16); padding: 8px 16px 10px; }
+.wd-plate-cap { display: flex; align-items: center; gap: 9px;
+  padding: 9px 16px 11px; }
 .wd-plate-name { flex: 1; min-width: 0;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13px; font-weight: 500; line-height: 1.4; word-break: break-word; }
@@ -244,7 +244,11 @@
 
 /* Multi-audio — ONE plate; each track a section (caption-style row
    over its own 24px fine wave) behind interior hairlines. */
-.wd-plate-sec + .wd-plate-sec { border-top: 1px solid rgba(26,25,23,.16); }
+.wd-plate-sec + .wd-plate-sec { position: relative; }
+.wd-plate-sec + .wd-plate-sec::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px;
+  height: 1px; background: rgba(26,25,23,.12); }
+/* the plate/caption divider — inset so it never touches the rounded frame */
+.wd-plate-rule { height: 1px; background: rgba(26,25,23,.12); margin: 0 16px; }
 .wd-plate-secrow { display: flex; align-items: baseline; gap: 8px; padding: 8px 16px 5px; }
 .wd-plate-secname { flex: 1; min-width: 0;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
@@ -268,7 +272,7 @@
 .wd-ac-import .msg-att-audio-header,
 .wd-ac-import .msg-att-timeline,
 .wd-ac-import .msg-att-audio-player { display: none; }
-.wd-ac-import .msg-att-import-btn { width: auto; margin: 0; padding: 0;
+.wd-ac-import .msg-att-import-btn { width: auto; margin: 0; padding: 0; position: relative; top: -1px;
   background: none; border: none; border-radius: 0; color: rgba(26,25,23,.55);
   font-size: 10.5px; font-weight: 400; white-space: nowrap;
   text-decoration: underline; text-underline-offset: 3px; }

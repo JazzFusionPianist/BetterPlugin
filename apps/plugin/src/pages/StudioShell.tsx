@@ -370,6 +370,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
       <div className="wd-plate-art">
         <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={52} head={active} onSeek={seek} />
       </div>
+      <div className="wd-plate-rule" />
       <div className="wd-plate-cap">
         <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
           <PlayGlyph playing={playing} size={14} />

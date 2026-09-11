@@ -68,6 +68,115 @@ static void bakeCutFilter (bool hp, float freq, float sr,
 }
 
 //==============================================================================
+// Shared machinery for the pitched effects.
+
+static constexpr float kDivBeats[7] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
+
+/** Two grains on a ring, half a cycle apart, each faded by a raised sine
+ *  so one hands over to the other as it wraps. The read heads drift at
+ *  (1 − ratio): up-shifts read faster than the writer, down-shifts
+ *  slower. Latency ≈ half a grain. In place, both channels. */
+static void pitchShiftBlock (NodeState& st, float ratio, float sr, int n, float* L, float* R)
+{
+    if (st.psBuf[0].empty()) return;
+    const int   len   = (int) st.psBuf[0].size();
+    const float grain = juce::jlimit (256.0f, (float) len - 8.0f, sr * 0.045f);   // 45 ms
+    const float inc   = (1.0f - ratio) / grain;
+    for (int i = 0; i < n; ++i)
+    {
+        st.psBuf[0][(size_t) st.psWrite] = L[i];
+        st.psBuf[1][(size_t) st.psWrite] = R != nullptr ? R[i] : L[i];
+        st.psPhase += inc;
+        st.psPhase -= std::floor (st.psPhase);
+        float outL = 0.0f, outR = 0.0f;
+        for (int k = 0; k < 2; ++k)
+        {
+            float f = st.psPhase + 0.5f * (float) k;
+            f -= std::floor (f);
+            const float w  = std::sin (juce::MathConstants<float>::pi * f);
+            float rp = (float) st.psWrite - f * grain;
+            while (rp < 0.0f) rp += (float) len;
+            const int   i0 = (int) rp;
+            const float fr = rp - (float) i0;
+            const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
+            outL += w * (st.psBuf[0][(size_t) i0] * (1.0f - fr) + st.psBuf[0][(size_t) i1] * fr);
+            outR += w * (st.psBuf[1][(size_t) i0] * (1.0f - fr) + st.psBuf[1][(size_t) i1] * fr);
+        }
+        L[i] = outL;
+        if (R != nullptr) R[i] = outR;
+        st.psWrite = st.psWrite + 1 < len ? st.psWrite + 1 : 0;
+    }
+}
+
+/** Monophonic pitch by normalised autocorrelation over the last 1024
+ *  samples (mono), run every ~20 ms. Returns a fractional MIDI note or
+ *  −1 when nothing periodic is there. */
+static float trackPitch (NodeState& st, float sr)
+{
+    const int N = 1024;
+    if ((int) st.pdBuf.size() < N) return -1.0f;
+    float x[1024];
+    const int len = (int) st.pdBuf.size();
+    int rp = st.pdWrite - N; while (rp < 0) rp += len;
+    float energy = 0.0f;
+    for (int i = 0; i < N; ++i) { x[i] = st.pdBuf[(size_t) rp]; energy += x[i] * x[i]; rp = rp + 1 < len ? rp + 1 : 0; }
+    if (energy < 1.0e-4f) return -1.0f;
+    const int minLag = juce::jmax (16, (int) (sr / 1400.0f));   // ≤ 1.4 kHz
+    const int maxLag = juce::jmin (N / 2, (int) (sr / 50.0f));  // ≥ 50 Hz
+    float bestVal = 0.0f; int bestLag = -1;
+    float prev = 0.0f; bool rising = false;
+    for (int lag = minLag; lag <= maxLag; ++lag)
+    {
+        float ac = 0.0f, e0 = 0.0f, e1 = 0.0f;
+        for (int i = 0; i + lag < N; i += 2)   // every other sample: half the cost, same peak
+        {
+            ac += x[i] * x[i + lag]; e0 += x[i] * x[i]; e1 += x[i + lag] * x[i + lag];
+        }
+        const float nac = ac / (std::sqrt (e0 * e1) + 1.0e-9f);
+        // first strong peak wins (octave errors otherwise pull to 2×period)
+        if (nac > prev) rising = true;
+        else if (rising && prev > 0.82f && prev > bestVal * 0.9f) { bestVal = prev; bestLag = lag - 1; break; }
+        else rising = false;
+        if (nac > bestVal && nac > 0.82f) { bestVal = nac; bestLag = lag; }
+        prev = nac;
+    }
+    if (bestLag <= 0) return -1.0f;
+    const float hz = sr / (float) bestLag;
+    return 69.0f + 12.0f * std::log2 (hz / 440.0f);
+}
+
+/** Diatonic harmony: the input's nearest scale degree in `key`, moved by
+ *  `degrees` steps along the scale, as a semitone shift. */
+static float diatonicShift (float note, int keyRoot, int scale, int degrees)
+{
+    static const int major[7] = { 0, 2, 4, 5, 7, 9, 11 };
+    static const int minor[7] = { 0, 2, 3, 5, 7, 8, 10 };
+    const int* sc = scale == 1 ? minor : major;
+    const int n   = (int) std::lround (note);
+    const int rel = ((n - keyRoot) % 12 + 12) % 12;
+    int deg = 0, bestD = 99;
+    for (int d = 0; d < 7; ++d)
+    {
+        int diff = std::abs (rel - sc[d]); if (diff > 6) diff = 12 - diff;
+        if (diff < bestD) { bestD = diff; deg = d; }
+    }
+    const int base   = n - rel + sc[deg];                      // the degree's pitch near n
+    const int target = deg + degrees;
+    const int oct    = (int) std::floor ((float) target / 7.0f);
+    const int td     = ((target % 7) + 7) % 7;
+    const int tpitch = (base - sc[deg]) + oct * 12 + sc[td];
+    return (float) (tpitch - n);
+}
+
+/** Beats since the bar of time zero, sample-accurate within the block:
+ *  the host's position while rolling, our own clock otherwise. */
+static inline double beatAt (const NodeParams& p, double freeBeat, int i, float sr)
+{
+    const double perSample = (double) p.bpm / 60.0 / (double) sr;
+    return (p.playing ? p.ppq : freeBeat) + perSample * (double) i;
+}
+
+//==============================================================================
 void NodeState::prepare (double sampleRate)
 {
     const float srf = (float) sampleRate;
@@ -95,6 +204,9 @@ void NodeState::prepare (double sampleRate)
     line (modDl, 0.06f);
     line (dblDl, 0.06f);
     line (dlyBuf, 3.0f);
+    // pitch shifter grains (≤ 60 ms) and the tracker's analysis window
+    line (psBuf, 0.2f);
+    pdBuf.assign (2048, 0.0f);
     reset();
 }
 
@@ -138,13 +250,22 @@ void NodeState::reset()
     dlyWrite = 0; dlySmSamp = -1.0f; dlyFbLp[0] = dlyFbLp[1] = 0.0f;
     std::fill (dlyBuf[0].begin(), dlyBuf[0].end(), 0.0f);
     std::fill (dlyBuf[1].begin(), dlyBuf[1].end(), 0.0f);
+    tremPhase = 0.0f; tremGainSm[0] = tremGainSm[1] = 1.0f;
+    psWrite = 0; psPhase = 0.0f; psRatioSm = 1.0f;
+    std::fill (psBuf[0].begin(), psBuf[0].end(), 0.0f);
+    std::fill (psBuf[1].begin(), psBuf[1].end(), 0.0f);
+    arpStep = -1; arpFreeBeat = 0.0;
+    std::fill (pdBuf.begin(), pdBuf.end(), 0.0f);
+    pdWrite = 0; pdCountdown = 0; pdNote = -1.0f; harmShiftSm = 0.0f;
+    for (auto& st : radioBp) { st[0] = {}; st[1] = {}; }
+    radioBakedA = -1.0f; radioNoiseLp[0] = radioNoiseLp[1] = 0.0f; radioHum = 0.0f;
 }
 
 //==============================================================================
 void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* R,
                          juce::AudioBuffer<float>& scratch)
 {
-    if (type < 0 || type >= kNumFx) return;
+    if (! isEffect (type)) return;
     const float twoPi = juce::MathConstants<float>::twoPi;
     const int variant = p.variant;
     if (variant != lastVar)
@@ -172,7 +293,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                                   if (type == kGlue) grDb = 0.0f;
                                   // Wet Solo at zero is silence, not a dry copy —
                                   // a parallel branch must not double the source.
-                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod))
+                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod || type == kHarmony))
                                   {
                                       juce::FloatVectorOperations::clear (L, n);
                                       if (R != nullptr) juce::FloatVectorOperations::clear (R, n);
@@ -777,6 +898,204 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
+        case kTremolo:
+        {
+            // Volume (or pan) chased by a tempo-locked cycle. Shapes: sine,
+            // triangle, square, pulse, saw — or whatever was drawn on the
+            // print. Depth is the knob; the cycle is one beat division.
+            const int   di    = juce::jlimit (0, 6, p.delayDiv);
+            const float cycle = kDivBeats[di];
+            const bool  pan   = p.aux[0] == 1 && R != nullptr;
+            const float depth = a;
+            const float slewK = 1.0f - std::exp (-1.0f / (0.0015f * sr));   // 1.5 ms: squares stay clean
+            const double perSample = (double) p.bpm / 60.0 / (double) sr / (double) cycle;
+            auto shapeAt = [&] (float ph) -> float
+            {
+                if (p.hasCurve)
+                {
+                    const float x  = ph * (float) kCurveLen;
+                    const int   i0 = ((int) x) % kCurveLen;
+                    const int   i1 = (i0 + 1) % kCurveLen;
+                    const float fr = x - std::floor (x);
+                    return p.curve[i0] * (1.0f - fr) + p.curve[i1] * fr;
+                }
+                switch (variant)
+                {
+                    case 1:  return 1.0f - 2.0f * std::abs (ph - 0.5f);            // triangle
+                    case 2:  return ph < 0.5f ? 1.0f : 0.0f;                          // square
+                    case 3:  return ph < 0.25f ? 1.0f : 0.0f;                         // pulse
+                    case 4:  return 1.0f - ph;                                        // saw
+                    default: return 0.5f + 0.5f * std::cos (twoPi * ph);              // sine
+                }
+            };
+            for (int i = 0; i < n; ++i)
+            {
+                float ph;
+                if (p.playing)
+                {
+                    const double b = (p.ppq + (double) p.bpm / 60.0 / (double) sr * (double) i) / (double) cycle;
+                    ph = (float) (b - std::floor (b));
+                    tremPhase = ph;
+                }
+                else
+                {
+                    tremPhase += (float) perSample;
+                    tremPhase -= std::floor (tremPhase);
+                    ph = tremPhase;
+                }
+                const float sh = juce::jlimit (0.0f, 1.0f, shapeAt (ph));
+                if (! pan)
+                {
+                    const float g = 1.0f - depth * (1.0f - sh);
+                    tremGainSm[0] += (g - tremGainSm[0]) * slewK;
+                    L[i] *= tremGainSm[0];
+                    if (R != nullptr) R[i] *= tremGainSm[0];
+                }
+                else
+                {
+                    // constant power: centre = unity both sides
+                    const float pos = (sh - 0.5f) * 2.0f * depth;   // −1 (left) .. +1 (right)
+                    const float ang = (pos + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
+                    const float gl = std::cos (ang) * 1.41421356f;
+                    const float gr = std::sin (ang) * 1.41421356f;
+                    tremGainSm[0] += (gl - tremGainSm[0]) * slewK;
+                    tremGainSm[1] += (gr - tremGainSm[1]) * slewK;
+                    L[i] *= tremGainSm[0];
+                    R[i] *= tremGainSm[1];
+                }
+            }
+            break;
+        }
+
+        case kArp:
+        {
+            // The audio climbs a ladder: every beat division the pitch
+            // jumps by `interval` semitones, up to `range` (the knob, 0..24
+            // st), in the pattern's order, then wraps. Whole signal shifted.
+            const int   di       = juce::jlimit (0, 6, p.delayDiv);
+            const float stepBeat = kDivBeats[di];
+            const int   interval = juce::jlimit (1, 12, p.aux[0] == 0 ? 12 : p.aux[0]);
+            // the ladder's height is a discrete choice — read the hand itself,
+            // not the glided amount (which only ever approaches its target)
+            const float range    = juce::jlimit (0.0f, 1.0f, p.amount) * 24.0f;
+            const int   count    = juce::jmax (1, (int) std::floor (range / (float) interval + 0.02f) + 1);
+            // which step are we on at block start?
+            const double beat = beatAt (p, arpFreeBeat, 0, sr);
+            const int idx = (int) std::floor (beat / (double) stepBeat);
+            // up climbs 0, +i, +2i…; down descends 0, −i, −2i…; up-down
+            // bounces between the ends; random picks a rung each step.
+            int k;
+            switch (variant)
+            {
+                case 2:  { const int per = juce::jmax (1, 2 * count - 2); const int m = idx % per;
+                           k = m < count ? m : per - m; break; }
+                case 3:  { unsigned h = (unsigned) idx * 2654435761u; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+                           k = (int) (h % (unsigned) count); break; }
+                default: k = idx % count; break;
+            }
+            arpStep = k;
+            const float semis = (float) (k * interval) * (variant == 1 ? -1.0f : 1.0f);
+            const float ratio = std::pow (2.0f, semis / 12.0f);
+            pitchShiftBlock (*this, ratio, sr, n, L, R);
+            if (! p.playing) arpFreeBeat += (double) p.bpm / 60.0 / (double) sr * (double) n;
+            break;
+        }
+
+        case kRadio:
+        {
+            // Knob up = through a small speaker in a small box: mono, a
+            // narrowing band around 1.6 kHz, driven into a soft clip, with
+            // hiss and a little hum riding underneath. Dry fades to it.
+            if (std::abs (a - radioBakedA) > 0.002f)
+            {
+                const float q  = 0.7f + a * 2.6f;
+                const float fc = 1600.0f;
+                const float w0 = twoPi * fc / sr;
+                const float al = std::sin (w0) / (2.0f * q);
+                const float b0 = al, b1 = 0.0f, b2 = -al;
+                const float a0 = 1.0f + al, a1c = -2.0f * std::cos (w0), a2c = 1.0f - al;
+                for (auto& st : radioBp)
+                    for (auto& bq : st)
+                    { bq.b0 = b0 / a0; bq.b1 = b1 / a0; bq.b2 = b2 / a0; bq.a1 = a1c / a0; bq.a2 = a2c / a0; }
+                radioBakedA = a;
+            }
+            const bool  phone = variant == 1;
+            const float drive = 1.0f + a * (phone ? 3.0f : 7.0f);
+            const float comp  = 1.0f / std::sqrt (drive) * (1.0f + a * 1.6f);   // the band loses energy: make it up
+            const float hiss  = a * a * (phone ? 0.006f : 0.012f);
+            const float hum   = a * a * (phone ? 0.0f : 0.006f);
+            const float humInc = twoPi * 60.0f / sr;
+            const float nlpK  = 1.0f - std::exp (-twoPi * 3000.0f / sr);
+            const float mix   = a;
+            for (int i = 0; i < n; ++i)
+            {
+                const float dryL = L[i];
+                const float dryR = R != nullptr ? R[i] : L[i];
+                float x = 0.5f * (dryL + dryR);
+                x = std::tanh (drive * x) * comp;
+                x = radioBp[0][1].run (radioBp[0][0].run (x));
+                // hiss: white noise, dulled; hum: a 60 Hz whisper
+                radioRng = radioRng * 1664525u + 1013904223u;
+                const float white = ((float) (radioRng >> 8) / 8388608.0f) - 1.0f;
+                radioNoiseLp[0] += (white - radioNoiseLp[0]) * nlpK;
+                radioHum += humInc; if (radioHum > twoPi) radioHum -= twoPi;
+                x += radioNoiseLp[0] * hiss + std::sin (radioHum) * hum;
+                L[i] = dryL * (1.0f - mix) + x * mix;
+                if (R != nullptr) R[i] = dryR * (1.0f - mix) + x * mix;
+            }
+            break;
+        }
+
+        case kHarmony:
+        {
+            // A second voice: in `key`, some scale degrees above or below
+            // whatever is being played (the tracker listens), or a fixed
+            // chromatic interval. The knob is the voice's level; the dry
+            // stays. Shifts glide so a tracked note change never zips.
+            const bool chromatic = variant == 1;
+            const int  keyRoot   = ((p.aux[0] % 12) + 12) % 12;
+            const int  scale     = p.aux[1] == 1 ? 1 : 0;
+            const int  degrees   = juce::jlimit (-14, 14, p.aux[2] == 0 ? 2 : p.aux[2]);
+            // feed the tracker (mono), analyse every ~1024 samples
+            const int plen = (int) pdBuf.size();
+            for (int i = 0; i < n; ++i)
+            {
+                pdBuf[(size_t) pdWrite] = R != nullptr ? 0.5f * (L[i] + R[i]) : L[i];
+                pdWrite = pdWrite + 1 < plen ? pdWrite + 1 : 0;
+            }
+            pdCountdown -= n;
+            float targetShift = chromatic ? (float) degrees : harmShiftSm;
+            if (! chromatic)
+            {
+                if (pdCountdown <= 0)
+                {
+                    pdCountdown = 1024;
+                    const float note = trackPitch (*this, sr);
+                    if (note > 0.0f) pdNote = note;
+                }
+                if (pdNote > 0.0f) targetShift = diatonicShift (pdNote, keyRoot, scale, degrees);
+                else               targetShift = (float) (degrees > 0 ? 4 : -3);   // nothing to track yet: a third
+            }
+            const float glideK = 1.0f - std::exp (-(float) n / (0.012f * sr));
+            harmShiftSm += (targetShift - harmShiftSm) * glideK;
+            const float ratio = std::pow (2.0f, harmShiftSm / 12.0f);
+            // the voice is shifted in the scratch buffer, then layered
+            if (scratch.getNumSamples() < n) scratch.setSize (2, n, false, false, true);
+            float* vl = scratch.getWritePointer (0);
+            float* vr = scratch.getWritePointer (1);
+            juce::FloatVectorOperations::copy (vl, L, n);
+            juce::FloatVectorOperations::copy (vr, R != nullptr ? R : L, n);
+            pitchShiftBlock (*this, ratio, sr, n, vl, vr);
+            const float lvl = a * 0.9f;
+            const float dry = p.wet ? 0.0f : 1.0f - a * 0.15f;
+            for (int i = 0; i < n; ++i)
+            {
+                L[i] = L[i] * dry + vl[i] * lvl;
+                if (R != nullptr) R[i] = R[i] * dry + vr[i] * lvl;
+            }
+            break;
+        }
+
         default: break;
     }
 }
@@ -795,8 +1114,7 @@ bool compile (const Graph& g, Program& out, juce::String& error)
     {
         if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
         if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
-        const bool fx = nd.type >= 0 && nd.type < (int) kNumFx;
-        if (! fx && nd.type != kMixType)              { error = "bad node type";      return false; }
+        if (! isEffect (nd.type) && nd.type != kMixType) { error = "bad node type";   return false; }
         slotType[nd.id] = nd.type;
     }
     auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };

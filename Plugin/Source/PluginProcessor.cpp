@@ -851,12 +851,16 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) return;
     auto& s = fxSlots[(size_t) nd.id];
     s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
-    s.variant.store (juce::jlimit (0, 3, nd.variant), std::memory_order_relaxed);
+    s.variant.store (juce::jlimit (0, 7, nd.variant), std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i)
         s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
     s.delayDiv.store (juce::jlimit (0, 6, nd.delayDiv), std::memory_order_relaxed);
     s.delayFb.store (juce::jlimit (0.0f, 1.0f, nd.delayFb), std::memory_order_relaxed);
     s.wet.store (nd.wet, std::memory_order_relaxed);
+    for (int i = 0; i < 3; ++i) s.aux[(size_t) i].store (nd.aux[i], std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kCurveLen; ++i)
+        s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
+    s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
 }
 
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
@@ -876,7 +880,8 @@ void OrbAudioProcessor::rebuildLegacyGraph()
 {
     // The single-print room: one node, wired straight through. Its id is
     // its effect, so the per-effect memories map onto slots 1:1.
-    const int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load());
+    int mode = juce::jlimit (0, (int) kNumFx - 1, fxMode.load());
+    if (mode == kMixSlot) mode = kTone;
     orbfx::Graph g;
     orbfx::Graph::Node nd;
     nd.id = mode; nd.type = mode;
@@ -903,7 +908,9 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
 
     // Snapshot the per-slot atomics once per block.
     orbfx::NodeParams params[orbfx::kMaxNodes];
-    const float bpm = (float) playheadBpm.load();
+    const float  bpm     = (float) playheadBpm.load();
+    const bool   playing = transportPlaying.load() && playheadPpqValid.load();
+    const double ppq     = playheadPpq.load();
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
         auto& s = fxSlots[(size_t) i];
@@ -914,7 +921,13 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);
         p.delayFb  = s.delayFb.load (std::memory_order_relaxed);
         p.wet      = s.wet.load (std::memory_order_relaxed);
+        for (int k = 0; k < 3; ++k) p.aux[k] = s.aux[(size_t) k].load (std::memory_order_relaxed);
+        p.hasCurve = s.hasCurve.load (std::memory_order_relaxed);
+        if (p.hasCurve)
+            for (int k = 0; k < orbfx::kCurveLen; ++k) p.curve[k] = s.curve[(size_t) k].load (std::memory_order_relaxed);
         p.bpm      = bpm;
+        p.ppq      = ppq;
+        p.playing  = playing;
     }
 
     float gr = 0.0f;
@@ -943,6 +956,15 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("delayDiv", nd.delayDiv);
         o->setProperty ("delayFb", (double) nd.delayFb);
         o->setProperty ("wet", nd.wet);
+        juce::Array<juce::var> aux;
+        for (int i = 0; i < 3; ++i) aux.add (nd.aux[i]);
+        o->setProperty ("aux", aux);
+        if (nd.hasCurve)
+        {
+            juce::Array<juce::var> cv;
+            for (int i = 0; i < orbfx::kCurveLen; ++i) cv.add ((double) nd.curve[i]);
+            o->setProperty ("curve", cv);
+        }
         o->setProperty ("x", (double) nd.x);
         o->setProperty ("y", (double) nd.y);
         nodes.add (juce::var (o));
@@ -982,6 +1004,14 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             nd.delayDiv = n.hasProperty ("delayDiv") ? (int) n["delayDiv"] : 2;
             nd.delayFb  = n.hasProperty ("delayFb")  ? (float) (double) n["delayFb"] : 0.35f;
             nd.wet      = n.hasProperty ("wet")      ? (bool) n["wet"] : false;
+            if (auto* ax = n["aux"].getArray())
+                for (int i = 0; i < 3 && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
+            if (auto* cv = n["curve"].getArray(); cv != nullptr && cv->size() == orbfx::kCurveLen)
+            {
+                nd.hasCurve = true;
+                for (int i = 0; i < orbfx::kCurveLen; ++i)
+                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i]);
+            }
             nd.x        = (float) (double) n["x"];
             nd.y        = (float) (double) n["y"];
             out.nodes.push_back (nd);
@@ -1054,7 +1084,7 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
         if (v.hasProperty ("amount"))
             fxAmount[(size_t) mode].store (juce::jlimit (0.0f, 1.0f, (float) (double) v["amount"]));
         if (v.hasProperty ("variant"))
-            fxVariant[(size_t) mode].store (juce::jlimit (0, 3, (int) v["variant"]));
+            fxVariant[(size_t) mode].store (juce::jlimit (0, 7, (int) v["variant"]));
         if (v.hasProperty ("decay"))
             fxSpaceDecay[(size_t) juce::jlimit (0, 2, fxVariant[kSpace].load())]
                 .store (juce::jlimit (0.0f, 1.0f, (float) (double) v["decay"]));
@@ -1140,7 +1170,7 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         {
             fxAmount[(size_t) i].store ((float) xml->getDoubleAttribute (
                 "fxAmount" + juce::String (i), i == kTone ? 0.5 : i == kGain ? 0.75 : 0.0));
-            fxVariant[(size_t) i].store (juce::jlimit (0, 3,
+            fxVariant[(size_t) i].store (juce::jlimit (0, 7,
                 xml->getIntAttribute ("fxVariant" + juce::String (i), 0)));
         }
         for (int i = 0; i < 3; ++i)

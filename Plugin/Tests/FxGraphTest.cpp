@@ -211,6 +211,59 @@ int main()
         CHECK (maxDiff (switched, input, 20 * kBlock) == 0.0f, "after the switch the slot is a fresh unity gain — transparent at once");
     }
 
+    { // tremolo: square at full depth, 1/8 at 120 bpm = 250 ms cycle → the second half is silent
+        Graph g; auto n = node (12, kTremolo, 1.0f, 2); n.delayDiv = 2; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 12, 1.0f }); g.edges.push_back ({ 12, kPortOut, 1.0f });
+        const auto o = run (g);
+        const int cyc = (int) (kSr * 0.25);   // 12000 samples
+        // amount glides up over ~50 ms; look at the second cycle
+        CHECK (peakOf (o, cyc + 200, cyc + cyc / 2 - 200) > 0.2f, "tremolo square: loud half is loud");
+        CHECK (peakOf (o, cyc + cyc / 2 + 400, 2 * cyc - 200) < 0.02f, "tremolo square: quiet half is silent");
+    }
+    { // tremolo pan: full depth sine swings the balance
+        Graph g; auto n = node (12, kTremolo, 1.0f, 0); n.aux[0] = 1; n.delayDiv = 4; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 12, 1.0f }); g.edges.push_back ({ 12, kPortOut, 1.0f });
+        const auto o = run (g);
+        float lmax = 0, rmax = 0;
+        for (int i = 4000; i < 10000; ++i) { lmax = juce::jmax (lmax, std::abs (o.getSample (0, i))); rmax = juce::jmax (rmax, std::abs (o.getSample (1, i))); }
+        CHECK (lmax > 0.3f && rmax > 0.2f, "tremolo pan: both sides get their turn");
+    }
+    { // arp at 1/16 (125 ms steps at 120): step 1 lands +12 st (up) or −12 st (down)
+        Graph g; auto n = node (13, kArp, 0.5f, 0); n.aux[0] = 12; n.delayDiv = 0; g.nodes.push_back (n);   // range 12 st, step 12
+        g.edges.push_back ({ kPortIn, 13, 1.0f }); g.edges.push_back ({ 13, kPortOut, 1.0f });
+        auto zc = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return z; };
+        const int a = 7000, b = 10000;   // inside step 1 (6000..12000), past the grain latency
+        const int base = zc (input, a, b);   // ≈ 55
+        const auto up = run (g);
+        Graph g2 = g; g2.nodes[0].variant = 1;
+        const auto down = run (g2);
+        CHECK (zc (up, a, b) > base * 1.7f && zc (up, a, b) < base * 2.3f,     "arp up: step 1 is an octave up");
+        CHECK (zc (down, a, b) > base * 0.35f && zc (down, a, b) < base * 0.65f, "arp down: step 1 is an octave down");
+        CHECK (zc (up, 1000, 5000) > base * 1.1f && zc (up, 1000, 5000) < base * 1.6f, "arp: step 0 leaves the pitch alone");
+    }
+    { // radio: full knob narrows the 440 Hz tone hard
+        Graph g; g.nodes.push_back (node (14, kRadio, 1.0f, 0));
+        g.edges.push_back ({ kPortIn, 14, 1.0f }); g.edges.push_back ({ 14, kPortOut, 1.0f });
+        const auto o = run (g);
+        CHECK (peakOf (o, 6000, 10000) < 0.25f && peakOf (o, 6000, 10000) > 0.01f, "radio: 440 Hz survives quietly through the band");
+    }
+    { // harmony chromatic +12: a second voice an octave up rides the dry
+        Graph g; auto n = node (15, kHarmony, 1.0f, 1); n.aux[2] = 12; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 15, 1.0f }); g.edges.push_back ({ 15, kPortOut, 1.0f });
+        const auto o = run (g);
+        float e = 0; for (int i = 6000; i < 10000; ++i) e += o.getSample (0, i) * o.getSample (0, i);
+        float ei = 0; for (int i = 6000; i < 10000; ++i) ei += input.getSample (0, i) * input.getSample (0, i);
+        CHECK (e > ei * 1.3f, "harmony: the voice adds energy on top of the dry");
+    }
+    { // harmony in key: the tracker hears 440 (A) and C major a third above A is C (+3 st)
+        Graph g; auto n = node (15, kHarmony, 1.0f, 0); n.aux[0] = 0; n.aux[1] = 0; n.aux[2] = 2; n.wet = true; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 15, 1.0f }); g.edges.push_back ({ 15, kPortOut, 1.0f });
+        const auto o = run (g);
+        auto zc = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return z; };
+        const int z = zc (o, 6000, 10000), zi = zc (input, 6000, 10000);   // 440 → 523 Hz: ×1.19
+        CHECK (z > zi * 1.12f && z < zi * 1.27f, "harmony in C major: A gets its C above (+3 st)");
+    }
+
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

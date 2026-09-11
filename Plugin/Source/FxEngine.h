@@ -22,9 +22,14 @@
 namespace orbfx {
 
 enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
-            kCut, kAmp, kDoubler, kDelay, kNumFx, kNone = -1 };
+            kCut, kAmp, kDoubler, kDelay,
+            kMixSlot = 11,          // reserved: the graph-only mix node
+            kTremolo = 12, kArp, kRadio, kHarmony,
+            kNumFx = 16, kNone = -1 };
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
-constexpr int kMixType = 11;
+constexpr int kMixType = kMixSlot;
+constexpr int kCurveLen = 32;       // a drawn tremolo cycle
+inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
 
 constexpr int kMaxNodes   = 16;
 constexpr int kMaxEdges   = 48;
@@ -49,10 +54,15 @@ struct NodeParams
     float amount   = 0.0f;
     int   variant  = 0;
     float decay    = 0.5f;   // space: this flavour's decay
-    int   delayDiv = 2;      // delay: beat division index
+    int   delayDiv = 2;      // beat division index: delay time, tremolo/arp rate
     float delayFb  = 0.35f;  // delay: feedback
     bool  wet      = false;  // space/delay/doubler/mod: drop the dry (Wet Solo)
+    int   aux[3]   { 0, 0, 0 };   // tremolo: [vol|pan]; arp: [interval st]; harmony: [key, scale, degrees]
+    bool  hasCurve = false;  // tremolo: a drawn cycle overrides the shape
+    float curve[kCurveLen] {};
     float bpm      = 120.0f;
+    double ppq     = 0.0;    // host position at block start (quarter notes)
+    bool  playing  = false;  // transport rolling → tempo-synced things lock to ppq
 };
 
 struct Biquad
@@ -121,6 +131,29 @@ struct NodeState
     int   dlyWrite = 0;
     float dlySmSamp = -1.0f;
     float dlyFbLp[2] {};
+    // tremolo
+    float tremPhase = 0.0f;       // free-running cycle position 0..1
+    float tremGainSm[2] { 1.0f, 1.0f };
+    // pitch shifter (arp, harmony): two crossfading grains on a ring
+    std::vector<float> psBuf[2];
+    int   psWrite = 0;
+    float psPhase = 0.0f;
+    float psRatioSm = 1.0f;
+    // arp
+    int   arpStep = -1;
+    double arpFreeBeat = 0.0;     // beats elapsed while the transport is stopped
+    // harmony: pitch tracker
+    std::vector<float> pdBuf;
+    int   pdWrite = 0;
+    int   pdCountdown = 0;
+    float pdNote = -1.0f;         // last detected MIDI note (fractional), <0 = none
+    float harmShiftSm = 0.0f;     // semitones, glided
+    // radio
+    Biquad radioBp[2][2];
+    float radioBakedA = -1.0f;
+    float radioNoiseLp[2] {};
+    float radioHum = 0.0f;
+    unsigned radioRng = 0x9E3779B9u;
 
     /** Allocate every line this slot could ever need. Message thread. */
     void prepare (double sampleRate);
@@ -145,6 +178,9 @@ struct Graph
         int   delayDiv = 2;
         float delayFb  = 0.35f;
         bool  wet      = false;
+        int   aux[3]   { 0, 0, 0 };
+        bool  hasCurve = false;
+        float curve[kCurveLen] {};
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
     };
     struct Edge

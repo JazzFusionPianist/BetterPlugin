@@ -19,6 +19,10 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 3, name: 'stereo' },
   { id: 4, name: 'glue' },
   { id: 5, name: 'gain' },
+  { id: 12, name: 'tremolo' },
+  { id: 13, name: 'arp' },
+  { id: 14, name: 'radio' },
+  { id: 15, name: 'harmony' },
 ]
 
 /** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
@@ -35,6 +39,11 @@ const VARIANTS: string[][] = [
   ['clean', 'crunch', 'lead', 'fuzz'], // amp
   ['tight', 'wide'],               // doubler
   ['clean', 'tape', 'pingpong'],   // delay
+  [],                              // (mix slot)
+  ['sine', 'triangle', 'square', 'pulse', 'saw'], // tremolo
+  ['up', 'down', 'up-down', 'random'],            // arp
+  ['am', 'phone'],                 // radio
+  ['key', 'chromatic'],            // harmony
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -58,6 +67,11 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [236, 62, 34],    // amp/crunch — ember
   [64, 220, 200],   // doubler — twin aqua
   [255, 204, 64],   // delay/clean — echo gold
+  [22, 20, 16],     // (mix slot)
+  [255, 96, 160],   // tremolo — pulse pink
+  [90, 230, 170],   // arp — ladder mint
+  [255, 190, 90],   // radio — dial tungsten
+  [170, 130, 255],  // harmony — twin violet
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -107,7 +121,7 @@ function glowRgb (mode: FxMode, variant: number): string {
 
 /** Sparse plates emit less light per hit (space is a few thin rings vs
  *  tone's dense hatching) — even the score with a per-plate boost. */
-const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5]
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -530,7 +544,166 @@ function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
   )
 }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt]
+
+/* ── tremolo: the cycle itself, drawn across the plate; paint on it ──── */
+export const CURVE_LEN = 32
+function baseShape (variant: number, ph: number): number {
+  switch (variant) {
+    case 1: return 1 - 2 * Math.abs(ph - 0.5)
+    case 2: return ph < 0.5 ? 1 : 0
+    case 3: return ph < 0.25 ? 1 : 0
+    case 4: return 1 - ph
+    default: return 0.5 + 0.5 * Math.cos(2 * Math.PI * ph)
+  }
+}
+function TremoloArt ({ a, variant = 0, curve, onDraw }: {
+  a: number
+  variant?: number
+  curve?: number[]
+  onDraw?: (index: number, value: number, done?: boolean) => void
+}) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
+  const pts: string[] = []
+  for (let i = 0; i <= 64; i++) {
+    const ph = i / 64
+    let v: number
+    if (curve && curve.length === CURVE_LEN) {
+      const x = ph * CURVE_LEN, i0 = Math.floor(x) % CURVE_LEN, i1 = (i0 + 1) % CURVE_LEN, fr = x - Math.floor(x)
+      v = curve[i0] * (1 - fr) + curve[i1] * fr
+    } else v = baseShape(variant, ph)
+    pts.push(`${(X0 + ph * W).toFixed(1)},${(Y0 + H - v * H).toFixed(1)}`)
+  }
+  const last = useRef<{ i: number; v: number } | null>(null)
+  const drawing = useRef(false)
+  const toCurve = (e: { clientX: number; clientY: number; currentTarget: EventTarget & Element }) => {
+    const svg = (e.currentTarget as SVGGraphicsElement).ownerSVGElement
+    if (!svg) return null
+    const r = svg.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width * 220, y = (e.clientY - r.top) / r.height * 220
+    return { i: Math.min(CURVE_LEN - 1, Math.max(0, Math.floor((x - X0) / W * CURVE_LEN))), v: Math.min(1, Math.max(0, (Y0 + H - y) / H)) }
+  }
+  // the depth shades the floor: how far the cycle can pull the level down
+  const floorY = Y0 + H - (1 - a) * H
+  return (
+    <g>
+      <line x1={X0} y1={floorY} x2={X0 + W} y2={floorY} stroke={s} strokeWidth={0.8} opacity={0.35} strokeDasharray="2 3" />
+      <line x1={X0} y1={Y0 + H} x2={X0 + W} y2={Y0 + H} stroke={s} strokeWidth={0.8} opacity={0.25} />
+      <polyline points={pts.join(' ')} fill="none" stroke={curve ? acc : s} strokeWidth={1.6} strokeLinejoin="round" />
+      <g className="fx-hot" style={{ cursor: 'crosshair' }}
+        onPointerDown={(e) => {
+          e.stopPropagation(); drawing.current = true
+          try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
+          const c = toCurve(e); if (!c) return
+          last.current = c; onDraw?.(c.i, c.v)
+        }}
+        onPointerMove={(e) => {
+          if (!drawing.current) return
+          const c = toCurve(e); if (!c) return
+          // fill the gap between events so a fast stroke leaves no holes
+          const from = last.current ?? c
+          const steps = Math.abs(c.i - from.i)
+          for (let k = 0; k <= steps; k++) {
+            const t = steps === 0 ? 1 : k / steps
+            onDraw?.(Math.round(from.i + (c.i - from.i) * t), from.v + (c.v - from.v) * t)
+          }
+          last.current = c
+        }}
+        onPointerUp={() => { drawing.current = false; last.current = null; onDraw?.(-1, 0, true) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onDraw?.(-2, 0, true) }}>
+        <rect x={X0} y={Y0} width={W} height={H} fill="transparent" stroke="none" />
+      </g>
+    </g>
+  )
+}
+
+/* ── arp: the ladder the pitch climbs, one rung per step ────────────── */
+function ArpArt ({ a, variant = 0, interval = 12 }: { a: number; variant?: number; interval?: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const range = a * 24
+  const count = Math.max(1, Math.floor(range / Math.max(1, interval) + 1e-4) + 1)
+  const order: number[] = []
+  const per = Math.max(1, 2 * count - 2)
+  for (let i = 0; i < 8; i++) {
+    if (variant === 1) order.push((count - 1) - (i % count))
+    else if (variant === 2) { const m = i % per; order.push(m < count ? m : per - m) }
+    else if (variant === 3) { let h = (i + 1) * 2654435761 >>> 0; h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15; order.push(h % count) }
+    else order.push(i % count)
+  }
+  const rungs = order.map((k, i) => {
+    const x = C - 70 + i * 20
+    const semis = k * interval
+    const y = C + 60 - (semis / 24) * 120
+    return <line key={i} x1={x} y1={y} x2={x + 14} y2={y} stroke={i === 0 ? acc : s} strokeWidth={i === 0 ? 2.2 : 1.4} opacity={0.9} />
+  })
+  return (
+    <g>
+      <line x1={C - 72} y1={C + 60} x2={C + 72} y2={C + 60} stroke={s} strokeWidth={0.8} opacity={0.3} />
+      {rungs}
+    </g>
+  )
+}
+
+/* ── radio: a dial; the needle swings up the band as the knob goes ─── */
+function RadioArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const ticks = []
+  for (let i = 0; i <= 24; i++) {
+    const ang = Math.PI + (i / 24) * Math.PI
+    const r1 = 78, r2 = i % 6 === 0 ? 66 : 72
+    ticks.push(<line key={i} x1={C + r1 * Math.cos(ang)} y1={C + 20 + r1 * Math.sin(ang)} x2={C + r2 * Math.cos(ang)} y2={C + 20 + r2 * Math.sin(ang)} stroke={s} strokeWidth={0.9} opacity={0.8} />)
+  }
+  const na = Math.PI + a * Math.PI
+  // the static: a field of dots thickening with the knob
+  const dots = []
+  let seed = 7
+  const count = Math.round(a * 90)
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    const rx = (seed % 1000) / 1000; seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    const ry = (seed % 1000) / 1000
+    dots.push(<circle key={i} cx={C - 60 + rx * 120} cy={C + 34 + ry * 40} r={0.9} fill={s} opacity={0.5} />)
+  }
+  return (
+    <g>
+      {ticks}
+      <line x1={C} y1={C + 20} x2={C + 60 * Math.cos(na)} y2={C + 20 + 60 * Math.sin(na)} stroke={acc} strokeWidth={1.8} strokeLinecap="round" />
+      <circle cx={C} cy={C + 20} r={3} fill={acc} />
+      {dots}
+    </g>
+  )
+}
+
+/* ── harmony: the voice and its shadow a few steps away ────────────── */
+export const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
+function HarmonyArt ({ a, degrees = 2, keyRoot = 0, scale = 0, chromatic = false }: {
+  a: number; degrees?: number; keyRoot?: number; scale?: number; chromatic?: boolean
+}) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const line = (dy: number) => {
+    const pts: string[] = []
+    for (let i = 0; i <= 40; i++) {
+      const x = C - 72 + i * 3.6
+      const y = C + 8 + Math.sin(i * 0.55) * 14 + Math.sin(i * 0.21) * 9 - dy
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+    }
+    return pts.join(' ')
+  }
+  const off = Math.max(-60, Math.min(60, degrees * (chromatic ? 3.5 : 7)))
+  return (
+    <g>
+      <polyline points={line(0)} fill="none" stroke={s} strokeWidth={1.3} />
+      <polyline points={line(off)} fill="none" stroke={acc} strokeWidth={1.3} opacity={0.25 + a * 0.75} />
+      <text x={C} y={C + 74} fontSize="10" textAnchor="middle" letterSpacing="0.5" fill={s} opacity={0.85}>
+        {chromatic ? `${degrees > 0 ? '+' : ''}${degrees} st` : `${KEY_NAMES[((keyRoot % 12) + 12) % 12]} ${scale === 1 ? 'minor' : 'major'}`}
+      </text>
+    </g>
+  )
+}
+
+function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
+
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt]
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 0) {
@@ -541,6 +714,7 @@ function fmtValue (mode: FxMode, a: number, variant = 0): string {
     const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
   }
+  if (mode === 13) return `${Math.round(a * 24)}st`
   if (mode === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)
@@ -839,4 +1013,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape }

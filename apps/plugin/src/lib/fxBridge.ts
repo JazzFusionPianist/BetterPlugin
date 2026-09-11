@@ -7,8 +7,9 @@
 
 import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
 
-export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
-export const FX_COUNT = 11
+export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 15
+/** Slots: 0..10 the first prints, 11 the mix (no memory), 12..15 the newer prints. */
+export const FX_COUNT = 16
 
 export interface FxState {
   mode: FxMode
@@ -35,8 +36,8 @@ export interface FxState {
 
 export const FX_DEFAULTS: FxState = {
   mode: 0,
-  amounts: [0.5, 0, 0, 0, 0, 0.75, 0, 0, 0, 0, 0],
-  variants: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  amounts: [0.5, 0, 0, 0, 0, 0.75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  variants: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   decays: [0.5, 0.5, 0.5],
   delayDiv: 2,
   delayFb: 0.35,
@@ -68,7 +69,7 @@ export async function getFx (): Promise<FxState> {
         }),
         variants: FX_DEFAULTS.variants.map((d, i) => {
           const n = Number(s.variants?.[i])
-          return isFinite(n) ? Math.min(3, Math.max(0, Math.round(n))) : d
+          return isFinite(n) ? Math.min(7, Math.max(0, Math.round(n))) : d
         }),
         decays: FX_DEFAULTS.decays.map((d, i) => {
           const n = Number(s.decays?.[i])
@@ -113,7 +114,9 @@ export interface FxGraphNode {
   decay: number[]         // [hall, room, plate]
   delayDiv: number
   delayFb: number
-  wet: boolean            // Wet Solo — drop the dry on space/delay/doubler/mod
+  wet: boolean            // Wet Solo — drop the dry on space/delay/doubler/mod/harmony
+  aux: number[]           // tremolo [vol|pan]; arp [interval st]; harmony [key root, scale, degrees]
+  curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape
   x: number
   y: number
 }

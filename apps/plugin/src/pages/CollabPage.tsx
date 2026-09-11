@@ -69,6 +69,11 @@ function mixHexColors(hexes: string[]): string {
   return `#${to2(r)}${to2(g)}${to2(b)}`
 }
 
+/** Split-out single-purpose builds (Orb Chat) load the page with
+ *  ?surface=chat — the toolbar keeps only messages + settings and the
+ *  fx/live/games rooms never mount. Also a browser dev override. */
+const CHAT_ONLY = new URLSearchParams(window.location.search).get('surface') === 'chat'
+
 export default function CollabPage({ user }: Props) {
   if (!supabase) return <div style={{ padding: 20, fontSize: 12, color: '#999' }}>Supabase not configured.</div>
   return <CollabPageInner user={user} />
@@ -778,7 +783,7 @@ function CollabPageInner({ user }: Props) {
         </div>
 
         {/* One-knob FX */}
-        <div
+        {!CHAT_ONLY && <div
           className={`icon-btn${fxOpen ? ' active' : ''}`}
           onClick={handleToggleFx}
           title="FX"
@@ -788,10 +793,10 @@ function CollabPageInner({ user }: Props) {
             <path d="M8 8L4.9 4.9" strokeWidth="1.5" />
             <path d="M3.4 12.6l1 -1M12.6 12.6l-1 -1M12.6 3.4l-1 1" strokeWidth="1" />
           </svg>
-        </div>
+        </div>}
 
         {/* Live */}
-        <div
+        {!CHAT_ONLY && <div
           className={`icon-btn${liveOpen ? ' active' : ''}${mySession ? ' live-btn-active' : ''}`}
           onClick={handleToggleLive}
           title="Live"
@@ -804,10 +809,10 @@ function CollabPageInner({ user }: Props) {
             <circle cx="8" cy="8" r="1.4" fill={mySession ? '#FF3B30' : 'currentColor'} stroke="none" />
           </svg>
           {mySession && <span className="live-btn-dot" />}
-        </div>
+        </div>}
 
         {/* Mini Games */}
-        <div
+        {!CHAT_ONLY && <div
           className={`icon-btn${gameOpen ? ' active' : ''}`}
           onClick={async () => {
             const next = !gameOpen
@@ -833,7 +838,7 @@ function CollabPageInner({ user }: Props) {
             <circle cx="10.5" cy="8" r=".6" fill="currentColor" stroke="none" />
             <circle cx="12" cy="9.5" r=".6" fill="currentColor" stroke="none" />
           </svg>
-        </div>
+        </div>}
 
         {/* Settings */}
         <div className={`icon-btn${settingsOpen ? ' active' : ''}`} onClick={handleToggleSettings} title="Settings">

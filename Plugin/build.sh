@@ -61,10 +61,10 @@ if [ "$STANDALONE_ONLY" = true ]; then
   BUILD_TARGETS="OrbPlugin_Standalone"
   echo "  Format : Standalone only (fast dev iteration)"
 elif [ -n "$AAX_SDK_PATH" ]; then
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbPlugin_AAX OrbChat_AU OrbChat_VST3"
   echo "  AAX    : $AAX_SDK_PATH"
 else
-  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone"
+  BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone OrbChat_AU OrbChat_VST3"
   echo "  AAX    : (skipped — no SDK)"
 fi
 
@@ -130,6 +130,20 @@ if [ "$INSTALL" = true ]; then
     rm -rf "$VST3_DEST/Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
     echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
+  fi
+
+  # Orb Chat — the split-out chat-only plugin, installed alongside Orb.
+  CHAT_AU_PATH=$(find "$BUILD_DIR" -name "Orb Chat.component" -maxdepth 6 2>/dev/null | head -1)
+  CHAT_VST3_PATH=$(find "$BUILD_DIR" -name "Orb Chat.vst3" -maxdepth 6 2>/dev/null | head -1)
+  if [ -n "$CHAT_AU_PATH" ]; then
+    rm -rf "$AU_DEST/Orb Chat.component"
+    cp -R "$CHAT_AU_PATH" "$AU_DEST/"
+    echo "✓ AU   installed → $AU_DEST/Orb Chat.component"
+  fi
+  if [ -n "$CHAT_VST3_PATH" ]; then
+    rm -rf "$VST3_DEST/Orb Chat.vst3"
+    cp -R "$CHAT_VST3_PATH" "$VST3_DEST/"
+    echo "✓ VST3 installed → $VST3_DEST/Orb Chat.vst3"
   fi
 
   # Cubase/Nuendo discover user MIDI Remote scripts from this documented

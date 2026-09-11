@@ -214,6 +214,11 @@ OrbAudioProcessor::OrbAudioProcessor()
         juce::String url (ORB_APP_URL);
         url += (url.contains ("?") ? "&" : "?");
         url += "plugin=1&v=" + juce::String (juce::Time::currentTimeMillis());
+       #ifdef ORB_SURFACE
+        // Split-out single-purpose builds (Orb Chat, …) tell the web app
+        // which surface to boot — it hides the other rooms.
+        url += juce::String ("&surface=") + ORB_SURFACE;
+       #endif
         browser->goToURL (url);
     }
 

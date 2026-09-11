@@ -197,86 +197,81 @@
 .wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
 
-/* ── audio cards — real waveforms, catalogue print ────────────────────
-   Music is the point of this chat, so audio escapes the text-bubble
-   cap: the column widens (.wd-mcol.wide) and the card takes
-   min(640px, all the room it has). ONE white card, one hairline,
-   12px radius, 12/14 padding. The middle band is a REAL waveform —
-   fetch → decodeAudioData → ~90 peak buckets (the web app's
-   audioPeaks recipe), printed as 2px ink bars with a 1px gap on a
-   canvas. Unplayed bars rgba-ink .18, played .85; the only color in
-   the card is the 1.5px accent playhead needle at the boundary. The
-   waveform IS the scrubber — pointer capture, drags while paused.
+/* ── audio = DAW regions ──────────────────────────────────────────────
+   An audio attachment is a colored REGION block — a Logic/Ableton
+   clip sitting on the chat lane — not a white card. No hairline, no
+   card chrome: fill / border / name-strip / bar inks are all mixed
+   from the SENDER's avatar_color in TSX (mixHex against paper
+   #FBFAF7 and ink #1A1917) and arrive inline; only geometry lives
+   here. Music escapes the text-bubble cap: the column widens
+   (.wd-mcol.wide) and the region takes min(640px, all the room).
+
+   The body is a REAL waveform — fetch → decodeAudioData → ~90 peak
+   buckets (the web app's audioPeaks recipe), 2px bars / 1px gap on a
+   canvas, played bars = the sender color deepened, unplayed the same
+   at .38 alpha, 1.5px ink needle. The waveform IS the scrubber —
+   pointer capture, drags while paused.
 
    The real AudioAttachment mounts invisibly inside .wd-ac-import so
    its import-to-DAW machinery (prefetch → writeAudioFile → drag-out
    arming / 30s cooldown) survives byte-for-byte — only its import
-   button surfaces, restyled as the quiet underlined word. All drag
-   states keep their labels; armed/imported turn ink, never green. */
+   button surfaces, restyled as the quiet underlined word. */
 .wd-mcol.wide { max-width: min(88%, 692px); }
 /* A text bubble sharing the message keeps the normal reading measure. */
 .wd-mcol.wide .wd-bub { max-width: min(100%, 520px); }
 
-.wd-acard { width: 640px; max-width: 100%; min-width: 0; background: #fff;
-  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 12px 14px; }
+/* The region block. Fill + border colors come inline from TSX. */
+.wd-region { width: 640px; max-width: 100%; min-width: 0;
+  border: 1px solid transparent; border-radius: 8px; overflow: hidden; }
+/* Multi-audio — adjacent clips on a lane: stacked, 5px gaps. */
+.wd-rgstack { width: 640px; max-width: 100%; min-width: 0;
+  display: flex; flex-direction: column; gap: 5px; }
+.wd-rgstack .wd-region { width: 100%; }
 
-/* Top row — bare ink play glyph, chat-sans name (13.5/500, wraps,
-   never truncates), total duration in grey tabular at the right. */
-.wd-ac-top { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
-.wd-ac-play { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1.5px; padding: 0;
+/* Name strip — the Logic clip-title band across the region top.
+   Band color inline (sender color mixed 55% toward paper). */
+.wd-rg-strip { padding: 4px 10px; border-radius: 8px 8px 0 0; }
+.wd-rg-name { display: block; min-width: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 10.5px; font-weight: 600; line-height: 1.35; color: rgba(26,25,23,.82);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The waveform strip — full region width; the canvas fills it. */
+.wd-wave { position: relative; width: 100%; min-width: 0; cursor: pointer; touch-action: none; }
+.wd-wave canvas { display: block; width: 100%; height: 100%; }
+
+/* Transport footer inside the region — bare ink glyph + elapsed on
+   the left; total + the import word on the right. */
+.wd-rg-foot { display: flex; align-items: center; gap: 8px; padding: 4px 10px 8px; }
+.wd-ac-play { flex-shrink: 0; width: 14px; height: 14px; padding: 0;
   background: none; border: none; border-radius: 0; color: #1A1917; opacity: .72; cursor: pointer;
   display: flex; align-items: center; justify-content: center; }
 .wd-ac-play svg { display: block; }
 .wd-ac-play:hover { opacity: 1; background: none; }
 .wd-ac-play:active { transform: none; }
-.wd-ac-name { min-width: 0;
-  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-  font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.4;
-  word-break: break-word; }
-.wd-ac-namewrap { flex: 1; min-width: 0; }
-.wd-ac-row .wd-ac-name { max-width: 100%; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; font-size: 12px; }
-.wd-ac-dur { flex-shrink: 0; margin-top: 3px; font-size: 10.5px; color: #A5A199;
+.wd-rg-cur { font-size: 10px; color: rgba(26,25,23,.55);
   font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-
-/* The waveform strip — full card width; the canvas fills it. */
-.wd-wave { position: relative; width: 100%; min-width: 0; cursor: pointer; touch-action: none; }
-.wd-wave canvas { display: block; width: 100%; height: 100%; }
-.wd-acard > .wd-wave { margin: 8px 0; }
-
-/* Bottom row — elapsed left, the import word right. */
-.wd-ac-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.wd-ac-cur { font-size: 10.5px; color: #A5A199;
+.wd-rg-right { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wd-rg-dur { flex-shrink: 0; font-size: 10.5px; color: rgba(26,25,23,.55);
   font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
 /* Import machinery — hide the ride-along AudioAttachment's chrome;
-   only its real import button (with all its drag handlers) surfaces. */
+   only its real import button (with all its drag handlers) surfaces,
+   as the quiet underlined ink word. Armed/imported deepen to ink. */
 .wd-ac-import { display: flex; align-items: center; min-width: 0; }
 .wd-ac-import .msg-att-audio { display: contents; }
 .wd-ac-import .msg-att-audio-header,
 .wd-ac-import .msg-att-timeline,
 .wd-ac-import .msg-att-audio-player { display: none; }
 .wd-ac-import .msg-att-import-btn { width: auto; margin: 0; padding: 0;
-  background: none; border: none; border-radius: 0; color: #6E6B63;
-  font-size: 11px; font-weight: 400; white-space: nowrap;
+  background: none; border: none; border-radius: 0; color: rgba(26,25,23,.55);
+  font-size: 10.5px; font-weight: 400; white-space: nowrap;
   text-decoration: underline; text-underline-offset: 3px; }
 .wd-ac-import .msg-att-import-btn svg { display: none; }
-.wd-ac-import .msg-att-import-btn:hover { background: none; border: none; color: #1A1917; }
+.wd-ac-import .msg-att-import-btn:hover { background: none; border: none; color: rgba(26,25,23,.9); }
 .wd-ac-import .msg-att-import-btn:active { transform: none; }
-.wd-ac-import .msg-att-import-btn.ready { background: none; border: none; color: #1A1917; font-weight: 500; }
-
-/* Multi-audio — rows stacked in ONE card, interior hairlines. Each
-   row = compact grammar: glyph · name (ellipsis) · mini 24px
-   waveform · time · its own import word. */
-.wd-acard.multi { padding: 0; }
-.wd-ac-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-width: 0; }
-.wd-ac-row + .wd-ac-row { border-top: 1px solid rgba(26,25,23,.10); }
-.wd-ac-row .wd-ac-play { width: 14px; height: 14px; margin-top: 0; }
-.wd-ac-row .wd-ac-name { flex: 0 1 auto; max-width: 34%; font-size: 12.5px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wd-ac-row .wd-wave { flex: 1 1 0; width: auto; min-width: 60px; }
-.wd-ac-time { flex-shrink: 0; font-size: 10.5px; color: #A5A199;
-  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-ac-import .msg-att-import-btn.ready { background: none; border: none;
+  color: rgba(26,25,23,.9); font-weight: 500; }
 
 /* Expired attachment (7-day temp files) — normal chat type, grey
    italic, inside a quiet hairline bubble on the sender's side. */
@@ -328,36 +323,39 @@
 .wd-upcard-pct { flex-shrink: 0; min-width: 32px; text-align: right; font-size: 10.5px;
   color: #A5A199; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
-/* ── now-playing bar — docked above the input ─────────────────────────
+/* ── now-playing bar — the DARK TRANSPORT ─────────────────────────────
    One shared engine for the whole shell; the cards are its remotes.
-   Catalogue print: 56px white bar over ONE hairline top rule. Fixed
-   left cluster — [ink play glyph] [chat-sans name 13/500, ellipsis]
-   [elapsed/total, grey tabular] — then the REST of the width is the
-   playing track's waveform (28px tall, same bar rendering, same
+   The approved floating rounded card (margins / radius / slide-in)
+   flipped dark: an ink #1A1917 object floating on paper, no border,
+   shadow a touch deeper. Fixed left cluster — [paper play glyph]
+   [chat-sans name 13/500, paper 92%, ellipsis] [elapsed/total, paper
+   55% tabular] — then the REST of the width is the playing track's
+   waveform (28px tall, paper bars .32/.88, accent green needle, same
    pointer-capture seek-drag): the waveform IS the scrubber, no
-   separate strip. Tiny grey ✕ at the far right. */
-.wd-nowbar { flex-shrink: 0; height: 56px; margin: 0 22px 10px; background: #fff;
-  border: 1px solid rgba(26,25,23,.22); border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(26,25,23,.05), 0 10px 24px -14px rgba(26,25,23,.28);
+   separate strip. Quiet paper ✕ at the far right. */
+.wd-nowbar { flex-shrink: 0; height: 56px; margin: 0 22px 10px; background: #1A1917;
+  border: none; border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(26,25,23,.14), 0 12px 28px -12px rgba(26,25,23,.45);
   display: flex; align-items: center; gap: 12px; padding: 0 16px;
   animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }
 @keyframes wd-nowbar-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .wd-nowbar-btn { flex-shrink: 0; width: 18px; height: 18px; padding: 0;
-  border-radius: 0; background: none; border: none; color: #1A1917; opacity: .72;
+  border-radius: 0; background: none; border: none; color: rgba(251,250,247,.9);
   display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wd-nowbar-btn:hover { opacity: 1; background: none; }
+.wd-nowbar-btn:hover { color: #FBFAF7; background: none; }
 .wd-nowbar-btn svg { display: block; }
 .wd-nowbar-name { flex: 0 1 auto; min-width: 36px; max-width: 220px;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25;
+  color: rgba(251,250,247,.92);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: #A5A199;
+.wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: rgba(251,250,247,.55);
   font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .wd-nowbar-wave { flex: 1 1 0; min-width: 0; }
 .wd-nowbar-x { flex-shrink: 0; width: 22px; height: 22px; padding: 0;
-  background: none; border: none; color: #A5A199;
+  background: none; border: none; color: rgba(251,250,247,.45);
   display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wd-nowbar-x:hover { color: #1A1917; }
+.wd-nowbar-x:hover { color: rgba(251,250,247,.9); }
 
 /* ── input bar ────────────────────────────────────────────────────── */
 .wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center; min-height: 44px;

@@ -70,11 +70,11 @@ export function useMessages(
         .from('messages')
         .select('*')
         .eq('conversation_id', cid)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(100)
 
       if (!alive) return
-      setMessages((data as Message[]) ?? [])
+      setMessages(((data as Message[]) ?? []).reverse())
       setLoading(false)
 
       // Subscribe AFTER history loads so the dedupe below has the right

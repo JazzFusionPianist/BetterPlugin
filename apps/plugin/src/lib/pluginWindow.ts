@@ -71,6 +71,13 @@ export const isExpandSupported = () =>
    keep their own JUCE-restored size. */
 const SHARED_SIZE_KEY = 'orb_window_size'
 
+/** The size a brand-new editor opens at — the compact tower for the full
+ *  Orb, the wide workspace for every split-out (?surface=…). Keep in sync
+ *  with PluginEditor.h kWidth/kHeight (#ifdef ORB_SURFACE). */
+const IS_SPLIT_OUT = typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('surface')
+export const DEFAULT_W = IS_SPLIT_OUT ? 1120 : COMPACT_W
+export const DEFAULT_H = IS_SPLIT_OUT ? 720  : COMPACT_H
+
 function readSharedSize (): { w: number; h: number } | null {
   try {
     const raw = localStorage.getItem(SHARED_SIZE_KEY)
@@ -85,9 +92,9 @@ function readSharedSize (): { w: number; h: number } | null {
 /** Fresh instance at the compact default → adopt the shared size (if any). */
 export async function adoptSharedWindowSize (): Promise<boolean> {
   if (!hasJuceBridge) return false
-  if (window.innerWidth !== COMPACT_W || window.innerHeight !== COMPACT_H) return false
+  if (window.innerWidth !== DEFAULT_W || window.innerHeight !== DEFAULT_H) return false
   const s = readSharedSize()
-  if (!s || (s.w === COMPACT_W && s.h === COMPACT_H)) return false
+  if (!s || (s.w === DEFAULT_W && s.h === DEFAULT_H)) return false
   return setPluginSize(s.w, s.h)
 }
 

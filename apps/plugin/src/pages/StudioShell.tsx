@@ -37,7 +37,7 @@ import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
-import { AudioAttachment, ScheduleChip, looksLikeSchedule } from '../components/collab/ChatView'
+import { AudioAttachment, AudioEngineContext, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
@@ -103,6 +103,68 @@ const BURST_MS = 4 * 60 * 1000
 function fmtTime(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/** "1:04" — elapsed/total readout for the now-playing bar. */
+function fmtDur(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) sec = 0
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Docked now-playing bar — the web app's NowPlayingBar pattern in
+ *  studio print: white card over a hairline top rule, accent play
+ *  circle, serif track name, and a tall SoundCloud-style scrub strip —
+ *  pointer-down anywhere on it seeks, and dragging keeps scrubbing
+ *  (setPointerCapture guarded for older WebKits). */
+function StudioNowBar({ name, playing, cur, dur, onToggle, onSeek, onClose }: {
+  name: string; playing: boolean; cur: number; dur: number
+  onToggle: () => void; onSeek: (sec: number) => void; onClose: () => void
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+
+  const scrub = (clientX: number) => {
+    const el = trackRef.current
+    if (!el || !dur) return
+    const r = el.getBoundingClientRect()
+    onSeek(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * dur)
+  }
+
+  const pct = dur ? Math.min(100, (cur / dur) * 100) : 0
+  return (
+    <div className="wd-nowbar">
+      <button className="wd-nowbar-btn" onClick={onToggle} aria-label={playing ? 'pause' : 'play'}>
+        {playing
+          ? <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+          : <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><path d="M8 5v14l11-7z" /></svg>}
+      </button>
+      <div className="wd-nowbar-main">
+        <div className="wd-nowbar-top">
+          <span className="wd-nowbar-name">{name}</span>
+          <span className="wd-nowbar-time">{fmtDur(cur)} / {fmtDur(dur)}</span>
+        </div>
+        <div
+          ref={trackRef}
+          className="wd-nowbar-track"
+          onPointerDown={e => {
+            draggingRef.current = true
+            try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* older WebKit */ }
+            scrub(e.clientX)
+          }}
+          onPointerMove={e => { if (draggingRef.current) scrub(e.clientX) }}
+          onPointerUp={() => { draggingRef.current = false }}
+          onPointerCancel={() => { draggingRef.current = false }}
+        >
+          <div className="wd-nowbar-fill" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <button className="wd-nowbar-x" onClick={onClose} aria-label="close player">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+      </button>
+    </div>
+  )
 }
 
 function dayKey(iso: string): string {
@@ -875,6 +937,66 @@ function StudioShellInner({ supabase, user }: Props) {
     return []
   }, [saveMyEvents, addTodo])
 
+  // ── shared now-playing engine ───────────────────────────────────────
+  // ONE <audio> for the whole shell (the web ChatThread pattern): the
+  // chat's audio cards are remote controls for it via AudioEngineContext,
+  // and the docked bar above the input owns precise scrubbing. Playback
+  // survives tab/room switches until closed.
+  const npAudioRef = useRef<HTMLAudioElement>(null)
+  const npTrackRef = useRef<{ url: string; name: string } | null>(null)
+  // Seek requested before the new track's metadata is ready — applied
+  // in onLoadedMetadata (Safari ignores currentTime until then).
+  const npPendingSeekRef = useRef<number | null>(null)
+  const [npTrack, setNpTrack] = useState<{ url: string; name: string } | null>(null)
+  const [npPlaying, setNpPlaying] = useState(false)
+  const [npCur, setNpCur] = useState(0)
+  const [npDur, setNpDur] = useState(0)
+
+  const npStart = useCallback((t: { url: string; name: string }, at = 0) => {
+    const a = npAudioRef.current
+    if (!a) return
+    if (npTrackRef.current?.url !== t.url) {
+      npTrackRef.current = t
+      setNpTrack(t); setNpCur(at); setNpDur(0)
+      a.src = t.url
+      npPendingSeekRef.current = at > 0 ? at : null
+    } else {
+      a.currentTime = at
+      setNpCur(at)
+    }
+    a.play().then(() => setNpPlaying(true)).catch(() => {})
+  }, [])
+  const npToggle = useCallback(() => {
+    const a = npAudioRef.current
+    if (!a || !npTrackRef.current) return
+    if (a.paused) a.play().then(() => setNpPlaying(true)).catch(() => {})
+    else { a.pause(); setNpPlaying(false) }
+  }, [])
+  const npSeekTo = useCallback((sec: number) => {
+    const a = npAudioRef.current
+    if (!a) return
+    a.currentTime = sec
+    setNpCur(sec)
+  }, [])
+  const npClose = useCallback(() => {
+    const a = npAudioRef.current
+    a?.pause()
+    if (a) a.removeAttribute('src')
+    npTrackRef.current = null
+    npPendingSeekRef.current = null
+    setNpTrack(null); setNpPlaying(false); setNpCur(0); setNpDur(0)
+  }, [])
+
+  const audioEngine = useMemo<ExternalAudioEngine>(() => ({
+    activeUrl: npTrack?.url ?? null,
+    playing: npPlaying,
+    current: npCur,
+    duration: npDur,
+    start: npStart,
+    toggle: npToggle,
+    seekTo: npSeekTo,
+  }), [npTrack, npPlaying, npCur, npDur, npStart, npToggle, npSeekTo])
+
   // ── input bar + uploads ─────────────────────────────────────────────
   const [draft, setDraft] = useState('')
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -1382,6 +1504,9 @@ function StudioShellInner({ supabase, user }: Props) {
       const previewUrl = m.content ? firstUrl(m.content) : null
       const readers = isMine ? readersByMsgId.get(m.id) : undefined
       const time = fmtTime(m.created_at)
+      // Audio cards get a wide column — the text-bubble cap doesn't apply.
+      const wideAudio = (m.attachment_type === 'audio' || m.attachment_type === 'multi-audio')
+        && !m.attachment_expired && !!m.attachment_url
 
       rows.push(
         <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}`}>
@@ -1396,7 +1521,7 @@ function StudioShellInner({ supabase, user }: Props) {
               )}
             </div>
           )}
-          <div className="wd-mcol">
+          <div className={`wd-mcol${wideAudio ? ' wide' : ''}`}>
             {!isMine && first && isGroup && (
               <div className="wd-mname">{senderP?.display_name ?? '…'}</div>
             )}
@@ -1536,6 +1661,24 @@ function StudioShellInner({ supabase, user }: Props) {
           onDragLeave={handleMainDragLeave}
           onDrop={handleMainDrop}
         >
+          {/* The shared now-playing engine's one <audio> — always mounted
+              so playback survives tab and room switches. */}
+          <audio
+            ref={npAudioRef}
+            preload="metadata"
+            onTimeUpdate={() => setNpCur(npAudioRef.current?.currentTime ?? 0)}
+            onLoadedMetadata={() => {
+              const a = npAudioRef.current
+              if (!a) return
+              setNpDur(a.duration ?? 0)
+              if (npPendingSeekRef.current != null) {
+                a.currentTime = npPendingSeekRef.current
+                setNpCur(npPendingSeekRef.current)
+                npPendingSeekRef.current = null
+              }
+            }}
+            onEnded={() => { setNpPlaying(false); setNpCur(0) }}
+          />
           {dragOver && activeConvId && sel && sel.kind !== 'me' && (
             <div className={`wd-drop${dragKind === 'cancel' ? ' cancel' : ''}`}>
               <div className="wd-drop-card">
@@ -1621,7 +1764,7 @@ function StudioShellInner({ supabase, user }: Props) {
               </div>
 
               {tab === 'chat' && (
-                <>
+                <AudioEngineContext.Provider value={audioEngine}>
                   <div className="wd-chat" ref={chatScrollRef}>
                     {messagesLoading
                       ? <div className="wd-quiet">…</div>
@@ -1630,11 +1773,30 @@ function StudioShellInner({ supabase, user }: Props) {
                         : <div className="wd-quiet">no messages yet — say hi</div>}
                   </div>
                   {uploads.length > 0 && (
-                    <div className="wd-uploading">
+                    <div className="wd-upcards">
                       {uploads.map(u => (
-                        <span key={u.id}>uploading {u.name} / {Math.round(u.progress * 100)}%</span>
+                        <div key={u.id} className="wd-upcard">
+                          <div className="wd-upcard-name">{u.name}</div>
+                          <div className="wd-upcard-row">
+                            <div className="wd-upcard-track">
+                              <div className="wd-upcard-fill" style={{ width: `${Math.round(u.progress * 100)}%` }} />
+                            </div>
+                            <span className="wd-upcard-pct">{Math.round(u.progress * 100)}%</span>
+                          </div>
+                        </div>
                       ))}
                     </div>
+                  )}
+                  {npTrack && (
+                    <StudioNowBar
+                      name={npTrack.name}
+                      playing={npPlaying}
+                      cur={npCur}
+                      dur={npDur}
+                      onToggle={npToggle}
+                      onSeek={npSeekTo}
+                      onClose={npClose}
+                    />
                   )}
                   <div className="wd-input">
                     <input
@@ -1661,7 +1823,7 @@ function StudioShellInner({ supabase, user }: Props) {
                     />
                     <button className="wd-send" disabled={!draft.trim()} onClick={() => void handleSend()}>→</button>
                   </div>
-                </>
+                </AudioEngineContext.Provider>
               )}
 
               {tab === 'stems' && (

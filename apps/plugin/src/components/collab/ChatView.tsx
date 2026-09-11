@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType, AttachmentTimelineMetadata } from '../../types/collab'
 import type { StemDropRequest } from '../../types/stems'
@@ -322,6 +322,25 @@ function StemPlacement({ metadata }: { metadata?: AttachmentTimelineMetadata }) 
   )
 }
 
+/* ── Optional shared-playback engine ─────────────────────────────────
+   A host surface (the studio shell) can provide this context so every
+   AudioAttachment's play/seek controls drive ONE shared engine — the
+   card becomes a remote control and a docked now-playing bar owns the
+   actual <audio>. Default is null: AudioAttachment keeps its own
+   per-card <audio> and ChatView's behavior is byte-for-byte unchanged.
+   The import-to-DAW / drag-out machinery is independent of playback
+   and is untouched in either mode. */
+export interface ExternalAudioEngine {
+  activeUrl: string | null
+  playing: boolean
+  current: number
+  duration: number
+  start: (track: { url: string; name: string }, at?: number) => void
+  toggle: () => void
+  seekTo: (sec: number) => void
+}
+export const AudioEngineContext = createContext<ExternalAudioEngine | null>(null)
+
 export function AudioAttachment({ url, name, metadata, compact = false }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean }) {
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
@@ -333,6 +352,16 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
   const [totalBytes, setTotalBytes] = useState(-1)
   const [compactExpanded, setCompactExpanded] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  // External shared engine (studio shell). null everywhere else —
+  // the card then plays through its own <audio> exactly as before.
+  const engine = useContext(AudioEngineContext)
+  const engineActive = engine !== null && engine.activeUrl === url
+  const shownPlaying = engine ? engineActive && engine.playing : playing
+  const shownCurrent = engine ? (engineActive ? engine.current : 0) : current
+  // The card's own <audio> still loads metadata, so an inactive card can
+  // show its duration before it has ever been played.
+  const shownDuration = engine ? ((engineActive && engine.duration) || duration) : duration
 
   const juceBackend = !!window.__JUCE__?.backend
 
@@ -502,15 +531,27 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
   }
 
   const toggle = () => {
+    if (engine) {
+      if (engineActive) engine.toggle()
+      else engine.start({ url, name })
+      return
+    }
     if (!audioRef.current) return
     if (playing) { audioRef.current.pause(); setPlaying(false) }
     else { audioRef.current.play(); setPlaying(true) }
   }
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || !duration) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    if (engine) {
+      if (!shownDuration) return
+      const t = ratio * shownDuration
+      if (engineActive) engine.seekTo(t)
+      else engine.start({ url, name }, t)
+      return
+    }
+    if (!audioRef.current || !duration) return
     audioRef.current.currentTime = ratio * duration
   }
 
@@ -523,16 +564,16 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
         onEnded={() => setPlaying(false)}
       />
-      <button className="msg-att-play-pause" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
-        {playing
+      <button className="msg-att-play-pause" onClick={toggle} aria-label={shownPlaying ? 'Pause' : 'Play'}>
+        {shownPlaying
           ? <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
           : <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
         }
       </button>
       <div className="msg-att-progress-track" onClick={seek}>
-        <div className="msg-att-progress-fill" style={{ width: duration ? `${(current / duration) * 100}%` : '0%' }} />
+        <div className="msg-att-progress-fill" style={{ width: shownDuration ? `${(shownCurrent / shownDuration) * 100}%` : '0%' }} />
       </div>
-      <span className="msg-att-time">{formatDur(current)} / {formatDur(duration)}</span>
+      <span className="msg-att-time">{formatDur(shownCurrent)} / {formatDur(shownDuration)}</span>
     </div>
   )
 

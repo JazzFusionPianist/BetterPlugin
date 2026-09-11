@@ -54,7 +54,7 @@ export function useMessages(
       let cid: string
       try {
         if (target.kind === 'dm') {
-          cid = await getOrCreateDmConversation(supabase, currentUserId, target.otherUserId)
+          cid = target.conversationId ?? await getOrCreateDmConversation(supabase, currentUserId, target.otherUserId)
         } else {
           cid = target.conversationId
         }
@@ -126,7 +126,7 @@ export function useMessages(
   // Stringify the target so we re-run when the actual target changes,
   // not on every parent re-render that creates a new object literal.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, currentUserId, target ? `${target.kind}:${target.kind === 'dm' ? target.otherUserId : target.conversationId}` : null])
+  }, [supabase, currentUserId, target ? `${target.kind}:${target.kind === 'dm' ? `${target.otherUserId}:${target.conversationId ?? ''}` : target.conversationId}` : null])
 
   const send = useCallback(async (
     content: string,

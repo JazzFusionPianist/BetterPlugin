@@ -172,12 +172,17 @@ function CollabPageInner({ user }: Props) {
     }
   }, [profilesLoading, me, client, user.id, user.email, refetchProfiles])
 
+  const { conversations, groupConversations } = useConversations(client, user.id)
+
   // Build the active chat target — DM or group, mutually exclusive.
   const chatTarget: ChatTarget | null = useMemo(() => {
-    if (selectedId) return { kind: 'dm', otherUserId: selectedId }
+    if (selectedId) {
+      const existing = conversations.find(c => c.partnerId === selectedId)
+      return { kind: 'dm', otherUserId: selectedId, conversationId: existing?.conversationId }
+    }
     if (selectedGroupConvId) return { kind: 'group', conversationId: selectedGroupConvId }
     return null
-  }, [selectedId, selectedGroupConvId])
+  }, [conversations, selectedId, selectedGroupConvId])
   const { messages, loading: messagesLoading, send, conversationId: activeConvId } = useMessages(client, user.id, chatTarget)
   // Read receipts for whichever chat is open. The hook handles nulls
   // (no chat open) and resubscribes whenever the conv id changes.
@@ -214,7 +219,6 @@ function CollabPageInner({ user }: Props) {
   const { unread: convUnread, lastMessages: convLastMessages, markSeen: markConvSeen } = useConversationNotifications(client, user.id)
   const { followingIds, followerIds, mutualIds, follow, unfollow } = useFollows(client, user.id)
   const { alerts: followAlerts, dismiss: dismissFollowAlert } = useFollowAlerts(client, user.id)
-  const { conversations, groupConversations } = useConversations(client, user.id)
 
   // The calendar lives INSIDE chats now (2026-08-10) — ChatView mounts
   // the hooks itself; this page only supplies conversation ids and the
@@ -644,7 +648,7 @@ function CollabPageInner({ user }: Props) {
     closeSidePanelsForNavigation()
   }
 
-  const handleOpenChat     = (id: string, options: { fromConvList?: boolean } = {}) => {
+  const handleOpenChat     = (id: string, options: { fromConvList?: boolean; conversationId?: string } = {}) => {
     closeAllOverlays()
     setChatFromConvList(!!options.fromConvList)
     setSelectedGroupConvId(null)   // mutual exclusion with group chats
@@ -661,7 +665,8 @@ function CollabPageInner({ user }: Props) {
   }
 
   const handleOpenChatFromConvList = (id: string) => {
-    handleOpenChat(id, { fromConvList: true })
+    const conv = conversations.find(c => c.partnerId === id)
+    handleOpenChat(id, { fromConvList: true, conversationId: conv?.conversationId })
   }
 
   const handleOpenGroupChatFromConvList = (convId: string) => {

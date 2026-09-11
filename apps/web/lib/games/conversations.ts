@@ -41,11 +41,17 @@ export async function getOrCreateDmConversation(
   //    trip without a custom RPC, so two queries it is.
   const { data: mine } = await supabase
     .from('conversation_members')
-    .select('conversation_id, conversations!inner(kind)')
+    .select('conversation_id, conversations!inner(kind, created_at)')
     .eq('user_id', meId)
     .eq('conversations.kind', 'dm')
 
   const myConvIds = (mine ?? []).map(r => r.conversation_id as string)
+  const createdAtByConv = new Map(
+    (mine ?? []).map(r => [
+      r.conversation_id as string,
+      new Date(((r.conversations as { created_at?: string })?.created_at) ?? 0).getTime(),
+    ]),
+  )
 
   if (myConvIds.length > 0) {
     const { data: theirs } = await supabase
@@ -54,7 +60,20 @@ export async function getOrCreateDmConversation(
       .eq('user_id', otherId)
       .in('conversation_id', myConvIds)
 
-    const hit = theirs?.[0]?.conversation_id as string | undefined
+    const sharedIds = ((theirs ?? []) as Array<{ conversation_id: string }>).map(r => r.conversation_id)
+    let hit: string | undefined
+    if (sharedIds.length === 1) {
+      hit = sharedIds[0]
+    } else if (sharedIds.length > 1) {
+      const { data: latest } = await supabase
+        .from('messages')
+        .select('conversation_id')
+        .in('conversation_id', sharedIds)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      hit = latest?.[0]?.conversation_id as string | undefined
+        ?? sharedIds.slice().sort((a, b) => (createdAtByConv.get(b) ?? 0) - (createdAtByConv.get(a) ?? 0))[0]
+    }
     if (hit) { dmCache.set(key, hit); return hit }
   }
 

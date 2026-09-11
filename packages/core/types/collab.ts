@@ -86,7 +86,7 @@ export interface Conversation {
  *  useMessages and ChatView so both surfaces stay agnostic about
  *  which kind is active. */
 export type ChatTarget =
-  | { kind: 'dm';    otherUserId:    string }
+  | { kind: 'dm';    otherUserId:    string; conversationId?: string }
   | { kind: 'group'; conversationId: string }
 
 export interface AppNotification {

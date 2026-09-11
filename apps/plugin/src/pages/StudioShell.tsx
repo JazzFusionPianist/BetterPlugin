@@ -114,8 +114,9 @@ function fmtDur(sec: number): string {
 }
 
 /** Docked now-playing bar — the web app's NowPlayingBar pattern in
- *  studio print: white card over a hairline top rule, accent play
- *  circle, serif track name, and a tall SoundCloud-style scrub strip —
+ *  studio print: white bar over a hairline top rule, bare ink play
+ *  glyph, chat-sans track name, and a hairline baseline scrub (ink
+ *  fill + accent playhead dot) stretched over the bar's lower half —
  *  pointer-down anywhere on it seeks, and dragging keeps scrubbing
  *  (setPointerCapture guarded for older WebKits). */
 function StudioNowBar({ name, playing, cur, dur, onToggle, onSeek, onClose }: {

@@ -1,5 +1,7 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
+import { hasJuceBridge } from '../../lib/juceBridge'
+import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
@@ -17,6 +19,8 @@ import {
     simply add (a bus). Feedback is refused by the engine.               */
 
 const NODE = 132
+const STUDY_W = 380          // the study: a column on the right where the chosen print is drawn big
+const STUDY_PRINT = 300
 const R = NODE / 2
 const SHELF_PRINT = 48
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
@@ -170,13 +174,44 @@ function distToWire (p0: Pt, p1: Pt, q: Pt): number {
 
 interface Props { size: { w: number; h: number } }
 
-export default function FxWall ({ size }: Props) {
+export default function FxWall ({ size: frame }: Props) {
   const wallRef = useRef<HTMLDivElement>(null)
   const bridge = useMemo(() => hasGraphBridge(), [])
   const oldEngine = useMemo(() => !hasGraphBridge() && hasFxBridge(), [])
-  const [graph, setGraphState] = useState<FxGraph>(() => demoGraph(size.w, size.h))
+  const [graph, setGraphState] = useState<FxGraph>(() => demoGraph(frame.w, frame.h))
   const [loaded, setLoaded] = useState(!bridge)
   const [sel, setSel] = useState<{ node?: number; edge?: number } | null>(null)
+  // the study opens with a chosen print; the wall keeps its width by
+  // growing the host window (restored on close), or gives up room in a
+  // plain browser
+  const studyOpen = sel?.node !== undefined
+  const size = { w: frame.w - (studyOpen ? STUDY_W : 0), h: frame.h }
+  const grown = useRef<{ w: number; h: number } | null>(null)
+  useEffect(() => {
+    if (!hasJuceBridge) return
+    if (studyOpen && !grown.current) {
+      grown.current = { w: window.innerWidth, h: window.innerHeight }
+      suspendSharedWindowSize(true)
+      try { localStorage.setItem('orb_wall_grown', JSON.stringify({ base: grown.current, w: grown.current.w + STUDY_W })) } catch { /* fine */ }
+      void setPluginSize(grown.current.w + STUDY_W, grown.current.h)
+    } else if (!studyOpen && grown.current) {
+      const base = grown.current; grown.current = null
+      void setPluginSize(base.w, base.h).then(() => suspendSharedWindowSize(false))
+      try { localStorage.removeItem('orb_wall_grown') } catch { /* fine */ }
+    }
+  }, [studyOpen])
+  // reopened while grown last time (the study was open when the window
+  // closed)? come back to the base size first
+  useEffect(() => {
+    if (!hasJuceBridge) return
+    try {
+      const raw = localStorage.getItem('orb_wall_grown'); if (!raw) return
+      const g = JSON.parse(raw) as { base: { w: number; h: number }; w: number }
+      if (g?.base && Math.abs(window.innerWidth - g.w) < 4) void setPluginSize(g.base.w, g.base.h)
+      localStorage.removeItem('orb_wall_grown')
+    } catch { /* fine */ }
+  }, [])
+  useEffect(() => () => { if (grown.current) { const b = grown.current; void setPluginSize(b.w, b.h); suspendSharedWindowSize(false) } }, [])
   const [confirm, setConfirm] = useState<string | null>(null)   // 'node:3' | 'edge:2' awaiting the second tap
   const [drag, setDrag] = useState<Drag | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -468,14 +503,19 @@ export default function FxWall ({ size }: Props) {
   // ── render ─────────────────────────────────────────────────────────
   const sharesOf = (id: number) => inputsOf(id).map(x => x.e.gain)
   const full = graph.nodes.length >= FX_MAX_NODES
+  // the shelf fits sixteen prints in whatever width the wall has left
+  const shelfPrint = Math.max(30, Math.min(SHELF_PRINT, Math.floor((size.w - 48) / 16) - 12))
 
+
+  const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
 
   return (
     <StrokeLevel.Provider value={litLevel}>
+    <div className="sg-frame" style={inkVars}>
+    <div className="sg-left">
       <div
         ref={wallRef}
         className={`sg-wall${drag ? ` dragging ${drag.kind}` : ''}`}
-        style={inkVars}
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
         onPointerDown={(e) => { setSel(null); setConfirm(null); setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y }) }}
@@ -667,15 +707,61 @@ export default function FxWall ({ size }: Props) {
         {oldEngine && <p className="fx-note sg-note">this room grew a wall — rebuild the plugin to patch it.</p>}
       </div>
 
-      <div className={`sg-shelf${full ? ' full' : ''}`} style={inkVars}>
+      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ gap: shelfPrint < SHELF_PRINT ? 10 : 18 }}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
           <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
-            <Print node={{ type, amount: type === 0 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={SHELF_PRINT} dim shares={[0.5, 0.5]} />
+            <Print node={{ type, amount: type === 0 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>
           </div>
         ))}
       </div>
+    </div>
+    {studyNode && (
+      <aside className="sg-study" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="sg-study-head">
+          <span className="sg-study-title">{nameOf(studyNode.type)}</span>
+          <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>
+        </div>
+        <div className="sg-study-print"
+          onPointerDown={(e) => {
+            if ((e.target as Element).closest('.fx-hot')) return
+            if (studyNode.type === FX_MIX_TYPE) return
+            e.stopPropagation()
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
+            setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
+          }}
+          onPointerMove={(e) => {
+            if (drag?.kind !== 'amount' || drag.id !== studyNode.id) return
+            updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
+          }}
+          onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
+          onDoubleClick={() => { if (studyNode.type !== FX_MIX_TYPE) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
+          onWheel={(e) => { if (studyNode.type === FX_MIX_TYPE) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
+          <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
+            onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
+            onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}
+            onFb={(v, force) => updateNode(studyNode.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
+            onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)}
+            onDraw={(i, v) => {
+              if (i === -2) { updateNode(studyNode.id, { curve: undefined }, true); return }
+              if (i === -1) { push(graphRef.current, true); return }
+              const cur = graphRef.current.nodes.find(x => x.id === studyNode.id)
+              const base = cur?.curve && cur.curve.length === CURVE_LEN ? [...cur.curve]
+                : Array.from({ length: CURVE_LEN }, (_, k) => baseShape(studyNode.variant, k / CURVE_LEN))
+              base[i] = v
+              updateNode(studyNode.id, { curve: base })
+            }} />
+        </div>
+        <div className="sg-study-value">
+          {studyNode.type !== FX_MIX_TYPE
+            ? <span className="sg-val" onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
+            : <span className="sg-val quiet">{inputsOf(studyNode.id).map(x => `${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join(' · ') || '—'}</span>}
+        </div>
+        <p className="sg-study-hint">drag the print for its amount · the hands and words live under it on the wall</p>
+      </aside>
+    )}
+    </div>
     </StrokeLevel.Provider>
   )
 }

@@ -98,6 +98,11 @@ export async function adoptSharedWindowSize (): Promise<boolean> {
   return setPluginSize(s.w, s.h)
 }
 
+/** While a temporary grow is in effect (the wall's study), resizes are
+ *  not the user's choice — don't remember them. */
+let _sharedSuspended = false
+export function suspendSharedWindowSize (on: boolean) { _sharedSuspended = on }
+
 /** Remember every host-window resize as the shared size. Returns a cleanup. */
 export function watchSharedWindowSize (): () => void {
   if (!hasJuceBridge) return () => {}
@@ -105,6 +110,7 @@ export function watchSharedWindowSize (): () => void {
   const save = () => {
     if (t) clearTimeout(t)
     t = setTimeout(() => {
+      if (_sharedSuspended) return
       try { localStorage.setItem(SHARED_SIZE_KEY, JSON.stringify({ w: window.innerWidth, h: window.innerHeight })) }
       catch { /* storage unavailable — nothing to share */ }
     }, 250)

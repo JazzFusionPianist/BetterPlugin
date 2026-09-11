@@ -6,16 +6,17 @@ interface Props {
   /** Parse + persist the text to the chosen target; resolves with what was added. */
   onSubmit: (text: string, conversationId: string | null) => Promise<CalendarEvent[]>
   targets: Target[]
+  placeholder?: string
 }
 
 const fmtWhen = (e: CalendarEvent) => {
   const d = new Date(e.starts_at)
   const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
-  if (e.all_day) return `${day} · all day`
-  return `${day} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+  if (e.all_day) return `${day} / all day`
+  return `${day} / ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
 }
 
-export default function SchedulePrompt({ onSubmit, targets }: Props) {
+export default function SchedulePrompt({ onSubmit, targets, placeholder }: Props) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,12 +43,12 @@ export default function SchedulePrompt({ onSubmit, targets }: Props) {
       {added && added.length > 0 && (
         <div className="sconfirm">
           <div className="sconfirm-head">
-            <span className="sconfirm-kicker">Noted{added.length > 1 ? <em> · {added.length}</em> : ''}</span>
+            <span className="sconfirm-kicker">Noted{added.length > 1 ? <em> / {added.length}</em> : ''}</span>
             <button className="sconfirm-dismiss" onClick={() => setAdded(null)} aria-label="Dismiss"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg></button>
           </div>
           <ul className="sconfirm-list">
             {added.slice(0, 3).map((e) => (
-              <li key={e.id} className="sconfirm-item"><span className="sconfirm-rail" /><div className="sconfirm-text"><div className="sconfirm-t">{e.title}</div><div className="sconfirm-w">{fmtWhen(e)}{e.location ? ` · ${e.location}` : ''}</div></div></li>
+              <li key={e.id} className="sconfirm-item"><span className="sconfirm-rail" /><div className="sconfirm-text"><div className="sconfirm-t">{e.title}</div><div className="sconfirm-w">{fmtWhen(e)}{e.location ? ` / ${e.location}` : ''}</div></div></li>
             ))}
           </ul>
         </div>
@@ -66,7 +67,7 @@ export default function SchedulePrompt({ onSubmit, targets }: Props) {
         </div>
       )}
       <div className={`sprompt-bar${busy ? ' busy' : ''}`}>
-        <textarea ref={taRef} rows={1} value={text} placeholder="add to your schedule…" disabled={busy}
+        <textarea ref={taRef} rows={1} value={text} placeholder={placeholder ?? 'add to your schedule…'} disabled={busy}
           onChange={(e) => { setText(e.target.value); setError(null); grow() }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }} />
         <button className="sprompt-send" onClick={submit} disabled={busy || !text.trim()} aria-label="Add to calendar">

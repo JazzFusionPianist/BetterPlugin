@@ -94,6 +94,24 @@
 .wd-head.plain { padding-bottom: 12px; }
 .wd-title { font-family: 'Instrument Serif', serif; font-size: 21px; }
 .wd-sub { font-size: 11px; color: #A5A199; margin-top: 1px; }
+
+/* Chat header — conversation avatar tile + sans title (17/600) with the
+   members line under it. Groups get the 34px rounded-square tile, DMs a
+   round photo. */
+.wd-head-row { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.wd-hav { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+.wd-hav.grp { border-radius: 9px; }
+.wd-hav img { width: 100%; height: 100%; object-fit: cover; }
+.wd-head-col { flex: 1; min-width: 0; }
+.wd-htitle { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 17px; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-htitle-input { display: block; width: 100%; border: none; outline: none; background: transparent; padding: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 17px; font-weight: 600; line-height: 1.25; color: #1A1917; }
+.wd-hsub { font-size: 11.5px; color: #A5A199; margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-tabs { display: flex; gap: 18px; margin-top: 10px; }
 .wd-tab { font-size: 12.5px; color: #6E6B63; padding-bottom: 8px; cursor: pointer; }
 .wd-tab.on { color: #1A1917; box-shadow: inset 0 -1px 0 #1A1917; }
@@ -173,9 +191,10 @@
 .wd-att-audio .msg-att-audio-group-header svg { color: var(--acc); }
 .wd-att-audio .msg-att-time { color: #A5A199; }
 
-/* Expired attachment (7-day temp files) — quiet italic line, no bubble. */
-.wd-expired { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
-  font-size: 12px; color: #A5A199; padding: 2px; }
+/* Expired attachment (7-day temp files) — normal chat type, grey
+   italic, inside a quiet hairline bubble on the sender's side. */
+.wd-expired { font-size: 13.5px; line-height: 1.5; font-style: italic; color: #A5A199;
+  background: transparent; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 8px 12px; }
 
 /* Under-bubble extras — link preview card + calendar chip stay inside
    the bubble column; the card stays a white card on my side too. */
@@ -221,7 +240,27 @@
 .wd-home::-webkit-scrollbar { display: none; }
 .wd-home-greet { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 26px; }
 .wd-home-date { font-size: 11px; color: #A5A199; margin-top: 3px; }
+.wd-home-prompt { margin-top: 20px; }
 .wd-home .wd-up { margin-top: 28px; }
+
+/* "today" — the prompt's plain-task lane. Hairline-square checkbox,
+   accent fill + check when done; done rows grey out and strike. */
+.wd-home .wd-todos { margin-top: 28px; }
+.wd-todos-head { display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-todos-clear { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 10px; letter-spacing: normal; color: #A5A199; }
+.wd-todos-clear:hover { color: #6E6B63; text-decoration: underline; text-underline-offset: 3px; }
+.wd-todo { display: flex; align-items: center; gap: 10px; padding: 8px 2px;
+  border-bottom: 1px solid rgba(26,25,23,.08); font-size: 12.5px; cursor: pointer; }
+.wd-todo-box { width: 13px; height: 13px; flex-shrink: 0; border: 1px solid rgba(26,25,23,.4);
+  border-radius: 3px; background: #fff; color: #fff;
+  display: flex; align-items: center; justify-content: center; }
+.wd-todo-box svg { display: block; }
+.wd-todo.done .wd-todo-box { background: var(--acc); border-color: var(--acc); }
+.wd-todo-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-todo.done .wd-todo-text { color: #A5A199; text-decoration: line-through; }
 
 .wd-up-head { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
   padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
@@ -238,7 +277,6 @@
 .wd-me { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .wd-me-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 8px; scrollbar-width: none; }
 .wd-me-scroll::-webkit-scrollbar { display: none; }
-.wd-sprompt { margin: 0 22px 14px; flex-shrink: 0; }
 
 /* ── notes tab — one document per show ────────────────────────────── */
 /* List view: hairline document rows (serif title · grey snippet ·
@@ -251,8 +289,10 @@
 .wd-notes-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
   padding: 4px 22px 14px; scrollbar-width: none; }
 .wd-notes-list::-webkit-scrollbar { display: none; }
-.wd-note-row { flex-shrink: 0; padding: 11px 2px 10px; border-bottom: 1px solid rgba(26,25,23,.08); cursor: pointer; }
+.wd-note-row { flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+  padding: 11px 2px 10px; border-bottom: 1px solid rgba(26,25,23,.08); cursor: pointer; }
 .wd-note-row:hover { background: rgba(26,25,23,.02); }
+.wd-note-row-main { flex: 1; min-width: 0; }
 .wd-note-title { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15px; line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-note-title.untitled { font-style: italic; color: #A5A199; }
@@ -272,12 +312,33 @@
   font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 18px; color: #1A1917; }
 .wd-note-ed-title::placeholder { color: #C0BCB3; font-style: italic; }
 .wd-note-ed-fine { flex-shrink: 0; font-size: 9.5px; color: #A5A199; white-space: nowrap; }
+
+/* Formatting toolbar — one hairline row of quiet 12px words. */
+.wd-note-tools { flex-shrink: 0; display: flex; align-items: center; gap: 14px; margin-top: 10px;
+  padding: 6px 2px; border-top: 1px solid rgba(26,25,23,.08); border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-tool { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12px; line-height: 1; color: #6E6B63; }
+.wd-tool:hover { color: #1A1917; }
+.wd-tool b { font-weight: 700; }
+.wd-tool u { text-underline-offset: 2px; }
+
 .wd-note-ed-body { flex: 1; min-height: 0; margin-top: 12px; resize: none; border: none; outline: none;
   background: transparent; padding: 0; white-space: pre-wrap;
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 13.5px; line-height: 1.7; color: #1A1917; }
 .wd-note-ed-body::placeholder { color: #C0BCB3; font-style: italic;
   font-family: 'Instrument Serif', 'Pretendard Variable', serif; }
+/* contentEditable flavour — scrolls itself, shows a serif-italic
+   placeholder while empty, and gives the allowlisted tags their type. */
+.wd-note-ed-body.rich { overflow-y: auto; scrollbar-width: none; cursor: text; }
+.wd-note-ed-body.rich::-webkit-scrollbar { display: none; }
+.wd-note-ed-body.rich:empty::before { content: attr(data-placeholder); color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; pointer-events: none; }
+.wd-note-ed-body.rich h3 { font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-weight: 400; font-size: 16.5px; line-height: 1.4; margin: 10px 0 3px; }
+.wd-note-ed-body.rich h3:first-child { margin-top: 0; }
+.wd-note-ed-body.rich ul, .wd-note-ed-body.rich ol { margin: 2px 0; padding-left: 22px; }
+.wd-note-ed-body.rich li { margin: 1px 0; }
 .wd-note-ed-foot { flex-shrink: 0; padding: 8px 0 2px; display: flex; }
 /* House two-tap delete — a word, then "sure?" in red; never a native
    confirm (the plugin's WKWebView can't show one). */
@@ -285,6 +346,8 @@
   font-size: 11px; color: #A5A199; text-decoration: underline; text-underline-offset: 3px; }
 .wd-note-del:hover { color: #6E6B63; }
 .wd-note-del.sure { color: #D6402E; }
+/* The list rows carry the same two-tap word at their right edge. */
+.wd-note-del.row { flex-shrink: 0; font-size: 10px; align-self: center; }
 
 /* ── stems / calendar tab panes ───────────────────────────────────── */
 .wd-pane { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }

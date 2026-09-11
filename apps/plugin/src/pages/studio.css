@@ -89,7 +89,21 @@
 .wd-rail-foot.on span { color: var(--acc); }
 
 /* ── main pane ────────────────────────────────────────────────────── */
-.wd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* Drag-and-drop overlay — .drop-overlay's grammar (attach / cancel) in
+   studio print: paper scrim, one hairline card, accent glyph. Pointer
+   events pass through so drop/dragleave land on .wd-main underneath. */
+.wd-drop { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(251, 250, 247, .85); pointer-events: none; }
+.wd-drop-card { display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: #fff; border: 1px solid rgba(26, 25, 23, .5); border-radius: 6px; padding: 22px 36px; }
+.wd-drop-glyph { width: 30px; height: 30px; margin-bottom: 6px; border: 1px solid var(--acc-35); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; color: var(--acc); font-size: 15px; line-height: 1; }
+.wd-drop-label { font-size: 12.5px; color: #1A1917; }
+.wd-drop-fine { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 11px; color: #A5A199; }
+.wd-drop.cancel .wd-drop-glyph { color: #D6402E; border-color: rgba(214, 64, 46, .4); }
 .wd-head { padding: 14px 22px 0; border-bottom: 1px solid rgba(26,25,23,.16); flex-shrink: 0; }
 .wd-head.plain { padding-bottom: 12px; }
 .wd-title { font-family: 'Instrument Serif', serif; font-size: 21px; }

@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
+import StudioShell from './pages/StudioShell'
 import SoundsPage from './pages/SoundsPage'
 import type { User } from '@supabase/supabase-js'
 
@@ -59,6 +60,11 @@ export default function App() {
         <AuthPage />
       </div>
     )
+  }
+
+  // Orb Chat surface (?surface=chat) gets the Studio workspace.
+  if (supabase && new URLSearchParams(window.location.search).get('surface') === 'chat') {
+    return <StudioShell supabase={supabase} user={user} />
   }
 
   return (

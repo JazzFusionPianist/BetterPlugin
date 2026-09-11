@@ -1,0 +1,294 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   greenroom — studio workspace, exhibition-catalogue print.
+   Adapted 1:1 from the approved WorkspaceDemo mockup (.wd-*).
+   Paper #FBFAF7 · ink #1A1917 · stage green #1B6E48 ·
+   hairlines rgba(26,25,23,.16) / .5.
+
+   Presence = brand: the online dot, unread badge, breathing
+   "in the studio" status, active-row inset bar, send square and
+   tab counts all draw from the one green accent.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.wd-stage {
+  display: flex; justify-content: center; align-items: center;
+  width: 100%; height: 100%; background: #191817;
+}
+
+.wd {
+  width: 100%; height: 100%; display: flex; background: #FBFAF7; color: #1A1917;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; border: 1px solid rgba(26,25,23,.5); overflow: hidden;
+
+  /* Brand accent — deep stage green, tuned to read rich (not neon) on
+     paper. Companion alphas are pre-mixed for older WebKits. */
+  --acc: #1B6E48;
+  --acc-06: rgba(27, 110, 72, 0.06);
+  --acc-10: rgba(27, 110, 72, 0.10);
+  --acc-12: rgba(27, 110, 72, 0.12);
+  --acc-35: rgba(27, 110, 72, 0.35);
+
+  /* Variable bridge — embedded collab components (StemPanel, ChatCalendar,
+     AudioAttachment, SchedulePrompt) read the .plugin light-theme tokens
+     from collab.css. Redeclare the set here so they render correctly —
+     and on-brand — inside the studio. */
+  --f-serif: 'Instrument Serif', 'Pretendard Variable', serif;
+  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --paper: #FBFAF7;
+  --card: #FFFFFF;
+  --ink: #1A1917;
+  --hair: rgba(26, 25, 23, 0.55);
+  --blue: #1B6E48;
+  --action: #B59D7A;
+  --bg: #FBFAF7;
+  --bg2: #F4F2EC;
+  --bg3: #ECE9E1;
+  --border: rgba(26, 25, 23, 0.12);
+  --border2: rgba(26, 25, 23, 0.30);
+  --t1: #1A1917;
+  --t2: #6E6B63;
+  --t3: #A5A199;
+  --t4: #C0BCB3;
+  --mine-bg: #1A1917;
+  --mine-t: #FBFAF7;
+  --inp-bg: #1A1917;
+  --inp-ph: rgba(251,250,247,.38);
+  --star: #1B6E48;
+  --ob-bg: rgba(27, 110, 72, 0.12);
+  --ob-t: #1B6E48;
+}
+.wd * { box-sizing: border-box; margin: 0; }
+.wd-serif { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-weight: 400; }
+
+/* ── rail ─────────────────────────────────────────────────────────── */
+.wd-rail { width: 232px; border-right: 1px solid rgba(26,25,23,.16); display: flex; flex-direction: column; padding: 14px 0 10px; flex-shrink: 0; }
+.wd-brand { font-family: 'Instrument Serif', serif; font-size: 17px; padding: 0 16px 12px; display: flex; align-items: center; gap: 7px; }
+.wd-brand svg { display: block; flex-shrink: 0; }
+.wd-rail-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.wd-rail-scroll::-webkit-scrollbar { display: none; }
+.wd-sec { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase; padding: 12px 16px 5px; }
+.wd-row { display: flex; align-items: center; gap: 9px; padding: 7px 16px; cursor: pointer; }
+.wd-row:hover { background: rgba(26,25,23,.03); }
+.wd-row.on { background: var(--acc-10); box-shadow: inset 2px 0 0 var(--acc); }
+.wd-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; position: relative; }
+.wd-av.grp { border-radius: 8px; }
+.wd-av img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.wd-dot { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--acc); border: 2px solid #FBFAF7; }
+.wd-dot.studio { animation: wdbreathe 2.4s ease-in-out infinite; }
+@keyframes wdbreathe { 0%,100% { box-shadow: 0 0 0 0 var(--acc-35);} 50% { box-shadow: 0 0 0 4px rgba(27,110,72,0);} }
+.wd-rname { flex: 1; min-width: 0; }
+.wd-rname b { display: block; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span { display: block; font-size: 10.5px; color: #A5A199; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span.studio { color: var(--acc); font-style: italic; font-family: 'Instrument Serif', serif; }
+.wd-badge { background: var(--acc); color: #fff; font-size: 9.5px; min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+.wd-rail-foot { margin-top: auto; padding: 10px 16px 0; border-top: 1px solid rgba(26,25,23,.16);
+  display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6E6B63; cursor: pointer; }
+.wd-rail-foot:hover span { color: #1A1917; }
+.wd-rail-foot.on span { color: var(--acc); }
+
+/* ── main pane ────────────────────────────────────────────────────── */
+.wd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wd-head { padding: 14px 22px 0; border-bottom: 1px solid rgba(26,25,23,.16); flex-shrink: 0; }
+.wd-head.plain { padding-bottom: 12px; }
+.wd-title { font-family: 'Instrument Serif', serif; font-size: 21px; }
+.wd-sub { font-size: 11px; color: #A5A199; margin-top: 1px; }
+.wd-tabs { display: flex; gap: 18px; margin-top: 10px; }
+.wd-tab { font-size: 12.5px; color: #6E6B63; padding-bottom: 8px; cursor: pointer; }
+.wd-tab.on { color: #1A1917; box-shadow: inset 0 -1px 0 #1A1917; }
+.wd-tab.off { color: #C0BCB3; cursor: default; }
+.wd-tab i { font-style: normal; color: var(--acc); margin-left: 4px; font-size: 10px; }
+.wd-tab.off i { color: #C0BCB3; }
+
+/* ── chat tab — messenger grammar (kakao/imessage) ────────────────── */
+.wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0;
+  scrollbar-width: none; }
+.wd-chat::-webkit-scrollbar { display: none; }
+/* Full-pane message column — their bubbles hang left off the avatar
+   column, mine hug the right edge. No max-width cap on the column. */
+.wd-chat-col { width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+/* Day divider — label dead-centred, hairline rules to both pane edges. */
+.wd-day { display: flex; align-items: center; gap: 10px; text-align: center; font-size: 10px;
+  color: #A5A199; text-transform: lowercase; margin: 14px 0 10px; flex-shrink: 0; }
+.wd-day::before, .wd-day::after { content: ''; flex: 1; height: 1px; background: rgba(26,25,23,.08); }
+.wd-chat-col > .wd-day:first-child { margin-top: 0; }
+
+/* Message rows. Burst spacing: 2px inside a burst, 12px between bursts. */
+.wd-mrow { display: flex; align-items: flex-start; margin-top: 2px; }
+.wd-mrow.first { margin-top: 12px; }
+.wd-day + .wd-mrow { margin-top: 0; }
+.wd-mrow.mine { justify-content: flex-end; }
+
+/* 28px avatar column — reserved on every their-row so burst bubbles
+   align; the avatar itself paints only on a burst's first message. */
+.wd-mav { width: 28px; flex-shrink: 0; margin-right: 8px; }
+.wd-mav > span { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 11.5px; overflow: hidden; }
+.wd-mav img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+.wd-mcol { display: flex; flex-direction: column; align-items: flex-start; max-width: min(60%, 520px); min-width: 0; }
+.wd-mrow.mine .wd-mcol { align-items: flex-end; }
+/* Sender name — tiny serif above a burst's first bubble (groups only). */
+.wd-mname { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 11px;
+  color: #6E6B63; margin: 0 0 3px 2px; }
+
+/* Bubble line: bubble + tiny timestamp OUTSIDE at the tail, tied to the
+   bubble's bottom. Time sits right of their last bubble, left of mine. */
+.wd-mline { display: flex; align-items: flex-end; gap: 6px; max-width: 100%; margin-top: 2px; min-width: 0; }
+.wd-mcol > .wd-mline:first-child, .wd-mname + .wd-mline { margin-top: 0; }
+.wd-mtime { font-size: 9.5px; color: #A5A199; flex-shrink: 0; margin-bottom: 1px; white-space: nowrap; }
+
+/* Bubbles. Theirs: white card + hairline; mine: ink on paper text.
+   The .tail notch (4px corner) marks the corner nearest the avatar —
+   mirrored top-right on my side. */
+.wd-bub { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 8px 12px;
+  font-size: 13.5px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; min-width: 0; }
+.wd-mrow.theirs .wd-bub.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-bub { background: #1A1917; border-color: #1A1917; color: #FBFAF7; }
+.wd-mrow.mine .wd-bub.tail { border-top-right-radius: 4px; }
+.wd-mrow.mine .wd-bub .msg-link:hover { color: #FBFAF7; opacity: .8; }
+
+/* Images / video render AS the bubble. min-width 0 lets the replaced
+   element shrink inside the flex line (timestamp shares the row). */
+.wd-img { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); cursor: pointer; min-width: 0; height: auto; }
+.wd-mrow.theirs .wd-img.tail, .wd-mrow.theirs .wd-vid.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-img.tail, .wd-mrow.mine .wd-vid.tail { border-top-right-radius: 4px; }
+.wd-vid { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); background: #000; min-width: 0; }
+
+/* Non-media attachments — small white card chip on either side. */
+.wd-file { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(26,25,23,.16); background: #fff;
+  padding: 8px 12px; max-width: 320px; border-radius: 12px; }
+.wd-file i { font-style: normal; color: var(--acc); }
+.wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
+
+/* Audio keeps the white AudioAttachment card on BOTH sides. */
+.wd-att-audio { width: min(100%, 360px); display: flex; flex-direction: column; gap: 4px; }
+.wd-att-audio .msg-att-audio,
+.wd-att-audio .msg-att-audio-group { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 10px; }
+.wd-att-audio .msg-att-audio-header svg,
+.wd-att-audio .msg-att-audio-group-header svg { color: var(--acc); }
+.wd-att-audio .msg-att-time { color: #A5A199; }
+
+/* Expired attachment (7-day temp files) — quiet italic line, no bubble. */
+.wd-expired { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 12px; color: #A5A199; padding: 2px; }
+
+/* Under-bubble extras — link preview card + calendar chip stay inside
+   the bubble column; the card stays a white card on my side too. */
+.wd-linkcard { max-width: 100%; margin-top: 2px; }
+.wd-linkcard .msg-link-preview { margin-top: 0; max-width: 320px; }
+.wd-chip { margin-top: 2px; display: flex; max-width: 100%; }
+
+.wd-quiet { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* Read receipts — right edge, tucked 2px under my latest-read bubble.
+   DMs get "read ✓" (accent check); groups get a 12px avatar stack. */
+.wd-read { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px;
+  width: 100%; font-size: 10px; line-height: 1; color: #A5A199; }
+.wd-read svg { color: var(--acc); display: block; }
+.wd-read-avs { display: flex; padding-left: 3px; }
+.wd-read-avs > span { width: 12px; height: 12px; border-radius: 50%; margin-left: -4px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px;
+  border: 1.5px solid #FBFAF7; }
+.wd-read-avs > span:first-child { margin-left: 0; }
+.wd-read-avs img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── input bar ────────────────────────────────────────────────────── */
+.wd-uploading { margin: 0 22px 6px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 11px; color: #A5A199; }
+.wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center; min-height: 44px;
+  border: 1px solid rgba(26,25,23,.5); background: #fff; border-radius: 6px; padding: 7px 8px 7px 8px; flex-shrink: 0; }
+.wd-input textarea { flex: 1; border: none; outline: none; resize: none; background: transparent;
+  font-family: inherit; font-size: 13px; line-height: 1.4; color: #1A1917; padding: 0; align-self: center;
+  max-height: 90px; min-height: 18px; }
+.wd-input textarea::placeholder { color: var(--t3); }
+.wd-input .wd-attach { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: transparent;
+  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; font-size: 14px; line-height: 1; padding: 0; align-self: center;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; }
+.wd-input .wd-attach:hover { border-color: rgba(26,25,23,.4); color: #1A1917; }
+.wd-input .wd-send { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: var(--acc); display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 12px; border: none; cursor: pointer; font-family: inherit; align-self: center; }
+.wd-input .wd-send:disabled { background: #C0BCB3; cursor: default; }
+
+/* ── home (no selection) + my calendar ────────────────────────────── */
+.wd-home { flex: 1; min-height: 0; overflow-y: auto; padding: 46px 48px 24px; scrollbar-width: none; }
+.wd-home::-webkit-scrollbar { display: none; }
+.wd-home-greet { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 26px; }
+.wd-home-date { font-size: 11px; color: #A5A199; margin-top: 3px; }
+.wd-home .wd-up { margin-top: 28px; }
+
+.wd-up-head { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-up-row { display: flex; align-items: baseline; gap: 12px; padding: 8px 2px;
+  border-bottom: 1px solid rgba(26,25,23,.08); font-size: 12.5px; }
+.wd-up-date { width: 66px; flex-shrink: 0; color: #6E6B63; font-size: 11px; }
+.wd-up-date.today { color: var(--acc); }
+.wd-up-time { width: 46px; flex-shrink: 0; color: #A5A199; font-size: 11px; font-variant-numeric: tabular-nums; }
+.wd-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-up-from { flex-shrink: 0; color: #A5A199; font-size: 10.5px; }
+.wd-up-none { padding: 14px 2px; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 13px; color: #A5A199; }
+
+.wd-me { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wd-me-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 8px; scrollbar-width: none; }
+.wd-me-scroll::-webkit-scrollbar { display: none; }
+.wd-sprompt { margin: 0 22px 14px; flex-shrink: 0; }
+
+/* ── notes tab — one document per show ────────────────────────────── */
+/* List view: hairline document rows (serif title · grey snippet ·
+   fine-print byline), with a quiet accent "+ new note" up right. */
+.wd-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wd-notes-bar { flex-shrink: 0; display: flex; justify-content: flex-end; padding: 10px 22px 0; }
+.wd-notes-new { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: var(--acc); }
+.wd-notes-new:hover { text-decoration: underline; text-underline-offset: 3px; }
+.wd-notes-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  padding: 4px 22px 14px; scrollbar-width: none; }
+.wd-notes-list::-webkit-scrollbar { display: none; }
+.wd-note-row { flex-shrink: 0; padding: 11px 2px 10px; border-bottom: 1px solid rgba(26,25,23,.08); cursor: pointer; }
+.wd-note-row:hover { background: rgba(26,25,23,.02); }
+.wd-note-title { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15px; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-title.untitled { font-style: italic; color: #A5A199; }
+.wd-note-snip { margin-top: 2px; font-size: 11.5px; color: #6E6B63;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-meta { margin-top: 3px; font-size: 9.5px; color: #A5A199; }
+
+/* Editor view: quiet paper — ‹ back, borderless serif title, fine
+   print, body that flex-fills the pane. Whitespace preserved so long
+   structured pages (timetables, setlists) read as typed. */
+.wd-note-ed { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 22px 10px; }
+.wd-note-ed-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.wd-note-back { background: none; border: none; padding: 0 2px; cursor: pointer; font-family: inherit;
+  font-size: 18px; line-height: 1; color: #6E6B63; }
+.wd-note-back:hover { color: #1A1917; }
+.wd-note-ed-title { flex: 1; min-width: 0; border: none; outline: none; background: transparent; padding: 0;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 18px; color: #1A1917; }
+.wd-note-ed-title::placeholder { color: #C0BCB3; font-style: italic; }
+.wd-note-ed-fine { flex-shrink: 0; font-size: 9.5px; color: #A5A199; white-space: nowrap; }
+.wd-note-ed-body { flex: 1; min-height: 0; margin-top: 12px; resize: none; border: none; outline: none;
+  background: transparent; padding: 0; white-space: pre-wrap;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13.5px; line-height: 1.7; color: #1A1917; }
+.wd-note-ed-body::placeholder { color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; }
+.wd-note-ed-foot { flex-shrink: 0; padding: 8px 0 2px; display: flex; }
+/* House two-tap delete — a word, then "sure?" in red; never a native
+   confirm (the plugin's WKWebView can't show one). */
+.wd-note-del { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: #A5A199; text-decoration: underline; text-underline-offset: 3px; }
+.wd-note-del:hover { color: #6E6B63; }
+.wd-note-del.sure { color: #D6402E; }
+
+/* ── stems / calendar tab panes ───────────────────────────────────── */
+.wd-pane { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* StemPanel fills the pane; its own .stem-panel styles (collab.css) apply. */
+.wd-pane .stem-panel { padding: 14px 22px 16px; }
+/* ChatCalendar positions absolute inset:0 — the pane is its containing block. */
+.wd-pane .chatcal { position: absolute; inset: 0; }

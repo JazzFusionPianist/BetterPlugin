@@ -135,9 +135,9 @@ export function useMessages(
     const cid = convIdRef.current
     if (!cid || (!content.trim() && !attachment)) return false
 
-    const expiresAt = attachment
-      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      : null
+    // Attachments no longer expire — files persist in R2 and reads go
+    // through presigned GETs. (Old rows may still carry an expiry.)
+    const expiresAt = null
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,

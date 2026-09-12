@@ -63,9 +63,10 @@ export function attachTypeFor(file: File): AttachType {
  * Presign + PUT one file to R2. `onProgress` gets 0..1 (throttled by the
  * caller's render, not here — XHR events are already coarse on mobile).
  *
- * `scope: 'temp'` keys the object under R2's 7-day-expiry prefix — chat
- * attachments only. Everything else (release covers/tracks, gallery,
- * open call) defaults to 'perm' and is stored forever.
+ * `scope: 'temp'` keys the object under R2's 7-day-expiry prefix — kept
+ * for genuinely-ephemeral future uses, but nothing calls it today:
+ * chat attachments, stems, covers/tracks, gallery all default to 'perm'
+ * and are stored forever (reads go through presigned GETs).
  */
 export async function uploadAttachment(
   file: File,

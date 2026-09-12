@@ -33,6 +33,7 @@ import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
+import { resolveUrl, useResolvedUrl } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
@@ -209,8 +210,12 @@ function getWaveMeta(url: string): Promise<WaveMeta> {
   if (cached) return Promise.resolve(cached)
   const inflight = waveInflight.get(url)
   if (inflight) return inflight
-  const p = decodePeaks(url)
-    .catch(async () => ({ peaks: pseudoPeaks(url), duration: await probeDuration(url) }))
+  // Cache stays keyed on the stored PUBLIC url (stable identity); only the
+  // actual fetch/probe uses the presigned url — works once R2 public
+  // access is off. Pseudo-peaks seed from the public url for stability.
+  const p = resolveUrl(url)
+    .then(resolved => decodePeaks(resolved)
+      .catch(async () => ({ peaks: pseudoPeaks(url), duration: await probeDuration(resolved) })))
     .then(meta => { waveCache.set(url, meta); waveInflight.delete(url); return meta })
   waveInflight.set(url, p)
   return p
@@ -421,6 +426,24 @@ function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
     <div className="wd-plate">
       {tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}
     </div>
+  )
+}
+
+/** Image bubble — resolves the stored public url to a presigned GET
+ *  before it hits the <img> (and the external-open click). */
+function StudioImageBubble({ url, name, tail }: { url: string; name: string; tail: boolean }) {
+  const resolved = useResolvedUrl(url)
+  return (
+    <img className={`wd-img${tail ? ' tail' : ''}`} src={resolved} alt={name}
+      onClick={() => { void openExternalUrl(resolved) }} />
+  )
+}
+
+/** Video bubble — same presigned-url resolution as images. */
+function StudioVideoBubble({ url, tail }: { url: string; tail: boolean }) {
+  const resolved = useResolvedUrl(url)
+  return (
+    <video className={`wd-vid${tail ? ' tail' : ''}`} src={resolved} controls preload="metadata" />
   )
 }
 
@@ -1247,15 +1270,22 @@ function StudioShellInner({ supabase, user }: Props) {
     const a = npAudioRef.current
     if (!a) return
     if (npTrackRef.current?.url !== t.url) {
+      // Track identity (activeUrl, cache keys) stays the stored public
+      // url; the <audio> src gets the presigned url. Resolution is async
+      // — guard against the track changing under the await.
       npTrackRef.current = t
       setNpTrack(t); setNpCur(at); setNpDur(0)
-      a.src = t.url
       npPendingSeekRef.current = at > 0 ? at : null
+      void resolveUrl(t.url).then(resolved => {
+        if (npTrackRef.current?.url !== t.url) return
+        a.src = resolved
+        a.play().then(() => setNpPlaying(true)).catch(() => {})
+      })
     } else {
       a.currentTime = at
       setNpCur(at)
+      a.play().then(() => setNpPlaying(true)).catch(() => {})
     }
-    a.play().then(() => setNpPlaying(true)).catch(() => {})
   }, [])
   const npToggle = useCallback(() => {
     const a = npAudioRef.current
@@ -1321,8 +1351,9 @@ function StudioShellInner({ supabase, user }: Props) {
       const presignRes = await fetch('/api/r2-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // scope temp = 7-day expiring key; chat attachments only
-        body: JSON.stringify({ ext, contentType, userId: user.id, scope: 'temp' }),
+        // No scope → permanent key. Chat attachments used to be temp
+        // (7-day expiry); files now persist and reads go presigned.
+        body: JSON.stringify({ ext, contentType, userId: user.id }),
       })
       if (!presignRes.ok) {
         console.error('[studio upload] presign failed:', presignRes.status, await presignRes.text())
@@ -1757,12 +1788,11 @@ function StudioShellInner({ supabase, user }: Props) {
           const name = m.attachment_name ?? 'file'
           if (m.attachment_type === 'image') {
             pieces.push(
-              <img key="att" className={`wd-img${tailCls()}`} src={url} alt={name}
-                onClick={() => { void openExternalUrl(url) }} />,
+              <StudioImageBubble key="att" url={url} name={name} tail={tailCls() !== ''} />,
             )
           } else if (m.attachment_type === 'video') {
             pieces.push(
-              <video key="att" className={`wd-vid${tailCls()}`} src={url} controls preload="metadata" />,
+              <StudioVideoBubble key="att" url={url} tail={tailCls() !== ''} />,
             )
           } else if (m.attachment_type === 'audio') {
             pieces.push(

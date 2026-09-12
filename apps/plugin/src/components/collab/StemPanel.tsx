@@ -138,7 +138,12 @@ export default function StemPanel({
         body: JSON.stringify({ ext, contentType, userId: currentUserId }),
       })
       if (!presign.ok) throw new Error('presign')
-      const { uploadUrl, publicUrl } = await presign.json() as { uploadUrl: string; publicUrl: string }
+      const { uploadUrl, publicUrl, key: objectKey } =
+        await presign.json() as { uploadUrl: string; publicUrl: string; key?: string }
+      // R2 object key for the presign endpoint's keyed membership probe.
+      // The endpoint returns it directly; derive from publicUrl
+      // (origin stripped) if a stale deploy doesn't.
+      const fileKey = objectKey ?? publicUrl.replace(/^https?:\/\/[^/]+\//, '')
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -159,6 +164,7 @@ export default function StemPanel({
         conversation_id: conversationId,
         uploader_id: currentUserId,
         file_url: publicUrl,
+        file_key: fileKey,
         file_name: file.name,
         file_size: file.size,
         mime_type: contentType,

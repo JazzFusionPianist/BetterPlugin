@@ -19,6 +19,41 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, AttachType, ChatTarget } from '@/lib/games/types'
 import { getOrCreateDmConversation } from './conversations'
 
+/** R2 public urls we mint (r2-upload-url): https://pub-<hash>.r2.dev/<key>.
+ *  Returns the object key, or null for anything else (external links,
+ *  data:, supabase storage). Matches the presign endpoint's keyed
+ *  membership probe and the 20260912_file_keys backfill. */
+const R2_PUBLIC_RE = /^https?:\/\/pub-[a-z0-9]+\.r2\.dev\//
+function keyFromR2Url(url: string): string | null {
+  const m = R2_PUBLIC_RE.exec(url)
+  return m ? url.slice(m[0].length) || null : null
+}
+
+/** messages.attachment_keys for an outgoing attachment: every R2 object
+ *  key it references — [key] for a plain R2 url; all track keys for a
+ *  multi-audio attachment, whose url field is a JSON array of
+ *  { url, name } tracks (see ChatView's multi-audio send paths);
+ *  null when nothing R2-backed is referenced. */
+function attachmentKeys(attachment?: { url: string; type: AttachType }): string[] | null {
+  if (!attachment) return null
+  if (attachment.type === 'multi-audio') {
+    try {
+      const tracks = JSON.parse(attachment.url) as unknown
+      if (!Array.isArray(tracks)) return null
+      const keys = tracks
+        .map(t => (t && typeof t === 'object' && typeof (t as { url?: unknown }).url === 'string')
+          ? keyFromR2Url((t as { url: string }).url)
+          : null)
+        .filter((k): k is string => k !== null)
+      return keys.length > 0 ? keys : null
+    } catch {
+      return null
+    }
+  }
+  const key = keyFromR2Url(attachment.url)
+  return key ? [key] : null
+}
+
 export function useMessages(
   supabase: SupabaseClient,
   currentUserId: string,
@@ -162,6 +197,9 @@ export function useMessages(
       attachment_type: attachment?.type ?? null,
       attachment_name: attachment?.name ?? null,
       attachment_expires_at: expiresAt,
+      // R2 object keys — what the presign endpoint's membership probe
+      // matches on (exact keys, not url substrings).
+      attachment_keys: attachmentKeys(attachment),
     })
 
     if (error) {

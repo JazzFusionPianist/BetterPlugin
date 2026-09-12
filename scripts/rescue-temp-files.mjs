@@ -12,7 +12,10 @@
  *        - S3 CopyObject  temp/<userId>/<file> → <userId>/<file>
  *          (same key minus the 'temp/' prefix)
  *        - HEAD the destination to verify the copy landed.
- *   3. UPDATE the DB row's URL ('/temp/' → '/').
+ *   3. UPDATE the DB row's URL ('/temp/' → '/') and its key column
+ *      (messages.attachment_keys / conversation_stems.file_key — what
+ *      the presign endpoint's membership probe matches on) to the
+ *      rescued keys.
  *
  * Source temp/ objects are left in place — the lifecycle rule reaps them.
  *
@@ -170,7 +173,11 @@ const TEMP_URL_RE = /https?:\/\/[^\s"',]+\/temp\/[A-Za-z0-9/_.\-]+/g
 /** R2 object key from a public url: the pathname minus the leading '/'. */
 const keyOf = (url) => decodeURIComponent(new URL(url).pathname.replace(/^\//, ''))
 
-async function rescueTable(table, urlColumn) {
+/** Every R2 public url inside a field (plain url, or a multi-audio JSON
+ *  array) — for rebuilding the row's key column after the rescue. */
+const R2_URL_RE = /https?:\/\/[^\s"',]+\.r2\.dev\/[A-Za-z0-9/_.\-]+/g
+
+async function rescueTable(table, urlColumn, keyPatch) {
   console.log(`\n── ${table}.${urlColumn} ──`)
   const rows = await sbSelect(table, urlColumn)
   console.log(`${rows.length} row(s) reference /temp/`)
@@ -199,10 +206,13 @@ async function rescueTable(table, urlColumn) {
         }
       }
       const newField = field.replaceAll('/temp/', '/')
+      // Rescued rows also get their key column set (the presign
+      // endpoint matches on keys, not url substrings).
+      const patch = { [urlColumn]: newField, ...keyPatch(newField) }
       if (DRY_RUN) {
-        console.log(`  [dry] would update ${table} ${row.id}`)
+        console.log(`  [dry] would update ${table} ${row.id}: ${JSON.stringify(patch)}`)
       } else {
-        await sbUpdate(table, row.id, { [urlColumn]: newField })
+        await sbUpdate(table, row.id, patch)
         updated++
         console.log(`  [ok]  updated ${table} ${row.id}`)
       }
@@ -220,8 +230,14 @@ console.log(DRY_RUN
   : 'EXECUTE — copying objects and updating rows')
 
 let failures = 0
-failures += await rescueTable('messages', 'attachment_url')
-failures += await rescueTable('conversation_stems', 'file_url')
+failures += await rescueTable('messages', 'attachment_url', (newField) => {
+  // Plain url or multi-audio JSON array — every R2 url in the field.
+  const keys = [...new Set((newField.match(R2_URL_RE) ?? []).map(keyOf))]
+  return { attachment_keys: keys.length > 0 ? keys : null }
+})
+failures += await rescueTable('conversation_stems', 'file_url', (newField) => ({
+  file_key: newField.match(R2_URL_RE) ? keyOf(newField) : null,
+}))
 
 if (failures > 0) {
   console.error(`\ndone with ${failures} failure(s) — those rows were left untouched`)

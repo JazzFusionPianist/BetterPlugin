@@ -7,11 +7,14 @@
  *   2. Receives: { url, expiresIn }  — a presigned GET, valid 60 minutes.
  *   3. Use `url` anywhere a public URL was used (audio src, fetch, <img>).
  *
- * Auth — conversation membership via RLS (v1):
+ * Auth — conversation membership via RLS (v2, keyed):
  *   With the CALLER'S OWN JWT we ask PostgREST whether any row referencing
- *   this key is visible to them:
- *     GET /rest/v1/messages?select=id&attachment_url=ilike.*<key>*&limit=1
- *     GET /rest/v1/conversation_stems?select=id&file_url=ilike.*<key>*&limit=1
+ *   this key is visible to them, matching the dedicated key columns
+ *   (populated by the app's writers, backfilled by 20260912_file_keys):
+ *     GET /rest/v1/messages?select=id&attachment_keys=cs.{"<key>"}&limit=1
+ *     GET /rest/v1/conversation_stems?select=id&file_key=eq.<key>&limit=1
+ *   Exact-key matching — no ilike, so no wildcard-escaping and no
+ *   substring collisions between keys.
  *   RLS on both tables is is_conversation_member, so a visible row proves
  *   the caller is a member of the conversation the file belongs to (and,
  *   as a side effect, that the JWT is valid — no separate /auth/v1/user
@@ -60,25 +63,17 @@ function isSafeKey(key: string): boolean {
   return /^[A-Za-z0-9/_.-]+$/.test(key)
 }
 
-/** Escape PostgREST ilike wildcards so the key matches literally inside
- *  the stored URL: % and _ are wildcards, \ is the escape character —
- *  prefix each with \. (The safe-key charset admits _ and . — . is
- *  literal in LIKE, _ is not.) */
-function escapeIlike(s: string): string {
-  return s.replace(/[\\%_]/g, ch => '\\' + ch)
-}
-
 /** One PostgREST probe under the caller's JWT: is any row of `table`
- *  whose `column` contains the key visible through RLS? */
+ *  matching `filter` (an already-encoded `column=op.value` query pair)
+ *  visible through RLS? */
 async function rowVisible(
   restBase: string,
   anonKey: string,
   token: string,
   table: string,
-  column: string,
-  pattern: string,
+  filter: string,
 ): Promise<{ visible: boolean; status: number }> {
-  const url = `${restBase}/${table}?select=id&${column}=ilike.${encodeURIComponent(pattern)}&limit=1`
+  const url = `${restBase}/${table}?select=id&${filter}&limit=1`
   const res = await fetch(url, {
     headers: {
       apikey: anonKey,
@@ -138,10 +133,15 @@ export default async function handler(req: Request): Promise<Response> {
   // A row referencing this key visible under is_conversation_member RLS
   // proves membership (and validates the JWT in the same round trip).
   const restBase = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`
-  const pattern = `*${escapeIlike(key)}*`
+  // messages.attachment_keys is text[] — `cs` (contains) with a PostgREST
+  // array literal. The key goes double-quoted inside {} (it contains '/');
+  // encodeURIComponent covers the braces, quotes, and slashes so the pair
+  // survives URL parsing intact. conversation_stems.file_key is scalar — eq.
+  const messagesFilter = `attachment_keys=cs.${encodeURIComponent(`{"${key}"}`)}`
+  const stemsFilter = `file_key=eq.${encodeURIComponent(key)}`
   try {
     const viaMessages = await rowVisible(
-      restBase, supabaseAnonKey, token, 'messages', 'attachment_url', pattern)
+      restBase, supabaseAnonKey, token, 'messages', messagesFilter)
     if (viaMessages.status === 401) {
       return json({ error: 'invalid or expired token' }, 401)
     }
@@ -152,7 +152,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
     if (!viaMessages.visible) {
       const viaStems = await rowVisible(
-        restBase, supabaseAnonKey, token, 'conversation_stems', 'file_url', pattern)
+        restBase, supabaseAnonKey, token, 'conversation_stems', stemsFilter)
       if (viaStems.status === 401) {
         return json({ error: 'invalid or expired token' }, 401)
       }

@@ -500,3 +500,10 @@
 .wd-pane .stem-panel { padding: 14px 22px 16px; }
 /* ChatCalendar positions absolute inset:0 — the pane is its containing block. */
 .wd-pane .chatcal { position: absolute; inset: 0; }
+
+/* The listen link rides in the same caption row as the import word. */
+.wd-ac-import { gap: 10px; }
+.wd-ac-import .msg-att-row { display: contents; }
+.wd-ac-import .msg-att-link { position: relative; top: -1px; color: rgba(26,25,23,.55); font-size: 10.5px; }
+.wd-ac-import .msg-att-link:hover { color: rgba(26,25,23,.9); }
+.wd-ac-import .msg-att-link.done { color: var(--blue, #2440FF); }

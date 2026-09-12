@@ -10,8 +10,9 @@ import ChatCalendar from './ChatCalendar'
 import { useCalendarEvents, type CalendarEvent, type NewCalendarEvent } from '../../hooks/useCalendarEvents'
 import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
-import { mergeDroppedRegions } from '../../lib/audioMerge'
+import { mergeDroppedRegions, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
+import { buildListenUrl, copyText } from '../../lib/shareLink'
 
 interface Attachment {
   url: string
@@ -341,7 +342,40 @@ export interface ExternalAudioEngine {
 }
 export const AudioEngineContext = createContext<ExternalAudioEngine | null>(null)
 
-export function AudioAttachment({ url, name, metadata, compact = false }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean }) {
+/** "link" — copies a /listen URL that plays this audio in any browser,
+ *  no account, no plug-in. The word becomes "copied" for a beat. */
+export function ShareLinkWord({ url, name, from, metadata, square = false }: {
+  url: string; name: string; from?: string | null; metadata?: AttachmentTimelineMetadata | null; square?: boolean
+}) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const copy = async (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault()
+    const ok = await copyText(buildListenUrl({ url, name, from, metadata }))
+    setState(ok ? 'copied' : 'failed')
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setState('idle'), 1600)
+  }
+  const label = state === 'copied' ? 'copied' : state === 'failed' ? 'couldn\'t copy' : 'link'
+  const title = 'copy a listen link — plays in any browser, no plug-in needed'
+  if (square) {
+    return (
+      <button className={`stem-link-square${state === 'copied' ? ' done' : ''}`} onClick={copy}
+        onMouseDown={e => e.stopPropagation()} title={title} aria-label={title}>
+        {state === 'copied'
+          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></svg>}
+      </button>
+    )
+  }
+  return (
+    <button className={`msg-att-link${state === 'copied' ? ' done' : ''}`} onClick={copy}
+      onMouseDown={e => e.stopPropagation()} title={title}>{label}</button>
+  )
+}
+
+export function AudioAttachment({ url, name, metadata, compact = false, from }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null }) {
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
@@ -583,6 +617,7 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
       <div className={`msg-att-audio stem-audio-compact${compactExpanded ? ' expanded' : ''}`}>
         <div className="stem-audio-main">
           <span className="stem-audio-name" title={name}>{name}</span>
+          <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
           <button
             className={`stem-import-square${ready ? ' ready' : ''}`}
             onMouseEnter={handleMouseEnter}
@@ -649,7 +684,8 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
 
       {player}
 
-      {/* Import / Drag button — its own row under the player */}
+      {/* Import / Drag button — its own row under the player, the listen link beside it */}
+      <div className="msg-att-row">
       <button
         className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' || dragState === 'imported' ? ' ready' : ''}`}
         onMouseEnter={handleMouseEnter}
@@ -673,6 +709,8 @@ export function AudioAttachment({ url, name, metadata, compact = false }: { url:
         )}
         <span>{dragLabel[dragState]}</span>
       </button>
+      <ShareLinkWord url={url} name={name} from={from} metadata={metadata} />
+      </div>
     </div>
   )
 }
@@ -1608,30 +1646,58 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   }
 
   // A single dragged region needs no choice — attach it straight away.
-  // Multi-region drops fall through to the merge/separate choice sheet.
+  // Several regions: their BWF stamps decide first. Side by side on one
+  // timeline → merged into one placed clip; overlapping → two tracks,
+  // sent separately. Only unstamped files still ask.
   useEffect(() => {
-    if (dropChoice && dropChoice.length === 1) {
+    if (!dropChoice) return
+    if (dropChoice.length === 1) {
       const b = dropChoice
       setDropChoice(null)
       void attachDroppedBatch(b)
+      return
     }
+    let cancelled = false
+    setMerging(true)
+    void (async () => {
+      const resolved = await resolveDawDrop(dropChoice.map(r => regionToFile(r.name, r.data)))
+      if (cancelled) return
+      setMerging(false)
+      if (resolved.kind === 'merged') {
+        setDropChoice(null)
+        await sendMergedFile(resolved.file)
+      } else if (resolved.reason === 'overlap') {
+        const b = dropChoice
+        setDropChoice(null)
+        await attachDroppedBatch(b)
+      }
+      // otherwise the choice sheet stays up
+    })()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dropChoice])
 
-  // "Merge into one" branch — decode + concatenate the regions into a
-  // single WAV and send it as one audio clip.
+  // Upload one merged clip. Its own bext stamp makes the position exact.
+  const sendMergedFile = async (file: File) => {
+    if (file.size > MAX_SIZE) { showErr(`merged file too large (max ${MAX_SIZE_MB} MB)`); return }
+    const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
+    setUploading(true)
+    const att = await uploadFile(file, 'audio')
+    setUploading(false)
+    if (att) await onSend('', { ...att, metadata: metadata ?? undefined })
+    else showErr('upload failed — check the file size or your connection.')
+    dropTimelineRef.current = null
+  }
+
+  // "Merge into one" branch — the user's call for unstamped regions:
+  // joined back to back in filename order.
   const mergeAndSend = async (batch: { name: string; data: string }[]) => {
     setMerging(true)
     const file = await mergeDroppedRegions(batch)
     setMerging(false)
     setDropChoice(null)
     if (!file) { showErr('couldn\'t merge these regions. send them separately.'); return }
-    if (file.size > MAX_SIZE) { showErr(`merged file too large (max ${MAX_SIZE_MB} MB)`); return }
-    setUploading(true)
-    const att = await uploadFile(file, 'audio')
-    setUploading(false)
-    if (att) await onSend('', { ...att, metadata: dropTimelineRef.current ?? undefined })
-    else showErr('upload failed — check the file size or your connection.')
+    await sendMergedFile(file)
   }
 
   // "Attach directly" branch of the drop choice — sends the dragged

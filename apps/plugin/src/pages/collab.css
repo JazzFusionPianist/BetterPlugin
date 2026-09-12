@@ -10365,3 +10365,24 @@ text.sg-word { fill: var(--sg-ink-55); }
 /* prints carried past the wall's edge stay behind it, not over the study */
 .sg-wall { overflow: hidden; overflow: clip; }
 .sg-shelf { overflow: hidden; }
+
+/* ── listen link — "link" beside the import word / a ghost square on the
+   compact stem card. Copies a /listen URL anyone can play in a browser. */
+.msg-att-row { display: flex; align-items: center; gap: 10px; }
+.msg-att-link {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font-family: var(--f-sans); font-size: 11px; font-weight: 400; color: var(--t2);
+  text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
+  transition: color .12s;
+}
+.msg-att-link:hover { color: var(--t1); }
+.msg-att-link.done { color: var(--blue); }
+.stem-link-square {
+  flex: 0 0 26px; width: 26px; height: 26px; padding: 0;
+  border: 1px solid transparent; border-radius: 3px;
+  display: grid; place-items: center; background: transparent; color: var(--t3); cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.stem-link-square:hover { color: var(--t1); border-color: var(--border); }
+.stem-link-square.done { color: var(--blue); }
+.stem-link-square svg { width: 13px; height: 13px; }

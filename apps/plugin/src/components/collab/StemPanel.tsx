@@ -6,6 +6,7 @@ import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudi
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
+import { regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
@@ -22,18 +23,6 @@ const AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', '
 
 function isAudio(file: File) {
   return file.type.startsWith('audio/') || AUDIO_EXTS.has(file.name.split('.').pop()?.toLowerCase() ?? '')
-}
-
-function nativeFile(name: string, data: string): File {
-  const binary = atob(data)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  const ext = name.split('.').pop()?.toLowerCase() ?? ''
-  const mime: Record<string, string> = {
-    wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff', mp3: 'audio/mpeg',
-    m4a: 'audio/mp4', caf: 'audio/x-caf', ogg: 'audio/ogg', flac: 'audio/flac',
-  }
-  return new File([bytes], name, { type: mime[ext] ?? 'audio/wav' })
 }
 
 export default function StemPanel({
@@ -155,8 +144,12 @@ export default function StemPanel({
   useEffect(() => {
     if (!pendingDrop || consumed.current.has(pendingDrop.id)) return
     consumed.current.add(pendingDrop.id)
-    const files = pendingDrop.files ?? pendingDrop.nativeFiles?.map(file => nativeFile(file.name, file.data)) ?? []
-    void uploadFiles(files, pendingDrop.fallbackMetadata).finally(() => onDropConsumed(pendingDrop.id))
+    void (async () => {
+      const files = pendingDrop.files ?? pendingDrop.nativeFiles?.map(file => regionToFile(file.name, file.data)) ?? []
+      // Regions dragged from one DAW track arrive as one placed clip.
+      const resolved = pendingDrop.nativeFiles ? await resolveDawDrop(files) : null
+      await uploadFiles(resolved?.kind === 'merged' ? [resolved.file] : files, pendingDrop.fallbackMetadata)
+    })().finally(() => onDropConsumed(pendingDrop.id))
   }, [onDropConsumed, pendingDrop, uploadFiles])
 
   const handlePickedFiles = useCallback((fileList: FileList | null) => {
@@ -226,6 +219,7 @@ export default function StemPanel({
                 url={stem.file_url}
                 name={stem.file_name}
                 metadata={displayTimeline}
+                from={uploader?.display_name}
               />
             </div>
           )

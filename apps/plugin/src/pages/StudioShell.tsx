@@ -32,7 +32,8 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
-import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
+import { resolveDawDrop } from '../lib/audioMerge'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
@@ -333,7 +334,7 @@ function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) 
    arming, __juceImported / cooldown handling — runs byte-for-byte
    unchanged. Playback is a remote control on the shared engine. */
 
-interface StudioTrack { url: string; name: string; metadata?: AttachmentTimelineMetadata }
+interface StudioTrack { url: string; name: string; metadata?: AttachmentTimelineMetadata; from?: string }
 
 /** Bind one track to the shared engine + its cached waveform. Duration
  *  prefers the live engine, then the decoded meta, so a card reads its
@@ -379,7 +380,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
         <span className="wd-plate-right">
           <span className="wd-plate-time">{fmtDur(cur)} / {fmtDur(total)}</span>
           <span className="wd-ac-import">
-            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
         </span>
       </div>
@@ -401,7 +402,7 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
         <span className="wd-plate-right">
           <span className="wd-plate-time">{fmtDur(cur)} / {fmtDur(total)}</span>
           <span className="wd-ac-import">
-            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} />
+            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
         </span>
       </div>
@@ -1386,6 +1387,31 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE])
 
+  // A DAW drop lands here (not the picker). Regions that prove, by their
+  // BWF stamps, to sit side by side on one track merge into a single
+  // clip at their original positions; anything else goes as separate
+  // tracks. Every file carries the position it was dragged from.
+  const sendDawFiles = useCallback(async (files: File[], fallback: AttachmentTimelineMetadata | null) => {
+    const audio = files.filter(isAudioFile)
+    const rest = files.filter(f => !isAudioFile(f))
+    if (rest.length > 0) await onFilesPicked(rest)
+    if (audio.length === 0) return
+    const resolved = await resolveDawDrop(audio)
+    const list = resolved.kind === 'merged' ? [resolved.file] : resolved.files
+    const uploaded: { url: string; name: string; metadata?: AttachmentTimelineMetadata }[] = []
+    for (const f of list) {
+      if (f.size > MAX_SIZE) continue
+      const metadata = await extractAudioTimeline(f, fallback)
+      const a = await uploadFile(f, 'audio')
+      if (a) uploaded.push({ url: a.url, name: a.name, metadata: metadata ?? undefined })
+    }
+    if (uploaded.length === 1) {
+      await send('', { url: uploaded[0]!.url, type: 'audio', name: uploaded[0]!.name, metadata: uploaded[0]!.metadata })
+    } else if (uploaded.length > 1) {
+      await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks`, metadata: fallback ?? undefined })
+    }
+  }, [onFilesPicked, uploadFile, send, MAX_SIZE])
+
   // ── DAW drag-and-drop → main pane ───────────────────────────────────
   // Two entry paths, mirroring ChatView/CollabPage:
   //  · HTML5 dataTransfer drops (Finder etc.) on the .wd-main handlers
@@ -1417,6 +1443,7 @@ function StudioShellInner({ supabase, user }: Props) {
   const tabRef = useRef(tab); tabRef.current = tab
   const activeConvIdRef = useRef(activeConvId); activeConvIdRef.current = activeConvId
   const onFilesPickedRef = useRef(onFilesPicked); onFilesPickedRef.current = onFilesPicked
+  const sendDawFilesRef = useRef(sendDawFiles); sendDawFilesRef.current = sendDawFiles
 
   // A new conversation invalidates a stale routed drop.
   useEffect(() => { setPendingStemDrop(null) }, [activeConvId])
@@ -1502,7 +1529,7 @@ function StudioShellInner({ supabase, user }: Props) {
           })
           return
         }
-        await onFilesPickedRef.current(batch.map(f => nativeToFile(f.name, f.data)))
+        await sendDawFilesRef.current(batch.map(f => nativeToFile(f.name, f.data)), fallback)
       })()
     }
     window.addEventListener('__juceFileDrop', handler)
@@ -1765,13 +1792,15 @@ function StudioShellInner({ supabase, user }: Props) {
               <video key="att" className={`wd-vid${tailCls()}`} src={url} controls preload="metadata" />,
             )
           } else if (m.attachment_type === 'audio') {
+            const from = profileById.get(m.sender_id)?.display_name
             pieces.push(
               <StudioAudioCard key="att"
-                tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined }]} />,
+                tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined, from }]} />,
             )
           } else if (m.attachment_type === 'multi-audio') {
-            let tracks: { url: string; name: string }[] = []
-            try { tracks = JSON.parse(url) } catch { /* fall through to chip */ }
+            const from = profileById.get(m.sender_id)?.display_name
+            let tracks: StudioTrack[] = []
+            try { tracks = (JSON.parse(url) as StudioTrack[]).map(t => ({ ...t, from })) } catch { /* fall through to chip */ }
             pieces.push(tracks.length > 0
               ? <StudioAudioCard key="att" tracks={tracks} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)

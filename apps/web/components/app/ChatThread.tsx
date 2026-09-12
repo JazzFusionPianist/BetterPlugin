@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useMessages, useConversationReads, type Profile, type Message } from '@orb/core'
 import { uploadAttachment, attachTypeFor, type UploadedAttachment } from '@/lib/upload'
+import { buildListenUrl, shareListenUrl } from '@/lib/listenLink'
 import ChatSettingsSheet from './ChatSettingsSheet'
 
 /** What a thread points at — a DM partner or a group conversation. */
@@ -58,7 +59,29 @@ const NowPlayingCtx = createContext<NowPlayingApi | null>(null)
 
 /** Inline audio player — the whole point of mobile chat for this app:
  *  audio people drop in from the DAW must play right here. */
-function AudioPlayer({ url, name }: { url: string; name: string }) {
+/** "link" in the bubble head — share sheet on phones, clipboard on desktop.
+ *  The URL opens /listen: plays in any browser, no account, no plug-in. */
+function ListenLink({ url, name, from, metadata }: { url: string; name: string; from?: string; metadata?: unknown }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const go = async (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault()
+    const result = await shareListenUrl(buildListenUrl({ url, name, from, metadata }), name)
+    if (result === 'shared') return
+    setState(result)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setState('idle'), 1600)
+  }
+  return (
+    <button className={`msg-audio-link${state === 'copied' ? ' done' : ''}`} onClick={go}
+      title="listen link — plays in any browser">
+      {state === 'copied' ? 'copied' : state === 'failed' ? 'couldn\'t copy' : 'link'}
+    </button>
+  )
+}
+
+function AudioPlayer({ url, name, from, metadata }: { url: string; name: string; from?: string; metadata?: unknown }) {
   const np = useContext(NowPlayingCtx)
   // A metadata-only element so every bubble can show its duration
   // before it has ever been played.
@@ -94,6 +117,7 @@ function AudioPlayer({ url, name }: { url: string; name: string }) {
       <div className="msg-audio-head">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
         <span className="msg-audio-name">{name}</span>
+        <ListenLink url={url} name={name} from={from} metadata={metadata} />
       </div>
       <div className="msg-audio-player">
         <button className="msg-audio-btn" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
@@ -205,7 +229,7 @@ function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
 }
 
 /** Render whatever a message carries as an attachment. */
-function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoinGame?: GameInviteBubbleJoin }) {
+function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; from?: string; onJoinGame?: GameInviteBubbleJoin }) {
   if (m.attachment_expired) {
     return (
       <div className="msg-tomb">
@@ -219,13 +243,13 @@ function Attachment({ m, mine, onJoinGame }: { m: Message; mine: boolean; onJoin
   if (!url) return null
   switch (m.attachment_type) {
     case 'audio':
-      return <AudioPlayer url={url} name={name} />
+      return <AudioPlayer url={url} name={name} from={from} metadata={(m as { attachment_metadata?: unknown }).attachment_metadata} />
     case 'multi-audio': {
-      let tracks: { url: string; name: string }[] = []
+      let tracks: { url: string; name: string; metadata?: unknown }[] = []
       try { tracks = JSON.parse(url) } catch { /* ignore */ }
       return (
         <div className="msg-audio-multi">
-          {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `track ${i + 1}`} />)}
+          {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `track ${i + 1}`} from={from} metadata={t.metadata} />)}
         </div>
       )
     }
@@ -568,7 +592,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   </span>
                 )}
                 <div className={`chatt-bubble${hasAttach ? ' has-att' : ''}${isTicket ? ' ticket-carrier' : ''}`}>
-                  {hasAttach && <Attachment m={m} mine={mine} onJoinGame={onJoinGame} />}
+                  {hasAttach && <Attachment m={m} mine={mine} from={profileById.get(m.sender_id)?.display_name} onJoinGame={onJoinGame} />}
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>
                 </div>

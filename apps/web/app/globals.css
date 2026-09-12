@@ -1394,6 +1394,15 @@ button { font-family: inherit; }
 }
 .msg-audio-head svg { display: none; }   /* the play control already says "audio" */
 .msg-audio-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
+.msg-audio-link {
+  margin-left: auto; padding: 0 0 0 8px; border: 0; background: none; cursor: pointer;
+  font-family: var(--f-sans); font-size: 11px; font-weight: 400; color: inherit; opacity: 0.55;
+  text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
+  transition: opacity .12s;
+}
+.msg-audio-link:hover { opacity: 0.9; }
+.msg-audio-link.done { opacity: 1; color: var(--blue); }
+.chatt-row.mine .msg-audio-link.done { color: inherit; }
 .msg-audio-player { display: flex; align-items: center; gap: 8px; }
 .msg-audio-btn {
   position: absolute; left: 2px; top: 50%;

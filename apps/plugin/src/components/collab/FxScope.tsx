@@ -8,7 +8,7 @@ import { hasJuceBridge } from '../../lib/juceBridge'
     wall's ink, quiet; output in the second ink over it.               */
 
 const WINDOW_S = 0.16          // seconds of signal across the wall
-const RING_S = 2               // seconds kept
+const RING_S = 3               // seconds kept (the widest window is 2 s)
 
 interface Props {
   input: boolean
@@ -17,6 +17,8 @@ interface Props {
   height: number
   ink: string                  // the wall's ink, "rgb(r, g, b)"
   accent: string               // the second ink
+  gain?: number                // vertical zoom: 1 = full scale fills 84% of the wall
+  windowS?: number             // horizontal zoom: seconds edge to edge
 }
 
 function decode (b64: string): Float32Array | null {
@@ -28,7 +30,7 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ input, output, width, height, ink, accent }: Props) {
+export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
   const ringIn = useRef(new Float32Array(48000 * RING_S))
@@ -93,7 +95,7 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
     let raf = 0
     const SILENT = 0.002   // ≈ −54 dBFS: below this there is nothing to draw
     const trace = (ring: Float32Array, w: number, colour: string, lw: number) => {
-      const n = Math.round(sr.current * WINDOW_S)
+      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
       const per = n / width
       ctx.beginPath()
       ctx.strokeStyle = colour; ctx.lineWidth = lw * dpr; ctx.lineJoin = 'round'
@@ -109,7 +111,7 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
           if (v < lo) lo = v; if (v > hi) hi = v
         }
         if (Math.max(Math.abs(lo), Math.abs(hi)) < SILENT) { pen = false; continue }
-        const yHi = (mid - Math.min(1, hi) * amp) * dpr, yLo = (mid - Math.max(-1, lo) * amp) * dpr
+        const yHi = (mid - Math.min(1.2, hi * gain) * amp) * dpr, yLo = (mid - Math.max(-1.2, lo * gain) * amp) * dpr
         if (!pen) { ctx.moveTo(x * dpr, yHi); pen = true } else ctx.lineTo(x * dpr, yHi)
         ctx.lineTo(x * dpr, yLo)
       }
@@ -127,7 +129,7 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [input, output, width, height, ink, accent])
+  }, [input, output, width, height, ink, accent, gain, windowS])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

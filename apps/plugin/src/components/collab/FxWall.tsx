@@ -1,4 +1,5 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
@@ -510,10 +511,47 @@ export default function FxWall ({ size: frame }: Props) {
 
   const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
 
-  // ── the scope: input / output traces in the wall's corner ─────────
-  const [scope, setScope] = useState<{ input: boolean; output: boolean }>(() => {
-    try { const v = JSON.parse(localStorage.getItem('orb_wall_scope') || 'null'); return v ? { input: !!v.input, output: !!v.output } : { input: false, output: false } } catch { return { input: false, output: false } }
+  // ── patches: the wall's settings, saved by name, in the top bar ────
+  type Patch = { name: string; graph: FxGraph; at: number }
+  const [patches, setPatches] = useState<Patch[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem('orb_wall_patches') || '[]'); return Array.isArray(v) ? v : [] } catch { return [] }
   })
+  const [currentPatch, setCurrentPatch] = useState<number>(-1)
+  const [renaming, setRenaming] = useState<number>(-1)
+  const savePatches = (next: Patch[]) => { setPatches(next); try { localStorage.setItem('orb_wall_patches', JSON.stringify(next)) } catch { /* fine */ } }
+  const savePatch = () => {
+    let n = patches.length + 1
+    while (patches.some(p => p.name === `patch ${n}`)) n++
+    const next = [...patches, { name: `patch ${n}`, graph: JSON.parse(JSON.stringify(graphRef.current)) as FxGraph, at: Date.now() }]
+    savePatches(next); setCurrentPatch(next.length - 1)
+  }
+  const overwritePatch = (i: number) => {
+    savePatches(patches.map((p, k) => k === i ? { ...p, graph: JSON.parse(JSON.stringify(graphRef.current)) as FxGraph, at: Date.now() } : p))
+  }
+  const loadPatch = (i: number) => {
+    const p = patches[i]; if (!p) return
+    commit(settle(JSON.parse(JSON.stringify(p.graph)) as FxGraph, size.w, size.h), true)
+    setCurrentPatch(i); setSel(null); setConfirm(null)
+  }
+  const removePatch = (i: number) => {
+    savePatches(patches.filter((_, k) => k !== i))
+    setCurrentPatch(-1); setConfirm(null)
+  }
+  const topBar = typeof document !== 'undefined' ? document.querySelector('.plugin.sounds > .top-bar') : null
+
+  // ── the scope: input / output traces in the wall's corner ─────────
+  const [scope, setScope] = useState<{ input: boolean; output: boolean; gain: number; windowS: number }>(() => {
+    const d = { input: false, output: false, gain: 1, windowS: 0.16 }
+    try { const v = JSON.parse(localStorage.getItem('orb_wall_scope') || 'null'); return v ? { ...d, input: !!v.input, output: !!v.output, gain: Number(v.gain) || 1, windowS: Number(v.windowS) || 0.16 } : d } catch { return d }
+  })
+  const scopeHand = useRef<{ which: 'gain' | 'window'; y0: number; v0: number } | null>(null)
+  const onScopeHandMove = (e: React.PointerEvent) => {
+    const h = scopeHand.current; if (!h) return
+    const f = Math.exp((h.y0 - e.clientY) / 90)
+    if (h.which === 'gain') setScope(v => ({ ...v, gain: Math.min(16, Math.max(0.25, h.v0 * f)) }))
+    else setScope(v => ({ ...v, windowS: Math.min(2, Math.max(0.02, h.v0 / f)) }))
+  }
+  const fmtWindow = (w: number) => (w >= 1 ? `${w.toFixed(1)}s` : `${Math.round(w * 1000)}ms`)
   useEffect(() => {
     setScopeInput(scope.input)
     try { localStorage.setItem('orb_wall_scope', JSON.stringify(scope)) } catch { /* fine */ }
@@ -521,8 +559,35 @@ export default function FxWall ({ size: frame }: Props) {
   useEffect(() => () => setScopeInput(false), [])
   const inkRgb = strokeFor(litLevel)
 
+  const patchBar = topBar && createPortal(
+    <div className="sg-patchbar" style={inkVars} onPointerDown={(e) => e.stopPropagation()}>
+      <div className="sg-patchbar-names">
+        {patches.map((p, i) => (
+          <span key={p.at} className={`sg-patch${currentPatch === i ? ' on' : ''}`}>
+            {renaming === i
+              ? <input className="sg-patch-rename" autoFocus defaultValue={p.name}
+                  onBlur={(e) => { const name = e.currentTarget.value.trim().toLowerCase() || p.name; savePatches(patches.map((q, k) => k === i ? { ...q, name } : q)); setRenaming(-1) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.currentTarget as HTMLInputElement).blur() }} />
+              : <span className="sg-word" onPointerDown={() => loadPatch(i)} onDoubleClick={() => setRenaming(i)}>{p.name}</span>}
+            {currentPatch === i && renaming !== i && (
+              <>
+                <span className="sg-word quiet" onPointerDown={() => overwritePatch(i)}>keep</span>
+                <span className="sg-word quiet" onPointerDown={() => { if (confirm === `patch:${i}`) removePatch(i); else setConfirm(`patch:${i}`) }}>
+                  {confirm === `patch:${i}` ? 'sure?' : 'remove'}
+                </span>
+              </>
+            )}
+          </span>
+        ))}
+      </div>
+      <span className="sg-word" onPointerDown={savePatch}>save</span>
+    </div>,
+    topBar,
+  )
+
   return (
     <StrokeLevel.Provider value={litLevel}>
+    {patchBar}
     <div className="sg-frame" style={inkVars}>
     <div className="sg-left">
       <div
@@ -541,7 +606,7 @@ export default function FxWall ({ size: frame }: Props) {
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         {(scope.input || scope.output) && (
           <div className="sg-scope-bg">
-            <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} />
+            <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} />
           </div>
         )}
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
@@ -556,6 +621,7 @@ export default function FxWall ({ size: frame }: Props) {
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
                 <path className="sg-wire-hit" d={wirePath(p0, p1)}
                   onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setConfirm(null) }} />
+                <path className="sg-wire-mask" d={wirePath(p0, p1)} />
                 <path className="sg-wire-line" d={wirePath(p0, p1)} />
                 {label && (
                   <text className="sg-share" x={lp.x} y={lp.y - 7} textAnchor="middle"
@@ -720,8 +786,25 @@ export default function FxWall ({ size: frame }: Props) {
         )}
 
         {/* the scope's two words, bottom right (the traces fill the wall behind everything) */}
-        <div className="sg-scope-corner" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="sg-scope-corner" onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={onScopeHandMove} onPointerUp={() => { scopeHand.current = null }}>
           <div className="sg-scope-words">
+            {(scope.input || scope.output) && (
+              <>
+                <span className="sg-val hand" title="vertical zoom"
+                  onPointerDown={(e) => { scopeHand.current = { which: 'gain', y0: e.clientY, v0: scope.gain }; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }}
+                  onDoubleClick={() => setScope(v => ({ ...v, gain: 1 }))}
+                  onWheel={(e) => { e.stopPropagation(); e.preventDefault(); setScope(v => ({ ...v, gain: Math.min(16, Math.max(0.25, v.gain * (e.deltaY < 0 ? 1.12 : 1 / 1.12))) })) }}>
+                  ×{scope.gain >= 10 ? scope.gain.toFixed(0) : scope.gain.toFixed(1)}
+                </span>
+                <span className="sg-val hand" title="horizontal zoom"
+                  onPointerDown={(e) => { scopeHand.current = { which: 'window', y0: e.clientY, v0: scope.windowS }; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }}
+                  onDoubleClick={() => setScope(v => ({ ...v, windowS: 0.16 }))}
+                  onWheel={(e) => { e.stopPropagation(); e.preventDefault(); setScope(v => ({ ...v, windowS: Math.min(2, Math.max(0.02, v.windowS * (e.deltaY < 0 ? 1 / 1.15 : 1.15))) })) }}>
+                  {fmtWindow(scope.windowS)}
+                </span>
+              </>
+            )}
             <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input }))}>input</span>
             <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output }))}>output</span>
           </div>

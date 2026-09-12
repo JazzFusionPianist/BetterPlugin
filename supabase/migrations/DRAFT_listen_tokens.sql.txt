@@ -5,14 +5,27 @@
 -- to <date>_listen_tokens.sql and apply.
 --
 -- Listen tokens: shareable, revocable links to a single R2 object.
--- A token is an unguessable uuid that maps to one file_key; the presign
--- endpoint (future /api/listen-url) resolves it via the SECURITY DEFINER
--- function below — anon callers can EXECUTE the function but can never
--- SELECT the table, so enumeration/scraping of tokens is impossible and
--- a revoked or expired token resolves to nothing.
+-- The token is a 192-bit hex string (48 chars) — hex, not base64,
+-- because the token travels in URLs and +/= would silently mangle in
+-- encoding round-trips; ≥128-bit entropy because resolve_listen_token
+-- is anon-EXECUTEable via PostgREST, bypassing edge rate limits, so
+-- the token itself must not be an oracle (UUIDv4 = 122 bits, short).
+-- Anon callers can EXECUTE the resolver but never SELECT the table,
+-- so enumeration/scraping is impossible and a revoked or expired token
+-- resolves to nothing.
+--
+-- Presign TTL for the listen path is TTL_LISTEN = 600s (NOT the
+-- workspace 3600) — short TTL is what makes revocation effectively
+-- immediate. Consequence the listen PAGE must absorb: tracks longer
+-- than 10 minutes need expiry recovery there (re-resolve via token →
+-- swap src → restore position), or the listener — likely the agency
+-- person we most want to impress — gets cut off mid-track.
 
 create table public.listen_tokens (
-  token          uuid primary key default gen_random_uuid(),
+  -- extensions.gen_random_bytes: pgcrypto lives in the `extensions`
+  -- schema on Supabase — must be schema-qualified (search_path hygiene
+  -- below makes unqualified calls fail anyway).
+  token          text primary key default encode(extensions.gen_random_bytes(24), 'hex'),
   file_key       text not null,
   created_by     uuid references auth.users(id) on delete cascade,
   expires_at     timestamptz not null default now() + interval '30 days',
@@ -22,6 +35,10 @@ create table public.listen_tokens (
 );
 
 alter table public.listen_tokens enable row level security;
+
+-- Belt and braces: RLS deny-all covers reads, but strip table
+-- privileges from anon outright.
+revoke all on table public.listen_tokens from anon;
 
 -- Deliberately NO select policy: direct reads are deny-all, even for
 -- authenticated users. The only read path is resolve_listen_token().
@@ -38,21 +55,29 @@ create policy "owners update their own tokens"
   using (created_by = auth.uid())
   with check (created_by = auth.uid());
 
--- Resolve a token to its file. SECURITY DEFINER so it can read past the
--- deny-all RLS; returns zero rows for unknown, revoked, or expired
--- tokens — the caller learns nothing beyond valid/invalid.
-create or replace function public.resolve_listen_token(t uuid)
+-- Resolve a token to its file. SECURITY DEFINER so it can read past
+-- the deny-all RLS; returns the FULL authorization verdict (file_key
+-- AND allow_download — the edge needs both to set Content-Disposition).
+-- Returns zero rows for unknown, revoked, or expired tokens.
+--
+-- SECURITY DEFINER hygiene: search_path pinned EMPTY (an unpinned
+-- definer function is the textbook privilege-escalation vector — a
+-- caller can plant objects in an earlier schema to hijack unqualified
+-- references), so every reference below is schema-qualified.
+create or replace function public.resolve_listen_token(t text)
 returns table (file_key text, allow_download boolean)
 language sql
 security definer
-set search_path = public
+set search_path = ''
 stable
 as $$
   select lt.file_key, lt.allow_download
     from public.listen_tokens lt
    where lt.token = t
      and lt.revoked_at is null
-     and lt.expires_at > now();
+     and lt.expires_at > pg_catalog.now();
 $$;
 
-grant execute on function public.resolve_listen_token(uuid) to anon, authenticated;
+-- Functions default to PUBLIC execute — make the intent explicit.
+revoke all on function public.resolve_listen_token(text) from public;
+grant execute on function public.resolve_listen_token(text) to anon, authenticated;

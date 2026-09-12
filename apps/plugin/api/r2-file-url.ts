@@ -42,6 +42,9 @@ import { AwsClient } from 'aws4fetch'
 
 export const config = { runtime: 'edge' }
 
+// Workspace (logged-in) presign TTL. The future listen-link endpoint
+// must use its own, much shorter TTL (600s) — short TTL is what makes
+// link revocation effectively immediate there.
 const EXPIRES_SECONDS = 3600 // 60 min — membership check is the gate; TTL is UX
 
 const CORS = {

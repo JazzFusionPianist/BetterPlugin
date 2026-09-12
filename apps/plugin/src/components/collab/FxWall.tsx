@@ -340,20 +340,16 @@ export default function FxWall ({ size: frame }: Props) {
     return new Set(graph.nodes.filter(n => fwd.has(n.id) && bwd.has(n.id)).map(n => n.id))
   }, [graph])
 
-  // ── wall colour: the loudest hand on the wall lights the room ───────
-  // Not a blend (four tints average to mud) and not the selection: the
-  // live print whose hand is furthest from rest paints the wall in its
-  // own tint, as bright as that hand. Every other print keeps its glow.
+  // ── the room's light: every live print is a lamp ─────────────────────
+  // The wall itself stays near-black; each print the signal passes
+  // through lights its own patch of wall in its own tint, as far and as
+  // bright as its hand — pools of light that add where they overlap.
+  // (Painted on the canvas each frame; see backdropRef.)
   const intensityOf = (n: FxGraphNode) =>
     n.type === 0 ? Math.abs(n.amount - 0.5) * 2
     : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
     : n.amount
-  const lit = graph.nodes
-    .filter(n => n.type !== FX_MIX_TYPE && live.has(n.id))
-    .reduce<FxGraphNode | null>((best, n) => (!best || intensityOf(n) > intensityOf(best)) ? n : best, null)
-  const litLevel = lit ? Math.min(1, intensityOf(lit)) : 0
-  // the wall's ink at every alpha the stylesheet uses — plain rgba, no
-  // color-mix (older WebKit inside the DAW)
+  const litLevel = 0   // the ink reads the base wall: paper everywhere
   const inkVars = useMemo(() => {
     const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(strokeFor(litLevel))
     const [r, g, b] = m ? [m[1], m[2], m[3]] : ['246', '243', '234']
@@ -364,10 +360,9 @@ export default function FxWall ({ size: frame }: Props) {
   useEffect(() => {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
-    el.style.setProperty('--fx-wall', lit ? wallColor(lit.type as FxMode, lit.variant, litLevel) : 'rgb(22, 20, 16)')
+    el.style.setProperty('--fx-wall', 'rgb(22, 20, 16)')
     return () => { el.style.removeProperty('--fx-wall') }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lit?.type, lit?.variant, litLevel])
+  }, [])
 
   // ── structure edits ────────────────────────────────────────────────
   const freeId = () => { for (let i = 0; i < FX_MAX_NODES; i++) if (!graph.nodes.some(n => n.id === i)) return i; return -1 }
@@ -528,10 +523,31 @@ export default function FxWall ({ size: frame }: Props) {
     })
     for (const n of graph.nodes) {
       const c = toScreen(n)
-      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = wallNow; ctx.fill()
+      const own = n.type !== FX_MIX_TYPE && live.has(n.id) ? wallColor(n.type as FxMode, n.variant, Math.min(1, intensityOf(n))) : wallNow
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = own; ctx.fill()
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
+  const backdropRef = useRef<(ctx: CanvasRenderingContext2D) => void>(() => {})
+  backdropRef.current = (ctx) => {
+    ctx.globalCompositeOperation = 'lighter'
+    for (const n of graph.nodes) {
+      if (n.type === FX_MIX_TYPE || !live.has(n.id)) continue
+      const k = Math.min(1, intensityOf(n))
+      if (k < 0.01) continue
+      const c = toScreen(n)
+      const t = tintOf(n.type, n.variant)
+      const reach = Rz * 2.2 + k * Rz * 4
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, reach)
+      g.addColorStop(0, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.12 + 0.7 * k).toFixed(3)})`)
+      g.addColorStop(0.45, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.05 + 0.3 * k).toFixed(3)})`)
+      g.addColorStop(1, `rgba(${t[0]}, ${t[1]}, ${t[2]}, 0)`)
+      ctx.fillStyle = g
+      ctx.fillRect(c.x - reach, c.y - reach, reach * 2, reach * 2)
+    }
+    ctx.globalCompositeOperation = 'source-over'
+  }
+  const backdropFn = useCallback((ctx: CanvasRenderingContext2D) => backdropRef.current(ctx), [])
 
   // ── patches: the wall's settings, saved by name, in the top bar ────
   type Patch = { name: string; graph: FxGraph; at: number }
@@ -608,7 +624,7 @@ export default function FxWall ({ size: frame }: Props) {
   )
 
   return (
-    <StrokeLevel.Provider value={litLevel}>
+    <StrokeLevel.Provider value={null}>
     {patchBar}
     <div className="sg-frame" style={inkVars}>
     <div className="sg-left">
@@ -636,7 +652,7 @@ export default function FxWall ({ size: frame }: Props) {
       >
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
-          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} />
+          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} backdrop={backdropFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {

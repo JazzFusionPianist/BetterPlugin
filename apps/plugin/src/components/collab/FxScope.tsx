@@ -23,6 +23,8 @@ interface Props {
    *  the discs under its prints live here too, so one full redraw per
    *  frame replaces WebKit's partial repaints (which smeared). */
   overlay?: (ctx: CanvasRenderingContext2D) => void
+  /** Drawn first, under the traces: the room's light. */
+  backdrop?: (ctx: CanvasRenderingContext2D) => void
 }
 
 function decode (b64: string): Float32Array | null {
@@ -34,7 +36,7 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay }: Props) {
+export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay, backdrop }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
   const ringIn = useRef(new Float32Array(48000 * RING_S))
@@ -123,6 +125,7 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
     }
     const tick = () => {
       ctx.clearRect(0, 0, el.width, el.height)
+      if (backdrop) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); backdrop(ctx); ctx.globalCompositeOperation = 'source-over' }
       // a backdrop, not a meter: quiet enough for the prints to sit on
       const both = input && output
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
@@ -135,7 +138,7 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [input, output, width, height, ink, accent, gain, windowS, overlay])
+  }, [input, output, width, height, ink, accent, gain, windowS, overlay, backdrop])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

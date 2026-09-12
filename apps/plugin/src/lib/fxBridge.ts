@@ -147,3 +147,10 @@ export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: stri
   } catch (e) { return { ok: false, error: String(e) } }
   return { ok: false, error: 'bad reply' }
 }
+
+/** Ask the plugin to tap its input (before the patch) into the audio
+ *  events as `inSamples`, for the wall's scope. */
+export function setScopeInput (on: boolean): void {
+  if (!hasJuceNativeFunction('setScopeInput')) return
+  void callJuceNative('setScopeInput', [on]).catch(() => {})
+}

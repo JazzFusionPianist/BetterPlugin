@@ -50,9 +50,7 @@ export default function SoundsPage() {
       <ResizeGrip />
       {/* Same height as the full plugin's toolbar so the print sits where
           the room was composed; the wordmark takes the dimmed-glyph tone. */}
-      <div className="top-bar">
-        <span className="sounds-mark">orb sounds</span>
-      </div>
+      <div className="top-bar" />
       <div className="content" ref={contentRef}>
         <div className="view fxview">
           <FxWall size={wallSize} />

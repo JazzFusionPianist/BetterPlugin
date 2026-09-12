@@ -153,6 +153,14 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleSetGraph (args, std::move (completion));
                 })
+            .withNativeFunction ("setScopeInput",
+                [this] (const juce::var& args,
+                        juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    if (auto* arr = args.getArray(); arr != nullptr && ! arr->isEmpty())
+                        scopeInputWanted.store ((bool) arr->getReference (0));
+                    completion (juce::var (true));
+                })
             .withNativeFunction ("getGraph",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -249,6 +257,8 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     captureSampleRate.store ((int) sampleRate);
     captureFifo.reset();
     captureBuffer.clear();
+    inputFifo.reset();
+    inputBuffer.clear();
 
     // The FX engine allocates its lines per node here; the chain itself
     // (which slots run) is published from the message thread.
@@ -321,6 +331,30 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // The scope's input tap: the dry signal as it arrives, before the patch.
+    if (scopeInputWanted.load (std::memory_order_relaxed))
+    {
+        const int n  = buffer.getNumSamples();
+        const int nc = juce::jmin (buffer.getNumChannels(), inputBuffer.getNumChannels());
+        if (nc > 0 && n > 0)
+        {
+            if (inputFifo.getFreeSpace() < n)
+            {
+                int s1, sz1, s2, sz2;
+                inputFifo.prepareToRead (n - inputFifo.getFreeSpace(), s1, sz1, s2, sz2);
+                inputFifo.finishedRead (sz1 + sz2);
+            }
+            int a1, n1, a2, n2;
+            inputFifo.prepareToWrite (n, a1, n1, a2, n2);
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                if (n1 > 0) inputBuffer.copyFrom (ch, a1, buffer, ch, 0,  n1);
+                if (n2 > 0) inputBuffer.copyFrom (ch, a2, buffer, ch, n1, n2);
+            }
+            inputFifo.finishedWrite (n1 + n2);
+        }
+    }
+
     // One-knob FX — before the capture FIFO, so the shared/streamed audio
     // carries the same sound the DAW hears.
     processFx (buffer);
@@ -379,6 +413,26 @@ int OrbAudioProcessor::readCapturedAudio (float* dest, int maxFrames)
     return toRead;
 }
 
+int OrbAudioProcessor::readInputAudio (float* dest, int maxFrames)
+{
+    const int numCh = captureNumChannels.load();
+    if (numCh <= 0 || dest == nullptr) return 0;
+    const int toRead = juce::jmin (inputFifo.getNumReady(), maxFrames);
+    if (toRead <= 0) return 0;
+    int start1, size1, start2, size2;
+    inputFifo.prepareToRead (toRead, start1, size1, start2, size2);
+    auto interleave = [&] (int bufferStart, int size, int destFrameOffset)
+    {
+        for (int i = 0; i < size; ++i)
+            for (int ch = 0; ch < numCh; ++ch)
+                dest[((destFrameOffset + i) * numCh) + ch] = inputBuffer.getSample (ch, bufferStart + i);
+    };
+    if (size1 > 0) interleave (start1, size1, 0);
+    if (size2 > 0) interleave (start2, size2, size1);
+    inputFifo.finishedRead (toRead);
+    return toRead;
+}
+
 //==============================================================================
 void OrbAudioProcessor::timerCallback()
 {
@@ -399,6 +453,20 @@ void OrbAudioProcessor::timerCallback()
     juce::Base64::convertToBase64 (b64Stream, audioPollBuffer.data(), (size_t) bytes);
     const juce::String b64 = b64Stream.toString();
 
+    // the input tap rides along, the same number of frames, when wanted
+    juce::String inB64;
+    if (scopeInputWanted.load())
+    {
+        inputPollBuffer.resize ((size_t) (maxFrames * ch));
+        const int inFrames = readInputAudio (inputPollBuffer.data(), framesRead);
+        if (inFrames > 0)
+        {
+            juce::MemoryOutputStream s;
+            juce::Base64::convertToBase64 (s, inputPollBuffer.data(), (size_t) (inFrames * ch * (int) sizeof (float)));
+            inB64 = s.toString();
+        }
+    }
+
     // Playhead snapshot to accompany this batch — lets the web side gate
     // bar-range capture on musical position. `tnum`/`tden` are the time
     // signature; `ppq` is quarter-notes from project start; `playing`
@@ -416,7 +484,8 @@ void OrbAudioProcessor::timerCallback()
            << "tnum:"     << playheadTsNum.load() << ","
            << "tden:"     << playheadTsDen.load() << ","
            << "playing:"  << (transportPlaying.load() ? "true" : "false") << ","
-           << "gr:"       << juce::String (glueGrDb.load(), 2)
+           << "gr:"       << juce::String (glueGrDb.load(), 2) << ","
+           << "inSamples:'" << inB64 << "'"
            << "}}))";
 
     browser->evaluateJavascript (script,

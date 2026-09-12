@@ -10386,3 +10386,12 @@ text.sg-word { fill: var(--sg-ink-55); }
 .stem-link-square:hover { color: var(--t1); border-color: var(--border); }
 .stem-link-square.done { color: var(--blue); }
 .stem-link-square svg { width: 13px; height: 13px; }
+
+/* ── the scope, bottom right of the wall ─────────────────────────── */
+.sg-scope-corner {
+  position: absolute; right: 22px; bottom: 12px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  pointer-events: none;
+}
+.sg-scope-corner .sg-scope-words { display: flex; gap: 12px; pointer-events: all; }
+.sg-scope { display: block; pointer-events: none; }

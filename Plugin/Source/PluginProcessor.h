@@ -92,6 +92,13 @@ private:
     juce::AudioBuffer<float> captureBuffer { 2, kCaptureBufferSize };
     std::atomic<int>      captureSampleRate  { 0 };
     std::atomic<int>      captureNumChannels { 0 };
+    // The scope's second tap: what the plugin HEARS, before the patch.
+    // Only filled while the wall asks for it (setScopeInput).
+    juce::AbstractFifo    inputFifo { kCaptureBufferSize };
+    juce::AudioBuffer<float> inputBuffer { 2, kCaptureBufferSize };
+    std::atomic<bool>     scopeInputWanted { false };
+    std::vector<float>    inputPollBuffer;
+    int readInputAudio (float* dest, int maxFrames);
 
     //── Playhead snapshot ─────────────────────────────────────────────────────
     // Read on the audio thread in processBlock (the only place getPlayHead()

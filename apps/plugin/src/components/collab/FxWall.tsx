@@ -2,8 +2,9 @@ import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, u
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
 import { hasJuceBridge } from '../../lib/juceBridge'
 import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
+import FxScope from './FxScope'
 import {
-  getGraph, setGraph, hasGraphBridge, hasFxBridge,
+  getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
@@ -509,6 +510,17 @@ export default function FxWall ({ size: frame }: Props) {
 
   const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
 
+  // ── the scope: input / output traces in the wall's corner ─────────
+  const [scope, setScope] = useState<{ input: boolean; output: boolean }>(() => {
+    try { const v = JSON.parse(localStorage.getItem('orb_wall_scope') || 'null'); return v ? { input: !!v.input, output: !!v.output } : { input: false, output: false } } catch { return { input: false, output: false } }
+  })
+  useEffect(() => {
+    setScopeInput(scope.input)
+    try { localStorage.setItem('orb_wall_scope', JSON.stringify(scope)) } catch { /* fine */ }
+  }, [scope])
+  useEffect(() => () => setScopeInput(false), [])
+  const inkRgb = strokeFor(litLevel)
+
   return (
     <StrokeLevel.Provider value={litLevel}>
     <div className="sg-frame" style={inkVars}>
@@ -700,6 +712,17 @@ export default function FxWall ({ size: frame }: Props) {
             <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [0, 0, 2] }} size={NODEz} dim />
           </div>
         )}
+
+        {/* the scope and its two words, bottom right */}
+        <div className="sg-scope-corner" onPointerDown={(e) => e.stopPropagation()}>
+          {(scope.input || scope.output) && (
+            <FxScope input={scope.input} output={scope.output} width={Math.min(360, Math.max(200, size.w * 0.32))} height={64} ink={inkRgb} accent={BLUE_INK} />
+          )}
+          <div className="sg-scope-words">
+            <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input }))}>input</span>
+            <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output }))}>output</span>
+          </div>
+        </div>
 
         {!loaded && <p className="fx-note sg-note">reading the wall…</p>}
         {error && <p className="fx-note sg-note">{error}</p>}

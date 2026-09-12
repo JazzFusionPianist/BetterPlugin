@@ -84,8 +84,17 @@ async function rowVisible(
     },
   })
   if (!res.ok) return { visible: false, status: res.status }
-  const rows = await res.json() as unknown
-  return { visible: Array.isArray(rows) && rows.length > 0, status: res.status }
+  let rows: unknown
+  try { rows = await res.json() }
+  catch { return { visible: false, status: 502 } }
+  if (!Array.isArray(rows)) {
+    // A 200 whose body isn't a row array is not PostgREST answering the
+    // probe (proxy interstitial, gateway HTML, misrouted request) — an
+    // infra failure, NOT a "no visible row" membership verdict. Report
+    // 502 so the handler doesn't turn it into a 403.
+    return { visible: false, status: 502 }
+  }
+  return { visible: rows.length > 0, status: 200 }
 }
 
 export default async function handler(req: Request): Promise<Response> {

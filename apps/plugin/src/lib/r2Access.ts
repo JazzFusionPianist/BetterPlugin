@@ -25,6 +25,7 @@
 import { useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase as defaultSupabase } from './supabase'
+import { r2KeyFromUrl } from './r2Keys'
 
 /** Presigned URLs live 60 min (server-set); refresh 60 s before expiry. */
 const REFRESH_MARGIN_MS = 60_000
@@ -78,24 +79,77 @@ function cacheSet(key: string, entry: CacheEntry): void {
   memCache.set(key, entry)
 }
 
-/** The public base the bucket serves from. Prefer the build-time env
- *  (VITE_R2_PUBLIC_URL, same var the presign endpoint mirrors); when it
- *  isn't set, fall back to detecting R2's default public domain shape
- *  (https://pub-<hash>.r2.dev/). */
+/** The public base the bucket serves from (VITE_R2_PUBLIC_URL, same var
+ *  the presign endpoint mirrors). Key extraction itself is the canonical
+ *  r2KeyFromUrl (keep in sync with packages/core/lib/r2Keys.ts). */
 const ENV_BASE: string | undefined =
-  (import.meta.env.VITE_R2_PUBLIC_URL as string | undefined)?.replace(/\/$/, '')
-const R2_DEV_RE = /^https:\/\/pub-[a-z0-9]+\.r2\.dev\//
+  import.meta.env.VITE_R2_PUBLIC_URL as string | undefined
 
 /** Extract the object key from a public R2 url; null when the url isn't
  *  one of ours (external links, data:, supabase storage — pass through). */
 function keyFromPublicUrl(url: string): string | null {
-  if (ENV_BASE && url.startsWith(ENV_BASE + '/')) {
-    return url.slice(ENV_BASE.length + 1) || null
-  }
-  const m = R2_DEV_RE.exec(url)
-  if (m) return url.slice(m[0].length) || null
-  return null
+  return r2KeyFromUrl(url, ENV_BASE)
 }
+
+// ── fallback telemetry ───────────────────────────────────────────────
+//
+// Every time we serve the PUBLIC url instead of a presigned one, count
+// why. The counts are the readiness gauge for turning public bucket
+// access off (the "3g" cutoff): precondition is counts ≈ 0 in normal
+// use — a nonzero '403'/'no-session' says clients still lean on the
+// fallback and the cutoff would break playback. 'no-key' additionally
+// catches a misconfigured VITE_R2_PUBLIC_URL (our urls not recognized
+// as ours). Inspect via getFallbackCounts() in the console.
+
+export type FallbackReason = '403' | '401' | '5xx' | 'no-session' | 'network' | 'no-key'
+
+const FALLBACK_COUNTS_KEY = 'orb_r2_fallbacks'
+/** Module counter, persisted to localStorage so counts survive reloads. */
+let fallbackCounts: Record<string, number> | null = null
+const warnedReasons = new Set<FallbackReason>()
+
+function loadFallbackCounts(): Record<string, number> {
+  if (!fallbackCounts) {
+    fallbackCounts = {}
+    try {
+      const raw = localStorage.getItem(FALLBACK_COUNTS_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+            if (typeof v === 'number') fallbackCounts[k] = v
+          }
+        }
+      }
+    } catch { /* storage unavailable or corrupt — count in memory only */ }
+  }
+  return fallbackCounts
+}
+
+function recordFallback(reason: FallbackReason): void {
+  const counts = loadFallbackCounts()
+  counts[reason] = (counts[reason] ?? 0) + 1
+  try {
+    localStorage.setItem(FALLBACK_COUNTS_KEY, JSON.stringify(counts))
+  } catch { /* storage unavailable — memory counter above still holds */ }
+  // One warn per reason per session — enough to notice, no console spam.
+  if (!warnedReasons.has(reason)) {
+    warnedReasons.add(reason)
+    console.warn(`[r2Access] presign fallback (${reason}) — served the public url; see getFallbackCounts()`)
+  }
+}
+
+/** Cumulative public-url fallback counts by reason ({reason: count}). */
+export function getFallbackCounts(): Record<string, number> {
+  return { ...loadFallbackCounts() }
+}
+
+/** Strict mode (staging): VITE_R2_STRICT=1 disables the public-url
+ *  fallback for R2 urls entirely — resolve rejects with the original
+ *  error instead, so a broken presign path fails VISIBLY rather than
+ *  silently leaning on public access. Non-R2 urls still pass through
+ *  (they were never ours to presign). */
+const STRICT = (import.meta.env.VITE_R2_STRICT as string | undefined) === '1'
 
 /** Drop the cached presigned url for a stored public url — call when the
  *  network says the url no longer works (403: expired or revoked), then
@@ -127,13 +181,27 @@ export function invalidateResolved(publicUrl: string): void {
  *   and refreshed 60 s before expiry.
  * - ANY failure (no session, endpoint missing, network) returns the
  *   public url unchanged — safe while public access is still enabled.
+ *   Every such fallback is counted (getFallbackCounts()); with
+ *   VITE_R2_STRICT=1 the fallback is disabled and the original error
+ *   is thrown instead (staging visibility).
  */
 export async function resolveFileUrl(
   supabase: SupabaseClient | null,
   publicUrl: string,
 ): Promise<string> {
   const key = keyFromPublicUrl(publicUrl)
-  if (!key || !supabase) return publicUrl
+  if (!key) {
+    // Not recognized as one of our R2 urls — pass through (even in
+    // strict mode: there's nothing to presign). Counted so a
+    // misconfigured public base shows up in the telemetry.
+    recordFallback('no-key')
+    return publicUrl
+  }
+  if (!supabase) {
+    recordFallback('no-session')
+    if (STRICT) throw new Error('[r2Access] no supabase client — cannot presign')
+    return publicUrl
+  }
 
   // Cache entries are scoped per signed-in user ('<uid>:<key>') so a
   // sign-out / sign-in in the same tab never reuses another account's
@@ -144,8 +212,16 @@ export async function resolveFileUrl(
     const { data } = await supabase.auth.getSession()
     uid = data.session?.user?.id ?? 'anon'
     token = data.session?.access_token
-  } catch { return publicUrl }
-  if (!token) return publicUrl
+  } catch (err) {
+    recordFallback('no-session')
+    if (STRICT) throw err
+    return publicUrl
+  }
+  if (!token) {
+    recordFallback('no-session')
+    if (STRICT) throw new Error('[r2Access] no session — cannot presign')
+    return publicUrl
+  }
 
   const cacheKey = `${uid}:${key}`
   const now = Date.now()
@@ -157,21 +233,46 @@ export async function resolveFileUrl(
 
   const p = (async (): Promise<string> => {
     try {
-      const res = await fetch('/api/r2-file-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ key }),
-      })
-      if (!res.ok) return publicUrl
-      const { url, expiresIn } = await res.json() as { url?: string; expiresIn?: number }
-      if (!url) return publicUrl
+      let res: Response
+      try {
+        res = await fetch('/api/r2-file-url', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ key }),
+        })
+      } catch (err) {
+        recordFallback('network')
+        if (STRICT) throw err
+        return publicUrl
+      }
+      if (!res.ok) {
+        // 403 (not a member / key unknown) and 401 (token) are the
+        // interesting buckets; everything else non-ok is infra ('5xx').
+        const reason: FallbackReason =
+          res.status === 403 ? '403' : res.status === 401 ? '401' : '5xx'
+        recordFallback(reason)
+        if (STRICT) throw new Error(`[r2Access] presign failed: HTTP ${res.status}`)
+        return publicUrl
+      }
+      let parsed: { url?: string; expiresIn?: number }
+      try {
+        parsed = await res.json() as { url?: string; expiresIn?: number }
+      } catch (err) {
+        recordFallback('5xx')
+        if (STRICT) throw err
+        return publicUrl
+      }
+      const { url, expiresIn } = parsed
+      if (!url) {
+        recordFallback('5xx')
+        if (STRICT) throw new Error('[r2Access] presign failed: 200 without url')
+        return publicUrl
+      }
       cacheSet(cacheKey, { url, exp: Date.now() + (expiresIn ?? DEFAULT_TTL_SECONDS) * 1000 })
       return url
-    } catch {
-      return publicUrl
     } finally {
       inflight.delete(cacheKey)
     }

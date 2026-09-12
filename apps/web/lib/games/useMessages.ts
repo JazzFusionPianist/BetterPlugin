@@ -18,16 +18,12 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, AttachType, ChatTarget } from '@/lib/games/types'
 import { getOrCreateDmConversation } from './conversations'
+import { r2KeyFromUrl } from './r2Keys'
 
-/** R2 public urls we mint (r2-upload-url): https://pub-<hash>.r2.dev/<key>.
- *  Returns the object key, or null for anything else (external links,
- *  data:, supabase storage). Matches the presign endpoint's keyed
- *  membership probe and the 20260912_file_keys backfill. */
-const R2_PUBLIC_RE = /^https?:\/\/pub-[a-z0-9]+\.r2\.dev\//
-function keyFromR2Url(url: string): string | null {
-  const m = R2_PUBLIC_RE.exec(url)
-  return m ? url.slice(m[0].length) || null : null
-}
+// Canonical key extraction (keep in sync with
+// packages/core/lib/r2Keys.ts) with this app's configured public base.
+const R2_ENV_BASE = process.env.NEXT_PUBLIC_R2_PUBLIC_URL
+const keyFromR2Url = (url: string): string | null => r2KeyFromUrl(url, R2_ENV_BASE)
 
 /** messages.attachment_keys for an outgoing attachment: every R2 object
  *  key it references — [key] for a plain R2 url; all track keys for a

@@ -40,20 +40,52 @@ alter table public.listen_tokens enable row level security;
 -- privileges from anon outright.
 revoke all on table public.listen_tokens from anon;
 
--- Deliberately NO select policy: direct reads are deny-all, even for
--- authenticated users. The only read path is resolve_listen_token().
-
+-- INSERT requires the caller to PROVE they can see the file: a row in
+-- conversation_stems / messages referencing this key must be visible to
+-- them. The EXISTS subqueries are NOT security definer, so they run
+-- under the caller's own RLS (is_conversation_member on both tables) —
+-- the exact same membership proof /api/r2-file-url performs, so the two
+-- gates can't drift. Without this, any authenticated user could mint a
+-- listen token for ANY file key they'd guessed or scraped.
 create policy "owners insert their own tokens"
   on public.listen_tokens for insert
   to authenticated
-  with check (created_by = auth.uid());
+  with check (
+    created_by = auth.uid()
+    and (
+      exists (select 1 from public.conversation_stems s
+               where s.file_key = listen_tokens.file_key)
+      or exists (select 1 from public.messages m
+                  where m.attachment_keys @> array[listen_tokens.file_key])
+    )
+  );
 
--- Owners can revoke / extend their own tokens.
+-- Owners can revoke / extend their own tokens — and touch NOTHING else.
+-- Two mechanisms compose: column grants control WHICH columns are
+-- updatable at all (only revoked_at / expires_at — file_key, token,
+-- created_by are structurally immutable to owners, no policy needed);
+-- the row policy controls WHICH rows (their own).
+revoke update on public.listen_tokens from authenticated;
+grant update (revoked_at, expires_at) on public.listen_tokens to authenticated;
+
 create policy "owners update their own tokens"
   on public.listen_tokens for update
   to authenticated
-  using (created_by = auth.uid())
-  with check (created_by = auth.uid());
+  using (created_by = auth.uid());
+
+-- Owners can read their own tokens. A deny-all select broke
+-- INSERT .. RETURNING (the token is DB-generated — the creator could
+-- never learn the value they just minted) and any revoke/manage UI.
+-- Anon enumeration stays impossible: no anon policy, and anon table
+-- privileges are revoked above — resolve_listen_token() remains the
+-- ONLY anonymous path.
+create policy "owners read their own tokens"
+  on public.listen_tokens for select
+  to authenticated
+  using (created_by = auth.uid());
+
+create index listen_tokens_created_by_idx
+  on public.listen_tokens (created_by);
 
 -- Resolve a token to its file. SECURITY DEFINER so it can read past
 -- the deny-all RLS; returns the FULL authorization verdict (file_key

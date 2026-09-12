@@ -7,6 +7,7 @@ import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
 import { useResolvedUrl } from '../../lib/r2Access'
+import { r2KeyFromUrl } from '../../lib/r2Keys'
 import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
@@ -141,9 +142,10 @@ export default function StemPanel({
       const { uploadUrl, publicUrl, key: objectKey } =
         await presign.json() as { uploadUrl: string; publicUrl: string; key?: string }
       // R2 object key for the presign endpoint's keyed membership probe.
-      // The endpoint returns it directly; derive from publicUrl
-      // (origin stripped) if a stale deploy doesn't.
-      const fileKey = objectKey ?? publicUrl.replace(/^https?:\/\/[^/]+\//, '')
+      // The endpoint returns it directly; derive it from publicUrl via
+      // the canonical r2KeyFromUrl if a stale deploy doesn't.
+      const fileKey = objectKey
+        ?? r2KeyFromUrl(publicUrl, import.meta.env.VITE_R2_PUBLIC_URL as string | undefined)
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()

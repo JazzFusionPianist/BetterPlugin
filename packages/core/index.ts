@@ -15,6 +15,10 @@ export { getInitials } from './types/collab'
 // Conversation helpers (DM resolve, group create/rename/membership).
 export * from './lib/conversations'
 
+// R2 object-key extraction (canonical copy — the app-local copies must
+// stay byte-identical, see the file header).
+export * from './lib/r2Keys'
+
 // Hooks.
 export * from './hooks/useProfiles'
 export * from './hooks/useFollows'

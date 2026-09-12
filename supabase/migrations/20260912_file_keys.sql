@@ -26,6 +26,11 @@ create index if not exists conversation_stems_file_key_idx
   on public.conversation_stems (file_key);
 
 -- ── backfill: derive keys from the stored public urls ────────────────
+--
+-- The origin-stripping below must stay EQUIVALENT to the app's
+-- canonical key extraction, r2KeyFromUrl in packages/core/lib/r2Keys.ts
+-- (and its byte-identical app copies) — the presign endpoint matches
+-- these exact keys against what the writers store.
 
 -- Stems always store a single plain url.
 update public.conversation_stems
@@ -44,3 +49,42 @@ update public.messages
  where attachment_url like 'http%r2.dev/%'
    and attachment_url not like '[%'
    and attachment_keys is null;
+
+-- ── verify: no r2.dev row left without its key ───────────────────────
+--
+-- Self-check so a silently-incomplete backfill aborts the migration
+-- (and the transaction) instead of shipping rows the presign endpoint
+-- can never match. The multi-audio count asserts the "0 such rows in
+-- prod today" claim above — if JSON-array rows exist without keys, the
+-- assumption is stale and the backfill needs a JSON-aware pass.
+do $$
+declare
+  n_stems bigint;
+  n_msgs  bigint;
+  n_multi bigint;
+begin
+  select count(*) into n_stems
+    from public.conversation_stems
+   where file_url like 'http%r2.dev/%'
+     and file_key is null;
+  if n_stems > 0 then
+    raise exception 'file_keys backfill incomplete: % conversation_stems r2.dev row(s) with null file_key', n_stems;
+  end if;
+
+  select count(*) into n_msgs
+    from public.messages
+   where attachment_url like 'http%r2.dev/%'
+     and attachment_url not like '[%'
+     and attachment_keys is null;
+  if n_msgs > 0 then
+    raise exception 'file_keys backfill incomplete: % messages r2.dev row(s) with null attachment_keys', n_msgs;
+  end if;
+
+  select count(*) into n_multi
+    from public.messages
+   where attachment_url like '[%'
+     and attachment_keys is null;
+  if n_multi > 0 then
+    raise exception 'file_keys backfill: % multi-audio (JSON) message row(s) with null attachment_keys — expected 0 in prod; backfill them before applying', n_multi;
+  end if;
+end $$;

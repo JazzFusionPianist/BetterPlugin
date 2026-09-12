@@ -10404,17 +10404,8 @@ text.sg-word { fill: var(--sg-ink-55); }
 
 /* ── the prints, their captions and the wires cover the scope ───────
       (wall-coloured backing that fades with the wall, like the wall) */
-.sg-print { background: var(--fx-wall, #161410); transition: background 1.3s ease; }
-.sg-under .sg-label, .sg-under .sg-words {
-  background: var(--fx-wall, #161410); transition: background 1.3s ease;
-  padding: 1px 6px; border-radius: 3px;
-}
-.sg-wire-mask { fill: none; stroke: var(--fx-wall, #161410); stroke-width: 7px; pointer-events: none; transition: stroke 1.3s ease; }
-.sg-share, .sg-io, text.sg-word {
-  paint-order: stroke; stroke: var(--fx-wall, #161410); stroke-width: 4px; stroke-linejoin: round;
-  transition: stroke 1.3s ease;
-}
-.sg-scope-corner .sg-scope-words { background: var(--fx-wall, #161410); padding: 2px 6px; border-radius: 3px; transition: background 1.3s ease; }
+/* captions, numbers and words sit straight on the scope — no boxes,
+   no outlines; only the print's disc is opaque (painted on the canvas) */
 
 /* ── the patch bar, in the room's top bar ─────────────────────────── */
 .plugin.sounds > .top-bar { display: flex; align-items: flex-start; }

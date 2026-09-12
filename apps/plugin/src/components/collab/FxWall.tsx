@@ -521,11 +521,7 @@ export default function FxWall ({ size: frame }: Props) {
     const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(inkRgb)
     const inkA = (a: number) => (m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a})` : `rgba(246, 243, 234, ${a})`)
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    // masks first, then the lines, so a crossing wire keeps its own gap
-    graph.edges.forEach((e, i) => {
-      const path = new Path2D(wirePath(outPortOf(e.from), inPortOf(e.to, i)))
-      ctx.strokeStyle = wallNow; ctx.lineWidth = 7; ctx.stroke(path)
-    })
+    // the wires simply lie over the scope — no gutter around them
     graph.edges.forEach((e, i) => {
       const path = new Path2D(wirePath(outPortOf(e.from), inPortOf(e.to, i)))
       ctx.strokeStyle = sel?.edge === i ? inkA(1) : inkA(0.42); ctx.lineWidth = 1; ctx.stroke(path)

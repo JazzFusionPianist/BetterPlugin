@@ -10438,3 +10438,16 @@ text.sg-word { fill: var(--sg-ink-55); }
 }
 .sg-scope-words .sg-val:hover { color: var(--sg-ink); }
 .sg-scope-words .sg-word { font-size: 10.5px; }
+
+/* the study's hands and words: the wall's, at a size you can use */
+.sg-study-hands, .sg-study-words, .sg-study-inputs {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  gap: 6px 14px; max-width: 100%;
+  font-family: var(--f-sans); font-size: 13px;
+}
+.sg-study-hands .sg-val, .sg-study-words .sg-word, .sg-study-inputs .sg-val { font-size: 13px; }
+.sg-study-hands:empty { display: none; }
+.sg-study-words .sg-words { position: static; transform: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; }
+.sg-study-words .sg-words .sg-word { font-size: 13px; }
+.sg-study-input { display: inline-flex; gap: 6px; align-items: baseline; }
+.sg-study-inputs .sg-flav { font-size: 12px; }

@@ -504,6 +504,100 @@ export default function FxWall ({ size: frame }: Props) {
   const shelfPrint = Math.max(30, Math.min(SHELF_PRINT, Math.floor((size.w - 48) / 16) - 12))
 
 
+  // ── a print's second hands and its words — the same ones under the
+  //    print on the wall and, larger, in the study ───────────────────
+  const grab = (e: React.PointerEvent) => { try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }
+  const hands = (n: FxGraphNode) => {
+    const isMix = n.type === FX_MIX_TYPE
+    const ins = inputsOf(n.id)
+    void isMix; void ins
+    return (
+      <>
+                  {/* the second hands, out here where they stay legible at any zoom */}
+                  {n.type === 2 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'decay', y0: e.clientY, v0: n.decay[n.variant] ?? 0.5 }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const d = [...n.decay]; d[n.variant] = 0.5; updateNode(n.id, { decay: d }, true) }}>
+                      {' · '}{fmtDecay(n.variant, n.decay[n.variant] ?? 0.5)}
+                    </span>
+                  )}
+                  {n.type === 10 && (
+                    <>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
+                        {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                      </span>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'fb', y0: e.clientY, v0: n.delayFb }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayFb: 0.35, }, true) }}>
+                        {' · fb '}{Math.round(n.delayFb * 100)}
+                      </span>
+                    </>
+                  )}
+                  {(n.type === 12 || n.type === 13) && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
+                      {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                    </span>
+                  )}
+                  {n.type === 13 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] || 12 }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 12; updateNode(n.id, { aux }, true) }}>
+                      {' · step '}{n.aux[0] || 12}
+                    </span>
+                  )}
+                  {n.type === 15 && n.variant !== 1 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] }) }}>
+                      {' · '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
+                    </span>
+                  )}
+                  {n.type === 15 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux2', y0: e.clientY, v0: n.aux[2] }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = n.variant === 1 ? 7 : 2; updateNode(n.id, { aux }, true) }}>
+                      {' · '}{n.aux[2] > 0 ? '+' : ''}{n.aux[2]}{n.variant === 1 ? ' st' : n.aux[2] === 0 ? ' unison' : ''}
+                    </span>
+                  )}
+                  {isMix && (
+                    <span className="sg-val quiet">
+                      {ins.length === 0 ? ' —' : ins.map(x => ` · ${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join('')}
+                    </span>
+                  )}
+      </>
+    )
+  }
+  const words = (n: FxGraphNode) => {
+    const isMix = n.type === FX_MIX_TYPE
+    const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
+    return (
+<div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
+                    {n.type !== 5 && flavours.map((f, vi) => (
+                      <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
+                        onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
+                    ))}
+                    {n.type === 12 && ['vol', 'pan'].map((w, k) => (
+                      <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; aux[0] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
+                    ))}
+                    {n.type === 15 && n.variant !== 1 && ['major', 'minor'].map((w, k) => (
+                      <span key={w} className={`sg-word${(n.aux[1] || 0) === k ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; aux[1] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
+                    ))}
+                    {WET_TYPES.has(n.type) && (
+                      <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
+                    )}
+                    <span className="sg-word quiet"
+                      onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
+                      {confirm === `node:${n.id}` ? 'sure?' : 'remove'}
+                    </span>
+                  </div>
+    )
+  }
+
   const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
 
   // ── the canvas draws the wall's wires and the discs under its prints,
@@ -737,84 +831,9 @@ export default function FxWall ({ size: frame }: Props) {
                       {' '}{fmtValue(n.type, n.amount, n.variant)}
                     </span>
                   )}
-                  {/* the second hands, out here where they stay legible at any zoom */}
-                  {n.type === 2 && (
-                    <span className="sg-val hand"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'decay', y0: e.clientY, v0: n.decay[n.variant] ?? 0.5 }) }}
-                      onDoubleClick={(e) => { e.stopPropagation(); const d = [...n.decay]; d[n.variant] = 0.5; updateNode(n.id, { decay: d }, true) }}>
-                      {' · '}{fmtDecay(n.variant, n.decay[n.variant] ?? 0.5)}
-                    </span>
-                  )}
-                  {n.type === 10 && (
-                    <>
-                      <span className="sg-val hand"
-                        onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
-                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
-                        {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
-                      </span>
-                      <span className="sg-val hand"
-                        onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'fb', y0: e.clientY, v0: n.delayFb }) }}
-                        onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayFb: 0.35, }, true) }}>
-                        {' · fb '}{Math.round(n.delayFb * 100)}
-                      </span>
-                    </>
-                  )}
-                  {(n.type === 12 || n.type === 13) && (
-                    <span className="sg-val hand"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
-                      onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
-                      {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
-                    </span>
-                  )}
-                  {n.type === 13 && (
-                    <span className="sg-val hand"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] || 12 }) }}
-                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 12; updateNode(n.id, { aux }, true) }}>
-                      {' · step '}{n.aux[0] || 12}
-                    </span>
-                  )}
-                  {n.type === 15 && n.variant !== 1 && (
-                    <span className="sg-val hand"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] }) }}>
-                      {' · '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
-                    </span>
-                  )}
-                  {n.type === 15 && (
-                    <span className="sg-val hand"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux2', y0: e.clientY, v0: n.aux[2] }) }}
-                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = n.variant === 1 ? 7 : 2; updateNode(n.id, { aux }, true) }}>
-                      {' · '}{n.aux[2] > 0 ? '+' : ''}{n.aux[2]}{n.variant === 1 ? ' st' : n.aux[2] === 0 ? ' unison' : ''}
-                    </span>
-                  )}
-                  {isMix && (
-                    <span className="sg-val quiet">
-                      {ins.length === 0 ? ' —' : ins.map(x => ` · ${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join('')}
-                    </span>
-                  )}
+                  {hands(n)}
                 </div>
-                {isSel && (
-                  <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
-                    {n.type !== 5 && flavours.map((f, vi) => (
-                      <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
-                        onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
-                    ))}
-                    {n.type === 12 && ['vol', 'pan'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[0] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {n.type === 15 && n.variant !== 1 && ['major', 'minor'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[1] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[1] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {WET_TYPES.has(n.type) && (
-                      <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
-                    )}
-                    <span className="sg-word quiet"
-                      onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
-                      {confirm === `node:${n.id}` ? 'sure?' : 'remove'}
-                    </span>
-                  </div>
-                )}
+                {isSel && words(n)}
               </div>
             </div>
           )
@@ -869,7 +888,7 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && (
-      <aside className="sg-study" onPointerDown={(e) => e.stopPropagation()}>
+      <aside className="sg-study" onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>
@@ -909,7 +928,23 @@ export default function FxWall ({ size: frame }: Props) {
             ? <span className="sg-val" onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
             : <span className="sg-val quiet">{inputsOf(studyNode.id).map(x => `${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join(' · ') || '—'}</span>}
         </div>
-        <p className="sg-study-hint">drag the print for its amount · the hands and words live under it on the wall</p>
+        <div className="sg-study-hands">{hands(studyNode)}</div>
+        <div className="sg-study-words">{words(studyNode)}</div>
+        {studyNode.type === FX_MIX_TYPE && inputsOf(studyNode.id).length > 0 && (
+          <div className="sg-study-inputs">
+            {inputsOf(studyNode.id).map(x => (
+              <span key={x.i} className="sg-study-input">
+                <span className="sg-flav">{x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)}</span>
+                <span className="sg-val hand"
+                  onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: studyNode.id }); setDrag({ kind: 'share', edge: x.i, y0: e.clientY, g0: x.e.gain }) }}
+                  onDoubleClick={(e) => { e.stopPropagation(); setShare(x.i, 1 / Math.max(1, inputsOf(studyNode.id).length), true) }}>
+                  {Math.round(x.e.gain * 100)}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="sg-study-hint">drag the print for its amount · numbers drag too · double-tap resets</p>
       </aside>
     )}
     </div>

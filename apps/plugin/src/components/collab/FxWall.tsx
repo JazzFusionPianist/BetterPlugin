@@ -621,7 +621,16 @@ export default function FxWall ({ size: frame }: Props) {
         className={`sg-wall${drag ? ` dragging ${drag.kind}` : ''}`}
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
-        onPointerDown={(e) => { setSel(null); setConfirm(null); setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y }) }}
+        onPointerDown={(e) => {
+          // a wire under the pointer? (the wires are painted, not DOM)
+          const p = wallPt(e)
+          let hit = -1, best = 9
+          graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
+          setConfirm(null)
+          if (hit >= 0) { setSel({ edge: hit }); return }
+          setSel(null)
+          setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y })
+        }}
         onDoubleClick={(e) => {
           // home: an empty-wall double-tap brings the flow back to 1× centred
           if ((e.target as Element).closest('.sg-node, .sg-wire, .sg-port, .sg-share, .sg-word')) return
@@ -643,8 +652,6 @@ export default function FxWall ({ size: frame }: Props) {
             const lp = wireAt(p0, p1, mixIn ? 0.86 : 0.5)
             return (
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
-                <path className="sg-wire-hit" d={wirePath(p0, p1)}
-                  onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setConfirm(null) }} />
                 {label && (
                   <text className="sg-share" x={lp.x} y={lp.y - 7} textAnchor="middle"
                     onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setDrag({ kind: 'share', edge: i, y0: ev.clientY, g0: e.gain }) }}

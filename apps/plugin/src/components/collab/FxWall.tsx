@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
-import { hasJuceBridge } from '../../lib/juceBridge'
+import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
 import FxScope from './FxScope'
 import {
@@ -731,6 +731,7 @@ export default function FxWall ({ size: frame }: Props) {
         {error && <p className="fx-note sg-note">{error}</p>}
         {!bridge && !oldEngine && <p className="fx-note sg-note">browser mode — the audio itself runs inside the daw.</p>}
         {oldEngine && <p className="fx-note sg-note">this room grew a wall — rebuild the plugin to patch it.</p>}
+        {scope.input && hasFxBridge() && !hasJuceNativeFunction('setScopeInput') && <p className="fx-note sg-note">the input trace needs the newer plugin — restart the daw.</p>}
       </div>
 
       <div className={`sg-shelf${full ? ' full' : ''}`} style={{ gap: shelfPrint < SHELF_PRINT ? 10 : 18 }}>

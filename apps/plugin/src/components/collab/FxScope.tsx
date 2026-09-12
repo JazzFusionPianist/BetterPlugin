@@ -91,12 +91,14 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
     el.width = Math.round(width * dpr); el.height = Math.round(height * dpr)
     const ctx = el.getContext('2d'); if (!ctx) return
     let raf = 0
+    const SILENT = 0.002   // ≈ −54 dBFS: below this there is nothing to draw
     const trace = (ring: Float32Array, w: number, colour: string, lw: number) => {
       const n = Math.round(sr.current * WINDOW_S)
       const per = n / width
       ctx.beginPath()
       ctx.strokeStyle = colour; ctx.lineWidth = lw * dpr; ctx.lineJoin = 'round'
       const mid = height / 2, amp = height * 0.42
+      let pen = false   // silence breaks the line — no flat trace at zero
       for (let x = 0; x < width; x++) {
         // min/max over the samples this column covers — the print of a
         // waveform, not an alias of it
@@ -106,17 +108,15 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
           const v = ring[(w - n + s + ring.length * 2) % ring.length]
           if (v < lo) lo = v; if (v > hi) hi = v
         }
+        if (Math.max(Math.abs(lo), Math.abs(hi)) < SILENT) { pen = false; continue }
         const yHi = (mid - Math.min(1, hi) * amp) * dpr, yLo = (mid - Math.max(-1, lo) * amp) * dpr
-        if (x === 0) ctx.moveTo(0, yHi); else ctx.lineTo(x * dpr, yHi)
+        if (!pen) { ctx.moveTo(x * dpr, yHi); pen = true } else ctx.lineTo(x * dpr, yHi)
         ctx.lineTo(x * dpr, yLo)
       }
       ctx.stroke()
     }
     const tick = () => {
       ctx.clearRect(0, 0, el.width, el.height)
-      // a hairline at silence
-      ctx.beginPath(); ctx.strokeStyle = ink.replace('rgb(', 'rgba(').replace(')', ', 0.1)'); ctx.lineWidth = 1 * dpr
-      ctx.moveTo(0, height / 2 * dpr); ctx.lineTo(width * dpr, height / 2 * dpr); ctx.stroke()
       // a backdrop, not a meter: quiet enough for the prints to sit on
       const both = input && output
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)

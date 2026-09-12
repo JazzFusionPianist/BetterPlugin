@@ -10430,3 +10430,21 @@ text.sg-word { fill: var(--sg-ink-55); }
   background: transparent; border: none; border-bottom: 1px solid var(--sg-ink-42);
   outline: none; padding: 0; width: 90px;
 }
+
+/* ── compositing: the scope canvas, the wires and every print get their
+      own layer, so moving a print never leaves the canvas half-painted
+      behind it (WebKit smeared the old frames otherwise) ─────────────── */
+.sg-scope-bg { contain: strict; will-change: transform; transform: translateZ(0); }
+.sg-scope-bg .sg-scope { will-change: transform; transform: translateZ(0); }
+.sg-wires { will-change: transform; transform: translateZ(0); }
+.sg-node { will-change: transform, left, top; transform: translateZ(0); }
+.sg-wire-mask { pointer-events: none; }
+
+/* the scope's hands read like the words beside them — small, quiet */
+.sg-scope-words { align-items: baseline; }
+.sg-scope-words .sg-val {
+  font-family: var(--f-sans); font-size: 10.5px; font-weight: 400;
+  color: var(--sg-ink-50); font-variant-numeric: tabular-nums;
+}
+.sg-scope-words .sg-val:hover { color: var(--sg-ink); }
+.sg-scope-words .sg-word { font-size: 10.5px; }

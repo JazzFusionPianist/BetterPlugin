@@ -1,0 +1,115 @@
+-- ── DRAFT — DO NOT APPLY ─────────────────────────────────────────────
+--
+-- Saved as .txt so migration tooling can't pick it up by accident.
+-- Pending: listen-structure agreement with backend. Once agreed, rename
+-- to <date>_listen_tokens.sql and apply.
+--
+-- Listen tokens: shareable, revocable links to a single R2 object.
+-- The token is a 192-bit hex string (48 chars) — hex, not base64,
+-- because the token travels in URLs and +/= would silently mangle in
+-- encoding round-trips; ≥128-bit entropy because resolve_listen_token
+-- is anon-EXECUTEable via PostgREST, bypassing edge rate limits, so
+-- the token itself must not be an oracle (UUIDv4 = 122 bits, short).
+-- Anon callers can EXECUTE the resolver but never SELECT the table,
+-- so enumeration/scraping is impossible and a revoked or expired token
+-- resolves to nothing.
+--
+-- Presign TTL for the listen path is TTL_LISTEN = 600s (NOT the
+-- workspace 3600) — short TTL is what makes revocation effectively
+-- immediate. Consequence the listen PAGE must absorb: tracks longer
+-- than 10 minutes need expiry recovery there (re-resolve via token →
+-- swap src → restore position), or the listener — likely the agency
+-- person we most want to impress — gets cut off mid-track.
+
+create table public.listen_tokens (
+  -- extensions.gen_random_bytes: pgcrypto lives in the `extensions`
+  -- schema on Supabase — must be schema-qualified (search_path hygiene
+  -- below makes unqualified calls fail anyway).
+  token          text primary key default encode(extensions.gen_random_bytes(24), 'hex'),
+  file_key       text not null,
+  created_by     uuid references auth.users(id) on delete cascade,
+  expires_at     timestamptz not null default now() + interval '30 days',
+  allow_download boolean not null default false,
+  revoked_at     timestamptz,
+  created_at     timestamptz default now()
+);
+
+alter table public.listen_tokens enable row level security;
+
+-- Belt and braces: RLS deny-all covers reads, but strip table
+-- privileges from anon outright.
+revoke all on table public.listen_tokens from anon;
+
+-- INSERT requires the caller to PROVE they can see the file: a row in
+-- conversation_stems / messages referencing this key must be visible to
+-- them. The EXISTS subqueries are NOT security definer, so they run
+-- under the caller's own RLS (is_conversation_member on both tables) —
+-- the exact same membership proof /api/r2-file-url performs, so the two
+-- gates can't drift. Without this, any authenticated user could mint a
+-- listen token for ANY file key they'd guessed or scraped.
+create policy "owners insert their own tokens"
+  on public.listen_tokens for insert
+  to authenticated
+  with check (
+    created_by = auth.uid()
+    and (
+      exists (select 1 from public.conversation_stems s
+               where s.file_key = listen_tokens.file_key)
+      or exists (select 1 from public.messages m
+                  where m.attachment_keys @> array[listen_tokens.file_key])
+    )
+  );
+
+-- Owners can revoke / extend their own tokens — and touch NOTHING else.
+-- Two mechanisms compose: column grants control WHICH columns are
+-- updatable at all (only revoked_at / expires_at — file_key, token,
+-- created_by are structurally immutable to owners, no policy needed);
+-- the row policy controls WHICH rows (their own).
+revoke update on public.listen_tokens from authenticated;
+grant update (revoked_at, expires_at) on public.listen_tokens to authenticated;
+
+create policy "owners update their own tokens"
+  on public.listen_tokens for update
+  to authenticated
+  using (created_by = auth.uid());
+
+-- Owners can read their own tokens. A deny-all select broke
+-- INSERT .. RETURNING (the token is DB-generated — the creator could
+-- never learn the value they just minted) and any revoke/manage UI.
+-- Anon enumeration stays impossible: no anon policy, and anon table
+-- privileges are revoked above — resolve_listen_token() remains the
+-- ONLY anonymous path.
+create policy "owners read their own tokens"
+  on public.listen_tokens for select
+  to authenticated
+  using (created_by = auth.uid());
+
+create index listen_tokens_created_by_idx
+  on public.listen_tokens (created_by);
+
+-- Resolve a token to its file. SECURITY DEFINER so it can read past
+-- the deny-all RLS; returns the FULL authorization verdict (file_key
+-- AND allow_download — the edge needs both to set Content-Disposition).
+-- Returns zero rows for unknown, revoked, or expired tokens.
+--
+-- SECURITY DEFINER hygiene: search_path pinned EMPTY (an unpinned
+-- definer function is the textbook privilege-escalation vector — a
+-- caller can plant objects in an earlier schema to hijack unqualified
+-- references), so every reference below is schema-qualified.
+create or replace function public.resolve_listen_token(t text)
+returns table (file_key text, allow_download boolean)
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select lt.file_key, lt.allow_download
+    from public.listen_tokens lt
+   where lt.token = t
+     and lt.revoked_at is null
+     and lt.expires_at > pg_catalog.now();
+$$;
+
+-- Functions default to PUBLIC execute — make the intent explicit.
+revoke all on function public.resolve_listen_token(text) from public;
+grant execute on function public.resolve_listen_token(text) to anon, authenticated;

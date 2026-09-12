@@ -1492,8 +1492,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       const presignRes = await fetch('/api/r2-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // scope temp = 7-day expiring key; chat attachments only
-        body: JSON.stringify({ ext, contentType, userId: currentUserId, scope: 'temp' }),
+        // No scope → permanent key. Chat attachments used to be temp
+        // (7-day expiry); files now persist and reads go presigned.
+        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
       })
       if (!presignRes.ok) {
         const errText = await presignRes.text()

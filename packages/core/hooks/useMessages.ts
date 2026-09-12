@@ -18,6 +18,38 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, AttachType, ChatTarget, AttachmentTimelineMetadata } from '../types/collab'
 import { getOrCreateDmConversation } from '../lib/conversations'
+import { r2KeyFromUrl } from '../lib/r2Keys'
+
+// Core is bundler-agnostic, so no env base here — pub-*.r2.dev urls
+// (the shape r2-upload-url mints) resolve without one. App-local copies
+// of this hook pass their configured base (VITE_R2_PUBLIC_URL /
+// NEXT_PUBLIC_R2_PUBLIC_URL) for custom-domain urls.
+const keyFromR2Url = (url: string): string | null => r2KeyFromUrl(url)
+
+/** messages.attachment_keys for an outgoing attachment: every R2 object
+ *  key it references — [key] for a plain R2 url; all track keys for a
+ *  multi-audio attachment, whose url field is a JSON array of
+ *  { url, name } tracks (see ChatView's multi-audio send paths);
+ *  null when nothing R2-backed is referenced. */
+function attachmentKeys(attachment?: { url: string; type: AttachType }): string[] | null {
+  if (!attachment) return null
+  if (attachment.type === 'multi-audio') {
+    try {
+      const tracks = JSON.parse(attachment.url) as unknown
+      if (!Array.isArray(tracks)) return null
+      const keys = tracks
+        .map(t => (t && typeof t === 'object' && typeof (t as { url?: unknown }).url === 'string')
+          ? keyFromR2Url((t as { url: string }).url)
+          : null)
+        .filter((k): k is string => k !== null)
+      return keys.length > 0 ? keys : null
+    } catch {
+      return null
+    }
+  }
+  const key = keyFromR2Url(attachment.url)
+  return key ? [key] : null
+}
 
 export function useMessages(
   supabase: SupabaseClient,
@@ -135,9 +167,9 @@ export function useMessages(
     const cid = convIdRef.current
     if (!cid || (!content.trim() && !attachment)) return false
 
-    const expiresAt = attachment
-      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      : null
+    // Attachments no longer expire — files persist in R2 and reads go
+    // through presigned GETs. (Old rows may still carry an expiry.)
+    const expiresAt = null
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
@@ -164,6 +196,9 @@ export function useMessages(
       attachment_name: attachment?.name ?? null,
       attachment_metadata: attachment?.metadata ?? null,
       attachment_expires_at: expiresAt,
+      // R2 object keys — what the presign endpoint's membership probe
+      // matches on (exact keys, not url substrings).
+      attachment_keys: attachmentKeys(attachment),
     })
 
     if (error) {

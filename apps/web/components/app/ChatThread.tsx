@@ -459,7 +459,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
     setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
     try {
       const att = await uploadAttachment(file, currentUserId, (ratio) =>
-        setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: ratio } : u)), 'temp')
+        setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: ratio } : u)))
       await send('', att)
     } catch (err) {
       setUploadErr(err instanceof Error ? err.message : 'upload failed — try again.')
@@ -495,7 +495,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
       setUploads(prev => [...prev, { id: pid, name: f.name, progress: 0 }])
       try {
         const att = await uploadAttachment(f, currentUserId, (r) =>
-          setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: r } : u)), 'temp')
+          setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress: r } : u)))
         done.push(att)
       } catch (err) {
         setUploadErr(err instanceof Error ? err.message : 'upload failed — try again.')

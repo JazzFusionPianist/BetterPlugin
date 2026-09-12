@@ -7,6 +7,8 @@ import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
 import { regionToFile, resolveDawDrop } from '../../lib/audioMerge'
+import { useResolvedUrl } from '../../lib/r2Access'
+import { r2KeyFromUrl } from '../../lib/r2Keys'
 import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
@@ -23,6 +25,34 @@ const AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', '
 
 function isAudio(file: File) {
   return file.type.startsWith('audio/') || AUDIO_EXTS.has(file.name.split('.').pop()?.toLowerCase() ?? '')
+}
+
+/** One stem row. A component (not inline JSX in the map) so the stored
+ *  public file_url can be resolved to a presigned GET via useResolvedUrl
+ *  before AudioAttachment plays/fetches it — keeps working once R2
+ *  public access is turned off (falls back to the public url until then). */
+function StemRow({ stem, uploader, displayTimeline }: {
+  stem: ConversationStem
+  uploader: Profile | undefined
+  displayTimeline: AttachmentTimelineMetadata | undefined
+}) {
+  const resolvedUrl = useResolvedUrl(stem.file_url)
+  return (
+    <div className="stem-item">
+      <div className="stem-sender-avatar" style={{ background: uploader?.avatar_color }} title={uploader?.display_name ?? 'Member'}>
+        {uploader?.avatar_url
+          ? <img src={uploader.avatar_url} alt="" />
+          : (uploader?.initials.slice(0, 1) ?? '?')}
+      </div>
+      <AudioAttachment
+        compact
+        url={resolvedUrl}
+        name={stem.file_name}
+        metadata={displayTimeline}
+        from={uploader?.display_name}
+      />
+    </div>
+  )
 }
 
 export default function StemPanel({
@@ -94,11 +124,18 @@ export default function StemPanel({
       const contentType = file.type || 'application/octet-stream'
       const presign = await fetch('/api/r2-upload-url', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // scope temp = 7-day expiring key, same policy as chat attachments
-        body: JSON.stringify({ ext, contentType, userId: currentUserId, scope: 'temp' }),
+        // No scope → permanent key. Stems used to be temp (7-day
+        // expiry); files now persist and reads go presigned.
+        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
       })
       if (!presign.ok) throw new Error('presign')
-      const { uploadUrl, publicUrl } = await presign.json() as { uploadUrl: string; publicUrl: string }
+      const { uploadUrl, publicUrl, key: objectKey } =
+        await presign.json() as { uploadUrl: string; publicUrl: string; key?: string }
+      // R2 object key for the presign endpoint's keyed membership probe.
+      // The endpoint returns it directly; derive it from publicUrl via
+      // the canonical r2KeyFromUrl if a stale deploy doesn't.
+      const fileKey = objectKey
+        ?? r2KeyFromUrl(publicUrl, import.meta.env.VITE_R2_PUBLIC_URL as string | undefined)
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -119,6 +156,7 @@ export default function StemPanel({
         conversation_id: conversationId,
         uploader_id: currentUserId,
         file_url: publicUrl,
+        file_key: fileKey,
         file_name: file.name,
         file_size: file.size,
         mime_type: contentType,
@@ -208,20 +246,12 @@ export default function StemPanel({
             },
           } : undefined
           return (
-            <div className="stem-item" key={stem.id}>
-              <div className="stem-sender-avatar" style={{ background: uploader?.avatar_color }} title={uploader?.display_name ?? 'Member'}>
-                {uploader?.avatar_url
-                  ? <img src={uploader.avatar_url} alt="" />
-                  : (uploader?.initials.slice(0, 1) ?? '?')}
-              </div>
-              <AudioAttachment
-                compact
-                url={stem.file_url}
-                name={stem.file_name}
-                metadata={displayTimeline}
-                from={uploader?.display_name}
-              />
-            </div>
+            <StemRow
+              key={stem.id}
+              stem={stem}
+              uploader={uploader}
+              displayTimeline={displayTimeline}
+            />
           )
         })}
       </div>

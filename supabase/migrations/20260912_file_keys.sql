@@ -38,17 +38,31 @@ update public.conversation_stems
  where file_url like 'http%r2.dev/%'
    and file_key is null;
 
--- Messages: single-attachment rows only. Multi-audio messages store a
--- JSON array of tracks in attachment_url (starts with '['); there are
--- 0 such rows in prod today and the app's writers populate
--- attachment_keys for them from now on — so the backfill skips any
--- JSON payload on purpose. (The 'http%' prefix already excludes '['
--- rows; the not-like guard is belt and braces.)
+-- Messages: single-attachment rows.
 update public.messages
    set attachment_keys = array[regexp_replace(attachment_url, '^https?://[^/]+/', '')]
  where attachment_url like 'http%r2.dev/%'
    and attachment_url not like '[%'
    and attachment_keys is null;
+
+-- Multi-audio messages store a JSON array of tracks in attachment_url
+-- (starts with '['). The self-check below caught 2 live rows on first
+-- prod apply (the "0 in prod" assumption went stale between measuring
+-- and applying) — so the backfill is JSON-aware: every r2.dev track
+-- url in the array contributes its key. Keep equivalent to r2KeyFromUrl.
+update public.messages m
+   set attachment_keys = sub.keys
+  from (
+    select m2.id,
+           array_agg(regexp_replace(elem->>'url', '^https?://[^/]+/', '')) as keys
+      from public.messages m2,
+           jsonb_array_elements(m2.attachment_url::jsonb) elem
+     where m2.attachment_url like '[%'
+       and m2.attachment_keys is null
+       and elem->>'url' like 'http%r2.dev/%'
+     group by m2.id
+  ) sub
+ where m.id = sub.id;
 
 -- ── verify: no r2.dev row left without its key ───────────────────────
 --
@@ -81,10 +95,12 @@ begin
   end if;
 
   select count(*) into n_multi
-    from public.messages
-   where attachment_url like '[%'
-     and attachment_keys is null;
+    from public.messages m3
+   where m3.attachment_url like '[%'
+     and m3.attachment_keys is null
+     and exists (select 1 from jsonb_array_elements(m3.attachment_url::jsonb) e
+                  where e->>'url' like 'http%r2.dev/%');
   if n_multi > 0 then
-    raise exception 'file_keys backfill: % multi-audio (JSON) message row(s) with null attachment_keys — expected 0 in prod; backfill them before applying', n_multi;
+    raise exception 'file_keys backfill incomplete: % multi-audio (JSON) message row(s) with null attachment_keys after the JSON-aware pass', n_multi;
   end if;
 end $$;

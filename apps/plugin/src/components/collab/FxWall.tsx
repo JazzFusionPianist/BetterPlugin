@@ -511,6 +511,32 @@ export default function FxWall ({ size: frame }: Props) {
 
   const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
 
+  // ── the canvas draws the wall's wires and the discs under its prints,
+  //    every frame, in the wall's colour as it is RIGHT NOW (mid-fade
+  //    included) — the DOM above only holds hits, ports, texts ─────────
+  const overlayRef = useRef<(ctx: CanvasRenderingContext2D) => void>(() => {})
+  overlayRef.current = (ctx) => {
+    const plugin = document.querySelector('.plugin') as HTMLElement | null
+    const wallNow = plugin ? getComputedStyle(plugin).backgroundColor : 'rgb(22, 20, 16)'
+    const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(inkRgb)
+    const inkA = (a: number) => (m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a})` : `rgba(246, 243, 234, ${a})`)
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    // masks first, then the lines, so a crossing wire keeps its own gap
+    graph.edges.forEach((e, i) => {
+      const path = new Path2D(wirePath(outPortOf(e.from), inPortOf(e.to, i)))
+      ctx.strokeStyle = wallNow; ctx.lineWidth = 7; ctx.stroke(path)
+    })
+    graph.edges.forEach((e, i) => {
+      const path = new Path2D(wirePath(outPortOf(e.from), inPortOf(e.to, i)))
+      ctx.strokeStyle = sel?.edge === i ? inkA(1) : inkA(0.42); ctx.lineWidth = 1; ctx.stroke(path)
+    })
+    for (const n of graph.nodes) {
+      const c = toScreen(n)
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = wallNow; ctx.fill()
+    }
+  }
+  const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
+
   // ── patches: the wall's settings, saved by name, in the top bar ────
   type Patch = { name: string; graph: FxGraph; at: number }
   const [patches, setPatches] = useState<Patch[]>(() => {
@@ -604,11 +630,9 @@ export default function FxWall ({ size: frame }: Props) {
         }}
       >
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
-        {(scope.input || scope.output) && (
-          <div className="sg-scope-bg">
-            <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} />
-          </div>
-        )}
+        <div className="sg-scope-bg">
+          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} />
+        </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {
             const p0 = outPortOf(e.from), p1 = inPortOf(e.to, i)
@@ -621,8 +645,6 @@ export default function FxWall ({ size: frame }: Props) {
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
                 <path className="sg-wire-hit" d={wirePath(p0, p1)}
                   onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setConfirm(null) }} />
-                <path className="sg-wire-mask" d={wirePath(p0, p1)} />
-                <path className="sg-wire-line" d={wirePath(p0, p1)} />
                 {label && (
                   <text className="sg-share" x={lp.x} y={lp.y - 7} textAnchor="middle"
                     onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setDrag({ kind: 'share', edge: i, y0: ev.clientY, g0: e.gain }) }}

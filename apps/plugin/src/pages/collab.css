@@ -10434,10 +10434,9 @@ text.sg-word { fill: var(--sg-ink-55); }
 /* ── compositing: the scope canvas, the wires and every print get their
       own layer, so moving a print never leaves the canvas half-painted
       behind it (WebKit smeared the old frames otherwise) ─────────────── */
-.sg-scope-bg { contain: strict; will-change: transform; transform: translateZ(0); }
-.sg-scope-bg .sg-scope { will-change: transform; transform: translateZ(0); }
-.sg-wires { will-change: transform; transform: translateZ(0); }
-.sg-node { will-change: transform, left, top; transform: translateZ(0); }
+/* (wires and the discs under the prints are painted on the canvas now —
+    one full redraw per frame; no promoted layers, nothing to smear) */
+.sg-print { background: transparent; }
 .sg-wire-mask { pointer-events: none; }
 
 /* the scope's hands read like the words beside them — small, quiet */

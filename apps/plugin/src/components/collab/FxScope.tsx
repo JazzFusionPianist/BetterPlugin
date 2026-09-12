@@ -19,6 +19,10 @@ interface Props {
   accent: string               // the second ink
   gain?: number                // vertical zoom: 1 = full scale fills 84% of the wall
   windowS?: number             // horizontal zoom: seconds edge to edge
+  /** Drawn over the traces every frame, in CSS px: the wall's wires and
+   *  the discs under its prints live here too, so one full redraw per
+   *  frame replaces WebKit's partial repaints (which smeared). */
+  overlay?: (ctx: CanvasRenderingContext2D) => void
 }
 
 function decode (b64: string): Float32Array | null {
@@ -30,7 +34,7 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S }: Props) {
+export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
   const ringIn = useRef(new Float32Array(48000 * RING_S))
@@ -123,13 +127,15 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
       const both = input && output
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
       const accA = (a: number) => accent.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
       if (input) trace(ringIn.current, wIn.current, both ? inkA(0.26) : inkA(0.5), 1)
       if (output) trace(ringOut.current, wOut.current, both ? (accent.startsWith('rgb(') ? accA(0.7) : accent) : inkA(0.5), 1.2)
+      if (overlay) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); overlay(ctx); ctx.setTransform(1, 0, 0, 1, 0, 0) }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [input, output, width, height, ink, accent, gain, windowS])
+  }, [input, output, width, height, ink, accent, gain, windowS, overlay])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

@@ -33,7 +33,7 @@ import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
-import { resolveUrl, useResolvedUrl } from '../lib/r2Access'
+import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
@@ -114,6 +114,10 @@ function fmtDur(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Min gap between presigned-url recovery attempts for the same track —
+ *  a real expiry recurs roughly hourly; anything faster is a loop. */
+const NP_RETRY_WINDOW_MS = 60_000
+
 /* ── waveform tech — the web app's audioPeaks technique, ported ──────
    The open-call feed on the web (apps/web/lib/audioPeaks.ts + the
    OpenCallPanel Waveform) decodes each track once and prints max-abs
@@ -170,7 +174,11 @@ function probeDuration(url: string): Promise<number> {
 
 async function decodePeaks(url: string): Promise<WaveMeta> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`) as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
   const buf = await res.arrayBuffer()
   type AC = typeof AudioContext
   const Ctx: AC | undefined =
@@ -213,9 +221,23 @@ function getWaveMeta(url: string): Promise<WaveMeta> {
   // Cache stays keyed on the stored PUBLIC url (stable identity); only the
   // actual fetch/probe uses the presigned url — works once R2 public
   // access is off. Pseudo-peaks seed from the public url for stability.
+  // A 403 means the cached presigned url expired mid-session: invalidate,
+  // re-resolve, retry the decode ONCE before falling to pseudo-peaks.
   const p = resolveUrl(url)
-    .then(resolved => decodePeaks(resolved)
-      .catch(async () => ({ peaks: pseudoPeaks(url), duration: await probeDuration(resolved) })))
+    .then(async resolved => {
+      try {
+        return await decodePeaks(resolved)
+      } catch (e) {
+        if ((e as { status?: number }).status === 403 && resolved !== url) {
+          invalidateResolved(url)
+          const fresh = await resolveUrl(url)
+          if (fresh !== resolved) {
+            try { return await decodePeaks(fresh) } catch { /* fall through */ }
+          }
+        }
+        return { peaks: pseudoPeaks(url), duration: await probeDuration(resolved) }
+      }
+    })
     .then(meta => { waveCache.set(url, meta); waveInflight.delete(url); return meta })
   waveInflight.set(url, p)
   return p
@@ -1261,6 +1283,10 @@ function StudioShellInner({ supabase, user }: Props) {
   // Seek requested before the new track's metadata is ready — applied
   // in onLoadedMetadata (Safari ignores currentTime until then).
   const npPendingSeekRef = useRef<number | null>(null)
+  // 403 recovery guard: last recovery attempt per track (public url) —
+  // one retry per expiry window, so a genuinely broken source can't
+  // spin invalidate→re-resolve→error forever.
+  const npRetryAtRef = useRef(new Map<string, number>())
   const [npTrack, setNpTrack] = useState<{ url: string; name: string } | null>(null)
   const [npPlaying, setNpPlaying] = useState(false)
   const [npCur, setNpCur] = useState(0)
@@ -1299,6 +1325,33 @@ function StudioShellInner({ supabase, user }: Props) {
     a.currentTime = sec
     setNpCur(sec)
   }, [])
+  // A presigned src expires after ~an hour: playback (or a late seek)
+  // then surfaces as a media 'error'. Recover in place — save position +
+  // paused state, drop the stale cache entry, re-resolve, swap the src,
+  // seek back via the pending-seek path, resume if it was playing.
+  const npRecoverExpired = useCallback(() => {
+    const a = npAudioRef.current
+    const t = npTrackRef.current
+    if (!a || !t) return
+    const src = a.currentSrc || a.src
+    // Only presigned urls expire; anything else erroring is a real fault.
+    if (!src || !/[?&]X-Amz-/.test(src)) return
+    const now = Date.now()
+    const last = npRetryAtRef.current.get(t.url) ?? 0
+    if (now - last < NP_RETRY_WINDOW_MS) return // one retry per window
+    npRetryAtRef.current.set(t.url, now)
+    const at = a.currentTime > 0 ? a.currentTime : npCur
+    const wasPlaying = npPlaying
+    invalidateResolved(t.url)
+    void resolveUrl(t.url).then(fresh => {
+      if (npTrackRef.current?.url !== t.url) return // track changed under us
+      if (fresh === src) return // re-resolve got nothing newer — give up
+      npPendingSeekRef.current = at > 0 ? at : null
+      a.src = fresh
+      if (wasPlaying) a.play().then(() => setNpPlaying(true)).catch(() => {})
+    })
+  }, [npCur, npPlaying])
+
   const npClose = useCallback(() => {
     const a = npAudioRef.current
     a?.pause()
@@ -1994,6 +2047,7 @@ function StudioShellInner({ supabase, user }: Props) {
               }
             }}
             onEnded={() => { setNpPlaying(false); setNpCur(0) }}
+            onError={npRecoverExpired}
           />
           {dragOver && activeConvId && sel && sel.kind !== 'me' && (
             <div className={`wd-drop${dragKind === 'cancel' ? ' cancel' : ''}`}>

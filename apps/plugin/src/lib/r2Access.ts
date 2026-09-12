@@ -12,17 +12,53 @@
  * Identity stays the PUBLIC url everywhere (cache keys, engine.activeUrl,
  * React keys); the presigned url is only used at the network edge
  * (audio src, fetch, <img>/<video> src).
+ *
+ * Cache: sessionStorage (survives in-tab reloads, dies with the tab) under
+ * 'orb_r2_url:<key>', with an in-memory Map fallback for environments
+ * where storage throws (private windows, embedded webviews). A consumer
+ * that hits an expired url (403 from R2) calls invalidateResolved() and
+ * re-resolves.
  */
 import { useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase as defaultSupabase } from './supabase'
 
-/** Presigned URLs live 30 min (server-set); refresh 60 s before expiry. */
+/** Presigned URLs live 60 min (server-set); refresh 60 s before expiry. */
 const REFRESH_MARGIN_MS = 60_000
+const DEFAULT_TTL_SECONDS = 3600
 
-interface CacheEntry { url: string; expiresAt: number }
-const cache = new Map<string, CacheEntry>()
+interface CacheEntry { url: string; exp: number }
+
+const STORAGE_PREFIX = 'orb_r2_url:'
+/** Fallback when sessionStorage throws — same shape, same lifetime rules. */
+const memCache = new Map<string, CacheEntry>()
 const inflight = new Map<string, Promise<string>>()
+
+function cacheGet(key: string): CacheEntry | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_PREFIX + key)
+    if (raw) {
+      const v = JSON.parse(raw) as { url?: unknown; exp?: unknown }
+      if (typeof v.url === 'string' && typeof v.exp === 'number') {
+        return { url: v.url, exp: v.exp }
+      }
+    }
+  } catch { /* storage unavailable or entry corrupt — fall through */ }
+  return memCache.get(key) ?? null
+}
+
+function cacheSet(key: string, entry: CacheEntry): void {
+  try {
+    sessionStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(entry))
+    return
+  } catch { /* quota / private mode — keep it in memory instead */ }
+  memCache.set(key, entry)
+}
+
+function cacheDelete(key: string): void {
+  try { sessionStorage.removeItem(STORAGE_PREFIX + key) } catch { /* ignore */ }
+  memCache.delete(key)
+}
 
 /** The public base the bucket serves from. Prefer the build-time env
  *  (VITE_R2_PUBLIC_URL, same var the presign endpoint mirrors); when it
@@ -43,11 +79,20 @@ function keyFromPublicUrl(url: string): string | null {
   return null
 }
 
+/** Drop the cached presigned url for a stored public url — call when the
+ *  network says the url no longer works (403: expired or revoked), then
+ *  resolveUrl() again for a fresh one. No-op for non-R2 urls. */
+export function invalidateResolved(publicUrl: string): void {
+  const key = keyFromPublicUrl(publicUrl)
+  if (key) cacheDelete(key)
+}
+
 /**
  * Resolve a stored public url to a presigned GET url.
  *
  * - Non-R2 urls pass through unchanged.
- * - Presigned urls are cached per key and refreshed 60 s before expiry.
+ * - Presigned urls are cached per key (sessionStorage, memory fallback)
+ *   and refreshed 60 s before expiry.
  * - ANY failure (no session, endpoint missing, network) returns the
  *   public url unchanged — safe while public access is still enabled.
  */
@@ -59,8 +104,8 @@ export async function resolveFileUrl(
   if (!key || !supabase) return publicUrl
 
   const now = Date.now()
-  const hit = cache.get(key)
-  if (hit && hit.expiresAt - REFRESH_MARGIN_MS > now) return hit.url
+  const hit = cacheGet(key)
+  if (hit && hit.exp - REFRESH_MARGIN_MS > now) return hit.url
 
   const pending = inflight.get(key)
   if (pending) return pending
@@ -82,7 +127,7 @@ export async function resolveFileUrl(
       if (!res.ok) return publicUrl
       const { url, expiresIn } = await res.json() as { url?: string; expiresIn?: number }
       if (!url) return publicUrl
-      cache.set(key, { url, expiresAt: Date.now() + (expiresIn ?? 1800) * 1000 })
+      cacheSet(key, { url, exp: Date.now() + (expiresIn ?? DEFAULT_TTL_SECONDS) * 1000 })
       return url
     } catch {
       return publicUrl

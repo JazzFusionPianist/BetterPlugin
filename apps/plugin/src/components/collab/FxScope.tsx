@@ -7,7 +7,7 @@ import { hasJuceBridge } from '../../lib/juceBridge'
     work is visible as the difference between two traces — input in the
     wall's ink, quiet; output in the second ink over it.               */
 
-const WINDOW_S = 0.12          // seconds of signal on screen
+const WINDOW_S = 0.16          // seconds of signal across the wall
 const RING_S = 2               // seconds kept
 
 interface Props {
@@ -96,7 +96,7 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
       const per = n / width
       ctx.beginPath()
       ctx.strokeStyle = colour; ctx.lineWidth = lw * dpr; ctx.lineJoin = 'round'
-      const mid = height / 2, amp = height * 0.46
+      const mid = height / 2, amp = height * 0.42
       for (let x = 0; x < width; x++) {
         // min/max over the samples this column covers — the print of a
         // waveform, not an alias of it
@@ -115,11 +115,14 @@ export default function FxScope ({ input, output, width, height, ink, accent }: 
     const tick = () => {
       ctx.clearRect(0, 0, el.width, el.height)
       // a hairline at silence
-      ctx.beginPath(); ctx.strokeStyle = ink.replace('rgb(', 'rgba(').replace(')', ', 0.18)'); ctx.lineWidth = 1 * dpr
+      ctx.beginPath(); ctx.strokeStyle = ink.replace('rgb(', 'rgba(').replace(')', ', 0.1)'); ctx.lineWidth = 1 * dpr
       ctx.moveTo(0, height / 2 * dpr); ctx.lineTo(width * dpr, height / 2 * dpr); ctx.stroke()
+      // a backdrop, not a meter: quiet enough for the prints to sit on
       const both = input && output
-      if (input) trace(ringIn.current, wIn.current, both ? ink.replace('rgb(', 'rgba(').replace(')', ', 0.42)') : ink.replace('rgb(', 'rgba(').replace(')', ', 0.85)'), 1)
-      if (output) trace(ringOut.current, wOut.current, both ? accent : ink.replace('rgb(', 'rgba(').replace(')', ', 0.85)'), 1)
+      const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
+      const accA = (a: number) => accent.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
+      if (input) trace(ringIn.current, wIn.current, both ? inkA(0.26) : inkA(0.5), 1)
+      if (output) trace(ringOut.current, wOut.current, both ? (accent.startsWith('rgb(') ? accA(0.7) : accent) : inkA(0.5), 1.2)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

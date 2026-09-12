@@ -538,6 +538,12 @@ export default function FxWall ({ size: frame }: Props) {
           try { localStorage.setItem('orb_wall_pan', '{"x":0,"y":0}'); localStorage.setItem('orb_wall_zoom', '1') } catch { /* fine */ }
         }}
       >
+        {/* the wall's backdrop: the signal itself, moving, under the prints */}
+        {(scope.input || scope.output) && (
+          <div className="sg-scope-bg">
+            <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} />
+          </div>
+        )}
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {
             const p0 = outPortOf(e.from), p1 = inPortOf(e.to, i)
@@ -713,11 +719,8 @@ export default function FxWall ({ size: frame }: Props) {
           </div>
         )}
 
-        {/* the scope and its two words, bottom right */}
+        {/* the scope's two words, bottom right (the traces fill the wall behind everything) */}
         <div className="sg-scope-corner" onPointerDown={(e) => e.stopPropagation()}>
-          {(scope.input || scope.output) && (
-            <FxScope input={scope.input} output={scope.output} width={Math.min(360, Math.max(200, size.w * 0.32))} height={64} ink={inkRgb} accent={BLUE_INK} />
-          )}
           <div className="sg-scope-words">
             <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input }))}>input</span>
             <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output }))}>output</span>

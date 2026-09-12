@@ -10395,3 +10395,9 @@ text.sg-word { fill: var(--sg-ink-55); }
 }
 .sg-scope-corner .sg-scope-words { display: flex; gap: 12px; pointer-events: all; }
 .sg-scope { display: block; pointer-events: none; }
+
+/* the scope as the wall's backdrop */
+.sg-scope-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.sg-scope-bg .sg-scope { width: 100%; height: 100%; }
+.sg-wires, .sg-node, .sg-ghost, .sg-scope-corner, .sg-note { position: absolute; z-index: 1; }
+.sg-wires { inset: 0; }

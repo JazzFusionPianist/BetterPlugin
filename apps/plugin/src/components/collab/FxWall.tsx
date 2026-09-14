@@ -774,7 +774,7 @@ export default function FxWall ({ size: frame }: Props) {
     if (!hasPresetDialogs()) { setNaming(true); return }
     setListOpen(false)
     const g = JSON.parse(JSON.stringify(graphRef.current)) as FxGraph
-    const name = await savePresetDialog(g, preset ?? 'untitled')
+    const name = await savePresetDialog(g, preset && !isFactory(preset) ? preset : 'untitled')
     if (name) { setPreset(name); setSavedJson(graphKey(g)); refreshPresets() }
   }
   const doOpen = async () => {
@@ -783,10 +783,22 @@ export default function FxWall ({ size: frame }: Props) {
     const placed = settle(r.graph, size.w, size.h)
     commit(placed, true); setPreset(r.name); setSavedJson(graphKey(placed)); setSel(null); setConfirm(null); refreshPresets()
   }
+  // built in, everywhere, cannot be removed: the empty wall
+  const FACTORY: Array<{ name: string; graph: () => FxGraph }> = [
+    { name: 'initial', graph: () => ({ nodes: [], edges: [{ from: FX_PORT_IN, to: FX_PORT_OUT, gain: 1 }] }) },
+  ]
+  const isFactory = (name: string) => FACTORY.some(f => f.name === name)
+  const loadFactory = (name: string) => {
+    const f = FACTORY.find(x => x.name === name); if (!f) return
+    const g = f.graph()
+    commit(g, true); setPreset(name); setSavedJson(graphKey(g)); setSel(null); setConfirm(null); setListOpen(false)
+  }
+  const allNames = [...FACTORY.map(f => f.name), ...presets.filter(n => !isFactory(n))]
   const stepPreset = (dir: 1 | -1) => {
-    if (presets.length === 0) return
-    const i = preset ? presets.indexOf(preset) : -1
-    void doLoad(presets[(i + dir + presets.length) % presets.length])
+    if (allNames.length === 0) return
+    const i = preset ? allNames.indexOf(preset) : -1
+    const next = allNames[(i + dir + allNames.length) % allNames.length]
+    if (isFactory(next)) loadFactory(next); else void doLoad(next)
   }
   const topBar = typeof document !== 'undefined' ? document.querySelector('.plugin.sounds > .top-bar') : null
 
@@ -820,8 +832,14 @@ export default function FxWall ({ size: frame }: Props) {
       <span className="sg-preset-arrow" onPointerDown={() => stepPreset(1)} aria-label="next preset">›</span>
       {listOpen && (
         <div className="sg-preset-list" onPointerDown={(e) => e.stopPropagation()}>
+          {FACTORY.map(f => (
+            <div key={f.name} className={`sg-preset-row factory${preset === f.name ? ' on' : ''}`}>
+              <span className="sg-preset-row-name" onPointerDown={() => loadFactory(f.name)}>{f.name}</span>
+            </div>
+          ))}
+          <div className="sg-preset-rule" />
           {presets.length === 0 && !naming && <div className="sg-preset-empty">no presets yet</div>}
-          {presets.map(name => (
+          {presets.filter(n => !isFactory(n)).map(name => (
             <div key={name} className={`sg-preset-row${preset === name ? ' on' : ''}`}>
               <span className="sg-preset-row-name" onPointerDown={() => void doLoad(name)}>{name}</span>
               <span className="sg-word quiet" onPointerDown={() => { if (confirm === `preset:${name}`) void doDelete(name); else setConfirm(`preset:${name}`) }}>
@@ -830,7 +848,7 @@ export default function FxWall ({ size: frame }: Props) {
             </div>
           ))}
           <div className="sg-preset-actions">
-            {preset && <span className="sg-word" onPointerDown={() => void doSave(preset)}>save</span>}
+            {preset && !isFactory(preset) && <span className="sg-word" onPointerDown={() => void doSave(preset)}>save</span>}
             {naming
               ? <input className="sg-preset-input" autoFocus placeholder="name" defaultValue={preset ?? ''}
                   onKeyDown={(e) => { if (e.key === 'Enter') void doSave((e.currentTarget as HTMLInputElement).value); if (e.key === 'Escape') setNaming(false) }}

@@ -10498,3 +10498,5 @@ text.sg-word { fill: var(--sg-ink-55); }
   background: transparent; border: none; border-bottom: 1px solid var(--sg-ink-42);
   outline: none; padding: 0; width: 140px;
 }
+.sg-preset-rule { height: 1px; background: var(--sg-ink-14); margin: 4px 10px; }
+.sg-preset-row.factory .sg-preset-row-name { font-family: var(--f-serif); font-style: italic; }

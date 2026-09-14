@@ -104,6 +104,33 @@
 .wd-drop-fine { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
   font-size: 11px; color: #A5A199; }
 .wd-drop.cancel .wd-drop-glyph { color: #D6402E; border-color: rgba(214, 64, 46, .4); }
+
+/* Multi-track drop chooser — a small centered paper card in the
+   .wd-nowbar language (white ground, 1px hairline, radius 12, soft
+   shadow): serif count, three quiet button rows, a cancel word. */
+.wd-dropask { position: absolute; inset: 0; z-index: 70; display: flex;
+  align-items: center; justify-content: center; }
+.wd-dropask-veil { position: absolute; inset: 0; background: rgba(251, 250, 247, .72); }
+.wd-dropask-card { position: relative; width: 264px; background: #fff;
+  border: 1px solid rgba(26, 25, 23, .16); border-radius: 12px; padding: 18px 18px 12px;
+  box-shadow: 0 3px 6px rgba(26,25,23,.10), 0 12px 28px -12px rgba(26,25,23,.28);
+  animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }
+.wd-dropask-title { font-family: 'Instrument Serif', serif; font-size: 19px; color: #1A1917; }
+.wd-dropask-fine { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 11px; color: #A5A199; margin: 1px 0 12px; }
+.wd-dropask-row { display: block; width: 100%; text-align: left; background: none;
+  border: none; border-top: 1px solid rgba(26,25,23,.10); border-radius: 0;
+  padding: 9px 2px; cursor: pointer; }
+.wd-dropask-row span { display: block; font-size: 12.5px; color: #1A1917; }
+.wd-dropask-row small { display: block; font-size: 10.5px; color: #A5A199; margin-top: 1px; }
+.wd-dropask-row:hover:not(:disabled) span { color: var(--acc); }
+.wd-dropask-row:disabled { cursor: default; }
+.wd-dropask-row:disabled span { color: #A5A199; }
+.wd-dropask-row.off small { color: #C0BCB3; font-style: italic; }
+.wd-dropask-cancel { display: block; width: 100%; background: none; border: none;
+  border-top: 1px solid rgba(26,25,23,.10); padding: 9px 2px 4px; text-align: center;
+  font-size: 11px; color: #A5A199; cursor: pointer; }
+.wd-dropask-cancel:hover:not(:disabled) { color: #1A1917; }
 .wd-head { padding: 14px 22px 0; border-bottom: 1px solid rgba(26,25,23,.16); flex-shrink: 0; }
 .wd-head.plain { padding-bottom: 12px; }
 .wd-title { font-family: 'Instrument Serif', serif; font-size: 21px; }

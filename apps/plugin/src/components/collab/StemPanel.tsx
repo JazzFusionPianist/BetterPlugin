@@ -18,6 +18,11 @@ interface Props {
   participants: Profile[]
   pendingDrop: StemDropRequest | null
   onDropConsumed: (id: string) => void
+  /** Optional (additive — the combined plugin never passes it): a drop
+   *  of ≥2 files on the panel's own zone is handed up instead of
+   *  uploaded, so the host can ask separately-vs-merge first. The host
+   *  routes the outcome back through `pendingDrop`. */
+  onMultiFileDrop?: (files: File[]) => void
 }
 
 const MAX_SIZE = 1000 * 1024 * 1024
@@ -56,7 +61,7 @@ function StemRow({ stem, uploader, displayTimeline }: {
 }
 
 export default function StemPanel({
-  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed,
+  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed, onMultiFileDrop,
 }: Props) {
   const { t } = useT()
   const [stems, setStems] = useState<ConversationStem[]>([])
@@ -204,7 +209,11 @@ export default function StemPanel({
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false) }}
       onDrop={event => {
         event.preventDefault(); setDragOver(false)
-        void uploadFiles(Array.from(event.dataTransfer.files))
+        const files = Array.from(event.dataTransfer.files)
+        // Multi-file drops defer to the host's chooser when it wants
+        // them (studio); otherwise (combined plugin) upload as always.
+        if (onMultiFileDrop && files.length >= 2) { onMultiFileDrop(files); return }
+        void uploadFiles(files)
       }}
     >
       <div className="stem-head">

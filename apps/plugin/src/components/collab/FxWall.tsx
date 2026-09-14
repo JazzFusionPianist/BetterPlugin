@@ -6,6 +6,7 @@ import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
 import FxScope from './FxScope'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
+  listPresets, savePreset, loadPreset, deletePreset,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
@@ -152,8 +153,9 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, onDraw, shares 
 }) {
   const { type, amount: a, variant } = node
   const t = tintOf(type, variant)
-  const glow = dim || type === FX_MIX_TYPE ? 'none'
-    : `drop-shadow(0 0 ${6 + a * 22}px rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.25 + a * 0.5).toFixed(2)}))`
+  // no filter halo: the lamps are the light, and a filter draws its own box
+  void t; void a; void dim
+  const glow = 'none'
   const Art = ARTS[type]
   return (
     <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
@@ -380,7 +382,10 @@ export default function FxWall ({ size: frame }: Props) {
     const el = document.querySelector('.plugin') as HTMLElement | null
     if (!el) return
     el.style.setProperty('--fx-wall', 'rgb(22, 20, 16)')
-    return () => { el.style.removeProperty('--fx-wall') }
+    // the grain lives on the room's surface, bars and study included
+    const tile = grainTile()
+    if (tile) el.style.setProperty('--sg-grain-img', `url(${tile.toDataURL()})`)
+    return () => { el.style.removeProperty('--fx-wall'); el.style.removeProperty('--sg-grain-img') }
   }, [])
 
   // ── structure edits ────────────────────────────────────────────────
@@ -690,10 +695,7 @@ export default function FxWall ({ size: frame }: Props) {
     const ease = 1 - Math.exp(-dt / 0.28)
     const W = size.w, H = size.h
 
-    // the wall: near-black, darker toward the edges
-    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75)
-    vg.addColorStop(0, 'rgba(0, 0, 0, 0)'); vg.addColorStop(1, 'rgba(0, 0, 0, 0.55)')
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H)
+    void W; void H
 
     // the lamps
     ctx.globalCompositeOperation = 'screen'
@@ -738,43 +740,39 @@ export default function FxWall ({ size: frame }: Props) {
     }
     ctx.globalCompositeOperation = 'source-over'
 
-    // film grain, so the light lands on a material
-    const tile = grainTile()
-    if (tile) {
-      ctx.globalCompositeOperation = 'overlay'
-      ctx.globalAlpha = 0.14
-      for (let y = 0; y < H; y += tile.height) for (let x = 0; x < W; x += tile.width) ctx.drawImage(tile, x, y)
-      ctx.globalAlpha = 1
-      ctx.globalCompositeOperation = 'source-over'
-    }
   }
   const backdropFn = useCallback((ctx: CanvasRenderingContext2D) => backdropRef.current(ctx), [])
 
-  // ── patches: the wall's settings, saved by name, in the top bar ────
-  type Patch = { name: string; graph: FxGraph; at: number }
-  const [patches, setPatches] = useState<Patch[]>(() => {
-    try { const v = JSON.parse(localStorage.getItem('orb_wall_patches') || '[]'); return Array.isArray(v) ? v : [] } catch { return [] }
-  })
-  const [currentPatch, setCurrentPatch] = useState<number>(-1)
-  const [renaming, setRenaming] = useState<number>(-1)
-  const savePatches = (next: Patch[]) => { setPatches(next); try { localStorage.setItem('orb_wall_patches', JSON.stringify(next)) } catch { /* fine */ } }
-  const savePatch = () => {
-    let n = patches.length + 1
-    while (patches.some(p => p.name === `patch ${n}`)) n++
-    const next = [...patches, { name: `patch ${n}`, graph: JSON.parse(JSON.stringify(graphRef.current)) as FxGraph, at: Date.now() }]
-    savePatches(next); setCurrentPatch(next.length - 1)
+  // ── presets: the wall's patches as files, FabFilter-style bar ──────
+  const [presets, setPresets] = useState<string[]>([])
+  const [preset, setPreset] = useState<string | null>(null)      // the loaded one
+  const [savedJson, setSavedJson] = useState<string>('')           // to know when the wall drifted
+  const [listOpen, setListOpen] = useState(false)
+  const [naming, setNaming] = useState(false)
+  const refreshPresets = useCallback(() => { void listPresets().then(setPresets) }, [])
+  useEffect(() => { refreshPresets() }, [refreshPresets])
+  const graphKey = (g: FxGraph) => JSON.stringify({ n: g.nodes.map(n => ({ ...n, x: 0, y: 0 })), e: g.edges })
+  const dirty = preset !== null && savedJson !== '' && graphKey(graph) !== savedJson
+  const doSave = async (name: string) => {
+    const clean = name.trim().toLowerCase().replace(/[\\/:*?"<>|]/g, '').slice(0, 48)
+    if (!clean) return
+    const g = JSON.parse(JSON.stringify(graphRef.current)) as FxGraph
+    if (await savePreset(clean, g)) { setPreset(clean); setSavedJson(graphKey(g)); refreshPresets() }
+    setNaming(false); setListOpen(false)
   }
-  const overwritePatch = (i: number) => {
-    savePatches(patches.map((p, k) => k === i ? { ...p, graph: JSON.parse(JSON.stringify(graphRef.current)) as FxGraph, at: Date.now() } : p))
+  const doLoad = async (name: string) => {
+    const g = await loadPreset(name); if (!g) return
+    const placed = settle(g, size.w, size.h)
+    commit(placed, true); setPreset(name); setSavedJson(graphKey(placed)); setSel(null); setConfirm(null); setListOpen(false)
   }
-  const loadPatch = (i: number) => {
-    const p = patches[i]; if (!p) return
-    commit(settle(JSON.parse(JSON.stringify(p.graph)) as FxGraph, size.w, size.h), true)
-    setCurrentPatch(i); setSel(null); setConfirm(null)
+  const doDelete = async (name: string) => {
+    if (await deletePreset(name)) { if (preset === name) { setPreset(null); setSavedJson('') } refreshPresets() }
+    setConfirm(null)
   }
-  const removePatch = (i: number) => {
-    savePatches(patches.filter((_, k) => k !== i))
-    setCurrentPatch(-1); setConfirm(null)
+  const stepPreset = (dir: 1 | -1) => {
+    if (presets.length === 0) return
+    const i = preset ? presets.indexOf(preset) : -1
+    void doLoad(presets[(i + dir + presets.length) % presets.length])
   }
   const topBar = typeof document !== 'undefined' ? document.querySelector('.plugin.sounds > .top-bar') : null
 
@@ -799,27 +797,34 @@ export default function FxWall ({ size: frame }: Props) {
   const inkRgb = strokeFor(litLevel)
 
   const patchBar = topBar && createPortal(
-    <div className="sg-patchbar" style={inkVars} onPointerDown={(e) => e.stopPropagation()}>
-      <div className="sg-patchbar-names">
-        {patches.map((p, i) => (
-          <span key={p.at} className={`sg-patch${currentPatch === i ? ' on' : ''}`}>
-            {renaming === i
-              ? <input className="sg-patch-rename" autoFocus defaultValue={p.name}
-                  onBlur={(e) => { const name = e.currentTarget.value.trim().toLowerCase() || p.name; savePatches(patches.map((q, k) => k === i ? { ...q, name } : q)); setRenaming(-1) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.currentTarget as HTMLInputElement).blur() }} />
-              : <span className="sg-word" onPointerDown={() => loadPatch(i)} onDoubleClick={() => setRenaming(i)}>{p.name}</span>}
-            {currentPatch === i && renaming !== i && (
-              <>
-                <span className="sg-word quiet" onPointerDown={() => overwritePatch(i)}>keep</span>
-                <span className="sg-word quiet" onPointerDown={() => { if (confirm === `patch:${i}`) removePatch(i); else setConfirm(`patch:${i}`) }}>
-                  {confirm === `patch:${i}` ? 'sure?' : 'remove'}
-                </span>
-              </>
-            )}
-          </span>
-        ))}
+    <div className="sg-presetbar" style={inkVars} onPointerDown={(e) => e.stopPropagation()}>
+      <span className="sg-preset-arrow" onPointerDown={() => stepPreset(-1)} aria-label="previous preset">‹</span>
+      <div className={`sg-preset-box${listOpen ? ' open' : ''}`} onPointerDown={() => { setListOpen(v => !v); setNaming(false); setConfirm(null) }}>
+        <span className="sg-preset-name">{preset ?? 'untitled'}{dirty ? ' *' : ''}</span>
+        <span className="sg-preset-caret">▾</span>
       </div>
-      <span className="sg-word" onPointerDown={savePatch}>save</span>
+      <span className="sg-preset-arrow" onPointerDown={() => stepPreset(1)} aria-label="next preset">›</span>
+      {listOpen && (
+        <div className="sg-preset-list" onPointerDown={(e) => e.stopPropagation()}>
+          {presets.length === 0 && !naming && <div className="sg-preset-empty">no presets yet</div>}
+          {presets.map(name => (
+            <div key={name} className={`sg-preset-row${preset === name ? ' on' : ''}`}>
+              <span className="sg-preset-row-name" onPointerDown={() => void doLoad(name)}>{name}</span>
+              <span className="sg-word quiet" onPointerDown={() => { if (confirm === `preset:${name}`) void doDelete(name); else setConfirm(`preset:${name}`) }}>
+                {confirm === `preset:${name}` ? 'sure?' : 'remove'}
+              </span>
+            </div>
+          ))}
+          <div className="sg-preset-actions">
+            {preset && <span className="sg-word" onPointerDown={() => void doSave(preset)}>save</span>}
+            {naming
+              ? <input className="sg-preset-input" autoFocus placeholder="name" defaultValue={preset ?? ''}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void doSave((e.currentTarget as HTMLInputElement).value); if (e.key === 'Escape') setNaming(false) }}
+                  onBlur={(e) => { if (e.currentTarget.value.trim()) void doSave(e.currentTarget.value); else setNaming(false) }} />
+              : <span className="sg-word" onPointerDown={() => setNaming(true)}>save as…</span>}
+          </div>
+        </div>
+      )}
     </div>,
     topBar,
   )
@@ -839,7 +844,7 @@ export default function FxWall ({ size: frame }: Props) {
           const p = wallPt(e)
           let hit = -1, best = 9
           graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
-          setConfirm(null)
+          setConfirm(null); setListOpen(false)
           if (hit >= 0) { setSel({ edge: hit }); return }
           setSel(null)
           setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y })

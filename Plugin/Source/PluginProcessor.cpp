@@ -161,6 +161,14 @@ OrbAudioProcessor::OrbAudioProcessor()
                         scopeInputWanted.store ((bool) arr->getReference (0));
                     completion (juce::var (true));
                 })
+            .withNativeFunction ("listPresets",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleListPresets (a, std::move (done)); })
+            .withNativeFunction ("savePreset",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleSavePreset (a, std::move (done)); })
+            .withNativeFunction ("loadPreset",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleLoadPreset (a, std::move (done)); })
+            .withNativeFunction ("deletePreset",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleDeletePreset (a, std::move (done)); })
             .withNativeFunction ("getGraph",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -1204,6 +1212,69 @@ void OrbAudioProcessor::handleGetFx (const juce::var&,
     obj->setProperty ("delayDiv", fxDelayDiv.load());
     obj->setProperty ("delayFb", (double) fxDelayFb.load());
     completion (juce::var (obj));
+}
+
+//==============================================================================
+// Presets — the wall's patches as files. One JSON file per preset, named
+// by the user, in a folder they can open, copy and share.
+
+juce::File OrbAudioProcessor::presetsDir()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile ("Orb").getChildFile ("Sounds").getChildFile ("Presets");
+}
+
+static juce::String presetNameArg (const juce::var& args, int index = 0)
+{
+    if (auto* arr = args.getArray(); arr != nullptr && arr->size() > index)
+        return juce::File::createLegalFileName (arr->getReference (index).toString().trim());
+    return {};
+}
+
+void OrbAudioProcessor::handleListPresets (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    juce::Array<juce::var> names;
+    auto dir = presetsDir();
+    if (dir.isDirectory())
+    {
+        juce::Array<juce::File> files;
+        dir.findChildFiles (files, juce::File::findFiles, false, "*.orbpatch");
+        files.sort();
+        for (auto& f : files) names.add (f.getFileNameWithoutExtension());
+    }
+    completion (juce::var (names));
+}
+
+void OrbAudioProcessor::handleSavePreset (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    const auto name = presetNameArg (args, 0);
+    if (name.isEmpty()) { completion (juce::var (false)); return; }
+    juce::String json;
+    if (auto* arr = args.getArray(); arr != nullptr && arr->size() > 1)
+    {
+        const auto& v = arr->getReference (1);
+        json = v.isString() ? v.toString() : juce::JSON::toString (v, true);
+    }
+    if (json.isEmpty()) { const juce::ScopedLock sl (fxGraphLock); json = graphToJson (fxGraph); }
+    auto dir = presetsDir();
+    dir.createDirectory();
+    const bool ok = dir.getChildFile (name + ".orbpatch").replaceWithText (json);
+    completion (juce::var (ok));
+}
+
+void OrbAudioProcessor::handleLoadPreset (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    const auto name = presetNameArg (args, 0);
+    auto f = presetsDir().getChildFile (name + ".orbpatch");
+    if (name.isEmpty() || ! f.existsAsFile()) { completion (juce::var()); return; }
+    completion (juce::var (f.loadFileAsString()));
+}
+
+void OrbAudioProcessor::handleDeletePreset (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    const auto name = presetNameArg (args, 0);
+    auto f = presetsDir().getChildFile (name + ".orbpatch");
+    completion (juce::var (name.isNotEmpty() && f.existsAsFile() && f.deleteFile()));
 }
 
 //==============================================================================

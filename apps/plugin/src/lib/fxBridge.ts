@@ -154,3 +154,47 @@ export function setScopeInput (on: boolean): void {
   if (!hasJuceNativeFunction('setScopeInput')) return
   void callJuceNative('setScopeInput', [on]).catch(() => {})
 }
+
+/* ── Presets: the wall's patches as files the user owns ─────────────
+   In the plugin: ~/Library/Application Support/Orb/Sounds/Presets/
+   <name>.orbpatch (JSON). In a plain browser: localStorage stands in. */
+const PRESET_LS = 'orb_wall_presets'
+function lsPresets (): Record<string, FxGraph> {
+  try { return JSON.parse(localStorage.getItem(PRESET_LS) || '{}') as Record<string, FxGraph> } catch { return {} }
+}
+export function hasPresetFiles (): boolean { return hasJuceNativeFunction('listPresets') }
+
+export async function listPresets (): Promise<string[]> {
+  if (hasPresetFiles()) {
+    try {
+      const raw: unknown = await callJuceNative('listPresets')
+      const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+      return Array.isArray(v) ? v.map(String) : []
+    } catch { return [] }
+  }
+  return Object.keys(lsPresets()).sort()
+}
+export async function savePreset (name: string, g: FxGraph): Promise<boolean> {
+  if (hasPresetFiles()) {
+    try { const r: unknown = await callJuceNative('savePreset', [name, JSON.stringify(g)]); return r === true || r === 'true' } catch { return false }
+  }
+  const all = lsPresets(); all[name] = g
+  try { localStorage.setItem(PRESET_LS, JSON.stringify(all)); return true } catch { return false }
+}
+export async function loadPreset (name: string): Promise<FxGraph | null> {
+  if (hasPresetFiles()) {
+    try {
+      const raw: unknown = await callJuceNative('loadPreset', [name])
+      const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+      return v && Array.isArray((v as FxGraph).nodes) ? v as FxGraph : null
+    } catch { return null }
+  }
+  return lsPresets()[name] ?? null
+}
+export async function deletePreset (name: string): Promise<boolean> {
+  if (hasPresetFiles()) {
+    try { const r: unknown = await callJuceNative('deletePreset', [name]); return r === true || r === 'true' } catch { return false }
+  }
+  const all = lsPresets(); delete all[name]
+  try { localStorage.setItem(PRESET_LS, JSON.stringify(all)); return true } catch { return false }
+}

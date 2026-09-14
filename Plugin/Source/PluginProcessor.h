@@ -195,6 +195,13 @@ private:
                          juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void handleGetGraph (const juce::var& args,
                          juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    // Presets: patches saved as files the user owns
+    // (~/Library/Application Support/Orb/Sounds/Presets/<name>.orbpatch).
+    static juce::File presetsDir();
+    void handleListPresets (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleSavePreset  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleLoadPreset  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleDeletePreset (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void processFx (juce::AudioBuffer<float>& buffer);
 
     //── Live audio streaming timer ───────────────────────────────────────────

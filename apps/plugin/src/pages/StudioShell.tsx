@@ -1560,8 +1560,9 @@ function StudioShellInner({ supabase, user }: Props) {
   const [dropBusy, setDropBusy] = useState<'placed' | 'joined' | 'zip' | null>(null)
   // mergeDroppedRegions refused for that mode — the row greys out with
   // the refusal, in the user's words (mergeFailureText), instead of
-  // failing silently. 'placed' usually means the stamps can't prove one
-  // timeline; 'joined' means the size cap or nothing decoded.
+  // failing silently. 'placed' means missing stamps or mixed rates
+  // (overlaps are mixed now, never refused); 'joined' means the size
+  // cap or nothing decoded.
   const [mergeFailed, setMergeFailed] = useState<{ placed: string | null; joined: string | null }>({ placed: null, joined: null })
   const dragCounter = useRef(0)
   const juceDragActive = useRef(false)      // C++ owns the overlay while true
@@ -1663,10 +1664,11 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [dropChoice, dropBusy, dropZip, sendAsZip, sendAudioListToChat])
 
   // The two merge rows — 'placed' lays regions at their BWF-stamped
-  // positions (null when the stamps can't prove one timeline: comped or
-  // moved regions carry ORIGINAL record-time stamps, so the user picks);
-  // 'joined' butt-joins in filename order, stamps ignored. The single
-  // merged WAV then rides the same route a lone file would.
+  // positions, mixing any overlaps in place (refused only for missing
+  // stamps or mixed rates); 'joined' butt-joins in filename order,
+  // stamps ignored — the one for comped/moved regions whose ORIGINAL
+  // record-time stamps would scatter them. The single merged WAV then
+  // rides the same route a lone file would.
   const choiceMerge = useCallback((mode: 'placed' | 'joined') => {
     const c = dropChoice
     if (!c || dropBusy || mergeFailed[mode]) return
@@ -2341,7 +2343,7 @@ function StudioShellInner({ supabase, user }: Props) {
                   onClick={() => choiceMerge('placed')}
                 >
                   <span>{dropBusy === 'placed' ? 'merging…' : `merge / keep timing${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
-                  <small>{mergeFailed.placed ? mergeFailed.placed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'as placed on the session timeline'}</small>
+                  <small>{mergeFailed.placed ? mergeFailed.placed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'as placed on the timeline — overlaps are mixed'}</small>
                 </button>
                 <button
                   className={`wd-dropask-row${mergeFailed.joined ? ' off' : ''}`}

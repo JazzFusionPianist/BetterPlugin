@@ -10,7 +10,9 @@
  *
  *  • PLACED — every region carries a BWF/iXML timestamp (Logic, Pro Tools
  *    and Cubase all stamp their region exports). Each region is laid at
- *    its original sample position, the gaps between them are silence,
+ *    its original sample position, the gaps between them are silence
+ *    (in the explicit "placed" mode, overlapping regions are summed —
+ *    mixed in place, with no gain change — rather than refused),
  *    and the merged file gets its own `bext` chunk whose TimeReference is
  *    the earliest region's — so the receiving DAW can "move to original
  *    position" the clip and it lands exactly where the sender had it.
@@ -140,9 +142,16 @@ export interface Placement {
 /**
  * Lay regions at their original positions. Returns the reason instead of
  * a plan when the regions can't be proven to share one timeline.
+ *
+ * `allowOverlap` skips the overlap refusal: regions that overlap in time
+ * are planned anyway and the renderer mixes them (an explicit "keep
+ * timing" merge treats overlaps as intentional). The default refusal
+ * remains the policy check for auto-merging, where overlap means "two
+ * tracks, not one".
  */
 export function planPlacement(
   regions: { start?: number; sampleRate?: number; frames?: number }[],
+  opts?: { allowOverlap?: boolean },
 ): { plan: Placement } | { reason: 'no-timing' | 'overlap' | 'mixed-rate' } {
   if (regions.some(r => r.start == null || !r.sampleRate || r.frames == null)) return { reason: 'no-timing' }
   const sampleRate = regions[0]!.sampleRate!
@@ -150,10 +159,12 @@ export function planPlacement(
 
   const order = regions.map((r, index) => ({ index, start: r.start!, frames: r.frames! }))
     .sort((a, b) => a.start - b.start)
-  const tolerance = Math.round(OVERLAP_TOLERANCE_SEC * sampleRate)
-  for (let i = 1; i < order.length; i++) {
-    const previous = order[i - 1]!
-    if (order[i]!.start < previous.start + previous.frames - tolerance) return { reason: 'overlap' }
+  if (!opts?.allowOverlap) {
+    const tolerance = Math.round(OVERLAP_TOLERANCE_SEC * sampleRate)
+    for (let i = 1; i < order.length; i++) {
+      const previous = order[i - 1]!
+      if (order[i]!.start < previous.start + previous.frames - tolerance) return { reason: 'overlap' }
+    }
   }
 
   const timeReference = order[0]!.start
@@ -167,7 +178,9 @@ export function planPlacement(
 export interface WavOptions {
   sampleRate: number
   channels: number
-  bitDepth: 16 | 24
+  /** 16/24 write integer PCM; 32 writes IEEE float (format tag 3), which
+   *  carries samples past ±1.0 losslessly instead of clipping them. */
+  bitDepth: 16 | 24 | 32
   /** Original position in samples (BWF TimeReference). Omit for no bext chunk. */
   timeReference?: number
   description?: string
@@ -182,25 +195,33 @@ function writeAscii(view: DataView, offset: number, length: number, text: string
   }
 }
 
-/** Interleaved Float32 → PCM WAV (16- or 24-bit), optionally BWF-stamped. */
+/** Interleaved Float32 → WAV: integer PCM (16/24-bit) or IEEE float
+ *  (32-bit, samples past ±1.0 kept as-is), optionally BWF-stamped. */
 export function encodeWav(samples: Float32Array, opts: WavOptions): Blob {
   const { sampleRate, channels, bitDepth } = opts
+  const float = bitDepth === 32
   const bytesPerSample = bitDepth / 8
   const blockAlign = channels * bytesPerSample
   const dataSize = samples.length * bytesPerSample
   const withBext = opts.timeReference != null
+  const factChunk = float ? 12 : 0  // non-PCM formats carry a `fact` chunk
   const bextChunk = withBext ? 8 + BEXT_SIZE : 0
-  const buf = new ArrayBuffer(12 + 24 + bextChunk + 8 + dataSize)
+  const buf = new ArrayBuffer(12 + 24 + factChunk + bextChunk + 8 + dataSize)
   const view = new DataView(buf)
   const wstr = (off: number, s: string) => writeAscii(view, off, s.length, s)
 
   wstr(0, 'RIFF'); view.setUint32(4, buf.byteLength - 8, true); wstr(8, 'WAVE')
-  wstr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true)
+  wstr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, float ? 3 : 1, true)
   view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true)
   view.setUint32(28, sampleRate * blockAlign, true); view.setUint16(32, blockAlign, true)
   view.setUint16(34, bitDepth, true)
 
   let off = 36
+  if (float) {
+    wstr(off, 'fact'); view.setUint32(off + 4, 4, true)
+    view.setUint32(off + 8, samples.length / channels, true)  // frames per channel
+    off += 12
+  }
   if (withBext) {
     wstr(off, 'bext'); view.setUint32(off + 4, BEXT_SIZE, true)
     const b = off + 8
@@ -219,7 +240,12 @@ export function encodeWav(samples: Float32Array, opts: WavOptions): Blob {
 
   wstr(off, 'data'); view.setUint32(off + 4, dataSize, true)
   off += 8
-  if (bitDepth === 16) {
+  if (float) {
+    for (let i = 0; i < samples.length; i++) {
+      view.setFloat32(off, samples[i]!, true)
+      off += 4
+    }
+  } else if (bitDepth === 16) {
     for (let i = 0; i < samples.length; i++) {
       const s = Math.max(-1, Math.min(1, samples[i]!))
       view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true)
@@ -294,8 +320,19 @@ async function renderPlaced(regions: RegionInfo[], plan: Placement): Promise<Fil
     mixInto(out, channels, b, placed.offset, plan.totalFrames)
     // `b` goes out of scope here — the next region decodes into fresh memory.
   }
+  // Overlapping regions were SUMMED above, so the mix can peak past full
+  // scale. No gain is ever applied — the summed levels leave untouched.
+  // A peak over 1.0 escalates the output to 32-bit float WAV, which
+  // carries over-0dBFS samples losslessly (the receiving DAW just pulls
+  // the fader down); otherwise the integer format stands as before.
+  let peak = 0
+  for (let i = 0; i < out.length; i++) {
+    const v = Math.abs(out[i]!)
+    if (v > peak) peak = v
+  }
   const wav = encodeWav(out, {
-    sampleRate: plan.sampleRate, channels, bitDepth: outputBitDepth(regions),
+    sampleRate: plan.sampleRate, channels,
+    bitDepth: peak > 1.0 ? 32 : outputBitDepth(regions),
     timeReference: plan.timeReference,
     description: `Orb: ${regions.length} regions merged at their original positions`,
   })
@@ -366,7 +403,9 @@ export function mergeFailureText(reason: Extract<MergeResult, { ok: false }>['re
 export type MergeMode =
   /** Placed when provable, back-to-back otherwise (the historical default). */
   | 'auto'
-  /** Timestamp-placed only — refused when the stamps can't prove one timeline. */
+  /** Timestamp-placed only — refused when the stamps are missing or the
+   *  rates are mixed. Overlapping stamps are taken as intentional here
+   *  and the overlap is mixed, not refused. */
   | 'placed'
   /** Butt-joined in filename order, stamps ignored (comped/moved regions). */
   | 'joined'
@@ -387,9 +426,11 @@ async function joinBackToBack(regions: RegionInfo[]): Promise<MergeResult> {
  *  • 'auto'   — placed at original positions when every region is
  *    timestamped and they don't overlap; joined back to back otherwise.
  *  • 'placed' — placement only. The user asked for original timing, so
- *    when the stamps can't prove it (missing/inexact stamps, overlap,
- *    mixed rates — or a placed render past the size cap) this refuses
- *    with the reason rather than silently butt-joining.
+ *    when the stamps can't provide it (missing/inexact stamps, mixed
+ *    rates — or a placed render past the size cap) this refuses with
+ *    the reason rather than silently butt-joining. Overlapping stamps
+ *    are honored, not refused: the overlap is summed in place (a
+ *    mini-bounce), escalating to float WAV if the sum passes 0dBFS.
  *  • 'joined' — back-to-back in filename order, stamps ignored. The one
  *    to reach for when comped/moved regions still carry their original
  *    record-time BWF stamps and "placed" would scatter them.
@@ -402,7 +443,10 @@ export async function mergeDroppedRegions(
   const files = batch.map(b => b instanceof File ? b : regionToFile(b.name, b.data))
   const regions = await Promise.all(files.map(analyzeRegion))
   if (mode === 'joined') return joinBackToBack(regions)
-  const placement = planPlacement(regions)
+  // In explicit 'placed' mode overlapping stamps are intentional and get
+  // mixed; 'auto' keeps the refusal so overlap still falls back to a
+  // back-to-back join (and resolveDawDrop still sends overlaps separately).
+  const placement = planPlacement(regions, { allowOverlap: mode === 'placed' })
   if ('plan' in placement) {
     if (outputBytes(placement.plan.totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
     const file = await renderPlaced(regions, placement.plan)

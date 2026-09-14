@@ -92,10 +92,13 @@ function readSharedSize (): { w: number; h: number } | null {
 /** Fresh instance at the compact default → adopt the shared size (if any). */
 export async function adoptSharedWindowSize (): Promise<boolean> {
   if (!hasJuceBridge) return false
-  if (window.innerWidth !== DEFAULT_W || window.innerHeight !== DEFAULT_H) return false
+  // the editor may have clamped its default width to the display
+  const maxW = Math.max(760, (window.screen?.availWidth ?? 4096) - 80)
+  const freshW = Math.min(DEFAULT_W, maxW)
+  if (window.innerHeight !== DEFAULT_H || (window.innerWidth !== DEFAULT_W && window.innerWidth !== freshW)) return false
   const s = readSharedSize()
   if (!s || (s.w === DEFAULT_W && s.h === DEFAULT_H)) return false
-  return setPluginSize(s.w, s.h)
+  return setPluginSize(Math.min(s.w, maxW), s.h)
 }
 
 /** While a temporary grow is in effect (the wall's study), resizes are

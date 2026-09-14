@@ -2,7 +2,6 @@ import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, u
 import { createPortal } from 'react-dom'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
-import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
 import FxScope from './FxScope'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
@@ -204,37 +203,11 @@ export default function FxWall ({ size: frame }: Props) {
   const [graph, setGraphState] = useState<FxGraph>(() => demoGraph(frame.w, frame.h))
   const [loaded, setLoaded] = useState(!bridge)
   const [sel, setSel] = useState<{ node?: number; edge?: number } | null>(null)
-  // the study opens with a chosen print; the wall keeps its width by
-  // growing the host window (restored on close), or gives up room in a
-  // plain browser
+  // the study opens over the wall's right side; the window never grows
+  // (a wall that outgrows a MacBook was the problem), so the wall keeps
+  // its full width underneath
   const studyOpen = sel?.node !== undefined
-  const size = { w: frame.w - (studyOpen ? STUDY_W : 0), h: frame.h }
-  const grown = useRef<{ w: number; h: number } | null>(null)
-  useEffect(() => {
-    if (!hasJuceBridge) return
-    if (studyOpen && !grown.current) {
-      grown.current = { w: window.innerWidth, h: window.innerHeight }
-      suspendSharedWindowSize(true)
-      try { localStorage.setItem('orb_wall_grown', JSON.stringify({ base: grown.current, w: grown.current.w + STUDY_W })) } catch { /* fine */ }
-      void setPluginSize(grown.current.w + STUDY_W, grown.current.h)
-    } else if (!studyOpen && grown.current) {
-      const base = grown.current; grown.current = null
-      void setPluginSize(base.w, base.h).then(() => suspendSharedWindowSize(false))
-      try { localStorage.removeItem('orb_wall_grown') } catch { /* fine */ }
-    }
-  }, [studyOpen])
-  // reopened while grown last time (the study was open when the window
-  // closed)? come back to the base size first
-  useEffect(() => {
-    if (!hasJuceBridge) return
-    try {
-      const raw = localStorage.getItem('orb_wall_grown'); if (!raw) return
-      const g = JSON.parse(raw) as { base: { w: number; h: number }; w: number }
-      if (g?.base && Math.abs(window.innerWidth - g.w) < 4) void setPluginSize(g.base.w, g.base.h)
-      localStorage.removeItem('orb_wall_grown')
-    } catch { /* fine */ }
-  }, [])
-  useEffect(() => () => { if (grown.current) { const b = grown.current; void setPluginSize(b.w, b.h); suspendSharedWindowSize(false) } }, [])
+  const size = { w: frame.w, h: frame.h }
   const [confirm, setConfirm] = useState<string | null>(null)   // 'node:3' | 'edge:2' awaiting the second tap
   const [drag, setDrag] = useState<Drag | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -1039,7 +1012,7 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && (
-      <aside className="sg-study" onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+      <aside className="sg-study" style={{ width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>

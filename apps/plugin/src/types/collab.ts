@@ -19,6 +19,9 @@ export type AttachType =
    *  holds the room id and `attachment_name` holds the game type
    *  ('chess' | 'falling_blocks' | 'poker' | 'ear_training'). */
   | 'game_invite'
+  /** Generic non-media attachment (e.g. the studio's "send as zip"
+   *  bundle) — renders as the plain file card. */
+  | 'file'
 
 export interface TempoMapPoint {
   ppq: number

@@ -33,7 +33,8 @@ import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
-import { resolveDawDrop } from '../lib/audioMerge'
+import { mergeDroppedRegions, resolveDawDrop } from '../lib/audioMerge'
+import { buildZip } from '../lib/zipStore'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
@@ -79,6 +80,22 @@ function nativeToFile(name: string, data: string): File {
 /** True when a React drag event is carrying real files (not text/UI drags). */
 function dragHasFiles(e: ReactDragEvent): boolean {
   return Array.from(e.dataTransfer?.types ?? []).includes('Files')
+}
+
+/** A multi-track drop (native DAW batch or Finder) held while the small
+ *  chooser card asks how it should land — separately, merged, or (chat
+ *  only) as one zip. Single files never wait here. */
+interface PendingDropChoice {
+  files: File[]                                    // the audio files (≥2)
+  target: 'chat' | 'stems'
+  fallback: AttachmentTimelineMetadata | null
+}
+
+/** "stems-250914-1732.zip" — the zip option's archive name. */
+function zipName(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `stems-${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.zip`
 }
 
 /** Average a set of #RRGGBB strings into one hex — same helper CollabPage
@@ -526,6 +543,7 @@ function snippet(m: Message | null | undefined, senderName?: string): string {
     : m.attachment_type === 'image' ? 'image'
     : m.attachment_type === 'video' ? 'video'
     : m.attachment_type === 'game_invite' ? 'game invite'
+    : m.attachment_type === 'file' ? (m.attachment_name ?? 'file')
     : m.content
   return senderName ? `${senderName}: ${body}` : body
 }
@@ -1394,8 +1412,8 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ChatView's R2 upload flow: presign → XHR PUT (for onprogress) → send.
   const MAX_SIZE = 1000 * 1024 * 1024
-  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image'):
-    Promise<{ url: string; type: 'audio' | 'image'; name: string } | null> => {
+  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file'):
+    Promise<{ url: string; type: 'audio' | 'image' | 'file'; name: string } | null> => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const contentType = file.type || 'application/octet-stream'
     const pid = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -1471,17 +1489,10 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE])
 
-  // A DAW drop lands here (not the picker). Regions that prove, by their
-  // BWF stamps, to sit side by side on one track merge into a single
-  // clip at their original positions; anything else goes as separate
-  // tracks. Every file carries the position it was dragged from.
-  const sendDawFiles = useCallback(async (files: File[], fallback: AttachmentTimelineMetadata | null) => {
-    const audio = files.filter(isAudioFile)
-    const rest = files.filter(f => !isAudioFile(f))
-    if (rest.length > 0) await onFilesPicked(rest)
-    if (audio.length === 0) return
-    const resolved = await resolveDawDrop(audio)
-    const list = resolved.kind === 'merged' ? [resolved.file] : resolved.files
+  // Upload audio files (each stamped with its own timeline, `fallback`
+  // filling the gaps) and send them as ONE chat message — a single
+  // audio bubble or a multi-track card.
+  const sendAudioListToChat = useCallback(async (list: File[], fallback: AttachmentTimelineMetadata | null) => {
     const uploaded: { url: string; name: string; metadata?: AttachmentTimelineMetadata }[] = []
     for (const f of list) {
       if (f.size > MAX_SIZE) continue
@@ -1494,7 +1505,22 @@ function StudioShellInner({ supabase, user }: Props) {
     } else if (uploaded.length > 1) {
       await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks`, metadata: fallback ?? undefined })
     }
-  }, [onFilesPicked, uploadFile, send, MAX_SIZE])
+  }, [uploadFile, send, MAX_SIZE])
+
+  // A DAW drop lands here (not the picker) — by now the multi-track
+  // chooser has already intercepted batches of ≥2 audio files, so this
+  // is the single-audio (plus stray non-audio) path. Regions that
+  // prove, by their BWF stamps, to sit side by side on one track merge
+  // into a single clip at their original positions; anything else goes
+  // as separate tracks.
+  const sendDawFiles = useCallback(async (files: File[], fallback: AttachmentTimelineMetadata | null) => {
+    const audio = files.filter(isAudioFile)
+    const rest = files.filter(f => !isAudioFile(f))
+    if (rest.length > 0) await onFilesPicked(rest)
+    if (audio.length === 0) return
+    const resolved = await resolveDawDrop(audio)
+    await sendAudioListToChat(resolved.kind === 'merged' ? [resolved.file] : resolved.files, fallback)
+  }, [onFilesPicked, sendAudioListToChat])
 
   // ── DAW drag-and-drop → main pane ───────────────────────────────────
   // Two entry paths, mirroring ChatView/CollabPage:
@@ -1509,6 +1535,14 @@ function StudioShellInner({ supabase, user }: Props) {
   const [dragOver, setDragOver] = useState(false)
   const [dragKind, setDragKind] = useState<'attach' | 'cancel'>('attach')
   const [pendingStemDrop, setPendingStemDrop] = useState<StemDropRequest | null>(null)
+  // ≥2 audio files in one drop → the chooser card (separately / merge /
+  // zip). Opened AFTER the batch finishes collecting; the drop overlay
+  // lifecycle above it is untouched.
+  const [dropChoice, setDropChoice] = useState<PendingDropChoice | null>(null)
+  const [dropBusy, setDropBusy] = useState<'merge' | 'zip' | null>(null)
+  // mergeDroppedRegions came back empty for this batch — the merge row
+  // greys out with a note instead of failing silently.
+  const [mergeFailed, setMergeFailed] = useState(false)
   const dragCounter = useRef(0)
   const juceDragActive = useRef(false)      // C++ owns the overlay while true
   const isCancelDrag = useRef(false)        // own drag-out returning → don't attach
@@ -1529,12 +1563,127 @@ function StudioShellInner({ supabase, user }: Props) {
   const onFilesPickedRef = useRef(onFilesPicked); onFilesPickedRef.current = onFilesPicked
   const sendDawFilesRef = useRef(sendDawFiles); sendDawFilesRef.current = sendDawFiles
 
-  // A new conversation invalidates a stale routed drop.
-  useEffect(() => { setPendingStemDrop(null) }, [activeConvId])
+  // A new conversation invalidates a stale routed drop — and a chooser
+  // still waiting on the old room's batch.
+  useEffect(() => {
+    setPendingStemDrop(null)
+    setDropChoice(null); setDropBusy(null); setMergeFailed(false)
+  }, [activeConvId])
 
   const consumeStemDrop = useCallback((id: string) => {
     setPendingStemDrop(current => current?.id === id ? null : current)
   }, [])
+
+  /* ── multi-track drop chooser ─────────────────────────────────────
+     Every route with ≥2 audio files parks the batch here instead of
+     proceeding; the card offers "send separately" / "merge into one"
+     (both tabs) and "send as zip" (chat only). Esc, the veil, or the
+     cancel row discards the drop. */
+  const openDropChoice = useCallback((choice: PendingDropChoice) => {
+    setDropBusy(null); setMergeFailed(false)
+    setDropChoice(choice)
+  }, [])
+  const openDropChoiceRef = useRef(openDropChoice); openDropChoiceRef.current = openDropChoice
+
+  useEffect(() => {
+    if (!dropChoice) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !dropBusy) setDropChoice(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dropChoice, dropBusy])
+
+  // "send separately" — chat: today's one multi-audio message; files
+  // tab: plain File[] through pendingStemDrop, which StemPanel uploads
+  // as individual rows WITHOUT its native-batch auto-merge (that path
+  // only runs for nativeFiles).
+  const choiceSeparate = useCallback(() => {
+    const c = dropChoice
+    if (!c || dropBusy) return
+    setDropChoice(null)
+    if (c.target === 'stems') {
+      setPendingStemDrop({
+        id: `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        files: c.files,
+        fallbackMetadata: c.fallback,
+      })
+    } else {
+      void sendAudioListToChat(c.files, c.fallback)
+    }
+  }, [dropChoice, dropBusy, sendAudioListToChat])
+
+  // "merge into one" — the existing merge pipeline (placed by BWF
+  // stamps when provable, back-to-back otherwise); the single merged
+  // WAV then rides the same route a lone file would.
+  const choiceMerge = useCallback(() => {
+    const c = dropChoice
+    if (!c || dropBusy || mergeFailed) return
+    setDropBusy('merge')
+    void (async () => {
+      const merged = await mergeDroppedRegions(c.files)
+      setDropBusy(null)
+      if (!merged) { setMergeFailed(true); return }   // chooser stays up, row greys
+      setDropChoice(null)
+      if (c.target === 'stems') {
+        setPendingStemDrop({
+          id: `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          files: [merged],
+          fallbackMetadata: c.fallback,
+        })
+      } else {
+        void sendAudioListToChat([merged], c.fallback)
+      }
+    })()
+  }, [dropChoice, dropBusy, mergeFailed, sendAudioListToChat])
+
+  // "send as zip" (chat only) — STORE-method archive (wav doesn't
+  // compress; speed matters) through the generic attachment path.
+  const choiceZip = useCallback(() => {
+    const c = dropChoice
+    if (!c || dropBusy || c.target !== 'chat') return
+    setDropBusy('zip')
+    void (async () => {
+      try {
+        const entries = await Promise.all(
+          c.files.map(async f => ({ name: f.name, data: await f.arrayBuffer() })))
+        const zip = new File([buildZip(entries)], zipName(), { type: 'application/zip' })
+        setDropBusy(null)
+        setDropChoice(null)
+        if (zip.size > MAX_SIZE) { console.error('[studio zip] archive over the size cap'); return }
+        const a = await uploadFile(zip, 'file')
+        if (a) await send('', { url: a.url, type: 'file', name: a.name })
+      } catch (e) {
+        console.error('[studio zip] failed', e)
+        setDropBusy(null)
+        setDropChoice(null)
+      }
+    })()
+  }, [dropChoice, dropBusy, uploadFile, send, MAX_SIZE])
+
+  // One HTML5 drop aimed at the files tab — from the shell's own stems
+  // branch OR handed up by StemPanel's drop zone (onMultiFileDrop).
+  // ≥2 audio → the chooser; one audio → straight to StemPanel; images
+  // and other strays still go to chat.
+  const routeStemsDrop = useCallback((files: File[]) => {
+    const audio = files.filter(isAudioFile)
+    const rest = files.filter(f => !isAudioFile(f))
+    if (rest.length > 0) void onFilesPicked(rest)
+    if (audio.length === 0) return
+    void (async () => {
+      const fresh = await refreshDawTimelineSnapshot()
+      const fallback = fresh ?? getDawTimelineSnapshot()
+      if (audio.length >= 2) {
+        openDropChoice({ files: audio, target: 'stems', fallback })
+      } else {
+        setPendingStemDrop({
+          id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          files: audio,
+          fallbackMetadata: fallback,
+        })
+      }
+    })()
+  }, [onFilesPicked, openDropChoice])
 
   // __juceDragEnter / __juceDragEnterCancel — C++ heartbeats (~100 ms)
   // while a native drag hovers the WKWebView.
@@ -1605,6 +1754,21 @@ function StudioShellInner({ supabase, user }: Props) {
         const fallback = fresh ?? dropTimelineRef.current
         dropTimelineRef.current = null
         dropTimelinePromiseRef.current = null
+        // ≥2 audio files → the chooser card decides (separately /
+        // merge / zip) instead of any automatic policy. Non-audio
+        // strays still ride the chat attachment path directly.
+        const dropped = batch.map(f => nativeToFile(f.name, f.data))
+        const audio = dropped.filter(isAudioFile)
+        if (audio.length >= 2) {
+          const rest = dropped.filter(f => !isAudioFile(f))
+          if (rest.length > 0) void onFilesPickedRef.current(rest)
+          openDropChoiceRef.current({
+            files: audio,
+            target: tabRef.current === 'stems' ? 'stems' : 'chat',
+            fallback,
+          })
+          return
+        }
         if (tabRef.current === 'stems') {
           setPendingStemDrop({
             id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1613,7 +1777,7 @@ function StudioShellInner({ supabase, user }: Props) {
           })
           return
         }
-        await sendDawFilesRef.current(batch.map(f => nativeToFile(f.name, f.data)), fallback)
+        await sendDawFilesRef.current(dropped, fallback)
       })()
     }
     window.addEventListener('__juceFileDrop', handler)
@@ -1709,24 +1873,22 @@ function StudioShellInner({ supabase, user }: Props) {
       // StemPanel's own drop zone already handled anything released over
       // it (the event bubbles up here afterwards) — don't double-upload.
       if ((e.target as HTMLElement | null)?.closest?.('.stem-panel')) return
-      const audio = files.filter(isAudioFile)
-      const rest = files.filter(f => !isAudioFile(f))
-      if (audio.length > 0) {
-        void (async () => {
-          const fresh = await refreshDawTimelineSnapshot()
-          setPendingStemDrop({
-            id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            files: audio,
-            fallbackMetadata: fresh ?? getDawTimelineSnapshot(),
-          })
-        })()
-      }
-      if (rest.length > 0) void onFilesPicked(rest)  // images still go to chat
+      routeStemsDrop(files)
       return
     }
 
+    const audio = files.filter(isAudioFile)
+    if (audio.length >= 2) {
+      const rest = files.filter(f => !isAudioFile(f))
+      if (rest.length > 0) void onFilesPicked(rest)
+      void (async () => {
+        const fresh = await refreshDawTimelineSnapshot()
+        openDropChoice({ files: audio, target: 'chat', fallback: fresh ?? getDawTimelineSnapshot() })
+      })()
+      return
+    }
     void onFilesPicked(files)
-  }, [activeConvId, tab, onFilesPicked])
+  }, [activeConvId, tab, onFilesPicked, routeStemsDrop, openDropChoice])
 
   // Chat scroll — jump to the bottom whenever a conversation (re)opens;
   // after that, new messages re-pin the view only while the reader is
@@ -2093,6 +2255,44 @@ function StudioShellInner({ supabase, user }: Props) {
               </div>
             </div>
           )}
+          {dropChoice && (
+            <div className="wd-dropask" role="dialog" aria-modal="true">
+              <div className="wd-dropask-veil" onClick={() => { if (!dropBusy) setDropChoice(null) }} />
+              <div className="wd-dropask-card">
+                <div className="wd-dropask-title">{dropChoice.files.length} tracks</div>
+                <div className="wd-dropask-fine">
+                  {dropChoice.target === 'stems'
+                    ? 'dropped on files — how should they land?'
+                    : `how should they reach ${headerTitle || 'this chat'}?`}
+                </div>
+                <button className="wd-dropask-row" disabled={!!dropBusy} onClick={choiceSeparate}>
+                  <span>send separately</span>
+                  <small>{dropChoice.target === 'stems' ? 'one row per file' : 'one message, every track listed'}</small>
+                </button>
+                <button
+                  className={`wd-dropask-row${mergeFailed ? ' off' : ''}`}
+                  disabled={!!dropBusy || mergeFailed}
+                  onClick={choiceMerge}
+                >
+                  <span>{dropBusy === 'merge' ? 'merging…' : 'merge into one'}</span>
+                  <small>{mergeFailed ? 'these files can’t be merged' : 'one clip, regions kept in place'}</small>
+                </button>
+                {dropChoice.target === 'chat' && (
+                  <button className="wd-dropask-row" disabled={!!dropBusy} onClick={choiceZip}>
+                    <span>{dropBusy === 'zip' ? 'zipping…' : 'send as zip'}</span>
+                    <small>one archive, files untouched</small>
+                  </button>
+                )}
+                <button
+                  className="wd-dropask-cancel"
+                  disabled={!!dropBusy}
+                  onClick={() => setDropChoice(null)}
+                >
+                  cancel
+                </button>
+              </div>
+            </div>
+          )}
           {sel?.kind === 'me' ? (
             /* my calendar — the personal programme, fuller. The prompt
                lives on the home pane now. */
@@ -2236,6 +2436,7 @@ function StudioShellInner({ supabase, user }: Props) {
                       participants={stemParticipants}
                       pendingDrop={pendingStemDrop}
                       onDropConsumed={consumeStemDrop}
+                      onMultiFileDrop={routeStemsDrop}
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>

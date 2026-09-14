@@ -446,7 +446,7 @@ export default function FxWall ({ size: frame }: Props) {
   const setShare = (edgeIndex: number, gain: number, immediate = false) => {
     const e = graph.edges[edgeIndex]; if (!e) return
     const target = nodeById(e.to)
-    const g = Math.min(2, Math.max(0, gain))
+    const g = Math.min(1, Math.max(0, gain))   // a wire never sends more than everything
     if (target && target.type === FX_MIX_TYPE && target.variant === 0) {
       const others = graph.edges.map((x, i) => ({ x, i })).filter(o => o.x.to === e.to && o.i !== edgeIndex)
       const rest = Math.max(0, 1 - Math.min(1, g))
@@ -531,8 +531,8 @@ export default function FxWall ({ size: frame }: Props) {
   // ── a print's second hands and its words — the same ones under the
   //    print on the wall and, larger, in the study ───────────────────
   const grab = (e: React.PointerEvent) => { try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }
-  const hands = (n: FxGraphNode) => {
-    const isMix = n.type === FX_MIX_TYPE
+  const hands = (n: FxGraphNode, inStudy = false) => {
+    const isMix = n.type === FX_MIX_TYPE && !inStudy   // the study lists a mix's wires itself
     const ins = inputsOf(n.id)
     void isMix; void ins
     return (
@@ -1077,9 +1077,9 @@ export default function FxWall ({ size: frame }: Props) {
         <div className="sg-study-value">
           {studyNode.type !== FX_MIX_TYPE
             ? <span className="sg-val" onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
-            : <span className="sg-val quiet">{inputsOf(studyNode.id).map(x => `${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join(' · ') || '—'}</span>}
+            : null}
         </div>
-        <div className="sg-study-hands">{hands(studyNode)}</div>
+        <div className="sg-study-hands">{hands(studyNode, true)}</div>
         <div className="sg-study-words">{words(studyNode)}</div>
         {studyNode.type === FX_MIX_TYPE && inputsOf(studyNode.id).length > 0 && (
           <div className="sg-study-inputs">
@@ -1095,7 +1095,6 @@ export default function FxWall ({ size: frame }: Props) {
             ))}
           </div>
         )}
-        <p className="sg-study-hint">drag the print for its amount · numbers drag too · double-tap resets</p>
       </aside>
     )}
     </div>

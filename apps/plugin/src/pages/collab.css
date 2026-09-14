@@ -10500,3 +10500,8 @@ text.sg-word { fill: var(--sg-ink-55); }
 }
 .sg-preset-rule { height: 1px; background: var(--sg-ink-14); margin: 4px 10px; }
 .sg-preset-row.factory .sg-preset-row-name { font-family: var(--f-serif); font-style: italic; }
+
+/* the top bar floats over the wall instead of sitting above it, so the
+   lamps' light runs on under the preset box — nothing cuts the glow */
+.plugin.sounds > .top-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; pointer-events: none; }
+.sg-presetbar { pointer-events: auto; }

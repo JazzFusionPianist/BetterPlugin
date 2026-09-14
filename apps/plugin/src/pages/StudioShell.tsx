@@ -1539,6 +1539,10 @@ function StudioShellInner({ supabase, user }: Props) {
   // zip). Opened AFTER the batch finishes collecting; the drop overlay
   // lifecycle above it is untouched.
   const [dropChoice, setDropChoice] = useState<PendingDropChoice | null>(null)
+  // "send as zip" is a MODIFIER, not a third action: it applies to
+  // whichever action row is pressed (separately -> zip of the files;
+  // merge -> zip of the single merged clip). Chat only.
+  const [dropZip, setDropZip] = useState(false)
   const [dropBusy, setDropBusy] = useState<'merge' | 'zip' | null>(null)
   // mergeDroppedRegions came back empty for this batch — the merge row
   // greys out with a note instead of failing silently.
@@ -1580,6 +1584,7 @@ function StudioShellInner({ supabase, user }: Props) {
      (both tabs) and "send as zip" (chat only). Esc, the veil, or the
      cancel row discards the drop. */
   const openDropChoice = useCallback((choice: PendingDropChoice) => {
+    setDropZip(false)
     setDropBusy(null); setMergeFailed(false)
     setDropChoice(choice)
   }, [])
@@ -1598,6 +1603,22 @@ function StudioShellInner({ supabase, user }: Props) {
   // tab: plain File[] through pendingStemDrop, which StemPanel uploads
   // as individual rows WITHOUT its native-batch auto-merge (that path
   // only runs for nativeFiles).
+  // Zip modifier — STORE-method archive (wav doesn't compress; speed
+  // matters) through the generic attachment path. Called by either
+  // action row when the toggle is on (chat only).
+  const sendAsZip = useCallback(async (files: File[]) => {
+    try {
+      const entries = await Promise.all(
+        files.map(async f => ({ name: f.name, data: await f.arrayBuffer() })))
+      const zip = new File([buildZip(entries)], zipName(), { type: 'application/zip' })
+      if (zip.size > MAX_SIZE) { console.error('[studio zip] archive over the size cap'); return }
+      const a = await uploadFile(zip, 'file')
+      if (a) await send('', { url: a.url, type: 'file', name: a.name })
+    } catch (e) {
+      console.error('[studio zip] failed', e)
+    }
+  }, [uploadFile, send, MAX_SIZE])
+
   const choiceSeparate = useCallback(() => {
     const c = dropChoice
     if (!c || dropBusy) return
@@ -1608,10 +1629,12 @@ function StudioShellInner({ supabase, user }: Props) {
         files: c.files,
         fallbackMetadata: c.fallback,
       })
+    } else if (dropZip) {
+      void sendAsZip(c.files)
     } else {
       void sendAudioListToChat(c.files, c.fallback)
     }
-  }, [dropChoice, dropBusy, sendAudioListToChat])
+  }, [dropChoice, dropBusy, dropZip, sendAsZip, sendAudioListToChat])
 
   // "merge into one" — the existing merge pipeline (placed by BWF
   // stamps when provable, back-to-back otherwise); the single merged
@@ -1631,35 +1654,14 @@ function StudioShellInner({ supabase, user }: Props) {
           files: [merged],
           fallbackMetadata: c.fallback,
         })
+      } else if (dropZip) {
+        void sendAsZip([merged])
       } else {
         void sendAudioListToChat([merged], c.fallback)
       }
     })()
-  }, [dropChoice, dropBusy, mergeFailed, sendAudioListToChat])
+  }, [dropChoice, dropBusy, mergeFailed, dropZip, sendAsZip, sendAudioListToChat])
 
-  // "send as zip" (chat only) — STORE-method archive (wav doesn't
-  // compress; speed matters) through the generic attachment path.
-  const choiceZip = useCallback(() => {
-    const c = dropChoice
-    if (!c || dropBusy || c.target !== 'chat') return
-    setDropBusy('zip')
-    void (async () => {
-      try {
-        const entries = await Promise.all(
-          c.files.map(async f => ({ name: f.name, data: await f.arrayBuffer() })))
-        const zip = new File([buildZip(entries)], zipName(), { type: 'application/zip' })
-        setDropBusy(null)
-        setDropChoice(null)
-        if (zip.size > MAX_SIZE) { console.error('[studio zip] archive over the size cap'); return }
-        const a = await uploadFile(zip, 'file')
-        if (a) await send('', { url: a.url, type: 'file', name: a.name })
-      } catch (e) {
-        console.error('[studio zip] failed', e)
-        setDropBusy(null)
-        setDropChoice(null)
-      }
-    })()
-  }, [dropChoice, dropBusy, uploadFile, send, MAX_SIZE])
 
   // One HTML5 drop aimed at the files tab — from the shell's own stems
   // branch OR handed up by StemPanel's drop zone (onMultiFileDrop).
@@ -2265,24 +2267,30 @@ function StudioShellInner({ supabase, user }: Props) {
                     ? 'dropped on files — how should they land?'
                     : `how should they reach ${headerTitle || 'this chat'}?`}
                 </div>
+                {dropChoice.target === 'chat' && (
+                  <button
+                    className={`wd-dropask-zip${dropZip ? ' on' : ''}`}
+                    disabled={!!dropBusy}
+                    onClick={() => setDropZip(z => !z)}
+                    aria-pressed={dropZip}
+                  >
+                    <span className="wd-dropask-zipbox" aria-hidden="true" />
+                    <span>as zip</span>
+                    <small>bundle the result into one .zip</small>
+                  </button>
+                )}
                 <button className="wd-dropask-row" disabled={!!dropBusy} onClick={choiceSeparate}>
-                  <span>send separately</span>
-                  <small>{dropChoice.target === 'stems' ? 'one row per file' : 'one message, every track listed'}</small>
+                  <span>send separately{dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}</span>
+                  <small>{dropChoice.target === 'stems' ? 'one row per file' : dropZip ? 'every file, inside one archive' : 'one message, every track listed'}</small>
                 </button>
                 <button
                   className={`wd-dropask-row${mergeFailed ? ' off' : ''}`}
                   disabled={!!dropBusy || mergeFailed}
                   onClick={choiceMerge}
                 >
-                  <span>{dropBusy === 'merge' ? 'merging…' : 'merge into one'}</span>
-                  <small>{mergeFailed ? 'these files can’t be merged' : 'one clip, regions kept in place'}</small>
+                  <span>{dropBusy === 'merge' ? 'merging…' : `merge into one${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
+                  <small>{mergeFailed ? 'these files can’t be merged' : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'one clip, regions kept in place'}</small>
                 </button>
-                {dropChoice.target === 'chat' && (
-                  <button className="wd-dropask-row" disabled={!!dropBusy} onClick={choiceZip}>
-                    <span>{dropBusy === 'zip' ? 'zipping…' : 'send as zip'}</span>
-                    <small>one archive, files untouched</small>
-                  </button>
-                )}
                 <button
                   className="wd-dropask-cancel"
                   disabled={!!dropBusy}

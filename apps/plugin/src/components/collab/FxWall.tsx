@@ -742,6 +742,12 @@ export default function FxWall ({ size: frame }: Props) {
 
   }
   const backdropFn = useCallback((ctx: CanvasRenderingContext2D) => backdropRef.current(ctx), [])
+  // the lamps as the scope sees them: where, what colour, how bright
+  const paletteRef = useRef<() => Array<{ x: number; rgb: [number, number, number]; k: number }>>(() => [])
+  paletteRef.current = () => graph.nodes
+    .filter(n => n.type !== FX_MIX_TYPE && live.has(n.id))
+    .map(n => ({ x: toScreen(n).x, rgb: tintOf(n.type, n.variant), k: lamps.current.get(n.id)?.k ?? 0 }))
+  const paletteFn = useCallback(() => paletteRef.current(), [])
 
   // ── presets: the wall's patches as files, FabFilter-style bar ──────
   const [presets, setPresets] = useState<string[]>([])
@@ -891,7 +897,7 @@ export default function FxWall ({ size: frame }: Props) {
       >
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
-          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} backdrop={backdropFn} />
+          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} backdrop={backdropFn} palette={paletteFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {

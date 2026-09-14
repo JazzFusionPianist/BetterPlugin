@@ -25,6 +25,9 @@ interface Props {
   overlay?: (ctx: CanvasRenderingContext2D) => void
   /** Drawn first, under the traces: the room's light. */
   backdrop?: (ctx: CanvasRenderingContext2D) => void
+  /** The lamps along the wall, for the output trace to take their
+   *  colour as it passes under them: x in CSS px, tint, brightness. */
+  palette?: () => Array<{ x: number; rgb: [number, number, number]; k: number }>
 }
 
 function decode (b64: string): Float32Array | null {
@@ -36,7 +39,7 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay, backdrop }: Props) {
+export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay, backdrop, palette }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
   const ringIn = useRef(new Float32Array(48000 * RING_S))
@@ -123,6 +126,65 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
       }
       ctx.stroke()
     }
+    /** The output as light: the min/max envelope filled softly and edged
+     *  finely, coloured by whatever lamp it passes under, added to the
+     *  wall (never a flat coloured line). Silence breaks it. */
+    const ribbon = (ring: Float32Array, w: number, paper: [number, number, number], alpha: number) => {
+      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
+      const per = n / width
+      const mid = height / 2, amp = height * 0.42
+      // colour across the wall: paper, warmed toward each lamp's tint
+      const lamps = (palette ? palette() : []).filter(l => l.k > 0.02).sort((a, b) => a.x - b.x)
+      const colAt = (x: number): [number, number, number] => {
+        if (lamps.length === 0) return paper
+        // nearest two lamps, blended by distance; a lamp's pull fades with its brightness
+        let best = lamps[0], second: typeof best | null = null
+        for (const l of lamps) if (Math.abs(l.x - x) < Math.abs(best.x - x)) { second = best; best = l } else if (!second || Math.abs(l.x - x) < Math.abs(second.x - x)) second = l
+        const pull = (l: { x: number; k: number }) => Math.max(0, 1 - Math.abs(l.x - x) / (240 + 260 * l.k)) * (0.55 + 0.45 * l.k)
+        let c: [number, number, number] = [paper[0], paper[1], paper[2]]
+        for (const l of [best, second]) {
+          if (!l) continue
+          const t = pull(l)
+          c = [c[0] + (l.rgb[0] - c[0]) * t, c[1] + (l.rgb[1] - c[1]) * t, c[2] + (l.rgb[2] - c[2]) * t]
+        }
+        return c
+      }
+      const grad = ctx.createLinearGradient(0, 0, width * dpr, 0)
+      const steps = 14
+      for (let i = 0; i <= steps; i++) {
+        const c = colAt((i / steps) * width)
+        grad.addColorStop(i / steps, `rgb(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])})`)
+      }
+      // envelope segments between silences
+      const his: number[] = new Array(width), los: number[] = new Array(width)
+      for (let x = 0; x < width; x++) {
+        let lo = 1, hi = -1
+        const s0 = Math.floor(x * per), s1 = Math.max(s0 + 1, Math.floor((x + 1) * per))
+        for (let s = s0; s < s1; s++) { const v = ring[(w - n + s + ring.length * 2) % ring.length]; if (v < lo) lo = v; if (v > hi) hi = v }
+        const silent = Math.max(Math.abs(lo), Math.abs(hi)) < SILENT
+        his[x] = silent ? NaN : (mid - Math.min(1.2, hi * gain) * amp) * dpr
+        los[x] = silent ? NaN : (mid - Math.max(-1.2, lo * gain) * amp) * dpr
+      }
+      ctx.globalCompositeOperation = 'lighter'
+      let x = 0
+      while (x < width) {
+        while (x < width && Number.isNaN(his[x])) x++
+        const start = x
+        while (x < width && !Number.isNaN(his[x])) x++
+        if (x - start < 2) continue
+        ctx.beginPath()
+        ctx.moveTo(start * dpr, his[start])
+        for (let i = start + 1; i < x; i++) ctx.lineTo(i * dpr, his[i])
+        for (let i = x - 1; i >= start; i--) ctx.lineTo(i * dpr, los[i])
+        ctx.closePath()
+        ctx.fillStyle = grad; ctx.globalAlpha = 0.16 * alpha; ctx.fill()
+        ctx.strokeStyle = grad; ctx.globalAlpha = 0.7 * alpha; ctx.lineWidth = 1 * dpr; ctx.lineJoin = 'round'; ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over'
+    }
+    const paperOf = (c: string): [number, number, number] => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(c); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234] }
+
     const tick = () => {
       ctx.clearRect(0, 0, el.width, el.height)
       if (backdrop) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); backdrop(ctx); ctx.globalCompositeOperation = 'source-over' }
@@ -131,14 +193,15 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
       const accA = (a: number) => accent.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
-      if (input) trace(ringIn.current, wIn.current, both ? inkA(0.26) : inkA(0.5), 1)
-      if (output) trace(ringOut.current, wOut.current, both ? (accent.startsWith('rgb(') ? accA(0.7) : accent) : inkA(0.5), 1.2)
+      void accA
+      if (input) trace(ringIn.current, wIn.current, both ? inkA(0.22) : inkA(0.45), 1)
+      if (output) ribbon(ringOut.current, wOut.current, paperOf(ink), both ? 1 : 0.85)
       if (overlay) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); overlay(ctx); ctx.setTransform(1, 0, 0, 1, 0, 0) }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [input, output, width, height, ink, accent, gain, windowS, overlay, backdrop])
+  }, [input, output, width, height, ink, accent, gain, windowS, overlay, backdrop, palette])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

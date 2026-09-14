@@ -198,3 +198,26 @@ export async function deletePreset (name: string): Promise<boolean> {
   const all = lsPresets(); delete all[name]
   try { localStorage.setItem(PRESET_LS, JSON.stringify(all)); return true } catch { return false }
 }
+
+/** The OS save panel ("save as…"): resolves to the saved name, or null
+ *  if cancelled / unavailable (a plain browser has no panel). */
+export function hasPresetDialogs (): boolean { return hasJuceNativeFunction('savePresetDialog') }
+export async function savePresetDialog (g: FxGraph, suggested: string): Promise<string | null> {
+  if (!hasPresetDialogs()) return null
+  try {
+    const raw: unknown = await callJuceNative('savePresetDialog', [JSON.stringify(g), suggested], 600000)
+    return typeof raw === 'string' && raw && !raw.startsWith('error:') ? raw : null
+  } catch { return null }
+}
+/** The OS open panel: resolves to { name, graph } or null. */
+export async function openPresetDialog (): Promise<{ name: string; graph: FxGraph } | null> {
+  if (!hasPresetDialogs()) return null
+  try {
+    const raw: unknown = await callJuceNative('openPresetDialog', [], 600000)
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!v || typeof v !== 'object') return null
+    const o = v as { name?: string; json?: string }
+    const g = o.json ? JSON.parse(o.json) as FxGraph : null
+    return g && Array.isArray(g.nodes) && o.name ? { name: o.name, graph: g } : null
+  } catch { return null }
+}

@@ -6,7 +6,7 @@ import { setPluginSize, suspendSharedWindowSize } from '../../lib/pluginWindow'
 import FxScope from './FxScope'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
-  listPresets, savePreset, loadPreset, deletePreset,
+  listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
   FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
@@ -769,6 +769,20 @@ export default function FxWall ({ size: frame }: Props) {
     if (await deletePreset(name)) { if (preset === name) { setPreset(null); setSavedJson('') } refreshPresets() }
     setConfirm(null)
   }
+  // "save as…" and "open…" as the OS panels when the plugin can show them
+  const doSaveAs = async () => {
+    if (!hasPresetDialogs()) { setNaming(true); return }
+    setListOpen(false)
+    const g = JSON.parse(JSON.stringify(graphRef.current)) as FxGraph
+    const name = await savePresetDialog(g, preset ?? 'untitled')
+    if (name) { setPreset(name); setSavedJson(graphKey(g)); refreshPresets() }
+  }
+  const doOpen = async () => {
+    setListOpen(false)
+    const r = await openPresetDialog(); if (!r) return
+    const placed = settle(r.graph, size.w, size.h)
+    commit(placed, true); setPreset(r.name); setSavedJson(graphKey(placed)); setSel(null); setConfirm(null); refreshPresets()
+  }
   const stepPreset = (dir: 1 | -1) => {
     if (presets.length === 0) return
     const i = preset ? presets.indexOf(preset) : -1
@@ -821,7 +835,8 @@ export default function FxWall ({ size: frame }: Props) {
               ? <input className="sg-preset-input" autoFocus placeholder="name" defaultValue={preset ?? ''}
                   onKeyDown={(e) => { if (e.key === 'Enter') void doSave((e.currentTarget as HTMLInputElement).value); if (e.key === 'Escape') setNaming(false) }}
                   onBlur={(e) => { if (e.currentTarget.value.trim()) void doSave(e.currentTarget.value); else setNaming(false) }} />
-              : <span className="sg-word" onPointerDown={() => setNaming(true)}>save as…</span>}
+              : <span className="sg-word" onPointerDown={() => void doSaveAs()}>save as…</span>}
+            {hasPresetDialogs() && <span className="sg-word" onPointerDown={() => void doOpen()}>open…</span>}
           </div>
         </div>
       )}

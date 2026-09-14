@@ -169,6 +169,10 @@ OrbAudioProcessor::OrbAudioProcessor()
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleLoadPreset (a, std::move (done)); })
             .withNativeFunction ("deletePreset",
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleDeletePreset (a, std::move (done)); })
+            .withNativeFunction ("savePresetDialog",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleSavePresetDialog (a, std::move (done)); })
+            .withNativeFunction ("openPresetDialog",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleOpenPresetDialog (a, std::move (done)); })
             .withNativeFunction ("getGraph",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -1275,6 +1279,51 @@ void OrbAudioProcessor::handleDeletePreset (const juce::var& args, juce::WebBrow
     const auto name = presetNameArg (args, 0);
     auto f = presetsDir().getChildFile (name + ".orbpatch");
     completion (juce::var (name.isNotEmpty() && f.existsAsFile() && f.deleteFile()));
+}
+
+void OrbAudioProcessor::handleSavePresetDialog (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    // [json?, suggestedName?] → the OS save panel, in the presets folder.
+    juce::String json, suggested = "untitled";
+    if (auto* arr = args.getArray(); arr != nullptr)
+    {
+        if (arr->size() > 0) { const auto& v = arr->getReference (0); json = v.isString() ? v.toString() : juce::JSON::toString (v, true); }
+        if (arr->size() > 1) suggested = juce::File::createLegalFileName (arr->getReference (1).toString().trim());
+    }
+    if (json.isEmpty()) { const juce::ScopedLock sl (fxGraphLock); json = graphToJson (fxGraph); }
+    if (suggested.isEmpty()) suggested = "untitled";
+    auto dir = presetsDir();
+    dir.createDirectory();
+    presetChooser = std::make_unique<juce::FileChooser> ("save preset as", dir.getChildFile (suggested + ".orbpatch"), "*.orbpatch", true);
+    auto done = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+    presetChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                | juce::FileBrowserComponent::warnAboutOverwriting,
+        [json, done] (const juce::FileChooser& fc)
+        {
+            auto f = fc.getResult();
+            if (f == juce::File()) { (*done) (juce::var()); return; }
+            if (! f.hasFileExtension ("orbpatch")) f = f.withFileExtension ("orbpatch");
+            const bool ok = f.replaceWithText (json);
+            (*done) (ok ? juce::var (f.getFileNameWithoutExtension()) : juce::var());
+        });
+}
+
+void OrbAudioProcessor::handleOpenPresetDialog (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+{
+    auto dir = presetsDir();
+    dir.createDirectory();
+    presetChooser = std::make_unique<juce::FileChooser> ("open preset", dir, "*.orbpatch", true);
+    auto done = std::make_shared<juce::WebBrowserComponent::NativeFunctionCompletion> (std::move (completion));
+    presetChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [done] (const juce::FileChooser& fc)
+        {
+            auto f = fc.getResult();
+            if (f == juce::File() || ! f.existsAsFile()) { (*done) (juce::var()); return; }
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("name", f.getFileNameWithoutExtension());
+            o->setProperty ("json", f.loadFileAsString());
+            (*done) (juce::var (o));
+        });
 }
 
 //==============================================================================

@@ -202,6 +202,10 @@ private:
     void handleSavePreset  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void handleLoadPreset  (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void handleDeletePreset (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    // The native panels: "save as…" and "open…" as the OS draws them.
+    std::unique_ptr<juce::FileChooser> presetChooser;
+    void handleSavePresetDialog (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
+    void handleOpenPresetDialog (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void processFx (juce::AudioBuffer<float>& buffer);
 
     //── Live audio streaming timer ───────────────────────────────────────────

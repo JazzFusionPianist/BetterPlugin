@@ -348,39 +348,68 @@ async function renderBackToBack(regions: RegionInfo[]): Promise<File | null> {
 
 export type MergeResult =
   | { ok: true; file: File }
-  | { ok: false; reason: 'empty' | 'too-large' | 'decode' }
+  | { ok: false; reason: 'empty' | 'too-large' | 'decode' | 'no-timing' | 'mixed-rate' | 'overlap' }
 
 /** Why a merge was refused, in the user's words. */
 export function mergeFailureText(reason: Extract<MergeResult, { ok: false }>['reason']): string {
   switch (reason) {
     case 'too-large': return 'the merged clip would be over 500 MB'
     case 'decode': return 'these files can\'t be decoded'
+    case 'no-timing': return 'no timing info in these files'
+    case 'mixed-rate': return 'these files use different sample rates'
+    case 'overlap': return 'these regions overlap in time'
     default: return 'these files can\'t be merged'
   }
 }
 
+/** How a merge should treat the regions' embedded timestamps. */
+export type MergeMode =
+  /** Placed when provable, back-to-back otherwise (the historical default). */
+  | 'auto'
+  /** Timestamp-placed only — refused when the stamps can't prove one timeline. */
+  | 'placed'
+  /** Butt-joined in filename order, stamps ignored (comped/moved regions). */
+  | 'joined'
+
+/** Back to back, behind the size guard: the output is the sum of the
+ *  inputs (headers when known, file sizes as a ceiling otherwise). */
+async function joinBackToBack(regions: RegionInfo[]): Promise<MergeResult> {
+  const totalFrames = regions.reduce((s, r) => s + (r.frames ?? Math.ceil(r.file.size / 3)), 0)
+  if (outputBytes(totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
+  const file = await renderBackToBack(regions)
+  return file ? { ok: true, file } : { ok: false, reason: 'decode' }
+}
+
 /**
- * Merge regions into one WAV. Placed at original positions when every
- * region is timestamped and they don't overlap; joined back to back
- * otherwise. Refuses (with a reason) rather than rendering something
- * the WebView can't hold.
+ * Merge regions into one WAV. Refuses (with a reason) rather than
+ * rendering something the WebView can't hold.
+ *
+ *  • 'auto'   — placed at original positions when every region is
+ *    timestamped and they don't overlap; joined back to back otherwise.
+ *  • 'placed' — placement only. The user asked for original timing, so
+ *    when the stamps can't prove it (missing/inexact stamps, overlap,
+ *    mixed rates — or a placed render past the size cap) this refuses
+ *    with the reason rather than silently butt-joining.
+ *  • 'joined' — back-to-back in filename order, stamps ignored. The one
+ *    to reach for when comped/moved regions still carry their original
+ *    record-time BWF stamps and "placed" would scatter them.
  */
-export async function mergeDroppedRegions(batch: (DroppedRegion | File)[]): Promise<MergeResult> {
+export async function mergeDroppedRegions(
+  batch: (DroppedRegion | File)[],
+  mode: MergeMode = 'auto',
+): Promise<MergeResult> {
   if (batch.length === 0) return { ok: false, reason: 'empty' }
   const files = batch.map(b => b instanceof File ? b : regionToFile(b.name, b.data))
   const regions = await Promise.all(files.map(analyzeRegion))
+  if (mode === 'joined') return joinBackToBack(regions)
   const placement = planPlacement(regions)
   if ('plan' in placement) {
     if (outputBytes(placement.plan.totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
     const file = await renderPlaced(regions, placement.plan)
     return file ? { ok: true, file } : { ok: false, reason: 'decode' }
   }
-  // Back to back: the output is the sum of the inputs (headers when
-  // known, file sizes as a ceiling otherwise).
-  const totalFrames = regions.reduce((s, r) => s + (r.frames ?? Math.ceil(r.file.size / 3)), 0)
-  if (outputBytes(totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
-  const file = await renderBackToBack(regions)
-  return file ? { ok: true, file } : { ok: false, reason: 'decode' }
+  if (mode === 'placed') return { ok: false, reason: placement.reason }
+  return joinBackToBack(regions)
 }
 
 // ── Default policy for a multi-region DAW drop ────────────────────────────

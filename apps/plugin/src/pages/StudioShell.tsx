@@ -1549,18 +1549,20 @@ function StudioShellInner({ supabase, user }: Props) {
   const [dragOver, setDragOver] = useState(false)
   const [dragKind, setDragKind] = useState<'attach' | 'cancel'>('attach')
   const [pendingStemDrop, setPendingStemDrop] = useState<StemDropRequest | null>(null)
-  // ≥2 audio files in one drop → the chooser card (separately / merge /
-  // zip). Opened AFTER the batch finishes collecting; the drop overlay
-  // lifecycle above it is untouched.
+  // ≥2 audio files in one drop → the chooser card (separately / merge
+  // keep-timing / merge join / zip). Opened AFTER the batch finishes
+  // collecting; the drop overlay lifecycle above it is untouched.
   const [dropChoice, setDropChoice] = useState<PendingDropChoice | null>(null)
   // "send as zip" is a MODIFIER, not a third action: it applies to
   // whichever action row is pressed (separately -> zip of the files;
   // merge -> zip of the single merged clip). Chat only.
   const [dropZip, setDropZip] = useState(false)
-  const [dropBusy, setDropBusy] = useState<'merge' | 'zip' | null>(null)
-  // mergeDroppedRegions came back empty for this batch — the merge row
-  // greys out with a note instead of failing silently.
-  const [mergeFailed, setMergeFailed] = useState<string | null>(null)
+  const [dropBusy, setDropBusy] = useState<'placed' | 'joined' | 'zip' | null>(null)
+  // mergeDroppedRegions refused for that mode — the row greys out with
+  // the refusal, in the user's words (mergeFailureText), instead of
+  // failing silently. 'placed' usually means the stamps can't prove one
+  // timeline; 'joined' means the size cap or nothing decoded.
+  const [mergeFailed, setMergeFailed] = useState<{ placed: string | null; joined: string | null }>({ placed: null, joined: null })
   const dragCounter = useRef(0)
   const juceDragActive = useRef(false)      // C++ owns the overlay while true
   const isCancelDrag = useRef(false)        // own drag-out returning → don't attach
@@ -1585,7 +1587,7 @@ function StudioShellInner({ supabase, user }: Props) {
   // still waiting on the old room's batch.
   useEffect(() => {
     setPendingStemDrop(null)
-    setDropChoice(null); setDropBusy(null); setMergeFailed(null)
+    setDropChoice(null); setDropBusy(null); setMergeFailed({ placed: null, joined: null })
   }, [activeConvId])
 
   const consumeStemDrop = useCallback((id: string) => {
@@ -1594,12 +1596,12 @@ function StudioShellInner({ supabase, user }: Props) {
 
   /* ── multi-track drop chooser ─────────────────────────────────────
      Every route with ≥2 audio files parks the batch here instead of
-     proceeding; the card offers "send separately" / "merge into one"
-     (both tabs) and "send as zip" (chat only). Esc, the veil, or the
-     cancel row discards the drop. */
+     proceeding; the card offers "send separately" / "merge / keep
+     timing" / "merge / join end-to-end" (both tabs) and "send as zip"
+     (chat only). Esc, the veil, or the cancel row discards the drop. */
   const openDropChoice = useCallback((choice: PendingDropChoice) => {
     setDropZip(false)
-    setDropBusy(null); setMergeFailed(null)
+    setDropBusy(null); setMergeFailed({ placed: null, joined: null })
     setDropChoice(choice)
   }, [])
   const openDropChoiceRef = useRef(openDropChoice); openDropChoiceRef.current = openDropChoice
@@ -1660,17 +1662,19 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [dropChoice, dropBusy, dropZip, sendAsZip, sendAudioListToChat])
 
-  // "merge into one" — the existing merge pipeline (placed by BWF
-  // stamps when provable, back-to-back otherwise); the single merged
-  // WAV then rides the same route a lone file would.
-  const choiceMerge = useCallback(() => {
+  // The two merge rows — 'placed' lays regions at their BWF-stamped
+  // positions (null when the stamps can't prove one timeline: comped or
+  // moved regions carry ORIGINAL record-time stamps, so the user picks);
+  // 'joined' butt-joins in filename order, stamps ignored. The single
+  // merged WAV then rides the same route a lone file would.
+  const choiceMerge = useCallback((mode: 'placed' | 'joined') => {
     const c = dropChoice
-    if (!c || dropBusy || mergeFailed) return
-    setDropBusy('merge')
+    if (!c || dropBusy || mergeFailed[mode]) return
+    setDropBusy(mode)
     void (async () => {
-      const result = await mergeDroppedRegions(c.files)
+      const result = await mergeDroppedRegions(c.files, mode)
       setDropBusy(null)
-      if (!result.ok) { setMergeFailed(mergeFailureText(result.reason)); return }   // chooser stays up, row greys
+      if (!result.ok) { setMergeFailed(f => ({ ...f, [mode]: mergeFailureText(result.reason) })); return }   // chooser stays up, row greys
       const merged = result.file
       setDropChoice(null)
       if (c.target === 'stems') {
@@ -2332,12 +2336,20 @@ function StudioShellInner({ supabase, user }: Props) {
                   <small>{dropChoice.target === 'stems' ? 'one row per file' : dropZip ? 'every file, inside one archive' : 'one message, every track listed'}</small>
                 </button>
                 <button
-                  className={`wd-dropask-row${mergeFailed ? ' off' : ''}`}
-                  disabled={!!dropBusy || !!mergeFailed}
-                  onClick={choiceMerge}
+                  className={`wd-dropask-row${mergeFailed.placed ? ' off' : ''}`}
+                  disabled={!!dropBusy || !!mergeFailed.placed}
+                  onClick={() => choiceMerge('placed')}
                 >
-                  <span>{dropBusy === 'merge' ? 'merging…' : `merge into one${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
-                  <small>{mergeFailed ? mergeFailed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'one clip, regions kept in place'}</small>
+                  <span>{dropBusy === 'placed' ? 'merging…' : `merge / keep timing${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
+                  <small>{mergeFailed.placed ? mergeFailed.placed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'as placed on the session timeline'}</small>
+                </button>
+                <button
+                  className={`wd-dropask-row${mergeFailed.joined ? ' off' : ''}`}
+                  disabled={!!dropBusy || !!mergeFailed.joined}
+                  onClick={() => choiceMerge('joined')}
+                >
+                  <span>{dropBusy === 'joined' ? 'merging…' : `merge / join end-to-end${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
+                  <small>{mergeFailed.joined ? mergeFailed.joined : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'gaps removed, one continuous take'}</small>
                 </button>
                 <button
                   className="wd-dropask-cancel"

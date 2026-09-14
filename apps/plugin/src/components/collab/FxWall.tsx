@@ -87,6 +87,25 @@ function settle (g: FxGraph, w: number, h: number): FxGraph {
 
 const MIX_FAN = 26   // degrees between a mix print's input ports
 
+/** One 256px tile of static grain, made once. */
+let _grain: HTMLCanvasElement | null = null
+function grainTile (): HTMLCanvasElement | null {
+  if (_grain) return _grain
+  if (typeof document === 'undefined') return null
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256
+  const ctx = c.getContext('2d'); if (!ctx) return null
+  const img = ctx.createImageData(256, 256)
+  let seed = 1234567
+  for (let i = 0; i < img.data.length; i += 4) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    const v = 114 + (seed % 28)   // around mid-grey: neutral under 'overlay'
+    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = 255
+  }
+  ctx.putImageData(img, 0, 0)
+  _grain = c
+  return c
+}
+
 /** The mix print: one ring cut into its inputs' shares, radial hairlines
  *  at the cuts, the first share in the second ink. */
 function MixArt ({ shares }: { shares: number[] }) {
@@ -608,38 +627,126 @@ export default function FxWall ({ size: frame }: Props) {
     const plugin = document.querySelector('.plugin') as HTMLElement | null
     const wallNow = plugin ? getComputedStyle(plugin).backgroundColor : 'rgb(22, 20, 16)'
     const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(inkRgb)
-    const inkA = (a: number) => (m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a})` : `rgba(246, 243, 234, ${a})`)
+    const paper: [number, number, number] = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234]
+    const rgba = (t: [number, number, number], a: number) => `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${a})`
+    const lampOf = (id: number): { t: [number, number, number]; k: number } => {
+      if (id === FX_PORT_IN || id === FX_PORT_OUT) return { t: paper, k: 0.3 }
+      const n = nodeById(id)
+      if (!n || n.type === FX_MIX_TYPE) return { t: paper, k: 0 }
+      return { t: tintOf(n.type, n.variant), k: lamps.current.get(id)?.k ?? 0 }
+    }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    // the wires simply lie over the scope — no gutter around them
+    // wires: paper, tinted by the lamp at each end
     graph.edges.forEach((e, i) => {
-      const path = new Path2D(wirePath(outPortOf(e.from), inPortOf(e.to, i)))
-      ctx.strokeStyle = sel?.edge === i ? inkA(1) : inkA(0.42); ctx.lineWidth = 1; ctx.stroke(path)
+      const p0 = outPortOf(e.from), p1 = inPortOf(e.to, i)
+      const path = new Path2D(wirePath(p0, p1))
+      const a = lampOf(e.from), b = lampOf(e.to)
+      const mix = (l: { t: [number, number, number]; k: number }): [number, number, number] =>
+        [paper[0] + (l.t[0] - paper[0]) * l.k, paper[1] + (l.t[1] - paper[1]) * l.k, paper[2] + (l.t[2] - paper[2]) * l.k]
+      const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y)
+      const selAlpha = sel?.edge === i ? 1 : 0.42
+      g.addColorStop(0, rgba(mix(a), selAlpha)); g.addColorStop(1, rgba(mix(b), selAlpha))
+      ctx.strokeStyle = g; ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
     })
+    // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
       const c = toScreen(n)
-      const own = n.type !== FX_MIX_TYPE && live.has(n.id) ? wallColor(n.type as FxMode, n.variant, Math.min(1, intensityOf(n))) : wallNow
-      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = own; ctx.fill()
+      const alive = n.type !== FX_MIX_TYPE && live.has(n.id)
+      const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = wallNow; ctx.fill()
+      ctx.restore()
+      // the plate sits IN the light, not brighter than it
+      const own = alive ? wallColor(n.type as FxMode, n.variant, k * 0.5) : 'rgb(16, 15, 12)'
+      const top = alive ? wallColor(n.type as FxMode, n.variant, Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
+      const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
+      dg.addColorStop(0, top); dg.addColorStop(1, own)
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = dg; ctx.fill()
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
+  // per-slot signal peaks from the plugin (or a slow breath in a browser)
+  const peaks = useRef<Float32Array>(new Float32Array(FX_MAX_NODES))
+  const envs = useRef<Float32Array>(new Float32Array(FX_MAX_NODES))   // eased
+  useEffect(() => {
+    if (!hasJuceBridge) return
+    const onAudio = (e: Event) => {
+      const d = (e as CustomEvent).detail as { peaks?: number[] }
+      if (Array.isArray(d.peaks)) for (let i = 0; i < FX_MAX_NODES; i++) peaks.current[i] = Math.min(1.4, Number(d.peaks[i]) || 0)
+    }
+    window.addEventListener('__juceDawAudio', onAudio)
+    return () => window.removeEventListener('__juceDawAudio', onAudio)
+  }, [])
+  // each lamp's brightness and reach ease toward their targets: a knob
+  // turn never pops the light, a new print's lamp fades up
+  const lamps = useRef<Map<number, { k: number; reach: number }>>(new Map())
+  const lastFrame = useRef(performance.now())
+
   const backdropRef = useRef<(ctx: CanvasRenderingContext2D) => void>(() => {})
   backdropRef.current = (ctx) => {
-    ctx.globalCompositeOperation = 'lighter'
+    const now = performance.now()
+    const dt = Math.min(0.1, (now - lastFrame.current) / 1000); lastFrame.current = now
+    const ease = 1 - Math.exp(-dt / 0.28)
+    const W = size.w, H = size.h
+
+    // the wall: near-black, darker toward the edges
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75)
+    vg.addColorStop(0, 'rgba(0, 0, 0, 0)'); vg.addColorStop(1, 'rgba(0, 0, 0, 0.55)')
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H)
+
+    // the lamps
+    ctx.globalCompositeOperation = 'screen'
+    const seen = new Set<number>()
     for (const n of graph.nodes) {
-      if (n.type === FX_MIX_TYPE || !live.has(n.id)) continue
-      const k = Math.min(1, intensityOf(n))
-      if (k < 0.01) continue
+      if (n.type === FX_MIX_TYPE) continue
+      const alive = live.has(n.id)
+      const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
+      const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
+      // signal breath: fast up, slow down
+      const pk = hasJuceBridge ? peaks.current[n.id] : 0.5 + 0.5 * Math.sin(now / 1000 * 2 * Math.PI * 0.45 + n.id)
+      const env = envs.current[n.id]
+      envs.current[n.id] = pk > env ? env + (pk - env) * Math.min(1, dt * 30) : env + (pk - env) * Math.min(1, dt * 3)
+      const breath = alive ? envs.current[n.id] : 0
+      const kNow = kTarget * (0.85 + 0.35 * Math.min(1, breath))
+      st.k += (kNow - st.k) * ease
+      const reachTarget = Rz * (1.9 + kTarget * 4.6)
+      st.reach += (reachTarget - st.reach) * ease
+      lamps.current.set(n.id, st); seen.add(n.id)
+      if (st.k < 0.005) continue
       const c = toScreen(n)
       const t = tintOf(n.type, n.variant)
-      const reach = Rz * 2.2 + k * Rz * 4
-      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, reach)
-      g.addColorStop(0, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.12 + 0.7 * k).toFixed(3)})`)
-      g.addColorStop(0.45, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.05 + 0.3 * k).toFixed(3)})`)
-      g.addColorStop(1, `rgba(${t[0]}, ${t[1]}, ${t[2]}, 0)`)
+      // the lamp hangs above the print: the pool leans up
+      const lx = c.x, ly = c.y - Rz * 0.35
+      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, st.reach)
+      const a = st.k
+      // a hot core and a long tail — light, not a disc
+      g.addColorStop(0,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${Math.min(1, 1.0 * a).toFixed(3)})`)
+      g.addColorStop(0.22, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.66 * a).toFixed(3)})`)
+      g.addColorStop(0.42, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.32 * a).toFixed(3)})`)
+      g.addColorStop(0.7,  `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.1 * a).toFixed(3)})`)
+      g.addColorStop(1,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, 0)`)
       ctx.fillStyle = g
-      ctx.fillRect(c.x - reach, c.y - reach, reach * 2, reach * 2)
+      ctx.fillRect(lx - st.reach, ly - st.reach, st.reach * 2, st.reach * 2)
+    }
+    for (const id of [...lamps.current.keys()]) if (!seen.has(id)) lamps.current.delete(id)
+    // in and out: two small paper lamps, so the ends of the wall are never dead
+    for (const pt of [inPort, outPort]) {
+      const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, 90)
+      g.addColorStop(0, 'rgba(246, 243, 234, 0.16)'); g.addColorStop(0.4, 'rgba(246, 243, 234, 0.05)'); g.addColorStop(1, 'rgba(246, 243, 234, 0)')
+      ctx.fillStyle = g; ctx.fillRect(pt.x - 90, pt.y - 90, 180, 180)
     }
     ctx.globalCompositeOperation = 'source-over'
+
+    // film grain, so the light lands on a material
+    const tile = grainTile()
+    if (tile) {
+      ctx.globalCompositeOperation = 'overlay'
+      ctx.globalAlpha = 0.14
+      for (let y = 0; y < H; y += tile.height) for (let x = 0; x < W; x += tile.width) ctx.drawImage(tile, x, y)
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over'
+    }
   }
   const backdropFn = useCallback((ctx: CanvasRenderingContext2D) => backdropRef.current(ctx), [])
 

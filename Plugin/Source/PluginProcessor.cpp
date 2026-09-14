@@ -485,8 +485,12 @@ void OrbAudioProcessor::timerCallback()
            << "tden:"     << playheadTsDen.load() << ","
            << "playing:"  << (transportPlaying.load() ? "true" : "false") << ","
            << "gr:"       << juce::String (glueGrDb.load(), 2) << ","
-           << "inSamples:'" << inB64 << "'"
-           << "}}))";
+           << "inSamples:'" << inB64 << "',"
+           << "peaks:[";
+    // per-slot block peaks: the wall's lamps breathe with what passes through
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+        script << (i ? "," : "") << juce::String (fxChain.nodePeak (i), 3);
+    script << "]}}))";
 
     browser->evaluateJavascript (script,
         [] (juce::WebBrowserComponent::EvaluationResult) {});

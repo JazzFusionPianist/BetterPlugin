@@ -542,7 +542,7 @@ export default function FxWall ({ size: frame }: Props) {
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'decay', y0: e.clientY, v0: n.decay[n.variant] ?? 0.5 }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); const d = [...n.decay]; d[n.variant] = 0.5; updateNode(n.id, { decay: d }, true) }}>
-                      {' · '}{fmtDecay(n.variant, n.decay[n.variant] ?? 0.5)}
+                      {' '}{fmtDecay(n.variant, n.decay[n.variant] ?? 0.5)}
                     </span>
                   )}
                   {n.type === 10 && (
@@ -550,12 +550,12 @@ export default function FxWall ({ size: frame }: Props) {
                       <span className="sg-val hand"
                         onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
                         onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
-                        {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                        {' '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
                       </span>
                       <span className="sg-val hand"
                         onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'fb', y0: e.clientY, v0: n.delayFb }) }}
                         onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayFb: 0.35, }, true) }}>
-                        {' · fb '}{Math.round(n.delayFb * 100)}
+                        {' fb '}{Math.round(n.delayFb * 100)}
                       </span>
                     </>
                   )}
@@ -563,32 +563,32 @@ export default function FxWall ({ size: frame }: Props) {
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
-                      {' · '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                      {' '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
                     </span>
                   )}
                   {n.type === 13 && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] || 12 }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 12; updateNode(n.id, { aux }, true) }}>
-                      {' · step '}{n.aux[0] || 12}
+                      {' step '}{n.aux[0] || 12}
                     </span>
                   )}
                   {n.type === 15 && n.variant !== 1 && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] }) }}>
-                      {' · '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
+                      {' '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
                     </span>
                   )}
                   {n.type === 15 && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux2', y0: e.clientY, v0: n.aux[2] }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = n.variant === 1 ? 7 : 2; updateNode(n.id, { aux }, true) }}>
-                      {' · '}{n.aux[2] > 0 ? '+' : ''}{n.aux[2]}{n.variant === 1 ? ' st' : n.aux[2] === 0 ? ' unison' : ''}
+                      {' '}{n.aux[2] > 0 ? '+' : ''}{n.aux[2]}{n.variant === 1 ? ' st' : n.aux[2] === 0 ? ' unison' : ''}
                     </span>
                   )}
                   {isMix && (
                     <span className="sg-val quiet">
-                      {ins.length === 0 ? ' —' : ins.map(x => ` · ${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join('')}
+                      {ins.length === 0 ? ' —' : ins.map(x => ` ${x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} ${Math.round(x.e.gain * 100)}`).join('')}
                     </span>
                   )}
       </>
@@ -973,7 +973,7 @@ export default function FxWall ({ size: frame }: Props) {
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
-                  {!isSel && flavours.length > 0 && <span className="sg-flav"> · {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
+                  {!isSel && flavours.length > 0 && <span className="sg-flav"> {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isMix && (
                     <span className="sg-val"
                       onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}

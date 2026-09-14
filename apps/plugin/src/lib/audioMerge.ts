@@ -310,20 +310,44 @@ async function renderBackToBack(regions: RegionInfo[]): Promise<File | null> {
   return new File([wav], mergedName(regions), { type: 'audio/wav' })
 }
 
+/** How a merge should treat the regions' embedded timestamps. */
+export type MergeMode =
+  /** Placed when provable, back-to-back otherwise (the historical default). */
+  | 'auto'
+  /** Timestamp-placed only — null when the stamps can't prove one timeline. */
+  | 'placed'
+  /** Butt-joined in filename order, stamps ignored (comped/moved regions). */
+  | 'joined'
+
 /**
- * Merge regions into one WAV. Placed at original positions when every
- * region is timestamped and they don't overlap; joined back to back
- * otherwise. Returns null if nothing decodable.
+ * Merge regions into one WAV.
+ *
+ *  • 'auto'   — placed at original positions when every region is
+ *    timestamped and they don't overlap; joined back to back otherwise.
+ *  • 'placed' — placement only. The user asked for original timing, so
+ *    when the stamps can't prove it (missing/inexact stamps, overlap,
+ *    mixed rates — or a placed render past the size cap) this returns
+ *    null rather than silently butt-joining.
+ *  • 'joined' — back-to-back in filename order, stamps ignored. The one
+ *    to reach for when comped/moved regions still carry their original
+ *    record-time BWF stamps and "placed" would scatter them.
+ *
+ * Returns null if nothing decodable (any mode).
  */
-export async function mergeDroppedRegions(batch: (DroppedRegion | File)[]): Promise<File | null> {
+export async function mergeDroppedRegions(
+  batch: (DroppedRegion | File)[],
+  mode: MergeMode = 'auto',
+): Promise<File | null> {
   if (batch.length === 0) return null
   const files = batch.map(b => b instanceof File ? b : regionToFile(b.name, b.data))
   const regions = await Promise.all(files.map(analyzeRegion))
+  if (mode === 'joined') return renderBackToBack(regions)
   const placement = planPlacement(regions)
   if ('plan' in placement) {
     const bytes = placement.plan.totalFrames * 2 * (outputBitDepth(regions) / 8)
     if (bytes <= MAX_MERGED_BYTES) return renderPlaced(regions, placement.plan)
   }
+  if (mode === 'placed') return null
   return renderBackToBack(regions)
 }
 

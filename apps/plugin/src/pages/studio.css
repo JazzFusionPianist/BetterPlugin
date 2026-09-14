@@ -107,11 +107,13 @@
 
 /* Multi-track drop chooser — a small centered paper card in the
    .wd-nowbar language (white ground, 1px hairline, radius 12, soft
-   shadow): serif count, three quiet button rows, a cancel word. */
+   shadow): serif count, quiet hairline button rows (separately + the
+   two merge flavours), a cancel word. */
 .wd-dropask { position: absolute; inset: 0; z-index: 70; display: flex;
   align-items: center; justify-content: center; }
 .wd-dropask-veil { position: absolute; inset: 0; background: rgba(251, 250, 247, .72); }
 .wd-dropask-card { position: relative; width: 264px; background: #fff;
+  max-height: calc(100% - 32px); overflow-y: auto;
   border: 1px solid rgba(26, 25, 23, .16); border-radius: 12px; padding: 18px 18px 12px;
   box-shadow: 0 3px 6px rgba(26,25,23,.10), 0 12px 28px -12px rgba(26,25,23,.28);
   animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }

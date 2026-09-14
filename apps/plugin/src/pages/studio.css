@@ -547,3 +547,12 @@
 .wd-dropask-zip.on .wd-dropask-zipbox::after { content: ''; position: absolute; left: 3px; top: 0.5px;
   width: 4px; height: 7px; border: solid #fff; border-width: 0 1.5px 1.5px 0; transform: rotate(43deg); }
 .wd-dropask-zip.on span:not(.wd-dropask-zipbox) { color: #1A1917; }
+
+/* A file that did not go out says so here, in the upload column —
+   grey italic on a hairline card; tap to dismiss, gone on its own in 7 s. */
+.wd-upnote { width: min(100%, 360px); text-align: left; cursor: pointer;
+  background: rgba(255,255,255,.6); border: 1px solid rgba(26,25,23,.16); border-radius: 12px;
+  border-top-right-radius: 4px; padding: 8px 12px 9px;
+  font-family: inherit; font-size: 12.5px; line-height: 1.45; font-style: italic; color: #6E6B63;
+  word-break: break-word; overflow-wrap: anywhere; }
+.wd-upnote:hover { color: #1A1917; }

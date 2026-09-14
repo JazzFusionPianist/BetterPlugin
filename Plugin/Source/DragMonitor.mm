@@ -26,6 +26,43 @@ void DragMonitor::setKeyboardCapture (bool wanted)
 
 static constexpr float kMinDragPx = 4.0f;
 
+// Largest region the bridge will hand to the page. The file is base64-
+// encoded into ONE JavaScript string (×1.33) and decoded again on the
+// other side; Chromium/WebView2 caps a string near 512 MB and both
+// engines run out of process memory not far past that. Mirrors
+// DAW_FILE_LIMIT in apps/plugin/src/lib/limits.ts — keep them equal.
+static constexpr unsigned long long kMaxDropBytes = 300ULL * 1024 * 1024;
+
+static NSString* jsQuoted (NSString* s)
+{
+    NSString* out = [s stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
+    out = [out stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
+    out = [out stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+    return out;
+}
+
+// Tell the page a file was skipped for size. It still counts toward the
+// __juceDropGroupStart total, so JS decrements its expected count.
+static void rejectDropFile (WKWebView* wkv, NSURL* fileURL, unsigned long long size)
+{
+    ORB_LOG ("drop rejected for size: %{public}@ (%llu bytes)", fileURL.lastPathComponent, size);
+    if (!wkv) return;
+    NSString* js = [NSString stringWithFormat:
+        @"window.dispatchEvent(new CustomEvent('__juceFileDropRejected',"
+         "{detail:{name:'%@',size:%llu,limit:%llu}}))",
+        jsQuoted (fileURL.lastPathComponent), size, kMaxDropBytes];
+    dispatch_async (dispatch_get_main_queue(), ^{
+        [wkv evaluateJavaScript:js completionHandler:nil];
+    });
+}
+
+static unsigned long long fileSizeAt (NSURL* fileURL)
+{
+    NSNumber* n = nil;
+    [fileURL getResourceValue:&n forKey:NSURLFileSizeKey error:nil];
+    return n ? n.unsignedLongLongValue : 0ULL;
+}
+
 //==============================================================================
 // Forward declarations
 //==============================================================================
@@ -478,6 +515,12 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                                      operationQueue:bgQueue
                                              reader:^(NSURL* fileURL, NSError* err) {
                     if (err) { NSLog (@"[DragMonitor] promise error: %@", err); return; }
+                    const unsigned long long size = fileSizeAt (fileURL);
+                    if (size > kMaxDropBytes) {
+                        rejectDropFile (wkv, fileURL, size);
+                        [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
+                        return;
+                    }
                     NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
                     if (!raw) return;
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
@@ -543,6 +586,8 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             for (NSURL* fileURL in urls) {
                 if (!fileURL.isFileURL) continue;
                 [bgQueue addOperationWithBlock:^{
+                    const unsigned long long size = fileSizeAt (fileURL);
+                    if (size > kMaxDropBytes) { rejectDropFile (wkv, fileURL, size); return; }
                     NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
                     if (!raw) {
                         NSLog (@"[DragMonitor] failed to read %@", fileURL);

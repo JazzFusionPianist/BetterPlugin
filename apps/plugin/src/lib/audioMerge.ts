@@ -25,11 +25,11 @@
  * one), and leave the decision to the user when nothing can be proven.
  */
 import { extractAudioTimeline } from './audioTimeline'
+import { MERGED_OUTPUT_LIMIT } from './limits'
 import type { AttachmentTimelineMetadata } from '../types/collab'
 
 export interface DroppedRegion { name: string; data: string }  // data = base64 audio
 
-const MAX_MERGED_BYTES = 1000 * 1024 * 1024
 /** Two comp regions may kiss by a crossfade; beyond this they are two tracks. */
 const OVERLAP_TOLERANCE_SEC = 0.02
 
@@ -62,6 +62,7 @@ export interface RegionInfo {
   start?: number
   sampleRate?: number
   bitDepth?: number
+  channels?: number
   /** PCM frame count read from the WAV header (undefined for non-WAV). */
   frames?: number
 }
@@ -70,7 +71,7 @@ function fourCC(bytes: Uint8Array, offset: number): string {
   return String.fromCharCode(bytes[offset]!, bytes[offset + 1]!, bytes[offset + 2]!, bytes[offset + 3]!)
 }
 
-interface WavFormat { frames: number; sampleRate?: number; bitDepth?: number }
+interface WavFormat { frames: number; sampleRate?: number; bitDepth?: number; channels?: number }
 
 /** PCM frame count + format of a WAV from its fmt/data chunk headers. */
 async function wavFormat(file: File): Promise<WavFormat | undefined> {
@@ -79,6 +80,7 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
   let blockAlign: number | undefined
   let sampleRate: number | undefined
   let bitDepth: number | undefined
+  let channels: number | undefined
   let dataSize: number | undefined
   for (let offset = 12; offset + 8 <= file.size;) {
     const header = new Uint8Array(await file.slice(offset, offset + 8).arrayBuffer())
@@ -89,6 +91,7 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
     if (id === 'fmt ' && size >= 16) {
       const fmt = new DataView(await file.slice(dataOffset, dataOffset + 16).arrayBuffer())
       if (fmt.byteLength >= 16) {
+        channels = fmt.getUint16(2, true)
         sampleRate = fmt.getUint32(4, true)
         blockAlign = fmt.getUint16(12, true)
         bitDepth = fmt.getUint16(14, true)
@@ -102,7 +105,7 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
     offset = dataOffset + size + (size & 1)
   }
   if (!blockAlign || dataSize == null) return undefined
-  return { frames: Math.floor(dataSize / blockAlign), sampleRate, bitDepth }
+  return { frames: Math.floor(dataSize / blockAlign), sampleRate, bitDepth, channels }
 }
 
 export async function analyzeRegion(file: File): Promise<RegionInfo> {
@@ -117,6 +120,7 @@ export async function analyzeRegion(file: File): Promise<RegionInfo> {
     start: exact ? timeline.position.source_samples : undefined,
     sampleRate: timeline?.position.sample_rate ?? format?.sampleRate,
     bitDepth: timeline?.position.bit_depth ?? format?.bitDepth,
+    channels: format?.channels,
     frames: format?.frames,
   }
 }
@@ -236,6 +240,11 @@ export function encodeWav(samples: Float32Array, opts: WavOptions): Blob {
 }
 
 // ── Decoding + mixing ─────────────────────────────────────────────────────
+//
+// Regions are decoded ONE AT A TIME. A decoded region is float32 (×1.33
+// of 24-bit, ×2 of 16-bit), so holding ten of them at once is what
+// blows the WebView's memory on a multi-track drop. Sequential decoding
+// keeps the peak at "the output buffer + one input" regardless of N.
 
 async function decodeAt(file: File, sampleRate: number): Promise<AudioBuffer | null> {
   try {
@@ -253,24 +262,37 @@ function outputBitDepth(regions: RegionInfo[]): 16 | 24 {
   return regions.some(r => (r.bitDepth ?? 0) >= 24) ? 24 : 16
 }
 
+/** Output channel count: stereo if any region is, mono only if all are. */
+function outputChannels(regions: RegionInfo[]): number {
+  return Math.min(2, Math.max(1, ...regions.map(r => r.channels ?? 2)))
+}
+
+function outputBytes(totalFrames: number, regions: RegionInfo[]): number {
+  return totalFrames * outputChannels(regions) * (outputBitDepth(regions) / 8)
+}
+
 function mergedName(regions: RegionInfo[]): string {
   const base = byName(regions.map(r => r.file))[0]!.name.replace(/\.[^.]+$/, '') || 'merged'
   return `${base} (merged).wav`
 }
 
+/** Add one decoded region into the interleaved output at a frame offset. */
+function mixInto(out: Float32Array, channels: number, b: AudioBuffer, offset: number, totalFrames: number) {
+  const frames = Math.min(b.length, totalFrames - offset)
+  for (let ch = 0; ch < channels; ch++) {
+    const src = b.getChannelData(ch < b.numberOfChannels ? ch : 0)
+    for (let i = 0; i < frames; i++) out[(offset + i) * channels + ch] += src[i]!
+  }
+}
+
 async function renderPlaced(regions: RegionInfo[], plan: Placement): Promise<File | null> {
-  const decoded = await Promise.all(regions.map(r => decodeAt(r.file, plan.sampleRate)))
-  if (decoded.some(b => b === null)) return null
-  const buffers = decoded as AudioBuffer[]
-  const channels = Math.min(2, Math.max(...buffers.map(b => b.numberOfChannels)))
+  const channels = outputChannels(regions)
   const out = new Float32Array(plan.totalFrames * channels)
   for (const placed of plan.regions) {
-    const b = buffers[placed.index]!
-    const frames = Math.min(b.length, plan.totalFrames - placed.offset)
-    for (let ch = 0; ch < channels; ch++) {
-      const src = b.getChannelData(ch < b.numberOfChannels ? ch : 0)
-      for (let i = 0; i < frames; i++) out[(placed.offset + i) * channels + ch] += src[i]!
-    }
+    const b = await decodeAt(regions[placed.index]!.file, plan.sampleRate)
+    if (!b) return null
+    mixInto(out, channels, b, placed.offset, plan.totalFrames)
+    // `b` goes out of scope here — the next region decodes into fresh memory.
   }
   const wav = encodeWav(out, {
     sampleRate: plan.sampleRate, channels, bitDepth: outputBitDepth(regions),
@@ -283,22 +305,36 @@ async function renderPlaced(regions: RegionInfo[], plan: Placement): Promise<Fil
 async function renderBackToBack(regions: RegionInfo[]): Promise<File | null> {
   const sorted = byName(regions.map(r => ({ name: r.file.name, region: r }))).map(x => x.region)
   const sampleRate = sorted[0]!.sampleRate ?? 48000
-  const buffers: AudioBuffer[] = []
-  for (const r of sorted) {
-    const b = await decodeAt(r.file, sampleRate)
-    if (b) buffers.push(b)
-  }
-  if (buffers.length === 0) return null
-  const channels = Math.min(2, Math.max(...buffers.map(b => b.numberOfChannels)))
-  const totalFrames = buffers.reduce((s, b) => s + b.length, 0)
-  const out = new Float32Array(totalFrames * channels)
-  let frameOff = 0
-  for (const b of buffers) {
-    for (let ch = 0; ch < channels; ch++) {
-      const src = b.getChannelData(ch < b.numberOfChannels ? ch : 0)
-      for (let i = 0; i < b.length; i++) out[(frameOff + i) * channels + ch] = src[i]!
+  const channels = outputChannels(regions)
+  // Frame counts from the headers let the output be allocated once;
+  // a batch with a non-WAV file (no header count) collects chunks instead.
+  const known = sorted.every(r => r.frames != null && r.sampleRate === sampleRate)
+  let out: Float32Array
+  if (known) {
+    const totalFrames = sorted.reduce((s, r) => s + r.frames!, 0)
+    out = new Float32Array(totalFrames * channels)
+    let frameOff = 0
+    for (const r of sorted) {
+      const b = await decodeAt(r.file, sampleRate)
+      if (!b) continue
+      mixInto(out, channels, b, frameOff, totalFrames)
+      frameOff += b.length
     }
-    frameOff += b.length
+    if (frameOff === 0) return null
+    if (frameOff < totalFrames) out = out.subarray(0, frameOff * channels)
+  } else {
+    const chunks: Float32Array[] = []
+    for (const r of sorted) {
+      const b = await decodeAt(r.file, sampleRate)
+      if (!b) continue
+      const chunk = new Float32Array(b.length * channels)
+      mixInto(chunk, channels, b, 0, b.length)
+      chunks.push(chunk)
+    }
+    if (chunks.length === 0) return null
+    out = new Float32Array(chunks.reduce((s, c) => s + c.length, 0))
+    let pos = 0
+    for (const c of chunks) { out.set(c, pos); pos += c.length }
   }
   // The first region's own stamp still places the clip's head correctly.
   const first = sorted[0]!
@@ -310,21 +346,41 @@ async function renderBackToBack(regions: RegionInfo[]): Promise<File | null> {
   return new File([wav], mergedName(regions), { type: 'audio/wav' })
 }
 
+export type MergeResult =
+  | { ok: true; file: File }
+  | { ok: false; reason: 'empty' | 'too-large' | 'decode' }
+
+/** Why a merge was refused, in the user's words. */
+export function mergeFailureText(reason: Extract<MergeResult, { ok: false }>['reason']): string {
+  switch (reason) {
+    case 'too-large': return 'the merged clip would be over 500 MB'
+    case 'decode': return 'these files can\'t be decoded'
+    default: return 'these files can\'t be merged'
+  }
+}
+
 /**
  * Merge regions into one WAV. Placed at original positions when every
  * region is timestamped and they don't overlap; joined back to back
- * otherwise. Returns null if nothing decodable.
+ * otherwise. Refuses (with a reason) rather than rendering something
+ * the WebView can't hold.
  */
-export async function mergeDroppedRegions(batch: (DroppedRegion | File)[]): Promise<File | null> {
-  if (batch.length === 0) return null
+export async function mergeDroppedRegions(batch: (DroppedRegion | File)[]): Promise<MergeResult> {
+  if (batch.length === 0) return { ok: false, reason: 'empty' }
   const files = batch.map(b => b instanceof File ? b : regionToFile(b.name, b.data))
   const regions = await Promise.all(files.map(analyzeRegion))
   const placement = planPlacement(regions)
   if ('plan' in placement) {
-    const bytes = placement.plan.totalFrames * 2 * (outputBitDepth(regions) / 8)
-    if (bytes <= MAX_MERGED_BYTES) return renderPlaced(regions, placement.plan)
+    if (outputBytes(placement.plan.totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
+    const file = await renderPlaced(regions, placement.plan)
+    return file ? { ok: true, file } : { ok: false, reason: 'decode' }
   }
-  return renderBackToBack(regions)
+  // Back to back: the output is the sum of the inputs (headers when
+  // known, file sizes as a ceiling otherwise).
+  const totalFrames = regions.reduce((s, r) => s + (r.frames ?? Math.ceil(r.file.size / 3)), 0)
+  if (outputBytes(totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { ok: false, reason: 'too-large' }
+  const file = await renderBackToBack(regions)
+  return file ? { ok: true, file } : { ok: false, reason: 'decode' }
 }
 
 // ── Default policy for a multi-region DAW drop ────────────────────────────
@@ -345,8 +401,7 @@ export async function resolveDawDrop(files: File[]): Promise<DawDropResolution> 
   const regions = await Promise.all(files.map(analyzeRegion))
   const placement = planPlacement(regions)
   if ('reason' in placement) return { kind: 'separate', files, reason: placement.reason }
-  const bytes = placement.plan.totalFrames * 2 * (outputBitDepth(regions) / 8)
-  if (bytes > MAX_MERGED_BYTES) return { kind: 'separate', files, reason: 'too-large' }
+  if (outputBytes(placement.plan.totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { kind: 'separate', files, reason: 'too-large' }
   const file = await renderPlaced(regions, placement.plan)
   if (!file) return { kind: 'separate', files, reason: 'decode' }
   return { kind: 'merged', file, regionCount: files.length }

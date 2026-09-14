@@ -33,8 +33,9 @@ import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
-import { mergeDroppedRegions, resolveDawDrop } from '../lib/audioMerge'
+import { mergeDroppedRegions, mergeFailureText, resolveDawDrop } from '../lib/audioMerge'
 import { buildZip } from '../lib/zipStore'
+import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
@@ -1395,6 +1396,16 @@ function StudioShellInner({ supabase, user }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploads, setUploads] = useState<{ id: string; name: string; progress: number }[]>([])
+  // One-line notes that stack with the upload cards — the only place a
+  // file that did NOT go out gets to say so. A file-transfer tool must
+  // never lose a file silently.
+  const [notices, setNotices] = useState<{ id: string; text: string }[]>([])
+  const notify = useCallback((text: string) => {
+    const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setNotices(prev => [...prev, { id, text }])
+    setTimeout(() => setNotices(prev => prev.filter(n => n.id !== id)), 7000)
+  }, [])
+  const notifyRef = useRef(notify); notifyRef.current = notify
 
   const growTa = useCallback(() => {
     const ta = taRef.current
@@ -1411,7 +1422,7 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [draft, send, growTa])
 
   // ChatView's R2 upload flow: presign → XHR PUT (for onprogress) → send.
-  const MAX_SIZE = 1000 * 1024 * 1024
+  const MAX_SIZE = UPLOAD_FILE_LIMIT
   const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file'):
     Promise<{ url: string; type: 'audio' | 'image' | 'file'; name: string } | null> => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
@@ -1468,12 +1479,15 @@ function StudioShellInner({ supabase, user }: Props) {
           : null
         return { f, type }
       })
-      .filter((x): x is { f: File; type: 'audio' | 'image' } => x.type !== null && x.f.size <= MAX_SIZE)
-    if (typed.length === 0) return
+      .filter((x): x is { f: File; type: 'audio' | 'image' } => x.type !== null)
+    for (const t of typed.filter(t => t.f.size > MAX_SIZE))
+      notify(`${t.f.name} (${fmtBytes(t.f.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`)
+    const kept = typed.filter(t => t.f.size <= MAX_SIZE)
+    if (kept.length === 0) return
 
     // Several audio files at once → one multi-track message (ChatView parity).
-    const audios = typed.filter(t => t.type === 'audio')
-    if (audios.length > 1 && audios.length === typed.length) {
+    const audios = kept.filter(t => t.type === 'audio')
+    if (audios.length > 1 && audios.length === kept.length) {
       const uploaded: { url: string; name: string }[] = []
       for (const t of audios) {
         const a = await uploadFile(t.f, 'audio')
@@ -1483,11 +1497,11 @@ function StudioShellInner({ supabase, user }: Props) {
       else if (uploaded.length > 1) await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks` })
       return
     }
-    for (const t of typed) {
+    for (const t of kept) {
       const a = await uploadFile(t.f, t.type)
       if (a) await send('', a)
     }
-  }, [uploadFile, send, MAX_SIZE])
+  }, [uploadFile, send, MAX_SIZE, notify])
 
   // Upload audio files (each stamped with its own timeline, `fallback`
   // filling the gaps) and send them as ONE chat message — a single
@@ -1495,7 +1509,7 @@ function StudioShellInner({ supabase, user }: Props) {
   const sendAudioListToChat = useCallback(async (list: File[], fallback: AttachmentTimelineMetadata | null) => {
     const uploaded: { url: string; name: string; metadata?: AttachmentTimelineMetadata }[] = []
     for (const f of list) {
-      if (f.size > MAX_SIZE) continue
+      if (f.size > MAX_SIZE) { notify(`${f.name} (${fmtBytes(f.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`); continue }
       const metadata = await extractAudioTimeline(f, fallback)
       const a = await uploadFile(f, 'audio')
       if (a) uploaded.push({ url: a.url, name: a.name, metadata: metadata ?? undefined })
@@ -1546,7 +1560,7 @@ function StudioShellInner({ supabase, user }: Props) {
   const [dropBusy, setDropBusy] = useState<'merge' | 'zip' | null>(null)
   // mergeDroppedRegions came back empty for this batch — the merge row
   // greys out with a note instead of failing silently.
-  const [mergeFailed, setMergeFailed] = useState(false)
+  const [mergeFailed, setMergeFailed] = useState<string | null>(null)
   const dragCounter = useRef(0)
   const juceDragActive = useRef(false)      // C++ owns the overlay while true
   const isCancelDrag = useRef(false)        // own drag-out returning → don't attach
@@ -1571,7 +1585,7 @@ function StudioShellInner({ supabase, user }: Props) {
   // still waiting on the old room's batch.
   useEffect(() => {
     setPendingStemDrop(null)
-    setDropChoice(null); setDropBusy(null); setMergeFailed(false)
+    setDropChoice(null); setDropBusy(null); setMergeFailed(null)
   }, [activeConvId])
 
   const consumeStemDrop = useCallback((id: string) => {
@@ -1585,7 +1599,7 @@ function StudioShellInner({ supabase, user }: Props) {
      cancel row discards the drop. */
   const openDropChoice = useCallback((choice: PendingDropChoice) => {
     setDropZip(false)
-    setDropBusy(null); setMergeFailed(false)
+    setDropBusy(null); setMergeFailed(null)
     setDropChoice(choice)
   }, [])
   const openDropChoiceRef = useRef(openDropChoice); openDropChoiceRef.current = openDropChoice
@@ -1607,17 +1621,27 @@ function StudioShellInner({ supabase, user }: Props) {
   // matters) through the generic attachment path. Called by either
   // action row when the toggle is on (chat only).
   const sendAsZip = useCallback(async (files: File[]) => {
+    // The archive is built in memory (every file's bytes + the Blob's
+    // copy), so the sum is capped low; "send separately" streams each
+    // file and has no such ceiling.
+    const total = files.reduce((s, f) => s + f.size, 0)
+    if (total > ZIP_TOTAL_LIMIT) {
+      notify(`a zip of these would be ${fmtBytes(total)} — over ${fmtBytes(ZIP_TOTAL_LIMIT)}. send them separately instead`)
+      return
+    }
     try {
       const entries = await Promise.all(
         files.map(async f => ({ name: f.name, data: await f.arrayBuffer() })))
       const zip = new File([buildZip(entries)], zipName(), { type: 'application/zip' })
-      if (zip.size > MAX_SIZE) { console.error('[studio zip] archive over the size cap'); return }
+      if (zip.size > MAX_SIZE) { notify(`the zip (${fmtBytes(zip.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`); return }
       const a = await uploadFile(zip, 'file')
       if (a) await send('', { url: a.url, type: 'file', name: a.name })
+      else notify('the zip didn\'t upload — check your connection and try again')
     } catch (e) {
       console.error('[studio zip] failed', e)
+      notify('couldn\'t build the zip — send the files separately instead')
     }
-  }, [uploadFile, send, MAX_SIZE])
+  }, [uploadFile, send, MAX_SIZE, notify])
 
   const choiceSeparate = useCallback(() => {
     const c = dropChoice
@@ -1644,9 +1668,10 @@ function StudioShellInner({ supabase, user }: Props) {
     if (!c || dropBusy || mergeFailed) return
     setDropBusy('merge')
     void (async () => {
-      const merged = await mergeDroppedRegions(c.files)
+      const result = await mergeDroppedRegions(c.files)
       setDropBusy(null)
-      if (!merged) { setMergeFailed(true); return }   // chooser stays up, row greys
+      if (!result.ok) { setMergeFailed(mergeFailureText(result.reason)); return }   // chooser stays up, row greys
+      const merged = result.file
       setDropChoice(null)
       if (c.target === 'stems') {
         setPendingStemDrop({
@@ -1739,27 +1764,34 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [])
 
   // __juceFileDrop — one resolved base64 file per event.
+  // __juceFileDropRejected — the native side skipped a file over the
+  // drag limit (newer builds); it still counts toward the group so the
+  // rest of the drop isn't left waiting for it.
   useEffect(() => {
-    const handler = (e: Event) => {
-      if (outDragActive.current) return
-      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
-      dropBuffer.current.push({ name, data })
+    const flush = () => {
       if (dropBuffer.current.length < dropGroupCount.current) return
-
       const batch = dropBuffer.current
       dropBuffer.current = []
       dropGroupCount.current = 1
-      if (!activeConvIdRef.current) return
+      if (batch.length === 0 || !activeConvIdRef.current) return
 
       void (async () => {
         const fresh = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
         const fallback = fresh ?? dropTimelineRef.current
         dropTimelineRef.current = null
         dropTimelinePromiseRef.current = null
+        // A region over the drag limit stops here, out loud. (Older
+        // plug-in builds hand it over regardless; newer ones reject it
+        // natively before the base64 round trip.)
+        const all = batch.map(f => nativeToFile(f.name, f.data))
+        for (const f of all.filter(f => f.size > DAW_FILE_LIMIT))
+          notifyRef.current(`${f.name} (${fmtBytes(f.size)}) is over ${fmtBytes(DAW_FILE_LIMIT)}, the limit for regions dragged from the daw — export it and drop the file instead`)
+        const dropped = all.filter(f => f.size <= DAW_FILE_LIMIT)
+        const keptBatch = batch.filter((_, i) => all[i]!.size <= DAW_FILE_LIMIT)
+        if (dropped.length === 0) return
         // ≥2 audio files → the chooser card decides (separately /
         // merge / zip) instead of any automatic policy. Non-audio
         // strays still ride the chat attachment path directly.
-        const dropped = batch.map(f => nativeToFile(f.name, f.data))
         const audio = dropped.filter(isAudioFile)
         if (audio.length >= 2) {
           const rest = dropped.filter(f => !isAudioFile(f))
@@ -1774,7 +1806,7 @@ function StudioShellInner({ supabase, user }: Props) {
         if (tabRef.current === 'stems') {
           setPendingStemDrop({
             id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            nativeFiles: batch,
+            nativeFiles: keptBatch,
             fallbackMetadata: fallback,
           })
           return
@@ -1782,8 +1814,24 @@ function StudioShellInner({ supabase, user }: Props) {
         await sendDawFilesRef.current(dropped, fallback)
       })()
     }
-    window.addEventListener('__juceFileDrop', handler)
-    return () => window.removeEventListener('__juceFileDrop', handler)
+    const onFile = (e: Event) => {
+      if (outDragActive.current) return
+      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
+      dropBuffer.current.push({ name, data })
+      flush()
+    }
+    const onRejected = (e: Event) => {
+      const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
+      notifyRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
+      dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
+      flush()
+    }
+    window.addEventListener('__juceFileDrop', onFile)
+    window.addEventListener('__juceFileDropRejected', onRejected)
+    return () => {
+      window.removeEventListener('__juceFileDrop', onFile)
+      window.removeEventListener('__juceFileDropRejected', onRejected)
+    }
   }, [])
 
   // Own drag-OUT tracking (AudioAttachment → DAW). Without this, a
@@ -2285,11 +2333,11 @@ function StudioShellInner({ supabase, user }: Props) {
                 </button>
                 <button
                   className={`wd-dropask-row${mergeFailed ? ' off' : ''}`}
-                  disabled={!!dropBusy || mergeFailed}
+                  disabled={!!dropBusy || !!mergeFailed}
                   onClick={choiceMerge}
                 >
                   <span>{dropBusy === 'merge' ? 'merging…' : `merge into one${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
-                  <small>{mergeFailed ? 'these files can’t be merged' : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'one clip, regions kept in place'}</small>
+                  <small>{mergeFailed ? mergeFailed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'one clip, regions kept in place'}</small>
                 </button>
                 <button
                   className="wd-dropask-cancel"
@@ -2379,8 +2427,13 @@ function StudioShellInner({ supabase, user }: Props) {
                         ? <div className="wd-chat-col">{chatRows}</div>
                         : <div className="wd-quiet">no messages yet — say hi</div>}
                   </div>
-                  {uploads.length > 0 && (
+                  {(uploads.length > 0 || notices.length > 0) && (
                     <div className="wd-upcards">
+                      {notices.map(n => (
+                        <button key={n.id} className="wd-upnote" onClick={() => setNotices(prev => prev.filter(x => x.id !== n.id))}>
+                          {n.text}
+                        </button>
+                      ))}
                       {uploads.map(u => (
                         <div key={u.id} className="wd-upcard">
                           <div className="wd-upcard-name">{u.name}</div>

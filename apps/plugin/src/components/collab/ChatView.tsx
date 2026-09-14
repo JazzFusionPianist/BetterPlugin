@@ -10,7 +10,8 @@ import ChatCalendar from './ChatCalendar'
 import { useCalendarEvents, type CalendarEvent, type NewCalendarEvent } from '../../hooks/useCalendarEvents'
 import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
-import { mergeDroppedRegions, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
+import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
+import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
 
@@ -1265,18 +1266,23 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // __juceFileDrop: C++ delivers one resolved file per event.
   // When all expected files have arrived, upload and send as one message.
   useEffect(() => {
-    const handler = async (e: Event) => {
-      if (outDragActive.current) return
-
-      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
-      dropBuffer.current.push({ name, data })
-
+    const flush = async () => {
       // Wait until all files from this drag are collected
       if (dropBuffer.current.length < dropGroupCount.current) return
 
-      const batch = dropBuffer.current
+      const all = dropBuffer.current
       dropBuffer.current = []
       dropGroupCount.current = 1
+
+      // A region over the drag limit stops here, out loud (base64 size
+      // ≈ 1.33× the file; newer plug-in builds reject it natively).
+      const batch = all.filter(f => {
+        const bytes = Math.floor(f.data.length * 3 / 4)
+        if (bytes <= DAW_FILE_LIMIT) return true
+        showErrRef.current(`${f.name} (${fmtBytes(bytes)}) is over ${fmtBytes(DAW_FILE_LIMIT)}, the limit for regions dragged from the daw — export it and drop the file instead`)
+        return false
+      })
+      if (batch.length === 0) return
 
       if (onStemDrop) {
         const freshTimeline = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
@@ -1295,8 +1301,26 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       // files are stashed so "attach directly" can resume the old path.
       setDropChoice(batch)
     }
-    window.addEventListener('__juceFileDrop', handler)
-    return () => window.removeEventListener('__juceFileDrop', handler)
+    const onFile = (e: Event) => {
+      if (outDragActive.current) return
+      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
+      dropBuffer.current.push({ name, data })
+      void flush()
+    }
+    // The native side skipped a file over the drag limit; it still
+    // counts toward the group so the rest of the drop isn't left waiting.
+    const onRejected = (e: Event) => {
+      const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
+      showErrRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
+      dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
+      void flush()
+    }
+    window.addEventListener('__juceFileDrop', onFile)
+    window.addEventListener('__juceFileDropRejected', onRejected)
+    return () => {
+      window.removeEventListener('__juceFileDrop', onFile)
+      window.removeEventListener('__juceFileDropRejected', onRejected)
+    }
   }, [onStemDrop])
 
   // __localDragArmed: AudioAttachment dispatches this (in JS) the moment a
@@ -1469,11 +1493,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   const MAX_SIZE_MB = 1000
   const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024
 
+  const showErrRef = useRef<(msg: string) => void>(() => {})
   const showErr = (msg: string) => {
     setUploadErrMsg(msg)
     setSendError(true)
     setTimeout(() => { setSendError(false); setUploadErrMsg('') }, 3000)
   }
+  showErrRef.current = showErr
+
 
   // Upload via Cloudflare R2 with progress tracking:
   //   1. Push a 0% pending-upload row so a ghost bubble appears immediately.
@@ -1694,11 +1721,11 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // joined back to back in filename order.
   const mergeAndSend = async (batch: { name: string; data: string }[]) => {
     setMerging(true)
-    const file = await mergeDroppedRegions(batch)
+    const result = await mergeDroppedRegions(batch)
     setMerging(false)
     setDropChoice(null)
-    if (!file) { showErr('couldn\'t merge these regions. send them separately.'); return }
-    await sendMergedFile(file)
+    if (!result.ok) { showErr(`${mergeFailureText(result.reason)} — send them separately.`); return }
+    await sendMergedFile(result.file)
   }
 
   // "Attach directly" branch of the drop choice — sends the dragged

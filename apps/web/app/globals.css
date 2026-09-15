@@ -29,11 +29,11 @@
   --coral: var(--blue);
   --sky: var(--blue);
 
-  /* Two typefaces, designed as a pair: Instrument Serif for the voice
+  /* One typeface (Steven, 2026-09-15): Instrument Sans everywhere — the old serif voice slot
      (titles, names, captions, blue-italic emphasis) and Instrument Sans
      for everything else — including the machinery (times, labels, plate
      numbers), set lowercase with a little tracking and tabular numerals. */
-  --f-serif: 'Instrument Serif', 'Pretendard Variable', 'Apple SD Gothic Neo', serif;
+  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;  /* one family since 2026-09-15 — the 'serif' slot is the 500-weight voice */
   --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   --f-mono: var(--f-sans);
   --f-body: var(--f-sans);
@@ -118,7 +118,7 @@ button { font-family: inherit; }
 }
 .word {
   font-family: var(--f-serif);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 22px; letter-spacing: normal;
   text-transform: lowercase;
   display: inline-flex; align-items: center; gap: 9px;
@@ -128,8 +128,8 @@ button { font-family: inherit; }
   background: var(--blue);
 }
 .login {
-  font-family: var(--f-serif);
-  font-size: 15px; font-weight: 400; color: var(--t2); cursor: pointer;
+  font-family: var(--f-serif); letter-spacing: -0.01em;
+  font-size: 15px; font-weight: 500; color: var(--t2); cursor: pointer;
   background: none; border: none; transition: color .15s;
   text-decoration: underline; text-underline-offset: 3px;
 }
@@ -141,7 +141,7 @@ button { font-family: inherit; }
 }
 .stage h1 {
   font-family: var(--f-serif);
-  font-weight: 400;
+  font-weight: 500;
   font-size: clamp(46px, 9vw, 96px);
   line-height: 1.1;
   letter-spacing: -0.01em;
@@ -155,9 +155,9 @@ button { font-family: inherit; }
 }
 .sub {
   margin-top: 26px;
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em;
   font-size: clamp(16px, 2.4vw, 18px);
-  font-weight: 400;
+  font-weight: 500;
   color: var(--t2);
   text-transform: lowercase;
   max-width: 440px; line-height: 1.45;
@@ -168,7 +168,7 @@ button { font-family: inherit; }
 .actions-native .download { padding: 16px 40px; }
 .ghost-link {
   background: none; border: none; cursor: pointer;
-  font-family: var(--f-serif); font-size: 15px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 15px; color: var(--t2);
   text-transform: lowercase;
 }
 .ghost-link span {
@@ -179,7 +179,7 @@ button { font-family: inherit; }
 .download {
   background: var(--blue); color: #fff;
   font-family: var(--f-serif);
-  font-weight: 400; font-size: 17px;
+  font-weight: 500; font-size: 17px;
   letter-spacing: normal; text-transform: lowercase;
   padding: 13px 30px; border-radius: 3px; cursor: pointer; border: none;
   transition: background .15s, transform .12s ease;
@@ -190,7 +190,7 @@ button { font-family: inherit; }
   display: flex; align-items: center; justify-content: flex-end;
   padding: 26px calc(clamp(24px, 5vw, 56px) + env(safe-area-inset-right))
            calc(26px + env(safe-area-inset-bottom)) calc(clamp(24px, 5vw, 56px) + env(safe-area-inset-left));
-  font-family: var(--f-serif); font-size: 14px; color: var(--t3);
+  font-family: var(--f-serif); font-weight: 500; font-size: 14px; color: var(--t3);
   text-transform: lowercase; letter-spacing: normal;
 }
 .bottom .bottom-legal { margin-left: 14px; color: var(--t3); text-decoration: underline; text-underline-offset: 3px; }
@@ -235,7 +235,7 @@ button { font-family: inherit; }
 .auth-head { margin-bottom: 22px; }
 .auth-brand {
   display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--f-serif); font-size: 15px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 15px; color: var(--t2);
   margin-bottom: 18px;
 }
 .auth-brand-dot {
@@ -243,11 +243,11 @@ button { font-family: inherit; }
   background: var(--blue);
 }
 .auth-title {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 32px; letter-spacing: normal; line-height: 1.1;
   text-transform: lowercase;
 }
-.auth-lede { margin-top: 8px; font-family: var(--f-serif); font-size: 16px; line-height: 1.45; color: var(--t2); max-width: 32ch; text-transform: lowercase; }
+.auth-lede { margin-top: 8px; font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 16px; line-height: 1.45; color: var(--t2); max-width: 32ch; text-transform: lowercase; }
 
 /* Floating-label fields — the label rides up into a caption on focus/fill. */
 .fld { position: relative; margin-bottom: 10px; }
@@ -262,7 +262,7 @@ button { font-family: inherit; }
 }
 .fld label {
   position: absolute; left: 14px; top: 15px;
-  font-family: var(--f-serif); font-size: 16px; color: var(--t3); pointer-events: none;
+  font-family: var(--f-serif); font-weight: 500; font-size: 16px; color: var(--t3); pointer-events: none;
   text-transform: lowercase;
   transform-origin: left top;
   transition: transform .16s ease, color .16s, letter-spacing .16s;
@@ -283,7 +283,7 @@ button { font-family: inherit; }
 .fld-toggle {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   background: none; border: none; cursor: pointer;
-  font-family: var(--f-serif); color: var(--t3); font-size: 13px; font-weight: 400;
+  font-family: var(--f-serif); color: var(--t3); font-size: 13px; font-weight: 500;
   padding: 5px 8px; transition: color .15s;
   text-transform: lowercase; letter-spacing: normal;
 }
@@ -291,7 +291,7 @@ button { font-family: inherit; }
 
 .auth-error, .auth-note {
   margin: 4px 0 12px; padding: 9px 12px; border-radius: 4px;
-  font-family: var(--f-serif); font-size: 14px; line-height: 1.45;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 14px; line-height: 1.45;
 }
 .auth-error { color: var(--red); border: 1px dashed rgba(214,64,46,0.55); }
 .auth-note { color: var(--green); border: 1px dashed rgba(30,158,99,0.55); }
@@ -299,7 +299,7 @@ button { font-family: inherit; }
 .auth-submit {
   width: 100%; margin-top: 8px;
   background: var(--blue); color: #fff;
-  font-family: var(--f-serif); font-weight: 400; font-size: 17px;
+  font-family: var(--f-serif); font-weight: 500; font-size: 17px;
   letter-spacing: normal; text-transform: lowercase;
   padding: 14px; border: none; border-radius: 3px; cursor: pointer;
   transition: background .15s, transform .12s ease, opacity .2s;
@@ -311,12 +311,12 @@ button { font-family: inherit; }
 .auth-switch {
   margin-top: 20px; padding-top: 16px;
   border-top: 1px solid var(--line);
-  font-family: var(--f-serif); font-size: 15px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 15px; color: var(--t2);
   text-transform: lowercase;
 }
 .auth-switch button {
   background: none; border: none; cursor: pointer;
-  font-family: var(--f-serif); color: var(--ink); font-size: 15px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; color: var(--ink); font-size: 15px; font-weight: 500;
   margin-left: 6px; padding: 0;
   text-decoration: underline; text-underline-offset: 3px;
 }
@@ -349,7 +349,7 @@ button { font-family: inherit; }
   padding: 4px 20px 8px;
 }
 .rail-list { flex: 1; overflow-y: auto; padding: 0 8px; min-height: 0; counter-reset: railrow; }
-.rail-empty { color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 14px; text-align: center; padding: 32px 12px; }
+.rail-empty { color: var(--t3); font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px; text-align: center; padding: 32px 12px; }
 .rail-row {
   width: 100%; display: flex; align-items: center; gap: 11px;
   padding: 10px 10px; border-radius: 4px; cursor: pointer;
@@ -535,7 +535,7 @@ button { font-family: inherit; }
 .orbhome-me:active { transform: scale(0.97); }
 .orbhome-me img { width: 100%; height: 100%; object-fit: cover; }
 .orbhome-name {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 27px; color: var(--ink); letter-spacing: normal;
   margin-top: 4px;
 }
@@ -547,7 +547,7 @@ button { font-family: inherit; }
 /* Personal description — a quiet serif line under the counts, like a
    caption in the catalogue */
 .orbhome-bio {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; line-height: 1.45; color: var(--t2);
   max-width: 250px; margin-top: 3px;
   text-align: center;
@@ -559,7 +559,7 @@ button { font-family: inherit; }
   position: absolute; transform: translate(-50%, calc(-100% - 12px)); z-index: 8;
   background: var(--card); color: var(--ink);
   border: 1px solid var(--hair);
-  font-family: var(--f-serif); font-style: italic; font-size: 14px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-style: italic; font-size: 14px; font-weight: 500;
   padding: 4px 11px; border-radius: 2px;
   pointer-events: none; white-space: nowrap;
 }
@@ -667,7 +667,7 @@ button { font-family: inherit; }
 .uplist-head-next { margin-top: 8px; }
 .uplist-none {
   border-top: 1px solid var(--line);
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 7px 0 8px calc(env(safe-area-inset-left) + 12px);
 }
 .uplist-row {
@@ -826,7 +826,7 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--hair);
 }
 .cal-month {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 26px; letter-spacing: normal; text-transform: lowercase;
 }
 .cal-month span { color: var(--blue); font-style: italic; font-weight: 400; margin-left: 6px; font-size: 22px; }
@@ -951,7 +951,7 @@ button { font-family: inherit; }
   font-size: 11px; color: var(--t2);
   margin-bottom: 8px;
 }
-.cal-agenda-empty { color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 14px; padding: 18px 0 6px; }
+.cal-agenda-empty { color: var(--t3); font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px; padding: 18px 0 6px; }
 .cal-agenda-list { list-style: none; }
 .cal-ev {
   display: flex; align-items: flex-start; gap: 12px; padding: 12px 0;
@@ -1030,7 +1030,7 @@ button { font-family: inherit; }
 .evsheet-x:hover { color: var(--ink); }
 .evsheet-title {
   width: 100%; background: none; border: none; outline: none;
-  font-family: var(--f-serif); font-size: 26px; font-weight: 400; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 26px; font-weight: 500; color: var(--ink);
   padding: 2px 0 12px;
   border-bottom: 1px solid var(--hair);
 }
@@ -1159,7 +1159,7 @@ button { font-family: inherit; }
 .psheet-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .psheet-dot { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--green); border: 2.5px solid var(--card); }
 .psheet-name {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 25px; letter-spacing: normal; color: var(--ink); margin-top: 18px;
 }
 .psheet-status { font-size: 11px; color: var(--t3); margin-top: 6px; }
@@ -1257,7 +1257,7 @@ button { font-family: inherit; }
   text-transform: lowercase; color: var(--t3);
 }
 .mgi-title {
-  font-family: var(--f-serif); font-weight: 400; font-size: 23px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 23px;
   text-transform: lowercase; color: var(--ink);
   margin: 2px 0 0; line-height: 1.15;
 }
@@ -1284,11 +1284,11 @@ button { font-family: inherit; }
 .mgi-stub:disabled .mgi-stub-label { color: var(--t3); }
 .mgi-mark { font-size: 18px; line-height: 1; }
 .mgi-stub-label {
-  font-family: var(--f-serif); font-size: 15px; font-weight: 400;
+  font-family: var(--f-serif); font-size: 15px; font-weight: 500;
   letter-spacing: normal; text-transform: lowercase; color: var(--ink);
 }
 .mgi-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 12px; color: var(--t3);
   margin-top: 5px;
 }
 
@@ -1308,13 +1308,13 @@ button { font-family: inherit; }
 .chatt-av-group { background: var(--ink); color: var(--paper); }
 .chatt-dot { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: var(--green); border: 2px solid var(--paper); }
 .chatt-who { min-width: 0; }
-.chatt-name { font-family: var(--f-serif); font-size: 18px; font-weight: 400; letter-spacing: normal; color: var(--ink); }
+.chatt-name { font-family: var(--f-serif); font-size: 18px; font-weight: 500; letter-spacing: normal; color: var(--ink); }
 .chatt-status { font-size: 11px; color: var(--t3); margin-top: 2px; }
 .chatt-scroll {
   flex: 1; overflow-y: auto; padding: 16px 14px 12px; display: flex; flex-direction: column;
   min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
-.chatt-empty { margin: auto; color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 15px; }
+.chatt-empty { margin: auto; color: var(--t3); font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 15px; }
 .chatt-row { display: flex; margin-top: 9px; }
 .chatt-row.grouped { margin-top: 3px; }
 .chatt-row.mine { justify-content: flex-end; }
@@ -1448,7 +1448,7 @@ button { font-family: inherit; }
   overflow-wrap: anywhere;
 }
 .msg-tomb-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 12px; color: var(--t3);
   flex-shrink: 0;
 }
 
@@ -1546,7 +1546,7 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--hair);
 }
 .convs-head h2 {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 26px; letter-spacing: normal; flex: 1; text-transform: lowercase;
 }
 .convs-close, .convs-newgroup {
@@ -1558,7 +1558,7 @@ button { font-family: inherit; }
 .convs-newgroup { margin-right: 6px; }
 .convs-close:hover, .convs-newgroup:hover { border-color: var(--hair); color: var(--ink); }
 .convs-list { flex: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; counter-reset: convrow; }
-.convs-empty { color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 15px; text-align: center; padding: 40px 24px; line-height: 1.6; }
+.convs-empty { color: var(--t3); font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 15px; text-align: center; padding: 40px 24px; line-height: 1.6; }
 /* Catalogue index — each conversation gets a plate number. */
 .convs-row {
   width: 100%; display: flex; align-items: center; gap: 12px;
@@ -1632,7 +1632,7 @@ button { font-family: inherit; }
   flex: 1; resize: none;
   background: none; border: none; outline: none;
   text-align: center;
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 14px; line-height: 1.45; color: var(--t2);
   border-bottom: 1px dashed transparent; transition: border-color .15s;
 }
@@ -1660,7 +1660,7 @@ button { font-family: inherit; }
 .sset-namerow { display: flex; align-items: center; gap: 8px; margin-top: 18px; width: 100%; justify-content: center; }
 .sset-name {
   background: none; border: none; outline: none; text-align: center;
-  color: var(--ink); font-family: var(--f-serif); font-size: 24px; font-weight: 400; letter-spacing: normal;
+  color: var(--ink); font-family: var(--f-serif); font-size: 24px; font-weight: 500; letter-spacing: normal;
   max-width: 230px; border-bottom: 1px dashed transparent; transition: border-color .15s;
 }
 .sset-name:focus { border-bottom-color: var(--hair); }
@@ -1688,7 +1688,7 @@ button { font-family: inherit; }
 .sset-about { padding: 4px 12px 12px 41px; align-self: stretch; }
 .sset-about-brand {
   display: flex; align-items: center; gap: 7px;
-  font-family: var(--f-serif); font-size: 15px; font-weight: 400; letter-spacing: normal;
+  font-family: var(--f-serif); font-size: 15px; font-weight: 500; letter-spacing: normal;
   text-transform: lowercase; margin-bottom: 6px;
 }
 .sset-about p { font-size: 13px; color: var(--t2); line-height: 1.6; max-width: 36ch; }
@@ -1717,7 +1717,7 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--hair);
 }
 .afr-head h2 {
-  font-family: var(--f-serif); font-weight: 400;
+  font-family: var(--f-serif); font-weight: 500;
   font-size: 26px; letter-spacing: normal; flex: 1; text-transform: lowercase;
 }
 .afr-search {
@@ -1839,7 +1839,7 @@ button { font-family: inherit; }
 }
 .chset-title {
   background: none; border: none; cursor: pointer; padding: 0;
-  font-family: var(--f-serif); font-size: 22px; font-weight: 400; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 22px; font-weight: 500; color: var(--ink);
   text-transform: lowercase;
 }
 .chset-title.as-text { cursor: default; }
@@ -1847,7 +1847,7 @@ button { font-family: inherit; }
 .chset-rename { display: flex; gap: 8px; align-items: center; }
 .chset-rename-input {
   border: 1px solid var(--line); border-radius: 4px; background: var(--card);
-  font-family: var(--f-serif); font-size: 17px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 17px; color: var(--ink);
   padding: 5px 10px; outline: none; min-width: 0; width: 190px;
 }
 .chset-rename-input:focus { border-color: var(--ink); }
@@ -1881,7 +1881,7 @@ button { font-family: inherit; }
 }
 .chset-tab.on { border-color: var(--ink); color: var(--ink); }
 .chset-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 6px 0 2px;
 }
 .chset-grid {
@@ -2011,7 +2011,7 @@ button { font-family: inherit; }
 }
 .pfolio-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .pfolio-name {
-  font-family: var(--f-serif); font-weight: 400; font-size: 32px;
+  font-family: var(--f-serif); font-weight: 500; font-size: 32px;
   color: var(--ink); letter-spacing: normal; line-height: 1.1;
  
 }
@@ -2023,7 +2023,7 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--hair); padding-bottom: 7px; margin-bottom: 2px;
 }
 .pfolio-label {
-  font-family: var(--f-serif); font-weight: 400; font-size: 19px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 19px;
   text-transform: lowercase; color: var(--ink);
 }
 .pfolio-add {
@@ -2033,7 +2033,7 @@ button { font-family: inherit; }
 }
 .pfolio-add:disabled { color: var(--t3); cursor: default; }
 .pfolio-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 14px 0 4px;
 }
 
@@ -2064,7 +2064,7 @@ button { font-family: inherit; }
 .pfolio-cover-blank.big { min-height: 200px; }
 .pfolio-release-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pfolio-release-title {
-  font-family: var(--f-serif); font-size: 19px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 19px; color: var(--ink);
   line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -2107,14 +2107,14 @@ button { font-family: inherit; }
 .pfolio-sheet-cover img { width: 100%; display: block; }
 .pfolio-sheet-title {
   border: none; outline: none; background: none; width: 100%;
-  font-family: var(--f-serif); font-size: 26px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 26px; color: var(--ink);
   text-align: center;
 }
 .pfolio-sheet-title.as-text { cursor: default; }
 .pfolio-sheet-year { text-align: center; font-size: 11px; color: var(--t3); margin-top: -4px; }
 .pfolio-sheet-desc {
   border: none; outline: none; background: none; resize: none; width: 100%;
-  font-family: var(--f-serif); font-style: italic; font-size: 14px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px; color: var(--t2);
   line-height: 1.45; text-align: center;
 }
 .pfolio-sheet-desc.as-text { white-space: pre-wrap; }
@@ -2143,10 +2143,10 @@ html:has(main.legal), html:has(main.legal) body {
   color: var(--ink); font-size: 14px; line-height: 1.6;
 }
 .legal-head { border-bottom: 1px solid var(--hair); padding-bottom: 14px; margin-bottom: 8px; }
-.legal-brand { font-family: var(--f-serif); font-size: 15px; text-transform: lowercase; color: var(--t2); }
-.legal h1 { font-family: var(--f-serif); font-weight: 400; font-size: 32px; margin: 4px 0 6px; }
+.legal-brand { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 15px; text-transform: lowercase; color: var(--t2); }
+.legal h1 { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 32px; margin: 4px 0 6px; }
 .legal-meta { font-size: 12px; color: var(--t3); }
-.legal h2 { font-family: var(--f-serif); font-weight: 400; font-size: 18px; margin: 28px 0 8px; }
+.legal h2 { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 18px; margin: 28px 0 8px; }
 .legal p { margin: 0 0 10px; }
 .legal ul { margin: 0 0 10px; padding-left: 20px; }
 .legal li { margin-bottom: 5px; }
@@ -2243,7 +2243,7 @@ html:has(main.legal), html:has(main.legal) body {
 }
 .pfolio-lightbox-cap {
   border: none; outline: none; background: none; width: 100%;
-  font-family: var(--f-serif); font-style: italic; font-size: 15px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 15px;
   color: var(--paper); text-align: center;
 }
 .pfolio-lightbox-cap::placeholder { color: rgba(251, 250, 247, 0.4); }
@@ -2289,7 +2289,7 @@ html:has(main.legal), html:has(main.legal) body {
   text-transform: lowercase;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fnotif-name { font-family: var(--f-serif); font-size: 13px; color: var(--ink); }
+.fnotif-name { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 13px; color: var(--ink); }
 .fnotif-back {
   flex-shrink: 0;
   background: var(--blue); color: #fff; border: none; cursor: pointer;
@@ -2302,7 +2302,7 @@ html:has(main.legal), html:has(main.legal) body {
 .fnotif-back:disabled { opacity: 0.55; cursor: default; }
 .fnotif-mutual {
   flex-shrink: 0;
-  font-family: var(--f-serif); font-style: italic; font-size: 12px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 12px;
   color: var(--t3); text-transform: lowercase; white-space: nowrap;
 }
 .fnotif-x {
@@ -2332,11 +2332,11 @@ html:has(main.legal), html:has(main.legal) body {
 }
 .home-pfolio-labelrow.gallery { margin-top: 26px; }
 .home-pfolio-label {
-  font-family: var(--f-serif); font-size: 18px; text-transform: lowercase;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 18px; text-transform: lowercase;
   color: var(--ink);
 }
 .home-pfolio-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 10px 0 2px;
 }
 .home-pfolio-list { list-style: none; }
@@ -2363,7 +2363,7 @@ html:has(main.legal), html:has(main.legal) body {
 .home-pfolio-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .home-pfolio-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .home-pfolio-title {
-  font-family: var(--f-serif); font-size: 16px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 16px; color: var(--ink);
   line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -2407,7 +2407,7 @@ html:has(main.legal), html:has(main.legal) body {
   flex: 1; min-width: 0;
   background: none; border: none; outline: none; padding: 0 0 1px;
   border-bottom: 1px dashed transparent;
-  font-family: var(--f-serif); font-size: 22px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 22px; font-weight: 500;
   color: var(--ink);
 }
 .pfolio-shelfpanel-titlewrap:hover .pfolio-shelfpanel-title,
@@ -2432,7 +2432,7 @@ html:has(main.legal), html:has(main.legal) body {
 .pfolio-shelfpanel-cover:hover { transform: translateY(-2px); }
 .pfolio-shelfpanel-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pfolio-shelfpanel-item-title {
-  font-family: var(--f-serif); font-size: 14px; text-transform: lowercase;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 14px; text-transform: lowercase;
   color: var(--ink); margin-top: 6px; line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -2440,7 +2440,7 @@ html:has(main.legal), html:has(main.legal) body {
   font-size: 10px; color: var(--t3); font-variant-numeric: tabular-nums;
 }
 .pfolio-shelfpanel-item-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 12px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 12px; color: var(--t2);
   margin-top: 3px; line-height: 1.45;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
@@ -2479,7 +2479,7 @@ html:has(main.legal), html:has(main.legal) body {
 }
 .disco-head .chatt-back { align-self: center; }
 .disco-head-title {
-  font-family: var(--f-serif); font-size: 22px; text-transform: lowercase;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 22px; text-transform: lowercase;
   color: var(--ink);
 }
 .disco-head-owner { font-size: 11px; color: var(--t3); }
@@ -2492,7 +2492,7 @@ html:has(main.legal), html:has(main.legal) body {
   position: relative; z-index: 0;
 }
 .disco-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 14px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px; color: var(--t3);
   padding: 40px 0; text-align: center;
 }
 
@@ -2504,7 +2504,7 @@ html:has(main.legal), html:has(main.legal) body {
 }
 .disco-shelf-title {
   background: none; border: none; outline: none; padding: 0;
-  font-family: var(--f-serif); font-size: 18px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 18px; font-weight: 500;
   color: var(--ink);
   min-width: 0; flex-shrink: 1;
 }
@@ -2524,7 +2524,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 }
 .disco-shelf-rm:hover { color: var(--red); }
 .disco-row-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 20px 0;
 }
 
@@ -2587,7 +2587,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 /* The risen record's caption — printed above the row */
 .disco-caption { padding: 2px 2px 12px; }
 .disco-caption-title {
-  font-family: var(--f-serif); font-size: 24px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 24px;
   color: var(--ink); line-height: 1.2;
 }
 .disco-caption-sub {
@@ -2595,7 +2595,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   margin-top: 2px;
 }
 .disco-caption-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 14px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px; color: var(--t2);
   margin-top: 6px; max-width: 520px; line-height: 1.45;
 }
 .disco-caption-actions {
@@ -2622,14 +2622,14 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 .disco-newshelf-input {
   background: none; border: none; border-bottom: 1px solid var(--hair);
   outline: none; padding: 2px 0 3px;
-  font-family: var(--f-serif); font-size: 16px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 16px;
   color: var(--ink); width: 220px;
 }
 
 /* Home entry — under the bio, quiet italic */
 .orbhome-disco {
   background: none; border: none; cursor: pointer; pointer-events: auto;
-  font-family: var(--f-serif); font-style: italic; font-size: 14px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 14px;
   text-transform: lowercase; color: var(--blue);
   margin-top: -2px;
 }
@@ -2754,8 +2754,8 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 }
 .ocall-back { border: none; background: none; color: var(--ink); cursor: pointer; padding: 6px; display: flex; }
 .ocall-masthead { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ocall-masthead h1 { font-family: var(--f-serif); font-weight: 400; font-size: 22px; line-height: 1.2; color: var(--ink); text-transform: lowercase; }
-.ocall-sub { font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t2); }
+.ocall-masthead h1 { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 22px; line-height: 1.2; color: var(--ink); text-transform: lowercase; }
+.ocall-sub { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t2); }
 .ocall-post-btn {
   flex-shrink: 0; border: 1px solid var(--blue); border-radius: 2px; background: none;
   color: var(--blue); font-size: 12px; text-transform: lowercase;
@@ -2780,7 +2780,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   width: 20px; flex-shrink: 0;
 }
 .ocall-row-title {
-  font-family: var(--f-serif); font-size: 17px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 17px; color: var(--ink);
   flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ocall-row.playing .ocall-row-title { color: var(--blue); }
@@ -2815,10 +2815,10 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   color: #fff; font-size: 9px; font-weight: 600; border: 1px solid var(--hair);
 }
 .ocall-by-av img { width: 100%; height: 100%; object-fit: cover; }
-.ocall-by-name { font-family: var(--f-serif); font-size: 14px; color: var(--ink); }
+.ocall-by-name { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 14px; color: var(--ink); }
 .ocall-by-user { font-family: var(--f-mono); font-size: 11px; color: var(--t3); }
 .ocall-caption {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px;
   color: var(--t2); margin-top: 6px; line-height: 1.45;
 }
 
@@ -2829,7 +2829,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   font-family: var(--f-mono); font-size: 10px; font-variant-numeric: tabular-nums;
   cursor: pointer; padding: 0; flex-shrink: 0;
 }
-.ocall-cname { font-family: var(--f-serif); color: var(--ink); flex-shrink: 0; }
+.ocall-cname { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; color: var(--ink); flex-shrink: 0; }
 .ocall-cbody { color: var(--t2); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .ocall-cwhen { font-family: var(--f-mono); font-size: 10px; color: var(--t3); flex-shrink: 0; }
 .ocall-cbar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
@@ -2847,7 +2847,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 .ocall-cstamp-toggle.on { color: var(--blue); border-color: var(--blue); }
 .ocall-csend { flex-shrink: 0; border: none; background: none; color: var(--blue); font-family: var(--f-mono); font-size: 12px; text-transform: lowercase; cursor: pointer; }
 .ocall-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 15px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 15px;
   color: var(--t3); text-align: center; padding: 48px 24px; line-height: 1.6;
 }
 
@@ -2863,10 +2863,10 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
   padding: 18px 22px 16px;
   display: flex; flex-direction: column; gap: 12px;
 }
-.ocall-compose-h { font-family: var(--f-serif); font-weight: 400; font-size: 26px; color: var(--ink); }
+.ocall-compose-h { font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 26px; color: var(--ink); }
 .ocall-pick {
   border: 1px dashed var(--hair); border-radius: 4px; background: none;
-  padding: 18px; font-family: var(--f-serif); font-style: italic;
+  padding: 18px; font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 15px; color: var(--t2); cursor: pointer;
 }
 .ocall-picked {
@@ -2879,7 +2879,7 @@ input.disco-shelf-title:hover, input.disco-shelf-title:focus { border-bottom-col
 .ocall-compose-wavebox .ocall-wave { height: 44px; cursor: default; }
 .ocall-compose-title {
   border: none; border-bottom: 1px solid var(--hair); background: none; outline: none;
-  font-family: var(--f-serif); font-size: 20px; color: var(--ink); padding: 4px 0 8px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 20px; color: var(--ink); padding: 4px 0 8px;
 }
 .ocall-compose-caption {
   border: none; border-bottom: 1px solid var(--line); background: none; outline: none;

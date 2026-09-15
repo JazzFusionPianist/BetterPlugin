@@ -25,6 +25,11 @@ interface Props {
   /** Invite pool for the settings sheet (group member adding). */
   friends?: Profile[]
   onClose: () => void
+  /** Studio mode: no header of its own (the pane draws one), no
+   *  fixed positioning — the thread fills whatever holds it. */
+  embedded?: boolean
+  /** Bump to open the chat settings sheet from outside (studio header). */
+  settingsSignal?: number
 }
 
 type GameInviteBubbleJoin = (gameType: string, roomId: string) => Promise<'joined' | 'already-in' | 'full' | 'missing'>
@@ -265,7 +270,7 @@ function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; 
 }
 
 /** Full-screen thread — 1:1 or group — over the orb home on mobile. */
-export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, friends, onClose }: Props) {
+export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, friends, onClose, embedded, settingsSignal }: Props) {
   const { messages, loading, send, conversationId } = useMessages(
     supabase,
     currentUserId,
@@ -279,6 +284,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  useEffect(() => { if (settingsSignal) setSettingsOpen(true) }, [settingsSignal])
   const [uploads, setUploads] = useState<PendingUpload[]>([])
   const [uploadErr, setUploadErr] = useState<string | null>(null)
   const [kbInset, setKbInset] = useState(0)
@@ -521,7 +527,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
   return (
     <NowPlayingCtx.Provider value={npApi}>
-    <div className="chatt">
+    <div className={`chatt${embedded ? ' embedded' : ''}`}>
       <audio
         ref={audioRef}
         preload="metadata"
@@ -538,7 +544,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
         }}
         onEnded={() => { setNpPlaying(false); setNpCur(0) }}
       />
-      <header className="chatt-head">
+      {!embedded && <header className="chatt-head">
         <button className="chatt-back" onClick={onClose} aria-label="Back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
@@ -568,7 +574,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
         </button>
-      </header>
+      </header>}
 
       <div className="chatt-scroll" ref={scrollRef}>
         {!loading && messages.length === 0 && uploads.length === 0 && (

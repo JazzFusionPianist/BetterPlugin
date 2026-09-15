@@ -79,10 +79,10 @@
 .game-invite-join:active:not(:disabled) { transform: scale(0.97); }
 .game-invite-join:disabled { opacity: 0.55; cursor: default; }
 .game-invite-banner {
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em;
   font-style: italic;
   font-size: 11px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--t2);
   text-align: center;
   padding: 4px 0 0;
@@ -1911,7 +1911,7 @@
   background: none;
 }
 .poker-handend-headline {
-  font-size: 19px; font-weight: 400;
+  font-size: 19px; font-weight: 500;
   color: var(--ink);
   font-family: var(--f-serif);
   letter-spacing: 0;
@@ -2064,14 +2064,14 @@
 /* Names — people, groups, senders, opponents. */
 .conv-name, .chdr-name, .live-chat-name, .mg-sender-name, .f-name, .f-name.bold, .orbit-name-under, .tt2-name-text, .orbit-tt-name, .orbit-group-tt-title, .orbit-msg-preview-name, .orbit-stat-row-name, .orbit-constellation-label, .chat-settings-member-name, .live-others-name, .ng-row-name, .ng-chip-name, .game-player-name, .poker-opponent-name, .poker-showdown-name, .falling-blocks-opponent-name {
   font-family: var(--f-serif);
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0;
 }
 /* Empty states — a quiet italic aside, like the app. */
 .af-empty, .cal-agenda-empty, .chat-settings-empty, .chess-invite-empty, .falling-blocks-invite-empty, .game-chat-empty, .game-invite-empty, .live-chat-empty, .party-list-empty, .poker-invite-empty {
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em;
   font-style: italic;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--t3);
 }
 /* Tooltips + hover cards */
@@ -2084,7 +2084,7 @@
 /* Games — lobby + shared chrome (boards keep their own world). */
 .game-cd-hover-title {
   font-family: var(--f-serif);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 13px;
   letter-spacing: 0;
 }
@@ -2135,7 +2135,7 @@
 .games-panel .game-view .game-action-status {
   font-family: var(--f-serif);
   font-size: 19px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--ink);
   text-transform: lowercase;
   letter-spacing: 0;
@@ -2173,7 +2173,7 @@
 /* Player rows — serif names, quiet chrome */
 .games-panel .game-player-row { gap: 8px; }
 .games-panel .game-player-name {
-  font-family: var(--f-serif); font-size: 17px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 17px; font-weight: 500;
   color: var(--ink); text-transform: lowercase;
 }
 .games-panel .game-player-name--unknown { color: var(--t3); font-style: italic; }
@@ -2201,7 +2201,7 @@
   gap: 12px;
 }
 .games-panel .game-finish-title {
-  font-family: var(--f-serif); font-size: 24px; font-weight: 400;
+  font-family: var(--f-serif); font-size: 24px; font-weight: 500;
   color: var(--ink); text-transform: lowercase; letter-spacing: 0;
 }
 .games-panel .game-finish-readystate {
@@ -2248,7 +2248,7 @@
   background: var(--card); border: 1px solid var(--hair); border-radius: 8px;
 }
 .games-panel .game-invite-modal-title {
-  font-family: var(--f-serif); font-size: 19px; font-weight: 400;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-size: 19px; font-weight: 500;
   color: var(--ink); text-transform: lowercase;
 }
 .games-panel .game-invite-do-btn {
@@ -2273,7 +2273,7 @@
   padding: 2px 0 6px;
 }
 .games-panel .game-chat-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding: 4px 0;
 }
 .games-panel .game-chat-msg {
@@ -2375,7 +2375,7 @@
 .games-panel .poker-pot-amount { font-size: 17px; }
 .games-panel .poker-self-chips, .games-panel .poker-self-bet { font-size: 13px; }
 .games-panel .poker-raise-input { font-size: 13px; }
-.games-panel .poker-title { font-family: var(--f-serif); text-transform: lowercase; font-weight: 400; }
+.games-panel .poker-title { font-family: var(--f-serif); letter-spacing: -0.01em; text-transform: lowercase; font-weight: 500; }
 
 /* Falling blocks */
 .games-panel .falling-blocks-board { border-radius: 4px; }
@@ -2388,7 +2388,7 @@
 .games-panel .falling-blocks-opponent-score { font-size: 11px; }
 .games-panel .falling-blocks-stat-label { font-size: 11px; }
 .games-panel .falling-blocks-stat-value { font-size: 15px; }
-.games-panel .falling-blocks-title { font-family: var(--f-serif); text-transform: lowercase; font-weight: 400; }
+.games-panel .falling-blocks-title { font-family: var(--f-serif); letter-spacing: -0.01em; text-transform: lowercase; font-weight: 500; }
 .games-panel .falling-blocks-btn { font-size: 12px; }
 
 /* Ear training */
@@ -2438,7 +2438,7 @@
 .games-panel .chess-moves-num { color: var(--t3); }
 .games-panel .chess-moves-cell.latest { color: var(--ink); font-weight: 600; }
 .games-panel .chess-moves-empty {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px; color: var(--t3);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 13px; color: var(--t3);
   padding-top: 10px;
 }
 
@@ -2478,7 +2478,7 @@
 }
 .games-panel .game-chat-msg.mine .game-chat-meta { justify-content: flex-end; }
 .games-panel .game-chat-meta-name {
-  font-family: var(--f-serif); font-size: 12px; color: var(--ink);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 12px; color: var(--ink);
   text-transform: lowercase;
 }
 .games-panel .game-chat-meta-time {
@@ -2675,7 +2675,7 @@ div.games-panel {
   min-width: 0; padding: 4px 0 0;
 }
 .games-panel .chess-h2h-name {
-  font-family: var(--f-serif); font-style: italic; text-transform: lowercase;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; text-transform: lowercase;
   font-size: 13px; color: var(--t2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   flex: 0 1 auto;
@@ -2710,7 +2710,7 @@ div.games-panel {
 
 /* The record line reads like a catalogue caption, not a log line */
 .games-panel .game-view .chess-dock .chess-dock-h2h {
-  font-family: var(--f-serif); font-style: italic; font-size: 13px;
+  font-family: var(--f-serif); font-weight: 500; font-style: italic; font-size: 13px;
   letter-spacing: 0; text-transform: lowercase;
 }
 
@@ -2770,7 +2770,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   position: absolute; top: 16%; left: 0; right: 0; z-index: 6;
   display: flex; justify-content: center;
   pointer-events: none;
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 30px; color: var(--blue);
   text-shadow: 0 1px 0 rgba(255,255,255,0.35);
   animation: fb-combo-pop 0.9s ease-out forwards;
@@ -2797,7 +2797,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .fb-final-score-row:last-child { border-bottom: none; }
 .fb-final-score-name {
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500;
   font-size: 13px; text-transform: lowercase;
   color: var(--t1);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2848,7 +2848,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .pb-ball-dot.current { background: var(--blue); border-color: var(--blue); }
 .pb-ball-dot.spent { border-color: var(--t3); opacity: 0.4; }
 .pinball-mult {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; color: var(--blue);
 }
 .pinball-canvas-wrap {
@@ -2868,12 +2868,12 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   line-height: 1;
 }
 .pb-newbest {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 15px; color: var(--blue);
 }
 .pb-lb { width: 100%; display: flex; flex-direction: column; gap: 5px; }
 .pb-lb-title {
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500;
   font-size: 13px; text-transform: lowercase; color: var(--t2);
   border-bottom: 1px solid var(--line);
   padding-bottom: 3px;
@@ -2890,7 +2890,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   color: var(--t3); font-variant-numeric: tabular-nums; font-size: 11px;
 }
 .pb-lb-name {
-  font-family: var(--f-serif); text-transform: lowercase;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; text-transform: lowercase;
   font-size: 13px; color: var(--t1);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   flex: 1; min-width: 0;
@@ -2970,7 +2970,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   padding: 0 2px;
 }
 .yacht-status-line {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; color: var(--t2); text-transform: lowercase;
 }
 .yacht-status-line.mine { color: var(--blue); }
@@ -3029,14 +3029,14 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 }
 .yacht-card-cat {
   flex: 1; min-width: 0;
-  font-family: var(--f-serif);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500;
   font-size: 12px; text-transform: lowercase; color: var(--t2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .yacht-card-cat em { font-size: 10px; color: var(--t3); font-style: normal; }
 .yacht-card-player {
   width: 46px; flex-shrink: 0; text-align: center;
-  font-family: var(--f-serif); font-size: 11px;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 11px;
   text-transform: lowercase; color: var(--t3);
   white-space: nowrap; overflow: hidden;
 }
@@ -3083,7 +3083,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-family: var(--f-sans); font-size: 11px; color: var(--t3);
 }
 .yacht-total-chip em {
-  font-family: var(--f-serif); font-style: normal;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: normal;
   text-transform: lowercase; font-size: 12px;
 }
 .yacht-total-chip b { font-variant-numeric: tabular-nums; color: var(--t1); font-weight: 600; }
@@ -3098,7 +3098,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 .yacht-shelf-label {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); font-weight: 500; font-style: italic;
   font-size: 11px; color: var(--t3); text-transform: lowercase;
   letter-spacing: 0.06em;
 }
@@ -3110,7 +3110,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   min-width: 240px;
 }
 .yacht-shelf-hint {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 12px; color: var(--t3); text-transform: lowercase;
 }
 .yacht-shelf-dice .yacht-die { width: 44px; height: 44px; }
@@ -3202,7 +3202,7 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   padding-bottom: 6px;
 }
 .yacht-ledger-title {
-  font-family: var(--f-serif); font-style: italic;
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; color: var(--t2); text-transform: lowercase;
 }
 .yacht-ledger-x {

@@ -1,0 +1,804 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   the studio — the web app's desktop workspace, ported 1:1 from the
+   Orb Chat plug-in's studio.css (.wd-*). One family (Instrument Sans).
+   Paper #FBFAF7 · ink #1A1917 · stage green #1B6E48 ·
+   hairlines rgba(26,25,23,.16) / .5.
+
+   Presence = brand: the online dot, unread badge, breathing
+   "in the studio" status, active-row inset bar, send square and
+   tab counts all draw from the one green accent.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.wd-stage {
+  display: flex; justify-content: center; align-items: center;
+  width: 100%; height: 100%; background: #191817;
+}
+
+.wd {
+  width: 100%; height: 100%; display: flex; background: #FBFAF7; color: #1A1917;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; border: 1px solid rgba(26,25,23,.5); overflow: hidden;
+
+  /* Brand accent — deep stage green, tuned to read rich (not neon) on
+     paper. Companion alphas are pre-mixed for older WebKits. */
+  --acc: #1B6E48;
+  --acc-06: rgba(27, 110, 72, 0.06);
+  --acc-10: rgba(27, 110, 72, 0.10);
+  --acc-12: rgba(27, 110, 72, 0.12);
+  --acc-35: rgba(27, 110, 72, 0.35);
+
+  /* Variable bridge — embedded collab components (StemPanel, ChatCalendar,
+     AudioAttachment, SchedulePrompt) read the .plugin light-theme tokens
+     from collab.css. Redeclare the set here so they render correctly —
+     and on-brand — inside the studio. */
+  --f-serif: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;  /* one family — the serif is gone */
+  --f-sans: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --paper: #FBFAF7;
+  --card: #FFFFFF;
+  --ink: #1A1917;
+  --hair: rgba(26, 25, 23, 0.55);
+  --blue: #1B6E48;
+  --action: #B59D7A;
+  --bg: #FBFAF7;
+  --bg2: #F4F2EC;
+  --bg3: #ECE9E1;
+  --border: rgba(26, 25, 23, 0.12);
+  --border2: rgba(26, 25, 23, 0.30);
+  --t1: #1A1917;
+  --t2: #6E6B63;
+  --t3: #A5A199;
+  --t4: #C0BCB3;
+  --mine-bg: #1A1917;
+  --mine-t: #FBFAF7;
+  --inp-bg: #1A1917;
+  --inp-ph: rgba(251,250,247,.38);
+  --star: #1B6E48;
+  --ob-bg: rgba(27, 110, 72, 0.12);
+  --ob-t: #1B6E48;
+}
+.wd * { box-sizing: border-box; margin: 0; }
+
+/* ── rail ─────────────────────────────────────────────────────────── */
+.wd-rail { width: 232px; border-right: 1px solid rgba(26,25,23,.16); display: flex; flex-direction: column; padding: 14px 0 10px; flex-shrink: 0; }
+.wd-brand { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; padding: 0 16px 12px; display: flex; align-items: center; gap: 7px; }
+.wd-brand svg { display: block; flex-shrink: 0; }
+.wd-rail-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.wd-rail-scroll::-webkit-scrollbar { display: none; }
+.wd-sec { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase; padding: 12px 16px 5px; }
+.wd-row { display: flex; align-items: center; gap: 9px; padding: 7px 16px; cursor: pointer; }
+.wd-row:hover { background: rgba(26,25,23,.03); }
+.wd-row.on { background: var(--acc-10); box-shadow: inset 2px 0 0 var(--acc); }
+.wd-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; position: relative; }
+.wd-av.grp { border-radius: 8px; }
+.wd-av img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.wd-dot { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--acc); border: 2px solid #FBFAF7; }
+.wd-dot.studio { animation: wdbreathe 2.4s ease-in-out infinite; }
+@keyframes wdbreathe { 0%,100% { box-shadow: 0 0 0 0 var(--acc-35);} 50% { box-shadow: 0 0 0 4px rgba(27,110,72,0);} }
+.wd-rname { flex: 1; min-width: 0; }
+.wd-rname b { display: block; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span { display: block; font-size: 10.5px; color: #A5A199; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-rname span.studio { color: var(--acc); font-style: italic; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; }
+.wd-badge { background: var(--acc); color: #fff; font-size: 9.5px; min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+.wd-rail-foot { margin-top: auto; padding: 10px 16px 0; border-top: 1px solid rgba(26,25,23,.16);
+  display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6E6B63; cursor: pointer; }
+.wd-rail-foot:hover span { color: #1A1917; }
+.wd-rail-foot.on span { color: var(--acc); }
+
+/* ── main pane ────────────────────────────────────────────────────── */
+.wd-main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* Drag-and-drop overlay — .drop-overlay's grammar (attach / cancel) in
+   studio print: paper scrim, one hairline card, accent glyph. Pointer
+   events pass through so drop/dragleave land on .wd-main underneath. */
+.wd-drop { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(251, 250, 247, .85); pointer-events: none; }
+.wd-drop-card { display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: #fff; border: 1px solid rgba(26, 25, 23, .5); border-radius: 6px; padding: 22px 36px; }
+.wd-drop-glyph { width: 30px; height: 30px; margin-bottom: 6px; border: 1px solid var(--acc-35); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; color: var(--acc); font-size: 15px; line-height: 1; }
+.wd-drop-label { font-size: 12.5px; color: #1A1917; }
+.wd-drop-fine { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic;
+  font-size: 11px; color: #A5A199; }
+.wd-drop.cancel .wd-drop-glyph { color: #D6402E; border-color: rgba(214, 64, 46, .4); }
+
+/* Multi-track drop chooser — a small centered paper card in the
+   .wd-nowbar language (white ground, 1px hairline, radius 12, soft
+   shadow): serif count, quiet hairline button rows (separately + the
+   two merge flavours), a cancel word. */
+.wd-dropask { position: absolute; inset: 0; z-index: 70; display: flex;
+  align-items: center; justify-content: center; }
+.wd-dropask-veil { position: absolute; inset: 0; background: rgba(251, 250, 247, .72); }
+.wd-dropask-card { position: relative; width: 264px; background: #fff;
+  max-height: calc(100% - 32px); overflow-y: auto;
+  border: 1px solid rgba(26, 25, 23, .16); border-radius: 12px; padding: 18px 18px 12px;
+  box-shadow: 0 3px 6px rgba(26,25,23,.10), 0 12px 28px -12px rgba(26,25,23,.28);
+  animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }
+.wd-dropask-title { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; color: #1A1917; }
+.wd-dropask-fine { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic;
+  font-size: 11px; color: #A5A199; margin: 1px 0 12px; }
+.wd-dropask-row { display: block; width: 100%; text-align: left; background: none;
+  border: none; border-top: 1px solid rgba(26,25,23,.10); border-radius: 0;
+  padding: 9px 2px; cursor: pointer; }
+.wd-dropask-row span { display: block; font-size: 12.5px; color: #1A1917; }
+.wd-dropask-row small { display: block; font-size: 10.5px; color: #A5A199; margin-top: 1px; }
+.wd-dropask-row:hover:not(:disabled) span { color: var(--acc); }
+.wd-dropask-row:disabled { cursor: default; }
+.wd-dropask-row:disabled span { color: #A5A199; }
+.wd-dropask-row.off small { color: #C0BCB3; font-style: italic; }
+.wd-dropask-cancel { display: block; width: 100%; background: none; border: none;
+  border-top: 1px solid rgba(26,25,23,.10); padding: 9px 2px 4px; text-align: center;
+  font-size: 11px; color: #A5A199; cursor: pointer; }
+.wd-dropask-cancel:hover:not(:disabled) { color: #1A1917; }
+.wd-head { padding: 14px 22px 0; border-bottom: 1px solid rgba(26,25,23,.16); flex-shrink: 0; }
+.wd-head.plain { padding-bottom: 12px; }
+.wd-title { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+.wd-sub { font-size: 11px; color: #A5A199; margin-top: 1px; }
+
+/* Chat header — conversation avatar tile + sans title (17/600) with the
+   members line under it. Groups get the 34px rounded-square tile, DMs a
+   round photo. */
+.wd-head-row { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.wd-hav { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+.wd-hav.grp { border-radius: 9px; }
+.wd-hav img { width: 100%; height: 100%; object-fit: cover; }
+.wd-head-col { flex: 1; min-width: 0; }
+.wd-htitle { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 17px; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-htitle-input { display: block; width: 100%; border: none; outline: none; background: transparent; padding: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 17px; font-weight: 600; line-height: 1.25; color: #1A1917; }
+.wd-hsub { font-size: 11.5px; color: #A5A199; margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-tabs { display: flex; gap: 18px; margin-top: 10px; }
+.wd-tab { font-size: 12.5px; color: #6E6B63; padding-bottom: 8px; cursor: pointer; }
+.wd-tab.on { color: #1A1917; box-shadow: inset 0 -1px 0 #1A1917; }
+.wd-tab.off { color: #C0BCB3; cursor: default; }
+.wd-tab i { font-style: normal; color: var(--acc); margin-left: 4px; font-size: 10px; }
+.wd-tab.off i { color: #C0BCB3; }
+
+/* ── chat tab — messenger grammar (kakao/imessage) ────────────────── */
+.wd-chat { flex: 1; padding: 16px 22px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0;
+  scrollbar-width: none; }
+.wd-chat::-webkit-scrollbar { display: none; }
+/* Full-pane message column — their bubbles hang left off the avatar
+   column, mine hug the right edge. No max-width cap on the column. */
+.wd-chat-col { width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+/* Day divider — label dead-centred, hairline rules to both pane edges. */
+.wd-day { display: flex; align-items: center; gap: 10px; text-align: center; font-size: 10px;
+  color: #A5A199; text-transform: lowercase; margin: 14px 0 10px; flex-shrink: 0; }
+.wd-day::before, .wd-day::after { content: ''; flex: 1; height: 1px; background: rgba(26,25,23,.08); }
+.wd-chat-col > .wd-day:first-child { margin-top: 0; }
+
+/* Message rows. Burst spacing: 2px inside a burst, 12px between bursts. */
+.wd-mrow { display: flex; align-items: flex-start; margin-top: 2px; }
+.wd-mrow.first { margin-top: 12px; }
+.wd-day + .wd-mrow { margin-top: 0; }
+.wd-mrow.mine { justify-content: flex-end; }
+
+/* 28px avatar column — reserved on every their-row so burst bubbles
+   align; the avatar itself paints only on a burst's first message. */
+.wd-mav { width: 28px; flex-shrink: 0; margin-right: 8px; }
+.wd-mav > span { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 11.5px; overflow: hidden; }
+.wd-mav img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+.wd-mcol { display: flex; flex-direction: column; align-items: flex-start; max-width: min(60%, 520px); min-width: 0; }
+.wd-mrow.mine .wd-mcol { align-items: flex-end; }
+/* Sender name — tiny serif above a burst's first bubble (groups only). */
+.wd-mname { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 10.5px;
+  color: #6E6B63; margin: 0 0 3px 2px; }
+
+/* Bubble line: bubble + tiny timestamp OUTSIDE at the tail, tied to the
+   bubble's bottom. Time sits right of their last bubble, left of mine. */
+.wd-mline { display: flex; align-items: flex-end; gap: 6px; max-width: 100%; margin-top: 2px; min-width: 0; }
+.wd-mcol > .wd-mline:first-child, .wd-mname + .wd-mline { margin-top: 0; }
+.wd-mtime { font-size: 9.5px; color: #A5A199; flex-shrink: 0; margin-bottom: 1px; white-space: nowrap; }
+
+/* Bubbles. Theirs: white card + hairline; mine: ink on paper text.
+   The .tail notch (4px corner) marks the corner nearest the avatar —
+   mirrored top-right on my side. */
+.wd-bub { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 8px 12px;
+  font-size: 13.5px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; min-width: 0; }
+.wd-mrow.theirs .wd-bub.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-bub { background: #1A1917; border-color: #1A1917; color: #FBFAF7; }
+.wd-mrow.mine .wd-bub.tail { border-top-right-radius: 4px; }
+.wd-mrow.mine .wd-bub .msg-link:hover { color: #FBFAF7; opacity: .8; }
+
+/* Images / video render AS the bubble. min-width 0 lets the replaced
+   element shrink inside the flex line (timestamp shares the row). */
+.wd-img { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); cursor: pointer; min-width: 0; height: auto; }
+.wd-mrow.theirs .wd-img.tail, .wd-mrow.theirs .wd-vid.tail { border-top-left-radius: 4px; }
+.wd-mrow.mine .wd-img.tail, .wd-mrow.mine .wd-vid.tail { border-top-right-radius: 4px; }
+.wd-vid { display: block; max-width: min(100%, 320px); max-height: 320px; border-radius: 12px;
+  border: 1px solid rgba(26,25,23,.16); background: #000; min-width: 0; }
+
+/* Non-media attachments — small white card chip on either side. */
+.wd-file { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(26,25,23,.16); background: #fff;
+  padding: 8px 12px; max-width: 320px; border-radius: 12px; }
+.wd-file i { font-style: normal; color: var(--acc); }
+.wd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-file small { color: #A5A199; margin-left: auto; flex-shrink: 0; }
+
+/* ── audio = printed plates ───────────────────────────────────────────
+   An audio attachment is a PLATE from the exhibition catalogue: a
+   white figure card (1px hairline, bubble-family radius 12) whose
+   artwork is the waveform in FINE print texture — 1.5px ink bars /
+   1px gap, unplayed .22 / played .85, 1.5px stage-green needle —
+   above a full-width interior hairline (the plate/caption divider,
+   the catalogue signature) and ONE baseline caption row: bare ink
+   glyph · name · elapsed/total · the underlined import word. Music
+   escapes the text-bubble cap: the column widens (.wd-mcol.wide) and
+   the plate takes min(640px, all the room).
+
+   The figure is a REAL waveform — fetch → decodeAudioData → ~90 peak
+   buckets (the web app's audioPeaks recipe) resampled on a canvas.
+   The waveform IS the scrubber — pointer capture, drags while paused.
+
+   The real AudioAttachment mounts invisibly inside .wd-ac-import so
+   its import-to-DAW machinery (prefetch → writeAudioFile → drag-out
+   arming / 30s cooldown) survives byte-for-byte — only its import
+   button surfaces, restyled as the quiet underlined word. */
+.wd-mcol.wide { max-width: min(88%, 692px); }
+/* A text bubble sharing the message keeps the normal reading measure. */
+.wd-mcol.wide .wd-bub { max-width: min(100%, 520px); }
+
+/* The plate. White ground, hairline frame, bubble-family radius. */
+.wd-plate { width: 640px; max-width: 100%; min-width: 0; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; overflow: hidden; }
+
+/* The figure — the waveform artwork, margined like a print. */
+.wd-plate-art { padding: 14px 16px 10px; }
+
+/* The waveform strip — the canvas fills it. */
+.wd-wave { position: relative; width: 100%; min-width: 0; cursor: pointer; touch-action: none; }
+.wd-wave canvas { display: block; width: 100%; height: 100%; }
+
+/* Caption row under the plate rule — one baseline-aligned line:
+   glyph, name (wraps if needed), then time + import at the right. */
+.wd-plate-cap { display: flex; align-items: center; gap: 9px;
+  padding: 9px 16px 11px; }
+.wd-plate-name { flex: 1; min-width: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; font-weight: 500; line-height: 1.4; word-break: break-word; }
+.wd-plate-right { flex-shrink: 0; display: flex; align-items: baseline; gap: 10px; }
+.wd-plate-time { font-size: 10.5px; color: rgba(26,25,23,.55);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* Multi-audio — ONE plate; each track a section (caption-style row
+   over its own 24px fine wave) behind interior hairlines. */
+.wd-plate-sec + .wd-plate-sec { position: relative; }
+.wd-plate-sec + .wd-plate-sec::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px;
+  height: 1px; background: rgba(26,25,23,.12); }
+/* the plate/caption divider — inset so it never touches the rounded frame */
+.wd-plate-rule { height: 1px; background: rgba(26,25,23,.12); margin: 0 16px; }
+.wd-plate-secrow { display: flex; align-items: baseline; gap: 8px; padding: 8px 16px 5px; }
+.wd-plate-secname { flex: 1; min-width: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 12.5px; font-weight: 500; line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-plate-secwave { padding: 0 16px 10px; }
+
+/* Bare ink play glyph — sits on the caption baseline. */
+.wd-ac-play { flex-shrink: 0; padding: 0;
+  background: none; border: none; border-radius: 0; color: #1A1917; opacity: .72; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; }
+.wd-ac-play svg { display: block; }
+.wd-ac-play:hover { opacity: 1; background: none; }
+.wd-ac-play:active { transform: none; }
+
+/* Import machinery — hide the ride-along AudioAttachment's chrome;
+   only its real import button (with all its drag handlers) surfaces,
+   as the quiet underlined ink word. Armed/imported deepen to ink. */
+.wd-ac-import { display: flex; align-items: center; min-width: 0; }
+.wd-ac-import .msg-att-audio { display: contents; }
+.wd-ac-import .msg-att-audio-header,
+.wd-ac-import .msg-att-timeline,
+.wd-ac-import .msg-att-audio-player { display: none; }
+.wd-ac-import .msg-att-import-btn { width: auto; margin: 0; padding: 0; position: relative; top: -1px;
+  background: none; border: none; border-radius: 0; color: rgba(26,25,23,.55);
+  font-size: 10.5px; font-weight: 400; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px; }
+.wd-ac-import .msg-att-import-btn svg { display: none; }
+.wd-ac-import .msg-att-import-btn:hover { background: none; border: none; color: rgba(26,25,23,.9); }
+.wd-ac-import .msg-att-import-btn:active { transform: none; }
+.wd-ac-import .msg-att-import-btn.ready { background: none; border: none;
+  color: rgba(26,25,23,.9); font-weight: 500; }
+
+/* Expired attachment (7-day temp files) — normal chat type, grey
+   italic, inside a quiet hairline bubble on the sender's side. */
+.wd-expired { font-size: 13.5px; line-height: 1.5; font-style: italic; color: #A5A199;
+  background: transparent; border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 8px 12px; }
+
+/* Under-bubble extras — link preview card + calendar chip stay inside
+   the bubble column; the card stays a white card on my side too. */
+.wd-linkcard { max-width: 100%; margin-top: 2px; }
+.wd-linkcard .msg-link-preview { margin-top: 0; max-width: 320px; }
+.wd-chip { margin-top: 2px; display: flex; max-width: 100%; }
+
+.wd-quiet { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* Read receipts — right edge, tucked 2px under my latest-read bubble.
+   DMs get "read ✓" (accent check); groups get a 12px avatar stack. */
+.wd-read { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 2px;
+  width: 100%; font-size: 10px; line-height: 1; color: #A5A199; }
+.wd-read svg { color: var(--acc); display: block; }
+.wd-read-avs { display: flex; padding-left: 3px; }
+.wd-read-avs > span { width: 12px; height: 12px; border-radius: 50%; margin-left: -4px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px;
+  border: 1.5px solid #FBFAF7; }
+.wd-read-avs > span:first-child { margin-left: 0; }
+.wd-read-avs img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── upload progress — pending ghost bubbles ──────────────────────────
+   A file on its way up reads as a message about to exist: a ghost
+   bubble on MY side, above the input. Full file name (wraps, never
+   truncates), then the same ink-line progress grammar as the audio
+   cards — 1px hairline, 1.5px ink fill, 5px accent dot — with a
+   tabular % at the right. Stacks; each disappears as its send fires. */
+.wd-upcards { margin: 0 22px 8px; flex-shrink: 0; display: flex; flex-direction: column;
+  align-items: flex-end; gap: 6px; }
+.wd-upcard { width: min(100%, 360px); background: rgba(255,255,255,.6);
+  border: 1px dashed rgba(26,25,23,.28); border-radius: 12px; border-top-right-radius: 4px;
+  padding: 8px 12px 9px; }
+.wd-upcard-name { font-size: 12.5px; line-height: 1.45; color: #6E6B63;
+  word-break: break-word; overflow-wrap: anywhere; }
+.wd-upcard-row { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+.wd-upcard-track { flex: 1; position: relative; height: 7px; background: none; overflow: visible; }
+.wd-upcard-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  margin-top: -0.5px; height: 1px; background: rgba(26,25,23,.18); }
+.wd-upcard-fill { position: absolute; left: 0; top: 50%; margin-top: -0.75px; height: 1.5px;
+  background: #1A1917; transition: width .12s linear; }
+.wd-upcard-fill::after { content: ''; position: absolute; right: -2.5px; top: 50%;
+  transform: translateY(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+.wd-upcard-pct { flex-shrink: 0; min-width: 32px; text-align: right; font-size: 10.5px;
+  color: #A5A199; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* ── now-playing bar — a floating paper plate ─────────────────────────
+   One shared engine for the whole shell; the plates are its remotes.
+   The approved floating geometry (margins / radius 12 / slide-in) on
+   the plate ground: white card, 1px hairline, soft shadow. Fixed
+   left cluster — [ink play glyph] [chat-sans name 13/500, ellipsis]
+   [elapsed/total, grey tabular] — then the REST of the width is the
+   playing track's fine ink waveform (28px tall, .22/.85 inks, green
+   needle, same pointer-capture seek-drag): the waveform IS the
+   scrubber, no separate strip. Quiet grey ✕ at the far right. */
+.wd-nowbar { flex-shrink: 0; height: 56px; margin: 0 22px 10px; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(26,25,23,.10), 0 12px 28px -12px rgba(26,25,23,.28);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; }
+@keyframes wd-nowbar-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wd-nowbar-btn { flex-shrink: 0; width: 18px; height: 18px; padding: 0;
+  border-radius: 0; background: none; border: none; color: #1A1917; opacity: .72;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wd-nowbar-btn:hover { opacity: 1; background: none; }
+.wd-nowbar-btn svg { display: block; }
+.wd-nowbar-name { flex: 0 1 auto; min-width: 36px; max-width: 220px;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25;
+  color: #1A1917;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-nowbar-time { flex-shrink: 0; font-size: 10.5px; color: rgba(26,25,23,.55);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-nowbar-wave { flex: 1 1 0; min-width: 0; }
+.wd-nowbar-x { flex-shrink: 0; width: 22px; height: 22px; padding: 0;
+  background: none; border: none; color: #A5A199;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wd-nowbar-x:hover { color: #1A1917; }
+
+/* ── input bar ────────────────────────────────────────────────────── */
+.wd-input { margin: 0 22px 16px; display: flex; gap: 8px; align-items: center; min-height: 44px;
+  border: 1px solid rgba(26,25,23,.5); background: #fff; border-radius: 6px; padding: 7px 8px 7px 8px; flex-shrink: 0; }
+.wd-input textarea { flex: 1; border: none; outline: none; resize: none; background: transparent;
+  font-family: inherit; font-size: 13px; line-height: 1.4; color: #1A1917; padding: 0; align-self: center;
+  max-height: 90px; min-height: 18px; }
+.wd-input textarea::placeholder { color: var(--t3); }
+.wd-input .wd-attach { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: transparent;
+  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; font-size: 14px; line-height: 1; padding: 0; align-self: center;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; }
+.wd-input .wd-attach:hover { border-color: rgba(26,25,23,.4); color: #1A1917; }
+.wd-input .wd-send { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: var(--acc); display: flex; align-items: center;
+  justify-content: center; color: #fff; font-size: 12px; border: none; cursor: pointer; font-family: inherit; align-self: center; }
+.wd-input .wd-send:disabled { background: #C0BCB3; cursor: default; }
+
+/* ── home (no selection) + my calendar ────────────────────────────── */
+.wd-home { flex: 1; min-height: 0; overflow-y: auto; padding: 46px 48px 24px; scrollbar-width: none; }
+.wd-home::-webkit-scrollbar { display: none; }
+.wd-home-greet { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 22px; font-weight: 500; letter-spacing: -0.015em; }
+.wd-home-date { font-size: 11px; color: #A5A199; margin-top: 3px; }
+.wd-home-prompt { margin-top: 20px; }
+.wd-home .wd-up { margin-top: 28px; }
+
+/* "today" — the prompt's plain-task lane. Hairline-square checkbox,
+   accent fill + check when done; done rows grey out and strike. */
+.wd-home .wd-todos { margin-top: 28px; }
+.wd-todos-head { display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-todos-clear { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 10px; letter-spacing: normal; color: #A5A199; }
+.wd-todos-clear:hover { color: #6E6B63; text-decoration: underline; text-underline-offset: 3px; }
+.wd-todo { display: flex; align-items: center; gap: 10px; padding: 8px 2px;
+  border-bottom: 1px solid rgba(26,25,23,.08); font-size: 12.5px; cursor: pointer; }
+.wd-todo-box { width: 13px; height: 13px; flex-shrink: 0; border: 1px solid rgba(26,25,23,.4);
+  border-radius: 3px; background: #fff; color: #fff;
+  display: flex; align-items: center; justify-content: center; }
+.wd-todo-box svg { display: block; }
+.wd-todo.done .wd-todo-box { background: var(--acc); border-color: var(--acc); }
+.wd-todo-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-todo.done .wd-todo-text { color: #A5A199; text-decoration: line-through; }
+
+.wd-up-head { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-up-row { display: flex; align-items: baseline; gap: 12px; padding: 8px 2px;
+  border-bottom: 1px solid rgba(26,25,23,.08); font-size: 12.5px; }
+.wd-up-date { width: 66px; flex-shrink: 0; color: #6E6B63; font-size: 11px; }
+.wd-up-date.today { color: var(--acc); }
+.wd-up-time { width: 46px; flex-shrink: 0; color: #A5A199; font-size: 11px; font-variant-numeric: tabular-nums; }
+.wd-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-up-from { flex-shrink: 0; color: #A5A199; font-size: 10.5px; }
+.wd-up-none { padding: 14px 2px; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 13px; color: #A5A199; }
+
+.wd-me { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wd-me-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 8px; scrollbar-width: none; }
+.wd-me-scroll::-webkit-scrollbar { display: none; }
+
+/* ── notes tab — one document per show ────────────────────────────── */
+/* List view: hairline document rows (serif title · grey snippet ·
+   fine-print byline), with a quiet accent "+ new note" up right. */
+.wd-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wd-notes-bar { flex-shrink: 0; display: flex; justify-content: flex-end; padding: 10px 22px 0; }
+.wd-notes-new { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: var(--acc); }
+.wd-notes-new:hover { text-decoration: underline; text-underline-offset: 3px; }
+.wd-notes-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  padding: 4px 22px 14px; scrollbar-width: none; }
+.wd-notes-list::-webkit-scrollbar { display: none; }
+.wd-note-row { flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+  padding: 11px 2px 10px; border-bottom: 1px solid rgba(26,25,23,.08); cursor: pointer; }
+.wd-note-row:hover { background: rgba(26,25,23,.02); }
+.wd-note-row-main { flex: 1; min-width: 0; }
+.wd-note-title { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 13.5px; font-weight: 500; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-title.untitled { font-style: italic; color: #A5A199; }
+.wd-note-snip { margin-top: 2px; font-size: 11.5px; color: #6E6B63;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-note-meta { margin-top: 3px; font-size: 9.5px; color: #A5A199; }
+
+/* Editor view: quiet paper — ‹ back, borderless serif title, fine
+   print, body that flex-fills the pane. Whitespace preserved so long
+   structured pages (timetables, setlists) read as typed. */
+.wd-note-ed { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 22px 10px; }
+.wd-note-ed-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.wd-note-back { background: none; border: none; padding: 0 2px; cursor: pointer; font-family: inherit;
+  font-size: 18px; line-height: 1; color: #6E6B63; }
+.wd-note-back:hover { color: #1A1917; }
+.wd-note-ed-title { flex: 1; min-width: 0; border: none; outline: none; background: transparent; padding: 0;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; color: #1A1917; }
+.wd-note-ed-title::placeholder { color: #C0BCB3; font-style: italic; }
+.wd-note-ed-fine { flex-shrink: 0; font-size: 9.5px; color: #A5A199; white-space: nowrap; }
+
+/* Formatting toolbar — one hairline row of quiet 12px words. */
+.wd-note-tools { flex-shrink: 0; display: flex; align-items: center; gap: 14px; margin-top: 10px;
+  padding: 6px 2px; border-top: 1px solid rgba(26,25,23,.08); border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-tool { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12px; line-height: 1; color: #6E6B63; }
+.wd-tool:hover { color: #1A1917; }
+.wd-tool b { font-weight: 700; }
+.wd-tool u { text-underline-offset: 2px; }
+
+.wd-note-ed-body { flex: 1; min-height: 0; margin-top: 12px; resize: none; border: none; outline: none;
+  background: transparent; padding: 0; white-space: pre-wrap;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13.5px; line-height: 1.7; color: #1A1917; }
+.wd-note-ed-body::placeholder { color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; }
+/* contentEditable flavour — scrolls itself, shows a serif-italic
+   placeholder while empty, and gives the allowlisted tags their type. */
+.wd-note-ed-body.rich { overflow-y: auto; scrollbar-width: none; cursor: text; }
+.wd-note-ed-body.rich::-webkit-scrollbar { display: none; }
+.wd-note-ed-body.rich:empty::before { content: attr(data-placeholder); color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; pointer-events: none; }
+.wd-note-ed-body.rich h3 { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-weight: 500; font-size: 15px; letter-spacing: -0.01em; line-height: 1.4; margin: 10px 0 3px; }
+.wd-note-ed-body.rich h3:first-child { margin-top: 0; }
+.wd-note-ed-body.rich ul, .wd-note-ed-body.rich ol { margin: 2px 0; padding-left: 22px; }
+.wd-note-ed-body.rich li { margin: 1px 0; }
+.wd-note-ed-foot { flex-shrink: 0; padding: 8px 0 2px; display: flex; }
+/* House two-tap delete — a word, then "sure?" in red; never a native
+   confirm (the plugin's WKWebView can't show one). */
+.wd-note-del { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: #A5A199; text-decoration: underline; text-underline-offset: 3px; }
+.wd-note-del:hover { color: #6E6B63; }
+.wd-note-del.sure { color: #D6402E; }
+/* The list rows carry the same two-tap word at their right edge. */
+.wd-note-del.row { flex-shrink: 0; font-size: 10px; align-self: center; }
+
+/* ── stems / calendar tab panes ───────────────────────────────────── */
+.wd-pane { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* StemPanel fills the pane; its own .stem-panel styles (collab.css) apply. */
+.wd-pane .stem-panel { padding: 14px 22px 16px; }
+/* ChatCalendar positions absolute inset:0 — the pane is its containing block. */
+.wd-pane .chatcal { position: absolute; inset: 0; }
+
+/* The listen link rides in the same caption row as the import word. */
+.wd-ac-import { gap: 10px; }
+.wd-ac-import .msg-att-row { display: contents; }
+.wd-ac-import .msg-att-link { position: relative; top: -1px; color: rgba(26,25,23,.55); font-size: 10.5px; }
+.wd-ac-import .msg-att-link:hover { color: rgba(26,25,23,.9); }
+.wd-ac-import .msg-att-link.done { color: var(--blue, #2440FF); }
+
+/* zip modifier toggle in the drop chooser — checkbox grammar (todo box) */
+.wd-dropask-zip { display: grid; grid-template-columns: 13px 1fr; column-gap: 8px; align-items: center;
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: 8px 2px; border-top: 1px solid rgba(26,25,23,.10); }
+.wd-dropask-zip span:not(.wd-dropask-zipbox) { font-size: 12px; color: #6E6B63; }
+.wd-dropask-zip small { grid-column: 2; font-size: 10px; color: #A5A199; margin-top: 1px; }
+.wd-dropask-zipbox { width: 13px; height: 13px; border: 1.5px solid rgba(26,25,23,.5); border-radius: 2px;
+  position: relative; }
+.wd-dropask-zip.on .wd-dropask-zipbox { background: var(--acc); border-color: var(--acc); }
+.wd-dropask-zip.on .wd-dropask-zipbox::after { content: ''; position: absolute; left: 3px; top: 0.5px;
+  width: 4px; height: 7px; border: solid #fff; border-width: 0 1.5px 1.5px 0; transform: rotate(43deg); }
+.wd-dropask-zip.on span:not(.wd-dropask-zipbox) { color: #1A1917; }
+
+/* A file that did not go out says so here, in the upload column —
+   grey italic on a hairline card; tap to dismiss, gone on its own in 7 s. */
+.wd-upnote { width: min(100%, 360px); text-align: left; cursor: pointer;
+  background: rgba(255,255,255,.6); border: 1px solid rgba(26,25,23,.16); border-radius: 12px;
+  border-top-right-radius: 4px; padding: 8px 12px 9px;
+  font-family: inherit; font-size: 12.5px; line-height: 1.45; font-style: italic; color: #6E6B63;
+  word-break: break-word; overflow-wrap: anywhere; }
+.wd-upnote:hover { color: #1A1917; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   pages — profile, settings, people search, games host, invite ticket.
+   Same print: paper, hairlines, serif voice, words for actions.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* A word that acts — the studio's button. Grey at rest, ink on hover,
+   accent when it's the one you came for, red once it asks "sure?". */
+.wd-word { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; line-height: 1.3; color: #6E6B63; white-space: nowrap; }
+.wd-word:hover { color: #1A1917; text-decoration: underline; text-underline-offset: 3px; }
+.wd-word.acc { color: var(--acc); font-weight: 500; }
+.wd-word.dim { color: #A5A199; }
+.wd-word.sure { color: #D6402E; }
+.wd-word.sm { font-size: 11px; }
+.wd-word:disabled { color: #C0BCB3; cursor: default; text-decoration: none; }
+
+/* A two-second word at the pane's foot — "saved", "photo updated". */
+.wd-toast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 80;
+  background: #1A1917; color: #FBFAF7; font-size: 11.5px; padding: 7px 14px; border-radius: 6px;
+  animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; pointer-events: none; white-space: nowrap; }
+
+/* ── rail additions ───────────────────────────────────────────────── */
+.wd-brand { cursor: pointer; user-select: none; }
+.wd-brand:hover { opacity: .75; }
+/* the games row — a tile like a project's, four dots for dice */
+.wd-av.tile { border-radius: 8px; background: transparent; border: 1px solid rgba(26,25,23,.5); color: #1A1917; }
+.wd-av.tile svg { display: block; }
+.wd-row.on .wd-av.tile { border-color: var(--acc); }
+.wd-rname span.play { color: var(--acc); font-style: italic; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; }
+/* section label with a quiet search glyph at the right */
+.wd-sec.people { display: flex; align-items: center; justify-content: space-between; padding-right: 14px; }
+.wd-sec-search { background: none; border: none; padding: 2px; cursor: pointer; color: #A5A199;
+  display: flex; align-items: center; }
+.wd-sec-search:hover, .wd-sec-search.on { color: #1A1917; }
+.wd-sec-search svg { display: block; }
+/* the search line replaces the label: "@" + bare input + ✕ */
+.wd-search { display: flex; align-items: center; gap: 6px; padding: 9px 16px 5px; }
+.wd-search-at { font-size: 12px; color: #A5A199; }
+.wd-search-in { flex: 1; min-width: 0; border: none; outline: none; background: transparent; padding: 0 0 3px;
+  border-bottom: 1px solid rgba(26,25,23,.3); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-search-in::placeholder { color: #C0BCB3; }
+.wd-search-x { background: none; border: none; padding: 0 2px; cursor: pointer; color: #A5A199;
+  font-size: 12px; line-height: 1; font-family: inherit; }
+.wd-search-x:hover { color: #1A1917; }
+.wd-rname span.handle { font-variant-numeric: tabular-nums; }
+.wd-search-none { padding: 10px 16px; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 12px; color: #A5A199; }
+/* rail foot: me (name) on the left, a quiet gear on the right */
+.wd-rail-foot { gap: 8px; }
+.wd-foot-me { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.wd-foot-me span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-foot-gear { background: none; border: none; padding: 3px; cursor: pointer; color: #A5A199;
+  display: flex; align-items: center; flex-shrink: 0; }
+.wd-foot-gear:hover, .wd-foot-gear.on { color: #1A1917; }
+.wd-foot-gear.on { color: var(--acc); }
+.wd-foot-gear svg { display: block; }
+.wd-rail-foot.on .wd-foot-me span { color: var(--acc); }
+
+/* the chat header's photo opens the person */
+.wd-hav.click { cursor: pointer; }
+.wd-hav.click:hover { opacity: .85; }
+
+/* home: the programme's "all" word */
+.wd-home-more { display: inline-block; margin-top: 10px; }
+
+/* ── profile page ─────────────────────────────────────────────────── */
+.wd-prof { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.wd-prof-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 44px 48px 32px; scrollbar-width: none; }
+.wd-prof-scroll::-webkit-scrollbar { display: none; }
+.wd-prof-mast { display: flex; align-items: flex-start; gap: 24px; }
+.wd-prof-av { position: relative; width: 84px; height: 84px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  font-size: 26px; font-weight: 500; letter-spacing: -0.01em; }
+.wd-prof-av img { width: 100%; height: 100%; object-fit: cover; }
+.wd-prof-av.mine { cursor: pointer; }
+/* "change" rises from the photo's foot on hover — paper on ink */
+.wd-prof-av em { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 0 8px; text-align: center;
+  font-style: normal; font-size: 10.5px; color: #FBFAF7; letter-spacing: .02em;
+  background: linear-gradient(to top, rgba(26,25,23,.72), rgba(26,25,23,0)); opacity: 0; transition: opacity .18s ease; }
+.wd-prof-av.mine:hover em, .wd-prof-av.busy em { opacity: 1; }
+.wd-prof-col { flex: 1; min-width: 0; padding-top: 4px; }
+.wd-prof-name { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+.wd-prof-handle { display: flex; gap: 12px; margin-top: 6px; font-size: 11.5px; color: #6E6B63; }
+.wd-prof-handle .no { color: #A5A199; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-prof-bio { margin-top: 10px; max-width: 52ch; font-size: 13.5px; line-height: 1.55; color: #1A1917; white-space: pre-wrap; }
+.wd-prof-bio.empty { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic; color: #A5A199; }
+.wd-prof-acts { display: flex; align-items: baseline; gap: 16px; margin-top: 14px; }
+.wd-prof-fine { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic; font-size: 11.5px; color: #A5A199; }
+.wd-prof-count { margin-left: auto; font-size: 10.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+/* editing — the same lines, now with a hairline under each */
+.wd-prof-name-in { display: block; width: 100%; max-width: 420px; border: none; outline: none; background: transparent;
+  padding: 0 0 4px; border-bottom: 1px solid rgba(26,25,23,.3);
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: #1A1917; }
+.wd-prof-name-in::placeholder { color: #C0BCB3; font-style: italic; }
+.wd-prof-handle-row { display: flex; align-items: baseline; gap: 4px; margin-top: 10px; }
+.wd-prof-at { font-size: 12.5px; color: #A5A199; }
+.wd-prof-handle-in { width: 150px; border: none; outline: none; background: transparent; padding: 0 0 3px;
+  border-bottom: 1px solid rgba(26,25,23,.3); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-prof-handle-state { margin-left: 10px; font-size: 11px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-prof-handle-state.free { color: var(--acc); }
+.wd-prof-handle-state.taken, .wd-prof-handle-state.bad { color: #D6402E; }
+.wd-prof-bio-in { display: block; width: 100%; max-width: 520px; margin-top: 12px; resize: none; border: none; outline: none;
+  background: transparent; padding: 0 0 4px; border-bottom: 1px solid rgba(26,25,23,.3);
+  font-family: inherit; font-size: 13.5px; line-height: 1.55; color: #1A1917; }
+.wd-prof-bio-in::placeholder { color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; }
+
+.wd-prof-sec { margin-top: 40px; max-width: 720px; }
+.wd-prof-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-prof-sec-right { display: flex; align-items: baseline; gap: 14px; letter-spacing: normal; }
+.wd-prof-pend { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic;
+  font-size: 11px; color: var(--acc); text-transform: none; }
+.wd-prof-none { padding: 14px 2px; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* credit lines — number · work (artist) · part year state · words */
+.wd-cred { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px;
+  padding: 10px 2px 9px; border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-cred-no { font-size: 10.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-cred-main { min-width: 0; }
+.wd-cred-work { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; color: #1A1917; }
+.wd-cred-work a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(26,25,23,.3); }
+.wd-cred-work a:hover { text-decoration-color: currentColor; }
+.wd-cred-artist { font-weight: 600; color: #6E6B63; }
+.wd-cred-mark { display: inline-block; vertical-align: -1px; margin-left: 7px; }
+.wd-cred-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-top: 2px; font-size: 11px; color: #6E6B63; }
+.wd-cred-year { color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-cred-state { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-style: italic; color: var(--acc); }
+.wd-cred-state.no { color: #B8552F; }
+.wd-cred.pending .wd-cred-work, .wd-cred.rejected .wd-cred-work { color: #6E6B63; }
+.wd-cred-acts { display: flex; gap: 12px; align-self: center; }
+/* the line editor — one white card, hairline fields */
+.wd-cred-form { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 8px; padding: 12px 14px 10px; margin: 8px 0; }
+.wd-cred-form-row { display: flex; gap: 16px; }
+.wd-cred-form-row + .wd-cred-form-row { margin-top: 10px; }
+.wd-cred-in { flex: 1 1 0; min-width: 0; border: none; outline: none; background: transparent; padding: 2px 0 4px;
+  border-bottom: 1px solid rgba(26,25,23,.18); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-cred-in:focus { border-bottom-color: rgba(26,25,23,.5); }
+.wd-cred-in::placeholder { color: #C0BCB3; }
+.wd-cred-in.work { flex: 1.4 1 0; font-weight: 600; }
+.wd-cred-in.work::placeholder { font-weight: 400; }
+.wd-cred-in.year { flex: 0 0 52px; font-variant-numeric: tabular-nums; }
+.wd-cred-form-acts { display: flex; align-items: baseline; gap: 16px; margin-top: 12px; }
+.wd-cred-form-fine { margin-left: auto; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 10.5px; color: #A5A199; }
+
+/* ── settings page ────────────────────────────────────────────────── */
+.wd-set { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.wd-set-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 48px 32px; scrollbar-width: none; }
+.wd-set-scroll::-webkit-scrollbar { display: none; }
+.wd-set-sec { max-width: 560px; }
+.wd-set-sec + .wd-set-sec { margin-top: 30px; }
+.wd-set-head { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-set-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 2px; font-size: 12.5px;
+  border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-set-k { width: 110px; flex-shrink: 0; color: #6E6B63; }
+.wd-set-v { color: #1A1917; display: flex; gap: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wd-set-v.tab { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-set-v a { color: #6E6B63; text-decoration: underline; text-underline-offset: 3px; }
+.wd-set-v a:hover { color: #1A1917; }
+.wd-set-pw { display: flex; flex-direction: column; gap: 10px; padding: 12px 2px 6px 128px;
+  border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-set-in { width: 100%; max-width: 280px; border: none; outline: none; background: transparent; padding: 2px 0 4px;
+  border-bottom: 1px solid rgba(26,25,23,.18); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-set-in:focus { border-bottom-color: rgba(26,25,23,.5); }
+.wd-set-in::placeholder { color: #C0BCB3; }
+.wd-set-pw-acts { display: flex; align-items: baseline; gap: 14px; margin-top: 2px; }
+.wd-set-err { font-size: 11px; color: #D6402E; }
+.wd-set-langs { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 12px 2px 6px; }
+.wd-set-lang { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; color: #A5A199; }
+.wd-set-lang:hover { color: #1A1917; }
+.wd-set-lang.on { color: #1A1917; text-decoration: underline; text-underline-offset: 4px; }
+.wd-set-fine { padding: 2px 2px 0; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 11px; color: #A5A199; }
+.wd-set-fine.inline { padding: 0; }
+
+/* ── input bar: the game word ─────────────────────────────────────── */
+.wd-input .wd-gameinv { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: transparent;
+  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; padding: 0; align-self: center;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wd-input .wd-gameinv:hover { border-color: rgba(26,25,23,.4); color: #1A1917; }
+.wd-input .wd-gameinv svg { display: block; }
+
+/* ── the invite ticket — a chat piece, not a bubble ───────────────── */
+.wd-ticket { display: flex; align-items: center; gap: 14px; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 9px 14px 9px 12px; min-width: 240px; }
+.wd-mrow.mine .wd-ticket { background: #fff; color: #1A1917; }
+.wd-ticket-stub { padding-right: 14px; border-right: 1px dashed rgba(26,25,23,.35); flex-shrink: 0; }
+.wd-ticket-game { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; font-size: 14px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.2; }
+.wd-ticket-body { flex: 1; min-width: 0; }
+.wd-ticket-line { font-size: 11px; color: #6E6B63; line-height: 1.35; }
+.wd-ticket-state { display: block; margin-top: 1px; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-style: italic; font-size: 11px; color: #A5A199; }
+.wd-ticket-act { flex-shrink: 0; }
+
+/* ── games host — the full plug-in's wall, set into the pane ──────── */
+.wd-main .wd-games.plugin { position: absolute; inset: 0; z-index: 40; width: 100%; height: 100%; }
+.wd-main .wd-games.plugin[hidden] { display: none; }
+/* the top bar becomes a studio line: ‹ back, the game, and a right word */
+.wd-main .wd-games.plugin .top-bar.wd-games-bar { width: 100%; max-width: none; height: 46px; flex-direction: row;
+  align-items: center; justify-content: flex-start; gap: 16px; padding: 0 22px; margin: 0;
+  border-bottom: 1px solid var(--border); }
+.wd-games-back { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; color: var(--t2); white-space: nowrap; }
+.wd-games-back:hover { color: var(--t1); }
+.wd-games-title { font-size: 12.5px; font-weight: 500; letter-spacing: -0.005em; color: var(--t1); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   web-only — the studio fills the browser viewport, and three existing
+   sheets (chat thread, calendar, games) are set INTO panes instead of
+   floating over the app.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.wd-stage.web { height: 100dvh; background: #FBFAF7; }
+.wd-stage.web .wd { border: none; }
+
+/* chat thread — headerless, fills the pane */
+.wd-pane .chatt.embedded { position: absolute; inset: 0; z-index: auto; animation: none; background: transparent; }
+.wd-pane .chatt.embedded .chatt-scroll { padding-top: 12px; }
+
+/* calendar — the floating page becomes the pane itself */
+.wd-calhost .cal { position: absolute; inset: 0; z-index: auto; background: transparent;
+  padding: 6px 22px 16px; align-items: stretch; justify-content: stretch; opacity: 1; pointer-events: auto; }
+.wd-calhost .cal-sheet { max-width: none; max-height: none; flex: 1; min-height: 0;
+  border: none; border-radius: 0; padding: 12px 0 0; background: transparent; transform: none; }
+
+/* games — the suite's panel, set into the main pane; stays mounted (hidden) */
+.wd-main .wd-games-host { position: absolute; inset: 0; z-index: 40; }
+.wd-main .wd-games-host[hidden] { display: none; }
+.wd-main .wd-games-host .games-panel { position: absolute; inset: 0; z-index: auto; animation: none; }
+
+/* rail: "+ new" beside a section label */
+.wd-sec.row { display: flex; align-items: center; justify-content: space-between; padding-right: 14px; }
+.wd-sec-plus { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 10px; letter-spacing: normal; color: #A5A199; }
+.wd-sec-plus:hover { color: #1A1917; }
+
+/* the app's floating schedule prompt sits INLINE on the studio home */
+.wd-home .sprompt { position: relative; left: auto; right: auto; bottom: auto; transform: none;
+  width: min(560px, 100%); z-index: auto; }

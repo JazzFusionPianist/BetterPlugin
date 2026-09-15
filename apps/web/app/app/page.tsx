@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import AppShell from '@/components/app/AppShell'
+import StudioShell from '@/components/studio/StudioShell'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 
 /**
  * Logged-in home. Auth-gated, then hands off to the hybrid AppShell
@@ -16,6 +18,11 @@ export default function AppHome() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [checking, setChecking] = useState(true)
+  // Desktop gets the studio workspace (the Orb Chat plug-in's layout);
+  // phones keep the single-column shell. Decided on the client only.
+  const wide = useMediaQuery('(min-width: 821px)')
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     let alive = true
@@ -32,8 +39,8 @@ export default function AppHome() {
     return () => { alive = false; sub.subscription.unsubscribe() }
   }, [router])
 
-  if (checking || !user) {
+  if (checking || !user || !mounted) {
     return <div className="splash"><div className="spinner" /></div>
   }
-  return <AppShell user={user} />
+  return wide ? <StudioShell user={user} /> : <AppShell user={user} />
 }

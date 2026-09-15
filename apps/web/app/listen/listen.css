@@ -34,17 +34,17 @@
 .ls-plate.ls-quiet { text-align: center; padding: 30px 22px; }
 
 .ls-name {
-  font-family: var(--f-serif); font-weight: 400; font-size: 22px; line-height: 1.2;
+  font-family: var(--f-serif); font-weight: 500; font-size: 22px; line-height: 1.2;
   letter-spacing: normal; color: var(--ink);
   overflow-wrap: anywhere;
 }
 .ls-from {
   margin-top: 4px;
-  font-family: var(--f-serif); font-size: 15px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 15px; color: var(--t2);
 }
 .ls-from i { color: var(--blue); font-style: italic; }
 .ls-note {
-  font-family: var(--f-serif); font-style: italic; font-size: 15px; line-height: 1.45; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic; font-size: 15px; line-height: 1.45; color: var(--t2);
   margin-top: 6px;
 }
 
@@ -87,7 +87,7 @@
 .ls-foot {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   padding: 14px clamp(20px, 5vw, 48px) calc(18px + env(safe-area-inset-bottom));
-  font-family: var(--f-serif); font-size: 13px; color: var(--t2);
+  font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-size: 13px; color: var(--t2);
 }
 .ls-foot a { color: var(--blue); font-style: italic; }
 .ls-foot-dim { color: var(--t3); font-size: 12px; }

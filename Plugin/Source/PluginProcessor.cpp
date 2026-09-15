@@ -250,6 +250,8 @@ OrbAudioProcessor::OrbAudioProcessor()
         // Split-out single-purpose builds (Orb Chat, …) tell the web app
         // which surface to boot — it hides the other rooms.
         url += juce::String ("&surface=") + ORB_SURFACE;
+        // …and which native build is hosting it (settings shows it).
+        url += juce::String ("&ver=") + JucePlugin_VersionString;
        #endif
         browser->goToURL (url);
     }

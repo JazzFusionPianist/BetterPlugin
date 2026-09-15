@@ -558,3 +558,214 @@
   font-family: inherit; font-size: 12.5px; line-height: 1.45; font-style: italic; color: #6E6B63;
   word-break: break-word; overflow-wrap: anywhere; }
 .wd-upnote:hover { color: #1A1917; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   pages — profile, settings, people search, games host, invite ticket.
+   Same print: paper, hairlines, serif voice, words for actions.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* A word that acts — the studio's button. Grey at rest, ink on hover,
+   accent when it's the one you came for, red once it asks "sure?". */
+.wd-word { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; line-height: 1.3; color: #6E6B63; white-space: nowrap; }
+.wd-word:hover { color: #1A1917; text-decoration: underline; text-underline-offset: 3px; }
+.wd-word.acc { color: var(--acc); font-weight: 500; }
+.wd-word.dim { color: #A5A199; }
+.wd-word.sure { color: #D6402E; }
+.wd-word.sm { font-size: 11px; }
+.wd-word:disabled { color: #C0BCB3; cursor: default; text-decoration: none; }
+
+/* A two-second word at the pane's foot — "saved", "photo updated". */
+.wd-toast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 80;
+  background: #1A1917; color: #FBFAF7; font-size: 11.5px; padding: 7px 14px; border-radius: 6px;
+  animation: wd-nowbar-in .22s cubic-bezier(.2,1,.35,1) both; pointer-events: none; white-space: nowrap; }
+
+/* ── rail additions ───────────────────────────────────────────────── */
+.wd-brand { cursor: pointer; user-select: none; }
+.wd-brand:hover { opacity: .75; }
+/* the games row — a tile like a project's, four dots for dice */
+.wd-av.tile { border-radius: 8px; background: transparent; border: 1px solid rgba(26,25,23,.5); color: #1A1917; }
+.wd-av.tile svg { display: block; }
+.wd-row.on .wd-av.tile { border-color: var(--acc); }
+.wd-rname span.play { color: var(--acc); font-style: italic; font-family: 'Instrument Serif', serif; }
+/* section label with a quiet search glyph at the right */
+.wd-sec.people { display: flex; align-items: center; justify-content: space-between; padding-right: 14px; }
+.wd-sec-search { background: none; border: none; padding: 2px; cursor: pointer; color: #A5A199;
+  display: flex; align-items: center; }
+.wd-sec-search:hover, .wd-sec-search.on { color: #1A1917; }
+.wd-sec-search svg { display: block; }
+/* the search line replaces the label: "@" + bare input + ✕ */
+.wd-search { display: flex; align-items: center; gap: 6px; padding: 9px 16px 5px; }
+.wd-search-at { font-size: 12px; color: #A5A199; }
+.wd-search-in { flex: 1; min-width: 0; border: none; outline: none; background: transparent; padding: 0 0 3px;
+  border-bottom: 1px solid rgba(26,25,23,.3); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-search-in::placeholder { color: #C0BCB3; }
+.wd-search-x { background: none; border: none; padding: 0 2px; cursor: pointer; color: #A5A199;
+  font-size: 12px; line-height: 1; font-family: inherit; }
+.wd-search-x:hover { color: #1A1917; }
+.wd-rname span.handle { font-variant-numeric: tabular-nums; }
+.wd-search-none { padding: 10px 16px; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 12px; color: #A5A199; }
+/* rail foot: me (name) on the left, a quiet gear on the right */
+.wd-rail-foot { gap: 8px; }
+.wd-foot-me { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.wd-foot-me span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-foot-gear { background: none; border: none; padding: 3px; cursor: pointer; color: #A5A199;
+  display: flex; align-items: center; flex-shrink: 0; }
+.wd-foot-gear:hover, .wd-foot-gear.on { color: #1A1917; }
+.wd-foot-gear.on { color: var(--acc); }
+.wd-foot-gear svg { display: block; }
+.wd-rail-foot.on .wd-foot-me span { color: var(--acc); }
+
+/* the chat header's photo opens the person */
+.wd-hav.click { cursor: pointer; }
+.wd-hav.click:hover { opacity: .85; }
+
+/* home: the programme's "all" word */
+.wd-home-more { display: inline-block; margin-top: 10px; }
+
+/* ── profile page ─────────────────────────────────────────────────── */
+.wd-prof { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.wd-prof-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 44px 48px 32px; scrollbar-width: none; }
+.wd-prof-scroll::-webkit-scrollbar { display: none; }
+.wd-prof-mast { display: flex; align-items: flex-start; gap: 24px; }
+.wd-prof-av { position: relative; width: 84px; height: 84px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  font-size: 26px; font-weight: 500; letter-spacing: -0.01em; }
+.wd-prof-av img { width: 100%; height: 100%; object-fit: cover; }
+.wd-prof-av.mine { cursor: pointer; }
+/* "change" rises from the photo's foot on hover — paper on ink */
+.wd-prof-av em { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 0 8px; text-align: center;
+  font-style: normal; font-size: 10.5px; color: #FBFAF7; letter-spacing: .02em;
+  background: linear-gradient(to top, rgba(26,25,23,.72), rgba(26,25,23,0)); opacity: 0; transition: opacity .18s ease; }
+.wd-prof-av.mine:hover em, .wd-prof-av.busy em { opacity: 1; }
+.wd-prof-col { flex: 1; min-width: 0; padding-top: 4px; }
+.wd-prof-name { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 30px; line-height: 1.1; }
+.wd-prof-handle { display: flex; gap: 12px; margin-top: 6px; font-size: 11.5px; color: #6E6B63; }
+.wd-prof-handle .no { color: #A5A199; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-prof-bio { margin-top: 10px; max-width: 52ch; font-size: 13.5px; line-height: 1.55; color: #1A1917; white-space: pre-wrap; }
+.wd-prof-bio.empty { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; color: #A5A199; }
+.wd-prof-acts { display: flex; align-items: baseline; gap: 16px; margin-top: 14px; }
+.wd-prof-fine { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; font-size: 11.5px; color: #A5A199; }
+.wd-prof-count { margin-left: auto; font-size: 10.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+/* editing — the same lines, now with a hairline under each */
+.wd-prof-name-in { display: block; width: 100%; max-width: 420px; border: none; outline: none; background: transparent;
+  padding: 0 0 4px; border-bottom: 1px solid rgba(26,25,23,.3);
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 30px; line-height: 1.1; color: #1A1917; }
+.wd-prof-name-in::placeholder { color: #C0BCB3; font-style: italic; }
+.wd-prof-handle-row { display: flex; align-items: baseline; gap: 4px; margin-top: 10px; }
+.wd-prof-at { font-size: 12.5px; color: #A5A199; }
+.wd-prof-handle-in { width: 150px; border: none; outline: none; background: transparent; padding: 0 0 3px;
+  border-bottom: 1px solid rgba(26,25,23,.3); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-prof-handle-state { margin-left: 10px; font-size: 11px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-prof-handle-state.free { color: var(--acc); }
+.wd-prof-handle-state.taken, .wd-prof-handle-state.bad { color: #D6402E; }
+.wd-prof-bio-in { display: block; width: 100%; max-width: 520px; margin-top: 12px; resize: none; border: none; outline: none;
+  background: transparent; padding: 0 0 4px; border-bottom: 1px solid rgba(26,25,23,.3);
+  font-family: inherit; font-size: 13.5px; line-height: 1.55; color: #1A1917; }
+.wd-prof-bio-in::placeholder { color: #C0BCB3; font-style: italic;
+  font-family: 'Instrument Serif', 'Pretendard Variable', serif; }
+
+.wd-prof-sec { margin-top: 40px; max-width: 720px; }
+.wd-prof-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-prof-sec-right { display: flex; align-items: baseline; gap: 14px; letter-spacing: normal; }
+.wd-prof-pend { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic;
+  font-size: 11px; color: var(--acc); text-transform: none; }
+.wd-prof-none { padding: 14px 2px; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* credit lines — number · work (artist) · part year state · words */
+.wd-cred { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px;
+  padding: 10px 2px 9px; border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-cred-no { font-size: 10.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-cred-main { min-width: 0; }
+.wd-cred-work { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15.5px; line-height: 1.3; color: #1A1917; }
+.wd-cred-work a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(26,25,23,.3); }
+.wd-cred-work a:hover { text-decoration-color: currentColor; }
+.wd-cred-artist { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 12px; color: #6E6B63; }
+.wd-cred-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-top: 2px; font-size: 11px; color: #6E6B63; }
+.wd-cred-year { color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd-cred-state { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; color: var(--acc); }
+.wd-cred-state.no { color: #B8552F; }
+.wd-cred.pending .wd-cred-work, .wd-cred.rejected .wd-cred-work { color: #6E6B63; }
+.wd-cred-acts { display: flex; gap: 12px; align-self: center; }
+/* the line editor — one white card, hairline fields */
+.wd-cred-form { background: #fff; border: 1px solid rgba(26,25,23,.16); border-radius: 8px; padding: 12px 14px 10px; margin: 8px 0; }
+.wd-cred-form-row { display: flex; gap: 16px; }
+.wd-cred-form-row + .wd-cred-form-row { margin-top: 10px; }
+.wd-cred-in { flex: 1 1 0; min-width: 0; border: none; outline: none; background: transparent; padding: 2px 0 4px;
+  border-bottom: 1px solid rgba(26,25,23,.18); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-cred-in:focus { border-bottom-color: rgba(26,25,23,.5); }
+.wd-cred-in::placeholder { color: #C0BCB3; }
+.wd-cred-in.work { flex: 1.4 1 0; font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15px; }
+.wd-cred-in.work::placeholder { font-style: italic; }
+.wd-cred-in.year { flex: 0 0 52px; font-variant-numeric: tabular-nums; }
+.wd-cred-form-acts { display: flex; align-items: baseline; gap: 16px; margin-top: 12px; }
+.wd-cred-form-fine { margin-left: auto; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 10.5px; color: #A5A199; }
+
+/* ── settings page ────────────────────────────────────────────────── */
+.wd-set { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.wd-set-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 48px 32px; scrollbar-width: none; }
+.wd-set-scroll::-webkit-scrollbar { display: none; }
+.wd-set-sec { max-width: 560px; }
+.wd-set-sec + .wd-set-sec { margin-top: 30px; }
+.wd-set-head { font-size: 10px; letter-spacing: .12em; color: #A5A199; text-transform: lowercase;
+  padding-bottom: 6px; border-bottom: 1px solid rgba(26,25,23,.16); }
+.wd-set-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 2px; font-size: 12.5px;
+  border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-set-k { width: 110px; flex-shrink: 0; color: #6E6B63; }
+.wd-set-v { color: #1A1917; display: flex; gap: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wd-set-v.tab { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.wd-set-v a { color: #6E6B63; text-decoration: underline; text-underline-offset: 3px; }
+.wd-set-v a:hover { color: #1A1917; }
+.wd-set-pw { display: flex; flex-direction: column; gap: 10px; padding: 12px 2px 6px 128px;
+  border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd-set-in { width: 100%; max-width: 280px; border: none; outline: none; background: transparent; padding: 2px 0 4px;
+  border-bottom: 1px solid rgba(26,25,23,.18); font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.wd-set-in:focus { border-bottom-color: rgba(26,25,23,.5); }
+.wd-set-in::placeholder { color: #C0BCB3; }
+.wd-set-pw-acts { display: flex; align-items: baseline; gap: 14px; margin-top: 2px; }
+.wd-set-err { font-size: 11px; color: #D6402E; }
+.wd-set-langs { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 12px 2px 6px; }
+.wd-set-lang { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; color: #A5A199; }
+.wd-set-lang:hover { color: #1A1917; }
+.wd-set-lang.on { color: #1A1917; text-decoration: underline; text-underline-offset: 4px; }
+.wd-set-fine { padding: 2px 2px 0; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 11px; color: #A5A199; }
+.wd-set-fine.inline { padding: 0; }
+
+/* ── input bar: the game word ─────────────────────────────────────── */
+.wd-input .wd-gameinv { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 4px; background: transparent;
+  border: 1px solid rgba(26,25,23,.16); color: #6E6B63; padding: 0; align-self: center;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wd-input .wd-gameinv:hover { border-color: rgba(26,25,23,.4); color: #1A1917; }
+.wd-input .wd-gameinv svg { display: block; }
+
+/* ── the invite ticket — a chat piece, not a bubble ───────────────── */
+.wd-ticket { display: flex; align-items: center; gap: 14px; background: #fff;
+  border: 1px solid rgba(26,25,23,.16); border-radius: 12px; padding: 9px 14px 9px 12px; min-width: 240px; }
+.wd-mrow.mine .wd-ticket { background: #fff; color: #1A1917; }
+.wd-ticket-stub { padding-right: 14px; border-right: 1px dashed rgba(26,25,23,.35); flex-shrink: 0; }
+.wd-ticket-game { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 16px; line-height: 1.2; }
+.wd-ticket-body { flex: 1; min-width: 0; }
+.wd-ticket-line { font-size: 11px; color: #6E6B63; line-height: 1.35; }
+.wd-ticket-state { display: block; margin-top: 1px; font-family: 'Instrument Serif', 'Pretendard Variable', serif;
+  font-style: italic; font-size: 11px; color: #A5A199; }
+.wd-ticket-act { flex-shrink: 0; }
+
+/* ── games host — the full plug-in's wall, set into the pane ──────── */
+.wd-main .wd-games.plugin { position: absolute; inset: 0; z-index: 40; width: 100%; height: 100%; }
+.wd-main .wd-games.plugin[hidden] { display: none; }
+/* the top bar becomes a studio line: ‹ back, the game, and a right word */
+.wd-main .wd-games.plugin .top-bar.wd-games-bar { width: 100%; max-width: none; height: 46px; flex-direction: row;
+  align-items: center; justify-content: flex-start; gap: 16px; padding: 0 22px; margin: 0;
+  border-bottom: 1px solid var(--border); }
+.wd-games-back { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; color: var(--t2); white-space: nowrap; }
+.wd-games-back:hover { color: var(--t1); }
+.wd-games-title { font-size: 12.5px; font-weight: 500; letter-spacing: -0.005em; color: var(--t1); }

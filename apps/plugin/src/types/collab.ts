@@ -11,6 +11,8 @@ export interface Profile {
   is_admin: boolean
   /** Signup-order membership number (#000001 = first user). */
   member_no?: number | null
+  /** Short self-description (≤160 chars), shown on the profile page. */
+  bio?: string | null
 }
 
 export type AttachType =

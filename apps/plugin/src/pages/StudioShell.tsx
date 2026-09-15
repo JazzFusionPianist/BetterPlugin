@@ -45,6 +45,11 @@ import { AudioAttachment, AudioEngineContext, ScheduleChip, looksLikeSchedule, t
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { AttachmentTimelineMetadata, ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
+import ProfilePage from '../components/studio/ProfilePage'
+import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
+import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
+import type { GameId } from '../components/collab/GameListView'
+import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
 
 interface Props { supabase: SupabaseClient; user: User }
@@ -53,6 +58,8 @@ type Sel =
   | { kind: 'dm'; userId: string }
   | { kind: 'group'; conversationId: string }
   | { kind: 'me' }
+  | { kind: 'profile'; userId: string }
+  | { kind: 'settings' }
 
 type Tab = 'chat' | 'stems' | 'calendar' | 'notes'
 
@@ -653,6 +660,72 @@ function Avatar({ color, label, group, avatarUrl, dot }: {
   )
 }
 
+/** Four dots — the die face that stands for the games room. */
+function DiceGlyph({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+      <circle cx="3.5" cy="3.5" r="1.45" /><circle cx="8.5" cy="3.5" r="1.45" />
+      <circle cx="3.5" cy="8.5" r="1.45" /><circle cx="8.5" cy="8.5" r="1.45" />
+    </svg>
+  )
+}
+
+function SearchGlyph() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="6.8" cy="6.8" r="4.3" />
+      <path d="M10.2 10.2L14 14" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function GearGlyph() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.6" />
+      <path d="M8 1.5v2.2M8 12.3v2.2M1.5 8h2.2M12.3 8h2.2M3.4 3.4l1.6 1.6M11 11l1.6 1.6M3.4 12.6L5 11M11 5l1.6-1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** In-chat game invite — an admission ticket, not a bubble: the game
+ *  on the stub, the line on the body, one word to go. Joining hands the
+ *  room to the shell, which opens the wall. */
+function StudioInviteTicket({ roomId, gameType, isMine, senderName, onJoin }: {
+  roomId: string
+  gameType: string
+  isMine: boolean
+  senderName: string
+  onJoin: (gameType: string, roomId: string) => Promise<JoinResult>
+}) {
+  const gameName = useGameName()
+  const [busy, setBusy] = useState(false)
+  const [state, setState] = useState<null | 'full' | 'missing'>(null)
+  const go = async () => {
+    if (busy) return
+    setBusy(true)
+    const r = await onJoin(gameType, roomId)
+    setBusy(false)
+    if (r === 'full' || r === 'missing') setState(r)
+  }
+  return (
+    <div className="wd-ticket">
+      <span className="wd-ticket-stub"><span className="wd-ticket-game">{gameName(gameType)}</span></span>
+      <span className="wd-ticket-body">
+        <span className="wd-ticket-line">{isMine ? 'you sent an invite' : `${senderName} invited you`}</span>
+        {state && (
+          <span className="wd-ticket-state">{state === 'full' ? 'the room is full' : 'the room has closed'}</span>
+        )}
+      </span>
+      {!state && (
+        <button className="wd-word acc wd-ticket-act" disabled={busy} onClick={() => void go()}>
+          {busy ? '…' : isMine ? 'open' : 'join'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** The greenroom mark — a small room (rounded-square outline, hairline
  *  ink) with the green presence dot inside. Quiet on purpose. */
 function BrandMark() {
@@ -1106,6 +1179,17 @@ function StudioShellInner({ supabase, user }: Props) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
 
+  // ── games — the wall sets into the main pane; a live room stays
+  // mounted (hidden) while the player answers a chat ──────────────────
+  const [gameScreen, setGameScreen] = useState<GameScreen | null>(null)
+  const [gameShown, setGameShown] = useState(false)
+  const [gameJoinNonce, setGameJoinNonce] = useState(0)
+  const [gameInviteConv, setGameInviteConv] = useState<string | null>(null)
+  const gameName = useGameName()
+
+  // people search in the rail — null = closed
+  const [peopleQuery, setPeopleQuery] = useState<string | null>(null)
+
   // Minute tick — re-splits the upcoming lists and advances the
   // "in the studio / 2h" elapsed labels while the plugin sits open.
   const [nowTick, setNowTick] = useState(() => Date.now())
@@ -1114,10 +1198,10 @@ function StudioShellInner({ supabase, user }: Props) {
     return () => clearInterval(t)
   }, [])
 
-  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles } = useProfiles(supabase, user.id)
+  const { profiles, me, loading: profilesLoading, refetch: refetchProfiles, updateMe } = useProfiles(supabase, user.id)
   const onlineIds = usePresence(supabase, user.id)
   const studioAt = useStudioPresence(supabase, user.id)
-  const { mutualIds } = useFollows(supabase, user.id)
+  const { mutualIds, followingIds, followerIds, follow, unfollow } = useFollows(supabase, user.id)
   const { conversations, groupConversations } = useConversations(supabase, user.id)
   const { unread: convUnread, lastMessages: convLastMessages, markSeen } = useConversationNotifications(supabase, user.id)
 
@@ -1170,7 +1254,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ── active chat ─────────────────────────────────────────────────────
   const chatTarget: ChatTarget | null = useMemo(() => {
-    if (!sel || sel.kind === 'me') return null
+    if (!sel || (sel.kind !== 'dm' && sel.kind !== 'group')) return null
     return sel.kind === 'dm'
       ? { kind: 'dm', otherUserId: sel.userId }
       : { kind: 'group', conversationId: sel.conversationId }
@@ -1986,7 +2070,8 @@ function StudioShellInner({ supabase, user }: Props) {
   const openSel = useCallback((next: Sel) => {
     setSel(next)
     setTab('chat')
-    if (next.kind === 'me') return
+    setGameShown(false)
+    if (next.kind !== 'dm' && next.kind !== 'group') return
     const cid = next.kind === 'group'
       ? next.conversationId
       : dmConvByPartner.get(next.userId)?.conversationId
@@ -1997,7 +2082,72 @@ function StudioShellInner({ supabase, user }: Props) {
     (sel.kind === 'dm' && s.kind === 'dm' && sel.userId === s.userId)
     || (sel.kind === 'group' && s.kind === 'group' && sel.conversationId === s.conversationId)
     || (sel.kind === 'me' && s.kind === 'me')
+    || (sel.kind === 'profile' && s.kind === 'profile' && sel.userId === s.userId)
+    || (sel.kind === 'settings' && s.kind === 'settings')
   )
+
+  // ── games wiring — CollabPage's block, verbatim in spirit ───────────
+  const openGames = useCallback((invite: string | null = null) => {
+    setGameInviteConv(invite)
+    setGameScreen(prev => (invite ? 'list' : (prev ?? 'list')))
+    setGameShown(true)
+  }, [])
+  const closeGames = useCallback(() => { setGameShown(false); setGameInviteConv(null) }, [])
+  const selectGame = useCallback(async (g: GameId) => {
+    // Everything async runs BEFORE the screen switch; the finally
+    // guarantees the game opens no matter what.
+    try {
+      if (SOLO_GAMES.has(g)) return
+      if (!gameInviteConv) {
+        const { findActiveGame } = await import('../lib/gameRooms')
+        const active = await findActiveGame(supabase, user.id)
+        if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
+      } else {
+        // Invite path — make the room, drop the ticket into the chat,
+        // walk into the lobby.
+        const { createGameRoom } = await import('../lib/gameRooms')
+        const roomId = await createGameRoom(supabase, g as GameType, user.id)
+        if (roomId) {
+          await send('', { url: roomId, type: 'game_invite', name: g })
+          sessionStorage.setItem('join_room_id', roomId)
+        }
+      }
+    } catch (err) {
+      console.error('[selectGame]', err)
+    } finally {
+      setGameInviteConv(null)
+      setGameJoinNonce(n => n + 1)
+      setGameScreen(g)
+    }
+  }, [gameInviteConv, supabase, user.id, send])
+  const joinGameInvite = useCallback(async (gameType: string, roomId: string): Promise<JoinResult> => {
+    const { joinGameRoom } = await import('../lib/gameRooms')
+    const type = gameType as GameType
+    const result = await joinGameRoom(supabase, type, roomId, user.id, { onlineIds })
+    if (result === 'joined' || result === 'already-in') {
+      sessionStorage.setItem('join_room_id', roomId)
+      // Views read join_room_id on MOUNT — a fresh key makes sure of it.
+      setGameJoinNonce(n => n + 1)
+      setGameInviteConv(null)
+      setGameScreen(type as GameScreen)
+      setGameShown(true)
+    }
+    return result
+  }, [supabase, user.id, onlineIds])
+
+  // rail search — @handle first, then names; anyone on orb, not just friends
+  const searchResults = useMemo(() => {
+    const q = (peopleQuery ?? '').trim().toLowerCase().replace(/^@/, '')
+    if (!q) return []
+    return profilesWithStatus
+      .filter(p => (p.username ?? '').includes(q) || p.display_name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const au = (a.username ?? '').startsWith(q) ? 0 : 1
+        const bu = (b.username ?? '').startsWith(q) ? 0 : 1
+        return au - bu || a.display_name.localeCompare(b.display_name)
+      })
+      .slice(0, 12)
+  }, [peopleQuery, profilesWithStatus])
 
   // Read receipts, iMessage-style (ported from ChatView): each reader is
   // anchored to the LATEST of my messages their last_seen_at covers.
@@ -2073,11 +2223,12 @@ function StudioShellInner({ supabase, user }: Props) {
       const pieces: ReactNode[] = []
       const tailCls = () => (first && pieces.length === 0 ? ' tail' : '')
       if (m.attachment_type === 'game_invite') {
-        pieces.push(
-          <div key="att" className="wd-file">
-            <i>◳</i><span>game invite</span><small>{m.attachment_name ?? ''}</small>
-          </div>,
-        )
+        if (m.attachment_url && m.attachment_name) {
+          pieces.push(
+            <StudioInviteTicket key="att" roomId={m.attachment_url} gameType={m.attachment_name}
+              isMine={isMine} senderName={senderP?.display_name ?? '…'} onJoin={joinGameInvite} />,
+          )
+        }
       } else if (m.attachment_type) {
         if (m.attachment_expired) {
           pieces.push(<div key="att" className="wd-expired">file expired (7 days)</div>)
@@ -2189,7 +2340,7 @@ function StudioShellInner({ supabase, user }: Props) {
     }
     return rows
   }, [messages, user.id, profileById, readersByMsgId, selectedGroup, chipDone,
-    activeConvId, supabase, saveChatEvents, markChipDone])
+    activeConvId, supabase, saveChatEvents, markChipDone, joinGameInvite])
 
   const myName = me?.display_name ?? user.email?.split('@')[0] ?? 'me'
   const nameOf = useCallback((id: string | null): string => {
@@ -2209,8 +2360,20 @@ function StudioShellInner({ supabase, user }: Props) {
 
         {/* ── rail ─────────────────────────────────────────────── */}
         <div className="wd-rail">
-          <div className="wd-brand"><BrandMark />orb</div>
+          <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}>
+            <BrandMark />orb
+          </div>
           <div className="wd-rail-scroll">
+            <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>
+              <span className="wd-av tile"><DiceGlyph /></span>
+              <span className="wd-rname">
+                <b>games</b>
+                {gameScreen && gameScreen !== 'list' && !gameShown && (
+                  <span className="play">{gameName(gameScreen)} in play</span>
+                )}
+              </span>
+            </div>
             <div className="wd-sec">projects</div>
             {groupConversations.map(g => {
               const s: Sel = { kind: 'group', conversationId: g.conversationId }
@@ -2235,8 +2398,46 @@ function StudioShellInner({ supabase, user }: Props) {
                 <span className="wd-rname"><span>no projects yet</span></span>
               </div>
             )}
-            <div className="wd-sec">people</div>
-            {friendProfiles.map(p => {
+            {peopleQuery === null ? (
+              <div className="wd-sec people">
+                <span>people</span>
+                <button className="wd-sec-search" onClick={() => setPeopleQuery('')} aria-label="find people" title="find people">
+                  <SearchGlyph />
+                </button>
+              </div>
+            ) : (
+              <div className="wd-search">
+                <span className="wd-search-at">@</span>
+                <input className="wd-search-in" value={peopleQuery} autoFocus spellCheck={false}
+                  placeholder="username"
+                  onChange={e => setPeopleQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') setPeopleQuery(null) }} />
+                <button className="wd-search-x" onClick={() => setPeopleQuery(null)} aria-label="close search">✕</button>
+              </div>
+            )}
+            {peopleQuery !== null && (
+              peopleQuery.trim() === ''
+                ? <div className="wd-search-none">type a username</div>
+                : searchResults.length === 0
+                  ? <div className="wd-search-none">no one by that name</div>
+                  : searchResults.map(p => {
+                    const s: Sel = { kind: 'profile', userId: p.id }
+                    return (
+                      <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
+                        <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
+                          dot={p.isOnline ? 'on' : undefined} />
+                        <span className="wd-rname">
+                          <b>{p.display_name}</b>
+                          <span className="handle">
+                            {p.username ? `@${p.username}` : ''}
+                            {mutualIds.has(p.id) ? '  friends' : followerIds.has(p.id) ? '  follows you' : followingIds.has(p.id) ? '  following' : ''}
+                          </span>
+                        </span>
+                      </div>
+                    )
+                  })
+            )}
+            {peopleQuery === null && friendProfiles.map(p => {
               const s: Sel = { kind: 'dm', userId: p.id }
               const conv = dmConvByPartner.get(p.id)
               const unread = conv ? (convUnread.get(conv.conversationId) ?? 0) : 0
@@ -2256,16 +2457,23 @@ function StudioShellInner({ supabase, user }: Props) {
                 </div>
               )
             })}
-            {friendProfiles.length === 0 && !profilesLoading && (
+            {peopleQuery === null && friendProfiles.length === 0 && !profilesLoading && (
               <div className="wd-row" style={{ cursor: 'default' }}>
                 <span className="wd-rname"><span>follow someone to start</span></span>
               </div>
             )}
           </div>
-          <div className={`wd-rail-foot${sel?.kind === 'me' ? ' on' : ''}`} onClick={() => openSel({ kind: 'me' })}>
-            <Avatar color={me?.avatar_color ?? '#1A1917'} label={(me?.initials ?? myName).slice(0, 1)}
-              avatarUrl={me?.avatar_url} dot="studio" />
-            <span>{myName}</span>
+          <div className={`wd-rail-foot${sel?.kind === 'profile' && sel.userId === user.id ? ' on' : ''}`}>
+            <span className="wd-foot-me" onClick={() => openSel({ kind: 'profile', userId: user.id })} role="button" tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter') openSel({ kind: 'profile', userId: user.id }) }}>
+              <Avatar color={me?.avatar_color ?? '#1A1917'} label={(me?.initials ?? myName).slice(0, 1)}
+                avatarUrl={me?.avatar_url} dot="studio" />
+              <span>{myName}</span>
+            </span>
+            <button className={`wd-foot-gear${sel?.kind === 'settings' ? ' on' : ''}`}
+              onClick={() => openSel({ kind: 'settings' })} aria-label="settings" title="settings">
+              <GearGlyph />
+            </button>
           </div>
         </div>
 
@@ -2296,6 +2504,23 @@ function StudioShellInner({ supabase, user }: Props) {
             onEnded={() => { setNpPlaying(false); setNpCur(0) }}
             onError={npRecoverExpired}
           />
+          {gameScreen !== null && (
+            <GamesPane
+              hidden={!gameShown}
+              supabase={supabase}
+              userId={user.id}
+              me={me}
+              friendProfiles={friendProfiles}
+              onlineIds={onlineIds}
+              screen={gameScreen}
+              joinNonce={gameJoinNonce}
+              inviteConversationId={gameInviteConv}
+              onSelectGame={g => { void selectGame(g) }}
+              onBackToList={() => { setGameScreen('list'); setGameInviteConv(null) }}
+              onClose={closeGames}
+              headline={gameInviteConv ? (headerTitle || 'this chat') : undefined}
+            />
+          )}
           {dragOver && activeConvId && sel && sel.kind !== 'me' && (
             <div className={`wd-drop${dragKind === 'cancel' ? ' cancel' : ''}`}>
               <div className="wd-drop-card">
@@ -2363,7 +2588,37 @@ function StudioShellInner({ supabase, user }: Props) {
               </div>
             </div>
           )}
-          {sel?.kind === 'me' ? (
+          {sel?.kind === 'settings' ? (
+            <>
+              <div className="wd-head plain">
+                <div className="wd-title">settings</div>
+                <div className="wd-sub">orb chat {APP_VERSION}</div>
+              </div>
+              <SettingsPage supabase={supabase} user={user} />
+            </>
+          ) : sel?.kind === 'profile' ? (
+            (() => {
+              const isMine = sel.userId === user.id
+              const p = isMine ? (me ? { ...me, isOnline: true } : null) : (profileById.get(sel.userId) ?? null)
+              if (!p) return <div className="wd-quiet">…</div>
+              return (
+                <ProfilePage
+                  key={p.id}
+                  supabase={supabase}
+                  user={user}
+                  profile={p}
+                  isMine={isMine}
+                  following={followingIds.has(p.id)}
+                  follower={followerIds.has(p.id)}
+                  onFollow={() => follow(p.id)}
+                  onUnfollow={() => unfollow(p.id)}
+                  onMessage={() => openSel({ kind: 'dm', userId: p.id })}
+                  onUpdated={() => { void refetchProfiles() }}
+                  updateMe={isMine ? updateMe : undefined}
+                />
+              )
+            })()
+          ) : sel?.kind === 'me' ? (
             /* my calendar — the personal programme, fuller. The prompt
                lives on the home pane now. */
             <>
@@ -2389,7 +2644,8 @@ function StudioShellInner({ supabase, user }: Props) {
                         : (selectedGroup.title || 'G').slice(0, 1)}
                     </span>
                   ) : selectedProfile ? (
-                    <span className="wd-hav" style={{ background: selectedProfile.avatar_color }}>
+                    <span className="wd-hav click" style={{ background: selectedProfile.avatar_color }}
+                      onClick={() => openSel({ kind: 'profile', userId: selectedProfile.id })} role="button" title="profile">
                       {selectedProfile.avatar_url
                         ? <img src={selectedProfile.avatar_url} alt="" />
                         : selectedProfile.initials.slice(0, 1)}
@@ -2483,6 +2739,8 @@ function StudioShellInner({ supabase, user }: Props) {
                       onChange={e => { void onFilesPicked(e.target.files); if (e.target) e.target.value = '' }}
                     />
                     <button className="wd-attach" onClick={() => fileRef.current?.click()} aria-label="attach a file">+</button>
+                    <button className="wd-gameinv" onClick={() => { if (activeConvId) openGames(activeConvId) }}
+                      aria-label="invite to a game" title="invite to a game"><DiceGlyph size={11} /></button>
                     <textarea
                       ref={taRef}
                       rows={1}
@@ -2599,6 +2857,7 @@ function StudioShellInner({ supabase, user }: Props) {
                 </div>
               )}
               <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
+              <button className="wd-word sm wd-home-more" onClick={() => openSel({ kind: 'me' })}>my calendar</button>
             </div>
           )}
         </div>

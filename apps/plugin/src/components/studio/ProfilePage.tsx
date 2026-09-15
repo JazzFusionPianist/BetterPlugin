@@ -89,6 +89,18 @@ function useReleases(supabase: SupabaseClient, ownerId: string) {
 const yearOf = (r: ReleaseRow) =>
   r.released_on ? String(new Date(r.released_on + 'T00:00:00').getFullYear()) : String(new Date(r.created_at).getFullYear())
 
+/** The approval mark — an admin has checked this line. Accent disc,
+ *  paper check, sized to the line's cap height. */
+function ApprovedMark() {
+  return (
+    <svg className="wd-cred-mark" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-label="approved by orb">
+      <title>approved by orb</title>
+      <circle cx="12" cy="12" r="12" fill="var(--acc)" />
+      <path d="M6.8 12.6l3.4 3.4 7-7.2" stroke="#FBFAF7" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 /* ── credit line editor (add + edit share it) ───────────────────────── */
 
 interface CreditDraft { work: string; artist: string; part: string; year: string; link: string }
@@ -404,6 +416,7 @@ export default function ProfilePage({
                       ? <a href={c.link} onClick={e => { e.preventDefault(); void openExternalUrl(c.link!) }}>{c.work}</a>
                       : c.work}
                     {c.artist && <span className="wd-cred-artist"> {c.artist}</span>}
+                    {c.status === 'approved' && <ApprovedMark />}
                   </span>
                   <span className="wd-cred-sub">
                     <span className="wd-cred-part">{c.part}</span>

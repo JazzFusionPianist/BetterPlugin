@@ -681,11 +681,12 @@
   padding: 10px 2px 9px; border-bottom: 1px solid rgba(26,25,23,.08); }
 .wd-cred-no { font-size: 10.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
 .wd-cred-main { min-width: 0; }
-.wd-cred-work { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15.5px; line-height: 1.3; color: #1A1917; }
+.wd-cred-work { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; color: #1A1917; }
 .wd-cred-work a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(26,25,23,.3); }
 .wd-cred-work a:hover { text-decoration-color: currentColor; }
-.wd-cred-artist { font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
-  font-size: 12px; color: #6E6B63; }
+.wd-cred-artist { font-weight: 600; color: #6E6B63; }
+.wd-cred-mark { display: inline-block; vertical-align: -1px; margin-left: 7px; }
 .wd-cred-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-top: 2px; font-size: 11px; color: #6E6B63; }
 .wd-cred-year { color: #A5A199; font-variant-numeric: tabular-nums; }
 .wd-cred-state { font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-style: italic; color: var(--acc); }
@@ -700,8 +701,8 @@
   border-bottom: 1px solid rgba(26,25,23,.18); font-family: inherit; font-size: 12.5px; color: #1A1917; }
 .wd-cred-in:focus { border-bottom-color: rgba(26,25,23,.5); }
 .wd-cred-in::placeholder { color: #C0BCB3; }
-.wd-cred-in.work { flex: 1.4 1 0; font-family: 'Instrument Serif', 'Pretendard Variable', serif; font-size: 15px; }
-.wd-cred-in.work::placeholder { font-style: italic; }
+.wd-cred-in.work { flex: 1.4 1 0; font-weight: 600; }
+.wd-cred-in.work::placeholder { font-weight: 400; }
 .wd-cred-in.year { flex: 0 0 52px; font-variant-numeric: tabular-nums; }
 .wd-cred-form-acts { display: flex; align-items: baseline; gap: 16px; margin-top: 12px; }
 .wd-cred-form-fine { margin-left: auto; font-family: 'Instrument Serif', 'Pretendard Variable', serif;

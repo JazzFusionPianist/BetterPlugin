@@ -86,6 +86,27 @@ void OrbAudioProcessorEditor::resized()
     if (auto* b = processorRef.getBrowser())
         b->setBounds (getLocalBounds());
 
+    // The host may simply not follow a growth (Logic keeps its window and
+    // scales the view instead). Look again shortly: if the window is still
+    // narrower than we are, take the window's width.
+    {
+        juce::Component::SafePointer<OrbAudioProcessorEditor> safe (this);
+        juce::Timer::callAfterDelay (250, [safe]
+        {
+            auto* c = safe.getComponent();
+            if (c == nullptr) return;
+            auto* peer = c->getPeer();
+            if (peer == nullptr) return;
+            const int hostW = peer->getBounds().getWidth();
+            const int hostH = peer->getBounds().getHeight();
+            auto f = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Orb/sounds.log");
+            f.appendText (juce::Time::getCurrentTime().toString (true, true) + "  check editor " + c->getLocalBounds().toString()
+                          + "  host " + peer->getBounds().toString() + "\n");
+            if (hostW >= kMinWidth && (hostW < c->getWidth() - 2 || hostH < c->getHeight() - 2))
+                c->setSize (juce::jmin (c->getWidth(), hostW), juce::jmin (c->getHeight(), hostH));
+        });
+    }
+
     // Remember the size so reopening the window (and reloading the
     // session) comes back at the user's chosen size.
     processorRef.editorW.store (getWidth());

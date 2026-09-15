@@ -3,6 +3,7 @@ import FxWall from '../components/collab/FxWall'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
+import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
 import './collab.css'
 
 /** Orb Sounds — the one-knob fx chain as its own plugin. No account, no
@@ -41,6 +42,18 @@ export default function SoundsPage() {
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)
     return () => ro.disconnect()
+  }, [])
+  // layout diagnostics (plugin only, twice after mount): every box that
+  // could leave a strip at the foot of the window
+  useEffect(() => {
+    if (!hasJuceBridge || !hasJuceNativeFunction('orbLog')) return
+    const box = (sel: string) => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${Math.round(r.top)}-${Math.round(r.bottom)}` : '-' }
+    const report = (why: string) => {
+      const msg = `${why} inner ${window.innerWidth}x${window.innerHeight} html ${document.documentElement.clientHeight}/${document.documentElement.scrollHeight} body ${document.body.clientHeight} root ${box('#root')} plugin ${box('.plugin')} content ${box('.plugin > .content')} view ${box('.fxview')} frame ${box('.sg-frame')} left ${box('.sg-left')} wall ${box('.sg-wall')} shelf ${box('.sg-shelf')} study ${box('.sg-study')} topbar ${box('.plugin > .top-bar')} pluginDisplay ${getComputedStyle(document.querySelector('.plugin')!).display} pluginH ${getComputedStyle(document.querySelector('.plugin')!).height}`
+      void callJuceNative('orbLog', [msg]).catch(() => {})
+    }
+    const t1 = setTimeout(() => report('t+1s'), 1000), t2 = setTimeout(() => report('t+4s'), 4000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
   const cls = ['plugin', 'sounds', 'fx-open', (fill && wide) ? 'screen-wide' : ''].filter(Boolean).join(' ')
   const style = (fill ? { width: '100%', height: '100%' } : {}) as CSSProperties

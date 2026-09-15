@@ -173,6 +173,18 @@ OrbAudioProcessor::OrbAudioProcessor()
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleSavePresetDialog (a, std::move (done)); })
             .withNativeFunction ("openPresetDialog",
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleOpenPresetDialog (a, std::move (done)); })
+            .withNativeFunction ("orbLog",
+                [] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    // layout diagnostics from the page → ~/Library/Logs/Orb/sounds.log
+                    if (auto* arr = a.getArray(); arr != nullptr && ! arr->isEmpty())
+                    {
+                        auto f = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Orb/sounds.log");
+                        f.getParentDirectory().createDirectory();
+                        f.appendText (juce::Time::getCurrentTime().toString (true, true) + "  page  " + arr->getReference (0).toString() + "\n");
+                    }
+                    done (juce::var (true));
+                })
             .withNativeFunction ("getGraph",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)

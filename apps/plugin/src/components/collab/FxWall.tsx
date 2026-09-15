@@ -673,39 +673,36 @@ export default function FxWall ({ size: frame }: Props) {
     ctx.fillRect(lx - reach, ly - reach, reach * 2, reach * 2)
   }
   // the study's own lamp: the chosen print lit exactly as on the wall,
-  // breathing with the same signal (a small canvas behind the big print)
-  const studyLamp = useRef<HTMLCanvasElement>(null)
+  // breathing with the same signal — painted as a CSS gradient on the
+  // pane itself (a canvas there mis-sized inside one host's WebView)
+  const studyRef = useRef<HTMLElement>(null)
   useEffect(() => {
     if (!studyOpen) return
     let raf = 0
     const tick = () => {
-      const c = studyLamp.current
+      const el = studyRef.current
       const id = sel?.node
-      if (c && id !== undefined) {
+      if (el && id !== undefined) {
         const n = graphRef.current.nodes.find(x => x.id === id)
-        const dpr = Math.min(2, window.devicePixelRatio || 1)
-        const W = c.clientWidth, H = c.clientHeight
-        if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr) }
-        const ctx = c.getContext('2d')
-        if (ctx && n) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-          ctx.clearRect(0, 0, W, H)
-          const st = n.type !== FX_MIX_TYPE ? lamps.current.get(n.id) : undefined
-          if (st && st.k > 0.005) {
-            const p = c.parentElement?.querySelector('.sg-study-print') as HTMLElement | null
-            const pr = p?.getBoundingClientRect(), cr = c.getBoundingClientRect()
-            const cx = pr && cr ? pr.left - cr.left + pr.width / 2 : W / 2
-            const cy = pr && cr ? pr.top - cr.top + pr.height * 0.42 : H / 2
-            ctx.globalCompositeOperation = 'screen'
-            paintPool(ctx, cx, cy, tintOf(n.type, n.variant), st.k, (STUDY_PRINT / 2) * (2.4 + Math.min(1, intensityOf(n)) * 3.6))
-            ctx.globalCompositeOperation = 'source-over'
-          }
+        const st = n && n.type !== FX_MIX_TYPE ? lamps.current.get(n.id) : undefined
+        if (n && st && st.k > 0.005) {
+          const p = el.querySelector('.sg-study-print') as HTMLElement | null
+          const er = el.getBoundingClientRect(), pr = p?.getBoundingClientRect()
+          const cx = pr ? pr.left - er.left + pr.width / 2 : er.width / 2
+          const cy = pr ? pr.top - er.top + pr.height * 0.42 : er.height / 2
+          const t = tintOf(n.type, n.variant)
+          const a = st.k
+          const reach = (STUDY_PRINT / 2) * (2.4 + Math.min(1, intensityOf(n)) * 3.6)
+          const c = (k: number) => `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(k * a).toFixed(3)})`
+          el.style.background = `radial-gradient(${Math.round(reach)}px circle at ${Math.round(cx)}px ${Math.round(cy)}px, ${c(1)} 0%, ${c(0.66)} 22%, ${c(0.32)} 42%, ${c(0.1)} 70%, rgba(${t[0]}, ${t[1]}, ${t[2]}, 0) 100%), var(--fx-wall, #161410)`
+        } else {
+          el.style.background = ''
         }
       }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    return () => { cancelAnimationFrame(raf); if (studyRef.current) studyRef.current.style.background = '' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studyOpen, sel?.node])
 
@@ -1051,8 +1048,7 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(
-      <aside className="sg-study" style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
-        <canvas ref={studyLamp} className="sg-study-lamp" />
+      <aside ref={studyRef} className="sg-study" style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>

@@ -661,6 +661,54 @@ export default function FxWall ({ size: frame }: Props) {
   const lamps = useRef<Map<number, { k: number; reach: number }>>(new Map())
   const lastFrame = useRef(performance.now())
 
+  /** One lamp's pool of light, as the wall paints it. */
+  const paintPool = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number) => {
+    const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, reach)
+    g.addColorStop(0,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${Math.min(1, 1.0 * a).toFixed(3)})`)
+    g.addColorStop(0.22, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.66 * a).toFixed(3)})`)
+    g.addColorStop(0.42, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.32 * a).toFixed(3)})`)
+    g.addColorStop(0.7,  `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.1 * a).toFixed(3)})`)
+    g.addColorStop(1,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, 0)`)
+    ctx.fillStyle = g
+    ctx.fillRect(lx - reach, ly - reach, reach * 2, reach * 2)
+  }
+  // the study's own lamp: the chosen print lit exactly as on the wall,
+  // breathing with the same signal (a small canvas behind the big print)
+  const studyLamp = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    if (!studyOpen) return
+    let raf = 0
+    const tick = () => {
+      const c = studyLamp.current
+      const id = sel?.node
+      if (c && id !== undefined) {
+        const n = graphRef.current.nodes.find(x => x.id === id)
+        const dpr = Math.min(2, window.devicePixelRatio || 1)
+        const W = c.clientWidth, H = c.clientHeight
+        if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr) }
+        const ctx = c.getContext('2d')
+        if (ctx && n) {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+          ctx.clearRect(0, 0, W, H)
+          const st = n.type !== FX_MIX_TYPE ? lamps.current.get(n.id) : undefined
+          if (st && st.k > 0.005) {
+            const p = c.parentElement?.querySelector('.sg-study-print') as HTMLElement | null
+            const pr = p?.getBoundingClientRect(), cr = c.getBoundingClientRect()
+            const cx = pr && cr ? pr.left - cr.left + pr.width / 2 : W / 2
+            const cy = pr && cr ? pr.top - cr.top + pr.height * 0.42 : H / 2
+            ctx.globalCompositeOperation = 'screen'
+            paintPool(ctx, cx, cy, tintOf(n.type, n.variant), st.k, (STUDY_PRINT / 2) * (1.9 + Math.min(1, intensityOf(n)) * 3.2))
+            ctx.globalCompositeOperation = 'source-over'
+          }
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studyOpen, sel?.node])
+
   const backdropRef = useRef<(ctx: CanvasRenderingContext2D) => void>(() => {})
   backdropRef.current = (ctx) => {
     const now = performance.now()
@@ -692,17 +740,8 @@ export default function FxWall ({ size: frame }: Props) {
       const c = toScreen(n)
       const t = tintOf(n.type, n.variant)
       // the lamp hangs above the print: the pool leans up
-      const lx = c.x, ly = c.y - Rz * 0.35
-      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, st.reach)
-      const a = st.k
       // a hot core and a long tail — light, not a disc
-      g.addColorStop(0,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${Math.min(1, 1.0 * a).toFixed(3)})`)
-      g.addColorStop(0.22, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.66 * a).toFixed(3)})`)
-      g.addColorStop(0.42, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.32 * a).toFixed(3)})`)
-      g.addColorStop(0.7,  `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.1 * a).toFixed(3)})`)
-      g.addColorStop(1,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, 0)`)
-      ctx.fillStyle = g
-      ctx.fillRect(lx - st.reach, ly - st.reach, st.reach * 2, st.reach * 2)
+      paintPool(ctx, c.x, c.y - Rz * 0.35, t, st.k, st.reach)
     }
     for (const id of [...lamps.current.keys()]) if (!seen.has(id)) lamps.current.delete(id)
     // in and out: two small paper lamps, so the ends of the wall are never dead
@@ -1013,6 +1052,7 @@ export default function FxWall ({ size: frame }: Props) {
     </div>
     {studyNode && (
       <aside className="sg-study" style={{ width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+        <canvas ref={studyLamp} className="sg-study-lamp" />
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>

@@ -10529,3 +10529,8 @@ text.sg-word { fill: var(--sg-ink-55); }
    room's base colour — nothing from underneath (the shelf's strip and
    its hairline) shows through any more */
 .sg-study { background: var(--fx-wall, #161410); -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* the study's containing block is the whole view (wall AND shelf), not
+   the frame — so its foot reaches the window's bottom in every host */
+.sg-frame { position: static; }
+.plugin.sounds .fxview { position: absolute; inset: 0; }
+.sg-study { top: 0; bottom: 0; right: 0; height: auto; }

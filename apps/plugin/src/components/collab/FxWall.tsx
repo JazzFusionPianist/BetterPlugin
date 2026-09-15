@@ -697,7 +697,7 @@ export default function FxWall ({ size: frame }: Props) {
             const cx = pr && cr ? pr.left - cr.left + pr.width / 2 : W / 2
             const cy = pr && cr ? pr.top - cr.top + pr.height * 0.42 : H / 2
             ctx.globalCompositeOperation = 'screen'
-            paintPool(ctx, cx, cy, tintOf(n.type, n.variant), st.k, (STUDY_PRINT / 2) * (1.9 + Math.min(1, intensityOf(n)) * 3.2))
+            paintPool(ctx, cx, cy, tintOf(n.type, n.variant), st.k, (STUDY_PRINT / 2) * (2.4 + Math.min(1, intensityOf(n)) * 3.6))
             ctx.globalCompositeOperation = 'source-over'
           }
         }

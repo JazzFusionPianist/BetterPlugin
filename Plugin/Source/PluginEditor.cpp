@@ -66,6 +66,23 @@ void OrbAudioProcessorEditor::paint (juce::Graphics& g)
 
 void OrbAudioProcessorEditor::resized()
 {
+    // Whoever asked for this width (a remembered size, the page's shared
+    // size, the grip) — it may not exceed the display this window is on,
+    // or the host scales the whole view down and leaves a strip below.
+    if (auto* peer = getPeer())
+    {
+        if (const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect (peer->getBounds()))
+        {
+            const int maxW = juce::jmax (kMinWidth, display->userArea.getWidth() - 80);
+            if (getWidth() > maxW)
+            {
+                auto f = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Orb/sounds.log");
+                f.appendText (juce::Time::getCurrentTime().toString (true, true) + "  clamp " + juce::String (getWidth()) + " -> " + juce::String (maxW) + "\n");
+                setSize (maxW, getHeight());   // re-enters resized() at the clamped width
+                return;
+            }
+        }
+    }
     if (auto* b = processorRef.getBrowser())
         b->setBounds (getLocalBounds());
 

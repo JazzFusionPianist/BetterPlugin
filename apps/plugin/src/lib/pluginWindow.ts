@@ -98,9 +98,15 @@ export async function adoptSharedWindowSize (): Promise<boolean> {
   if (window.innerHeight !== DEFAULT_H || (window.innerWidth !== DEFAULT_W && window.innerWidth !== freshW)) return false
   const s = readSharedSize()
   if (!s || (s.w === DEFAULT_W && s.h === DEFAULT_H)) return false
-  // the editor clamps to its own display once it has a window; asking for
-  // more than that only makes the host scale the view (Logic leaves a strip)
-  return setPluginSize(Math.min(s.w, maxW), s.h)
+  // the editor clamps to its own display; if the window came back narrower
+  // than asked, remember THAT so the next open does not ask again
+  const ok = await setPluginSize(Math.min(s.w, maxW), s.h)
+  setTimeout(() => {
+    if (Math.abs(window.innerWidth - Math.min(s.w, maxW)) > 2) {
+      try { localStorage.setItem(SHARED_SIZE_KEY, JSON.stringify({ w: window.innerWidth, h: window.innerHeight })) } catch { /* fine */ }
+    }
+  }, 400)
+  return ok
 }
 
 /** While a temporary grow is in effect (the wall's study), resizes are

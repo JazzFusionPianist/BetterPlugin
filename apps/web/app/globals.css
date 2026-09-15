@@ -2133,6 +2133,11 @@ button { font-family: inherit; }
 .pfolio-track.as-text { cursor: default; }
 
 /* ── Legal pages (/terms, /privacy) — booklet-page treatment ───────── */
+/* The app locks html/body (single-screen shell); a legal page is a
+   long document read in a browser tab, so the document scrolls here. */
+html:has(main.legal), html:has(main.legal) body {
+  height: auto; overflow: auto; overscroll-behavior: auto;
+}
 .legal {
   max-width: 680px; margin: 0 auto; padding: 56px 22px 80px;
   color: var(--ink); font-size: 14px; line-height: 1.6;

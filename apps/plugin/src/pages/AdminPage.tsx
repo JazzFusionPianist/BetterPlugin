@@ -862,6 +862,16 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
 }
 
 export default function AdminPage() {
+  // index.html pins html/body to the webview (overflow hidden — the
+  // plug-in never scrolls the document). The console is a long page
+  // read in a browser tab, so let the document scroll while it's up.
+  useEffect(() => {
+    const els = [document.documentElement, document.body]
+    const prev = els.map(el => [el.style.overflow, el.style.height, el.style.overscrollBehavior] as const)
+    for (const el of els) { el.style.overflow = 'auto'; el.style.height = 'auto'; el.style.overscrollBehavior = 'auto' }
+    return () => { els.forEach((el, i) => { [el.style.overflow, el.style.height, el.style.overscrollBehavior] = prev[i]! }) }
+  }, [])
+
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 

@@ -10534,3 +10534,7 @@ text.sg-word { fill: var(--sg-ink-55); }
 .sg-frame { position: static; }
 .plugin.sounds .fxview { position: absolute; inset: 0; }
 .sg-study { top: 0; bottom: 0; right: 0; height: auto; }
+
+/* the study lives on the plugin root now (portal): top to bottom of the
+   window, whatever the wall's own boxes do inside any host */
+.plugin.sounds > .sg-study { position: absolute; top: 0; right: 0; bottom: 0; height: auto; z-index: 120; }

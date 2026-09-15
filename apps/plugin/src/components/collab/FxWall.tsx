@@ -1050,8 +1050,8 @@ export default function FxWall ({ size: frame }: Props) {
         ))}
       </div>
     </div>
-    {studyNode && (
-      <aside className="sg-study" style={{ width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+    {studyNode && topBar?.parentElement && createPortal(
+      <aside className="sg-study" style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <canvas ref={studyLamp} className="sg-study-lamp" />
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
@@ -1108,7 +1108,8 @@ export default function FxWall ({ size: frame }: Props) {
             ))}
           </div>
         )}
-      </aside>
+      </aside>,
+      topBar.parentElement,
     )}
     </div>
     </StrokeLevel.Provider>

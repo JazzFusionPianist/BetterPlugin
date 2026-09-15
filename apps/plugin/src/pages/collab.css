@@ -10525,3 +10525,7 @@ text.sg-word { fill: var(--sg-ink-55); }
 /* (the lamp rule above made every child `position: relative` — pin the
     head again, harder, with its two words apart) */
 .sg-study > .sg-study-head { position: absolute; top: 22px; left: 24px; right: 24px; width: auto; display: flex; justify-content: space-between; align-items: baseline; z-index: 1; }
+/* the study is its own wall now (it has its own lamp): opaque, the
+   room's base colour — nothing from underneath (the shelf's strip and
+   its hairline) shows through any more */
+.sg-study { background: var(--fx-wall, #161410); -webkit-backdrop-filter: none; backdrop-filter: none; }

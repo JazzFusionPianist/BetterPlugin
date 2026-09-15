@@ -98,6 +98,8 @@ export async function adoptSharedWindowSize (): Promise<boolean> {
   if (window.innerHeight !== DEFAULT_H || (window.innerWidth !== DEFAULT_W && window.innerWidth !== freshW)) return false
   const s = readSharedSize()
   if (!s || (s.w === DEFAULT_W && s.h === DEFAULT_H)) return false
+  // the editor clamps to its own display once it has a window; asking for
+  // more than that only makes the host scale the view (Logic leaves a strip)
   return setPluginSize(Math.min(s.w, maxW), s.h)
 }
 

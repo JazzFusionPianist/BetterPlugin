@@ -3,7 +3,6 @@ import FxWall from '../components/collab/FxWall'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
-import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
 import './collab.css'
 
 /** Orb Sounds — the one-knob fx chain as its own plugin. No account, no
@@ -42,20 +41,6 @@ export default function SoundsPage() {
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)
     return () => ro.disconnect()
-  }, [])
-  // layout diagnostics (plugin only): what the page thinks its box is
-  useEffect(() => {
-    if (!hasJuceBridge || !hasJuceNativeFunction('orbLog')) return
-    const report = (why: string) => {
-      const pl = document.querySelector('.plugin')?.getBoundingClientRect()
-      const st = document.querySelector('.sg-study')?.getBoundingClientRect()
-      const msg = `${why} inner ${window.innerWidth}x${window.innerHeight} doc ${document.documentElement.clientWidth}x${document.documentElement.clientHeight} body ${document.body.clientHeight} root ${document.getElementById('root')?.clientHeight} plugin ${pl ? `${Math.round(pl.width)}x${Math.round(pl.height)}@${Math.round(pl.top)}` : '-'} study ${st ? `${Math.round(st.height)}@${Math.round(st.top)}` : '-'} dpr ${window.devicePixelRatio} vv ${window.visualViewport?.height ?? '-'}`
-      void callJuceNative('orbLog', [msg]).catch(() => {})
-    }
-    report('mount'); const t = setTimeout(() => report('mount+2s'), 2000)
-    const onR = () => report('resize')
-    window.addEventListener('resize', onR)
-    return () => { clearTimeout(t); window.removeEventListener('resize', onR) }
   }, [])
   const cls = ['plugin', 'sounds', 'fx-open', (fill && wide) ? 'screen-wide' : ''].filter(Boolean).join(' ')
   const style = (fill ? { width: '100%', height: '100%' } : {}) as CSSProperties

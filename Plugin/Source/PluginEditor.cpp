@@ -69,16 +69,6 @@ void OrbAudioProcessorEditor::resized()
     if (auto* b = processorRef.getBrowser())
         b->setBounds (getLocalBounds());
 
-    // layout diagnostics → ~/Library/Logs/Orb/sounds.log
-    {
-        auto f = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Orb/sounds.log");
-        f.getParentDirectory().createDirectory();
-        juce::String peer = "no peer";
-        if (auto* p = getPeer()) peer = p->getBounds().toString();
-        f.appendText (juce::Time::getCurrentTime().toString (true, true) + "  editor " + getLocalBounds().toString()
-                      + "  peer " + peer + "  screen " + getScreenBounds().toString() + "\n");
-    }
-
     // Remember the size so reopening the window (and reloading the
     // session) comes back at the user's chosen size.
     processorRef.editorW.store (getWidth());
@@ -101,6 +91,22 @@ void OrbAudioProcessorEditor::parentHierarchyChanged()
 {
     dropSetupRetryCount = 0;
     trySetupDropHandling();
+    clampToDisplay();
+}
+
+// The width must fit the display the window actually lands on — at
+// construction we only knew the mouse's display, and a remembered width
+// from a wider monitor made Logic scale the whole view down to fit its
+// window, leaving a strip below. Only ever shrinks; height untouched.
+void OrbAudioProcessorEditor::clampToDisplay()
+{
+    auto* peer = getPeer();
+    if (peer == nullptr) return;
+    const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect (peer->getBounds());
+    if (display == nullptr) return;
+    const int maxW = juce::jmax (kMinWidth, display->userArea.getWidth() - 80);
+    if (getWidth() > maxW)
+        setSize (maxW, getHeight());
 }
 
 void OrbAudioProcessorEditor::trySetupDropHandling()

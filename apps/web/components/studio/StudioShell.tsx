@@ -21,13 +21,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   useProfiles, useFollows, usePresence, useConversations,
   useConversationNotifications, useCalendarEvents, useEventCategories, useFollowAlerts,
-  type Profile, type CalendarEvent, type Message,
+  type Profile, type CalendarEvent, type Message, type ChatTarget,
 } from '@orb/core'
 import { parseSchedule } from '@/lib/parseSchedule'
 import { LanguageProvider, useT } from '@/lib/games/i18n'
 import type { GameScreen } from '../games/GamesPanel'
 import type { JoinResult, GameType } from '@/lib/games/gameRooms'
-import ChatThread, { type ThreadTarget } from '../app/ChatThread'
+import ChatSettingsSheet from '../app/ChatSettingsSheet'
+import StudioChat from './StudioChat'
 import CalendarView from '../app/CalendarView'
 import SchedulePrompt from '../app/SchedulePrompt'
 import FollowAlerts from '../app/FollowAlerts'
@@ -155,7 +156,11 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   const [gameShown, setGameShown] = useState(false)
   const [peopleQuery, setPeopleQuery] = useState<string | null>(null)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
-  const [chatSettingsSignal, setChatSettingsSignal] = useState(0)
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false)
+  // A fresh DM has no conversation row until the first message — the
+  // chat pane reports the id once useMessages resolves it.
+  const [chatConvId, setChatConvId] = useState<string | null>(null)
+  const onConversation = useCallback((id: string | null) => setChatConvId(id), [])
 
   // ── people ──────────────────────────────────────────────────────────
   const profilesWithStatus = useMemo(
@@ -202,7 +207,12 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   const selectedProfile = sel?.kind === 'dm' ? profileById.get(sel.userId) ?? null : null
   const activeConvId: string | null = selectedGroup
     ? selectedGroup.conversationId
-    : selectedProfile ? (dmConvByPartner.get(selectedProfile.id)?.conversationId ?? null) : null
+    : selectedProfile ? (dmConvByPartner.get(selectedProfile.id)?.conversationId ?? chatConvId) : null
+  // Reader candidates for receipts — everyone in the room but me.
+  const chatMembers = useMemo<Profile[]>(() => {
+    if (selectedGroup) return selectedGroup.memberIds.filter(id => id !== user.id).map(id => profileById.get(id)).filter((p): p is Profile & { isOnline?: boolean } => !!p)
+    return selectedProfile ? [selectedProfile] : []
+  }, [selectedGroup, selectedProfile, profileById, user.id])
   const headerTitle = selectedGroup?.title ?? selectedProfile?.display_name ?? ''
   const headerSub = useMemo(() => {
     if (selectedGroup) {
@@ -214,21 +224,18 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
     return ''
   }, [selectedGroup, selectedProfile, onlineIds, user.id])
 
-  const threadTarget: ThreadTarget | null = useMemo(() => {
-    if (selectedGroup) {
-      return { kind: 'group', conversationId: selectedGroup.conversationId, title: selectedGroup.title || 'group',
-        memberCount: selectedGroup.memberIds.length, avatarUrl: selectedGroup.avatarUrl ?? undefined }
-    }
-    if (selectedProfile) {
-      return { kind: 'dm', friend: selectedProfile, conversationId: dmConvByPartner.get(selectedProfile.id)?.conversationId }
-    }
+  const chatTarget: ChatTarget | null = useMemo(() => {
+    if (selectedGroup) return { kind: 'group', conversationId: selectedGroup.conversationId }
+    if (selectedProfile) return { kind: 'dm', otherUserId: selectedProfile.id }
     return null
-  }, [selectedGroup, selectedProfile, dmConvByPartner])
+  }, [selectedGroup, selectedProfile])
 
   const openSel = useCallback((next: Sel) => {
     setSel(next)
     setTab('chat')
     setGameShown(false)
+    setChatConvId(null)
+    setChatSettingsOpen(false)
   }, [])
   const isSel = (s: Sel) => !!sel && (
     (sel.kind === 'dm' && s.kind === 'dm' && sel.userId === s.userId)
@@ -492,7 +499,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 <CalendarView open events={allCalEvents} onClose={goHome} {...calendarProps} />
               </div>
             </>
-          ) : sel && threadTarget ? (
+          ) : sel && chatTarget ? (
             <>
               <div className="wd-head">
                 <div className="wd-head-row">
@@ -511,7 +518,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                     <div className="wd-hsub">{headerSub}</div>
                   </div>
                   {activeConvId && (
-                    <button className="wd-word sm" onClick={() => setChatSettingsSignal(n => n + 1)}>
+                    <button className="wd-word sm" onClick={() => setChatSettingsOpen(true)}>
                       {selectedGroup ? 'members' : 'chat settings'}
                     </button>
                   )}
@@ -528,21 +535,34 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
               </div>
 
               {tab === 'chat' && (
-                <div className="wd-pane">
-                  <ChatThread
-                    key={threadTarget.kind === 'group' ? threadTarget.conversationId : threadTarget.friend.id}
-                    supabase={supabase}
-                    currentUserId={user.id}
-                    target={threadTarget}
-                    profileById={profileById}
-                    onSeen={markSeen}
-                    onJoinGame={joinGameFromChat}
-                    friends={friendProfiles}
-                    onClose={goHome}
-                    embedded
-                    settingsSignal={chatSettingsSignal}
-                  />
-                </div>
+                <StudioChat
+                  key={chatTarget.kind === 'group' ? chatTarget.conversationId : chatTarget.otherUserId}
+                  supabase={supabase}
+                  currentUserId={user.id}
+                  target={chatTarget}
+                  isGroup={!!selectedGroup}
+                  profileById={profileById}
+                  members={chatMembers}
+                  title={headerTitle}
+                  onSeen={markSeen}
+                  onJoinGame={joinGameFromChat}
+                  gameName={gameName}
+                  onConversation={onConversation}
+                />
+              )}
+              {chatSettingsOpen && activeConvId && (
+                <ChatSettingsSheet
+                  supabase={supabase}
+                  currentUserId={user.id}
+                  conversationId={activeConvId}
+                  chatKind={selectedGroup ? 'group' : 'dm'}
+                  title={headerTitle}
+                  avatarUrl={selectedGroup?.avatarUrl ?? undefined}
+                  friends={friendProfiles}
+                  profileById={profileById}
+                  onClose={() => setChatSettingsOpen(false)}
+                  onLeft={() => { setChatSettingsOpen(false); goHome() }}
+                />
               )}
               {tab === 'calendar' && activeConvId && (
                 <div className="wd-pane wd-calhost">

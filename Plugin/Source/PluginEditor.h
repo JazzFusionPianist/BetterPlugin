@@ -26,6 +26,7 @@ public:
     void paint                  (juce::Graphics&) override;
     void resized                () override;
     void parentHierarchyChanged () override;
+    void clampToDisplay();
 
     // Called from processor when a write-audio handler completes. Editor
     // forwards to its DragMonitor (which is tied to the current NSWindow).
@@ -38,9 +39,11 @@ private:
     // wide workspace, not the compact tower.
     static constexpr int kWidth  = 1120;
     static constexpr int kHeight = 720;
+    static constexpr int kMinWidth = 760;   // the wall still works this narrow
    #else
     static constexpr int kWidth  = 300;
     static constexpr int kHeight = 500;
+    static constexpr int kMinWidth = 300;
    #endif
 
     void trySetupDropHandling();

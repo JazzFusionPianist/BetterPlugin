@@ -10514,3 +10514,8 @@ text.sg-word { fill: var(--sg-ink-55); }
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-left: 1px solid var(--sg-ink-14);
 }
+
+/* the study's print and its words sit in the middle of the pane; the
+   title and `close` stay pinned at the top */
+.sg-study { justify-content: center; }
+.sg-study-head { position: absolute; top: 22px; left: 24px; right: 24px; width: auto; }

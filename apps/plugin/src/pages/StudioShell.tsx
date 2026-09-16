@@ -1749,10 +1749,12 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // The two merge rows — 'placed' lays regions at their BWF-stamped
   // positions, mixing any overlaps in place (refused only for missing
-  // stamps or mixed rates); 'joined' butt-joins in filename order,
-  // stamps ignored — the one for comped/moved regions whose ORIGINAL
-  // record-time stamps would scatter them. The single merged WAV then
-  // rides the same route a lone file would.
+  // stamps or mixed rates); 'joined' butt-joins, stamps setting only
+  // the ORDER (timeline order when every region is stamped, the batch's
+  // own order otherwise — never filename order, which Logic derives
+  // from the take, not the timeline) — the one for comped/moved regions
+  // whose stamped POSITIONS would scatter them. The single merged WAV
+  // then rides the same route a lone file would.
   const choiceMerge = useCallback((mode: 'placed' | 'joined') => {
     const c = dropChoice
     if (!c || dropBusy || mergeFailed[mode]) return
@@ -1857,6 +1859,18 @@ function StudioShellInner({ supabase, user }: Props) {
   // __juceFileDropRejected — the native side skipped a file over the
   // drag limit (newer builds); it still counts toward the group so the
   // rest of the drop isn't left waiting for it.
+  //
+  // ORDER CAVEAT — the buffer below fills in ARRIVAL order, which for
+  // the native bridge is COMPLETION order, not drag order: DragMonitor.mm
+  // resolves Logic's file promises (and reads plain file URLs) on a
+  // concurrent queue, and PluginEditor.cpp's __juceFileDrop detail is
+  // only {name, data} — no sequence index — so a large region can land
+  // after a smaller one that was dragged behind it. We keep the batch
+  // exactly as it arrives (no reordering here); the join path in
+  // audioMerge orders stamped batches by their BWF timestamps, which
+  // makes the scramble harmless for stamped drops. Follow-up for
+  // unstamped native drops: have the C++ side send a per-drop `seq`
+  // in the __juceFileDrop detail and sort the buffer by it here.
   useEffect(() => {
     const flush = () => {
       if (dropBuffer.current.length < dropGroupCount.current) return

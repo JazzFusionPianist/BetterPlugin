@@ -1718,7 +1718,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   }
 
   // "Merge into one" branch — the user's call for unstamped regions:
-  // joined back to back in filename order.
+  // joined back to back (timeline order when every region carries an
+  // exact stamp, the batch's own order otherwise).
   const mergeAndSend = async (batch: { name: string; data: string }[]) => {
     setMerging(true)
     const result = await mergeDroppedRegions(batch)

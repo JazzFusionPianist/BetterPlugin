@@ -12,7 +12,7 @@ import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
 import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelineBarNumber } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
 
 interface Attachment {
@@ -273,8 +273,14 @@ function timelineDisplay(metadata?: AttachmentTimelineMetadata): TimelineDisplay
   const display: TimelineDisplay = {
     position: bar != null && beat != null ? `${bar} | ${compactNumber(beat)}` : undefined,
     timecode: projectSeconds != null ? formatTimelineTime(projectSeconds) : undefined,
-    tempo: tempo ? `${compactNumber(tempo.bpm)} bpm` : undefined,
-    meter: signature ? `${signature.numerator}/${signature.denominator}` : undefined,
+    tempo: tempo
+      ? `${compactNumber(tempo.bpm)} bpm`
+      : metadata.bpm ? `${compactNumber(metadata.bpm)} bpm` : undefined,
+    meter: signature
+      ? `${signature.numerator}/${signature.denominator}`
+      : metadata.time_sig_num && metadata.time_sig_den
+        ? `${metadata.time_sig_num}/${metadata.time_sig_den}`
+        : undefined,
     sampleRate: position.sample_rate ? formatSampleRate(position.sample_rate) : undefined,
     bitDepth: position.bit_depth ? `${position.bit_depth}-bit` : undefined,
   }
@@ -614,10 +620,21 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
   if (compact) {
     const ready = dragState === 'armed' || dragState === 'dragging' || dragState === 'imported'
+    // Sample-exact stems announce where they belong — the receiver
+    // shouldn't have to ask which bar to drop a session take at.
+    const barNumber = timelineBarNumber(metadata)
     return (
       <div className={`msg-att-audio stem-audio-compact${compactExpanded ? ' expanded' : ''}`}>
         <div className="stem-audio-main">
           <span className="stem-audio-name" title={name}>{name}</span>
+          {barNumber != null && (
+            <span
+              className="stem-audio-bar"
+              title={metadata?.bpm != null ? `bar ${barNumber} / ${compactNumber(metadata.bpm)}bpm` : undefined}
+            >
+              bar {barNumber}
+            </span>
+          )}
           <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
           <button
             className={`stem-import-square${ready ? ' ready' : ''}`}

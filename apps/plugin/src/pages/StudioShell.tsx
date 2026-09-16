@@ -32,7 +32,7 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot } from '../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelineBarNumber } from '../lib/audioTimeline'
 import { mergeDroppedRegions, mergeFailureText, resolveDawDrop } from '../lib/audioMerge'
 import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
@@ -418,6 +418,7 @@ function useStudioTrack(url: string, name: string) {
  *  underlined import word. All geometry lives in CSS. */
 function StudioAudioPlate({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
+  const bar = timelineBarNumber(track.metadata)
   return (
     <div className="wd-plate">
       <div className="wd-plate-art">
@@ -430,7 +431,12 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
         </button>
         <span className="wd-plate-name">{track.name}</span>
         <span className="wd-plate-right">
-          <span className="wd-plate-time">{fmtDur(cur)} / {fmtDur(total)}</span>
+          <span
+            className="wd-plate-time"
+            title={bar != null && track.metadata?.bpm != null ? `bar ${bar} / ${Math.round(track.metadata.bpm)}bpm` : undefined}
+          >
+            {fmtDur(cur)} / {fmtDur(total)}{bar != null ? ` / bar ${bar}` : ''}
+          </span>
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
@@ -444,6 +450,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
  *  name · time · import word) over its own 24px fine waveform. */
 function StudioPlateSection({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
+  const bar = timelineBarNumber(track.metadata)
   return (
     <div className="wd-plate-sec">
       <div className="wd-plate-secrow">
@@ -452,7 +459,12 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
         </button>
         <span className="wd-plate-secname" title={track.name}>{track.name}</span>
         <span className="wd-plate-right">
-          <span className="wd-plate-time">{fmtDur(cur)} / {fmtDur(total)}</span>
+          <span
+            className="wd-plate-time"
+            title={bar != null && track.metadata?.bpm != null ? `bar ${bar} / ${Math.round(track.metadata.bpm)}bpm` : undefined}
+          >
+            {fmtDur(cur)} / {fmtDur(total)}{bar != null ? ` / bar ${bar}` : ''}
+          </span>
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>

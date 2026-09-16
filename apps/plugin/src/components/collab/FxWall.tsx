@@ -1341,7 +1341,6 @@ export default function FxWall ({ size: frame }: Props) {
         </div>
         <div className="sg-study-rows">{studyRows(studyNode)}</div>
         <div className="sg-study-foot">
-          <span className="sg-study-hint">drag a number, double-click it to type, ⌥-click it to rest</span>
           <span className="sg-word quiet"
             onPointerDown={() => { if (confirm === `node:${studyNode.id}`) removeNode(studyNode.id); else setConfirm(`node:${studyNode.id}`) }}>
             {confirm === `node:${studyNode.id}` ? 'sure? remove it' : 'remove from the wall'}

@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
+import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Steps, type Hue, type Tone } from '../../assets/parts/parts'
 
 /*  The study's hands — the rows under the big print.
 
-    Every parameter is one row: its name at the left, the control at the
-    right, a hairline under it. On a number row the hairline IS the
-    gauge — it fills, in the print's own ink, as far as the value.
+    Every parameter is one row: its name at the left, the part at the
+    right in one 236px column. The parts are drawn in assets/parts; the
+    wrappers here only place them and change their state. Each hand has
+    a colour (1 blue, 2 green, 3 white, 4 orange, then again).
     Drag a number (up or right = more), double-click it to type, ⌥-click
-    it to rest. A choice is a hairline segment; on/off is a switch.      */
+    it to rest.                                                          */
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+const COL = 236
 
 const quant = (v: number, step: number) => {
   const q = Math.round(v / step) * step
   const dec = step >= 1 ? 0 : Math.min(6, Math.ceil(-Math.log10(step)))
   return Number(q.toFixed(dec))
 }
+
+const hueVar = (c: Tone) => ({ '--sg-hue': c === 't' ? 'var(--sg-tint)' : `var(--sg-c${c})` } as React.CSSProperties)
 
 /** A number that turns into a caret when double-clicked. */
 export function useTypeIn (opts: { text: string; parse: (s: string) => number | null; commit: (v: number) => void; reset?: () => void; className?: string }) {
@@ -56,9 +61,17 @@ export function parseLead (s: string): number | null {
   return v
 }
 
-/* ── one row ─────────────────────────────────────────────────────────── */
+/** "35 %" → the number in the mono, the unit small after it. */
+function Value ({ text }: { text: string }) {
+  const m = /^([+\-−]?\d*\.?\d+)(.*)$/.exec(text)
+  if (!m) return <>{text}</>
+  const unit = m[2].trim()
+  return <>{m[1]}{unit ? <span className="sg-unit">{unit}</span> : null}</>
+}
 
-export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine }: {
+/* ── a number: drag it, type into it; the bar beside it is the gauge ── */
+
+export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine, colour = 3 }: {
   label: string
   value: number
   min: number
@@ -71,12 +84,14 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
   defaultValue: number
   fine?: number              // pixels for the whole range (default 180)
   onChange: (v: number, final: boolean) => void
+  colour?: Hue
 }) {
   const text = format ? format(value) : `${quant(value, step)}${unit ? ' ' + unit : ''}`
   const commit = (v: number) => onChange(clamp(quant(v, step), min, max), true)
   const typing = useTypeIn({ text, parse: parse ?? parseLead, commit, reset: () => onChange(defaultValue, true) })
   const drag = useRef<{ x0: number; y0: number; v0: number; last: number; moved: boolean } | null>(null)
   const [live, setLive] = useState(false)
+  const [hover, setHover] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   // the wheel is ours (React's onWheel is passive — the body would scroll)
   useEffect(() => {
@@ -93,9 +108,9 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
   const span = max - min
   const f = span > 0 ? clamp((value - min) / span, 0, 1) : 0
   const zero = bipolar ? clamp((0 - min) / span, 0, 1) : 0
-  const left = Math.min(f, zero), width = Math.abs(f - zero)
   return (
-    <div ref={rowRef} className={`sg-row gauge${live ? ' live' : ''}${typing.editing ? ' typing' : ''}`}
+    <div ref={rowRef} className={`sg-row gauge${live ? ' live' : ''}${typing.editing ? ' typing' : ''}`} style={hueVar(colour)}
+      onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
       onPointerDown={(e) => {
         if (typing.editing) return
         e.stopPropagation()
@@ -118,74 +133,106 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
       }}
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
       <span className="sg-row-label">{label}</span>
-      <span className="sg-row-ctl"><span className="sg-num">{typing.input ?? text}</span></span>
-      <i className="sg-rule"><i className="sg-fill" style={{ left: `${left * 100}%`, width: `${width * 100}%` }} /></i>
+      <span className="sg-row-ctl">
+        <Bar f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
+        <span className="sg-num">{typing.input ?? <Value text={text} />}</span>
+      </span>
     </div>
   )
 }
 
-export function ChoiceRow ({ label, options, value, onPick, fill }: {
+/* ── a choice: cells, steps, the keyboard, or a list, by what it holds ── */
+
+export function ChoiceRow ({ label, options, value, onPick, fill, colour = 1 }: {
   label: string
   options: string[]
   value: number
   onPick: (i: number) => void
-  fill?: boolean              // the cells share the row's width evenly (a keyboard)
+  fill?: boolean              // the divisions and the keyboard fill the column
+  colour?: Hue
 }) {
-  const asList = !fill && options.length > 8
+  const [hover, setHover] = useState(-1)
+  const [down, setDown] = useState(-1)
   const [open, setOpen] = useState(false)
+  const keys = fill && options.length === 12
+  const steps = fill && !keys
+  const asList = !fill && options.length > 8
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
     document.addEventListener('pointerdown', close, true)
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
+  const pick = (i: number) => { setDown(-1); if (i !== value) onPick(i) }
+  const press = (i: number, e: React.PointerEvent) => { e.stopPropagation(); setDown(i) }
+  const leave = () => { setHover(-1); setDown(-1) }
+  const hoverOf = (e: React.PointerEvent, n: number, w: number) => {
+    const r = (e.currentTarget as SVGElement).getBoundingClientRect()
+    setHover(clamp(Math.floor((e.clientX - r.left) / (r.width || w) * n), 0, n - 1))
+  }
   return (
-    <div className="sg-row choice" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="sg-row choice" style={hueVar(colour)} onPointerDown={(e) => e.stopPropagation()}>
       <span className="sg-row-label">{label}</span>
       <span className="sg-row-ctl">
-        {asList
-          ? (
-            <span className={`sg-seg list${open ? ' open' : ''}`}>
-              <span className="sg-seg-cell on pick" onPointerDown={(e) => { e.stopPropagation(); setOpen(v => !v) }}>
-                {options[value] ?? ''}<span className="sg-pick-arrow">▾</span>
+        {keys && (
+          <span onPointerLeave={leave} onPointerUp={() => { if (down >= 0) pick(down) }}>
+            <Keyboard names={options.map(s => s.toLowerCase())} value={value} hue={colour} hover={hover} width={COL}
+              onKey={(i, e) => { press(i, e); setHover(i) }} />
+          </span>
+        )}
+        {steps && (
+          <>
+            <span onPointerLeave={leave} onPointerMove={(e) => hoverOf(e, options.length, COL - 64)} onPointerUp={() => { if (down >= 0) pick(down) }}>
+              <Steps count={options.length} value={value} hue={colour} hover={hover} width={COL - 52 - 12} onStep={press} />
+            </span>
+            <span className="sg-num">{options[hover >= 0 ? hover : value]}</span>
+          </>
+        )}
+        {asList && (
+          <span className="sg-list">
+            {open && (
+              <span className="sg-list-drawer" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setHover(-1)}>
+                <Drawer options={options} value={value} hue={colour} hover={hover} width={COL}
+                  onRow={(i, e) => { e.stopPropagation(); pick(i); setOpen(false) }} />
               </span>
-              {open && (
-                <span className="sg-pick-list" onPointerDown={(e) => e.stopPropagation()}>
-                  {options.map((o, i) => (
-                    <span key={o} className={`sg-pick-row${i === value ? ' on' : ''}`}
-                      onPointerDown={(e) => { e.stopPropagation(); onPick(i); setOpen(false) }}>{o}</span>
-                  ))}
-                </span>
-              )}
-            </span>
-          )
-          : (
-            <span className={`sg-seg${fill ? ' fill' : ''}`}>
-              {options.map((o, i) => (
-                <span key={o} className={`sg-seg-cell${i === value ? ' on' : ''}`}
-                  onPointerDown={(e) => { e.stopPropagation(); if (i !== value) onPick(i) }}>{o}</span>
-              ))}
-            </span>
-          )}
+            )}
+            <button type="button" className={`sg-key sg-list-key${open ? ' open' : ''}`} style={{ width: COL, justifyContent: 'space-between' }}
+              onPointerDown={(e) => { e.stopPropagation(); setOpen(v => !v) }}
+              onPointerMove={open ? (e) => {
+                const d = (e.currentTarget.previousSibling as HTMLElement | null); if (!d) return
+                const r = d.getBoundingClientRect(); const i = Math.floor((e.clientY - r.top - 2) / 16); setHover(i >= 0 && i < options.length ? i : -1)
+              } : undefined}>
+              <span>{options[value]}</span><Chevron up={open} />
+            </button>
+          </span>
+        )}
+        {!keys && !steps && !asList && (
+          <span onPointerLeave={leave} onPointerMove={(e) => hoverOf(e, options.length, COL)} onPointerUp={() => { if (down >= 0) pick(down) }}>
+            <Cells options={options} value={value} hue={colour} hover={hover} down={down} width={COL} onCell={press} />
+          </span>
+        )}
       </span>
-      <i className="sg-rule" />
     </div>
   )
 }
 
-export function SwitchRow ({ items }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> }) {
+/* ── on / off: a lamp beside each word ── */
+
+export function SwitchRow ({ items, colour = 4 }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }>; colour?: Hue }) {
+  const [hover, setHover] = useState(-1)
   if (items.length === 0) return null
   return (
     <div className="sg-row switches" onPointerDown={(e) => e.stopPropagation()}>
       <span className="sg-row-ctl">
-        {items.map(it => (
-          <span key={it.label} className={`sg-sw-item${it.on ? ' on' : ''}`} onPointerDown={(e) => { e.stopPropagation(); it.set(!it.on) }}>
+        {items.map((it, i) => (
+          <span key={it.label} className={`sg-sw-item${it.on ? ' on' : ''}`}
+            onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(-1)}
+            onPointerDown={(e) => { e.stopPropagation(); it.set(!it.on) }}>
+            <Lamp on={it.on} hover={hover === i} hue={it.quiet ? 3 : colour} />
             <span className="sg-row-label">{it.label}</span>
-            <span className={`sg-switch${it.on ? ' on' : ''}${it.quiet ? ' quiet' : ''}`}><i /></span>
           </span>
         ))}
       </span>
-      <i className="sg-rule" />
     </div>
   )
 }

@@ -817,7 +817,8 @@ export default function FxWall ({ size: frame }: Props) {
     if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true) })
     if (!isMix) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
     rows.push(<SwitchRow key="sw" items={switches} />)
-    return rows
+    // the hands take their colours in order: blue, green, white, orange, then again; the switches are orange
+    return rows.map((r, i) => React.isValidElement(r) ? React.cloneElement(r as React.ReactElement<{ colour?: number }>, { colour: r.key === 'sw' ? 4 : (i % 4) + 1 }) : r)
   }
 
   const studyLive = studyOpen ? nodeById(sel!.node!) : undefined
@@ -1303,7 +1304,7 @@ export default function FxWall ({ size: frame }: Props) {
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}{studyNode.bypass ? <span className="sg-study-off"> off</span> : null}</span>
           <button type="button" className="sg-close" aria-label="close the study" title="close" onPointerDown={(e) => e.stopPropagation()} onClick={() => { setSel(null); setConfirm(null) }}>
-            <svg viewBox="0 0 12 12" width="11" height="11"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+            <svg viewBox="0 0 12 12" width="11" height="11"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
           </button>
         </div>
         <div className="sg-study-body">
@@ -1341,10 +1342,10 @@ export default function FxWall ({ size: frame }: Props) {
         </div>
         <div className="sg-study-rows">{studyRows(studyNode)}</div>
         <div className="sg-study-foot">
-          <span className="sg-word quiet"
-            onPointerDown={() => { if (confirm === `node:${studyNode.id}`) removeNode(studyNode.id); else setConfirm(`node:${studyNode.id}`) }}>
+          <button type="button" className={`sg-key${confirm === `node:${studyNode.id}` ? ' armed' : ''}`}
+            onPointerDown={(e) => { e.stopPropagation(); if (confirm === `node:${studyNode.id}`) removeNode(studyNode.id); else setConfirm(`node:${studyNode.id}`) }}>
             {confirm === `node:${studyNode.id}` ? 'sure? remove it' : 'remove from the wall'}
-          </span>
+          </button>
         </div>
         </div>
       </aside>,

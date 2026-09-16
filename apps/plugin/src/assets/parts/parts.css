@@ -1,0 +1,94 @@
+/*  The study's parts — the tokens and the pieces that are pure CSS.
+
+    Four colours, one per hand (the first hand blue, then green, white,
+    orange, then again). The print's own tint stays with the big
+    readout. Orb Sounds sets in Space Grotesk; every value in the study
+    is Space Mono. The prints themselves keep Instrument Sans.          */
+
+.plugin.sounds {
+  --sg-c1: 92, 128, 255;
+  --sg-c2: 92, 200, 132;
+  --sg-c3: 246, 243, 234;
+  --sg-c4: 248, 156, 56;
+  --f-sans: 'Space Grotesk', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --f-serif: 'Space Grotesk', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+  --f-mono: 'Space Mono', ui-monospace, monospace;
+  font-family: var(--f-sans);
+}
+/* the prints are prints: their marks were drawn in Instrument Sans and stay so */
+.plugin.sounds .sg-print, .plugin.sounds .sg-print svg, .plugin.sounds .sg-print svg text,
+.plugin.sounds .sg-study-print, .plugin.sounds .sg-study-print svg text {
+  font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+}
+
+.sg-part { display: block; overflow: visible; flex: none; }
+.sg-part text { font-family: var(--f-sans); letter-spacing: 0; }
+.sg-cell { cursor: pointer; }
+
+/* ── the study's rows: no rules; the space between rows is the row ── */
+.plugin.sounds .sg-study-rows { border-top: 0; margin-top: 4px; gap: 6px; }
+.plugin.sounds .sg-row { min-height: 26px; padding: 0; gap: 12px; font-size: 10px; letter-spacing: 0; }
+.plugin.sounds .sg-row-label { flex: 0 0 auto; color: var(--sg-ink-50); }
+.plugin.sounds .sg-row-ctl { flex: 0 0 236px; width: 236px; gap: 12px; justify-content: flex-start; }
+.plugin.sounds .sg-row .sg-rule { display: none; }
+.plugin.sounds .sg-row.gauge { cursor: ns-resize; }
+.plugin.sounds .sg-row.gauge.typing { cursor: text; }
+.plugin.sounds .sg-row.gauge:hover .sg-row-label, .plugin.sounds .sg-row.gauge.live .sg-row-label { color: var(--sg-ink-70); }
+
+/* the value: Space Mono, big, in the hand's colour; a small unit after it in the grotesk */
+.plugin.sounds .sg-num {
+  flex: 0 0 52px; min-width: 52px; text-align: right; white-space: nowrap;
+  font-family: var(--f-mono); font-size: 17px; font-weight: 400; line-height: 1;
+  color: rgba(var(--sg-hue), 0.9); font-variant-numeric: tabular-nums;
+}
+.plugin.sounds .sg-row.gauge:hover .sg-num, .plugin.sounds .sg-row.gauge.live .sg-num { color: rgb(var(--sg-hue)); }
+.plugin.sounds .sg-num .sg-unit { font-family: var(--f-sans); font-size: 9px; color: var(--sg-ink-42); margin-left: 3px; }
+.plugin.sounds .sg-typein {
+  font-family: var(--f-mono); font-size: 17px; font-weight: 400; color: var(--sg-ink);
+  caret-color: rgb(var(--sg-hue)); text-align: right; letter-spacing: 0;
+}
+.plugin.sounds .sg-typein::selection { background: rgba(var(--sg-hue), 0.3); }
+
+/* the switches: a lamp and its word, right-aligned */
+.plugin.sounds .sg-row.switches { justify-content: flex-end; }
+.plugin.sounds .sg-row.switches .sg-row-ctl { flex: 1 1 auto; width: auto; justify-content: flex-end; gap: 16px; }
+.plugin.sounds .sg-sw-item { gap: 6px; }
+.plugin.sounds .sg-sw-item .sg-row-label { color: var(--sg-ink-55); transition: color .12s; }
+.plugin.sounds .sg-sw-item:hover .sg-row-label { color: var(--sg-ink-85); }
+.plugin.sounds .sg-sw-item.on .sg-row-label { color: var(--sg-ink); }
+
+/* the list: a key with the chosen name, the drawer opens above it */
+.plugin.sounds .sg-list { position: relative; width: 236px; }
+.plugin.sounds .sg-list-drawer { position: absolute; left: 0; bottom: calc(100% + 4px); z-index: 2; }
+
+/* ── the keys: remove, close, the shelf's handle — an outlined rectangle ── */
+.plugin.sounds .sg-key {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  height: 18px; padding: 0 10px; border-radius: 2px; border: 1px solid var(--sg-ink-30); background: transparent;
+  font-family: var(--f-sans); font-size: 10px; font-weight: 400; color: var(--sg-ink-60); letter-spacing: 0;
+  cursor: pointer; user-select: none; -webkit-appearance: none; appearance: none;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.plugin.sounds .sg-key:hover { border-color: var(--sg-ink-60); color: var(--sg-ink); }
+.plugin.sounds .sg-key:active { background: rgba(246, 243, 234, 0.18); color: var(--sg-ink); }
+.plugin.sounds .sg-key.armed { background: var(--sg-ink); border-color: var(--sg-ink); color: var(--fx-wall, #161410); font-weight: 500; }
+.plugin.sounds .sg-key.armed:hover { background: var(--sg-ink-85); border-color: transparent; }
+
+.plugin.sounds .sg-close, .plugin.sounds .sg-shelf-tab {
+  width: 20px; height: 20px; border-radius: 2px; border: 1px solid var(--sg-ink-30); background: transparent; color: var(--sg-ink-60);
+}
+.plugin.sounds .sg-close:hover, .plugin.sounds .sg-shelf-tab:hover { border-color: var(--sg-ink-60); color: var(--sg-ink); }
+.plugin.sounds .sg-close:active, .plugin.sounds .sg-shelf-tab:active { transform: none; background: rgba(246, 243, 234, 0.18); }
+.plugin.sounds .sg-shelf-tab { background: var(--fx-wall, #161410); }
+
+/* the big readout, under the print, in the print's own colour */
+.plugin.sounds .sg-study-value { min-height: 34px; }
+.plugin.sounds .sg-study-value .sg-val { font-family: var(--f-mono); font-size: 26px; font-weight: 400; color: rgba(var(--sg-tint), 0.9); padding: 0 4px; border-radius: 2px; }
+.plugin.sounds .sg-study-value .sg-val:hover { color: rgb(var(--sg-tint)); background: transparent; }
+.plugin.sounds .sg-typein.big { font-family: var(--f-mono); font-size: 26px; font-weight: 400; text-align: center; color: rgb(var(--sg-tint)); caret-color: rgb(var(--sg-tint)); }
+.plugin.sounds .sg-typein.big::selection { background: rgba(var(--sg-tint), 0.3); }
+.plugin.sounds .sg-study-title { font-family: var(--f-sans); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.plugin.sounds .sg-study-mixnote { font-family: var(--f-sans); font-size: 10px; font-style: normal; }
+
+/* the head sits above the body, which scrolls under it (the close was unreachable) */
+.plugin.sounds > .sg-study > .sg-study-head { z-index: 2; }

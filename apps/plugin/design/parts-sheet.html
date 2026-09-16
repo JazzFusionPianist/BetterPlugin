@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>parts sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* drawn at 1× units, shown at 2×.
+     the op-1's grammar: four colours, one per hand; filled shapes, not rings;
+     small labels in the grotesk, big values in the mono. */
+  :root {
+    --wall: #161410; --ink: #F6F3EA;
+    --c1: 92, 128, 255;    /* blue */
+    --c2: 92, 200, 132;    /* green */
+    --c3: 246, 243, 234;   /* white */
+    --c4: 248, 156, 56;    /* orange */
+    --tint: 96, 104, 255;  /* the print's own colour (delay) */
+  }
+  html, body { margin: 0; background: var(--wall); color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
+  .sheet { transform: scale(2); transform-origin: top left; width: 380px; padding: 18px 24px 40px; box-sizing: border-box; }
+  .frame { width: 760px; overflow: hidden; }
+  h1 { font-size: 11px; font-weight: 500; margin: 0 0 16px; color: rgba(246,243,234,.42); }
+  section { margin-bottom: 22px; }
+  section > h2 { font-size: 9.5px; font-weight: 400; color: rgba(246,243,234,.42); margin: 0 0 8px; }
+  .states { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; }
+  .state { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .state > i { font-style: normal; font-size: 7.5px; color: rgba(246,243,234,.3); }
+  svg { display: block; overflow: visible; }
+  svg text { font-family: 'Space Grotesk', sans-serif; }
+  .val { font-family: 'Space Mono', monospace; font-weight: 400; }
+  .tab { font-variant-numeric: tabular-nums; }
+
+  .sample { width: 332px; padding-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; align-items: center; justify-content: space-between; min-height: 26px; }
+  .row .lbl { font-size: 10px; color: rgba(246,243,234,.5); }
+  .row.sw { justify-content: flex-end; gap: 16px; }
+  .foot { padding-top: 16px; display: flex; justify-content: center; }
+  .head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; }
+  .print { width: 120px; height: 120px; border-radius: 50%; margin: 4px auto 0; background: radial-gradient(circle, rgba(var(--tint),.22), rgba(var(--tint),0) 70%); display: grid; place-items: center; }
+  .print i { display: block; width: 3px; height: 44px; background: rgb(var(--tint)); border-radius: 1px; box-shadow: 16px 0 0 rgba(246,243,234,.3), 30px 0 0 rgba(246,243,234,.2), 44px 0 0 rgba(246,243,234,.12); transform: translateX(-22px); }
+</style>
+</head>
+<body>
+<div class="frame"><div class="sheet">
+  <h1>orb sounds, the study's parts</h1>
+  <div id="sections"></div>
+</div></div>
+
+<script>
+const ink = (a = 1) => `rgba(246,243,234,${a})`
+const col = (c, a = 1) => (c === 't' ? `rgba(var(--tint),${a})` : `rgba(var(--c${c}),${a})`)
+const WALL = '#161410'
+const svg = (w, h, body) => `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`
+let clipN = 0
+const clipped = (W, h, r, inner) => { const id = 'clip' + (++clipN); return `<clipPath id="${id}"><rect x="0" y="0" width="${W}" height="${h}" rx="${r}" /></clipPath><g clip-path="url(#${id})">${inner}</g>` }
+const tw = (s, fs) => Math.round(s.length * fs * 0.56)
+
+/* ── the key: an outlined rectangle with a word; armed fills in ink, the word goes dark ── */
+function pill (x, y, label, state, c = 3, o = {}) {
+  const fs = o.fs ?? 10, h = o.h ?? 18, w = o.w ?? tw(label, fs) + 20, r = o.r ?? 2
+  const on = state === 'on', hover = state === 'hover', down = state === 'down', armed = state === 'armed'
+  const fill = on ? col(c) : armed ? ink(1) : down ? ink(0.18) : hover ? ink(0.08) : 'none'
+  const stroke = on || armed ? 'none' : hover || down ? ink(0.6) : ink(0.3)
+  const color = on || armed ? WALL : hover || down ? ink(1) : ink(o.dim ?? 0.62)
+  return { w, h, s: `
+    <rect x="${x + 0.5}" y="${y + 0.5}" width="${w - 1}" height="${h - 1}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1" />
+    ${label === undefined ? '' : `<text x="${x + w / 2}" y="${y + h / 2 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="${on || armed ? 500 : 400}" fill="${color}">${label}</text>`}` }
+}
+const pillSvg = (label, state, c = 3, o = {}) => { const p = pill(0, 0, label, state, c, o); return svg(p.w, p.h, p.s) }
+
+/* ── the choice: one outlined frame cut into equal cells; the chosen cell is filled in the colour ── */
+function choice (options, chosen, c = 1, hover = -1, down = -1, o = {}) {
+  const h = o.h ?? 18, fs = o.fs ?? 10, n = options.length
+  const cw = o.cw ?? Math.max(...options.map(t => tw(t, fs))) + 16
+  const W = o.w ?? cw * n
+  const cell = W / n
+  let fills = '', s = ''
+  options.forEach((opt, i) => {
+    const x = i * cell, on = i === chosen, hv = i === hover, dn = i === down
+    if (on) fills += `<rect x="${x}" y="0" width="${cell}" height="${h}" fill="${col(c)}" />`
+    else if (dn) fills += `<rect x="${x}" y="0" width="${cell}" height="${h}" fill="${ink(0.18)}" />`
+    else if (hv) fills += `<rect x="${x}" y="0" width="${cell}" height="${h}" fill="${ink(0.08)}" />`
+    if (i > 0 && !on && !(i - 1 === chosen)) s += `<path d="M${x + 0.5} 3 V${h - 3}" stroke="${ink(0.2)}" stroke-width="1" />`
+    s += `<text x="${x + cell / 2}" y="${h / 2 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="${on ? 500 : 400}" fill="${on ? WALL : hv || dn ? ink(1) : ink(0.62)}">${opt}</text>`
+  })
+  const frame = `<rect x="0.5" y="0.5" width="${W - 1}" height="${h - 1}" rx="2" fill="none" stroke="${ink(0.3)}" stroke-width="1" />`
+  return svg(W, h, clipped(W, h, 2, fills) + frame + s)
+}
+
+/* ── the keyboard: one frame cut into seven cells; the sharps are small tabs riding the top edge; the chosen key fills ── */
+function keyboard (chosen, c = 4, hover = -1, o = {}) {
+  const names = ['c', 'c♯', 'd', 'd♯', 'e', 'f', 'f♯', 'g', 'g♯', 'a', 'a♯', 'b']
+  const nat = [0, 2, 4, 5, 7, 9, 11], W = o.w ?? 196, kh = 26, sw = 16, sh = 13
+  const cell = W / 7
+  let fills = '', s = ''
+  nat.forEach((n, i) => {
+    const x = i * cell, on = n === chosen, hv = n === hover
+    if (on) fills += `<rect x="${x}" y="0" width="${cell}" height="${kh}" fill="${col(c)}" />`
+    else if (hv) fills += `<rect x="${x}" y="0" width="${cell}" height="${kh}" fill="${ink(0.08)}" />`
+    if (i > 0) s += `<path d="M${x + 0.5} ${sh + 2} V${kh - 3}" stroke="${ink(0.2)}" stroke-width="1" />`
+    s += `<text x="${x + cell / 2}" y="${kh - 6}" text-anchor="middle" font-size="9" font-weight="${on ? 500 : 400}" fill="${on ? WALL : hv ? ink(1) : ink(0.62)}">${names[n]}</text>`
+  })
+  ;[[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]].forEach(([n, left]) => {
+    const x = (left + 1) * cell - sw / 2, on = n === chosen, hv = n === hover
+    s += `<rect x="${x}" y="0" width="${sw}" height="${sh}" fill="${WALL}" /><rect x="${x + 0.5}" y="0.5" width="${sw - 1}" height="${sh - 1}" rx="1.5" fill="${on ? col(c) : hv ? ink(0.3) : ink(0.16)}" />`
+    s += `<text x="${x + sw / 2}" y="${sh - 3.5}" text-anchor="middle" font-size="7.5" fill="${on ? WALL : ink(0.8)}">${names[n]}</text>`
+  })
+  const frame = `<rect x="0.5" y="0.5" width="${W - 1}" height="${kh - 1}" rx="2" fill="none" stroke="${ink(0.3)}" stroke-width="1" />`
+  return svg(W, kh, clipped(W, kh, 2, fills) + frame + s)
+}
+
+/* ── the list: an outlined key with the chosen name; open, the options stack above in one frame ── */
+function list (options, chosen, state, c = 1, hover = -1, o = {}) {
+  const w = o.w ?? 96, h = 18, rowH = 16
+  const open = state === 'open'
+  const H = open ? options.length * rowH + 4 + 4 + h : h
+  let s = ''
+  if (open) {
+    const bh = options.length * rowH + 4
+    s += `<rect x="0.5" y="0.5" width="${w - 1}" height="${bh - 1}" rx="2" fill="${WALL}" stroke="${ink(0.3)}" stroke-width="1" />`
+    options.forEach((t, i) => {
+      const y = 2 + i * rowH, on = i === chosen, hv = i === hover
+      if (on) s += `<rect x="2" y="${y}" width="${w - 4}" height="${rowH}" fill="${col(c)}" />`
+      else if (hv) s += `<rect x="2" y="${y}" width="${w - 4}" height="${rowH}" fill="${ink(0.08)}" />`
+      s += `<text x="10" y="${y + rowH / 2 + 3.5}" font-size="10" font-weight="${on ? 500 : 400}" fill="${on ? WALL : hv ? ink(1) : ink(0.62)}">${t}</text>`
+    })
+  }
+  const py = open ? options.length * rowH + 8 : 0
+  const p = pill(0, py, undefined, open ? 'down' : state, c, { w, h }); s += p.s
+  const color = state === 'idle' ? ink(0.62) : ink(1)
+  s += `<text x="10" y="${py + h / 2 + 3.6}" font-size="10" fill="${color}">${options[chosen]}</text>`
+  s += `<path d="M${w - 14} ${py + 7.5} L${w - 10.5} ${py + 11} L${w - 7} ${py + 7.5}" fill="none" stroke="${color}" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" />`
+  return svg(w, H, s)
+}
+
+/* ── the bar: a thin track, the value filled in the colour, a square ink handle at the value ── */
+function bar (x, y, w, f, c, o = {}) {
+  const h = o.live ? 4 : 3
+  const zero = o.bipolar ? 0.5 : 0
+  const x0 = x + w * Math.min(zero, f), x1 = x + w * Math.max(zero, f)
+  let s = `<rect x="${x}" y="${y - h / 2}" width="${w}" height="${h}" fill="${ink(o.hover || o.live ? 0.18 : 0.12)}" />`
+  if (o.bipolar) s += `<rect x="${x + w / 2 - 0.5}" y="${y - 5}" width="1" height="10" fill="${ink(0.42)}" />`
+  if (x1 - x0 > 0.5) s += `<rect x="${x0}" y="${y - h / 2}" width="${x1 - x0}" height="${h}" fill="${col(c)}" />`
+  const hx = x + w * f, hw = o.live ? 3 : 2
+  s += `<rect x="${hx - hw / 2}" y="${y - 5}" width="${hw}" height="10" fill="${ink(1)}" />`
+  return s
+}
+function numRow (text, f, c = 3, state = 'idle', o = {}) {
+  const W = o.w ?? 160, H = 24, fs = o.fs ?? 17
+  const live = state === 'live', hover = state === 'hover', typing = state === 'typing'
+  const numW = o.numW ?? 52, bw = W - numW - 12
+  let s = bar(0, 12, bw, f, c, { live, hover, bipolar: o.bipolar })
+  const ty = 12 + fs * 0.36
+  if (typing) {
+    const t = text.length * fs * 0.6
+    s += `<rect x="${W - t}" y="${ty - fs * 0.78}" width="${t}" height="${fs * 1.05}" fill="${col(c, 0.3)}" />`
+    s += `<text x="${W}" y="${ty}" text-anchor="end" font-size="${fs}" fill="${col(c)}" class="val">${text}</text>`
+    s += `<rect x="${W + 1}" y="${ty - fs * 0.8}" width="1.2" height="${fs * 1.1}" fill="${col(c)}" />`
+  } else {
+    s += `<text x="${W}" y="${ty}" text-anchor="end" font-size="${fs}" fill="${col(c, live || hover ? 1 : 0.9)}" class="val">${text}</text>`
+  }
+  return svg(W + 3, H, s)
+}
+
+/* ── the steps: the same frame as the choice, cut into equal blank cells; the chosen one fills, its name beside ── */
+function steps (labels, chosen, c = 2, o = {}) {
+  const W = o.w ?? 160, H = 24, n = labels.length, numW = o.numW ?? 52, bw = W - numW - 12, h = 10
+  const cell = bw / n, y0 = 12 - h / 2
+  let fills = '', s = ''
+  labels.forEach((l, i) => {
+    const x = i * cell, on = i === chosen, hv = i === o.hover
+    if (on) fills += `<rect x="${x}" y="0" width="${cell}" height="${h}" fill="${col(c)}" />`
+    else if (hv) fills += `<rect x="${x}" y="0" width="${cell}" height="${h}" fill="${ink(0.1)}" />`
+    if (i > 0 && !on && i - 1 !== chosen) s += `<path d="M${x + 0.5} ${y0 + 2} V${y0 + h - 2}" stroke="${ink(0.2)}" stroke-width="1" />`
+  })
+  const fs = 17
+  s += `<text x="${W}" y="${12 + fs * 0.36}" text-anchor="end" font-size="${fs}" fill="${col(c, 0.9)}" class="val">${labels[o.hover ?? chosen]}</text>`
+  const frame = `<rect x="0.5" y="${y0 + 0.5}" width="${bw - 1}" height="${h - 1}" rx="1.5" fill="none" stroke="${ink(0.3)}" stroke-width="1" />`
+  return svg(W + 3, H, `<g transform="translate(0,${y0})">${clipped(bw, h, 1.5, fills)}</g>` + frame + s)
+}
+
+/* ── the readout: the print's own value, in the print's own colour ── */
+function readout (text, state = 'idle') {
+  const fs = 26, W = 120, H = 34
+  const typing = state === 'typing', hover = state === 'hover'
+  let s = ''
+  const ty = H / 2 + fs * 0.36
+  if (typing) {
+    const t = text.length * fs * 0.6
+    s += `<rect x="${W / 2 - t / 2}" y="${ty - fs * 0.78}" width="${t}" height="${fs * 1.05}" fill="${col('t', 0.3)}" />`
+    s += `<text x="${W / 2}" y="${ty}" text-anchor="middle" font-size="${fs}" fill="${col('t')}" class="val">${text}</text>`
+    s += `<rect x="${W / 2 + t / 2 + 1}" y="${ty - fs * 0.8}" width="1.4" height="${fs * 1.1}" fill="${col('t')}" />`
+  } else {
+    s += `<text x="${W / 2}" y="${ty}" text-anchor="middle" font-size="${fs}" fill="${col('t', hover ? 1 : 0.9)}" class="val">${text}</text>`
+  }
+  return svg(W, H, s)
+}
+
+/* ── the switch: a small square lamp beside its word; on, the lamp fills in the colour ── */
+function sw (label, state, c = 4) {
+  const on = state === 'on' || state === 'onHover', hover = state === 'hover' || state === 'onHover'
+  const fs = 10, w = tw(label, fs) + 16
+  const lamp = on ? `<rect x="0.5" y="4.5" width="7" height="7" fill="${col(c)}" />`
+    : `<rect x="1" y="5" width="6" height="6" fill="${hover ? ink(0.12) : 'none'}" stroke="${ink(hover ? 0.7 : 0.35)}" stroke-width="1" />`
+  return svg(w, 16, `${lamp}<text x="13" y="${8 + fs * 0.36}" font-size="${fs}" fill="${on ? ink(1) : hover ? ink(0.9) : ink(0.55)}">${label}</text>`)
+}
+
+/* ── close and the shelf's handle: an outlined square with a mark ── */
+function disc (mark, state) {
+  const down = state === 'down', hover = state === 'hover'
+  const c = hover || down ? ink(1) : ink(0.62)
+  const m = mark === 'x'
+    ? `<path d="M7.5 7.5 L14.5 14.5 M14.5 7.5 L7.5 14.5" stroke="${c}" stroke-width="1.4" stroke-linecap="round" />`
+    : mark === 'down'
+      ? `<path d="M7.5 9.5 L11 13 L14.5 9.5" fill="none" stroke="${c}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />`
+      : `<path d="M7.5 12.5 L11 9 L14.5 12.5" fill="none" stroke="${c}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />`
+  return svg(22, 22, `<rect x="1.5" y="1.5" width="19" height="19" rx="2" fill="${down ? ink(0.18) : hover ? ink(0.08) : 'none'}" stroke="${hover || down ? ink(0.6) : ink(0.3)}" stroke-width="1" />${m}`)
+}
+
+/* ── the sheet ────────────────────────────────────────────────────── */
+const S = (title, items) => `<section><h2>${title}</h2><div class="states">${items.map(([cap, html]) => `<div class="state">${html}<i>${cap}</i></div>`).join('')}</div></section>`
+const DIV = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2']
+const SHAPES = ['sine', 'triangle', 'square', 'pulse', 'saw', 'ramp', 'random', 'sample']
+const out = []
+
+out.push(S('the four colours: the first hand blue, the second green, the third white, the fourth orange, then again', [
+  ['1', svg(14, 14, `<circle cx="7" cy="7" r="7" fill="${col(1)}" />`)],
+  ['2', svg(14, 14, `<circle cx="7" cy="7" r="7" fill="${col(2)}" />`)],
+  ['3', svg(14, 14, `<circle cx="7" cy="7" r="7" fill="${col(3)}" />`)],
+  ['4', svg(14, 14, `<circle cx="7" cy="7" r="7" fill="${col(4)}" />`)],
+  ['the print’s own', svg(14, 14, `<circle cx="7" cy="7" r="7" fill="${col('t')}" />`)],
+]))
+out.push(S('the key (remove)', [
+  ['idle', pillSvg('remove', 'idle')], ['hover', pillSvg('remove', 'hover')], ['down', pillSvg('remove', 'down')], ['armed', pillSvg('sure?', 'armed')],
+]))
+out.push(S('close, and the shelf’s handle', [
+  ['close', disc('x', 'idle')], ['hover', disc('x', 'hover')], ['down', disc('x', 'down')],
+  ['shelf open', disc('down', 'idle')], ['hover', disc('down', 'hover')], ['shelf closed', disc('up', 'idle')],
+]))
+out.push(S('the choice, one frame, equal cells', [
+  ['chosen', choice(['clean', 'tape', 'pingpong'], 2, 1)],
+  ['hover on tape', choice(['clean', 'tape', 'pingpong'], 2, 1, 1)],
+  ['pressing tape', choice(['clean', 'tape', 'pingpong'], 2, 1, -1, 1)],
+  ['two', choice(['volume', 'pan'], 0, 2)],
+  ['four', choice(['key', 'intervals', 'cents', 'free'], 1, 4)],
+]))
+out.push(S('the keyboard', [['c', keyboard(0, 4)], ['f♯, hover on a', keyboard(6, 4, 9)]]))
+out.push(S('the list (the tremolo’s shapes)', [
+  ['closed', list(SHAPES, 2, 'idle', 1)], ['hover', list(SHAPES, 2, 'hover', 1)], ['open, hover on saw', list(SHAPES, 2, 'open', 1, 4)],
+]))
+out.push(S('the number and its bar', [
+  ['idle', numRow('35', 0.35, 3)], ['hover', numRow('35', 0.35, 3, 'hover')],
+  ['dragging', numRow('41', 0.41, 3, 'live')], ['typing', numRow('35', 0.35, 3, 'typing')],
+  ['ms', numRow('120', 0.2, 1)], ['bipolar', numRow('+7', (7 + 12) / 24, 4, 'idle', { bipolar: true })],
+  ['bipolar', numRow('-12', (100 - 12) / 200, 2, 'idle', { bipolar: true })],
+]))
+out.push(S('the steps (time, rate)', [['chosen 1/8', steps(DIV, 2, 2)], ['hover on 1/4', steps(DIV, 2, 2, { hover: 4 })]]))
+out.push(S('the readout, under the print, in the print’s colour', [['idle', readout('38')], ['hover', readout('38', 'hover')], ['typing', readout('38', 'typing')], ['+24', readout('+24')]]))
+out.push(S('the switch', [['off', sw('wet only', 'idle')], ['hover', sw('wet only', 'hover')], ['on', sw('wet only', 'on')], ['bypass on', sw('bypass', 'on', 3)]]))
+
+/* in place */
+const place = (title, rows) => `<section><h2>${title}</h2><div class="sample">${rows}</div></section>`
+const row = (lbl, ctl) => `<div class="row"><span class="lbl">${lbl}</span>${ctl}</div>`
+
+out.push(place('in place, the delay study', `
+  <div class="head"><span>delay</span>${disc('x', 'idle')}</div>
+  <div class="print"><i></i></div>
+  <div style="display:flex;justify-content:center">${readout('38')}</div>
+  ${row('type', choice(['clean', 'tape', 'pingpong'], 2, 1, -1, -1, { w: 236 }))}
+  ${row('time', steps(DIV, 2, 2, { w: 236 }))}
+  ${row('feedback', numRow('35', 0.35, 3, 'idle', { w: 236 }))}
+  <div class="row sw">${sw('wet only', 'idle', 4)}${sw('bypass', 'idle', 4)}</div>
+  <div class="foot">${pillSvg('remove from the wall', 'idle')}</div>`))
+
+out.push(place('grain', `
+  ${row('size', numRow('120', 0.2, 1, 'idle', { w: 236 }))}
+  ${row('spray', numRow('300', 0.2, 2, 'idle', { w: 236 }))}
+  ${row('scatter', numRow('0', 0, 3, 'idle', { w: 236 }))}
+  ${row('pitch', choice(['key', 'intervals', 'cents', 'free'], 0, 4, -1, -1, { w: 236 }))}
+  ${row('key', keyboard(0, 1, -1, { w: 236 }))}
+  ${row('scale', choice(['major', 'minor'], 0, 2, -1, -1, { w: 236 }))}
+  ${row('pan', numRow('50', 0.5, 3, 'idle', { w: 236, bipolar: true }))}
+  <div class="row sw">${sw('freeze', 'on', 4)}${sw('wet only', 'idle', 4)}${sw('bypass', 'idle', 4)}</div>`))
+
+out.push(place('tremolo', `
+  ${row('shape', list(SHAPES, 2, 'idle', 1, -1, { w: 236 }))}
+  ${row('moves', choice(['volume', 'pan'], 0, 2, -1, -1, { w: 236 }))}
+  ${row('rate', steps(DIV, 4, 3, { w: 236 }))}
+  ${row('depth', numRow('100', 1, 4, 'idle', { w: 236 }))}
+  <div class="row sw">${sw('wet only', 'idle', 4)}${sw('bypass', 'idle', 4)}</div>`))
+
+out.push(place('mix', `
+  ${row('mode', choice(['blend', 'sum'], 0, 1, -1, -1, { w: 236 }))}
+  ${row('space', numRow('62', 0.62, 2, 'idle', { w: 236 }))}
+  ${row('delay', numRow('38', 0.38, 3, 'idle', { w: 236 }))}
+  ${row('gain', numRow('0', 0.5, 4, 'idle', { w: 236, bipolar: true }))}
+  <div class="row sw">${sw('ø left', 'idle', 4)}${sw('ø right', 'on', 4)}</div>`))
+
+const Q = new URLSearchParams(location.search)
+/* ?vfont=Azeret+Mono&vw=200&wl=100;200;300;400&lw=300 — a thinner value font, thinner labels */
+const VFONT = Q.get('vfont'), VW = Q.get('vw'), LW = Q.get('lw')
+if (VFONT) {
+  const l = document.createElement('link'); l.rel = 'stylesheet'
+  l.href = `https://fonts.googleapis.com/css2?family=${VFONT.replace(/ /g, '+')}:wght@${Q.get('wl') ?? '200;300;400'}&display=swap`
+  document.head.appendChild(l)
+}
+const st = document.createElement('style')
+st.textContent = `${VFONT ? `.val { font-family: '${VFONT.replace(/\+/g, ' ')}', monospace !important; }` : ''}
+  ${VW ? `.val { font-weight: ${VW} !important; }` : ''}
+  ${LW ? `svg text:not(.val), .row .lbl, .head, h1, h2 { font-weight: ${LW} !important; }` : ''}`
+document.head.appendChild(st)
+if (VFONT || VW || LW) document.querySelector('h1').textContent = `labels Space Grotesk ${LW ?? '500'}, values ${(VFONT ?? 'Space Mono').replace(/\+/g, ' ')} ${VW ?? '400'}`
+const from = Number(Q.get('from') ?? 0), to = Number(Q.get('to') ?? out.length)
+document.getElementById('sections').innerHTML = out.slice(from, to).join('')
+document.querySelector('.frame').style.height = document.querySelector('.sheet').offsetHeight * 2 + 'px'
+</script>
+</body>
+</html>

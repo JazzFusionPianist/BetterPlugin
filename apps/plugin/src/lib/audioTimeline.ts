@@ -184,23 +184,6 @@ function ppqAtSeconds(seconds: number, points: TempoMapPoint[]): number | undefi
   return ppq + (seconds - elapsed) * bpm / 60
 }
 
-/** Inverse of ppqAtSeconds — project seconds at a quarter-note position. */
-function secondsAtPpq(targetPpq: number, points: TempoMapPoint[]): number | undefined {
-  if (points.length === 0) return undefined
-  const sorted = sortedByPpq(points)
-  let ppq = 0
-  let elapsed = 0
-  let bpm = sorted[0]!.bpm
-  for (const point of sorted) {
-    if (point.ppq <= ppq) { bpm = point.bpm; continue }
-    if (point.ppq >= targetPpq) break
-    elapsed += (point.ppq - ppq) * 60 / bpm
-    ppq = point.ppq
-    bpm = point.bpm
-  }
-  return elapsed + (targetPpq - ppq) * 60 / bpm
-}
-
 function barBeatAtPpq(ppq: number, points: TimeSignatureMapPoint[]): { bar: number; beat: number } | null {
   if (points.length === 0) return null
   const sorted = sortedByPpq(points)
@@ -319,55 +302,39 @@ export function mergeEmbeddedTimelineWithProject(
 }
 
 /**
- * Resolve the file's stamp against the drop-time host anchor into an
- * absolute project position. Logic stamps a promise-exported region
- * relative to the CYCLE start while the cycle is on (observed: a region
- * at project bar 3 stamped as bar 2 with the cycle starting at bar 2),
- * and relative to project zero otherwise — so:
- *   · cycle on + left locator known → basis 'cycle',
- *     absolute = locator + stamp (converted through the tempo map)
- *   · cycle reported off            → basis 'project', absolute = stamp
- *   · no loop report (old binary)   → basis 'unknown', no absolute —
- *     display falls back to the relative reading and says so.
- * Bar numbers come from the playhead's OWN grid (anchor bar_count +
- * bar_ppq) whenever the drop captured one — never from an assumption
- * about where ppq zero sits. The raw stamp, the anchor, and the
- * computed absolute are ALL stored, so the detection rule can evolve
- * without re-uploading audio.
+ * Resolve the file's BWF stamp into an absolute project position.
+ * Empirically (diagnostics 2026-09-16): Logic stamps the ABSOLUTE
+ * project position of the FILE's first sample, cycle on or off — a
+ * region at bar 15 dropped with the cycle spanning bars 3–18 carried
+ * 01:00:46.667 = exactly bar 15 at 72bpm. The earlier "cycle-relative"
+ * reading (a bar-3 region stamped bar 2, cycle at bar 2) was a cycle
+ * BOUNCE whose file genuinely starts at the cycle start; the stamp was
+ * absolute there too. So: absolute = stamp, always — adding the left
+ * locator double-counts. 'unknown' only when the stamp can't be
+ * converted (no tempo anywhere). Bar numbers come from the playhead's
+ * OWN grid (anchor bar_count + bar_ppq) whenever the drop captured one
+ * — never from an assumption about where ppq zero sits. The raw stamp
+ * and the anchor are ALL stored, so the rule can evolve without
+ * re-uploading audio. ('cycle' survives in the basis type only for
+ * rows written before this fix.)
  */
 function withAbsolutePosition(metadata: AttachmentTimelineMetadata): AttachmentTimelineMetadata {
-  const { position, anchor } = metadata
+  const { position } = metadata
   if (position.confidence !== 'exact') return metadata
 
-  // The stamp in quarter notes from ITS OWN zero (whatever that is):
-  // prefer the tempo-map conversion the merge already did, then bpm.
+  // The stamp in quarter notes from project zero: prefer the tempo-map
+  // conversion the merge already did, then bpm.
   let stampPpq = position.ppq
   if (stampPpq == null && position.seconds != null && metadata.bpm && metadata.bpm > 0) {
     const seconds = Math.max(0, position.seconds - (position.seconds >= 3600 ? 3600 : 0))
     stampPpq = seconds * metadata.bpm / 60
   }
-  if (stampPpq == null || anchor?.is_looping == null
-      || (anchor.is_looping && anchor.loop_start_ppq == null)) {
+  if (stampPpq == null) {
     return { ...metadata, position: { ...position, basis: 'unknown' } }
   }
 
-  let absolutePpq = stampPpq
-  let basis: 'cycle' | 'project' = 'project'
-  if (anchor.is_looping && anchor.loop_start_ppq != null) {
-    basis = 'cycle'
-    // Offset in SECONDS from the locator, so a tempo change before the
-    // cycle doesn't skew the conversion; constant tempo reduces this to
-    // loop_start_ppq + stampPpq exactly.
-    const tempoMap = metadata.tempo_map ?? []
-    const loopStartSeconds = secondsAtPpq(anchor.loop_start_ppq, tempoMap)
-    const stampSeconds = position.seconds != null
-      ? Math.max(0, position.seconds - (position.seconds >= 3600 ? 3600 : 0))
-      : undefined
-    const converted = loopStartSeconds != null && stampSeconds != null
-      ? ppqAtSeconds(loopStartSeconds + stampSeconds, tempoMap)
-      : undefined
-    absolutePpq = converted ?? anchor.loop_start_ppq + stampPpq
-  }
+  const absolutePpq = stampPpq
+  const basis: 'cycle' | 'project' = 'project'
 
   // A non-finite result must never be stored: NaN/Infinity strips to
   // null in the jsonb round trip and the label silently disappears.

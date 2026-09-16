@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, GATE_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing } from './FxPanel'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
 import {
@@ -64,6 +64,7 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 22) return fmtSwell(a)
   if (type === 23) return STUTTER_LABELS[Math.min(4, Math.floor(a * 5))]
   if (type === 25) return fmtRing(a)
+  if (type === 26) return fmtGate(a)
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
@@ -174,7 +175,8 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
         : type === 5 ? <Art a={a} pol={variant} onFlip={onFlip} />
-        : type === 12 || type === 26 ? <Art a={a} variant={variant} curve={node.curve} />
+        : type === 12 ? <Art a={a} variant={variant} curve={node.curve} />
+        : type === 22 ? <Art a={a} variant={variant} depth={(node.aux[1] === 1 ? node.aux[0] : 100) / 100} />
         : type === 18 ? <Art a={a} variant={variant} />
         : type === 19 ? <Art a={a} variant={variant} />
         : type === 13 ? <Art a={a} variant={variant} interval={node.aux[0] || 12} />
@@ -235,6 +237,7 @@ export default function FxWall ({ size: frame }: Props) {
   const studyOpen = sel?.node !== undefined
   const size = { w: frame.w, h: frame.h }
   const [confirm, setConfirm] = useState<string | null>(null)   // 'node:3' | 'edge:2' awaiting the second tap
+  const [pick, setPick] = useState<string | null>(null)         // '3:wall' | '3:study': a shape list is open
   const [drag, setDrag] = useState<Drag | null>(null)
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef(graph); graphRef.current = graph
@@ -502,7 +505,9 @@ export default function FxWall ({ size: frame }: Props) {
         else if (n.type === 18 && k === 2) v = Math.min(24, Math.max(0, v))                                  // semitones
         else if (n.type === 18 && k === 3) v = ((v % 12) + 12) % 12                                            // key root
         else if (n.type === 18 && k === 5) v = Math.min(100, Math.max(0, Math.round(drag.v0 + dy / 2)))       // pan %
+        else if (n.type === 22) v = Math.min(100, Math.max(0, Math.round(drag.v0 + dy / 2)))                  // swell depth %
         const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[k] = v
+        if (n.type === 22) aux[1] = 1   // depth has been set (0 is a real value)
         updateNode(drag.id, { aux }, true)
       }
     }
@@ -576,7 +581,7 @@ export default function FxWall ({ size: frame }: Props) {
                       </span>
                     </>
                   )}
-                  {(n.type === 12 || n.type === 13 || n.type === 26) && (
+                  {(n.type === 12 || n.type === 13) && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
@@ -594,6 +599,13 @@ export default function FxWall ({ size: frame }: Props) {
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] }) }}>
                       {' '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
+                    </span>
+                  )}
+                  {n.type === 22 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[1] === 1 ? n.aux[0] : 100 }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 100; aux[1] = 1; updateNode(n.id, { aux }, true) }}>
+                      {' depth '}{n.aux[1] === 1 ? n.aux[0] : 100}
                     </span>
                   )}
                   {n.type === 16 && (
@@ -655,22 +667,32 @@ export default function FxWall ({ size: frame }: Props) {
       </>
     )
   }
-  const words = (n: FxGraphNode) => {
+  const words = (n: FxGraphNode, where = 'wall') => {
     const isMix = n.type === FX_MIX_TYPE
     const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
     return (
 <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
-                    {n.type === 12 && TREM_PRESETS.map((pr, pi) => (
-                      <span key={pr.name} className={`sg-word${(n.aux[2] || 0) === pi ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve(), variant: Math.min(4, pi) }, true) }}>{pr.name}</span>
-                    ))}
+                    {n.type === 12 && (() => {
+                      const key = `${n.id}:${where}`
+                      const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
+                      return (
+                        <span className={`sg-word on sg-pick${pick === key ? ' open' : ''}`}
+                          onPointerDown={(e) => { e.stopPropagation(); setPick(pick === key ? null : key) }}>
+                          {TREM_PRESETS[cur]?.name ?? 'sine'}<span className="sg-pick-arrow">▾</span>
+                          {pick === key && (
+                            <span className="sg-pick-list" onPointerDown={(e) => e.stopPropagation()}>
+                              {TREM_PRESETS.map((pr, pi) => (
+                                <span key={pr.name} className={`sg-pick-row${cur === pi ? ' on' : ''}`}
+                                  onPointerDown={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve(), variant: Math.min(4, pi) }, true); setPick(null) }}>{pr.name}</span>
+                              ))}
+                            </span>
+                          )}
+                        </span>
+                      )
+                    })()}
                     {n.type !== 5 && n.type !== 12 && flavours.map((f, vi) => (
                       <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
                         onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
-                    ))}
-                    {n.type === 26 && GATE_PRESETS.map((pr, pi) => (
-                      <span key={pr.name} className={`sg-word${(n.aux[2] || 0) === pi ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve() }, true) }}>{pr.name}</span>
                     ))}
                     {n.type === 12 && ['vol', 'pan'].map((w, k) => (
                       <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
@@ -1015,6 +1037,7 @@ export default function FxWall ({ size: frame }: Props) {
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
         onPointerDown={(e) => {
+          setPick(null)
           // a wire under the pointer? (the wires are painted, not DOM)
           const p = wallPt(e)
           let hit = -1, best = 9
@@ -1174,7 +1197,7 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(
-      <aside ref={studyRef} className={`sg-study${studyOut ? ' out' : ''}`} style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+      <aside ref={studyRef} className={`sg-study${studyOut ? ' out' : ''}`} style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => { e.stopPropagation(); setPick(null) }} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>
@@ -1210,7 +1233,7 @@ export default function FxWall ({ size: frame }: Props) {
             : null}
         </div>
         <div className="sg-study-hands">{hands(studyNode, true)}</div>
-        <div className="sg-study-words">{words(studyNode)}</div>
+        <div className="sg-study-words">{words(studyNode, 'study')}</div>
         {studyNode.type === FX_MIX_TYPE && inputsOf(studyNode.id).length > 0 && (
           <div className="sg-study-inputs">
             {inputsOf(studyNode.id).map(x => (

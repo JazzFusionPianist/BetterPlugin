@@ -596,9 +596,9 @@ export const CURVE_LEN = 32
 function baseShape (variant: number, ph: number): number {
   switch (variant) {
     case 1: return 1 - 2 * Math.abs(ph - 0.5)
-    case 2: return ph < 0.5 ? 1 : 0
-    case 3: return ph < 0.25 ? 1 : 0
-    case 4: return 1 - ph
+    case 2: return ph < 0.5 ? 0 : 1        // square: the dip comes first
+    case 3: return ph < 0.25 ? 0 : 1       // pulse: a short dip
+    case 4: return ph                      // saw: rises, drops
     default: return 0.5 + 0.5 * Math.cos(2 * Math.PI * ph)
   }
 }
@@ -614,7 +614,6 @@ export const TREM_PRESETS: Array<{ name: string; curve: () => number[] }> = (() 
     { name: 'square', curve: () => pts(ph => baseShape(2, ph)) },
     { name: 'pulse', curve: () => pts(ph => baseShape(3, ph)) },
     { name: 'saw', curve: () => pts(ph => baseShape(4, ph)) },
-    { name: 'ramp', curve: () => pts(ph => ph) },
     { name: 'eighths', curve: () => gate([1, 1, 1, 1, 1, 1, 1, 1], 0.55) },
     { name: 'sixteenths', curve: () => gate(new Array(16).fill(1), 0.5) },
     { name: '3-3-2', curve: () => gate([1, 0, 0, 1, 0, 0, 1, 0], 0.9) },
@@ -837,6 +836,7 @@ function CrushArt ({ a }: { a: number }) {
 
 const STUTTER_LABELS = ['1/4', '1/8', '1/16', '1/32', '1/64']
 function fmtSwell (a: number): string { const T = 0.02 * Math.pow(75, a); return T < 1 ? `${Math.round(T * 1000)}ms` : `${T.toFixed(2)}s` }
+function fmtGate (a: number): string { const t = Math.round(-60 + a * 60); return t === 0 ? '0 dB' : `−${-t} dB` }
 function fmtRing (a: number): string { const hz = 20 * Math.pow(2, a * 8); return hz >= 1000 ? `${(hz / 1000).toFixed(2)}k` : `${Math.round(hz)}` }
 
 /* ── shimmer: echoes that climb — each ring a little higher, a little smaller ── */
@@ -855,11 +855,11 @@ function ShimmerArt ({ a, variant = 0 }: { a: number; variant?: number }) {
 }
 
 /* ── swell: the envelope a plucked note learns from a bow ─────────────── */
-function SwellArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+function SwellArt ({ a, variant = 0, depth = 1 }: { a: number; variant?: number; depth?: number }) {
   const { s, acc } = useInks(a)
   const X0 = C - 72, W = 144, Y0 = C - 50, H = 100
   const attack = 0.06 + a * 0.8
-  const floor = variant === 1 ? 0 : 0.25
+  const floor = 1 - depth * (variant === 1 ? 1 : 0.75)
   const pts: string[] = []
   for (let i = 0; i <= 96; i++) {
     const t = i / 96
@@ -947,27 +947,31 @@ function RingArt ({ a, variant = 0 }: { a: number; variant?: number }) {
   )
 }
 
-/* ── gate: the tremolo's cycle read as open or shut ───────────────────── */
-function GateArt ({ a, curve }: { a: number; variant?: number; curve?: number[] }) {
-  const s = strokeFor(a), acc = accentFor(a)
-  const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
-  const pts: string[] = []
-  const at = (ph: number) => {
-    if (curve && curve.length === CURVE_LEN) return curve[Math.floor(ph * CURVE_LEN) % CURVE_LEN]
-    return ph < 0.5 ? 1 : 0
-  }
-  for (let i = 0; i <= 128; i++) {
-    const ph = i / 128
-    const open = Math.min(1, Math.max(0, (at(Math.min(ph, 0.9999)) - 0.35) / 0.3))
-    const v = 1 - a * (1 - open)
-    const x = X0 + ph * W
-    if (i > 0) { const prev = pts[pts.length - 1].split(',')[1]; pts.push(`${x.toFixed(1)},${prev}`) }
-    pts.push(`${x.toFixed(1)},${(Y0 + H - v * H).toFixed(1)}`)
-  }
+/* ── gate: bursts of sound; those under the threshold line are cut ────── */
+function GateArt ({ a }: { a: number }) {
+  const { s, acc } = useInks(a)
+  const X0 = C - 74, W = 148
+  const amps = [0.9, 0.3, 0.62, 0.18, 0.78, 0.42]
+  const thr = a * 0.98
+  const thrY = C - thr * 46
+  const bursts = amps.map((amp, k) => {
+    const x0 = X0 + (k / amps.length) * W, bw = W / amps.length
+    const pts: string[] = []
+    const n = 22
+    for (let i = 0; i <= n; i++) {
+      const t = i / n
+      const env = Math.sin(t * Math.PI)
+      const y = Math.sin(t * Math.PI * 2 * 3.5) * env * amp
+      pts.push(`${(x0 + 2 + t * (bw - 4)).toFixed(1)},${(C - y * 46).toFixed(1)}`)
+    }
+    const passes = amp >= thr
+    return <polyline key={k} points={pts.join(' ')} fill="none" stroke={passes ? s : acc} strokeWidth={passes ? 1.4 : 0.9} opacity={passes ? 1 : 0.28} strokeLinejoin="round" />
+  })
   return (
     <g>
-      <line x1={X0} y1={Y0 + H} x2={X0 + W} y2={Y0 + H} stroke={s} strokeWidth={0.8} opacity={0.25} />
-      <polyline points={pts.join(' ')} fill="none" stroke={curve ? acc : s} strokeWidth={1.6} strokeLinejoin="miter" />
+      {bursts}
+      <line x1={X0 - 4} y1={thrY} x2={X0 + W + 4} y2={thrY} stroke={acc} strokeWidth={1} strokeDasharray="3 3" opacity={0.9} />
+      <line x1={X0 - 4} y1={C + thr * 46} x2={X0 + W + 4} y2={C + thr * 46} stroke={acc} strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
     </g>
   )
 }
@@ -999,14 +1003,13 @@ function WowArt ({ a, variant = 0 }: { a: number; variant?: number }) {
 function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
 
 const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt, CrushArt, ShimmerArt, SwellArt, StutterArt, AirArt, RingArt, GateArt, WowArt]
-/** The gate's patterns: the tremolo's rhythmic shapes, by name. */
-export const GATE_PRESETS = ['square', 'eighths', 'sixteenths', '3-3-2', 'gallop', 'swing', 'offbeat', 'random'].map(name => TREM_PRESETS.find(t => t.name === name)!).filter(Boolean)
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
   if (mode === 22) return fmtSwell(a)
   if (mode === 23) return STUTTER_LABELS[Math.min(4, Math.floor(a * 5))]
   if (mode === 25) return fmtRing(a)
+  if (mode === 26) return fmtGate(a)
   if (mode === 0) {
     const db = (a - 0.5) * 12
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
@@ -1315,4 +1318,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate }

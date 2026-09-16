@@ -212,14 +212,14 @@ int main()
         CHECK (maxDiff (switched, input, 20 * kBlock) == 0.0f, "after the switch the slot is a fresh unity gain — transparent at once");
     }
 
-    { // tremolo: square at full depth, 1/8 at 120 bpm = 250 ms cycle → the second half is silent
-        Graph g; auto n = node (12, kTremolo, 1.0f, 2); n.delayDiv = 2; g.nodes.push_back (n);
+    { // tremolo: square at full depth, 1/16 at 120 bpm = 125 ms cycle → the dip comes first, then the loud half
+        Graph g; auto n = node (12, kTremolo, 1.0f, 2); n.delayDiv = 0; g.nodes.push_back (n);
         g.edges.push_back ({ kPortIn, 12, 1.0f }); g.edges.push_back ({ 12, kPortOut, 1.0f });
         const auto o = run (g);
-        const int cyc = (int) (kSr * 0.25);   // 12000 samples
-        // amount glides up over ~50 ms; look at the second cycle
-        CHECK (peakOf (o, cyc + 200, cyc + cyc / 2 - 200) > 0.2f, "tremolo square: loud half is loud");
-        CHECK (peakOf (o, cyc + cyc / 2 + 400, 2 * cyc - 200) < 0.02f, "tremolo square: quiet half is silent");
+        const int cyc = (int) (kSr * 0.125);   // 6000 samples
+        // amount glides up over ~50 ms; look at the second cycle (the buffer ends at 10240)
+        CHECK (peakOf (o, cyc + 1400, cyc + cyc / 2 - 200) < 0.03f, "tremolo square: quiet half is silent");
+        CHECK (peakOf (o, cyc + cyc / 2 + 300, kBlock * kBlocks - 1) > 0.2f, "tremolo square: loud half is loud");
     }
     { // tremolo pan: full depth sine swings the balance
         Graph g; auto n = node (12, kTremolo, 1.0f, 0); n.aux[0] = 1; n.delayDiv = 4; g.nodes.push_back (n);
@@ -408,12 +408,12 @@ int main()
         float rdiff = 0.0f; for (int i = 4000; i < N; ++i) rdiff = std::max (rdiff, std::abs (ring.getSample (0, i) - input.getSample (0, i)));
         CHECK (finite (ring) && rdiff > 0.2f && peakOf (ring, 4000, N) < 1.0f, "ring at 320 Hz: a different signal, sane level");
 
-        Graph gg = one (kGate, 1.0f, 0); gg.nodes[0].delayDiv = 0;   // 1/16 note per cycle: open half, shut half
-        const auto gt = run (gg);
-        const int half = (int) (0.25 * 60.0 / 120.0 * kSr / 2);
-        const float shut = peakOf (gt, 3 * half + 300, std::min (N, 4 * half - 100)), open = peakOf (gt, 2 * half + 200, 3 * half - 100);   // second cycle: the depth has settled
+        // gate: threshold −6 dB cuts the 0.4 sine between the 0.5 clicks; at −42 dB it all passes
+        const auto gt = run (one (kGate, 1.0f, 0));   // the knob glides: by 7400 samples the threshold is above the sine
+        // the threshold only clears the sine once the knob passes 0.92 (~6000 samples in); by 7600..7990 the 20 ms release has taken it well down
+        const float shut = peakOf (gt, 7600, 7990), open = peakOf (run (one (kGate, 0.3f, 0)), 6000, 7990);
         std::printf ("    [gate] open %.3f shut %.4f\n", open, shut);
-        CHECK (finite (gt) && shut < 0.05f && open > 0.2f, "gate: shut half is silent, open half passes");
+        CHECK (finite (gt) && shut < 0.12f && open > 0.35f, "gate: under the threshold is cut, over it passes");
 
         const auto wow = run (one (kWow, 1.0f, 2));
         float wdiff = 0.0f; for (int i = 4000; i < N; ++i) wdiff = std::max (wdiff, std::abs (wow.getSample (0, i) - input.getSample (0, i)));

@@ -332,6 +332,7 @@ void NodeState::reset()
     for (int ch = 0; ch < 2; ++ch) { airHp[ch] = {}; airHp2[ch] = {}; airShelf[ch] = {}; airDc[ch] = 0.0f; airEnv[ch] = 0.0f; }
     airBakedSr = 0.0f; airBakedA = -1.0f;
     ringPhase = 0.0f;
+    gateEnv = 0.0f; gateOpen = false; gateHold = 0; gateGain = 1.0f;
     std::fill (wowDl[0].begin(), wowDl[0].end(), 0.0f);
     std::fill (wowDl[1].begin(), wowDl[1].end(), 0.0f);
     wowWrite = 0; wowPhase = 0.0f; wowFlutPhase = 0.0f; wowDrift = 0.0f; wowJitter = 0.0f;
@@ -1004,9 +1005,9 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 switch (variant)
                 {
                     case 1:  return 1.0f - 2.0f * std::abs (ph - 0.5f);            // triangle
-                    case 2:  return ph < 0.5f ? 1.0f : 0.0f;                          // square
-                    case 3:  return ph < 0.25f ? 1.0f : 0.0f;                         // pulse
-                    case 4:  return 1.0f - ph;                                        // saw
+                    case 2:  return ph < 0.5f ? 0.0f : 1.0f;                          // square: the dip first
+                    case 3:  return ph < 0.25f ? 0.0f : 1.0f;                         // pulse: a short dip
+                    case 4:  return ph;                                               // saw: rises, drops
                     default: return 0.5f + 0.5f * std::cos (twoPi * ph);              // sine
                 }
             };
@@ -1487,7 +1488,8 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             const float rise  = 1.0f / (T * sr);
             const float relK  = 1.0f - std::exp (-1.0f / (0.03f * sr));
             const float slowK = 1.0f - std::exp (-1.0f / (0.15f * sr));
-            const float floorG = variant == 1 ? 0.0f : 0.25f;
+            const float depth  = juce::jlimit (0, 100, p.aux[0] > 0 || p.aux[1] == 1 ? p.aux[0] : 100) / 100.0f;   // aux[1] = 1 marks "depth was set"
+            const float floorG = 1.0f - depth * (variant == 1 ? 1.0f : 0.75f);
             const int   holdN  = (int) (0.08f * sr);
             for (int i = 0; i < n; ++i)
             {
@@ -1616,43 +1618,26 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 
         case kGate:
         {
-            // A trance gate: the tremolo's clock and shapes, but the shape
-            // is read as open/shut. Depth is the knob; `tight` snaps in a
-            // millisecond, `loose` in twelve.
-            const int   di    = juce::jlimit (0, 6, p.delayDiv);
-            const float cycle = kDivBeats[di];
-            const float slewK = 1.0f - std::exp (-1.0f / ((variant == 1 ? 0.012f : 0.001f) * sr));
-            const double perSample = (double) p.bpm / 60.0 / (double) sr / (double) cycle;
-            auto shapeAt = [&] (float ph) -> float
-            {
-                if (p.hasCurve)
-                {
-                    const float x  = ph * (float) kCurveLen;
-                    const int   i0 = ((int) x) % kCurveLen;
-                    return p.curve[i0];
-                }
-                return ph < 0.5f ? 1.0f : 0.0f;
-            };
+            // A noise gate: an expander with an infinite ratio. The knob is
+            // the threshold (−60 .. 0 dB); what stays under it is cut. The
+            // gate closes 3 dB below where it opened (no chatter), holds a
+            // moment, then `tight` shuts in 20 ms and `loose` in 250 ms.
+            const float thr    = std::pow (10.0f, (-60.0f + a * 60.0f) / 20.0f);
+            const float close  = thr * 0.7f;   // 3 dB of hysteresis
+            const float detK   = 1.0f - std::exp (-1.0f / (0.008f * sr));
+            const float attK   = 1.0f - std::exp (-1.0f / ((variant == 1 ? 0.005f : 0.0005f) * sr));
+            const float relK   = 1.0f - std::exp (-1.0f / ((variant == 1 ? 0.25f : 0.02f) * sr));
+            const int   holdN  = (int) ((variant == 1 ? 0.03f : 0.01f) * sr);
             for (int i = 0; i < n; ++i)
             {
-                float ph;
-                if (p.playing)
-                {
-                    const double b = (p.ppq + (double) p.bpm / 60.0 / (double) sr * (double) i) / (double) cycle;
-                    ph = (float) (b - std::floor (b));
-                    tremPhase = ph;
-                }
-                else
-                {
-                    tremPhase += (float) perSample;
-                    tremPhase -= std::floor (tremPhase);
-                    ph = tremPhase;
-                }
-                const float open = juce::jlimit (0.0f, 1.0f, (shapeAt (ph) - 0.35f) / 0.3f);
-                const float g = 1.0f - a * (1.0f - open);
-                tremGainSm[0] += (g - tremGainSm[0]) * slewK;
-                L[i] *= tremGainSm[0];
-                if (R != nullptr) R[i] *= tremGainSm[0];
+                const float x = juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f);
+                if (x > gateEnv) gateEnv = x; else gateEnv += (x - gateEnv) * detK;
+                if (gateEnv > thr) { gateOpen = true; gateHold = holdN; }
+                else if (gateEnv < close) { if (gateHold > 0) --gateHold; else gateOpen = false; }
+                const float target = gateOpen ? 1.0f : 0.0f;
+                gateGain += (target - gateGain) * (target > gateGain ? attK : relK);
+                L[i] *= gateGain;
+                if (R != nullptr) R[i] *= gateGain;
             }
             break;
         }

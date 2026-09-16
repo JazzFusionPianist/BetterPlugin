@@ -189,6 +189,10 @@ struct NodeState
     float airBakedSr = 0.0f, airBakedA = -1.0f, airDc[2] {}, airEnv[2] {};
     // ring
     float ringPhase = 0.0f;
+    // gate
+    float gateEnv = 0.0f, gateGain = 1.0f;
+    bool  gateOpen = false;
+    int   gateHold = 0;
     // wow: a short modulated line
     std::vector<float> wowDl[2];
     int   wowWrite = 0;

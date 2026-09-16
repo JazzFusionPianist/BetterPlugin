@@ -10564,6 +10564,19 @@ text.sg-word { fill: var(--sg-ink-55); }
 .plugin.sounds > .sg-study { animation: sg-study-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .plugin.sounds > .sg-study.out { animation: sg-study-out 0.24s cubic-bezier(0.5, 0, 0.8, 0.4) both; pointer-events: none; }
 
+/* ── a word that opens a list (the tremolo's shapes) ─────────────────── */
+.sg-pick { position: relative; cursor: pointer; }
+.sg-pick-arrow { font-size: 8px; margin-left: 4px; opacity: 0.55; }
+.sg-pick-list {   /* opens upward: there is always room above the words */
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 3px; padding: 8px 12px;
+  background: rgba(16, 15, 12, 0.96); border: 1px solid var(--sg-ink-14); border-radius: 6px;
+  white-space: nowrap; z-index: 60; text-align: center;
+}
+.sg-pick-row { color: var(--sg-ink-50); cursor: pointer; padding: 1px 4px; }
+.sg-pick-row:hover { color: var(--sg-ink); }
+.sg-pick-row.on { color: var(--sg-ink); }
+
 /* ── bypass: a small ring at the top of the print; hollow = passed by ── */
 .sg-power {
   position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; margin-left: -4px;

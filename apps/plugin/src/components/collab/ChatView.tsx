@@ -14,6 +14,7 @@ import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } f
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
+import { resolveUrl, invalidateResolved } from '../../lib/r2Access'
 
 interface Attachment {
   url: string
@@ -883,6 +884,151 @@ function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; group
         </div>
       )}
     </div>
+  )
+}
+
+// ── "import all" — batched multi-stem import as one quiet word ──────
+// Shared by the studio's multi-audio plates and the files tab. Resolves
+// every track url to a presigned GET (r2Access — stored urls are the
+// bucket's public urls), fetches each, and hands the whole set to the
+// native `writeAudioFiles` fn in ONE call — the same machinery
+// AudioGroupAttachment's multi drag-out uses: C++ batch-writes all
+// files to temp and arms a single multi-file drag (the native contract
+// supports exactly one armed drag, carrying many files). A track that
+// fails to fetch is skipped; the batch continues, and the word reads
+// "imported 6/7" briefly before settling on the armed wording. Armed /
+// imported wording and the 15s arm timeout mirror the single button.
+type ImportAllState = 'idle' | 'fetching' | 'armed' | 'imported'
+
+export function ImportAllWord({ tracks, groupKey, className }: {
+  tracks: { url: string; name: string }[]
+  /** Stable identity for the arming events (__localDragArmed /
+   *  __juceImported / __juceOutDragCancel) — plays the role the single
+   *  button's url plays. */
+  groupKey: string
+  className?: string
+}) {
+  const [state, setState] = useState<ImportAllState>('idle')
+  const [fetched, setFetched] = useState(0)
+  /** ok-count to flash as "imported 6/7" when some tracks were skipped. */
+  const [partial, setPartial] = useState<number | null>(null)
+  const cached = useRef<{ b64: string; name: string }[]>([])
+  const cachedKey = useRef('')
+  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const partialTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const juceBackend = !!window.__JUCE__?.backend
+
+  // Import success / drag-cancel come back keyed on groupKey (the shell
+  // echoes whatever url __localDragArmed announced).
+  useEffect(() => {
+    const onImported = (e: Event) => {
+      if ((e as CustomEvent<{ url: string }>).detail?.url !== groupKey) return
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setState('imported')
+    }
+    const onCancel = (e: Event) => {
+      if ((e as CustomEvent<{ url: string }>).detail?.url !== groupKey) return
+      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
+      setState(cached.current.length > 0 ? 'imported' : 'idle')
+    }
+    window.addEventListener('__juceImported',      onImported)
+    window.addEventListener('__juceOutDragCancel', onCancel)
+    return () => {
+      window.removeEventListener('__juceImported',      onImported)
+      window.removeEventListener('__juceOutDragCancel', onCancel)
+    }
+  }, [groupKey])
+
+  useEffect(() => () => {
+    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
+    if (partialTimer.current) clearTimeout(partialTimer.current)
+  }, [])
+
+  const armDone = () => {
+    window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url: groupKey } }))
+    setState('armed')
+    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
+    armedResetTimer.current = setTimeout(() => {
+      armedResetTimer.current = null
+      setState(s => s === 'armed' ? 'imported' : s)
+    }, 15_000)
+  }
+
+  const handleMouseDown = async (e: React.MouseEvent) => {
+    e.stopPropagation(); e.preventDefault()
+    if (!juceBackend || state === 'armed' || state === 'fetching' || tracks.length === 0) return
+
+    setState('fetching')
+    setFetched(0)
+    setPartial(null)
+    if (partialTimer.current) { clearTimeout(partialTimer.current); partialTimer.current = null }
+
+    // Re-arm from cache — no re-download (single/group button parity).
+    const key = tracks.map(t => t.url).join('\n')
+    let entries = cachedKey.current === key ? cached.current : []
+
+    if (entries.length === 0) {
+      const CHUNK = 0x8000
+      const got: { b64: string; name: string }[] = []
+      let done = 0
+      for (const t of tracks) {
+        try {
+          const resolved = await resolveUrl(t.url)
+          let res = await fetch(resolved)
+          // A 403 on a presigned url = the cached entry expired
+          // mid-session — invalidate, re-resolve, retry once.
+          if (res.status === 403 && resolved !== t.url) {
+            invalidateResolved(t.url)
+            const fresh = await resolveUrl(t.url)
+            if (fresh !== resolved) res = await fetch(fresh)
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const buf = new Uint8Array(await res.arrayBuffer())
+          let b64 = ''
+          for (let i = 0; i < buf.length; i += CHUNK)
+            b64 += String.fromCharCode(...buf.subarray(i, i + CHUNK))
+          got.push({ b64: btoa(b64), name: t.name })
+        } catch { /* one bad track never sinks the batch — skip it */ }
+        done++
+        setFetched(done)
+      }
+      entries = got
+    }
+
+    if (entries.length === 0) { setState('idle'); return }
+    cached.current = entries
+    cachedKey.current = key
+
+    try {
+      const r = await callJuceNative('writeAudioFiles', entries.flatMap(en => [en.b64, en.name]))
+      if (r !== 'armed') { setState('idle'); return }
+      armDone()
+      if (entries.length < tracks.length) {
+        setPartial(entries.length)
+        partialTimer.current = setTimeout(() => { partialTimer.current = null; setPartial(null) }, 2500)
+      }
+    } catch { setState('idle') }
+  }
+
+  if (!juceBackend) return null
+
+  const isReady = state === 'armed' || state === 'imported'
+  const label = state === 'fetching'
+    ? (fetched > 0 ? `importing ${fetched}/${tracks.length}…` : 'importing…')
+    : partial != null ? `imported ${partial}/${tracks.length}`
+    : isReady ? 'drag to track ↗'
+    : 'import all'
+
+  return (
+    <button
+      type="button"
+      className={`import-all-word${isReady ? ' ready' : ''}${className ? ` ${className}` : ''}`}
+      onMouseDown={e => { void handleMouseDown(e) }}
+      onClick={e => e.stopPropagation()}
+      title={label}
+    >
+      {label}
+    </button>
   )
 }
 

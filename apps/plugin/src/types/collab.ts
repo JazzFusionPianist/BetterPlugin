@@ -36,6 +36,24 @@ export interface TimeSignatureMapPoint {
   denominator: number
 }
 
+/** Host transport/cycle state frozen at the drop. Logic stamps a
+ *  promise-exported region relative to the CYCLE start while the cycle
+ *  is on, not project zero — the loop locators let ingestion translate
+ *  the stamp back into an absolute project position. Kept verbatim so
+ *  display logic can evolve without re-uploading. */
+export interface DawDropAnchor {
+  /** Host cycle/loop enabled at the drop. Absent → old plug-in binary
+   *  that never reported loop state (basis stays 'unknown'). */
+  is_looping?: boolean
+  /** Cycle left/right locators in quarter notes from project zero. */
+  loop_start_ppq?: number
+  loop_end_ppq?: number
+  /** Playhead ppq + samples read in the SAME processBlock — one
+   *  consistent instant, usable as a seconds↔ppq anchor. */
+  ppq?: number
+  samples?: number
+}
+
 export interface AttachmentTimelineMetadata {
   schema_version: 1
   position: {
@@ -47,6 +65,15 @@ export interface AttachmentTimelineMetadata {
     ppq?: number
     bar?: number
     beat?: number
+    /** Project-absolute quarter-note position, computed at ingestion
+     *  from the raw stamp + the drop-time anchor (see `basis`). */
+    absolute_ppq?: number
+    /** What the file's stamp was measured against when absolute_ppq
+     *  was derived: 'cycle' (Logic's cycle was on — stamp counts from
+     *  the left locator), 'project' (stamp counts from project zero),
+     *  or 'unknown' (no anchor — display falls back to the relative
+     *  reading and says so). */
+    basis?: 'cycle' | 'project' | 'unknown'
     source: 'bwf' | 'ixml' | 'daw_playhead'
     confidence: 'exact' | 'estimated'
   }
@@ -57,6 +84,8 @@ export interface AttachmentTimelineMetadata {
   bpm?: number
   time_sig_num?: number
   time_sig_den?: number
+  /** Raw host snapshot the absolute position was derived from. */
+  anchor?: DawDropAnchor
   captured_at: string
 }
 

@@ -45,6 +45,8 @@ export function parseListenParams(search: string): ListenParams | null {
 interface TimelineLike {
   position?: {
     seconds?: number; ppq?: number; bar?: number; beat?: number
+    /** Project-absolute quarter notes, anchored at ingestion. */
+    absolute_ppq?: number; basis?: string
     source?: string; confidence?: string
   }
   tempo_map?: { ppq: number; bpm: number }[]
@@ -62,7 +64,8 @@ export function compactPosition(metadata: unknown): ListenPosition | null {
   const position = meta.position
   const tempos = meta.tempo_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
   const meters = meta.time_signature_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
-  const ppq = position.ppq ?? tempos[tempos.length - 1]?.ppq ?? meters[meters.length - 1]?.ppq
+  // Project-absolute position (anchored at ingestion) beats the raw stamp.
+  const ppq = position.absolute_ppq ?? position.ppq ?? tempos[tempos.length - 1]?.ppq ?? meters[meters.length - 1]?.ppq
   const tempo = ppq == null ? tempos[tempos.length - 1] : tempos.filter(p => p.ppq <= ppq).pop() ?? tempos[0]
   const meter = ppq == null ? meters[meters.length - 1] : meters.filter(p => p.ppq <= ppq).pop() ?? meters[0]
 

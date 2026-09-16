@@ -155,16 +155,20 @@ void OrbAudioProcessorEditor::trySetupDropHandling()
 
         dragMonitor.setupDropHandling (
             peer->getNativeHandle(),
-            [safe] (std::string name, std::string base64)
+            [safe] (std::string name, std::string base64, int seq)
             {
                 if (auto* c = safe.getComponent())
                 {
                     juce::String jsName   = juce::String (name.c_str()).replace ("'", "\\'");
                     juce::String jsBase64 = juce::String (base64.c_str());
 
+                    // seq = drag order at drop registration; JS sorts the
+                    // batch by it so concurrent promise resolution can't
+                    // scramble a multi-region drop.
                     juce::String script =
                         "window.dispatchEvent(new CustomEvent('__juceFileDrop',"
-                        "{detail:{name:'" + jsName + "',data:'" + jsBase64 + "'}}))";
+                        "{detail:{name:'" + jsName + "',data:'" + jsBase64
+                        + "',seq:" + juce::String (seq) + "}}))";
 
                     if (auto* b = c->processorRef.getBrowser())
                         b->evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});

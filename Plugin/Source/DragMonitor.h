@@ -39,10 +39,13 @@ public:
 
     // ── drop-in + keyboard ───────────────────────────────────────────────────
     // Pass the root NSView of the JUCE component peer.
-    // onFileDrop is called on the main thread with (fileName, base64Data).
+    // onFileDrop is called on the main thread with (fileName, base64Data, seq).
+    // seq is the file's index at drop REGISTRATION (drag order) — promises
+    // resolve on a concurrent queue, so calls can arrive out of that order.
     void setupDropHandling (void* juceRootNSView,
                             std::function<void(std::string /*name*/,
-                                               std::string /*base64*/)> onFileDrop);
+                                               std::string /*base64*/,
+                                               int /*seq*/)> onFileDrop);
 
     bool isDropSetupDone() const { return dropSetupDone; }
 

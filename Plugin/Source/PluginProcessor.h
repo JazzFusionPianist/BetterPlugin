@@ -105,8 +105,11 @@ private:
     // is valid), published via atomics, and attached to every __juceDawAudio
     // event so the web side can gate bar-range capture on musical position.
     // ppqPosition is reported by virtually every DAW, which keeps the
-    // bar-range capture feature cross-DAW (loop/cycle points are NOT, so we
-    // deliberately don't use those).
+    // bar-range capture feature cross-DAW (loop/cycle points are NOT, so
+    // capture gating deliberately doesn't use them). The loop locators ARE
+    // published — guarded — because Logic stamps promise-exported regions
+    // relative to the cycle start while the cycle is on: the drop path
+    // needs the left locator to recover the absolute project position.
     std::atomic<double> playheadPpq      { 0.0 };
     std::atomic<double> playheadBarPpq   { 0.0 };
     std::atomic<double> playheadBpm      { 120.0 };
@@ -114,11 +117,15 @@ private:
     std::atomic<int>    playheadTsDen    { 4 };
     std::atomic<juce::int64> playheadSamples { 0 };
     std::atomic<juce::int64> playheadBarCount { 0 };
+    std::atomic<double> playheadLoopStartPpq { 0.0 };
+    std::atomic<double> playheadLoopEndPpq   { 0.0 };
     std::atomic<bool>   playheadPpqValid { false };
     std::atomic<bool>   playheadBarPpqValid { false };
     std::atomic<bool>   playheadSamplesValid { false };
     std::atomic<bool>   playheadBarCountValid { false };
+    std::atomic<bool>   playheadLoopValid { false };
     std::atomic<bool>   transportPlaying { false };
+    std::atomic<bool>   transportLooping { false };
 
     //── One-knob FX rack ─────────────────────────────────────────────────────
     // Eleven switchable single-parameter effects, applied in processBlock

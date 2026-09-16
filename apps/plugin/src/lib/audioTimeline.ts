@@ -1,5 +1,6 @@
 import type {
   AttachmentTimelineMetadata,
+  DawDropAnchor,
   TempoMapPoint,
   TimeSignatureMapPoint,
 } from '../types/collab'
@@ -14,6 +15,10 @@ interface DawTimelineEventDetail {
   tnum: number
   tden: number
   playing: boolean
+  /** Cycle state — newer plug-in binaries only. Absent → unknown. */
+  isLooping?: boolean
+  ppqLoopStart?: number | null
+  ppqLoopEnd?: number | null
 }
 
 let listenerAttached = false
@@ -101,7 +106,22 @@ export function getDawTimelineSnapshot(): AttachmentTimelineMetadata | null {
     ? (ppq - (latest.barPpq ?? ppq)) * denominatorScale + 1
     : undefined
 
+  // The cycle anchor rides along only when the plug-in binary reports
+  // loop state at all; its absence marks an old binary → basis 'unknown'.
+  const anchor: DawDropAnchor | undefined = latest.isLooping != null ? {
+    is_looping: latest.isLooping,
+    loop_start_ppq: latest.ppqLoopStart != null && Number.isFinite(latest.ppqLoopStart)
+      ? latest.ppqLoopStart
+      : undefined,
+    loop_end_ppq: latest.ppqLoopEnd != null && Number.isFinite(latest.ppqLoopEnd)
+      ? latest.ppqLoopEnd
+      : undefined,
+    ppq,
+    samples: latest.projectSamples ?? undefined,
+  } : undefined
+
   return {
+    anchor,
     schema_version: 1,
     position: {
       source_samples: latest.projectSamples ?? undefined,
@@ -139,6 +159,23 @@ function ppqAtSeconds(seconds: number, points: TempoMapPoint[]): number | undefi
     bpm = point.bpm
   }
   return ppq + (seconds - elapsed) * bpm / 60
+}
+
+/** Inverse of ppqAtSeconds — project seconds at a quarter-note position. */
+function secondsAtPpq(targetPpq: number, points: TempoMapPoint[]): number | undefined {
+  if (points.length === 0) return undefined
+  const sorted = sortedByPpq(points)
+  let ppq = 0
+  let elapsed = 0
+  let bpm = sorted[0]!.bpm
+  for (const point of sorted) {
+    if (point.ppq <= ppq) { bpm = point.bpm; continue }
+    if (point.ppq >= targetPpq) break
+    elapsed += (point.ppq - ppq) * 60 / bpm
+    ppq = point.ppq
+    bpm = point.bpm
+  }
+  return elapsed + (targetPpq - ppq) * 60 / bpm
 }
 
 function barBeatAtPpq(ppq: number, points: TimeSignatureMapPoint[]): { bar: number; beat: number } | null {
@@ -204,33 +241,187 @@ export function mergeEmbeddedTimelineWithProject(
     bpm: embedded.bpm ?? project.bpm,
     time_sig_num: embedded.time_sig_num ?? project.time_sig_num,
     time_sig_den: embedded.time_sig_den ?? project.time_sig_den,
+    anchor: embedded.anchor ?? project.anchor,
   }
 }
 
 /**
- * The whole bar (마디) a region starts at — 1-based, so a stem at the
- * project head reads "bar 1". Only sample-exact stamps qualify, and only
- * when the capture carried the host tempo; estimated playhead snapshots
- * and older records without bpm return null (the UI shows nothing).
+ * Resolve the file's stamp against the drop-time host anchor into an
+ * absolute project position. Logic stamps a promise-exported region
+ * relative to the CYCLE start while the cycle is on (observed: a region
+ * at project bar 3 stamped as bar 2 with the cycle starting at bar 2),
+ * and relative to project zero otherwise — so:
+ *   · cycle on + left locator known → basis 'cycle',
+ *     absolute = locator + stamp (converted through the tempo map)
+ *   · cycle reported off            → basis 'project', absolute = stamp
+ *   · no loop report (old binary)   → basis 'unknown', no absolute —
+ *     display falls back to the relative reading and says so.
+ * The raw stamp, the anchor, and the computed absolute are ALL stored,
+ * so the detection rule can evolve without re-uploading audio.
  */
-export function timelineBarNumber(
+function withAbsolutePosition(metadata: AttachmentTimelineMetadata): AttachmentTimelineMetadata {
+  const { position, anchor } = metadata
+  if (position.confidence !== 'exact') return metadata
+
+  // The stamp in quarter notes from ITS OWN zero (whatever that is):
+  // prefer the tempo-map conversion the merge already did, then bpm.
+  let stampPpq = position.ppq
+  if (stampPpq == null && position.seconds != null && metadata.bpm && metadata.bpm > 0) {
+    const seconds = Math.max(0, position.seconds - (position.seconds >= 3600 ? 3600 : 0))
+    stampPpq = seconds * metadata.bpm / 60
+  }
+  if (stampPpq == null || anchor?.is_looping == null
+      || (anchor.is_looping && anchor.loop_start_ppq == null)) {
+    return { ...metadata, position: { ...position, basis: 'unknown' } }
+  }
+
+  let absolutePpq = stampPpq
+  let basis: 'cycle' | 'project' = 'project'
+  if (anchor.is_looping && anchor.loop_start_ppq != null) {
+    basis = 'cycle'
+    // Offset in SECONDS from the locator, so a tempo change before the
+    // cycle doesn't skew the conversion; constant tempo reduces this to
+    // loop_start_ppq + stampPpq exactly.
+    const tempoMap = metadata.tempo_map ?? []
+    const loopStartSeconds = secondsAtPpq(anchor.loop_start_ppq, tempoMap)
+    const stampSeconds = position.seconds != null
+      ? Math.max(0, position.seconds - (position.seconds >= 3600 ? 3600 : 0))
+      : undefined
+    const converted = loopStartSeconds != null && stampSeconds != null
+      ? ppqAtSeconds(loopStartSeconds + stampSeconds, tempoMap)
+      : undefined
+    absolutePpq = converted ?? anchor.loop_start_ppq + stampPpq
+  }
+
+  // Bar/beat now describe the ABSOLUTE position, matching what the
+  // labels show; the raw stamp stays in ppq/seconds/source_samples.
+  const musical = barBeatAtPpq(absolutePpq, metadata.time_signature_map ?? [])
+  const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
+  const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
+  const beatPpq = 4 / denominator
+  const barPpq = numerator * beatPpq
+  const bar = musical?.bar ?? Math.floor(absolutePpq / barPpq) + 1
+  const beat = musical?.beat ?? (absolutePpq % barPpq) / beatPpq + 1
+  return {
+    ...metadata,
+    position: { ...position, absolute_ppq: absolutePpq, basis, bar, beat },
+  }
+}
+
+/** Logic ticks: 960 per quarter note, 240 per 16th (the division). */
+const TICKS_PER_QUARTER = 960
+const TICKS_PER_DIVISION = 240
+
+interface PositionParts {
+  bar: number
+  beat: number
+  /** 16th-note subdivision within the beat, 1-based (Logic's division). */
+  division: number
+  /** Ticks within the division, 0..239. */
+  tick: number
+}
+
+/** Bar/beat/division/tick at a quarter-note position, honoring the
+ *  signature map when there is one. Integer tick math so "exactly on
+ *  the downbeat" never reads as bar N-1 beat 4 div 4 tick 239. */
+function positionPartsAtPpq(
+  ppq: number,
+  points: TimeSignatureMapPoint[],
+  fallbackNumerator: number,
+  fallbackDenominator: number,
+): PositionParts {
+  let numerator = fallbackNumerator
+  let denominator = fallbackDenominator
+  let segmentStart = 0
+  let barIndex = 0
+  if (points.length > 0) {
+    const sorted = sortedByPpq(points)
+    numerator = sorted[0]!.numerator
+    denominator = sorted[0]!.denominator
+    for (const point of sorted) {
+      if (point.ppq <= segmentStart) {
+        numerator = point.numerator
+        denominator = point.denominator
+        continue
+      }
+      if (point.ppq > ppq) break
+      const barPpq = numerator * 4 / denominator
+      barIndex += (point.ppq - segmentStart) / barPpq
+      segmentStart = point.ppq
+      numerator = point.numerator
+      denominator = point.denominator
+    }
+  }
+  const beatPpq = 4 / denominator
+  const barPpq = numerator * beatPpq
+  const totalBars = barIndex + Math.max(0, ppq - segmentStart) / barPpq
+  let bar = Math.floor(totalBars)
+  const ticksPerBeat = Math.round(beatPpq * TICKS_PER_QUARTER)
+  const ticksPerBar = numerator * ticksPerBeat
+  let ticksIntoBar = Math.round((totalBars - bar) * barPpq * TICKS_PER_QUARTER)
+  if (ticksIntoBar >= ticksPerBar) { bar += 1; ticksIntoBar = 0 }
+  const beat = Math.floor(ticksIntoBar / ticksPerBeat) + 1
+  const beatRemainder = ticksIntoBar % ticksPerBeat
+  return {
+    bar: bar + 1,
+    beat,
+    division: Math.floor(beatRemainder / TICKS_PER_DIVISION) + 1,
+    tick: beatRemainder % TICKS_PER_DIVISION,
+  }
+}
+
+export interface TimelinePositionLabel {
+  /** "bar 3.2.4" — ".tick" appended only when nonzero. */
+  text: string
+  /** Full reading for the tooltip: "3 2 4 120 / 120bpm" — with the
+   *  relative caveat appended when the project position is unknown. */
+  tooltip: string
+  /** True when the numbers count from the exported audio's own zero
+   *  (no drop anchor) rather than from project zero. */
+  relative: boolean
+}
+
+/**
+ * The Logic-grade position (마디.박.디비전.틱) a region starts at —
+ * absolute project position when ingestion could anchor the stamp,
+ * otherwise the old stamp-relative reading marked as such. Only
+ * sample-exact stamps qualify, and only when the capture carried the
+ * host tempo; estimated playhead snapshots and older records without
+ * bpm return null (the UI shows nothing).
+ */
+export function timelinePositionLabel(
   metadata: AttachmentTimelineMetadata | null | undefined,
-): number | null {
+): TimelinePositionLabel | null {
   if (!metadata || metadata.position.confidence !== 'exact') return null
   const bpm = metadata.bpm
   if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
   const { position } = metadata
-  if (position.bar != null && Number.isFinite(position.bar)) {
-    return Math.max(1, Math.floor(position.bar))
+
+  const anchored = position.absolute_ppq != null
+    && (position.basis === 'cycle' || position.basis === 'project')
+  let ppq = anchored ? position.absolute_ppq : position.ppq
+  if (ppq == null && position.source_samples != null
+      && position.sample_rate != null && position.sample_rate > 0) {
+    const rawSeconds = position.source_samples / position.sample_rate
+    // Logic's BWF clock starts at 01:00:00 while bar 1 sits at zero.
+    const seconds = Math.max(0, rawSeconds - (rawSeconds >= 3600 ? 3600 : 0))
+    ppq = seconds * bpm / 60
   }
-  if (position.source_samples == null || !position.sample_rate || position.sample_rate <= 0) return null
-  const rawSeconds = position.source_samples / position.sample_rate
-  // Logic's BWF clock starts at 01:00:00 while bar 1 sits at zero.
-  const seconds = Math.max(0, rawSeconds - (rawSeconds >= 3600 ? 3600 : 0))
+  if (ppq == null || !Number.isFinite(ppq)) return null
+
   const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
   const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
-  const beatsPerBar = numerator * 4 / denominator
-  return 1 + Math.floor(seconds * (bpm / 60) / beatsPerBar)
+  const parts = positionPartsAtPpq(ppq, metadata.time_signature_map ?? [], numerator, denominator)
+  const relative = !anchored
+  const text = `bar ${parts.bar}.${parts.beat}.${parts.division}${parts.tick > 0 ? `.${parts.tick}` : ''}`
+  const full = `${parts.bar} ${parts.beat} ${parts.division} ${parts.tick} / ${Math.round(bpm)}bpm`
+  return {
+    text,
+    tooltip: relative
+      ? `${full} — relative to the exported audio — project position unknown`
+      : full,
+    relative,
+  }
 }
 
 function fourCC(bytes: Uint8Array, offset: number): string {
@@ -373,7 +564,11 @@ export async function extractAudioTimeline(
     time_signature_map: fallback?.time_signature_map,
     captured_at: new Date().toISOString(),
   }
-  return mergeEmbeddedTimelineWithProject(exact, fallback)
+  // Anchor the raw stamp against the drop-time host snapshot HERE, at
+  // ingestion — a later display-time merge sees the host's CURRENT
+  // cycle state, which says nothing about the drop's.
+  const merged = mergeEmbeddedTimelineWithProject(exact, fallback)
+  return merged ? withAbsolutePosition(merged) : merged
 }
 
 // ChatView is eagerly bundled with the collaboration screen, so start

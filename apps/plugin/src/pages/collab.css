@@ -10068,14 +10068,17 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .sg-flav, .sg-val { color: rgba(246, 243, 234, 0.5); }
 /* the shelf: every print at hand, dimmed until it is hung on the wall */
 .sg-shelf {
-  flex-shrink: 0; box-sizing: border-box;
+  flex-shrink: 0; height: 112px; box-sizing: border-box;
   border-top: 1px solid rgba(246, 243, 234, 0.14);
-  display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: center; gap: 8px 18px;
-  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 18px;
+  padding: 0 24px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
 }
+.sg-shelf::-webkit-scrollbar { display: none; }
 .sg-shelf-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px;
-  box-sizing: border-box; opacity: 0.5; cursor: grab;
+  flex: none;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: 0.5; cursor: grab;
 }
 .sg-shelf-item span {
   font-family: var(--f-sans); font-size: 10.5px; color: #F6F3EA;
@@ -10555,6 +10558,11 @@ text.sg-word { fill: var(--sg-ink-55); }
 /* the study lives on the plugin root now (portal): top to bottom of the
    window, whatever the wall's own boxes do inside any host */
 .plugin.sounds > .sg-study { position: absolute; top: 0; right: 0; bottom: 0; height: auto; z-index: 120; }
+/* it slides in from the right edge, and back out when its print is let go */
+@keyframes sg-study-in  { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sg-study-out { from { transform: none; opacity: 1; } to { transform: translateX(40px); opacity: 0; } }
+.plugin.sounds > .sg-study { animation: sg-study-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.plugin.sounds > .sg-study.out { animation: sg-study-out 0.24s cubic-bezier(0.5, 0, 0.8, 0.4) both; pointer-events: none; }
 
 /* ── bypass: a small ring at the top of the print; hollow = passed by ── */
 .sg-power {

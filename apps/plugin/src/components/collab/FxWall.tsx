@@ -24,16 +24,12 @@ const NODE = 132
 const STUDY_W = 380          // the study: a column on the right where the chosen print is drawn big
 const STUDY_PRINT = 300
 const R = NODE / 2
-const SHELF_PRINT = 44
-const SHELF_ITEMS = MODES.length + 1   // every print plus the mix
-const SHELF_ROW = 66, SHELF_ROWGAP = 8, SHELF_PAD = 10
-/** The shelf wraps into rows; the page needs its height to size the wall. */
-export function shelfLayout (w: number): { print: number; gap: number; rows: number; height: number } {
-  const print = Math.max(30, Math.min(SHELF_PRINT, Math.floor((w - 48) / 13) - 12))
-  const gap = print < SHELF_PRINT ? 10 : 18
-  const perRow = Math.max(1, Math.floor((w - 48 + gap) / (print + gap)))
-  const rows = Math.max(1, Math.ceil(SHELF_ITEMS / perRow))
-  return { print, gap, rows, height: rows * SHELF_ROW + (rows - 1) * SHELF_ROWGAP + SHELF_PAD * 2 + 1 }
+const SHELF_PRINT = 48
+const SHELF_H = 112
+/** One row of prints that scrolls sideways (the wheel's up and down
+ *  walks it); the page needs its height to size the wall. */
+export function shelfLayout (): { print: number; gap: number; height: number } {
+  return { print: SHELF_PRINT, gap: 18, height: SHELF_H }
 }
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
 const SNAP_WIRE = 26           // drop a print this close to a wire to splice it in
@@ -215,6 +211,19 @@ interface Props { size: { w: number; h: number } }
 
 export default function FxWall ({ size: frame }: Props) {
   const wallRef = useRef<HTMLDivElement>(null)
+  const shelfRef = useRef<HTMLDivElement>(null)
+  // the shelf is one long row: a vertical wheel walks it sideways
+  useEffect(() => {
+    const el = shelfRef.current; if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+      if (d === 0) return
+      e.preventDefault()
+      el.scrollLeft += d
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
   const bridge = useMemo(() => hasGraphBridge(), [])
   const oldEngine = useMemo(() => !hasGraphBridge() && hasFxBridge(), [])
   const [graph, setGraphState] = useState<FxGraph>(() => demoGraph(frame.w, frame.h))
@@ -532,8 +541,7 @@ export default function FxWall ({ size: frame }: Props) {
   // ── render ─────────────────────────────────────────────────────────
   const sharesOf = (id: number) => inputsOf(id).map(x => x.e.gain)
   const full = graph.nodes.length >= FX_MAX_NODES
-  // the shelf wraps its prints into rows in whatever width the wall has
-  const shelf = shelfLayout(size.w)
+  const shelf = shelfLayout()
   const shelfPrint = shelf.print
 
 
@@ -702,7 +710,19 @@ export default function FxWall ({ size: frame }: Props) {
     )
   }
 
-  const studyNode = studyOpen ? nodeById(sel!.node!) : undefined
+  const studyLive = studyOpen ? nodeById(sel!.node!) : undefined
+  // the study lingers a beat after its print is let go, sliding out
+  const [studyGone, setStudyGone] = useState<FxGraphNode | null>(null)
+  const lastStudy = useRef<FxGraphNode | undefined>(undefined)
+  useEffect(() => {
+    if (studyLive) { lastStudy.current = studyLive; setStudyGone(null); return }
+    if (!lastStudy.current) return
+    setStudyGone(lastStudy.current); lastStudy.current = undefined
+    const t = setTimeout(() => setStudyGone(null), 300)
+    return () => clearTimeout(t)
+  }, [studyLive])
+  const studyNode = studyLive ?? studyGone ?? undefined
+  const studyOut = !studyLive && !!studyGone
 
   // ── the canvas draws the wall's wires and the discs under its prints,
   //    every frame, in the wall's colour as it is RIGHT NOW (mid-fade
@@ -809,7 +829,7 @@ export default function FxWall ({ size: frame }: Props) {
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(raf); if (studyRef.current) studyRef.current.style.background = '' }
+    return () => cancelAnimationFrame(raf)   // the last lamp stays painted while the study slides out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studyOpen, sel?.node])
 
@@ -1143,9 +1163,9 @@ export default function FxWall ({ size: frame }: Props) {
         {scope.input && hasFxBridge() && !hasJuceNativeFunction('setScopeInput') && <p className="fx-note sg-note">the input trace needs the newer plugin — restart the daw.</p>}
       </div>
 
-      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ columnGap: shelf.gap, rowGap: SHELF_ROWGAP, padding: `${SHELF_PAD}px 24px` }}>
+      <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}`} style={{ gap: shelf.gap, height: shelf.height }}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
-          <div key={type} className="sg-shelf-item" style={{ height: SHELF_ROW }}
+          <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>
@@ -1154,7 +1174,7 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(
-      <aside ref={studyRef} className="sg-study" style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+      <aside ref={studyRef} className={`sg-study${studyOut ? ' out' : ''}`} style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
           <span className="sg-study-title">{nameOf(studyNode.type)}</span>
           <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>

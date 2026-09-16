@@ -38,7 +38,7 @@ export default function SoundsPage() {
     const measure = () => {
       const r = el.getBoundingClientRect()
       const w = Math.max(300, Math.round(r.width))
-      setWallSize({ w, h: Math.max(200, Math.round(r.height) - shelfLayout(w).height) })
+      setWallSize({ w, h: Math.max(200, Math.round(r.height) - shelfLayout().height) })
     }
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)

@@ -23,6 +23,9 @@ interface DawTimelineEventDetail {
 
 let listenerAttached = false
 let latest: DawTimelineEventDetail | null = null
+/** The last snapshot verbatim, minus the audio payload fields the live
+ *  event rides in on — kept for the drop diagnostics ring buffer. */
+let latestRaw: Record<string, unknown> | null = null
 let nativeTimelinePromiseId = -1
 const tempoMap: TempoMapPoint[] = []
 const signatureMap: TimeSignatureMapPoint[] = []
@@ -48,10 +51,20 @@ function appendSignature(ppq: number, numerator: number, denominator: number) {
 }
 
 function acceptTimelineDetail(detail: DawTimelineEventDetail | null): boolean {
-  if (!detail || detail.ppq == null || !Number.isFinite(detail.ppq)) return false
+  if (!detail || typeof detail !== 'object' || !Number.isFinite(detail.bpm)) return false
+  // A snapshot whose ppq the host didn't report still carries bpm,
+  // meter and the cycle state — keep it. (Discarding it wholesale left
+  // exact BWF stamps with NO bpm at all, which renders as no label.)
   latest = detail
-  appendTempo(detail.ppq, detail.bpm)
-  appendSignature(detail.ppq, detail.tnum, detail.tden)
+  {
+    const { samples: _s, inSamples: _i, peaks: _p, gr: _g, ...rest } =
+      detail as DawTimelineEventDetail & { samples?: unknown; inSamples?: unknown; peaks?: unknown; gr?: unknown }
+    latestRaw = rest as Record<string, unknown>
+  }
+  if (detail.ppq != null && Number.isFinite(detail.ppq)) {
+    appendTempo(detail.ppq, detail.bpm)
+    appendSignature(detail.ppq, detail.tnum, detail.tden)
+  }
   return true
 }
 
@@ -99,15 +112,17 @@ export async function refreshDawTimelineSnapshot(): Promise<AttachmentTimelineMe
 /** Snapshot used when an exported region contains no embedded source timestamp. */
 export function getDawTimelineSnapshot(): AttachmentTimelineMetadata | null {
   if (!latest) return null
-  const ppq = latest.ppq
-  if (ppq == null) return null
+  const ppq = latest.ppq != null && Number.isFinite(latest.ppq) ? latest.ppq : undefined
   const denominatorScale = latest.tden / 4
-  const beat = Number.isFinite(latest.barPpq)
+  const beat = ppq != null && Number.isFinite(latest.barPpq)
     ? (ppq - (latest.barPpq ?? ppq)) * denominatorScale + 1
     : undefined
 
   // The cycle anchor rides along only when the plug-in binary reports
   // loop state at all; its absence marks an old binary → basis 'unknown'.
+  // The playhead's OWN bar grid (bar count + that bar's start ppq +
+  // meter) travels with it: bar numbering anchors on it, never on any
+  // assumption about where ppq zero sits.
   const anchor: DawDropAnchor | undefined = latest.isLooping != null ? {
     is_looping: latest.isLooping,
     loop_start_ppq: latest.ppqLoopStart != null && Number.isFinite(latest.ppqLoopStart)
@@ -118,6 +133,14 @@ export function getDawTimelineSnapshot(): AttachmentTimelineMetadata | null {
       : undefined,
     ppq,
     samples: latest.projectSamples ?? undefined,
+    bar_count: latest.barCount != null && Number.isFinite(latest.barCount)
+      ? latest.barCount
+      : undefined,
+    bar_ppq: latest.barPpq != null && Number.isFinite(latest.barPpq)
+      ? latest.barPpq
+      : undefined,
+    tnum: Number.isFinite(latest.tnum) && latest.tnum > 0 ? latest.tnum : undefined,
+    tden: Number.isFinite(latest.tden) && latest.tden > 0 ? latest.tden : undefined,
   } : undefined
 
   return {
@@ -207,6 +230,56 @@ function barBeatAtPpq(ppq: number, points: TimeSignatureMapPoint[]): { bar: numb
   }
 }
 
+/** The playhead's own bar grid, recovered from the drop anchor. Bar
+ *  numbering anchors HERE: bar_of(x) = (bar_count + 1) +
+ *  floor((x − bar_ppq) / barLength). The old "ppq 0 = bar 1" assumption
+ *  is gone — projects with a count-in or shifted start number correctly
+ *  because the host itself said which bar the playhead's ppq was in. */
+export interface AnchorBarGrid {
+  /** Display number of the bar the anchor sits in (host barCount + 1,
+   *  matching the snapshot's own bar display). */
+  anchorBar: number
+  /** Quarter-note position of that bar's start (ppqPositionOfLastBarStart). */
+  anchorBarPpq: number
+  numerator: number
+  denominator: number
+}
+
+function anchorBarGrid(metadata: AttachmentTimelineMetadata): AnchorBarGrid | null {
+  const anchor = metadata.anchor
+  if (!anchor || anchor.bar_count == null || anchor.bar_ppq == null
+      || !Number.isFinite(anchor.bar_count) || !Number.isFinite(anchor.bar_ppq)) return null
+  const numerator = anchor.tnum && anchor.tnum > 0 ? anchor.tnum
+    : metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
+  const denominator = anchor.tden && anchor.tden > 0 ? anchor.tden
+    : metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
+  return { anchorBar: anchor.bar_count + 1, anchorBarPpq: anchor.bar_ppq, numerator, denominator }
+}
+
+/** Quarter-note position of project bar 1's downbeat, derived from the
+ *  anchor grid (bar 1 = anchor bar minus (anchorBar − 1) bar lengths).
+ *  Null when no grid was captured — callers fall back to ppq 0.
+ *  Constant-meter between bar 1 and the anchor is assumed; that
+ *  assumption is measured, not guessed — see the drop diagnostics. */
+export function anchorBarOnePpq(metadata: AttachmentTimelineMetadata | null | undefined): number | null {
+  if (!metadata) return null
+  const grid = anchorBarGrid(metadata)
+  if (!grid) return null
+  const barPpq = grid.numerator * 4 / grid.denominator
+  return grid.anchorBarPpq - (grid.anchorBar - 1) * barPpq
+}
+
+/** Bar/beat at a quarter-note position measured against the anchor
+ *  grid. Floored division keeps positions BEFORE the anchor bar (and
+ *  before bar 1 — count-in territory) correct. */
+function barBeatAtAnchoredPpq(ppq: number, grid: AnchorBarGrid): { bar: number; beat: number } {
+  const beatPpq = 4 / grid.denominator
+  const barPpq = grid.numerator * beatPpq
+  const barsFromAnchor = Math.floor((ppq - grid.anchorBarPpq) / barPpq)
+  const intraBar = ppq - grid.anchorBarPpq - barsFromAnchor * barPpq
+  return { bar: grid.anchorBar + barsFromAnchor, beat: intraBar / beatPpq + 1 }
+}
+
 /** Fill older BWF-only records with the project context available now. */
 export function mergeEmbeddedTimelineWithProject(
   embedded: AttachmentTimelineMetadata | null | undefined,
@@ -256,8 +329,11 @@ export function mergeEmbeddedTimelineWithProject(
  *   · cycle reported off            → basis 'project', absolute = stamp
  *   · no loop report (old binary)   → basis 'unknown', no absolute —
  *     display falls back to the relative reading and says so.
- * The raw stamp, the anchor, and the computed absolute are ALL stored,
- * so the detection rule can evolve without re-uploading audio.
+ * Bar numbers come from the playhead's OWN grid (anchor bar_count +
+ * bar_ppq) whenever the drop captured one — never from an assumption
+ * about where ppq zero sits. The raw stamp, the anchor, and the
+ * computed absolute are ALL stored, so the detection rule can evolve
+ * without re-uploading audio.
  */
 function withAbsolutePosition(metadata: AttachmentTimelineMetadata): AttachmentTimelineMetadata {
   const { position, anchor } = metadata
@@ -293,15 +369,33 @@ function withAbsolutePosition(metadata: AttachmentTimelineMetadata): AttachmentT
     absolutePpq = converted ?? anchor.loop_start_ppq + stampPpq
   }
 
+  // A non-finite result must never be stored: NaN/Infinity strips to
+  // null in the jsonb round trip and the label silently disappears.
+  // Fall back to the honest 'unknown' reading instead.
+  if (!Number.isFinite(absolutePpq)) {
+    return { ...metadata, position: { ...position, basis: 'unknown' } }
+  }
+
   // Bar/beat now describe the ABSOLUTE position, matching what the
   // labels show; the raw stamp stays in ppq/seconds/source_samples.
-  const musical = barBeatAtPpq(absolutePpq, metadata.time_signature_map ?? [])
-  const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
-  const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
-  const beatPpq = 4 / denominator
-  const barPpq = numerator * beatPpq
-  const bar = musical?.bar ?? Math.floor(absolutePpq / barPpq) + 1
-  const beat = musical?.beat ?? (absolutePpq % barPpq) / beatPpq + 1
+  // Numbering anchors on the playhead's OWN bar grid when the drop
+  // captured one — no assumption about where ppq zero sits. Only
+  // without a grid (old records) does the zero-anchored map reading
+  // remain.
+  const grid = anchorBarGrid(metadata)
+  let bar: number
+  let beat: number
+  if (grid) {
+    ({ bar, beat } = barBeatAtAnchoredPpq(absolutePpq, grid))
+  } else {
+    const musical = barBeatAtPpq(absolutePpq, metadata.time_signature_map ?? [])
+    const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
+    const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
+    const beatPpq = 4 / denominator
+    const barPpq = numerator * beatPpq
+    bar = musical?.bar ?? Math.floor(absolutePpq / barPpq) + 1
+    beat = musical?.beat ?? (absolutePpq % barPpq) / beatPpq + 1
+  }
   return {
     ...metadata,
     position: { ...position, absolute_ppq: absolutePpq, basis, bar, beat },
@@ -370,6 +464,26 @@ function positionPartsAtPpq(
   }
 }
 
+/** Same Logic-grade parts, but measured against the playhead's own
+ *  bar grid: integer tick distance from the anchor bar's downbeat,
+ *  floored so positions before the anchor (or before bar 1) still land
+ *  in the right bar with a non-negative intra-bar remainder. */
+function positionPartsAtAnchoredPpq(ppq: number, grid: AnchorBarGrid): PositionParts {
+  const beatPpq = 4 / grid.denominator
+  const ticksPerBeat = Math.round(beatPpq * TICKS_PER_QUARTER)
+  const ticksPerBar = grid.numerator * ticksPerBeat
+  const ticksFromAnchor = Math.round((ppq - grid.anchorBarPpq) * TICKS_PER_QUARTER)
+  const barsFromAnchor = Math.floor(ticksFromAnchor / ticksPerBar)
+  const ticksIntoBar = ticksFromAnchor - barsFromAnchor * ticksPerBar
+  const beatRemainder = ticksIntoBar % ticksPerBeat
+  return {
+    bar: grid.anchorBar + barsFromAnchor,
+    beat: Math.floor(ticksIntoBar / ticksPerBeat) + 1,
+    division: Math.floor(beatRemainder / TICKS_PER_DIVISION) + 1,
+    tick: beatRemainder % TICKS_PER_DIVISION,
+  }
+}
+
 export interface TimelinePositionLabel {
   /** "bar 3.2.4" — ".tick" appended only when nonzero. */
   text: string
@@ -397,13 +511,14 @@ export function timelinePositionLabel(
   if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
   const { position } = metadata
 
-  const anchored = position.absolute_ppq != null
+  const anchored = position.absolute_ppq != null && Number.isFinite(position.absolute_ppq)
     && (position.basis === 'cycle' || position.basis === 'project')
   let ppq = anchored ? position.absolute_ppq : position.ppq
   if (ppq == null && position.source_samples != null
       && position.sample_rate != null && position.sample_rate > 0) {
     const rawSeconds = position.source_samples / position.sample_rate
-    // Logic's BWF clock starts at 01:00:00 while bar 1 sits at zero.
+    // Logic's BWF clock starts at 01:00:00 while its ppq zero sits at
+    // the project start (which the anchor grid places on the bar line).
     const seconds = Math.max(0, rawSeconds - (rawSeconds >= 3600 ? 3600 : 0))
     ppq = seconds * bpm / 60
   }
@@ -411,7 +526,14 @@ export function timelinePositionLabel(
 
   const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
   const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
-  const parts = positionPartsAtPpq(ppq, metadata.time_signature_map ?? [], numerator, denominator)
+  // Absolute readings number bars against the playhead's own grid when
+  // the drop captured one; the zero-anchored map reading survives only
+  // for relative stamps and old records without a grid.
+  const grid = anchorBarGrid(metadata)
+  const partsAt = (x: number) => anchored && grid
+    ? positionPartsAtAnchoredPpq(x, grid)
+    : positionPartsAtPpq(x, metadata.time_signature_map ?? [], numerator, denominator)
+  const parts = partsAt(ppq)
   const relative = !anchored
   const text = `bar ${parts.bar}.${parts.beat}.${parts.division}${parts.tick > 0 ? `.${parts.tick}` : ''}`
   const full = `${parts.bar} ${parts.beat} ${parts.division} ${parts.tick} / ${Math.round(bpm)}bpm`
@@ -421,7 +543,9 @@ export function timelinePositionLabel(
     ? `${full} — relative to the exported audio — project position unknown`
     : full
   if (alignedFrom != null && Number.isFinite(alignedFrom)) {
-    const was = positionPartsAtPpq(alignedFrom, metadata.time_signature_map ?? [], numerator, denominator)
+    const was = grid
+      ? positionPartsAtAnchoredPpq(alignedFrom, grid)
+      : positionPartsAtPpq(alignedFrom, metadata.time_signature_map ?? [], numerator, denominator)
     tooltip = `${full} — aligned to bar 1 (was bar ${was.bar}.${was.beat}.${was.division}${was.tick > 0 ? `.${was.tick}` : ''})`
   }
   return { text, tooltip, relative }
@@ -429,6 +553,24 @@ export function timelinePositionLabel(
 
 function fourCC(bytes: Uint8Array, offset: number): string {
   return String.fromCharCode(bytes[offset]!, bytes[offset + 1]!, bytes[offset + 2]!, bytes[offset + 3]!)
+}
+
+/** Every leaf tag the iXML chunk carries, verbatim (trimmed, value
+ *  capped) — the diagnostics dump ALL of them, not just the keys the
+ *  parser uses, so the export-reference rule can be read off real
+ *  files instead of guessed. */
+function xmlAllTags(xml: string): Record<string, string> {
+  const tags: Record<string, string> = {}
+  const pattern = /<([A-Za-z0-9_:.-]+)(?:\s[^>]*)?>([^<]*)<\/\1>/g
+  let count = 0
+  for (let match = pattern.exec(xml); match && count < 256; match = pattern.exec(xml)) {
+    const value = match[2]!.trim()
+    if (!value) continue
+    const key = match[1]!
+    tags[key in tags ? `${key}#${count}` : key] = value.slice(0, 256)
+    count++
+  }
+  return tags
 }
 
 function xmlNumber(xml: string, tag: string): number | undefined {
@@ -489,17 +631,82 @@ export async function probeRemoteAudioFormat(url: string): Promise<AudioFormatPr
   }
 }
 
+/** One drop ingestion, raw — everything the pipeline saw and decided,
+ *  so cycle-on/off × project-start scenarios can be measured in the
+ *  field and pasted back instead of theorized about. */
+export interface DropIngestionReport {
+  captured_at: string
+  file: { name: string; size: number; type: string }
+  /** RIFF chunk walk: id, declared size, bytes actually available. */
+  chunks: { id: string; size: number; available: number }[]
+  bext: { time_reference_samples: number | null; sample_rate: number | null } | null
+  /** EVERY leaf tag the iXML chunk carried, not just the parsed keys. */
+  ixml_tags: Record<string, string> | null
+  /** extractAudioTimeline's parsed result (post-merge, post-anchor). */
+  parsed_result: AttachmentTimelineMetadata | null
+  /** The drop-frozen host snapshot verbatim (audio payload stripped). */
+  snapshot_raw: Record<string, unknown> | null
+  /** The fallback metadata the ingestion was handed (anchor included). */
+  fallback_metadata: AttachmentTimelineMetadata | null
+  computed: {
+    absolute_ppq: number | null
+    basis: string | null
+    label: string | null
+    label_tooltip: string | null
+  }
+  note?: string
+}
+
+const dropReports: DropIngestionReport[] = []
+
+/** Last 10 ingestions, newest first. Read by the studio's hidden
+ *  diagnostics overlay (double-click the 'orb' wordmark). */
+export function getDropIngestionReports(): DropIngestionReport[] {
+  return dropReports.slice().reverse()
+}
+
+function recordDropReport(report: DropIngestionReport) {
+  dropReports.push(report)
+  if (dropReports.length > 10) dropReports.shift()
+}
+
 /**
  * Read sample-accurate BWF/iXML timestamps from a dropped WAV. The audio is
  * left byte-for-byte unchanged; the extracted manifest travels with the chat
  * message. Non-WAV formats safely fall back to the host playhead snapshot.
+ * Every call records a full raw diagnostics report (ring of 10).
  */
 export async function extractAudioTimeline(
   file: File,
   fallback: AttachmentTimelineMetadata | null,
 ): Promise<AttachmentTimelineMetadata | null> {
+  const report: DropIngestionReport = {
+    captured_at: new Date().toISOString(),
+    file: { name: file.name, size: file.size, type: file.type },
+    chunks: [],
+    bext: null,
+    ixml_tags: null,
+    parsed_result: null,
+    snapshot_raw: latestRaw,
+    fallback_metadata: fallback,
+    computed: { absolute_ppq: null, basis: null, label: null, label_tooltip: null },
+  }
+  const finish = (result: AttachmentTimelineMetadata | null, note?: string) => {
+    report.parsed_result = result
+    report.computed.absolute_ppq = result?.position.absolute_ppq ?? null
+    report.computed.basis = result?.position.basis ?? null
+    const label = timelinePositionLabel(result)
+    report.computed.label = label?.text ?? null
+    report.computed.label_tooltip = label?.tooltip ?? null
+    if (note) report.note = note
+    recordDropReport(report)
+    return result
+  }
+
   const riffHeader = new Uint8Array(await file.slice(0, 12).arrayBuffer())
-  if (riffHeader.length < 12 || fourCC(riffHeader, 0) !== 'RIFF' || fourCC(riffHeader, 8) !== 'WAVE') return fallback
+  if (riffHeader.length < 12 || fourCC(riffHeader, 0) !== 'RIFF' || fourCC(riffHeader, 8) !== 'WAVE') {
+    return finish(fallback, 'not RIFF/WAVE — host snapshot fallback')
+  }
 
   let sampleRate: number | undefined
   let bitDepth: number | undefined
@@ -511,6 +718,10 @@ export async function extractAudioTimeline(
   // commonly writes the bext chunk *after* the multi-megabyte data chunk, so
   // scanning a prefix of the file misses the timestamp. Blob.slice gives us
   // random access without copying the audio payload into memory again.
+  // A chunk whose declared size overruns the file (stale bookkeeping in a
+  // streamed promise-export) is CLAMPED and still parsed as far as its
+  // bytes actually exist — aborting the walk there used to throw away a
+  // trailing bext stamp entirely.
   for (let offset = 12; offset + 8 <= file.size;) {
     const headerBytes = new Uint8Array(await file.slice(offset, offset + 8).arrayBuffer())
     if (headerBytes.length < 8) break
@@ -518,14 +729,15 @@ export async function extractAudioTimeline(
     const size = new DataView(headerBytes.buffer, headerBytes.byteOffset, headerBytes.byteLength)
       .getUint32(4, true)
     const dataOffset = offset + 8
-    if (dataOffset + size > file.size) break
+    const available = Math.min(size, file.size - dataOffset)
+    report.chunks.push({ id, size, available })
 
-    if (id === 'fmt ' && size >= 8) {
-      const fmt = await file.slice(dataOffset, dataOffset + Math.min(size, 16)).arrayBuffer()
+    if (id === 'fmt ' && available >= 8) {
+      const fmt = await file.slice(dataOffset, dataOffset + Math.min(available, 16)).arrayBuffer()
       if (fmt.byteLength >= 8) sampleRate = new DataView(fmt).getUint32(4, true)
       if (fmt.byteLength >= 16) bitDepth = new DataView(fmt).getUint16(14, true)
     }
-    if (id === 'bext' && size >= 346) {
+    if (id === 'bext' && available >= 346) {
       const bext = await file.slice(dataOffset + 338, dataOffset + 346).arrayBuffer()
       if (bext.byteLength === 8) {
         const bextView = new DataView(bext)
@@ -535,12 +747,14 @@ export async function extractAudioTimeline(
         source = 'bwf'
       }
     }
-    if (id.toLowerCase() === 'ixml') {
-      const xmlBytes = await file.slice(dataOffset, dataOffset + Math.min(size, 1024 * 1024)).arrayBuffer()
+    if (id.toLowerCase() === 'ixml' && available > 0) {
+      const xmlBytes = await file.slice(dataOffset, dataOffset + Math.min(available, 1024 * 1024)).arrayBuffer()
       ixml = new TextDecoder().decode(xmlBytes)
     }
     offset = dataOffset + size + (size & 1)
   }
+
+  if (ixml) report.ixml_tags = xmlAllTags(ixml)
 
   if (sourceSamples == null && ixml) {
     const direct = xmlNumber(ixml, 'BWF_TIME_REFERENCE') ?? xmlNumber(ixml, 'TIMESTAMP_SAMPLES')
@@ -552,7 +766,14 @@ export async function extractAudioTimeline(
     sampleRate = xmlNumber(ixml, 'TIMESTAMP_SAMPLE_RATE') ?? sampleRate
   }
 
-  if (sourceSamples == null || !source) return fallback
+  report.bext = {
+    time_reference_samples: source === 'bwf' && sourceSamples != null ? sourceSamples : null,
+    sample_rate: sampleRate ?? null,
+  }
+
+  if (sourceSamples == null || !source) {
+    return finish(fallback, 'no BWF/iXML stamp — host snapshot fallback')
+  }
   const exact: AttachmentTimelineMetadata = {
     schema_version: 1,
     position: {
@@ -571,7 +792,7 @@ export async function extractAudioTimeline(
   // ingestion — a later display-time merge sees the host's CURRENT
   // cycle state, which says nothing about the drop's.
   const merged = mergeEmbeddedTimelineWithProject(exact, fallback)
-  return merged ? withAbsolutePosition(merged) : merged
+  return finish(merged ? withAbsolutePosition(merged) : merged)
 }
 
 // ChatView is eagerly bundled with the collaboration screen, so start

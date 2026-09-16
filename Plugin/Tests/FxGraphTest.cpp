@@ -302,6 +302,41 @@ int main()
         CHECK (maxDiff (o, input, 4000, 10000) > 0.02f, "grain: it did something");
     }
 
+    { // branch alignment: dry ‖ (pitch at rest, raw) into a mix — the compiler delays the dry
+        int lat[kNumFx] {}; lat[kPitch] = 1000;
+        Graph g; g.nodes.push_back (node (3, kPitch, 0.5f, 1)); g.nodes.push_back (node (9, kMixType, 0.0f));
+        g.nodes[0].aux[0] = 1;   // one cent: keeps the shifter running instead of the neutral early-out
+        g.edges.push_back ({ kPortIn, 9, 0.5f }); g.edges.push_back ({ kPortIn, 3, 1.0f }); g.edges.push_back ({ 3, 9, 0.5f }); g.edges.push_back ({ 9, kPortOut, 1.0f });
+        Program p; juce::String e; const bool ok = compile (g, p, e, lat);
+        int delays = 0, delaySamples = 0;
+        for (int i = 0; i < p.numOps; ++i) if (p.ops[i].kind == Op::kDelay) { ++delays; delaySamples = p.ops[i].samples; }
+        CHECK (ok && delays == 1 && delaySamples == 1000, "a dry branch beside a latent one is held back by its latency");
+        CHECK (ok && p.latency == 1000, "the patch reports the path's latency to out");
+        Graph s; s.nodes.push_back (node (3, kPitch, 0.5f, 1)); s.nodes.push_back (node (4, kPitch, 0.5f, 1));
+        s.edges.push_back ({ kPortIn, 3, 1.0f }); s.edges.push_back ({ 3, 4, 1.0f }); s.edges.push_back ({ 4, kPortOut, 1.0f });
+        Program p2; CHECK (compile (s, p2, e, lat) && p2.latency == 2000, "two shifters in series: latencies add");
+    }
+    { // the delay op really delays: in → mix(50) ‖ in → gain → mix(50) with a fake 100-sample gain latency
+        int lat[kNumFx] {}; lat[kGain] = 100;
+        Graph g; g.nodes.push_back (node (5, kGain, 0.75f)); g.nodes.push_back (node (9, kMixType, 0.0f));
+        g.edges.push_back ({ kPortIn, 9, 0.5f }); g.edges.push_back ({ kPortIn, 5, 1.0f }); g.edges.push_back ({ 5, 9, 0.5f }); g.edges.push_back ({ 9, kPortOut, 1.0f });
+        // run by hand with the latency table
+        juce::AudioBuffer<float> out = testSignal();
+        Chain chain; chain.prepare (kSr, kBlock);
+        Program p; juce::String e; CHECK (compile (g, p, e, lat), "compiles with a delayed dry");
+        chain.publish (p);
+        NodeParams params[kMaxNodes]; paramsFor (g, params);
+        for (int blk = 0; blk < kBlocks; ++blk)
+        {
+            float* ptrs[2] = { out.getWritePointer (0, blk * kBlock), out.getWritePointer (1, blk * kBlock) };
+            juce::AudioBuffer<float> view (ptrs, 2, kBlock); float gr = 0; chain.process (view, (float) kSr, params, gr);
+        }
+        // gain(unity) has no real latency, so the "aligned" dry is 100 samples late: output = 0.5·x[n] + 0.5·x[n−100]
+        float err = 0;
+        for (int i = 2000; i < 6000; ++i) err = juce::jmax (err, std::abs (out.getSample (0, i) - 0.5f * (input.getSample (0, i) + input.getSample (0, i - 100))));
+        CHECK (err < 1e-4f, "the delay op holds the branch back by exactly its samples");
+    }
+
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

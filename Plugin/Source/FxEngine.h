@@ -222,25 +222,33 @@ struct Op
                       kGain,       // dst *= gain
                       kScale,      // dst = gain * src
                       kAccum,      // dst += gain * src
-                      kProcess };  // node `slot` (typed `type`) in place on dst
+                      kProcess,    // node `slot` (typed `type`) in place on dst
+                      kDelay };    // dst delayed by `samples` through delay line `slot`
     int   kind = kCopy;
     int   slot = -1;
     int   type = kNone;
     int   dst  = 0;
     int   src  = 0;
     float gain = 1.0f;
+    int   samples = 0;
 };
+
+constexpr int kMaxDelayLines = 32;
+constexpr int kMaxDelaySamples = 32768;
 
 struct Program
 {
     int numOps = 0;
     Op  ops[kMaxOps];
     int bypass = 1;   // 1 = nothing wired to out → audio passes untouched
+    int latency = 0;  // samples from in to out, for the host's compensation
 };
 
 /** Validate + compile. On failure `error` says why (e.g. "cycle") and
- *  `out` is untouched. Message thread. */
-bool compile (const Graph& g, Program& out, juce::String& error);
+ *  `out` is untouched. `latencyByType` (kNumFx entries, samples) lets
+ *  the compiler line up parallel branches and total the path to out.
+ *  Message thread. */
+bool compile (const Graph& g, Program& out, juce::String& error, const int* latencyByType = nullptr);
 
 //==============================================================================
 class Chain
@@ -256,6 +264,9 @@ public:
      *  slot; `grDbOut` reports glue's reduction (max over glue nodes). */
     void process (juce::AudioBuffer<float>& buffer, float sampleRate,
                   const NodeParams* params, float& grDbOut);
+
+    /** Samples of latency each effect type adds at this sample rate. */
+    const int* latencyTable() const noexcept { return latencyByType; }
 
     /** UI meters: block peak per slot (0 when the slot isn't running). */
     float nodePeak (int slot) const noexcept
@@ -284,6 +295,10 @@ private:
     // audio-thread state
     Program active;
     float   gainSm[kMaxOps] {};   // smoothed op gains (click-free level drags)
+    // branch alignment: delay lines for kDelay ops
+    std::vector<float> delayLines[kMaxDelayLines][2];
+    int delayWrite[kMaxDelayLines] {};
+    int latencyByType[kNumFx] {};
 };
 
 } // namespace orbfx

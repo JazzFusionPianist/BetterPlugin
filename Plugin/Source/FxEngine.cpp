@@ -242,8 +242,9 @@ void NodeState::prepare (double sampleRate)
     // latency, a fraction of the cost of the studio preset
     if (shifter == nullptr) shifter = std::make_unique<Shifter>();
     {
-        // power-of-two blocks: 2048 at 44.1/48k (~43 ms), 4096 at 88.2k+
-        const int block = sampleRate > 60000.0 ? 4096 : 2048;
+        // power-of-two blocks: 1024 at 44.1/48k (~21 ms, ≈27 ms of latency
+        // with the interval), 2048 at 88.2k+
+        const int block = sampleRate > 60000.0 ? 2048 : 1024;
         shifter->st.configure (2, block, block / 4, false);
         shifter->configured = true;
     }
@@ -1281,9 +1282,12 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 //==============================================================================
 // Compile: the wall's graph → a flat Program over a pool of block buffers.
 
-bool compile (const Graph& g, Program& out, juce::String& error)
+bool compile (const Graph& g, Program& out, juce::String& error, const int* latencyByType)
 {
     Program prog;
+    auto latOf = [&] (int type) { return latencyByType != nullptr && isEffect (type) ? latencyByType[type] : 0; };
+    int arrival[kMaxNodes] {};   // samples of latency at each node's OUTPUT
+    int nextLine = 0;
 
     // ── nodes: id = slot, unique, typed ─────────────────────────────────
     int slotType[kMaxNodes];
@@ -1435,6 +1439,23 @@ bool compile (const Graph& g, Program& out, juce::String& error)
         {
             const int dst = alloc();
             if (dst < 0) { error = "too many branches"; return false; }
+            // branches arrive with different latencies: hold the early ones
+            int latest = 0;
+            for (int i = 0; i < E; ++i)
+                if (activeEdge[i] && g.edges[(size_t) i].to == id)
+                    latest = juce::jmax (latest, g.edges[(size_t) i].from == kPortIn ? 0 : arrival[g.edges[(size_t) i].from]);
+            for (int i = 0; i < E; ++i)
+            {
+                if (! activeEdge[i] || g.edges[(size_t) i].to != id) continue;
+                const int here = g.edges[(size_t) i].from == kPortIn ? 0 : arrival[g.edges[(size_t) i].from];
+                if (latest - here > 0)
+                {
+                    if (nextLine >= kMaxDelayLines) { error = "too many branches to align"; return false; }
+                    Op d; d.kind = Op::kDelay; d.dst = bufOfEdge[i]; d.samples = juce::jmin (kMaxDelaySamples, latest - here); d.slot = nextLine++;
+                    if (! emit (d)) return false;
+                }
+            }
+            arrival[id] = latest;
             bool first = true;
             for (int i = 0; i < E; ++i)
             {
@@ -1462,6 +1483,7 @@ bool compile (const Graph& g, Program& out, juce::String& error)
             }
             Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
             if (! emit (op)) return false;
+            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + latOf (slotType[id]);
             outBuf = b;
         }
         if (! fanOut (id, outBuf)) return false;
@@ -1470,6 +1492,7 @@ bool compile (const Graph& g, Program& out, juce::String& error)
     // out: whatever lands on the out port ends up in the host buffer
     {
         const auto& e = g.edges[(size_t) outEdge];
+        prog.latency = e.from == kPortIn ? 0 : arrival[e.from];
         const int b = bufOfEdge[outEdge];
         if (! nearUnity (e.gain))
         {
@@ -1498,6 +1521,17 @@ void Chain::prepare (double sampleRate, int blockSize)
     for (auto& node : nodes) node.prepare (sampleRate);
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
     active = Program {};
+    // what each effect costs in latency, at this rate
+    for (auto& l : latencyByType) l = 0;
+    if (auto* sh = nodes[0].shifter.get(); sh != nullptr && sh->configured)
+        latencyByType[kPitch] = latencyByType[kFormant] = latencyByType[kVoice] = sh->st.inputLatency() + sh->st.outputLatency();
+    latencyByType[kArp] = latencyByType[kHarmony] = (int) (sampleRate * 0.045 * 0.5);   // half a grain
+    for (int i = 0; i < kMaxDelayLines; ++i)
+    {
+        delayLines[i][0].assign ((size_t) kMaxDelaySamples, 0.0f);
+        delayLines[i][1].assign ((size_t) kMaxDelaySamples, 0.0f);
+        delayWrite[i] = 0;
+    }
 }
 
 void Chain::publish (const Program& p)
@@ -1536,6 +1570,21 @@ void Chain::adoptPending()
         for (int i = 0; i < pending.numOps; ++i) gainSm[i] = next[i];
     }
 
+    // A delay line put to new use starts silent
+    for (int i = 0; i < pending.numOps; ++i)
+    {
+        const Op& op = pending.ops[i];
+        if (op.kind != Op::kDelay || op.slot < 0 || op.slot >= kMaxDelayLines) continue;
+        bool same = false;
+        for (int j = 0; j < active.numOps; ++j)
+            if (active.ops[j].kind == Op::kDelay && active.ops[j].slot == op.slot && active.ops[j].samples == op.samples) { same = true; break; }
+        if (! same)
+        {
+            std::fill (delayLines[op.slot][0].begin(), delayLines[op.slot][0].end(), 0.0f);
+            std::fill (delayLines[op.slot][1].begin(), delayLines[op.slot][1].end(), 0.0f);
+            delayWrite[op.slot] = 0;
+        }
+    }
     // A node entering the wall (or changing effect) starts clean and
     // glides up from neutral — exactly what switching modes always did.
     for (int i = 0; i < pending.numOps; ++i)
@@ -1605,6 +1654,28 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
                 else      juce::FloatVectorOperations::addWithMultiply (d, s, g1, n);
             }
             break;
+        case Op::kDelay:
+        {
+            if (op.slot < 0 || op.slot >= kMaxDelayLines || op.samples <= 0) break;
+            const int len = kMaxDelaySamples;
+            const int d = juce::jmin (op.samples, len - 1);
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                float* x = chan (op.dst, ch, n);
+                auto& line = delayLines[op.slot][ch];
+                int w = delayWrite[op.slot];
+                for (int i = 0; i < n; ++i)
+                {
+                    int r = w - d; if (r < 0) r += len;
+                    const float out = line[(size_t) r];
+                    line[(size_t) w] = x[i];
+                    x[i] = out;
+                    w = w + 1 < len ? w + 1 : 0;
+                }
+                if (ch == nc - 1) delayWrite[op.slot] = w;
+            }
+            break;
+        }
         case Op::kProcess:
         {
             if (op.slot < 0 || op.slot >= kMaxNodes) break;

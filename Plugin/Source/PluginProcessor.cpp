@@ -975,13 +975,15 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 {
     orbfx::Program prog;
-    if (! orbfx::compile (g, prog, error)) return false;
+    if (! orbfx::compile (g, prog, error, fxChain.latencyTable())) return false;
     {
         const juce::ScopedLock sl (fxGraphLock);
         fxGraph = g;
     }
     for (auto& nd : g.nodes) writeSlot (nd);
     fxChain.publish (prog);
+    // the host lines the track up by this much (mix aligned, monitoring late)
+    if (getLatencySamples() != prog.latency) setLatencySamples (prog.latency);
     return true;
 }
 

@@ -42,14 +42,25 @@ function isAudio(file: File) {
  *  public file_url can be resolved to a presigned GET via useResolvedUrl
  *  before AudioAttachment plays/fetches it — keeps working once R2
  *  public access is turned off (falls back to the public url until then). */
-function StemRow({ stem, uploader, displayTimeline }: {
+function StemRow({ stem, uploader, displayTimeline, mine, deleting, onDelete }: {
   stem: ConversationStem
   uploader: Profile | undefined
   displayTimeline: AttachmentTimelineMetadata | undefined
+  mine: boolean
+  deleting: boolean
+  onDelete: () => void
 }) {
   const resolvedUrl = useResolvedUrl(stem.file_url)
+  // Two-tap delete — the house pattern ("delete" → "sure?"; never a
+  // native confirm). Reverts on its own after 2.6 s.
+  const [delSure, setDelSure] = useState(false)
+  useEffect(() => {
+    if (!delSure) return
+    const t = setTimeout(() => setDelSure(false), 2600)
+    return () => clearTimeout(t)
+  }, [delSure])
   return (
-    <div className="stem-item">
+    <div className={`stem-item${deleting ? ' deleting' : ''}`}>
       <div className="stem-sender-avatar" style={{ background: uploader?.avatar_color }} title={uploader?.display_name ?? 'Member'}>
         {uploader?.avatar_url
           ? <img src={uploader.avatar_url} alt="" />
@@ -62,6 +73,14 @@ function StemRow({ stem, uploader, displayTimeline }: {
         metadata={displayTimeline}
         from={uploader?.display_name}
       />
+      {mine && (
+        <button
+          className={`stem-del${delSure ? ' sure' : ''}`}
+          onClick={() => { if (delSure) { setDelSure(false); onDelete() } else setDelSure(true) }}
+        >
+          {delSure ? 'sure?' : 'delete'}
+        </button>
+      )}
     </div>
   )
 }
@@ -210,6 +229,33 @@ export default function StemPanel({
     })().finally(() => onDropConsumed(pendingDrop.id))
   }, [onDropConsumed, pendingDrop, uploadFiles])
 
+  // Delete goes through /api/message-delete ({ stemId }) so the R2
+  // object dies with the row (RLS "uploaders can delete stems" is the
+  // authority). Local state drops the row on success — conversation-
+  // filtered realtime never sees stem DELETEs (old rows carry only the
+  // PK), so other clients pick it up on their next load.
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set())
+  const deleteStem = useCallback(async (stem: ConversationStem) => {
+    setDeletingIds(prev => new Set(prev).add(stem.id))
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) throw new Error('no session')
+      const res = await fetch('/api/message-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ stemId: stem.id }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setStems(prev => prev.filter(s => s.id !== stem.id))
+    } catch (deleteError) {
+      console.error('[StemPanel] delete failed', deleteError)
+      setError(`couldn't delete ${stem.file_name}. try again.`)
+    } finally {
+      setDeletingIds(prev => { const next = new Set(prev); next.delete(stem.id); return next })
+    }
+  }, [supabase])
+
   const handlePickedFiles = useCallback((fileList: FileList | null) => {
     const files = fileList ? Array.from(fileList) : []
     if (files.length > 0) void uploadFiles(files)
@@ -288,6 +334,9 @@ export default function StemPanel({
               stem={stem}
               uploader={uploader}
               displayTimeline={displayTimeline}
+              mine={stem.uploader_id === currentUserId}
+              deleting={deletingIds.has(stem.id)}
+              onDelete={() => { void deleteStem(stem) }}
             />
           )
         })}

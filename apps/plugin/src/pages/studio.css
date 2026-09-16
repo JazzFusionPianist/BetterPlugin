@@ -199,6 +199,18 @@
 .wd-mcol > .wd-mline:first-child, .wd-mname + .wd-mline { margin-top: 0; }
 .wd-mtime { font-size: 9.5px; color: #A5A199; flex-shrink: 0; margin-bottom: 1px; white-space: nowrap; }
 
+/* Own-message delete — the house two-tap word riding the row's empty
+   outer gutter (left of my right-aligned column), so nothing reflows;
+   revealed on row hover, armed ("sure?") it stays put. */
+.wd-mdel { align-self: center; flex-shrink: 0; margin-right: 10px; background: none; border: none;
+  padding: 0; cursor: pointer; font-family: inherit; font-size: 11px; color: #1A1917;
+  opacity: 0; pointer-events: none; transition: opacity .15s; white-space: nowrap; }
+.wd-mrow.mine:hover .wd-mdel { opacity: .45; pointer-events: auto; }
+.wd-mrow.mine .wd-mdel:hover { opacity: .8; }
+.wd-mrow.mine .wd-mdel.sure { color: #D6402E; opacity: .8; pointer-events: auto; }
+/* In-flight: the whole row dims and goes inert until the row dies. */
+.wd-mrow.deleting { opacity: .5; pointer-events: none; }
+
 /* Bubbles. Theirs: white card + hairline; mine: ink on paper text.
    The .tail notch (4px corner) marks the corner nearest the avatar —
    mirrored top-right on my side. */

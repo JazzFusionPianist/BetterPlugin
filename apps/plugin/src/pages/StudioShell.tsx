@@ -369,6 +369,26 @@ function StudioWaveform({ peaks, frac, height, head, onSeek }: {
   )
 }
 
+/** Own-bubble delete — the house two-tap word ("delete" → "sure?"),
+ *  riding the row's outer gutter. Reverts on its own after 2.6 s
+ *  (OpenCallPanel's DeleteWord timing). */
+function MsgDeleteWord({ onConfirm }: { onConfirm: () => void }) {
+  const [arming, setArming] = useState(false)
+  useEffect(() => {
+    if (!arming) return
+    const t = setTimeout(() => setArming(false), 2600)
+    return () => clearTimeout(t)
+  }, [arming])
+  return (
+    <button
+      className={`wd-mdel${arming ? ' sure' : ''}`}
+      onClick={() => { if (arming) { setArming(false); onConfirm() } else setArming(true) }}
+    >
+      {arming ? 'sure?' : 'delete'}
+    </button>
+  )
+}
+
 function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) {
   return playing
     ? <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
@@ -1394,7 +1414,7 @@ function StudioShellInner({ supabase, user }: Props) {
       ? { kind: 'dm', otherUserId: sel.userId }
       : { kind: 'group', conversationId: sel.conversationId }
   }, [sel])
-  const { messages, loading: messagesLoading, send, conversationId: activeConvId } = useMessages(supabase, user.id, chatTarget)
+  const { messages, loading: messagesLoading, send, deleteMessage, conversationId: activeConvId } = useMessages(supabase, user.id, chatTarget)
   const reads = useConversationReads(supabase, activeConvId ?? null, user.id)
 
   // Clear the unread badge for whatever is open — on open (once the DM
@@ -2345,6 +2365,28 @@ function StudioShellInner({ supabase, user }: Props) {
     })
   }, [])
 
+  // ── delete my message (the two-tap word beside the bubble) ──────────
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set())
+  const handleDeleteMessage = useCallback(async (m: Message) => {
+    // If the doomed message's audio sits in the shared player, stop it
+    // first — no orphaned playback outliving its bubble.
+    if (npTrackRef.current) {
+      const activeUrl = npTrackRef.current.url
+      let dying = m.attachment_type === 'audio' && m.attachment_url === activeUrl
+      if (!dying && m.attachment_type === 'multi-audio' && m.attachment_url) {
+        try {
+          dying = (JSON.parse(m.attachment_url) as { url?: string }[])
+            .some(t => t?.url === activeUrl)
+        } catch { /* not a track list — nothing of ours is playing */ }
+      }
+      if (dying) npClose()
+    }
+    setDeletingIds(prev => new Set(prev).add(m.id))
+    const ok = await deleteMessage(m.id)
+    setDeletingIds(prev => { const next = new Set(prev); next.delete(m.id); return next })
+    if (!ok) notify('message didn’t delete — try again')
+  }, [deleteMessage, npClose, notify])
+
   const chatRows = useMemo(() => {
     const rows: ReactNode[] = []
     const isGroup = !!selectedGroup
@@ -2427,7 +2469,11 @@ function StudioShellInner({ supabase, user }: Props) {
         && !m.attachment_expired && !!m.attachment_url
 
       rows.push(
-        <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}`}>
+        <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
+          {/* Optimistic rows ('opt-') have no server row to delete yet. */}
+          {isMine && !m.id.startsWith('opt-') && (
+            <MsgDeleteWord onConfirm={() => { void handleDeleteMessage(m) }} />
+          )}
           {!isMine && (
             <div className="wd-mav">
               {first && (
@@ -2491,7 +2537,8 @@ function StudioShellInner({ supabase, user }: Props) {
     }
     return rows
   }, [messages, user.id, profileById, readersByMsgId, selectedGroup, chipDone,
-    activeConvId, supabase, saveChatEvents, markChipDone, joinGameInvite])
+    activeConvId, supabase, saveChatEvents, markChipDone, joinGameInvite,
+    deletingIds, handleDeleteMessage])
 
   const myName = me?.display_name ?? user.email?.split('@')[0] ?? 'me'
   const nameOf = useCallback((id: string | null): string => {

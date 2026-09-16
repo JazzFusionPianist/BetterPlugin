@@ -407,6 +407,10 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
   const juceBackend = !!window.__JUCE__?.backend
 
+  // A row can be deleted mid-play (stems, messages) — pause on unmount
+  // so a detached <audio> element can't keep sounding.
+  useEffect(() => () => { audioRef.current?.pause() }, [])
+
   // C++에서 진행률 업데이트 수신 (CustomEvent → 여러 컴포넌트 동시 수신 가능)
   useEffect(() => {
     const onProgress = (e: Event) => {

@@ -9879,6 +9879,12 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-sender-avatar { flex: 0 0 28px; width: 28px; height: 28px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--bg3); color: #fff; font-size: 9px; font-weight: 500; }
 .stem-sender-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .stem-item .msg-att-audio { flex: 1; width: auto; max-width: none; min-width: 0; margin: 0; }
+/* Own-stem delete — the house two-tap word at the row's right edge. */
+.stem-del { flex-shrink: 0; align-self: center; background: none; border: none; padding: 0;
+  cursor: pointer; font-family: inherit; font-size: 10.5px; color: var(--t3); }
+.stem-del:hover { color: var(--t1); }
+.stem-del.sure { color: #D6402E; }
+.stem-item.deleting { opacity: .5; pointer-events: none; }
 .stem-audio-compact { gap: 2px; padding: 5px 6px 2px; border-radius: 6px; }
 .stem-audio-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .stem-audio-name { flex: 1; min-width: 0; padding-left: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--t1); font-size: 12px; font-weight: 500; }

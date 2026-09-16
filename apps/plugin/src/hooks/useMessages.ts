@@ -142,6 +142,19 @@ export function useMessages(
             return [...prev, msg]
           })
         })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+        }, (payload) => {
+          // messages has REPLICA IDENTITY FULL (20260916_message_delete),
+          // so the old row carries conversation_id and passes the same
+          // client-side gate the INSERTs use.
+          const old = payload.old as Partial<Message>
+          if (!old.id) return
+          if (old.conversation_id && old.conversation_id !== convIdRef.current) return
+          setMessages(prev => prev.filter(m => m.id !== old.id))
+        })
         .subscribe()
 
       channelRef.current = channel
@@ -214,5 +227,40 @@ export function useMessages(
     return true
   }, [supabase, currentUserId])
 
-  return { messages, loading, send, conversationId: convId }
+  /** Delete one of my own messages via /api/message-delete — the row
+   *  dies under RLS (sender-only) and the endpoint reclaims its R2
+   *  attachment objects. Local state drops the message on success;
+   *  realtime DELETE covers everyone else. */
+  const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
+    let token: string | undefined
+    try {
+      const { data } = await supabase.auth.getSession()
+      token = data.session?.access_token
+    } catch { /* no session — the guard below reports it */ }
+    if (!token) {
+      console.error('[useMessages] delete failed: no session')
+      return false
+    }
+    try {
+      const res = await fetch('/api/message-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ messageId }),
+      })
+      if (!res.ok) {
+        console.error('[useMessages] delete failed', { status: res.status, messageId })
+        return false
+      }
+    } catch (err) {
+      console.error('[useMessages] delete failed', err)
+      return false
+    }
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+    return true
+  }, [supabase])
+
+  return { messages, loading, send, deleteMessage, conversationId: convId }
 }

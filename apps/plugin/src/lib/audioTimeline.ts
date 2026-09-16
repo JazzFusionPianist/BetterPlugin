@@ -117,6 +117,9 @@ export function getDawTimelineSnapshot(): AttachmentTimelineMetadata | null {
     },
     tempo_map: sortedByPpq(tempoMap),
     time_signature_map: sortedByPpq(signatureMap),
+    bpm: Number.isFinite(latest.bpm) && latest.bpm > 0 ? latest.bpm : undefined,
+    time_sig_num: Number.isFinite(latest.tnum) && latest.tnum > 0 ? latest.tnum : undefined,
+    time_sig_den: Number.isFinite(latest.tden) && latest.tden > 0 ? latest.tden : undefined,
     captured_at: new Date().toISOString(),
   }
 }
@@ -198,7 +201,36 @@ export function mergeEmbeddedTimelineWithProject(
     position: { ...embedded.position, ppq, bar, beat },
     tempo_map: tempoMap,
     time_signature_map: signatureMap,
+    bpm: embedded.bpm ?? project.bpm,
+    time_sig_num: embedded.time_sig_num ?? project.time_sig_num,
+    time_sig_den: embedded.time_sig_den ?? project.time_sig_den,
   }
+}
+
+/**
+ * The whole bar (마디) a region starts at — 1-based, so a stem at the
+ * project head reads "bar 1". Only sample-exact stamps qualify, and only
+ * when the capture carried the host tempo; estimated playhead snapshots
+ * and older records without bpm return null (the UI shows nothing).
+ */
+export function timelineBarNumber(
+  metadata: AttachmentTimelineMetadata | null | undefined,
+): number | null {
+  if (!metadata || metadata.position.confidence !== 'exact') return null
+  const bpm = metadata.bpm
+  if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
+  const { position } = metadata
+  if (position.bar != null && Number.isFinite(position.bar)) {
+    return Math.max(1, Math.floor(position.bar))
+  }
+  if (position.source_samples == null || !position.sample_rate || position.sample_rate <= 0) return null
+  const rawSeconds = position.source_samples / position.sample_rate
+  // Logic's BWF clock starts at 01:00:00 while bar 1 sits at zero.
+  const seconds = Math.max(0, rawSeconds - (rawSeconds >= 3600 ? 3600 : 0))
+  const numerator = metadata.time_sig_num && metadata.time_sig_num > 0 ? metadata.time_sig_num : 4
+  const denominator = metadata.time_sig_den && metadata.time_sig_den > 0 ? metadata.time_sig_den : 4
+  const beatsPerBar = numerator * 4 / denominator
+  return 1 + Math.floor(seconds * (bpm / 60) / beatsPerBar)
 }
 
 function fourCC(bytes: Uint8Array, offset: number): string {

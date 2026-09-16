@@ -52,6 +52,11 @@ export interface AttachmentTimelineMetadata {
   }
   tempo_map?: TempoMapPoint[]
   time_signature_map?: TimeSignatureMapPoint[]
+  /** Host transport tempo/meter at capture — lets a receiver compute
+   *  which bar a sample-exact stem starts at without a full tempo map. */
+  bpm?: number
+  time_sig_num?: number
+  time_sig_den?: number
   captured_at: string
 }
 

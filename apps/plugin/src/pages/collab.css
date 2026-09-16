@@ -9873,6 +9873,8 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-audio-compact { gap: 2px; padding: 5px 6px 2px; border-radius: 6px; }
 .stem-audio-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .stem-audio-name { flex: 1; min-width: 0; padding-left: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--t1); font-size: 12px; font-weight: 500; }
+/* Quiet placement note — "bar 17" — for sample-exact stems. */
+.stem-audio-bar { flex-shrink: 0; color: var(--t3); font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: .02em; white-space: nowrap; }
 .stem-import-square { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid var(--border2); border-radius: 3px; display: grid; place-items: center; background: var(--bg3); color: var(--t1); cursor: grab; }
 .stem-import-square:active { cursor: grabbing; }
 .stem-import-square:hover, .stem-import-square.ready { border-color: color-mix(in srgb, var(--blue) 55%, transparent); background: color-mix(in srgb, var(--blue) 12%, var(--bg3)); color: var(--blue); }

@@ -10593,3 +10593,146 @@ text.sg-word { fill: var(--sg-ink-55); }
 .sg-dot { position: absolute; }
 .sg-dot::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; }
 .sg-dot.r::before { inset: -14px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Orb Sounds — the study's hands as rows, and the shelf as a drawer
+   (2026-09-16). Every parameter is one line: its name at the left, the
+   control at the right, a hairline under it. On a number row the
+   hairline is the gauge and fills in the print's own ink (--sg-tint). */
+
+/* ── the study: head pinned, the rest a column that scrolls if it must ── */
+.plugin.sounds > .sg-study { justify-content: flex-start; padding: 0; gap: 0; }
+.plugin.sounds > .sg-study > .sg-study-head { top: 20px; left: 24px; right: 20px; align-items: center; }
+.sg-study-off { color: var(--sg-ink-42); font-weight: 400; }
+.sg-study-body {
+  position: relative; z-index: 1; width: 100%; flex: 1; min-height: 0; box-sizing: border-box;
+  padding: 56px 24px 16px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.sg-study-body::-webkit-scrollbar { display: none; }
+.sg-study-print { width: 240px; height: 240px; margin-top: 0; flex: none; }
+.sg-study-value { min-height: 26px; display: flex; align-items: center; }
+.sg-study-value .sg-val { padding: 0 6px; border-radius: 4px; }
+.sg-study-value .sg-val:hover { background: rgba(var(--sg-tint), 0.12); }
+.sg-study-value .sg-val.typing { background: transparent; cursor: text; }
+.sg-study-mixnote { font-family: var(--f-sans); font-size: 11.5px; font-style: italic; color: var(--sg-ink-50); }
+.sg-study-rows { width: 100%; display: flex; flex-direction: column; margin-top: 6px; border-top: 1px solid var(--sg-ink-14); }
+.sg-study-foot {
+  margin-top: auto; padding-top: 18px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.plugin.sounds .sg-study-hint { margin: 0; font-family: var(--f-sans); font-style: italic; font-size: 10.5px; color: var(--sg-ink-42); text-align: center; }
+
+/* the close: a hairline ring with a cross, like the shelf's handle */
+.sg-close, .sg-shelf-tab {
+  width: 24px; height: 24px; padding: 0; box-sizing: border-box; border-radius: 50%;
+  border: 1px solid var(--sg-ink-22); background: var(--fx-wall, #161410);
+  color: var(--sg-ink-60); display: grid; place-items: center; cursor: pointer;
+  transition: color .12s, border-color .12s, transform .36s cubic-bezier(0.2, 0.7, 0.2, 1), bottom .36s cubic-bezier(0.2, 0.7, 0.2, 1);
+  -webkit-appearance: none; appearance: none; font: inherit;
+}
+.sg-close:hover, .sg-shelf-tab:hover { color: var(--sg-ink); border-color: var(--sg-ink-50); }
+.sg-close:active, .sg-shelf-tab:active { transform: scale(0.92); }
+.sg-close:focus-visible, .sg-shelf-tab:focus-visible, .sg-seg-cell:focus-visible { outline: 1px solid var(--sg-ink-60); outline-offset: 2px; }
+.sg-close svg, .sg-shelf-tab svg { display: block; }
+
+/* ── rows ─────────────────────────────────────────────────────────────── */
+.sg-row {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 31px; padding: 4px 0 5px; box-sizing: border-box;
+  font-family: var(--f-sans); font-size: 11.5px; letter-spacing: -0.005em;
+}
+.sg-row-label { color: var(--sg-ink-50); flex: 0 0 66px; white-space: nowrap; }
+.sg-row-ctl { flex: 1; min-width: 0; display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
+.sg-rule { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sg-ink-14); pointer-events: none; }
+
+/* a number: drag it, type into it; its rule is the gauge */
+.sg-row.gauge { cursor: ns-resize; }
+.sg-row.gauge.typing { cursor: text; }
+.sg-num { font-size: 13px; font-weight: 500; color: var(--sg-ink-85); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sg-row.gauge:hover .sg-num, .sg-row.gauge.live .sg-num { color: var(--sg-ink); }
+.sg-row.gauge:hover .sg-row-label, .sg-row.gauge.live .sg-row-label { color: var(--sg-ink-70); }
+.sg-row.gauge .sg-rule { height: 2px; background: var(--sg-ink-14); transition: height .12s; }
+.sg-row.gauge:hover .sg-rule, .sg-row.gauge.live .sg-rule { height: 3px; }
+.sg-fill {
+  position: absolute; top: 0; bottom: 0; border-radius: 1px;
+  background: rgb(var(--sg-tint)); box-shadow: 0 0 7px rgba(var(--sg-tint), 0.55);
+}
+.sg-typein {
+  font-family: var(--f-sans); font-size: 13px; font-weight: 500; color: var(--sg-ink);
+  background: transparent; border: none; outline: none; padding: 0; margin: 0;
+  text-align: right; min-width: 3ch; caret-color: rgb(var(--sg-tint)); font-variant-numeric: tabular-nums;
+}
+.sg-typein::selection { background: rgba(var(--sg-tint), 0.35); }
+.sg-typein.big { font-size: 20px; text-align: center; }
+
+/* a choice: one hairline box, the chosen cell lit in the print's ink */
+.sg-seg {
+  position: relative; display: inline-flex; max-width: 100%;
+  border: 1px solid var(--sg-ink-22); border-radius: 4px; overflow: hidden;
+}
+.sg-seg.list { overflow: visible; }
+.sg-seg-cell {
+  padding: 3px 9px; color: var(--sg-ink-50); cursor: pointer; white-space: nowrap; user-select: none;
+  border-left: 1px solid var(--sg-ink-14); line-height: 16px;
+  transition: color .12s, background .12s;
+}
+.sg-seg-cell:first-child { border-left: 0; }
+.sg-seg-cell:hover { color: var(--sg-ink-85); background: rgba(246, 243, 234, 0.04); }
+.sg-seg-cell.on { color: var(--sg-ink); background: rgba(var(--sg-tint), 0.3); font-weight: 500; }
+.sg-seg-cell:active { background: rgba(var(--sg-tint), 0.42); }
+.sg-seg.fill { display: flex; flex: 1; }
+.sg-seg.fill .sg-seg-cell { flex: 1; text-align: center; padding: 3px 0; font-size: 10.5px; }
+/* a long list folds into one cell that opens the list (the tremolo's shapes) */
+.sg-seg-cell.pick { display: inline-flex; align-items: center; gap: 6px; padding-right: 8px; }
+.sg-seg-cell.pick .sg-pick-arrow { margin: 0; font-size: 8px; opacity: 0.7; }
+.sg-seg.list .sg-pick-list {
+  left: auto; right: 0; transform: none; bottom: calc(100% + 6px);
+  max-height: 260px; overflow-y: auto; min-width: 100%; text-align: right;
+}
+.sg-seg.list .sg-pick-row { font-size: 11.5px; padding: 3px 6px; }
+.sg-seg.list .sg-pick-row.on { color: var(--sg-ink); font-weight: 500; }
+
+/* on / off: a small switch, lit in the print's ink */
+.sg-row.switches { justify-content: flex-end; }
+.sg-sw-item { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.sg-sw-item .sg-row-label { flex: none; transition: color .12s; }
+.sg-sw-item:hover .sg-row-label { color: var(--sg-ink-85); }
+.sg-sw-item.on .sg-row-label { color: var(--sg-ink); }
+.sg-switch {
+  position: relative; display: inline-block; width: 26px; height: 14px; box-sizing: border-box;
+  border-radius: 7px; border: 1px solid var(--sg-ink-30); background: transparent;
+  transition: border-color .15s, background .15s;
+}
+.sg-switch i {
+  position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--sg-ink-50);
+  transition: left .18s cubic-bezier(0.2, 0.7, 0.2, 1), background .15s, box-shadow .15s;
+}
+.sg-switch.on { border-color: rgba(var(--sg-tint), 0.9); background: rgba(var(--sg-tint), 0.16); }
+.sg-switch.on i { left: 14px; background: rgb(var(--sg-tint)); box-shadow: 0 0 6px rgba(var(--sg-tint), 0.7); }
+/* bypass lights in paper, not the tint: it is the print going dark */
+.sg-switch.quiet.on { border-color: var(--sg-ink-60); background: rgba(246, 243, 234, 0.08); }
+.sg-switch.quiet.on i { background: var(--sg-ink-85); box-shadow: none; }
+
+/* ── the shelf is a drawer ───────────────────────────────────────────── */
+.sg-left { position: relative; }
+.sg-shelf {
+  transition: height .36s cubic-bezier(0.2, 0.7, 0.2, 1), border-top-color .36s;
+  overflow-y: hidden;
+}
+.sg-shelf.closed { border-top-color: transparent; pointer-events: none; }
+.sg-shelf-item { transition: transform .36s cubic-bezier(0.2, 0.7, 0.2, 1), opacity .3s; }
+.sg-shelf.closed .sg-shelf-item { transform: translateY(24px); opacity: 0; }
+/* more prints past the right edge: the edge fades to say so */
+.sg-shelf.more {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent);
+}
+.sg-shelf-tab { position: absolute; left: 22px; z-index: 5; }
+.sg-shelf-tab.closed svg { transform: rotate(180deg); }
+.sg-shelf-tab svg { transition: transform .36s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-shelf, .sg-shelf-item, .sg-shelf-tab, .sg-shelf-tab svg, .sg-switch i { transition: none; }
+}

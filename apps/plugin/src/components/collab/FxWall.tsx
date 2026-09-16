@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
+import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -22,7 +23,7 @@ import {
 
 const NODE = 132
 const STUDY_W = 380          // the study: a column on the right where the chosen print is drawn big
-const STUDY_PRINT = 300
+const STUDY_PRINT = 240
 const R = NODE / 2
 const SHELF_PRINT = 48
 const SHELF_H = 112
@@ -72,6 +73,35 @@ function fmtValue (type: number, a: number, variant = 0): string {
     return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`
   }
   return `${Math.round(a * 100)}`
+}
+
+/** What was typed for the main hand, back to 0..1 — fmtValue's mirror. */
+function parseAmount (type: number, s: string, variant = 0): number | null {
+  const t = s.trim().toLowerCase()
+  if (type === 23) { const i = STUTTER_LABELS.indexOf(t); if (i >= 0) return i / 5 + 0.1 }
+  const v = parseLead(t); if (v === null) return null
+  if (type === 13) return clamp(v / 24, 0, 1)
+  if (type === 16 || type === 17) return clamp(v / 24 + 0.5, 0, 1)
+  if (type === 0 || type === 3) return clamp(v / 200 + 0.5, 0, 1)
+  if (type === 22) { const T = /s\s*$/.test(t) && !/ms\s*$/.test(t) ? v : v / 1000; return clamp(Math.log(Math.max(1e-6, T) / 0.02) / Math.log(75), 0, 1) }
+  if (type === 23) return clamp(v, 0, 1)
+  if (type === 25) return clamp(Math.log2(Math.max(1, v) / 20) / 8, 0, 1)
+  if (type === 26) return clamp((v + 60) / 60, 0, 1)
+  if (type === 5) return clamp(v < 0 ? (v / 60 + 1) * 0.75 : v / 48 + 0.75, 0, 1)
+  if (type === 7) {
+    if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
+    const hz = Math.max(1, v)
+    return clamp(variant === 0 ? Math.log2(hz / 20) / 8 : -Math.log2(hz / 20000) / 8.3, 0, 1)
+  }
+  return clamp(v / 100, 0, 1)
+}
+/** A decay in seconds (as fmtDecay prints it), back to the 0..1 hand. */
+function parseDecay (variant: number, s: string): number | null {
+  const t = parseLead(s); if (t === null || t <= 0) return null
+  const g = Math.pow(10, -0.096 / t)
+  const rs = (g - 0.7) / 0.28
+  const d = variant === 0 ? (rs - 0.769) / 0.191 : variant === 1 ? (rs - 0.16) / 0.44 + 0.5 : (rs - 0.5) / 0.7 + 0.5
+  return clamp(d, 0, 1)
 }
 
 /** A demo patch for the plain browser (no engine) and for an empty wall. */
@@ -186,6 +216,33 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   )
 }
 
+/** The study's big number: the print's hand, dragged here or typed into. */
+function StudyValue ({ text, parse, commit, reset, onPointerDown, onWheelDelta }: {
+  text: string
+  parse: (s: string) => number | null
+  commit: (v: number) => void
+  reset: () => void
+  onPointerDown: (e: RPointerEvent) => void
+  onWheelDelta: (dy: number) => void
+}) {
+  const typing = useTypeIn({ text, parse, commit, reset, className: 'big' })
+  const ref = useRef<HTMLSpanElement>(null)
+  const wheelRef = useRef(onWheelDelta); wheelRef.current = onWheelDelta
+  useEffect(() => {
+    const el = ref.current; if (!el) return
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); e.stopPropagation(); wheelRef.current(e.deltaY) }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+  return (
+    <span ref={ref} className={`sg-val${typing.editing ? ' typing' : ''}`}
+      onPointerDown={(e) => { if (typing.editing) return; if (e.altKey) { e.stopPropagation(); reset(); return } onPointerDown(e) }}
+      onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
+      {typing.input ?? text}
+    </span>
+  )
+}
+
 function wirePath (p0: Pt, p1: Pt): string {
   const dx = Math.max(40, (p1.x - p0.x) * 0.5)
   return `M ${p0.x} ${p0.y} C ${p0.x + dx} ${p0.y}, ${p1.x - dx} ${p1.y}, ${p1.x} ${p1.y}`
@@ -237,7 +294,20 @@ export default function FxWall ({ size: frame }: Props) {
   const studyOpen = sel?.node !== undefined
   const size = { w: frame.w, h: frame.h }
   const [confirm, setConfirm] = useState<string | null>(null)   // 'node:3' | 'edge:2' awaiting the second tap
-  const [pick, setPick] = useState<string | null>(null)         // '3:wall' | '3:study': a shape list is open
+  // the shelf is a drawer: its handle sinks it below the floor and the
+  // wall grows into the room; remembered
+  const [shelfOpen, setShelfOpen] = useState(() => { try { return localStorage.getItem('orb_wall_shelf') !== '0' } catch { return true } })
+  const toggleShelf = () => setShelfOpen(v => { try { localStorage.setItem('orb_wall_shelf', v ? '0' : '1') } catch { /* fine */ } return !v })
+  // more prints past the right edge? the edge fades to say so
+  const [shelfMore, setShelfMore] = useState(false)
+  useEffect(() => {
+    const el = shelfRef.current; if (!el) return
+    const check = () => setShelfMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = new ResizeObserver(check); ro.observe(el)
+    return () => { el.removeEventListener('scroll', check); ro.disconnect() }
+  }, [])
   const [drag, setDrag] = useState<Drag | null>(null)
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef(graph); graphRef.current = graph
@@ -667,69 +737,87 @@ export default function FxWall ({ size: frame }: Props) {
       </>
     )
   }
-  const words = (n: FxGraphNode, where = 'wall') => {
+  // ── the study's rows: every hand and word of the chosen print, one
+  //    per line, as the controls in StudyControls ────────────────────
+  const VARIANT_LABEL: Record<number, string> = { 1: 'drive', 2: 'room', 6: 'kind', 7: 'pass', 8: 'stage', 9: 'spread', 10: 'type', 13: 'order', 14: 'band', 15: 'mode', 16: 'mode', 18: 'mode', 20: 'target', 21: 'interval', 22: 'floor', 23: 'grid', 24: 'mode', 25: 'mode', 26: 'release', 27: 'motion' }
+  const studyRows = (n: FxGraphNode) => {
     const isMix = n.type === FX_MIX_TYPE
+    const setAux = (k: number, v: number, extra?: (aux: number[]) => void) => {
+      const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[k] = v; extra?.(aux)
+      updateNode(n.id, { aux }, true)
+    }
+    const rows: React.ReactNode[] = []
     const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
-    return (
-<div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
-                    {n.type === 12 && (() => {
-                      const key = `${n.id}:${where}`
-                      const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
-                      return (
-                        <span className={`sg-word on sg-pick${pick === key ? ' open' : ''}`}
-                          onPointerDown={(e) => { e.stopPropagation(); setPick(pick === key ? null : key) }}>
-                          {TREM_PRESETS[cur]?.name ?? 'sine'}<span className="sg-pick-arrow">▾</span>
-                          {pick === key && (
-                            <span className="sg-pick-list" onPointerDown={(e) => e.stopPropagation()}>
-                              {TREM_PRESETS.map((pr, pi) => (
-                                <span key={pr.name} className={`sg-pick-row${cur === pi ? ' on' : ''}`}
-                                  onPointerDown={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve(), variant: Math.min(4, pi) }, true); setPick(null) }}>{pr.name}</span>
-                              ))}
-                            </span>
-                          )}
-                        </span>
-                      )
-                    })()}
-                    {n.type !== 5 && n.type !== 12 && flavours.map((f, vi) => (
-                      <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
-                        onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
-                    ))}
-                    {n.type === 12 && ['vol', 'pan'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[0] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {n.type === 18 && ['key', 'intervals', 'cents', 'free'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[6] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[6] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {n.type === 18 && (n.aux[6] || 0) === 0 && ['major', 'minor'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[4] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[4] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {n.type === 18 && (
-                      <span className={`sg-word${n.aux[7] ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[7] = aux[7] ? 0 : 1; updateNode(n.id, { aux }, true) }}>freeze</span>
-                    )}
-                    {n.type === 15 && n.variant !== 1 && ['major', 'minor'].map((w, k) => (
-                      <span key={w} className={`sg-word${(n.aux[1] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; aux[1] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
-                    ))}
-                    {(n.type === 16 || n.type === 17) && ['fine', 'live'].map((q, k) => (
-                      <span key={q} className={`sg-word${(n.aux[n.type === 16 ? 1 : 0] || 0) === k ? ' on' : ''}`}
-                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[n.type === 16 ? 1 : 0] = k; updateNode(n.id, { aux }, true) }}>{q}</span>
-                    ))}
-                    {WET_TYPES.has(n.type) && (
-                      <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
-                    )}
-                    {!isMix && (
-                      <span className={`sg-word${n.bypass ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { bypass: !n.bypass }, true)}>bypass</span>
-                    )}
-                    <span className="sg-word quiet"
-                      onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
-                      {confirm === `node:${n.id}` ? 'sure?' : 'remove'}
-                    </span>
-                  </div>
-    )
+    if (n.type === 12) {
+      const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
+      rows.push(<ChoiceRow key="shape" label="shape" options={TREM_PRESETS.map(p => p.name)} value={cur}
+        onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
+      rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
+      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+    } else if (n.type !== 5 && flavours.length > 0) {
+      rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
+    }
+    if (n.type === 2) {
+      rows.push(<GaugeRow key="decay" label="decay" value={n.decay[n.variant] ?? 0.5} min={0} max={1} step={0.005} defaultValue={0.5}
+        format={(d) => fmtDecay(n.variant, d)} parse={(s) => parseDecay(n.variant, s)}
+        onChange={(v, final) => { const d = [...n.decay]; d[n.variant] = v; updateNode(n.id, { decay: d }, final) }} />)
+    }
+    if (n.type === 10) {
+      rows.push(<ChoiceRow key="time" label="time" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<GaugeRow key="fb" label="feedback" value={Math.round(n.delayFb * 100)} min={0} max={100} unit="%" defaultValue={35}
+        onChange={(v, final) => updateNode(n.id, { delayFb: v / 100 }, final)} />)
+    }
+    if (n.type === 13) {
+      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<GaugeRow key="step" label="step" value={n.aux[0] || 12} min={1} max={12} unit="st" defaultValue={12} fine={120} onChange={(v) => setAux(0, v)} />)
+    }
+    if (n.type === 15) {
+      if (n.variant !== 1) {
+        rows.push(<ChoiceRow key="key" label="key" options={KEY_NAMES} value={((n.aux[0] % 12) + 12) % 12} fill onPick={(k) => setAux(0, k)} />)
+        rows.push(<ChoiceRow key="scale" label="scale" options={['major', 'minor']} value={n.aux[1] === 1 ? 1 : 0} onPick={(k) => setAux(1, k)} />)
+      }
+      const chroma = n.variant === 1
+      rows.push(<GaugeRow key="int" label={chroma ? 'interval' : 'degrees'} value={n.aux[2] || 0} min={chroma ? -12 : -7} max={chroma ? 12 : 7} bipolar defaultValue={chroma ? 7 : 2} fine={140}
+        format={(v) => `${v > 0 ? '+' : ''}${v}${chroma ? ' st' : v === 0 ? ' unison' : ''}`} onChange={(v) => setAux(2, v)} />)
+    }
+    if (n.type === 16) {
+      rows.push(<GaugeRow key="cents" label="cents" value={n.aux[0] || 0} min={-100} max={100} bipolar defaultValue={0} format={(v) => `${v > 0 ? '+' : ''}${v} c`} onChange={(v) => setAux(0, v)} />)
+      rows.push(<ChoiceRow key="engine" label="engine" options={['fine', 'live']} value={n.aux[1] || 0} onPick={(k) => setAux(1, k)} />)
+    }
+    if (n.type === 17) rows.push(<ChoiceRow key="engine" label="engine" options={['fine', 'live']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
+    if (n.type === 18) {
+      rows.push(<GaugeRow key="size" label="size" value={n.aux[0] || 120} min={10} max={600} unit="ms" defaultValue={120} onChange={(v) => setAux(0, v)} />)
+      rows.push(<GaugeRow key="spray" label="spray" value={n.aux[1] || 0} min={0} max={1500} unit="ms" defaultValue={300} onChange={(v) => setAux(1, v)} />)
+      rows.push(<GaugeRow key="scatter" label="scatter" value={n.aux[2] || 0} min={0} max={24} unit="st" defaultValue={0} fine={140} onChange={(v) => setAux(2, v)} />)
+      rows.push(<ChoiceRow key="pmode" label="pitch" options={['key', 'intervals', 'cents', 'free']} value={n.aux[6] || 0} onPick={(k) => setAux(6, k)} />)
+      if ((n.aux[6] || 0) === 0) {
+        rows.push(<ChoiceRow key="key" label="key" options={KEY_NAMES} value={(((n.aux[3] || 0) % 12) + 12) % 12} fill onPick={(k) => setAux(3, k)} />)
+        rows.push(<ChoiceRow key="scale" label="scale" options={['major', 'minor']} value={(n.aux[4] || 0) === 1 ? 1 : 0} onPick={(k) => setAux(4, k)} />)
+      }
+      if (n.variant === 1) rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<GaugeRow key="pan" label="pan" value={n.aux[5] ?? 50} min={0} max={100} unit="%" defaultValue={50} onChange={(v) => setAux(5, v)} />)
+    }
+    if (n.type === 22) {
+      rows.push(<GaugeRow key="depth" label="depth" value={n.aux[1] === 1 ? n.aux[0] : 100} min={0} max={100} unit="%" defaultValue={100}
+        onChange={(v) => setAux(0, v, (aux) => { aux[1] = 1 })} />)
+    }
+    if (isMix) {
+      const ins = inputsOf(n.id)
+      ins.forEach(x => rows.push(
+        <GaugeRow key={`in${x.i}`} label={x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)} value={Math.round(x.e.gain * 100)} min={0} max={100} unit="%"
+          defaultValue={Math.round(100 / Math.max(1, ins.length))} onChange={(v, final) => setShare(x.i, v / 100, final)} />,
+      ))
+    }
+    const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> = []
+    if (n.type === 5) {
+      switches.push({ label: 'ø left', on: (n.variant & 1) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 1 }, true) })
+      switches.push({ label: 'ø right', on: (n.variant & 2) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 2 }, true) })
+    }
+    if (n.type === 18) switches.push({ label: 'freeze', on: !!n.aux[7], set: (on) => setAux(7, on ? 1 : 0) })
+    if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true) })
+    if (!isMix) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
+    rows.push(<SwitchRow key="sw" items={switches} />)
+    return rows
   }
 
   const studyLive = studyOpen ? nodeById(sel!.node!) : undefined
@@ -825,6 +913,16 @@ export default function FxWall ({ size: frame }: Props) {
   // breathing with the same signal — painted as a CSS gradient on the
   // pane itself (a canvas there mis-sized inside one host's WebView)
   const studyRef = useRef<HTMLElement>(null)
+  // the study's column scrolls when its rows outgrow the window — but the
+  // wheel over the print (or its number) turns the hand, never the page
+  // (React's own wheel handlers are passive, so this one is native)
+  useEffect(() => {
+    if (!studyOpen) return
+    const el = studyRef.current; if (!el) return
+    const onWheel = (e: WheelEvent) => { if ((e.target as Element).closest('.sg-study-print, .sg-study-value')) e.preventDefault() }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [studyOpen])
   useEffect(() => {
     if (!studyOpen) return
     let raf = 0
@@ -1037,7 +1135,6 @@ export default function FxWall ({ size: frame }: Props) {
         onPointerMove={onWallMove}
         onPointerUp={onWallUp}
         onPointerDown={(e) => {
-          setPick(null)
           // a wire under the pointer? (the wires are painted, not DOM)
           const p = wallPt(e)
           let hit = -1, best = 9
@@ -1142,7 +1239,6 @@ export default function FxWall ({ size: frame }: Props) {
                   )}
                   {hands(n)}
                 </div>
-                {isSel && words(n)}
               </div>
             </div>
           )
@@ -1186,7 +1282,13 @@ export default function FxWall ({ size: frame }: Props) {
         {scope.input && hasFxBridge() && !hasJuceNativeFunction('setScopeInput') && <p className="fx-note sg-note">the input trace needs the newer plugin — restart the daw.</p>}
       </div>
 
-      <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}`} style={{ gap: shelf.gap, height: shelf.height }}>
+      {/* the shelf's handle: a tab on its rule; it rides down with the drawer */}
+      <button type="button" className={`sg-shelf-tab${shelfOpen ? '' : ' closed'}`} style={{ bottom: shelfOpen ? shelf.height - 13 : 10 }}
+        title={shelfOpen ? 'put the shelf away' : 'bring the shelf out'} aria-label={shelfOpen ? 'put the shelf away' : 'bring the shelf out'}
+        onPointerDown={(e) => e.stopPropagation()} onClick={toggleShelf}>
+        <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ gap: shelf.gap, height: shelfOpen ? shelf.height : 0 }}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
           <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
@@ -1197,11 +1299,14 @@ export default function FxWall ({ size: frame }: Props) {
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(
-      <aside ref={studyRef} className={`sg-study${studyOut ? ' out' : ''}`} style={{ ...inkVars, width: STUDY_W }} onPointerDown={(e) => { e.stopPropagation(); setPick(null) }} onPointerMove={onWallMove} onPointerUp={onWallUp}>
+      <aside ref={studyRef} className={`sg-study${studyOut ? ' out' : ''}`} style={{ ...inkVars, '--sg-tint': tintOf(studyNode.type, studyNode.variant).join(', '), width: STUDY_W } as React.CSSProperties} onPointerDown={(e) => e.stopPropagation()} onPointerMove={onWallMove} onPointerUp={onWallUp}>
         <div className="sg-study-head">
-          <span className="sg-study-title">{nameOf(studyNode.type)}</span>
-          <span className="sg-word quiet" onPointerDown={() => { setSel(null); setConfirm(null) }}>close</span>
+          <span className="sg-study-title">{nameOf(studyNode.type)}{studyNode.bypass ? <span className="sg-study-off"> off</span> : null}</span>
+          <button type="button" className="sg-close" aria-label="close the study" title="close" onPointerDown={(e) => e.stopPropagation()} onClick={() => { setSel(null); setConfirm(null) }}>
+            <svg viewBox="0 0 12 12" width="11" height="11"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+          </button>
         </div>
+        <div className="sg-study-body">
         <div className="sg-study-print"
           onPointerDown={(e) => {
             if ((e.target as Element).closest('.fx-hot')) return
@@ -1226,28 +1331,23 @@ export default function FxWall ({ size: frame }: Props) {
         </div>
         <div className="sg-study-value">
           {studyNode.type !== FX_MIX_TYPE
-            ? <span className="sg-val"
+            ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
+                parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
+                commit={(a) => updateNode(studyNode.id, { amount: a }, true)}
+                reset={() => updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true)}
                 onPointerDown={(e) => { e.stopPropagation(); grab(e); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
-                onDoubleClick={(e) => { e.stopPropagation(); updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
-                onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
-            : null}
+                onWheelDelta={(dy) => updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(dy))) }, true)} />
+            : <span className="sg-study-mixnote">{inputsOf(studyNode.id).length === 0 ? 'nothing wired in yet' : studyNode.variant === 0 ? 'the shares blend to 100' : 'the shares add up'}</span>}
         </div>
-        <div className="sg-study-hands">{hands(studyNode, true)}</div>
-        <div className="sg-study-words">{words(studyNode, 'study')}</div>
-        {studyNode.type === FX_MIX_TYPE && inputsOf(studyNode.id).length > 0 && (
-          <div className="sg-study-inputs">
-            {inputsOf(studyNode.id).map(x => (
-              <span key={x.i} className="sg-study-input">
-                <span className="sg-flav">{x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1)}</span>
-                <span className="sg-val hand"
-                  onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: studyNode.id }); setDrag({ kind: 'share', edge: x.i, y0: e.clientY, g0: x.e.gain }) }}
-                  onDoubleClick={(e) => { e.stopPropagation(); setShare(x.i, 1 / Math.max(1, inputsOf(studyNode.id).length), true) }}>
-                  {Math.round(x.e.gain * 100)}
-                </span>
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="sg-study-rows">{studyRows(studyNode)}</div>
+        <div className="sg-study-foot">
+          <span className="sg-study-hint">drag a number, double-click it to type, ⌥-click it to rest</span>
+          <span className="sg-word quiet"
+            onPointerDown={() => { if (confirm === `node:${studyNode.id}`) removeNode(studyNode.id); else setConfirm(`node:${studyNode.id}`) }}>
+            {confirm === `node:${studyNode.id}` ? 'sure? remove it' : 'remove from the wall'}
+          </span>
+        </div>
+        </div>
       </aside>,
       topBar.parentElement,
     )}

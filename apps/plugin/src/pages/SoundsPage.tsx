@@ -35,13 +35,17 @@ export default function SoundsPage() {
   const [wallSize, setWallSize] = useState({ w: 1120, h: 568 })
   useEffect(() => {
     const el = contentRef.current; if (!el) return
+    // the shelf is a drawer: while it slides its height changes every
+    // frame, and the wall follows — so the shelf is watched too
+    const shelf = el.querySelector('.sg-shelf') as HTMLElement | null
     const measure = () => {
       const r = el.getBoundingClientRect()
       const w = Math.max(300, Math.round(r.width))
-      setWallSize({ w, h: Math.max(200, Math.round(r.height) - shelfLayout().height) })
+      const sh = shelf ? shelf.getBoundingClientRect().height : shelfLayout().height
+      setWallSize({ w, h: Math.max(200, Math.round(r.height - sh)) })
     }
     measure()
-    const ro = new ResizeObserver(measure); ro.observe(el)
+    const ro = new ResizeObserver(measure); ro.observe(el); if (shelf) ro.observe(shelf)
     return () => ro.disconnect()
   }, [])
   // layout diagnostics (plugin only, twice after mount): every box that

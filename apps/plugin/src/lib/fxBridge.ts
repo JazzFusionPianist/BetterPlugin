@@ -7,9 +7,9 @@
 
 import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
 
-export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19
-/** Slots: 0..10 the first prints, 11 the mix (no memory), 12..19 the newer prints. */
-export const FX_COUNT = 20
+export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20
+/** Slots: 0..10 the first prints, 11 the mix (no memory), 12..20 the newer prints. */
+export const FX_COUNT = 21
 
 export interface FxState {
   mode: FxMode
@@ -36,8 +36,8 @@ export interface FxState {
 
 export const FX_DEFAULTS: FxState = {
   mode: 0,
-  amounts: [0.5, 0, 0, 0, 0, 0.75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0],
-  variants: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  amounts: [0.5, 0, 0, 0, 0, 0.75, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0, 0, 0],
+  variants: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   decays: [0.5, 0.5, 0.5],
   delayDiv: 2,
   delayFb: 0.35,
@@ -115,7 +115,9 @@ export interface FxGraphNode {
   delayDiv: number
   delayFb: number
   wet: boolean            // Wet Solo — drop the dry on space/delay/doubler/mod/harmony
-  aux: number[]           // tremolo [vol|pan]; arp [interval st]; harmony [key root, scale, degrees]
+  bypass?: boolean        // the print hangs there, the signal passes it by
+  aux: number[]           // tremolo [vol|pan]; arp [interval st]; harmony [key root, scale, degrees];
+                          // grain [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze] (8 slots)
   curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape
   x: number
   y: number

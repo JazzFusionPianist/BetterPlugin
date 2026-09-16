@@ -307,6 +307,8 @@ void NodeState::reset()
     std::fill (grainRing[1].begin(), grainRing[1].end(), 0.0f);
     grainWrite = 0; grainClock = 0.0f; grainBeat = 0.0; grainLastStep = -1;
     for (auto& g : grains) g = Grain {};
+    grainNote = -1.0f; grainPdCountdown = 0;
+    crushHold[0] = crushHold[1] = 0.0f; crushPhase = 0.0f;
 }
 
 //==============================================================================
@@ -1205,26 +1207,83 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
         {
             // A cloud of grains read from the last two seconds: `size` is a
             // grain's length, `spray` how far back it may start, `scatter`
-            // how far its pitch may wander. cloud = free-running, stutter =
-            // new grains only on the beat division, reverse = read backwards.
+            // how far its pitch may wander — in the KEY (the tracker hears
+            // the source; each grain lands on a scale degree), on a set of
+            // clean intervals, in cents (thick, in tune), or free. Grains
+            // scatter across the stereo field by `pan`. freeze holds the
+            // buffer. cloud = free-running, stutter = new grains only on
+            // the beat division, reverse = read backwards.
             if (grainRing[0].empty()) break;
             const int   ringLen = (int) grainRing[0].size();
             const float sizeMs  = (float) juce::jlimit (10, 600, p.aux[0] == 0 ? 120 : p.aux[0]);
             const float sprayMs = (float) juce::jlimit (0, 1500, p.aux[1]);
             const float scatter = (float) juce::jlimit (0, 24, p.aux[2]);
+            const int   keyRoot = ((p.aux[3] % 12) + 12) % 12;
+            const int   scale   = p.aux[4] == 1 ? 1 : 0;
+            const float panSpread = juce::jlimit (0, 100, p.aux[5]) / 100.0f;
+            const int   pmode   = juce::jlimit (0, 3, p.aux[6]);   // 0 key, 1 intervals, 2 cents, 3 free
+            const bool  freeze  = p.aux[7] != 0;
             const float lenS    = sizeMs * 0.001f * sr;
             const float overlap = 3.0f;
-            const float perSample = overlap / lenS;      // grains per sample
+            const float perSample = overlap / lenS;
             const bool  stutter = variant == 1, reverse = variant == 2;
             const int   di = juce::jlimit (0, 6, p.delayDiv);
             const float stepBeat = kDivBeats[di];
             const float wet = a, dry = p.wet ? 0.0f : 1.0f - a * 0.85f;
             auto rnd = [&] () { grainRng = grainRng * 1664525u + 1013904223u; return (float) (grainRng >> 8) / 16777216.0f; };
+            // the tracker listens to what goes in (even while frozen, for the next thaw)
+            {
+                const int plen = (int) pdBuf.size();
+                for (int i = 0; i < n; ++i)
+                {
+                    pdBuf[(size_t) pdWrite] = R != nullptr ? 0.5f * (L[i] + R[i]) : L[i];
+                    pdWrite = pdWrite + 1 < plen ? pdWrite + 1 : 0;
+                }
+                grainPdCountdown -= n;
+                if (pmode == 0 && grainPdCountdown <= 0)
+                {
+                    grainPdCountdown = 1024;
+                    const float note = trackPitch (*this, sr);
+                    if (note > 0.0f) grainNote = note;
+                }
+            }
+            static const int kIntervals[] = { 0, 12, -12, 7, -5, 19, -17, 24, -24 };
+            auto pickSemis = [&] () -> float
+            {
+                if (scatter <= 0.0f) return 0.0f;
+                switch (pmode)
+                {
+                    case 0:   // key: a random scale-degree step, resolved against the tracked note
+                    {
+                        const int maxDeg = juce::jmax (1, (int) std::round (scatter / 1.7f));
+                        const int d = (int) std::floor (rnd() * (2 * maxDeg + 1)) - maxDeg;
+                        if (grainNote > 0.0f) return diatonicShift (grainNote, keyRoot, scale, d);
+                        // nothing tracked yet: intervals of the scale from its root
+                        static const int major[7] = { 0, 2, 4, 5, 7, 9, 11 }, minor[7] = { 0, 2, 3, 5, 7, 8, 10 };
+                        const int* sc = scale == 1 ? minor : major;
+                        const int oct = (int) std::floor ((float) d / 7.0f), td = ((d % 7) + 7) % 7;
+                        return (float) (oct * 12 + sc[td]);
+                    }
+                    case 1:   // intervals: octaves and fifths within reach
+                    {
+                        int count = 0; for (int v : kIntervals) if (std::abs (v) <= scatter + 0.5f) ++count;
+                        int pick = (int) std::floor (rnd() * (float) count); float out = 0.0f; int seen = 0;
+                        for (int v : kIntervals) if (std::abs (v) <= scatter + 0.5f) { if (seen++ == pick) { out = (float) v; break; } }
+                        return out;
+                    }
+                    case 2:   // cents: ±(scatter × 8) cents, in tune, thick
+                        return (rnd() * 2.0f - 1.0f) * scatter * 0.08f;
+                    default:  // free: chromatic
+                        return std::round ((rnd() * 2.0f - 1.0f) * scatter);
+                }
+            };
             for (int i = 0; i < n; ++i)
             {
-                grainRing[0][(size_t) grainWrite] = L[i];
-                grainRing[1][(size_t) grainWrite] = R != nullptr ? R[i] : L[i];
-                // spawn
+                if (! freeze)
+                {
+                    grainRing[0][(size_t) grainWrite] = L[i];
+                    grainRing[1][(size_t) grainWrite] = R != nullptr ? R[i] : L[i];
+                }
                 bool spawn = false;
                 if (stutter)
                 {
@@ -1246,9 +1305,11 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                         g.pos = (float) grainWrite - back - (reverse ? 0.0f : lenS);
                         while (g.pos < 0.0f) g.pos += (float) ringLen;
                         g.len = lenS; g.phase = 0.0f;
-                        const float semi = scatter > 0.0f ? (rnd() * 2.0f - 1.0f) * scatter : 0.0f;
-                        g.rate = std::pow (2.0f, std::round (semi) / 12.0f) * (reverse ? -1.0f : 1.0f);
+                        g.rate = std::pow (2.0f, pickSemis() / 12.0f) * (reverse ? -1.0f : 1.0f);
                         g.rev = reverse; g.amp = 0.7f + 0.3f * rnd(); g.on = true;
+                        const float pan = (rnd() * 2.0f - 1.0f) * panSpread;   // −1..1
+                        const float ang = (pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
+                        g.gl = std::cos (ang) * 1.41421356f; g.gr = std::sin (ang) * 1.41421356f;
                         break;
                     }
                 }
@@ -1261,17 +1322,53 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                     while (rp < 0.0f) rp += (float) ringLen;
                     while (rp >= (float) ringLen) rp -= (float) ringLen;
                     const int i0 = (int) rp; const float fr = rp - (float) i0; const int i1 = i0 + 1 < ringLen ? i0 + 1 : 0;
-                    outL += w * g.amp * (grainRing[0][(size_t) i0] * (1.0f - fr) + grainRing[0][(size_t) i1] * fr);
-                    outR += w * g.amp * (grainRing[1][(size_t) i0] * (1.0f - fr) + grainRing[1][(size_t) i1] * fr);
+                    const float sl = grainRing[0][(size_t) i0] * (1.0f - fr) + grainRing[0][(size_t) i1] * fr;
+                    const float sr2 = grainRing[1][(size_t) i0] * (1.0f - fr) + grainRing[1][(size_t) i1] * fr;
+                    const float mono = 0.5f * (sl + sr2);
+                    // spread: the grain's own stereo blends toward a mono source panned by its own hand
+                    const float gsl = sl * (1.0f - panSpread) + mono * panSpread * g.gl;
+                    const float gsr = sr2 * (1.0f - panSpread) + mono * panSpread * g.gr;
+                    outL += w * g.amp * gsl;
+                    outR += w * g.amp * gsr;
                     g.phase += 1.0f / g.len;
                     if (g.phase >= 1.0f) g.on = false;
                 }
                 const float norm = 0.55f;
+                const float inR = R != nullptr ? R[i] : L[i];
                 L[i] = L[i] * dry + outL * norm * wet;
-                if (R != nullptr) R[i] = (R != nullptr ? R[i] : L[i]) * dry + outR * norm * wet;
-                grainWrite = grainWrite + 1 < ringLen ? grainWrite + 1 : 0;
+                if (R != nullptr) R[i] = inR * dry + outR * norm * wet;
+                if (! freeze) grainWrite = grainWrite + 1 < ringLen ? grainWrite + 1 : 0;
             }
             if (! p.playing) grainBeat += (double) p.bpm / 60.0 / (double) sr * (double) n;
+            break;
+        }
+
+        case kCrush:
+        {
+            // Fewer bits, fewer samples: the knob takes 16 bits down toward
+            // 2 and holds each sample longer. `bits` only quantises, `rate`
+            // only decimates, `both` does what a cheap sampler did.
+            const bool doBits = variant != 1, doRate = variant != 0;
+            const float bits  = 16.0f - a * 14.0f;
+            const float steps = std::pow (2.0f, bits - 1.0f);
+            const float hold  = 1.0f + a * a * 60.0f;   // samples per held value
+            for (int i = 0; i < n; ++i)
+            {
+                crushPhase += 1.0f;
+                float xl = L[i], xr = R != nullptr ? R[i] : L[i];
+                if (doRate)
+                {
+                    if (crushPhase >= hold) { crushPhase -= hold; crushHold[0] = xl; crushHold[1] = xr; }
+                    xl = crushHold[0]; xr = crushHold[1];
+                }
+                if (doBits)
+                {
+                    xl = std::round (xl * steps) / steps;
+                    xr = std::round (xr * steps) / steps;
+                }
+                L[i] = xl;
+                if (R != nullptr) R[i] = xr;
+            }
             break;
         }
 
@@ -1291,6 +1388,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, const int* late
 
     // ── nodes: id = slot, unique, typed ─────────────────────────────────
     int slotType[kMaxNodes];
+    bool bypassed[kMaxNodes] {};
     for (auto& t : slotType) t = kNone;
     for (auto& nd : g.nodes)
     {
@@ -1298,6 +1396,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, const int* late
         if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
         if (! isEffect (nd.type) && nd.type != kMixType) { error = "bad node type";   return false; }
         slotType[nd.id] = nd.type;
+        bypassed[nd.id] = nd.bypass && nd.type != kMixType;
     }
     auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
 
@@ -1481,9 +1580,12 @@ bool compile (const Graph& g, Program& out, juce::String& error, const int* late
                 Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = g.edges[(size_t) in].gain;
                 if (! emit (gop)) return false;
             }
-            Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
-            if (! emit (op)) return false;
-            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + latOf (slotType[id]);
+            if (! bypassed[id])
+            {
+                Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
+                if (! emit (op)) return false;
+            }
+            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + (bypassed[id] ? 0 : latOf (slotType[id]));
             outBuf = b;
         }
         if (! fanOut (id, outBuf)) return false;

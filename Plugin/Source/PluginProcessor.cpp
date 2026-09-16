@@ -966,7 +966,7 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     s.delayDiv.store (juce::jlimit (0, 6, nd.delayDiv), std::memory_order_relaxed);
     s.delayFb.store (juce::jlimit (0.0f, 1.0f, nd.delayFb), std::memory_order_relaxed);
     s.wet.store (nd.wet, std::memory_order_relaxed);
-    for (int i = 0; i < 3; ++i) s.aux[(size_t) i].store (nd.aux[i], std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kAuxCount; ++i) s.aux[(size_t) i].store (nd.aux[i], std::memory_order_relaxed);
     for (int i = 0; i < orbfx::kCurveLen; ++i)
         s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
     s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
@@ -1032,7 +1032,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);
         p.delayFb  = s.delayFb.load (std::memory_order_relaxed);
         p.wet      = s.wet.load (std::memory_order_relaxed);
-        for (int k = 0; k < 3; ++k) p.aux[k] = s.aux[(size_t) k].load (std::memory_order_relaxed);
+        for (int k = 0; k < orbfx::kAuxCount; ++k) p.aux[k] = s.aux[(size_t) k].load (std::memory_order_relaxed);
         p.hasCurve = s.hasCurve.load (std::memory_order_relaxed);
         if (p.hasCurve)
             for (int k = 0; k < orbfx::kCurveLen; ++k) p.curve[k] = s.curve[(size_t) k].load (std::memory_order_relaxed);
@@ -1068,7 +1068,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("delayFb", (double) nd.delayFb);
         o->setProperty ("wet", nd.wet);
         juce::Array<juce::var> aux;
-        for (int i = 0; i < 3; ++i) aux.add (nd.aux[i]);
+        for (int i = 0; i < orbfx::kAuxCount; ++i) aux.add (nd.aux[i]);
         o->setProperty ("aux", aux);
         if (nd.hasCurve)
         {
@@ -1116,7 +1116,7 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             nd.delayFb  = n.hasProperty ("delayFb")  ? (float) (double) n["delayFb"] : 0.35f;
             nd.wet      = n.hasProperty ("wet")      ? (bool) n["wet"] : false;
             if (auto* ax = n["aux"].getArray())
-                for (int i = 0; i < 3 && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
+                for (int i = 0; i < orbfx::kAuxCount && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
             if (auto* cv = n["curve"].getArray(); cv != nullptr && cv->size() == orbfx::kCurveLen)
             {
                 nd.hasCurve = true;

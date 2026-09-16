@@ -3,6 +3,7 @@
 #include "FxEngine.h"
 #include <cstdio>
 #include <cmath>
+#include <set>
 
 using namespace orbfx;
 
@@ -335,6 +336,22 @@ int main()
         float err = 0;
         for (int i = 2000; i < 6000; ++i) err = juce::jmax (err, std::abs (out.getSample (0, i) - 0.5f * (input.getSample (0, i) + input.getSample (0, i - 100))));
         CHECK (err < 1e-4f, "the delay op holds the branch back by exactly its samples");
+    }
+
+    { // grain in key: runs, panned, frozen — sane; crush: fewer distinct values
+        Graph g; auto n = node (6, kGrain, 0.8f, 0); n.aux[0] = 60; n.aux[1] = 200; n.aux[2] = 7; n.aux[3] = 0; n.aux[4] = 0; n.aux[5] = 80; n.aux[6] = 0; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 6, 1.0f }); g.edges.push_back ({ 6, kPortOut, 1.0f });
+        const auto o = run (g);
+        CHECK (peakOf (o, 4000, 10000) > 0.1f && peakOf (o, 4000, 10000) < 1.5f, "grain in key with pan spread: sane level");
+        Graph fz = g; fz.nodes[0].aux[7] = 1;
+        CHECK (peakOf (run (fz), 4000, 10000) < 1.5f, "grain frozen: sane");
+        Graph c; c.nodes.push_back (node (7, kCrush, 0.9f, 2));
+        c.edges.push_back ({ kPortIn, 7, 1.0f }); c.edges.push_back ({ 7, kPortOut, 1.0f });
+        const auto oc = run (c);
+        std::set<int> vals; for (int i = 6000; i < 10000; ++i) vals.insert ((int) std::lround (oc.getSample (0, i) * 10000));
+        std::set<int> valsIn; for (int i = 6000; i < 10000; ++i) valsIn.insert ((int) std::lround (input.getSample (0, i) * 10000));
+        std::printf ("    [crush] distinct in %zu out %zu\n", valsIn.size(), vals.size());
+        CHECK (vals.size() < valsIn.size() / 4, "crush: far fewer distinct values");
     }
 
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);

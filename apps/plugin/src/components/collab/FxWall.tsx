@@ -35,7 +35,7 @@ type Drag =
   | { kind: 'move'; id: number; dx: number; dy: number }
   | { kind: 'wire'; from: number; at: Pt }
   | { kind: 'share'; edge: number; y0: number; g0: number }
-  | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2'; y0: number; v0: number }
+  | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2' | 'aux3' | 'aux5'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
   | { kind: 'pan'; x0: number; y0: number; px: number; py: number }
 
@@ -81,7 +81,7 @@ function demoGraph (w: number, h: number): FxGraph {
 
 /** Nodes the engine placed at 0,0 (the legacy single print) get a spot. */
 function settle (g: FxGraph, w: number, h: number): FxGraph {
-  const nodes = g.nodes.map((n, i) => ({ ...n, aux: n.aux ?? [0, 0, 0], ...((n.x === 0 && n.y === 0) ? { x: w * (0.3 + 0.2 * i), y: h / 2 } : {}) }))
+  const nodes = g.nodes.map((n, i) => ({ ...n, aux: (() => { const a = [...(n.aux ?? [])]; while (a.length < 8) a.push(0); return a })(), ...((n.x === 0 && n.y === 0) ? { x: w * (0.3 + 0.2 * i), y: h / 2 } : {}) }))
   const edges = g.edges.length ? g.edges : [{ from: FX_PORT_IN, to: FX_PORT_OUT, gain: 1 }]
   return { nodes, edges }
 }
@@ -369,7 +369,7 @@ export default function FxWall ({ size: frame }: Props) {
   const addNode = (type: number, at: Pt) => {
     const id = freeId(); if (id < 0) return
     const gp = toGraph(at)
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 0] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray
+    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y }
     let edges = graph.edges
     // dropped onto a wire? splice in
@@ -387,7 +387,19 @@ export default function FxWall ({ size: frame }: Props) {
   }
 
   const removeNode = (id: number) => {
-    commit({ nodes: graph.nodes.filter(n => n.id !== id), edges: graph.edges.filter(e => e.from !== id && e.to !== id) }, true)
+    // heal the wire: what fed the print now feeds whatever it fed
+    const ins = graph.edges.filter(e => e.to === id)
+    const outs = graph.edges.filter(e => e.from === id)
+    let edges = graph.edges.filter(e => e.from !== id && e.to !== id)
+    if (ins.length === 1) {
+      const from = ins[0].from
+      for (const o of outs) {
+        if (o.to === from) continue
+        if (edges.some(e => e.from === from && e.to === o.to)) continue
+        edges = [...edges, { from, to: o.to, gain: o.gain }]
+      }
+    }
+    commit({ nodes: graph.nodes.filter(n => n.id !== id), edges }, true)
     setSel(null); setConfirm(null)
   }
   const removeEdge = (i: number) => {
@@ -455,7 +467,7 @@ export default function FxWall ({ size: frame }: Props) {
       else if (drag.hand === 'div') updateNode(drag.id, { delayDiv: Math.min(6, Math.max(0, Math.round(drag.v0 + dy / 18))) }, true)
       else {
         // aux hands: arp interval 1..12 · harmony key (wraps) / degrees
-        const k = drag.hand === 'aux0' ? 0 : drag.hand === 'aux1' ? 1 : 2
+        const k = drag.hand === 'aux0' ? 0 : drag.hand === 'aux1' ? 1 : drag.hand === 'aux3' ? 3 : drag.hand === 'aux5' ? 5 : 2
         let v = Math.round(drag.v0 + dy / 18)
         if (n.type === 13) v = Math.min(12, Math.max(1, v))
         else if (n.type === 15 && k === 0) v = ((v % 12) + 12) % 12
@@ -464,7 +476,9 @@ export default function FxWall ({ size: frame }: Props) {
         else if (n.type === 18 && k === 0) v = Math.min(600, Math.max(10, Math.round(drag.v0 + dy * 2)))   // ms
         else if (n.type === 18 && k === 1) v = Math.min(1500, Math.max(0, Math.round(drag.v0 + dy * 5)))   // ms
         else if (n.type === 18 && k === 2) v = Math.min(24, Math.max(0, v))                                  // semitones
-        const aux = [...n.aux]; aux[k] = v
+        else if (n.type === 18 && k === 3) v = ((v % 12) + 12) % 12                                            // key root
+        else if (n.type === 18 && k === 5) v = Math.min(100, Math.max(0, Math.round(drag.v0 + dy / 2)))       // pan %
+        const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[k] = v
         updateNode(drag.id, { aux }, true)
       }
     }
@@ -582,6 +596,17 @@ export default function FxWall ({ size: frame }: Props) {
                         onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = 0; updateNode(n.id, { aux }, true) }}>
                         {' scatter '}{n.aux[2]}
                       </span>
+                      {(n.aux[6] || 0) === 0 && (
+                        <span className="sg-val hand"
+                          onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux3', y0: e.clientY, v0: n.aux[3] || 0 }) }}>
+                          {' '}{KEY_NAMES[(((n.aux[3] || 0) % 12) + 12) % 12]} {(n.aux[4] || 0) === 1 ? 'minor' : 'major'}
+                        </span>
+                      )}
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux5', y0: e.clientY, v0: n.aux[5] ?? 50 }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[5] = 50; updateNode(n.id, { aux }, true) }}>
+                        {' pan '}{n.aux[5] ?? 50}
+                      </span>
                       {n.variant === 1 && (
                         <span className="sg-val hand"
                           onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
@@ -623,12 +648,27 @@ export default function FxWall ({ size: frame }: Props) {
                       <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
                         onPointerDown={() => { const aux = [...n.aux]; aux[0] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
                     ))}
+                    {n.type === 18 && ['key', 'intervals', 'cents', 'free'].map((w, k) => (
+                      <span key={w} className={`sg-word${(n.aux[6] || 0) === k ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[6] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
+                    ))}
+                    {n.type === 18 && (n.aux[6] || 0) === 0 && ['major', 'minor'].map((w, k) => (
+                      <span key={w} className={`sg-word${(n.aux[4] || 0) === k ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[4] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
+                    ))}
+                    {n.type === 18 && (
+                      <span className={`sg-word${n.aux[7] ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[7] = aux[7] ? 0 : 1; updateNode(n.id, { aux }, true) }}>freeze</span>
+                    )}
                     {n.type === 15 && n.variant !== 1 && ['major', 'minor'].map((w, k) => (
                       <span key={w} className={`sg-word${(n.aux[1] || 0) === k ? ' on' : ''}`}
                         onPointerDown={() => { const aux = [...n.aux]; aux[1] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
                     ))}
                     {WET_TYPES.has(n.type) && (
                       <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
+                    )}
+                    {!isMix && (
+                      <span className={`sg-word${n.bypass ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { bypass: !n.bypass }, true)}>bypass</span>
                     )}
                     <span className="sg-word quiet"
                       onPointerDown={() => { if (confirm === `node:${n.id}`) removeNode(n.id); else setConfirm(`node:${n.id}`) }}>
@@ -672,7 +712,7 @@ export default function FxWall ({ size: frame }: Props) {
     // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
       const c = toScreen(n)
-      const alive = n.type !== FX_MIX_TYPE && live.has(n.id)
+      const alive = n.type !== FX_MIX_TYPE && live.has(n.id) && !n.bypass
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
@@ -763,7 +803,7 @@ export default function FxWall ({ size: frame }: Props) {
     const seen = new Set<number>()
     for (const n of graph.nodes) {
       if (n.type === FX_MIX_TYPE) continue
-      const alive = live.has(n.id)
+      const alive = live.has(n.id) && !n.bypass
       const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
       // signal breath: fast up, slow down
@@ -992,11 +1032,12 @@ export default function FxWall ({ size: frame }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
               <div className="sg-print"
+                onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isMix) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isMix) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
                 <Print node={n} size={NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
@@ -1004,6 +1045,11 @@ export default function FxWall ({ size: frame }: Props) {
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
                   onFlip={(bit) => updateNode(n.id, { variant: n.variant ^ bit }, true)} />
               </div>
+              {/* the power: a small ring at the top of the print — filled = on */}
+              {!isMix && (
+                <span className={`sg-power${n.bypass ? ' off' : ''}`} title={n.bypass ? 'bypassed' : 'on'}
+                  onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); updateNode(n.id, { bypass: !n.bypass }, true) }} />
+              )}
               {/* ports */}
               {isMix
                 ? [...ins.map(x => x.i), -1].map((edgeIndex, k) => {
@@ -1100,6 +1146,7 @@ export default function FxWall ({ size: frame }: Props) {
             updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
           }}
           onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
+          onClick={(e) => { if ((e.metaKey || e.ctrlKey) && studyNode.type !== FX_MIX_TYPE) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
           onDoubleClick={() => { if (studyNode.type !== FX_MIX_TYPE) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
           onWheel={(e) => { if (studyNode.type === FX_MIX_TYPE) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
           <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}

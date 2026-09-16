@@ -28,8 +28,9 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kCut, kAmp, kDoubler, kDelay,
             kMixSlot = 11,          // reserved: the graph-only mix node
             kTremolo = 12, kArp, kRadio, kHarmony,
-            kPitch = 16, kFormant, kGrain, kVoice,
-            kNumFx = 20, kNone = -1 };
+            kPitch = 16, kFormant, kGrain, kVoice, kCrush,
+            kNumFx = 21, kNone = -1 };
+constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
@@ -61,7 +62,8 @@ struct NodeParams
     int   delayDiv = 2;      // beat division index: delay time, tremolo/arp rate
     float delayFb  = 0.35f;  // delay: feedback
     bool  wet      = false;  // space/delay/doubler/mod: drop the dry (Wet Solo)
-    int   aux[3]   { 0, 0, 0 };   // tremolo: [vol|pan]; arp: [interval st]; harmony: [key, scale, degrees]
+    int   aux[kAuxCount] {};      // tremolo: [vol|pan]; arp: [interval st]; harmony: [key, scale, degrees];
+                                  // grain: [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze]
     bool  hasCurve = false;  // tremolo: a drawn cycle overrides the shape
     float curve[kCurveLen] {};
     float bpm      = 120.0f;
@@ -160,7 +162,11 @@ struct NodeState
     // grain: a cloud of short windows read from a ring
     std::vector<float> grainRing[2];
     int   grainWrite = 0;
-    struct Grain { float pos = 0, len = 1, phase = 0, rate = 1; bool on = false; bool rev = false; float amp = 1; };
+    struct Grain { float pos = 0, len = 1, phase = 0, rate = 1; bool on = false; bool rev = false; float amp = 1; float gl = 1, gr = 1; };
+    float grainNote = -1.0f;      // tracked source note for the key-aware scatter
+    int   grainPdCountdown = 0;
+    // crush
+    float crushHold[2] {}; float crushPhase = 0.0f;
     Grain grains[32];
     float grainClock = 0.0f;
     double grainBeat = 0.0;
@@ -200,7 +206,8 @@ struct Graph
         int   delayDiv = 2;
         float delayFb  = 0.35f;
         bool  wet      = false;
-        int   aux[3]   { 0, 0, 0 };
+        bool  bypass   = false;   // the print hangs there but the signal passes it by
+        int   aux[kAuxCount] {};
         bool  hasCurve = false;
         float curve[kCurveLen] {};
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it

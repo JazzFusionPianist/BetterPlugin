@@ -10549,3 +10549,15 @@ text.sg-word { fill: var(--sg-ink-55); }
 /* the study lives on the plugin root now (portal): top to bottom of the
    window, whatever the wall's own boxes do inside any host */
 .plugin.sounds > .sg-study { position: absolute; top: 0; right: 0; bottom: 0; height: auto; z-index: 120; }
+
+/* ── bypass: a small ring at the top of the print; hollow = passed by ── */
+.sg-power {
+  position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; margin-left: -4px;
+  border-radius: 50%; box-sizing: border-box;
+  background: var(--sg-ink); border: 1.5px solid var(--sg-ink);
+  cursor: pointer; z-index: 2;
+}
+.sg-power.off { background: transparent; border-color: var(--sg-ink-42); }
+.sg-power:hover { transform: scale(1.3); }
+.sg-node.bypassed .sg-print { opacity: 0.38; }
+.sg-node.bypassed .sg-label .sg-name::after { content: ' off'; color: var(--sg-ink-42); font-weight: 400; }

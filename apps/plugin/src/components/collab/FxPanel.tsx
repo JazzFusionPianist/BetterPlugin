@@ -26,7 +26,7 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 16, name: 'pitch' },
   { id: 17, name: 'formant' },
   { id: 18, name: 'grain' },
-  { id: 19, name: 'voice' },
+  { id: 20, name: 'crush' },
 ]
 
 /** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
@@ -52,6 +52,7 @@ const VARIANTS: string[][] = [
   [],                              // formant
   ['cloud', 'stutter', 'reverse'], // grain
   ['female', 'male', 'child', 'giant'], // voice
+  ['both', 'bits', 'rate'],        // crush
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -84,6 +85,7 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [255, 150, 200],  // formant — vowel pink
   [200, 220, 120],  // grain — pollen
   [255, 120, 90],   // voice — throat coral
+  [120, 255, 160],  // crush — phosphor green
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -133,7 +135,7 @@ function glowRgb (mode: FxMode, variant: number): string {
 
 /** Sparse plates emit less light per hit (space is a few thin rings vs
  *  tone's dense hatching) — even the score with a per-plate boost. */
-const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4, 1.3, 1.3, 1.4, 1.3]
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4, 1.3, 1.3, 1.4, 1.3, 1.3]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -789,9 +791,32 @@ function VoiceArt ({ a, variant = 0 }: { a: number; variant?: number }) {
   )
 }
 
+/* ── crush: a wave drawn in ever coarser steps ─────────────────────── */
+function CrushArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const stepsX = Math.max(4, Math.round(64 - a * 56))
+  const levels = Math.max(2, Math.round(24 - a * 21))
+  const pts: string[] = []
+  for (let i = 0; i <= stepsX; i++) {
+    const t0 = i / stepsX
+    const y0 = Math.sin(t0 * Math.PI * 2 * 1.5) * 0.9
+    const q = Math.round(y0 * levels / 2) / (levels / 2)
+    const x = C - 72 + t0 * 144
+    const y = C - q * 48
+    if (i > 0) { const prev = pts[pts.length - 1].split(',')[1]; pts.push(`${x.toFixed(1)},${prev}`) }
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+  }
+  return (
+    <g>
+      <line x1={C - 72} y1={C} x2={C + 72} y2={C} stroke={s} strokeWidth={0.8} opacity={0.3} />
+      <polyline points={pts.join(' ')} fill="none" stroke={a > 0.5 ? acc : s} strokeWidth={1.4} strokeLinejoin="miter" />
+    </g>
+  )
+}
+
 function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt]
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt, CrushArt]
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 0) {

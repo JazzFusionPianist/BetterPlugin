@@ -23,6 +23,10 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 13, name: 'arp' },
   { id: 14, name: 'radio' },
   { id: 15, name: 'harmony' },
+  { id: 16, name: 'pitch' },
+  { id: 17, name: 'formant' },
+  { id: 18, name: 'grain' },
+  { id: 19, name: 'voice' },
 ]
 
 /** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
@@ -44,6 +48,10 @@ const VARIANTS: string[][] = [
   ['up', 'down', 'up-down', 'random'],            // arp
   ['am', 'phone'],                 // radio
   ['key', 'chromatic'],            // harmony
+  ['natural', 'raw'],              // pitch
+  [],                              // formant
+  ['cloud', 'stutter', 'reverse'], // grain
+  ['female', 'male', 'child', 'giant'], // voice
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -72,6 +80,10 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [90, 230, 170],   // arp — ladder mint
   [255, 190, 90],   // radio — dial tungsten
   [170, 130, 255],  // harmony — twin violet
+  [120, 200, 255],  // pitch — glass blue
+  [255, 150, 200],  // formant — vowel pink
+  [200, 220, 120],  // grain — pollen
+  [255, 120, 90],   // voice — throat coral
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -121,7 +133,7 @@ function glowRgb (mode: FxMode, variant: number): string {
 
 /** Sparse plates emit less light per hit (space is a few thin rings vs
  *  tone's dense hatching) — even the score with a per-plate boost. */
-const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4]
+const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4, 1.3, 1.3, 1.4, 1.3]
 
 function wallColor (mode: FxMode, variant: number, a: number): string {
   const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
@@ -556,7 +568,7 @@ function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
 }
 
 
-/* ── tremolo: the cycle itself, drawn across the plate; paint on it ──── */
+/* ── tremolo: the cycle itself, drawn across the plate ─────────────── */
 export const CURVE_LEN = 32
 function baseShape (variant: number, ph: number): number {
   switch (variant) {
@@ -567,17 +579,36 @@ function baseShape (variant: number, ph: number): number {
     default: return 0.5 + 0.5 * Math.cos(2 * Math.PI * ph)
   }
 }
-function TremoloArt ({ a, variant = 0, curve, onDraw }: {
-  a: number
-  variant?: number
-  curve?: number[]
-  onDraw?: (index: number, value: number, done?: boolean) => void
-}) {
-  const { s, acc } = useInks(a)
+/** Shape presets (after Tremolator's rhythm library): each is one cycle
+ *  as 32 points, 1 = loud. A preset writes the node's curve. */
+export const TREM_PRESETS: Array<{ name: string; curve: () => number[] }> = (() => {
+  const pts = (f: (ph: number) => number) => Array.from({ length: CURVE_LEN }, (_, i) => Math.min(1, Math.max(0, f(i / CURVE_LEN))))
+  const steps = (pattern: number[]) => pts(ph => pattern[Math.floor(ph * pattern.length)] ?? 0)
+  const gate = (pattern: number[], width = 0.6) => pts(ph => { const k = ph * pattern.length; const i = Math.floor(k); return pattern[i] && (k - i) < width ? 1 : 0 })
+  return [
+    { name: 'sine', curve: () => pts(ph => baseShape(0, ph)) },
+    { name: 'triangle', curve: () => pts(ph => baseShape(1, ph)) },
+    { name: 'square', curve: () => pts(ph => baseShape(2, ph)) },
+    { name: 'pulse', curve: () => pts(ph => baseShape(3, ph)) },
+    { name: 'saw', curve: () => pts(ph => baseShape(4, ph)) },
+    { name: 'ramp', curve: () => pts(ph => ph) },
+    { name: 'eighths', curve: () => gate([1, 1, 1, 1, 1, 1, 1, 1], 0.55) },
+    { name: 'sixteenths', curve: () => gate(new Array(16).fill(1), 0.5) },
+    { name: '3-3-2', curve: () => gate([1, 0, 0, 1, 0, 0, 1, 0], 0.9) },
+    { name: 'gallop', curve: () => gate([1, 0, 1, 1, 1, 0, 1, 1], 0.7) },
+    { name: 'swing', curve: () => pts(ph => { const k = ph * 4; const i = Math.floor(k); const f = k - i; return f < (i % 2 ? 0.45 : 0.65) ? 1 : 0.15 }) },
+    { name: 'offbeat', curve: () => gate([0, 1, 0, 1, 0, 1, 0, 1], 0.6) },
+    { name: 'breath', curve: () => pts(ph => Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph), 2.2)) },
+    { name: 'stairs', curve: () => steps([1, 0.75, 0.5, 0.25, 1, 0.75, 0.5, 0.25]) },
+    { name: 'random', curve: () => { let s = 7; return steps(Array.from({ length: 8 }, () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return 0.2 + (s % 1000) / 1250 })) } },
+  ]
+})()
+function TremoloArt ({ a, variant = 0, curve }: { a: number; variant?: number; curve?: number[] }) {
+  const s = strokeFor(a), acc = accentFor(a)
   const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
   const pts: string[] = []
-  for (let i = 0; i <= 64; i++) {
-    const ph = i / 64
+  for (let i = 0; i <= 96; i++) {
+    const ph = i / 96
     let v: number
     if (curve && curve.length === CURVE_LEN) {
       const x = ph * CURVE_LEN, i0 = Math.floor(x) % CURVE_LEN, i1 = (i0 + 1) % CURVE_LEN, fr = x - Math.floor(x)
@@ -585,45 +616,12 @@ function TremoloArt ({ a, variant = 0, curve, onDraw }: {
     } else v = baseShape(variant, ph)
     pts.push(`${(X0 + ph * W).toFixed(1)},${(Y0 + H - v * H).toFixed(1)}`)
   }
-  const last = useRef<{ i: number; v: number } | null>(null)
-  const drawing = useRef(false)
-  const toCurve = (e: { clientX: number; clientY: number; currentTarget: EventTarget & Element }) => {
-    const svg = (e.currentTarget as SVGGraphicsElement).ownerSVGElement
-    if (!svg) return null
-    const r = svg.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width * 220, y = (e.clientY - r.top) / r.height * 220
-    return { i: Math.min(CURVE_LEN - 1, Math.max(0, Math.floor((x - X0) / W * CURVE_LEN))), v: Math.min(1, Math.max(0, (Y0 + H - y) / H)) }
-  }
-  // the depth shades the floor: how far the cycle can pull the level down
   const floorY = Y0 + H - (1 - a) * H
   return (
     <g>
       <line x1={X0} y1={floorY} x2={X0 + W} y2={floorY} stroke={s} strokeWidth={0.8} opacity={0.35} strokeDasharray="2 3" />
       <line x1={X0} y1={Y0 + H} x2={X0 + W} y2={Y0 + H} stroke={s} strokeWidth={0.8} opacity={0.25} />
       <polyline points={pts.join(' ')} fill="none" stroke={curve ? acc : s} strokeWidth={1.6} strokeLinejoin="round" />
-      <g className="fx-hot" style={{ cursor: 'crosshair' }}
-        onPointerDown={(e) => {
-          e.stopPropagation(); drawing.current = true
-          try { (e.currentTarget as Element).setPointerCapture(e.pointerId) } catch { /* fine */ }
-          const c = toCurve(e); if (!c) return
-          last.current = c; onDraw?.(c.i, c.v)
-        }}
-        onPointerMove={(e) => {
-          if (!drawing.current) return
-          const c = toCurve(e); if (!c) return
-          // fill the gap between events so a fast stroke leaves no holes
-          const from = last.current ?? c
-          const steps = Math.abs(c.i - from.i)
-          for (let k = 0; k <= steps; k++) {
-            const t = steps === 0 ? 1 : k / steps
-            onDraw?.(Math.round(from.i + (c.i - from.i) * t), from.v + (c.v - from.v) * t)
-          }
-          last.current = c
-        }}
-        onPointerUp={() => { drawing.current = false; last.current = null; onDraw?.(-1, 0, true) }}
-        onDoubleClick={(e) => { e.stopPropagation(); onDraw?.(-2, 0, true) }}>
-        <rect x={X0} y={Y0} width={W} height={H} fill="transparent" stroke="none" />
-      </g>
     </g>
   )
 }
@@ -712,9 +710,88 @@ function HarmonyArt ({ a, degrees = 2, keyRoot = 0, scale = 0, chromatic = false
   )
 }
 
+/* ── pitch: a fret of semitones, the blue rung is where the note lands ─ */
+function PitchArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const semis = Math.round((a - 0.5) * 24)
+  const rungs = []
+  for (let k = -12; k <= 12; k++) {
+    const y = C - k * 6.2
+    const w = k % 12 === 0 ? 96 : k % 7 === 0 || k % 5 === 0 ? 70 : 52
+    rungs.push(<line key={k} x1={C - w / 2} y1={y} x2={C + w / 2} y2={y} stroke={k === semis ? acc : s} strokeWidth={k === semis ? 2.4 : k === 0 ? 1.3 : 0.9} opacity={k === semis ? 1 : k === 0 ? 0.9 : 0.55} />)
+  }
+  return <g>{rungs}</g>
+}
+
+/* ── formant: two vowel peaks that slide along the spectrum ────────── */
+function FormantArt ({ a }: { a: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const shift = (a - 0.5) * 60
+  const bump = (cx: number, w: number, h: number, stroke: string, sw: number) => {
+    const pts: string[] = []
+    for (let i = 0; i <= 40; i++) {
+      const x = C - 80 + i * 4
+      const y = C + 40 - h * Math.exp(-Math.pow((x - cx) / w, 2))
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+    }
+    return <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth={sw} />
+  }
+  return (
+    <g>
+      <line x1={C - 80} y1={C + 40} x2={C + 80} y2={C + 40} stroke={s} strokeWidth={0.8} opacity={0.3} />
+      {bump(C - 30, 14, 60, s, 1)}
+      {bump(C + 30, 18, 42, s, 1)}
+      {bump(C - 30 + shift, 14, 60, acc, 1.5)}
+      {bump(C + 30 + shift, 18, 42, acc, 1.5)}
+    </g>
+  )
+}
+
+/* ── grain: a cloud of short dashes, denser as the knob rises ──────── */
+function GrainArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const dashes = []
+  let seed = 11
+  const count = 12 + Math.round(a * 70)
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const rx = (seed % 1000) / 1000
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const ry = (seed % 1000) / 1000
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const rl = 4 + (seed % 1000) / 1000 * 18
+    const ang = Math.PI * 2 * rx
+    const r = 20 + ry * 64
+    const x = C + r * Math.cos(ang), y = C + r * Math.sin(ang)
+    const dx = variant === 2 ? -rl : rl
+    dashes.push(<line key={i} x1={x} y1={y} x2={x + dx} y2={y} stroke={i % 9 === 0 ? acc : s} strokeWidth={1.1} opacity={0.4 + 0.6 * (1 - ry)} />)
+  }
+  return <g>{dashes}</g>
+}
+
+/* ── voice: a throat's profile that the knob re-proportions ────────── */
+function VoiceArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const dir = variant === 1 || variant === 3 ? -1 : 1
+  const k = a * dir
+  const wave = (scale: number, stroke: string, sw: number) => {
+    const pts: string[] = []
+    for (let i = 0; i <= 60; i++) {
+      const x = C - 78 + i * 2.6
+      const t = i / 60
+      const y = C + Math.sin(t * Math.PI * 2 * 3 * scale) * 22 * (0.6 + 0.4 * Math.sin(t * Math.PI)) + Math.sin(t * Math.PI * 2 * 11 * scale) * 6
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+    }
+    return <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth={sw} />
+  }
+  return (
+    <g>
+      {wave(1, s, 1)}
+      {wave(1 + k * 0.6, acc, 1.3)}
+    </g>
+  )
+}
+
 function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt]
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt]
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 0) {
@@ -726,6 +803,7 @@ function fmtValue (mode: FxMode, a: number, variant = 0): string {
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
   }
   if (mode === 13) return `${Math.round(a * 24)}st`
+  if (mode === 16 || mode === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (mode === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)

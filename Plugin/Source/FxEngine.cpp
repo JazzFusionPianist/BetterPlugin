@@ -1,5 +1,18 @@
 #include "FxEngine.h"
 #include <cmath>
+#include "signalsmith-stretch.h"
+
+namespace orbfx {
+/** The spectral shifter behind pitch, formant and voice. */
+struct NodeState::Shifter
+{
+    signalsmith::stretch::SignalsmithStretch<float, std::minstd_rand> st { 1234 };
+    std::vector<float> in[2], out[2];
+    bool configured = false;
+};
+NodeState::NodeState() = default;
+NodeState::~NodeState() = default;
+} // namespace orbfx
 
 // The eleven one-knob effects, one NodeState each. The DSP bodies below
 // moved verbatim out of PluginProcessor.cpp (2026-09-11) so that every
@@ -168,6 +181,24 @@ static float diatonicShift (float note, int keyRoot, int scale, int degrees)
     return (float) (tpitch - n);
 }
 
+/** Push a block through the slot's spectral shifter, in place. */
+static void shiftBlock (NodeState& st, int n, float* L, float* R)
+{
+    auto* sh = st.shifter.get();
+    if (sh == nullptr || ! sh->configured) return;
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        if ((int) sh->in[ch].size() < n) { sh->in[ch].resize ((size_t) n); sh->out[ch].resize ((size_t) n); }
+    }
+    std::copy (L, L + n, sh->in[0].begin());
+    if (R != nullptr) std::copy (R, R + n, sh->in[1].begin()); else std::copy (L, L + n, sh->in[1].begin());
+    float* ins[2]  = { sh->in[0].data(),  sh->in[1].data() };
+    float* outs[2] = { sh->out[0].data(), sh->out[1].data() };
+    sh->st.process (ins, n, outs, n);
+    std::copy (sh->out[0].begin(), sh->out[0].begin() + n, L);
+    if (R != nullptr) std::copy (sh->out[1].begin(), sh->out[1].begin() + n, R);
+}
+
 /** Beats since the bar of time zero, sample-accurate within the block:
  *  the host's position while rolling, our own clock otherwise. */
 static inline double beatAt (const NodeParams& p, double freeBeat, int i, float sr)
@@ -207,6 +238,16 @@ void NodeState::prepare (double sampleRate)
     // pitch shifter grains (≤ 60 ms) and the tracker's analysis window
     line (psBuf, 0.2f);
     pdBuf.assign (2048, 0.0f);
+    // the spectral shifter: ~43 ms blocks, 4× overlap — clean, ~60 ms of
+    // latency, a fraction of the cost of the studio preset
+    if (shifter == nullptr) shifter = std::make_unique<Shifter>();
+    {
+        // power-of-two blocks: 2048 at 44.1/48k (~43 ms), 4096 at 88.2k+
+        const int block = sampleRate > 60000.0 ? 4096 : 2048;
+        shifter->st.configure (2, block, block / 4, false);
+        shifter->configured = true;
+    }
+    line (grainRing, 2.0f);
     reset();
 }
 
@@ -259,6 +300,12 @@ void NodeState::reset()
     pdWrite = 0; pdCountdown = 0; pdNote = -1.0f; harmShiftSm = 0.0f;
     for (auto& st : radioBp) { st[0] = {}; st[1] = {}; }
     radioBakedA = -1.0f; radioNoiseLp[0] = radioNoiseLp[1] = 0.0f; radioHum = 0.0f;
+    if (shifter != nullptr && shifter->configured) shifter->st.reset();
+    shiftSemiSm = 0.0f; formantSemiSm = 0.0f;
+    std::fill (grainRing[0].begin(), grainRing[0].end(), 0.0f);
+    std::fill (grainRing[1].begin(), grainRing[1].end(), 0.0f);
+    grainWrite = 0; grainClock = 0.0f; grainBeat = 0.0; grainLastStep = -1;
+    for (auto& g : grains) g = Grain {};
 }
 
 //==============================================================================
@@ -284,7 +331,9 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
     const float a = amtSm;
 
     // Neutral positions cost nothing.
-    if (type == kTone)      { if (std::abs (a - 0.5f) < 0.004f) return; }
+    if (type == kTone || type == kPitch || type == kFormant)
+                            { if (std::abs (a - 0.5f) < 0.004f && std::abs (target - 0.5f) < 0.004f
+                                  && ! (type == kPitch && p.aux[0] != 0)) return; }
     else if (type == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
                                                && std::abs (target - 0.75f) < 0.002f)
                               { gainPrimed = false; return; } }
@@ -293,7 +342,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                                   if (type == kGlue) grDb = 0.0f;
                                   // Wet Solo at zero is silence, not a dry copy —
                                   // a parallel branch must not double the source.
-                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod || type == kHarmony))
+                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod || type == kHarmony || type == kGrain))
                                   {
                                       juce::FloatVectorOperations::clear (L, n);
                                       if (R != nullptr) juce::FloatVectorOperations::clear (R, n);
@@ -1093,6 +1142,135 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 L[i] = L[i] * dry + vl[i] * lvl;
                 if (R != nullptr) R[i] = R[i] * dry + vr[i] * lvl;
             }
+            break;
+        }
+
+        case kPitch:
+        {
+            // Clean transposition: the knob is ±12 semitones around the
+            // middle, the second hand adds cents. `natural` keeps the
+            // formants where they were (a voice stays the same person);
+            // `raw` shifts everything, the classic tape-speed colour.
+            if (shifter == nullptr) break;
+            const float semis = (a - 0.5f) * 24.0f + (float) juce::jlimit (-100, 100, p.aux[0]) / 100.0f;
+            const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
+            shiftSemiSm += (semis - shiftSemiSm) * k;
+            shifter->st.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
+            shifter->st.setFormantSemitones (0.0f, variant == 0);
+            shifter->st.setFormantBase (0.0f);
+            shiftBlock (*this, n, L, R);
+            break;
+        }
+
+        case kFormant:
+        {
+            // The vowel colour moves, the pitch does not: ±12 semitones of
+            // formant shift around the middle.
+            if (shifter == nullptr) break;
+            const float fs = (a - 0.5f) * 24.0f;
+            const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
+            formantSemiSm += (fs - formantSemiSm) * k;
+            shifter->st.setTransposeSemitones (0.0f, 8000.0f / sr);
+            shifter->st.setFormantSemitones (formantSemiSm, false);
+            shifter->st.setFormantBase (0.0f);
+            shiftBlock (*this, n, L, R);
+            break;
+        }
+
+        case kVoice:
+        {
+            // Another person: pitch and formant move together in the
+            // proportions a throat would. The knob is how far.
+            if (shifter == nullptr) break;
+            float ps = 0, fs = 0;
+            switch (variant)
+            {
+                case 1:  ps = -5.0f;  fs = -3.5f; break;   // male
+                case 2:  ps = 9.0f;   fs = 5.5f;  break;   // child
+                case 3:  ps = -10.0f; fs = -7.0f; break;   // giant
+                default: ps = 5.0f;   fs = 3.5f;  break;   // female
+            }
+            const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
+            shiftSemiSm   += (ps * a - shiftSemiSm) * k;
+            formantSemiSm += (fs * a - formantSemiSm) * k;
+            shifter->st.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
+            shifter->st.setFormantSemitones (formantSemiSm, false);
+            shifter->st.setFormantBase (0.0f);
+            shiftBlock (*this, n, L, R);
+            break;
+        }
+
+        case kGrain:
+        {
+            // A cloud of grains read from the last two seconds: `size` is a
+            // grain's length, `spray` how far back it may start, `scatter`
+            // how far its pitch may wander. cloud = free-running, stutter =
+            // new grains only on the beat division, reverse = read backwards.
+            if (grainRing[0].empty()) break;
+            const int   ringLen = (int) grainRing[0].size();
+            const float sizeMs  = (float) juce::jlimit (10, 600, p.aux[0] == 0 ? 120 : p.aux[0]);
+            const float sprayMs = (float) juce::jlimit (0, 1500, p.aux[1]);
+            const float scatter = (float) juce::jlimit (0, 24, p.aux[2]);
+            const float lenS    = sizeMs * 0.001f * sr;
+            const float overlap = 3.0f;
+            const float perSample = overlap / lenS;      // grains per sample
+            const bool  stutter = variant == 1, reverse = variant == 2;
+            const int   di = juce::jlimit (0, 6, p.delayDiv);
+            const float stepBeat = kDivBeats[di];
+            const float wet = a, dry = p.wet ? 0.0f : 1.0f - a * 0.85f;
+            auto rnd = [&] () { grainRng = grainRng * 1664525u + 1013904223u; return (float) (grainRng >> 8) / 16777216.0f; };
+            for (int i = 0; i < n; ++i)
+            {
+                grainRing[0][(size_t) grainWrite] = L[i];
+                grainRing[1][(size_t) grainWrite] = R != nullptr ? R[i] : L[i];
+                // spawn
+                bool spawn = false;
+                if (stutter)
+                {
+                    const double beat = beatAt (p, grainBeat, i, sr);
+                    const int step = (int) std::floor (beat / (double) stepBeat);
+                    if (step != grainLastStep) { grainLastStep = step; spawn = true; }
+                }
+                else
+                {
+                    grainClock += perSample;
+                    if (grainClock >= 1.0f) { grainClock -= 1.0f; spawn = true; }
+                }
+                if (spawn)
+                {
+                    for (auto& g : grains)
+                    {
+                        if (g.on) continue;
+                        const float back = stutter ? 0.0f : rnd() * sprayMs * 0.001f * sr;
+                        g.pos = (float) grainWrite - back - (reverse ? 0.0f : lenS);
+                        while (g.pos < 0.0f) g.pos += (float) ringLen;
+                        g.len = lenS; g.phase = 0.0f;
+                        const float semi = scatter > 0.0f ? (rnd() * 2.0f - 1.0f) * scatter : 0.0f;
+                        g.rate = std::pow (2.0f, std::round (semi) / 12.0f) * (reverse ? -1.0f : 1.0f);
+                        g.rev = reverse; g.amp = 0.7f + 0.3f * rnd(); g.on = true;
+                        break;
+                    }
+                }
+                float outL = 0.0f, outR = 0.0f;
+                for (auto& g : grains)
+                {
+                    if (! g.on) continue;
+                    const float w = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * g.phase);
+                    float rp = g.pos + (g.rev ? g.len : 0.0f) + g.phase * g.len * g.rate;
+                    while (rp < 0.0f) rp += (float) ringLen;
+                    while (rp >= (float) ringLen) rp -= (float) ringLen;
+                    const int i0 = (int) rp; const float fr = rp - (float) i0; const int i1 = i0 + 1 < ringLen ? i0 + 1 : 0;
+                    outL += w * g.amp * (grainRing[0][(size_t) i0] * (1.0f - fr) + grainRing[0][(size_t) i1] * fr);
+                    outR += w * g.amp * (grainRing[1][(size_t) i0] * (1.0f - fr) + grainRing[1][(size_t) i1] * fr);
+                    g.phase += 1.0f / g.len;
+                    if (g.phase >= 1.0f) g.on = false;
+                }
+                const float norm = 0.55f;
+                L[i] = L[i] * dry + outL * norm * wet;
+                if (R != nullptr) R[i] = (R != nullptr ? R[i] : L[i]) * dry + outR * norm * wet;
+                grainWrite = grainWrite + 1 < ringLen ? grainWrite + 1 : 0;
+            }
+            if (! p.playing) grainBeat += (double) p.bpm / 60.0 / (double) sr * (double) n;
             break;
         }
 

@@ -264,6 +264,44 @@ int main()
         CHECK (z > zi * 1.12f && z < zi * 1.27f, "harmony in C major: A gets its C above (+3 st)");
     }
 
+    { // pitch: +12 st doubles the crossings, and stays clean (no wild peaks)
+        Graph g; g.nodes.push_back (node (3, kPitch, 1.0f, 1));   // raw, +12
+        g.edges.push_back ({ kPortIn, 3, 1.0f }); g.edges.push_back ({ 3, kPortOut, 1.0f });
+        const auto o = run (g);
+        auto zc = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return z; };
+        const int a = 6000, b = 10000;
+        const int base = zc (input, a, b);
+        const int up = zc (o, a, b);
+        std::printf ("    [pitch] base %d up %d peak %.3f\n", base, up, peakOf (o, a, b));
+        CHECK (up > base * 1.6f && up < base * 2.4f, "pitch +12: an octave up");
+        CHECK (peakOf (o, a, b) < 1.0f && peakOf (o, a, b) > 0.15f, "pitch: sane level");
+    }
+    { // formant at the middle is transparent-ish; shifted it still passes signal
+        Graph g; g.nodes.push_back (node (4, kFormant, 0.85f, 0));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto o = run (g);
+        CHECK (peakOf (o, 6000, 10000) > 0.1f, "formant: signal passes");
+        Graph m = g; m.nodes[0].amount = 0.5f;
+        std::printf ("    [formant] mid diff %.4f\n", maxDiff (run (m), input));
+        CHECK (maxDiff (run (m), input) == 0.0f, "formant at the middle: untouched");
+    }
+    { // voice: female raises the pitch
+        Graph g; g.nodes.push_back (node (5, kVoice, 1.0f, 0));
+        g.edges.push_back ({ kPortIn, 5, 1.0f }); g.edges.push_back ({ 5, kPortOut, 1.0f });
+        const auto o = run (g);
+        auto zc = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return z; };
+        const int base = zc (input, 6000, 10000), up = zc (o, 6000, 10000);
+        std::printf ("    [voice] base %d female %d\n", base, up);
+        CHECK (up > base * 1.15f && up < base * 1.6f, "voice female: +5 st (≈ ×1.33 crossings)");
+    }
+    { // grain: adds a cloud on top of the dry, never explodes
+        Graph g; auto n = node (6, kGrain, 0.8f, 0); n.aux[0] = 60; n.aux[1] = 200; n.aux[2] = 0; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 6, 1.0f }); g.edges.push_back ({ 6, kPortOut, 1.0f });
+        const auto o = run (g);
+        CHECK (peakOf (o, 4000, 10000) > 0.1f && peakOf (o, 4000, 10000) < 1.5f, "grain: a cloud, sane level");
+        CHECK (maxDiff (o, input, 4000, 10000) > 0.02f, "grain: it did something");
+    }
+
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

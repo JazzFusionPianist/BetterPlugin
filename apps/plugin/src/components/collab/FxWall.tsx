@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, baseShape, CURVE_LEN, KEY_NAMES, StrokeLevel } from './FxPanel'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
 import {
@@ -27,7 +27,7 @@ const R = NODE / 2
 const SHELF_PRINT = 48
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
 const SNAP_WIRE = 26           // drop a print this close to a wire to splice it in
-const WET_TYPES = new Set<number>([2, 10, 9, 6, 15])   // space, delay, doubler, mod, harmony
+const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18])   // space, delay, doubler, mod, harmony, grain
 
 type Pt = { x: number; y: number }
 type Drag =
@@ -46,11 +46,12 @@ function tintOf (type: number, variant = 0): [number, number, number] {
   if (type === FX_MIX_TYPE) return [246, 243, 234]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
 }
-const neutralOf = (type: number) => (type === 0 ? 0.5 : type === 5 ? 0.75 : 0)
+const neutralOf = (type: number) => (type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, pitch, formant rest in the middle
 const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : MODES.find(m => m.id === type)?.name ?? '')
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
+  if (type === 16 || type === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (type === 0) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === 7) {
@@ -139,7 +140,7 @@ function MixArt ({ shares }: { shares: number[] }) {
   )
 }
 
-function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, onDraw, shares }: {
+function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[] }
   size: number
   dim?: boolean
@@ -148,7 +149,6 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, onDraw, shares 
   onDiv?: (v: number) => void
   onFb?: (v: number, force?: boolean) => void
   onFlip?: (bit: number) => void
-  onDraw?: (index: number, value: number, done?: boolean) => void
 }) {
   const { type, amount: a, variant } = node
   const t = tintOf(type, variant)
@@ -163,7 +163,9 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, onDraw, shares 
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
         : type === 5 ? <Art a={a} pol={variant} onFlip={onFlip} />
-        : type === 12 ? <Art a={a} variant={variant} curve={node.curve} onDraw={onDraw} />
+        : type === 12 ? <Art a={a} variant={variant} curve={node.curve} />
+        : type === 18 ? <Art a={a} variant={variant} />
+        : type === 19 ? <Art a={a} variant={variant} />
         : type === 13 ? <Art a={a} variant={variant} interval={node.aux[0] || 12} />
         : type === 15 ? <Art a={a} degrees={node.aux[2]} keyRoot={node.aux[0]} scale={node.aux[1]} chromatic={variant === 1} />
         : <Art a={a} />}
@@ -340,7 +342,7 @@ export default function FxWall ({ size: frame }: Props) {
   // bright as its hand — pools of light that add where they overlap.
   // (Painted on the canvas each frame; see backdropRef.)
   const intensityOf = (n: FxGraphNode) =>
-    n.type === 0 ? Math.abs(n.amount - 0.5) * 2
+    (n.type === 0 || n.type === 16 || n.type === 17) ? Math.abs(n.amount - 0.5) * 2
     : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
     : n.amount
   const litLevel = 0   // the ink reads the base wall: paper everywhere
@@ -367,7 +369,7 @@ export default function FxWall ({ size: frame }: Props) {
   const addNode = (type: number, at: Pt) => {
     const id = freeId(); if (id < 0) return
     const gp = toGraph(at)
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third
+    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 0] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y }
     let edges = graph.edges
     // dropped onto a wire? splice in
@@ -458,6 +460,10 @@ export default function FxWall ({ size: frame }: Props) {
         if (n.type === 13) v = Math.min(12, Math.max(1, v))
         else if (n.type === 15 && k === 0) v = ((v % 12) + 12) % 12
         else if (n.type === 15 && k === 2) v = n.variant === 1 ? Math.min(12, Math.max(-12, v)) : Math.min(7, Math.max(-7, v))
+        else if (n.type === 16) v = Math.min(100, Math.max(-100, Math.round(drag.v0 + dy / 3)))            // cents
+        else if (n.type === 18 && k === 0) v = Math.min(600, Math.max(10, Math.round(drag.v0 + dy * 2)))   // ms
+        else if (n.type === 18 && k === 1) v = Math.min(1500, Math.max(0, Math.round(drag.v0 + dy * 5)))   // ms
+        else if (n.type === 18 && k === 2) v = Math.min(24, Math.max(0, v))                                  // semitones
         const aux = [...n.aux]; aux[k] = v
         updateNode(drag.id, { aux }, true)
       }
@@ -552,6 +558,39 @@ export default function FxWall ({ size: frame }: Props) {
                       {' '}{KEY_NAMES[((n.aux[0] % 12) + 12) % 12]} {n.aux[1] === 1 ? 'minor' : 'major'}
                     </span>
                   )}
+                  {n.type === 16 && (
+                    <span className="sg-val hand"
+                      onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] }) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 0; updateNode(n.id, { aux }, true) }}>
+                      {' '}{n.aux[0] > 0 ? '+' : ''}{n.aux[0]}c
+                    </span>
+                  )}
+                  {n.type === 18 && (
+                    <>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux0', y0: e.clientY, v0: n.aux[0] || 120 }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[0] = 120; updateNode(n.id, { aux }, true) }}>
+                        {' '}{n.aux[0] || 120}ms
+                      </span>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux1', y0: e.clientY, v0: n.aux[1] }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[1] = 300; updateNode(n.id, { aux }, true) }}>
+                        {' spray '}{n.aux[1]}
+                      </span>
+                      <span className="sg-val hand"
+                        onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux2', y0: e.clientY, v0: n.aux[2] }) }}
+                        onDoubleClick={(e) => { e.stopPropagation(); const aux = [...n.aux]; aux[2] = 0; updateNode(n.id, { aux }, true) }}>
+                        {' scatter '}{n.aux[2]}
+                      </span>
+                      {n.variant === 1 && (
+                        <span className="sg-val hand"
+                          onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
+                          onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
+                          {' '}{DIV_LABELS[n.delayDiv] ?? '1/8'}
+                        </span>
+                      )}
+                    </>
+                  )}
                   {n.type === 15 && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'aux2', y0: e.clientY, v0: n.aux[2] }) }}
@@ -572,7 +611,11 @@ export default function FxWall ({ size: frame }: Props) {
     const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
     return (
 <div className="sg-words" onPointerDown={(e) => e.stopPropagation()}>
-                    {n.type !== 5 && flavours.map((f, vi) => (
+                    {n.type === 12 && TREM_PRESETS.map((pr, pi) => (
+                      <span key={pr.name} className={`sg-word${(n.aux[2] || 0) === pi ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve(), variant: Math.min(4, pi) }, true) }}>{pr.name}</span>
+                    ))}
+                    {n.type !== 5 && n.type !== 12 && flavours.map((f, vi) => (
                       <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
                         onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
                     ))}
@@ -959,16 +1002,7 @@ export default function FxWall ({ size: frame }: Props) {
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
-                  onFlip={(bit) => updateNode(n.id, { variant: n.variant ^ bit }, true)}
-                  onDraw={(i, v) => {
-                    if (i === -2) { updateNode(n.id, { curve: undefined }, true); return }
-                    if (i === -1) { push(graphRef.current, true); return }
-                    const cur = graphRef.current.nodes.find(x => x.id === n.id)
-                    const base = cur?.curve && cur.curve.length === CURVE_LEN ? [...cur.curve]
-                      : Array.from({ length: CURVE_LEN }, (_, k) => baseShape(n.variant, k / CURVE_LEN))
-                    base[i] = v
-                    updateNode(n.id, { curve: base })
-                  }} />
+                  onFlip={(bit) => updateNode(n.id, { variant: n.variant ^ bit }, true)} />
               </div>
               {/* ports */}
               {isMix
@@ -982,7 +1016,7 @@ export default function FxWall ({ size: frame }: Props) {
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
-                  {!isSel && flavours.length > 0 && <span className="sg-flav"> {flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
+                  {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isMix && (
                     <span className="sg-val"
                       onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
@@ -1041,7 +1075,7 @@ export default function FxWall ({ size: frame }: Props) {
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
           <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
-            <Print node={{ type, amount: type === 0 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
+            <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>
           </div>
         ))}
@@ -1072,16 +1106,7 @@ export default function FxWall ({ size: frame }: Props) {
             onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
             onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}
             onFb={(v, force) => updateNode(studyNode.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
-            onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)}
-            onDraw={(i, v) => {
-              if (i === -2) { updateNode(studyNode.id, { curve: undefined }, true); return }
-              if (i === -1) { push(graphRef.current, true); return }
-              const cur = graphRef.current.nodes.find(x => x.id === studyNode.id)
-              const base = cur?.curve && cur.curve.length === CURVE_LEN ? [...cur.curve]
-                : Array.from({ length: CURVE_LEN }, (_, k) => baseShape(studyNode.variant, k / CURVE_LEN))
-              base[i] = v
-              updateNode(studyNode.id, { curve: base })
-            }} />
+            onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />
         </div>
         <div className="sg-study-value">
           {studyNode.type !== FX_MIX_TYPE

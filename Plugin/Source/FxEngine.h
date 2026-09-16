@@ -2,7 +2,10 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 #include <atomic>
+#include <memory>
 #include <vector>
+
+namespace signalsmith { namespace stretch { template<typename Sample, class RandomEngine> struct SignalsmithStretch; } }
 
 /*  Orb one-knob FX engine — the patchable wall.
 
@@ -25,7 +28,8 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kCut, kAmp, kDoubler, kDelay,
             kMixSlot = 11,          // reserved: the graph-only mix node
             kTremolo = 12, kArp, kRadio, kHarmony,
-            kNumFx = 16, kNone = -1 };
+            kPitch = 16, kFormant, kGrain, kVoice,
+            kNumFx = 20, kNone = -1 };
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
@@ -44,7 +48,7 @@ constexpr int kPortOut = -2;
  *  with unity at 0.75, everything else is off at 0. */
 inline float neutralAmount (int type) noexcept
 {
-    return type == kGain ? 0.75f : type == kTone ? 0.5f : 0.0f;
+    return type == kGain ? 0.75f : (type == kTone || type == kPitch || type == kFormant) ? 0.5f : 0.0f;
 }
 
 /** Per-block parameter snapshot for one node (plain values — the
@@ -148,6 +152,20 @@ struct NodeState
     int   pdCountdown = 0;
     float pdNote = -1.0f;         // last detected MIDI note (fractional), <0 = none
     float harmShiftSm = 0.0f;     // semitones, glided
+    // pitch / formant / voice: a spectral shifter (Signalsmith Stretch),
+    // one per slot, built in prepare()
+    struct Shifter;
+    std::unique_ptr<Shifter> shifter;
+    float shiftSemiSm = 0.0f, formantSemiSm = 0.0f;
+    // grain: a cloud of short windows read from a ring
+    std::vector<float> grainRing[2];
+    int   grainWrite = 0;
+    struct Grain { float pos = 0, len = 1, phase = 0, rate = 1; bool on = false; bool rev = false; float amp = 1; };
+    Grain grains[32];
+    float grainClock = 0.0f;
+    double grainBeat = 0.0;
+    int   grainLastStep = -1;
+    unsigned grainRng = 0x2545F491u;
     // radio
     Biquad radioBp[2][2];
     float radioBakedA = -1.0f;
@@ -155,6 +173,10 @@ struct NodeState
     float radioHum = 0.0f;
     unsigned radioRng = 0x9E3779B9u;
 
+    NodeState();
+    ~NodeState();
+    NodeState (const NodeState&) = delete;
+    NodeState& operator= (const NodeState&) = delete;
     /** Allocate every line this slot could ever need. Message thread. */
     void prepare (double sampleRate);
     /** Clear tails and glide the amount back up from neutral. Audio thread. */

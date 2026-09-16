@@ -1386,7 +1386,7 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         for (int i = 0; i < (int) kNumFx; ++i)
         {
             fxAmount[(size_t) i].store ((float) xml->getDoubleAttribute (
-                "fxAmount" + juce::String (i), i == kTone ? 0.5 : i == kGain ? 0.75 : 0.0));
+                "fxAmount" + juce::String (i), (double) orbfx::neutralAmount (i)));
             fxVariant[(size_t) i].store (juce::jlimit (0, 7,
                 xml->getIntAttribute ("fxVariant" + juce::String (i), 0)));
         }

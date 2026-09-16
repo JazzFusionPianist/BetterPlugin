@@ -137,17 +137,18 @@ private:
     // newer prints. kNumFx counts slots, so the memories index by type.
     enum FxMode { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
                   kCut, kAmp, kDoubler, kDelay, kMixSlot, kTremolo, kArp, kRadio, kHarmony,
+                  kPitch, kFormant, kGrain, kVoice,
                   kNumFx = orbfx::kNumFx };
     std::atomic<int> fxMode { kTone };
     // amounts[kGain] is a fader: 0.75 = unity, 0 = −60 dB, 1 = +12 dB.
     std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.75f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f},
-                                                        {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} }};
+                                                        {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.5f}, {0.5f}, {0.0f}, {0.0f} }};
     // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate;
     // gain is a polarity BITMASK (bit0 = invert L, bit1 = invert R);
     // mod 0=chorus 1=flanger 2=phaser; cut 0=low 1=high 2=band;
     // amp 0=crunch 1=lead 2=fuzz; doubler 0=tight 1=wide;
     // delay 0=clean 1=tape 2=pingpong.
-    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
+    std::array<std::atomic<int>, kNumFx> fxVariant {{ {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0} }};
     // Space's second hand: decay per flavour [hall, room, plate], 0.5 = stock.
     std::array<std::atomic<float>, 3> fxSpaceDecay {{ {0.5f}, {0.5f}, {0.5f} }};
     // Delay's two hands: beat division index into {1/16, 1/8T, 1/8, 1/8.,

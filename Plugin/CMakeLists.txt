@@ -77,8 +77,10 @@ set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
+target_include_directories(OrbPlugin PRIVATE Source/ThirdParty)
 target_compile_definitions(OrbPlugin
     PUBLIC
+        SIGNALSMITH_USE_ACCELERATE=1
         JUCE_WEB_BROWSER=1
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
@@ -100,6 +102,7 @@ target_link_libraries(OrbPlugin
 # macOS frameworks needed for VideoCapture.mm (ScreenCaptureKit pipeline)
 if(APPLE)
     target_link_libraries(OrbPlugin PRIVATE
+        "-framework Accelerate"
         "-framework ScreenCaptureKit"
         "-framework CoreMedia"
         "-framework CoreImage"
@@ -161,8 +164,10 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
         Source/VideoCapture.mm
     )
 
+    target_include_directories(${_target} PRIVATE Source/ThirdParty)
     target_compile_definitions(${_target}
         PUBLIC
+            SIGNALSMITH_USE_ACCELERATE=1
             JUCE_WEB_BROWSER=1
             JUCE_USE_CURL=0
             JUCE_VST3_CAN_REPLACE_VST2=0
@@ -184,6 +189,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
 
     if(APPLE)
         target_link_libraries(${_target} PRIVATE
+            "-framework Accelerate"
             "-framework ScreenCaptureKit"
             "-framework CoreMedia"
             "-framework CoreImage"
@@ -221,8 +227,8 @@ orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Orb Games"  games  OrbGa
 #   cmake --build build --config Debug --target FxGraphTest && ./build/FxGraphTest_artefacts/Debug/FxGraphTest
 juce_add_console_app(FxGraphTest PRODUCT_NAME "FxGraphTest")
 target_sources(FxGraphTest PRIVATE Source/FxEngine.cpp Tests/FxGraphTest.cpp)
-target_include_directories(FxGraphTest PRIVATE Source)
-target_compile_definitions(FxGraphTest PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
+target_include_directories(FxGraphTest PRIVATE Source Source/ThirdParty)
+target_compile_definitions(FxGraphTest PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0 SIGNALSMITH_USE_ACCELERATE=1)
 target_link_libraries(FxGraphTest
-    PRIVATE juce::juce_audio_basics
+    PRIVATE juce::juce_audio_basics "-framework Accelerate"
     PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)

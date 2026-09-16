@@ -17,9 +17,12 @@
  *    the earliest region's — so the receiving DAW can "move to original
  *    position" the clip and it lands exactly where the sender had it.
  *
- *  • BACK-TO-BACK — no timestamps. Regions are joined in filename order
- *    (numeric-aware so "take 2" sorts before "take 10"). Gaps are lost,
- *    which is why this one only runs when the user explicitly asks.
+ *  • BACK-TO-BACK — regions are joined in timeline order when every one
+ *    carries an exact stamp, and in the batch's own order otherwise.
+ *    NEVER filename order: Logic names comp exports after the take
+ *    (VOX_MAIN_1 / _1.4 / _1.9), which has no relationship to where the
+ *    regions sit on the timeline. Gaps are lost, which is why this one
+ *    only runs when the user explicitly asks.
  *
  * `resolveDawDrop` is the default policy for a multi-region drop: merge
  * silently when the timestamps prove the regions sit side by side on one
@@ -49,6 +52,8 @@ export function regionToFile(name: string, data: string): File {
   return new File([bytes], name, { type: REGION_MIME[ext] ?? 'audio/wav' })
 }
 
+/** Only used to pick a stable base name for the merged file — never to
+ *  order the audio itself (filenames don't encode timeline position). */
 function byName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
@@ -339,8 +344,25 @@ async function renderPlaced(regions: RegionInfo[], plan: Placement): Promise<Fil
   return new File([wav], mergedName(regions), { type: 'audio/wav' })
 }
 
+/**
+ * Join order for a back-to-back merge:
+ *  • every region exactly stamped → timeline order (ascending by BWF
+ *    start, compared in seconds so mixed rates still order sensibly);
+ *  • otherwise → the batch's own order, untouched. For an HTML5 drop
+ *    that is the drag's selection order (reliable); for the native
+ *    bridge it is arrival order, which is completion order — see the
+ *    __juceFileDrop collection note in StudioShell — the best available
+ *    until the native side sends a sequence index.
+ * Filename order is deliberately NOT used: Logic names comp exports
+ * after the take (VOX_MAIN_1 / _1.4 / _1.9), unrelated to the timeline.
+ */
+function joinOrder(regions: RegionInfo[]): RegionInfo[] {
+  if (regions.some(r => r.start == null || !r.sampleRate)) return regions
+  return [...regions].sort((a, b) => a.start! / a.sampleRate! - b.start! / b.sampleRate!)
+}
+
 async function renderBackToBack(regions: RegionInfo[]): Promise<File | null> {
-  const sorted = byName(regions.map(r => ({ name: r.file.name, region: r }))).map(x => x.region)
+  const sorted = joinOrder(regions)
   const sampleRate = sorted[0]!.sampleRate ?? 48000
   const channels = outputChannels(regions)
   // Frame counts from the headers let the output be allocated once;
@@ -407,7 +429,9 @@ export type MergeMode =
    *  rates are mixed. Overlapping stamps are taken as intentional here
    *  and the overlap is mixed, not refused. */
   | 'placed'
-  /** Butt-joined in filename order, stamps ignored (comped/moved regions). */
+  /** Butt-joined — gaps removed. Stamps set only the ORDER (timeline
+   *  order when every region is exactly stamped; the batch's own order
+   *  otherwise), never the positions (comped/moved regions). */
   | 'joined'
 
 /** Back to back, behind the size guard: the output is the sum of the
@@ -431,9 +455,11 @@ async function joinBackToBack(regions: RegionInfo[]): Promise<MergeResult> {
  *    the reason rather than silently butt-joining. Overlapping stamps
  *    are honored, not refused: the overlap is summed in place (a
  *    mini-bounce), escalating to float WAV if the sum passes 0dBFS.
- *  • 'joined' — back-to-back in filename order, stamps ignored. The one
- *    to reach for when comped/moved regions still carry their original
- *    record-time BWF stamps and "placed" would scatter them.
+ *  • 'joined' — back-to-back, gaps removed. Stamps decide only the
+ *    order (timeline order when every region has one, batch order
+ *    otherwise), never the positions. The one to reach for when
+ *    comped/moved regions still carry BWF stamps and "placed" would
+ *    scatter them.
  */
 export async function mergeDroppedRegions(
   batch: (DroppedRegion | File)[],

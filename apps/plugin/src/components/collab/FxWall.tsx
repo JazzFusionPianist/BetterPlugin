@@ -1020,6 +1020,8 @@ export default function FxWall ({ size: frame }: Props) {
           })}
           {drag?.kind === 'wire' && <path className="sg-wire-line ghost" d={wirePath(outPortOf(drag.from), drag.at)} />}
           <circle cx={inPort.x} cy={inPort.y} r={4} className="sg-port" onPointerDown={startWire(FX_PORT_IN)} />
+          {/* a wide, invisible grab area around the in port — the dot stays small */}
+          <circle cx={inPort.x} cy={inPort.y} r={16} fill="transparent" stroke="none" style={{ cursor: 'crosshair', pointerEvents: 'all' }} onPointerDown={startWire(FX_PORT_IN)} />
           <circle cx={outPort.x} cy={outPort.y} r={4} className="sg-port" />
           <text x={inPort.x} y={inPort.y + 22} textAnchor="middle" className="sg-io">in</text>
           <text x={outPort.x} y={outPort.y + 22} textAnchor="middle" className="sg-io">out</text>

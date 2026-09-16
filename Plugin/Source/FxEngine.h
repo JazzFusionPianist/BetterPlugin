@@ -185,8 +185,8 @@ struct NodeState
     long  stutCell = -1;
     double stutFreeBeat = 0.0;
     // air
-    Biquad airHp[2], airHp2[2];
-    float airBakedSr = 0.0f, airDc[2] {};
+    Biquad airHp[2], airHp2[2], airShelf[2];
+    float airBakedSr = 0.0f, airBakedA = -1.0f, airDc[2] {}, airEnv[2] {};
     // ring
     float ringPhase = 0.0f;
     // wow: a short modulated line

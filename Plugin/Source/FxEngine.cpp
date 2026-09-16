@@ -329,8 +329,8 @@ void NodeState::reset()
     std::fill (stutBuf[0].begin(), stutBuf[0].end(), 0.0f);
     std::fill (stutBuf[1].begin(), stutBuf[1].end(), 0.0f);
     stutLen = 0; stutFill = 0; stutPos = 0; stutCell = -1; stutFreeBeat = 0.0;
-    for (int ch = 0; ch < 2; ++ch) { airHp[ch] = {}; airHp2[ch] = {}; airDc[ch] = 0.0f; }
-    airBakedSr = 0.0f;
+    for (int ch = 0; ch < 2; ++ch) { airHp[ch] = {}; airHp2[ch] = {}; airShelf[ch] = {}; airDc[ch] = 0.0f; airEnv[ch] = 0.0f; }
+    airBakedSr = 0.0f; airBakedA = -1.0f;
     ringPhase = 0.0f;
     std::fill (wowDl[0].begin(), wowDl[0].end(), 0.0f);
     std::fill (wowDl[1].begin(), wowDl[1].end(), 0.0f);
@@ -1549,21 +1549,31 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 
         case kAir:
         {
-            // An exciter: only what lives above ~4.5 kHz is bent into new
-            // harmonics and laid back on top. `silk` bends evenly (soft,
-            // sparkling), `bright` bends oddly (edge).
+            // An exciter: what lives above ~3 kHz is bent into new harmonics
+            // and laid back on top, plus a shelf of plain air. The bend is
+            // level-tracked (the band is normalised before the curve, then
+            // scaled back), so quiet highs sparkle as much as loud ones.
+            // `silk` bends evenly (soft, glassy), `bright` bends oddly (edge).
             if (airBakedSr != sr)
             {
                 for (int ch = 0; ch < 2; ++ch)
                 {
                     airHp[ch] = {}; airHp2[ch] = {};
-                    bakeCutFilter (true, 4500.0f, sr, airHp[ch].b0, airHp[ch].b1, airHp[ch].b2, airHp[ch].a1, airHp[ch].a2);
+                    bakeCutFilter (true, 3000.0f, sr, airHp[ch].b0, airHp[ch].b1, airHp[ch].b2, airHp[ch].a1, airHp[ch].a2);
                     airHp2[ch] = airHp[ch];
                 }
-                airBakedSr = sr;
+                airBakedSr = sr; airBakedA = -1.0f;
             }
-            const float dcK = 1.0f - std::exp (-twoPi * 30.0f / sr);
-            const float amt = a * 1.4f;
+            if (std::abs (a - airBakedA) > 0.01f)
+            {
+                for (int ch = 0; ch < 2; ++ch)
+                    bakeShelf (true, a * 10.0f, 9000.0f, sr, airShelf[ch].b0, airShelf[ch].b1, airShelf[ch].b2, airShelf[ch].a1, airShelf[ch].a2);
+                airBakedA = a;
+            }
+            const float dcK  = 1.0f - std::exp (-twoPi * 30.0f / sr);
+            const float attK = 1.0f - std::exp (-1.0f / (0.003f * sr));
+            const float relK = 1.0f - std::exp (-1.0f / (0.08f * sr));
+            const float amt  = a * 2.4f;
             const int chs = R != nullptr ? 2 : 1;
             for (int ch = 0; ch < chs; ++ch)
             {
@@ -1571,10 +1581,14 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 for (int i = 0; i < n; ++i)
                 {
                     const float hi = airHp2[ch].run (airHp[ch].run (S[i]));
-                    float h = variant == 1 ? std::tanh (hi * 5.0f) * 0.4f : std::tanh (hi * std::abs (hi) * 8.0f) * 0.5f;   // soft-limited: clicks stay clicks
+                    const float mag = std::abs (hi);
+                    airEnv[ch] += (mag - airEnv[ch]) * (mag > airEnv[ch] ? attK : relK);
+                    const float norm = hi / (airEnv[ch] * 1.5f + 1.0e-4f);          // the band at unit level
+                    float h = variant == 1 ? std::tanh (norm * 2.0f) * 0.7f : norm * std::abs (norm) * 0.6f;
+                    h = std::tanh (h) * airEnv[ch] * 1.5f;                            // back to its own level, limited
                     airDc[ch] += (h - airDc[ch]) * dcK;
                     h -= airDc[ch];
-                    S[i] += h * amt;
+                    S[i] = airShelf[ch].run (S[i] + h * amt);
                 }
             }
             break;

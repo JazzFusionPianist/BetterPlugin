@@ -1067,6 +1067,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("delayDiv", nd.delayDiv);
         o->setProperty ("delayFb", (double) nd.delayFb);
         o->setProperty ("wet", nd.wet);
+        o->setProperty ("bypass", nd.bypass);
         juce::Array<juce::var> aux;
         for (int i = 0; i < orbfx::kAuxCount; ++i) aux.add (nd.aux[i]);
         o->setProperty ("aux", aux);
@@ -1115,6 +1116,7 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             nd.delayDiv = n.hasProperty ("delayDiv") ? (int) n["delayDiv"] : 2;
             nd.delayFb  = n.hasProperty ("delayFb")  ? (float) (double) n["delayFb"] : 0.35f;
             nd.wet      = n.hasProperty ("wet")      ? (bool) n["wet"] : false;
+            nd.bypass   = n.hasProperty ("bypass")   ? (bool) n["bypass"] : false;
             if (auto* ax = n["aux"].getArray())
                 for (int i = 0; i < orbfx::kAuxCount && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
             if (auto* cv = n["curve"].getArray(); cv != nullptr && cv->size() == orbfx::kCurveLen)

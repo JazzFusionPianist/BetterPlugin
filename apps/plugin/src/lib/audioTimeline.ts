@@ -415,13 +415,16 @@ export function timelinePositionLabel(
   const relative = !anchored
   const text = `bar ${parts.bar}.${parts.beat}.${parts.division}${parts.tick > 0 ? `.${parts.tick}` : ''}`
   const full = `${parts.bar} ${parts.beat} ${parts.division} ${parts.tick} / ${Math.round(bpm)}bpm`
-  return {
-    text,
-    tooltip: relative
-      ? `${full} — relative to the exported audio — project position unknown`
-      : full,
-    relative,
+  // A FILES-tab upload padded to bar 1 says so — and where it came from.
+  const alignedFrom = position.aligned_from_ppq
+  let tooltip = relative
+    ? `${full} — relative to the exported audio — project position unknown`
+    : full
+  if (alignedFrom != null && Number.isFinite(alignedFrom)) {
+    const was = positionPartsAtPpq(alignedFrom, metadata.time_signature_map ?? [], numerator, denominator)
+    tooltip = `${full} — aligned to bar 1 (was bar ${was.bar}.${was.beat}.${was.division}${was.tick > 0 ? `.${was.tick}` : ''})`
   }
+  return { text, tooltip, relative }
 }
 
 function fourCC(bytes: Uint8Array, offset: number): string {

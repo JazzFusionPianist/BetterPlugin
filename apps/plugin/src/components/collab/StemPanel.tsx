@@ -6,7 +6,7 @@ import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudi
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment } from './ChatView'
-import { regionToFile, resolveDawDrop } from '../../lib/audioMerge'
+import { alignToProjectStart, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { useResolvedUrl } from '../../lib/r2Access'
 import { r2KeyFromUrl } from '../../lib/r2Keys'
 import { useT } from '../../i18n/LanguageContext'
@@ -23,6 +23,12 @@ interface Props {
    *  uploaded, so the host can ask separately-vs-merge first. The host
    *  routes the outcome back through `pendingDrop`. */
   onMultiFileDrop?: (files: File[]) => void
+  /** Optional (additive — only the studio passes it): stems whose
+   *  stamp anchors to an absolute project position are padded with
+   *  silence to project bar 1 before upload, so the receiver drops
+   *  them at bar 1 and they line up. Files without a trustworthy
+   *  absolute position upload untouched. */
+  alignToBarOne?: boolean
 }
 
 const MAX_SIZE = 1000 * 1024 * 1024
@@ -61,7 +67,7 @@ function StemRow({ stem, uploader, displayTimeline }: {
 }
 
 export default function StemPanel({
-  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed, onMultiFileDrop,
+  supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed, onMultiFileDrop, alignToBarOne,
 }: Props) {
   const { t } = useT()
   const [stems, setStems] = useState<ConversationStem[]>([])
@@ -118,13 +124,23 @@ export default function StemPanel({
     return () => { cancelled = true }
   }, [audioFormats, stems])
 
-  const uploadOne = useCallback(async (file: File, fallbackMetadata = pendingDrop?.fallbackMetadata ?? null) => {
-    if (!isAudio(file)) { setError(`${file.name} is not an audio file.`); return }
-    if (file.size > MAX_SIZE) { setError(`${file.name} is larger than 1 GB.`); return }
+  const uploadOne = useCallback(async (sourceFile: File, fallbackMetadata = pendingDrop?.fallbackMetadata ?? null) => {
+    if (!isAudio(sourceFile)) { setError(`${sourceFile.name} is not an audio file.`); return }
+    if (sourceFile.size > MAX_SIZE) { setError(`${sourceFile.name} is larger than 1 GB.`); return }
 
     const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    setUploading(prev => [...prev, { name: file.name, progress: 0 }])
+    setUploading(prev => [...prev, { name: sourceFile.name, progress: 0 }])
+    let file = sourceFile
     try {
+      // The embedded stamp is read BEFORE upload so the studio's bar-1
+      // alignment can pad the very bytes that go out. Files without an
+      // anchored absolute position (and every chat send) stay untouched.
+      let timeline = await extractAudioTimeline(sourceFile, fallbackMetadata)
+      if (alignToBarOne) {
+        const aligned = await alignToProjectStart(sourceFile, timeline)
+        if (aligned) { file = aligned.file; timeline = aligned.metadata }
+      }
+
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
       const contentType = file.type || 'application/octet-stream'
       const presign = await fetch('/api/r2-upload-url', {
@@ -156,7 +172,6 @@ export default function StemPanel({
         xhr.send(file)
       })
 
-      const timeline = await extractAudioTimeline(file, fallbackMetadata)
       const { error: insertError } = await supabase.from('conversation_stems').insert({
         conversation_id: conversationId,
         uploader_id: currentUserId,
@@ -178,7 +193,7 @@ export default function StemPanel({
         return index < 0 ? prev : prev.filter((_, i) => i !== index)
       })
     }
-  }, [conversationId, currentUserId, load, pendingDrop?.fallbackMetadata, supabase])
+  }, [alignToBarOne, conversationId, currentUserId, load, pendingDrop?.fallbackMetadata, supabase])
 
   const uploadFiles = useCallback(async (files: File[], fallback = pendingDrop?.fallbackMetadata ?? null) => {
     for (const file of files) await uploadOne(file, fallback)

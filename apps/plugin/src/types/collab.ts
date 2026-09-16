@@ -74,6 +74,11 @@ export interface AttachmentTimelineMetadata {
      *  or 'unknown' (no anchor — display falls back to the relative
      *  reading and says so). */
     basis?: 'cycle' | 'project' | 'unknown'
+    /** Set when the file was padded with silence to project bar 1 on
+     *  upload (studio FILES tab): the project-absolute quarter-note
+     *  position the audio ORIGINALLY started at — the padding's musical
+     *  length — so nothing about the source position is lost. */
+    aligned_from_ppq?: number
     source: 'bwf' | 'ixml' | 'daw_playhead'
     confidence: 'exact' | 'estimated'
   }

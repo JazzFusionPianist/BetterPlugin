@@ -2790,6 +2790,7 @@ function StudioShellInner({ supabase, user }: Props) {
                       pendingDrop={pendingStemDrop}
                       onDropConsumed={consumeStemDrop}
                       onMultiFileDrop={routeStemsDrop}
+                      alignToBarOne
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>

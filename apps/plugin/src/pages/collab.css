@@ -9863,6 +9863,15 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .stem-upload > div:first-child span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stem-upload-track { height: 3px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: var(--bg3); }
 .stem-upload-track i { display: block; height: 100%; border-radius: inherit; background: var(--blue); transition: width .15s; }
+/* "import all" — quiet underlined word, batch-imports every listed
+   stem as ONE armed multi-file drag. Sits right-aligned just above
+   the list ("+ new note" placement grammar). */
+.stem-list-head { flex-shrink: 0; display: flex; justify-content: flex-end; align-items: baseline; min-height: 0; }
+.import-all-word { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 11px; font-weight: 400; color: var(--t2, rgba(26,25,23,.55)); white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px; font-variant-numeric: tabular-nums; }
+.import-all-word:hover { color: var(--t1, rgba(26,25,23,.9)); }
+.import-all-word.ready { color: var(--t1, rgba(26,25,23,.9)); font-weight: 500; cursor: grab; }
 .stem-list { min-height: 0; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 2px; }
 .stem-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center; color: var(--t3); font-family: var(--f-serif); font-style: italic; font-size: 11px; }
 .stem-empty strong { color: var(--t2); font-size: 12px; }

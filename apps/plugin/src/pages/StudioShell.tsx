@@ -41,7 +41,7 @@ import StemPanel from '../components/collab/StemPanel'
 import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
-import { AudioAttachment, AudioEngineContext, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
+import { AudioAttachment, AudioEngineContext, ImportAllWord, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { AttachmentTimelineMetadata, ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
@@ -568,6 +568,37 @@ function DropDiagnosticsOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** Multi-plate top row — "N tracks", the summed duration, and the
+ *  batched import-all word (every track fetched, one writeAudioFiles
+ *  call, ONE armed multi-file drag — the group drag-out machinery).
+ *  Durations come from the same per-url wave-meta cache the sections
+ *  read, so the total costs nothing extra. */
+function StudioPlateHead({ tracks }: { tracks: StudioTrack[] }) {
+  // tracks is re-parsed JSON each render — key the effect on the urls.
+  const key = tracks.map(t => t.url).join('\n')
+  const tracksRef = useRef(tracks); tracksRef.current = tracks
+  const [total, setTotal] = useState<number | null>(null)
+  useEffect(() => {
+    let dead = false
+    setTotal(null)
+    void Promise.all(tracksRef.current.map(t => getWaveMeta(t.url)))
+      .then(ms => { if (!dead) setTotal(ms.reduce((s, m) => s + (m.duration || 0), 0)) })
+    return () => { dead = true }
+  }, [key])
+  return (
+    <>
+      <div className="wd-plate-caphead">
+        <span className="wd-plate-secname">{tracks.length} tracks</span>
+        <span className="wd-plate-right">
+          {total != null && total > 0 && <span className="wd-plate-time">{fmtDur(total)} total</span>}
+          <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
+        </span>
+      </div>
+      <div className="wd-plate-rule" />
+    </>
+  )
+}
+
 /** Single track → the full plate; several → ONE plate whose sections
  *  stack behind interior hairlines (a numbered figure list). */
 function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
@@ -575,6 +606,7 @@ function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
   if (tracks.length === 1) return <StudioAudioPlate track={tracks[0]!} />
   return (
     <div className="wd-plate">
+      <StudioPlateHead tracks={tracks} />
       {tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}
     </div>
   )

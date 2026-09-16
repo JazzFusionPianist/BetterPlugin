@@ -5,7 +5,7 @@ import type { ConversationStem, StemDropRequest } from '../../types/stems'
 import { extractAudioTimeline, mergeEmbeddedTimelineWithProject, probeRemoteAudioFormat, refreshDawTimelineSnapshot } from '../../lib/audioTimeline'
 import type { AudioFormatProbe } from '../../lib/audioTimeline'
 import type { AttachmentTimelineMetadata } from '../../types/collab'
-import { AudioAttachment } from './ChatView'
+import { AudioAttachment, ImportAllWord } from './ChatView'
 import { alignToProjectStart, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { useResolvedUrl } from '../../lib/r2Access'
 import { r2KeyFromUrl } from '../../lib/r2Keys'
@@ -253,6 +253,19 @@ export default function StemPanel({
           <div className="stem-upload-track"><i style={{ width: `${item.progress * 100}%` }} /></div>
         </div>
       ))}
+
+      {/* Batched import — every stem listed, one armed multi-file drag.
+          Quiet word at the list's top right; only where a JUCE host can
+          actually receive the drag, and only once there's a set. */}
+      {!!window.__JUCE__?.backend && stems.length >= 2 && (
+        <div className="stem-list-head">
+          <ImportAllWord
+            tracks={stems.map(stem => ({ url: stem.file_url, name: stem.file_name }))}
+            groupKey={`import-all-stems:${conversationId}`}
+            className="stem-import-all"
+          />
+        </div>
+      )}
 
       <div className="stem-list">
         {loading ? <div className="stem-empty">loading stems…</div> : stems.length === 0 ? (

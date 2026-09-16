@@ -29,7 +29,7 @@
  * timeline, send separately when they overlap (that is two tracks, not
  * one), and leave the decision to the user when nothing can be proven.
  */
-import { extractAudioTimeline } from './audioTimeline'
+import { anchorBarOnePpq, extractAudioTimeline } from './audioTimeline'
 import { MERGED_OUTPUT_LIMIT, UPLOAD_FILE_LIMIT } from './limits'
 import type { AttachmentTimelineMetadata } from '../types/collab'
 
@@ -550,8 +550,10 @@ function alignPassthroughBitDepth(format: WavFormat): 16 | 24 | 32 | null {
  * Returns null — the caller keeps the original file — when the
  * position can't be trusted or the padding can't be rendered:
  *  · basis isn't 'cycle'/'project' (no anchored absolute position),
- *    absolute_ppq is missing/zero, or bpm is missing (the conversion
- *    is constant-tempo: absolute seconds = absolute_ppq · 60/bpm);
+ *    absolute_ppq is missing, the start is already at/before bar 1
+ *    (bar 1's downbeat comes from the drop anchor's bar grid, ppq 0
+ *    without one), or bpm is missing (the conversion is constant-tempo:
+ *    pad seconds = (absolute_ppq − bar1_ppq) · 60/bpm);
  *  · the file isn't a WAV the encoder can pass through losslessly;
  *  · the padding would exceed 30 minutes (a bogus stamp) or the
  *    padded file would pass the 1 GB stem cap;
@@ -566,10 +568,17 @@ export async function alignToProjectStart(
   if (position.basis !== 'cycle' && position.basis !== 'project') return null
   const absolutePpq = position.absolute_ppq
   const bpm = metadata.bpm
-  if (absolutePpq == null || !Number.isFinite(absolutePpq) || absolutePpq <= 0) return null
+  if (absolutePpq == null || !Number.isFinite(absolutePpq)) return null
   if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
 
-  const absoluteSeconds = absolutePpq * 60 / bpm
+  // Bar 1's downbeat comes from the playhead's own bar grid when the
+  // drop captured one (projects with a count-in put it after ppq 0);
+  // without a grid the old ppq-0 assumption is all there is.
+  const barOnePpq = anchorBarOnePpq(metadata) ?? 0
+  const padPpq = absolutePpq - barOnePpq
+  if (padPpq <= 0) return null
+
+  const absoluteSeconds = padPpq * 60 / bpm
   if (absoluteSeconds > MAX_ALIGN_PAD_SECONDS) return null
 
   const format = await wavFormat(file)
@@ -592,32 +601,35 @@ export async function alignToProjectStart(
     for (let i = 0; i < src.length; i++) out[(padFrames + i) * channels + ch] = src[i]!
   }
 
-  const projectZeroSamples = PROJECT_ZERO_SECONDS * sampleRate
+  // The padded file starts at bar 1 — whose project time is barOnePpq
+  // quarters (zero on grid-less records), stamped at the 01:00:00 base.
+  const barOneSeconds = barOnePpq * 60 / bpm
+  const barOneSamples = Math.round((PROJECT_ZERO_SECONDS + barOneSeconds) * sampleRate)
   const wav = encodeWav(out, {
     sampleRate, channels, bitDepth,
-    timeReference: projectZeroSamples,
+    timeReference: barOneSamples,
     description: 'Orb: stem aligned to bar 1',
   })
   if (wav.size > UPLOAD_FILE_LIMIT) return null
 
   return {
     file: new File([wav], file.name, { type: 'audio/wav' }),
-    // The stored record describes the NEW file: it starts at project
-    // zero (bar 1), stamped at the 01:00:00 base its bext now carries;
+    // The stored record describes the NEW file: it starts at bar 1's
+    // downbeat, stamped at the 01:00:00 base its bext now carries;
     // the anchor rides along and aligned_from_ppq keeps the original
     // absolute start so nothing is lost.
     metadata: {
       ...metadata,
       position: {
         ...position,
-        source_samples: projectZeroSamples,
+        source_samples: barOneSamples,
         sample_rate: sampleRate,
         bit_depth: bitDepth,
-        seconds: PROJECT_ZERO_SECONDS,
-        ppq: 0,
+        seconds: PROJECT_ZERO_SECONDS + barOneSeconds,
+        ppq: barOnePpq,
         bar: 1,
         beat: 1,
-        absolute_ppq: 0,
+        absolute_ppq: barOnePpq,
         basis: 'project',
         aligned_from_ppq: absolutePpq,
       },

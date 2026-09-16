@@ -32,7 +32,7 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, getDropIngestionReports, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
 import { mergeDroppedRegions, mergeFailureText, resolveDawDrop } from '../lib/audioMerge'
 import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
@@ -466,6 +466,103 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
       </div>
       <div className="wd-plate-secwave">
         <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={24} head={active} onSeek={seek} />
+      </div>
+    </div>
+  )
+}
+
+/** Hidden drop-ingestion diagnostics — double-click the 'orb' wordmark.
+ *  A plain paper sheet listing the last 10 ingestion reports (raw bext,
+ *  every iXML tag, the drop-frozen snapshot, the computed absolute
+ *  position + label) as pretty JSON, with copy-all, Esc to close.
+ *  Exists so cycle-on/off × project-start scenarios can be RUN and the
+ *  data pasted back — the export-reference rule gets codified from
+ *  measurements, not more correction heuristics. */
+function DropDiagnosticsOverlay({ onClose }: { onClose: () => void }) {
+  const preRef = useRef<HTMLPreElement>(null)
+  const [copied, setCopied] = useState(false)
+  const reports = useMemo(() => getDropIngestionReports(), [])
+  const text = useMemo(
+    () => reports.length === 0
+      ? 'no drop ingestions recorded yet — drag audio in, then reopen.'
+      : JSON.stringify(reports, null, 2),
+    [reports],
+  )
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const copyAll = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+    } catch {
+      // Fallback: select the text in a throwaway textarea.
+      const area = document.createElement('textarea')
+      area.value = text
+      area.style.position = 'fixed'
+      area.style.opacity = '0'
+      document.body.appendChild(area)
+      area.focus()
+      area.select()
+      let ok = false
+      try { ok = document.execCommand('copy') } catch { /* stay quiet */ }
+      document.body.removeChild(area)
+      if (ok) setCopied(true)
+      else {
+        // Last resort: leave the report selected for a manual ⌘C.
+        const pre = preRef.current
+        if (pre) {
+          const range = document.createRange()
+          range.selectNodeContents(pre)
+          const sel = window.getSelection()
+          sel?.removeAllRanges()
+          sel?.addRange(range)
+        }
+      }
+    }
+  }, [text])
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,20,20,0.35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: 'min(760px, calc(100vw - 64px))', height: 'min(560px, calc(100vh - 64px))',
+          background: '#fbfaf7', color: '#1c1c1c', border: '1px solid #d8d4cc',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12,
+          padding: '10px 14px', borderBottom: '1px solid #e4e0d8' }}>
+          <span style={{ fontSize: 12, letterSpacing: '0.04em' }}>drop diagnostics — last {reports.length} ingestion{reports.length === 1 ? '' : 's'}</span>
+          <span style={{ flex: 1 }} />
+          <button
+            onClick={() => void copyAll()}
+            style={{ font: 'inherit', fontSize: 12, background: 'none', border: 'none',
+              cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, color: '#1c1c1c', padding: 0 }}
+          >
+            {copied ? 'copied' : 'copy all'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{ font: 'inherit', fontSize: 12, background: 'none', border: 'none',
+              cursor: 'pointer', color: '#1c1c1c', padding: 0 }}
+            aria-label="close"
+          >
+            ✕
+          </button>
+        </div>
+        <pre
+          ref={preRef}
+          style={{ flex: 1, margin: 0, padding: '12px 14px', overflow: 'auto',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11,
+            lineHeight: 1.5, whiteSpace: 'pre', userSelect: 'text' }}
+        >
+          {text}
+        </pre>
       </div>
     </div>
   )
@@ -1638,6 +1735,8 @@ function StudioShellInner({ supabase, user }: Props) {
   // tab with a conversation open → chat attachment (the + button path).
   const [dragOver, setDragOver] = useState(false)
   const [dragKind, setDragKind] = useState<'attach' | 'cancel'>('attach')
+  // Hidden drop-ingestion diagnostics (double-click the 'orb' wordmark).
+  const [diagOpen, setDiagOpen] = useState(false)
   const [pendingStemDrop, setPendingStemDrop] = useState<StemDropRequest | null>(null)
   // ≥2 audio files in one drop → the chooser card (separately / merge
   // keep-timing / merge join / zip). Opened AFTER the batch finishes
@@ -2381,7 +2480,8 @@ function StudioShellInner({ supabase, user }: Props) {
         {/* ── rail ─────────────────────────────────────────────── */}
         <div className="wd-rail">
           <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}>
+            onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}
+            onDoubleClick={() => setDiagOpen(true)}>
             <BrandMark />orb
           </div>
           <div className="wd-rail-scroll">
@@ -2883,6 +2983,7 @@ function StudioShellInner({ supabase, user }: Props) {
           )}
         </div>
       </div>
+      {diagOpen && <DropDiagnosticsOverlay onClose={() => setDiagOpen(false)} />}
     </div>
   )
 }

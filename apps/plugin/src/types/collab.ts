@@ -52,6 +52,18 @@ export interface DawDropAnchor {
    *  consistent instant, usable as a seconds↔ppq anchor. */
   ppq?: number
   samples?: number
+  /** The playhead's OWN bar grid at the same instant: the host's bar
+   *  count and the quarter-note position of that bar's start
+   *  (ppqPositionOfLastBarStart), plus the meter it was counted in.
+   *  Bar numbering is anchored HERE — bar_of(x) = (bar_count + 1) +
+   *  floor((x − bar_ppq) / barLength) — so no assumption about where
+   *  ppq zero sits (count-in / project-start offsets included) is ever
+   *  needed. Absent on older records → display falls back to the old
+   *  zero-anchored reading. */
+  bar_count?: number
+  bar_ppq?: number
+  tnum?: number
+  tden?: number
 }
 
 export interface AttachmentTimelineMetadata {

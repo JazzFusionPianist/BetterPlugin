@@ -48,7 +48,7 @@ const VARIANTS: string[][] = [
   ['up', 'down', 'up-down', 'random'],            // arp
   ['am', 'phone'],                 // radio
   ['key', 'chromatic'],            // harmony
-  ['natural', 'raw'],              // pitch
+  ['raw', 'natural'],              // pitch
   [],                              // formant
   ['cloud', 'stutter', 'reverse'], // grain
   ['female', 'male', 'child', 'giant'], // voice
@@ -286,7 +286,7 @@ function SpaceArt ({ a, decay = 0.5, variant = 0, onDecay }: {
 function StereoArt ({ a }: { a: number }) {
   const { s, acc } = useInks(a)
   const r = 60
-  const d = a * 30
+  const d = a * 30            // −100 (one circle, mono) … +100 (two, wide); the middle is untouched
   const h = Math.sqrt(Math.max(0, r * r - d * d))
   return (
     <g>
@@ -819,6 +819,7 @@ function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
 const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt, CrushArt]
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
+  if (mode === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
   if (mode === 0) {
     const db = (a - 0.5) * 12
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
@@ -886,7 +887,7 @@ export default function FxPanel ({ isOpen }: Props) {
   }, [isOpen])
 
   const a = amounts[mode] ?? 0
-  const neutral = mode === 0 ? 0.5 : mode === 5 ? 0.75 : 0
+  const neutral = mode === 0 || mode === 3 ? 0.5 : mode === 5 ? 0.75 : 0
   const Art = ARTS[mode]
 
   // The print glows with the programme — instant attack on every hit,

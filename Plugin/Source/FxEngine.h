@@ -49,7 +49,7 @@ constexpr int kPortOut = -2;
  *  with unity at 0.75, everything else is off at 0. */
 inline float neutralAmount (int type) noexcept
 {
-    return type == kGain ? 0.75f : (type == kTone || type == kPitch || type == kFormant) ? 0.5f : 0.0f;
+    return type == kGain ? 0.75f : (type == kTone || type == kStereoize || type == kPitch || type == kFormant) ? 0.5f : 0.0f;
 }
 
 /** Per-block parameter snapshot for one node (plain values — the
@@ -252,10 +252,11 @@ struct Program
 };
 
 /** Validate + compile. On failure `error` says why (e.g. "cycle") and
- *  `out` is untouched. `latencyByType` (kNumFx entries, samples) lets
- *  the compiler line up parallel branches and total the path to out.
+ *  `out` is untouched. `latencyOf` (samples a node adds) lets the
+ *  compiler line up parallel branches and total the path to out.
  *  Message thread. */
-bool compile (const Graph& g, Program& out, juce::String& error, const int* latencyByType = nullptr);
+using LatencyFn = int (*) (const Graph::Node&, const void* ctx);
+bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn latencyOf = nullptr, const void* ctx = nullptr);
 
 //==============================================================================
 class Chain
@@ -272,8 +273,10 @@ public:
     void process (juce::AudioBuffer<float>& buffer, float sampleRate,
                   const NodeParams* params, float& grDbOut);
 
-    /** Samples of latency each effect type adds at this sample rate. */
-    const int* latencyTable() const noexcept { return latencyByType; }
+    /** Samples of latency a node adds at this sample rate (its quality
+     *  word chooses between the fine and the live shifter). */
+    int nodeLatency (const Graph::Node& n) const noexcept;
+    static int latencyThunk (const Graph::Node& n, const void* self) { return static_cast<const Chain*> (self)->nodeLatency (n); }
 
     /** UI meters: block peak per slot (0 when the slot isn't running). */
     float nodePeak (int slot) const noexcept
@@ -305,7 +308,7 @@ private:
     // branch alignment: delay lines for kDelay ops
     std::vector<float> delayLines[kMaxDelayLines][2];
     int delayWrite[kMaxDelayLines] {};
-    int latencyByType[kNumFx] {};
+    int latencyFine = 0, latencyLive = 0, latencyGrain = 0;
 };
 
 } // namespace orbfx

@@ -975,7 +975,7 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 {
     orbfx::Program prog;
-    if (! orbfx::compile (g, prog, error, fxChain.latencyTable())) return false;
+    if (! orbfx::compile (g, prog, error, &orbfx::Chain::latencyThunk, &fxChain)) return false;
     {
         const juce::ScopedLock sl (fxGraphLock);
         fxGraph = g;

@@ -46,13 +46,15 @@ function tintOf (type: number, variant = 0): [number, number, number] {
   if (type === FX_MIX_TYPE) return [246, 243, 234]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
 }
-const neutralOf = (type: number) => (type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, pitch, formant rest in the middle
+/** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
+const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
+const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
 const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : MODES.find(m => m.id === type)?.name ?? '')
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
   if (type === 16 || type === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
-  if (type === 0) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
+  if (type === 0 || type === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
@@ -278,7 +280,7 @@ export default function FxWall ({ size: frame }: Props) {
         const id = Number(nodeEl.dataset.id)
         const n = graphRef.current.nodes.find(x => x.id === id)
         if (!n || n.type === FX_MIX_TYPE) return
-        updateNodeRef.current(id, { amount: Math.min(1, Math.max(0, n.amount - Math.sign(e.deltaY) * 0.02)) }, true)
+        updateNodeRef.current(id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true)
         return
       }
       e.preventDefault()
@@ -663,6 +665,10 @@ export default function FxWall ({ size: frame }: Props) {
                     {n.type === 15 && n.variant !== 1 && ['major', 'minor'].map((w, k) => (
                       <span key={w} className={`sg-word${(n.aux[1] || 0) === k ? ' on' : ''}`}
                         onPointerDown={() => { const aux = [...n.aux]; aux[1] = k; updateNode(n.id, { aux }, true) }}>{w}</span>
+                    ))}
+                    {(n.type === 16 || n.type === 17) && ['fine', 'live'].map((q, k) => (
+                      <span key={q} className={`sg-word${(n.aux[n.type === 16 ? 1 : 0] || 0) === k ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[n.type === 16 ? 1 : 0] = k; updateNode(n.id, { aux }, true) }}>{q}</span>
                     ))}
                     {WET_TYPES.has(n.type) && (
                       <span className={`sg-word${n.wet ? ' on' : ''}`} onPointerDown={() => updateNode(n.id, { wet: !n.wet }, true)}>wet</span>
@@ -1069,7 +1075,7 @@ export default function FxWall ({ size: frame }: Props) {
                     <span className="sg-val"
                       onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
-                      onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
+                      onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true) }}>
                       {' '}{fmtValue(n.type, n.amount, n.variant)}
                     </span>
                   )}
@@ -1150,7 +1156,7 @@ export default function FxWall ({ size: frame }: Props) {
           onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
           onClick={(e) => { if ((e.metaKey || e.ctrlKey) && studyNode.type !== FX_MIX_TYPE) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
           onDoubleClick={() => { if (studyNode.type !== FX_MIX_TYPE) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
-          onWheel={(e) => { if (studyNode.type === FX_MIX_TYPE) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>
+          onWheel={(e) => { if (studyNode.type === FX_MIX_TYPE) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
           <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
             onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
             onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}
@@ -1159,7 +1165,10 @@ export default function FxWall ({ size: frame }: Props) {
         </div>
         <div className="sg-study-value">
           {studyNode.type !== FX_MIX_TYPE
-            ? <span className="sg-val" onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - Math.sign(e.deltaY) * 0.02)) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
+            ? <span className="sg-val"
+                onPointerDown={(e) => { e.stopPropagation(); grab(e); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
+                onDoubleClick={(e) => { e.stopPropagation(); updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
+                onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>{fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}</span>
             : null}
         </div>
         <div className="sg-study-hands">{hands(studyNode, true)}</div>

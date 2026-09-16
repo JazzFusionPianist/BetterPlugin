@@ -266,7 +266,7 @@ int main()
     }
 
     { // pitch: +12 st doubles the crossings, and stays clean (no wild peaks)
-        Graph g; g.nodes.push_back (node (3, kPitch, 1.0f, 1));   // raw, +12
+        Graph g; auto pn = node (3, kPitch, 1.0f, 0); pn.aux[1] = 1; g.nodes.push_back (pn);   // raw, +12, live engine (short latency for the window)
         g.edges.push_back ({ kPortIn, 3, 1.0f }); g.edges.push_back ({ 3, kPortOut, 1.0f });
         const auto o = run (g);
         auto zc = [] (const juce::AudioBuffer<float>& b, int from, int to) { int z = 0; for (int i = from + 1; i < to; ++i) if ((b.getSample (0, i) >= 0) != (b.getSample (0, i - 1) >= 0)) ++z; return z; };
@@ -278,7 +278,7 @@ int main()
         CHECK (peakOf (o, a, b) < 1.0f && peakOf (o, a, b) > 0.15f, "pitch: sane level");
     }
     { // formant at the middle is transparent-ish; shifted it still passes signal
-        Graph g; g.nodes.push_back (node (4, kFormant, 0.85f, 0));
+        Graph g; auto fn = node (4, kFormant, 0.85f, 0); fn.aux[0] = 1; g.nodes.push_back (fn);
         g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
         const auto o = run (g);
         CHECK (peakOf (o, 6000, 10000) > 0.1f, "formant: signal passes");
@@ -304,27 +304,29 @@ int main()
     }
 
     { // branch alignment: dry ‖ (pitch at rest, raw) into a mix — the compiler delays the dry
-        int lat[kNumFx] {}; lat[kPitch] = 1000;
+        static int lat[kNumFx] {}; lat[kPitch] = 1000;
+        auto latFn = [] (const Graph::Node& nd, const void*) { return lat[nd.type]; };
         Graph g; g.nodes.push_back (node (3, kPitch, 0.5f, 1)); g.nodes.push_back (node (9, kMixType, 0.0f));
         g.nodes[0].aux[0] = 1;   // one cent: keeps the shifter running instead of the neutral early-out
         g.edges.push_back ({ kPortIn, 9, 0.5f }); g.edges.push_back ({ kPortIn, 3, 1.0f }); g.edges.push_back ({ 3, 9, 0.5f }); g.edges.push_back ({ 9, kPortOut, 1.0f });
-        Program p; juce::String e; const bool ok = compile (g, p, e, lat);
+        Program p; juce::String e; const bool ok = compile (g, p, e, latFn, nullptr);
         int delays = 0, delaySamples = 0;
         for (int i = 0; i < p.numOps; ++i) if (p.ops[i].kind == Op::kDelay) { ++delays; delaySamples = p.ops[i].samples; }
         CHECK (ok && delays == 1 && delaySamples == 1000, "a dry branch beside a latent one is held back by its latency");
         CHECK (ok && p.latency == 1000, "the patch reports the path's latency to out");
         Graph s; s.nodes.push_back (node (3, kPitch, 0.5f, 1)); s.nodes.push_back (node (4, kPitch, 0.5f, 1));
         s.edges.push_back ({ kPortIn, 3, 1.0f }); s.edges.push_back ({ 3, 4, 1.0f }); s.edges.push_back ({ 4, kPortOut, 1.0f });
-        Program p2; CHECK (compile (s, p2, e, lat) && p2.latency == 2000, "two shifters in series: latencies add");
+        Program p2; CHECK (compile (s, p2, e, latFn, nullptr) && p2.latency == 2000, "two shifters in series: latencies add");
     }
     { // the delay op really delays: in → mix(50) ‖ in → gain → mix(50) with a fake 100-sample gain latency
-        int lat[kNumFx] {}; lat[kGain] = 100;
+        static int lat2[kNumFx] {}; lat2[kGain] = 100;
+        auto latFn2 = [] (const Graph::Node& nd, const void*) { return lat2[nd.type]; };
         Graph g; g.nodes.push_back (node (5, kGain, 0.75f)); g.nodes.push_back (node (9, kMixType, 0.0f));
         g.edges.push_back ({ kPortIn, 9, 0.5f }); g.edges.push_back ({ kPortIn, 5, 1.0f }); g.edges.push_back ({ 5, 9, 0.5f }); g.edges.push_back ({ 9, kPortOut, 1.0f });
         // run by hand with the latency table
         juce::AudioBuffer<float> out = testSignal();
         Chain chain; chain.prepare (kSr, kBlock);
-        Program p; juce::String e; CHECK (compile (g, p, e, lat), "compiles with a delayed dry");
+        Program p; juce::String e; CHECK (compile (g, p, e, latFn2, nullptr), "compiles with a delayed dry");
         chain.publish (p);
         NodeParams params[kMaxNodes]; paramsFor (g, params);
         for (int blk = 0; blk < kBlocks; ++blk)
@@ -336,6 +338,23 @@ int main()
         float err = 0;
         for (int i = 2000; i < 6000; ++i) err = juce::jmax (err, std::abs (out.getSample (0, i) - 0.5f * (input.getSample (0, i) + input.getSample (0, i - 100))));
         CHECK (err < 1e-4f, "the delay op holds the branch back by exactly its samples");
+    }
+
+    { // stereo is bipolar: the middle is identity, −100 folds to mono
+        const auto src = testSignal();
+        Graph g; g.nodes.push_back (node (2, kStereoize, 0.5f));
+        g.edges.push_back ({ kPortIn, 2, 1.0f }); g.edges.push_back ({ 2, kPortOut, 1.0f });
+        const auto o = run (g);
+        float diff = 0.0f;
+        for (int i = 0; i < o.getNumSamples(); ++i) diff = std::max (diff, std::abs (o.getSample (0, i) - src.getSample (0, i)));
+        std::printf ("    [stereo] mid diff %.5f\n", diff);
+        CHECK (diff < 1.0e-4f, "stereo at the middle leaves the signal alone");
+        g.nodes[0].amount = 0.0f;
+        const auto m = run (g);
+        float lr = 0.0f, energy = 0.0f;
+        for (int i = m.getNumSamples() * 7 / 8; i < m.getNumSamples(); ++i) { lr = std::max (lr, std::abs (m.getSample (0, i) - m.getSample (1, i))); energy = std::max (energy, std::abs (m.getSample (0, i))); }   // after the 50 ms glide
+        std::printf ("    [stereo] mono lr %.5f energy %.3f\n", lr, energy);
+        CHECK (lr < 5.0e-3f && energy > 0.01f, "stereo at −100 is mono, not silence");
     }
 
     { // grain in key: runs, panned, frozen — sane; crush: fewer distinct values

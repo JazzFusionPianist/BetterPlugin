@@ -141,7 +141,7 @@ private:
                   kNumFx = orbfx::kNumFx };
     std::atomic<int> fxMode { kTone };
     // amounts[kGain] is a fader: 0.75 = unity, 0 = −60 dB, 1 = +12 dB.
-    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.75f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f},
+    std::array<std::atomic<float>, kNumFx> fxAmount {{ {0.5f}, {0.0f}, {0.0f}, {0.5f}, {0.0f}, {0.75f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f},
                                                         {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.5f}, {0.5f}, {0.0f}, {0.0f}, {0.0f} }};
     // Sub-flavours: tape 0=hard 1=clean; space 0=hall 1=room 2=plate;
     // gain is a polarity BITMASK (bit0 = invert L, bit1 = invert R);

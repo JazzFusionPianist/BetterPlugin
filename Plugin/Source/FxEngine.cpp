@@ -6,9 +6,19 @@ namespace orbfx {
 /** The spectral shifter behind pitch, formant and voice. */
 struct NodeState::Shifter
 {
-    signalsmith::stretch::SignalsmithStretch<float, std::minstd_rand> st { 1234 };
+    // fine: the library's studio preset (120 ms blocks — clean, ~150 ms of
+    // latency the host compensates); live: 1024-sample blocks for playing
+    // through (~27 ms). Both exist so the choice is a word, not a rebuild.
+    signalsmith::stretch::SignalsmithStretch<float, std::minstd_rand> fine { 1234 };
+    signalsmith::stretch::SignalsmithStretch<float, std::minstd_rand> live { 4321 };
     std::vector<float> in[2], out[2];
     bool configured = false;
+    bool usingLive = false;
+    signalsmith::stretch::SignalsmithStretch<float, std::minstd_rand>& st (bool wantLive)
+    {
+        if (wantLive != usingLive) { usingLive = wantLive; (wantLive ? live : fine).reset(); }
+        return wantLive ? live : fine;
+    }
 };
 NodeState::NodeState() = default;
 NodeState::~NodeState() = default;
@@ -182,10 +192,11 @@ static float diatonicShift (float note, int keyRoot, int scale, int degrees)
 }
 
 /** Push a block through the slot's spectral shifter, in place. */
-static void shiftBlock (NodeState& st, int n, float* L, float* R)
+static void shiftBlock (NodeState& st, bool liveMode, int n, float* L, float* R)
 {
     auto* sh = st.shifter.get();
     if (sh == nullptr || ! sh->configured) return;
+    auto& eng = sh->st (liveMode);
     for (int ch = 0; ch < 2; ++ch)
     {
         if ((int) sh->in[ch].size() < n) { sh->in[ch].resize ((size_t) n); sh->out[ch].resize ((size_t) n); }
@@ -194,7 +205,7 @@ static void shiftBlock (NodeState& st, int n, float* L, float* R)
     if (R != nullptr) std::copy (R, R + n, sh->in[1].begin()); else std::copy (L, L + n, sh->in[1].begin());
     float* ins[2]  = { sh->in[0].data(),  sh->in[1].data() };
     float* outs[2] = { sh->out[0].data(), sh->out[1].data() };
-    sh->st.process (ins, n, outs, n);
+    eng.process (ins, n, outs, n);
     std::copy (sh->out[0].begin(), sh->out[0].begin() + n, L);
     if (R != nullptr) std::copy (sh->out[1].begin(), sh->out[1].begin() + n, R);
 }
@@ -242,10 +253,9 @@ void NodeState::prepare (double sampleRate)
     // latency, a fraction of the cost of the studio preset
     if (shifter == nullptr) shifter = std::make_unique<Shifter>();
     {
-        // power-of-two blocks: 1024 at 44.1/48k (~21 ms, ≈27 ms of latency
-        // with the interval), 2048 at 88.2k+
-        const int block = sampleRate > 60000.0 ? 2048 : 1024;
-        shifter->st.configure (2, block, block / 4, false);
+        shifter->fine.presetDefault (2, (float) sampleRate, false);
+        const int block = sampleRate > 60000.0 ? 2048 : 1024;   // power of two
+        shifter->live.configure (2, block, block / 4, false);
         shifter->configured = true;
     }
     line (grainRing, 2.0f);
@@ -301,7 +311,7 @@ void NodeState::reset()
     pdWrite = 0; pdCountdown = 0; pdNote = -1.0f; harmShiftSm = 0.0f;
     for (auto& st : radioBp) { st[0] = {}; st[1] = {}; }
     radioBakedA = -1.0f; radioNoiseLp[0] = radioNoiseLp[1] = 0.0f; radioHum = 0.0f;
-    if (shifter != nullptr && shifter->configured) shifter->st.reset();
+    if (shifter != nullptr && shifter->configured) { shifter->fine.reset(); shifter->live.reset(); }
     shiftSemiSm = 0.0f; formantSemiSm = 0.0f;
     std::fill (grainRing[0].begin(), grainRing[0].end(), 0.0f);
     std::fill (grainRing[1].begin(), grainRing[1].end(), 0.0f);
@@ -334,7 +344,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
     const float a = amtSm;
 
     // Neutral positions cost nothing.
-    if (type == kTone || type == kPitch || type == kFormant)
+    if (type == kTone || type == kStereoize || type == kPitch || type == kFormant)
                             { if (std::abs (a - 0.5f) < 0.004f && std::abs (target - 0.5f) < 0.004f
                                   && ! (type == kPitch && p.aux[0] != 0)) return; }
     else if (type == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
@@ -787,8 +797,12 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // there (polar samples pushed outward, direction preserved —
             // a left-leaning source stays left, just wider). The allpass
             // rotation only tops up decorrelation for near-mono sources.
-            const float widthK = a * 1.7f;      // extra gain on existing side (highs)
-            const float synthK = a * 0.35f;     // synthesized side, DEAD-MONO ONLY
+            // bipolar: the middle leaves the image alone; left of it the
+            // side fades out (−100 = mono), right of it the image widens
+            const float wide   = juce::jmax (0.0f, (a - 0.5f) * 2.0f);
+            const float keepS  = juce::jmin (1.0f, a * 2.0f);          // 0 at −100 … 1 from the middle up
+            const float widthK = wide * 1.7f;   // extra gain on existing side (highs)
+            const float synthK = wide * 0.35f;  // synthesized side, DEAD-MONO ONLY
             const float envK   = 1.0f - std::exp (-1.0f / (0.05f * sr));
             for (int i = 0; i < n; ++i)
             {
@@ -817,7 +831,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 const float synth = x - sideHpState;
                 sideHpState2 += (side0 - sideHpState2) * hpK;     // HP the width boost
                 const float sideHi = side0 - sideHpState2;        // lows stay centred
-                const float sideOut = side0 + sideHi * widthK + synth * (synthK * mono);
+                const float sideOut = side0 * keepS + sideHi * widthK + synth * (synthK * mono);
                 L[i] = mid + sideOut;
                 R[i] = mid - sideOut;
             }
@@ -1047,8 +1061,14 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             }
             arpStep = k;
             const float semis = (float) (k * interval) * (variant == 1 ? -1.0f : 1.0f);
-            const float ratio = std::pow (2.0f, semis / 12.0f);
-            pitchShiftBlock (*this, ratio, sr, n, L, R);
+            if (shifter != nullptr)
+            {
+                auto& eng = shifter->st (true);
+                eng.setTransposeSemitones (semis, 8000.0f / sr);
+                eng.setFormantSemitones (0.0f, false);
+                shiftBlock (*this, true, n, L, R);
+            }
+            else pitchShiftBlock (*this, std::pow (2.0f, semis / 12.0f), sr, n, L, R);
             if (! p.playing) arpFreeBeat += (double) p.bpm / 60.0 / (double) sr * (double) n;
             break;
         }
@@ -1130,14 +1150,20 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             }
             const float glideK = 1.0f - std::exp (-(float) n / (0.012f * sr));
             harmShiftSm += (targetShift - harmShiftSm) * glideK;
-            const float ratio = std::pow (2.0f, harmShiftSm / 12.0f);
             // the voice is shifted in the scratch buffer, then layered
             if (scratch.getNumSamples() < n) scratch.setSize (2, n, false, false, true);
             float* vl = scratch.getWritePointer (0);
             float* vr = scratch.getWritePointer (1);
             juce::FloatVectorOperations::copy (vl, L, n);
             juce::FloatVectorOperations::copy (vr, R != nullptr ? R : L, n);
-            pitchShiftBlock (*this, ratio, sr, n, vl, vr);
+            if (shifter != nullptr)
+            {
+                auto& eng = shifter->st (false);
+                eng.setTransposeSemitones (harmShiftSm, 8000.0f / sr);
+                eng.setFormantSemitones (0.0f, true);   // the second voice keeps its own throat
+                shiftBlock (*this, false, n, vl, vr);
+            }
+            else pitchShiftBlock (*this, std::pow (2.0f, harmShiftSm / 12.0f), sr, n, vl, vr);
             const float lvl = a * 0.9f;
             const float dry = p.wet ? 0.0f : 1.0f - a * 0.15f;
             for (int i = 0; i < n; ++i)
@@ -1155,13 +1181,15 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // formants where they were (a voice stays the same person);
             // `raw` shifts everything, the classic tape-speed colour.
             if (shifter == nullptr) break;
+            const bool liveMode = p.aux[1] == 1;
+            auto& eng = shifter->st (liveMode);
             const float semis = (a - 0.5f) * 24.0f + (float) juce::jlimit (-100, 100, p.aux[0]) / 100.0f;
             const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
             shiftSemiSm += (semis - shiftSemiSm) * k;
-            shifter->st.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
-            shifter->st.setFormantSemitones (0.0f, variant == 0);
-            shifter->st.setFormantBase (0.0f);
-            shiftBlock (*this, n, L, R);
+            eng.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
+            eng.setFormantSemitones (0.0f, variant == 1);   // `natural` (1) keeps the formants; `raw` (0) moves everything
+            eng.setFormantBase (0.0f);
+            shiftBlock (*this, liveMode, n, L, R);
             break;
         }
 
@@ -1170,13 +1198,15 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // The vowel colour moves, the pitch does not: ±12 semitones of
             // formant shift around the middle.
             if (shifter == nullptr) break;
+            const bool liveMode = p.aux[0] == 1;
+            auto& eng = shifter->st (liveMode);
             const float fs = (a - 0.5f) * 24.0f;
             const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
             formantSemiSm += (fs - formantSemiSm) * k;
-            shifter->st.setTransposeSemitones (0.0f, 8000.0f / sr);
-            shifter->st.setFormantSemitones (formantSemiSm, false);
-            shifter->st.setFormantBase (0.0f);
-            shiftBlock (*this, n, L, R);
+            eng.setTransposeSemitones (0.0f, 8000.0f / sr);
+            eng.setFormantSemitones (formantSemiSm, false);
+            eng.setFormantBase (0.0f);
+            shiftBlock (*this, liveMode, n, L, R);
             break;
         }
 
@@ -1193,13 +1223,14 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 case 3:  ps = -10.0f; fs = -7.0f; break;   // giant
                 default: ps = 5.0f;   fs = 3.5f;  break;   // female
             }
+            auto& eng = shifter->st (false);
             const float k = 1.0f - std::exp (-(float) n / (0.02f * sr));
             shiftSemiSm   += (ps * a - shiftSemiSm) * k;
             formantSemiSm += (fs * a - formantSemiSm) * k;
-            shifter->st.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
-            shifter->st.setFormantSemitones (formantSemiSm, false);
-            shifter->st.setFormantBase (0.0f);
-            shiftBlock (*this, n, L, R);
+            eng.setTransposeSemitones (shiftSemiSm, 8000.0f / sr);
+            eng.setFormantSemitones (formantSemiSm, false);
+            eng.setFormantBase (0.0f);
+            shiftBlock (*this, false, n, L, R);
             break;
         }
 
@@ -1379,10 +1410,11 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 //==============================================================================
 // Compile: the wall's graph → a flat Program over a pool of block buffers.
 
-bool compile (const Graph& g, Program& out, juce::String& error, const int* latencyByType)
+bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn latencyOf, const void* ctx)
 {
     Program prog;
-    auto latOf = [&] (int type) { return latencyByType != nullptr && isEffect (type) ? latencyByType[type] : 0; };
+    const Graph::Node* nodeOf[kMaxNodes] {};
+    auto latOf = [&] (int id) { return latencyOf != nullptr && nodeOf[id] != nullptr ? latencyOf (*nodeOf[id], ctx) : 0; };
     int arrival[kMaxNodes] {};   // samples of latency at each node's OUTPUT
     int nextLine = 0;
 
@@ -1396,6 +1428,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, const int* late
         if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
         if (! isEffect (nd.type) && nd.type != kMixType) { error = "bad node type";   return false; }
         slotType[nd.id] = nd.type;
+        nodeOf[nd.id] = &nd;
         bypassed[nd.id] = nd.bypass && nd.type != kMixType;
     }
     auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
@@ -1585,7 +1618,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, const int* late
                 Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
                 if (! emit (op)) return false;
             }
-            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + (bypassed[id] ? 0 : latOf (slotType[id]));
+            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + (bypassed[id] ? 0 : latOf (id));
             outBuf = b;
         }
         if (! fanOut (id, outBuf)) return false;
@@ -1623,16 +1656,31 @@ void Chain::prepare (double sampleRate, int blockSize)
     for (auto& node : nodes) node.prepare (sampleRate);
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
     active = Program {};
-    // what each effect costs in latency, at this rate
-    for (auto& l : latencyByType) l = 0;
+    // what the shifters cost in latency, at this rate
     if (auto* sh = nodes[0].shifter.get(); sh != nullptr && sh->configured)
-        latencyByType[kPitch] = latencyByType[kFormant] = latencyByType[kVoice] = sh->st.inputLatency() + sh->st.outputLatency();
-    latencyByType[kArp] = latencyByType[kHarmony] = (int) (sampleRate * 0.045 * 0.5);   // half a grain
+    {
+        latencyFine = sh->fine.inputLatency() + sh->fine.outputLatency();
+        latencyLive = sh->live.inputLatency() + sh->live.outputLatency();
+    }
+    latencyGrain = (int) (sampleRate * 0.045 * 0.5);
     for (int i = 0; i < kMaxDelayLines; ++i)
     {
         delayLines[i][0].assign ((size_t) kMaxDelaySamples, 0.0f);
         delayLines[i][1].assign ((size_t) kMaxDelaySamples, 0.0f);
         delayWrite[i] = 0;
+    }
+}
+
+int Chain::nodeLatency (const Graph::Node& n) const noexcept
+{
+    switch (n.type)
+    {
+        case kPitch:   return n.aux[1] == 1 ? latencyLive : latencyFine;
+        case kFormant: return n.aux[0] == 1 ? latencyLive : latencyFine;
+        case kVoice:   return latencyFine;
+        case kHarmony: return latencyFine;
+        case kArp:     return latencyLive;
+        default:       return 0;
     }
 }
 

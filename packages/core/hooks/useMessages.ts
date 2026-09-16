@@ -26,6 +26,12 @@ import { r2KeyFromUrl } from '../lib/r2Keys'
 // NEXT_PUBLIC_R2_PUBLIC_URL) for custom-domain urls.
 const keyFromR2Url = (url: string): string | null => r2KeyFromUrl(url)
 
+// The plugin deployment hosts the API routes. Core is bundler-agnostic
+// (no env access), so the origin is fixed here; app-local copies of
+// this hook resolve it their own way (plugin: same-origin, web:
+// NEXT_PUBLIC_UPLOAD_API_BASE — see apps/web/lib/upload.ts).
+const DELETE_API_BASE = 'https://better-plugin.vercel.app'
+
 /** messages.attachment_keys for an outgoing attachment: every R2 object
  *  key it references — [key] for a plain R2 url; all track keys for a
  *  multi-audio attachment, whose url field is a JSON array of
@@ -143,6 +149,19 @@ export function useMessages(
             return [...prev, msg]
           })
         })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+        }, (payload) => {
+          // messages has REPLICA IDENTITY FULL (20260916_message_delete),
+          // so the old row carries conversation_id and passes the same
+          // client-side gate the INSERTs use.
+          const old = payload.old as Partial<Message>
+          if (!old.id) return
+          if (old.conversation_id && old.conversation_id !== convIdRef.current) return
+          setMessages(prev => prev.filter(m => m.id !== old.id))
+        })
         .subscribe()
 
       channelRef.current = channel
@@ -215,5 +234,40 @@ export function useMessages(
     return true
   }, [supabase, currentUserId])
 
-  return { messages, loading, send, conversationId: convId }
+  /** Delete one of my own messages via /api/message-delete — the row
+   *  dies under RLS (sender-only) and the endpoint reclaims its R2
+   *  attachment objects. Local state drops the message on success;
+   *  realtime DELETE covers everyone else. */
+  const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
+    let token: string | undefined
+    try {
+      const { data } = await supabase.auth.getSession()
+      token = data.session?.access_token
+    } catch { /* no session — the guard below reports it */ }
+    if (!token) {
+      console.error('[useMessages] delete failed: no session')
+      return false
+    }
+    try {
+      const res = await fetch(`${DELETE_API_BASE}/api/message-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ messageId }),
+      })
+      if (!res.ok) {
+        console.error('[useMessages] delete failed', { status: res.status, messageId })
+        return false
+      }
+    } catch (err) {
+      console.error('[useMessages] delete failed', err)
+      return false
+    }
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+    return true
+  }, [supabase])
+
+  return { messages, loading, send, deleteMessage, conversationId: convId }
 }

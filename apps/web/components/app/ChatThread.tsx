@@ -233,6 +233,25 @@ function GameInviteBubble({ roomId, gameType, mine, onJoin }: {
   )
 }
 
+/** Two-tap delete word — "delete" → "sure?" (never an ✕). Always on
+ *  (subtly) for own messages: this is a touch surface, hover won't do. */
+function MsgDeleteWord({ onConfirm }: { onConfirm: () => void }) {
+  const [arming, setArming] = useState(false)
+  useEffect(() => {
+    if (!arming) return
+    const t = setTimeout(() => setArming(false), 2600)
+    return () => clearTimeout(t)
+  }, [arming])
+  return (
+    <button
+      className={`chatt-delword${arming ? ' arming' : ''}`}
+      onClick={() => { if (arming) { setArming(false); onConfirm() } else setArming(true) }}
+    >
+      {arming ? 'sure?' : 'delete'}
+    </button>
+  )
+}
+
 /** Render whatever a message carries as an attachment. */
 function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; from?: string; onJoinGame?: GameInviteBubbleJoin }) {
   if (m.attachment_expired) {
@@ -271,7 +290,7 @@ function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; 
 
 /** Full-screen thread — 1:1 or group — over the orb home on mobile. */
 export default function ChatThread({ supabase, currentUserId, target, profileById, onSeen, onJoinGame, friends, onClose, embedded, settingsSignal }: Props) {
-  const { messages, loading, send, conversationId } = useMessages(
+  const { messages, loading, send, deleteMessage, conversationId } = useMessages(
     supabase,
     currentUserId,
     target.kind === 'dm'
@@ -339,6 +358,27 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
 
   const isGroup = target.kind === 'group'
   const title = isGroup ? target.title : target.friend.display_name
+
+  // ── delete my message (the two-tap word beside the bubble) ──────────
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set())
+  const handleDelete = async (m: Message) => {
+    // If the doomed message's audio is in the shared player, stop it
+    // first — no orphaned playback outliving its bubble.
+    if (npTrack) {
+      let dying = m.attachment_type === 'audio' && m.attachment_url === npTrack.url
+      if (!dying && m.attachment_type === 'multi-audio' && m.attachment_url) {
+        try {
+          dying = (JSON.parse(m.attachment_url) as { url?: string }[])
+            .some(t => t?.url === npTrack.url)
+        } catch { /* not a track list — nothing of ours is playing */ }
+      }
+      if (dying) npApi.close()
+    }
+    setDeletingIds(prev => new Set(prev).add(m.id))
+    const ok = await deleteMessage(m.id)
+    setDeletingIds(prev => { const next = new Set(prev); next.delete(m.id); return next })
+    if (!ok) setUploadErr('message didn’t delete — try again.')
+  }
 
   // Per-message read receipts, iMessage-style: each reader appears once,
   // anchored to the LATEST of my messages their last_seen_at covers, and
@@ -590,7 +630,11 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           const sender = isGroup && !mine && !grouped ? profileById.get(m.sender_id) : null
           const readers = mine ? readersByMsgId.get(m.id) ?? [] : []
           return (
-            <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
+            <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
+              {/* Optimistic rows ('opt-') have no server row to delete yet. */}
+              {mine && !m.id.startsWith('opt-') && (
+                <MsgDeleteWord onConfirm={() => { void handleDelete(m) }} />
+              )}
               <div className="chatt-col">
                 {sender && (
                   <span className="chatt-sender" style={{ color: sender.avatar_color }}>

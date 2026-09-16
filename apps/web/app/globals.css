@@ -1318,6 +1318,14 @@ button { font-family: inherit; }
 .chatt-row { display: flex; margin-top: 9px; }
 .chatt-row.grouped { margin-top: 3px; }
 .chatt-row.mine { justify-content: flex-end; }
+/* Own-message delete — the two-tap word in the row's empty outer
+   gutter, subtly always on (touch surface — no hover to reveal it). */
+.chatt-delword { align-self: center; flex-shrink: 0; margin-right: 10px; border: none;
+  background: none; padding: 2px 0; cursor: pointer; font-size: 11px;
+  text-transform: lowercase; color: var(--t3); opacity: .55; }
+.chatt-delword.arming { color: var(--red); opacity: 1; }
+/* In-flight: the row dims and goes inert until it disappears. */
+.chatt-row.deleting { opacity: .5; pointer-events: none; }
 .chatt-col { display: flex; flex-direction: column; max-width: 86%; }
 .chatt-row.mine .chatt-col { align-items: flex-end; margin-left: auto; }
 .chatt-sender { font-family: var(--f-mono); font-size: 10px; margin: 0 0 3px 12px; }

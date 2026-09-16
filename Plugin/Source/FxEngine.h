@@ -29,7 +29,8 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kMixSlot = 11,          // reserved: the graph-only mix node
             kTremolo = 12, kArp, kRadio, kHarmony,
             kPitch = 16, kFormant, kGrain, kVoice, kCrush,
-            kNumFx = 21, kNone = -1 };
+            kShimmer = 21, kSwell, kStutter, kAir, kRing, kGate, kWow,
+            kNumFx = 28, kNone = -1 };
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
@@ -172,6 +173,27 @@ struct NodeState
     double grainBeat = 0.0;
     int   grainLastStep = -1;
     unsigned grainRng = 0x2545F491u;
+    // shimmer: last wet block (fed back through the shifter) + loop filters
+    std::vector<float> shimWet[2];
+    float shimHp[2] {}, shimLp[2] {};
+    // swell
+    float swellEnvFast = 0.0f, swellEnvSlow = 0.0f, swellGain = 1.0f;
+    int   swellHold = 0;
+    // stutter: a slice captured at each cell start, then repeated
+    std::vector<float> stutBuf[2];
+    int   stutLen = 0, stutFill = 0, stutPos = 0;
+    long  stutCell = -1;
+    double stutFreeBeat = 0.0;
+    // air
+    Biquad airHp[2], airHp2[2];
+    float airBakedSr = 0.0f, airDc[2] {};
+    // ring
+    float ringPhase = 0.0f;
+    // wow: a short modulated line
+    std::vector<float> wowDl[2];
+    int   wowWrite = 0;
+    float wowPhase = 0.0f, wowFlutPhase = 0.0f, wowDrift = 0.0f, wowJitter = 0.0f;
+    unsigned wowRng = 0x1F123BB5u;
     // radio
     Biquad radioBp[2][2];
     float radioBakedA = -1.0f;
@@ -308,7 +330,7 @@ private:
     // branch alignment: delay lines for kDelay ops
     std::vector<float> delayLines[kMaxDelayLines][2];
     int delayWrite[kMaxDelayLines] {};
-    int latencyFine = 0, latencyLive = 0, latencyGrain = 0;
+    int latencyFine = 0, latencyLive = 0, latencyGrain = 0, latencyWow = 0;
 };
 
 } // namespace orbfx

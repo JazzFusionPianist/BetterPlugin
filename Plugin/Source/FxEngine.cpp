@@ -259,6 +259,9 @@ void NodeState::prepare (double sampleRate)
         shifter->configured = true;
     }
     line (grainRing, 2.0f);
+    line (stutBuf, 2.2f);      // a whole beat down to 27 BPM
+    line (wowDl, 0.05f);
+    shimWet[0].assign (8192, 0.0f); shimWet[1].assign (8192, 0.0f);
     reset();
 }
 
@@ -319,6 +322,19 @@ void NodeState::reset()
     for (auto& g : grains) g = Grain {};
     grainNote = -1.0f; grainPdCountdown = 0;
     crushHold[0] = crushHold[1] = 0.0f; crushPhase = 0.0f;
+    std::fill (shimWet[0].begin(), shimWet[0].end(), 0.0f);
+    std::fill (shimWet[1].begin(), shimWet[1].end(), 0.0f);
+    shimHp[0] = shimHp[1] = 0.0f; shimLp[0] = shimLp[1] = 0.0f;
+    swellEnvFast = 0.0f; swellEnvSlow = 0.0f; swellGain = 1.0f; swellHold = 0;
+    std::fill (stutBuf[0].begin(), stutBuf[0].end(), 0.0f);
+    std::fill (stutBuf[1].begin(), stutBuf[1].end(), 0.0f);
+    stutLen = 0; stutFill = 0; stutPos = 0; stutCell = -1; stutFreeBeat = 0.0;
+    for (int ch = 0; ch < 2; ++ch) { airHp[ch] = {}; airHp2[ch] = {}; airDc[ch] = 0.0f; }
+    airBakedSr = 0.0f;
+    ringPhase = 0.0f;
+    std::fill (wowDl[0].begin(), wowDl[0].end(), 0.0f);
+    std::fill (wowDl[1].begin(), wowDl[1].end(), 0.0f);
+    wowWrite = 0; wowPhase = 0.0f; wowFlutPhase = 0.0f; wowDrift = 0.0f; wowJitter = 0.0f;
 }
 
 //==============================================================================
@@ -355,7 +371,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                                   if (type == kGlue) grDb = 0.0f;
                                   // Wet Solo at zero is silence, not a dry copy —
                                   // a parallel branch must not double the source.
-                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod || type == kHarmony || type == kGrain))
+                                  if (p.wet && (type == kSpace || type == kDelay || type == kDoubler || type == kMod || type == kHarmony || type == kGrain || type == kShimmer))
                                   {
                                       juce::FloatVectorOperations::clear (L, n);
                                       if (R != nullptr) juce::FloatVectorOperations::clear (R, n);
@@ -1403,6 +1419,268 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
+        case kShimmer:
+        {
+            // A hall whose tail is pitched up and fed back into itself:
+            // the last wet block passes through the shifter, is band-
+            // limited and soft-clipped, and joins the send. The knob is
+            // both the feedback and the wet.
+            if (shifter == nullptr) break;
+            const float semis = variant == 1 ? 7.0f : variant == 2 ? -12.0f : 12.0f;
+            juce::Reverb::Parameters pr;
+            pr.roomSize = 0.92f; pr.damping = 0.22f; pr.width = 1.0f;
+            pr.wetLevel = 1.0f; pr.dryLevel = 0.0f; pr.freezeMode = 0.0f;
+            fxReverb.setParameters (pr);
+            if (scratch.getNumSamples() < n) scratch.setSize (2, n, false, false, true);
+            float* wl = scratch.getWritePointer (0);
+            float* wr = scratch.getWritePointer (1);
+            const bool haveFb = n <= (int) shimWet[0].size();
+            if (haveFb)
+            {
+                juce::FloatVectorOperations::copy (wl, shimWet[0].data(), n);
+                juce::FloatVectorOperations::copy (wr, shimWet[1].data(), n);
+                auto& eng = shifter->st (true);
+                eng.setTransposeSemitones (semis, 8000.0f / sr);
+                eng.setFormantSemitones (0.0f, false);
+                eng.setFormantBase (0.0f);
+                shiftBlock (*this, true, n, wl, wr);
+            }
+            else { juce::FloatVectorOperations::clear (wl, n); juce::FloatVectorOperations::clear (wr, n); }
+            const float fb  = 0.25f + 0.5f * a;
+            const float hpk = 1.0f - std::exp (-twoPi * 250.0f / sr);
+            const float lpk = 1.0f - std::exp (-twoPi * 5500.0f / sr);
+            const float inHpk = 1.0f - std::exp (-twoPi * 170.0f / sr);
+            for (int i = 0; i < n; ++i)
+            {
+                shimHp[0] += (wl[i] - shimHp[0]) * hpk;  shimLp[0] += ((wl[i] - shimHp[0]) - shimLp[0]) * lpk;
+                shimHp[1] += (wr[i] - shimHp[1]) * hpk;  shimLp[1] += ((wr[i] - shimHp[1]) - shimLp[1]) * lpk;
+                const float f0 = std::tanh (shimLp[0] * fb);
+                const float f1 = std::tanh (shimLp[1] * fb);
+                sendHpState[0] += (L[i] - sendHpState[0]) * inHpk;
+                const float inR = R != nullptr ? R[i] : L[i];
+                sendHpState[1] += (inR - sendHpState[1]) * inHpk;
+                wl[i] = (L[i] - sendHpState[0]) + f0;
+                wr[i] = (inR  - sendHpState[1]) + f1;
+            }
+            fxReverb.processStereo (wl, wr, n);
+            if (haveFb)
+            {
+                juce::FloatVectorOperations::copy (shimWet[0].data(), wl, n);
+                juce::FloatVectorOperations::copy (shimWet[1].data(), wr, n);
+            }
+            const float wet = a * 0.9f;
+            const float dry = p.wet ? 0.0f : 1.0f - a * 0.25f;
+            for (int i = 0; i < n; ++i)
+            {
+                L[i] = L[i] * dry + wl[i] * wet;
+                if (R != nullptr) R[i] = R[i] * dry + wr[i] * wet;
+            }
+            break;
+        }
+
+        case kSwell:
+        {
+            // Every onset restarts a slow fade-in, so plucks and hits bloom
+            // like a bowed string. The knob is the rise (20 ms .. 1.5 s);
+            // `soft` dips to a quarter, `hard` to silence.
+            const float T     = 0.02f * std::pow (75.0f, a);
+            const float rise  = 1.0f / (T * sr);
+            const float relK  = 1.0f - std::exp (-1.0f / (0.03f * sr));
+            const float slowK = 1.0f - std::exp (-1.0f / (0.15f * sr));
+            const float floorG = variant == 1 ? 0.0f : 0.25f;
+            const int   holdN  = (int) (0.08f * sr);
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f);
+                if (x > swellEnvFast) swellEnvFast = x; else swellEnvFast += (x - swellEnvFast) * relK;
+                if (swellHold > 0) --swellHold;
+                else if (swellEnvFast > 2.5f * swellEnvSlow + 0.003f)
+                {
+                    swellGain = juce::jmin (swellGain, floorG);
+                    swellHold = holdN;
+                }
+                swellEnvSlow += (swellEnvFast - swellEnvSlow) * slowK;
+                swellGain = juce::jmin (1.0f, swellGain + rise);
+                L[i] *= swellGain;
+                if (R != nullptr) R[i] *= swellGain;
+            }
+            break;
+        }
+
+        case kStutter:
+        {
+            // At every beat (or bar) the first slice is captured, then
+            // repeated until the next cell. The knob picks the slice:
+            // 1 beat, 1/2, 1/4, 1/8, 1/16 of a beat (1/4 .. 1/64 notes).
+            if (stutBuf[0].empty()) break;
+            static const float kSlice[5] = { 1.0f, 0.5f, 0.25f, 0.125f, 0.0625f };
+            const int   zone   = juce::jlimit (0, 4, (int) (a * 5.0f));
+            const float spb    = 60.0f / juce::jmax (20.0f, p.bpm) * sr;   // samples per beat
+            const int   want   = juce::jmax (32, (int) (kSlice[zone] * spb));
+            const float cellB  = variant == 1 ? 4.0f : 1.0f;
+            const int   cap    = (int) stutBuf[0].size();
+            const int   fadeN  = 24;
+            for (int i = 0; i < n; ++i)
+            {
+                const double b = beatAt (p, stutFreeBeat, i, sr);
+                const long cell = (long) std::floor (b / cellB);
+                if (cell != stutCell)
+                {
+                    stutCell = cell; stutFill = 0; stutPos = 0;
+                    stutLen = juce::jmin (cap, (int) spb);   // capture up to a beat; the knob picks how much repeats
+                }
+                const float xl = L[i], xr = R != nullptr ? R[i] : L[i];
+                if (stutFill < stutLen)
+                {
+                    stutBuf[0][(size_t) stutFill] = xl; stutBuf[1][(size_t) stutFill] = xr; ++stutFill;
+                    if (stutFill <= want) continue;     // the first slice passes as it is captured
+                }
+                const int len = juce::jmin (want, stutFill);
+                if (len < 8) continue;
+                if (stutPos >= len) stutPos = 0;
+                const float g = juce::jmin (1.0f, juce::jmin ((float) stutPos, (float) (len - stutPos)) / (float) fadeN);
+                L[i] = stutBuf[0][(size_t) stutPos] * g;
+                if (R != nullptr) R[i] = stutBuf[1][(size_t) stutPos] * g;
+                ++stutPos;
+            }
+            if (! p.playing) stutFreeBeat += (double) p.bpm / 60.0 / (double) sr * (double) n;
+            break;
+        }
+
+        case kAir:
+        {
+            // An exciter: only what lives above ~4.5 kHz is bent into new
+            // harmonics and laid back on top. `silk` bends evenly (soft,
+            // sparkling), `bright` bends oddly (edge).
+            if (airBakedSr != sr)
+            {
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    airHp[ch] = {}; airHp2[ch] = {};
+                    bakeCutFilter (true, 4500.0f, sr, airHp[ch].b0, airHp[ch].b1, airHp[ch].b2, airHp[ch].a1, airHp[ch].a2);
+                    airHp2[ch] = airHp[ch];
+                }
+                airBakedSr = sr;
+            }
+            const float dcK = 1.0f - std::exp (-twoPi * 30.0f / sr);
+            const float amt = a * 1.4f;
+            const int chs = R != nullptr ? 2 : 1;
+            for (int ch = 0; ch < chs; ++ch)
+            {
+                float* S = ch == 1 ? R : L;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float hi = airHp2[ch].run (airHp[ch].run (S[i]));
+                    float h = variant == 1 ? std::tanh (hi * 5.0f) * 0.4f : std::tanh (hi * std::abs (hi) * 8.0f) * 0.5f;   // soft-limited: clicks stay clicks
+                    airDc[ch] += (h - airDc[ch]) * dcK;
+                    h -= airDc[ch];
+                    S[i] += h * amt;
+                }
+            }
+            break;
+        }
+
+        case kRing:
+        {
+            // Ring modulation: the knob sweeps the carrier 20 Hz .. 5 kHz.
+            // `ring` multiplies (sum and difference tones only), `am`
+            // keeps the source underneath. The first few percent cross-
+            // fade in so the print never jumps.
+            const float f   = 20.0f * std::pow (2.0f, a * 8.0f);
+            const float inc = f / sr;
+            const float mix = juce::jmin (1.0f, a * 12.0f);
+            for (int i = 0; i < n; ++i)
+            {
+                ringPhase += inc; if (ringPhase >= 1.0f) ringPhase -= 1.0f;
+                const float c = std::sin (twoPi * ringPhase);
+                const float k = variant == 1 ? 0.5f + 0.5f * c : c;
+                L[i] = L[i] * (1.0f - mix) + L[i] * k * mix;
+                if (R != nullptr) R[i] = R[i] * (1.0f - mix) + R[i] * k * mix;
+            }
+            break;
+        }
+
+        case kGate:
+        {
+            // A trance gate: the tremolo's clock and shapes, but the shape
+            // is read as open/shut. Depth is the knob; `tight` snaps in a
+            // millisecond, `loose` in twelve.
+            const int   di    = juce::jlimit (0, 6, p.delayDiv);
+            const float cycle = kDivBeats[di];
+            const float slewK = 1.0f - std::exp (-1.0f / ((variant == 1 ? 0.012f : 0.001f) * sr));
+            const double perSample = (double) p.bpm / 60.0 / (double) sr / (double) cycle;
+            auto shapeAt = [&] (float ph) -> float
+            {
+                if (p.hasCurve)
+                {
+                    const float x  = ph * (float) kCurveLen;
+                    const int   i0 = ((int) x) % kCurveLen;
+                    return p.curve[i0];
+                }
+                return ph < 0.5f ? 1.0f : 0.0f;
+            };
+            for (int i = 0; i < n; ++i)
+            {
+                float ph;
+                if (p.playing)
+                {
+                    const double b = (p.ppq + (double) p.bpm / 60.0 / (double) sr * (double) i) / (double) cycle;
+                    ph = (float) (b - std::floor (b));
+                    tremPhase = ph;
+                }
+                else
+                {
+                    tremPhase += (float) perSample;
+                    tremPhase -= std::floor (tremPhase);
+                    ph = tremPhase;
+                }
+                const float open = juce::jlimit (0.0f, 1.0f, (shapeAt (ph) - 0.35f) / 0.3f);
+                const float g = 1.0f - a * (1.0f - open);
+                tremGainSm[0] += (g - tremGainSm[0]) * slewK;
+                L[i] *= tremGainSm[0];
+                if (R != nullptr) R[i] *= tremGainSm[0];
+            }
+            break;
+        }
+
+        case kWow:
+        {
+            // Tape transport trouble: a short line whose read head sways.
+            // `wow` is the slow sway (~0.6 Hz, drifting), `flutter` the
+            // fast shiver (~7 Hz, jittery), `both` a worn deck.
+            if (wowDl[0].empty()) break;
+            const int   len   = (int) wowDl[0].size();
+            const bool  doWow = variant != 1, doFlut = variant != 0;
+            const float base  = 0.012f * sr;
+            const float wowD  = doWow  ? a * a * 0.0045f * sr : 0.0f;
+            const float flutD = doFlut ? a * 0.0007f * sr : 0.0f;
+            const float mix   = juce::jmin (1.0f, a * 20.0f);
+            auto rnd = [&] () { wowRng = wowRng * 1664525u + 1013904223u; return (float) (wowRng >> 8) / 16777216.0f - 0.5f; };
+            const float driftK = 1.0f - std::exp (-1.0f / (0.8f * sr));
+            const float jitK   = 1.0f - std::exp (-1.0f / (0.02f * sr));
+            for (int i = 0; i < n; ++i)
+            {
+                wowDrift  += (rnd() * 0.6f - wowDrift) * driftK;
+                wowJitter += (rnd() - wowJitter) * jitK;
+                wowPhase     += (0.6f * (1.0f + wowDrift)) / sr;      if (wowPhase >= 1.0f) wowPhase -= 1.0f;
+                wowFlutPhase += (7.3f * (1.0f + wowJitter * 0.5f)) / sr; if (wowFlutPhase >= 1.0f) wowFlutPhase -= 1.0f;
+                const float d = base + wowD * std::sin (twoPi * wowPhase) + flutD * (std::sin (twoPi * wowFlutPhase) + wowJitter * 0.8f);
+                const int chs = R != nullptr ? 2 : 1;
+                for (int ch = 0; ch < chs; ++ch)
+                {
+                    float* S = ch == 1 ? R : L;
+                    wowDl[ch][(size_t) wowWrite] = S[i];
+                    float rp = (float) wowWrite - d; while (rp < 0.0f) rp += (float) len;
+                    const int   r0 = (int) rp; const float fr = rp - (float) r0;
+                    const int   r1 = (r0 + 1) % len;
+                    const float y = wowDl[ch][(size_t) r0] * (1.0f - fr) + wowDl[ch][(size_t) r1] * fr;
+                    S[i] = S[i] * (1.0f - mix) + y * mix;
+                }
+                if (++wowWrite >= len) wowWrite = 0;
+            }
+            break;
+        }
+
         default: break;
     }
 }
@@ -1663,6 +1941,7 @@ void Chain::prepare (double sampleRate, int blockSize)
         latencyLive = sh->live.inputLatency() + sh->live.outputLatency();
     }
     latencyGrain = (int) (sampleRate * 0.045 * 0.5);
+    latencyWow   = (int) (sampleRate * 0.012);
     for (int i = 0; i < kMaxDelayLines; ++i)
     {
         delayLines[i][0].assign ((size_t) kMaxDelaySamples, 0.0f);
@@ -1680,6 +1959,7 @@ int Chain::nodeLatency (const Graph::Node& n) const noexcept
         case kVoice:   return latencyFine;
         case kHarmony: return latencyFine;
         case kArp:     return latencyLive;
+        case kWow:     return latencyWow;
         default:       return 0;
     }
 }

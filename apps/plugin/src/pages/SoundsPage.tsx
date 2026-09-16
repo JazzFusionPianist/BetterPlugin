@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import FxWall from '../components/collab/FxWall'
+import FxWall, { shelfLayout } from '../components/collab/FxWall'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
@@ -37,7 +37,8 @@ export default function SoundsPage() {
     const el = contentRef.current; if (!el) return
     const measure = () => {
       const r = el.getBoundingClientRect()
-      setWallSize({ w: Math.max(300, Math.round(r.width)), h: Math.max(200, Math.round(r.height) - 112) })
+      const w = Math.max(300, Math.round(r.width))
+      setWallSize({ w, h: Math.max(200, Math.round(r.height) - shelfLayout(w).height) })
     }
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)

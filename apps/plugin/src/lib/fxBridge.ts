@@ -7,9 +7,9 @@
 
 import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
 
-export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20
-/** Slots: 0..10 the first prints, 11 the mix (no memory), 12..20 the newer prints. */
-export const FX_COUNT = 21
+export type FxMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27
+/** Slots: 0..10 the first prints, 11 the mix (no memory), 12..27 the newer prints. */
+export const FX_COUNT = 28
 
 export interface FxState {
   mode: FxMode

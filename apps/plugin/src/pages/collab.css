@@ -10068,14 +10068,14 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .sg-flav, .sg-val { color: rgba(246, 243, 234, 0.5); }
 /* the shelf: every print at hand, dimmed until it is hung on the wall */
 .sg-shelf {
-  flex-shrink: 0; height: 112px; box-sizing: border-box;
+  flex-shrink: 0; box-sizing: border-box;
   border-top: 1px solid rgba(246, 243, 234, 0.14);
-  display: flex; align-items: center; justify-content: center; gap: 18px;
-  padding: 0 24px;
+  display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: center; gap: 8px 18px;
+  padding: 10px 24px;
 }
 .sg-shelf-item {
-  display: flex; flex-direction: column; align-items: center; gap: 7px;
-  opacity: 0.5; cursor: grab;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px;
+  box-sizing: border-box; opacity: 0.5; cursor: grab;
 }
 .sg-shelf-item span {
   font-family: var(--f-sans); font-size: 10.5px; color: #F6F3EA;

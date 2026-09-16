@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS } from './FxPanel'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, GATE_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
 import {
@@ -24,10 +24,20 @@ const NODE = 132
 const STUDY_W = 380          // the study: a column on the right where the chosen print is drawn big
 const STUDY_PRINT = 300
 const R = NODE / 2
-const SHELF_PRINT = 48
+const SHELF_PRINT = 44
+const SHELF_ITEMS = MODES.length + 1   // every print plus the mix
+const SHELF_ROW = 66, SHELF_ROWGAP = 8, SHELF_PAD = 10
+/** The shelf wraps into rows; the page needs its height to size the wall. */
+export function shelfLayout (w: number): { print: number; gap: number; rows: number; height: number } {
+  const print = Math.max(30, Math.min(SHELF_PRINT, Math.floor((w - 48) / 13) - 12))
+  const gap = print < SHELF_PRINT ? 10 : 18
+  const perRow = Math.max(1, Math.floor((w - 48 + gap) / (print + gap)))
+  const rows = Math.max(1, Math.ceil(SHELF_ITEMS / perRow))
+  return { print, gap, rows, height: rows * SHELF_ROW + (rows - 1) * SHELF_ROWGAP + SHELF_PAD * 2 + 1 }
+}
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
 const SNAP_WIRE = 26           // drop a print this close to a wire to splice it in
-const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18])   // space, delay, doubler, mod, harmony, grain
+const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, doubler, mod, harmony, grain, shimmer
 
 type Pt = { x: number; y: number }
 type Drag =
@@ -55,6 +65,9 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
   if (type === 16 || type === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (type === 0 || type === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
+  if (type === 22) return fmtSwell(a)
+  if (type === 23) return STUTTER_LABELS[Math.min(4, Math.floor(a * 5))]
+  if (type === 25) return fmtRing(a)
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
@@ -165,7 +178,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
         : type === 5 ? <Art a={a} pol={variant} onFlip={onFlip} />
-        : type === 12 ? <Art a={a} variant={variant} curve={node.curve} />
+        : type === 12 || type === 26 ? <Art a={a} variant={variant} curve={node.curve} />
         : type === 18 ? <Art a={a} variant={variant} />
         : type === 19 ? <Art a={a} variant={variant} />
         : type === 13 ? <Art a={a} variant={variant} interval={node.aux[0] || 12} />
@@ -519,8 +532,9 @@ export default function FxWall ({ size: frame }: Props) {
   // ── render ─────────────────────────────────────────────────────────
   const sharesOf = (id: number) => inputsOf(id).map(x => x.e.gain)
   const full = graph.nodes.length >= FX_MAX_NODES
-  // the shelf fits sixteen prints in whatever width the wall has left
-  const shelfPrint = Math.max(30, Math.min(SHELF_PRINT, Math.floor((size.w - 48) / 16) - 12))
+  // the shelf wraps its prints into rows in whatever width the wall has
+  const shelf = shelfLayout(size.w)
+  const shelfPrint = shelf.print
 
 
   // ── a print's second hands and its words — the same ones under the
@@ -554,7 +568,7 @@ export default function FxWall ({ size: frame }: Props) {
                       </span>
                     </>
                   )}
-                  {(n.type === 12 || n.type === 13) && (
+                  {(n.type === 12 || n.type === 13 || n.type === 26) && (
                     <span className="sg-val hand"
                       onPointerDown={(e) => { e.stopPropagation(); grab(e); setSel({ node: n.id }); setDrag({ kind: 'hand', id: n.id, hand: 'div', y0: e.clientY, v0: n.delayDiv }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { delayDiv: 2 }, true) }}>
@@ -645,6 +659,10 @@ export default function FxWall ({ size: frame }: Props) {
                     {n.type !== 5 && n.type !== 12 && flavours.map((f, vi) => (
                       <span key={f} className={`sg-word${n.variant === vi ? ' on' : ''}`}
                         onPointerDown={() => updateNode(n.id, { variant: vi }, true)}>{f}</span>
+                    ))}
+                    {n.type === 26 && GATE_PRESETS.map((pr, pi) => (
+                      <span key={pr.name} className={`sg-word${(n.aux[2] || 0) === pi ? ' on' : ''}`}
+                        onPointerDown={() => { const aux = [...n.aux]; aux[2] = pi; updateNode(n.id, { aux, curve: pr.curve() }, true) }}>{pr.name}</span>
                     ))}
                     {n.type === 12 && ['vol', 'pan'].map((w, k) => (
                       <span key={w} className={`sg-word${(n.aux[0] || 0) === k ? ' on' : ''}`}
@@ -1125,9 +1143,9 @@ export default function FxWall ({ size: frame }: Props) {
         {scope.input && hasFxBridge() && !hasJuceNativeFunction('setScopeInput') && <p className="fx-note sg-note">the input trace needs the newer plugin — restart the daw.</p>}
       </div>
 
-      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ gap: shelfPrint < SHELF_PRINT ? 10 : 18 }}>
+      <div className={`sg-shelf${full ? ' full' : ''}`} style={{ columnGap: shelf.gap, rowGap: SHELF_ROWGAP, padding: `${SHELF_PAD}px 24px` }}>
         {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
-          <div key={type} className="sg-shelf-item"
+          <div key={type} className="sg-shelf-item" style={{ height: SHELF_ROW }}
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>

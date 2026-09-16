@@ -27,6 +27,13 @@ const MODES: Array<{ id: FxMode; name: string }> = [
   { id: 17, name: 'formant' },
   { id: 18, name: 'grain' },
   { id: 20, name: 'crush' },
+  { id: 21, name: 'shimmer' },
+  { id: 22, name: 'swell' },
+  { id: 23, name: 'stutter' },
+  { id: 24, name: 'air' },
+  { id: 25, name: 'ring' },
+  { id: 26, name: 'gate' },
+  { id: 27, name: 'wow' },
 ]
 
 /** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
@@ -53,6 +60,13 @@ const VARIANTS: string[][] = [
   ['cloud', 'stutter', 'reverse'], // grain
   ['female', 'male', 'child', 'giant'], // voice
   ['both', 'bits', 'rate'],        // crush
+  ['octave', 'fifth', 'down'],     // shimmer
+  ['soft', 'hard'],                // swell
+  ['beat', 'bar'],                 // stutter
+  ['silk', 'bright'],              // air
+  ['ring', 'am'],                  // ring
+  ['tight', 'loose'],              // gate
+  ['wow', 'flutter', 'both'],      // wow
 ]
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
@@ -86,6 +100,13 @@ const WALL_TINTS: Array<[number, number, number]> = [
   [200, 220, 120],  // grain — pollen
   [255, 120, 90],   // voice — throat coral
   [120, 255, 160],  // crush — phosphor green
+  [190, 215, 255],  // shimmer — halo silver
+  [255, 214, 140],  // swell — dawn
+  [255, 72, 128],   // stutter — strobe magenta
+  [225, 240, 255],  // air — white light
+  [255, 170, 40],   // ring — brass
+  [110, 130, 255],  // gate — club indigo
+  [214, 150, 84],   // wow — tape brown
 ]
 
 /** Flavours get their own light: [mode][variant] overrides. */
@@ -814,12 +835,178 @@ function CrushArt ({ a }: { a: number }) {
   )
 }
 
+const STUTTER_LABELS = ['1/4', '1/8', '1/16', '1/32', '1/64']
+function fmtSwell (a: number): string { const T = 0.02 * Math.pow(75, a); return T < 1 ? `${Math.round(T * 1000)}ms` : `${T.toFixed(2)}s` }
+function fmtRing (a: number): string { const hz = 20 * Math.pow(2, a * 8); return hz >= 1000 ? `${(hz / 1000).toFixed(2)}k` : `${Math.round(hz)}` }
+
+/* ── shimmer: echoes that climb — each ring a little higher, a little smaller ── */
+function ShimmerArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const { s, acc } = useInks(a)
+  const count = 3 + Math.round(a * 5)
+  const dir = variant === 2 ? 1 : -1
+  const rings = []
+  for (let i = 0; i < count; i++) {
+    const t = i / Math.max(1, count - 1)
+    const r = 58 - t * 44
+    const cy = C + 14 + dir * t * (34 + a * 26)
+    rings.push(<circle key={i} cx={C} cy={cy} r={r} fill="none" stroke={i === 0 ? s : acc} strokeWidth={i === 0 ? 1.6 : 1.1} opacity={i === 0 ? 1 : 0.85 - t * 0.45} />)
+  }
+  return <g>{rings}</g>
+}
+
+/* ── swell: the envelope a plucked note learns from a bow ─────────────── */
+function SwellArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const { s, acc } = useInks(a)
+  const X0 = C - 72, W = 144, Y0 = C - 50, H = 100
+  const attack = 0.06 + a * 0.8
+  const floor = variant === 1 ? 0 : 0.25
+  const pts: string[] = []
+  for (let i = 0; i <= 96; i++) {
+    const t = i / 96
+    const v = t < attack ? floor + (1 - floor) * Math.pow(t / attack, 1.8) : 1 - (t - attack) / (1 - attack) * 0.35
+    pts.push(`${(X0 + t * W).toFixed(1)},${(Y0 + H - v * H).toFixed(1)}`)
+  }
+  return (
+    <g>
+      <line x1={X0} y1={Y0 + H} x2={X0 + W} y2={Y0 + H} stroke={s} strokeWidth={0.8} opacity={0.25} />
+      <line x1={X0 + attack * W} y1={Y0 + 6} x2={X0 + attack * W} y2={Y0 + H} stroke={acc} strokeWidth={0.8} opacity={0.5} strokeDasharray="2 3" />
+      <polyline points={pts.join(' ')} fill="none" stroke={s} strokeWidth={1.6} strokeLinejoin="round" />
+    </g>
+  )
+}
+
+/* ── stutter: one slice of wave, cut and laid down again and again ───── */
+function StutterArt ({ a }: { a: number }) {
+  const { s, acc } = useInks(a)
+  const zone = Math.min(4, Math.floor(a * 5))
+  const reps = [1, 2, 4, 8, 16][zone]
+  const X0 = C - 72, W = 144
+  const slice = W / reps
+  const gap = reps > 1 ? Math.min(4, slice * 0.12) : 0
+  const cells = []
+  for (let k = 0; k < reps; k++) {
+    const x0 = X0 + k * slice
+    const pts: string[] = []
+    const n = Math.max(6, Math.round(48 / reps))
+    for (let i = 0; i <= n; i++) {
+      const t = i / n
+      const y = Math.sin(t * Math.PI * 2 * 1.5) * 0.7 + Math.sin(t * Math.PI * 2 * 4.2) * 0.25
+      pts.push(`${(x0 + gap / 2 + t * (slice - gap)).toFixed(1)},${(C - y * 40).toFixed(1)}`)
+    }
+    cells.push(<polyline key={k} points={pts.join(' ')} fill="none" stroke={k === 0 ? acc : s} strokeWidth={k === 0 ? 1.8 : 1.2} opacity={k === 0 ? 1 : 0.8} />)
+    if (k > 0) cells.push(<line key={`c${k}`} x1={x0} y1={C - 52} x2={x0} y2={C + 52} stroke={s} strokeWidth={0.6} opacity={0.35} />)
+  }
+  return <g>{cells}</g>
+}
+
+/* ── air: sparks above the horizon, more and higher with the knob ────── */
+function AirArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const { s, acc } = useInks(a)
+  const sparks = []
+  let seed = variant === 1 ? 23 : 5
+  const count = 6 + Math.round(a * 40)
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const rx = (seed % 1000) / 1000
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const ry = (seed % 1000) / 1000
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff; const rl = (seed % 1000) / 1000
+    const x = C - 70 + rx * 140
+    const y = C + 30 - ry * (40 + a * 60)
+    const len = 2 + rl * (variant === 1 ? 7 : 4)
+    sparks.push(variant === 1
+      ? <line key={i} x1={x - len / 2} y1={y} x2={x + len / 2} y2={y} stroke={i % 3 === 0 ? acc : s} strokeWidth={1} opacity={0.5 + ry * 0.5} />
+      : <circle key={i} cx={x} cy={y} r={0.6 + rl * 1.2} fill={i % 3 === 0 ? acc : s} opacity={0.4 + ry * 0.6} />)
+  }
+  return (
+    <g>
+      <line x1={C - 72} y1={C + 34} x2={C + 72} y2={C + 34} stroke={s} strokeWidth={1.2} />
+      {sparks}
+    </g>
+  )
+}
+
+/* ── ring: a slow wave multiplied by a fast one ───────────────────────── */
+function RingArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const { s, acc } = useInks(a)
+  const X0 = C - 72, W = 144
+  const f = 2 + a * 22
+  const pts: string[] = []
+  const env: string[] = []
+  for (let i = 0; i <= 160; i++) {
+    const t = i / 160
+    const slow = Math.sin(t * Math.PI * 2 * 1.5)
+    const carrier = Math.sin(t * Math.PI * 2 * f)
+    const k = variant === 1 ? 0.5 + 0.5 * carrier : carrier
+    pts.push(`${(X0 + t * W).toFixed(1)},${(C - slow * k * 46).toFixed(1)}`)
+    env.push(`${(X0 + t * W).toFixed(1)},${(C - slow * 46).toFixed(1)}`)
+  }
+  return (
+    <g>
+      <polyline points={env.join(' ')} fill="none" stroke={s} strokeWidth={0.8} opacity={0.3} strokeDasharray="2 3" />
+      <polyline points={pts.join(' ')} fill="none" stroke={a > 0.02 ? acc : s} strokeWidth={1.3} strokeLinejoin="round" />
+    </g>
+  )
+}
+
+/* ── gate: the tremolo's cycle read as open or shut ───────────────────── */
+function GateArt ({ a, curve }: { a: number; variant?: number; curve?: number[] }) {
+  const s = strokeFor(a), acc = accentFor(a)
+  const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
+  const pts: string[] = []
+  const at = (ph: number) => {
+    if (curve && curve.length === CURVE_LEN) return curve[Math.floor(ph * CURVE_LEN) % CURVE_LEN]
+    return ph < 0.5 ? 1 : 0
+  }
+  for (let i = 0; i <= 128; i++) {
+    const ph = i / 128
+    const open = Math.min(1, Math.max(0, (at(Math.min(ph, 0.9999)) - 0.35) / 0.3))
+    const v = 1 - a * (1 - open)
+    const x = X0 + ph * W
+    if (i > 0) { const prev = pts[pts.length - 1].split(',')[1]; pts.push(`${x.toFixed(1)},${prev}`) }
+    pts.push(`${x.toFixed(1)},${(Y0 + H - v * H).toFixed(1)}`)
+  }
+  return (
+    <g>
+      <line x1={X0} y1={Y0 + H} x2={X0 + W} y2={Y0 + H} stroke={s} strokeWidth={0.8} opacity={0.25} />
+      <polyline points={pts.join(' ')} fill="none" stroke={curve ? acc : s} strokeWidth={1.6} strokeLinejoin="miter" />
+    </g>
+  )
+}
+
+/* ── wow: a tape path that will not run straight ──────────────────────── */
+function WowArt ({ a, variant = 0 }: { a: number; variant?: number }) {
+  const { s, acc } = useInks(a)
+  const X0 = C - 72, W = 144
+  const lines = []
+  for (let row = -1; row <= 1; row++) {
+    const pts: string[] = []
+    for (let i = 0; i <= 160; i++) {
+      const t = i / 160
+      const slow = variant !== 1 ? Math.sin(t * Math.PI * 2 * 1.2 + row) * 14 * a : 0
+      const fast = variant !== 0 ? Math.sin(t * Math.PI * 2 * 14 + row * 2) * 3.5 * a : 0
+      pts.push(`${(X0 + t * W).toFixed(1)},${(C + row * 26 + slow + fast).toFixed(1)}`)
+    }
+    lines.push(<polyline key={row} points={pts.join(' ')} fill="none" stroke={row === 0 ? acc : s} strokeWidth={row === 0 ? 1.6 : 1.1} opacity={row === 0 ? 1 : 0.7} />)
+  }
+  return (
+    <g>
+      {lines}
+      <circle cx={C - 78} cy={C} r={5} fill="none" stroke={s} strokeWidth={1.2} />
+      <circle cx={C + 78} cy={C} r={5} fill="none" stroke={s} strokeWidth={1.2} />
+    </g>
+  )
+}
+
 function EmptyArt ({ a }: { a: number }) { void a; return <g /> }
 
-const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt, CrushArt]
+const ARTS = [ToneArt, TapeArt, SpaceArt, StereoArt, GlueArt, GainArt, ModArt, CutArt, AmpArt, DoublerArt, DelayArt, EmptyArt, TremoloArt, ArpArt, RadioArt, HarmonyArt, PitchArt, FormantArt, GrainArt, VoiceArt, CrushArt, ShimmerArt, SwellArt, StutterArt, AirArt, RingArt, GateArt, WowArt]
+/** The gate's patterns: the tremolo's rhythmic shapes, by name. */
+export const GATE_PRESETS = ['square', 'eighths', 'sixteenths', '3-3-2', 'gallop', 'swing', 'offbeat', 'random'].map(name => TREM_PRESETS.find(t => t.name === name)!).filter(Boolean)
 
 function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
+  if (mode === 22) return fmtSwell(a)
+  if (mode === 23) return STUTTER_LABELS[Math.min(4, Math.floor(a * 5))]
+  if (mode === 25) return fmtRing(a)
   if (mode === 0) {
     const db = (a - 0.5) * 12
     return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}`
@@ -1128,4 +1315,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing }

@@ -373,6 +373,53 @@ int main()
         CHECK (vals.size() < valsIn.size() / 4, "crush: far fewer distinct values");
     }
 
+    { // the seven new prints: each runs sane and does its one thing
+        auto one = [&] (int type, float amount, int variant = 0) { Graph g; g.nodes.push_back (node (2, type, amount, variant)); g.edges.push_back ({ kPortIn, 2, 1.0f }); g.edges.push_back ({ 2, kPortOut, 1.0f }); return g; };
+        const int N = kBlock * kBlocks;
+        auto energy = [] (const juce::AudioBuffer<float>& b, int from, int to) { double s = 0; for (int i = from; i < to; ++i) s += (double) b.getSample (0, i) * b.getSample (0, i); return s; };
+        auto hfEnergy = [] (const juce::AudioBuffer<float>& b, int from, int to) { double s = 0; for (int i = from + 1; i < to; ++i) { const double d = b.getSample (0, i) - b.getSample (0, i - 1); s += d * d; } return s; };
+        auto finite = [] (const juce::AudioBuffer<float>& b) { for (int c = 0; c < 2; ++c) for (int i = 0; i < b.getNumSamples(); ++i) if (! std::isfinite (b.getSample (c, i))) return false; return true; };
+
+        const auto sh = run (one (kShimmer, 0.8f));
+        CHECK (finite (sh) && peakOf (sh, 4000, N) > 0.1f && peakOf (sh, 0, N) < 2.0f, "shimmer: sane, passes signal");
+        Graph shw = one (kShimmer, 0.8f); shw.nodes[0].wet = true;
+        const auto shwO = run (shw);
+        Graph sh0 = one (kShimmer, 0.0f); sh0.nodes[0].wet = true;
+        CHECK (finite (shwO) && energy (shwO, 8000, N) > 0.0 && peakOf (run (sh0), 0, N) == 0.0f, "shimmer wet solo: the tail alone, silent at zero");
+
+        const auto sw = run (one (kSwell, 1.0f, 1));
+        const double swHead = energy (sw, 0, 3000), inHead = energy (input, 0, 3000);
+        std::printf ("    [swell] head energy in %.3f out %.3f\n", inHead, swHead);
+        CHECK (finite (sw) && swHead < inHead * 0.3, "swell hard: the first onset is swallowed");
+
+        const auto st = run (one (kStutter, 0.9f));
+        const int len = (int) std::lround (0.0625 * 60.0 / 120.0 * kSr);
+        float rep = 0.0f;
+        for (int i = 7600; i < N; ++i) rep = std::max (rep, std::abs (st.getSample (0, i) - st.getSample (0, i - len)));   // the knob has settled by ~5000 samples
+        std::printf ("    [stutter] slice %d repeat err %.5f\n", len, rep);
+        CHECK (finite (st) && rep < 1.0e-4f && peakOf (st, 7600, N) > 0.05f, "stutter at 1/64: the slice repeats exactly");
+
+        const auto air = run (one (kAir, 1.0f, 0));
+        const double hfIn = hfEnergy (input, 4000, N), hfOut = hfEnergy (air, 4000, N);
+        std::printf ("    [air] hf energy in %.4f out %.4f\n", hfIn, hfOut);
+        CHECK (finite (air) && hfOut > hfIn * 1.05 && peakOf (air, 4000, N) < 1.5f, "air: more high-frequency energy, sane level");
+
+        const auto ring = run (one (kRing, 0.5f, 0));
+        float rdiff = 0.0f; for (int i = 4000; i < N; ++i) rdiff = std::max (rdiff, std::abs (ring.getSample (0, i) - input.getSample (0, i)));
+        CHECK (finite (ring) && rdiff > 0.2f && peakOf (ring, 4000, N) < 1.0f, "ring at 320 Hz: a different signal, sane level");
+
+        Graph gg = one (kGate, 1.0f, 0); gg.nodes[0].delayDiv = 0;   // 1/16 note per cycle: open half, shut half
+        const auto gt = run (gg);
+        const int half = (int) (0.25 * 60.0 / 120.0 * kSr / 2);
+        const float shut = peakOf (gt, 3 * half + 300, std::min (N, 4 * half - 100)), open = peakOf (gt, 2 * half + 200, 3 * half - 100);   // second cycle: the depth has settled
+        std::printf ("    [gate] open %.3f shut %.4f\n", open, shut);
+        CHECK (finite (gt) && shut < 0.05f && open > 0.2f, "gate: shut half is silent, open half passes");
+
+        const auto wow = run (one (kWow, 1.0f, 2));
+        float wdiff = 0.0f; for (int i = 4000; i < N; ++i) wdiff = std::max (wdiff, std::abs (wow.getSample (0, i) - input.getSample (0, i)));
+        CHECK (finite (wow) && wdiff > 0.05f && peakOf (wow, 4000, N) > 0.2f && peakOf (wow, 4000, N) < 1.0f, "wow: sways the signal, sane level");
+    }
+
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

@@ -32,7 +32,7 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelineBarNumber } from '../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
 import { mergeDroppedRegions, mergeFailureText, resolveDawDrop } from '../lib/audioMerge'
 import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
@@ -418,7 +418,7 @@ function useStudioTrack(url: string, name: string) {
  *  underlined import word. All geometry lives in CSS. */
 function StudioAudioPlate({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const bar = timelineBarNumber(track.metadata)
+  const position = timelinePositionLabel(track.metadata)
   return (
     <div className="wd-plate">
       <div className="wd-plate-art">
@@ -431,11 +431,8 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
         </button>
         <span className="wd-plate-name">{track.name}</span>
         <span className="wd-plate-right">
-          <span
-            className="wd-plate-time"
-            title={bar != null && track.metadata?.bpm != null ? `bar ${bar} / ${Math.round(track.metadata.bpm)}bpm` : undefined}
-          >
-            {fmtDur(cur)} / {fmtDur(total)}{bar != null ? ` / bar ${bar}` : ''}
+          <span className="wd-plate-time" title={position?.tooltip}>
+            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
@@ -450,7 +447,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
  *  name · time · import word) over its own 24px fine waveform. */
 function StudioPlateSection({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const bar = timelineBarNumber(track.metadata)
+  const position = timelinePositionLabel(track.metadata)
   return (
     <div className="wd-plate-sec">
       <div className="wd-plate-secrow">
@@ -459,11 +456,8 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
         </button>
         <span className="wd-plate-secname" title={track.name}>{track.name}</span>
         <span className="wd-plate-right">
-          <span
-            className="wd-plate-time"
-            title={bar != null && track.metadata?.bpm != null ? `bar ${bar} / ${Math.round(track.metadata.bpm)}bpm` : undefined}
-          >
-            {fmtDur(cur)} / {fmtDur(total)}{bar != null ? ` / bar ${bar}` : ''}
+          <span className="wd-plate-time" title={position?.tooltip}>
+            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
@@ -1666,7 +1660,7 @@ function StudioShellInner({ supabase, user }: Props) {
   const outDragActive = useRef(false)       // an AudioAttachment drag-out is live
   const outDragArmedUrl = useRef<string | null>(null)
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const dropBuffer = useRef<{ name: string; data: string }[]>([])
+  const dropBuffer = useRef<{ name: string; data: string; seq?: number }[]>([])
   const dropGroupCount = useRef(1)
   const dropTimelineRef = useRef<ReturnType<typeof getDawTimelineSnapshot>>(null)
   const dropTimelinePromiseRef = useRef<Promise<ReturnType<typeof getDawTimelineSnapshot>> | null>(null)
@@ -1872,23 +1866,23 @@ function StudioShellInner({ supabase, user }: Props) {
   // drag limit (newer builds); it still counts toward the group so the
   // rest of the drop isn't left waiting for it.
   //
-  // ORDER CAVEAT — the buffer below fills in ARRIVAL order, which for
-  // the native bridge is COMPLETION order, not drag order: DragMonitor.mm
+  // ORDER — the buffer below fills in ARRIVAL order, which for the
+  // native bridge is COMPLETION order, not drag order: DragMonitor.mm
   // resolves Logic's file promises (and reads plain file URLs) on a
-  // concurrent queue, and PluginEditor.cpp's __juceFileDrop detail is
-  // only {name, data} — no sequence index — so a large region can land
-  // after a smaller one that was dragged behind it. We keep the batch
-  // exactly as it arrives (no reordering here); the join path in
-  // audioMerge orders stamped batches by their BWF timestamps, which
-  // makes the scramble harmless for stamped drops. Follow-up for
-  // unstamped native drops: have the C++ side send a per-drop `seq`
-  // in the __juceFileDrop detail and sort the buffer by it here.
+  // concurrent queue, so a large region can land after a smaller one
+  // that was dragged behind it. Newer plug-in binaries stamp each
+  // __juceFileDrop detail with `seq` — the promise's index at drop
+  // registration — and the flush sorts by it; old binaries send no
+  // seq and keep arrival order (the join path in audioMerge still
+  // orders stamped batches by their BWF timestamps).
   useEffect(() => {
     const flush = () => {
       if (dropBuffer.current.length < dropGroupCount.current) return
       const batch = dropBuffer.current
       dropBuffer.current = []
       dropGroupCount.current = 1
+      if (batch.every(f => Number.isFinite(f.seq)))
+        batch.sort((a, b) => a.seq! - b.seq!)
       if (batch.length === 0 || !activeConvIdRef.current) return
 
       void (async () => {
@@ -1932,8 +1926,8 @@ function StudioShellInner({ supabase, user }: Props) {
     }
     const onFile = (e: Event) => {
       if (outDragActive.current) return
-      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
-      dropBuffer.current.push({ name, data })
+      const { name, data, seq } = (e as CustomEvent<{ name: string; data: string; seq?: number }>).detail
+      dropBuffer.current.push({ name, data, seq })
       flush()
     }
     const onRejected = (e: Event) => {
@@ -2796,6 +2790,7 @@ function StudioShellInner({ supabase, user }: Props) {
                       pendingDrop={pendingStemDrop}
                       onDropConsumed={consumeStemDrop}
                       onMultiFileDrop={routeStemsDrop}
+                      alignToBarOne
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>

@@ -290,8 +290,11 @@ void DragMonitor::disarm()
 //==============================================================================
 
 // ── Callback wrapper ──────────────────────────────────────────────────────────
+// The int is the per-drop sequence index — the file's position at drop
+// registration (drag order), captured before the concurrent resolution
+// scrambles completion order.
 @interface JuceDropCallbackBox : NSObject
-@property (nonatomic, copy) void (^block)(NSString*, NSString*);
+@property (nonatomic, copy) void (^block)(NSString*, NSString*, int);
 @end
 @implementation JuceDropCallbackBox @end
 
@@ -507,8 +510,12 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
             bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
 
-            // Process ALL receivers, not just the first one.
-            for (NSFilePromiseReceiver* rcv in rcvs) {
+            // Process ALL receivers, not just the first one. Capture each
+            // promise's index NOW, at registration — the receivers resolve
+            // concurrently, so the readers fire in completion order.
+            for (NSUInteger idx = 0; idx < rcvs.count; idx++) {
+                NSFilePromiseReceiver* rcv = rcvs[idx];
+                const int seq = (int) idx;
                 [rcv receivePromisedFilesAtDestination:
                         [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
                                              options:@{}
@@ -525,7 +532,7 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                     if (!raw) return;
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
                     NSString* name = fileURL.lastPathComponent;
-                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64); });
+                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, seq); });
                 }];
             }
             return YES;
@@ -583,8 +590,12 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
             bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
 
-            for (NSURL* fileURL in urls) {
+            // Same registration-order seq as the promise path — the reads
+            // run on a concurrent queue and can finish out of drag order.
+            for (NSUInteger idx = 0; idx < urls.count; idx++) {
+                NSURL* fileURL = urls[idx];
                 if (!fileURL.isFileURL) continue;
+                const int seq = (int) idx;
                 [bgQueue addOperationWithBlock:^{
                     const unsigned long long size = fileSizeAt (fileURL);
                     if (size > kMaxDropBytes) { rejectDropFile (wkv, fileURL, size); return; }
@@ -596,7 +607,7 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
                     NSString* name = fileURL.lastPathComponent;
                     dispatch_async (dispatch_get_main_queue(), ^{
-                        cb.block (name, b64);
+                        cb.block (name, b64, seq);
                     });
                 }];
             }
@@ -701,7 +712,7 @@ static void installSwizzle (Class cls, SEL sel, IMP newIMP, IMP* origOut)
 
 // ── setupDropHandling ─────────────────────────────────────────────────────────
 void DragMonitor::setupDropHandling (void* juceRootNSView,
-                                     std::function<void(std::string, std::string)> onFileDrop)
+                                     std::function<void(std::string, std::string, int)> onFileDrop)
 {
     if (dropSetupDone) return;
 
@@ -728,9 +739,10 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
                               OBJC_ASSOCIATION_ASSIGN);
 
     JuceDropCallbackBox* box = [[JuceDropCallbackBox alloc] init];
-    box.block = ^(NSString* name, NSString* b64) {
+    box.block = ^(NSString* name, NSString* b64, int seq) {
         onFileDrop (std::string ([name UTF8String]),
-                    std::string ([b64  UTF8String]));
+                    std::string ([b64  UTF8String]),
+                    seq);
     };
     objc_setAssociatedObject (dropView, &kDropCallbackKey, box,
                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -811,6 +823,6 @@ DragMonitor::DragMonitor()  {}
 DragMonitor::~DragMonitor() {}
 void DragMonitor::arm (const std::string&) {}
 void DragMonitor::disarm() {}
-void DragMonitor::setupDropHandling (void*, std::function<void(std::string, std::string)>) {}
+void DragMonitor::setupDropHandling (void*, std::function<void(std::string, std::string, int)>) {}
 void DragMonitor::setKeyboardCapture (bool) {}
 #endif

@@ -30,7 +30,7 @@
  * one), and leave the decision to the user when nothing can be proven.
  */
 import { extractAudioTimeline } from './audioTimeline'
-import { MERGED_OUTPUT_LIMIT } from './limits'
+import { MERGED_OUTPUT_LIMIT, UPLOAD_FILE_LIMIT } from './limits'
 import type { AttachmentTimelineMetadata } from '../types/collab'
 
 export interface DroppedRegion { name: string; data: string }  // data = base64 audio
@@ -78,7 +78,15 @@ function fourCC(bytes: Uint8Array, offset: number): string {
   return String.fromCharCode(bytes[offset]!, bytes[offset + 1]!, bytes[offset + 2]!, bytes[offset + 3]!)
 }
 
-interface WavFormat { frames: number; sampleRate?: number; bitDepth?: number; channels?: number }
+interface WavFormat {
+  frames: number
+  sampleRate?: number
+  bitDepth?: number
+  channels?: number
+  /** WAVE format tag — 1 PCM, 3 IEEE float; an extensible (0xFFFE)
+   *  header is resolved to its SubFormat's tag when readable. */
+  formatTag?: number
+}
 
 /** PCM frame count + format of a WAV from its fmt/data chunk headers. */
 async function wavFormat(file: File): Promise<WavFormat | undefined> {
@@ -89,6 +97,7 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
   let bitDepth: number | undefined
   let channels: number | undefined
   let dataSize: number | undefined
+  let formatTag: number | undefined
   for (let offset = 12; offset + 8 <= file.size;) {
     const header = new Uint8Array(await file.slice(offset, offset + 8).arrayBuffer())
     if (header.length < 8) break
@@ -96,13 +105,17 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
     const size = new DataView(header.buffer, header.byteOffset, 8).getUint32(4, true)
     const dataOffset = offset + 8
     if (id === 'fmt ' && size >= 16) {
-      const fmt = new DataView(await file.slice(dataOffset, dataOffset + 16).arrayBuffer())
+      const fmt = new DataView(await file.slice(dataOffset, dataOffset + Math.min(size, 26)).arrayBuffer())
       if (fmt.byteLength >= 16) {
+        formatTag = fmt.getUint16(0, true)
         channels = fmt.getUint16(2, true)
         sampleRate = fmt.getUint32(4, true)
         blockAlign = fmt.getUint16(12, true)
         bitDepth = fmt.getUint16(14, true)
       }
+      // WAVE_FORMAT_EXTENSIBLE: the real tag is the SubFormat GUID's
+      // first two bytes (offset 24 of the fmt payload).
+      if (formatTag === 0xFFFE && fmt.byteLength >= 26) formatTag = fmt.getUint16(24, true)
     }
     if (id === 'data') {
       // A streaming writer may leave the size unset; trust the file length then.
@@ -112,7 +125,7 @@ async function wavFormat(file: File): Promise<WavFormat | undefined> {
     offset = dataOffset + size + (size & 1)
   }
   if (!blockAlign || dataSize == null) return undefined
-  return { frames: Math.floor(dataSize / blockAlign), sampleRate, bitDepth, channels }
+  return { frames: Math.floor(dataSize / blockAlign), sampleRate, bitDepth, channels, formatTag }
 }
 
 export async function analyzeRegion(file: File): Promise<RegionInfo> {
@@ -504,4 +517,110 @@ export async function resolveDawDrop(files: File[]): Promise<DawDropResolution> 
   const file = await renderPlaced(regions, placement.plan)
   if (!file) return { kind: 'separate', files, reason: 'decode' }
   return { kind: 'merged', file, regionCount: files.length }
+}
+
+// ── Bar-1 alignment (studio FILES-tab stems) ──────────────────────────────
+
+/** Logic's BWF clock puts project zero (bar 1) at 01:00:00. */
+const PROJECT_ZERO_SECONDS = 3600
+/** Padding past this is almost certainly a bogus stamp, not a stem. */
+const MAX_ALIGN_PAD_SECONDS = 30 * 60
+
+export interface AlignedStem { file: File; metadata: AttachmentTimelineMetadata }
+
+/** The encoder's lossless passthrough for the source format, or null
+ *  when re-encoding would alter content (8/32-bit int, float64, ADPCM…).
+ *  Escalates to float32 ONLY when the source itself was float. */
+function alignPassthroughBitDepth(format: WavFormat): 16 | 24 | 32 | null {
+  const tag = format.formatTag ?? 1
+  if (tag === 1 && (format.bitDepth === 16 || format.bitDepth === 24)) return format.bitDepth
+  if (tag === 3 && format.bitDepth === 32) return 32
+  return null
+}
+
+/**
+ * Pad a stamped stem with silence from project zero to its absolute
+ * start, so the receiver just drops it at bar 1 and it lines up (the
+ * classic bar-1-aligned stem convention). Padding ONLY — the audio
+ * content and gain are untouched, and the output keeps the source's
+ * integer bit depth (float32 only when the source was float). The
+ * output's bext TimeReference is rewritten to project zero (the
+ * 01:00:00 SMPTE base) so a re-drop reads bar 1.
+ *
+ * Returns null — the caller keeps the original file — when the
+ * position can't be trusted or the padding can't be rendered:
+ *  · basis isn't 'cycle'/'project' (no anchored absolute position),
+ *    absolute_ppq is missing/zero, or bpm is missing (the conversion
+ *    is constant-tempo: absolute seconds = absolute_ppq · 60/bpm);
+ *  · the file isn't a WAV the encoder can pass through losslessly;
+ *  · the padding would exceed 30 minutes (a bogus stamp) or the
+ *    padded file would pass the 1 GB stem cap;
+ *  · the audio doesn't decode.
+ */
+export async function alignToProjectStart(
+  file: File,
+  metadata: AttachmentTimelineMetadata | null,
+): Promise<AlignedStem | null> {
+  if (!metadata) return null
+  const { position } = metadata
+  if (position.basis !== 'cycle' && position.basis !== 'project') return null
+  const absolutePpq = position.absolute_ppq
+  const bpm = metadata.bpm
+  if (absolutePpq == null || !Number.isFinite(absolutePpq) || absolutePpq <= 0) return null
+  if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
+
+  const absoluteSeconds = absolutePpq * 60 / bpm
+  if (absoluteSeconds > MAX_ALIGN_PAD_SECONDS) return null
+
+  const format = await wavFormat(file)
+  if (!format || !format.sampleRate || format.frames <= 0) return null
+  const bitDepth = alignPassthroughBitDepth(format)
+  if (bitDepth == null) return null
+
+  const sampleRate = format.sampleRate
+  const padFrames = Math.round(absoluteSeconds * sampleRate)
+  if (padFrames <= 0) return null
+  const headerChannels = Math.max(1, format.channels ?? 1)
+  if ((padFrames + format.frames) * headerChannels * (bitDepth / 8) > UPLOAD_FILE_LIMIT) return null
+
+  const decoded = await decodeAt(file, sampleRate)
+  if (!decoded || decoded.length === 0) return null
+  const channels = decoded.numberOfChannels
+  const out = new Float32Array((padFrames + decoded.length) * channels)
+  for (let ch = 0; ch < channels; ch++) {
+    const src = decoded.getChannelData(ch)
+    for (let i = 0; i < src.length; i++) out[(padFrames + i) * channels + ch] = src[i]!
+  }
+
+  const projectZeroSamples = PROJECT_ZERO_SECONDS * sampleRate
+  const wav = encodeWav(out, {
+    sampleRate, channels, bitDepth,
+    timeReference: projectZeroSamples,
+    description: 'Orb: stem aligned to bar 1',
+  })
+  if (wav.size > UPLOAD_FILE_LIMIT) return null
+
+  return {
+    file: new File([wav], file.name, { type: 'audio/wav' }),
+    // The stored record describes the NEW file: it starts at project
+    // zero (bar 1), stamped at the 01:00:00 base its bext now carries;
+    // the anchor rides along and aligned_from_ppq keeps the original
+    // absolute start so nothing is lost.
+    metadata: {
+      ...metadata,
+      position: {
+        ...position,
+        source_samples: projectZeroSamples,
+        sample_rate: sampleRate,
+        bit_depth: bitDepth,
+        seconds: PROJECT_ZERO_SECONDS,
+        ppq: 0,
+        bar: 1,
+        beat: 1,
+        absolute_ppq: 0,
+        basis: 'project',
+        aligned_from_ppq: absolutePpq,
+      },
+    },
+  }
 }

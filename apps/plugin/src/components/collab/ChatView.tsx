@@ -12,7 +12,7 @@ import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
 import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelineBarNumber } from '../../lib/audioTimeline'
+import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
 
 interface Attachment {
@@ -622,17 +622,14 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
     const ready = dragState === 'armed' || dragState === 'dragging' || dragState === 'imported'
     // Sample-exact stems announce where they belong — the receiver
     // shouldn't have to ask which bar to drop a session take at.
-    const barNumber = timelineBarNumber(metadata)
+    const position = timelinePositionLabel(metadata)
     return (
       <div className={`msg-att-audio stem-audio-compact${compactExpanded ? ' expanded' : ''}`}>
         <div className="stem-audio-main">
           <span className="stem-audio-name" title={name}>{name}</span>
-          {barNumber != null && (
-            <span
-              className="stem-audio-bar"
-              title={metadata?.bpm != null ? `bar ${barNumber} / ${compactNumber(metadata.bpm)}bpm` : undefined}
-            >
-              bar {barNumber}
+          {position != null && (
+            <span className="stem-audio-bar" title={position.tooltip}>
+              {position.text}
             </span>
           )}
           <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
@@ -1247,7 +1244,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
 
   // Buffer for grouping multiple __juceFileDrop events from a single Logic drag.
   // C++ fires __juceDropGroupStart{count} first so we know how many to expect.
-  const dropBuffer        = useRef<{ name: string; data: string }[]>([])
+  // Promises resolve on a concurrent queue, so events arrive in COMPLETION
+  // order; newer binaries stamp each detail with `seq` (drag order at drop
+  // registration) and the flush sorts by it. Old binaries keep arrival order.
+  const dropBuffer        = useRef<{ name: string; data: string; seq?: number }[]>([])
   const dropGroupCount    = useRef(1)
   const processMultiDropRef = useRef<(files: { name: string; data: string }[]) => Promise<void>>(async () => {})
 
@@ -1290,6 +1290,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       const all = dropBuffer.current
       dropBuffer.current = []
       dropGroupCount.current = 1
+      if (all.every(f => Number.isFinite(f.seq)))
+        all.sort((a, b) => a.seq! - b.seq!)
 
       // A region over the drag limit stops here, out loud (base64 size
       // ≈ 1.33× the file; newer plug-in builds reject it natively).
@@ -1320,8 +1322,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     }
     const onFile = (e: Event) => {
       if (outDragActive.current) return
-      const { name, data } = (e as CustomEvent<{ name: string; data: string }>).detail
-      dropBuffer.current.push({ name, data })
+      const { name, data, seq } = (e as CustomEvent<{ name: string; data: string; seq?: number }>).detail
+      dropBuffer.current.push({ name, data, seq })
       void flush()
     }
     // The native side skipped a file over the drag limit; it still

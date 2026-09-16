@@ -354,6 +354,13 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 playheadTsDen.store (ts->denominator);
             }
             transportPlaying.store (pos->getIsPlaying());
+            transportLooping.store (pos->getIsLooping());
+            if (auto loop = pos->getLoopPoints())
+            {
+                playheadLoopStartPpq.store (loop->ppqStart);
+                playheadLoopEndPpq.store (loop->ppqEnd);
+                playheadLoopValid.store (true);
+            }
         }
     }
 
@@ -510,6 +517,9 @@ void OrbAudioProcessor::timerCallback()
            << "tnum:"     << playheadTsNum.load() << ","
            << "tden:"     << playheadTsDen.load() << ","
            << "playing:"  << (transportPlaying.load() ? "true" : "false") << ","
+           << "isLooping:" << (transportLooping.load() ? "true" : "false") << ","
+           << "ppqLoopStart:" << (playheadLoopValid.load() ? juce::String (playheadLoopStartPpq.load(), 6) : "null") << ","
+           << "ppqLoopEnd:"   << (playheadLoopValid.load() ? juce::String (playheadLoopEndPpq.load(), 6) : "null") << ","
            << "gr:"       << juce::String (glueGrDb.load(), 2) << ","
            << "inSamples:'" << inB64 << "',"
            << "peaks:[";
@@ -1406,6 +1416,9 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 // JS-callable: return the most recent host playhead snapshot directly. This
 // path is intentionally independent from the live-audio timer: Logic may stop
 // delivering audio buffers while a region/file-promise drag is in progress.
+// `ppq` and `projectSamples` are stored by the same processBlock pass — one
+// consistent instant, usable as a seconds↔ppq anchor. `isLooping` plus the
+// cycle locators let the drop path undo Logic's cycle-relative BWF stamps.
 void OrbAudioProcessor::handleGetDawTimeline (const juce::var&,
                                               juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
@@ -1418,7 +1431,10 @@ void OrbAudioProcessor::handleGetDawTimeline (const juce::var&,
          << "\"bpm\":" << juce::String (playheadBpm.load(), 6) << ","
          << "\"tnum\":" << playheadTsNum.load() << ","
          << "\"tden\":" << playheadTsDen.load() << ","
-         << "\"playing\":" << (transportPlaying.load() ? "true" : "false") << "}";
+         << "\"playing\":" << (transportPlaying.load() ? "true" : "false") << ","
+         << "\"isLooping\":" << (transportLooping.load() ? "true" : "false") << ","
+         << "\"ppqLoopStart\":" << (playheadLoopValid.load() ? juce::String (playheadLoopStartPpq.load(), 9) : "null") << ","
+         << "\"ppqLoopEnd\":" << (playheadLoopValid.load() ? juce::String (playheadLoopEndPpq.load(), 9) : "null") << "}";
     completion (json);
 }
 

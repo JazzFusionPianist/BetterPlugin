@@ -315,6 +315,7 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         // Re-publish whatever patch is current (state may have loaded
         // before the engine existed at this sample rate).
         juce::String err;
+        hostAmountsToGraph();   // the host's amounts win over the graph copy (automation, or a host that set a param before re-initialising)
         const juce::ScopedLock sl (fxGraphLock);
         if (fxGraph.nodes.empty() && fxGraph.edges.empty()) rebuildLegacyGraph();
         else applyGraph (fxGraph, err);

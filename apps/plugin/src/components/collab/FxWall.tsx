@@ -30,15 +30,16 @@ const SHELF_PRINT = 48
 const SHELF_H = 112
 /** One row of prints that scrolls sideways (the wheel's up and down
  *  walks it); the page needs its height to size the wall. */
-/** The shelf's families: one row of prints at a time, the mix always at the end. */
+/** The shelf's families: one row of prints at a time. */
 const FAMILIES: Array<[string, string[]]> = [
-  ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'gain', 'air']],
+  ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'air']],
   ['grit', ['crush', 'radio', 'ring']],
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
+  ['utility', ['gain', 'mix']],
 ]
-const FAM_W = 38 * FAMILIES.length   // five tabs; with the longest family and the mix the row fits the 760px window
+const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
   return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
 }
@@ -315,8 +316,8 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map(MODES.map(m => [m.name, m.id as number]))
-    return [...FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined), FX_MIX_TYPE]
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE]])
+    return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
     const el = shelfRef.current; if (!el) return
@@ -1313,7 +1314,7 @@ export default function FxWall ({ size: frame }: Props) {
           <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
         </span>
         {shelfTypes.map(type => (
-          <div key={type} className={`sg-shelf-item${type === FX_MIX_TYPE ? ' mix' : ''}`}
+          <div key={type} className="sg-shelf-item"
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>

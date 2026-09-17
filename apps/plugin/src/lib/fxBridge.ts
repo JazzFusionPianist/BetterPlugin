@@ -142,15 +142,7 @@ export interface FxGraphEdge {
   port?: number           // which output of `from` (a splitter has two)
   hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
 }
-/** What the engine understands today: the control nodes and their wires
- *  stay on the wall until the engine learns them. */
-export function engineGraph (g: FxGraph): FxGraph {
-  const gone = new Set(g.nodes.filter(n => isControlType(n.type)).map(n => n.id))
-  return {
-    nodes: g.nodes.filter(n => !gone.has(n.id)),
-    edges: g.edges.filter(e => !gone.has(e.from) && !gone.has(e.to) && e.hand === undefined),
-  }
-}
+
 export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
 
 export function hasGraphBridge (): boolean {
@@ -171,7 +163,7 @@ export async function getGraph (): Promise<FxGraph | null> {
 export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: string }> {
   if (!hasGraphBridge()) return { ok: false, error: 'no bridge' }
   try {
-    const raw: unknown = await callJuceNative('setGraph', [JSON.stringify(engineGraph(g))])
+    const raw: unknown = await callJuceNative('setGraph', [JSON.stringify(g)])
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (v && typeof v === 'object') return v as { ok: boolean; error?: string }
   } catch (e) { return { ok: false, error: String(e) } }

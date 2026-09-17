@@ -189,8 +189,29 @@ private:
         std::array<std::atomic<int>, orbfx::kAuxCount> aux {};
         std::atomic<bool>  hasCurve { false };
         std::array<std::atomic<float>, orbfx::kCurveLen> curve {};
+        std::atomic<bool>  hasLfo { false };
+        std::array<std::atomic<float>, orbfx::kLfoLen> lfo {};
     };
     std::array<SlotParams, orbfx::kMaxNodes> fxSlots;
+
+    /** The control wires: which rate plays which hand of which print, at
+     *  what depth; and which lfo lends each rate its shape. Published
+     *  with the program, adopted at a block boundary. */
+    struct ModTable
+    {
+        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; };
+        int  count = 0;
+        Wire wires[orbfx::kMaxEdges];
+        bool isRate[orbfx::kMaxNodes] {};
+        int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
+        ModTable() { for (auto& x : shapeOf) x = -1; }
+    };
+    juce::SpinLock     modLock;
+    ModTable           modPending, modActive;
+    std::atomic<bool>  modPendingFlag { false };
+    double             ratePhase[orbfx::kMaxNodes] {};        // audio thread
+    std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
+    void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
 
     /** Write a node's params into its slot atomics (no republish). */
     void writeSlot (const orbfx::Graph::Node& nd);

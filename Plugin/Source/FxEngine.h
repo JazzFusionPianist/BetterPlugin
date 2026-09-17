@@ -33,13 +33,21 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kNumFx = 28, kNone = -1,
             // graph-only splitters: two output ports, no DSP state
             kSplitLR = 28,          // port 0 = the left as mono, port 1 = the right as mono
-            kSplitMS = 29 };        // port 0 = the mid as mono,  port 1 = the side as mono
+            kSplitMS = 29,          // port 0 = the mid as mono,  port 1 = the side as mono
+            // control prints: no audio passes through them
+            kLfo  = 30,             // a drawn shape (64 samples over one cycle)
+            kRate = 31 };           // a clock that plays a shape into a hand of another print
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
+inline bool isControl (int t) noexcept { return t == kLfo || t == kRate; }
+constexpr int kLfoLen = 64;
+/** The hands a control wire can play. aux k is kHandAux0 + k. */
+enum Hand : int { kHandNone = -1, kHandAmount = 0, kHandDecay, kHandFb, kHandAux0,
+                  kHandShare0 = 64 };   // + (from + 1): the share of the wire from `from` into a mix (in = 64)
 /** A buffer's lane: what one wire of a split carries. Two lanes meeting
  *  at a node (or at out) join back into a stereo pair. */
 enum Lane : int { kLaneStereo = 0, kLaneL, kLaneR, kLaneM, kLaneS };
@@ -72,6 +80,7 @@ struct NodeParams
     bool  wet      = false;  // space/delay/doubler/mod: drop the dry (Wet Solo)
     int   aux[kAuxCount] {};      // tremolo: [vol|pan]; arp: [interval st]; harmony: [key, scale, degrees];
                                   // grain: [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze]
+    float shareK[kMaxNodes + 1] {};   // a rate's push on each input wire's share, by source (in = 0, node id + 1); zero when not played
     bool  hasCurve = false;  // tremolo: a drawn cycle overrides the shape
     float curve[kCurveLen] {};
     float bpm      = 120.0f;
@@ -243,14 +252,18 @@ struct Graph
         int   aux[kAuxCount] {};
         bool  hasCurve = false;
         float curve[kCurveLen] {};
+        bool  hasLfo = false;       // an lfo print: its shape, sampled
+        float lfo[kLfoLen] {};
+        std::vector<float> pts;     // the lfo's drawn points, kept for the wall (the engine reads `lfo`)
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
     };
     struct Edge
     {
         int   from = kPortIn;    // node id, or kPortIn
         int   to   = kPortOut;   // node id, or kPortOut
-        float gain = 1.0f;       // send level
+        float gain = 1.0f;       // send level; a control wire's depth (-1..1)
         int   port = 0;          // which output of `from` (only a splitter has a second)
+        int   hand = kHandNone;  // a control wire: which hand of `to` it plays
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;

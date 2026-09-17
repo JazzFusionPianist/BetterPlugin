@@ -970,6 +970,9 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     for (int i = 0; i < orbfx::kCurveLen; ++i)
         s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
     s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kLfoLen; ++i)
+        s.lfo[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo[i]), std::memory_order_relaxed);
+    s.hasLfo.store (nd.hasLfo, std::memory_order_relaxed);
 }
 
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
@@ -982,6 +985,30 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
     }
     for (auto& nd : g.nodes) writeSlot (nd);
     fxChain.publish (prog);
+    {
+        ModTable t;
+        bool isLfo[orbfx::kMaxNodes] {};
+        int  typeOf[orbfx::kMaxNodes]; for (auto& x : typeOf) x = orbfx::kNone;
+        for (auto& nd : g.nodes)
+        {
+            if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
+            typeOf[nd.id] = nd.type;
+            if (nd.type == orbfx::kRate) t.isRate[nd.id] = true;
+            if (nd.type == orbfx::kLfo)  isLfo[nd.id] = true;
+        }
+        for (auto& e : g.edges)
+        {
+            const bool nodes = e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes;
+            if (! nodes) continue;
+            if (e.hand != orbfx::kHandNone && t.isRate[e.from] && t.count < orbfx::kMaxEdges)
+                t.wires[t.count++] = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to] };
+            else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
+                t.shapeOf[e.to] = e.from;
+        }
+        const juce::SpinLock::ScopedLockType sl (modLock);
+        modPending = t;
+        modPendingFlag.store (true, std::memory_order_release);
+    }
     // the host lines the track up by this much (mix aligned, monitoring late)
     if (getLatencySamples() != prog.latency) setLatencySamples (prog.latency);
     return true;
@@ -1041,15 +1068,115 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         p.playing  = playing;
     }
 
+    applyModulation (params, n, sr, bpm, playing, ppq);
+
     float gr = 0.0f;
     fxChain.process (buffer, sr, params, gr);
     glueGrDb.store (gr, std::memory_order_relaxed);
+}
+
+/*  The rates tick and play their shapes into the hands they are wired
+    to. Block-rate: each effect smooths its own hand, so a block's step
+    is a slope, not a click. A synced rate is locked to the transport
+    while it plays and free-runs at the tempo otherwise.               */
+void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq)
+{
+    if (modPendingFlag.load (std::memory_order_acquire) && modLock.tryEnter())
+    {
+        modActive = modPending;
+        modPendingFlag.store (false, std::memory_order_relaxed);
+        modLock.exit();
+    }
+    const auto& t = modActive;
+    if (t.count == 0) return;
+    static const double kBeats[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };   // 1/32 … 4/1 in quarter notes
+    float value[orbfx::kMaxNodes];
+    for (int r = 0; r < orbfx::kMaxNodes; ++r)
+    {
+        value[r] = 0.5f;
+        if (! t.isRate[r]) continue;
+        auto& s = fxSlots[(size_t) r];
+        const int mode = s.aux[0].load (std::memory_order_relaxed);
+        double phase = ratePhase[r];
+        if (mode == 1)
+        {
+            const double hz = juce::jlimit (0.01, 20.0, s.aux[3].load (std::memory_order_relaxed) / 100.0);
+            phase += hz * numSamples / (double) sr;
+        }
+        else
+        {
+            const int div = juce::jlimit (0, 7, s.aux[1].load (std::memory_order_relaxed));
+            const int feel = s.aux[2].load (std::memory_order_relaxed);
+            const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
+            if (playing) phase = ppq / beats;
+            else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
+        }
+        phase -= std::floor (phase);
+        ratePhase[r] = phase;
+        // the shape: the lfo wired in, or a sine
+        float v;
+        const int lfoSlot = t.shapeOf[r];
+        if (lfoSlot >= 0 && fxSlots[(size_t) lfoSlot].hasLfo.load (std::memory_order_relaxed))
+        {
+            auto& sh = fxSlots[(size_t) lfoSlot].lfo;
+            const double x = phase * orbfx::kLfoLen;
+            const int i0 = (int) x % orbfx::kLfoLen, i1 = (i0 + 1) % orbfx::kLfoLen;
+            const float f = (float) (x - std::floor (x));
+            v = sh[(size_t) i0].load (std::memory_order_relaxed) * (1.0f - f) + sh[(size_t) i1].load (std::memory_order_relaxed) * f;
+        }
+        else v = 0.5f + 0.5f * (float) std::sin (phase * juce::MathConstants<double>::twoPi);
+        value[r] = v;
+        rateValue[(size_t) r].store (v, std::memory_order_relaxed);
+    }
+    for (int i = 0; i < t.count; ++i)
+    {
+        const auto& w = t.wires[i];
+        if (w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
+        auto& p = params[w.to];
+        const float k = (value[w.from] - 0.5f) * 2.0f * w.depth;   // -depth .. +depth
+        // each hand moves by a fraction of its own range
+        auto lim = [] (float x, float lo, float hi) { return juce::jlimit (lo, hi, x); };
+        auto limi = [] (int x, int lo, int hi) { return juce::jlimit (lo, hi, x); };
+        if (w.hand >= orbfx::kHandShare0)
+        {
+            const int idx = w.hand - orbfx::kHandShare0;   // from + 1
+            if (idx >= 0 && idx <= orbfx::kMaxNodes) p.shareK[idx] += k;
+            continue;
+        }
+        switch (w.hand)
+        {
+            case orbfx::kHandAmount: p.amount = lim (p.amount + k * 0.5f, 0.0f, 1.0f); break;
+            case orbfx::kHandDecay:  p.decay  = lim (p.decay  + k * 0.5f, 0.0f, 1.0f); break;
+            case orbfx::kHandFb:     p.delayFb = lim (p.delayFb + k * 0.5f, 0.0f, 1.0f); break;
+            default:
+            {
+                const int a = w.hand - orbfx::kHandAux0;
+                if (a < 0 || a >= orbfx::kAuxCount) break;
+                // the aux hands' ranges, by print (see the wall's HANDS table)
+                int lo = 0, hi = 100;
+                switch (w.toType)
+                {
+                    case orbfx::kArp:     lo = 1;    hi = 12;   break;   // step
+                    case orbfx::kHarmony: lo = -12;  hi = 12;   break;   // interval
+                    case orbfx::kPitch:   lo = -100; hi = 100;  break;   // cents
+                    case orbfx::kGrain:   if (a == 0) { lo = 10; hi = 600; } else if (a == 1) { lo = 0; hi = 1500; } else if (a == 2) { lo = 0; hi = 24; } else { lo = 0; hi = 100; } break;
+                    case orbfx::kSwell:   lo = 0;    hi = 100;  break;   // depth
+                    default: break;
+                }
+                p.aux[a] = limi (p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)), lo, hi);
+                break;
+            }
+        }
+    }
 }
 
 //==============================================================================
 // Patch ⇄ JSON. Shape:
 //   { nodes: [{ id, type, amount, variant, decay:[3], delayDiv, delayFb, wet, x, y }],
 //     edges: [{ from, to, gain }] }          from/to: node id, -1 = in, -2 = out
+
+static juce::String handName (int hand);
+static int handOf (const juce::String& s);
 
 juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
 {
@@ -1077,6 +1204,18 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
             for (int i = 0; i < orbfx::kCurveLen; ++i) cv.add ((double) nd.curve[i]);
             o->setProperty ("curve", cv);
         }
+        if (nd.hasLfo)
+        {
+            juce::Array<juce::var> lv;
+            for (int i = 0; i < orbfx::kLfoLen; ++i) lv.add ((double) nd.lfo[i]);
+            o->setProperty ("curve", lv);
+        }
+        if (! nd.pts.empty())
+        {
+            juce::Array<juce::var> pv;
+            for (float f : nd.pts) pv.add ((double) f);
+            o->setProperty ("pts", pv);
+        }
         o->setProperty ("x", (double) nd.x);
         o->setProperty ("y", (double) nd.y);
         nodes.add (juce::var (o));
@@ -1089,12 +1228,36 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("to", e.to);
         o->setProperty ("gain", (double) e.gain);
         if (e.port != 0) o->setProperty ("port", e.port);
+        if (e.hand != orbfx::kHandNone) o->setProperty ("hand", handName (e.hand));
         edges.add (juce::var (o));
     }
     auto* root = new juce::DynamicObject();
     root->setProperty ("nodes", nodes);
     root->setProperty ("edges", edges);
     return juce::JSON::toString (juce::var (root), true);
+}
+
+/** The hands by name, as the wall writes them: amount, decay, fb, aux0 … aux7. */
+static juce::String handName (int hand)
+{
+    switch (hand)
+    {
+        case orbfx::kHandAmount: return "amount";
+        case orbfx::kHandDecay:  return "decay";
+        case orbfx::kHandFb:     return "fb";
+        default:
+            if (hand >= orbfx::kHandShare0) return "share:" + juce::String (hand - orbfx::kHandShare0 - 1);
+            return hand >= orbfx::kHandAux0 ? "aux" + juce::String (hand - orbfx::kHandAux0) : juce::String();
+    }
+}
+static int handOf (const juce::String& s)
+{
+    if (s == "amount") return orbfx::kHandAmount;
+    if (s == "decay")  return orbfx::kHandDecay;
+    if (s == "fb")     return orbfx::kHandFb;
+    if (s.startsWith ("aux")) { const int k = s.substring (3).getIntValue(); return k >= 0 && k < orbfx::kAuxCount ? orbfx::kHandAux0 + k : orbfx::kHandNone; }
+    if (s.startsWith ("share:")) { const int from = s.substring (6).getIntValue(); return from >= orbfx::kPortIn && from < orbfx::kMaxNodes ? orbfx::kHandShare0 + from + 1 : orbfx::kHandNone; }
+    return orbfx::kHandNone;
 }
 
 bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error)
@@ -1120,12 +1283,27 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             nd.bypass   = n.hasProperty ("bypass")   ? (bool) n["bypass"] : false;
             if (auto* ax = n["aux"].getArray())
                 for (int i = 0; i < orbfx::kAuxCount && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
-            if (auto* cv = n["curve"].getArray(); cv != nullptr && cv->size() == orbfx::kCurveLen)
+            if (auto* cv = n["curve"].getArray(); cv != nullptr && nd.type == orbfx::kLfo && cv->size() > 1)
+            {
+                // an lfo's shape: resampled onto the engine's table whatever its length
+                nd.hasLfo = true;
+                const int m = cv->size();
+                for (int i = 0; i < orbfx::kLfoLen; ++i)
+                {
+                    const double x = (double) i / orbfx::kLfoLen * m;
+                    const int i0 = (int) x % m, i1 = (i0 + 1) % m;
+                    const float f = (float) (x - std::floor (x));
+                    nd.lfo[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i0] * (1.0f - f) + (float) (double) (*cv)[i1] * f);
+                }
+            }
+            else if (auto* cv2 = n["curve"].getArray(); cv2 != nullptr && cv2->size() == orbfx::kCurveLen)
             {
                 nd.hasCurve = true;
                 for (int i = 0; i < orbfx::kCurveLen; ++i)
-                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i]);
+                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv2)[i]);
             }
+            if (auto* pv = n["pts"].getArray())
+                for (auto& f : *pv) nd.pts.push_back ((float) (double) f);
             nd.x        = (float) (double) n["x"];
             nd.y        = (float) (double) n["y"];
             out.nodes.push_back (nd);
@@ -1141,6 +1319,8 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.to   = (int) e["to"];
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
             ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
+            ed.hand = e.hasProperty ("hand") ? handOf (e["hand"].toString()) : orbfx::kHandNone;
+            if (ed.hand != orbfx::kHandNone) ed.gain = juce::jlimit (-1.0f, 1.0f, e.hasProperty ("gain") ? (float) (double) e["gain"] : 0.5f);
             out.edges.push_back (ed);
         }
     }

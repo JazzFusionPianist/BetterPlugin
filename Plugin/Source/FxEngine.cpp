@@ -1699,31 +1699,40 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     int slotType[kMaxNodes];
     bool bypassed[kMaxNodes] {};
     for (auto& t : slotType) t = kNone;
+    bool controlSlot[kMaxNodes] {};
     for (auto& nd : g.nodes)
     {
         if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
-        if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
+        if (slotType[nd.id] != kNone || controlSlot[nd.id]) { error = "duplicate node id"; return false; }
+        if (isControl (nd.type)) { controlSlot[nd.id] = true; continue; }   // no audio: the processor plays these
         if (! isEffect (nd.type) && nd.type != kMixType && ! isSplitter (nd.type)) { error = "bad node type"; return false; }
         slotType[nd.id] = nd.type;
         nodeOf[nd.id] = &nd;
         bypassed[nd.id] = nd.bypass && isEffect (nd.type);
     }
     auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
+    auto isCtl  = [&] (int id) { return id >= 0 && id < kMaxNodes && controlSlot[id]; };
+
+    // ── wires: the control wires (and the lfo → rate ones) are not audio ──
+    Graph audio;
+    for (auto& e : g.edges)
+        if (e.hand == kHandNone && ! isCtl (e.from) && ! isCtl (e.to)) audio.edges.push_back (e);
+    const std::vector<Graph::Edge>& edges = audio.edges;   // the audio wires only, from here on
 
     // ── wires: valid endpoints, a second port only where a splitter has one,
     //    no duplicates. Any point takes any number of wires: they sum.
-    const int E = (int) g.edges.size();
+    const int E = (int) edges.size();
     if (E > kMaxEdges) { error = "too many wires"; return false; }
     for (int i = 0; i < E; ++i)
     {
-        const auto& e = g.edges[(size_t) i];
+        const auto& e = edges[(size_t) i];
         if (! (e.from == kPortIn  || isNode (e.from))) { error = "wire from nowhere"; return false; }
         if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
         if (e.from == e.to)                            { error = "wire to itself";    return false; }
         const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
         if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
         for (int j = 0; j < i; ++j)
-            if (g.edges[(size_t) j].from == e.from && g.edges[(size_t) j].to == e.to && g.edges[(size_t) j].port == e.port)
+            if (edges[(size_t) j].from == e.from && edges[(size_t) j].to == e.to && edges[(size_t) j].port == e.port)
             { error = "duplicate wire"; return false; }
     }
 
@@ -1734,7 +1743,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         while (changed)
         {
             changed = false;
-            for (auto& e : g.edges)
+            for (auto& e : edges)
             {
                 const bool srcOk = e.from == kPortIn || fwd[e.from];
                 if (srcOk && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }
@@ -1744,7 +1753,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         while (changed)
         {
             changed = false;
-            for (auto& e : g.edges)
+            for (auto& e : edges)
             {
                 const bool dstOk = e.to == kPortOut || bwd[e.to];
                 if (dstOk && e.from != kPortIn && ! bwd[e.from]) { bwd[e.from] = true; changed = true; }
@@ -1757,7 +1766,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     bool anyOut = false;
     for (int i = 0; i < E; ++i)
     {
-        const auto& e = g.edges[(size_t) i];
+        const auto& e = edges[(size_t) i];
         const bool a = (e.from == kPortIn || activeNode[e.from]) && (e.to == kPortOut || activeNode[e.to]);
         activeEdge[i] = a;
         if (a && e.to == kPortOut) anyOut = true;
@@ -1776,8 +1785,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     {
         int inDeg[kMaxNodes] {};
         for (int i = 0; i < E; ++i)
-            if (activeEdge[i] && g.edges[(size_t) i].to != kPortOut && g.edges[(size_t) i].from != kPortIn)
-                ++inDeg[g.edges[(size_t) i].to];
+            if (activeEdge[i] && edges[(size_t) i].to != kPortOut && edges[(size_t) i].from != kPortIn)
+                ++inDeg[edges[(size_t) i].to];
         bool done[kMaxNodes] {};
         int activeCount = 0;
         for (int i = 0; i < kMaxNodes; ++i) if (activeNode[i]) ++activeCount;
@@ -1790,8 +1799,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             done[pick] = true;
             order[nOrder++] = pick;
             for (int i = 0; i < E; ++i)
-                if (activeEdge[i] && g.edges[(size_t) i].from == pick && g.edges[(size_t) i].to != kPortOut)
-                    --inDeg[g.edges[(size_t) i].to];
+                if (activeEdge[i] && edges[(size_t) i].from == pick && edges[(size_t) i].to != kPortOut)
+                    --inDeg[edges[(size_t) i].to];
         }
     }
 
@@ -1820,7 +1829,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         bool first = true;
         for (int i = 0; i < E; ++i)
         {
-            if (! activeEdge[i] || g.edges[(size_t) i].from != fromId || g.edges[(size_t) i].port != port) continue;
+            if (! activeEdge[i] || edges[(size_t) i].from != fromId || edges[(size_t) i].port != port) continue;
             if (first) { bufOfEdge[i] = srcBuf; first = false; continue; }
             const int b = alloc();
             if (b < 0) { error = "too many branches"; return false; }
@@ -1840,18 +1849,18 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     {
         int ins[kMaxEdges]; int nIn = 0;
         for (int i = 0; i < E; ++i)
-            if (activeEdge[i] && g.edges[(size_t) i].to == id) ins[nIn++] = i;
+            if (activeEdge[i] && edges[(size_t) i].to == id) ins[nIn++] = i;
         if (nIn == 0) { error = "unwired node"; return false; }   // cannot happen (active)
         // branches arrive with different latencies: hold the early ones
         int latest = 0;
         for (int k = 0; k < nIn; ++k)
         {
-            const auto& e = g.edges[(size_t) ins[k]];
+            const auto& e = edges[(size_t) ins[k]];
             latest = juce::jmax (latest, e.from == kPortIn ? 0 : arrival[e.from]);
         }
         for (int k = 0; k < nIn; ++k)
         {
-            const auto& e = g.edges[(size_t) ins[k]];
+            const auto& e = edges[(size_t) ins[k]];
             const int here = e.from == kPortIn ? 0 : arrival[e.from];
             if (latest - here > 0)
             {
@@ -1869,7 +1878,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (nIn == 1 && oneLane && (! atOut || theLane == kLaneStereo))
         {
             const int b = bufOfEdge[ins[0]];
-            const float gn = g.edges[(size_t) ins[0]].gain;
+            const float gn = edges[(size_t) ins[0]].gain;
             if (! nearUnity (gn))
             {
                 Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = gn;
@@ -1888,7 +1897,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
                 const int b = bufOfEdge[ins[k]];
                 if (laneOfBuf[b] != lane) continue;
                 Op op; op.kind = haveInto ? Op::kAccum : Op::kScale;
-                op.dst = into; op.src = b; op.gain = g.edges[(size_t) ins[k]].gain;
+                op.dst = into; op.src = b; op.gain = edges[(size_t) ins[k]].gain;
+                if (id >= 0) { op.slot = id; op.src2 = edges[(size_t) ins[k]].from; }   // tagged: a rate may play this share
                 if (! emit (op)) return false;
                 haveInto = true;
             }
@@ -2099,7 +2109,9 @@ float* Chain::chan (int buf, int ch, int n)
 void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, const NodeParams* params)
 {
     const float g0 = gainSm[opIndex];
-    const float g1 = op.gain;
+    float g1 = op.gain;
+    if ((op.kind == Op::kScale || op.kind == Op::kAccum) && op.slot >= 0 && op.slot < kMaxNodes && op.src2 >= kPortIn && op.src2 < kMaxNodes)
+        g1 = juce::jlimit (0.0f, 1.0f, g1 + params[op.slot].shareK[op.src2 + 1] * 0.5f);
     const bool  ramp = std::abs (g1 - g0) > 1.0e-6f;
     const float inv  = 1.0f / (float) n;
     gainSm[opIndex] = g1;

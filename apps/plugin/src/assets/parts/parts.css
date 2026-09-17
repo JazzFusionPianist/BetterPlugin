@@ -82,10 +82,10 @@
 .plugin.sounds .sg-shelf-tab { background: var(--fx-wall, #161410); }
 
 /* the big readout, under the print, in the print's own colour */
-.plugin.sounds .sg-study-value { min-height: 34px; }
-.plugin.sounds .sg-study-value .sg-val { font-family: var(--f-mono); font-size: 26px; font-weight: 400; color: rgba(var(--sg-tint), 0.9); padding: 0 4px; border-radius: 2px; }
+.plugin.sounds .sg-study-value { min-height: 64px; }
+.plugin.sounds .sg-study-value .sg-val { font-family: var(--f-mono); font-size: 56px; font-weight: 400; color: rgba(var(--sg-tint), 0.9); padding: 0 4px; border-radius: 2px; }
 .plugin.sounds .sg-study-value .sg-val:hover { color: rgb(var(--sg-tint)); background: transparent; }
-.plugin.sounds .sg-typein.big { font-family: var(--f-mono); font-size: 26px; font-weight: 400; text-align: center; color: rgb(var(--sg-tint)); caret-color: rgb(var(--sg-tint)); }
+.plugin.sounds .sg-typein.big { font-family: var(--f-mono); font-size: 56px; font-weight: 400; text-align: center; color: rgb(var(--sg-tint)); caret-color: rgb(var(--sg-tint)); }
 .plugin.sounds .sg-typein.big::selection { background: rgba(var(--sg-tint), 0.3); }
 .plugin.sounds .sg-study-title { font-family: var(--f-sans); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .plugin.sounds .sg-study-mixnote { font-family: var(--f-sans); font-size: 10px; font-style: normal; }
@@ -100,8 +100,14 @@
 .plugin.sounds .sg-shelf-fam { flex: none; margin-right: 4px; align-self: center; position: relative; top: -13px; }
 .plugin.sounds .sg-shelf-item span { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0; }
 
-/* ── the hand picker: a control wire dropped on a print asks which hand ── */
-.plugin.sounds .sg-picker { position: absolute; z-index: 7; background: var(--fx-wall, #161410); padding: 4px; border-radius: 3px; }
+/* ── inside a print, close in: its hands, like a nucleus; a control wire lands on a word ── */
+.plugin.sounds .sg-hands { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; }
+.plugin.sounds .sg-hand-word {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: all; cursor: crosshair; white-space: nowrap;
+  font-family: var(--f-mono); color: var(--sg-ink-85); padding: 2px 5px; border-radius: 2px; background: rgba(22, 20, 16, 0.85);
+}
+.plugin.sounds .sg-hand-word:hover { color: var(--fx-wall, #161410); background: var(--sg-ink); }
+.plugin.sounds .sg-print.faded { opacity: 0.18; }
 /* the lfo's editor sits where the print would */
 .plugin.sounds .sg-lfo { cursor: crosshair; }
 

@@ -57,7 +57,6 @@ type Drag =
   | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2' | 'aux3' | 'aux5'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
   | { kind: 'pan'; x0: number; y0: number; px: number; py: number }
-type Picker = { from: number; node: number }   // a control wire dropped on a print: which hand?
 
 const uid = () => Math.random().toString(36).slice(2, 8)
 void uid
@@ -75,8 +74,8 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
-const handsOf = (type: number) => (isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
-const handLabel = (type: number, key: string) => handsOf(type).find(h => h.key === key)?.label ?? key
+const handsOfType = (type: number) => (isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
+const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']
 /** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
@@ -391,7 +390,7 @@ export default function FxWall ({ size: frame }: Props) {
   const toggleShelf = () => setShelfOpen(v => { try { localStorage.setItem('orb_wall_shelf', v ? '0' : '1') } catch { /* fine */ } return !v })
   // more prints past the right edge? the edge fades to say so
   const [shelfMore, setShelfMore] = useState(false)
-  const [picker, setPicker] = useState<Picker | null>(null)
+  const [reveal, setReveal] = useState<number | null>(null)   // the print under a control wire being dragged: it shows its hands
   // the shelf shows one family at a time
   const [shelfFam, setShelfFam] = useState(() => { try { return Math.min(FAMILIES.length - 1, Math.max(0, Number(localStorage.getItem('orb_wall_fam') ?? 0))) } catch { return 0 } })
   const [famHover, setFamHover] = useState(-1)
@@ -493,7 +492,12 @@ export default function FxWall ({ size: frame }: Props) {
   const inPort: Pt = { x: PORT_INSET, y: size.h / 2 }
   const outPort: Pt = { x: size.w - PORT_INSET, y: size.h / 2 }
   const nodeById = (id: number) => graph.nodes.find(n => n.id === id)
-  const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id)
+  const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && !isControlEdge(x.e))   // the audio wires in; control wires land elsewhere
+  /** The hands a control wire can play on a print: its numbers; a mix's are its wires' shares. */
+  const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
+    ? inputsOf(n.id).map(x => ({ key: `share:${x.e.from}`, label: x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1) }))
+    : handsOfType(n.type)
+  const handLabel = (n: FxGraphNode | undefined, key: string) => (n ? handsOf(n).find(h => h.key === key)?.label : undefined) ?? key
 
   /** Where a wire meets a node: mix inputs fan on the left edge. */
   const inPortOf = (id: number, edgeIndex: number): Pt => {
@@ -736,7 +740,14 @@ export default function FxWall ({ size: frame }: Props) {
         updateNode(drag.id, { aux }, true)
       }
     }
-    else if (drag.kind === 'wire' || drag.kind === 'shelf') setDrag({ ...drag, at: p })
+    else if (drag.kind === 'wire' || drag.kind === 'shelf') {
+      setDrag({ ...drag, at: p })
+      if (drag.kind === 'wire' && drag.from !== FX_PORT_IN && nodeById(drag.from)?.type === FX_RATE) {
+        const over = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 6 })
+        const id = over && handsOf(over).length > 0 ? over.id : null
+        if (id !== reveal) setReveal(id)
+      }
+    }
     else if (drag.kind === 'pan') setPan({ x: drag.px + (e.clientX - drag.x0), y: drag.py + (e.clientY - drag.y0) })
   }
   const onWallUp = (e: RPointerEvent) => {
@@ -746,9 +757,11 @@ export default function FxWall ({ size: frame }: Props) {
       // landed on a node (its input) or the out port?
       const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
       const src = drag.from === FX_PORT_IN ? null : nodeById(drag.from)
-      if (hit && src?.type === FX_RATE) {
-        // a rate dropped on a print: which hand? the picker asks
-        if (handsOf(hit.type).length > 0) setPicker({ from: drag.from, node: hit.id })
+      if (src?.type === FX_RATE) {
+        // a rate lands on a hand's word inside a print (the print shows them while the wire is in the air)
+        const word = (document.elementFromPoint(e.clientX, e.clientY) as Element | null)?.closest('[data-hand]') as HTMLElement | null
+        if (word) connectHand(drag.from, Number(word.dataset.node), word.dataset.hand!)
+        setReveal(null)
       }
       else if (hit) connect(drag.from, hit.id, drag.port)
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
@@ -987,7 +1000,7 @@ export default function FxWall ({ size: frame }: Props) {
       if (e.to !== n.id || !isControlEdge(e)) return
       const src = nodeById(e.from)
       const who = src ? `rate ${rateText(src)}` : 'rate'
-      const label = handLabel(n.type, e.hand!)
+      const label = handLabel(n, e.hand!)
       // the hand's row ends in a dashed stub; the row under it names the rate and holds the depth
       const tag = <span className="sg-row-tag"><i /></span>
       const depth = <GaugeRow key={`ctl${i}`} label="" tag={<span className="sg-row-tag lead"><i /> {who}</span>} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
@@ -1062,7 +1075,7 @@ export default function FxWall ({ size: frame }: Props) {
           ctx.beginPath(); ctx.moveTo(p1.x, p1.y + 3 * zoom); ctx.lineTo(p1.x, c.y - Rz); ctx.stroke()
           ctx.fillStyle = rgba(paper, 0.9); ctx.beginPath(); ctx.arc(p1.x, p1.y, 1.6 * Math.max(0.8, zoom), 0, Math.PI * 2); ctx.fill()
           ctx.font = `${Math.round(9 * Math.max(0.8, zoom))}px 'Space Mono', monospace`; ctx.textAlign = 'left'; ctx.fillStyle = rgba(paper, 0.8)
-          ctx.fillText(handLabel(t?.type ?? -1, e.hand), p1.x + 5 * zoom, p1.y + 3.5 * zoom)
+          ctx.fillText(handLabel(t, e.hand), p1.x + 5 * zoom, p1.y + 3.5 * zoom)
         }
         return
       }
@@ -1379,7 +1392,7 @@ export default function FxWall ({ size: frame }: Props) {
           const p = wallPt(e)
           let hit = -1, best = 9
           graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from, ed.port ?? 0), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
-          setConfirm(null); setListOpen(false); setPicker(null)
+          setConfirm(null); setListOpen(false)
           if (hit >= 0) { setSel({ edge: hit }); return }
           setSel(null)
           setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y })
@@ -1444,7 +1457,19 @@ export default function FxWall ({ size: frame }: Props) {
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
-              <div className="sg-print"
+              {/* close in (or with a control wire in the air over it), the print shows its hands, like a nucleus */}
+              {(zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0 && (
+                <div className="sg-hands" style={{ width: NODEz, height: NODEz }}>
+                  {handsOf(n).map((h, k, all) => {
+                    const N = all.length
+                    const a = N === 1 ? 0 : (k / N) * Math.PI * 2 - Math.PI / 2
+                    const r = N === 1 ? 0 : N === 2 ? Rz * 0.36 : Rz * 0.5
+                    return <span key={h.key} className="sg-hand-word" data-node={n.id} data-hand={h.key}
+                      style={{ left: Rz + r * Math.cos(a), top: Rz + r * Math.sin(a), fontSize: 10 * Math.max(0.8, Math.min(1.3, zoom)) }}>{h.label}</span>
+                  })}
+                </div>
+              )}
+              <div className={`sg-print${(zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0 ? ' faded' : ''}`}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
                 <Print node={n} size={NODEz} shares={sharesOf(n.id)}
@@ -1488,18 +1513,6 @@ export default function FxWall ({ size: frame }: Props) {
           )
         })}
 
-        {picker && (() => {
-          const target = nodeById(picker.node); if (!target) return null
-          const c = toScreen(target)
-          const hands = handsOf(target.type)
-          const w = Math.max(120, hands.length * 60)
-          return (
-            <div className="sg-picker" style={{ left: c.x - w / 2, top: c.y - Rz - 34 }} onPointerDown={(e) => e.stopPropagation()}>
-              <Cells options={hands.map(h => h.label)} value={-1} hue={3} width={w}
-                onCell={(i, e) => { e.stopPropagation(); connectHand(picker.from, picker.node, hands[i].key); setPicker(null) }} />
-            </div>
-          )
-        })()}
         {drag?.kind === 'shelf' && (
           <div className="sg-ghost" style={{ left: drag.at.x - Rz, top: drag.at.y - Rz, width: NODEz, height: NODEz }}>
             <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [0, 0, 2] }} size={NODEz} dim />

@@ -1516,6 +1516,15 @@ export default function FxWall ({ size: frame }: Props) {
           )
         })}
 
+        {/* close in, a control wire must reach the word inside the print: those wires are drawn again above the prints */}
+        <svg className="sg-wires sg-wires-top" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h} style={{ pointerEvents: 'none' }}>
+          {graph.edges.map((e, i) => {
+            if (!isControlEdge(e)) return null
+            const t = nodeById(e.to); if (!t || !handsShown(t)) return null
+            const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
+            return <path key={i} className={`sg-wire-ctl${sel?.edge === i ? ' sel' : ''}`} d={wirePath(p0, p1)} />
+          })}
+        </svg>
         {drag?.kind === 'shelf' && (
           <div className="sg-ghost" style={{ left: drag.at.x - Rz, top: drag.at.y - Rz, width: NODEz, height: NODEz }}>
             <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [0, 0, 2] }} size={NODEz} dim />

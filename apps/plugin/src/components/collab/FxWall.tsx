@@ -411,6 +411,9 @@ export default function FxWall ({ size: frame }: Props) {
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef(graph); graphRef.current = graph
   const dragRef = useRef<Drag | null>(null); dragRef.current = drag   // for the audio-event listener, which never re-subscribes
+  const held = useRef(new Set<string>())   // `${slot}:${hand}` while a finger is on it
+  const gesture = (slot: number, hand: string, on: boolean) => { const k = `${slot}:${hand}`; if (on) held.current.add(k); else held.current.delete(k); paramGesture(slot, on, hand) }
+  const handGestureRef = useRef<string | null>(null)   // the wall's own hand drags (on the print) open one gesture
 
   // ── zoom: the signal flow scales about the wall's centre; in and out
   //    stay put on the edges, so the outer wires stretch to meet it ─────
@@ -731,6 +734,7 @@ export default function FxWall ({ size: frame }: Props) {
     else if (drag.kind === 'hand') {
       const n = nodeById(drag.id); if (!n) return
       const dy = drag.y0 - e.clientY
+      if (!handGestureRef.current) { handGestureRef.current = `${drag.id}:${drag.hand}`; gesture(drag.id, drag.hand, true) }
       if (drag.hand === 'decay') { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, drag.v0 + dy / 160)); updateNode(drag.id, { decay: d }) }
       else if (drag.hand === 'fb') updateNode(drag.id, { delayFb: Math.min(1, Math.max(0, drag.v0 + dy / 160)) })
       else if (drag.hand === 'div') updateNode(drag.id, { delayDiv: Math.min(6, Math.max(0, Math.round(drag.v0 + dy / 18))) }, true)
@@ -786,8 +790,12 @@ export default function FxWall ({ size: frame }: Props) {
       if (drag.moved) push(graphRef.current, true)
       else { setSel({ node: drag.id }); setConfirm(null) }   // the print was only pressed: open its study
     }
-    else if (drag.kind === 'amount') { push(graphRef.current, true); paramGesture(drag.id, false) }
-    else if (drag.kind === 'share' || drag.kind === 'hand') push(graphRef.current, true)
+    else if (drag.kind === 'amount') { push(graphRef.current, true); gesture(drag.id, 'amount', false) }
+    else if (drag.kind === 'hand') {
+      push(graphRef.current, true)
+      if (handGestureRef.current) { const [slot, hand] = handGestureRef.current.split(':'); gesture(Number(slot), hand, false); handGestureRef.current = null }
+    }
+    else if (drag.kind === 'share') push(graphRef.current, true)
     else if (drag.kind === 'pan') { try { localStorage.setItem('orb_wall_pan', JSON.stringify(pan)) } catch { /* fine */ } }
     setDrag(null)
   }
@@ -1025,17 +1033,45 @@ export default function FxWall ({ size: frame }: Props) {
         rows.splice(at + 1, 0, depth)
       } else rows.push(React.cloneElement(depth, { label, tag: <span className="sg-row-tag"><i /> {who}</span> }))   // the amount: no row of its own, so the depth row names it
     })
-    const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> = []
+    const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }> = []
     if (n.type === 5) {
       switches.push({ label: 'ø left', on: (n.variant & 1) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 1 }, true) })
       switches.push({ label: 'ø right', on: (n.variant & 2) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 2 }, true) })
     }
     if (n.type === 18) switches.push({ label: 'freeze', on: !!n.aux[7], set: (on) => setAux(7, on ? 1 : 0) })
-    if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true) })
+    if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true), onGesture: (on) => gesture(n.id, 'wet', on) })
     if (!isUtilityType(n.type)) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
     rows.push(<SwitchRow key="sw" items={switches} />)
+    // which host parameter a row is (so its drag opens a gesture and automation records)
+    const handOfRow = (key: string): string | null => {
+      const t = n.type
+      switch (key) {
+        case 'variant': return 'variant'
+        case 'decay': return 'decay'
+        case 'fb': return 'fb'
+        case 'time': case 'rate': return t === FX_RATE ? null : 'div'
+        case 'step': case 'cents': case 'size': case 'depth': case 'target': return 'aux0'
+        case 'key': return t === 18 ? 'aux3' : 'aux0'
+        case 'scale': return t === 18 ? 'aux4' : 'aux1'
+        case 'engine': return t === 16 ? 'aux1' : 'aux0'
+        case 'int': case 'scatter': case 'shape': return 'aux2'
+        case 'spray': return 'aux1'
+        case 'pan': return 'aux5'
+        case 'mode': return t === FX_RATE ? 'aux0' : null
+        case 'div': return t === FX_RATE ? 'aux1' : null
+        case 'feel': return t === FX_RATE ? 'aux2' : null
+        case 'hz': return t === FX_RATE ? 'aux3' : null
+        default: return null
+      }
+    }
     // the hands take their colours in order: blue, green, white, orange, then again; the switches are orange
-    return rows.map((r, i) => React.isValidElement(r) ? React.cloneElement(r as React.ReactElement<{ colour?: number }>, { colour: r.key === 'sw' ? 4 : (i % 4) + 1 }) : r)
+    return rows.map((r, i) => {
+      if (!React.isValidElement(r)) return r
+      const hand = typeof r.key === 'string' ? handOfRow(r.key) : null
+      const extra: { colour: number; onGesture?: (on: boolean) => void } = { colour: r.key === 'sw' ? 4 : (i % 4) + 1 }
+      if (hand) extra.onGesture = (on) => gesture(n.id, hand, on)
+      return React.cloneElement(r as React.ReactElement<typeof extra>, extra)
+    })
   }
 
   const studyLive = studyOpen ? nodeById(sel!.node!) : undefined
@@ -1145,17 +1181,30 @@ export default function FxWall ({ size: frame }: Props) {
   useEffect(() => {
     if (!hasJuceBridge) return
     const onAudio = (e: Event) => {
-      const d = (e as CustomEvent).detail as { peaks?: number[]; amounts?: number[] }
+      const d = (e as CustomEvent).detail as { peaks?: number[]; hands?: number[][] }
       if (Array.isArray(d.peaks)) for (let i = 0; i < FX_MAX_NODES; i++) peaks.current[i] = Math.min(1.4, Number(d.peaks[i]) || 0)
-      // the host's amounts (automation): the wall follows, except the print under a finger
-      if (Array.isArray(d.amounts)) {
+      // the host's hands (automation): the wall follows, except the hand under a finger
+      if (Array.isArray(d.hands)) {
         const g = graphRef.current
-        const held = dragRef.current?.kind === 'amount' ? dragRef.current.id : -1
         let changed = false
         const nodes = g.nodes.map(n => {
-          if (n.id === held || isUtilityType(n.type)) return n
-          const v = Number(d.amounts![n.id]); if (!Number.isFinite(v) || Math.abs(v - n.amount) < 0.002) return n
-          changed = true; return { ...n, amount: v }
+          const h = d.hands![n.id]; if (!Array.isArray(h) || h.length < 12) return n
+          const isHeld = (hand: string) => held.current.has(`${n.id}:${hand}`)
+          const near = (a: number, b: number) => Math.abs(a - b) < 0.002
+          let m = n, dirty = false
+          const set = (patch: Partial<FxGraphNode>) => { m = { ...m, ...patch }; dirty = true }
+          if (!isUtilityType(n.type) && !isHeld('amount') && !near(h[0], n.amount)) set({ amount: h[0] })
+          if (!isHeld('variant') && h[1] !== n.variant && (n.type === FX_MIX_TYPE || !isUtilityType(n.type))) set({ variant: h[1] })
+          if (!isHeld('decay') && !near(h[2], n.decay[n.variant] ?? 0.5) && n.type === 2) { const dd = [...n.decay]; dd[n.variant] = h[2]; set({ decay: dd }) }
+          if (!isHeld('fb') && !near(h[3], n.delayFb) && n.type === 10) set({ delayFb: h[3] })
+          if (!isHeld('div') && h[4] !== n.delayDiv && !isUtilityType(n.type)) set({ delayDiv: h[4] })
+          if (!isHeld('wet') && (h[5] === 1) !== !!n.wet && !isUtilityType(n.type)) set({ wet: h[5] === 1 })
+          const aux = [...m.aux]; while (aux.length < 8) aux.push(0)
+          let auxDirty = false
+          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
+          if (auxDirty) set({ aux })
+          if (dirty) changed = true
+          return m
         })
         if (changed) setGraphState({ ...g, nodes })
       }
@@ -1519,7 +1568,7 @@ export default function FxWall ({ size: frame }: Props) {
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); paramGesture(n.id, true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
+                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); gesture(n.id, 'amount', true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
                       onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true) }}>
                       {' '}{fmtValue(n.type, n.amount, n.variant)}
@@ -1614,7 +1663,7 @@ export default function FxWall ({ size: frame }: Props) {
             if (isUtilityType(studyNode.type)) return
             e.stopPropagation()
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
-            paramGesture(studyNode.id, true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
+            gesture(studyNode.id, 'amount', true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
           }}
           onPointerMove={(e) => {
             if (drag?.kind !== 'amount' || drag.id !== studyNode.id) return
@@ -1639,7 +1688,7 @@ export default function FxWall ({ size: frame }: Props) {
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
                 commit={(a) => updateNode(studyNode.id, { amount: a }, true)}
                 reset={() => updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true)}
-                onPointerDown={(e) => { e.stopPropagation(); grab(e); paramGesture(studyNode.id, true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
+                onPointerDown={(e) => { e.stopPropagation(); grab(e); gesture(studyNode.id, 'amount', true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
                 onWheelDelta={(dy) => updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(dy))) }, true)} />
             : <span className="sg-study-mixnote">{inputsOf(studyNode.id).length === 0 ? 'nothing wired in yet' : studyNode.variant === 0 ? 'the shares blend to 100' : 'the shares add up'}</span>}
         </div>

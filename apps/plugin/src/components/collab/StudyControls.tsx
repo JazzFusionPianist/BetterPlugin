@@ -71,9 +71,10 @@ function Value ({ text }: { text: string }) {
 
 /* ── a number: drag it, type into it; the bar beside it is the gauge ── */
 
-export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine, colour = 3 }: {
+export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3 }: {
   label: string
   tag?: React.ReactNode       // what plays this hand (a rate), shown after the label
+  onGesture?: (on: boolean) => void   // the finger lands on / leaves this hand (the host records automation in between)
   value: number
   min: number
   max: number
@@ -88,7 +89,7 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
   colour?: Hue
 }) {
   const text = format ? format(value) : `${quant(value, step)}${unit ? ' ' + unit : ''}`
-  const commit = (v: number) => onChange(clamp(quant(v, step), min, max), true)
+  const commit = (v: number) => { onGesture?.(true); onChange(clamp(quant(v, step), min, max), true); onGesture?.(false) }
   const typing = useTypeIn({ text, parse: parse ?? parseLead, commit, reset: () => onChange(defaultValue, true) })
   const drag = useRef<{ x0: number; y0: number; v0: number; last: number; moved: boolean } | null>(null)
   const [live, setLive] = useState(false)
@@ -101,11 +102,11 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
       e.preventDefault(); e.stopPropagation()
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? -e.deltaY : e.deltaX
       const v = clamp(quant(value + d * (max - min) / 1600, step), min, max)
-      if (v !== value) onChange(v, true)
+      if (v !== value) { onGesture?.(true); onChange(v, true); onGesture?.(false) }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [value, min, max, step, onChange])
+  }, [value, min, max, step, onChange, onGesture])
   const span = max - min
   const f = span > 0 ? clamp((value - min) / span, 0, 1) : 0
   const zero = bipolar ? clamp((0 - min) / span, 0, 1) : 0
@@ -115,8 +116,9 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
       onPointerDown={(e) => {
         if (typing.editing) return
         e.stopPropagation()
-        if (e.altKey) { onChange(defaultValue, true); return }
+        if (e.altKey) { onGesture?.(true); onChange(defaultValue, true); onGesture?.(false); return }
         try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
+        onGesture?.(true)
         drag.current = { x0: e.clientX, y0: e.clientY, v0: value, last: value, moved: false }
       }}
       onPointerMove={(e) => {
@@ -131,6 +133,7 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
         const d = drag.current; drag.current = null
         setLive(false)
         if (d?.moved) onChange(d.last, true)
+        if (d) onGesture?.(false)
       }}
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
       <span className="sg-row-label">{label}{tag}</span>
@@ -144,11 +147,12 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
 
 /* ── a choice: cells, steps, the keyboard, or a list, by what it holds ── */
 
-export function ChoiceRow ({ label, options, value, onPick, fill, colour = 1 }: {
+export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, colour = 1 }: {
   label: string
   options: string[]
   value: number
   onPick: (i: number) => void
+  onGesture?: (on: boolean) => void
   fill?: boolean              // the divisions and the keyboard fill the column
   colour?: Hue
 }) {
@@ -164,7 +168,7 @@ export function ChoiceRow ({ label, options, value, onPick, fill, colour = 1 }: 
     document.addEventListener('pointerdown', close, true)
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
-  const pick = (i: number) => { setDown(-1); if (i !== value) onPick(i) }
+  const pick = (i: number) => { setDown(-1); if (i !== value) { onGesture?.(true); onPick(i); onGesture?.(false) } }
   const press = (i: number, e: React.PointerEvent) => { e.stopPropagation(); setDown(i) }
   const leave = () => { setHover(-1); setDown(-1) }
   const hoverOf = (e: React.PointerEvent, n: number, w: number) => {
@@ -219,7 +223,7 @@ export function ChoiceRow ({ label, options, value, onPick, fill, colour = 1 }: 
 
 /* ── on / off: a lamp beside each word ── */
 
-export function SwitchRow ({ items, colour = 4 }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }>; colour?: Hue }) {
+export function SwitchRow ({ items, colour = 4 }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }>; colour?: Hue }) {
   const [hover, setHover] = useState(-1)
   if (items.length === 0) return null
   return (
@@ -228,7 +232,7 @@ export function SwitchRow ({ items, colour = 4 }: { items: Array<{ label: string
         {items.map((it, i) => (
           <span key={it.label} className={`sg-sw-item${it.on ? ' on' : ''}`}
             onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(-1)}
-            onPointerDown={(e) => { e.stopPropagation(); it.set(!it.on) }}>
+            onPointerDown={(e) => { e.stopPropagation(); it.onGesture?.(true); it.set(!it.on); it.onGesture?.(false) }}>
             <Lamp on={it.on} hover={hover === i} hue={it.quiet ? 3 : colour} />
             <span className="sg-row-label">{it.label}</span>
           </span>

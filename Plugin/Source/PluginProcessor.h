@@ -25,18 +25,35 @@
  *   • All native-function handlers registered on the WebBrowserComponent
  *     (prefetch, drag, write-audio, etc.) — they used to live on the editor.
  */
-/** A print's amount as the host sees it: one per slot, named after the
- *  print that sits there ("delay amount"), or "print N amount" while the
- *  slot is empty. The name follows the wall; the host is told when it changes. */
-class SlotAmountParam final : public juce::AudioParameterFloat
+/** The hands as the host sees them: twelve per slot, named after the
+ *  print that sits there ("delay feedback"), or "print N …" while the
+ *  slot is empty. Names follow the wall; the host is told when they change. */
+class SlotFloatParam final : public juce::AudioParameterFloat
 {
 public:
-    SlotAmountParam (int slot)
-        : juce::AudioParameterFloat (juce::ParameterID ("print" + juce::String (slot + 1) + "amount", 1),
-                                     "print " + juce::String (slot + 1) + " amount",
-                                     juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f),
-          dynName ("print " + juce::String (slot + 1) + " amount") {}
-    juce::String getName (int maximumStringLength) const override { return dynName.substring (0, maximumStringLength); }
+    SlotFloatParam (const juce::String& id, const juce::String& name, float def = 0.0f)
+        : juce::AudioParameterFloat (juce::ParameterID (id, 1), name, juce::NormalisableRange<float> (0.0f, 1.0f), def), dynName (name) {}
+    juce::String getName (int max) const override { return dynName.substring (0, max); }
+    juce::String getText (float v, int max) const override { return (text ? text (v) : juce::String (convertFrom0to1 (v), 2)).substring (0, max); }
+    juce::String dynName;
+    std::function<juce::String (float)> text;   // a normalised value's word (an aux hand shows its own units)
+};
+class SlotIntParam final : public juce::AudioParameterInt
+{
+public:
+    SlotIntParam (const juce::String& id, const juce::String& name, int lo, int hi, int def)
+        : juce::AudioParameterInt (juce::ParameterID (id, 1), name, lo, hi, def), dynName (name) {}
+    juce::String getName (int max) const override { return dynName.substring (0, max); }
+    juce::String getText (float v, int max) const override { const int i = (int) std::lround (convertFrom0to1 (v)); return (text ? text (i) : juce::String (i)).substring (0, max); }
+    juce::String dynName;
+    std::function<juce::String (int)> text;
+};
+class SlotBoolParam final : public juce::AudioParameterBool
+{
+public:
+    SlotBoolParam (const juce::String& id, const juce::String& name)
+        : juce::AudioParameterBool (juce::ParameterID (id, 1), name, false), dynName (name) {}
+    juce::String getName (int max) const override { return dynName.substring (0, max); }
     juce::String dynName;
 };
 
@@ -228,10 +245,25 @@ private:
     std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
     void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
 
-    /** The host's view of the wall: sixteen amounts, one per slot. */
-    SlotAmountParam* slotAmount[orbfx::kMaxNodes] {};
-    void syncAmountNames();            // message thread: rename after the graph changes
-    void hostAmountsToGraph();         // message thread: automation moved a param → the graph copy follows
+    /** The host's view of the wall: twelve hands per slot, in a group per slot. */
+    struct SlotHost
+    {
+        SlotFloatParam* amount = nullptr;
+        SlotIntParam*   mode   = nullptr;   // variant
+        SlotFloatParam* decay  = nullptr;   // the current flavour's decay
+        SlotFloatParam* fb     = nullptr;
+        SlotIntParam*   div    = nullptr;   // beat division
+        SlotBoolParam*  wet    = nullptr;
+        SlotFloatParam* aux[6] {};          // normalised over the hand's own range
+    };
+    SlotHost slotHost[orbfx::kMaxNodes];
+    std::array<std::atomic<int>, orbfx::kMaxNodes> slotTypes {};   // what sits in each slot (kNone = empty), for the audio thread
+    void syncHandNames();              // message thread: rename after the graph changes
+    void hostParamsToGraph();          // message thread: automation moved a param → the graph copy follows
+    juce::AudioProcessorParameter* handParam (int slot, const juce::String& hand) const;
+    static const char* variantName (int type, int v);
+    static const char* auxName (int type, int k);
+    static void auxRange (int type, int k, int& lo, int& hi);
 
     /** Write a node's params into its slot atomics (no republish). */
     void writeSlot (const orbfx::Graph::Node& nd);

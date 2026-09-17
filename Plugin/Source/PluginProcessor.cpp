@@ -58,11 +58,32 @@ OrbAudioProcessor::OrbAudioProcessor()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
-    // sixteen amounts for the host to automate, one per slot on the wall
+    // twelve hands per slot for the host to automate, grouped by slot ("print 3 › delay feedback")
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
-        slotAmount[i] = new SlotAmountParam (i);
-        addParameter (slotAmount[i]);   // the processor owns it
+        slotTypes[(size_t) i].store (orbfx::kNone);
+        const juce::String pid = "print" + juce::String (i + 1), pname = "print " + juce::String (i + 1) + " ";
+        auto group = std::make_unique<juce::AudioProcessorParameterGroup> (pid, "print " + juce::String (i + 1), " ");
+        auto& h = slotHost[i];
+        auto amount = std::make_unique<SlotFloatParam> (pid + "amount", pname + "amount");
+        auto mode   = std::make_unique<SlotIntParam>   (pid + "mode",   pname + "mode", 0, 7, 0);
+        auto decay  = std::make_unique<SlotFloatParam> (pid + "decay",  pname + "decay", 0.5f);
+        auto fb     = std::make_unique<SlotFloatParam> (pid + "fb",     pname + "feedback", 0.35f);
+        auto div    = std::make_unique<SlotIntParam>   (pid + "div",    pname + "time", 0, 6, 2);
+        auto wet    = std::make_unique<SlotBoolParam>  (pid + "wet",    pname + "wet only");
+        mode->text = [this, i] (int v) { const char* n = variantName (slotTypes[(size_t) i].load(), v); return n != nullptr ? juce::String (n) : juce::String (v); };
+        div->text  = [] (int v) { static const char* const d[] = { "1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2" }; return v >= 0 && v < 7 ? juce::String (d[v]) : juce::String (v); };
+        h.amount = amount.get(); h.mode = mode.get(); h.decay = decay.get(); h.fb = fb.get(); h.div = div.get(); h.wet = wet.get();
+        group->addChild (std::move (amount)); group->addChild (std::move (mode)); group->addChild (std::move (decay));
+        group->addChild (std::move (fb)); group->addChild (std::move (div)); group->addChild (std::move (wet));
+        for (int k = 0; k < 6; ++k)
+        {
+            auto ax = std::make_unique<SlotFloatParam> (pid + "aux" + juce::String (k), pname + "aux " + juce::String (k + 1));
+            ax->text = [this, i, k] (float n) { int lo, hi; auxRange (slotTypes[(size_t) i].load(), k, lo, hi); return juce::String ((int) std::lround (lo + n * (hi - lo))); };
+            h.aux[k] = ax.get();
+            group->addChild (std::move (ax));
+        }
+        addParameterGroup (std::move (group));
     }
     // Build the persistent WebView once per plugin instance. Its lifetime is
     // tied to the processor, so closing/reopening the editor never tears down
@@ -183,14 +204,15 @@ OrbAudioProcessor::OrbAudioProcessor()
             .withNativeFunction ("gesture",
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
-                    // [slot, begin]: the wall's finger is on a print's amount
+                    // [slot, begin, hand]: the wall's finger is on one of a print's hands
                     if (auto* arr = a.getArray(); arr != nullptr && arr->size() >= 2)
                     {
                         const int slot = (int) (*arr)[0];
-                        if (slot >= 0 && slot < orbfx::kMaxNodes)
+                        const juce::String hand = arr->size() >= 3 ? (*arr)[2].toString() : "amount";
+                        if (auto* prm = handParam (slot, hand))
                         {
-                            if ((bool) (*arr)[1]) slotAmount[slot]->beginChangeGesture();
-                            else                  slotAmount[slot]->endChangeGesture();
+                            if ((bool) (*arr)[1]) prm->beginChangeGesture();
+                            else                  prm->endChangeGesture();
                         }
                     }
                     done (juce::var (true));
@@ -315,7 +337,7 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         // Re-publish whatever patch is current (state may have loaded
         // before the engine existed at this sample rate).
         juce::String err;
-        hostAmountsToGraph();   // the host's amounts win over the graph copy (automation, or a host that set a param before re-initialising)
+        hostParamsToGraph();   // the host's params win over the graph copy (automation, or a host that set a param before re-initialising)
         const juce::ScopedLock sl (fxGraphLock);
         if (fxGraph.nodes.empty() && fxGraph.edges.empty()) rebuildLegacyGraph();
         else applyGraph (fxGraph, err);
@@ -549,11 +571,18 @@ void OrbAudioProcessor::timerCallback()
     // per-slot block peaks: the wall's lamps breathe with what passes through
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
         script << (i ? "," : "") << juce::String (fxChain.nodePeak (i), 3);
-    // per-slot amounts as the host has them: automation reaches the wall this way
-    hostAmountsToGraph();
-    script << "],amounts:[";
+    // per-slot hands as the host has them: automation reaches the wall this way
+    hostParamsToGraph();
+    script << "],hands:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
-        script << (i ? "," : "") << juce::String (slotAmount[i] != nullptr ? slotAmount[i]->get() : 0.0f, 4);
+    {
+        const auto& h = slotHost[i];
+        const int type = slotTypes[(size_t) i].load();
+        script << (i ? ",[" : "[") << juce::String (h.amount->get(), 4) << "," << h.mode->get() << "," << juce::String (h.decay->get(), 4) << ","
+               << juce::String (h.fb->get(), 4) << "," << h.div->get() << "," << (h.wet->get() ? 1 : 0);
+        for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
+        script << "]";
+    }
     script << "]}}))";
 
     browser->evaluateJavascript (script,
@@ -988,8 +1017,26 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) return;
     auto& s = fxSlots[(size_t) nd.id];
     s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
-    if (auto* prm = slotAmount[nd.id]; prm != nullptr && std::abs (prm->get() - nd.amount) > 1.0e-4f)
-        prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, nd.amount));   // the range is 0..1: normalised as is
+    slotTypes[(size_t) nd.id].store (nd.type);
+    // the host's params follow the wall (only what differs, so automation being played back is left alone)
+    auto& h = slotHost[nd.id];
+    auto setF = [] (SlotFloatParam* prm, float v) { v = juce::jlimit (0.0f, 1.0f, v); if (prm != nullptr && std::abs (prm->get() - v) > 1.0e-4f) prm->setValueNotifyingHost (v); };
+    auto setI = [] (SlotIntParam* prm, int v) { if (prm != nullptr && prm->get() != v) prm->setValueNotifyingHost (prm->convertTo0to1 ((float) v)); };
+    setF (h.amount, nd.amount);
+    setI (h.mode, juce::jlimit (0, 7, nd.variant));
+    setF (h.decay, nd.decay[juce::jlimit (0, 2, nd.variant)]);
+    setF (h.fb, nd.delayFb);
+    setI (h.div, juce::jlimit (0, 6, nd.delayDiv));
+    if (h.wet != nullptr && h.wet->get() != nd.wet) h.wet->setValueNotifyingHost (nd.wet ? 1.0f : 0.0f);
+    for (int k = 0; k < 6; ++k)
+    {
+        // an aux hand is an integer on the wall: leave the param alone while it already means that integer
+        // (re-normalising would nudge a value the host just set)
+        int lo, hi; auxRange (nd.type, k, lo, hi);
+        if (h.aux[k] == nullptr) continue;
+        const int now = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)));
+        if (now != nd.aux[k]) setF (h.aux[k], hi > lo ? (float) (nd.aux[k] - lo) / (float) (hi - lo) : 0.0f);
+    }
     s.variant.store (juce::jlimit (0, 7, nd.variant), std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i)
         s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
@@ -1013,8 +1060,9 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
         const juce::ScopedLock sl (fxGraphLock);
         fxGraph = g;
     }
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) slotTypes[(size_t) i].store (orbfx::kNone);
     for (auto& nd : g.nodes) writeSlot (nd);
-    syncAmountNames();
+    syncHandNames();
     fxChain.publish (prog);
     {
         ModTable t;
@@ -1049,31 +1097,117 @@ static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "gl
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
                                           "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate" };
 
-void OrbAudioProcessor::syncAmountNames()
+/** The variants' words, as the wall spells them (mode text for the host). */
+static const std::vector<std::vector<const char*>> kVariantNames = {
+    {}, { "hard", "clean" }, { "hall", "room", "plate" }, {}, {}, {}, { "chorus", "flanger", "phaser" }, { "low", "high", "band" },
+    { "clean", "crunch", "lead", "fuzz" }, { "tight", "wide" }, { "clean", "tape", "pingpong" }, { "blend", "sum" },
+    { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
+    { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
+    { "octave", "fifth", "down" }, { "soft", "hard" }, { "beat", "bar" }, { "silk", "bright" }, { "ring", "am" }, { "tight", "loose" }, { "wow", "flutter", "both" },
+};
+const char* OrbAudioProcessor::variantName (int type, int v)
+{
+    if (type < 0 || type >= (int) kVariantNames.size()) return nullptr;
+    const auto& names = kVariantNames[(size_t) type];
+    return v >= 0 && v < (int) names.size() ? names[(size_t) v] : nullptr;
+}
+/** An aux hand's name and range, by print (the wall's HANDS table, plus the rate's clock). */
+const char* OrbAudioProcessor::auxName (int type, int k)
+{
+    switch (type)
+    {
+        case orbfx::kTremolo: return k == 0 ? "moves" : k == 2 ? "shape" : nullptr;
+        case orbfx::kArp:     return k == 0 ? "step" : nullptr;
+        case orbfx::kHarmony: return k == 0 ? "key" : k == 1 ? "scale" : k == 2 ? "interval" : nullptr;
+        case orbfx::kPitch:   return k == 0 ? "cents" : k == 1 ? "engine" : nullptr;
+        case orbfx::kFormant: return k == 0 ? "engine" : nullptr;
+        case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
+        case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
+        case orbfx::kRate:    { static const char* const r[] = { "clock", "every", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
+        default: return nullptr;
+    }
+}
+void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
+{
+    lo = 0; hi = 100;
+    switch (type)
+    {
+        case orbfx::kTremolo: if (k == 0) { lo = 0; hi = 1; } else if (k == 2) { lo = 0; hi = 13; } break;
+        case orbfx::kArp:     if (k == 0) { lo = 1; hi = 12; } break;
+        case orbfx::kHarmony: if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 1; } else if (k == 2) { lo = -12; hi = 12; } break;
+        case orbfx::kPitch:   if (k == 0) { lo = -100; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
+        case orbfx::kFormant: if (k == 0) { lo = 0; hi = 1; } break;
+        case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
+        case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
+        case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
+        default: break;
+    }
+}
+
+juce::AudioProcessorParameter* OrbAudioProcessor::handParam (int slot, const juce::String& hand) const
+{
+    if (slot < 0 || slot >= orbfx::kMaxNodes) return nullptr;
+    const auto& h = slotHost[slot];
+    if (hand == "amount")  return h.amount;
+    if (hand == "variant") return h.mode;
+    if (hand == "decay")   return h.decay;
+    if (hand == "fb")      return h.fb;
+    if (hand == "div")     return h.div;
+    if (hand == "wet")     return h.wet;
+    if (hand.startsWith ("aux")) { const int k = hand.substring (3).getIntValue(); return k >= 0 && k < 6 ? h.aux[k] : nullptr; }
+    return nullptr;
+}
+
+void OrbAudioProcessor::syncHandNames()
 {
     bool changed = false;
     const juce::ScopedLock sl (fxGraphLock);
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
-        juce::String name = "print " + juce::String (i + 1) + " amount";
-        for (auto& nd : fxGraph.nodes)
-            if (nd.id == i && orbfx::isEffect (nd.type) && nd.type >= 0 && nd.type < (int) std::size (kTypeNames))
-                name = juce::String (kTypeNames[nd.type]) + " amount";
-        if (slotAmount[i] != nullptr && slotAmount[i]->dynName != name) { slotAmount[i]->dynName = name; changed = true; }
+        int type = orbfx::kNone;
+        for (auto& nd : fxGraph.nodes) if (nd.id == i) type = nd.type;
+        const bool named = type >= 0 && type < (int) std::size (kTypeNames);
+        const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
+        auto& h = slotHost[i];
+        auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
+        put (h.amount->dynName, prefix + "amount");
+        put (h.mode->dynName,   prefix + "mode");
+        put (h.decay->dynName,  prefix + "decay");
+        put (h.fb->dynName,     prefix + "feedback");
+        put (h.div->dynName,    prefix + (type == orbfx::kTremolo || type == orbfx::kArp ? "rate" : "time"));
+        put (h.wet->dynName,    prefix + "wet only");
+        for (int k = 0; k < 6; ++k)
+        {
+            const char* an = auxName (type, k);
+            put (h.aux[k]->dynName, prefix + (an != nullptr ? juce::String (an) : "aux " + juce::String (k + 1)));
+        }
     }
     if (changed) updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withParameterInfoChanged (true));
 }
 
-void OrbAudioProcessor::hostAmountsToGraph()
+void OrbAudioProcessor::hostParamsToGraph()
 {
     // automation moved a param: the graph copy (what gets saved, what the wall reads back) follows
     const juce::ScopedLock sl (fxGraphLock);
     for (auto& nd : fxGraph.nodes)
-        if (nd.id >= 0 && nd.id < orbfx::kMaxNodes && slotAmount[nd.id] != nullptr)
+    {
+        if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
+        const auto& h = slotHost[nd.id];
+        auto& s = fxSlots[(size_t) nd.id];
+        const float a = h.amount->get(); if (std::abs (a - nd.amount) > 1.0e-4f) { nd.amount = a; s.amount.store (a, std::memory_order_relaxed); }
+        const int v = h.mode->get(); if (v != nd.variant) { nd.variant = v; s.variant.store (v, std::memory_order_relaxed); }
+        const int vi = juce::jlimit (0, 2, nd.variant);
+        const float d = h.decay->get(); if (std::abs (d - nd.decay[vi]) > 1.0e-4f) { nd.decay[vi] = d; s.decay[(size_t) vi].store (d, std::memory_order_relaxed); }
+        const float f = h.fb->get(); if (std::abs (f - nd.delayFb) > 1.0e-4f) { nd.delayFb = f; s.delayFb.store (f, std::memory_order_relaxed); }
+        const int dv = h.div->get(); if (dv != nd.delayDiv) { nd.delayDiv = dv; s.delayDiv.store (dv, std::memory_order_relaxed); }
+        const bool w = h.wet->get(); if (w != nd.wet) { nd.wet = w; s.wet.store (w, std::memory_order_relaxed); }
+        for (int k = 0; k < 6; ++k)
         {
-            const float v = slotAmount[nd.id]->get();
-            if (std::abs (v - nd.amount) > 1.0e-4f) { nd.amount = v; fxSlots[(size_t) nd.id].amount.store (v, std::memory_order_relaxed); }
+            int lo, hi; auxRange (nd.type, k, lo, hi);
+            const int x = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)));
+            if (x != nd.aux[k]) { nd.aux[k] = x; s.aux[(size_t) k].store (x, std::memory_order_relaxed); }
         }
+    }
 }
 
 void OrbAudioProcessor::rebuildLegacyGraph()
@@ -1115,13 +1249,16 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     {
         auto& s = fxSlots[(size_t) i];
         auto& p = params[i];
-        p.amount   = slotAmount[i] != nullptr ? slotAmount[i]->get() : s.amount.load (std::memory_order_relaxed);
-        p.variant  = s.variant.load (std::memory_order_relaxed);
-        p.decay    = s.decay[(size_t) juce::jlimit (0, 2, p.variant)].load (std::memory_order_relaxed);
-        p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);
-        p.delayFb  = s.delayFb.load (std::memory_order_relaxed);
-        p.wet      = s.wet.load (std::memory_order_relaxed);
+        const auto& h = slotHost[i];
+        const int type = slotTypes[(size_t) i].load (std::memory_order_relaxed);
+        p.amount   = h.amount->get();
+        p.variant  = h.mode->get();
+        p.decay    = h.decay->get();
+        p.delayDiv = h.div->get();
+        p.delayFb  = h.fb->get();
+        p.wet      = h.wet->get();
         for (int k = 0; k < orbfx::kAuxCount; ++k) p.aux[k] = s.aux[(size_t) k].load (std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); p.aux[k] = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo))); }
         p.hasCurve = s.hasCurve.load (std::memory_order_relaxed);
         if (p.hasCurve)
             for (int k = 0; k < orbfx::kCurveLen; ++k) p.curve[k] = s.curve[(size_t) k].load (std::memory_order_relaxed);

@@ -5,10 +5,11 @@ import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
+import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -37,7 +38,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'lfo', 'rate']],
 ]
 const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -56,6 +57,7 @@ type Drag =
   | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2' | 'aux3' | 'aux5'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
   | { kind: 'pan'; x0: number; y0: number; px: number; py: number }
+type Picker = { from: number; node: number }   // a control wire dropped on a print: which hand?
 
 const uid = () => Math.random().toString(36).slice(2, 8)
 void uid
@@ -63,6 +65,23 @@ void uid
 /** The lanes' colours: what a split wire carries. */
 const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132]]   // stereo, l, r, m, s
 const SPLIT_FAN = 22   // degrees between a splitter's two output ports
+/** The hands a control wire can play, by print. */
+const HANDS: Record<number, Array<{ key: string; label: string }>> = {
+  2: [{ key: 'decay', label: 'decay' }],
+  10: [{ key: 'fb', label: 'feedback' }],
+  13: [{ key: 'aux0', label: 'step' }],
+  15: [{ key: 'aux2', label: 'interval' }],
+  16: [{ key: 'aux0', label: 'cents' }],
+  18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
+  22: [{ key: 'aux0', label: 'depth' }],
+}
+const handsOf = (type: number) => (isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
+const handLabel = (type: number, key: string) => handsOf(type).find(h => h.key === key)?.label ?? key
+const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
+const RATE_FEEL = ['straight', 'dotted', 'triplet']
+/** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
+const rateText = (n: { aux: number[] }) => (n.aux[0] === 1 ? `${((n.aux[3] || 200) / 100).toFixed(2)} hz` : `${RATE_DIVS[n.aux[1] ?? 3] ?? '1/4'}${n.aux[2] === 1 ? '.' : n.aux[2] === 2 ? 't' : ''}`)
+const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
 function tintOf (type: number, variant = 0): [number, number, number] {
   if (isUtilityType(type)) return [246, 243, 234]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
@@ -70,7 +89,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'lfo' : type === FX_RATE ? 'rate' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
@@ -222,8 +241,37 @@ function SplitArt ({ ms }: { ms: boolean }) {
   )
 }
 
+/** The lfo's print: its shape, small. */
+function LfoArt ({ pts }: { pts?: number[] }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const p = pts && pts.length >= 6 ? pts : SINE_PTS
+  let d = ''
+  for (let k = 0; k <= 64; k++) { const x = k / 64; d += `${k === 0 ? 'M' : 'L'}${(34 + x * 152).toFixed(1)} ${(150 - shapeAt(p, x) * 80).toFixed(1)} ` }
+  return (
+    <g>
+      {[0, 2, 4, 6, 8].map(k => <path key={k} d={`M${34 + k * 19} 70 V150`} stroke={P} strokeOpacity={0.14} strokeWidth={0.8} />)}
+      <path d="M34 110 H186" stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
+      <path d={d} fill="none" stroke={P} strokeWidth={1.5} strokeLinejoin="round" />
+    </g>
+  )
+}
+/** The rate's print: a clock face with its word in the middle. */
+function RateArt ({ node }: { node: { aux: number[] } }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  return (
+    <g>
+      <circle cx={110} cy={110} r={72} stroke={P} strokeOpacity={0.35} strokeWidth={1} fill="none" />
+      {Array.from({ length: 8 }, (_, k) => { const a = k / 8 * Math.PI * 2 - Math.PI / 2; return <path key={k} d={`M${110 + 66 * Math.cos(a)} ${110 + 66 * Math.sin(a)} L${110 + 72 * Math.cos(a)} ${110 + 72 * Math.sin(a)}`} stroke={P} strokeOpacity={0.6} strokeWidth={1} /> })}
+      <path d="M110 110 V44" stroke={P} strokeWidth={1.5} strokeLinecap="round" />
+      <text x={110} y={140} textAnchor="middle" fontSize="18" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>{rateText(node)}</text>
+    </g>
+  )
+}
+
 function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
-  node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[] }
+  node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[] }
   size: number
   dim?: boolean
   shares?: number[]
@@ -242,6 +290,8 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
     <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
       {type === FX_MIX_TYPE ? <MixArt shares={shares ?? []} />
         : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
+        : type === FX_LFO ? <LfoArt pts={node.pts} />
+        : type === FX_RATE ? <RateArt node={node} />
         : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
@@ -341,12 +391,13 @@ export default function FxWall ({ size: frame }: Props) {
   const toggleShelf = () => setShelfOpen(v => { try { localStorage.setItem('orb_wall_shelf', v ? '0' : '1') } catch { /* fine */ } return !v })
   // more prints past the right edge? the edge fades to say so
   const [shelfMore, setShelfMore] = useState(false)
+  const [picker, setPicker] = useState<Picker | null>(null)
   // the shelf shows one family at a time
   const [shelfFam, setShelfFam] = useState(() => { try { return Math.min(FAMILIES.length - 1, Math.max(0, Number(localStorage.getItem('orb_wall_fam') ?? 0))) } catch { return 0 } })
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['lfo', FX_LFO], ['rate', FX_RATE]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -449,6 +500,12 @@ export default function FxWall ({ size: frame }: Props) {
     if (id === FX_PORT_OUT) return { x: outPort.x - 6, y: outPort.y }
     const n = nodeById(id); if (!n) return outPort
     const c = toScreen(n)
+    const edge = graph.edges[edgeIndex]
+    if (edge && isControlEdge(edge)) {
+      const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
+      const k = ctl.findIndex(x => x.i === edgeIndex)
+      return { x: c.x + (k - (ctl.length - 1) / 2) * 12 * zoom, y: c.y - Rz }
+    }
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
@@ -474,16 +531,17 @@ export default function FxWall ({ size: frame }: Props) {
       let changed = false
       graph.edges.forEach((e, i) => {
         let l = 0
-        if (e.from !== FX_PORT_IN) {
+        if (e.from !== FX_PORT_IN && !isControlEdge(e)) {
           const n = nodeById(e.from)
           if (n && isSplitterType(n.type)) l = n.type === FX_SPLIT_LR ? (e.port ? 2 : 1) : (e.port ? 4 : 3)
+          else if (n && isControlType(n.type)) l = 0
           else l = outLane.get(e.from) ?? 0
         }
         if (lanes[i] !== l) { lanes[i] = l; changed = true }
       })
       for (const n of graph.nodes) {
         if (isSplitterType(n.type)) continue
-        const ins = graph.edges.map((e, i) => (e.to === n.id ? lanes[i] : -1)).filter(l => l >= 0)
+        const ins = graph.edges.map((e, i) => (e.to === n.id && !isControlEdge(e) ? lanes[i] : -1)).filter(l => l >= 0)
         const l = ins.length > 0 && ins.every(x => x === ins[0]) ? ins[0] : 0
         if (outLane.get(n.id) !== l) { outLane.set(n.id, l); changed = true }
       }
@@ -546,12 +604,13 @@ export default function FxWall ({ size: frame }: Props) {
   const addNode = (type: number, at: Pt) => {
     const id = freeId(); if (id < 0) return
     const gp = toGraph(at)
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50
-    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y }
+    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
     let edges = graph.edges
-    // dropped onto a wire? splice in
-    let best = -1, bestD = SNAP_WIRE
+    // dropped onto a wire? splice in (a control print never joins the audio)
+    let best = -1, bestD = isControlType(type) ? -1 : SNAP_WIRE
     graph.edges.forEach((e, i) => {
+      if (isControlEdge(e)) return
       const d = distToWire(outPortOf(e.from, e.port ?? 0), inPortOf(e.to, i), at)
       if (d < bestD * Math.max(0.6, zoom)) { bestD = d; best = i }
     })
@@ -584,9 +643,19 @@ export default function FxWall ({ size: frame }: Props) {
     setSel(null); setConfirm(null)
   }
 
+  /** A control wire: the rate plays one hand of a print, at a depth. */
+  const connectHand = (from: number, to: number, hand: string) => {
+    if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
+    commit({ ...graph, edges: [...graph.edges, { from, to, gain: 0.5, port: 0, hand }] }, true)
+  }
   const connect = (from: number, to: number, port = 0) => {
     if (from === to) return
     if (to === FX_PORT_IN || from === FX_PORT_OUT) return
+    const src = from === FX_PORT_IN ? null : nodeById(from)
+    const dst = to === FX_PORT_OUT ? null : nodeById(to)
+    // an lfo feeds a rate its shape; nothing else meets a control print by a plain wire
+    if (src && isControlType(src.type)) { if (!(src.type === FX_LFO && dst?.type === FX_RATE)) return }
+    else if (dst && isControlType(dst.type)) return
     if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port)) return
     const target = to === FX_PORT_OUT ? null : nodeById(to)
     // any point takes any number of wires: they sum at the point
@@ -606,6 +675,10 @@ export default function FxWall ({ size: frame }: Props) {
   /** Drag a share number: blend keeps the mix's wires summing to 100. */
   const setShare = (edgeIndex: number, gain: number, immediate = false) => {
     const e = graph.edges[edgeIndex]; if (!e) return
+    if (isControlEdge(e)) {
+      commit({ ...graph, edges: graph.edges.map((x, i) => i === edgeIndex ? { ...x, gain: Math.min(1, Math.max(-1, gain)) } : x) }, immediate)
+      return
+    }
     const target = nodeById(e.to)
     const g = Math.min(1, Math.max(0, gain))   // a wire never sends more than everything
     if (target && target.type === FX_MIX_TYPE && target.variant === 0) {
@@ -671,7 +744,12 @@ export default function FxWall ({ size: frame }: Props) {
     if (drag.kind === 'wire') {
       // landed on a node (its input) or the out port?
       const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
-      if (hit) connect(drag.from, hit.id, drag.port)
+      const src = drag.from === FX_PORT_IN ? null : nodeById(drag.from)
+      if (hit && src?.type === FX_RATE) {
+        // a rate dropped on a print: which hand? the picker asks
+        if (handsOf(hit.type).length > 0) setPicker({ from: drag.from, node: hit.id })
+      }
+      else if (hit) connect(drag.from, hit.id, drag.port)
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
     }
     else if (drag.kind === 'shelf') {
@@ -833,6 +911,16 @@ export default function FxWall ({ size: frame }: Props) {
     }
     const rows: React.ReactNode[] = []
     const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
+    if (n.type === FX_RATE) {
+      rows.push(<ChoiceRow key="mode" label="clock" options={['sync', 'hz']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
+      if ((n.aux[0] || 0) === 0) {
+        rows.push(<ChoiceRow key="div" label="every" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
+        rows.push(<ChoiceRow key="feel" label="feel" options={RATE_FEEL} value={n.aux[2] || 0} onPick={(k) => setAux(2, k)} />)
+      } else {
+        rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260}
+          format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
+      }
+    }
     if (n.type === 12) {
       const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
       rows.push(<ChoiceRow key="shape" label="shape" options={TREM_PRESETS.map(p => p.name)} value={cur}
@@ -893,6 +981,12 @@ export default function FxWall ({ size: frame }: Props) {
           defaultValue={Math.round(100 / Math.max(1, ins.length))} onChange={(v, final) => setShare(x.i, v / 100, final)} />,
       ))
     }
+    // the hands a rate plays: one depth per control wire
+    graph.edges.forEach((e, i) => {
+      if (e.to !== n.id || !isControlEdge(e)) return
+      rows.push(<GaugeRow key={`ctl${i}`} label={`${handLabel(n.type, e.hand!)} depth`} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
+        format={(v) => `${v > 0 ? '+' : ''}${v}`} onChange={(v, final) => setShare(i, v / 100, final)} />)
+    })
     const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> = []
     if (n.type === 5) {
       switches.push({ label: 'ø left', on: (n.variant & 1) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 1 }, true) })
@@ -943,6 +1037,19 @@ export default function FxWall ({ size: frame }: Props) {
       const path = new Path2D(wirePath(p0, p1))
       const lane = laneOfEdge[i] ?? 0
       const selAlpha = sel?.edge === i ? 1 : 0.42
+      const src = e.from === FX_PORT_IN ? null : nodeById(e.from)
+      if (isControlEdge(e) || (src && isControlType(src.type))) {
+        // a control wire: dashed paper, the hand's name where it lands
+        ctx.save()
+        ctx.setLineDash([3 * zoom, 4 * zoom]); ctx.strokeStyle = rgba(paper, sel?.edge === i ? 0.9 : 0.5); ctx.lineWidth = 1; ctx.stroke(path)
+        ctx.restore()
+        if (e.hand !== undefined) {
+          const t = nodeById(e.to)
+          ctx.font = `${Math.round(9 * Math.max(0.8, zoom))}px 'Space Mono', monospace`; ctx.textAlign = 'center'; ctx.fillStyle = rgba(paper, 0.6)
+          ctx.fillText(handLabel(t?.type ?? -1, e.hand), p1.x, p1.y - 6 * zoom)
+        }
+        return
+      }
       if (lane > 0) {
         ctx.strokeStyle = rgba(LANE_RGB[lane], sel?.edge === i ? 0.95 : 0.55)
       } else {
@@ -960,7 +1067,7 @@ export default function FxWall ({ size: frame }: Props) {
       const t0 = performance.now() / 1000
       graph.edges.forEach((e, i) => {
         const lane = laneOfEdge[i] ?? 0
-        if (lane === 0) return
+        if (lane === 0 || isControlEdge(e)) return
         const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
         const c = LANE_RGB[lane]
         const head = ((t0 / 2.2) + i * 0.29) % 1
@@ -1256,7 +1363,7 @@ export default function FxWall ({ size: frame }: Props) {
           const p = wallPt(e)
           let hit = -1, best = 9
           graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from, ed.port ?? 0), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
-          setConfirm(null); setListOpen(false)
+          setConfirm(null); setListOpen(false); setPicker(null)
           if (hit >= 0) { setSel({ edge: hit }); return }
           setSel(null)
           setDrag({ kind: 'pan', x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y })
@@ -1278,7 +1385,8 @@ export default function FxWall ({ size: frame }: Props) {
             const isSel = sel?.edge === i
             const target = nodeById(e.to)
             const mixIn = target?.type === FX_MIX_TYPE
-            const label = mixIn || Math.abs(e.gain - 1) > 0.005
+            const ctl = isControlEdge(e)
+            const label = ctl || mixIn || Math.abs(e.gain - 1) > 0.005
             const lp = wireAt(p0, p1, mixIn ? 0.86 : 0.5)
             return (
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
@@ -1287,7 +1395,7 @@ export default function FxWall ({ size: frame }: Props) {
                     onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setDrag({ kind: 'share', edge: i, y0: ev.clientY, g0: e.gain }) }}
                     onDoubleClick={(ev) => { ev.stopPropagation(); setShare(i, mixIn ? 1 / Math.max(1, inputsOf(e.to).length) : 1, true) }}>
                     {mixIn && <tspan className="sg-share-who">{e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(e.from)?.type ?? -1)} </tspan>}
-                    {Math.round(e.gain * 100)}
+                    {ctl && e.gain > 0 ? '+' : ''}{Math.round(e.gain * 100)}
                   </text>
                 )}
                 {isSel && (
@@ -1316,7 +1424,7 @@ export default function FxWall ({ size: frame }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
@@ -1347,6 +1455,7 @@ export default function FxWall ({ size: frame }: Props) {
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
+                  {n.type === FX_RATE && <span className="sg-flav"> {rateText(n)}</span>}
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
@@ -1363,6 +1472,18 @@ export default function FxWall ({ size: frame }: Props) {
           )
         })}
 
+        {picker && (() => {
+          const target = nodeById(picker.node); if (!target) return null
+          const c = toScreen(target)
+          const hands = handsOf(target.type)
+          const w = Math.max(120, hands.length * 60)
+          return (
+            <div className="sg-picker" style={{ left: c.x - w / 2, top: c.y - Rz - 34 }} onPointerDown={(e) => e.stopPropagation()}>
+              <Cells options={hands.map(h => h.label)} value={-1} hue={3} width={w}
+                onCell={(i, e) => { e.stopPropagation(); connectHand(picker.from, picker.node, hands[i].key); setPicker(null) }} />
+            </div>
+          )
+        })()}
         {drag?.kind === 'shelf' && (
           <div className="sg-ghost" style={{ left: drag.at.x - Rz, top: drag.at.y - Rz, width: NODEz, height: NODEz }}>
             <Print node={{ type: drag.type, amount: neutralOf(drag.type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [0, 0, 2] }} size={NODEz} dim />
@@ -1446,14 +1567,17 @@ export default function FxWall ({ size: frame }: Props) {
           onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtilityType(studyNode.type)) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
           onDoubleClick={() => { if (!isUtilityType(studyNode.type)) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
           onWheel={(e) => { if (isUtilityType(studyNode.type)) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
-          <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
+          {studyNode.type === FX_LFO
+            ? <LfoEditor pts={studyNode.pts ?? SINE_PTS} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
+                onChange={(pts, final) => updateNode(studyNode.id, { pts, curve: sampleShape(pts) }, final)} />
+            : <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
             onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
             onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}
             onFb={(v, force) => updateNode(studyNode.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
-            onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />
+            onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />}
         </div>
         <div className="sg-study-value">
-          {isSplitterType(studyNode.type) ? null : studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) || isControlType(studyNode.type) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
                 commit={(a) => updateNode(studyNode.id, { amount: a }, true)}

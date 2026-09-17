@@ -99,3 +99,8 @@
 /* ── the shelf: the family tabs at the left, one family's prints ── */
 .plugin.sounds .sg-shelf-fam { flex: none; margin-right: 4px; align-self: center; position: relative; top: -13px; }
 .plugin.sounds .sg-shelf-item span { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0; }
+
+/* ── the hand picker: a control wire dropped on a print asks which hand ── */
+.plugin.sounds .sg-picker { position: absolute; z-index: 7; background: var(--fx-wall, #161410); padding: 4px; border-radius: 3px; }
+/* the lfo's editor sits where the print would */
+.plugin.sounds .sg-lfo { cursor: crosshair; }

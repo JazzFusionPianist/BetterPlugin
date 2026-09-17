@@ -107,12 +107,17 @@ export const FX_MIX_TYPE = 11
  *  (or reach out) join back into a stereo pair. */
 export const FX_SPLIT_LR = 28
 export const FX_SPLIT_MS = 29
+/** Control nodes: no audio passes through them. An lfo is a drawn shape;
+ *  a rate is a clock that plays a shape into a hand of another print. */
+export const FX_LFO = 30
+export const FX_RATE = 31
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
+export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE
 
 export interface FxGraphNode {
   id: number
@@ -126,11 +131,26 @@ export interface FxGraphNode {
   bypass?: boolean        // the print hangs there, the signal passes it by
   aux: number[]           // tremolo [vol|pan]; arp [interval st]; harmony [key root, scale, degrees];
                           // grain [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze] (8 slots)
-  curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape
+  curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape; lfo: its shape as 64 samples
+  pts?: number[]          // lfo: the drawn points, flat [x, y, bend, …] (see LfoEditor)
   x: number
   y: number
 }
-export interface FxGraphEdge { from: number; to: number; gain: number; port?: number }   // port: which output of `from` (a splitter has two)
+export interface FxGraphEdge {
+  from: number; to: number
+  gain: number            // an audio wire's send level; a control wire's depth (-1..1)
+  port?: number           // which output of `from` (a splitter has two)
+  hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
+}
+/** What the engine understands today: the control nodes and their wires
+ *  stay on the wall until the engine learns them. */
+export function engineGraph (g: FxGraph): FxGraph {
+  const gone = new Set(g.nodes.filter(n => isControlType(n.type)).map(n => n.id))
+  return {
+    nodes: g.nodes.filter(n => !gone.has(n.id)),
+    edges: g.edges.filter(e => !gone.has(e.from) && !gone.has(e.to) && e.hand === undefined),
+  }
+}
 export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
 
 export function hasGraphBridge (): boolean {
@@ -151,7 +171,7 @@ export async function getGraph (): Promise<FxGraph | null> {
 export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: string }> {
   if (!hasGraphBridge()) return { ok: false, error: 'no bridge' }
   try {
-    const raw: unknown = await callJuceNative('setGraph', [JSON.stringify(g)])
+    const raw: unknown = await callJuceNative('setGraph', [JSON.stringify(engineGraph(g))])
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (v && typeof v === 'object') return v as { ok: boolean; error?: string }
   } catch (e) { return { ok: false, error: String(e) } }

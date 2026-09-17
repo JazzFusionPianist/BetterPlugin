@@ -104,3 +104,8 @@
 .plugin.sounds .sg-picker { position: absolute; z-index: 7; background: var(--fx-wall, #161410); padding: 4px; border-radius: 3px; }
 /* the lfo's editor sits where the print would */
 .plugin.sounds .sg-lfo { cursor: crosshair; }
+
+/* a hand a rate plays: a dashed stub and the rate's name after the label */
+.plugin.sounds .sg-row-tag { color: var(--sg-ink-70); font-family: var(--f-mono); font-size: 9px; margin-left: 8px; white-space: nowrap; }
+.plugin.sounds .sg-row-tag i { display: inline-block; width: 14px; height: 0; border-top: 1px dashed var(--sg-ink-50); vertical-align: middle; margin-right: 2px; }
+.plugin.sounds .sg-row-tag.lead { margin-left: 0; }

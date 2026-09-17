@@ -71,8 +71,9 @@ function Value ({ text }: { text: string }) {
 
 /* ── a number: drag it, type into it; the bar beside it is the gauge ── */
 
-export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine, colour = 3 }: {
+export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine, colour = 3 }: {
   label: string
+  tag?: React.ReactNode       // what plays this hand (a rate), shown after the label
   value: number
   min: number
   max: number
@@ -132,7 +133,7 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
         if (d?.moved) onChange(d.last, true)
       }}
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
-      <span className="sg-row-label">{label}</span>
+      <span className="sg-row-label">{label}{tag}</span>
       <span className="sg-row-ctl">
         <Bar f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
         <span className="sg-num">{typing.input ?? <Value text={text} />}</span>

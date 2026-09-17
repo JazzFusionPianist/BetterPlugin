@@ -38,7 +38,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'lfo', 'rate']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'LFO', 'rate']],
 ]
 const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -89,7 +89,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'lfo' : type === FX_RATE ? 'rate' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
@@ -397,7 +397,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['lfo', FX_LFO], ['rate', FX_RATE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -504,7 +504,8 @@ export default function FxWall ({ size: frame }: Props) {
     if (edge && isControlEdge(edge)) {
       const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
       const k = ctl.findIndex(x => x.i === edgeIndex)
-      return { x: c.x + (k - (ctl.length - 1) / 2) * 12 * zoom, y: c.y - Rz }
+      // the wire ends at the hand's name, which floats just above the print; a short tick joins the two
+      return { x: c.x + (k - (ctl.length - 1) / 2) * 14 * zoom, y: c.y - Rz - 14 * zoom }
     }
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
@@ -981,11 +982,21 @@ export default function FxWall ({ size: frame }: Props) {
           defaultValue={Math.round(100 / Math.max(1, ins.length))} onChange={(v, final) => setShare(x.i, v / 100, final)} />,
       ))
     }
-    // the hands a rate plays: one depth per control wire
+    // the hands a rate plays: the hand's row says so, and its depth sits right under it
     graph.edges.forEach((e, i) => {
       if (e.to !== n.id || !isControlEdge(e)) return
-      rows.push(<GaugeRow key={`ctl${i}`} label={`${handLabel(n.type, e.hand!)} depth`} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
-        format={(v) => `${v > 0 ? '+' : ''}${v}`} onChange={(v, final) => setShare(i, v / 100, final)} />)
+      const src = nodeById(e.from)
+      const who = src ? `rate ${rateText(src)}` : 'rate'
+      const label = handLabel(n.type, e.hand!)
+      // the hand's row ends in a dashed stub; the row under it names the rate and holds the depth
+      const tag = <span className="sg-row-tag"><i /></span>
+      const depth = <GaugeRow key={`ctl${i}`} label="" tag={<span className="sg-row-tag lead"><i /> {who}</span>} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
+        format={(v) => `${v > 0 ? '+' : ''}${v}`} onChange={(v, final) => setShare(i, v / 100, final)} />
+      const at = rows.findIndex(r => React.isValidElement(r) && (r.props as { label?: string }).label !== undefined && ((r.props as { label: string }).label === label || (e.hand === 'aux2' && n.type === 15)))
+      if (at >= 0) {
+        rows[at] = React.cloneElement(rows[at] as React.ReactElement<{ tag?: React.ReactNode }>, { tag })
+        rows.splice(at + 1, 0, depth)
+      } else rows.push(React.cloneElement(depth, { label, tag: <span className="sg-row-tag"><i /> {who}</span> }))   // the amount: no row of its own, so the depth row names it
     })
     const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> = []
     if (n.type === 5) {
@@ -1044,9 +1055,14 @@ export default function FxWall ({ size: frame }: Props) {
         ctx.setLineDash([3 * zoom, 4 * zoom]); ctx.strokeStyle = rgba(paper, sel?.edge === i ? 0.9 : 0.5); ctx.lineWidth = 1; ctx.stroke(path)
         ctx.restore()
         if (e.hand !== undefined) {
+          // the hand's name sits at the wire's end; a tick drops from it to the print's edge
           const t = nodeById(e.to)
-          ctx.font = `${Math.round(9 * Math.max(0.8, zoom))}px 'Space Mono', monospace`; ctx.textAlign = 'center'; ctx.fillStyle = rgba(paper, 0.6)
-          ctx.fillText(handLabel(t?.type ?? -1, e.hand), p1.x, p1.y - 6 * zoom)
+          const c = t ? toScreen(t) : p1
+          ctx.strokeStyle = rgba(paper, 0.5); ctx.lineWidth = 1
+          ctx.beginPath(); ctx.moveTo(p1.x, p1.y + 3 * zoom); ctx.lineTo(p1.x, c.y - Rz); ctx.stroke()
+          ctx.fillStyle = rgba(paper, 0.9); ctx.beginPath(); ctx.arc(p1.x, p1.y, 1.6 * Math.max(0.8, zoom), 0, Math.PI * 2); ctx.fill()
+          ctx.font = `${Math.round(9 * Math.max(0.8, zoom))}px 'Space Mono', monospace`; ctx.textAlign = 'left'; ctx.fillStyle = rgba(paper, 0.8)
+          ctx.fillText(handLabel(t?.type ?? -1, e.hand), p1.x + 5 * zoom, p1.y + 3.5 * zoom)
         }
         return
       }

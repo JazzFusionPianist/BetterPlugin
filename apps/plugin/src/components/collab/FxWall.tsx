@@ -947,7 +947,7 @@ export default function FxWall ({ size: frame }: Props) {
       }
       ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
     })
-    // electrons: on a split lane a short glow runs down the wire, in the lane's colour
+    // on a split lane one short glowing line runs down the wire, in the lane's colour
     {
       const t0 = performance.now() / 1000
       graph.edges.forEach((e, i) => {
@@ -955,20 +955,21 @@ export default function FxWall ({ size: frame }: Props) {
         if (lane === 0) return
         const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
         const c = LANE_RGB[lane]
-        for (let k = 0; k < 2; k++) {
-          const t = ((t0 / 1.6) + k * 0.5 + i * 0.137) % 1
-          const q = wireAt(p0, p1, t)
-          const tail = wireAt(p0, p1, Math.max(0, t - 0.06))
-          const g = ctx.createLinearGradient(tail.x, tail.y, q.x, q.y)
-          g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 0.9))
-          ctx.strokeStyle = g; ctx.lineWidth = 2 * Math.max(0.8, zoom)
-          ctx.beginPath(); ctx.moveTo(tail.x, tail.y)
-          for (let s2 = 1; s2 <= 6; s2++) { const u = wireAt(p0, p1, Math.max(0, t - 0.06) + (t - Math.max(0, t - 0.06)) * s2 / 6); ctx.lineTo(u.x, u.y) }
-          ctx.stroke()
-          const halo = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, 7 * Math.max(0.8, zoom))
-          halo.addColorStop(0, rgba(c, 0.85)); halo.addColorStop(1, rgba(c, 0))
-          ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(q.x, q.y, 7 * Math.max(0.8, zoom), 0, Math.PI * 2); ctx.fill()
-        }
+        const head = ((t0 / 2.2) + i * 0.29) % 1
+        const len = 0.16
+        const a = Math.max(0, head - len)
+        const pts: Pt[] = []
+        for (let k = 0; k <= 10; k++) pts.push(wireAt(p0, p1, a + (head - a) * k / 10))
+        const g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[10].x, pts[10].y)
+        g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 1))
+        // the glow: a wide soft stroke under a thin bright one
+        ctx.save()
+        ctx.shadowColor = rgba(c, 0.9); ctx.shadowBlur = 10 * Math.max(0.8, zoom)
+        ctx.strokeStyle = g; ctx.lineWidth = 1.6 * Math.max(0.8, zoom)
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y)
+        for (let k = 1; k <= 10; k++) ctx.lineTo(pts[k].x, pts[k].y)
+        ctx.stroke()
+        ctx.restore()
       })
     }
     // plates: a soft shadow below, then the disc lit from above

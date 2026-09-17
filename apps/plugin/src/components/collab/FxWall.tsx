@@ -50,7 +50,7 @@ const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, 
 type Pt = { x: number; y: number }
 type Drag =
   | { kind: 'amount'; id: number; y0: number; a0: number }
-  | { kind: 'move'; id: number; dx: number; dy: number }
+  | { kind: 'move'; id: number; dx: number; dy: number; x0: number; y0: number; moved: boolean }   // a press that never moves is a click: it opens the study
   | { kind: 'wire'; from: number; port: number; at: Pt }
   | { kind: 'share'; edge: number; y0: number; g0: number }
   | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2' | 'aux3' | 'aux5'; y0: number; v0: number }
@@ -627,7 +627,11 @@ export default function FxWall ({ size: frame }: Props) {
   const onWallMove = (e: RPointerEvent) => {
     if (!drag) return
     const p = wallPt(e)
-    if (drag.kind === 'move') { const gp = toGraph(p); updateNode(drag.id, { x: gp.x - drag.dx, y: gp.y - drag.dy }) }
+    if (drag.kind === 'move') {
+      if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < 4) return   // a hair of jitter is still a click
+      if (!drag.moved) setDrag({ ...drag, moved: true })
+      const gp = toGraph(p); updateNode(drag.id, { x: gp.x - drag.dx, y: gp.y - drag.dy })
+    }
     else if (drag.kind === 'amount') {
       const n = nodeById(drag.id); if (!n) return
       updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
@@ -673,16 +677,20 @@ export default function FxWall ({ size: frame }: Props) {
     else if (drag.kind === 'shelf') {
       if (p.x > 0 && p.y > 0 && p.x < size.w && p.y < size.h) addNode(drag.type, p)
     }
-    else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'move' || drag.kind === 'hand') push(graphRef.current, true)
+    else if (drag.kind === 'move') {
+      if (drag.moved) push(graphRef.current, true)
+      else { setSel({ node: drag.id }); setConfirm(null) }   // the print was only pressed: open its study
+    }
+    else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'hand') push(graphRef.current, true)
     else if (drag.kind === 'pan') { try { localStorage.setItem('orb_wall_pan', JSON.stringify(pan)) } catch { /* fine */ } }
     setDrag(null)
   }
 
   const startMove = (n: FxGraphNode) => (e: RPointerEvent) => {
     if ((e.target as Element).closest('.fx-hot, .sg-val, .sg-word, .sg-dot')) return
-    e.stopPropagation(); setSel({ node: n.id }); setConfirm(null)
-    const gp = toGraph(wallPt(e))
-    setDrag({ kind: 'move', id: n.id, dx: gp.x - n.x, dy: gp.y - n.y })
+    e.stopPropagation()
+    const at = wallPt(e), gp = toGraph(at)
+    setDrag({ kind: 'move', id: n.id, dx: gp.x - n.x, dy: gp.y - n.y, x0: at.x, y0: at.y, moved: false })
   }
 
   const startWire = (from: number, port = 0) => (e: RPointerEvent) => {

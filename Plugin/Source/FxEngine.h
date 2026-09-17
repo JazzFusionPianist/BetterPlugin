@@ -30,12 +30,19 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kTremolo = 12, kArp, kRadio, kHarmony,
             kPitch = 16, kFormant, kGrain, kVoice, kCrush,
             kShimmer = 21, kSwell, kStutter, kAir, kRing, kGate, kWow,
-            kNumFx = 28, kNone = -1 };
+            kNumFx = 28, kNone = -1,
+            // graph-only splitters: two output ports, no DSP state
+            kSplitLR = 28,          // port 0 = the left as mono, port 1 = the right as mono
+            kSplitMS = 29 };        // port 0 = the mid as mono,  port 1 = the side as mono
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
+inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
+/** A buffer's lane: what one wire of a split carries. Two lanes meeting
+ *  at a node (or at out) join back into a stereo pair. */
+enum Lane : int { kLaneStereo = 0, kLaneL, kLaneR, kLaneM, kLaneS };
 
 constexpr int kMaxNodes   = 16;
 constexpr int kMaxEdges   = 48;
@@ -243,6 +250,7 @@ struct Graph
         int   from = kPortIn;    // node id, or kPortIn
         int   to   = kPortOut;   // node id, or kPortOut
         float gain = 1.0f;       // send level
+        int   port = 0;          // which output of `from` (only a splitter has a second)
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;
@@ -256,7 +264,11 @@ struct Op
                       kScale,      // dst = gain * src
                       kAccum,      // dst += gain * src
                       kProcess,    // node `slot` (typed `type`) in place on dst
-                      kDelay };    // dst delayed by `samples` through delay line `slot`
+                      kDelay,      // dst delayed by `samples` through delay line `slot`
+                      kSplitLR,    // dst = (src.L, src.L), dst2 = (src.R, src.R)
+                      kSplitMS,    // dst = (mid, mid), dst2 = (side, side)
+                      kJoinLR,     // dst.L = fold(src), dst.R = fold(src2); a missing lane (-1) is silence; flag 1 = add
+                      kJoinMS };   // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
     int   kind = kCopy;
     int   slot = -1;
     int   type = kNone;
@@ -264,6 +276,9 @@ struct Op
     int   src  = 0;
     float gain = 1.0f;
     int   samples = 0;
+    int   src2 = -1;   // the second source of a join
+    int   dst2 = -1;   // the second output of a split
+    int   flag = 0;    // join: 1 = accumulate into dst
 };
 
 constexpr int kMaxDelayLines = 32;

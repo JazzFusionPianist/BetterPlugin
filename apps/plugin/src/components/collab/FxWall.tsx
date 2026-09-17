@@ -8,7 +8,7 @@ import { Cells } from '../../assets/parts/parts'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -37,7 +37,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix']],
+  ['utility', ['gain', 'mix', 'l/r', 'm/s']],
 ]
 const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -51,7 +51,7 @@ type Pt = { x: number; y: number }
 type Drag =
   | { kind: 'amount'; id: number; y0: number; a0: number }
   | { kind: 'move'; id: number; dx: number; dy: number }
-  | { kind: 'wire'; from: number; at: Pt }
+  | { kind: 'wire'; from: number; port: number; at: Pt }
   | { kind: 'share'; edge: number; y0: number; g0: number }
   | { kind: 'hand'; id: number; hand: 'decay' | 'div' | 'fb' | 'aux0' | 'aux1' | 'aux2' | 'aux3' | 'aux5'; y0: number; v0: number }
   | { kind: 'shelf'; type: number; at: Pt }
@@ -60,14 +60,17 @@ type Drag =
 const uid = () => Math.random().toString(36).slice(2, 8)
 void uid
 
+/** The lanes' colours: what a split wire carries. */
+const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132]]   // stereo, l, r, m, s
+const SPLIT_FAN = 22   // degrees between a splitter's two output ports
 function tintOf (type: number, variant = 0): [number, number, number] {
-  if (type === FX_MIX_TYPE) return [246, 243, 234]
+  if (isUtilityType(type)) return [246, 243, 234]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
 }
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : MODES.find(m => m.id === type)?.name ?? '')
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'l/r' : type === FX_SPLIT_MS ? 'm/s' : MODES.find(m => m.id === type)?.name ?? '')
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
@@ -193,6 +196,32 @@ function MixArt ({ shares }: { shares: number[] }) {
   )
 }
 
+/** The splitters' prints: one line in, two out — the fork. */
+function SplitArt ({ ms }: { ms: boolean }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const [L, R, M, S] = [LANE_RGB[1], LANE_RGB[2], LANE_RGB[3], LANE_RGB[4]].map(c => `rgb(${c[0]}, ${c[1]}, ${c[2]})`)
+  return ms ? (
+    <g>
+      <path d="M28 110 H92" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <path d="M92 110 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <path d="M92 110 C122 110 122 66 152 66 H188" stroke={P} strokeOpacity={0.5} strokeWidth={1} strokeLinecap="round" fill="none" />
+      <path d="M92 110 C122 110 122 154 152 154 H188" stroke={P} strokeOpacity={0.5} strokeWidth={1} strokeLinecap="round" fill="none" />
+      <circle cx={92} cy={110} r={2.2} fill={P} />
+      <circle cx={192} cy={110} r={3} fill={M} /><circle cx={192} cy={66} r={2.4} fill={S} /><circle cx={192} cy={154} r={2.4} fill={S} />
+    </g>
+  ) : (
+    <g>
+      <path d="M28 110 H92" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <path d="M92 110 C122 110 122 74 152 74 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <path d="M92 110 C122 110 122 146 152 146 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <circle cx={92} cy={110} r={2.2} fill={P} />
+      <circle cx={192} cy={74} r={3} fill={L} /><circle cx={192} cy={146} r={3} fill={R} />
+      <path d="M40 100 V120 M46 100 V120" stroke={P} strokeOpacity={0.45} strokeWidth={0.8} />
+    </g>
+  )
+}
+
 function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[] }
   size: number
@@ -212,6 +241,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   return (
     <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
       {type === FX_MIX_TYPE ? <MixArt shares={shares ?? []} />
+        : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
         : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
@@ -316,7 +346,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['l/r', FX_SPLIT_LR], ['m/s', FX_SPLIT_MS]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -393,7 +423,7 @@ export default function FxWall ({ size: frame }: Props) {
         e.preventDefault()
         const id = Number(nodeEl.dataset.id)
         const n = graphRef.current.nodes.find(x => x.id === id)
-        if (!n || n.type === FX_MIX_TYPE) return
+        if (!n || isUtilityType(n.type)) return
         updateNodeRef.current(id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true)
         return
       }
@@ -426,11 +456,42 @@ export default function FxWall ({ size: frame }: Props) {
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
     return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
-  const outPortOf = (id: number): Pt => {
+  /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
+  const outPortOf = (id: number, port = 0): Pt => {
     if (id === FX_PORT_IN) return { x: inPort.x + 6, y: inPort.y }
     const n = nodeById(id); if (!n) return inPort
-    const c = toScreen(n); return { x: c.x + Rz, y: c.y }
+    const c = toScreen(n)
+    if (!isSplitterType(n.type)) return { x: c.x + Rz, y: c.y }
+    const ang = (port === 0 ? -1 : 1) * SPLIT_FAN * Math.PI / 180
+    return { x: c.x + Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
+  /** What a wire carries: the lane of the port it leaves. A node passes
+   *  its one lane on; where lanes differ they have joined into a pair. */
+  const laneOfEdge = useMemo(() => {
+    const outLane = new Map<number, number>()
+    const lanes = graph.edges.map(() => 0)
+    for (let pass = 0; pass < FX_MAX_NODES + 2; pass++) {
+      let changed = false
+      graph.edges.forEach((e, i) => {
+        let l = 0
+        if (e.from !== FX_PORT_IN) {
+          const n = nodeById(e.from)
+          if (n && isSplitterType(n.type)) l = n.type === FX_SPLIT_LR ? (e.port ? 2 : 1) : (e.port ? 4 : 3)
+          else l = outLane.get(e.from) ?? 0
+        }
+        if (lanes[i] !== l) { lanes[i] = l; changed = true }
+      })
+      for (const n of graph.nodes) {
+        if (isSplitterType(n.type)) continue
+        const ins = graph.edges.map((e, i) => (e.to === n.id ? lanes[i] : -1)).filter(l => l >= 0)
+        const l = ins.length > 0 && ins.every(x => x === ins[0]) ? ins[0] : 0
+        if (outLane.get(n.id) !== l) { outLane.set(n.id, l); changed = true }
+      }
+      if (!changed) break
+    }
+    return lanes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph])
 
   const wallPt = (e: { clientX: number; clientY: number }): Pt => {
     const r = wallRef.current?.getBoundingClientRect()
@@ -491,12 +552,12 @@ export default function FxWall ({ size: frame }: Props) {
     // dropped onto a wire? splice in
     let best = -1, bestD = SNAP_WIRE
     graph.edges.forEach((e, i) => {
-      const d = distToWire(outPortOf(e.from), inPortOf(e.to, i), at)
+      const d = distToWire(outPortOf(e.from, e.port ?? 0), inPortOf(e.to, i), at)
       if (d < bestD * Math.max(0.6, zoom)) { bestD = d; best = i }
     })
     if (best >= 0) {
       const e = graph.edges[best]
-      edges = [...edges.slice(0, best), { from: e.from, to: id, gain: e.gain }, { from: id, to: e.to, gain: 1 }, ...edges.slice(best + 1)]
+      edges = [...edges.slice(0, best), { from: e.from, to: id, gain: e.gain, port: e.port ?? 0 }, { from: id, to: e.to, gain: 1 }, ...edges.slice(best + 1)]
     }
     commit({ nodes: [...graph.nodes, node], edges }, true)
     setSel({ node: id })
@@ -523,15 +584,12 @@ export default function FxWall ({ size: frame }: Props) {
     setSel(null); setConfirm(null)
   }
 
-  const connect = (from: number, to: number) => {
+  const connect = (from: number, to: number, port = 0) => {
     if (from === to) return
     if (to === FX_PORT_IN || from === FX_PORT_OUT) return
-    if (graph.edges.some(e => e.from === from && e.to === to)) return
+    if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port)) return
     const target = to === FX_PORT_OUT ? null : nodeById(to)
-    // one wire per plain input; out takes one
-    if (to === FX_PORT_OUT ? graph.edges.some(e => e.to === FX_PORT_OUT) : target && target.type !== FX_MIX_TYPE && graph.edges.some(e => e.to === to)) {
-      setError('that input already has a wire'); setTimeout(() => setError(null), 1600); return
-    }
+    // any point takes any number of wires: they sum at the point
     // a mix in blend mode shares 100 across its wires
     let gain = 1
     if (target && target.type === FX_MIX_TYPE && target.variant === 0) {
@@ -539,10 +597,10 @@ export default function FxWall ({ size: frame }: Props) {
       gain = 1 / (ins.length + 1)
       const rescale = ins.length / (ins.length + 1)
       const edges = graph.edges.map(e => e.to === to ? { ...e, gain: e.gain * rescale } : e)
-      commit({ ...graph, edges: [...edges, { from, to, gain }] }, true)
+      commit({ ...graph, edges: [...edges, { from, to, gain, port }] }, true)
       return
     }
-    commit({ ...graph, edges: [...graph.edges, { from, to, gain }] }, true)
+    commit({ ...graph, edges: [...graph.edges, { from, to, gain, port }] }, true)
   }
 
   /** Drag a share number: blend keeps the mix's wires summing to 100. */
@@ -609,8 +667,8 @@ export default function FxWall ({ size: frame }: Props) {
     if (drag.kind === 'wire') {
       // landed on a node (its input) or the out port?
       const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
-      if (hit) connect(drag.from, hit.id)
-      else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT)
+      if (hit) connect(drag.from, hit.id, drag.port)
+      else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
     }
     else if (drag.kind === 'shelf') {
       if (p.x > 0 && p.y > 0 && p.x < size.w && p.y < size.h) addNode(drag.type, p)
@@ -627,9 +685,9 @@ export default function FxWall ({ size: frame }: Props) {
     setDrag({ kind: 'move', id: n.id, dx: gp.x - n.x, dy: gp.y - n.y })
   }
 
-  const startWire = (from: number) => (e: RPointerEvent) => {
+  const startWire = (from: number, port = 0) => (e: RPointerEvent) => {
     e.stopPropagation()
-    setDrag({ kind: 'wire', from, at: wallPt(e) })
+    setDrag({ kind: 'wire', from, port, at: wallPt(e) })
   }
 
   // ── render ─────────────────────────────────────────────────────────
@@ -834,7 +892,7 @@ export default function FxWall ({ size: frame }: Props) {
     }
     if (n.type === 18) switches.push({ label: 'freeze', on: !!n.aux[7], set: (on) => setAux(7, on ? 1 : 0) })
     if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true) })
-    if (!isMix) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
+    if (!isUtilityType(n.type)) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
     rows.push(<SwitchRow key="sw" items={switches} />)
     // the hands take their colours in order: blue, green, white, orange, then again; the switches are orange
     return rows.map((r, i) => React.isValidElement(r) ? React.cloneElement(r as React.ReactElement<{ colour?: number }>, { colour: r.key === 'sw' ? 4 : (i % 4) + 1 }) : r)
@@ -867,26 +925,56 @@ export default function FxWall ({ size: frame }: Props) {
     const lampOf = (id: number): { t: [number, number, number]; k: number } => {
       if (id === FX_PORT_IN || id === FX_PORT_OUT) return { t: paper, k: 0.3 }
       const n = nodeById(id)
-      if (!n || n.type === FX_MIX_TYPE) return { t: paper, k: 0 }
+      if (!n || isUtilityType(n.type)) return { t: paper, k: 0 }
       return { t: tintOf(n.type, n.variant), k: lamps.current.get(id)?.k ?? 0 }
     }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    // wires: paper, tinted by the lamp at each end
+    // wires: paper, tinted by the lamp at each end; a split lane in its own colour
     graph.edges.forEach((e, i) => {
-      const p0 = outPortOf(e.from), p1 = inPortOf(e.to, i)
+      const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
       const path = new Path2D(wirePath(p0, p1))
-      const a = lampOf(e.from), b = lampOf(e.to)
-      const mix = (l: { t: [number, number, number]; k: number }): [number, number, number] =>
-        [paper[0] + (l.t[0] - paper[0]) * l.k, paper[1] + (l.t[1] - paper[1]) * l.k, paper[2] + (l.t[2] - paper[2]) * l.k]
-      const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y)
+      const lane = laneOfEdge[i] ?? 0
       const selAlpha = sel?.edge === i ? 1 : 0.42
-      g.addColorStop(0, rgba(mix(a), selAlpha)); g.addColorStop(1, rgba(mix(b), selAlpha))
-      ctx.strokeStyle = g; ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
+      if (lane > 0) {
+        ctx.strokeStyle = rgba(LANE_RGB[lane], sel?.edge === i ? 0.95 : 0.55)
+      } else {
+        const a = lampOf(e.from), b = lampOf(e.to)
+        const mix = (l: { t: [number, number, number]; k: number }): [number, number, number] =>
+          [paper[0] + (l.t[0] - paper[0]) * l.k, paper[1] + (l.t[1] - paper[1]) * l.k, paper[2] + (l.t[2] - paper[2]) * l.k]
+        const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y)
+        g.addColorStop(0, rgba(mix(a), selAlpha)); g.addColorStop(1, rgba(mix(b), selAlpha))
+        ctx.strokeStyle = g
+      }
+      ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
     })
+    // electrons: on a split lane a short glow runs down the wire, in the lane's colour
+    {
+      const t0 = performance.now() / 1000
+      graph.edges.forEach((e, i) => {
+        const lane = laneOfEdge[i] ?? 0
+        if (lane === 0) return
+        const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
+        const c = LANE_RGB[lane]
+        for (let k = 0; k < 2; k++) {
+          const t = ((t0 / 1.6) + k * 0.5 + i * 0.137) % 1
+          const q = wireAt(p0, p1, t)
+          const tail = wireAt(p0, p1, Math.max(0, t - 0.06))
+          const g = ctx.createLinearGradient(tail.x, tail.y, q.x, q.y)
+          g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 0.9))
+          ctx.strokeStyle = g; ctx.lineWidth = 2 * Math.max(0.8, zoom)
+          ctx.beginPath(); ctx.moveTo(tail.x, tail.y)
+          for (let s2 = 1; s2 <= 6; s2++) { const u = wireAt(p0, p1, Math.max(0, t - 0.06) + (t - Math.max(0, t - 0.06)) * s2 / 6); ctx.lineTo(u.x, u.y) }
+          ctx.stroke()
+          const halo = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, 7 * Math.max(0.8, zoom))
+          halo.addColorStop(0, rgba(c, 0.85)); halo.addColorStop(1, rgba(c, 0))
+          ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(q.x, q.y, 7 * Math.max(0.8, zoom), 0, Math.PI * 2); ctx.fill()
+        }
+      })
+    }
     // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
       const c = toScreen(n)
-      const alive = n.type !== FX_MIX_TYPE && live.has(n.id) && !n.bypass
+      const alive = !isUtilityType(n.type) && live.has(n.id) && !n.bypass
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
@@ -951,7 +1039,7 @@ export default function FxWall ({ size: frame }: Props) {
       const id = sel?.node
       if (el && id !== undefined) {
         const n = graphRef.current.nodes.find(x => x.id === id)
-        const st = n && n.type !== FX_MIX_TYPE ? lamps.current.get(n.id) : undefined
+        const st = n && !isUtilityType(n.type) ? lamps.current.get(n.id) : undefined
         if (n && st && st.k > 0.005) {
           const p = el.querySelector('.sg-study-print') as HTMLElement | null
           const er = el.getBoundingClientRect(), pr = p?.getBoundingClientRect()
@@ -986,7 +1074,7 @@ export default function FxWall ({ size: frame }: Props) {
     ctx.globalCompositeOperation = 'screen'
     const seen = new Set<number>()
     for (const n of graph.nodes) {
-      if (n.type === FX_MIX_TYPE) continue
+      if (isUtilityType(n.type)) continue
       const alive = live.has(n.id) && !n.bypass
       const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
@@ -1021,7 +1109,7 @@ export default function FxWall ({ size: frame }: Props) {
   // the lamps as the scope sees them: where, what colour, how bright
   const paletteRef = useRef<() => Array<{ x: number; rgb: [number, number, number]; k: number }>>(() => [])
   paletteRef.current = () => graph.nodes
-    .filter(n => n.type !== FX_MIX_TYPE && live.has(n.id))
+    .filter(n => !isUtilityType(n.type) && live.has(n.id))
     .map(n => ({ x: toScreen(n).x, rgb: tintOf(n.type, n.variant), k: lamps.current.get(n.id)?.k ?? 0 }))
   const paletteFn = useCallback(() => paletteRef.current(), [])
 
@@ -1158,7 +1246,7 @@ export default function FxWall ({ size: frame }: Props) {
           // a wire under the pointer? (the wires are painted, not DOM)
           const p = wallPt(e)
           let hit = -1, best = 9
-          graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
+          graph.edges.forEach((ed, i) => { const d = distToWire(outPortOf(ed.from, ed.port ?? 0), inPortOf(ed.to, i), p); if (d < best) { best = d; hit = i } })
           setConfirm(null); setListOpen(false)
           if (hit >= 0) { setSel({ edge: hit }); return }
           setSel(null)
@@ -1177,7 +1265,7 @@ export default function FxWall ({ size: frame }: Props) {
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {
-            const p0 = outPortOf(e.from), p1 = inPortOf(e.to, i)
+            const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
             const isSel = sel?.edge === i
             const target = nodeById(e.to)
             const mixIn = target?.type === FX_MIX_TYPE
@@ -1202,7 +1290,7 @@ export default function FxWall ({ size: frame }: Props) {
               </g>
             )
           })}
-          {drag?.kind === 'wire' && <path className="sg-wire-line ghost" d={wirePath(outPortOf(drag.from), drag.at)} />}
+          {drag?.kind === 'wire' && <path className="sg-wire-line ghost" d={wirePath(outPortOf(drag.from, drag.port), drag.at)} />}
           <circle cx={inPort.x} cy={inPort.y} r={4} className="sg-port" onPointerDown={startWire(FX_PORT_IN)} />
           {/* a wide, invisible grab area around the in port — the dot stays small */}
           <circle cx={inPort.x} cy={inPort.y} r={16} fill="transparent" stroke="none" style={{ cursor: 'crosshair', pointerEvents: 'all' }} onPointerDown={startWire(FX_PORT_IN)} />
@@ -1214,6 +1302,7 @@ export default function FxWall ({ size: frame }: Props) {
         {graph.nodes.map(n => {
           const isSel = sel?.node === n.id
           const isMix = n.type === FX_MIX_TYPE
+          const isUtil = isUtilityType(n.type)
           const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
           const ins = inputsOf(n.id)
           const c = toScreen(n)
@@ -1223,19 +1312,15 @@ export default function FxWall ({ size: frame }: Props) {
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
               <div className="sg-print"
-                onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isMix) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
-                onDoubleClick={() => { if (!isMix) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
+                onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
+                onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
                 <Print node={n} size={NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
                   onFlip={(bit) => updateNode(n.id, { variant: n.variant ^ bit }, true)} />
               </div>
-              {/* the power: a small ring at the top of the print — filled = on */}
-              {!isMix && (
-                <span className={`sg-power${n.bypass ? ' off' : ''}`} title={n.bypass ? 'bypassed' : 'on'}
-                  onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); updateNode(n.id, { bypass: !n.bypass }, true) }} />
-              )}
+              {/* bypass: ⌘-click the print (the study's switch does it too); no ring on the print */}
               {/* ports */}
               {isMix
                 ? [...ins.map(x => x.i), -1].map((edgeIndex, k) => {
@@ -1243,13 +1328,18 @@ export default function FxWall ({ size: frame }: Props) {
                     return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} />
                   })
                 : <span className="sg-dot l" />}
-              <span className="sg-dot r" onPointerDown={startWire(n.id)} />
+              {isSplitterType(n.type)
+                ? [0, 1].map(port => {
+                    const p = outPortOf(n.id, port)
+                    return <span key={port} className="sg-dot r" style={{ right: 'auto', left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} onPointerDown={startWire(n.id, port)} />
+                  })
+                : <span className="sg-dot r" onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
-                  {!isMix && (
+                  {!isUtil && (
                     <span className="sg-val"
                       onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
@@ -1334,7 +1424,7 @@ export default function FxWall ({ size: frame }: Props) {
         <div className="sg-study-print"
           onPointerDown={(e) => {
             if ((e.target as Element).closest('.fx-hot')) return
-            if (studyNode.type === FX_MIX_TYPE) return
+            if (isUtilityType(studyNode.type)) return
             e.stopPropagation()
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
             setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
@@ -1344,9 +1434,9 @@ export default function FxWall ({ size: frame }: Props) {
             updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
           }}
           onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
-          onClick={(e) => { if ((e.metaKey || e.ctrlKey) && studyNode.type !== FX_MIX_TYPE) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
-          onDoubleClick={() => { if (studyNode.type !== FX_MIX_TYPE) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
-          onWheel={(e) => { if (studyNode.type === FX_MIX_TYPE) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
+          onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtilityType(studyNode.type)) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
+          onDoubleClick={() => { if (!isUtilityType(studyNode.type)) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
+          onWheel={(e) => { if (isUtilityType(studyNode.type)) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
           <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
             onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
             onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}
@@ -1354,7 +1444,7 @@ export default function FxWall ({ size: frame }: Props) {
             onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />
         </div>
         <div className="sg-study-value">
-          {studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
                 commit={(a) => updateNode(studyNode.id, { amount: a }, true)}

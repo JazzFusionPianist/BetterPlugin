@@ -1088,6 +1088,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("from", e.from);
         o->setProperty ("to", e.to);
         o->setProperty ("gain", (double) e.gain);
+        if (e.port != 0) o->setProperty ("port", e.port);
         edges.add (juce::var (o));
     }
     auto* root = new juce::DynamicObject();
@@ -1139,6 +1140,7 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.from = (int) e["from"];
             ed.to   = (int) e["to"];
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
+            ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
             out.edges.push_back (ed);
         }
     }

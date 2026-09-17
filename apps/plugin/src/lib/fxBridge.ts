@@ -102,9 +102,17 @@ export function setFx (patch: {
    -1 = in) to a node id (or -2 = out) with a send level. Feedback is
    refused by the engine ("cycle"). */
 export const FX_MIX_TYPE = 11
+/** Graph-only splitters: two output ports. l/r gives the left and the
+ *  right as mono lanes; m/s the mid and the side. Lanes that meet again
+ *  (or reach out) join back into a stereo pair. */
+export const FX_SPLIT_LR = 28
+export const FX_SPLIT_MS = 29
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
+/** The graph-only nodes: no hand, no lamp, no bypass. */
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS
+export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
 
 export interface FxGraphNode {
   id: number
@@ -122,7 +130,7 @@ export interface FxGraphNode {
   x: number
   y: number
 }
-export interface FxGraphEdge { from: number; to: number; gain: number }
+export interface FxGraphEdge { from: number; to: number; gain: number; port?: number }   // port: which output of `from` (a splitter has two)
 export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
 
 export function hasGraphBridge (): boolean {

@@ -1703,14 +1703,15 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     {
         if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
         if (slotType[nd.id] != kNone)                 { error = "duplicate node id";  return false; }
-        if (! isEffect (nd.type) && nd.type != kMixType) { error = "bad node type";   return false; }
+        if (! isEffect (nd.type) && nd.type != kMixType && ! isSplitter (nd.type)) { error = "bad node type"; return false; }
         slotType[nd.id] = nd.type;
         nodeOf[nd.id] = &nd;
-        bypassed[nd.id] = nd.bypass && nd.type != kMixType;
+        bypassed[nd.id] = nd.bypass && isEffect (nd.type);
     }
     auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
 
-    // ── wires: valid endpoints, no duplicates, fan-IN only into mix ─────
+    // ── wires: valid endpoints, a second port only where a splitter has one,
+    //    no duplicates. Any point takes any number of wires: they sum.
     const int E = (int) g.edges.size();
     if (E > kMaxEdges) { error = "too many wires"; return false; }
     for (int i = 0; i < E; ++i)
@@ -1719,20 +1720,11 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (! (e.from == kPortIn  || isNode (e.from))) { error = "wire from nowhere"; return false; }
         if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
         if (e.from == e.to)                            { error = "wire to itself";    return false; }
+        const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
+        if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
         for (int j = 0; j < i; ++j)
-            if (g.edges[(size_t) j].from == e.from && g.edges[(size_t) j].to == e.to)
+            if (g.edges[(size_t) j].from == e.from && g.edges[(size_t) j].to == e.to && g.edges[(size_t) j].port == e.port)
             { error = "duplicate wire"; return false; }
-    }
-    {
-        int inDeg[kMaxNodes] {};
-        int outDeg = 0;
-        for (auto& e : g.edges)
-        {
-            if (e.to == kPortOut) ++outDeg;
-            else if (++inDeg[e.to] > 1 && slotType[e.to] != kMixType)
-            { error = "only a mix takes more than one wire"; return false; }
-        }
-        if (outDeg > 1) { error = "out takes one wire"; return false; }
     }
 
     // ── reachability: a node counts only if in → node → out ─────────────
@@ -1762,15 +1754,15 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     bool activeNode[kMaxNodes] {};
     for (int i = 0; i < kMaxNodes; ++i) activeNode[i] = slotType[i] != kNone && fwd[i] && bwd[i];
     bool activeEdge[kMaxEdges] {};
-    int  outEdge = -1;
+    bool anyOut = false;
     for (int i = 0; i < E; ++i)
     {
         const auto& e = g.edges[(size_t) i];
         const bool a = (e.from == kPortIn || activeNode[e.from]) && (e.to == kPortOut || activeNode[e.to]);
         activeEdge[i] = a;
-        if (a && e.to == kPortOut) outEdge = i;
+        if (a && e.to == kPortOut) anyOut = true;
     }
-    if (outEdge < 0)
+    if (! anyOut)
     {
         // Nothing reaches out: the wall is silent on purpose? No — a bare
         // insert passes audio. Bypass.
@@ -1807,13 +1799,14 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     int  bufOfEdge[kMaxEdges];
     for (auto& b : bufOfEdge) b = -1;
     bool used[kMaxBuffers] {};
+    int  laneOfBuf[kMaxBuffers] {};   // what each live buffer carries
     used[0] = true;   // the host buffer starts owned by in's first wire
     auto alloc = [&] () -> int
     {
-        for (int b = 1; b < kMaxBuffers; ++b) if (! used[b]) { used[b] = true; return b; }
+        for (int b = 1; b < kMaxBuffers; ++b) if (! used[b]) { used[b] = true; laneOfBuf[b] = kLaneStereo; return b; }
         return -1;
     };
-    auto release = [&] (int b) { if (b >= 0 && b < kMaxBuffers) used[b] = false; };
+    auto release = [&] (int b) { if (b >= 1 && b < kMaxBuffers) used[b] = false; };
     auto emit = [&] (Op op) -> bool
     {
         if (prog.numOps >= kMaxOps) { error = "patch too big"; return false; }
@@ -1821,96 +1814,154 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         return true;
     };
     auto nearUnity = [] (float gn) { return std::abs (gn - 1.0f) < 1.0e-6f; };
-    auto fanOut = [&] (int fromId, int srcBuf) -> bool
+    // mult one output (a node's port, or in) to every wire leaving it
+    auto fanOut = [&] (int fromId, int port, int srcBuf) -> bool
     {
         bool first = true;
         for (int i = 0; i < E; ++i)
         {
-            if (! activeEdge[i] || g.edges[(size_t) i].from != fromId) continue;
+            if (! activeEdge[i] || g.edges[(size_t) i].from != fromId || g.edges[(size_t) i].port != port) continue;
             if (first) { bufOfEdge[i] = srcBuf; first = false; continue; }
             const int b = alloc();
             if (b < 0) { error = "too many branches"; return false; }
+            laneOfBuf[b] = laneOfBuf[srcBuf];
             Op op; op.kind = Op::kCopy; op.dst = b; op.src = srcBuf;
             if (! emit (op)) return false;
             bufOfEdge[i] = b;
         }
+        if (first) release (srcBuf);   // nobody took this port
+        return true;
+    };
+    // gather: everything landing on `id` (or out) becomes one buffer.
+    // One wire passes through; several sum, wire by wire at its send
+    // level. Wires of one lane sum and keep the lane; where lanes meet
+    // (or at out, where the speakers are) they join into a stereo pair.
+    auto gather = [&] (int id, bool atOut, int& outBuf, int& latestOut) -> bool
+    {
+        int ins[kMaxEdges]; int nIn = 0;
+        for (int i = 0; i < E; ++i)
+            if (activeEdge[i] && g.edges[(size_t) i].to == id) ins[nIn++] = i;
+        if (nIn == 0) { error = "unwired node"; return false; }   // cannot happen (active)
+        // branches arrive with different latencies: hold the early ones
+        int latest = 0;
+        for (int k = 0; k < nIn; ++k)
+        {
+            const auto& e = g.edges[(size_t) ins[k]];
+            latest = juce::jmax (latest, e.from == kPortIn ? 0 : arrival[e.from]);
+        }
+        for (int k = 0; k < nIn; ++k)
+        {
+            const auto& e = g.edges[(size_t) ins[k]];
+            const int here = e.from == kPortIn ? 0 : arrival[e.from];
+            if (latest - here > 0)
+            {
+                if (nextLine >= kMaxDelayLines) { error = "too many branches to align"; return false; }
+                Op d; d.kind = Op::kDelay; d.dst = bufOfEdge[ins[k]]; d.samples = juce::jmin (kMaxDelaySamples, latest - here); d.slot = nextLine++;
+                if (! emit (d)) return false;
+            }
+        }
+        latestOut = latest;
+        int count[5] {};
+        for (int k = 0; k < nIn; ++k) ++count[laneOfBuf[bufOfEdge[ins[k]]]];
+        int theLane = kLaneStereo; bool oneLane = false;
+        for (int l = 0; l < 5; ++l) if (count[l] == nIn) { oneLane = true; theLane = l; }
+        // one wire: pass it through (at out only if it is already a pair)
+        if (nIn == 1 && oneLane && (! atOut || theLane == kLaneStereo))
+        {
+            const int b = bufOfEdge[ins[0]];
+            const float gn = g.edges[(size_t) ins[0]].gain;
+            if (! nearUnity (gn))
+            {
+                Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = gn;
+                if (! emit (gop)) return false;
+            }
+            outBuf = b;
+            return true;
+        }
+        const int dst = alloc();
+        if (dst < 0) { error = "too many branches"; return false; }
+        bool have = false;
+        auto sumLane = [&] (int lane, int into, bool& haveInto) -> bool
+        {
+            for (int k = 0; k < nIn; ++k)
+            {
+                const int b = bufOfEdge[ins[k]];
+                if (laneOfBuf[b] != lane) continue;
+                Op op; op.kind = haveInto ? Op::kAccum : Op::kScale;
+                op.dst = into; op.src = b; op.gain = g.edges[(size_t) ins[k]].gain;
+                if (! emit (op)) return false;
+                haveInto = true;
+            }
+            return true;
+        };
+        if (oneLane && ! atOut)
+        {
+            // the same lane all round: a plain sum, the lane carries on
+            if (! sumLane (theLane, dst, have)) return false;
+            laneOfBuf[dst] = theLane;
+        }
+        else
+        {
+            if (count[kLaneStereo] && ! sumLane (kLaneStereo, dst, have)) return false;
+            auto joinPair = [&] (int la, int lb, int kind) -> bool
+            {
+                if (count[la] == 0 && count[lb] == 0) return true;
+                int ta = -1, tb = -1; bool ha = false, hb = false;
+                if (count[la]) { ta = alloc(); if (ta < 0) { error = "too many branches"; return false; } if (! sumLane (la, ta, ha)) return false; }
+                if (count[lb]) { tb = alloc(); if (tb < 0) { error = "too many branches"; return false; } if (! sumLane (lb, tb, hb)) return false; }
+                Op j; j.kind = kind; j.dst = dst; j.src = ta; j.src2 = tb; j.flag = have ? 1 : 0;
+                if (! emit (j)) return false;
+                have = true;
+                release (ta); release (tb);
+                return true;
+            };
+            if (! joinPair (kLaneL, kLaneR, Op::kJoinLR)) return false;
+            if (! joinPair (kLaneM, kLaneS, Op::kJoinMS)) return false;
+            laneOfBuf[dst] = kLaneStereo;
+        }
+        for (int k = 0; k < nIn; ++k) release (bufOfEdge[ins[k]]);
+        outBuf = dst;
         return true;
     };
 
     // in: mult the host buffer to every wire leaving the in port
-    if (! fanOut (kPortIn, 0)) return false;
+    laneOfBuf[0] = kLaneStereo;
+    if (! fanOut (kPortIn, 0, 0)) return false;
 
     for (int k = 0; k < nOrder; ++k)
     {
         const int id = order[k];
-        int outBuf = -1;
-        if (slotType[id] == kMixType)
+        int b = -1, latest = 0;
+        if (! gather (id, false, b, latest)) return false;
+        arrival[id] = latest;
+        if (isSplitter (slotType[id]))
         {
-            const int dst = alloc();
-            if (dst < 0) { error = "too many branches"; return false; }
-            // branches arrive with different latencies: hold the early ones
-            int latest = 0;
-            for (int i = 0; i < E; ++i)
-                if (activeEdge[i] && g.edges[(size_t) i].to == id)
-                    latest = juce::jmax (latest, g.edges[(size_t) i].from == kPortIn ? 0 : arrival[g.edges[(size_t) i].from]);
-            for (int i = 0; i < E; ++i)
-            {
-                if (! activeEdge[i] || g.edges[(size_t) i].to != id) continue;
-                const int here = g.edges[(size_t) i].from == kPortIn ? 0 : arrival[g.edges[(size_t) i].from];
-                if (latest - here > 0)
-                {
-                    if (nextLine >= kMaxDelayLines) { error = "too many branches to align"; return false; }
-                    Op d; d.kind = Op::kDelay; d.dst = bufOfEdge[i]; d.samples = juce::jmin (kMaxDelaySamples, latest - here); d.slot = nextLine++;
-                    if (! emit (d)) return false;
-                }
-            }
-            arrival[id] = latest;
-            bool first = true;
-            for (int i = 0; i < E; ++i)
-            {
-                if (! activeEdge[i] || g.edges[(size_t) i].to != id) continue;
-                Op op; op.kind = first ? Op::kScale : Op::kAccum;
-                op.dst = dst; op.src = bufOfEdge[i]; op.gain = g.edges[(size_t) i].gain;
-                if (! emit (op)) return false;
-                first = false;
-            }
-            for (int i = 0; i < E; ++i)
-                if (activeEdge[i] && g.edges[(size_t) i].to == id) release (bufOfEdge[i]);
-            outBuf = dst;
+            // a split: port 0 keeps the buffer, port 1 gets a fresh one
+            const int b2 = alloc();
+            if (b2 < 0) { error = "too many branches"; return false; }
+            const bool lr = slotType[id] == kSplitLR;
+            Op sp; sp.kind = lr ? Op::kSplitLR : Op::kSplitMS; sp.slot = id; sp.src = b; sp.dst = b; sp.dst2 = b2;
+            if (! emit (sp)) return false;
+            laneOfBuf[b]  = lr ? kLaneL : kLaneM;
+            laneOfBuf[b2] = lr ? kLaneR : kLaneS;
+            if (! fanOut (id, 0, b))  return false;
+            if (! fanOut (id, 1, b2)) return false;
+            continue;
         }
-        else
+        if (slotType[id] != kMixType && ! bypassed[id])
         {
-            int in = -1;
-            for (int i = 0; i < E; ++i)
-                if (activeEdge[i] && g.edges[(size_t) i].to == id) { in = i; break; }
-            if (in < 0) { error = "unwired node"; return false; }   // cannot happen (active)
-            const int b = bufOfEdge[in];
-            if (! nearUnity (g.edges[(size_t) in].gain))
-            {
-                Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = g.edges[(size_t) in].gain;
-                if (! emit (gop)) return false;
-            }
-            if (! bypassed[id])
-            {
-                Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
-                if (! emit (op)) return false;
-            }
-            arrival[id] = (g.edges[(size_t) in].from == kPortIn ? 0 : arrival[g.edges[(size_t) in].from]) + (bypassed[id] ? 0 : latOf (id));
-            outBuf = b;
+            Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
+            if (! emit (op)) return false;
+            arrival[id] += latOf (id);
         }
-        if (! fanOut (id, outBuf)) return false;
+        if (! fanOut (id, 0, b)) return false;
     }
 
     // out: whatever lands on the out port ends up in the host buffer
     {
-        const auto& e = g.edges[(size_t) outEdge];
-        prog.latency = e.from == kPortIn ? 0 : arrival[e.from];
-        const int b = bufOfEdge[outEdge];
-        if (! nearUnity (e.gain))
-        {
-            Op gop; gop.kind = Op::kGain; gop.dst = b; gop.gain = e.gain;
-            if (! emit (gop)) return false;
-        }
+        int b = -1, latest = 0;
+        if (! gather (kPortOut, true, b, latest)) return false;
+        prog.latency = latest;
         if (b != 0)
         {
             Op cp; cp.kind = Op::kCopy; cp.dst = 0; cp.src = b;
@@ -1991,7 +2042,7 @@ void Chain::adoptPending()
             for (int j = 0; j < active.numOps; ++j)
             {
                 const Op& a = active.ops[j];
-                if (a.kind == b.kind && a.slot == b.slot && a.type == b.type && a.dst == b.dst && a.src == b.src)
+                if (a.kind == b.kind && a.slot == b.slot && a.type == b.type && a.dst == b.dst && a.src == b.src && a.src2 == b.src2 && a.dst2 == b.dst2)
                 { g = gainSm[j]; break; }
             }
             next[i] = g;
@@ -2102,6 +2153,57 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
                     w = w + 1 < len ? w + 1 : 0;
                 }
                 if (ch == nc - 1) delayWrite[op.slot] = w;
+            }
+            break;
+        }
+        case Op::kSplitLR:
+        {
+            // dst = (L, L) and dst2 = (R, R); src may be dst, so the right goes out first
+            const float* sL = chan (op.src, 0, n);
+            const float* sR = nc > 1 ? chan (op.src, 1, n) : sL;
+            float* e0 = chan (op.dst2, 0, n);
+            juce::FloatVectorOperations::copy (e0, sR, n);
+            if (nc > 1) juce::FloatVectorOperations::copy (chan (op.dst2, 1, n), sR, n);
+            float* d0 = chan (op.dst, 0, n);
+            if (d0 != sL) juce::FloatVectorOperations::copy (d0, sL, n);
+            if (nc > 1) juce::FloatVectorOperations::copy (chan (op.dst, 1, n), d0, n);
+            break;
+        }
+        case Op::kSplitMS:
+        {
+            const float* sL = chan (op.src, 0, n);
+            const float* sR = nc > 1 ? chan (op.src, 1, n) : sL;
+            float* d0 = chan (op.dst, 0, n);  float* d1 = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            float* e0 = chan (op.dst2, 0, n); float* e1 = nc > 1 ? chan (op.dst2, 1, n) : nullptr;
+            for (int i = 0; i < n; ++i)
+            {
+                const float l = sL[i], r = sR[i];
+                const float m = 0.5f * (l + r), s = 0.5f * (l - r);
+                e0[i] = s; if (e1 != nullptr) e1[i] = s;
+                d0[i] = m; if (d1 != nullptr) d1[i] = m;
+            }
+            break;
+        }
+        case Op::kJoinLR:
+        case Op::kJoinMS:
+        {
+            // a lane's buffer is mono on both channels; fold it in case an
+            // effect on the way made the two channels differ
+            const float* a0 = op.src  >= 0 ? chan (op.src,  0, n) : nullptr;
+            const float* a1 = op.src  >= 0 && nc > 1 ? chan (op.src,  1, n) : a0;
+            const float* b0 = op.src2 >= 0 ? chan (op.src2, 0, n) : nullptr;
+            const float* b1 = op.src2 >= 0 && nc > 1 ? chan (op.src2, 1, n) : b0;
+            float* d0 = chan (op.dst, 0, n);
+            float* d1 = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            const bool ms = op.kind == Op::kJoinMS, add = op.flag != 0;
+            for (int i = 0; i < n; ++i)
+            {
+                const float a = a0 != nullptr ? 0.5f * (a0[i] + a1[i]) : 0.0f;
+                const float b = b0 != nullptr ? 0.5f * (b0[i] + b1[i]) : 0.0f;
+                const float l = ms ? a + b : a;
+                const float r = ms ? a - b : b;
+                if (d1 != nullptr) { if (add) { d0[i] += l; d1[i] += r; } else { d0[i] = l; d1[i] = r; } }
+                else               { const float mono = 0.5f * (l + r); if (add) d0[i] += mono; else d0[i] = mono; }
             }
             break;
         }

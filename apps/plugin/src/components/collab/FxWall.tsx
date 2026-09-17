@@ -426,6 +426,7 @@ export default function FxWall ({ size: frame }: Props) {
   // captions shrink slower than the prints and never below ~8px — the
   // words must stay legible when the flow is zoomed far out
   const capScale = Math.max(0.72, Math.sqrt(zoom))
+  const capAlpha = Math.min(1, Math.max(0, (zoom - 0.55) / 0.2))   // far out, the wall is pictures only: the words fade
   const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom + pan.x, y: cy + (p.y - cy) * zoom + pan.y })
   const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - pan.x - cx) / zoom, y: cy + (p.y - pan.y - cy) / zoom })
 
@@ -507,21 +508,6 @@ export default function FxWall ({ size: frame }: Props) {
     return { x: c.x + r * Math.cos(a), y: c.y + r * Math.sin(a) }
   }
   const handsShown = (n: FxGraphNode) => (zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0
-  /** The plate under a print: a disc for the effects, a square for the utilities, a wide card for the ones whose picture is wide. */
-  const plateOf = (n: { type: number }) => {
-    const util = isUtilityType(n.type)
-    const wide = n.type === FX_LFO || isSplitterType(n.type)
-    return { util, w: Rz * 2, h: wide ? Rz * 1.5 : Rz * 2, r: util ? 3 * zoom : Rz }
-  }
-  const platePath = (ctx: CanvasRenderingContext2D, c: Pt, p: { w: number; h: number; r: number }, pad = 0) => {
-    const x = c.x - p.w / 2 - pad, y = c.y - p.h / 2 - pad, w = p.w + pad * 2, h = p.h + pad * 2, r = Math.min(p.r + pad, w / 2, h / 2)
-    ctx.beginPath()
-    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-  }
 
   /** Where a wire meets a node: mix inputs fan on the left edge. */
   const inPortOf = (id: number, edgeIndex: number): Pt => {
@@ -529,21 +515,20 @@ export default function FxWall ({ size: frame }: Props) {
     const n = nodeById(id); if (!n) return outPort
     const c = toScreen(n)
     const edge = graph.edges[edgeIndex]
-    const pl = plateOf(n)
     if (edge && isControlEdge(edge)) {
       // close in, the wire lands on the hand's word inside the print; otherwise it flows in over the top edge
       if (handsShown(n)) return handPos(n, edge.hand!)
       const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
       const k = ctl.findIndex(x => x.i === edgeIndex)
       const a = -Math.PI / 2 + (k - (ctl.length - 1) / 2) * 0.28
-      return pl.util ? { x: c.x + (k - (ctl.length - 1) / 2) * 12 * zoom, y: c.y - pl.h / 2 } : { x: c.x + Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
+      return { x: c.x + Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
     }
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
     const count = ins.length
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
-    return { x: c.x - Rz, y: c.y + Rz * Math.sin(ang) }   // the mix is square: its wires fan on its left edge
+    return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
   const outPortOf = (id: number, port = 0): Pt => {
@@ -552,7 +537,7 @@ export default function FxWall ({ size: frame }: Props) {
     const c = toScreen(n)
     if (!isSplitterType(n.type)) return { x: c.x + Rz, y: c.y }
     const ang = (port === 0 ? -1 : 1) * SPLIT_FAN * Math.PI / 180
-    return { x: c.x + Rz, y: c.y + Rz * Math.sin(ang) }   // a splitter is a card: both ports on its right edge
+    return { x: c.x + Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   /** What a wire carries: the lane of the port it leaves. A node passes
    *  its one lane on; where lanes differ they have joined into a pair. */
@@ -1135,19 +1120,20 @@ export default function FxWall ({ size: frame }: Props) {
     }
     // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
+      if (isUtilityType(n.type)) continue   // a utility has no plate: its picture sits on the wall alone
       const c = toScreen(n)
       const alive = !isUtilityType(n.type) && live.has(n.id) && !n.bypass
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
-      platePath(ctx, c, plateOf(n), 2); ctx.fillStyle = wallNow; ctx.fill()
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = wallNow; ctx.fill()
       ctx.restore()
       // the plate sits IN the light, not brighter than it
       const own = alive ? wallColor(n.type as FxMode, n.variant, k * 0.5) : 'rgb(16, 15, 12)'
       const top = alive ? wallColor(n.type as FxMode, n.variant, Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
       const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
       dg.addColorStop(0, top); dg.addColorStop(1, own)
-      platePath(ctx, c, plateOf(n), 2); ctx.fillStyle = dg; ctx.fill()
+      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = dg; ctx.fill()
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
@@ -1435,7 +1421,7 @@ export default function FxWall ({ size: frame }: Props) {
             const label = !ctl && !mixIn && Math.abs(e.gain - 1) > 0.005   // a mix's shares are read under the print (and set in its study), not at its ports
             const lp = wireAt(p0, p1, mixIn ? 0.86 : 0.5)
             return (
-              <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
+              <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`} style={{ opacity: capAlpha }}>
                 {ctl && !(target && handsShown(target)) && (
                   // a control wire: only the hand's name rides beside it (its depth lives in the study); close in, the word itself is there
                   <text className="sg-share sg-share-who" x={lp.x + 6} y={lp.y + 3} textAnchor="start" style={{ pointerEvents: 'none' }}>{handLabel(target, e.hand!)}</text>
@@ -1488,17 +1474,14 @@ export default function FxWall ({ size: frame }: Props) {
                   })}
                 </div>
               )}
-              <div className={`sg-print${handsShown(n) ? ' faded' : ''}${plateOf(n).util ? ' card' : ''}`}
-                style={plateOf(n).util ? { height: plateOf(n).h, marginTop: (NODEz - plateOf(n).h) / 2, borderRadius: plateOf(n).r, overflow: 'hidden' } : undefined}
+              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
-                <div style={plateOf(n).util ? { marginTop: -(NODEz - plateOf(n).h) / 2 } : undefined}>
                 <Print node={n} size={NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
                   onFlip={(bit) => updateNode(n.id, { variant: n.variant ^ bit }, true)} />
-                </div>
               </div>
               {/* bypass: ⌘-click the print (the study's switch does it too); no ring on the print */}
               {/* ports */}
@@ -1515,7 +1498,7 @@ export default function FxWall ({ size: frame }: Props) {
                   })
                 : <span className="sg-dot r" onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
-              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})` }}>
+              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {n.type === FX_RATE && <span className="sg-flav"> {rateText(n)}</span>}

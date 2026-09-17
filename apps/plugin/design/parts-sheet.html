@@ -19,6 +19,9 @@
   html, body { margin: 0; background: var(--wall); color: var(--ink); font-family: 'Space Grotesk', sans-serif; }
   .sheet { transform: scale(2); transform-origin: top left; width: 380px; padding: 18px 24px 40px; box-sizing: border-box; }
   .frame { width: 760px; overflow: hidden; }
+  .wide { padding: 18px 0 40px; }
+  .wide h2 { font-size: 9.5px; font-weight: 400; color: rgba(246,243,234,.42); margin: 0 0 8px 24px; }
+  .wide .strip { position: relative; margin-bottom: 26px; }
   h1 { font-size: 11px; font-weight: 500; margin: 0 0 16px; color: rgba(246,243,234,.42); }
   section { margin-bottom: 22px; }
   section > h2 { font-size: 9.5px; font-weight: 400; color: rgba(246,243,234,.42); margin: 0 0 8px; }
@@ -311,8 +314,53 @@ st.textContent = `${VFONT ? `.val { font-family: '${VFONT.replace(/\+/g, ' ')}',
 document.head.appendChild(st)
 if (VFONT || VW || LW) document.querySelector('h1').textContent = `labels Space Grotesk ${LW ?? '500'}, values ${(VFONT ?? 'Space Mono').replace(/\+/g, ' ')} ${VW ?? '400'}`
 const from = Number(Q.get('from') ?? 0), to = Number(Q.get('to') ?? out.length)
+
+/* ── the shelf: family tabs at the left, one row of that family's prints ── */
+const FAMILIES = [
+  ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'gain', 'air']],
+  ['grit', ['crush', 'radio', 'ring']],
+  ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
+  ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
+  ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
+]
+function shelf (W, fam, hover = -1, o = {}) {
+  const H = 112, P = 48, gap = 18, x0 = 24
+  const names = FAMILIES[fam][1]
+  let s = `<path d="M0 0.5 H${W}" stroke="${ink(0.14)}" stroke-width="1" />`
+  // the drawer's handle rides the rule, as now
+  s += `<rect x="22.5" y="-10.5" width="19" height="19" rx="2" fill="${WALL}" stroke="${ink(0.3)}" stroke-width="1" /><path d="M28.5 -3.5 L32 0 L35.5 -3.5" fill="none" stroke="${ink(0.62)}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />`
+  // the family tabs: one frame, equal cells, the chosen family in ink
+  const tw2 = 46, fw = tw2 * FAMILIES.length, fx = x0, fy = 14 + P / 2 - 9
+  s += `<g transform="translate(${fx},${fy})">`
+  FAMILIES.forEach(([n], i) => {
+    const on = i === fam
+    if (on) s += `<rect x="${i * tw2}" y="0" width="${tw2}" height="18" rx="${i === 0 ? 2 : 0}" fill="${ink(1)}" />`
+    if (i > 0 && !on && i - 1 !== fam) s += `<path d="M${i * tw2 + 0.5} 3 V15" stroke="${ink(0.2)}" stroke-width="1" />`
+    s += `<text x="${i * tw2 + tw2 / 2}" y="12.6" text-anchor="middle" font-size="10" font-weight="${on ? 500 : 400}" fill="${on ? WALL : ink(0.62)}">${n}</text>`
+  })
+  s += `<rect x="0.5" y="0.5" width="${fw - 1}" height="17" rx="2" fill="none" stroke="${ink(0.3)}" stroke-width="1" /></g>`
+  // the prints (stand-ins here: the real prints are drawn by the wall), names under
+  const rx0 = fx + fw + 36
+  names.forEach((n, i) => {
+    const cx = rx0 + i * (P + gap) + P / 2, cy = 14 + P / 2, hv = i === hover
+    const a = hv ? 1 : 0.5
+    s += `<g opacity="${a}"><circle cx="${cx}" cy="${cy}" r="${P / 2 - 0.5}" fill="none" stroke="${ink(0.35)}" stroke-width="1" />`
+    for (let k = -3; k <= 3; k++) s += `<path d="M${cx - 14 + Math.abs(k) * 2} ${cy + k * 5} H${cx + 14 - Math.abs(k) * 2}" stroke="${ink(0.5)}" stroke-width="1" />`
+    s += `<text x="${cx}" y="${cy + P / 2 + 17}" text-anchor="middle" font-size="10.5" fill="${ink(1)}">${n}</text></g>`
+  })
+  return `<div class="strip">${svg(W, H, `<g transform="translate(0,0.5)">${s}</g>`)}</div>`
+}
+
+if (Q.get('shelf')) {
+  document.querySelector('.frame').outerHTML = `<div class="wide">
+    <h2>the shelf at 760, the space family, hover on shimmer (the prints are stand-ins)</h2>${shelf(760, 2, 2)}
+    <h2>the shelf at 760, tone</h2>${shelf(760, 0)}
+    <h2>the shelf at 1120, motion</h2>${shelf(1120, 3)}
+  </div>`
+} else {
 document.getElementById('sections').innerHTML = out.slice(from, to).join('')
 document.querySelector('.frame').style.height = document.querySelector('.sheet').offsetHeight * 2 + 'px'
+}
 </script>
 </body>
 </html>

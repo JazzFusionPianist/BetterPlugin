@@ -4,6 +4,7 @@ import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BL
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
+import { Cells } from '../../assets/parts/parts'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -29,8 +30,17 @@ const SHELF_PRINT = 48
 const SHELF_H = 112
 /** One row of prints that scrolls sideways (the wheel's up and down
  *  walks it); the page needs its height to size the wall. */
+/** The shelf's families: one row of prints at a time, the mix always at the end. */
+const FAMILIES: Array<[string, string[]]> = [
+  ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'gain', 'air']],
+  ['grit', ['crush', 'radio', 'ring']],
+  ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
+  ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
+  ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
+]
+const FAM_W = 38 * FAMILIES.length   // five tabs; with the longest family and the mix the row fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
-  return { print: SHELF_PRINT, gap: 18, height: SHELF_H }
+  return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
 }
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
 const SNAP_WIRE = 26           // drop a print this close to a wire to splice it in
@@ -300,6 +310,14 @@ export default function FxWall ({ size: frame }: Props) {
   const toggleShelf = () => setShelfOpen(v => { try { localStorage.setItem('orb_wall_shelf', v ? '0' : '1') } catch { /* fine */ } return !v })
   // more prints past the right edge? the edge fades to say so
   const [shelfMore, setShelfMore] = useState(false)
+  // the shelf shows one family at a time
+  const [shelfFam, setShelfFam] = useState(() => { try { return Math.min(FAMILIES.length - 1, Math.max(0, Number(localStorage.getItem('orb_wall_fam') ?? 0))) } catch { return 0 } })
+  const [famHover, setFamHover] = useState(-1)
+  const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
+  const shelfTypes = useMemo(() => {
+    const byName = new Map(MODES.map(m => [m.name, m.id as number]))
+    return [...FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined), FX_MIX_TYPE]
+  }, [shelfFam])
   useEffect(() => {
     const el = shelfRef.current; if (!el) return
     const check = () => setShelfMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
@@ -1290,8 +1308,12 @@ export default function FxWall ({ size: frame }: Props) {
         <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ gap: shelf.gap, height: shelfOpen ? shelf.height : 0 }}>
-        {[...MODES.map(m => m.id as number), FX_MIX_TYPE].map(type => (
-          <div key={type} className="sg-shelf-item"
+        <span className="sg-shelf-fam" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setFamHover(-1)}
+          onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFamHover(Math.min(FAMILIES.length - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * FAMILIES.length)))) }}>
+          <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
+        </span>
+        {shelfTypes.map(type => (
+          <div key={type} className={`sg-shelf-item${type === FX_MIX_TYPE ? ' mix' : ''}`}
             onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>

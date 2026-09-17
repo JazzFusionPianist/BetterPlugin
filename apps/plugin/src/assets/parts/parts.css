@@ -95,3 +95,8 @@
 
 /* the print sits in the middle of the room between the head and the foot; the foot's own auto margin keeps `remove` at the bottom */
 .plugin.sounds .sg-study-print { margin-top: auto; }
+
+/* ── the shelf: the family tabs at the left, one family's prints, the mix at the end ── */
+.plugin.sounds .sg-shelf-fam { flex: none; margin-right: 4px; align-self: center; position: relative; top: -13px; }
+.plugin.sounds .sg-shelf-item.mix { margin-left: 14px; }
+.plugin.sounds .sg-shelf-item span { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0; }

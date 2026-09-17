@@ -37,7 +37,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'l/r', 'm/s']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S']],
 ]
 const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -70,7 +70,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'l/r' : type === FX_SPLIT_MS ? 'm/s' : MODES.find(m => m.id === type)?.name ?? '')
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 13) return `${Math.round(a * 24)}st`
@@ -346,7 +346,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['l/r', FX_SPLIT_LR], ['m/s', FX_SPLIT_MS]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {

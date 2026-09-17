@@ -1,3 +1,4 @@
+#include <iterator>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
@@ -57,6 +58,12 @@ OrbAudioProcessor::OrbAudioProcessor()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
+    // sixteen amounts for the host to automate, one per slot on the wall
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        slotAmount[i] = new SlotAmountParam (i);
+        addParameter (slotAmount[i]);   // the processor owns it
+    }
     // Build the persistent WebView once per plugin instance. Its lifetime is
     // tied to the processor, so closing/reopening the editor never tears down
     // a live WebRTC session.
@@ -173,6 +180,21 @@ OrbAudioProcessor::OrbAudioProcessor()
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleSavePresetDialog (a, std::move (done)); })
             .withNativeFunction ("openPresetDialog",
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleOpenPresetDialog (a, std::move (done)); })
+            .withNativeFunction ("gesture",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    // [slot, begin]: the wall's finger is on a print's amount
+                    if (auto* arr = a.getArray(); arr != nullptr && arr->size() >= 2)
+                    {
+                        const int slot = (int) (*arr)[0];
+                        if (slot >= 0 && slot < orbfx::kMaxNodes)
+                        {
+                            if ((bool) (*arr)[1]) slotAmount[slot]->beginChangeGesture();
+                            else                  slotAmount[slot]->endChangeGesture();
+                        }
+                    }
+                    done (juce::var (true));
+                })
             .withNativeFunction ("orbLog",
                 [] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
@@ -526,6 +548,11 @@ void OrbAudioProcessor::timerCallback()
     // per-slot block peaks: the wall's lamps breathe with what passes through
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
         script << (i ? "," : "") << juce::String (fxChain.nodePeak (i), 3);
+    // per-slot amounts as the host has them: automation reaches the wall this way
+    hostAmountsToGraph();
+    script << "],amounts:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+        script << (i ? "," : "") << juce::String (slotAmount[i] != nullptr ? slotAmount[i]->get() : 0.0f, 4);
     script << "]}}))";
 
     browser->evaluateJavascript (script,
@@ -960,6 +987,8 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) return;
     auto& s = fxSlots[(size_t) nd.id];
     s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
+    if (auto* prm = slotAmount[nd.id]; prm != nullptr && std::abs (prm->get() - nd.amount) > 1.0e-4f)
+        prm->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, nd.amount));   // the range is 0..1: normalised as is
     s.variant.store (juce::jlimit (0, 7, nd.variant), std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i)
         s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
@@ -984,6 +1013,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
         fxGraph = g;
     }
     for (auto& nd : g.nodes) writeSlot (nd);
+    syncAmountNames();
     fxChain.publish (prog);
     {
         ModTable t;
@@ -1012,6 +1042,37 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
     // the host lines the track up by this much (mix aligned, monitoring late)
     if (getLatencySamples() != prog.latency) setLatencySamples (prog.latency);
     return true;
+}
+
+static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
+                                          "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate" };
+
+void OrbAudioProcessor::syncAmountNames()
+{
+    bool changed = false;
+    const juce::ScopedLock sl (fxGraphLock);
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        juce::String name = "print " + juce::String (i + 1) + " amount";
+        for (auto& nd : fxGraph.nodes)
+            if (nd.id == i && orbfx::isEffect (nd.type) && nd.type >= 0 && nd.type < (int) std::size (kTypeNames))
+                name = juce::String (kTypeNames[nd.type]) + " amount";
+        if (slotAmount[i] != nullptr && slotAmount[i]->dynName != name) { slotAmount[i]->dynName = name; changed = true; }
+    }
+    if (changed) updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withParameterInfoChanged (true));
+}
+
+void OrbAudioProcessor::hostAmountsToGraph()
+{
+    // automation moved a param: the graph copy (what gets saved, what the wall reads back) follows
+    const juce::ScopedLock sl (fxGraphLock);
+    for (auto& nd : fxGraph.nodes)
+        if (nd.id >= 0 && nd.id < orbfx::kMaxNodes && slotAmount[nd.id] != nullptr)
+        {
+            const float v = slotAmount[nd.id]->get();
+            if (std::abs (v - nd.amount) > 1.0e-4f) { nd.amount = v; fxSlots[(size_t) nd.id].amount.store (v, std::memory_order_relaxed); }
+        }
 }
 
 void OrbAudioProcessor::rebuildLegacyGraph()
@@ -1053,7 +1114,7 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     {
         auto& s = fxSlots[(size_t) i];
         auto& p = params[i];
-        p.amount   = s.amount.load (std::memory_order_relaxed);
+        p.amount   = slotAmount[i] != nullptr ? slotAmount[i]->get() : s.amount.load (std::memory_order_relaxed);
         p.variant  = s.variant.load (std::memory_order_relaxed);
         p.decay    = s.decay[(size_t) juce::jlimit (0, 2, p.variant)].load (std::memory_order_relaxed);
         p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);

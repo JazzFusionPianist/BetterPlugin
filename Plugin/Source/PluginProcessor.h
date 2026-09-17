@@ -25,6 +25,21 @@
  *   • All native-function handlers registered on the WebBrowserComponent
  *     (prefetch, drag, write-audio, etc.) — they used to live on the editor.
  */
+/** A print's amount as the host sees it: one per slot, named after the
+ *  print that sits there ("delay amount"), or "print N amount" while the
+ *  slot is empty. The name follows the wall; the host is told when it changes. */
+class SlotAmountParam final : public juce::AudioParameterFloat
+{
+public:
+    SlotAmountParam (int slot)
+        : juce::AudioParameterFloat (juce::ParameterID ("print" + juce::String (slot + 1) + "amount", 1),
+                                     "print " + juce::String (slot + 1) + " amount",
+                                     juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f),
+          dynName ("print " + juce::String (slot + 1) + " amount") {}
+    juce::String getName (int maximumStringLength) const override { return dynName.substring (0, maximumStringLength); }
+    juce::String dynName;
+};
+
 class OrbAudioProcessor final : public juce::AudioProcessor,
                                   private juce::Timer
 {
@@ -212,6 +227,11 @@ private:
     double             ratePhase[orbfx::kMaxNodes] {};        // audio thread
     std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
     void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
+
+    /** The host's view of the wall: sixteen amounts, one per slot. */
+    SlotAmountParam* slotAmount[orbfx::kMaxNodes] {};
+    void syncAmountNames();            // message thread: rename after the graph changes
+    void hostAmountsToGraph();         // message thread: automation moved a param → the graph copy follows
 
     /** Write a node's params into its slot atomics (no republish). */
     void writeSlot (const orbfx::Graph::Node& nd);

@@ -160,6 +160,12 @@ export async function getGraph (): Promise<FxGraph | null> {
 }
 
 /** Push a whole patch; resolves to the engine's verdict. */
+/** The wall's finger lands on (or leaves) a print's amount: the host records automation in between. */
+export function paramGesture (slot: number, begin: boolean): void {
+  if (!hasJuceNativeFunction('gesture')) return
+  void callJuceNative('gesture', [slot, begin]).catch(() => {})
+}
+
 export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: string }> {
   if (!hasGraphBridge()) return { ok: false, error: 'no bridge' }
   try {

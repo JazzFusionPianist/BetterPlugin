@@ -9,7 +9,7 @@ import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -410,6 +410,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [drag, setDrag] = useState<Drag | null>(null)
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef(graph); graphRef.current = graph
+  const dragRef = useRef<Drag | null>(null); dragRef.current = drag   // for the audio-event listener, which never re-subscribes
 
   // ── zoom: the signal flow scales about the wall's centre; in and out
   //    stay put on the edges, so the outer wires stretch to meet it ─────
@@ -785,7 +786,8 @@ export default function FxWall ({ size: frame }: Props) {
       if (drag.moved) push(graphRef.current, true)
       else { setSel({ node: drag.id }); setConfirm(null) }   // the print was only pressed: open its study
     }
-    else if (drag.kind === 'amount' || drag.kind === 'share' || drag.kind === 'hand') push(graphRef.current, true)
+    else if (drag.kind === 'amount') { push(graphRef.current, true); paramGesture(drag.id, false) }
+    else if (drag.kind === 'share' || drag.kind === 'hand') push(graphRef.current, true)
     else if (drag.kind === 'pan') { try { localStorage.setItem('orb_wall_pan', JSON.stringify(pan)) } catch { /* fine */ } }
     setDrag(null)
   }
@@ -1143,8 +1145,20 @@ export default function FxWall ({ size: frame }: Props) {
   useEffect(() => {
     if (!hasJuceBridge) return
     const onAudio = (e: Event) => {
-      const d = (e as CustomEvent).detail as { peaks?: number[] }
+      const d = (e as CustomEvent).detail as { peaks?: number[]; amounts?: number[] }
       if (Array.isArray(d.peaks)) for (let i = 0; i < FX_MAX_NODES; i++) peaks.current[i] = Math.min(1.4, Number(d.peaks[i]) || 0)
+      // the host's amounts (automation): the wall follows, except the print under a finger
+      if (Array.isArray(d.amounts)) {
+        const g = graphRef.current
+        const held = dragRef.current?.kind === 'amount' ? dragRef.current.id : -1
+        let changed = false
+        const nodes = g.nodes.map(n => {
+          if (n.id === held || isUtilityType(n.type)) return n
+          const v = Number(d.amounts![n.id]); if (!Number.isFinite(v) || Math.abs(v - n.amount) < 0.002) return n
+          changed = true; return { ...n, amount: v }
+        })
+        if (changed) setGraphState({ ...g, nodes })
+      }
     }
     window.addEventListener('__juceDawAudio', onAudio)
     return () => window.removeEventListener('__juceDawAudio', onAudio)
@@ -1505,7 +1519,7 @@ export default function FxWall ({ size: frame }: Props) {
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
+                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); paramGesture(n.id, true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
                       onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true) }}>
                       {' '}{fmtValue(n.type, n.amount, n.variant)}
@@ -1600,7 +1614,7 @@ export default function FxWall ({ size: frame }: Props) {
             if (isUtilityType(studyNode.type)) return
             e.stopPropagation()
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
-            setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
+            paramGesture(studyNode.id, true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
           }}
           onPointerMove={(e) => {
             if (drag?.kind !== 'amount' || drag.id !== studyNode.id) return
@@ -1625,7 +1639,7 @@ export default function FxWall ({ size: frame }: Props) {
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
                 commit={(a) => updateNode(studyNode.id, { amount: a }, true)}
                 reset={() => updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true)}
-                onPointerDown={(e) => { e.stopPropagation(); grab(e); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
+                onPointerDown={(e) => { e.stopPropagation(); grab(e); paramGesture(studyNode.id, true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount }) }}
                 onWheelDelta={(dy) => updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(dy))) }, true)} />
             : <span className="sg-study-mixnote">{inputsOf(studyNode.id).length === 0 ? 'nothing wired in yet' : studyNode.variant === 0 ? 'the shares blend to 100' : 'the shares add up'}</span>}
         </div>

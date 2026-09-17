@@ -1416,7 +1416,7 @@ export default function FxWall ({ size: frame }: Props) {
             const target = nodeById(e.to)
             const ctl = isControlEdge(e)
             const mixIn = !ctl && target?.type === FX_MIX_TYPE
-            const label = !ctl && (mixIn || Math.abs(e.gain - 1) > 0.005)
+            const label = !ctl && !mixIn && Math.abs(e.gain - 1) > 0.005   // a mix's shares are read under the print (and set in its study), not at its ports
             const lp = wireAt(p0, p1, mixIn ? 0.86 : 0.5)
             return (
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>

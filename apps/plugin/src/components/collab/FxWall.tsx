@@ -498,6 +498,15 @@ export default function FxWall ({ size: frame }: Props) {
     ? inputsOf(n.id).map(x => ({ key: `share:${x.e.from}`, label: x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1) }))
     : handsOfType(n.type)
   const handLabel = (n: FxGraphNode | undefined, key: string) => (n ? handsOf(n).find(h => h.key === key)?.label : undefined) ?? key
+  /** Where a hand's word sits inside its print, on the screen (the nucleus layout). */
+  const handPos = (n: FxGraphNode, key: string): Pt => {
+    const c = toScreen(n)
+    const all = handsOf(n), k = Math.max(0, all.findIndex(h => h.key === key)), N = all.length
+    const a = N <= 1 ? 0 : (k / N) * Math.PI * 2 - Math.PI / 2
+    const r = N <= 1 ? 0 : N === 2 ? Rz * 0.36 : Rz * 0.5
+    return { x: c.x + r * Math.cos(a), y: c.y + r * Math.sin(a) }
+  }
+  const handsShown = (n: FxGraphNode) => (zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0
 
   /** Where a wire meets a node: mix inputs fan on the left edge. */
   const inPortOf = (id: number, edgeIndex: number): Pt => {
@@ -506,10 +515,12 @@ export default function FxWall ({ size: frame }: Props) {
     const c = toScreen(n)
     const edge = graph.edges[edgeIndex]
     if (edge && isControlEdge(edge)) {
+      // close in, the wire lands on the hand's word inside the print; otherwise it flows in over the top edge
+      if (handsShown(n)) return handPos(n, edge.hand!)
       const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
       const k = ctl.findIndex(x => x.i === edgeIndex)
-      // the wire ends at the hand's name, which floats just above the print; a short tick joins the two
-      return { x: c.x + (k - (ctl.length - 1) / 2) * 14 * zoom, y: c.y - Rz - 14 * zoom }
+      const a = -Math.PI / 2 + (k - (ctl.length - 1) / 2) * 0.28
+      return { x: c.x + Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
     }
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
@@ -1067,17 +1078,7 @@ export default function FxWall ({ size: frame }: Props) {
         ctx.save()
         ctx.setLineDash([3 * zoom, 4 * zoom]); ctx.strokeStyle = rgba(paper, sel?.edge === i ? 0.9 : 0.5); ctx.lineWidth = 1; ctx.stroke(path)
         ctx.restore()
-        if (e.hand !== undefined) {
-          // the hand's name sits at the wire's end; a tick drops from it to the print's edge
-          const t = nodeById(e.to)
-          const c = t ? toScreen(t) : p1
-          ctx.strokeStyle = rgba(paper, 0.5); ctx.lineWidth = 1
-          ctx.beginPath(); ctx.moveTo(p1.x, p1.y + 3 * zoom); ctx.lineTo(p1.x, c.y - Rz); ctx.stroke()
-          ctx.fillStyle = rgba(paper, 0.9); ctx.beginPath(); ctx.arc(p1.x, p1.y, 1.6 * Math.max(0.8, zoom), 0, Math.PI * 2); ctx.fill()
-          ctx.font = `${Math.round(9 * Math.max(0.8, zoom))}px 'Space Mono', monospace`; ctx.textAlign = 'left'; ctx.fillStyle = rgba(paper, 0.8)
-          ctx.fillText(handLabel(t, e.hand), p1.x + 5 * zoom, p1.y + 3.5 * zoom)
-        }
-        return
+        return   // the hand's name and the depth ride beside the wire, in the svg layer
       }
       if (lane > 0) {
         ctx.strokeStyle = rgba(LANE_RGB[lane], sel?.edge === i ? 0.95 : 0.55)
@@ -1413,18 +1414,22 @@ export default function FxWall ({ size: frame }: Props) {
             const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
             const isSel = sel?.edge === i
             const target = nodeById(e.to)
-            const mixIn = target?.type === FX_MIX_TYPE
             const ctl = isControlEdge(e)
-            const label = ctl || mixIn || Math.abs(e.gain - 1) > 0.005
+            const mixIn = !ctl && target?.type === FX_MIX_TYPE
+            const label = !ctl && (mixIn || Math.abs(e.gain - 1) > 0.005)
             const lp = wireAt(p0, p1, mixIn ? 0.86 : 0.5)
             return (
               <g key={i} className={`sg-wire${isSel ? ' sel' : ''}`}>
+                {ctl && !(target && handsShown(target)) && (
+                  // a control wire: only the hand's name rides beside it (its depth lives in the study); close in, the word itself is there
+                  <text className="sg-share sg-share-who" x={lp.x + 6} y={lp.y + 3} textAnchor="start" style={{ pointerEvents: 'none' }}>{handLabel(target, e.hand!)}</text>
+                )}
                 {label && (
                   <text className="sg-share" x={lp.x} y={lp.y - 7} textAnchor="middle"
                     onPointerDown={(ev) => { ev.stopPropagation(); setSel({ edge: i }); setDrag({ kind: 'share', edge: i, y0: ev.clientY, g0: e.gain }) }}
                     onDoubleClick={(ev) => { ev.stopPropagation(); setShare(i, mixIn ? 1 / Math.max(1, inputsOf(e.to).length) : 1, true) }}>
                     {mixIn && <tspan className="sg-share-who">{e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(e.from)?.type ?? -1)} </tspan>}
-                    {ctl && e.gain > 0 ? '+' : ''}{Math.round(e.gain * 100)}
+                    {Math.round(e.gain * 100)}
                   </text>
                 )}
                 {isSel && (
@@ -1458,18 +1463,16 @@ export default function FxWall ({ size: frame }: Props) {
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
               {/* close in (or with a control wire in the air over it), the print shows its hands, like a nucleus */}
-              {(zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0 && (
+              {handsShown(n) && (
                 <div className="sg-hands" style={{ width: NODEz, height: NODEz }}>
-                  {handsOf(n).map((h, k, all) => {
-                    const N = all.length
-                    const a = N === 1 ? 0 : (k / N) * Math.PI * 2 - Math.PI / 2
-                    const r = N === 1 ? 0 : N === 2 ? Rz * 0.36 : Rz * 0.5
+                  {handsOf(n).map(h => {
+                    const p = handPos(n, h.key)
                     return <span key={h.key} className="sg-hand-word" data-node={n.id} data-hand={h.key}
-                      style={{ left: Rz + r * Math.cos(a), top: Rz + r * Math.sin(a), fontSize: 10 * Math.max(0.8, Math.min(1.3, zoom)) }}>{h.label}</span>
+                      style={{ left: p.x - (c.x - Rz), top: p.y - (c.y - Rz), fontSize: 10 * Math.max(0.8, Math.min(1.3, zoom)) }}>{h.label}</span>
                   })}
                 </div>
               )}
-              <div className={`sg-print${(zoom >= HANDS_ZOOM || reveal === n.id) && handsOf(n).length > 0 ? ' faded' : ''}`}
+              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
                 <Print node={n} size={NODEz} shares={sharesOf(n.id)}

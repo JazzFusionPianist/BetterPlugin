@@ -213,9 +213,10 @@ endfunction()
 # Orb Chat — messages only (first split-out, 2026-09-11).
 orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbChatAU)
 
-# Orb Sounds — the one-knob fx chain, no account needed: the plugin boots
-# straight into the darkened room.
-orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Orb Sounds" sounds OrbSoundsAU)
+# Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
+# the plugin boots straight into the darkened room. The codes and bundle id
+# stay so hosts keep finding it in old sessions; only the name shown changed.
+orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds OrbSoundsAU)
 
 # Orb Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.

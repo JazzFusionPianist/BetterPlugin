@@ -63,7 +63,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
 # the full Orb: CMake target → product name, one line each.
 SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
-SPLIT_NAMES=("Orb Chat" "Orb Sounds" "Orb Games")
+SPLIT_NAMES=("Orb Chat" "Patch on Slur" "Orb Games")
 
 split_targets() { # AU + VST3 for every split-out (filtered by --only)
   local i out=""
@@ -172,18 +172,21 @@ if [ "$INSTALL" = true ]; then
     echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
   fi
 
-  # The split-out plugins (Orb Chat, Orb Sounds, …) install alongside Orb —
+  # The split-out plugins (Orb Chat, Patch on Slur, …) install alongside Orb —
   # only the ones this run built (this config), so --only=sounds never
   # re-installs a stale Orb Chat.
   for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
     case "$ONLY" in
       chat)   [ "$SPLIT_NAME" = "Orb Chat" ]   || continue ;;
-      sounds) [ "$SPLIT_NAME" = "Orb Sounds" ] || continue ;;
+      sounds) [ "$SPLIT_NAME" = "Patch on Slur" ] || continue ;;
       games)  [ "$SPLIT_NAME" = "Orb Games" ]  || continue ;;
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     if [ -n "$SPLIT_AU_PATH" ]; then
+      # Patch on Slur was Orb Sounds: the old bundle carries the same codes,
+      # so it must go or the host sees the plugin twice.
+      [ "$SPLIT_NAME" = "Patch on Slur" ] && rm -rf "$AU_DEST/Orb Sounds.component" "$VST3_DEST/Orb Sounds.vst3"
       rm -rf "$AU_DEST/$SPLIT_NAME.component"
       cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
       echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"

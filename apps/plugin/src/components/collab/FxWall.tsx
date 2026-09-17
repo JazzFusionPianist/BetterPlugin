@@ -1344,7 +1344,7 @@ export default function FxWall ({ size: frame }: Props) {
         <div className="sg-study-foot">
           <button type="button" className={`sg-key${confirm === `node:${studyNode.id}` ? ' armed' : ''}`}
             onPointerDown={(e) => { e.stopPropagation(); if (confirm === `node:${studyNode.id}`) removeNode(studyNode.id); else setConfirm(`node:${studyNode.id}`) }}>
-            {confirm === `node:${studyNode.id}` ? 'sure? remove it' : 'remove from the wall'}
+            {confirm === `node:${studyNode.id}` ? 'sure?' : 'remove'}
           </button>
         </div>
         </div>

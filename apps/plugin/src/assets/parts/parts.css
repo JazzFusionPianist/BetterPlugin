@@ -92,3 +92,6 @@
 
 /* the head sits above the body, which scrolls under it (the close was unreachable) */
 .plugin.sounds > .sg-study > .sg-study-head { z-index: 2; }
+
+/* the print sits in the middle of the room between the head and the foot; the foot's own auto margin keeps `remove` at the bottom */
+.plugin.sounds .sg-study-print { margin-top: auto; }

@@ -27,7 +27,7 @@ set(ORB_APP_URL "https://better-plugin.vercel.app" CACHE STRING "Orb web app URL
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
 juce_add_plugin(OrbPlugin
-    COMPANY_NAME                "Orb"
+    COMPANY_NAME                "Slur Studio"
     COMPANY_WEBSITE             "https://orb.app"
     COMPANY_EMAIL               "hello@orb.app"
 
@@ -133,7 +133,7 @@ endforeach()
 #   orb_add_surface_plugin(<target> <plugin code> <bundle id> "<product name>" <surface> <AU export prefix>)
 function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     juce_add_plugin(${_target}
-        COMPANY_NAME                "Orb"
+        COMPANY_NAME                "Slur Studio"
         COMPANY_WEBSITE             "https://orb.app"
         COMPANY_EMAIL               "hello@orb.app"
         PLUGIN_MANUFACTURER_CODE    Orb1

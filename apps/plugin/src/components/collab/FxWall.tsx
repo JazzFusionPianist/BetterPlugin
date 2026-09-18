@@ -94,7 +94,7 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
-const AURORA = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'aurora'   // DRAFT
+const AURORA = !(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'round')   // the wall's light is an aurora; ?glow=round shows the old round lamps, to compare
 /** What a print's big knob is, where "amount" would be vague. */
 const MAIN_HAND: Record<number, string> = { 7: 'cutoff' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
@@ -1381,20 +1381,22 @@ export default function FxWall ({ size: frame }: Props) {
   const lastFrame = useRef(performance.now())
 
   /** One lamp's pool of light, as the wall paints it. */
-  /** DRAFT (?glow=aurora): a lamp's light as an aurora — several tall curtains of light that stand over the print, lean and drift
+  /** A lamp's light as an aurora — several tall curtains of light that stand over the print, lean and drift
    *  past one another like cloth in slow air, each a little off the print's colour, so where they cross the colours run together.
    *  A soft round core stays under them so the print is still lit where it stands. */
   const paintAurora = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number, seed: number, now: number) => {
     const sec = now / 1000
     // the core: a small pool, so the print itself is lit
-    paintRound(ctx, lx, ly, t, a * 0.5, reach * 0.45)
+    paintRound(ctx, lx, ly, t, a * 0.45, reach * 0.55)
     const N = 6
     for (let i = 0; i < N; i++) {
       const ph = seed * 1.7 + i * 2.399   // each curtain its own slow clock
       const sway = Math.sin(sec * (0.11 + 0.023 * i) + ph), sway2 = Math.sin(sec * (0.071 + 0.017 * i) + ph * 1.3)
-      const x = lx + (i - (N - 1) / 2) * reach * 0.2 + sway * reach * 0.22
-      const tall = reach * (1.1 + 0.55 * (0.5 + 0.5 * sway2)), wide = reach * (0.22 + 0.2 * (0.5 + 0.5 * Math.sin(ph * 2.1 + sec * 0.05)))
-      const y = ly - tall * 0.42                                   // it stands above the print, its hem near it
+      const x = lx + (i - (N - 1) / 2) * Math.max(26, reach * 0.2) + sway * Math.max(28, reach * 0.22)
+      // a curtain runs the whole height of the wall, whatever the zoom: brightest by its print, thinning to the top and the bottom edge
+      const H = size.h, span = Math.max(ly, H - ly) * (1.25 + 0.2 * sway2)
+      const tall = span, wide = Math.max(34, reach * (0.22 + 0.2 * (0.5 + 0.5 * Math.sin(ph * 2.1 + sec * 0.05))))
+      const y = ly
       const lean = 0.22 * Math.sin(sec * 0.09 + ph * 0.7)          // cloth in slow air
       // a little off the print's colour, toward its neighbours on the wheel
       const k = 0.5 + 0.5 * Math.sin(ph * 3.1), w = 0.35
@@ -1402,10 +1404,11 @@ export default function FxWall ({ size: frame }: Props) {
       const al = a * (0.4 + 0.24 * (0.5 + 0.5 * Math.sin(sec * 0.13 + ph * 1.9)))
       ctx.save()
       ctx.translate(x, y); ctx.transform(1, 0, lean, 1, 0, 0); ctx.scale(wide, tall)
-      const g = ctx.createRadialGradient(0, 0.18, 0, 0, 0, 1)     // brightest low in the curtain, thinning upward
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1)
       g.addColorStop(0, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${Math.min(1, al).toFixed(3)})`)
-      g.addColorStop(0.35, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.5).toFixed(3)})`)
-      g.addColorStop(0.7, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.14).toFixed(3)})`)
+      g.addColorStop(0.25, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.72).toFixed(3)})`)
+      g.addColorStop(0.5, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.38).toFixed(3)})`)
+      g.addColorStop(0.75, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.12).toFixed(3)})`)
       g.addColorStop(1, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, 0)`)
       ctx.fillStyle = g; ctx.fillRect(-1, -1, 2, 2)
       ctx.restore()

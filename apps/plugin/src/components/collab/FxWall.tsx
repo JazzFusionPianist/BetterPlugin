@@ -2,7 +2,7 @@ import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, u
 import { createPortal } from 'react-dom'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
-import { LIVE_INDEX, useLiveHand } from '../../lib/liveHands'
+import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
@@ -1487,7 +1487,9 @@ export default function FxWall ({ size: frame }: Props) {
       // a control print and the side are never "between in and out": they are lit when a wire leaves them
       const offPath = isControlType(n.type) || n.type === FX_SIDE
       const alive = offPath ? graph.edges.some(e => e.from === n.id) : live.has(n.id) && !n.bypass
-      const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
+      // a knob that something plays (a rate, a macro, a follow) shines as it is played, not as it was set
+      const playedA = !isUtilityType(n.type) && graph.edges.some(e => e.to === n.id && e.hand === 'amount') ? getLiveHand(n.id, LIVE_INDEX.amount) : undefined
+      const kTarget = alive ? Math.min(1, intensityOf(playedA === undefined ? n : { ...n, amount: playedA })) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
       // signal breath: fast up, slow down
       const pk = hasJuceBridge ? peaks.current[n.id] : 0.5 + 0.5 * Math.sin(now / 1000 * 2 * Math.PI * 0.45 + n.id)
@@ -1497,9 +1499,10 @@ export default function FxWall ({ size: frame }: Props) {
       // the side and the follow are lit BY what they hear: dark in silence, full on a hit (the rest only breathe a little)
       const hears = n.type === FX_SIDE || n.type === FX_FOLLOW
       const kNow = hears ? kTarget * Math.min(1.6, 0.12 + 1.7 * Math.sqrt(Math.min(1, breath))) : kTarget * (0.85 + 0.35 * Math.min(1, breath))
-      st.k += (kNow - st.k) * ease
+      const easeK = playedA !== undefined ? 1 - Math.exp(-dt / 0.045) : ease   // a played knob's light keeps up with the play (the slow ease would smooth a fast rate away)
+      st.k += (kNow - st.k) * easeK
       const reachTarget = Rz * (1.9 + kTarget * 4.6)
-      st.reach += (reachTarget - st.reach) * ease
+      st.reach += (reachTarget - st.reach) * easeK
       lamps.current.set(n.id, st); seen.add(n.id)
       if (st.k < 0.005) continue
       const c = toScreen(n)

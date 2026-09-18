@@ -622,7 +622,18 @@ void OrbAudioProcessor::timerCallback()
         for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
         script << "]";
     }
-    // the plots' sounds: each tap's axes as mono float32, for the wall's picture
+    // what each control print is saying now (a rate, a follow, a macro): the picture can draw these too
+    script << "],ctl:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const int type = slotTypes[(size_t) i].load();
+        float cv = 0.0f;
+        if (type == orbfx::kRate) cv = rateValue[(size_t) i].load (std::memory_order_relaxed);
+        else if (type == orbfx::kFollow) cv = fxChain.followValue (i);
+        else if (type == orbfx::kMacro) { const juce::ScopedLock sl (fxGraphLock); for (auto& nd : fxGraph.nodes) if (nd.id == i) cv = macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])]->get(); }
+        script << (i ? "," : "") << juce::String (cv, 4);
+    }
+    // the picture's sounds: each tap's inputs as mono float32
     script << "],plots:[";
     {
         const int maxPlot = juce::jmax (framesRead * 2, 2048);
@@ -1199,7 +1210,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "plot" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "plot", "memory", "index", "decibel", "offset", "scale" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1231,7 +1242,6 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
         case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
         case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
-        case orbfx::kPlot:    { static const char* const pl[] = { "trail", "x", "y", "z", "time", "height" }; return k < 6 ? pl[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1248,7 +1258,6 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
-        case orbfx::kPlot:    if (k >= 1 && k <= 3) { lo = 0; hi = 1000; } else if (k == 4) { lo = 20; hi = 2000; } else if (k == 5) { lo = 2; hi = 160; } break;   // an axis played by a control wire: 500 is the middle
         case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
         default: break;
     }

@@ -129,7 +129,7 @@ export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_PLOT || t === 36 || t === 37 || t === 38   // …and the picture's memory, index, decibel
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_PLOT || (t >= 36 && t <= 40)   // …and the picture's memory, index, decibel, offset, scale
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
 export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints whose wire lands on a hand (a dashed control wire). */

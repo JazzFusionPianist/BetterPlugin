@@ -47,7 +47,9 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             // sits outside the sixteen slots (ids 16..47); any sound wired into one is streamed to the page.
             kMemory = 36,           // a shift register: a signal in, the last `length` of it out (a window)
             kIndex = 37,            // a window in, each sample's place in it out (ms)
-            kDecibel = 38 };        // amplitude in, dB out
+            kDecibel = 38,          // amplitude in, dB out
+            kOffset = 39,           // adds a constant (moves what arrives along its axis)
+            kScale = 40 };          // multiplies by a constant (a negative one turns it round)
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
@@ -56,7 +58,7 @@ inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMix
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
-inline bool isPicture (int t) noexcept { return t == kPlot || t == kMemory || t == kIndex || t == kDecibel; }
+inline bool isPicture (int t) noexcept { return t == kPlot || (t >= kMemory && t <= kScale); }
 inline bool isListener (int t) noexcept { return t == kFollow || isPicture (t); }   // audio ends here (like out): a value comes out, or a picture
 inline int  numInputs (int t) noexcept { return t == kPlot ? 3 : (t == kGlue || t == kGate) ? 2 : 1; }
 inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to

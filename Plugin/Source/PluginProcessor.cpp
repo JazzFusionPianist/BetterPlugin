@@ -85,6 +85,16 @@ OrbAudioProcessor::OrbAudioProcessor()
         }
         addParameterGroup (std::move (group));
     }
+    {
+        auto group = std::make_unique<juce::AudioProcessorParameterGroup> ("macros", "macros", " ");
+        for (int m = 0; m < orbfx::kNumMacros; ++m)
+        {
+            auto prm = std::make_unique<SlotFloatParam> ("macro" + juce::String (m + 1), "macro " + juce::String (m + 1));
+            macroParam[m] = prm.get();
+            group->addChild (std::move (prm));
+        }
+        addParameterGroup (std::move (group));
+    }
     // Build the persistent WebView once per plugin instance. Its lifetime is
     // tied to the processor, so closing/reopening the editor never tears down
     // a live WebRTC session.
@@ -583,6 +593,8 @@ void OrbAudioProcessor::timerCallback()
         for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
         script << "]";
     }
+    script << "],macros:[";
+    for (int m = 0; m < orbfx::kNumMacros; ++m) script << (m ? "," : "") << juce::String (macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f, 4);
     script << "]}}))";
 
     browser->evaluateJavascript (script,
@@ -1018,6 +1030,12 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     auto& s = fxSlots[(size_t) nd.id];
     s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
     slotTypes[(size_t) nd.id].store (nd.type);
+    if (nd.type == orbfx::kMacro)
+    {
+        const int m = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
+        if (std::abs (macroParam[m]->get() - nd.amount) > 1.0e-4f) macroParam[m]->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, nd.amount));
+        return;
+    }
     // the host's params follow the wall (only what differs, so automation being played back is left alone)
     auto& h = slotHost[nd.id];
     auto setF = [] (SlotFloatParam* prm, float v) { v = juce::jlimit (0.0f, 1.0f, v); if (prm != nullptr && std::abs (prm->get() - v) > 1.0e-4f) prm->setValueNotifyingHost (v); };
@@ -1072,17 +1090,38 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
         {
             if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
             typeOf[nd.id] = nd.type;
-            if (nd.type == orbfx::kRate) t.isRate[nd.id] = true;
-            if (nd.type == orbfx::kLfo)  isLfo[nd.id] = true;
+            if (nd.type == orbfx::kRate)  t.isRate[nd.id] = true;
+            if (nd.type == orbfx::kLfo)   isLfo[nd.id] = true;
+            if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
         }
         for (auto& e : g.edges)
         {
             const bool nodes = e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes;
             if (! nodes) continue;
-            if (e.hand != orbfx::kHandNone && t.isRate[e.from] && t.count < orbfx::kMaxEdges)
-                t.wires[t.count++] = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to] };
+            const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0;
+            if ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src && t.count < orbfx::kMaxEdges)
+            {
+                auto& w = t.wires[t.count++];
+                w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0, -1 };
+                if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
+            }
             else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
                 t.shapeOf[e.to] = e.from;
+        }
+        // a wire that plays another wire's depth: find that wire by (from, to, hand)
+        {
+            int k = 0;
+            for (auto& e : g.edges)
+            {
+                if (! (e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes)) continue;
+                const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0;
+                if (! ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src)) continue;
+                if (k >= t.count) break;
+                if (e.refHand != orbfx::kHandNone)
+                    for (int j = 0; j < t.count; ++j)
+                        if (t.wires[j].from == e.refFrom && t.wires[j].to == e.to && t.wires[j].hand == e.refHand) { t.wires[k].target = j; break; }
+                ++k;
+            }
         }
         const juce::SpinLock::ScopedLockType sl (modLock);
         modPending = t;
@@ -1095,7 +1134,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1148,6 +1187,12 @@ juce::AudioProcessorParameter* OrbAudioProcessor::handParam (int slot, const juc
 {
     if (slot < 0 || slot >= orbfx::kMaxNodes) return nullptr;
     const auto& h = slotHost[slot];
+    if (hand == "amount" && slotTypes[(size_t) slot].load() == orbfx::kMacro)
+    {
+        const juce::ScopedLock sl (fxGraphLock);
+        for (auto& nd : fxGraph.nodes) if (nd.id == slot) return macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])];
+        return nullptr;
+    }
     if (hand == "amount")  return h.amount;
     if (hand == "variant") return h.mode;
     if (hand == "decay")   return h.decay;
@@ -1194,6 +1239,12 @@ void OrbAudioProcessor::hostParamsToGraph()
         if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
         const auto& h = slotHost[nd.id];
         auto& s = fxSlots[(size_t) nd.id];
+        if (nd.type == orbfx::kMacro)
+        {
+            const float mv = macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])]->get();
+            if (std::abs (mv - nd.amount) > 1.0e-4f) { nd.amount = mv; s.amount.store (mv, std::memory_order_relaxed); }
+            continue;
+        }
         const float a = h.amount->get(); if (std::abs (a - nd.amount) > 1.0e-4f) { nd.amount = a; s.amount.store (a, std::memory_order_relaxed); }
         const int v = h.mode->get(); if (v != nd.variant) { nd.variant = v; s.variant.store (v, std::memory_order_relaxed); }
         const int vi = juce::jlimit (0, 2, nd.variant);
@@ -1288,6 +1339,8 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     }
     const auto& t = modActive;
     if (t.count == 0) return;
+    float macroVal[orbfx::kNumMacros];
+    for (int m = 0; m < orbfx::kNumMacros; ++m) macroVal[m] = macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f;
     static const double kBeats[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };   // 1/32 … 4/1 in quarter notes
     float value[orbfx::kMaxNodes];
     for (int r = 0; r < orbfx::kMaxNodes; ++r)
@@ -1327,12 +1380,23 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         value[r] = v;
         rateValue[(size_t) r].store (v, std::memory_order_relaxed);
     }
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
+    // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
+    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth : (value[w.from] - 0.5f) * 2.0f * depth; };
+    // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth)
+    float depth[orbfx::kMaxEdges];
+    for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
     for (int i = 0; i < t.count; ++i)
     {
         const auto& w = t.wires[i];
-        if (w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
+        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, pushOf (w, w.depth));
+    }
+    for (int i = 0; i < t.count; ++i)
+    {
+        const auto& w = t.wires[i];
+        if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
         auto& p = params[w.to];
-        const float k = (value[w.from] - 0.5f) * 2.0f * w.depth;   // -depth .. +depth
+        const float k = pushOf (w, depth[i]);
         // each hand moves by a fraction of its own range
         auto lim = [] (float x, float lo, float hi) { return juce::jlimit (lo, hi, x); };
         auto limi = [] (int x, int lo, int hi) { return juce::jlimit (lo, hi, x); };
@@ -1428,6 +1492,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("gain", (double) e.gain);
         if (e.port != 0) o->setProperty ("port", e.port);
         if (e.hand != orbfx::kHandNone) o->setProperty ("hand", handName (e.hand));
+        else if (e.refHand != orbfx::kHandNone) o->setProperty ("hand", "wire:" + juce::String (e.refFrom) + ":" + handName (e.refHand));
         edges.add (juce::var (o));
     }
     auto* root = new juce::DynamicObject();
@@ -1518,8 +1583,19 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.to   = (int) e["to"];
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
             ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
-            ed.hand = e.hasProperty ("hand") ? handOf (e["hand"].toString()) : orbfx::kHandNone;
-            if (ed.hand != orbfx::kHandNone) ed.gain = juce::jlimit (-1.0f, 1.0f, e.hasProperty ("gain") ? (float) (double) e["gain"] : 0.5f);
+            if (e.hasProperty ("hand"))
+            {
+                const juce::String hs = e["hand"].toString();
+                if (hs.startsWith ("wire:"))
+                {
+                    // a wire onto a wire: "wire:<from>:<hand>" — it sets that wire's depth
+                    const int colon = hs.indexOfChar (5, ':');
+                    ed.refFrom = hs.substring (5, colon).getIntValue();
+                    ed.refHand = handOf (hs.substring (colon + 1));
+                }
+                else ed.hand = handOf (hs);
+            }
+            if (ed.hand != orbfx::kHandNone || ed.refHand != orbfx::kHandNone) ed.gain = juce::jlimit (-1.0f, 1.0f, e.hasProperty ("gain") ? (float) (double) e["gain"] : 0.5f);
             out.edges.push_back (ed);
         }
     }

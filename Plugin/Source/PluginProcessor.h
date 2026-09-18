@@ -231,12 +231,13 @@ private:
      *  with the program, adopted at a block boundary. */
     struct ModTable
     {
-        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; };
+        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; };   // target ≥ 0: this wire sets that wire's depth
         int  count = 0;
         Wire wires[orbfx::kMaxEdges];
         bool isRate[orbfx::kMaxNodes] {};
         int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
-        ModTable() { for (auto& x : shapeOf) x = -1; }
+        int  macroOf[orbfx::kMaxNodes];   // macro slot → macro index 0..7, or -1
+        ModTable() { for (auto& x : shapeOf) x = -1; for (auto& x : macroOf) x = -1; }
     };
     juce::SpinLock     modLock;
     ModTable           modPending, modActive;
@@ -257,6 +258,7 @@ private:
         SlotFloatParam* aux[6] {};          // normalised over the hand's own range
     };
     SlotHost slotHost[orbfx::kMaxNodes];
+    SlotFloatParam* macroParam[orbfx::kNumMacros] {};   // macro 1 … 8, the knobs the host turns
     std::array<std::atomic<int>, orbfx::kMaxNodes> slotTypes {};   // what sits in each slot (kNone = empty), for the audio thread
     void syncHandNames();              // message thread: rename after the graph changes
     void hostParamsToGraph();          // message thread: automation moved a param → the graph copy follows

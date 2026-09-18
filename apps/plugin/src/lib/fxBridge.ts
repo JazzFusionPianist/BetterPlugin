@@ -111,13 +111,24 @@ export const FX_SPLIT_MS = 29
  *  a rate is a clock that plays a shape into a hand of another print. */
 export const FX_LFO = 30
 export const FX_RATE = 31
+/** A knob the host can turn (macro 1 … 8): played into hands, or onto a control wire's depth. */
+export const FX_MACRO = 32
+export const FX_MACROS = 8
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
-export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE
+export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO
+/** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
+export const hasAmountType = (t: number) => !isUtilityType(t) || t === FX_MACRO
+/** A control wire's target: a hand, or another control wire ("wire:<from>:<hand>") whose depth it sets. */
+export const wireRef = (hand: string | undefined): { from: number; hand: string } | null => {
+  if (!hand || !hand.startsWith('wire:')) return null
+  const i = hand.indexOf(':', 5)
+  return i < 0 ? null : { from: Number(hand.slice(5, i)), hand: hand.slice(i + 1) }
+}
 
 export interface FxGraphNode {
   id: number

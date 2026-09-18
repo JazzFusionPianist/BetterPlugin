@@ -9,7 +9,7 @@ import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -38,7 +38,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'LFO', 'rate']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'LFO', 'rate', 'macro']],
 ]
 const FAM_W = 46 * FAMILIES.length   // six tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -88,9 +88,10 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
+  if (type === FX_MACRO) return `${Math.round(a * 100)}`
   if (type === 13) return `${Math.round(a * 24)}st`
   if (type === 16 || type === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (type === 0 || type === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
@@ -269,6 +270,22 @@ function RateArt ({ node }: { node: { aux: number[] } }) {
   )
 }
 
+/** The macro's print: a ring that fills as the knob turns, its number in the middle. */
+function MacroArt ({ node }: { node: { amount: number; aux: number[] } }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const a0 = -Math.PI * 0.75, a1 = a0 + Math.PI * 1.5 * Math.min(1, Math.max(0, node.amount))
+  const R = 70, C = 110
+  const arc = (a: number, b: number) => `M${C + R * Math.cos(a)} ${C + R * Math.sin(a)} A${R} ${R} 0 ${b - a > Math.PI ? 1 : 0} 1 ${C + R * Math.cos(b)} ${C + R * Math.sin(b)}`
+  return (
+    <g>
+      <path d={arc(a0, a0 + Math.PI * 1.5)} stroke={P} strokeOpacity={0.25} strokeWidth={1} fill="none" strokeLinecap="round" />
+      {node.amount > 0.005 && <path d={arc(a0, a1)} stroke={P} strokeWidth={3} fill="none" strokeLinecap="round" />}
+      <text x={C} y={C + 8} textAnchor="middle" fontSize="26" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>{(node.aux[0] || 0) + 1}</text>
+    </g>
+  )
+}
+
 function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[] }
   size: number
@@ -291,6 +308,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
         : type === FX_LFO ? <LfoArt pts={node.pts} />
         : type === FX_RATE ? <RateArt node={node} />
+        : type === FX_MACRO ? <MacroArt node={node} />
         : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
@@ -396,7 +414,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -478,7 +496,7 @@ export default function FxWall ({ size: frame }: Props) {
         e.preventDefault()
         const id = Number(nodeEl.dataset.id)
         const n = graphRef.current.nodes.find(x => x.id === id)
-        if (!n || isUtilityType(n.type)) return
+        if (!n || !hasAmountType(n.type)) return
         updateNodeRef.current(id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true)
         return
       }
@@ -502,7 +520,11 @@ export default function FxWall ({ size: frame }: Props) {
   const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
     ? inputsOf(n.id).map(x => ({ key: `share:${x.e.from}`, label: x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1) }))
     : handsOfType(n.type)
-  const handLabel = (n: FxGraphNode | undefined, key: string) => (n ? handsOf(n).find(h => h.key === key)?.label : undefined) ?? key
+  const handLabel = (n: FxGraphNode | undefined, key: string): string => {
+    const ref = wireRef(key)
+    if (ref) return `${handLabel(n, ref.hand)} depth`
+    return (n ? handsOf(n).find(h => h.key === key)?.label : undefined) ?? key
+  }
   /** Where a hand's word sits inside its print, on the screen (the nucleus layout). */
   const handPos = (n: FxGraphNode, key: string): Pt => {
     const c = toScreen(n)
@@ -521,7 +543,7 @@ export default function FxWall ({ size: frame }: Props) {
     const edge = graph.edges[edgeIndex]
     if (edge && isControlEdge(edge)) {
       // close in, the wire lands on the hand's word inside the print; otherwise it flows in over the top edge
-      if (handsShown(n)) return handPos(n, edge.hand!)
+      if (handsShown(n)) return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
       const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
       const k = ctl.findIndex(x => x.i === edgeIndex)
       const a = -Math.PI / 2 + (k - (ctl.length - 1) / 2) * 0.28
@@ -625,7 +647,9 @@ export default function FxWall ({ size: frame }: Props) {
   const addNode = (type: number, at: Pt) => {
     const id = freeId(); if (id < 0) return
     const gp = toGraph(at)
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
+    let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
+    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : [0, 0, 0]   // arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
@@ -666,8 +690,14 @@ export default function FxWall ({ size: frame }: Props) {
 
   /** A control wire: the rate plays one hand of a print, at a depth. */
   const connectHand = (from: number, to: number, hand: string) => {
+    // a macro landing on a hand a rate already plays takes over that play's depth
+    const src = nodeById(from)
+    if (src?.type === FX_MACRO) {
+      const played = graph.edges.find(e => e.to === to && e.hand === hand && nodeById(e.from)?.type === FX_RATE)
+      if (played) hand = `wire:${played.from}:${hand}`
+    }
     if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
-    commit({ ...graph, edges: [...graph.edges, { from, to, gain: 0.5, port: 0, hand }] }, true)
+    commit({ ...graph, edges: [...graph.edges, { from, to, gain: src?.type === FX_MACRO ? 1 : 0.5, port: 0, hand }] }, true)
   }
   const connect = (from: number, to: number, port = 0) => {
     if (from === to) return
@@ -759,7 +789,7 @@ export default function FxWall ({ size: frame }: Props) {
     }
     else if (drag.kind === 'wire' || drag.kind === 'shelf') {
       setDrag({ ...drag, at: p })
-      if (drag.kind === 'wire' && drag.from !== FX_PORT_IN && nodeById(drag.from)?.type === FX_RATE) {
+      if (drag.kind === 'wire' && drag.from !== FX_PORT_IN && (nodeById(drag.from)?.type === FX_RATE || nodeById(drag.from)?.type === FX_MACRO)) {
         const over = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 6 })
         const id = over && handsOf(over).length > 0 ? over.id : null
         if (id !== reveal) setReveal(id)
@@ -774,8 +804,8 @@ export default function FxWall ({ size: frame }: Props) {
       // landed on a node (its input) or the out port?
       const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
       const src = drag.from === FX_PORT_IN ? null : nodeById(drag.from)
-      if (src?.type === FX_RATE) {
-        // a rate lands on a hand's word inside a print (the print shows them while the wire is in the air)
+      if (src?.type === FX_RATE || src?.type === FX_MACRO) {
+        // a rate or a macro lands on a hand's word inside a print (the print shows them while the wire is in the air)
         const word = (document.elementFromPoint(e.clientX, e.clientY) as Element | null)?.closest('[data-hand]') as HTMLElement | null
         if (word) connectHand(drag.from, Number(word.dataset.node), word.dataset.hand!)
         setReveal(null)
@@ -1017,11 +1047,11 @@ export default function FxWall ({ size: frame }: Props) {
           defaultValue={Math.round(100 / Math.max(1, ins.length))} onChange={(v, final) => setShare(x.i, v / 100, final)} />,
       ))
     }
-    // the hands a rate plays: the hand's row says so, and its depth sits right under it
+    // the hands a rate (or a macro) plays: the hand's row says so, and its depth sits right under it
     graph.edges.forEach((e, i) => {
-      if (e.to !== n.id || !isControlEdge(e)) return
+      if (e.to !== n.id || !isControlEdge(e) || wireRef(e.hand)) return
       const src = nodeById(e.from)
-      const who = src ? `rate ${rateText(src)}` : 'rate'
+      const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src ? `rate ${rateText(src)}` : 'rate'
       const label = handLabel(n, e.hand!)
       // the hand's row ends in a dashed stub; the row under it names the rate and holds the depth
       const tag = <span className="sg-row-tag"><i /></span>
@@ -1032,6 +1062,25 @@ export default function FxWall ({ size: frame }: Props) {
         rows[at] = React.cloneElement(rows[at] as React.ReactElement<{ tag?: React.ReactNode }>, { tag })
         rows.splice(at + 1, 0, depth)
       } else rows.push(React.cloneElement(depth, { label, tag: <span className="sg-row-tag"><i /> {who}</span> }))   // the amount: no row of its own, so the depth row names it
+    })
+    // a macro that turns a play's depth: said on that depth row
+    graph.edges.forEach((e) => {
+      if (e.to !== n.id || !isControlEdge(e)) return
+      const ref = wireRef(e.hand); if (!ref) return
+      const j = graph.edges.findIndex(x => x.to === n.id && x.from === ref.from && x.hand === ref.hand)
+      const at = rows.findIndex(r => React.isValidElement(r) && r.key === `ctl${j}`)
+      const src = nodeById(e.from)
+      if (at >= 0 && src) {
+        // the depth IS the macro now: the row shows the macro's knob and turns it
+        const no = (src.aux[0] || 0) + 1
+        const row = rows[at] as React.ReactElement<Record<string, unknown>>
+        rows[at] = React.cloneElement(row, {
+          value: Math.round(src.amount * 100), min: 0, max: 100, bipolar: false, defaultValue: 0,
+          format: (v: number) => `${v} macro ${no}`,
+          onChange: (v: number, final: boolean) => updateNode(src.id, { amount: v / 100 }, final),
+          onGesture: (on: boolean) => gesture(src.id, 'amount', on),
+        })
+      }
     })
     const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }> = []
     if (n.type === 5) {
@@ -1181,7 +1230,7 @@ export default function FxWall ({ size: frame }: Props) {
   useEffect(() => {
     if (!hasJuceBridge) return
     const onAudio = (e: Event) => {
-      const d = (e as CustomEvent).detail as { peaks?: number[]; hands?: number[][] }
+      const d = (e as CustomEvent).detail as { peaks?: number[]; hands?: number[][]; macros?: number[] }
       if (Array.isArray(d.peaks)) for (let i = 0; i < FX_MAX_NODES; i++) peaks.current[i] = Math.min(1.4, Number(d.peaks[i]) || 0)
       // the host's hands (automation): the wall follows, except the hand under a finger
       if (Array.isArray(d.hands)) {
@@ -1205,6 +1254,16 @@ export default function FxWall ({ size: frame }: Props) {
           if (auxDirty) set({ aux })
           if (dirty) changed = true
           return m
+        })
+        if (changed) setGraphState({ ...g, nodes })
+      }
+      if (Array.isArray(d.macros)) {
+        const g = graphRef.current
+        let changed = false
+        const nodes = g.nodes.map(n => {
+          if (n.type !== FX_MACRO || held.current.has(`${n.id}:amount`)) return n
+          const v = Number(d.macros![n.aux[0] || 0]); if (!Number.isFinite(v) || Math.abs(v - n.amount) < 0.002) return n
+          changed = true; return { ...n, amount: v }
         })
         if (changed) setGraphState({ ...g, nodes })
       }
@@ -1518,7 +1577,7 @@ export default function FxWall ({ size: frame }: Props) {
         {graph.nodes.map(n => {
           const isSel = sel?.node === n.id
           const isMix = n.type === FX_MIX_TYPE
-          const isUtil = isUtilityType(n.type)
+          const isUtil = !hasAmountType(n.type)   // no knob of its own
           const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
           const ins = inputsOf(n.id)
           const c = toScreen(n)
@@ -1565,6 +1624,7 @@ export default function FxWall ({ size: frame }: Props) {
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {n.type === FX_RATE && <span className="sg-flav"> {rateText(n)}</span>}
+                  {n.type === FX_MACRO && <span className="sg-flav"> {(n.aux[0] || 0) + 1}</span>}
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
@@ -1660,7 +1720,7 @@ export default function FxWall ({ size: frame }: Props) {
         <div className="sg-study-print"
           onPointerDown={(e) => {
             if ((e.target as Element).closest('.fx-hot')) return
-            if (isUtilityType(studyNode.type)) return
+            if (!hasAmountType(studyNode.type)) return
             e.stopPropagation()
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
             gesture(studyNode.id, 'amount', true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
@@ -1671,8 +1731,8 @@ export default function FxWall ({ size: frame }: Props) {
           }}
           onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
           onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtilityType(studyNode.type)) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}
-          onDoubleClick={() => { if (!isUtilityType(studyNode.type)) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
-          onWheel={(e) => { if (isUtilityType(studyNode.type)) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
+          onDoubleClick={() => { if (hasAmountType(studyNode.type)) updateNode(studyNode.id, { amount: neutralOf(studyNode.type) }, true) }}
+          onWheel={(e) => { if (!hasAmountType(studyNode.type)) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
           {studyNode.type === FX_LFO
             ? <LfoEditor pts={studyNode.pts ?? SINE_PTS} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
                 onChange={(pts, final) => updateNode(studyNode.id, { pts, curve: sampleShape(pts) }, final)} />
@@ -1683,7 +1743,7 @@ export default function FxWall ({ size: frame }: Props) {
             onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />}
         </div>
         <div className="sg-study-value">
-          {isSplitterType(studyNode.type) || isControlType(studyNode.type) ? null : studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}
                 commit={(a) => updateNode(studyNode.id, { amount: a }, true)}

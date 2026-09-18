@@ -36,14 +36,16 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kSplitMS = 29,          // port 0 = the mid as mono,  port 1 = the side as mono
             // control prints: no audio passes through them
             kLfo  = 30,             // a drawn shape (64 samples over one cycle)
-            kRate = 31 };           // a clock that plays a shape into a hand of another print
+            kRate = 31,             // a clock that plays a shape into a hand of another print
+            kMacro = 32 };          // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
-inline bool isControl (int t) noexcept { return t == kLfo || t == kRate; }
+inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
+constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 64;
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
 enum Hand : int { kHandNone = -1, kHandAmount = 0, kHandDecay, kHandFb, kHandAux0,
@@ -264,6 +266,8 @@ struct Graph
         float gain = 1.0f;       // send level; a control wire's depth (-1..1)
         int   port = 0;          // which output of `from` (only a splitter has a second)
         int   hand = kHandNone;  // a control wire: which hand of `to` it plays
+        int   refFrom = -1;      // a control wire whose target is another control wire's depth: that wire's `from` …
+        int   refHand = kHandNone;   // … and its hand (it lands on the same `to`)
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;

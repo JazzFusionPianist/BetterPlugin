@@ -58,7 +58,7 @@ void main () {
   vec3 col = mix(paper, warm, 0.35 + 0.4 * u_low);
   a = clamp(a, 0.0, 0.32);
   if (!(a == a)) a = 0.0;   // never let a NaN through
-  gl_FragColor = vec4(col, a);
+  gl_FragColor = vec4(col * a, a);   // premultiplied: WKWebView composites a non-premultiplied canvas as an opaque wash
 }`
 
 /** base64 → little-endian float32 samples */
@@ -122,7 +122,7 @@ export default function WallField ({ width, height }: { width: number; height: n
 
   useEffect(() => {
     const el = canvas.current; if (!el) return
-    const gl = el.getContext('webgl', { premultipliedAlpha: false, alpha: true, antialias: false, depth: false, stencil: false })
+    const gl = el.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false, depth: false, stencil: false })
     if (!gl) return
     // (dev) StrictMode mounts twice: a context lost by the first pass is brought back, never thrown away
     if (gl.isContextLost()) { gl.getExtension('WEBGL_lose_context')?.restoreContext(); return }
@@ -131,6 +131,7 @@ export default function WallField ({ width, height }: { width: number; height: n
     gl.attachShader(prog, mk(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(prog)
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return
     gl.useProgram(prog)
+    gl.disable(gl.BLEND); gl.clearColor(0, 0, 0, 0)
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW)
     const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)

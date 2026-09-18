@@ -161,9 +161,9 @@ function demoGraph (w: number, h: number): FxGraph {
   return stockPlots({ nodes, edges }, w, h)
 }
 
-/** The wall's picture is made by plots. A patch from before them gets the
- *  two stock ones: one on what comes in, one on what reaches out — the
- *  same two traces the wall always drew. */
+/** The browser's demo patch carries two plots (on what comes in, on what
+ *  reaches out) so the picture can be seen without a DAW. In the plugin
+ *  nothing is ever put on the wall for the user. */
 function stockPlots (g: FxGraph, w: number, h: number): FxGraph {
   if ((g.v ?? 0) >= FX_GRAPH_V || g.nodes.some(n => n.type === FX_PLOT)) return { ...g, v: FX_GRAPH_V }
   const used = new Set(g.nodes.map(n => n.id))
@@ -184,8 +184,8 @@ function stockPlots (g: FxGraph, w: number, h: number): FxGraph {
 /** Nodes the engine placed at 0,0 (the legacy single print) get a spot. */
 function settle (g: FxGraph, w: number, h: number): FxGraph {
   const nodes = g.nodes.map((n, i) => ({ ...n, aux: (() => { const a = [...(n.aux ?? [])]; while (a.length < 8) a.push(0); return a })(), ...((n.x === 0 && n.y === 0) ? { x: w * (0.3 + 0.2 * i), y: h / 2 } : {}) }))
-  const edges = g.edges.length ? g.edges : [{ from: FX_PORT_IN, to: FX_PORT_OUT, gain: 1 }]
-  return stockPlots({ nodes, edges, v: g.v }, w, h)
+  // a bare wall stays bare: no print, no wire, no plot is put there for anyone
+  return { nodes, edges: g.edges, v: FX_GRAPH_V }
 }
 
 const MIX_FAN = 26   // degrees between a mix print's input ports
@@ -480,7 +480,7 @@ export default function FxWall ({ size: frame }: Props) {
   }, [])
   const bridge = useMemo(() => hasGraphBridge(), [])
   const oldEngine = useMemo(() => !hasGraphBridge() && hasFxBridge(), [])
-  const [graph, setGraphState] = useState<FxGraph>(() => demoGraph(frame.w, frame.h))
+  const [graph, setGraphState] = useState<FxGraph>(() => (hasGraphBridge() ? { nodes: [], edges: [], v: FX_GRAPH_V } : demoGraph(frame.w, frame.h)))   // in the plugin the wall starts bare; the demo patch is the browser's
   const [loaded, setLoaded] = useState(!bridge)
   const [sel, setSel] = useState<{ node?: number; edge?: number } | null>(null)
   // the study opens over the wall's right side; the window never grows

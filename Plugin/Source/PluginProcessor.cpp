@@ -365,7 +365,7 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         juce::String err;
         hostParamsToGraph();   // the host's params win over the graph copy (automation, or a host that set a param before re-initialising)
         const juce::ScopedLock sl (fxGraphLock);
-        if (fxGraph.nodes.empty() && fxGraph.edges.empty()) rebuildLegacyGraph();
+        if (fxGraph.nodes.empty() && fxGraph.edges.empty()) freshGraph();
         else applyGraph (fxGraph, err);
     }
 }
@@ -1333,6 +1333,22 @@ void OrbAudioProcessor::hostParamsToGraph()
     }
 }
 
+void OrbAudioProcessor::freshGraph()
+{
+    // Patch on Slur opens on a bare wall: no print, no wire (the sound passes). The other surfaces keep the one print.
+   #ifdef ORB_SURFACE
+    if (juce::String (ORB_SURFACE) == "sounds")
+    {
+        orbfx::Graph g; g.v = 2;
+        juce::String err;
+        applyGraph (g, err);
+        fxGraphMode.store (true);
+        return;
+    }
+   #endif
+    rebuildLegacyGraph();
+}
+
 void OrbAudioProcessor::rebuildLegacyGraph()
 {
     // The single-print room: one node, wired straight through. Its id is
@@ -1959,7 +1975,7 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
                 restored = true;
             }
         }
-        if (! restored) rebuildLegacyGraph();
+        if (! restored) freshGraph();
     }
 }
 

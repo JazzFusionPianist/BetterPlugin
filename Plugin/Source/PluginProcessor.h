@@ -277,6 +277,7 @@ private:
     bool applyGraph (const orbfx::Graph& g, juce::String& error);
     /** Legacy bridge: patch = in → [fxMode] → out from the per-effect memories. */
     void rebuildLegacyGraph();
+    void freshGraph();   // nothing restored: the wall surface starts bare, the others with the single print
     static juce::String graphToJson (const orbfx::Graph& g);
     static bool graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error);
     void handleSetGraph (const juce::var& args,

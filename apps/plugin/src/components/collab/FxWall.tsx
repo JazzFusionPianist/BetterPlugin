@@ -54,12 +54,11 @@ function platePath (ctx: CanvasRenderingContext2D, type: number, _id: number, cx
   const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
   if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
   else if (fam === 'grit') {
-    // saw teeth along the top and the bottom; the sides stay flat for the ports
-    const T = 5, d = 0.2, pts: Array<[number, number]> = []
-    for (let k = 0; k < T; k++) { const x0 = -1 + (k / T) * 2, x1 = -1 + ((k + 1) / T) * 2; pts.push([x0, -1], [(x0 + x1) / 2, -1 - d]) }
-    pts.push([1, -1], [1, 1])
-    for (let k = T - 1; k >= 0; k--) { const x0 = -1 + (k / T) * 2, x1 = -1 + ((k + 1) / T) * 2; pts.push([(x0 + x1) / 2, 1 + d], [x0, 1]) }
-    poly(pts)
+    // three candidates, told apart on the draft wall by slot: 1 = a, 3 = b, 9 = c
+    const v = _id === 3 ? 'b' : _id === 9 ? 'c' : 'a'
+    if (v === 'a') { const c = 0.62; poly([[-1, -1], [1 - c, -1], [1, -1 + c], [1, 1], [-1 + c, 1], [-1, 1 - c]]) }   // a: two opposite corners struck off
+    else if (v === 'b') { const a = 0.4; poly([[-1 + a, -1], [1 - a, -1], [1 - a, -1 + a], [1, -1 + a], [1, 1 - a], [1 - a, 1 - a], [1 - a, 1], [-1 + a, 1], [-1 + a, 1 - a], [-1, 1 - a], [-1, -1 + a], [-1 + a, -1 + a]]) }   // b: every corner stepped in, like a square seen at too few pixels
+    else poly([[-1, -1], [-0.18, -1], [0.06, -0.42], [0.3, -1], [1, -1], [1, 1], [0.22, 1], [-0.04, 0.5], [-0.3, 1], [-1, 1]])   // c: a square cracked, top and bottom
   }
   else if (fam === 'motion') { const k = 0.34; poly([[-1.08 + k, -1], [1.08 + k, -1], [1.08 - k, 1], [-1.08 - k, 1]]) }   // a square leaning over: it is going somewhere
   else if (fam === 'pitch') poly([[-1.36, 0], [0, -1.36], [1.36, 0], [0, 1.36]])
@@ -184,8 +183,9 @@ function demoGraph (w: number, h: number): FxGraph {
     // ids are slots (0..15), not types
     const row = [mk(0, 0, w * 0.14, my, 0.62), mk(1, 20, w * 0.32, my), mk(2, 2, w * 0.5, my, 0.45), mk(6, 6, w * 0.68, my, 0.3), mk(8, 16, w * 0.86, my, 0.5)]
     const row2 = [mk(4, 4, w * 0.14, my + 250), mk(3, 14, w * 0.32, my + 250), mk(10, 10, w * 0.5, my + 250, 0.38), mk(5, 12, w * 0.68, my + 250), mk(7, 15, w * 0.86, my + 250)]
+    const third = mk(9, 25, w * 0.32, my + 500)   // the third grit candidate, under the other two
     const chain = (r: FxGraphNode[]): FxGraphEdge[] => r.slice(0, -1).map((n, i) => ({ from: n.id, to: r[i + 1].id, gain: 1 }))
-    return { nodes: [...row, ...row2], edges: [{ from: FX_PORT_IN, to: 0, gain: 1 }, ...chain(row), { from: 8, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 4, gain: 1 }, ...chain(row2), { from: 7, to: FX_PORT_OUT, gain: 1 }] }
+    return { nodes: [...row, ...row2, third], edges: [{ from: FX_PORT_IN, to: 9, gain: 1 }, { from: 9, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 0, gain: 1 }, ...chain(row), { from: 8, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 4, gain: 1 }, ...chain(row2), { from: 7, to: FX_PORT_OUT, gain: 1 }] }
   }
   return { nodes, edges }
 }

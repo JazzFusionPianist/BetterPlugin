@@ -48,16 +48,10 @@ const FAMILIES: Array<[string, string[]]> = [
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
 const familyOf = (type: number) => { const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
 const LEAN = 0.34, LEAN_W = 1.08, DIAMOND = 1.36, STRUCK = 0.62
-/** DRAFT (?util=bar): the utility and control prints get a plate of their own kind — a low, wide bar, smaller than a sound print's plate,
- *  with the picture drawn smaller inside it. They are the wall's fittings, not its instruments. */
-const UTIL_BAR = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('util') === 'bar'
-const BAR_W = 0.92, BAR_H = 0.52, BAR_ART = 0.56   // half width and half height in R; the picture's size against a sound print's
-const isBar = (type: number) => UTIL_BAR && (isUtilityType(type) || type === 5)   // gain lives on the utility shelf: a fitting too
-const plateReach = (type: number) => { if (isBar(type)) return BAR_W; if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
+const plateReach = (type: number) => { if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
 function platePath (ctx: CanvasRenderingContext2D, type: number, cx: number, cy: number, R: number) {
   const fam = familyOf(type)
   ctx.beginPath()
-  if (isBar(type) || isUtilityType(type)) { ctx.rect(cx - R * BAR_W, cy - R * BAR_H, R * BAR_W * 2, R * BAR_H * 2); return }
   const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
   if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
   else if (fam === 'grit') poly([[-1, -1], [1 - STRUCK, -1], [1, -1 + STRUCK], [1, 1], [-1 + STRUCK, 1], [-1, 1 - STRUCK]])
@@ -627,7 +621,6 @@ export default function FxWall ({ size: frame }: Props) {
     const k = ins.findIndex(x => x.i === edgeIndex)
     const count = ins.length
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
-    if (UTIL_BAR) return { x: c.x - Rz * BAR_W, y: c.y + Rz * BAR_H * 1.5 * Math.sin(ang) }   // a bar: the wires land down its left edge
     return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   /** A print's key point: below its input, on the same edge. */
@@ -645,7 +638,6 @@ export default function FxWall ({ size: frame }: Props) {
     const c = toScreen(n)
     if (!isSplitterType(n.type)) return { x: c.x + Rz * plateReach(n.type), y: c.y }
     const ang = (port === 0 ? -1 : 1) * SPLIT_FAN * Math.PI / 180
-    if (UTIL_BAR) return { x: c.x + Rz * BAR_W, y: c.y + Rz * BAR_H * 1.3 * Math.sin(ang) }   // a bar: the two ports sit on its right edge
     return { x: c.x + Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   /** What a wire carries: the lane of the port it leaves. A node passes
@@ -1317,31 +1309,7 @@ export default function FxWall ({ size: frame }: Props) {
     }
     // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
-      if (isUtilityType(n.type) && UTIL_BAR) {
-        // the bar: bare wall under it (so the wall's light goes round it), lit faintly in its own colour from above
-        const c = toScreen(n)
-        const k = lamps.current.get(n.id)?.k ?? 0, t = tintOf(n.type, n.variant)
-        ctx.save()
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 10 * zoom; ctx.shadowOffsetY = 4 * zoom
-        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = wallNow; ctx.fill()
-        ctx.restore()
-        const lit = (f: number) => `rgb(${Math.round(18 + (t[0] - 18) * f)}, ${Math.round(17 + (t[1] - 17) * f)}, ${Math.round(14 + (t[2] - 14) * f)})`
-        const dg = ctx.createLinearGradient(c.x, c.y - Rz * BAR_H, c.x, c.y + Rz * BAR_H)
-        dg.addColorStop(0, lit(0.06 + k * 0.2)); dg.addColorStop(1, lit(0.03 + k * 0.12))
-        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = dg; ctx.fill()
-        if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 8); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
-        continue
-      }
-      if (isUtilityType(n.type)) {
-        // a utility has no plate, but it still stands IN FRONT of the wall's light: a disc of bare wall behind its picture
-        // (soft at the rim, so it reads as the light going round the print, not as a plate)
-        const c = toScreen(n), r = Rz * 1.02
-        const m = /(\d+)\D+(\d+)\D+(\d+)/.exec(wallNow) ?? ['', '22', '20', '16']
-        const g = ctx.createRadialGradient(c.x, c.y, r * 0.78, c.x, c.y, r)
-        g.addColorStop(0, `rgba(${m[1]}, ${m[2]}, ${m[3]}, 0.94)`); g.addColorStop(1, `rgba(${m[1]}, ${m[2]}, ${m[3]}, 0)`)
-        ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill()
-        continue
-      }
+      if (isUtilityType(n.type)) continue   // a utility has no plate: its picture sits on the wall alone
       const c = toScreen(n)
       const alive = !isUtilityType(n.type) && live.has(n.id) && !n.bypass
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
@@ -1761,7 +1729,7 @@ export default function FxWall ({ size: frame }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} data-id={n.id} className={`sg-node${isUtilityType(n.type) && !UTIL_BAR ? '' : ' shaped'}${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isUtilityType(n.type) ? '' : ' shaped'}${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
@@ -1775,10 +1743,10 @@ export default function FxWall ({ size: frame }: Props) {
                   })}
                 </div>
               )}
-              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`} style={isBar(n.type) ? { padding: NODEz * (1 - BAR_ART) / 2 } : undefined}
+              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
-                <Print node={n} size={isBar(n.type) ? NODEz * BAR_ART : NODEz} shares={sharesOf(n.id)}
+                <Print node={n} size={NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
@@ -1804,7 +1772,7 @@ export default function FxWall ({ size: frame }: Props) {
                   })
                 : <span className="sg-dot r" style={{ right: -3 - (plateReach(n.type) - 1) * Rz }} onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
-              <div className="sg-under" style={{ marginTop: isBar(n.type) ? 8 - Rz * (1 - BAR_H) : undefined, transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
+              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {n.type === FX_RATE && <span className="sg-flav"> {rateText(n)}</span>}

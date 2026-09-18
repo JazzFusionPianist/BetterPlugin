@@ -42,41 +42,28 @@ const FAMILIES: Array<[string, string[]]> = [
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
   ['control', ['LFO', 'rate', 'macro', 'follow']],
 ]
-/** DRAFT (?plates=1): a print's plate takes its family's shape. Every shape reaches ±R on the left and right, where the ports are,
- *  and holds the print's circle inside it. tone: a square, exact; grit: the same square, its edge torn; space: the circle (it radiates);
- *  motion: a circle whose edge waves; pitch: a hexagon (the lattice notes sit on). */
+/** DRAFT (?plates=1): a print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
+ *  tone: a square, sharp; grit: a square with saw teeth along top and bottom; space: the circle; motion: a square leaning over;
+ *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
 const PLATES_DRAFT = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plates') === '1'
 const familyOf = (type: number) => { const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
-function platePath (ctx: CanvasRenderingContext2D, type: number, id: number, cx: number, cy: number, R: number) {
+const plateReach = (type: number) => { if (!PLATES_DRAFT || isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? 1.36 : f === 'motion' ? 1.08 : 1 }
+function platePath (ctx: CanvasRenderingContext2D, type: number, _id: number, cx: number, cy: number, R: number) {
   const fam = PLATES_DRAFT ? familyOf(type) : 'space'
   ctx.beginPath()
-  if (fam === 'tone' || fam === 'grit') {
-    const rough = fam === 'grit'
-    const pts: Array<[number, number]> = []
-    const per = rough ? 22 : 1
-    let seed = (id + 1) * 9301 + 49297
-    const rnd = () => { seed = (seed * 233280 + 12345) % 2147483647; return (seed % 1000) / 1000 - 0.5 }
-    const corners: Array<[number, number]> = [[-1, -1], [1, -1], [1, 1], [-1, 1]]
-    for (let e = 0; e < 4; e++) {
-      const [ax, ay] = corners[e], [bx, by] = corners[(e + 1) % 4]
-      for (let k = 0; k < per; k++) {
-        const t = k / per
-        const nx = ay === by ? 0 : (ax > 0 ? 1 : -1), ny = ay === by ? (ay > 0 ? 1 : -1) : 0   // outward normal of this edge
-        const j = rough && k > 0 ? rnd() * R * 0.09 : 0
-        pts.push([cx + (ax + (bx - ax) * t) * R + nx * j, cy + (ay + (by - ay) * t) * R + ny * j])
-      }
-    }
-    if (rough) { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))); ctx.closePath() }
-    else { const r = R * 0.16; ctx.roundRect(cx - R, cy - R, R * 2, R * 2, r) }
-  } else if (fam === 'motion') {
-    const N = 96, lobes = 10, a = 0.045
-    for (let k = 0; k <= N; k++) { const th = (k / N) * Math.PI * 2; const r = R * (1 - a + a * Math.cos(lobes * th)); const x = cx + r * Math.cos(th), y = cy + r * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) }
-    ctx.closePath()
-  } else if (fam === 'pitch') {
-    const Rh = R * 1.08   // a little larger, so the print's circle fits inside the flats
-    for (let k = 0; k < 6; k++) { const th = (k / 6) * Math.PI * 2; const x = cx + Rh * Math.cos(th), y = cy + Rh * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) }
-    ctx.closePath()
-  } else ctx.arc(cx, cy, R, 0, Math.PI * 2)
+  const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
+  if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
+  else if (fam === 'grit') {
+    // saw teeth along the top and the bottom; the sides stay flat for the ports
+    const T = 5, d = 0.2, pts: Array<[number, number]> = []
+    for (let k = 0; k < T; k++) { const x0 = -1 + (k / T) * 2, x1 = -1 + ((k + 1) / T) * 2; pts.push([x0, -1], [(x0 + x1) / 2, -1 - d]) }
+    pts.push([1, -1], [1, 1])
+    for (let k = T - 1; k >= 0; k--) { const x0 = -1 + (k / T) * 2, x1 = -1 + ((k + 1) / T) * 2; pts.push([(x0 + x1) / 2, 1 + d], [x0, 1]) }
+    poly(pts)
+  }
+  else if (fam === 'motion') { const k = 0.34; poly([[-1.08 + k, -1], [1.08 + k, -1], [1.08 - k, 1], [-1.08 - k, 1]]) }   // a square leaning over: it is going somewhere
+  else if (fam === 'pitch') poly([[-1.36, 0], [0, -1.36], [1.36, 0], [0, 1.36]])
+  else ctx.arc(cx, cy, R, 0, Math.PI * 2)
 }
 const FAM_W = 46 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
@@ -634,7 +621,7 @@ export default function FxWall ({ size: frame }: Props) {
       return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
     }
     if (edge && (edge.in ?? 0) === 1) return keyPortOf(n)
-    if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
+    if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz * plateReach(n.type), y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
     const count = ins.length
@@ -651,7 +638,7 @@ export default function FxWall ({ size: frame }: Props) {
     if (id === FX_PORT_IN) return { x: inPort.x + 6, y: inPort.y }
     const n = nodeById(id); if (!n) return inPort
     const c = toScreen(n)
-    if (!isSplitterType(n.type)) return { x: c.x + Rz, y: c.y }
+    if (!isSplitterType(n.type)) return { x: c.x + Rz * plateReach(n.type), y: c.y }
     const ang = (port === 0 ? -1 : 1) * SPLIT_FAN * Math.PI / 180
     return { x: c.x + Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
@@ -1721,7 +1708,7 @@ export default function FxWall ({ size: frame }: Props) {
                     const p = inPortOf(n.id, edgeIndex)
                     return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} />
                   })
-                : noInputType(n.type) ? null : <span className="sg-dot l" />}
+                : noInputType(n.type) ? null : <span className="sg-dot l" style={{ left: -3 - (plateReach(n.type) - 1) * Rz }} />}
               {hasKeyType(n.type) && (() => { const kp = keyPortOf(n); return (
                 <Fragment>
                   <span className="sg-dot k" style={{ left: kp.x - (c.x - Rz) - 2.5, top: kp.y - (c.y - Rz) - 2.5 }} />
@@ -1732,7 +1719,7 @@ export default function FxWall ({ size: frame }: Props) {
                     const p = outPortOf(n.id, port)
                     return <span key={port} className="sg-dot r" style={{ right: 'auto', left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} onPointerDown={startWire(n.id, port)} />
                   })
-                : <span className="sg-dot r" onPointerDown={startWire(n.id)} />}
+                : <span className="sg-dot r" style={{ right: -3 - (plateReach(n.type) - 1) * Rz }} onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">

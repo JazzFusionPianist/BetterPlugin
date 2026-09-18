@@ -17,6 +17,8 @@ interface Props {
   width: number
   height: number
   ink: string                  // the wall's ink, "rgb(r, g, b)"
+  zoom: number                 // the wall's camera: the picture is on the wall, so it moves and sizes with the prints
+  pan: { x: number; y: number }
   /** Drawn over the picture every frame, in CSS px: the wall's wires and
    *  the discs under its prints live here too, so one full redraw per
    *  frame replaces WebKit's partial repaints (which smeared). */
@@ -34,7 +36,8 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ picture, width, height, ink, overlay, backdrop }: Props) {
+export default function FxScope ({ picture, width, height, ink, zoom, pan, overlay, backdrop }: Props) {
+  const view = useRef({ zoom, pan }); view.current = { zoom, pan }
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
   const sound = useRef(new Map<string, Ring>())     // "<node>:<input>" → what the engine streams for that input
@@ -108,7 +111,9 @@ export default function FxScope ({ picture, width, height, ink, overlay, backdro
         const x1 = X * cy + Z * sy, z1 = -X * sy + Z * cy
         const y2 = Y * cp - z1 * sp, z2 = Y * sp + z1 * cp
         const f = D / Math.max(0.2, D + z2)
-        return [(width / 2 + x1 * f * width / 2) * dpr, (height / 2 - y2 * f * height / 2) * dpr, f]
+        // onto the wall (its middle is the origin), then through the wall's own pan and zoom, like any print
+        const { zoom: zm, pan: pn } = view.current
+        return [(width / 2 + x1 * f * width / 2 * zm + pn.x) * dpr, (height / 2 - y2 * f * height / 2 * zm + pn.y) * dpr, f * Math.sqrt(zm)]
       }
     }
     /** The cube's floor and its three axes, faint: only when the camera has left the front, where they say which way is which. */

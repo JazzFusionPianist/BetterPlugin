@@ -1750,7 +1750,7 @@ export default function FxWall ({ size: frame }: Props) {
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
           {/* the field: one shader, breathing with the out signal, under everything */}
-          <FxScope picture={pictureSpec} width={size.w} height={size.h} ink={inkRgb} overlay={overlayFn} backdrop={backdropFn} />
+          <FxScope picture={pictureSpec} width={size.w} height={size.h} ink={inkRgb} zoom={zoom} pan={pan} overlay={overlayFn} backdrop={backdropFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {

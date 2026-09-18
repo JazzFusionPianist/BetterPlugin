@@ -7,6 +7,7 @@ import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
+import FollowMeter from './FollowMeter'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -123,8 +124,8 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
-    const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)
-    return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`
+    const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
+    return hz >= 1000 ? `${(hz / 1000).toFixed(hz >= 10000 ? 1 : 2)}k hz` : `${Math.round(hz)} hz`
   }
   return `${Math.round(a * 100)}`
 }
@@ -144,8 +145,8 @@ function parseAmount (type: number, s: string, variant = 0): number | null {
   if (type === 5) return clamp(v < 0 ? (v / 60 + 1) * 0.75 : v / 48 + 0.75, 0, 1)
   if (type === 7) {
     if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
-    const hz = Math.max(1, v)
-    return clamp(variant === 0 ? Math.log2(hz / 20) / 8 : -Math.log2(hz / 20000) / 8.3, 0, 1)
+    const hz = Math.max(1, /k/i.test(s) ? v * 1000 : v)   // "2.5k" is 2500
+    return clamp(variant === 0 ? Math.log(hz / 20) / Math.log(1000) : -Math.log(hz / 20000) / Math.log(1000), 0, 1)
   }
   return clamp(v / 100, 0, 1)
 }
@@ -714,8 +715,8 @@ export default function FxWall ({ size: frame }: Props) {
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
-    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
+    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
     let best = -1, bestD = isControlType(type) ? -1 : SNAP_WIRE
@@ -1064,13 +1065,18 @@ export default function FxWall ({ size: frame }: Props) {
       rows.push(<GaugeRow key="sense" label="sense" value={n.aux[2] ?? 50} min={0} max={100} step={1} defaultValue={50} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(2, Math.round(v))} />)
       rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[3] || -40} min={-60} max={-1} step={1} defaultValue={-40} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(3, Math.round(v))} />)
     }
+    if (n.type === 7) {
+      // the engine's words are low (cut) and high (cut): a low cut is a high pass. Said here as passes, low first.
+      rows.push(<ChoiceRow key="variant" label="pass" options={['low pass', 'high pass']} value={n.variant === 1 ? 0 : 1} onPick={(k) => updateNode(n.id, { variant: k === 0 ? 1 : 0 }, true)} />)
+      rows.push(<ChoiceRow key="slope" label="slope" options={['12', '24', '36', '48']} value={(n.aux[0] >= 1 && n.aux[0] <= 4 ? n.aux[0] : 2) - 1} fill onPick={(k) => setAux(0, k + 1)} />)
+    }
     if (n.type === 12) {
       const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
       rows.push(<ChoiceRow key="shape" label="shape" options={TREM_PRESETS.map(p => p.name)} value={cur}
         onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
       rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
-    } else if (n.type !== 5 && flavours.length > 0) {
+    } else if (n.type !== 5 && n.type !== 7 && flavours.length > 0) {
       rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
     }
     if (n.type === 2) {
@@ -1187,6 +1193,7 @@ export default function FxWall ({ size: frame }: Props) {
         case 'div': return t === FX_RATE ? 'aux1' : null
         case 'feel': return t === FX_RATE ? 'aux2' : null
         case 'hz': return t === FX_RATE ? 'aux3' : null
+        case 'slope': return t === 7 ? 'aux0' : null
         case 'attack': return t === FX_FOLLOW ? 'aux0' : null
         case 'release': return t === FX_FOLLOW ? 'aux1' : null
         case 'sense': return t === FX_FOLLOW ? 'aux2' : null
@@ -1827,6 +1834,10 @@ export default function FxWall ({ size: frame }: Props) {
           {studyNode.type === FX_LFO
             ? <LfoEditor pts={studyNode.pts ?? SINE_PTS} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
                 onChange={(pts, final) => updateNode(studyNode.id, { pts, curve: sampleShape(pts) }, final)} />
+            : studyNode.type === FX_FOLLOW
+            ? <FollowMeter slot={studyNode.id} threshold={studyNode.aux[3] || -40} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="248, 156, 56"
+                onThreshold={(db, final) => { const aux = [...studyNode.aux]; while (aux.length < 8) aux.push(0); aux[3] = db; updateNode(studyNode.id, { aux }, final) }}
+                onGesture={(on) => gesture(studyNode.id, 'aux3', on)} />
             : <Print node={studyNode} size={STUDY_PRINT} shares={sharesOf(studyNode.id)}
             onDecay={(v, force) => { const d = [...studyNode.decay]; d[studyNode.variant] = Math.min(1, Math.max(0, v)); updateNode(studyNode.id, { decay: d }, !!force) }}
             onDiv={(v) => updateNode(studyNode.id, { delayDiv: v }, true)}

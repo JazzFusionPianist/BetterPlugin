@@ -85,6 +85,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                 const int type = slotTypes[(size_t) i].load();
                 int lo, hi; auxRange (type, k, lo, hi);
                 const int v = (int) std::lround (lo + n * (hi - lo));
+                if (type == orbfx::kCut && k == 0) return juce::String ((v >= 1 && v <= 4 ? v : 2) * 12) + " dB/oct";
                 if (type == orbfx::kRate)   // a rate's clock reads as words in the host, as on the wall
                 {
                     static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
@@ -633,6 +634,11 @@ void OrbAudioProcessor::timerCallback()
         for (int k = 0; k < 6; ++k) script << "," << (int) L[6 + k].load (std::memory_order_relaxed);
         script << "]";
     }
+    // a follow's meter: what it heard (peak since the last event, after its sense) and where its envelope is, both linear
+    script << "],fin:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kFollow ? fxChain.takeFollowIn (i) : 0.0f, 5);
+    script << "],fenv:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kFollow ? fxChain.followEnvelope (i) : 0.0f, 5);
     script << "],macros:[";
     for (int m = 0; m < orbfx::kNumMacros; ++m) script << (m ? "," : "") << juce::String (macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f, 4);
     script << "]}}))";
@@ -1179,7 +1185,7 @@ static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "gl
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
-    {}, { "hard", "clean" }, { "hall", "room", "plate" }, {}, {}, {}, { "chorus", "flanger", "phaser" }, { "low", "high", "band" },
+    {}, { "hard", "clean" }, { "hall", "room", "plate" }, {}, {}, {}, { "chorus", "flanger", "phaser" }, { "high pass", "low pass", "band" },
     { "clean", "crunch", "lead", "fuzz" }, { "tight", "wide" }, { "clean", "tape", "pingpong" }, { "blend", "sum" },
     { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
     { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
@@ -1196,6 +1202,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
 {
     switch (type)
     {
+        case orbfx::kCut:     return k == 0 ? "slope" : nullptr;
         case orbfx::kTremolo: return k == 0 ? "moves" : k == 2 ? "shape" : nullptr;
         case orbfx::kArp:     return k == 0 ? "step" : nullptr;
         case orbfx::kHarmony: return k == 0 ? "key" : k == 1 ? "scale" : k == 2 ? "interval" : nullptr;
@@ -1213,6 +1220,7 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
     lo = 0; hi = 100;
     switch (type)
     {
+        case orbfx::kCut:     if (k == 0) { lo = 0; hi = 4; } break;   // 1..4 = 12, 24, 36, 48 dB per octave (0 = unset = 24)
         case orbfx::kTremolo: if (k == 0) { lo = 0; hi = 1; } else if (k == 2) { lo = 0; hi = 13; } break;
         case orbfx::kArp:     if (k == 0) { lo = 1; hi = 12; } break;
         case orbfx::kHarmony: if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 1; } else if (k == 2) { lo = -12; hi = 12; } break;

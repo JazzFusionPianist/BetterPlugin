@@ -1022,7 +1022,7 @@ function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 16 || mode === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (mode === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
-    const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)
+    const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
     return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`
   }
   return `${Math.round(a * 100)}`

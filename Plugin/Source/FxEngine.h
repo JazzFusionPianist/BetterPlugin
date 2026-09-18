@@ -146,10 +146,11 @@ struct NodeState
     float phX1[6][2] {}, phY1[6][2] {};
     float phFb[2] { 0.0f, 0.0f };
     // cut
-    Biquad cutBqHp[2], cutBqLp[2], cutBqHp2[2], cutBqLp2[2];
+    Biquad cutHp[4][2], cutLp[4][2];   // up to four second-order stages each: 12, 24, 36, 48 dB per octave
+    int   cutStages = 2;
     bool  cutUseHp = false, cutUseLp = false;
     float cutBakedA = -1.0f;
-    int   cutBakedVar = -1;
+    int   cutBakedVar = -1, cutBakedSlope = -1;
     // amp
     float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
     float ampLp2State[2] {}, ampMidLo[2] {}, ampMidHi[2] {}, ampEnv[2] {};
@@ -343,6 +344,11 @@ public:
                   const NodeParams* params, float& grDbOut,
                   const juce::AudioBuffer<float>* side = nullptr);
 
+    /** For a follow's meter. `takeFollowIn`: the loudest it heard (after its sense) since the last call, linear; reading clears it.
+     *  `followEnvelope`: where its envelope is now, linear (what is compared with the threshold). */
+    float takeFollowIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? followIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
+    float followEnvelope (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? followEnvOut[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+
     /** What a follow print hears now, 0..1 (0 when it isn't running). Any thread. */
     float followValue (int slot) const noexcept
     {
@@ -369,6 +375,8 @@ private:
     std::array<NodeState, kMaxNodes> nodes;
     std::array<std::atomic<float>, kMaxNodes> peaks {};
     std::array<std::atomic<float>, kMaxNodes> follows {};
+    std::array<std::atomic<float>, kMaxNodes> followIn {};       // a follow's input peak since the meter last looked
+    std::array<std::atomic<float>, kMaxNodes> followEnvOut {};   // a follow's envelope now
     float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope
     const juce::AudioBuffer<float>* sideBuf = nullptr;   // per block: the host's sidechain, or null
     juce::AudioBuffer<float> scratch { 2, 2048 };

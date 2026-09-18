@@ -64,13 +64,13 @@ static void bakeShelf (bool high, float gainDb, float freq, float sr,
 }
 
 // RBJ 2nd-order LP/HP (Q = 1/sqrt 2) for the cut effect.
-static void bakeCutFilter (bool hp, float freq, float sr,
+static void bakeCutFilter (bool hp, float freq, float sr, float q,
                            float& b0, float& b1, float& b2, float& a1, float& a2)
 {
     const float w0    = juce::MathConstants<float>::twoPi * freq / sr;
     const float cosw  = std::cos (w0);
     const float sinw  = std::sin (w0);
-    const float alpha = sinw / (2.0f * 0.70710678f);
+    const float alpha = sinw / (2.0f * q);
     float bb0, bb1, bb2;
     const float aa0 = 1.0f + alpha;
     const float aa1 = -2.0f * cosw;
@@ -290,8 +290,8 @@ void NodeState::reset()
     for (int st = 0; st < 6; ++st)
         for (int ch = 0; ch < 2; ++ch) { phX1[st][ch] = 0.0f; phY1[st][ch] = 0.0f; }
     phFb[0] = phFb[1] = 0.0f;
-    for (int ch = 0; ch < 2; ++ch) { cutBqHp[ch] = {}; cutBqLp[ch] = {}; cutBqHp2[ch] = {}; cutBqLp2[ch] = {}; }
-    cutBakedA = -1.0f; cutBakedVar = -1; cutUseHp = cutUseLp = false;
+    for (int st = 0; st < 4; ++st) for (int ch = 0; ch < 2; ++ch) { cutHp[st][ch] = {}; cutLp[st][ch] = {}; }
+    cutBakedA = -1.0f; cutBakedVar = -1; cutBakedSlope = -1; cutUseHp = cutUseLp = false;
     for (int ch = 0; ch < 2; ++ch)
     {
         ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f;
@@ -405,52 +405,50 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 
         case kCut:
         {
-            // One knob, three scalpels: low cut sweeps 20 Hz → 5 kHz,
-            // high cut sweeps 20 kHz → 63 Hz, band narrows a passband
-            // around 800 Hz until only the telephone is left.
-            if (std::abs (a - cutBakedA) > 0.0015f || variant != cutBakedVar)
+            // The knob is the cutoff, and more knob is more cut: `low` (a
+            // high pass) sweeps 20 Hz → 20 kHz, `high` (a low pass) sweeps
+            // 20 kHz → 20 Hz; at rest both are open. `band` narrows a
+            // passband around 800 Hz until only the telephone is left.
+            // aux 0 is the slope: 1..4 = 12, 24, 36, 48 dB per octave
+            // (0 = unset = 24), as true Butterworth cascades.
+            const int slope = p.aux[0] >= 1 && p.aux[0] <= 4 ? p.aux[0] : 2;
+            if (std::abs (a - cutBakedA) > 0.0015f || variant != cutBakedVar || slope != cutBakedSlope)
             {
                 float hpF = 0.0f, lpF = 0.0f;
-                if (variant == 0)      hpF = 20.0f * std::pow (2.0f, a * 8.0f);
-                else if (variant == 1) lpF = 20000.0f * std::pow (2.0f, -a * 8.3f);
+                if (variant == 0)      hpF = 20.0f * std::pow (1000.0f, a);
+                else if (variant == 1) lpF = 20000.0f * std::pow (1000.0f, -a);
                 else
                 {
                     const float w = 0.3f + (1.0f - a) * 9.0f;   // width, octaves
                     hpF = 800.0f / std::pow (2.0f, w * 0.5f);
                     lpF = 800.0f * std::pow (2.0f, w * 0.5f);
                 }
-                cutUseHp = hpF > 21.0f;
-                cutUseLp = lpF > 0.0f && lpF < 19000.0f;
-                for (int ch = 0; ch < 2; ++ch)
-                {
-                    if (cutUseHp)
+                cutUseHp = hpF > 20.5f;
+                cutUseLp = lpF > 0.0f && lpF < 19500.0f;
+                // each stage's Q for a Butterworth response of 2, 4, 6, 8 poles
+                static const float kQ[4][4] = { { 0.70710678f, 0, 0, 0 }, { 0.54119610f, 1.30656296f, 0, 0 },
+                                                { 0.51763809f, 0.70710678f, 1.93185165f, 0 }, { 0.50979558f, 0.60134489f, 0.89997622f, 2.56291545f } };
+                cutStages = slope;
+                for (int st = 0; st < cutStages; ++st)
+                    for (int ch = 0; ch < 2; ++ch)
                     {
-                        const float f = juce::jlimit (10.0f, sr * 0.45f, hpF);
-                        bakeCutFilter (true, f, sr, cutBqHp[ch].b0,  cutBqHp[ch].b1,  cutBqHp[ch].b2,  cutBqHp[ch].a1,  cutBqHp[ch].a2);
-                        bakeCutFilter (true, f, sr, cutBqHp2[ch].b0, cutBqHp2[ch].b1, cutBqHp2[ch].b2, cutBqHp2[ch].a1, cutBqHp2[ch].a2);
+                        const float q = kQ[cutStages - 1][st];
+                        if (cutUseHp) { auto& b = cutHp[st][ch]; bakeCutFilter (true,  juce::jlimit (10.0f, sr * 0.45f, hpF), sr, q, b.b0, b.b1, b.b2, b.a1, b.a2); }
+                        if (cutUseLp) { auto& b = cutLp[st][ch]; bakeCutFilter (false, juce::jlimit (20.0f, sr * 0.45f, lpF), sr, q, b.b0, b.b1, b.b2, b.a1, b.a2); }
                     }
-                    if (cutUseLp)
-                    {
-                        const float f = juce::jlimit (40.0f, sr * 0.45f, lpF);
-                        bakeCutFilter (false, f, sr, cutBqLp[ch].b0,  cutBqLp[ch].b1,  cutBqLp[ch].b2,  cutBqLp[ch].a1,  cutBqLp[ch].a2);
-                        bakeCutFilter (false, f, sr, cutBqLp2[ch].b0, cutBqLp2[ch].b1, cutBqLp2[ch].b2, cutBqLp2[ch].a1, cutBqLp2[ch].a2);
-                    }
-                }
-                cutBakedA = a; cutBakedVar = variant;
+                cutBakedA = a; cutBakedVar = variant; cutBakedSlope = slope;
             }
             if (! cutUseHp && ! cutUseLp) break;
-            for (int i = 0; i < n; ++i)
+            for (int ch = 0; ch < 2; ++ch)
             {
-                float x = L[i];
-                if (cutUseHp) x = cutBqHp2[0].run (cutBqHp[0].run (x));
-                if (cutUseLp) x = cutBqLp2[0].run (cutBqLp[0].run (x));
-                L[i] = x;
-                if (R != nullptr)
+                float* d = ch == 0 ? L : R;
+                if (d == nullptr) continue;
+                for (int i = 0; i < n; ++i)
                 {
-                    float y = R[i];
-                    if (cutUseHp) y = cutBqHp2[1].run (cutBqHp[1].run (y));
-                    if (cutUseLp) y = cutBqLp2[1].run (cutBqLp[1].run (y));
-                    R[i] = y;
+                    float x = d[i];
+                    if (cutUseHp) for (int st = 0; st < cutStages; ++st) x = cutHp[st][ch].run (x);
+                    if (cutUseLp) for (int st = 0; st < cutStages; ++st) x = cutLp[st][ch].run (x);
+                    d[i] = x;
                 }
             }
             break;
@@ -1563,7 +1561,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 for (int ch = 0; ch < 2; ++ch)
                 {
                     airHp[ch] = {}; airHp2[ch] = {};
-                    bakeCutFilter (true, 3000.0f, sr, airHp[ch].b0, airHp[ch].b1, airHp[ch].b2, airHp[ch].a1, airHp[ch].a2);
+                    bakeCutFilter (true, 3000.0f, sr, 0.70710678f, airHp[ch].b0, airHp[ch].b1, airHp[ch].b2, airHp[ch].a1, airHp[ch].a2);
                     airHp2[ch] = airHp[ch];
                 }
                 airBakedSr = sr; airBakedA = -1.0f;
@@ -2300,12 +2298,17 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             const float ca = 1.0f - std::exp (-1.0f / (atkMs * 0.001f * sampleRate));
             const float cr = 1.0f - std::exp (-1.0f / (relMs * 0.001f * sampleRate));
             float env = followEnv[op.slot];
+            float inPk = 0.0f;
             for (int i = 0; i < n; ++i)
             {
                 const float x = juce::jmin (1.5f, gain * juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f));
+                inPk = juce::jmax (inPk, x);
                 env += (x > env ? ca : cr) * (x - env);
             }
             followEnv[op.slot] = env;
+            // for the meter: the loudest moment since it last looked (a kick between two looks is not missed), and the envelope
+            if (inPk > followIn[(size_t) op.slot].load (std::memory_order_relaxed)) followIn[(size_t) op.slot].store (inPk, std::memory_order_relaxed);
+            followEnvOut[(size_t) op.slot].store (env, std::memory_order_relaxed);
             const float envDb = 20.0f * std::log10 (juce::jmax (1.0e-5f, env));
             const float v = juce::jlimit (0.0f, 1.0f, (envDb - thrDb) / (0.0f - thrDb));
             follows[(size_t) op.slot].store (v, std::memory_order_relaxed);

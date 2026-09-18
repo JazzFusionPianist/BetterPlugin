@@ -94,6 +94,7 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
+const AURORA = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'aurora'   // DRAFT
 /** What a print's big knob is, where "amount" would be vague. */
 const MAIN_HAND: Record<number, string> = { 7: 'cutoff' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
@@ -105,8 +106,14 @@ const RATE_FEEL = ['straight', 'dotted', 'triplet']
 /** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
 const rateText = (n: { aux: number[] }) => (n.aux[0] === 1 ? `${((n.aux[3] || 200) / 100).toFixed(2)} hz` : `${RATE_DIVS[n.aux[1] ?? 3] ?? '1/4'}${n.aux[2] === 1 ? '.' : n.aux[2] === 2 ? 't' : ''}`)
 const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
+/** The lamps of the prints with no plate. The routers are cool and pale (they only pass light on: a mix is every lamp at once, bone white);
+ *  the control prints are warm (they are hands); the side is the one other sound in the room, a deep sea green. */
+const UTILITY_TINTS: Record<number, [number, number, number]> = {
+  [FX_MIX_TYPE]: [236, 226, 200], [FX_SPLIT_LR]: [120, 196, 255], [FX_SPLIT_MS]: [150, 236, 190],
+  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96],
+}
 function tintOf (type: number, variant = 0): [number, number, number] {
-  if (isUtilityType(type)) return [246, 243, 234]
+  if (isUtilityType(type)) return UTILITY_TINTS[type] ?? [246, 243, 234]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
 }
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
@@ -688,7 +695,10 @@ export default function FxWall ({ size: frame }: Props) {
   // bright as its hand — pools of light that add where they overlap.
   // (Painted on the canvas each frame; see backdropRef.)
   const intensityOf = (n: FxGraphNode) =>
-    (n.type === 0 || n.type === 16 || n.type === 17) ? Math.abs(n.amount - 0.5) * 2
+    n.type === FX_MACRO ? 0.15 + 0.85 * n.amount            // a macro is as bright as its knob is up
+    : n.type === FX_SIDE || n.type === FX_FOLLOW ? 0.55     // these two breathe with what they hear (see the lamps)
+    : isUtilityType(n.type) ? 0.3
+    : (n.type === 0 || n.type === 16 || n.type === 17) ? Math.abs(n.amount - 0.5) * 2
     : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
     : n.amount
   const litLevel = 0   // the ink reads the base wall: paper everywhere
@@ -1242,7 +1252,7 @@ export default function FxWall ({ size: frame }: Props) {
     const lampOf = (id: number): { t: [number, number, number]; k: number } => {
       if (id === FX_PORT_IN || id === FX_PORT_OUT) return { t: paper, k: 0.3 }
       const n = nodeById(id)
-      if (!n || isUtilityType(n.type)) return { t: paper, k: 0 }
+      if (!n) return { t: paper, k: 0 }
       return { t: tintOf(n.type, n.variant), k: lamps.current.get(id)?.k ?? 0 }
     }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
@@ -1371,7 +1381,40 @@ export default function FxWall ({ size: frame }: Props) {
   const lastFrame = useRef(performance.now())
 
   /** One lamp's pool of light, as the wall paints it. */
-  const paintPool = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number) => {
+  /** DRAFT (?glow=aurora): a lamp's light as an aurora — several tall curtains of light that stand over the print, lean and drift
+   *  past one another like cloth in slow air, each a little off the print's colour, so where they cross the colours run together.
+   *  A soft round core stays under them so the print is still lit where it stands. */
+  const paintAurora = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number, seed: number, now: number) => {
+    const sec = now / 1000
+    // the core: a small pool, so the print itself is lit
+    paintRound(ctx, lx, ly, t, a * 0.5, reach * 0.45)
+    const N = 6
+    for (let i = 0; i < N; i++) {
+      const ph = seed * 1.7 + i * 2.399   // each curtain its own slow clock
+      const sway = Math.sin(sec * (0.11 + 0.023 * i) + ph), sway2 = Math.sin(sec * (0.071 + 0.017 * i) + ph * 1.3)
+      const x = lx + (i - (N - 1) / 2) * reach * 0.2 + sway * reach * 0.22
+      const tall = reach * (1.1 + 0.55 * (0.5 + 0.5 * sway2)), wide = reach * (0.22 + 0.2 * (0.5 + 0.5 * Math.sin(ph * 2.1 + sec * 0.05)))
+      const y = ly - tall * 0.42                                   // it stands above the print, its hem near it
+      const lean = 0.22 * Math.sin(sec * 0.09 + ph * 0.7)          // cloth in slow air
+      // a little off the print's colour, toward its neighbours on the wheel
+      const k = 0.5 + 0.5 * Math.sin(ph * 3.1), w = 0.35
+      const c: [number, number, number] = [t[0] + (t[2] - t[0]) * w * k, t[1] + (t[0] - t[1]) * w * (1 - k) * 0.6, t[2] + (t[1] - t[2]) * w * k]
+      const al = a * (0.4 + 0.24 * (0.5 + 0.5 * Math.sin(sec * 0.13 + ph * 1.9)))
+      ctx.save()
+      ctx.translate(x, y); ctx.transform(1, 0, lean, 1, 0, 0); ctx.scale(wide, tall)
+      const g = ctx.createRadialGradient(0, 0.18, 0, 0, 0, 1)     // brightest low in the curtain, thinning upward
+      g.addColorStop(0, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${Math.min(1, al).toFixed(3)})`)
+      g.addColorStop(0.35, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.5).toFixed(3)})`)
+      g.addColorStop(0.7, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${(al * 0.14).toFixed(3)})`)
+      g.addColorStop(1, `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, 0)`)
+      ctx.fillStyle = g; ctx.fillRect(-1, -1, 2, 2)
+      ctx.restore()
+    }
+  }
+  const paintPool = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number, seed = 0, now = 0) => {
+    if (AURORA) paintAurora(ctx, lx, ly, t, a, reach, seed, now); else paintRound(ctx, lx, ly, t, a, reach)
+  }
+  const paintRound = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number) => {
     const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, reach)
     g.addColorStop(0,    `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${Math.min(1, 1.0 * a).toFixed(3)})`)
     g.addColorStop(0.22, `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${(0.66 * a).toFixed(3)})`)
@@ -1403,7 +1446,7 @@ export default function FxWall ({ size: frame }: Props) {
       const id = sel?.node
       if (el && id !== undefined) {
         const n = graphRef.current.nodes.find(x => x.id === id)
-        const st = n && !isUtilityType(n.type) ? lamps.current.get(n.id) : undefined
+        const st = n ? lamps.current.get(n.id) : undefined
         if (n && st && st.k > 0.005) {
           const p = el.querySelector('.sg-study-print') as HTMLElement | null
           const er = el.getBoundingClientRect(), pr = p?.getBoundingClientRect()
@@ -1438,8 +1481,9 @@ export default function FxWall ({ size: frame }: Props) {
     ctx.globalCompositeOperation = 'screen'
     const seen = new Set<number>()
     for (const n of graph.nodes) {
-      if (isUtilityType(n.type)) continue
-      const alive = live.has(n.id) && !n.bypass
+      // a control print and the side are never "between in and out": they are lit when a wire leaves them
+      const offPath = isControlType(n.type) || n.type === FX_SIDE
+      const alive = offPath ? graph.edges.some(e => e.from === n.id) : live.has(n.id) && !n.bypass
       const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
       // signal breath: fast up, slow down
@@ -1447,7 +1491,9 @@ export default function FxWall ({ size: frame }: Props) {
       const env = envs.current[n.id]
       envs.current[n.id] = pk > env ? env + (pk - env) * Math.min(1, dt * 30) : env + (pk - env) * Math.min(1, dt * 3)
       const breath = alive ? envs.current[n.id] : 0
-      const kNow = kTarget * (0.85 + 0.35 * Math.min(1, breath))
+      // the side and the follow are lit BY what they hear: dark in silence, full on a hit (the rest only breathe a little)
+      const hears = n.type === FX_SIDE || n.type === FX_FOLLOW
+      const kNow = hears ? kTarget * Math.min(1.6, 0.12 + 1.7 * Math.sqrt(Math.min(1, breath))) : kTarget * (0.85 + 0.35 * Math.min(1, breath))
       st.k += (kNow - st.k) * ease
       const reachTarget = Rz * (1.9 + kTarget * 4.6)
       st.reach += (reachTarget - st.reach) * ease
@@ -1457,7 +1503,7 @@ export default function FxWall ({ size: frame }: Props) {
       const t = tintOf(n.type, n.variant)
       // the lamp hangs above the print: the pool leans up
       // a hot core and a long tail — light, not a disc
-      paintPool(ctx, c.x, c.y - Rz * 0.35, t, st.k, st.reach)
+      paintPool(ctx, c.x, c.y - Rz * 0.35, t, st.k, st.reach, n.id, now)
     }
     for (const id of [...lamps.current.keys()]) if (!seen.has(id)) lamps.current.delete(id)
     // in and out: two small paper lamps, so the ends of the wall are never dead
@@ -1473,7 +1519,7 @@ export default function FxWall ({ size: frame }: Props) {
   // the lamps as the scope sees them: where, what colour, how bright
   const paletteRef = useRef<() => Array<{ x: number; rgb: [number, number, number]; k: number }>>(() => [])
   paletteRef.current = () => graph.nodes
-    .filter(n => !isUtilityType(n.type) && live.has(n.id))
+    .filter(n => live.has(n.id))
     .map(n => ({ x: toScreen(n).x, rgb: tintOf(n.type, n.variant), k: lamps.current.get(n.id)?.k ?? 0 }))
   const paletteFn = useCallback(() => paletteRef.current(), [])
 

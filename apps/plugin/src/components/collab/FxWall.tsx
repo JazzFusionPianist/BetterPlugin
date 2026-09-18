@@ -1,17 +1,16 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
-import { hasJuceBridge } from '../../lib/juceBridge'
+import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
-import { PIC_MEMORY, PIC_INDEX, PIC_DECIBEL, PIC_OFFSET, PIC_SCALE, isPictureType, infer, outOf, type PictureSpec, type Unit } from '../../lib/picture'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_PLOT, FX_GRAPH_V, FX_PICTURE_ID0, FX_GRAPH_NODES, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, noOutputType, extraInputsOf, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -42,9 +41,8 @@ const FAMILIES: Array<[string, string[]]> = [
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
   ['control', ['LFO', 'rate', 'macro', 'follow']],
-  ['picture', ['memory', 'index', 'decibel', 'offset', 'scale', 'plot']],
 ]
-const FAM_W = 42 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
+const FAM_W = 46 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
   return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
 }
@@ -68,7 +66,7 @@ void uid
 /** The lanes' colours: what a split wire carries. */
 const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132]]   // stereo, l, r, m, s
 const SPLIT_FAN = 22   // degrees between a splitter's two output ports
-const PLOT_AUX = [100, 100, 100, 0, 0, 0, 0, 0]   // a plot: how much is at the wall's edge on x, y, z (×100, in the unit that arrives: 1.00 to begin with); [6], [7] the camera's turn and tilt in degrees
+const KEY_ANG = 42     // degrees below the input where a print's key point sits
 /** The hands a control wire can play, by print. */
 const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   2: [{ key: 'decay', label: 'decay' }],
@@ -95,7 +93,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_PLOT ? 'plot' : type === PIC_MEMORY ? 'memory' : type === PIC_INDEX ? 'index' : type === PIC_DECIBEL ? 'decibel' : type === PIC_OFFSET ? 'offset' : type === PIC_SCALE ? 'scale' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_MACRO) return `${Math.round(a * 100)}`
@@ -158,31 +156,13 @@ function demoGraph (w: number, h: number): FxGraph {
     { from: FX_PORT_IN, to: 0, gain: 1 }, { from: 0, to: 2, gain: 1 }, { from: 0, to: 10, gain: 1 },
     { from: 2, to: 11, gain: 0.62 }, { from: 10, to: 11, gain: 0.38 }, { from: 11, to: 6, gain: 1 }, { from: 6, to: FX_PORT_OUT, gain: 1 },
   ]
-  return stockPlots({ nodes, edges }, w, h)
-}
-
-/** The browser's demo patch carries two plots (on what comes in, on what
- *  reaches out) so the picture can be seen without a DAW. In the plugin
- *  nothing is ever put on the wall for the user. */
-function stockPlots (g: FxGraph, w: number, h: number): FxGraph {
-  const mk = (id: number, type: number, x: number, y: number, aux: number[]): FxGraphNode => ({ id, type, amount: 0, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux: [...aux, 0, 0, 0, 0, 0, 0, 0, 0].slice(0, 8), x, y })
-  const nodes = [...g.nodes], edges = [...g.edges]
-  // in → memory → y ; memory → index → offset (−80 ms) → x ; x's edge is 80 ms: the 160 ms fill the wall
-  const chain = (id0: number, from: number, x0: number, port = 0) => {
-    nodes.push(mk(id0, PIC_MEMORY, x0, h / 2 - 230, [160]), mk(id0 + 1, PIC_INDEX, x0 + 95, h / 2 - 340, []), mk(id0 + 2, PIC_OFFSET, x0 + 190, h / 2 - 340, [-8000]), mk(id0 + 3, FX_PLOT, x0 + 280, h / 2 - 230, [8000, 100, 100, 0, 0, 0, 0, 0]))
-    edges.push({ from, to: id0, gain: 1, port }, { from: id0, to: id0 + 3, gain: 1 }, { from: id0, to: id0 + 1, gain: 1 }, { from: id0 + 1, to: id0 + 2, gain: 1 }, { from: id0 + 2, to: id0 + 3, gain: 1, in: 1 })
-  }
-  chain(FX_PICTURE_ID0, FX_PORT_IN, w * 0.06)
-  const out = g.edges.find(e => e.to === FX_PORT_OUT && e.hand === undefined)
-  if (out) chain(FX_PICTURE_ID0 + 4, out.from, w * 0.56, out.port ?? 0)
-  return { nodes, edges, v: FX_GRAPH_V }
+  return { nodes, edges }
 }
 
 /** Nodes the engine placed at 0,0 (the legacy single print) get a spot. */
 function settle (g: FxGraph, w: number, h: number): FxGraph {
   const nodes = g.nodes.map((n, i) => ({ ...n, aux: (() => { const a = [...(n.aux ?? [])]; while (a.length < 8) a.push(0); return a })(), ...((n.x === 0 && n.y === 0) ? { x: w * (0.3 + 0.2 * i), y: h / 2 } : {}) }))
-  // a bare wall stays bare: no print, no wire, no plot is put there for anyone
-  return { nodes, edges: g.edges, v: FX_GRAPH_V }
+  return { nodes, edges: g.edges }   // a bare wall stays bare: nothing is put there for anyone
 }
 
 const MIX_FAN = 26   // degrees between a mix print's input ports
@@ -345,103 +325,6 @@ function FollowArt ({ node }: { node: { aux: number[] } }) {
   )
 }
 
-/** How a value reads in the study, by the unit that arrives. */
-const UNIT_ROWS: Record<Unit, { hi: number; step: number; fmt: (v: number) => string }> = {
-  amp: { hi: 8, step: 0.01, fmt: (v) => v.toFixed(2) }, none: { hi: 8, step: 0.01, fmt: (v) => v.toFixed(2) }, value: { hi: 8, step: 0.01, fmt: (v) => v.toFixed(2) },
-  dB: { hi: 200, step: 0.5, fmt: (v) => `${v.toFixed(1)} dB` }, ms: { hi: 4000, step: 1, fmt: (v) => `${Math.round(v)} ms` },
-}
-/** The offset's print: a point moved along a line. */
-function OffsetArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  return (
-    <g>
-      <path d="M36 118 H184" stroke={P} strokeOpacity={0.45} strokeWidth={1} />
-      <path d="M110 108 V128" stroke={P} strokeOpacity={0.6} strokeWidth={1} />
-      <circle cx={72} cy={118} r={5} fill="none" stroke={P} strokeOpacity={0.7} strokeWidth={1.2} />
-      <circle cx={152} cy={118} r={5} fill={P} />
-      <path d="M82 100 H140 m-6 -5 l6 5 l-6 5" stroke={P} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </g>
-  )
-}
-/** The scale's print: a length, and the same length made longer. */
-function ScaleArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  return (
-    <g>
-      <path d="M110 84 V152" stroke={P} strokeOpacity={0.45} strokeWidth={1} />
-      <path d="M110 100 H146 M146 94 V106" stroke={P} strokeOpacity={0.7} strokeWidth={1.4} fill="none" />
-      <path d="M110 134 H182 M182 128 V140" stroke={P} strokeWidth={1.6} fill="none" />
-      <text x={70} y={124} textAnchor="middle" fontSize="20" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>×</text>
-    </g>
-  )
-}
-/** The plot's print: one point in space — three axes through the middle, the point, and where it falls on each. */
-function PlotArt ({ node }: { node: { variant: number } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const C = 110, zx = -0.62, zy = 0.5                       // z runs down-left
-  const pt = { x: 46, y: 38, z: 34 }
-  const px = C + pt.x + pt.z * zx, py = C - pt.y + pt.z * zy   // the point, drawn
-  const fx = C + pt.x + pt.z * zx, fy = C + pt.z * zy          // its foot on the floor (y = 0)
-  void node
-  return (
-    <g>
-      <path d={`M${C - 78} ${C} H${C + 78}`} stroke={P} strokeOpacity={0.55} strokeWidth={1} />
-      <path d={`M${C} ${C + 78} V${C - 78}`} stroke={P} strokeOpacity={0.55} strokeWidth={1} />
-      <path d={`M${C - 70 * zx} ${C - 70 * zy} L${C + 70 * zx} ${C + 70 * zy}`} stroke={P} strokeOpacity={0.55} strokeWidth={1} />
-      {/* the drops: down to the floor, then back to the x and z axes */}
-      <path d={`M${px} ${py} V${fy} M${fx} ${fy} L${C + pt.x} ${C} M${fx} ${fy} L${C + pt.z * zx} ${C + pt.z * zy}`} stroke={P} strokeOpacity={0.5} strokeWidth={1} strokeDasharray="2.5 3" fill="none" />
-      <circle cx={px} cy={py} r={4.5} fill={P} />
-    </g>
-  )
-}
-/** The memory's print: a shift register — a row of cells, the newest full at one end, each older one fainter, the oldest leaving. */
-function MemoryArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const N = 7, w = 20, x0 = 110 - (N * w) / 2, y0 = 96, h = 28
-  return (
-    <g>
-      {Array.from({ length: N }, (_, k) => <rect key={k} x={x0 + k * w + 0.5} y={y0 + 0.5} width={w - 1} height={h - 1} fill={P} fillOpacity={0.04 + 0.62 * Math.pow(k / (N - 1), 2.2)} stroke={P} strokeOpacity={0.45} strokeWidth={1} />)}
-      {/* in at the right, out at the left */}
-      <path d={`M${x0 + N * w + 22} ${y0 + h / 2} H${x0 + N * w + 5} m5 -4 l-5 4 l5 4`} stroke={P} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={`M${x0 - 5} ${y0 + h / 2} H${x0 - 22} m5 -4 l-5 4 l5 4`} stroke={P} strokeOpacity={0.4} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      {/* one place along, every sample */}
-      <path d={`M${x0 + N * w - 14} ${y0 + h + 14} H${x0 + 14} m5 -3.5 l-5 3.5 l5 3.5`} stroke={P} strokeOpacity={0.4} strokeWidth={1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </g>
-  )
-}
-/** The index's print: a rule — the places in a window, numbered from the oldest. */
-function IndexArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const x0 = 40, x1 = 180, y = 118
-  return (
-    <g>
-      <path d={`M${x0} ${y} H${x1}`} stroke={P} strokeWidth={1.2} />
-      {Array.from({ length: 15 }, (_, k) => { const x = x0 + (k / 14) * (x1 - x0), major = k % 7 === 0; return <path key={k} d={`M${x} ${y} V${y - (major ? 16 : k % 2 === 0 ? 9 : 5)}`} stroke={P} strokeOpacity={major ? 1 : 0.6} strokeWidth={1} /> })}
-      <text x={x0} y={y + 18} textAnchor="middle" fontSize="13" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>0</text>
-      <text x={x1} y={y + 18} textAnchor="middle" fontSize="13" fill={P} fillOpacity={0.7} style={{ fontFamily: "'Space Mono', monospace" }}>n</text>
-    </g>
-  )
-}
-/** The decibel's print: the log curve amplitude is read through, and the scale it lands on. */
-function DecibelArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  let d = ''
-  for (let k = 0; k <= 48; k++) { const a = 0.004 + (k / 48) * 0.996; const db = Math.max(-48, 20 * Math.log10(a)); d += `${k === 0 ? 'M' : 'L'}${(48 + (k / 48) * 124).toFixed(1)} ${(64 - db / 48 * 92).toFixed(1)} ` }
-  return (
-    <g>
-      <path d="M48 64 V156 H172" stroke={P} strokeOpacity={0.4} strokeWidth={1} fill="none" />
-      {[0, 1, 2, 3, 4].map(k => <path key={k} d={`M42 ${64 + k * 23} H48`} stroke={P} strokeOpacity={0.6} strokeWidth={1} />)}
-      <path d={d} fill="none" stroke={P} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-    </g>
-  )
-}
-
 function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[] }
   size: number
@@ -467,12 +350,6 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : type === FX_MACRO ? <MacroArt node={node} />
         : type === FX_SIDE ? <SideArt />
         : type === FX_FOLLOW ? <FollowArt node={node} />
-        : type === FX_PLOT ? <PlotArt node={node} />
-        : type === PIC_MEMORY ? <MemoryArt />
-        : type === PIC_INDEX ? <IndexArt />
-        : type === PIC_DECIBEL ? <DecibelArt />
-        : type === PIC_OFFSET ? <OffsetArt />
-        : type === PIC_SCALE ? <ScaleArt />
         : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
@@ -560,7 +437,7 @@ export default function FxWall ({ size: frame }: Props) {
   }, [])
   const bridge = useMemo(() => hasGraphBridge(), [])
   const oldEngine = useMemo(() => !hasGraphBridge() && hasFxBridge(), [])
-  const [graph, setGraphState] = useState<FxGraph>(() => (hasGraphBridge() ? { nodes: [], edges: [], v: FX_GRAPH_V } : demoGraph(frame.w, frame.h)))   // in the plugin the wall starts bare; the demo patch is the browser's
+  const [graph, setGraphState] = useState<FxGraph>(() => (hasGraphBridge() ? { nodes: [], edges: [] } : demoGraph(frame.w, frame.h)))   // in the plugin the wall starts bare; the demo patch is the browser's
   const [loaded, setLoaded] = useState(!bridge)
   const [sel, setSel] = useState<{ node?: number; edge?: number } | null>(null)
   // the study opens over the wall's right side; the window never grows
@@ -581,7 +458,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['plot', FX_PLOT], ['memory', PIC_MEMORY], ['index', PIC_INDEX], ['decibel', PIC_DECIBEL], ['offset', PIC_OFFSET], ['scale', PIC_SCALE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -640,7 +517,6 @@ export default function FxWall ({ size: frame }: Props) {
 
   /** Apply a change: local state now, engine soon (structure = now). */
   const commit = useCallback((next: FxGraph, immediate = false) => {
-    next = { ...next, v: FX_GRAPH_V }   // the wall's format rides with every patch
     setGraphState(next)
     push(next, immediate)
   }, [push])
@@ -713,7 +589,7 @@ export default function FxWall ({ size: frame }: Props) {
       // the wire flows into the print to where its hand sits; close in, the word is there to meet it
       return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
     }
-    if (edge && (edge.in ?? 0) > 0) return extraPortOf(n, edge.in ?? 0)
+    if (edge && (edge.in ?? 0) === 1) return keyPortOf(n)
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
@@ -721,9 +597,9 @@ export default function FxWall ({ size: frame }: Props) {
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
     return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
-  /** A print's extra input point (a key; a plot's x and z): on the input's edge, above or below it. */
-  const extraPortOf = (n: FxGraphNode, inIdx: number): Pt => {
-    const c = toScreen(n), a = (extraInputsOf(n.type).find(x => x.in === inIdx)?.ang ?? 0) * Math.PI / 180
+  /** A print's key point: below its input, on the same edge. */
+  const keyPortOf = (n: FxGraphNode): Pt => {
+    const c = toScreen(n), a = KEY_ANG * Math.PI / 180
     return { x: c.x - Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
   }
   /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
@@ -812,14 +688,14 @@ export default function FxWall ({ size: frame }: Props) {
   }, [])
 
   // ── structure edits ────────────────────────────────────────────────
-  const freeId = (type: number) => { const [a, b] = isPictureType(type) ? [FX_PICTURE_ID0, FX_GRAPH_NODES] : [0, FX_MAX_NODES]; for (let i = a; i < b; i++) if (!graph.nodes.some(n => n.id === i)) return i; return -1 }
+  const freeId = () => { for (let i = 0; i < FX_MAX_NODES; i++) if (!graph.nodes.some(n => n.id === i)) return i; return -1 }
 
   const addNode = (type: number, at: Pt) => {
-    const id = freeId(type); if (id < 0) return
+    const id = freeId(); if (id < 0) return
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_PLOT ? [...PLOT_AUX] : type === PIC_MEMORY ? [500, 0, 0] : type === PIC_SCALE ? [100, 0, 0] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const aux = type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
@@ -874,21 +750,12 @@ export default function FxWall ({ size: frame }: Props) {
     if (to === FX_PORT_IN || from === FX_PORT_OUT) return
     const src = from === FX_PORT_IN ? null : nodeById(from)
     const dst = to === FX_PORT_OUT ? null : nodeById(to)
-    // the picture: what a picture print makes stays in the picture; a memory takes a signal, an index a window; one window per input
-    const srcPic = !!src && isPictureType(src.type), dstPic = !!dst && isPictureType(dst.type)
-    if (srcPic && !dstPic) return
-    if (dstPic) {
-      const kind = srcPic ? outOf(pictureSpec, from)?.kind : 'sig'
-      if (dst!.type === PIC_MEMORY && kind !== 'sig') return
-      if (dst!.type === PIC_INDEX && kind !== 'win') return
-      if (kind === 'win' && graph.edges.some(e => e.to === to && (e.in ?? 0) === inPort && e.hand === undefined)) return
-    }
-    // an lfo feeds a rate its shape; a follow listens to any sound; a rate, a macro, a follow may be drawn; nothing else meets a control print by a plain wire
-    if (src && isControlType(src.type)) { if (!(src.type === FX_LFO && dst?.type === FX_RATE) && !(dstPic && playsHandsType(src.type))) return }
+    // an lfo feeds a rate its shape; a follow listens to any sound; nothing else meets a control print by a plain wire
+    if (src && isControlType(src.type)) { if (!(src.type === FX_LFO && dst?.type === FX_RATE)) return }
     else if (dst && isControlType(dst.type) && dst.type !== FX_FOLLOW) return
     if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port && (e.in ?? 0) === inPort && !isControlEdge(e))) return
     const target = to === FX_PORT_OUT ? null : nodeById(to)
-    if (inPort > 0) { commit({ ...graph, edges: [...graph.edges, { from, to, gain: 1, port, in: inPort }] }, true); return }
+    if (inPort === 1) { commit({ ...graph, edges: [...graph.edges, { from, to, gain: 1, port, in: 1 }] }, true); return }
     // any point takes any number of wires: they sum at the point
     // a mix in blend mode shares 100 across its wires
     let gain = 1
@@ -984,21 +851,18 @@ export default function FxWall ({ size: frame }: Props) {
       // landed on a node (its input) or the out port?
       // the nearest print under the pointer (prints can sit close: the first in the list is not always the one meant)
       const hit = graph.nodes.map(n => { const c = toScreen(n); return { n, d: Math.hypot(c.x - p.x, c.y - p.y) } }).filter(x => x.d <= Rz + 10).sort((a, b) => a.d - b.d)[0]?.n
-      let extra: { id: number; in: number } | null = null
-      { let bestD = 18; for (const n of graph.nodes) for (const x of extraInputsOf(n.type)) { const kp = extraPortOf(n, x.in); const dd = Math.hypot(kp.x - p.x, kp.y - p.y); if (dd <= bestD && n.id !== drag.from) { bestD = dd; extra = { id: n.id, in: x.in } } } }
+      // a key point wins over a print that merely sits close by
+      let key: number | null = null
+      { let bestD = 18; for (const n of graph.nodes) if (hasKeyType(n.type) && n.id !== drag.from) { const kp = keyPortOf(n); const dd = Math.hypot(kp.x - p.x, kp.y - p.y); if (dd <= bestD) { bestD = dd; key = n.id } } }
       const src = drag.from === FX_PORT_IN ? null : nodeById(drag.from)
       if (src && playsHandsType(src.type)) {
         // a rate, a macro or a follow lands on a hand's word inside a print (the print shows them while the wire is in the air)
         const word = (document.elementFromPoint(e.clientX, e.clientY) as Element | null)?.closest('[data-hand]') as HTMLElement | null
         if (word) connectHand(drag.from, Number(word.dataset.node), word.dataset.hand!)
-        else if (extra && isPictureType(nodeById(extra.id)?.type ?? -1)) connect(drag.from, extra.id, 0, extra.in)   // what it says can be drawn: a plain wire into the picture
-        else if (hit && isPictureType(hit.type)) connect(drag.from, hit.id, 0, 0)
         setReveal(null)
       }
-      else if (extra) connect(drag.from, extra.id, drag.port, extra.in)   // an extra point (a key; a plot's x or z) wins over a print that merely sits close by
-      else if (hit) {
-        connect(drag.from, hit.id, drag.port, 0)
-      }
+      else if (key !== null) connect(drag.from, key, drag.port, 1)
+      else if (hit) connect(drag.from, hit.id, drag.port, 0)
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
     }
     else if (drag.kind === 'shelf') {
@@ -1032,7 +896,7 @@ export default function FxWall ({ size: frame }: Props) {
 
   // ── render ─────────────────────────────────────────────────────────
   const sharesOf = (id: number) => inputsOf(id).map(x => x.e.gain)
-  const full = graph.nodes.filter(n => !isPictureType(n.type)).length >= FX_MAX_NODES   // the picture's prints do not count: they use no slot
+  const full = graph.nodes.length >= FX_MAX_NODES
   const shelf = shelfLayout()
   const shelfPrint = shelf.print
 
@@ -1174,30 +1038,6 @@ export default function FxWall ({ size: frame }: Props) {
         rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260} liveMap={(v) => v / 100}
           format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
       }
-    }
-    if (n.type === PIC_MEMORY) {
-      rows.push(<GaugeRow key="length" label="length" value={n.aux[0] || 500} min={1} max={4000} step={1} defaultValue={500} fine={320} format={(v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} s` : `${Math.round(v)} ms`)} onChange={(v) => setAux(0, Math.round(v))} />)
-    }
-    if (n.type === PIC_OFFSET) {
-      const u = UNIT_ROWS[infer(pictureSpec, n.id, 0)?.unit ?? 'none']
-      rows.push(<GaugeRow key="add" label="add" value={(n.aux[0] || 0) / 100} min={-u.hi} max={u.hi} step={u.step} bipolar defaultValue={0} fine={320} format={(v) => `${v > 0 ? '+' : ''}${u.fmt(v)}`} onChange={(v) => setAux(0, Math.round(v * 100))} />)
-    }
-    if (n.type === PIC_SCALE) {
-      rows.push(<GaugeRow key="times" label="times" value={(n.aux[0] ?? 100) / 100} min={-100} max={100} step={0.01} bipolar defaultValue={1} fine={400} format={(v) => `×${v.toFixed(2)}`} onChange={(v) => setAux(0, Math.round(v * 100))} />)
-    }
-    if (n.type === PIC_DECIBEL) {
-      // 0 dB is full scale; to read another scale (dB SPL at your desk), say what full scale is there
-      rows.push(<GaugeRow key="offset" label="offset" value={n.aux[0] || 0} min={0} max={140} step={1} defaultValue={0} format={(v) => `+${Math.round(v)} dB`} onChange={(v) => setAux(0, Math.round(v))} />)
-    }
-    if (n.type === FX_PLOT) {
-      rows.push(<ChoiceRow key="variant" label="mode" options={['line', 'dots']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
-      // the origin is the wall's middle; each axis: how much is at the wall's edge, in the unit that arrives
-      ;([['x', 1], ['y', 0], ['z', 2]] as Array<[string, number]>).forEach(([name, inIdx], a) => {
-        const u = UNIT_ROWS[infer(pictureSpec, n.id, inIdx)?.unit ?? 'none']
-        rows.push(<GaugeRow key={name} label={name} value={Math.abs(n.aux[a] || 100) / 100} min={u.step} max={u.hi} step={u.step} defaultValue={1} fine={320} format={u.fmt} onChange={(v) => setAux(a, Math.max(1, Math.round(v * 100)))} />)
-      })
-      rows.push(<GaugeRow key="turn" label="turn" value={n.aux[6] || 0} min={-180} max={180} step={1} bipolar defaultValue={0} format={(v) => `${Math.round(v)}°`} onChange={(v) => setAux(6, Math.round(v))} />)
-      rows.push(<GaugeRow key="tilt" label="tilt" value={n.aux[7] || 0} min={-90} max={90} step={1} bipolar defaultValue={0} format={(v) => `${Math.round(v)}°`} onChange={(v) => setAux(7, Math.round(v))} />)
     }
     if (n.type === FX_FOLLOW) {
       rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 10} min={1} max={500} step={1} defaultValue={10} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
@@ -1392,12 +1232,6 @@ export default function FxWall ({ size: frame }: Props) {
         ctx.restore()
         return   // the hand's name and the depth ride beside the wire, in the svg layer
       }
-      if (src && isPictureType(src.type) && outOf(pictureSpec, src.id)?.kind === 'win') {
-        // a window, not a signal: a double line
-        ctx.strokeStyle = rgba(paper, sel?.edge === i ? 0.95 : 0.5); ctx.lineWidth = 3.2; ctx.stroke(path)
-        ctx.strokeStyle = 'rgb(22, 20, 16)'; ctx.lineWidth = 1.4; ctx.stroke(path)
-        return
-      }
       if (lane > 0) {
         ctx.strokeStyle = rgba(LANE_RGB[lane], sel?.edge === i ? 0.95 : 0.55)
       } else {
@@ -1473,14 +1307,14 @@ export default function FxWall ({ size: frame }: Props) {
           let m = n, dirty = false
           const set = (patch: Partial<FxGraphNode>) => { m = { ...m, ...patch }; dirty = true }
           if (!isUtilityType(n.type) && !isHeld('amount') && !near(h[0], n.amount)) set({ amount: h[0] })
-          if (!isHeld('variant') && h[1] !== n.variant && (n.type === FX_MIX_TYPE || n.type === FX_PLOT || !isUtilityType(n.type))) set({ variant: h[1] })
+          if (!isHeld('variant') && h[1] !== n.variant && (n.type === FX_MIX_TYPE || !isUtilityType(n.type))) set({ variant: h[1] })
           if (!isHeld('decay') && !near(h[2], n.decay[n.variant] ?? 0.5) && n.type === 2) { const dd = [...n.decay]; dd[n.variant] = h[2]; set({ decay: dd }) }
           if (!isHeld('fb') && !near(h[3], n.delayFb) && n.type === 10) set({ delayFb: h[3] })
           if (!isHeld('div') && h[4] !== n.delayDiv && !isUtilityType(n.type)) set({ delayDiv: h[4] })
           if (!isHeld('wet') && (h[5] === 1) !== !!n.wet && !isUtilityType(n.type)) set({ wet: h[5] === 1 })
           const aux = [...m.aux]; while (aux.length < 8) aux.push(0)
           let auxDirty = false
-          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_FOLLOW || n.type === FX_PLOT || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
+          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_FOLLOW || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
           if (auxDirty) set({ aux })
           if (dirty) changed = true
           return m
@@ -1579,7 +1413,7 @@ export default function FxWall ({ size: frame }: Props) {
       const kTarget = alive ? Math.min(1, intensityOf(n)) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
       // signal breath: fast up, slow down
-      const pk = hasJuceBridge ? (peaks.current[n.id] ?? 0) : 0.5 + 0.5 * Math.sin(now / 1000 * 2 * Math.PI * 0.45 + n.id)
+      const pk = hasJuceBridge ? peaks.current[n.id] : 0.5 + 0.5 * Math.sin(now / 1000 * 2 * Math.PI * 0.45 + n.id)
       const env = envs.current[n.id]
       envs.current[n.id] = pk > env ? env + (pk - env) * Math.min(1, dt * 30) : env + (pk - env) * Math.min(1, dt * 3)
       const breath = alive ? envs.current[n.id] : 0
@@ -1606,6 +1440,12 @@ export default function FxWall ({ size: frame }: Props) {
 
   }
   const backdropFn = useCallback((ctx: CanvasRenderingContext2D) => backdropRef.current(ctx), [])
+  // the lamps as the scope sees them: where, what colour, how bright
+  const paletteRef = useRef<() => Array<{ x: number; rgb: [number, number, number]; k: number }>>(() => [])
+  paletteRef.current = () => graph.nodes
+    .filter(n => !isUtilityType(n.type) && live.has(n.id))
+    .map(n => ({ x: toScreen(n).x, rgb: tintOf(n.type, n.variant), k: lamps.current.get(n.id)?.k ?? 0 }))
+  const paletteFn = useCallback(() => paletteRef.current(), [])
 
   // ── presets: the wall's patches as files, FabFilter-style bar ──────
   const [presets, setPresets] = useState<string[]>([])
@@ -1667,18 +1507,24 @@ export default function FxWall ({ size: frame }: Props) {
   const topBar = typeof document !== 'undefined' ? document.querySelector('.plugin.sounds > .top-bar') : null
 
   // ── the scope: input / output traces in the wall's corner ─────────
-  useEffect(() => { setScopeInput(false); return () => setScopeInput(false) }, [])   // the plots stream their own sounds; the old input tap stays shut
+  const [scope, setScope] = useState<{ input: boolean; output: boolean; gain: number; windowS: number }>(() => {
+    const d = { input: false, output: false, gain: 1, windowS: 0.16 }
+    try { const v = JSON.parse(localStorage.getItem('orb_wall_scope') || 'null'); return v ? { ...d, input: !!v.input, output: !!v.output, gain: Number(v.gain) || 1, windowS: Number(v.windowS) || 0.16 } : d } catch { return d }
+  })
+  const scopeHand = useRef<{ which: 'gain' | 'window'; y0: number; v0: number } | null>(null)
+  const onScopeHandMove = (e: React.PointerEvent) => {
+    const h = scopeHand.current; if (!h) return
+    const f = Math.exp((h.y0 - e.clientY) / 90)
+    if (h.which === 'gain') setScope(v => ({ ...v, gain: Math.min(16, Math.max(0.25, h.v0 * f)) }))
+    else setScope(v => ({ ...v, windowS: Math.min(2, Math.max(0.02, h.v0 / f)) }))
+  }
+  const fmtWindow = (w: number) => (w >= 1 ? `${w.toFixed(1)}s` : `${Math.round(w * 1000)}ms`)
+  useEffect(() => {
+    setScopeInput(scope.input)
+    try { localStorage.setItem('orb_wall_scope', JSON.stringify(scope)) } catch { /* fine */ }
+  }, [scope])
+  useEffect(() => () => setScopeInput(false), [])
   const inkRgb = strokeFor(litLevel)
-  // the wall's picture: the picture prints and every wire that lands on one — a sound, what a control print says, or another picture print's output
-  const pictureSpec = useMemo<PictureSpec>(() => {
-    const typeOf = new Map(graph.nodes.map(n => [n.id, n.type]))
-    const nodes = graph.nodes.filter(n => isPictureType(n.type)).map(n => ({ id: n.id, type: n.type, variant: n.variant, aux: n.aux }))
-    const edges = graph.edges.filter(e => e.hand === undefined && isPictureType(typeOf.get(e.to) ?? -1)).map(e => {
-      const ft = e.from === FX_PORT_IN ? -1 : typeOf.get(e.from) ?? -1
-      return { from: e.from, to: e.to, in: e.in ?? 0, gain: e.gain, kind: isPictureType(ft) ? 'picture' as const : isControlType(ft) ? 'control' as const : 'sound' as const }
-    })
-    return { nodes, edges }
-  }, [graph])
 
   const patchBar = topBar && createPortal(
     <div className="sg-presetbar" style={inkVars} onPointerDown={(e) => e.stopPropagation()}>
@@ -1750,7 +1596,7 @@ export default function FxWall ({ size: frame }: Props) {
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
           {/* the field: one shader, breathing with the out signal, under everything */}
-          <FxScope picture={pictureSpec} width={size.w} height={size.h} ink={inkRgb} zoom={zoom} pan={pan} overlay={overlayFn} backdrop={backdropFn} />
+          <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} backdrop={backdropFn} palette={paletteFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
           {graph.edges.map((e, i) => {
@@ -1832,18 +1678,17 @@ export default function FxWall ({ size: frame }: Props) {
                     return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} />
                   })
                 : noInputType(n.type) ? null : <span className="sg-dot l" />}
-              {extraInputsOf(n.type).map(x => { const kp = extraPortOf(n, x.in); return (
-                <Fragment key={x.in}>
+              {hasKeyType(n.type) && (() => { const kp = keyPortOf(n); return (
+                <Fragment>
                   <span className="sg-dot k" style={{ left: kp.x - (c.x - Rz) - 2.5, top: kp.y - (c.y - Rz) - 2.5 }} />
-                  <span className="sg-key-word" style={{ left: kp.x - (c.x - Rz) - 7, top: kp.y - (c.y - Rz), opacity: capAlpha }}>{x.word}</span>
-                </Fragment>) })}
-              {n.type === FX_PLOT && <span className="sg-key-word" style={{ left: -7, top: Rz, opacity: capAlpha }}>y</span>}
+                  <span className="sg-key-word" style={{ left: kp.x - (c.x - Rz) - 7, top: kp.y - (c.y - Rz), opacity: capAlpha }}>key</span>
+                </Fragment>) })()}
               {isSplitterType(n.type)
                 ? [0, 1].map(port => {
                     const p = outPortOf(n.id, port)
                     return <span key={port} className="sg-dot r" style={{ right: 'auto', left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} onPointerDown={startWire(n.id, port)} />
                   })
-                : noOutputType(n.type) ? null : <span className="sg-dot r" onPointerDown={startWire(n.id)} />}
+                : <span className="sg-dot r" onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">
@@ -1881,10 +1726,36 @@ export default function FxWall ({ size: frame }: Props) {
           </div>
         )}
 
+        {/* the scope's two words, bottom right (the traces fill the wall behind everything) */}
+        <div className="sg-scope-corner" onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={onScopeHandMove} onPointerUp={() => { scopeHand.current = null }}>
+          <div className="sg-scope-words">
+            {(scope.input || scope.output) && (
+              <>
+                <span className="sg-val hand" title="vertical zoom"
+                  onPointerDown={(e) => { scopeHand.current = { which: 'gain', y0: e.clientY, v0: scope.gain }; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }}
+                  onDoubleClick={() => setScope(v => ({ ...v, gain: 1 }))}
+                  onWheel={(e) => { e.stopPropagation(); e.preventDefault(); setScope(v => ({ ...v, gain: Math.min(16, Math.max(0.25, v.gain * (e.deltaY < 0 ? 1.12 : 1 / 1.12))) })) }}>
+                  ×{scope.gain >= 10 ? scope.gain.toFixed(0) : scope.gain.toFixed(1)}
+                </span>
+                <span className="sg-val hand" title="horizontal zoom"
+                  onPointerDown={(e) => { scopeHand.current = { which: 'window', y0: e.clientY, v0: scope.windowS }; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ } }}
+                  onDoubleClick={() => setScope(v => ({ ...v, windowS: 0.16 }))}
+                  onWheel={(e) => { e.stopPropagation(); e.preventDefault(); setScope(v => ({ ...v, windowS: Math.min(2, Math.max(0.02, v.windowS * (e.deltaY < 0 ? 1 / 1.15 : 1.15))) })) }}>
+                  {fmtWindow(scope.windowS)}
+                </span>
+              </>
+            )}
+            <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input }))}>input</span>
+            <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output }))}>output</span>
+          </div>
+        </div>
+
         {!loaded && <p className="fx-note sg-note">reading the wall…</p>}
         {error && <p className="fx-note sg-note">{error}</p>}
         {!bridge && !oldEngine && <p className="fx-note sg-note">browser mode — the audio itself runs inside the daw.</p>}
         {oldEngine && <p className="fx-note sg-note">this room grew a wall — rebuild the plugin to patch it.</p>}
+        {scope.input && hasFxBridge() && !hasJuceNativeFunction('setScopeInput') && <p className="fx-note sg-note">the input trace needs the newer plugin — restart the daw.</p>}
       </div>
 
       {/* the shelf's handle: a tab on its rule; it rides down with the drawer */}
@@ -1900,7 +1771,7 @@ export default function FxWall ({ size: frame }: Props) {
         </span>
         {shelfTypes.map(type => (
           <div key={type} className="sg-shelf-item"
-            onPointerDown={(e) => { if (full && !isPictureType(type)) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
+            onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>
           </div>
@@ -1942,7 +1813,7 @@ export default function FxWall ({ size: frame }: Props) {
             onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />}
         </div>
         <div className="sg-study-value">
-          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || isPictureType(studyNode.type) || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 liveSlot={graph.edges.some(e => e.to === studyNode.id && e.hand === 'amount') ? studyNode.id : -1} liveText={(a) => fmtValue(studyNode.type, a, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}

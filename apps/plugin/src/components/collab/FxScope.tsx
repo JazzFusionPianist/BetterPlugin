@@ -1,30 +1,33 @@
 import { useEffect, useRef } from 'react'
 import { hasJuceBridge } from '../../lib/juceBridge'
-import { FX_PLOT } from '../../lib/fxBridge'
-import { plotPoints, demoSample, type PictureSpec, type Ring, type Rings } from '../../lib/picture'
 
-/*  The wall's picture. Nothing is drawn here that the patch did not ask
-    for: each plot print's points (see lib/picture.ts for how they are
-    made) are projected through that plot's camera and joined. This file
-    only keeps the signals (what the engine streams: the sounds wired
-    into picture prints, and what the control prints are saying) and
-    draws.                                                             */
+/*  The scope: what the plugin hears (input, before the patch) and what
+    leaves it (output, after), as live waveforms in the wall's corner.
+    Both are drawn from the same clock so, side by side, the patch's
+    work is visible as the difference between two traces — input in the
+    wall's ink, quiet; output in the second ink over it.               */
 
-const RING_S = 4.2             // seconds kept: a memory holds 4 s at most
+const WINDOW_S = 0.16          // seconds of signal across the wall
+const RING_S = 3               // seconds kept (the widest window is 2 s)
 
 interface Props {
-  picture: PictureSpec
+  input: boolean
+  output: boolean
   width: number
   height: number
   ink: string                  // the wall's ink, "rgb(r, g, b)"
-  zoom: number                 // the wall's camera: the picture is on the wall, so it moves and sizes with the prints
-  pan: { x: number; y: number }
-  /** Drawn over the picture every frame, in CSS px: the wall's wires and
+  accent: string               // the second ink
+  gain?: number                // vertical zoom: 1 = full scale fills 84% of the wall
+  windowS?: number             // horizontal zoom: seconds edge to edge
+  /** Drawn over the traces every frame, in CSS px: the wall's wires and
    *  the discs under its prints live here too, so one full redraw per
    *  frame replaces WebKit's partial repaints (which smeared). */
   overlay?: (ctx: CanvasRenderingContext2D) => void
-  /** Drawn first, under the picture: the room's light. */
+  /** Drawn first, under the traces: the room's light. */
   backdrop?: (ctx: CanvasRenderingContext2D) => void
+  /** The lamps along the wall, for the output trace to take their
+   *  colour as it passes under them: x in CSS px, tint, brightness. */
+  palette?: () => Array<{ x: number; rgb: [number, number, number]; k: number }>
 }
 
 function decode (b64: string): Float32Array | null {
@@ -36,60 +39,60 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ picture, width, height, ink, zoom, pan, overlay, backdrop }: Props) {
-  const view = useRef({ zoom, pan }); view.current = { zoom, pan }
+export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay, backdrop, palette }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
-  const sound = useRef(new Map<string, Ring>())     // "<node>:<input>" → what the engine streams for that input
-  const control = useRef(new Map<number, Ring>())   // control print → what it has been saying
-  const lastCtl = useRef(new Map<number, number>())
-  const spec = useRef(picture); spec.current = picture
+  const ringIn = useRef(new Float32Array(48000 * RING_S))
+  const ringOut = useRef(new Float32Array(48000 * RING_S))
+  const wIn = useRef(0), wOut = useRef(0)
   const bridge = hasJuceBridge
-  const ringIn = <K,>(m: Map<K, Ring>, k: K): Ring => {
-    let r = m.get(k); const len = Math.round(sr.current * RING_S)
-    if (!r || r.data.length !== len) { r = { data: new Float32Array(len), w: 0 }; m.set(k, r) }
-    return r
-  }
-  const push = (r: Ring, v: Float32Array) => { for (let i = 0; i < v.length; i++) { r.data[r.w] = v[i]; r.w = (r.w + 1) % r.data.length } }
 
-  // ── the signals ───────────────────────────────────────────────────
+  // ── feed ──────────────────────────────────────────────────────────
   useEffect(() => {
+    const push = (ring: Float32Array, w: { current: number }, mono: Float32Array) => {
+      for (let i = 0; i < mono.length; i++) { ring[w.current] = mono[i]; w.current = (w.current + 1) % ring.length }
+    }
+    const toMono = (f: Float32Array, ch: number) => {
+      const n = Math.floor(f.length / ch)
+      const m = new Float32Array(n)
+      for (let i = 0; i < n; i++) { let s = 0; for (let c = 0; c < ch; c++) s += f[i * ch + c]; m[i] = s / ch }
+      return m
+    }
     if (bridge) {
       const onAudio = (e: Event) => {
-        const d = (e as CustomEvent).detail as { sr?: number; ch?: number; samples?: string; ctl?: number[]; plots?: Array<{ slot: number; mask: number; y?: string; x?: string; z?: string }> }
-        if (d.sr && d.sr !== sr.current) { sr.current = d.sr; sound.current.clear(); control.current.clear() }
-        let n = 0
-        for (const p of d.plots ?? []) {
-          const axes = [p.y ? decode(p.y) : null, p.x ? decode(p.x) : null, p.z ? decode(p.z) : null]   // inputs 0, 1, 2
-          axes.forEach((a, i) => { if (a) { push(ringIn(sound.current, `${p.slot}:${i}`), a); n = Math.max(n, a.length) } })
+        const d = (e as CustomEvent).detail as { samples?: string; inSamples?: string; sr?: number; ch?: number }
+        const ch = Math.max(1, d.ch ?? 2)
+        if (d.sr && d.sr !== sr.current) {
+          sr.current = d.sr
+          ringIn.current = new Float32Array(d.sr * RING_S); ringOut.current = new Float32Array(d.sr * RING_S)
+          wIn.current = 0; wOut.current = 0
         }
-        if (n === 0 && d.samples) n = Math.floor(d.samples.length * 3 / 4 / 4 / Math.max(1, d.ch ?? 2))   // no tap this block: the out stream keeps the clock
-        // what the control prints say, ramped across the block so a memory of it is not a staircase
-        if (n > 0 && Array.isArray(d.ctl)) {
-          for (const from of new Set(spec.current.edges.filter(x => x.kind === 'control').map(x => x.from))) {
-            const v1 = Number(d.ctl[from]) || 0, v0 = lastCtl.current.get(from) ?? v1
-            const r = ringIn(control.current, from)
-            for (let i = 0; i < n; i++) { r.data[r.w] = v0 + (v1 - v0) * ((i + 1) / n); r.w = (r.w + 1) % r.data.length }
-            lastCtl.current.set(from, v1)
-          }
-        }
+        const out = d.samples ? decode(d.samples) : null
+        const inp = d.inSamples ? decode(d.inSamples) : null
+        if (out) push(ringOut.current, wOut, toMono(out, ch))
+        if (inp) push(ringIn.current, wIn, toMono(inp, ch))
+        else if (out) push(ringIn.current, wIn, new Float32Array(Math.floor(out.length / ch)))   // keep the clocks together
       }
       window.addEventListener('__juceDawAudio', onAudio)
       return () => window.removeEventListener('__juceDawAudio', onAudio)
     }
-    // plain browser: made-up signals on every wire that enters the picture, so it can be built and seen
+    // plain browser: a test tone so the scope has something to show —
+    // the "output" is the tone through a make-believe patch
     let t = 0
     const id = setInterval(() => {
       const n = Math.round(sr.current / 30)
-      const s = spec.current
-      const keys = new Map<string, number[]>()
-      for (const e of s.edges) if (e.kind === 'sound') { const k = `${e.to}:${e.in}`; keys.set(k, [...(keys.get(k) ?? []), e.from]) }
-      for (const [k, froms] of keys) { const r = ringIn(sound.current, k); for (let i = 0; i < n; i++) { let v = 0; for (const f of froms) v += demoSample(f, (t + i) / sr.current); r.data[r.w] = v; r.w = (r.w + 1) % r.data.length } }
-      for (const from of new Set(s.edges.filter(e => e.kind === 'control').map(e => e.from))) { const r = ringIn(control.current, from); for (let i = 0; i < n; i++) { r.data[r.w] = 0.5 + 0.5 * Math.sin(2 * Math.PI * (0.5 + (from % 4) * 0.25) * (t + i) / sr.current); r.w = (r.w + 1) % r.data.length } }
-      t += n
+      const a = new Float32Array(n), b = new Float32Array(n)
+      for (let i = 0; i < n; i++) {
+        const x = t / sr.current
+        const env = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.3 * x)
+        const s = (Math.sin(2 * Math.PI * 110 * x) * 0.5 + Math.sin(2 * Math.PI * 330 * x) * 0.2) * env
+        a[i] = s
+        b[i] = Math.tanh(s * 2.2) * 0.7 * (0.6 + 0.4 * Math.sin(2 * Math.PI * 6 * x))
+        t++
+      }
+      push(ringIn.current, wIn, a); push(ringOut.current, wOut, b)
     }, 1000 / 30)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge])
 
   // ── draw ──────────────────────────────────────────────────────────
@@ -99,67 +102,106 @@ export default function FxScope ({ picture, width, height, ink, zoom, pan, overl
     el.width = Math.round(width * dpr); el.height = Math.round(height * dpr)
     const ctx = el.getContext('2d'); if (!ctx) return
     let raf = 0
-    const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
-    const rings: Rings = { get sr () { return sr.current }, sound: (node, i) => sound.current.get(`${node}:${i}`), control: (from) => control.current.get(from) }
-
-    /** A plot's camera. Straight on (turn 0, tilt 0) the unit cube's x and y span the wall edge to edge and depth cannot be seen. */
-    const camera = (turnDeg: number, tiltDeg: number) => {
-      const yaw = turnDeg * Math.PI / 180, pitch = -tiltDeg * Math.PI / 180
-      const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch)
-      const D = 4.6
-      return (X: number, Y: number, Z: number): [number, number, number] => {
-        const x1 = X * cy + Z * sy, z1 = -X * sy + Z * cy
-        const y2 = Y * cp - z1 * sp, z2 = Y * sp + z1 * cp
-        const f = D / Math.max(0.2, D + z2)
-        // onto the wall (its middle is the origin), then through the wall's own pan and zoom, like any print
-        const { zoom: zm, pan: pn } = view.current
-        return [(width / 2 + x1 * f * width / 2 * zm + pn.x) * dpr, (height / 2 - y2 * f * height / 2 * zm + pn.y) * dpr, f * Math.sqrt(zm)]
-      }
-    }
-    /** The cube's floor and its three axes, faint: only when the camera has left the front, where they say which way is which. */
-    const room = (P: ReturnType<typeof camera>) => {
-      ctx.lineWidth = 1 * dpr
+    const SILENT = 0.002   // ≈ −54 dBFS: below this there is nothing to draw
+    const trace = (ring: Float32Array, w: number, colour: string, lw: number) => {
+      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
+      const per = n / width
       ctx.beginPath()
-      for (let k = -4; k <= 4; k++) {
-        const t = k / 4
-        let a = P(t, -1, -1), b = P(t, -1, 1); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1])
-        a = P(-1, -1, t); b = P(1, -1, t); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1])
+      ctx.strokeStyle = colour; ctx.lineWidth = lw * dpr; ctx.lineJoin = 'round'
+      const mid = height / 2, amp = height * 0.42
+      let pen = false   // silence breaks the line — no flat trace at zero
+      for (let x = 0; x < width; x++) {
+        // min/max over the samples this column covers — the print of a
+        // waveform, not an alias of it
+        let lo = 1, hi = -1
+        const s0 = Math.floor(x * per), s1 = Math.max(s0 + 1, Math.floor((x + 1) * per))
+        for (let s = s0; s < s1; s++) {
+          const v = ring[(w - n + s + ring.length * 2) % ring.length]
+          if (v < lo) lo = v; if (v > hi) hi = v
+        }
+        if (Math.max(Math.abs(lo), Math.abs(hi)) < SILENT) { pen = false; continue }
+        const yHi = (mid - Math.min(1.2, hi * gain) * amp) * dpr, yLo = (mid - Math.max(-1.2, lo * gain) * amp) * dpr
+        if (!pen) { ctx.moveTo(x * dpr, yHi); pen = true } else ctx.lineTo(x * dpr, yHi)
+        ctx.lineTo(x * dpr, yLo)
       }
-      ctx.strokeStyle = inkA(0.1); ctx.stroke()
-      ctx.beginPath()
-      const o = P(-1, -1, -1)
-      for (const e of [P(1, -1, -1), P(-1, 1, -1), P(-1, -1, 1)]) { ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]) }
-      ctx.strokeStyle = inkA(0.3); ctx.stroke()
+      ctx.stroke()
     }
+    /** The output as light: the min/max envelope filled softly and edged
+     *  finely, coloured by whatever lamp it passes under, added to the
+     *  wall (never a flat coloured line). Silence breaks it. */
+    const ribbon = (ring: Float32Array, w: number, paper: [number, number, number], alpha: number) => {
+      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
+      const per = n / width
+      const mid = height / 2, amp = height * 0.42
+      // colour across the wall: paper, warmed toward each lamp's tint
+      const lamps = (palette ? palette() : []).filter(l => l.k > 0.02).sort((a, b) => a.x - b.x)
+      const colAt = (x: number): [number, number, number] => {
+        if (lamps.length === 0) return paper
+        // nearest two lamps, blended by distance; a lamp's pull fades with its brightness
+        let best = lamps[0], second: typeof best | null = null
+        for (const l of lamps) if (Math.abs(l.x - x) < Math.abs(best.x - x)) { second = best; best = l } else if (!second || Math.abs(l.x - x) < Math.abs(second.x - x)) second = l
+        const pull = (l: { x: number; k: number }) => Math.max(0, 1 - Math.abs(l.x - x) / (240 + 260 * l.k)) * (0.55 + 0.45 * l.k)
+        let c: [number, number, number] = [paper[0], paper[1], paper[2]]
+        for (const l of [best, second]) {
+          if (!l) continue
+          const t = pull(l)
+          c = [c[0] + (l.rgb[0] - c[0]) * t, c[1] + (l.rgb[1] - c[1]) * t, c[2] + (l.rgb[2] - c[2]) * t]
+        }
+        return c
+      }
+      const grad = ctx.createLinearGradient(0, 0, width * dpr, 0)
+      const steps = 14
+      for (let i = 0; i <= steps; i++) {
+        const c = colAt((i / steps) * width)
+        grad.addColorStop(i / steps, `rgb(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])})`)
+      }
+      // envelope segments between silences
+      const his: number[] = new Array(width), los: number[] = new Array(width)
+      for (let x = 0; x < width; x++) {
+        let lo = 1, hi = -1
+        const s0 = Math.floor(x * per), s1 = Math.max(s0 + 1, Math.floor((x + 1) * per))
+        for (let s = s0; s < s1; s++) { const v = ring[(w - n + s + ring.length * 2) % ring.length]; if (v < lo) lo = v; if (v > hi) hi = v }
+        const silent = Math.max(Math.abs(lo), Math.abs(hi)) < SILENT
+        his[x] = silent ? NaN : (mid - Math.min(1.2, hi * gain) * amp) * dpr
+        los[x] = silent ? NaN : (mid - Math.max(-1.2, lo * gain) * amp) * dpr
+      }
+      ctx.globalCompositeOperation = 'lighter'
+      let x = 0
+      while (x < width) {
+        while (x < width && Number.isNaN(his[x])) x++
+        const start = x
+        while (x < width && !Number.isNaN(his[x])) x++
+        if (x - start < 2) continue
+        ctx.beginPath()
+        ctx.moveTo(start * dpr, his[start])
+        for (let i = start + 1; i < x; i++) ctx.lineTo(i * dpr, his[i])
+        for (let i = x - 1; i >= start; i--) ctx.lineTo(i * dpr, los[i])
+        ctx.closePath()
+        ctx.fillStyle = grad; ctx.globalAlpha = 0.16 * alpha; ctx.fill()
+        ctx.strokeStyle = grad; ctx.globalAlpha = 0.7 * alpha; ctx.lineWidth = 1 * dpr; ctx.lineJoin = 'round'; ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over'
+    }
+    const paperOf = (c: string): [number, number, number] => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(c); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234] }
 
     const tick = () => {
-      ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, el.width, el.height)
-      if (backdrop) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); backdrop(ctx); ctx.globalCompositeOperation = 'source-over'; ctx.setTransform(1, 0, 0, 1, 0, 0) }
-      for (const plot of spec.current.nodes) {
-        if (plot.type !== FX_PLOT) continue
-        const { pts, n } = plotPoints(spec.current, plot, rings, Math.max(256, Math.round(width)))
-        if (n === 0) continue
-        const turn = plot.aux[6] || 0, tilt = plot.aux[7] || 0
-        const P = camera(turn, tilt)
-        if (turn !== 0 || tilt !== 0) room(P)
-        ctx.globalCompositeOperation = 'lighter'
-        ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1 * dpr; ctx.lineJoin = 'round'
-        if (plot.variant === 1 || n === 1) {
-          for (let i = 0; i < n; i++) { const q = P(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]); const s = dpr * (n === 1 ? 5 : 1.6) * q[2]; ctx.globalAlpha = Math.min(1, 0.7 * q[2] * q[2]); ctx.fillRect(q[0] - s / 2, q[1] - s / 2, s, s) }
-        } else {
-          ctx.beginPath()
-          for (let i = 0; i < n; i++) { const q = P(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]); if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]) }
-          ctx.globalAlpha = 0.6; ctx.stroke()
-        }
-        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'
-      }
+      if (backdrop) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); backdrop(ctx); ctx.globalCompositeOperation = 'source-over' }
+      // a backdrop, not a meter: quiet enough for the prints to sit on
+      const both = input && output
+      const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
+      const accA = (a: number) => accent.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      void accA
+      if (input) trace(ringIn.current, wIn.current, both ? inkA(0.22) : inkA(0.45), 1)
+      if (output) ribbon(ringOut.current, wOut.current, paperOf(ink), both ? 1 : 0.85)
       if (overlay) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); overlay(ctx); ctx.setTransform(1, 0, 0, 1, 0, 0) }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [width, height, ink, overlay, backdrop])
+  }, [input, output, width, height, ink, accent, gain, windowS, overlay, backdrop, palette])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

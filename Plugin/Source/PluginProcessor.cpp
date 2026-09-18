@@ -622,41 +622,6 @@ void OrbAudioProcessor::timerCallback()
         for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
         script << "]";
     }
-    // what each control print is saying now (a rate, a follow, a macro): the picture can draw these too
-    script << "],ctl:[";
-    for (int i = 0; i < orbfx::kMaxNodes; ++i)
-    {
-        const int type = slotTypes[(size_t) i].load();
-        float cv = 0.0f;
-        if (type == orbfx::kRate) cv = rateValue[(size_t) i].load (std::memory_order_relaxed);
-        else if (type == orbfx::kFollow) cv = fxChain.followValue (i);
-        else if (type == orbfx::kMacro) { const juce::ScopedLock sl (fxGraphLock); for (auto& nd : fxGraph.nodes) if (nd.id == i) cv = macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])]->get(); }
-        script << (i ? "," : "") << juce::String (cv, 4);
-    }
-    // the picture's sounds: each tap's inputs as mono float32
-    script << "],plots:[";
-    {
-        const int maxPlot = juce::jmax (framesRead * 2, 2048);
-        plotPoll[0].resize ((size_t) maxPlot); plotPoll[1].resize ((size_t) maxPlot); plotPoll[2].resize ((size_t) maxPlot);
-        bool firstPlot = true;
-        for (int t = 0; t < orbfx::kMaxPlots; ++t)
-        {
-            int slot = -1, mask = 0;
-            const int got = fxChain.readPlot (t, plotPoll[0].data(), plotPoll[1].data(), plotPoll[2].data(), maxPlot, slot, mask);
-            if (slot < 0 || got <= 0) continue;
-            script << (firstPlot ? "{" : ",{") << "slot:" << slot << ",mask:" << mask;
-            static const char* const axisName[3] = { "y", "x", "z" };
-            for (int a = 0; a < 3; ++a)
-            {
-                if ((mask & (1 << a)) == 0) continue;
-                juce::MemoryOutputStream s;
-                juce::Base64::convertToBase64 (s, plotPoll[a].data(), (size_t) got * sizeof (float));
-                script << "," << axisName[a] << ":'" << s.toString() << "'";
-            }
-            script << "}";
-            firstPlot = false;
-        }
-    }
     // per-slot hands as played (the pushes in): the study shows these move
     script << "],live:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
@@ -1210,7 +1175,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "plot", "memory", "index", "decibel", "offset", "scale" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1219,8 +1184,6 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
     { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
     { "octave", "fifth", "down" }, { "soft", "hard" }, { "beat", "bar" }, { "silk", "bright" }, { "ring", "am" }, { "tight", "loose" }, { "wow", "flutter", "both" },
-    {}, {}, {}, {}, {}, {}, {},   // L/R, M/S, LFO, rate, macro, side, follow
-    { "line", "dots" },           // plot
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1348,7 +1311,7 @@ void OrbAudioProcessor::freshGraph()
    #ifdef ORB_SURFACE
     if (juce::String (ORB_SURFACE) == "sounds")
     {
-        orbfx::Graph g; g.v = 2;
+        orbfx::Graph g;
         juce::String err;
         applyGraph (g, err);
         fxGraphMode.store (true);
@@ -1609,7 +1572,6 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
     auto* root = new juce::DynamicObject();
     root->setProperty ("nodes", nodes);
     root->setProperty ("edges", edges);
-    if (g.v != 0) root->setProperty ("v", g.v);
     return juce::JSON::toString (juce::var (root), true);
 }
 
@@ -1641,7 +1603,6 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
     juce::var v = juce::JSON::parse (json);
     if (! v.isObject()) { error = "not a patch"; return false; }
     orbfx::Graph out;
-    if (v.hasProperty ("v")) out.v = (int) v["v"];
     if (auto* nodes = v["nodes"].getArray())
     {
         for (auto& n : *nodes)
@@ -1696,7 +1657,7 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.to   = (int) e["to"];
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
             ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
-            ed.in   = e.hasProperty ("in") ? juce::jlimit (0, 2, (int) e["in"]) : 0;
+            ed.in   = e.hasProperty ("in") ? juce::jlimit (0, 1, (int) e["in"]) : 0;
             if (e.hasProperty ("hand"))
             {
                 const juce::String hs = e["hand"].toString();

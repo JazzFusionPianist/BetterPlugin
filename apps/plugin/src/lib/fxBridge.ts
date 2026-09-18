@@ -118,29 +118,17 @@ export const FX_MACROS = 8
  *  `follow` listens to whatever is wired into it and pushes a hand with what it hears. */
 export const FX_SIDE = 33
 export const FX_FOLLOW = 34
-/** The wall's picture: whatever is wired into a plot's y, x, z is drawn behind the prints. No output. */
-export const FX_PLOT = 35
-/** The wall's format: 2 = the picture is made by plot prints (older patches get the two stock ones on load). */
-export const FX_GRAPH_V = 2
-/** Picture prints live outside the engine's sixteen slots: ids 16..47. */
-export const FX_PICTURE_ID0 = 16
-export const FX_GRAPH_NODES = 48
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_PLOT || (t >= 36 && t <= 40)   // …and the picture's memory, index, decibel, offset, scale
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
 export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
 export const hasKeyType = (t: number) => t === 4 || t === 26
-/** A print's extra input points: which input, where (degrees below the main one), and its word. */
-export const extraInputsOf = (t: number): Array<{ in: number; ang: number; word: string }> =>
-  (hasKeyType(t) ? [{ in: 1, ang: 42, word: 'key' }] : t === FX_PLOT ? [{ in: 1, ang: -42, word: 'x' }, { in: 2, ang: 42, word: 'z' }] : [])
-/** The prints nothing leaves. */
-export const noOutputType = (t: number) => t === FX_PLOT
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
@@ -177,7 +165,7 @@ export interface FxGraphEdge {
   hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
 }
 
-export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[]; v?: number }
+export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
 
 export function hasGraphBridge (): boolean {
   return hasJuceNativeFunction('setGraph')

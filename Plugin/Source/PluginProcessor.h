@@ -245,7 +245,6 @@ private:
     std::atomic<bool>  modPendingFlag { false };
     double             ratePhase[orbfx::kMaxNodes] {};        // audio thread
     std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
-    std::vector<float> plotPoll[3];   // timer thread: one plot tap's y, x, z
     std::array<std::atomic<float>, orbfx::kMaxNodes * 12> liveHands {};   // each slot's hands as played (after the pushes), in the host's order, for the study
     void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
 

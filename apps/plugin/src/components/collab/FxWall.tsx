@@ -893,7 +893,10 @@ export default function FxWall ({ size: frame }: Props) {
     const p = wallPt(e)
     if (drag.kind === 'wire') {
       // landed on a node (its input) or the out port?
-      const hit = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 10 })
+      // the nearest print under the pointer (prints can sit close: the first in the list is not always the one meant)
+      const hit = graph.nodes.map(n => { const c = toScreen(n); return { n, d: Math.hypot(c.x - p.x, c.y - p.y) } }).filter(x => x.d <= Rz + 10).sort((a, b) => a.d - b.d)[0]?.n
+      let extra: { id: number; in: number } | null = null
+      { let bestD = 18; for (const n of graph.nodes) for (const x of extraInputsOf(n.type)) { const kp = extraPortOf(n, x.in); const dd = Math.hypot(kp.x - p.x, kp.y - p.y); if (dd <= bestD && n.id !== drag.from) { bestD = dd; extra = { id: n.id, in: x.in } } } }
       const src = drag.from === FX_PORT_IN ? null : nodeById(drag.from)
       if (src && playsHandsType(src.type)) {
         // a rate, a macro or a follow lands on a hand's word inside a print (the print shows them while the wire is in the air)
@@ -901,11 +904,9 @@ export default function FxWall ({ size: frame }: Props) {
         if (word) connectHand(drag.from, Number(word.dataset.node), word.dataset.hand!)
         setReveal(null)
       }
+      else if (extra) connect(drag.from, extra.id, drag.port, extra.in)   // an extra point (a key; a plot's x or z) wins over a print that merely sits close by
       else if (hit) {
-        // near an extra point (a key; a plot's x or z): the wire lands there
-        let inIdx = 0, bestD = 18
-        for (const x of extraInputsOf(hit.type)) { const kp = extraPortOf(hit, x.in); const dd = Math.hypot(kp.x - p.x, kp.y - p.y); if (dd <= bestD) { bestD = dd; inIdx = x.in } }
-        connect(drag.from, hit.id, drag.port, inIdx)
+        connect(drag.from, hit.id, drag.port, 0)
       }
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
     }

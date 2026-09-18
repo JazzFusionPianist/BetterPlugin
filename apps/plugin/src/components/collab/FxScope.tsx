@@ -230,6 +230,74 @@ export default function FxScope ({ plots, width, height, ink, accent, overlay, b
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
     }
+    /** The room: with a z wired, a plot is drawn in space — a camera a little to the side and above,
+     *  turning very slowly, so depth reads as depth. Everything lives in a −1..1 cube. */
+    const camera = (now: number) => {
+      const yaw = 0.52 + 0.14 * Math.sin(now / 9000), pitch = -0.34   // the eye is above the floor, looking a little down (at +0.3 it sat exactly at floor height: the floor went edge-on)
+      const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch)
+      const S = Math.min(width * 0.3, height * 0.36), D = 4.6   // the whole room fits the wall; a long lens, so the near corner does not balloon
+      return (X: number, Y: number, Z: number): [number, number, number] => {
+        const x1 = X * cy2 + Z * sy2, z1 = -X * sy2 + Z * cy2
+        const y2 = Y * cp - z1 * sp, z2 = Y * sp + z1 * cp
+        const f = D / (D + z2)
+        return [(width / 2 + x1 * f * S) * dpr, (height * 0.47 - y2 * f * S) * dpr, f]
+      }
+    }
+    /** The room's floor and its three axes, faint: drawn once when any plot is in space. */
+    const room = (P: ReturnType<typeof camera>, colour: (a: number) => string) => {
+      ctx.lineWidth = 1 * dpr
+      ctx.beginPath()
+      for (let k = -4; k <= 4; k++) {
+        const t = k / 4 * 1.3
+        let a = P(t, -1, -1.3), b = P(t, -1, 1.3); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1])
+        a = P(-1.3, -1, t); b = P(1.3, -1, t); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1])
+      }
+      ctx.strokeStyle = colour(0.13); ctx.stroke()
+      ctx.beginPath()
+      const o = P(-1.3, -1, -1.3)
+      for (const e of [P(1.3, -1, -1.3), P(-1.3, 1, -1.3), P(-1.3, -1, 1.3)]) { ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]) }
+      ctx.strokeStyle = colour(0.34); ctx.stroke()
+    }
+    /** A plot in space. With an x: the points (x, y, z). Without: time runs along x, the sound stands on y, z carries it near and far. */
+    const space = (r: { y: Float32Array; x: Float32Array; z: Float32Array; w: number }, spec: PlotSpec, P: ReturnType<typeof camera>, colour: string, alpha: number) => {
+      const len = r.y.length, g = spec.gain
+      const cl = (v: number) => Math.max(-1.2, Math.min(1.2, v))
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 1 * dpr; ctx.lineJoin = 'round'
+      if (spec.x) {
+        const secs = 0.02 + Math.pow(Math.min(100, Math.max(0, spec.trail)) / 100, 2) * 1.2
+        const n = Math.min(len - 1, Math.round(sr.current * secs)), step = Math.max(1, Math.floor(n / 2400))
+        if (spec.mode !== 1) ctx.beginPath()
+        let pen = false
+        for (let s2 = 0; s2 < n; s2 += step) {
+          const k = (r.w - n + s2 + len * 2) % len
+          const q = P(cl(r.x[k] * g), cl(r.y[k] * g), cl(r.z[k]))
+          if (spec.mode === 1) { ctx.globalAlpha = alpha * 0.6 * (0.15 + 0.85 * s2 / n) * Math.min(1, q[2] * q[2]); const d = dpr * 1.6 * q[2]; ctx.fillRect(q[0] - d / 2, q[1] - d / 2, d, d) }
+          else if (!pen) { ctx.moveTo(q[0], q[1]); pen = true } else ctx.lineTo(q[0], q[1])
+        }
+        if (spec.mode !== 1) { ctx.globalAlpha = alpha * 0.4; ctx.stroke() }
+      } else {
+        // time along x: one column per two pixels, min and max standing on y, the column's z its depth
+        const n = Math.min(len - 1, Math.round(sr.current * spec.windowS))
+        const cols = Math.max(32, Math.round(width / 2)), per = n / cols
+        ctx.beginPath()
+        let pen = false
+        for (let c = 0; c < cols; c++) {
+          let lo = 1, hi = -1, zs = 0, zn = 0
+          const s0 = Math.floor(c * per), s1 = Math.max(s0 + 1, Math.floor((c + 1) * per))
+          for (let s2 = s0; s2 < s1; s2++) { const k = (r.w - n + s2 + len * 2) % len; const v = r.y[k]; if (v < lo) lo = v; if (v > hi) hi = v; zs += r.z[k]; zn++ }
+          if (Math.max(Math.abs(lo), Math.abs(hi)) < SILENT && !(spec.y === 'value')) { pen = false; continue }
+          const X = (c / (cols - 1)) * 2.6 - 1.3, Z = cl(zn ? zs / zn : 0)
+          const a = P(X, cl(hi * g), Z), b = P(X, cl(lo * g), Z)
+          if (spec.mode === 1) { ctx.globalAlpha = alpha * 0.55 * Math.min(1, a[2] * a[2]); const d = dpr * 1.6 * a[2]; ctx.fillRect(a[0] - d / 2, a[1] - d / 2, d, d); ctx.fillRect(b[0] - d / 2, b[1] - d / 2, d, d); continue }
+          if (!pen) { ctx.moveTo(a[0], a[1]); pen = true } else ctx.lineTo(a[0], a[1])
+          ctx.lineTo(b[0], b[1])
+        }
+        if (spec.mode !== 1) { ctx.globalAlpha = alpha * 0.55; ctx.stroke() }
+      }
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over'
+    }
     const paperOf = (c: string): [number, number, number] => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(c); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234] }
 
     let last = performance.now()
@@ -245,10 +313,14 @@ export default function FxScope ({ plots, width, height, ink, accent, overlay, b
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       void accent
+      // a z wired anywhere: the wall is a room
+      const P = live.some(p => p.z) ? camera(now) : null
+      if (P) room(P, inkA)
       // the quiet ones first, the lit ones over them
       for (const spec of [...live].sort((p, q) => Number(q.quiet) - Number(p.quiet))) {
         const r = rings.current.get(spec.slot); if (!r) continue
-        if (spec.x) figure(r, spec, spec.quiet ? inkA(0.6) : ink, spec.quiet ? 0.6 : 1)
+        if (spec.z && P) space(r, spec, P, spec.quiet ? inkA(0.7) : ink, spec.quiet ? 0.6 : 1)
+        else if (spec.x) figure(r, spec, spec.quiet ? inkA(0.6) : ink, spec.quiet ? 0.6 : 1)
         else if (spec.quiet) trace(r.y, r.w, both ? inkA(0.22) : inkA(0.45), 1, spec.gain, spec.windowS)
         else ribbon(r.y, r.w, paperOf(ink), both ? 1 : 0.85, spec.gain, spec.windowS)
       }

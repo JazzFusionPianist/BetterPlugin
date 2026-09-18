@@ -37,7 +37,10 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             // control prints: no audio passes through them
             kLfo  = 30,             // a drawn shape (64 samples over one cycle)
             kRate = 31,             // a clock that plays a shape into a hand of another print
-            kMacro = 32 };          // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
+            kMacro = 32,            // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
+            // the sidechain: a source print, and a listener that turns a sound into a hand's push
+            kSide = 33,             // the host's sidechain bus, as a print: no input, one output
+            kFollow = 34 };         // an envelope follower: audio in, a control wire out (attack, release, sense)
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
@@ -45,6 +48,8 @@ constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
+inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
+inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 64;
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
@@ -285,7 +290,9 @@ struct Op
                       kSplitLR,    // dst = (src.L, src.L), dst2 = (src.R, src.R)
                       kSplitMS,    // dst = (mid, mid), dst2 = (side, side)
                       kJoinLR,     // dst.L = fold(src), dst.R = fold(src2); a missing lane (-1) is silence; flag 1 = add
-                      kJoinMS };   // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
+                      kJoinMS,     // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
+                      kSide,       // dst = the sidechain bus (silence when the host gives none)
+                      kFollow };   // follow[slot] = envelope of src (attack, release, sense from params[slot].aux)
     int   kind = kCopy;
     int   slot = -1;
     int   type = kNone;
@@ -329,7 +336,14 @@ public:
     /** Audio thread: run the current Program. `params` is indexed by
      *  slot; `grDbOut` reports glue's reduction (max over glue nodes). */
     void process (juce::AudioBuffer<float>& buffer, float sampleRate,
-                  const NodeParams* params, float& grDbOut);
+                  const NodeParams* params, float& grDbOut,
+                  const juce::AudioBuffer<float>* side = nullptr);
+
+    /** What a follow print hears now, 0..1 (0 when it isn't running). Any thread. */
+    float followValue (int slot) const noexcept
+    {
+        return slot >= 0 && slot < kMaxNodes ? follows[(size_t) slot].load (std::memory_order_relaxed) : 0.0f;
+    }
 
     /** Samples of latency a node adds at this sample rate (its quality
      *  word chooses between the fine and the live shifter). */
@@ -350,6 +364,9 @@ private:
 
     std::array<NodeState, kMaxNodes> nodes;
     std::array<std::atomic<float>, kMaxNodes> peaks {};
+    std::array<std::atomic<float>, kMaxNodes> follows {};
+    float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope
+    const juce::AudioBuffer<float>* sideBuf = nullptr;   // per block: the host's sidechain, or null
     juce::AudioBuffer<float> scratch { 2, 2048 };
     std::vector<juce::AudioBuffer<float>> pool;   // indices 1..kMaxBuffers-1
     juce::AudioBuffer<float>* host = nullptr;     // buffer 0, per block

@@ -56,7 +56,8 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
 OrbAudioProcessor::OrbAudioProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-          .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false))   // the host's side chain, off until routed
 {
     // twelve hands per slot for the host to automate, grouped by slot ("print 3 › delay feedback")
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
@@ -378,6 +379,12 @@ bool OrbAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 {
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
+    if (layouts.inputBuses.size() > 1)
+    {
+        // the sidechain: off, mono or stereo
+        const auto side = layouts.getChannelSet (true, 1);
+        if (! (side.isDisabled() || side == juce::AudioChannelSet::mono() || side == juce::AudioChannelSet::stereo())) return false;
+    }
 
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
         || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::mono();
@@ -459,8 +466,15 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // One-knob FX — before the capture FIFO, so the shared/streamed audio
-    // carries the same sound the DAW hears.
-    processFx (buffer);
+    // carries the same sound the DAW hears. The wall works on the main
+    // bus; the sidechain bus (when the host routes one) is handed along.
+    {
+        auto main = getBusBuffer (buffer, true, 0);
+        const bool hasSide = getBusCount (true) > 1 && getBus (true, 1)->isEnabled() && getChannelCountOfBus (true, 1) > 0;
+        juce::AudioBuffer<float> side;
+        if (hasSide) side = getBusBuffer (buffer, true, 1);
+        processFx (main, hasSide ? &side : nullptr);
+    }
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = juce::jmin (buffer.getNumChannels(), captureBuffer.getNumChannels());
@@ -606,6 +620,17 @@ void OrbAudioProcessor::timerCallback()
         script << (i ? ",[" : "[") << juce::String (h.amount->get(), 4) << "," << h.mode->get() << "," << juce::String (h.decay->get(), 4) << ","
                << juce::String (h.fb->get(), 4) << "," << h.div->get() << "," << (h.wet->get() ? 1 : 0);
         for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
+        script << "]";
+    }
+    // per-slot hands as played (the pushes in): the study shows these move
+    script << "],live:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const auto* L = &liveHands[(size_t) i * 12];
+        script << (i ? ",[" : "[") << juce::String (L[0].load (std::memory_order_relaxed), 4) << "," << (int) L[1].load (std::memory_order_relaxed) << ","
+               << juce::String (L[2].load (std::memory_order_relaxed), 4) << "," << juce::String (L[3].load (std::memory_order_relaxed), 4) << ","
+               << (int) L[4].load (std::memory_order_relaxed) << "," << (int) L[5].load (std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) script << "," << (int) L[6 + k].load (std::memory_order_relaxed);
         script << "]";
     }
     script << "],macros:[";
@@ -1108,16 +1133,17 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             if (nd.type == orbfx::kRate)  t.isRate[nd.id] = true;
             if (nd.type == orbfx::kLfo)   isLfo[nd.id] = true;
             if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
+            if (nd.type == orbfx::kFollow) t.isFollow[nd.id] = true;
         }
         for (auto& e : g.edges)
         {
             const bool nodes = e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes;
             if (! nodes) continue;
-            const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0;
+            const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
             if ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src && t.count < orbfx::kMaxEdges)
             {
                 auto& w = t.wires[t.count++];
-                w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0, -1 };
+                w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0 || t.isFollow[e.from], -1 };
                 if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
             }
             else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
@@ -1129,7 +1155,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             for (auto& e : g.edges)
             {
                 if (! (e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes)) continue;
-                const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0;
+                const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
                 if (! ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src)) continue;
                 if (k >= t.count) break;
                 if (e.refHand != orbfx::kHandNone)
@@ -1149,7 +1175,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1178,6 +1204,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
         case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
         case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
+        case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1194,6 +1221,7 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
+        case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
         default: break;
     }
 }
@@ -1300,7 +1328,7 @@ void OrbAudioProcessor::rebuildLegacyGraph()
     fxGraphMode.store (false);
 }
 
-void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
+void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer, const juce::AudioBuffer<float>* side)
 {
     const int n  = buffer.getNumSamples();
     const int nc = buffer.getNumChannels();
@@ -1335,9 +1363,19 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     }
 
     applyModulation (params, n, sr, bpm, playing, ppq);
+    // what is actually being played, for the study to show moving
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const auto& p = params[i];
+        auto* L = &liveHands[(size_t) i * 12];
+        L[0].store (p.amount, std::memory_order_relaxed); L[1].store ((float) p.variant, std::memory_order_relaxed);
+        L[2].store (p.decay, std::memory_order_relaxed);  L[3].store (p.delayFb, std::memory_order_relaxed);
+        L[4].store ((float) p.delayDiv, std::memory_order_relaxed); L[5].store (p.wet ? 1.0f : 0.0f, std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) L[6 + k].store ((float) p.aux[k], std::memory_order_relaxed);
+    }
 
     float gr = 0.0f;
-    fxChain.process (buffer, sr, params, gr);
+    fxChain.process (buffer, sr, params, gr, side);
     glueGrDb.store (gr, std::memory_order_relaxed);
 }
 
@@ -1361,6 +1399,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     float value[orbfx::kMaxNodes];
     for (int r = 0; r < orbfx::kMaxNodes; ++r) value[r] = 0.5f;
     for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.isFollow[r]) value[r] = fxChain.followValue (r);   // what it heard last block
     // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
     auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth : (value[w.from] - 0.5f) * 2.0f * depth; };
     auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)

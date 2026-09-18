@@ -231,10 +231,11 @@ private:
      *  with the program, adopted at a block boundary. */
     struct ModTable
     {
-        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; };   // target ≥ 0: this wire sets that wire's depth
+        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; };   // fromMacro: a one-way push (a macro or a follow); target ≥ 0: this wire sets that wire's depth
         int  count = 0;
         Wire wires[orbfx::kMaxEdges];
         bool isRate[orbfx::kMaxNodes] {};
+        bool isFollow[orbfx::kMaxNodes] {};   // a follow slot: its value is what the engine heard last block
         int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
         int  macroOf[orbfx::kMaxNodes];   // macro slot → macro index 0..7, or -1
         ModTable() { for (auto& x : shapeOf) x = -1; for (auto& x : macroOf) x = -1; }
@@ -244,6 +245,7 @@ private:
     std::atomic<bool>  modPendingFlag { false };
     double             ratePhase[orbfx::kMaxNodes] {};        // audio thread
     std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall
+    std::array<std::atomic<float>, orbfx::kMaxNodes * 12> liveHands {};   // each slot's hands as played (after the pushes), in the host's order, for the study
     void applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq);
 
     /** The host's view of the wall: twelve hands per slot, in a group per slot. */
@@ -291,7 +293,7 @@ private:
     std::unique_ptr<juce::FileChooser> presetChooser;
     void handleSavePresetDialog (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
     void handleOpenPresetDialog (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion);
-    void processFx (juce::AudioBuffer<float>& buffer);
+    void processFx (juce::AudioBuffer<float>& buffer, const juce::AudioBuffer<float>* side);
 
     //── Live audio streaming timer ───────────────────────────────────────────
     void timerCallback() override;

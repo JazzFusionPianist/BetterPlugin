@@ -114,13 +114,21 @@ export const FX_RATE = 31
 /** A knob the host can turn (macro 1 … 8): played into hands, or onto a control wire's depth. */
 export const FX_MACRO = 32
 export const FX_MACROS = 8
+/** The sidechain: `side` is the host's side bus as a print (no input, one output);
+ *  `follow` listens to whatever is wired into it and pushes a hand with what it hears. */
+export const FX_SIDE = 33
+export const FX_FOLLOW = 34
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
-export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO
+export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
+/** The prints whose wire lands on a hand (a dashed control wire). */
+export const playsHandsType = (t: number) => t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
+/** The prints with no input point: the shapes and the sources. */
+export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
 export const hasAmountType = (t: number) => !isUtilityType(t) || t === FX_MACRO
 /** A control wire's target: a hand, or another control wire ("wire:<from>:<hand>") whose depth it sets. */

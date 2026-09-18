@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Steps, type Hue, type Tone } from '../../assets/parts/parts'
+import { useLiveHand } from '../../lib/liveHands'
 
 /*  The study's hands — the rows under the big print.
 
@@ -71,9 +72,11 @@ function Value ({ text }: { text: string }) {
 
 /* ── a number: drag it, type into it; the bar beside it is the gauge ── */
 
-export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3 }: {
+export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3, liveKey, liveMap }: {
   label: string
   tag?: React.ReactNode       // what plays this hand (a rate), shown after the label
+  liveKey?: [number, number]  // a played hand: [slot, hand index] — the number follows what the engine plays, the handle stays at the setting
+  liveMap?: (v: number) => number   // the engine's unit → this row's unit
   onGesture?: (on: boolean) => void   // the finger lands on / leaves this hand (the host records automation in between)
   value: number
   min: number
@@ -88,11 +91,15 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
   onChange: (v: number, final: boolean) => void
   colour?: Hue
 }) {
-  const text = format ? format(value) : `${quant(value, step)}${unit ? ' ' + unit : ''}`
+  const fmt = (v: number) => (format ? format(v) : `${quant(v, step)}${unit ? ' ' + unit : ''}`)
+  const text = fmt(value)
   const commit = (v: number) => { onGesture?.(true); onChange(clamp(quant(v, step), min, max), true); onGesture?.(false) }
   const typing = useTypeIn({ text, parse: parse ?? parseLead, commit, reset: () => onChange(defaultValue, true) })
   const drag = useRef<{ x0: number; y0: number; v0: number; last: number; moved: boolean } | null>(null)
   const [live, setLive] = useState(false)
+  // the engine's number for this hand, while something plays it (and no finger is on it)
+  const raw = useLiveHand(liveKey ? liveKey[0] : -1, liveKey ? liveKey[1] : -1)
+  const played = raw !== undefined && !live && !typing.editing ? clamp(liveMap ? liveMap(raw) : raw, min, max) : undefined
   const [hover, setHover] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   // the wheel is ours (React's onWheel is passive — the body would scroll)
@@ -138,8 +145,8 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
       <span className="sg-row-label">{label}{tag}</span>
       <span className="sg-row-ctl">
-        <Bar f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
-        <span className="sg-num">{typing.input ?? <Value text={text} />}</span>
+        <Bar mark={played === undefined ? undefined : (span > 0 ? clamp((played - min) / span, 0, 1) : 0)} f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
+        <span className="sg-num">{typing.input ?? <Value text={played === undefined ? text : fmt(played)} />}</span>
       </span>
     </div>
   )

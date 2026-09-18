@@ -1705,7 +1705,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
         if (slotType[nd.id] != kNone || controlSlot[nd.id]) { error = "duplicate node id"; return false; }
         if (isControl (nd.type)) { controlSlot[nd.id] = true; continue; }   // no audio: the processor plays these
-        if (! isEffect (nd.type) && nd.type != kMixType && ! isSplitter (nd.type)) { error = "bad node type"; return false; }
+        if (! isEffect (nd.type) && nd.type != kMixType && ! isSplitter (nd.type) && ! isSource (nd.type) && ! isListener (nd.type)) { error = "bad node type"; return false; }
         slotType[nd.id] = nd.type;
         nodeOf[nd.id] = &nd;
         bypassed[nd.id] = nd.bypass && isEffect (nd.type);
@@ -1739,6 +1739,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     // ── reachability: a node counts only if in → node → out ─────────────
     bool fwd[kMaxNodes] {}, bwd[kMaxNodes] {};
     {
+        // a source print is where audio starts (like in); a listener is where it ends (like out)
+        for (int i = 0; i < kMaxNodes; ++i) { fwd[i] = isSource (slotType[i]); bwd[i] = isListener (slotType[i]); }
         bool changed = true;
         while (changed)
         {
@@ -1942,8 +1944,28 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     {
         const int id = order[k];
         int b = -1, latest = 0;
+        if (isSource (slotType[id]))
+        {
+            // the sidechain: a fresh buffer filled from the host's side bus
+            b = alloc();
+            if (b < 0) { error = "too many branches"; return false; }
+            laneOfBuf[b] = kLaneStereo;
+            Op sd; sd.kind = Op::kSide; sd.slot = id; sd.dst = b;
+            if (! emit (sd)) return false;
+            arrival[id] = 0;
+            if (! fanOut (id, 0, b)) return false;
+            continue;
+        }
         if (! gather (id, false, b, latest)) return false;
         arrival[id] = latest;
+        if (isListener (slotType[id]))
+        {
+            // a follow: listens, keeps nothing
+            Op fl; fl.kind = Op::kFollow; fl.slot = id; fl.src = b;
+            if (! emit (fl)) return false;
+            if (! fanOut (id, 0, b)) return false;   // no audio leaves it: this releases the buffer
+            continue;
+        }
         if (isSplitter (slotType[id]))
         {
             // a split: port 0 keeps the buffer, port 1 gets a fresh one
@@ -2219,6 +2241,57 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             }
             break;
         }
+        case Op::kSide:
+        {
+            float* L = chan (op.dst, 0, n);
+            float* R = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            const bool has = sideBuf != nullptr && sideBuf->getNumChannels() > 0 && sideBuf->getNumSamples() >= n;
+            if (! has)
+            {
+                juce::FloatVectorOperations::clear (L, n);
+                if (R != nullptr) juce::FloatVectorOperations::clear (R, n);
+                if (op.slot >= 0 && op.slot < kMaxNodes) peaks[(size_t) op.slot].store (0.0f, std::memory_order_relaxed);
+                break;
+            }
+            const float* sL = sideBuf->getReadPointer (0);
+            const float* sR = sideBuf->getReadPointer (juce::jmin (1, sideBuf->getNumChannels() - 1));
+            juce::FloatVectorOperations::copy (L, sL, n);
+            if (R != nullptr) juce::FloatVectorOperations::copy (R, sR, n);
+            if (op.slot >= 0 && op.slot < kMaxNodes)
+            {
+                float pk = 0.0f;
+                for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f);
+                peaks[(size_t) op.slot].store (pk, std::memory_order_relaxed);
+            }
+            break;
+        }
+        case Op::kFollow:
+        {
+            if (op.slot < 0 || op.slot >= kMaxNodes) break;
+            const float* L = chan (op.src, 0, n);
+            const float* R = nc > 1 ? chan (op.src, 1, n) : nullptr;
+            const auto& p = params[op.slot];
+            // attack and release in ms; sense in dB around 0 (0 = -24 dB, 50 = 0 dB, 100 = +24 dB);
+            // threshold in dB: below it the follow hears nothing, from it up to 0 dBFS it goes 0..1
+            const float atkMs = (float) juce::jlimit (1, 500, p.aux[0]);
+            const float relMs = (float) juce::jlimit (5, 2000, p.aux[1]);
+            const float gain  = std::pow (10.0f, (float) (juce::jlimit (0, 100, p.aux[2]) - 50) * 0.024f);
+            const float thrDb = (float) juce::jlimit (-60, -1, p.aux[3]);
+            const float ca = 1.0f - std::exp (-1.0f / (atkMs * 0.001f * sampleRate));
+            const float cr = 1.0f - std::exp (-1.0f / (relMs * 0.001f * sampleRate));
+            float env = followEnv[op.slot];
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = juce::jmin (1.5f, gain * juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f));
+                env += (x > env ? ca : cr) * (x - env);
+            }
+            followEnv[op.slot] = env;
+            const float envDb = 20.0f * std::log10 (juce::jmax (1.0e-5f, env));
+            const float v = juce::jlimit (0.0f, 1.0f, (envDb - thrDb) / (0.0f - thrDb));
+            follows[(size_t) op.slot].store (v, std::memory_order_relaxed);
+            peaks[(size_t) op.slot].store (v, std::memory_order_relaxed);
+            break;
+        }
         case Op::kProcess:
         {
             if (op.slot < 0 || op.slot >= kMaxNodes) break;
@@ -2237,7 +2310,8 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
 }
 
 void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,
-                     const NodeParams* params, float& grDbOut)
+                     const NodeParams* params, float& grDbOut,
+                     const juce::AudioBuffer<float>* side)
 {
     const int n  = buffer.getNumSamples();
     const int nc = juce::jmin (2, buffer.getNumChannels());
@@ -2246,8 +2320,10 @@ void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,
 
     adoptPending();
     host = &buffer;
+    sideBuf = side;
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
-    if (active.bypass) return;
+    for (auto& fv : follows) fv.store (0.0f, std::memory_order_relaxed);
+    if (active.bypass) { host = nullptr; sideBuf = nullptr; return; }
 
     for (int i = 0; i < active.numOps; ++i)
     {
@@ -2257,6 +2333,7 @@ void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,
             grDbOut = juce::jmax (grDbOut, nodes[(size_t) op.slot].grDb);
     }
     host = nullptr;
+    sideBuf = nullptr;
 }
 
 } // namespace orbfx

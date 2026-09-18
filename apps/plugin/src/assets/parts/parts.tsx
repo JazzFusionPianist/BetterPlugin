@@ -126,17 +126,20 @@ export function Steps ({ count, value, hue: c, hover = -1, width, onStep }: {
 }
 
 /* ── the bar: a thin track, the value filled in the colour, a square ink handle at the value ── */
-export function Bar ({ f, zero = 0, hue: c, live, hover, width }: {
+export function Bar ({ f, zero = 0, hue: c, live, hover, width, mark }: {
   f: number; zero?: number; hue: Tone; live?: boolean; hover?: boolean; width: number
+  mark?: number   // where the engine has this hand right now (0..1): a tick in the colour, while the handle stays at the setting
 }) {
   const H = 12, y = H / 2, h = live ? 4 : 3
   const x0 = width * Math.min(zero, f), x1 = width * Math.max(zero, f)
   const hx = width * f, hw = live ? 3 : 2
+  const mx = mark === undefined ? undefined : width * Math.min(1, Math.max(0, mark))
   return (
     <svg className="sg-part" width={width} height={H} viewBox={`0 0 ${width} ${H}`}>
       <rect x="0" y={y - h / 2} width={width} height={h} fill={ink(hover || live ? 0.18 : 0.12)} />
       {zero > 0 && <rect x={width * zero - 0.5} y={y - 5} width="1" height="10" fill={ink(0.42)} />}
       {x1 - x0 > 0.5 && <rect x={x0} y={y - h / 2} width={x1 - x0} height={h} fill={hue(c)} />}
+      {mx !== undefined && <rect x={mx - 1} y={y - 6} width="2" height="12" fill={hue(c)} />}
       <rect x={hx - hw / 2} y={y - 5} width={hw} height="10" fill={ink(1)} />
     </svg>
   )

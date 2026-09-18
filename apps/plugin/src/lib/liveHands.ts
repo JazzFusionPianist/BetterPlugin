@@ -39,3 +39,8 @@ const subscribe = (cb: () => void) => { subs.add(cb); return () => { subs.delete
 export function useLiveHand (slot: number, k: number): number | undefined {
   return useSyncExternalStore(subscribe, () => (have && slot >= 0 && slot < 16 && k >= 0 && k < LIVE_HANDS ? live[slot * LIVE_HANDS + k] : undefined))
 }
+
+/** The same, read once (for a draw loop, not a component). */
+export function getLiveHand (slot: number, k: number): number | undefined {
+  return have && slot >= 0 && slot < 16 && k >= 0 && k < LIVE_HANDS ? live[slot * LIVE_HANDS + k] : undefined
+}

@@ -1,24 +1,34 @@
 import { useEffect, useRef } from 'react'
 import { hasJuceBridge } from '../../lib/juceBridge'
+import { getLiveHand, LIVE_INDEX } from '../../lib/liveHands'
 
-/*  The scope: what the plugin hears (input, before the patch) and what
-    leaves it (output, after), as live waveforms in the wall's corner.
-    Both are drawn from the same clock so, side by side, the patch's
-    work is visible as the difference between two traces — input in the
-    wall's ink, quiet; output in the second ink over it.               */
+/*  The scope: the wall's picture. Every plot print on the wall draws
+    here — whatever is wired into its y (and x, and z). A plot with only
+    a y is a waveform scrolling by; fed straight from `in` it is the
+    quiet trace in the wall's ink, anywhere later it is the lit ribbon
+    that takes the lamps' colours. With an x it is a figure (y against
+    x); a z pushes it away and dims it. All plots share one clock, so
+    two traces side by side show what the patch did between them.     */
 
-const WINDOW_S = 0.16          // seconds of signal across the wall
 const RING_S = 3               // seconds kept (the widest window is 2 s)
 
+export type PlotAxis = 'sound' | 'value' | null
+export interface PlotSpec {
+  slot: number
+  quiet: boolean               // fed straight from `in`: the wall's ink, quiet
+  mode: number                 // 0 = line, 1 = dots (a figure only)
+  trail: number                // 0..100: how much of a figure stays
+  windowS: number              // with no x: seconds of signal across the wall (the speed it scrolls by)
+  gain: number                 // vertical zoom: 1 = full scale fills 84% of the wall
+  y: PlotAxis; x: PlotAxis; z: PlotAxis   // a sound wire, a control wire, or nothing
+}
+
 interface Props {
-  input: boolean
-  output: boolean
+  plots: PlotSpec[]
   width: number
   height: number
   ink: string                  // the wall's ink, "rgb(r, g, b)"
   accent: string               // the second ink
-  gain?: number                // vertical zoom: 1 = full scale fills 84% of the wall
-  windowS?: number             // horizontal zoom: seconds edge to edge
   /** Drawn over the traces every frame, in CSS px: the wall's wires and
    *  the discs under its prints live here too, so one full redraw per
    *  frame replaces WebKit's partial repaints (which smeared). */
@@ -39,60 +49,71 @@ function decode (b64: string): Float32Array | null {
   } catch { return null }
 }
 
-export default function FxScope ({ input, output, width, height, ink, accent, gain = 1, windowS = WINDOW_S, overlay, backdrop, palette }: Props) {
+export default function FxScope ({ plots, width, height, ink, accent, overlay, backdrop, palette }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const sr = useRef(48000)
-  const ringIn = useRef(new Float32Array(48000 * RING_S))
-  const ringOut = useRef(new Float32Array(48000 * RING_S))
-  const wIn = useRef(0), wOut = useRef(0)
+  // one ring per plot and axis, all written in step
+  type Rings = { y: Float32Array; x: Float32Array; z: Float32Array; w: number }
+  const rings = useRef(new Map<number, Rings>())
+  const ringOf = (slot: number): Rings => {
+    let r = rings.current.get(slot)
+    const len = sr.current * RING_S
+    if (!r || r.y.length !== len) { r = { y: new Float32Array(len), x: new Float32Array(len), z: new Float32Array(len), w: 0 }; rings.current.set(slot, r) }
+    return r
+  }
+  const specs = useRef(plots); specs.current = plots
   const bridge = hasJuceBridge
+  /** A played axis as a signal: the hand runs 0..1000 around 500. */
+  const valueOf = (slot: number, axis: 'x' | 'y' | 'z') => { const v = getLiveHand(slot, LIVE_INDEX[axis === 'x' ? 'aux1' : axis === 'y' ? 'aux2' : 'aux3']); return v === undefined ? 0 : Math.max(-1, Math.min(1, (v - 500) / 500)) }
+  /** n samples into a plot's rings: a sound axis from its stream, a value axis held, nothing as zero. */
+  const feed = (spec: PlotSpec, n: number, sound: { y?: Float32Array | null; x?: Float32Array | null; z?: Float32Array | null }) => {
+    const r = ringOf(spec.slot)
+    const vy = spec.y === 'value' ? valueOf(spec.slot, 'y') : 0, vx = spec.x === 'value' ? valueOf(spec.slot, 'x') : 0, vz = spec.z === 'value' ? valueOf(spec.slot, 'z') : 0
+    for (let i = 0; i < n; i++) {
+      r.y[r.w] = spec.y === 'sound' ? (sound.y?.[i] ?? 0) : vy
+      r.x[r.w] = spec.x === 'sound' ? (sound.x?.[i] ?? 0) : vx
+      r.z[r.w] = spec.z === 'sound' ? (sound.z?.[i] ?? 0) : vz
+      r.w = (r.w + 1) % r.y.length
+    }
+  }
 
   // ── feed ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const push = (ring: Float32Array, w: { current: number }, mono: Float32Array) => {
-      for (let i = 0; i < mono.length; i++) { ring[w.current] = mono[i]; w.current = (w.current + 1) % ring.length }
-    }
-    const toMono = (f: Float32Array, ch: number) => {
-      const n = Math.floor(f.length / ch)
-      const m = new Float32Array(n)
-      for (let i = 0; i < n; i++) { let s = 0; for (let c = 0; c < ch; c++) s += f[i * ch + c]; m[i] = s / ch }
-      return m
-    }
     if (bridge) {
       const onAudio = (e: Event) => {
-        const d = (e as CustomEvent).detail as { samples?: string; inSamples?: string; sr?: number; ch?: number }
-        const ch = Math.max(1, d.ch ?? 2)
-        if (d.sr && d.sr !== sr.current) {
-          sr.current = d.sr
-          ringIn.current = new Float32Array(d.sr * RING_S); ringOut.current = new Float32Array(d.sr * RING_S)
-          wIn.current = 0; wOut.current = 0
+        const d = (e as CustomEvent).detail as { sr?: number; plots?: Array<{ slot: number; mask: number; y?: string; x?: string; z?: string }> }
+        if (d.sr && d.sr !== sr.current) { sr.current = d.sr; rings.current.clear() }
+        if (!Array.isArray(d.plots)) return
+        for (const p of d.plots) {
+          const spec = specs.current.find(s => s.slot === p.slot); if (!spec) continue
+          const y = p.y ? decode(p.y) : null, x = p.x ? decode(p.x) : null, z = p.z ? decode(p.z) : null
+          const n = (y ?? x ?? z)?.length ?? 0
+          if (n > 0) feed(spec, n, { y, x, z })
         }
-        const out = d.samples ? decode(d.samples) : null
-        const inp = d.inSamples ? decode(d.inSamples) : null
-        if (out) push(ringOut.current, wOut, toMono(out, ch))
-        if (inp) push(ringIn.current, wIn, toMono(inp, ch))
-        else if (out) push(ringIn.current, wIn, new Float32Array(Math.floor(out.length / ch)))   // keep the clocks together
       }
       window.addEventListener('__juceDawAudio', onAudio)
       return () => window.removeEventListener('__juceDawAudio', onAudio)
     }
-    // plain browser: a test tone so the scope has something to show —
-    // the "output" is the tone through a make-believe patch
+    // plain browser: test tones so the picture has something to show —
+    // a plot fed from `in` gets the tone, any other the tone through a make-believe patch
     let t = 0
     const id = setInterval(() => {
       const n = Math.round(sr.current / 30)
-      const a = new Float32Array(n), b = new Float32Array(n)
+      const a = new Float32Array(n), b = new Float32Array(n), c = new Float32Array(n), dz = new Float32Array(n)
       for (let i = 0; i < n; i++) {
         const x = t / sr.current
         const env = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.3 * x)
         const s = (Math.sin(2 * Math.PI * 110 * x) * 0.5 + Math.sin(2 * Math.PI * 330 * x) * 0.2) * env
         a[i] = s
         b[i] = Math.tanh(s * 2.2) * 0.7 * (0.6 + 0.4 * Math.sin(2 * Math.PI * 6 * x))
+        c[i] = Math.sin(2 * Math.PI * 165.3 * x + 0.6) * 0.6 * env
+        dz[i] = Math.sin(2 * Math.PI * 0.4 * x)
         t++
       }
-      push(ringIn.current, wIn, a); push(ringOut.current, wOut, b)
+      for (const spec of specs.current) feed(spec, n, { y: spec.quiet ? a : b, x: c, z: dz })
     }, 1000 / 30)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge])
 
   // ── draw ──────────────────────────────────────────────────────────
@@ -103,8 +124,8 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
     const ctx = el.getContext('2d'); if (!ctx) return
     let raf = 0
     const SILENT = 0.002   // ≈ −54 dBFS: below this there is nothing to draw
-    const trace = (ring: Float32Array, w: number, colour: string, lw: number) => {
-      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
+    const trace = (ring: Float32Array, w: number, colour: string, lw: number, gain: number, win: number) => {
+      const n = Math.min(ring.length - 1, Math.round(sr.current * win))
       const per = n / width
       ctx.beginPath()
       ctx.strokeStyle = colour; ctx.lineWidth = lw * dpr; ctx.lineJoin = 'round'
@@ -129,8 +150,8 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
     /** The output as light: the min/max envelope filled softly and edged
      *  finely, coloured by whatever lamp it passes under, added to the
      *  wall (never a flat coloured line). Silence breaks it. */
-    const ribbon = (ring: Float32Array, w: number, paper: [number, number, number], alpha: number) => {
-      const n = Math.min(ring.length - 1, Math.round(sr.current * windowS))
+    const ribbon = (ring: Float32Array, w: number, paper: [number, number, number], alpha: number, gain: number, win: number) => {
+      const n = Math.min(ring.length - 1, Math.round(sr.current * win))
       const per = n / width
       const mid = height / 2, amp = height * 0.42
       // colour across the wall: paper, warmed toward each lamp's tint
@@ -183,25 +204,61 @@ export default function FxScope ({ input, output, width, height, ink, accent, ga
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
     }
+    /** A figure: y against x over the last stretch of signal; z pushes it away (smaller, dimmer). */
+    const figure = (r: { y: Float32Array; x: Float32Array; z: Float32Array; w: number }, spec: PlotSpec, colour: string, alpha: number) => {
+      const gain = spec.gain
+      const secs = 0.02 + Math.pow(Math.min(100, Math.max(0, spec.trail)) / 100, 2) * 1.2
+      const n = Math.min(r.y.length - 1, Math.round(sr.current * secs))
+      const step = Math.max(1, Math.floor(n / 2400))
+      const cxp = width / 2, cyp = height / 2, amp = Math.min(width, height) * 0.42
+      const len = r.y.length
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 1 * dpr; ctx.lineJoin = 'round'
+      let pen = false
+      if (spec.mode !== 1) ctx.beginPath()
+      for (let s2 = 0; s2 < n; s2 += step) {
+        const k = (r.w - n + s2 + len * 2) % len
+        const d = spec.z ? (Math.max(-1, Math.min(1, r.z[k])) + 1) / 2 : 0          // 0 near … 1 far
+        const sc = 1 - 0.45 * d
+        const px = (cxp + Math.max(-1.2, Math.min(1.2, r.x[k] * gain)) * amp * sc) * dpr
+        const py = (cyp - Math.max(-1.2, Math.min(1.2, r.y[k] * gain)) * amp * sc) * dpr
+        const age = s2 / n                                                         // old … new
+        if (spec.mode === 1) { ctx.globalAlpha = alpha * 0.6 * (0.15 + 0.85 * age) * (1 - 0.6 * d); ctx.fillRect(px - dpr * 0.75, py - dpr * 0.75, dpr * 1.5, dpr * 1.5) }
+        else if (!pen) { ctx.moveTo(px, py); pen = true } else ctx.lineTo(px, py)
+      }
+      if (spec.mode !== 1) { ctx.globalAlpha = alpha * 0.34; ctx.stroke() }   // a backdrop: the prints sit on it
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over'
+    }
     const paperOf = (c: string): [number, number, number] => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(c); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234] }
 
+    let last = performance.now()
     const tick = () => {
+      // a plot with no sound wire at all has no stream: its values are sampled here, on the same clock
+      const now = performance.now(); const dtN = Math.min(sr.current / 10, Math.round((now - last) / 1000 * sr.current)); last = now
+      for (const spec of specs.current) if (bridge && spec.y !== 'sound' && spec.x !== 'sound' && spec.z !== 'sound' && (spec.y || spec.x || spec.z) && dtN > 0) feed(spec, dtN, {})
       ctx.clearRect(0, 0, el.width, el.height)
       if (backdrop) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); backdrop(ctx); ctx.globalCompositeOperation = 'source-over' }
       // a backdrop, not a meter: quiet enough for the prints to sit on
-      const both = input && output
+      const live = specs.current.filter(p => p.y || p.x || p.z)
+      const both = live.some(p => p.quiet) && live.some(p => !p.quiet)
       const inkA = (a: number) => ink.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
-      const accA = (a: number) => accent.replace('rgb(', 'rgba(').replace(')', `, ${a})`)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
-      void accA
-      if (input) trace(ringIn.current, wIn.current, both ? inkA(0.22) : inkA(0.45), 1)
-      if (output) ribbon(ringOut.current, wOut.current, paperOf(ink), both ? 1 : 0.85)
+      void accent
+      // the quiet ones first, the lit ones over them
+      for (const spec of [...live].sort((p, q) => Number(q.quiet) - Number(p.quiet))) {
+        const r = rings.current.get(spec.slot); if (!r) continue
+        if (spec.x) figure(r, spec, spec.quiet ? inkA(0.6) : ink, spec.quiet ? 0.6 : 1)
+        else if (spec.quiet) trace(r.y, r.w, both ? inkA(0.22) : inkA(0.45), 1, spec.gain, spec.windowS)
+        else ribbon(r.y, r.w, paperOf(ink), both ? 1 : 0.85, spec.gain, spec.windowS)
+      }
       if (overlay) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); overlay(ctx); ctx.setTransform(1, 0, 0, 1, 0, 0) }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [input, output, width, height, ink, accent, gain, windowS, overlay, backdrop, palette])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height, ink, accent, overlay, backdrop, palette])
 
   return <canvas ref={canvas} className="sg-scope" style={{ width, height }} />
 }

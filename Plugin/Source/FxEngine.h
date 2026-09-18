@@ -40,7 +40,9 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kMacro = 32,            // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
             // the sidechain: a source print, and a listener that turns a sound into a hand's push
             kSide = 33,             // the host's sidechain bus, as a print: no input, one output
-            kFollow = 34 };         // an envelope follower: audio in, a control wire out (attack, release, sense)
+            kFollow = 34,           // an envelope follower: audio in, a control wire out (attack, release, sense)
+            // the wall's picture: what is wired into a plot is drawn behind the prints
+            kPlot = 35 };           // three inputs (0 = y, 1 = x, 2 = z), no output: its sounds are streamed to the page
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
@@ -49,7 +51,8 @@ inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMix
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
-inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
+inline bool isListener (int t) noexcept { return t == kFollow || t == kPlot; }   // audio ends here (like out): a value comes out, or a picture
+inline int  numInputs (int t) noexcept { return t == kPlot ? 3 : (t == kGlue || t == kGate) ? 2 : 1; }
 inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 64;
@@ -276,10 +279,11 @@ struct Graph
         int   hand = kHandNone;  // a control wire: which hand of `to` it plays
         int   refFrom = -1;      // a control wire whose target is another control wire's depth: that wire's `from` …
         int   refHand = kHandNone;   // … and its hand (it lands on the same `to`)
-        int   in = 0;            // which input of `to`: 0 = the sound, 1 = the key (glue, gate)
+        int   in = 0;            // which input of `to`: 0 = the sound, 1 = the key (glue, gate); a plot: 0 = y, 1 = x, 2 = z
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;
+    int v = 0;   // the wall's format version, kept for it (the engine ignores it)
 };
 
 /** One compiled step. Buffers are pool indices (0 = host). */
@@ -296,7 +300,8 @@ struct Op
                       kJoinLR,     // dst.L = fold(src), dst.R = fold(src2); a missing lane (-1) is silence; flag 1 = add
                       kJoinMS,     // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
                       kSide,       // dst = the sidechain bus (silence when the host gives none)
-                      kFollow };   // follow[slot] = envelope of src (attack, release, sense from params[slot].aux)
+                      kFollow,     // follow[slot] = envelope of src (attack, release, sense from params[slot].aux)
+                      kPlot };     // tap `flag` takes src (y), src2 (x), dst2 (z) as mono, for the page to draw (-1 = not wired)
     int   kind = kCopy;
     int   slot = -1;
     int   type = kNone;
@@ -309,6 +314,8 @@ struct Op
     int   flag = 0;    // join: 1 = accumulate into dst
 };
 
+constexpr int kMaxPlots = 4;           // plots whose sound is streamed to the page (more than this draw nothing)
+constexpr int kPlotFifo = 16384;
 constexpr int kMaxDelayLines = 32;
 constexpr int kMaxDelaySamples = 32768;
 
@@ -343,6 +350,11 @@ public:
                   const NodeParams* params, float& grDbOut,
                   const juce::AudioBuffer<float>* side = nullptr);
 
+    /** Timer thread: drain one plot tap. Returns frames read into y/x/z (each
+     *  `max` long, mono); `slot` is the plot's node, `mask` which axes are wired
+     *  (1 = y, 2 = x, 4 = z). -1 slot = the tap is idle. */
+    int readPlot (int tap, float* y, float* x, float* z, int max, int& slot, int& mask);
+
     /** What a follow print hears now, 0..1 (0 when it isn't running). Any thread. */
     float followValue (int slot) const noexcept
     {
@@ -371,6 +383,13 @@ private:
     std::array<std::atomic<float>, kMaxNodes> follows {};
     float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope
     const juce::AudioBuffer<float>* sideBuf = nullptr;   // per block: the host's sidechain, or null
+    struct PlotTap
+    {
+        juce::AbstractFifo fifo { kPlotFifo };
+        std::vector<float> y, x, z;
+        std::atomic<int> slot { -1 }, mask { 0 };
+    };
+    PlotTap taps[kMaxPlots];
     juce::AudioBuffer<float> scratch { 2, 2048 };
     std::vector<juce::AudioBuffer<float>> pool;   // indices 1..kMaxBuffers-1
     juce::AudioBuffer<float>* host = nullptr;     // buffer 0, per block

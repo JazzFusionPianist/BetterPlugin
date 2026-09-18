@@ -1732,7 +1732,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         const auto& e = edges[(size_t) i];
         if (! (e.from == kPortIn  || isNode (e.from))) { error = "wire from nowhere"; return false; }
         if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
-        if (e.in != 0 && ! (isNode (e.to) && hasKey (slotType[e.to]))) { error = "no key there"; return false; }
+        if (e.in != 0 && ! (isNode (e.to) && e.in > 0 && e.in < numInputs (slotType[e.to]))) { error = "no such input"; return false; }
         if (e.from == e.to)                            { error = "wire to itself";    return false; }
         const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
         if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
@@ -1753,7 +1753,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             for (auto& e : edges)
             {
                 const bool srcOk = e.from == kPortIn || fwd[e.from];
-                if (srcOk && e.in == 0 && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }   // a key alone feeds nothing
+                const bool feeds = e.in == 0 || (e.to >= 0 && e.to < kMaxNodes && slotType[e.to] == kPlot);   // a key alone feeds nothing; any axis feeds a plot
+                if (srcOk && feeds && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }
             }
         }
         changed = true;
@@ -1778,7 +1779,9 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         activeEdge[i] = a;
         if (a && e.to == kPortOut) anyOut = true;
     }
-    if (! anyOut)
+    bool anyListener = false;
+    for (int i = 0; i < kMaxNodes; ++i) if (activeNode[i] && isListener (slotType[i])) anyListener = true;
+    if (! anyOut && ! anyListener)
     {
         // Nothing reaches out: the wall is silent on purpose? No — a bare
         // insert passes audio. Bypass.
@@ -1786,6 +1789,9 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         out = prog;
         return true;
     }
+    // nothing reaches out but something listens (a plot, a follow): the host
+    // buffer is never handed to a wire, so the sound still passes untouched
+    const bool keepHost = ! anyOut;
 
     // ── order: Kahn over the active subgraph; leftovers = a cycle ───────
     int order[kMaxNodes]; int nOrder = 0;
@@ -1837,7 +1843,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         for (int i = 0; i < E; ++i)
         {
             if (! activeEdge[i] || edges[(size_t) i].from != fromId || edges[(size_t) i].port != port) continue;
-            if (first) { bufOfEdge[i] = srcBuf; first = false; continue; }
+            if (first && ! (keepHost && fromId == kPortIn)) { bufOfEdge[i] = srcBuf; first = false; continue; }
             const int b = alloc();
             if (b < 0) { error = "too many branches"; return false; }
             laneOfBuf[b] = laneOfBuf[srcBuf];
@@ -1944,6 +1950,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     // in: mult the host buffer to every wire leaving the in port
     laneOfBuf[0] = kLaneStereo;
     if (! fanOut (kPortIn, 0, 0)) return false;
+    int nPlots = 0;
 
     for (int k = 0; k < nOrder; ++k)
     {
@@ -1959,6 +1966,23 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             if (! emit (sd)) return false;
             arrival[id] = 0;
             if (! fanOut (id, 0, b)) return false;
+            continue;
+        }
+        if (slotType[id] == kPlot)
+        {
+            // a plot: each wired axis gathered apart, handed to a tap, kept by nobody
+            int axis[3] = { -1, -1, -1 };
+            for (int a = 0; a < 3; ++a)
+            {
+                bool any = false;
+                for (int i = 0; i < E; ++i) if (activeEdge[i] && edges[(size_t) i].to == id && edges[(size_t) i].in == a) any = true;
+                int lat = 0;
+                if (any && ! gather (id, false, axis[a], lat, a)) return false;
+            }
+            Op pl; pl.kind = Op::kPlot; pl.slot = id; pl.src = axis[0]; pl.src2 = axis[1]; pl.dst2 = axis[2];
+            pl.flag = nPlots < kMaxPlots ? nPlots : -1; ++nPlots;
+            if (! emit (pl)) return false;
+            for (int a = 0; a < 3; ++a) release (axis[a]);
             continue;
         }
         if (! gather (id, false, b, latest)) return false;
@@ -2004,6 +2028,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     }
 
     // out: whatever lands on the out port ends up in the host buffer
+    if (anyOut)
     {
         int b = -1, latest = 0;
         if (! gather (kPortOut, true, b, latest)) return false;
@@ -2029,6 +2054,7 @@ void Chain::prepare (double sampleRate, int blockSize)
     for (auto& b : pool) b.setSize (2, n, false, false, true);
     for (auto& node : nodes) node.prepare (sampleRate);
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
+    for (auto& t : taps) { t.y.assign ((size_t) kPlotFifo, 0.0f); t.x.assign ((size_t) kPlotFifo, 0.0f); t.z.assign ((size_t) kPlotFifo, 0.0f); t.fifo.reset(); t.slot.store (-1); t.mask.store (0); }
     active = Program {};
     // what the shifters cost in latency, at this rate
     if (auto* sh = nodes[0].shifter.get(); sh != nullptr && sh->configured)
@@ -2073,6 +2099,7 @@ void Chain::adoptPending()
 {
     if (! pendingFlag.load (std::memory_order_acquire)) return;
     if (! pendingLock.tryEnter()) return;   // writer mid-publish: next block
+    for (auto& t : taps) { t.slot.store (-1, std::memory_order_relaxed); t.mask.store (0, std::memory_order_relaxed); }   // the new program's plots claim their taps as they run
 
     // Carry each op's smoothed gain over from the op it matches in the
     // running program (same kind / node / buffers), so a level drag stays
@@ -2279,6 +2306,30 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             }
             break;
         }
+        case Op::kPlot:
+        {
+            if (op.flag < 0 || op.flag >= kMaxPlots) break;
+            auto& t = taps[op.flag];
+            if ((int) t.y.size() < kPlotFifo) break;   // not prepared
+            t.slot.store (op.slot, std::memory_order_relaxed);
+            t.mask.store ((op.src >= 0 ? 1 : 0) | (op.src2 >= 0 ? 2 : 0) | (op.dst2 >= 0 ? 4 : 0), std::memory_order_relaxed);
+            if (t.fifo.getFreeSpace() < n) break;   // nobody is reading (the window is shut): let it go
+            int a1, n1, a2, n2;
+            t.fifo.prepareToWrite (n, a1, n1, a2, n2);
+            auto put = [&] (std::vector<float>& dstv, int buf)
+            {
+                const float* L = buf >= 0 ? chan (buf, 0, n) : nullptr;
+                const float* R = buf >= 0 && nc > 1 ? chan (buf, 1, n) : nullptr;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float v = L == nullptr ? 0.0f : R != nullptr ? 0.5f * (L[i] + R[i]) : L[i];
+                    dstv[(size_t) (i < n1 ? a1 + i : a2 + (i - n1))] = v;
+                }
+            };
+            put (t.y, op.src); put (t.x, op.src2); put (t.z, op.dst2);
+            t.fifo.finishedWrite (n1 + n2);
+            break;
+        }
         case Op::kFollow:
         {
             if (op.slot < 0 || op.slot >= kMaxNodes) break;
@@ -2324,6 +2375,27 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
         }
         default: break;
     }
+}
+
+int Chain::readPlot (int tap, float* y, float* x, float* z, int max, int& slot, int& mask)
+{
+    slot = -1; mask = 0;
+    if (tap < 0 || tap >= kMaxPlots) return 0;
+    auto& t = taps[tap];
+    if ((int) t.y.size() < kPlotFifo) return 0;
+    slot = t.slot.load (std::memory_order_relaxed);
+    mask = t.mask.load (std::memory_order_relaxed);
+    const int want = juce::jmin (max, t.fifo.getNumReady());
+    if (want <= 0) return 0;
+    int a1, n1, a2, n2;
+    t.fifo.prepareToRead (want, a1, n1, a2, n2);
+    for (int i = 0; i < n1 + n2; ++i)
+    {
+        const size_t k = (size_t) (i < n1 ? a1 + i : a2 + (i - n1));
+        y[i] = t.y[k]; x[i] = t.x[k]; z[i] = t.z[k];
+    }
+    t.fifo.finishedRead (n1 + n2);
+    return n1 + n2;
 }
 
 void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,

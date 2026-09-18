@@ -1282,14 +1282,21 @@ export default function FxWall ({ size: frame }: Props) {
       }
       ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
     })
-    // on a split lane one short glowing line runs down the wire, in the lane's colour
+    // one short glowing line runs down every wire that carries sound from in to out: on a split lane in the lane's colour,
+    // otherwise in the colour of the print it leaves (paper out of in, or out of a print with no lamp)
     {
       const t0 = performance.now() / 1000
       graph.edges.forEach((e, i) => {
         const lane = laneOfEdge[i] ?? 0
-        if (lane === 0 || isControlEdge(e)) return
+        if (isControlEdge(e)) return
+        const src = e.from === FX_PORT_IN ? null : nodeById(e.from)
+        if (src && isControlType(src.type)) return
+        // the wire is on a way from in to out
+        const carries = (e.from === FX_PORT_IN || live.has(e.from)) && (e.to === FX_PORT_OUT || live.has(e.to))
+        if (lane === 0 && !carries) return
         const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
-        const c = LANE_RGB[lane]
+        let c: [number, number, number] = LANE_RGB[lane]
+        if (lane === 0) { const l = lampOf(e.from), f = Math.min(1, 0.35 + l.k); c = [paper[0] + (l.t[0] - paper[0]) * f, paper[1] + (l.t[1] - paper[1]) * f, paper[2] + (l.t[2] - paper[2]) * f].map(Math.round) as [number, number, number] }
         const head = ((t0 / 2.2) + i * 0.29) % 1
         const len = 0.16
         const a = Math.max(0, head - len)

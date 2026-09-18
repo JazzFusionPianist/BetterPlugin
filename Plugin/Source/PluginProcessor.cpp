@@ -57,7 +57,7 @@ OrbAudioProcessor::OrbAudioProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false))   // the host's side chain, off until routed
+          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), true))    // the host's side chain (on by default, as JUCE's own sidechain plugins declare it: Logic offers its Side Chain menu for it)
 {
     // twelve hands per slot for the host to automate, grouped by slot ("print 3 › delay feedback")
     for (int i = 0; i < orbfx::kMaxNodes; ++i)

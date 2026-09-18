@@ -7,7 +7,6 @@ import FxScope, { type PlotSpec } from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
-import WallField from './WallField'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -1641,7 +1640,6 @@ export default function FxWall ({ size: frame }: Props) {
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
           {/* the field: one shader, breathing with the out signal, under everything */}
-          <WallField width={size.w} height={size.h} />
           <FxScope plots={plotSpecs} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} overlay={overlayFn} backdrop={backdropFn} palette={paletteFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>

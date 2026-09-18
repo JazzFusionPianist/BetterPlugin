@@ -1737,7 +1737,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
         if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
         for (int j = 0; j < i; ++j)
-            if (edges[(size_t) j].from == e.from && edges[(size_t) j].to == e.to && edges[(size_t) j].port == e.port)
+            if (edges[(size_t) j].from == e.from && edges[(size_t) j].to == e.to && edges[(size_t) j].port == e.port && edges[(size_t) j].in == e.in)   // the same sound may land on several inputs of one print (x and y of a plot)
             { error = "duplicate wire"; return false; }
     }
 

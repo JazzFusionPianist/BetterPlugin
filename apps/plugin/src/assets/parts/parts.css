@@ -119,9 +119,6 @@
 .plugin.sounds .sg-wire-ctl { fill: none; stroke: rgba(246, 243, 234, 0.55); stroke-width: 1; stroke-dasharray: 3 4; }
 .plugin.sounds .sg-wire-ctl.sel { stroke: rgba(246, 243, 234, 0.9); }
 
-/* the wall's field: a shader at a third of the size, stretched under the scope and the prints */
-.plugin.sounds .sg-field { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
-
 /* the key point of a glue or a gate: a second input, below the first, with its word beside it */
 .plugin.sounds .sg-dot.k { left: auto; right: auto; margin-top: 0; }
 .plugin.sounds .sg-key-word {

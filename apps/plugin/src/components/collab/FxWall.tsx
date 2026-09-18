@@ -75,7 +75,7 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
-const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'every' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
+const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
@@ -544,12 +544,8 @@ export default function FxWall ({ size: frame }: Props) {
     const c = toScreen(n)
     const edge = graph.edges[edgeIndex]
     if (edge && isControlEdge(edge)) {
-      // close in, the wire lands on the hand's word inside the print; otherwise it flows in over the top edge
-      if (handsShown(n)) return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
-      const ctl = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && isControlEdge(x.e))
-      const k = ctl.findIndex(x => x.i === edgeIndex)
-      const a = -Math.PI / 2 + (k - (ctl.length - 1) / 2) * 0.28
-      return { x: c.x + Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
+      // the wire flows into the print to where its hand sits; close in, the word is there to meet it
+      return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
     }
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
@@ -982,7 +978,7 @@ export default function FxWall ({ size: frame }: Props) {
     if (n.type === FX_RATE) {
       rows.push(<ChoiceRow key="mode" label="clock" options={['sync', 'hz']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       if ((n.aux[0] || 0) === 0) {
-        rows.push(<ChoiceRow key="div" label="every" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
+        rows.push(<ChoiceRow key="div" label="rate" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
         rows.push(<ChoiceRow key="feel" label="feel" options={RATE_FEEL} value={n.aux[2] || 0} onPick={(k) => setAux(2, k)} />)
       } else {
         rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260}

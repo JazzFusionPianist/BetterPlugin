@@ -1177,7 +1177,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kFormant: return k == 0 ? "engine" : nullptr;
         case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
         case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
-        case orbfx::kRate:    { static const char* const r[] = { "clock", "every", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
+        case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1239,7 +1239,8 @@ void OrbAudioProcessor::syncHandNames()
         for (int k = 0; k < 6; ++k)
         {
             const char* an = auxName (type, k);
-            put (h.aux[k]->dynName, prefix + (an != nullptr ? juce::String (an) : "aux " + juce::String (k + 1)));
+            // a hand named like its print (the rate's rate) is said once
+            put (h.aux[k]->dynName, an == nullptr ? prefix + "aux " + juce::String (k + 1) : (named && juce::String (an) == kTypeNames[type]) ? prefix.trim() : prefix + an);
         }
     }
     if (changed) updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withParameterInfoChanged (true));

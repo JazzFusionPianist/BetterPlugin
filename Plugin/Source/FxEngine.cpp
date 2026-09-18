@@ -1694,19 +1694,19 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn latencyOf, const void* ctx)
 {
     Program prog;
-    const Graph::Node* nodeOf[kMaxNodes] {};
+    const Graph::Node* nodeOf[kGraphNodes] {};
     auto latOf = [&] (int id) { return latencyOf != nullptr && nodeOf[id] != nullptr ? latencyOf (*nodeOf[id], ctx) : 0; };
-    int arrival[kMaxNodes] {};   // samples of latency at each node's OUTPUT
+    int arrival[kGraphNodes] {};   // samples of latency at each node's OUTPUT
     int nextLine = 0;
 
     // ── nodes: id = slot, unique, typed ─────────────────────────────────
-    int slotType[kMaxNodes];
-    bool bypassed[kMaxNodes] {};
+    int slotType[kGraphNodes];
+    bool bypassed[kGraphNodes] {};
     for (auto& t : slotType) t = kNone;
-    bool controlSlot[kMaxNodes] {};
+    bool controlSlot[kGraphNodes] {};
     for (auto& nd : g.nodes)
     {
-        if (nd.id < 0 || nd.id >= kMaxNodes)          { error = "bad node id";        return false; }
+        if (nd.id < 0 || nd.id >= (isPicture (nd.type) ? kGraphNodes : kMaxNodes)) { error = "bad node id"; return false; }
         if (slotType[nd.id] != kNone || controlSlot[nd.id]) { error = "duplicate node id"; return false; }
         if (isControl (nd.type)) { controlSlot[nd.id] = true; continue; }   // no audio: the processor plays these
         if (! isEffect (nd.type) && nd.type != kMixType && ! isSplitter (nd.type) && ! isSource (nd.type) && ! isListener (nd.type)) { error = "bad node type"; return false; }
@@ -1714,13 +1714,15 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         nodeOf[nd.id] = &nd;
         bypassed[nd.id] = nd.bypass && isEffect (nd.type);
     }
-    auto isNode = [&] (int id) { return id >= 0 && id < kMaxNodes && slotType[id] != kNone; };
-    auto isCtl  = [&] (int id) { return id >= 0 && id < kMaxNodes && controlSlot[id]; };
+    auto isNode = [&] (int id) { return id >= 0 && id < kGraphNodes && slotType[id] != kNone; };
+    auto isCtl  = [&] (int id) { return id >= 0 && id < kGraphNodes && controlSlot[id]; };
 
     // ── wires: the control wires (and the lfo → rate ones) are not audio ──
     Graph audio;
     for (auto& e : g.edges)
-        if (e.hand == kHandNone && ! isCtl (e.from) && ! isCtl (e.to)) audio.edges.push_back (e);
+        if (e.hand == kHandNone && ! isCtl (e.from) && ! isCtl (e.to)
+            && ! (e.from >= 0 && e.from < kGraphNodes && isPicture (slotType[e.from])))   // what leaves a picture print lives on the page
+            audio.edges.push_back (e);
     const std::vector<Graph::Edge>& edges = audio.edges;   // the audio wires only, from here on
 
     // ── wires: valid endpoints, a second port only where a splitter has one,
@@ -1742,10 +1744,10 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     }
 
     // ── reachability: a node counts only if in → node → out ─────────────
-    bool fwd[kMaxNodes] {}, bwd[kMaxNodes] {};
+    bool fwd[kGraphNodes] {}, bwd[kGraphNodes] {};
     {
         // a source print is where audio starts (like in); a listener is where it ends (like out)
-        for (int i = 0; i < kMaxNodes; ++i) { fwd[i] = isSource (slotType[i]); bwd[i] = isListener (slotType[i]); }
+        for (int i = 0; i < kGraphNodes; ++i) { fwd[i] = isSource (slotType[i]); bwd[i] = isListener (slotType[i]); }
         bool changed = true;
         while (changed)
         {
@@ -1753,7 +1755,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             for (auto& e : edges)
             {
                 const bool srcOk = e.from == kPortIn || fwd[e.from];
-                const bool feeds = e.in == 0 || (e.to >= 0 && e.to < kMaxNodes && slotType[e.to] == kPlot);   // a key alone feeds nothing; any axis feeds a plot
+                const bool feeds = e.in == 0 || (e.to >= 0 && e.to < kGraphNodes && isPicture (slotType[e.to]));   // a key alone feeds nothing; any input feeds a picture print
                 if (srcOk && feeds && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }
             }
         }
@@ -1768,8 +1770,8 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             }
         }
     }
-    bool activeNode[kMaxNodes] {};
-    for (int i = 0; i < kMaxNodes; ++i) activeNode[i] = slotType[i] != kNone && fwd[i] && bwd[i];
+    bool activeNode[kGraphNodes] {};
+    for (int i = 0; i < kGraphNodes; ++i) activeNode[i] = slotType[i] != kNone && fwd[i] && bwd[i];
     bool activeEdge[kMaxEdges] {};
     bool anyOut = false;
     for (int i = 0; i < E; ++i)
@@ -1780,7 +1782,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (a && e.to == kPortOut) anyOut = true;
     }
     bool anyListener = false;
-    for (int i = 0; i < kMaxNodes; ++i) if (activeNode[i] && isListener (slotType[i])) anyListener = true;
+    for (int i = 0; i < kGraphNodes; ++i) if (activeNode[i] && isListener (slotType[i])) anyListener = true;
     if (! anyOut && ! anyListener)
     {
         // Nothing reaches out: the wall is silent on purpose? No — a bare
@@ -1794,19 +1796,19 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     const bool keepHost = ! anyOut;
 
     // ── order: Kahn over the active subgraph; leftovers = a cycle ───────
-    int order[kMaxNodes]; int nOrder = 0;
+    int order[kGraphNodes]; int nOrder = 0;
     {
-        int inDeg[kMaxNodes] {};
+        int inDeg[kGraphNodes] {};
         for (int i = 0; i < E; ++i)
             if (activeEdge[i] && edges[(size_t) i].to != kPortOut && edges[(size_t) i].from != kPortIn)
                 ++inDeg[edges[(size_t) i].to];
-        bool done[kMaxNodes] {};
+        bool done[kGraphNodes] {};
         int activeCount = 0;
-        for (int i = 0; i < kMaxNodes; ++i) if (activeNode[i]) ++activeCount;
+        for (int i = 0; i < kGraphNodes; ++i) if (activeNode[i]) ++activeCount;
         while (nOrder < activeCount)
         {
             int pick = -1;
-            for (int i = 0; i < kMaxNodes; ++i)
+            for (int i = 0; i < kGraphNodes; ++i)
                 if (activeNode[i] && ! done[i] && inDeg[i] == 0) { pick = i; break; }
             if (pick < 0) { error = "cycle"; return false; }   // feedback — refused (v1)
             done[pick] = true;
@@ -1968,7 +1970,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             if (! fanOut (id, 0, b)) return false;
             continue;
         }
-        if (slotType[id] == kPlot)
+        if (isPicture (slotType[id]))
         {
             // a plot: each wired axis gathered apart, handed to a tap, kept by nobody
             int axis[3] = { -1, -1, -1 };

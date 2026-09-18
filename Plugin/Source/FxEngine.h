@@ -42,7 +42,12 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kSide = 33,             // the host's sidechain bus, as a print: no input, one output
             kFollow = 34,           // an envelope follower: audio in, a control wire out (attack, release, sense)
             // the wall's picture: what is wired into a plot is drawn behind the prints
-            kPlot = 35 };           // three inputs (0 = y, 1 = x, 2 = z), no output: its sounds are streamed to the page
+            kPlot = 35,             // three inputs (0 = y, 1 = x, 2 = z), no output: points in space
+            // the rest of the picture domain: computed on the page, never in the audio path. A picture print
+            // sits outside the sixteen slots (ids 16..47); any sound wired into one is streamed to the page.
+            kMemory = 36,           // a shift register: a signal in, the last `length` of it out (a window)
+            kIndex = 37,            // a window in, each sample's place in it out (ms)
+            kDecibel = 38 };        // amplitude in, dB out
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
@@ -51,7 +56,8 @@ inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMix
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
-inline bool isListener (int t) noexcept { return t == kFollow || t == kPlot; }   // audio ends here (like out): a value comes out, or a picture
+inline bool isPicture (int t) noexcept { return t == kPlot || t == kMemory || t == kIndex || t == kDecibel; }
+inline bool isListener (int t) noexcept { return t == kFollow || isPicture (t); }   // audio ends here (like out): a value comes out, or a picture
 inline int  numInputs (int t) noexcept { return t == kPlot ? 3 : (t == kGlue || t == kGate) ? 2 : 1; }
 inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
@@ -314,7 +320,8 @@ struct Op
     int   flag = 0;    // join: 1 = accumulate into dst
 };
 
-constexpr int kMaxPlots = 4;           // plots whose sound is streamed to the page (more than this draw nothing)
+constexpr int kMaxPlots = 8;           // picture prints whose sound is streamed to the page (more than this hear nothing)
+constexpr int kGraphNodes = 48;        // node ids a graph may carry: 0..15 are the engine's slots, 16..47 the picture's
 constexpr int kPlotFifo = 16384;
 constexpr int kMaxDelayLines = 32;
 constexpr int kMaxDelaySamples = 32768;

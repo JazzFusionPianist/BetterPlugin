@@ -1266,7 +1266,7 @@ void OrbAudioProcessor::syncHandNames()
         const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
         auto& h = slotHost[i];
         auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
-        put (h.amount->dynName, prefix + "amount");
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : "amount"));
         put (h.mode->dynName,   prefix + "mode");
         put (h.decay->dynName,  prefix + "decay");
         put (h.fb->dynName,     prefix + "feedback");
@@ -1425,7 +1425,9 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
     for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.isFollow[r]) value[r] = fxChain.followValue (r);   // what it heard last block
     // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
-    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth : (value[w.from] - 0.5f) * 2.0f * depth; };
+    // (a push of 1 moves a hand half its travel: a rate at full depth swings the whole travel around the setting;
+    //  a macro or a follow pushes one way, so at full depth it carries the hand the whole travel from the setting)
+    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth * 2.0f : (value[w.from] - 0.5f) * 2.0f * depth; };
     auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)
     {
         int lo, hi; auxRange (type, a, lo, hi);
@@ -1481,7 +1483,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     for (int i = 0; i < t.count; ++i)
     {
         const auto& w = t.wires[i];
-        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, pushOf (w, w.depth));
+        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
     }
     for (int i = 0; i < t.count; ++i)
     {

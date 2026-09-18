@@ -94,9 +94,11 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
+/** What a print's big knob is, where "amount" would be vague. */
+const MAIN_HAND: Record<number, string> = { 7: 'cutoff' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
-const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
+const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']

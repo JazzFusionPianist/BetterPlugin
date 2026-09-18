@@ -42,6 +42,42 @@ const FAMILIES: Array<[string, string[]]> = [
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
   ['control', ['LFO', 'rate', 'macro', 'follow']],
 ]
+/** DRAFT (?plates=1): a print's plate takes its family's shape. Every shape reaches ±R on the left and right, where the ports are,
+ *  and holds the print's circle inside it. tone: a square, exact; grit: the same square, its edge torn; space: the circle (it radiates);
+ *  motion: a circle whose edge waves; pitch: a hexagon (the lattice notes sit on). */
+const PLATES_DRAFT = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plates') === '1'
+const familyOf = (type: number) => { const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
+function platePath (ctx: CanvasRenderingContext2D, type: number, id: number, cx: number, cy: number, R: number) {
+  const fam = PLATES_DRAFT ? familyOf(type) : 'space'
+  ctx.beginPath()
+  if (fam === 'tone' || fam === 'grit') {
+    const rough = fam === 'grit'
+    const pts: Array<[number, number]> = []
+    const per = rough ? 22 : 1
+    let seed = (id + 1) * 9301 + 49297
+    const rnd = () => { seed = (seed * 233280 + 12345) % 2147483647; return (seed % 1000) / 1000 - 0.5 }
+    const corners: Array<[number, number]> = [[-1, -1], [1, -1], [1, 1], [-1, 1]]
+    for (let e = 0; e < 4; e++) {
+      const [ax, ay] = corners[e], [bx, by] = corners[(e + 1) % 4]
+      for (let k = 0; k < per; k++) {
+        const t = k / per
+        const nx = ay === by ? 0 : (ax > 0 ? 1 : -1), ny = ay === by ? (ay > 0 ? 1 : -1) : 0   // outward normal of this edge
+        const j = rough && k > 0 ? rnd() * R * 0.09 : 0
+        pts.push([cx + (ax + (bx - ax) * t) * R + nx * j, cy + (ay + (by - ay) * t) * R + ny * j])
+      }
+    }
+    if (rough) { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))); ctx.closePath() }
+    else { const r = R * 0.16; ctx.roundRect(cx - R, cy - R, R * 2, R * 2, r) }
+  } else if (fam === 'motion') {
+    const N = 96, lobes = 10, a = 0.045
+    for (let k = 0; k <= N; k++) { const th = (k / N) * Math.PI * 2; const r = R * (1 - a + a * Math.cos(lobes * th)); const x = cx + r * Math.cos(th), y = cy + r * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) }
+    ctx.closePath()
+  } else if (fam === 'pitch') {
+    const Rh = R * 1.08   // a little larger, so the print's circle fits inside the flats
+    for (let k = 0; k < 6; k++) { const th = (k / 6) * Math.PI * 2; const x = cx + Rh * Math.cos(th), y = cy + Rh * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) }
+    ctx.closePath()
+  } else ctx.arc(cx, cy, R, 0, Math.PI * 2)
+}
 const FAM_W = 46 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
 export function shelfLayout (): { print: number; gap: number; height: number } {
   return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
@@ -156,6 +192,14 @@ function demoGraph (w: number, h: number): FxGraph {
     { from: FX_PORT_IN, to: 0, gain: 1 }, { from: 0, to: 2, gain: 1 }, { from: 0, to: 10, gain: 1 },
     { from: 2, to: 11, gain: 0.62 }, { from: 10, to: 11, gain: 0.38 }, { from: 11, to: 6, gain: 1 }, { from: 6, to: FX_PORT_OUT, gain: 1 },
   ]
+  if (PLATES_DRAFT) {
+    const mk = (id: number, type: number, x: number, y: number, amount = 0.4): FxGraphNode => ({ id, type, amount, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux: [12, 0, 2, 0, 0, 50, 0, 0], x, y })
+    // ids are slots (0..15), not types
+    const row = [mk(0, 0, w * 0.14, my, 0.62), mk(1, 20, w * 0.32, my), mk(2, 2, w * 0.5, my, 0.45), mk(6, 6, w * 0.68, my, 0.3), mk(8, 16, w * 0.86, my, 0.5)]
+    const row2 = [mk(4, 4, w * 0.14, my + 250), mk(3, 14, w * 0.32, my + 250), mk(10, 10, w * 0.5, my + 250, 0.38), mk(5, 12, w * 0.68, my + 250), mk(7, 15, w * 0.86, my + 250)]
+    const chain = (r: FxGraphNode[]): FxGraphEdge[] => r.slice(0, -1).map((n, i) => ({ from: n.id, to: r[i + 1].id, gain: 1 }))
+    return { nodes: [...row, ...row2], edges: [{ from: FX_PORT_IN, to: 0, gain: 1 }, ...chain(row), { from: 8, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 4, gain: 1 }, ...chain(row2), { from: 7, to: FX_PORT_OUT, gain: 1 }] }
+  }
   return { nodes, edges }
 }
 
@@ -1277,14 +1321,14 @@ export default function FxWall ({ size: frame }: Props) {
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
-      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = wallNow; ctx.fill()
+      platePath(ctx, n.type, n.id, c.x, c.y, Rz + 2); ctx.fillStyle = wallNow; ctx.fill()
       ctx.restore()
       // the plate sits IN the light, not brighter than it
       const own = alive ? wallColor(n.type as FxMode, n.variant, k * 0.5) : 'rgb(16, 15, 12)'
       const top = alive ? wallColor(n.type as FxMode, n.variant, Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
       const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
       dg.addColorStop(0, top); dg.addColorStop(1, own)
-      ctx.beginPath(); ctx.arc(c.x, c.y, Rz + 2, 0, Math.PI * 2); ctx.fillStyle = dg; ctx.fill()
+      platePath(ctx, n.type, n.id, c.x, c.y, Rz + 2); ctx.fillStyle = dg; ctx.fill()
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])

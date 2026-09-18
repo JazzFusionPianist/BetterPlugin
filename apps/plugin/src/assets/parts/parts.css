@@ -125,3 +125,6 @@
   position: absolute; transform: translate(-100%, -50%); pointer-events: none; white-space: nowrap;
   font-family: var(--f-mono); font-size: 8px; color: var(--sg-ink-55); letter-spacing: 0;
 }
+
+/* a print with a plate: the chosen one's hairline is drawn with the plate, in its shape (not this round one) */
+.plugin.sounds .sg-node.shaped.sel::before { display: none; }

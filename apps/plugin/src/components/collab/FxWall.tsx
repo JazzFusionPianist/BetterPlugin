@@ -42,26 +42,20 @@ const FAMILIES: Array<[string, string[]]> = [
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
   ['control', ['LFO', 'rate', 'macro', 'follow']],
 ]
-/** DRAFT (?plates=1): a print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
- *  tone: a square, sharp; grit: a square with saw teeth along top and bottom; space: the circle; motion: a square leaning over;
+/** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
+ *  tone: a square, sharp; grit: a square with two opposite corners struck off; space: the circle; motion: a square leaning over;
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
-const PLATES_DRAFT = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plates') === '1'
 const familyOf = (type: number) => { const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
-const plateReach = (type: number) => { if (!PLATES_DRAFT || isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? 1.36 : f === 'motion' ? 1.08 : 1 }
-function platePath (ctx: CanvasRenderingContext2D, type: number, _id: number, cx: number, cy: number, R: number) {
-  const fam = PLATES_DRAFT ? familyOf(type) : 'space'
+const LEAN = 0.34, LEAN_W = 1.08, DIAMOND = 1.36, STRUCK = 0.62
+const plateReach = (type: number) => { if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
+function platePath (ctx: CanvasRenderingContext2D, type: number, cx: number, cy: number, R: number) {
+  const fam = familyOf(type)
   ctx.beginPath()
   const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
   if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
-  else if (fam === 'grit') {
-    // three candidates, told apart on the draft wall by slot: 1 = a, 3 = b, 9 = c
-    const v = _id === 3 ? 'b' : _id === 9 ? 'c' : 'a'
-    if (v === 'a') { const c = 0.62; poly([[-1, -1], [1 - c, -1], [1, -1 + c], [1, 1], [-1 + c, 1], [-1, 1 - c]]) }   // a: two opposite corners struck off
-    else if (v === 'b') { const a = 0.4; poly([[-1 + a, -1], [1 - a, -1], [1 - a, -1 + a], [1, -1 + a], [1, 1 - a], [1 - a, 1 - a], [1 - a, 1], [-1 + a, 1], [-1 + a, 1 - a], [-1, 1 - a], [-1, -1 + a], [-1 + a, -1 + a]]) }   // b: every corner stepped in, like a square seen at too few pixels
-    else poly([[-1, -1], [-0.18, -1], [0.06, -0.42], [0.3, -1], [1, -1], [1, 1], [0.22, 1], [-0.04, 0.5], [-0.3, 1], [-1, 1]])   // c: a square cracked, top and bottom
-  }
-  else if (fam === 'motion') { const k = 0.34; poly([[-1.08 + k, -1], [1.08 + k, -1], [1.08 - k, 1], [-1.08 - k, 1]]) }   // a square leaning over: it is going somewhere
-  else if (fam === 'pitch') poly([[-1.36, 0], [0, -1.36], [1.36, 0], [0, 1.36]])
+  else if (fam === 'grit') poly([[-1, -1], [1 - STRUCK, -1], [1, -1 + STRUCK], [1, 1], [-1 + STRUCK, 1], [-1, 1 - STRUCK]])
+  else if (fam === 'motion') poly([[-LEAN_W + LEAN, -1], [LEAN_W + LEAN, -1], [LEAN_W - LEAN, 1], [-LEAN_W - LEAN, 1]])   // leaning: it is going somewhere
+  else if (fam === 'pitch') poly([[-DIAMOND, 0], [0, -DIAMOND], [DIAMOND, 0], [0, DIAMOND]])
   else ctx.arc(cx, cy, R, 0, Math.PI * 2)
 }
 const FAM_W = 46 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
@@ -178,15 +172,6 @@ function demoGraph (w: number, h: number): FxGraph {
     { from: FX_PORT_IN, to: 0, gain: 1 }, { from: 0, to: 2, gain: 1 }, { from: 0, to: 10, gain: 1 },
     { from: 2, to: 11, gain: 0.62 }, { from: 10, to: 11, gain: 0.38 }, { from: 11, to: 6, gain: 1 }, { from: 6, to: FX_PORT_OUT, gain: 1 },
   ]
-  if (PLATES_DRAFT) {
-    const mk = (id: number, type: number, x: number, y: number, amount = 0.4): FxGraphNode => ({ id, type, amount, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux: [12, 0, 2, 0, 0, 50, 0, 0], x, y })
-    // ids are slots (0..15), not types
-    const row = [mk(0, 0, w * 0.14, my, 0.62), mk(1, 20, w * 0.32, my), mk(2, 2, w * 0.5, my, 0.45), mk(6, 6, w * 0.68, my, 0.3), mk(8, 16, w * 0.86, my, 0.5)]
-    const row2 = [mk(4, 4, w * 0.14, my + 250), mk(3, 14, w * 0.32, my + 250), mk(10, 10, w * 0.5, my + 250, 0.38), mk(5, 12, w * 0.68, my + 250), mk(7, 15, w * 0.86, my + 250)]
-    const third = mk(9, 25, w * 0.32, my + 500)   // the third grit candidate, under the other two
-    const chain = (r: FxGraphNode[]): FxGraphEdge[] => r.slice(0, -1).map((n, i) => ({ from: n.id, to: r[i + 1].id, gain: 1 }))
-    return { nodes: [...row, ...row2, third], edges: [{ from: FX_PORT_IN, to: 9, gain: 1 }, { from: 9, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 0, gain: 1 }, ...chain(row), { from: 8, to: FX_PORT_OUT, gain: 1 }, { from: FX_PORT_IN, to: 4, gain: 1 }, ...chain(row2), { from: 7, to: FX_PORT_OUT, gain: 1 }] }
-  }
   return { nodes, edges }
 }
 
@@ -631,6 +616,9 @@ export default function FxWall ({ size: frame }: Props) {
   /** A print's key point: below its input, on the same edge. */
   const keyPortOf = (n: FxGraphNode): Pt => {
     const c = toScreen(n), a = KEY_ANG * Math.PI / 180
+    const fam = familyOf(n.type), yk = 0.6   // on a straight-sided plate: six tenths of the way down its left edge
+    if (fam === 'tone') return { x: c.x - Rz, y: c.y + Rz * yk }
+    if (fam === 'motion') return { x: c.x - Rz * (LEAN_W + LEAN * yk), y: c.y + Rz * yk }
     return { x: c.x - Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
   }
   /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
@@ -868,7 +856,7 @@ export default function FxWall ({ size: frame }: Props) {
     else if (drag.kind === 'wire' || drag.kind === 'shelf') {
       setDrag({ ...drag, at: p })
       if (drag.kind === 'wire' && drag.from !== FX_PORT_IN && playsHandsType(nodeById(drag.from)?.type ?? -1)) {
-        const over = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz + 6 })
+        const over = graph.nodes.find(n => { const c = toScreen(n); return Math.hypot(c.x - p.x, c.y - p.y) <= Rz * plateReach(n.type) + 6 })
         const id = over && handsOf(over).length > 0 ? over.id : null
         if (id !== reveal) setReveal(id)
       }
@@ -881,7 +869,7 @@ export default function FxWall ({ size: frame }: Props) {
     if (drag.kind === 'wire') {
       // landed on a node (its input) or the out port?
       // the nearest print under the pointer (prints can sit close: the first in the list is not always the one meant)
-      const hit = graph.nodes.map(n => { const c = toScreen(n); return { n, d: Math.hypot(c.x - p.x, c.y - p.y) } }).filter(x => x.d <= Rz + 10).sort((a, b) => a.d - b.d)[0]?.n
+      const hit = graph.nodes.map(n => { const c = toScreen(n); return { n, d: Math.hypot(c.x - p.x, c.y - p.y) } }).filter(x => x.d <= Rz * plateReach(x.n.type) + 10).sort((a, b) => a.d - b.d)[0]?.n
       // a key point wins over a print that merely sits close by
       let key: number | null = null
       { let bestD = 18; for (const n of graph.nodes) if (hasKeyType(n.type) && n.id !== drag.from) { const kp = keyPortOf(n); const dd = Math.hypot(kp.x - p.x, kp.y - p.y); if (dd <= bestD) { bestD = dd; key = n.id } } }
@@ -1308,14 +1296,16 @@ export default function FxWall ({ size: frame }: Props) {
       const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
-      platePath(ctx, n.type, n.id, c.x, c.y, Rz + 2); ctx.fillStyle = wallNow; ctx.fill()
+      platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = wallNow; ctx.fill()
       ctx.restore()
       // the plate sits IN the light, not brighter than it
       const own = alive ? wallColor(n.type as FxMode, n.variant, k * 0.5) : 'rgb(16, 15, 12)'
       const top = alive ? wallColor(n.type as FxMode, n.variant, Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
       const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
       dg.addColorStop(0, top); dg.addColorStop(1, own)
-      platePath(ctx, n.type, n.id, c.x, c.y, Rz + 2); ctx.fillStyle = dg; ctx.fill()
+      platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = dg; ctx.fill()
+      // the chosen print wears a paper hairline a breath outside its plate, in the plate's own shape
+      if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
@@ -1678,7 +1668,7 @@ export default function FxWall ({ size: frame }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} data-id={n.id} className={`sg-node${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isUtilityType(n.type) ? '' : ' shaped'}${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}

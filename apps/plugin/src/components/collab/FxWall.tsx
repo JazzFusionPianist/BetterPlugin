@@ -1383,11 +1383,11 @@ export default function FxWall ({ size: frame }: Props) {
   /** One lamp's pool of light, as the wall paints it. */
   /** A lamp's light as an aurora — several tall curtains of light that stand over the print, lean and drift
    *  past one another like cloth in slow air, each a little off the print's colour, so where they cross the colours run together.
-   *  A soft round core stays under them so the print is still lit where it stands. */
+   *  The round lamp stays under them, whole: the print's own pool of light. */
   const paintAurora = (ctx: CanvasRenderingContext2D, lx: number, ly: number, t: [number, number, number], a: number, reach: number, seed: number, now: number) => {
     const sec = now / 1000
-    // the core: a small pool, so the print itself is lit
-    paintRound(ctx, lx, ly, t, a * 0.45, reach * 0.55)
+    // the round lamp, whole, as it always was: the print's own pool of light; the curtains stand over it
+    paintRound(ctx, lx, ly, t, a, reach)
     const N = 6
     for (let i = 0; i < N; i++) {
       const ph = seed * 1.7 + i * 2.399   // each curtain its own slow clock

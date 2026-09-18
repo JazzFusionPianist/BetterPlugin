@@ -79,7 +79,22 @@ OrbAudioProcessor::OrbAudioProcessor()
         for (int k = 0; k < 6; ++k)
         {
             auto ax = std::make_unique<SlotFloatParam> (pid + "aux" + juce::String (k), pname + "aux " + juce::String (k + 1));
-            ax->text = [this, i, k] (float n) { int lo, hi; auxRange (slotTypes[(size_t) i].load(), k, lo, hi); return juce::String ((int) std::lround (lo + n * (hi - lo))); };
+            ax->text = [this, i, k] (float n)
+            {
+                const int type = slotTypes[(size_t) i].load();
+                int lo, hi; auxRange (type, k, lo, hi);
+                const int v = (int) std::lround (lo + n * (hi - lo));
+                if (type == orbfx::kRate)   // a rate's clock reads as words in the host, as on the wall
+                {
+                    static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
+                    static const char* const feel[] = { "straight", "dotted", "triplet" };
+                    if (k == 0) return juce::String (v == 1 ? "hz" : "sync");
+                    if (k == 1) return juce::String (divs[juce::jlimit (0, 7, v)]);
+                    if (k == 2) return juce::String (feel[juce::jlimit (0, 2, v)]);
+                    if (k == 3) return juce::String (v / 100.0, 2) + " hz";
+                }
+                return juce::String (v);
+            };
             h.aux[k] = ax.get();
             group->addChild (std::move (ax));
         }
@@ -1343,22 +1358,38 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     for (int m = 0; m < orbfx::kNumMacros; ++m) macroVal[m] = macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f;
     static const double kBeats[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };   // 1/32 … 4/1 in quarter notes
     float value[orbfx::kMaxNodes];
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) value[r] = 0.5f;
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
+    // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
+    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth : (value[w.from] - 0.5f) * 2.0f * depth; };
+    auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)
+    {
+        int lo, hi; auxRange (type, a, lo, hi);
+        p.aux[a] = juce::jlimit (lo, hi, p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)));
+    };
+    // macros reach the rates' clocks before the rates tick
+    for (int i = 0; i < t.count; ++i)
+    {
+        const auto& w = t.wires[i];
+        if (! w.fromMacro || w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes || ! t.isRate[w.to]) continue;
+        const int a = w.hand - orbfx::kHandAux0;
+        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], orbfx::kRate, a, pushOf (w, w.depth));
+    }
     for (int r = 0; r < orbfx::kMaxNodes; ++r)
     {
-        value[r] = 0.5f;
         if (! t.isRate[r]) continue;
-        auto& s = fxSlots[(size_t) r];
-        const int mode = s.aux[0].load (std::memory_order_relaxed);
+        const auto& rp = params[r];   // the host's clock, as pushed
+        const int mode = rp.aux[0];
         double phase = ratePhase[r];
         if (mode == 1)
         {
-            const double hz = juce::jlimit (0.01, 20.0, s.aux[3].load (std::memory_order_relaxed) / 100.0);
+            const double hz = juce::jlimit (0.01, 20.0, rp.aux[3] / 100.0);
             phase += hz * numSamples / (double) sr;
         }
         else
         {
-            const int div = juce::jlimit (0, 7, s.aux[1].load (std::memory_order_relaxed));
-            const int feel = s.aux[2].load (std::memory_order_relaxed);
+            const int div = juce::jlimit (0, 7, rp.aux[1]);
+            const int feel = rp.aux[2];
             const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
             if (playing) phase = ppq / beats;
             else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
@@ -1380,9 +1411,6 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         value[r] = v;
         rateValue[(size_t) r].store (v, std::memory_order_relaxed);
     }
-    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
-    // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
-    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth : (value[w.from] - 0.5f) * 2.0f * depth; };
     // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth)
     float depth[orbfx::kMaxEdges];
     for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
@@ -1395,6 +1423,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     {
         const auto& w = t.wires[i];
         if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
+        if (w.fromMacro && t.isRate[w.to]) continue;   // done above, before the rates ticked
         auto& p = params[w.to];
         const float k = pushOf (w, depth[i]);
         // each hand moves by a fraction of its own range
@@ -1414,19 +1443,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
             default:
             {
                 const int a = w.hand - orbfx::kHandAux0;
-                if (a < 0 || a >= orbfx::kAuxCount) break;
-                // the aux hands' ranges, by print (see the wall's HANDS table)
-                int lo = 0, hi = 100;
-                switch (w.toType)
-                {
-                    case orbfx::kArp:     lo = 1;    hi = 12;   break;   // step
-                    case orbfx::kHarmony: lo = -12;  hi = 12;   break;   // interval
-                    case orbfx::kPitch:   lo = -100; hi = 100;  break;   // cents
-                    case orbfx::kGrain:   if (a == 0) { lo = 10; hi = 600; } else if (a == 1) { lo = 0; hi = 1500; } else if (a == 2) { lo = 0; hi = 24; } else { lo = 0; hi = 100; } break;
-                    case orbfx::kSwell:   lo = 0;    hi = 100;  break;   // depth
-                    default: break;
-                }
-                p.aux[a] = limi (p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)), lo, hi);
+                if (a >= 0 && a < orbfx::kAuxCount) pushAux (p, w.toType, a, k);
                 break;
             }
         }

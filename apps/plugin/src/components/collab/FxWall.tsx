@@ -6,6 +6,7 @@ import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
+import WallField from './WallField'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -74,7 +75,8 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
-const handsOfType = (type: number) => (isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
+const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'every' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
+const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']
@@ -1531,6 +1533,8 @@ export default function FxWall ({ size: frame }: Props) {
       >
         {/* the wall's backdrop: the signal itself, moving, under the prints */}
         <div className="sg-scope-bg">
+          {/* the field: one shader, breathing with the out signal, under everything */}
+          <WallField width={size.w} height={size.h} />
           <FxScope input={scope.input} output={scope.output} width={size.w} height={size.h} ink={inkRgb} accent={BLUE_INK} gain={scope.gain} windowS={scope.windowS} overlay={overlayFn} backdrop={backdropFn} palette={paletteFn} />
         </div>
         <svg className="sg-wires" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>

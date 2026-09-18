@@ -118,3 +118,6 @@
 .plugin.sounds .sg-wires-top { z-index: 4; }
 .plugin.sounds .sg-wire-ctl { fill: none; stroke: rgba(246, 243, 234, 0.55); stroke-width: 1; stroke-dasharray: 3 4; }
 .plugin.sounds .sg-wire-ctl.sel { stroke: rgba(246, 243, 234, 0.9); }
+
+/* the wall's field: a shader at a third of the size, stretched under the scope and the prints */
+.plugin.sounds .sg-field { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }

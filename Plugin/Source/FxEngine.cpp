@@ -866,8 +866,10 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             float grMax = 0.0f;
             for (int i = 0; i < n; ++i)
             {
-                const float inMax = R != nullptr ? juce::jmax (std::abs (L[i]), std::abs (R[i]))
-                                                 : std::abs (L[i]);
+                // the detector hears the key when a wire lands on it, else the sound itself
+                const float kl = keyL != nullptr ? keyL[i] : L[i];
+                const float kr = keyL != nullptr ? (keyR != nullptr ? keyR[i] : kl) : (R != nullptr ? R[i] : kl);
+                const float inMax = juce::jmax (std::abs (kl), std::abs (kr));
                 glueEnv += (inMax - glueEnv) * (inMax > glueEnv ? atkK : relK);
                 const float envDb = juce::Decibels::gainToDecibels (glueEnv, -80.0f);
                 const float overDb = envDb - threshDb;
@@ -1630,7 +1632,9 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             const int   holdN  = (int) ((variant == 1 ? 0.03f : 0.01f) * sr);
             for (int i = 0; i < n; ++i)
             {
-                const float x = juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f);
+                const float kl = keyL != nullptr ? keyL[i] : L[i];
+                const float kr = keyL != nullptr ? (keyR != nullptr ? keyR[i] : kl) : (R != nullptr ? R[i] : kl);
+                const float x = juce::jmax (std::abs (kl), std::abs (kr));
                 if (x > gateEnv) gateEnv = x; else gateEnv += (x - gateEnv) * detK;
                 if (gateEnv > thr) { gateOpen = true; gateHold = holdN; }
                 else if (gateEnv < close) { if (gateHold > 0) --gateHold; else gateOpen = false; }
@@ -1728,6 +1732,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         const auto& e = edges[(size_t) i];
         if (! (e.from == kPortIn  || isNode (e.from))) { error = "wire from nowhere"; return false; }
         if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
+        if (e.in != 0 && ! (isNode (e.to) && hasKey (slotType[e.to]))) { error = "no key there"; return false; }
         if (e.from == e.to)                            { error = "wire to itself";    return false; }
         const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
         if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
@@ -1748,7 +1753,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             for (auto& e : edges)
             {
                 const bool srcOk = e.from == kPortIn || fwd[e.from];
-                if (srcOk && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }
+                if (srcOk && e.in == 0 && e.to != kPortOut && ! fwd[e.to]) { fwd[e.to] = true; changed = true; }   // a key alone feeds nothing
             }
         }
         changed = true;
@@ -1847,11 +1852,11 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
     // One wire passes through; several sum, wire by wire at its send
     // level. Wires of one lane sum and keep the lane; where lanes meet
     // (or at out, where the speakers are) they join into a stereo pair.
-    auto gather = [&] (int id, bool atOut, int& outBuf, int& latestOut) -> bool
+    auto gather = [&] (int id, bool atOut, int& outBuf, int& latestOut, int in = 0) -> bool
     {
         int ins[kMaxEdges]; int nIn = 0;
         for (int i = 0; i < E; ++i)
-            if (activeEdge[i] && edges[(size_t) i].to == id) ins[nIn++] = i;
+            if (activeEdge[i] && edges[(size_t) i].to == id && edges[(size_t) i].in == in) ins[nIn++] = i;
         if (nIn == 0) { error = "unwired node"; return false; }   // cannot happen (active)
         // branches arrive with different latencies: hold the early ones
         int latest = 0;
@@ -1980,12 +1985,21 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             if (! fanOut (id, 1, b2)) return false;
             continue;
         }
+        // the key: whatever lands on the second input, gathered apart, heard by the detector only
+        int kb = -1;
+        if (hasKey (slotType[id]))
+        {
+            bool anyKey = false;
+            for (int i = 0; i < E; ++i) if (activeEdge[i] && edges[(size_t) i].to == id && edges[(size_t) i].in == 1) anyKey = true;
+            if (anyKey) { int klat = 0; if (! gather (id, false, kb, klat, 1)) return false; }
+        }
         if (slotType[id] != kMixType && ! bypassed[id])
         {
-            Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b;
+            Op op; op.kind = Op::kProcess; op.slot = id; op.type = slotType[id]; op.dst = b; op.src2 = kb;
             if (! emit (op)) return false;
             arrival[id] += latOf (id);
         }
+        release (kb);
         if (! fanOut (id, 0, b)) return false;
     }
 
@@ -2298,7 +2312,10 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             auto& node = nodes[(size_t) op.slot];
             float* L = chan (op.dst, 0, n);
             float* R = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            node.keyL = op.src2 >= 0 && op.src2 < kMaxBuffers ? chan (op.src2, 0, n) : nullptr;   // the key may be the host buffer itself (in's first wire)
+            node.keyR = node.keyL != nullptr && nc > 1 ? chan (op.src2, 1, n) : nullptr;
             node.process (params[op.slot], sampleRate, n, L, R, scratch);
+            node.keyL = node.keyR = nullptr;
             float pk = 0.0f;
             for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]));
             if (R != nullptr) for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (R[i]));

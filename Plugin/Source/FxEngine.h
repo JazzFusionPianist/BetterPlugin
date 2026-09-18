@@ -50,6 +50,7 @@ inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS;
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 64;
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
@@ -114,6 +115,8 @@ struct NodeState
     float amtSm   = 0.0f;   // smoothed amount
     int   lastVar = 0;      // variant seen last block (for light-touch rebakes)
     float grDb    = 0.0f;   // glue: current gain reduction (UI meter)
+    const float* keyL = nullptr;   // this block's key, when a wire lands on the key input (glue, gate)
+    const float* keyR = nullptr;
 
     // tone
     float tiltApplied = 999.0f;
@@ -273,6 +276,7 @@ struct Graph
         int   hand = kHandNone;  // a control wire: which hand of `to` it plays
         int   refFrom = -1;      // a control wire whose target is another control wire's depth: that wire's `from` …
         int   refHand = kHandNone;   // … and its hand (it lands on the same `to`)
+        int   in = 0;            // which input of `to`: 0 = the sound, 1 = the key (glue, gate)
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;

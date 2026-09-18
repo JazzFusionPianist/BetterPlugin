@@ -11,7 +11,7 @@ import WallField from './WallField'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -67,6 +67,7 @@ void uid
 /** The lanes' colours: what a split wire carries. */
 const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132]]   // stereo, l, r, m, s
 const SPLIT_FAN = 22   // degrees between a splitter's two output ports
+const KEY_ANG = 42     // degrees below the input where a print's key point sits
 /** The hands a control wire can play, by print. */
 const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   2: [{ key: 'decay', label: 'decay' }],
@@ -560,7 +561,7 @@ export default function FxWall ({ size: frame }: Props) {
   const inPort: Pt = { x: PORT_INSET, y: size.h / 2 }
   const outPort: Pt = { x: size.w - PORT_INSET, y: size.h / 2 }
   const nodeById = (id: number) => graph.nodes.find(n => n.id === id)
-  const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && !isControlEdge(x.e))   // the audio wires in; control wires land elsewhere
+  const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && !isControlEdge(x.e) && (x.e.in ?? 0) === 0)   // the sound wires in; control wires and keys land elsewhere
   /** The hands a control wire can play on a print: its numbers; a mix's are its wires' shares. */
   const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
     ? inputsOf(n.id).map(x => ({ key: `share:${x.e.from}`, label: x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1) }))
@@ -590,12 +591,18 @@ export default function FxWall ({ size: frame }: Props) {
       // the wire flows into the print to where its hand sits; close in, the word is there to meet it
       return handPos(n, wireRef(edge.hand)?.hand ?? edge.hand!)
     }
+    if (edge && (edge.in ?? 0) === 1) return keyPortOf(n)
     if (n.type !== FX_MIX_TYPE) return { x: c.x - Rz, y: c.y }
     const ins = inputsOf(id)
     const k = ins.findIndex(x => x.i === edgeIndex)
     const count = ins.length
     const ang = ((k < 0 ? count : k) - (count - 1) / 2) * MIX_FAN * Math.PI / 180
     return { x: c.x - Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
+  }
+  /** A print's key point: below its input, on the same edge. */
+  const keyPortOf = (n: FxGraphNode): Pt => {
+    const c = toScreen(n), a = KEY_ANG * Math.PI / 180
+    return { x: c.x - Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
   }
   /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
   const outPortOf = (id: number, port = 0): Pt => {
@@ -740,7 +747,7 @@ export default function FxWall ({ size: frame }: Props) {
     if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
     commit({ ...graph, edges: [...graph.edges, { from, to, gain: src?.type === FX_MACRO || src?.type === FX_FOLLOW ? 1 : 0.5, port: 0, hand }] }, true)
   }
-  const connect = (from: number, to: number, port = 0) => {
+  const connect = (from: number, to: number, port = 0, inPort = 0) => {
     if (from === to) return
     if (to === FX_PORT_IN || from === FX_PORT_OUT) return
     const src = from === FX_PORT_IN ? null : nodeById(from)
@@ -748,8 +755,9 @@ export default function FxWall ({ size: frame }: Props) {
     // an lfo feeds a rate its shape; a follow listens to any sound; nothing else meets a control print by a plain wire
     if (src && isControlType(src.type)) { if (!(src.type === FX_LFO && dst?.type === FX_RATE)) return }
     else if (dst && isControlType(dst.type) && dst.type !== FX_FOLLOW) return
-    if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port)) return
+    if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port && (e.in ?? 0) === inPort && !isControlEdge(e))) return
     const target = to === FX_PORT_OUT ? null : nodeById(to)
+    if (inPort === 1) { commit({ ...graph, edges: [...graph.edges, { from, to, gain: 1, port, in: 1 }] }, true); return }
     // any point takes any number of wires: they sum at the point
     // a mix in blend mode shares 100 across its wires
     let gain = 1
@@ -851,7 +859,11 @@ export default function FxWall ({ size: frame }: Props) {
         if (word) connectHand(drag.from, Number(word.dataset.node), word.dataset.hand!)
         setReveal(null)
       }
-      else if (hit) connect(drag.from, hit.id, drag.port)
+      else if (hit) {
+        // near the key point of a glue or a gate: the wire lands on its key
+        const kp = hasKeyType(hit.type) ? keyPortOf(hit) : null
+        connect(drag.from, hit.id, drag.port, kp && Math.hypot(kp.x - p.x, kp.y - p.y) <= 18 ? 1 : 0)
+      }
       else if (Math.hypot(outPort.x - p.x, outPort.y - p.y) <= 28) connect(drag.from, FX_PORT_OUT, drag.port)
     }
     else if (drag.kind === 'shelf') {
@@ -1668,6 +1680,11 @@ export default function FxWall ({ size: frame }: Props) {
                     return <span key={k} className={`sg-dot${edgeIndex < 0 ? ' spare' : ''}`} style={{ left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} />
                   })
                 : noInputType(n.type) ? null : <span className="sg-dot l" />}
+              {hasKeyType(n.type) && (() => { const kp = keyPortOf(n); return (
+                <Fragment>
+                  <span className="sg-dot k" style={{ left: kp.x - (c.x - Rz) - 2.5, top: kp.y - (c.y - Rz) - 2.5 }} />
+                  <span className="sg-key-word" style={{ left: kp.x - (c.x - Rz) - 7, top: kp.y - (c.y - Rz), opacity: capAlpha }}>key</span>
+                </Fragment>) })()}
               {isSplitterType(n.type)
                 ? [0, 1].map(port => {
                     const p = outPortOf(n.id, port)

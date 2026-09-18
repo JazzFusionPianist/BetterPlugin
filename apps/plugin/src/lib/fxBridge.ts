@@ -127,6 +127,8 @@ export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT
 export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
+/** The prints with a second input, the key: their detector listens to it (glue, gate). */
+export const hasKeyType = (t: number) => t === 4 || t === 26
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
@@ -159,6 +161,7 @@ export interface FxGraphEdge {
   from: number; to: number
   gain: number            // an audio wire's send level; a control wire's depth (-1..1)
   port?: number           // which output of `from` (a splitter has two)
+  in?: number             // which input of `to`: 1 = its key (glue and gate listen to it)
   hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
 }
 

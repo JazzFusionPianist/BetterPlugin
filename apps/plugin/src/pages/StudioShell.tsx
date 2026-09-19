@@ -2825,10 +2825,25 @@ function StudioShellInner({ supabase, user }: Props) {
                 <div className="wd-title">{myName}</div>
                 <div className="wd-sub">my calendar</div>
               </div>
-              <div className="wd-me">
-                <div className="wd-me-scroll">
-                  <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={30} nowTick={nowTick} />
-                </div>
+              {/* The real month page — everything RLS lets me see, from
+                  any room; events added here are personal (no room). */}
+              <div className="wd-pane">
+                <ChatCalendar
+                  currentUserId={user.id}
+                  events={allCalEvents}
+                  categories={calCategories}
+                  groupTitleById={groupTitleById}
+                  onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+                  onSetCategory={async (id, name) => {
+                    const color = await calEnsureCategory(name)
+                    calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {})
+                  }}
+                  onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+                  onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
+                  onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
+                  onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
+                  onSubmitPrompt={(text) => saveMyEvents(text)}
+                />
               </div>
             </>
           ) : sel ? (

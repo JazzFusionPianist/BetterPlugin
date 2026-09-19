@@ -817,3 +817,22 @@
 .wd-plate-dl { font-size: 10.5px; color: rgba(26,25,23,.55); text-decoration: underline; text-underline-offset: 3px; }
 .wd-plate-dl:hover { color: rgba(26,25,23,.9); }
 .wd-file { color: inherit; text-decoration: none; }
+
+/* The month page in a WIDE pane: the phone sheet stacks grid over agenda
+   and sizes day cells by aspect-ratio — at pane width the grid swallowed
+   the whole height and the agenda (the day's events) collapsed to
+   nothing, with nowhere to scroll. Here the month sits in a capped left
+   column and the chosen day's programme runs down the right, scrolling
+   on its own. */
+.wd-calhost .cal-sheet { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  grid-auto-rows: min-content; column-gap: 44px; align-content: start; overflow-y: auto; scrollbar-width: none; }
+.wd-calhost .cal-sheet::-webkit-scrollbar { display: none; }
+.wd-calhost .cal-sheet > * { grid-column: 1; min-width: 0; }
+.wd-calhost .cal-sheet > :only-child { grid-column: 1 / -1; }
+.wd-calhost .cal-sheet > .cal-agenda { grid-column: 2; grid-row: 1 / span 8; align-self: stretch;
+  margin-top: 0; padding: 4px 0 0 36px; border-top: none; border-left: 1px solid rgba(26,25,23,.12);
+  max-height: 100%; overflow-y: auto; scrollbar-width: none; }
+.wd-calhost .cal-sheet > .cal-agenda::-webkit-scrollbar { display: none; }
+.wd-calhost .cal-agenda-date { font-size: 13px; font-weight: 500; color: #1A1917; margin-bottom: 12px; }
+.wd-calhost .cal-close { display: none; }
+.wd-calhost .cal-month { font-size: 22px; }

@@ -6,9 +6,9 @@ import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
-import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
+import { LfoEditor, SINE_PTS, shapeAt, LFO_SHAPES, LFO_RANDOM, randomStep } from './LfoEditor'
 import FollowMeter from './FollowMeter'
-import { LATEST, updateOut, engineHas } from '../../lib/soundsRelease'
+import { LATEST, updateOut, engineHas, lfoOwnClock } from '../../lib/soundsRelease'
 import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
@@ -43,7 +43,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
-  ['control', ['LFO', 'rate', 'macro', 'follow']],
+  ['control', ['LFO', 'macro', 'follow']],
 ]
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
  *  tone: a square, sharp; grit: a square with two opposite corners struck off; space: the circle; motion: a square leaning over;
@@ -101,7 +101,9 @@ const AURORA = !(typeof window !== 'undefined' && new URLSearchParams(window.loc
 const MAIN_HAND: Record<number, string> = { 7: 'cutoff' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
-const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
+const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }]
+const LFO_AUX = [0, 3, 0, 200, 0, 100, 0, 0]   // sync, 1/4, straight, 2 hz, not random, full depth
+const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']
@@ -190,7 +192,22 @@ function demoGraph (w: number, h: number): FxGraph {
 /** Nodes the engine placed at 0,0 (the legacy single print) get a spot. */
 function settle (g: FxGraph, w: number, h: number): FxGraph {
   const nodes = g.nodes.map((n, i) => ({ ...n, aux: (() => { const a = [...(n.aux ?? [])]; while (a.length < 8) a.push(0); return a })(), ...((n.x === 0 && n.y === 0) ? { x: w * (0.3 + 0.2 * i), y: h / 2 } : {}) }))
-  return { nodes, edges: g.edges }   // a bare wall stays bare: nothing is put there for anyone
+  return oneClock({ nodes, edges: g.edges })   // a bare wall stays bare: nothing is put there for anyone
+}
+/** The lfo is its own clock now. A patch from before had lfo → rate: each rate becomes an lfo where it stands (it keeps its id, so
+ *  every wire out of it still holds), with the shape of the lfo that fed it; an lfo left with nothing to do goes. Only on an engine that knows. */
+function oneClock (g: FxGraph): FxGraph {
+  if (!lfoOwnClock() || !g.nodes.some(n => n.type === FX_RATE)) return g
+  const feeds = (rate: number) => g.edges.find(e => e.to === rate && e.hand === undefined && g.nodes.find(n => n.id === e.from)?.type === FX_LFO)
+  const nodes = g.nodes.map(n => {
+    if (n.type !== FX_RATE) return n
+    const src = g.nodes.find(x => x.id === feeds(n.id)?.from)
+    return { ...n, type: FX_LFO, variant: src ? src.variant : 0, pts: [...(src?.pts ?? SINE_PTS)], curve: undefined, aux: [n.aux[0] || 0, n.aux[1] ?? 3, n.aux[2] || 0, n.aux[3] || 200, 0, 100, 0, 0] }
+  })
+  const wasRate = new Set(g.nodes.filter(n => n.type === FX_RATE).map(n => n.id))
+  const edges = g.edges.filter(e => !(e.hand === undefined && wasRate.has(e.to)))
+  const idle = new Set(nodes.filter(n => n.type === FX_LFO && !wasRate.has(n.id) && !edges.some(e => e.from === n.id)).map(n => n.id))
+  return { nodes: nodes.filter(n => !idle.has(n.id)), edges }
 }
 
 const MIX_FAN = 26   // degrees between a mix print's input ports
@@ -274,12 +291,13 @@ function SplitArt ({ ms }: { ms: boolean }) {
 }
 
 /** The lfo's print: its shape, small. */
-function LfoArt ({ pts }: { pts?: number[] }) {
+function LfoArt ({ pts, random = 0 }: { pts?: number[]; random?: number }) {
   const lvl = useContext(StrokeLevel) ?? 0
   const P = strokeFor(lvl)
   const p = pts && pts.length >= 6 ? pts : SINE_PTS
   let d = ''
-  for (let k = 0; k <= 64; k++) { const x = k / 64; d += `${k === 0 ? 'M' : 'L'}${(34 + x * 152).toFixed(1)} ${(150 - shapeAt(p, x) * 80).toFixed(1)} ` }
+  if (random > 0) for (let k = 0; k < random; k++) { const y = (150 - randomStep(0, 0, random, k) * 80).toFixed(1); d += `${k === 0 ? 'M' : 'L'}${(34 + k / random * 152).toFixed(1)} ${y} L${(34 + (k + 1) / random * 152).toFixed(1)} ${y} ` }
+  else for (let k = 0; k <= 152; k++) { const x = k / 152; d += `${k === 0 ? 'M' : 'L'}${(34 + x * 152).toFixed(1)} ${(150 - shapeAt(p, x) * 80).toFixed(1)} ` }
   return (
     <g>
       {[0, 2, 4, 6, 8].map(k => <path key={k} d={`M${34 + k * 19} 70 V150`} stroke={P} strokeOpacity={0.14} strokeWidth={0.8} />)}
@@ -373,7 +391,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
     <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
       {type === FX_MIX_TYPE ? <MixArt shares={shares ?? []} />
         : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
-        : type === FX_LFO ? <LfoArt pts={node.pts} />
+        : type === FX_LFO ? <LfoArt pts={node.pts} random={node.aux[4] || 0} />
         : type === FX_RATE ? <RateArt node={node} />
         : type === FX_MACRO ? <MacroArt node={node} />
         : type === FX_SIDE ? <SideArt />
@@ -730,7 +748,7 @@ export default function FxWall ({ size: frame }: Props) {
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
     const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
-    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], curve: sampleShape(SINE_PTS) } : {}) }
+    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], aux: [...LFO_AUX] } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
     let best = -1, bestD = isControlType(type) ? -1 : SNAP_WIRE
@@ -773,7 +791,7 @@ export default function FxWall ({ size: frame }: Props) {
     // a macro landing on a hand a rate already plays takes over that play's depth
     const src = nodeById(from)
     if (src?.type === FX_MACRO) {
-      const played = graph.edges.find(e => e.to === to && e.hand === hand && [FX_RATE, FX_FOLLOW].includes(nodeById(e.from)?.type ?? -1))
+      const played = graph.edges.find(e => e.to === to && e.hand === hand && [FX_LFO, FX_RATE, FX_FOLLOW].includes(nodeById(e.from)?.type ?? -1))
       if (played) hand = `wire:${played.from}:${hand}`
     }
     if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
@@ -1063,7 +1081,13 @@ export default function FxWall ({ size: frame }: Props) {
     }
     const rows: React.ReactNode[] = []
     const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
-    if (n.type === FX_RATE) {
+    if (n.type === FX_LFO && lfoOwnClock()) {
+      const isRandom = (n.aux[4] || 0) > 0
+      rows.push(<ChoiceRow key="shape" label="shape" list none="drawn" options={LFO_SHAPES.map(sh => sh.name)} value={isRandom ? LFO_RANDOM : n.variant}
+        onPick={(k) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); const sh = LFO_SHAPES[k]; aux[4] = sh.pts ? 0 : (aux[4] || 8); updateNode(n.id, sh.pts ? { pts: [...sh.pts], variant: k, aux } : { variant: k, aux }, true) }} />)
+      if (isRandom) rows.push(<GaugeRow key="steps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
+    }
+    if (n.type === FX_RATE || (n.type === FX_LFO && lfoOwnClock())) {
       rows.push(<ChoiceRow key="mode" label="clock" options={['sync', 'hz']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       if ((n.aux[0] || 0) === 0) {
         rows.push(<ChoiceRow key="div" label="rate" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
@@ -1072,6 +1096,7 @@ export default function FxWall ({ size: frame }: Props) {
         rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260} liveMap={(v) => v / 100}
           format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
       }
+      if (n.type === FX_LFO) rows.push(<GaugeRow key="lfodepth" label="depth" value={n.aux[5] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(5, Math.round(v))} />)
     }
     if (n.type === FX_FOLLOW) {
       rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 10} min={1} max={500} step={1} defaultValue={10} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
@@ -1148,17 +1173,18 @@ export default function FxWall ({ size: frame }: Props) {
     graph.edges.forEach((e, i) => {
       if (e.to !== n.id || !isControlEdge(e) || wireRef(e.hand)) return
       const src = nodeById(e.from)
-      const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src ? `rate ${rateText(src)}` : 'rate'
+      const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_LFO ? `LFO ${rateText(src)}` : src ? `rate ${rateText(src)}` : 'rate'
+      const depthName = `${src?.type === FX_MACRO ? 'macro' : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_RATE ? 'rate' : 'LFO'} depth`
       const label = handLabel(n, e.hand!)
       // the hand's row ends in a dashed stub; the row under it names the rate and holds the depth
       const tag = <span className="sg-row-tag"><i /></span>
-      const depth = <GaugeRow key={`ctl${i}`} label="" tag={<span className="sg-row-tag lead"><i /> {who}</span>} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
+      const depth = <GaugeRow key={`ctl${i}`} label={depthName} tag={<span className="sg-row-tag lead"><i /> {who}</span>} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
         format={(v) => `${v > 0 ? '+' : ''}${v}`} onChange={(v, final) => setShare(i, v / 100, final)} />
       const at = rows.findIndex(r => React.isValidElement(r) && (r.props as { label?: string }).label !== undefined && ((r.props as { label: string }).label === label || (e.hand === 'aux2' && n.type === 15)))
       if (at >= 0) {
         rows[at] = React.cloneElement(rows[at] as React.ReactElement<{ tag?: React.ReactNode }>, { tag })
         rows.splice(at + 1, 0, depth)
-      } else rows.push(React.cloneElement(depth, { label, tag: <span className="sg-row-tag"><i /> {who}</span> }))   // the amount: no row of its own, so the depth row names it
+      } else rows.push(React.cloneElement(depth, { tag: <span className="sg-row-tag"><i /> {label} {who}</span> }))   // the amount has no row of its own: the depth row says which hand it is
     })
     // a macro that turns a play's depth: said on that depth row
     graph.edges.forEach((e) => {
@@ -1203,10 +1229,12 @@ export default function FxWall ({ size: frame }: Props) {
         case 'int': case 'scatter': case 'shape': return 'aux2'
         case 'spray': return 'aux1'
         case 'pan': return 'aux5'
-        case 'mode': return t === FX_RATE ? 'aux0' : null
-        case 'div': return t === FX_RATE ? 'aux1' : null
-        case 'feel': return t === FX_RATE ? 'aux2' : null
-        case 'hz': return t === FX_RATE ? 'aux3' : null
+        case 'mode': return t === FX_RATE || t === FX_LFO ? 'aux0' : null
+        case 'div': return t === FX_RATE || t === FX_LFO ? 'aux1' : null
+        case 'feel': return t === FX_RATE || t === FX_LFO ? 'aux2' : null
+        case 'hz': return t === FX_RATE || t === FX_LFO ? 'aux3' : null
+        case 'steps': return t === FX_LFO ? 'aux4' : null
+        case 'lfodepth': return t === FX_LFO ? 'aux5' : null
         case 'slope': return t === 7 ? 'aux0' : null
         case 'attack': return t === FX_FOLLOW ? 'aux0' : null
         case 'release': return t === FX_FOLLOW ? 'aux1' : null
@@ -1363,7 +1391,7 @@ export default function FxWall ({ size: frame }: Props) {
           if (!isHeld('wet') && (h[5] === 1) !== !!n.wet && !isUtilityType(n.type)) set({ wet: h[5] === 1 })
           const aux = [...m.aux]; while (aux.length < 8) aux.push(0)
           let auxDirty = false
-          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_FOLLOW || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
+          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_LFO || n.type === FX_FOLLOW || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
           if (auxDirty) set({ aux })
           if (dirty) changed = true
           return m
@@ -1787,7 +1815,7 @@ export default function FxWall ({ size: frame }: Props) {
               <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
-                  {n.type === FX_RATE && <span className="sg-flav"> {rateText(n)}</span>}
+                  {(n.type === FX_RATE || (n.type === FX_LFO && lfoOwnClock())) && <span className="sg-flav"> {rateText(n)}</span>}
                   {n.type === FX_MACRO && <span className="sg-flav"> {(n.aux[0] || 0) + 1}</span>}
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
@@ -1916,7 +1944,8 @@ export default function FxWall ({ size: frame }: Props) {
           onWheel={(e) => { if (!hasAmountType(studyNode.type)) return; e.stopPropagation(); e.preventDefault(); updateNode(studyNode.id, { amount: Math.min(1, Math.max(0, studyNode.amount - wheelStep(e.deltaY))) }, true) }}>
           {studyNode.type === FX_LFO
             ? <LfoEditor pts={studyNode.pts ?? SINE_PTS} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
-                onChange={(pts, final) => updateNode(studyNode.id, { pts, curve: sampleShape(pts) }, final)} />
+                slot={lfoOwnClock() ? studyNode.id : undefined} random={lfoOwnClock() ? studyNode.aux[4] || 0 : 0}
+                onChange={(pts, final) => updateNode(studyNode.id, { pts, variant: -1 }, final)} />
             : studyNode.type === FX_FOLLOW
             ? <FollowMeter slot={studyNode.id} threshold={studyNode.aux[3] || -40} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="248, 156, 56"
                 onThreshold={(db, final) => { const aux = [...studyNode.aux]; while (aux.length < 8) aux.push(0); aux[3] = db; updateNode(studyNode.id, { aux }, final) }}

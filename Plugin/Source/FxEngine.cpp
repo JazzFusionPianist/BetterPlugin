@@ -357,7 +357,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
 
     const float target = juce::jlimit (0.0f, 1.0f, p.amount);
     const float alpha  = 1.0f - std::exp (-(float) n / (0.05f * sr));
-    amtSm += (target - amtSm) * alpha;
+    if (p.snap) amtSm = target; else amtSm += (target - amtSm) * alpha;
     const float a = amtSm;
 
     // Neutral positions cost nothing.

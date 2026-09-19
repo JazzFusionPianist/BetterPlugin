@@ -52,7 +52,7 @@ inline bool isSource (int t) noexcept { return t == kSide; }       // audio star
 inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
 inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
-constexpr int kLfoLen = 64;
+constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
 enum Hand : int { kHandNone = -1, kHandAmount = 0, kHandDecay, kHandFb, kHandAux0,
                   kHandShare0 = 64 };   // + (from + 1): the share of the wire from `from` into a mix (in = 64)
@@ -94,6 +94,7 @@ struct NodeParams
     float bpm      = 120.0f;
     double ppq     = 0.0;    // host position at block start (quarter notes)
     bool  playing  = false;  // transport rolling → tempo-synced things lock to ppq
+    bool  snap     = false;  // the hand just jumped on purpose (an lfo's cliff, a random step): take it at once, no glide
 };
 
 struct Biquad

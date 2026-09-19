@@ -15,7 +15,7 @@ export const LATEST: { version: string; url: string } = { version: '1.0.1', url:
 /** The engine version a print first appeared in (a print not listed has always been there). */
 export const PRINT_SINCE: Record<number, string> = {
   28: '1.0.1', 29: '1.0.1',              // L/R, M/S
-  30: '1.0.1', 31: '1.0.1', 32: '1.0.1', // LFO, rate, macro
+  30: '1.0.2', 31: '1.0.1', 32: '1.0.1', // LFO (its own clock since 1.0.2; before that it needed a rate), rate, macro
   33: '1.0.1', 34: '1.0.1',              // side, follow
 }
 
@@ -30,5 +30,7 @@ export function engineVersion (): string | null {
 }
 /** A newer engine is out than the one under this page. */
 export const updateOut = () => { const v = engineVersion(); return v !== null && LATEST.url !== '' && older(v, LATEST.version) }
+/** The lfo is its own clock (the rate's hands, a depth, random, true cliffs) from this engine on; older engines keep their lfo → rate patches as they are. */
+export const lfoOwnClock = () => { const v = engineVersion(); return v === null || !older(v, '1.0.2') }
 /** This engine knows this print. */
 export const engineHas = (type: number) => { const v = engineVersion(), since = PRINT_SINCE[type]; return v === null || since === undefined || !older(v, since) }

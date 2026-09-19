@@ -12,13 +12,17 @@ export const LIVE_HANDS = 12
 export const LIVE_INDEX: Record<string, number> = { amount: 0, variant: 1, decay: 2, fb: 3, div: 4, wet: 5, aux0: 6, aux1: 7, aux2: 8, aux3: 9, aux4: 10, aux5: 11 }
 
 const live = new Float32Array(16 * LIVE_HANDS)
+const lfoPhase = new Float32Array(16), lfoCycle = new Float64Array(16)
+let lfoAt = 0
 let have = false
 const subs = new Set<() => void>()
 const notify = () => { for (const s of subs) s() }
 
 if (typeof window !== 'undefined' && hasJuceBridge) {
   window.addEventListener('__juceDawAudio', (e: Event) => {
-    const d = (e as CustomEvent).detail as { live?: number[][] }
+    const d = (e as CustomEvent).detail as { live?: number[][]; lph?: number[]; lcy?: number[] }
+    if (Array.isArray(d.lph)) for (let i = 0; i < 16; i++) { lfoPhase[i] = Number(d.lph[i]) || 0; lfoCycle[i] = Number(d.lcy?.[i]) || 0 }
+    lfoAt = performance.now()
     if (!Array.isArray(d.live)) return
     let changed = !have
     for (let i = 0; i < 16 && i < d.live.length; i++) {
@@ -43,4 +47,10 @@ export function useLiveHand (slot: number, k: number): number | undefined {
 /** The same, read once (for a draw loop, not a component). */
 export function getLiveHand (slot: number, k: number): number | undefined {
   return have && slot >= 0 && slot < 16 && k >= 0 && k < LIVE_HANDS ? live[slot * LIVE_HANDS + k] : undefined
+}
+
+/** Where an lfo is in its shape right now (0..1) and which turn of it this is; in a plain browser a slow made-up clock, so the editor can be seen moving. */
+export function getLfoClock (slot: number): { phase: number; cycle: number } {
+  if (!hasJuceBridge || lfoAt === 0) { const t = performance.now() / 2400; return { phase: t - Math.floor(t), cycle: Math.floor(t) } }
+  return { phase: lfoPhase[slot] ?? 0, cycle: lfoCycle[slot] ?? 0 }
 }

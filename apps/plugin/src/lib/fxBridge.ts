@@ -126,7 +126,7 @@ export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
 export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints whose wire lands on a hand (a dashed control wire). */
-export const playsHandsType = (t: number) => t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
+export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
 export const hasKeyType = (t: number) => t === 4 || t === 26
 /** The prints with no input point: the shapes and the sources. */

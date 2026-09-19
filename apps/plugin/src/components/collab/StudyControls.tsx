@@ -154,13 +154,15 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
 
 /* ── a choice: cells, steps, the keyboard, or a list, by what it holds ── */
 
-export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, colour = 1 }: {
+export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, list, none, colour = 1 }: {
   label: string
   options: string[]
   value: number
   onPick: (i: number) => void
   onGesture?: (on: boolean) => void
   fill?: boolean              // the divisions and the keyboard fill the column
+  list?: boolean              // a drawer, however few the options
+  none?: string               // what the key reads when nothing is chosen (value < 0)
   colour?: Hue
 }) {
   const [hover, setHover] = useState(-1)
@@ -168,7 +170,7 @@ export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, col
   const [open, setOpen] = useState(false)
   const keys = fill && options.length === 12
   const steps = fill && !keys
-  const asList = !fill && options.length > 8
+  const asList = list || (!fill && options.length > 8)
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
@@ -214,7 +216,7 @@ export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, col
                 const d = (e.currentTarget.previousSibling as HTMLElement | null); if (!d) return
                 const r = d.getBoundingClientRect(); const i = Math.floor((e.clientY - r.top - 2) / 16); setHover(i >= 0 && i < options.length ? i : -1)
               } : undefined}>
-              <span>{options[value]}</span><Chevron up={open} />
+              <span>{options[value] ?? none ?? ''}</span><Chevron up={open} />
             </button>
           </span>
         )}

@@ -86,7 +86,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                 int lo, hi; auxRange (type, k, lo, hi);
                 const int v = (int) std::lround (lo + n * (hi - lo));
                 if (type == orbfx::kCut && k == 0) return juce::String ((v >= 1 && v <= 4 ? v : 2) * 12) + " dB/oct";
-                if (type == orbfx::kRate)   // a rate's clock reads as words in the host, as on the wall
+                if (type == orbfx::kRate || (type == orbfx::kLfo && k < 4))   // a clock reads as words in the host, as on the wall
                 {
                     static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
                     static const char* const feel[] = { "straight", "dotted", "triplet" };
@@ -635,6 +635,10 @@ void OrbAudioProcessor::timerCallback()
         script << "]";
     }
     // a follow's meter: what it heard (peak since the last event, after its sense) and where its envelope is, both linear
+    script << "],lph:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (ratePhaseOut[(size_t) i].load (std::memory_order_relaxed), 4);
+    script << "],lcy:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << rateCycleOut[(size_t) i].load (std::memory_order_relaxed);
     script << "],fin:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kFollow ? fxChain.takeFollowIn (i) : 0.0f, 5);
     script << "],fenv:[";
@@ -1112,7 +1116,10 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
         s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
     s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
     for (int i = 0; i < orbfx::kLfoLen; ++i)
+    {
         s.lfo[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo[i]), std::memory_order_relaxed);
+        s.lfoCliff[(size_t) i].store (std::abs (nd.lfo[(i + 1) % orbfx::kLfoLen] - nd.lfo[i]) > 0.12f ? 1 : 0, std::memory_order_relaxed);   // one step of the table is 1/1024 of a turn: a change this big in it is a drawn cliff (or the shape's seam)
+    }
     s.hasLfo.store (nd.hasLfo, std::memory_order_relaxed);
 }
 
@@ -1140,6 +1147,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             if (nd.type == orbfx::kLfo)   isLfo[nd.id] = true;
             if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
             if (nd.type == orbfx::kFollow) t.isFollow[nd.id] = true;
+            if (nd.type == orbfx::kLfo)   { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.shapeOf[nd.id] = nd.id; }   // an lfo plays hands itself: its own clock, its own shape
         }
         for (auto& e : g.edges)
         {
@@ -1211,6 +1219,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
         case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
         case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
+        case orbfx::kLfo:     { static const char* const l[] = { "clock", "rate", "feel", "hz", "steps", "depth" }; return k < 6 ? l[k] : nullptr; }
         case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
         default: return nullptr;
     }
@@ -1229,6 +1238,7 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
+        case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } break;
         case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
         default: break;
     }
@@ -1439,7 +1449,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         const auto& w = t.wires[i];
         if (! w.fromMacro || w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes || ! t.isRate[w.to]) continue;
         const int a = w.hand - orbfx::kHandAux0;
-        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], orbfx::kRate, a, pushOf (w, w.depth));
+        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, w.depth));
     }
     for (int r = 0; r < orbfx::kMaxNodes; ++r)
     {
@@ -1457,23 +1467,44 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
             const int div = juce::jlimit (0, 7, rp.aux[1]);
             const int feel = rp.aux[2];
             const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
-            if (playing) phase = ppq / beats;
+            if (playing) phase = ppq / beats;   // locked to the song: the shape's left edge is bar 1, so the same place in the song is the same place in the shape
             else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
         }
-        phase -= std::floor (phase);
+        // which turn this is: from the song while it plays (so a random shape is the same every time that bar is played), counted otherwise
+        const double whole = std::floor (phase);
+        if (playing && mode != 1) rateCycle[r] = (int64_t) whole; else rateCycle[r] += (int64_t) whole;
+        phase -= whole;
         ratePhase[r] = phase;
+        ratePhaseOut[(size_t) r].store ((float) phase, std::memory_order_relaxed);
+        rateCycleOut[(size_t) r].store ((int) (rateCycle[r] & 0x7fffffff), std::memory_order_relaxed);
         // the shape: the lfo wired in, or a sine
         float v;
+        bool jumped = false;
         const int lfoSlot = t.shapeOf[r];
-        if (lfoSlot >= 0 && fxSlots[(size_t) lfoSlot].hasLfo.load (std::memory_order_relaxed))
+        const int steps = t.isLfo[r] ? juce::jlimit (0, 32, rp.aux[4]) : 0;
+        if (steps > 0)
         {
-            auto& sh = fxSlots[(size_t) lfoSlot].lfo;
-            const double x = phase * orbfx::kLfoLen;
-            const int i0 = (int) x % orbfx::kLfoLen, i1 = (i0 + 1) % orbfx::kLfoLen;
-            const float f = (float) (x - std::floor (x));
-            v = sh[(size_t) i0].load (std::memory_order_relaxed) * (1.0f - f) + sh[(size_t) i1].load (std::memory_order_relaxed) * f;
+            // random: a new value every step, held. It comes from the turn and the step, not from a dice: bar 9 is the same every time.
+            const int64_t step = rateCycle[r] * steps + (int64_t) (phase * steps);
+            uint32_t h = (uint32_t) (step * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u);
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+            v = (float) (h & 0xffffff) / (float) 0xffffff;
+            jumped = step != rateLastStep[r]; rateLastStep[r] = step;
+        }
+        else if (lfoSlot >= 0 && fxSlots[(size_t) lfoSlot].hasLfo.load (std::memory_order_relaxed))
+        {
+            // read as drawn: no blending between two entries, so a vertical line is a step
+            auto& slot = fxSlots[(size_t) lfoSlot];
+            const int idx = juce::jlimit (0, orbfx::kLfoLen - 1, (int) (phase * orbfx::kLfoLen));
+            v = slot.lfo[(size_t) idx].load (std::memory_order_relaxed);
+            // did this block pass over a cliff? then the hand jumps (no glide)
+            int k = rateLastIdx[r], guard = 0;
+            while (k != idx && guard++ < orbfx::kLfoLen) { if (slot.lfoCliff[(size_t) k].load (std::memory_order_relaxed)) { jumped = true; break; } k = (k + 1) % orbfx::kLfoLen; }
+            rateLastIdx[r] = idx;
         }
         else v = 0.5f + 0.5f * (float) std::sin (phase * juce::MathConstants<double>::twoPi);
+        if (t.isLfo[r]) v = 0.5f + (v - 0.5f) * (float) juce::jlimit (0, 100, rp.aux[5]) / 100.0f;   // the lfo's own depth: how far it swings, for every hand it plays
+        if (jumped) for (int i = 0; i < t.count; ++i) if (t.wires[i].from == r && t.wires[i].to >= 0 && t.wires[i].to < orbfx::kMaxNodes) params[t.wires[i].to].snap = true;
         value[r] = v;
         rateValue[(size_t) r].store (v, std::memory_order_relaxed);
     }
@@ -1550,12 +1581,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
             for (int i = 0; i < orbfx::kCurveLen; ++i) cv.add ((double) nd.curve[i]);
             o->setProperty ("curve", cv);
         }
-        if (nd.hasLfo)
-        {
-            juce::Array<juce::var> lv;
-            for (int i = 0; i < orbfx::kLfoLen; ++i) lv.add ((double) nd.lfo[i]);
-            o->setProperty ("curve", lv);
-        }
+        // (an lfo's table is not sent back: the wall has the points it was made from)
         if (! nd.pts.empty())
         {
             juce::Array<juce::var> pv;
@@ -1652,6 +1678,28 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             }
             if (auto* pv = n["pts"].getArray())
                 for (auto& f : *pv) nd.pts.push_back ((float) (double) f);
+            if (nd.type == orbfx::kLfo && nd.pts.size() >= 6)
+            {
+                // the shape, exactly as drawn: straight stretches between points, each bowed by its bend; two points on one x are a cliff
+                const int np = (int) nd.pts.size() / 3;
+                auto at = [&] (float x) -> float
+                {
+                    for (int i = 0; i < np - 1; ++i)
+                    {
+                        const float x0 = nd.pts[(size_t) i * 3], y0 = nd.pts[(size_t) i * 3 + 1], b = nd.pts[(size_t) i * 3 + 2];
+                        const float x1 = nd.pts[(size_t) (i + 1) * 3], y1 = nd.pts[(size_t) (i + 1) * 3 + 1];
+                        if (x < x0) return y0;
+                        if (x < x1 || i == np - 2)
+                        {
+                            const float tt = x1 > x0 ? juce::jlimit (0.0f, 1.0f, (x - x0) / (x1 - x0)) : 1.0f;
+                            return juce::jlimit (0.0f, 1.0f, y0 + (y1 - y0) * tt + b * 0.5f * 4.0f * tt * (1.0f - tt));
+                        }
+                    }
+                    return nd.pts[(size_t) (np - 1) * 3 + 1];
+                };
+                nd.hasLfo = true;
+                for (int i = 0; i < orbfx::kLfoLen; ++i) nd.lfo[i] = at ((float) i / (float) orbfx::kLfoLen);
+            }
             nd.x        = (float) (double) n["x"];
             nd.y        = (float) (double) n["y"];
             out.nodes.push_back (nd);

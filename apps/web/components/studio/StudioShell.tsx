@@ -29,7 +29,7 @@ import type { GameScreen } from '../games/GamesPanel'
 import type { JoinResult, GameType } from '@/lib/games/gameRooms'
 import ChatSettingsSheet from '../app/ChatSettingsSheet'
 import StudioChat from './StudioChat'
-import CalendarView from '../app/CalendarView'
+import StudioCalendar from './StudioCalendar'
 import SchedulePrompt from '../app/SchedulePrompt'
 import FollowAlerts from '../app/FollowAlerts'
 import NewGroupSheet from '../app/NewGroupSheet'
@@ -289,15 +289,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
     categories,
     groupTitleById,
     onDelete: (id: string) => { deleteEvent(id).catch(() => {}) },
-    onSetCategory: async (id: string, name: string) => {
-      const color = await ensureCategory(name)
-      updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-    },
     onUpdate: (id: string, patch: Parameters<typeof updateEvent>[1]) => { updateEvent(id, patch).catch(() => {}) },
-    onAddCategory: (name: string) => { ensureCategory(name).catch(() => {}) },
-    onRenameCategory: async (id: string, name: string) => { await renameCategory(id, name).catch(() => {}); refetchEvents() },
-    onDeleteCategory: async (id: string) => { await deleteCategory(id).catch(() => {}); refetchEvents() },
   }
+
 
   // ── notes ───────────────────────────────────────────────────────────
   const { notes, loaded: notesLoaded, refresh: refreshNotes } = useConversationNotes(supabase, activeConvId)
@@ -495,9 +489,8 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 <div className="wd-title">{myName}</div>
                 <div className="wd-sub">my calendar</div>
               </div>
-              <div className="wd-pane wd-calhost">
-                <CalendarView open events={allCalEvents} onClose={goHome} {...calendarProps} />
-              </div>
+              <StudioCalendar events={allCalEvents} {...calendarProps}
+                onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, null)} />
             </>
           ) : sel && chatTarget ? (
             <>
@@ -565,9 +558,8 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 />
               )}
               {tab === 'calendar' && activeConvId && (
-                <div className="wd-pane wd-calhost">
-                  <CalendarView open events={convCalEvents} onClose={() => setTab('chat')} {...calendarProps} />
-                </div>
+                <StudioCalendar events={convCalEvents} {...calendarProps}
+                  onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, activeConvId)} />
               )}
               {tab === 'notes' && activeConvId && (
                 <StudioNotes

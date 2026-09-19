@@ -836,3 +836,101 @@
 .wd-calhost .cal-agenda-date { font-size: 13px; font-weight: 500; color: #1A1917; margin-bottom: 12px; }
 .wd-calhost .cal-close { display: none; }
 .wd-calhost .cal-month { font-size: 22px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   the studio calendar (draft A) — the month is the page: titles in the
+   cells behind a 2px category bar, today an ink disc, the chosen day a
+   green wash; the right column is that day's programme.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.sc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sc button { font-family: inherit; }
+.sc-head { flex-shrink: 0; padding: 22px 32px 12px; }
+.sc-title-row { display: flex; align-items: baseline; gap: 18px; }
+.sc-title { flex: 1; min-width: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: #1A1917;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-title span { font-weight: 400; color: #C0BCB3; }
+.sc-views, .sc-nav { display: flex; align-items: baseline; gap: 16px; flex-shrink: 0; }
+.sc-view, .sc-navw, .sc-chev, .sc-filter { background: none; border: none; padding: 0; cursor: pointer; font-size: 12.5px; color: #A5A199; }
+.sc-view:hover, .sc-navw:hover, .sc-chev:hover, .sc-filter:hover { color: #1A1917; }
+.sc-view.on { color: #1A1917; font-weight: 500; text-decoration: underline; text-underline-offset: 4px; }
+.sc-navw { color: #6E6B63; }
+.sc-chev { font-size: 16px; line-height: 1; color: #6E6B63; padding: 0 2px; }
+.sc-filters { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; }
+.sc-filter { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6E6B63; }
+.sc-filter.on { color: #1A1917; font-weight: 500; }
+.sc-filter i { width: 6px; height: 6px; border-radius: 50%; }
+
+.sc-body { flex: 1; min-height: 0; display: flex; }
+.sc-page { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 0 24px 22px 32px; }
+
+/* month */
+.sc-weekdays { flex-shrink: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding-bottom: 7px;
+  font-size: 10px; letter-spacing: .08em; color: #A5A199; }
+.sc-weekdays span { padding-left: 8px; }
+.sc-weeks { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sc-week { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.sc-cell { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: stretch; gap: 3px;
+  padding: 7px 6px 5px 8px; background: none; border: none; border-top: 1px solid rgba(26,25,23,.09); cursor: pointer; text-align: left; }
+.sc-cell:hover { background: rgba(26,25,23,.025); }
+.sc-cell.sel, .sc-cell.sel:hover { background: var(--acc-10); }
+.sc-num { flex-shrink: 0; align-self: flex-start; min-width: 20px; height: 20px; font-size: 11px; line-height: 20px; color: #1A1917;
+  font-variant-numeric: tabular-nums; }
+.sc-cell.wkend .sc-num { color: #6E6B63; }
+.sc-cell.out .sc-num { color: #C0BCB3; }
+.sc-num.today { text-align: center; border-radius: 10px; background: #1A1917; color: #FBFAF7 !important; font-weight: 500; font-size: 10.5px; }
+.sc-chip { flex-shrink: 0; display: flex; align-items: center; gap: 5px; min-width: 0; height: 14px; }
+.sc-chip i { flex: 0 0 2px; width: 2px; height: 11px; border-radius: 1px; }
+.sc-chip em { flex-shrink: 0; font-style: normal; font-size: 9.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.sc-chip b { flex: 1; min-width: 0; font-weight: 500; font-size: 10.5px; color: #1A1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-cell.out .sc-chip b { color: #A5A199; }
+.sc-more { flex-shrink: 0; font-size: 9.5px; color: #A5A199; }
+
+/* week */
+.sc-wk { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid rgba(26,25,23,.09); }
+.sc-wkcol { min-width: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; align-items: stretch; gap: 5px;
+  padding: 8px 6px 8px 8px; background: none; border: none; border-left: 1px solid rgba(26,25,23,.06); cursor: pointer; text-align: left; }
+.sc-wkcol::-webkit-scrollbar { display: none; }
+.sc-wkcol:first-child { border-left: none; }
+.sc-wkcol.sel { background: var(--acc-10); }
+.sc-wkhead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px;
+  font-size: 10px; letter-spacing: .08em; color: #A5A199; }
+
+/* list */
+.sc-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; border-top: 1px solid rgba(26,25,23,.09); }
+.sc-list::-webkit-scrollbar { display: none; }
+.sc-lday { display: flex; gap: 16px; padding: 10px 8px; border-bottom: 1px solid rgba(26,25,23,.07); cursor: pointer; }
+.sc-lday.sel { background: var(--acc-10); }
+.sc-ldate { flex: 0 0 92px; font-size: 11.5px; color: #6E6B63; font-variant-numeric: tabular-nums; }
+.sc-ldate.today { color: var(--acc); font-weight: 500; }
+.sc-lrows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.sc-lrows .sc-chip b { font-size: 12px; }
+.sc-lrows .sc-chip em { flex: 0 0 40px; font-size: 10.5px; }
+.sc-none { padding: 18px 8px; font-style: italic; font-size: 13px; color: #A5A199; }
+
+/* the chosen day */
+.sc-day { flex: 0 0 320px; min-height: 0; display: flex; flex-direction: column; padding: 0 32px 22px 28px;
+  border-left: 1px solid rgba(26,25,23,.14); }
+.sc-day-title { font-size: 20px; font-weight: 500; letter-spacing: -0.015em; color: #1A1917; }
+.sc-day-title span { font-weight: 400; color: #C0BCB3; }
+.sc-day-sub { display: flex; gap: 12px; margin-top: 3px; font-size: 11px; color: #A5A199; }
+.sc-rows { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; margin-top: 14px; }
+.sc-rows::-webkit-scrollbar { display: none; }
+.sc-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-top: 1px solid rgba(26,25,23,.09); cursor: pointer; }
+.sc-row:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(26,25,23,.3); }
+.sc-row-time { flex: 0 0 40px; padding-top: 2px; font-size: 11px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.sc-row-bar { flex: 0 0 2px; align-self: stretch; min-height: 30px; border-radius: 1px; }
+.sc-row-main { flex: 1; min-width: 0; }
+.sc-row-main b { display: block; font-size: 13px; font-weight: 500; color: #1A1917; overflow-wrap: anywhere; }
+.sc-row-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 2px; font-size: 10.5px; color: #A5A199; }
+.sc-row .wd-word { align-self: center; opacity: 0; }
+.sc-row:hover .wd-word, .sc-row .wd-word.sure { opacity: 1; }
+.sc-add { flex-shrink: 0; padding-top: 10px; }
+.sc-add-err { font-size: 11px; font-style: italic; color: #B8552F; padding: 0 2px 6px; }
+.sc-add-bar { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(26,25,23,.4);
+  border-radius: 6px; padding: 7px 8px 7px 12px; }
+.sc-add-bar input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-family: inherit; font-size: 12.5px; color: #1A1917; }
+.sc-add-bar input::placeholder { color: #A5A199; }
+.sc-add-bar button { flex: 0 0 24px; height: 24px; border: none; border-radius: 4px; background: var(--acc); color: #fff; font-size: 11px; cursor: pointer; }
+.sc-add-bar button:disabled { background: #C0BCB3; cursor: default; }
+.sc-detail { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.sc-detail::-webkit-scrollbar { display: none; }

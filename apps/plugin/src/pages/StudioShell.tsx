@@ -38,7 +38,6 @@ import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
-import ChatCalendar from '../components/collab/ChatCalendar'
 import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
 import { AudioAttachment, AudioEngineContext, ImportAllWord, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
@@ -46,6 +45,7 @@ import { LanguageProvider } from '../i18n/LanguageContext'
 import type { AttachmentTimelineMetadata, ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
 import ProfilePage from '../components/studio/ProfilePage'
+import StudioCalendar from '../components/studio/StudioCalendar'
 import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
 import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
 import type { GameId } from '../components/collab/GameListView'
@@ -1478,7 +1478,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ── calendar wiring ─────────────────────────────────────────────────
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, user.id)
-  const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, user.id)
+  const { categories: calCategories, ensureCategory: calEnsureCategory } = useEventCategories(supabase, user.id)
 
   // The calendar TAB shows only this conversation's events; MY schedule
   // (everything RLS lets me see) lives on the home pane + "my calendar".
@@ -2827,24 +2827,15 @@ function StudioShellInner({ supabase, user }: Props) {
               </div>
               {/* The real month page — everything RLS lets me see, from
                   any room; events added here are personal (no room). */}
-              <div className="wd-pane">
-                <ChatCalendar
-                  currentUserId={user.id}
-                  events={allCalEvents}
-                  categories={calCategories}
-                  groupTitleById={groupTitleById}
-                  onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-                  onSetCategory={async (id, name) => {
-                    const color = await calEnsureCategory(name)
-                    calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-                  }}
-                  onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-                  onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-                  onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-                  onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-                  onSubmitPrompt={(text) => saveMyEvents(text)}
-                />
-              </div>
+              <StudioCalendar
+                currentUserId={user.id}
+                events={allCalEvents}
+                categories={calCategories}
+                groupTitleById={groupTitleById}
+                onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+                onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+                onAdd={(text, day) => saveMyEvents(`on ${day}: ${text}`)}
+              />
             </>
           ) : sel ? (
             <>
@@ -2991,29 +2982,17 @@ function StudioShellInner({ supabase, user }: Props) {
               )}
 
               {tab === 'calendar' && (
-                <div className="wd-pane">
-                  {activeConvId ? (
-                    <ChatCalendar
-                      currentUserId={user.id}
-                      events={convCalEvents}
-                      categories={calCategories}
-                      groupTitleById={groupTitleById}
-                      onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-                      onSetCategory={async (id, name) => {
-                        const color = await calEnsureCategory(name)
-                        calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-                      }}
-                      onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-                      onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-                      onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-                      onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-                      onSubmitPrompt={async (text) => {
-                        const parsed = await parseSchedule(supabase, text)
-                        return saveChatEvents(parsed)
-                      }}
-                    />
-                  ) : <div className="wd-quiet">loading…</div>}
-                </div>
+                activeConvId ? (
+                  <StudioCalendar
+                    currentUserId={user.id}
+                    events={convCalEvents}
+                    categories={calCategories}
+                    groupTitleById={groupTitleById}
+                    onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+                    onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+                    onAdd={async (text, day) => saveChatEvents(await parseSchedule(supabase, `on ${day}: ${text}`))}
+                  />
+                ) : <div className="wd-quiet">loading…</div>
               )}
 
               {tab === 'notes' && (

@@ -99,6 +99,7 @@ fi
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
       -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+      $( [ "$BUILD_TYPE" = Release ] && echo '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' ) \
       -DORB_APP_URL="$ORB_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \
       -G Xcode \
@@ -108,7 +109,7 @@ cmake -B "$BUILD_DIR" \
 cmake --build "$BUILD_DIR" \
       --config "$BUILD_TYPE" \
       --target $BUILD_TARGETS \
-      -- -quiet
+      -- -quiet $( [ "$BUILD_TYPE" = Release ] && echo 'ONLY_ACTIVE_ARCH=NO' )   # a release is for everyone's Mac: both architectures
 
 echo ""
 echo "✓ Build complete."

@@ -51,11 +51,12 @@ done
 case "$PRODUCT" in
   orb)    TARGET="OrbPlugin"; NAME="Orb";        IDENTIFIER_BASE="com.orb.plugin" ;;
   chat)   TARGET="OrbChat";   NAME="Orb Chat";   IDENTIFIER_BASE="com.orb.chat"   ;;
-  sounds) TARGET="OrbSounds"; NAME="Orb Sounds"; IDENTIFIER_BASE="com.orb.sounds" ;;
+  sounds) TARGET="OrbSounds"; NAME="Patch on Slur"; IDENTIFIER_BASE="com.orb.sounds"; OLD_NAME="Orb Sounds" ;;   # was Orb Sounds: same codes, same identifier (an upgrade), the old bundles are removed on install
   games)  TARGET="OrbGames";  NAME="Orb Games";  IDENTIFIER_BASE="com.orb.games"  ;;
   *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds | games)" >&2; exit 1 ;;
 esac
 SLUG="${NAME// /}"   # inner component pkgs get a space-free name
+OLD_NAME="${OLD_NAME:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTEFACTS="$SCRIPT_DIR/build/${TARGET}_artefacts/Release"
@@ -82,7 +83,23 @@ build_component() {
   local root="$WORK/roots/$key"
   mkdir -p "$root$dest"
   cp -R "$src" "$root$dest/"
+  # a renamed product: its old bundles carry the same plugin codes, so a host would list it twice — take them out first
+  local scripts=()
+  if [ -n "$OLD_NAME" ]; then
+    local sdir="$WORK/scripts/$key"; mkdir -p "$sdir"
+    local ext="${src##*.}"
+    {
+      echo '#!/bin/sh'
+      echo "rm -rf \"$dest/$OLD_NAME.$ext\""
+      echo 'U=$(stat -f%Su /dev/console 2>/dev/null)'
+      echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$OLD_NAME.$ext\" \"/Users/\$U$dest/$NAME.$ext\""
+      echo 'exit 0'
+    } > "$sdir/preinstall"
+    chmod +x "$sdir/preinstall"
+    scripts=(--scripts "$sdir")
+  fi
   pkgbuild \
+    ${scripts[@]+"${scripts[@]}"} \
     --root "$root" \
     --identifier "$IDENTIFIER_BASE.$key" \
     --version "$VERSION" \

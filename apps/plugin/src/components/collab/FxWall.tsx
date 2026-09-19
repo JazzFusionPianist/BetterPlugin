@@ -8,6 +8,8 @@ import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './S
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, sampleShape, shapeAt } from './LfoEditor'
 import FollowMeter from './FollowMeter'
+import { LATEST, updateOut, engineHas } from '../../lib/soundsRelease'
+import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
@@ -1840,6 +1842,12 @@ export default function FxWall ({ size: frame }: Props) {
           </div>
         </div>
 
+        {updateOut() && (
+          <p className="fx-note sg-note sg-update">
+            {LATEST.version} is out
+            <button className="sg-key" onPointerDown={(e) => { e.stopPropagation(); void openExternalUrl(LATEST.url) }}>download</button>
+          </p>
+        )}
         {!loaded && <p className="fx-note sg-note">reading the wall…</p>}
         {error && <p className="fx-note sg-note">{error}</p>}
         {!bridge && !oldEngine && <p className="fx-note sg-note">browser mode — the audio itself runs inside the daw.</p>}
@@ -1859,8 +1867,8 @@ export default function FxWall ({ size: frame }: Props) {
           <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
         </span>
         {shelfTypes.map(type => (
-          <div key={type} className="sg-shelf-item"
-            onPointerDown={(e) => { if (full) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
+          <div key={type} className={`sg-shelf-item${engineHas(type) ? '' : ' shut'}`}
+            onPointerDown={(e) => { if (full || !engineHas(type)) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
             <Print node={{ type, amount: type === 0 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0.3, variant: 0, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, aux: [12, 0, 2] }} size={shelfPrint} dim shares={[0.5, 0.5]} />
             <span>{nameOf(type)}</span>
           </div>

@@ -1,0 +1,34 @@
+/*  Patch on Slur — which engine is the newest, and what each print needs.
+
+    The wall (this page) is loaded from the web every time the plugin
+    opens, so everyone always has the newest wall. The engine is what the
+    installer put on their Mac, and only a new installer changes it. The
+    plugin tells the page its engine's version (?ver=…); the page says
+    when a newer one is out, and keeps a print off the shelf when the
+    engine under it does not know that print yet.
+
+    LATEST is written by Plugin/release.sh when a release is published —
+    do not edit it by hand.                                            */
+
+export const LATEST: { version: string; url: string } = { version: '0.0.0', url: '' }
+
+/** The engine version a print first appeared in (a print not listed has always been there). */
+export const PRINT_SINCE: Record<number, string> = {
+  28: '1.0.1', 29: '1.0.1',              // L/R, M/S
+  30: '1.0.1', 31: '1.0.1', 32: '1.0.1', // LFO, rate, macro
+  33: '1.0.1', 34: '1.0.1',              // side, follow
+}
+
+const parse = (v: string) => v.split('.').map(x => parseInt(x, 10) || 0)
+export const older = (a: string, b: string) => { const x = parse(a), y = parse(b); for (let i = 0; i < 3; i++) { if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0) } return false }
+
+/** The engine under this page: its version, or null in a plain browser (no engine at all). An engine too old to say counts as 0.0.0. */
+export function engineVersion (): string | null {
+  const q = new URLSearchParams(window.location.search)
+  if (q.get('plugin') !== '1') return null
+  return q.get('ver') ?? '0.0.0'
+}
+/** A newer engine is out than the one under this page. */
+export const updateOut = () => { const v = engineVersion(); return v !== null && LATEST.url !== '' && older(v, LATEST.version) }
+/** This engine knows this print. */
+export const engineHas = (type: number) => { const v = engineVersion(), since = PRINT_SINCE[type]; return v === null || since === undefined || !older(v, since) }

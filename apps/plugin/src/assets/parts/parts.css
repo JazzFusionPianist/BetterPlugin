@@ -128,3 +128,8 @@
 
 /* a print with a plate: the chosen one's hairline is drawn with the plate, in its shape (not this round one) */
 .plugin.sounds .sg-node.shaped.sel::before { display: none; }
+
+/* a newer engine is out: a line at the foot of the wall and the key to get it */
+.plugin.sounds .sg-update { display: flex; align-items: center; gap: 10px; color: var(--sg-ink-85); pointer-events: all; padding-left: 24px; font-style: normal; font-family: var(--f-mono); font-size: 10px; }
+/* a print this engine does not know yet: on the shelf, shut, until the engine is updated */
+.plugin.sounds .sg-shelf-item.shut { opacity: 0.16; cursor: default; }

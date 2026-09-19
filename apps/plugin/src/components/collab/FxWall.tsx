@@ -1616,6 +1616,9 @@ export default function FxWall ({ size: frame }: Props) {
   }, [scope])
   useEffect(() => () => setScopeInput(false), [])
   const inkRgb = strokeFor(litLevel)
+  // the update window shows once for each new version on this machine; after `later` only the line at the foot says it
+  const [updateSeen, setUpdateSeen] = useState(() => { try { return localStorage.getItem('slur_update_seen') === LATEST.version } catch { return false } })
+  const dismissUpdate = () => { setUpdateSeen(true); try { localStorage.setItem('slur_update_seen', LATEST.version) } catch { /* fine */ } }
 
   const patchBar = topBar && createPortal(
     <div className="sg-presetbar" style={inkVars} onPointerDown={(e) => e.stopPropagation()}>
@@ -1842,7 +1845,18 @@ export default function FxWall ({ size: frame }: Props) {
           </div>
         </div>
 
-        {updateOut() && (
+        {updateOut() && !updateSeen && (
+          // a newer engine is out: a small window in the middle of the wall, once per version (later: the line at the foot stays)
+          <div className="sg-update-window" onPointerDown={(e) => e.stopPropagation()}>
+            <span className="sg-update-name">patch on slur</span>
+            <span className="sg-update-version">{LATEST.version}</span>
+            <span className="sg-update-keys">
+              <button className="sg-key armed" onPointerDown={() => { void openExternalUrl(LATEST.url); dismissUpdate() }}>download</button>
+              <button className="sg-key" onPointerDown={dismissUpdate}>later</button>
+            </span>
+          </div>
+        )}
+        {updateOut() && updateSeen && (
           <p className="fx-note sg-note sg-update">
             {LATEST.version} is out
             <button className="sg-key" onPointerDown={(e) => { e.stopPropagation(); void openExternalUrl(LATEST.url) }}>download</button>

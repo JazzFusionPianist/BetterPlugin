@@ -75,7 +75,7 @@ public:
     bool hasEditor() const override { return true; }
 
     //── Identity ──────────────────────────────────────────────────────────────
-    const juce::String getName() const override { return "Orb"; }
+    const juce::String getName() const override { return JucePlugin_Name; }
     bool acceptsMidi() const override  { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }

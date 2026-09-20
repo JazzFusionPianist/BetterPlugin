@@ -721,7 +721,7 @@ export default function FxWall ({ size: frame }: Props) {
   const intensityOf = (n: FxGraphNode) =>
     n.type === FX_MACRO ? 0.15 + 0.85 * n.amount            // a macro is as bright as its knob is up
     : n.type === FX_SIDE || n.type === FX_FOLLOW ? 0.55     // these two breathe with what they hear (see the lamps)
-    : isUtilityType(n.type) ? 0.3
+    : isUtilityType(n.type) ? 0.4                           // a steady low light in its own colour
     : (n.type === 0 || n.type === 16 || n.type === 17) ? Math.abs(n.amount - 0.5) * 2
     : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
     : n.amount
@@ -1372,7 +1372,7 @@ export default function FxWall ({ size: frame }: Props) {
         ctx.restore()
         const lit = (f: number) => `rgb(${Math.round(18 + (t[0] - 18) * f)}, ${Math.round(17 + (t[1] - 17) * f)}, ${Math.round(14 + (t[2] - 14) * f)})`
         const dg = ctx.createLinearGradient(c.x, c.y - Rz * CTRL_R, c.x, c.y + Rz * CTRL_R)
-        dg.addColorStop(0, lit(0.1 + k * 0.26)); dg.addColorStop(1, lit(0.05 + k * 0.14))
+        dg.addColorStop(0, lit(0.26 + k * 0.3)); dg.addColorStop(1, lit(0.14 + k * 0.18))
         platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = dg; ctx.fill()
         if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
         continue
@@ -1552,9 +1552,9 @@ export default function FxWall ({ size: frame }: Props) {
     ctx.globalCompositeOperation = 'screen'
     const seen = new Set<number>()
     for (const n of graph.nodes) {
-      // a control print and the side are never "between in and out": they are lit when a wire leaves them
-      const offPath = isControlType(n.type) || n.type === FX_SIDE
-      const alive = offPath ? graph.edges.some(e => e.from === n.id) : live.has(n.id) && !n.bypass
+      // a print with no knob of its own (the utilities, the control prints) always wears its colour, low: nothing on the wall is just black.
+      // A sound print is lit by its knob, and only on a way from in to out.
+      const alive = isUtilityType(n.type) ? true : live.has(n.id) && !n.bypass
       // a knob that something plays (a rate, a macro, a follow) shines as it is played, not as it was set
       const playedA = !isUtilityType(n.type) && graph.edges.some(e => e.to === n.id && e.hand === 'amount') ? getLiveHand(n.id, LIVE_INDEX.amount) : undefined
       const kTarget = alive ? Math.min(1, intensityOf(playedA === undefined ? n : { ...n, amount: playedA })) : 0
@@ -1566,7 +1566,7 @@ export default function FxWall ({ size: frame }: Props) {
       const breath = alive ? envs.current[n.id] : 0
       // the side and the follow are lit BY what they hear: dark in silence, full on a hit (the rest only breathe a little)
       const hears = n.type === FX_SIDE || n.type === FX_FOLLOW
-      const kNow = hears ? kTarget * Math.min(1.6, 0.12 + 1.7 * Math.sqrt(Math.min(1, breath))) : kTarget * (0.85 + 0.35 * Math.min(1, breath))
+      const kNow = hears ? kTarget * Math.min(1.6, 0.5 + 1.3 * Math.sqrt(Math.min(1, breath))) : kTarget * (0.85 + 0.35 * Math.min(1, breath))   // (in silence they still wear their colour, low)
       const easeK = playedA !== undefined ? 1 - Math.exp(-dt / 0.045) : ease   // a played knob's light keeps up with the play (the slow ease would smooth a fast rate away)
       st.k += (kNow - st.k) * easeK
       const reachTarget = Rz * (1.9 + kTarget * 4.6)

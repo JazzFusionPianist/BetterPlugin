@@ -171,9 +171,12 @@ export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, lis
   const keys = fill && options.length === 12
   const steps = fill && !keys
   const asList = list || (!fill && options.length > 8)
+  const listRef = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
+    // a press anywhere else shuts the drawer. A press INSIDE the list must not: with a real mouse the browser lets this
+    // state change land before React hears the same press, so the drawer was gone by then and its row was never picked.
+    const close = (e: PointerEvent) => { if (listRef.current && e.target instanceof Node && listRef.current.contains(e.target)) return; setOpen(false) }
     document.addEventListener('pointerdown', close, true)
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
@@ -203,7 +206,7 @@ export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, lis
           </>
         )}
         {asList && (
-          <span className="sg-list">
+          <span className="sg-list" ref={listRef}>
             {open && (
               <span className="sg-list-drawer" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setHover(-1)}>
                 <Drawer options={options} value={value} hue={colour} hover={hover} width={COL}

@@ -54,16 +54,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Orb Plugin Build"
+echo "  Slur Plugin Build"
 echo "  Config : $BUILD_TYPE"
 echo "  URL    : $ORB_APP_URL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── CMake configure ────────────────────────────────────────────────────────────
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
-# the full Orb: CMake target → product name, one line each.
+# Slur Orb: CMake target → product name, one line each.
 SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
-SPLIT_NAMES=("Orb Chat" "Patch on Slur" "Orb Games")
+SPLIT_NAMES=("Slur Chat" "Patch on Slur" "Slur Games")
 
 split_targets() { # AU + VST3 for every split-out (filtered by --only)
   local i out=""
@@ -116,11 +116,11 @@ echo "✓ Build complete."
 echo ""
 
 # ── Locate built products ─────────────────────────────────────────────────────
-AU_PATH=$(find "$BUILD_DIR" -name "Orb.component"  -maxdepth 6 2>/dev/null | head -1)
-VST3_PATH=$(find "$BUILD_DIR" -name "Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
-STANDALONE_PATH=$(find "$BUILD_DIR" -name "Orb.app"        -maxdepth 6 2>/dev/null | head -1)
+AU_PATH=$(find "$BUILD_DIR" -name "Slur Orb.component"  -maxdepth 6 2>/dev/null | head -1)
+VST3_PATH=$(find "$BUILD_DIR" -name "Slur Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
+STANDALONE_PATH=$(find "$BUILD_DIR" -name "Slur Orb.app"        -maxdepth 6 2>/dev/null | head -1)
 
-# --only=<split> builds just that plugin: leave the full Orb's products
+# --only=<split> builds just that plugin: leave Slur Orb's products
 # (and its install below) untouched.
 FULL_ORB=true
 [ -n "$ONLY" ] && [ "$ONLY" != orb ] && FULL_ORB=false
@@ -142,7 +142,7 @@ if [ "$RUN" = true ] && [ -n "$STANDALONE_PATH" ]; then
   echo "→ Launching standalone…"
   # Re-launching the same bundle: kill the running instance first so the
   # rebuild's binary is actually what we open.
-  pkill -x Orb 2>/dev/null || true
+  pkill -x "Slur Orb" 2>/dev/null || true
   open "$STANDALONE_PATH"
 fi
 
@@ -156,44 +156,48 @@ if [ "$INSTALL" = true ]; then
   # prompts for an administrator password and aborts before cache refresh).
   AAX_PATH=""
   if [ -n "$AAX_SDK_PATH" ]; then
-    AAX_PATH=$(find "$BUILD_DIR" -name "Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
+    AAX_PATH=$(find "$BUILD_DIR" -name "Slur Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
   fi
 
   mkdir -p "$AU_DEST" "$VST3_DEST"
 
   if [ "$FULL_ORB" = true ] && [ -n "$AU_PATH" ]; then
-    rm -rf "$AU_DEST/Orb.component"
+    rm -rf "$AU_DEST/Orb.component" "$AU_DEST/Slur Orb.component"
     cp -R "$AU_PATH" "$AU_DEST/"
-    echo "✓ AU   installed → $AU_DEST/Orb.component"
+    echo "✓ AU   installed → $AU_DEST/Slur Orb.component"
   fi
 
   if [ "$FULL_ORB" = true ] && [ -n "$VST3_PATH" ]; then
-    rm -rf "$VST3_DEST/Orb.vst3"
+    rm -rf "$VST3_DEST/Orb.vst3" "$VST3_DEST/Slur Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
-    echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
+    echo "✓ VST3 installed → $VST3_DEST/Slur Orb.vst3"
   fi
 
-  # The split-out plugins (Orb Chat, Patch on Slur, …) install alongside Orb —
+  # The split-out plugins (Slur Chat, Patch on Slur, …) install alongside Slur Orb —
   # only the ones this run built (this config), so --only=sounds never
-  # re-installs a stale Orb Chat.
+  # re-installs a stale Slur Chat.
   for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
     case "$ONLY" in
-      chat)   [ "$SPLIT_NAME" = "Orb Chat" ]   || continue ;;
+      chat)   [ "$SPLIT_NAME" = "Slur Chat" ]   || continue ;;
       sounds) [ "$SPLIT_NAME" = "Patch on Slur" ] || continue ;;
-      games)  [ "$SPLIT_NAME" = "Orb Games" ]  || continue ;;
+      games)  [ "$SPLIT_NAME" = "Slur Games" ]  || continue ;;
+    esac
+    case "$SPLIT_NAME" in
+      "Slur Chat")     OLD_SPLIT_NAME="Orb Chat" ;;
+      "Patch on Slur") OLD_SPLIT_NAME="Orb Sounds" ;;
+      "Slur Games")    OLD_SPLIT_NAME="Orb Games" ;;
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     if [ -n "$SPLIT_AU_PATH" ]; then
-      # Patch on Slur was Orb Sounds: the old bundle carries the same codes,
-      # so it must go or the host sees the plugin twice.
-      [ "$SPLIT_NAME" = "Patch on Slur" ] && rm -rf "$AU_DEST/Orb Sounds.component" "$VST3_DEST/Orb Sounds.vst3"
-      rm -rf "$AU_DEST/$SPLIT_NAME.component"
+      # Renamed bundles keep their plugin codes, so the old filename must
+      # not be left beside the new one in a host's scan directory.
+      rm -rf "$AU_DEST/$OLD_SPLIT_NAME.component" "$AU_DEST/$SPLIT_NAME.component"
       cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
       echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"
     fi
     if [ -n "$SPLIT_VST3_PATH" ]; then
-      rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
+      rm -rf "$VST3_DEST/$OLD_SPLIT_NAME.vst3" "$VST3_DEST/$SPLIT_NAME.vst3"
       cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
       echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"
     fi
@@ -214,9 +218,9 @@ if [ "$INSTALL" = true ]; then
 
   if [ "$FULL_ORB" = true ] && [ -n "$AAX_PATH" ]; then
     sudo mkdir -p "$AAX_DEST"
-    sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
+    sudo rm -rf "$AAX_DEST/Orb.aaxplugin" "$AAX_DEST/Slur Orb.aaxplugin"
     sudo cp -R "$AAX_PATH" "$AAX_DEST/"
-    echo "✓ AAX  installed → $AAX_DEST/Orb.aaxplugin"
+    echo "✓ AAX  installed → $AAX_DEST/Slur Orb.aaxplugin"
   fi
 
   # Notify Logic Pro / AudioComponentRegistrar

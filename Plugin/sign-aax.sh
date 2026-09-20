@@ -25,7 +25,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AAX="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release/AAX/Orb.aaxplugin"
+AAX="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release/AAX/Slur Orb.aaxplugin"
 
 PACE_ACCOUNT="${PACE_ACCOUNT:-}"
 PACE_WCGUID="${PACE_WCGUID:-}"

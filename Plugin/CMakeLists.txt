@@ -34,12 +34,12 @@ juce_add_plugin(OrbPlugin
     PLUGIN_MANUFACTURER_CODE    Orb1   # 4 chars (>=1 uppercase for AU)
     PLUGIN_CODE                 OrbA   # 4 chars, unique per plugin
 
-    # Standalone produces an Orb.app that runs the plugin UI without a
+    # Standalone produces a Slur Orb.app that runs the plugin UI without a
     # DAW — useful for fast dev iteration. AU/VST3 are the production
     # formats DAWs actually load.
     FORMATS                     ${ORB_FORMATS}
 
-    PRODUCT_NAME                "Orb"
+    PRODUCT_NAME                "Slur Orb"
     BUNDLE_ID                   "com.orb.plugin"
 
     # Bundle icon — JUCE converts the PNG to .icns and embeds it on macOS.
@@ -210,17 +210,17 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     endforeach()
 endfunction()
 
-# Orb Chat — messages only (first split-out, 2026-09-11).
-orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbChatAU)
+# Slur Chat — messages only (first split-out, 2026-09-11).
+orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur Chat"   chat   OrbChatAU)
 
 # Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
 # the plugin boots straight into the darkened room. The codes and bundle id
 # stay so hosts keep finding it in old sessions; only the name shown changed.
 orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds OrbSoundsAU)
 
-# Orb Games — the mini-games CD wall. Keeps the account (rooms, invites,
+# Slur Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.
-orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Orb Games"  games  OrbGamesAU)
+orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Slur Games"  games  OrbGamesAU)
 
 # ── Engine self-test (console) ────────────────────────────────────────────────
 # Runs the FX graph compiler + program runner on synthetic audio and checks

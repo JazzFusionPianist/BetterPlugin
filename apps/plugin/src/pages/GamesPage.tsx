@@ -107,7 +107,7 @@ export default function GamesPage({ supabase, user }: Props) {
           Sign-out is the one thing an account-bound split-out can't do
           without — bare text, no chrome, same tone. */}
       <div className="top-bar">
-        <span className="games-mark">orb games</span>
+        <span className="games-mark">slur games</span>
         <span className="games-signout" role="button" tabIndex={0}
           onClick={() => { void supabase.auth.signOut() }}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void supabase.auth.signOut() } }}

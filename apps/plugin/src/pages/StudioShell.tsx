@@ -2561,7 +2561,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}
             onDoubleClick={() => setDiagOpen(true)}>
-            <BrandMark />orb
+            <BrandMark />slur
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>
@@ -2791,7 +2791,7 @@ function StudioShellInner({ supabase, user }: Props) {
             <>
               <div className="wd-head plain">
                 <div className="wd-title">settings</div>
-                <div className="wd-sub">orb chat {APP_VERSION}</div>
+                <div className="wd-sub">slur chat {APP_VERSION}</div>
               </div>
               <SettingsPage supabase={supabase} user={user} />
             </>

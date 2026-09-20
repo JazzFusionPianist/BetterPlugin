@@ -1,4 +1,4 @@
-# Orb — official distribution
+# Slur Studio plugins — official distribution
 
 How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 
@@ -44,7 +44,7 @@ PACE_ACCOUNT=<acct> PACE_WCGUID=<guid> \
 SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
 # Notarize + staple (needs #4)
-./notarize.sh installer/Orb-1.0.0.pkg
+./notarize.sh 'installer/Slur Orb-1.0.0.pkg'
 ```
 
 ## Partial release (PACE not ready)
@@ -54,19 +54,19 @@ You can ship a fully official **AU + VST3 + Standalone** installer now (steps
 AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
 formats notarize and install cleanly.
 
-## Split-out plugins (Orb Chat, Orb Sounds, Orb Games)
+## Split-out plugins (Slur Chat, Patch on Slur, Slur Games)
 
 Each single-purpose plugin is its own download with its own bundle id, so
-installing one never touches the full Orb or another split-out.
+installing one never touches Slur Orb or another split-out.
 
 ```bash
 cd Plugin
 ./build.sh --release --only=sounds        # or --only=chat; omit for everything
-./package.sh --product=sounds --version=1.0.0   # → installer/Orb Sounds-1.0.0.pkg
-./package.sh --product=chat   --version=1.0.0   # → installer/Orb Chat-1.0.0.pkg
-./package.sh --product=games  --version=1.0.0   # → installer/Orb Games-1.0.0.pkg
+./package.sh --product=sounds --version=1.0.0   # → installer/Patch on Slur-1.0.0.pkg
+./package.sh --product=chat   --version=1.0.0   # → installer/Slur Chat-1.0.0.pkg
+./package.sh --product=games  --version=1.0.0   # → installer/Slur Games-1.0.0.pkg
 ```
 
-Sign and notarize exactly as above. Orb Sounds needs no account — it boots
-straight into the one-knob room. Orb Games keeps the sign-in (multiplayer rooms,
+Sign and notarize exactly as above. Patch on Slur needs no account — it boots
+straight into the one-knob room. Slur Games keeps the sign-in (multiplayer rooms,
 invites and world scores are account-bound) and boots onto the CD wall.

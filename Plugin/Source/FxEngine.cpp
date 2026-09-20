@@ -119,6 +119,7 @@ static void pitchShiftBlock (NodeState& st, float ratio, float sr, int n, float*
             const float w  = std::sin (juce::MathConstants<float>::pi * f);
             float rp = (float) st.psWrite - f * grain;
             while (rp < 0.0f) rp += (float) len;
+            if (rp >= (float) len) rp -= (float) len;   // a hair under zero plus len rounds to len itself: one past the end
             const int   i0 = (int) rp;
             const float fr = rp - (float) i0;
             const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
@@ -666,6 +667,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 {
                     float rp = (float) dblWrite - pos;
                     while (rp < 0.0f) rp += (float) len;
+            if (rp >= (float) len) rp -= (float) len;   // a hair under zero plus len rounds to len itself: one past the end
                     const int   i0 = (int) rp;
                     const float fr = rp - (float) i0;
                     const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
@@ -707,6 +709,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                 {
                     float rp = (float) dlyWrite - dlySmSamp;
                     while (rp < 0.0f) rp += (float) len;
+            if (rp >= (float) len) rp -= (float) len;   // a hair under zero plus len rounds to len itself: one past the end
                     const int   i0 = (int) rp;
                     const float fr = rp - (float) i0;
                     const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
@@ -965,6 +968,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                         const float lfo = 0.5f + 0.5f * std::sin (twoPi * modLfoPhase + (ch == 1 ? 1.5708f : 0.0f));
                         float rp = (float) modWrite - (base + depth * lfo);
                         while (rp < 0.0f) rp += (float) len;
+            if (rp >= (float) len) rp -= (float) len;   // a hair under zero plus len rounds to len itself: one past the end
                         const int   i0 = (int) rp;
                         const float fr = rp - (float) i0;
                         const int   i1 = i0 + 1 < len ? i0 + 1 : 0;
@@ -1672,6 +1676,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
                     float* S = ch == 1 ? R : L;
                     wowDl[ch][(size_t) wowWrite] = S[i];
                     float rp = (float) wowWrite - d; while (rp < 0.0f) rp += (float) len;
+            if (rp >= (float) len) rp -= (float) len;   // a hair under zero plus len rounds to len itself: one past the end
                     const int   r0 = (int) rp; const float fr = rp - (float) r0;
                     const int   r1 = (r0 + 1) % len;
                     const float y = wowDl[ch][(size_t) r0] * (1.0f - fr) + wowDl[ch][(size_t) r1] * fr;

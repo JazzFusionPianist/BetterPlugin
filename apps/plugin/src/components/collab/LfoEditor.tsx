@@ -7,7 +7,8 @@ import { getLfoClock } from '../../lib/liveHands'
     until the hollow point in the middle is dragged, which bends that
     stretch. Click the empty grid to add a point, drag a point to move
     it, double-click a point to take it away. The two ends stay at the
-    edges and only move up and down. A point can be pushed right up
+    edges and only move up and down; when they are level they move as
+    one, so the loop has no step at its seam (alt moves one alone). A point can be pushed right up
     against its neighbour: two points on one x are a cliff, and the hand
     the lfo plays jumps there (no glide).
 
@@ -148,6 +149,15 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
           if (i > 0 && i < n - 1) { if (x - lo < 0.012) x = lo; else if (hi - x < 0.012) x = hi }
           next[i * 3] = x
           next[i * 3 + 1] = p.y
+          // the two ends are the seam of the loop. Ends that meet stay together (no step at the seam, so no tick); ends that were
+          // drawn apart (a saw, a square) move alone, and one brought level with the other joins it. Alt moves an end alone.
+          if (i === 0 || i === n - 1) {
+            const o = i === 0 ? n - 1 : 0
+            const joined = Math.abs(pts[i * 3 + 1] - pts[o * 3 + 1]) < 1e-4
+            if (e.altKey) { /* alone */ }
+            else if (joined) next[o * 3 + 1] = p.y
+            else if (Math.abs(p.y - pts[o * 3 + 1]) < 0.03) next[i * 3 + 1] = pts[o * 3 + 1]
+          }
         } else {
           const i = drag.i
           const y0 = pts[i * 3 + 1], y1 = pts[(i + 1) * 3 + 1]

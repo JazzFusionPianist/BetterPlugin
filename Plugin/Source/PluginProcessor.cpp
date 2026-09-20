@@ -1446,17 +1446,39 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         int lo, hi; auxRange (type, a, lo, hi);
         p.aux[a] = juce::jlimit (lo, hi, p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)));
     };
-    // macros reach the rates' clocks before the rates tick
+    // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth): a macro's value is known already
+    float depth[orbfx::kMaxEdges];
+    for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
     for (int i = 0; i < t.count; ++i)
     {
         const auto& w = t.wires[i];
-        if (! w.fromMacro || w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes || ! t.isRate[w.to]) continue;
-        const int a = w.hand - orbfx::kHandAux0;
-        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, w.depth));
+        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
     }
-    for (int r = 0; r < orbfx::kMaxNodes; ++r)
+    // Whatever plays an lfo's own hands (its clock, its depth) must land BEFORE that lfo ticks, or the lfo runs a block on the
+    // setting it was supposed to be moved off (an lfo whose depth another lfo holds at 0 kept on playing). So: the macros and
+    // follows first (their values are known), then the lfos in the order they feed one another.
+    auto landOnLfo = [&] (int i)
     {
-        if (! t.isRate[r]) continue;
+        const auto& w = t.wires[i];
+        const int a = w.hand - orbfx::kHandAux0;
+        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, depth[i]));
+    };
+    auto playsAnLfo = [&] (const ModTable::Wire& w) { return w.target == -1 && w.to >= 0 && w.to < orbfx::kMaxNodes && t.isRate[w.to]; };
+    for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].fromMacro) landOnLfo (i);
+    bool ticked[orbfx::kMaxNodes] {};
+    int order[orbfx::kMaxNodes]; int nOrder = 0;
+    for (int pass = 0; pass < orbfx::kMaxNodes; ++pass)
+        for (int r = 0; r < orbfx::kMaxNodes; ++r)
+        {
+            if (! t.isRate[r] || ticked[r]) continue;
+            bool waits = false;   // does an lfo that has not ticked yet play this one's hands?
+            for (int i = 0; i < t.count && ! waits; ++i) { const auto& w = t.wires[i]; waits = playsAnLfo (w) && w.to == r && ! w.fromMacro && w.from != r && t.isRate[w.from] && ! ticked[w.from]; }
+            if (waits && pass < orbfx::kMaxNodes - 1) continue;   // (a ring of lfos playing one another: the last pass takes them as they come)
+            ticked[r] = true; order[nOrder++] = r;
+        }
+    for (int q = 0; q < nOrder; ++q)
+    {
+        const int r = order[q];
         const auto& rp = params[r];   // the host's clock, as pushed
         const int mode = rp.aux[0];
         double phase = ratePhase[r];
@@ -1506,24 +1528,23 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
             rateLastIdx[r] = idx;
         }
         else v = 0.5f + 0.5f * (float) std::sin (phase * juce::MathConstants<double>::twoPi);
-        if (t.isLfo[r]) v = 0.5f + (v - 0.5f) * (float) juce::jlimit (0, 100, rp.aux[5]) / 100.0f;   // the lfo's own depth: how far it swings, for every hand it plays
+        if (t.isLfo[r])
+        {
+            const int dep = juce::jlimit (0, 100, rp.aux[5]);
+            v = 0.5f + (v - 0.5f) * (float) dep / 100.0f;   // the lfo's own depth: how far it swings, for every hand it plays
+            if (std::abs (dep - rateLastDepth[r]) > 25) jumped = true;   // its depth was thrown (a square lfo on it): what it plays jumps too, no glide
+            rateLastDepth[r] = dep;
+        }
         if (jumped) for (int i = 0; i < t.count; ++i) if (t.wires[i].from == r && t.wires[i].to >= 0 && t.wires[i].to < orbfx::kMaxNodes) params[t.wires[i].to].snap = true;
         value[r] = v;
         rateValue[(size_t) r].store (v, std::memory_order_relaxed);
-    }
-    // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth)
-    float depth[orbfx::kMaxEdges];
-    for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
-    for (int i = 0; i < t.count; ++i)
-    {
-        const auto& w = t.wires[i];
-        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
+        for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].from == r && ! t.wires[i].fromMacro) landOnLfo (i);   // onto the lfos it plays, before they tick
     }
     for (int i = 0; i < t.count; ++i)
     {
         const auto& w = t.wires[i];
         if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
-        if (w.fromMacro && t.isRate[w.to]) continue;   // done above, before the rates ticked
+        if (t.isRate[w.to]) continue;   // an lfo's hands: landed above, before it ticked
         auto& p = params[w.to];
         const float k = pushOf (w, depth[i]);
         // each hand moves by a fraction of its own range

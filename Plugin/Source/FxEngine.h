@@ -278,6 +278,7 @@ struct Graph
         int   hand = kHandNone;  // a control wire: which hand of `to` it plays
         int   refFrom = -1;      // a control wire whose target is another control wire's depth: that wire's `from` …
         int   refHand = kHandNone;   // … and its hand (it lands on the same `to`)
+        int   pol = 0;           // a control wire's polarity: 0 = as its source goes (an lfo swings both ways, a macro or a follow pushes one way), 1 = one way from the setting, 2 = both ways round it
         int   in = 0;            // which input of `to`: 0 = the sound, 1 = the key (glue, gate)
     };
     std::vector<Node> nodes;

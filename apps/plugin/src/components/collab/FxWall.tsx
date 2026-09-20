@@ -4,7 +4,7 @@ import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BL
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
-import { GaugeRow, ChoiceRow, SwitchRow, useTypeIn, parseLead, clamp } from './StudyControls'
+import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, shapeAt, LFO_SHAPES, LFO_RANDOM, randomStep } from './LfoEditor'
 import FollowMeter from './FollowMeter'
@@ -50,10 +50,14 @@ const FAMILIES: Array<[string, string[]]> = [
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
 const familyOf = (type: number) => { const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
 const LEAN = 0.34, LEAN_W = 1.08, DIAMOND = 1.36, STRUCK = 0.62
-const plateReach = (type: number) => { if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
+/** The control prints (LFO, macro, follow) are hands, not sounds: a small hexagon, about half a sound print, lit in their own colour —
+ *  small so they read as fittings, plated so the wall's light goes round them instead of through them. */
+const CTRL_R = 0.6, CTRL_ART = 0.5   // the hexagon's reach and the picture's size, against a sound print's
+const plateReach = (type: number) => { if (isControlType(type)) return CTRL_R; if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
 function platePath (ctx: CanvasRenderingContext2D, type: number, cx: number, cy: number, R: number) {
   const fam = familyOf(type)
   ctx.beginPath()
+  if (isControlType(type)) { for (let k = 0; k < 6; k++) { const th = (k / 6) * Math.PI * 2; const x = cx + R * CTRL_R * Math.cos(th), y = cy + R * CTRL_R * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) } ctx.closePath(); return }
   const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
   if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
   else if (fam === 'grit') poly([[-1, -1], [1 - STRUCK, -1], [1, -1 + STRUCK], [1, 1], [-1 + STRUCK, 1], [-1, 1 - STRUCK]])
@@ -1169,42 +1173,51 @@ export default function FxWall ({ size: frame }: Props) {
           defaultValue={Math.round(100 / Math.max(1, ins.length))} onChange={(v, final) => setShare(x.i, v / 100, final)} />,
       ))
     }
-    // the hands a rate (or a macro) plays: the hand's row says so, and its depth sits right under it
-    graph.edges.forEach((e, i) => {
-      if (e.to !== n.id || !isControlEdge(e) || wireRef(e.hand)) return
-      const src = nodeById(e.from)
-      const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_LFO ? `LFO ${rateText(src)}` : src ? `rate ${rateText(src)}` : 'rate'
-      const depthName = `${src?.type === FX_MACRO ? 'macro' : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_RATE ? 'rate' : 'LFO'} depth`
-      const label = handLabel(n, e.hand!)
-      // the hand's row ends in a dashed stub; the row under it names the rate and holds the depth
-      const tag = <span className="sg-row-tag"><i /></span>
-      const depth = <GaugeRow key={`ctl${i}`} label={depthName} tag={<span className="sg-row-tag lead"><i /> {who}</span>} value={Math.round(e.gain * 100)} min={-100} max={100} bipolar defaultValue={50}
-        format={(v) => `${v > 0 ? '+' : ''}${v}`} onChange={(v, final) => setShare(i, v / 100, final)} />
-      const at = rows.findIndex(r => React.isValidElement(r) && (r.props as { label?: string }).label !== undefined && ((r.props as { label: string }).label === label || (e.hand === 'aux2' && n.type === 15)))
-      if (at >= 0) {
-        rows[at] = React.cloneElement(rows[at] as React.ReactElement<{ tag?: React.ReactNode }>, { tag })
-        rows.splice(at + 1, 0, depth)
-      } else rows.push(React.cloneElement(depth, { tag: <span className="sg-row-tag"><i /> {label} {who}</span> }))   // the amount has no row of its own: the depth row says which hand it is
-    })
-    // a macro that turns a play's depth: said on that depth row
-    graph.edges.forEach((e) => {
-      if (e.to !== n.id || !isControlEdge(e)) return
-      const ref = wireRef(e.hand); if (!ref) return
-      const j = graph.edges.findIndex(x => x.to === n.id && x.from === ref.from && x.hand === ref.hand)
-      const at = rows.findIndex(r => React.isValidElement(r) && r.key === `ctl${j}`)
-      const src = nodeById(e.from)
-      if (at >= 0 && src) {
-        // the depth IS the macro now: the row shows the macro's knob and turns it
-        const no = (src.aux[0] || 0) + 1
-        const row = rows[at] as React.ReactElement<Record<string, unknown>>
-        rows[at] = React.cloneElement(row, {
-          value: Math.round(src.amount * 100), min: 0, max: 100, bipolar: false, defaultValue: 0,
-          format: (v: number) => `${v} macro ${no}`,
-          onChange: (v: number, final: boolean) => updateNode(src.id, { amount: v / 100 }, final),
-          onGesture: (on: boolean) => gesture(src.id, 'amount', on),
+    // the hands something plays (an LFO, a macro, a follow): the hand's row wears a chip for each player and shows, under its
+    // track, where each carries it; under the hand, one range row per player — the hand's own scale, which way, how far
+    {
+      const plays = graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === n.id && isControlEdge(x.e) && !wireRef(x.e.hand))
+      const byHand = new Map<string, typeof plays>()
+      for (const x of plays) byHand.set(x.e.hand!, [...(byHand.get(x.e.hand!) ?? []), x])
+      for (const [hand, group] of byHand) {
+        const label = handLabel(n, hand)
+        const at = rows.findIndex(r => React.isValidElement(r) && r.type === GaugeRow && ((r.props as { label: string }).label === label || (hand === 'aux2' && n.type === 15)))
+        // the hand's scale: its gauge row's, or the big knob's
+        let setting = 0.5, read = (f: number) => `${Math.round(f * 100)}`
+        if (at >= 0) {
+          const pr = (rows[at] as React.ReactElement<{ value: number; min: number; max: number; step?: number; unit?: string; format?: (v: number) => string }>).props
+          const span = pr.max - pr.min
+          setting = span > 0 ? (pr.value - pr.min) / span : 0
+          read = (f) => { const v = pr.min + f * span; return pr.format ? pr.format(v) : `${Math.round(v / (pr.step ?? 1)) * (pr.step ?? 1)}${pr.unit ? ' ' + pr.unit : ''}` }
+        } else if (hand === 'amount') { setting = n.amount; read = (f) => fmtValue(n.type, f, n.variant) }
+        else if (hand === 'div') { setting = n.delayDiv / 6; read = (f) => DIV_LABELS[Math.round(f * 6)] ?? '' }
+        const made = group.map(({ e, i }) => {
+          const src = nodeById(e.from)
+          const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'
+          const both = e.pol === 2 || ((e.pol ?? 0) === 0 && (src?.type === FX_LFO || src?.type === FX_RATE))
+          // a macro that holds this play's depth: the range is as wide as that macro's knob is up, and dragging it turns the macro
+          const holder = graph.edges.find(m => m.to === n.id && wireRef(m.hand)?.from === e.from && wireRef(m.hand)?.hand === hand)
+          const hm = holder ? nodeById(holder.from) : undefined
+          const depth = hm && holder ? Math.max(-1, Math.min(1, hm.amount * holder.gain)) : e.gain
+          const a0 = Math.max(0, Math.min(1, both ? setting - Math.abs(depth) / 2 : setting)), b0 = Math.max(0, Math.min(1, both ? setting + Math.abs(depth) / 2 : setting + depth))
+          const row = <RangeRow key={`ctl${i}`} at={setting} depth={depth} both={both} read={read} defaultDepth={both ? 0.5 : 1} locked={!!hm}
+            who={<>{at < 0 && <span>{label}</span>}<span className="sg-chip lead">{who}</span>{hm && <span className="sg-chip">macro {(hm.aux[0] || 0) + 1}</span>}</>}
+            onDepth={(d, final) => { if (hm && holder) { if (Math.abs(holder.gain) > 1e-3) updateNode(hm.id, { amount: Math.max(0, Math.min(1, d / holder.gain)) }, final) } else setShare(i, d, final) }}
+            onGesture={hm ? (on) => gesture(hm.id, 'amount', on) : undefined}
+            onPolarity={() => commit({ ...graph, edges: graph.edges.map((x, k) => k === i ? { ...x, pol: both ? 1 : 2 } : x) }, true)} />
+          return { row, who, band: [a0, b0] as [number, number], isMacro: src?.type === FX_MACRO }
         })
+        // a macro needs no range row: it carries the hand its whole way, and its own knob is how far (the chip still says it is there).
+        // On the big knob, which has no row of its own to wear the chip, the macro keeps its row.
+        const shown = made.filter(m => at < 0 || !m.isMacro)
+        if (at >= 0) {
+          rows[at] = React.cloneElement(rows[at] as React.ReactElement<{ tag?: React.ReactNode; bands?: Array<[number, number]> }>, {
+            tag: <>{made.map((m, k) => <span key={k} className="sg-chip">{m.who}</span>)}</>, bands: made.map(m => m.band),
+          })
+          rows.splice(at + 1, 0, ...shown.map(m => m.row))
+        } else rows.push(...shown.map(m => m.row))
       }
-    })
+    }
     const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }> = []
     if (n.type === 5) {
       switches.push({ label: 'ø left', on: (n.variant & 1) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 1 }, true) })
@@ -1244,10 +1257,13 @@ export default function FxWall ({ size: frame }: Props) {
       }
     }
     // the hands take their colours in order: blue, green, white, orange, then again; the switches are orange
-    return rows.map((r, i) => {
+    let hueAt = 0, lastColour = 3
+    return rows.map((r) => {
       if (!React.isValidElement(r)) return r
       const hand = typeof r.key === 'string' ? handOfRow(r.key) : null
-      const extra: { colour: number; onGesture?: (on: boolean) => void; liveKey?: [number, number] } = { colour: r.key === 'sw' ? 4 : (i % 4) + 1 }
+      if (r.type === RangeRow) return React.cloneElement(r as React.ReactElement<{ colour: number }>, { colour: lastColour })
+      const extra: { colour: number; onGesture?: (on: boolean) => void; liveKey?: [number, number] } = { colour: r.key === 'sw' ? 4 : (hueAt++ % 4) + 1 }
+      lastColour = extra.colour
       if (hand) extra.onGesture = (on) => gesture(n.id, hand, on)
       // a played hand: its gauge shows what the engine is playing
       if (hand && r.type === GaugeRow && LIVE_INDEX[hand] !== undefined && graph.edges.some(e => e.to === n.id && e.hand === hand)) extra.liveKey = [n.id, LIVE_INDEX[hand]]
@@ -1312,40 +1328,55 @@ export default function FxWall ({ size: frame }: Props) {
       }
       ctx.lineWidth = sel?.edge === i ? 1.2 : 1; ctx.stroke(path)
     })
-    // one short glowing line runs down every wire that carries sound from in to out: on a split lane in the lane's colour,
-    // otherwise in the colour of the print it leaves (paper out of in, or out of a print with no lamp)
+    // one short glowing line runs down every wire that carries something: sound on its way from in to out (a split lane in the
+    // lane's colour, otherwise in the colour of the print it leaves), and what a control print says, down its dashed wire
     {
       const t0 = performance.now() / 1000
       graph.edges.forEach((e, i) => {
         const lane = laneOfEdge[i] ?? 0
-        if (isControlEdge(e)) return
         const src = e.from === FX_PORT_IN ? null : nodeById(e.from)
-        if (src && isControlType(src.type)) return
-        // the wire is on a way from in to out
-        const carries = (e.from === FX_PORT_IN || live.has(e.from)) && (e.to === FX_PORT_OUT || live.has(e.to))
+        const ctl = isControlEdge(e) || (!!src && isControlType(src.type))
+        const carries = ctl || ((e.from === FX_PORT_IN || live.has(e.from)) && (e.to === FX_PORT_OUT || live.has(e.to)))
         if (lane === 0 && !carries) return
         const p0 = outPortOf(e.from, e.port ?? 0), p1 = inPortOf(e.to, i)
         let c: [number, number, number] = LANE_RGB[lane]
-        if (lane === 0) { const l = lampOf(e.from), f = Math.min(1, 0.35 + l.k); c = [paper[0] + (l.t[0] - paper[0]) * f, paper[1] + (l.t[1] - paper[1]) * f, paper[2] + (l.t[2] - paper[2]) * f].map(Math.round) as [number, number, number] }
-        const head = ((t0 / 2.2) + i * 0.29) % 1
-        const len = 0.16
+        if (ctl && src) c = tintOf(src.type, src.variant)
+        else if (lane === 0) { const l = lampOf(e.from), f = Math.min(1, 0.55 + l.k); c = [paper[0] + (l.t[0] - paper[0]) * f, paper[1] + (l.t[1] - paper[1]) * f, paper[2] + (l.t[2] - paper[2]) * f].map(Math.round) as [number, number, number] }
+        const head = ((t0 / (ctl ? 2.8 : 2.2)) + i * 0.29) % 1
+        const len = lane === 0 ? 0.24 : 0.16
         const a = Math.max(0, head - len)
         const pts: Pt[] = []
         for (let k = 0; k <= 10; k++) pts.push(wireAt(p0, p1, a + (head - a) * k / 10))
         const g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[10].x, pts[10].y)
         g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 1))
-        // the glow: a wide soft stroke under a thin bright one
+        // the glow: a wide soft stroke under a thin bright one, and a bright head
+        const zz = Math.max(0.8, zoom)
         ctx.save()
-        ctx.shadowColor = rgba(c, 0.9); ctx.shadowBlur = 10 * Math.max(0.8, zoom)
-        ctx.strokeStyle = g; ctx.lineWidth = 1.6 * Math.max(0.8, zoom)
+        ctx.shadowColor = rgba(c, 1); ctx.shadowBlur = (lane === 0 ? 16 : 10) * zz
+        ctx.strokeStyle = g; ctx.lineWidth = (lane === 0 ? 2.4 : 1.6) * zz
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y)
         for (let k = 1; k <= 10; k++) ctx.lineTo(pts[k].x, pts[k].y)
         ctx.stroke()
+        if (lane === 0) { ctx.beginPath(); ctx.arc(pts[10].x, pts[10].y, 1.8 * zz, 0, Math.PI * 2); ctx.fillStyle = rgba([255, 255, 255], 0.9); ctx.fill() }
         ctx.restore()
       })
     }
     // plates: a soft shadow below, then the disc lit from above
     for (const n of graph.nodes) {
+      if (isControlType(n.type)) {
+        // bare wall under it (the wall's light goes round), then a faint wash of its own colour, brighter as its lamp is
+        const c = toScreen(n), k = lamps.current.get(n.id)?.k ?? 0, t = tintOf(n.type, n.variant)
+        ctx.save()
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 9 * zoom; ctx.shadowOffsetY = 4 * zoom
+        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = wallNow; ctx.fill()
+        ctx.restore()
+        const lit = (f: number) => `rgb(${Math.round(18 + (t[0] - 18) * f)}, ${Math.round(17 + (t[1] - 17) * f)}, ${Math.round(14 + (t[2] - 14) * f)})`
+        const dg = ctx.createLinearGradient(c.x, c.y - Rz * CTRL_R, c.x, c.y + Rz * CTRL_R)
+        dg.addColorStop(0, lit(0.1 + k * 0.26)); dg.addColorStop(1, lit(0.05 + k * 0.14))
+        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = dg; ctx.fill()
+        if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
+        continue
+      }
       if (isUtilityType(n.type)) continue   // a utility has no plate: its picture sits on the wall alone
       const c = toScreen(n)
       const alive = !isUtilityType(n.type) && live.has(n.id) && !n.bypass
@@ -1769,7 +1800,7 @@ export default function FxWall ({ size: frame }: Props) {
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
-            <div key={n.id} data-id={n.id} className={`sg-node${isUtilityType(n.type) ? '' : ' shaped'}${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
+            <div key={n.id} data-id={n.id} className={`sg-node${isUtilityType(n.type) && !isControlType(n.type) ? '' : ' shaped'}${isSel ? ' sel' : ''}${live.has(n.id) || isControlType(n.type) ? '' : ' off'}${n.bypass ? ' bypassed' : ''}`}
               style={{ left: c.x - Rz, top: c.y - Rz, width: NODEz, height: NODEz }}
               onPointerDown={startMove(n)}>
               {/* the print: drag it anywhere on the wall; its number is the hand */}
@@ -1783,10 +1814,10 @@ export default function FxWall ({ size: frame }: Props) {
                   })}
                 </div>
               )}
-              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`}
+              <div className={`sg-print${handsShown(n) ? ' faded' : ''}`} style={isControlType(n.type) ? { padding: NODEz * (1 - CTRL_ART) / 2 } : undefined}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
-                <Print node={n} size={NODEz} shares={sharesOf(n.id)}
+                <Print node={n} size={isControlType(n.type) ? NODEz * CTRL_ART : NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
@@ -1812,7 +1843,7 @@ export default function FxWall ({ size: frame }: Props) {
                   })
                 : <span className="sg-dot r" style={{ right: -3 - (plateReach(n.type) - 1) * Rz }} onPointerDown={startWire(n.id)} />}
               {/* under the print, scaled with it: caption, then the chosen print's words */}
-              <div className="sg-under" style={{ transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
+              <div className="sg-under" style={{ marginTop: isControlType(n.type) ? 8 - Rz * (1 - CTRL_R * 0.87) : undefined, transform: `translateX(-50%) scale(${capScale})`, opacity: capAlpha, pointerEvents: capAlpha < 0.05 ? 'none' : undefined }}>
                 <div className="sg-label">
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {(n.type === FX_RATE || (n.type === FX_LFO && lfoOwnClock())) && <span className="sg-flav"> {rateText(n)}</span>}

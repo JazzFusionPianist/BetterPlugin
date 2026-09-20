@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Steps, type Hue, type Tone } from '../../assets/parts/parts'
+import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Polarity, Range, Steps, type Hue, type Tone } from '../../assets/parts/parts'
 import { useLiveHand } from '../../lib/liveHands'
 
 /*  The study's hands — the rows under the big print.
@@ -72,7 +72,8 @@ function Value ({ text }: { text: string }) {
 
 /* ── a number: drag it, type into it; the bar beside it is the gauge ── */
 
-export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3, liveKey, liveMap }: {
+export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3, liveKey, liveMap, bands }: {
+  bands?: Array<[number, number]>   // where its players carry this hand (0..1 of its travel), shown under the track
   label: string
   tag?: React.ReactNode       // what plays this hand (a rate), shown after the label
   liveKey?: [number, number]  // a played hand: [slot, hand index] — the number follows what the engine plays, the handle stays at the setting
@@ -145,8 +146,62 @@ export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
       <span className="sg-row-label">{label}{tag}</span>
       <span className="sg-row-ctl">
-        <Bar mark={played === undefined ? undefined : (span > 0 ? clamp((played - min) / span, 0, 1) : 0)} f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
+        <Bar bands={bands} mark={played === undefined ? undefined : (span > 0 ? clamp((played - min) / span, 0, 1) : 0)} f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
         <span className="sg-num">{typing.input ?? <Value text={played === undefined ? text : fmt(played)} />}</span>
+      </span>
+    </div>
+  )
+}
+
+/* ── a player's range on a hand: who plays it, which way, and how far — drawn on the hand's own scale ──
+      `at` is the hand's setting (0..1 of its travel), `depth` the wire's depth (−1..1).
+      One way: the hand is carried from the setting to setting + depth. Both ways: depth/2 to either side.
+      Drag the bar to move the end; the key before it turns the polarity; alt-click takes the default. */
+export function RangeRow ({ who, at, depth, both, read, defaultDepth, onDepth, onPolarity, onGesture, colour = 3, locked }: {
+  who: React.ReactNode
+  at: number
+  depth: number
+  both: boolean
+  read: (f: number) => string           // 0..1 of the hand's travel, as the hand reads it
+  defaultDepth: number
+  onDepth: (d: number, final: boolean) => void
+  onPolarity?: () => void
+  onGesture?: (on: boolean) => void
+  colour?: Hue
+  locked?: boolean                      // a macro holds this depth: the polarity cannot be turned here
+}) {
+  const [live, setLive] = useState(false)
+  const [hover, setHover] = useState(false)
+  const [hp, setHp] = useState(false)
+  const drag = useRef<{ last: number } | null>(null)
+  const W = COL - 100 - 12 - 26   // the read-out holds two values when it goes both ways
+  const a = clamp(both ? at - Math.abs(depth) / 2 : at, 0, 1), b = clamp(both ? at + Math.abs(depth) / 2 : at + depth, 0, 1)
+  const depthAt = (e: React.PointerEvent, el: Element) => {
+    const r = el.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1)
+    return clamp(both ? Math.abs(f - at) * 2 : f - at, -1, 1)
+  }
+  const text = both ? `${read(a)} – ${read(b)}` : `${read(b)}`
+  return (
+    <div className={`sg-row range${live ? ' live' : ''}`} style={hueVar(colour)} onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
+      <span className="sg-row-label">{who}</span>
+      <span className="sg-row-ctl">
+        <span className="sg-pol" onPointerEnter={() => setHp(true)} onPointerLeave={() => setHp(false)}
+          onPointerDown={(e) => { e.stopPropagation(); if (!locked) onPolarity?.() }} style={{ cursor: locked ? 'default' : 'pointer', opacity: locked ? 0.4 : 1 }}>
+          <Polarity both={both} hover={hp && !locked} hue={colour} />
+        </span>
+        <span className="sg-range" style={{ cursor: 'ew-resize', touchAction: 'none' }}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            if (e.altKey) { onGesture?.(true); onDepth(defaultDepth, true); onGesture?.(false); return }
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
+            onGesture?.(true); setLive(true)
+            const d = depthAt(e, e.currentTarget); drag.current = { last: d }; onDepth(d, false)
+          }}
+          onPointerMove={(e) => { if (!drag.current) return; const d = depthAt(e, e.currentTarget); if (d !== drag.current.last) { drag.current.last = d; onDepth(d, false) } }}
+          onPointerUp={() => { const d = drag.current; drag.current = null; setLive(false); if (d) { onDepth(d.last, true); onGesture?.(false) } }}>
+          <Range s={at} a={a} b={b} both={both} hue={colour} live={live} hover={hover} width={W} />
+        </span>
+        <span className="sg-num sg-num-range">{text}</span>
       </span>
     </div>
   )

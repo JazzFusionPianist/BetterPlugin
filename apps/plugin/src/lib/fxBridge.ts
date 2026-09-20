@@ -162,6 +162,7 @@ export interface FxGraphEdge {
   gain: number            // an audio wire's send level; a control wire's depth (-1..1)
   port?: number           // which output of `from` (a splitter has two)
   in?: number             // which input of `to`: 1 = its key (glue and gate listen to it)
+  pol?: number            // a control wire's polarity: 1 = one way from the setting, 2 = both ways round it (unset: an lfo both ways, a macro or a follow one way)
   hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
 }
 

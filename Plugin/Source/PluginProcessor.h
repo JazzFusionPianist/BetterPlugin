@@ -232,7 +232,7 @@ private:
      *  with the program, adopted at a block boundary. */
     struct ModTable
     {
-        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; };   // fromMacro: a one-way push (a macro or a follow); target ≥ 0: this wire sets that wire's depth
+        struct Wire { int from = -1, to = -1, hand = orbfx::kHandNone; float depth = 0.0f; int toType = orbfx::kNone; bool fromMacro = false; int target = -1; bool uni = false; };   // fromMacro: a macro or a follow (its value is 0..1 from rest); uni: the push goes one way from the setting (else both ways round it); target ≥ 0: this wire sets that wire's depth
         int  count = 0;
         Wire wires[orbfx::kMaxEdges];
         bool isRate[orbfx::kMaxNodes] {};

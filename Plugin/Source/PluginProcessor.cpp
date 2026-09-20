@@ -1158,6 +1158,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             {
                 auto& w = t.wires[t.count++];
                 w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0 || t.isFollow[e.from], -1 };
+                w.uni = e.pol == 1 || (e.pol == 0 && w.fromMacro);
                 if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
             }
             else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
@@ -1437,7 +1438,9 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
     // (a push of 1 moves a hand half its travel: a rate at full depth swings the whole travel around the setting;
     //  a macro or a follow pushes one way, so at full depth it carries the hand the whole travel from the setting)
-    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.fromMacro ? value[w.from] * depth * 2.0f : (value[w.from] - 0.5f) * 2.0f * depth; };
+    // one way: the source's 0..1 carries the hand from the setting as far as the depth says (depth 1 = the whole travel).
+    // both ways: the source swings round its middle, the hand goes depth/2 of its travel to either side of the setting.
+    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.uni ? value[w.from] * depth * 2.0f : (value[w.from] - 0.5f) * 2.0f * depth; };
     auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)
     {
         int lo, hi; auxRange (type, a, lo, hi);
@@ -1601,6 +1604,7 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("gain", (double) e.gain);
         if (e.port != 0) o->setProperty ("port", e.port);
         if (e.in != 0) o->setProperty ("in", e.in);
+        if (e.pol != 0) o->setProperty ("pol", e.pol);
         if (e.hand != orbfx::kHandNone) o->setProperty ("hand", handName (e.hand));
         else if (e.refHand != orbfx::kHandNone) o->setProperty ("hand", "wire:" + juce::String (e.refFrom) + ":" + handName (e.refHand));
         edges.add (juce::var (o));
@@ -1716,6 +1720,7 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
             ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
             ed.in   = e.hasProperty ("in") ? juce::jlimit (0, 1, (int) e["in"]) : 0;
+            ed.pol  = e.hasProperty ("pol") ? juce::jlimit (0, 2, (int) e["pol"]) : 0;
             if (e.hasProperty ("hand"))
             {
                 const juce::String hs = e["hand"].toString();

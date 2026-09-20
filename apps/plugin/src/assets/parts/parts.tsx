@@ -126,9 +126,10 @@ export function Steps ({ count, value, hue: c, hover = -1, width, onStep }: {
 }
 
 /* ── the bar: a thin track, the value filled in the colour, a square ink handle at the value ── */
-export function Bar ({ f, zero = 0, hue: c, live, hover, width, mark }: {
+export function Bar ({ f, zero = 0, hue: c, live, hover, width, mark, bands }: {
   f: number; zero?: number; hue: Tone; live?: boolean; hover?: boolean; width: number
   mark?: number   // where the engine has this hand right now (0..1): a tick in the colour, while the handle stays at the setting
+  bands?: Array<[number, number]>   // where the things that play this hand carry it (0..1 each): thin rules under the track, one per player
 }) {
   const H = 12, y = H / 2, h = live ? 4 : 3
   const x0 = width * Math.min(zero, f), x1 = width * Math.max(zero, f)
@@ -139,6 +140,7 @@ export function Bar ({ f, zero = 0, hue: c, live, hover, width, mark }: {
       <rect x="0" y={y - h / 2} width={width} height={h} fill={ink(hover || live ? 0.18 : 0.12)} />
       {zero > 0 && <rect x={width * zero - 0.5} y={y - 5} width="1" height="10" fill={ink(0.42)} />}
       {x1 - x0 > 0.5 && <rect x={x0} y={y - h / 2} width={x1 - x0} height={h} fill={hue(c)} />}
+      {bands?.map(([a, b], k) => <rect key={k} x={width * Math.min(a, b)} y={y + 4 + k * 0} width={Math.max(1, width * Math.abs(b - a))} height="1.5" fill={hue(c)} opacity={0.75} />)}
       {mx !== undefined && <rect x={mx - 1} y={y - 6} width="2" height="12" fill={hue(c)} />}
       <rect x={hx - hw / 2} y={y - 5} width={hw} height="10" fill={ink(1)} />
     </svg>
@@ -183,6 +185,36 @@ export function Chevron ({ up }: { up?: boolean }): ReactNode {
   return (
     <svg className="sg-part" width="8" height="5" viewBox="0 0 8 5">
       <path d={up ? 'M0.5 4.5 L4 1 L7.5 4.5' : 'M0.5 0.5 L4 4 L7.5 0.5'} fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/* ── the range: where a player carries a hand — the hand's own scale, the setting as a tick, the stretch it is carried over, an end to drag ── */
+export function Range ({ s: at, a, b, hue: c, live, hover, width, both }: {
+  s: number; a: number; b: number; hue: Tone; live?: boolean; hover?: boolean; width: number
+  both?: boolean   // both ways: an end to drag at either side
+}) {
+  const H = 12, y = H / 2
+  const x0 = width * Math.min(a, b), x1 = width * Math.max(a, b)
+  const end = (x: number) => <rect x={x - 1.5} y={y - 5} width="3" height="10" fill={hue(c)} />
+  return (
+    <svg className="sg-part" width={width} height={H} viewBox={`0 0 ${width} ${H}`}>
+      <rect x="0" y={y - 1.5} width={width} height="3" fill={ink(hover || live ? 0.18 : 0.12)} />
+      <rect x={x0} y={y - 1.5} width={Math.max(1, x1 - x0)} height="3" fill={hue(c)} opacity={live ? 0.95 : 0.7} />
+      <rect x={width * at - 0.5} y={y - 5} width="1" height="10" fill={ink(0.7)} />
+      {both ? <>{end(x0)}{end(x1)}</> : end(width * b)}
+    </svg>
+  )
+}
+
+/* ── the polarity key: one way from the setting, or both ways round it ── */
+export function Polarity ({ both, hover, hue: c }: { both: boolean; hover?: boolean; hue: Tone }) {
+  return (
+    <svg className="sg-part" width="20" height="12" viewBox="0 0 20 12">
+      <rect x="0.5" y="0.5" width="19" height="11" rx="2" fill="none" stroke={ink(hover ? 0.7 : 0.3)} strokeWidth="1" />
+      {both
+        ? <><rect x="4" y="5" width="12" height="2" fill={hue(c)} /><rect x="9.5" y="2.5" width="1" height="7" fill={ink(0.85)} /></>
+        : <><rect x="5" y="5" width="11" height="2" fill={hue(c)} /><rect x="4.5" y="2.5" width="1" height="7" fill={ink(0.85)} /></>}
     </svg>
   )
 }

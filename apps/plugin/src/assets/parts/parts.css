@@ -143,3 +143,16 @@
 .plugin.sounds .sg-update-name { font-family: var(--f-sans); font-size: 11px; color: var(--sg-ink-60); }
 .plugin.sounds .sg-update-version { font-family: var(--f-mono); font-size: 40px; line-height: 1; color: var(--sg-ink); }
 .plugin.sounds .sg-update-keys { display: flex; gap: 8px; margin-top: 8px; }
+
+/* a hand something plays: a chip after its name says who; under it, one range row per player */
+.plugin.sounds .sg-chip {
+  display: inline-block; margin-left: 8px; padding: 1px 5px 1px; border: 1px solid var(--sg-ink-30); border-radius: 2px;
+  font-family: var(--f-mono); font-size: 9px; line-height: 11px; color: var(--sg-ink-85); white-space: nowrap; vertical-align: 1px;
+}
+.plugin.sounds .sg-chip.lead { margin-left: 0; border-color: rgba(var(--sg-hue), 0.7); color: rgb(var(--sg-hue)); }
+.plugin.sounds .sg-row.range { min-height: 22px; }
+.plugin.sounds .sg-row.range .sg-row-label { display: flex; align-items: center; gap: 6px; color: var(--sg-ink-50); }
+.plugin.sounds .sg-row.range .sg-row-ctl { gap: 6px; }
+.plugin.sounds .sg-pol { display: inline-flex; flex: none; }
+.plugin.sounds .sg-range { display: inline-flex; flex: none; }
+.plugin.sounds .sg-num.sg-num-range { font-size: 11px; flex: 0 0 100px; min-width: 100px; }

@@ -301,7 +301,16 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleStartHostStemExport (args, std::move (completion));
-                }));
+                })
+            .withNativeFunction ("trackExportHost",
+                [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    done (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
+                        : juce::PluginHostType().isProTools() ? "Pro Tools" : "Unsupported"));
+                })
+            .withNativeFunction ("trackExport",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                { trackExportBridge.invoke (args, std::move (done)); }));
 
     controlBridge = std::make_unique<OrbControlBridge> (
         juce::PluginHostType().getHostDescription());
@@ -345,6 +354,7 @@ OrbAudioProcessor::OrbAudioProcessor()
 
 OrbAudioProcessor::~OrbAudioProcessor()
 {
+    trackExportBridge.shutdown();
     stopTimer();
 }
 

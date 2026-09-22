@@ -51,6 +51,8 @@ import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../componen
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
+import ExportTracksButton from '../components/collab/ExportTracksButton'
+import { prepareTrackExport } from '../lib/dawTrackExport'
 
 interface Props { supabase: SupabaseClient; user: User }
 
@@ -1415,6 +1417,12 @@ function StudioShellInner({ supabase, user }: Props) {
       : { kind: 'group', conversationId: sel.conversationId }
   }, [sel])
   const { messages, loading: messagesLoading, send, deleteMessage, conversationId: activeConvId } = useMessages(supabase, user.id, chatTarget)
+  const trackExportContext = useRef({ selection: sel, mounted: true })
+  trackExportContext.current.selection = sel
+  useEffect(() => {
+    trackExportContext.current.mounted = true
+    return () => { trackExportContext.current.mounted = false }
+  }, [])
   const reads = useConversationReads(supabase, activeConvId ?? null, user.id)
 
   // Clear the unread badge for whatever is open — on open (once the DM
@@ -2944,6 +2952,23 @@ function StudioShellInner({ supabase, user }: Props) {
                       onChange={e => { void onFilesPicked(e.target.files); if (e.target) e.target.value = '' }}
                     />
                     <button className="wd-attach" onClick={() => fileRef.current?.click()} aria-label="attach a file">+</button>
+                    <ExportTracksButton key={activeConvId} className="wd-gameinv" onCapture={async archive => {
+                      const destination = activeConvId
+                      const selection = sel
+                      const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
+                      const tracks = await prepareTrackExport(archive)
+                      const uploaded = []
+                      for (const track of tracks) {
+                        if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
+                        const audio = await uploadFile(track.file, 'audio')
+                        if (!audio) throw new Error('Track upload failed. Nothing was sent; you can retry.')
+                        uploaded.push({ url: audio.url, name: track.file.name, metadata: track.metadata,
+                          assetId: track.assetId, regionBundle: track.bundle })
+                      }
+                      if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
+                      if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${tracks.length} Tracks` }))
+                        throw new Error('The exported tracks could not be sent. Please retry.')
+                    }} />
                     <button className="wd-gameinv" onClick={() => { if (activeConvId) openGames(activeConvId) }}
                       aria-label="invite to a game" title="invite to a game"><DiceGlyph size={11} /></button>
                     <textarea

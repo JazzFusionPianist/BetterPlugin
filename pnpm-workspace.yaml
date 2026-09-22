@@ -6,4 +6,6 @@ packages:
 # pages use no next/image. Explicitly skip its build so pnpm neither warns
 # nor blocks `pnpm <script>` on the ignored-build check.
 allowBuilds:
+  esbuild: true
+  protobufjs: true
   sharp: false

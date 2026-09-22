@@ -18,6 +18,21 @@ import type { Lang } from './types'
 type TranslationRecord = { en: string } & Partial<Record<Lang, string>>
 
 export const T = {
+  'trackExport.title': { en: 'Export tracks', ko: '트랙 내보내기' },
+  'trackExport.choose': { en: 'Choose tracks', ko: '트랙 선택' },
+  'trackExport.refresh': { en: 'Refresh', ko: '새로고침' },
+  'trackExport.empty': { en: 'No tracks in this session.', ko: '세션에 트랙이 없어요.' },
+  'trackExport.range': { en: 'Export range', ko: '내보낼 범위' },
+  'trackExport.entire': { en: 'Entire session', ko: '세션 전체' },
+  'trackExport.selection': { en: 'Timeline selection', ko: '타임라인 선택 구간' },
+  'trackExport.bounds': { en: 'Session start → last audio clip. All tracks use the same range. Select a longer timeline range to include effect tails.', ko: '세션 시작부터 마지막 오디오 클립까지 같은 길이로 내보냅니다. 이펙트 잔향을 포함하려면 더 긴 타임라인 구간을 선택하세요.' },
+  'trackExport.selectionHelp': { en: 'Uses the displayed Pro Tools timeline range. Change the selection in Pro Tools, then refresh.', ko: '표시된 Pro Tools 타임라인 범위를 사용합니다. 범위를 바꾼 뒤 새로고침하세요.' },
+  'trackExport.routing': { en: 'Offline track bounce · 300 MB max. Shared aux returns and master processing are not automatically included. Hardware inserts may require real-time export.', ko: '오프라인 트랙 바운스 · 최대 300 MB. 공유 AUX 리턴과 마스터 처리는 자동 포함되지 않습니다. 외장 하드웨어 인서트는 실시간 내보내기가 필요할 수 있어요.' },
+  'trackExport.count': { en: '{count} selected', ko: '{count}개 선택' },
+  'trackExport.loading': { en: 'Reading Pro Tools tracks…', ko: 'Pro Tools 트랙 불러오는 중…' },
+  'trackExport.exporting': { en: 'Bouncing tracks offline… Keep this chat open.', ko: '트랙 오프라인 바운스 중… 이 대화방을 열어 두세요.' },
+  'trackExport.uploading': { en: 'Attaching exported tracks…', ko: '내보낸 트랙 첨부 중…' },
+  'trackExport.submit': { en: 'Export & attach', ko: '내보내기 및 첨부' },
   // ───── Common buttons / actions ─────────────────────────────────────────
   'common.back':   { en: 'back',   ko: '뒤로',   ja: '戻る',     zh: '返回',  es: 'atrás',     de: 'zurück',    fr: 'retour',  hi: 'वापस' },
   'common.close':  { en: 'close',  ko: '닫기',   ja: '閉じる',   zh: '关闭',  es: 'cerrar',    de: 'schließen', fr: 'fermer',  hi: 'बंद करें' },

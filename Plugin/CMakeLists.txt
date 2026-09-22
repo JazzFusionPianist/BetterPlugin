@@ -64,6 +64,7 @@ juce_add_plugin(OrbPlugin
 )
 
 target_sources(OrbPlugin PRIVATE
+    Source/TrackExportBridge.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/OrbControlBridge.cpp
@@ -156,6 +157,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     )
 
     target_sources(${_target} PRIVATE
+        Source/TrackExportBridge.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/OrbControlBridge.cpp

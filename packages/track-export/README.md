@@ -14,8 +14,10 @@ SLUR_PTSL_SDK=/path/to/licensed/PTSL_SDK node packages/track-export/install.mjs
 pnpm --filter @slur/track-export test
 ```
 
-The helper lives in `~/Library/Application Support/Slur/TrackExport`. It references
-the SDK in place and does not redistribute it. This is a developer-machine
+The helper lives in `~/Library/Application Support/Slur/TrackExport`. The local
+installer stages PTSL.proto from the user's licensed SDK alongside the helper,
+so DAW-launched workers do not need runtime access to a development folder.
+The licensed protocol is not checked into Git or distributed. This is a developer-machine
 installation, not a self-contained public installer. Plugins also need the
 matching native `TrackExportBridge` and deployed frontend.
 

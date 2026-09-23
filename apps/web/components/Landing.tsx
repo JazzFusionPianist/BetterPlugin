@@ -3,83 +3,102 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
-import OrbBackground from './OrbBackground'
 import AuthModal from './AuthModal'
+import SlurMark from './slur/SlurMark'
+import Bar from './slur/Bar'
+import RoomPicture from './slur/RoomPicture'
+import { C } from './slur/marks'
+import '@/app/slur.css'
 
-export default function Landing() {
+/* The page before you log in. No copy: a bar of music (five hairlines,
+   whole notes in the house colours, one engraved slur tying them), the
+   room you land in, and the door. Every edge is a curve. */
+
+const WIDE = [
+  { x: 250, step: 1, color: C.blue },
+  { x: 440, step: 3, color: C.green, hollow: false },
+  { x: 640, step: 6, color: C.orange },
+  { x: 820, step: 8, color: C.rose, hollow: false },
+  { x: 1010, step: 5, color: C.lilac },
+  { x: 1200, step: 2, color: C.ink },
+]
+const NARROW = [
+  { x: 60, step: 1, color: C.blue },
+  { x: 150, step: 4, color: C.green, hollow: false },
+  { x: 240, step: 7, color: C.orange },
+  { x: 330, step: 3, color: C.rose, hollow: false },
+]
+
+export default function Landing () {
   const router = useRouter()
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
-  const [downloadNote, setDownloadNote] = useState(false)
 
-  // Resolve platform after mount to avoid a hydration mismatch (static HTML
-  // is pre-rendered as web). The focused welcome/auth gate replaces the
-  // marketing download CTA in every "app" context: the Capacitor shell, any
-  // phone/tablet browser, and installed home-screen mode — "Download for
-  // Mac" makes no sense on a device that can't run the plugin.
-  const [isNative, setIsNative] = useState(false)
-  const [ready, setReady] = useState(false)
+  // Resolve platform after mount. In an "app" context (the Capacitor shell,
+  // a phone or tablet browser, home-screen mode) there is nothing to
+  // download, so the downloads link goes.
+  const [isApp, setIsApp] = useState(false)
+  const [narrow, setNarrow] = useState(false)
   useEffect(() => {
     const ua = navigator.userAgent
-    const appContext =
+    setIsApp(
       Capacitor.isNativePlatform() ||
       /iPhone|iPod|iPad|Android/i.test(ua) ||
       (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ||   // iPadOS desktop UA
       window.matchMedia?.('(display-mode: standalone)').matches ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true
-    setIsNative(appContext)
-    setReady(true)
+      (navigator as unknown as { standalone?: boolean }).standalone === true,
+    )
+    const mq = window.matchMedia('(max-width: 820px)')
+    const sync = () => setNarrow(mq.matches)
+    sync(); mq.addEventListener('change', sync)
+    // /?door=signin or /?door=signup opens the door (links from /downloads)
+    const door = new URLSearchParams(window.location.search).get('door')
+    if (door === 'signin' || door === 'signup') { setAuthMode(door); setAuthOpen(true) }
+    return () => mq.removeEventListener('change', sync)
   }, [])
 
   const open = (mode: 'signin' | 'signup') => { setAuthMode(mode); setAuthOpen(true) }
 
   return (
-    <>
-      <OrbBackground />
-      <div className="grain" />
-      <div className="veil" />
+    <div className="sl">
+      <div className="sl-grain" />
 
-      <div className="shell">
-        <div className="top">
-          <span className="word"><span className="mark" />Orb</span>
-          {/* On native the welcome CTAs already cover sign-in, so the
-              top-right link is redundant — show it on web only. */}
-          {ready && !isNative && (
-            <button className="login" onClick={() => open('signin')}>log in</button>
-          )}
+      <header className="sl-top">
+        <a className="sl-logo" href="/" aria-label="slur studio"><SlurMark height={40} /><span>studio</span></a>
+        <nav className="sl-nav">
+          {!isApp && <a href="/downloads">downloads</a>}
+          <button className="sl-word" onClick={() => open('signin')}>log in</button>
+          <button className="sl-pill ink" onClick={() => open('signup')}>sign up</button>
+        </nav>
+      </header>
+
+      <section className="sl-bar">
+        {narrow
+          ? <Bar key="n" w={390} h={760} y0={300} gap={34} s={28} notes={NARROW} />
+          : <Bar key="w" w={1440} h={900} y0={330} gap={64} s={56} notes={WIDE} />}
+      </section>
+
+      <section className="sl-arch sl-room">
+        <h2>slur</h2>
+        <RoomPicture />
+      </section>
+
+      <footer className="sl-arch sl-foot">
+        <div className="sl-foot-in">
+          <SlurMark className="sl-foot-mark" height={300} ink={C.white} arm={C.orange} />
+          <div className="sl-acts">
+            <button className="sl-pill paper" onClick={() => open('signup')}>sign up</button>
+            <button className="sl-pill ghost" onClick={() => open('signin')}>log in</button>
+          </div>
         </div>
-
-        <main className="stage">
-          <h1>make music <span className="hl">together.</span></h1>
-          <p className="sub">your crew, your sessions, your sound,<br />in your daw and in the app</p>
-
-          {ready && (
-            isNative ? (
-              <div className="actions actions-native">
-                <button className="download" onClick={() => open('signup')}>get started</button>
-                <button className="ghost-link" onClick={() => open('signin')}>
-                  already have an account? <span>log in</span>
-                </button>
-              </div>
-            ) : (
-              <div className="actions">
-                <button className="download" onClick={() => setDownloadNote(true)}>
-                  download for mac
-                </button>
-                {downloadNote && (
-                  <p className="sub" style={{ fontStyle: 'italic' }}>the mac build isn&rsquo;t out yet — soon.</p>
-                )}
-              </div>
-            )
-          )}
-        </main>
-
-        <div className="bottom">
-          <span>© 2026 Orb</span>
-          <a className="bottom-legal" href="/terms">terms</a>
-          <a className="bottom-legal" href="/privacy">privacy</a>
+        <div className="sl-foot-row">
+          {!isApp && <a href="/downloads">downloads</a>}
+          <a href="/terms">terms</a>
+          <a href="/privacy">privacy</a>
+          <a href="mailto:wtsteven123@gmail.com?subject=copyright%20report">copyright</a>
+          <span className="r">&copy; 2026 slur studio</span>
         </div>
-      </div>
+      </footer>
 
       <AuthModal
         open={authOpen}
@@ -87,6 +106,6 @@ export default function Landing() {
         onClose={() => setAuthOpen(false)}
         onAuthed={() => router.replace('/app')}
       />
-    </>
+    </div>
   )
 }

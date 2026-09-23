@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import SlurMark from './slur/SlurMark'
+import Bar from './slur/Bar'
+import { C } from './slur/marks'
+
+const DOOR_NOTES = [
+  { x: 170, step: 2, color: C.ink, hollow: false },
+  { x: 360, step: 6, color: C.paper },
+  { x: 550, step: 4, color: C.orange, hollow: false },
+]
 
 type Mode = 'signin' | 'signup'
 
@@ -68,7 +77,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
         if (error) {
           setError(/invalid login credentials/i.test(error.message)
             ? 'email and password don’t match — try again.'
-            : 'couldn’t sign you in — try again.')
+            : 'couldn’t log you in — try again.')
           return
         }
         onAuthed()
@@ -99,13 +108,13 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
         })
         if (error) {
           setError(/already registered/i.test(error.message)
-            ? 'that email already has an account — sign in instead.'
+            ? 'that email already has an account — log in instead.'
             : 'couldn’t create the account — try again.')
           return
         }
         // If email confirmation is on, there's no session yet.
         if (data.session) onAuthed()
-        else setNote('check your email to confirm the account, then sign in.')
+        else setNote('check your email to confirm the account, then log in.')
       }
     } catch (err) {
       console.error('[auth]', err)
@@ -115,56 +124,42 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
     }
   }
 
+  const lamp = (checked: boolean, set: (v: boolean) => void, body: React.ReactNode, required = true) => (
+    <label className="sl-lamp">
+      <input type="checkbox" checked={checked} onChange={e => set(e.target.checked)} required={required} />
+      <span>{body}{required && <em> required</em>}</span>
+    </label>
+  )
+
+  // The door: a lilac arch with three tied notes on the left, the form on
+  // the right. Phones get the form alone.
   return (
-    <div
-      className={`auth-overlay${open ? ' open' : ''}`}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className={`auth mode-${mode}`}>
-        <button className="auth-x" onClick={onClose} aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9" /></svg>
-        </button>
-
-        <header className="auth-head">
-          <span className="auth-brand"><span className="auth-brand-dot" />Orb</span>
-          <h2 className="auth-title">
-            {mode === 'signin' ? 'welcome back.' : 'create your account.'}
-          </h2>
-          <p className="auth-lede">
-            {mode === 'signin'
-              ? 'back to your sessions.'
-              : 'a name, an email, a password.'}
-          </p>
-        </header>
-
-        <form className="auth-form" onSubmit={submit}>
+    <div className={`sl-door${open ? ' open' : ''}`} role="dialog" aria-modal="true" aria-label={mode === 'signin' ? 'log in' : 'sign up'}>
+      <div className="sl-door-l">
+        {open && <Bar w={720} h={900} y0={360} gap={60} s={50} line="rgba(26,25,23,.35)" notes={DOOR_NOTES} />}
+        <span className="sl-logo"><SlurMark height={40} arm={C.white} /><span>studio</span></span>
+      </div>
+      <div className="sl-door-r">
+        <button className="sl-door-x" onClick={onClose}>close</button>
+        <form className="sl-form" onSubmit={submit}>
+          <h2>{mode === 'signin' ? 'log in' : 'sign up'}</h2>
           {mode === 'signup' && (
             <>
-              <div className="fld">
-                <input id="auth-name" type="text" placeholder=" " autoComplete="name"
-                  value={name} onChange={e => setName(e.target.value)} />
-                <label htmlFor="auth-name">name</label>
-              </div>
-              <div className="fld fld-username">
-                <input id="auth-username" type="text" placeholder=" " autoComplete="username" required
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                  value={username} onChange={e => setUsername(cleanUsername(e.target.value))} />
-                <label htmlFor="auth-username">username</label>
-              </div>
+              <input className="sl-fld" type="text" placeholder="name" autoComplete="name" aria-label="name"
+                value={name} onChange={e => setName(e.target.value)} />
+              <input className="sl-fld" type="text" placeholder="username" autoComplete="username" aria-label="username" required
+                autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                value={username} onChange={e => setUsername(cleanUsername(e.target.value))} />
             </>
           )}
-          <div className="fld">
-            <input id="auth-email" ref={emailRef} type="email" placeholder=" " autoComplete="email" required
-              value={email} onChange={e => setEmail(e.target.value)} />
-            <label htmlFor="auth-email">email</label>
-          </div>
-          <div className="fld">
-            <input id="auth-password" type={showPw ? 'text' : 'password'} placeholder=" "
+          <input className="sl-fld" ref={emailRef} type="email" placeholder="email" autoComplete="email" aria-label="email" required
+            value={email} onChange={e => setEmail(e.target.value)} />
+          <div className="sl-fld-wrap">
+            <input className="sl-fld" type={showPw ? 'text' : 'password'} placeholder="password" aria-label="password"
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required
               value={password} onChange={e => setPassword(e.target.value)} />
-            <label htmlFor="auth-password">password</label>
             {password && (
-              <button type="button" className="fld-toggle" onClick={() => setShowPw(s => !s)}
+              <button type="button" className="sl-show" onClick={() => setShowPw(s => !s)}
                 tabIndex={-1} aria-label={showPw ? 'Hide password' : 'Show password'}>
                 {showPw ? 'hide' : 'show'}
               </button>
@@ -172,38 +167,22 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
           </div>
 
           {mode === 'signup' && (
-            <div className="auth-consent">
-              <label className="auth-check">
-                <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} required />
-                <span>I agree to the <a href="/terms" target="_blank" rel="noreferrer">terms of service</a> <em>(required)</em></span>
-              </label>
-              <label className="auth-check">
-                <input type="checkbox" checked={agreePrivacy} onChange={e => setAgreePrivacy(e.target.checked)} required />
-                <span>I agree to the <a href="/privacy" target="_blank" rel="noreferrer">privacy policy</a> <em>(required)</em></span>
-              </label>
-              <label className="auth-check">
-                <input type="checkbox" checked={agreeAge} onChange={e => setAgreeAge(e.target.checked)} required />
-                <span>I am 14 or older <em>(required)</em></span>
-              </label>
-              <label className="auth-check">
-                <input type="checkbox" checked={agreeMarketing} onChange={e => setAgreeMarketing(e.target.checked)} />
-                <span>Send me occasional news <em>(optional)</em></span>
-              </label>
+            <div className="sl-lamps">
+              {lamp(agreeTerms, setAgreeTerms, <><a href="/terms" target="_blank" rel="noreferrer">terms</a></>)}
+              {lamp(agreePrivacy, setAgreePrivacy, <><a href="/privacy" target="_blank" rel="noreferrer">privacy policy</a></>)}
+              {lamp(agreeAge, setAgreeAge, <>14 or older</>)}
+              {lamp(agreeMarketing, setAgreeMarketing, <>the odd update</>, false)}
             </div>
           )}
 
-          {error && <div className="auth-error">{error}</div>}
-          {note && <div className="auth-note">{note}</div>}
+          {error && <div className="sl-msg err">{error}</div>}
+          {note && <div className="sl-msg">{note}</div>}
 
-          <button type="submit" className="auth-submit" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
-            {busy ? (mode === 'signin' ? 'signing in…' : 'creating account…') : (mode === 'signin' ? 'sign in' : 'create account')}
+          <button type="submit" className="sl-go" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
+            {busy ? (mode === 'signin' ? 'logging in…' : 'signing up…') : (mode === 'signin' ? 'log in' : 'sign up')}
           </button>
+          <button type="button" className="sl-swap" onClick={toggle}>{mode === 'signin' ? 'sign up' : 'log in'}</button>
         </form>
-
-        <footer className="auth-switch">
-          {mode === 'signin' ? 'new here?' : 'already have an account?'}
-          <button type="button" onClick={toggle}>{mode === 'signin' ? 'create an account' : 'sign in instead'}</button>
-        </footer>
       </div>
     </div>
   )

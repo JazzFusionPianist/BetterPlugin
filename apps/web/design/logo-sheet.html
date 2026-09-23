@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slur logo sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<style>
+/* Slur Studio, logo sheet 2. The word tied: one engraved slur from the s
+   to the last letter. The tie takes each product's colour. */
+:root { --paper: #F3F0E8; --ink: #1A1917; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: 'Instrument Sans', sans-serif; padding: 36px; }
+.row { display: grid; grid-template-columns: repeat(3, 1fr) 200px; gap: 16px; align-items: center; }
+.row + .row { margin-top: 16px; }
+.tile { height: 250px; border-radius: 28px; display: grid; place-items: center; overflow: hidden; }
+.tile svg, .icon svg { display: block; overflow: visible; }
+.icon { width: 200px; height: 200px; border-radius: 46px; display: grid; place-items: center; justify-self: end; }
+.icons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; justify-self: end; width: 200px; }
+.icons .icon { width: 60px; height: 60px; border-radius: 15px; justify-self: start; }
+</style>
+</head>
+<body>
+<div class="row" id="r1"></div>
+<div class="row" id="r2"></div>
+<script src="slur-marks.js"></script>
+<script>
+const tile = (row, bg) => { const d = document.createElement('div'); d.className = 'tile'; d.style.background = bg; row.appendChild(d); return d }
+const svgIn = (host, w, h) => el('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}` }, host)
+
+// row 1: the house lockup, the tie over "slur" only
+const r1 = document.getElementById('r1')
+;[[C.paper, C.blue, C.ink], [C.blue, C.orange, C.white], ['#BFE6CB', C.ink, C.ink]].forEach(([bg, tie, ink]) => {
+  const s = svgIn(tile(r1, bg), 330, 120); tieWord(s, 12, 92, 'slur studio', 56, { tie, ink, span: 4 })
+})
+const ic = document.createElement('div'); ic.className = 'icon'; ic.style.background = C.ink; r1.appendChild(ic)
+tieWord(svgIn(ic, 150, 120), 14, 92, 'slur', 64, { tie: C.orange, ink: C.white })
+
+// row 2: the family, each name tied in its own colour
+const r2 = document.getElementById('r2')
+const fam = [['slur', C.green, '#DDEFE2'], ['patch on slur', C.orange, '#0F0E0D'], ['slur games', C.blue, '#E4E9FF']]
+fam.forEach(([name, tie, bg]) => { const s = svgIn(tile(r2, bg), 380, 130); tieWord(s, 12, 100, name, 50, { tie, ink: bg === '#0F0E0D' ? C.white : C.ink }) })
+const ic2 = document.createElement('div'); ic2.className = 'icon'; ic2.style.background = C.orange; r2.appendChild(ic2)
+tieWord(svgIn(ic2, 150, 110), 14, 86, 'slur', 64, { tie: C.ink, ink: C.ink })
+</script>
+</body>
+</html>

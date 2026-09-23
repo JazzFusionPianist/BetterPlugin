@@ -3,18 +3,18 @@ import './globals.css'
 import './games.css'
 
 export const metadata: Metadata = {
-  title: 'Orb — Make music together',
-  description: 'Your crew, your sessions, your sound — in your DAW and on the web.',
+  title: 'Slur Studio',
+  description: 'Slur, Patch on Slur and the rest of the Slur Studio plug-ins.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
     apple: '/apple-touch-icon.png',
   },
-  // "Add to Home Screen" on iOS opens orb full-screen, no Safari chrome.
+  // "Add to Home Screen" on iOS opens slur full-screen, no Safari chrome.
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'orb',
+    title: 'slur',
   },
 }
 

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slur Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<style>
+/* Slur Studio, the page before you log in. Draft 2, 2026-09-23.
+   No copy. A bar of music: five hairlines, whole notes in the house
+   colours, one engraved slur tying them. Every edge is a curve. */
+:root {
+  --paper: #F3F0E8;
+  --paper-2: #FBFAF7;
+  --ink: #1A1917;
+  --t2: #6E6B63;
+  --t3: #A5A199;
+  --blue: #5C80FF;
+  --green: #3FB872;
+  --orange: #F89C38;
+  --lilac: #B79CFF;
+  --rose: #F27BA6;
+  --mint: #BFE6CB;
+  --night: #0F0E0D;
+  --f: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--paper); }
+body { color: var(--ink); font-family: var(--f); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* paper grain over everything */
+.grain { position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .22; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1  0 0 0 0 .09  0 0 0 0 .08  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* ── top ── */
+.top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; height: 76px; padding: 0 36px; }
+.logo { display: inline-flex; align-items: flex-end; gap: 6px; }
+.logo .studio { font-size: 13px; font-weight: 500; letter-spacing: -0.01em; padding-bottom: 5px; }
+.logo svg { display: block; overflow: visible; }
+.door-l .logo { color: var(--ink); }
+.nav { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 13.5px; color: var(--t2); }
+.nav a:hover, .nav button:hover { color: var(--ink); }
+.pill { display: inline-flex; align-items: center; height: 36px; padding: 0 18px; border-radius: 999px; font-size: 13.5px; transition: transform .15s ease; }
+.pill:hover { transform: translateY(-1px); }
+.pill.ink { background: var(--ink); color: var(--paper-2); }
+.nav .pill.ink { color: var(--paper-2); }
+
+/* ── the bar ── */
+.bar { position: relative; height: min(100vh, 960px); min-height: 640px; }
+.bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.note { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+.note:hover { transform: scale(1.07) rotate(-3deg); }
+.note.ring { animation: ring .7s ease-out; }
+@keyframes ring { 30% { transform: scale(1.14) rotate(-6deg); } }
+.note-in { opacity: 0; animation: drop .9s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
+
+/* ── arched sections ── */
+.arch { position: relative; margin-top: -120px; border-radius: 50% 50% 0 0 / 150px 150px 0 0; }
+.room { background: var(--mint); padding: 150px 36px 190px; display: flex; flex-direction: column; align-items: center; }
+.room h2 { font-size: clamp(56px, 9vw, 132px); font-weight: 500; letter-spacing: -0.045em; line-height: .9; margin-bottom: 64px; }
+
+/* the room, drawn: every size in em so it scales as one picture */
+.win { font-size: clamp(4.2px, .86vw, 12.4px); width: 82em; height: 51em; background: var(--paper-2); border-radius: 1.6em; display: flex; overflow: hidden; box-shadow: 0 3em 6em -3em rgba(20,60,40,.35), 0 0 0 .08em rgba(26,25,23,.08); }
+.rail { width: 23em; background: #F4F2EC; padding: 1.6em 1.1em; display: flex; flex-direction: column; gap: .2em; }
+.rail h6 { font-size: .95em; font-weight: 500; color: var(--t3); margin: 1em .6em .5em; }
+.row { display: flex; gap: .8em; align-items: center; padding: .6em; border-radius: 1em; }
+.row.on { background: #fff; box-shadow: 0 .1em .3em rgba(26,25,23,.06); }
+.av { width: 2.4em; height: 2.4em; flex: none; border-radius: .8em; position: relative; }
+.av.p { border-radius: 50%; }
+.av .dot { position: absolute; right: -.1em; bottom: -.1em; width: .75em; height: .75em; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 .2em #F4F2EC; }
+.row .t { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.row .t b { font-weight: 600; font-size: 1.1em; }
+.row .t small { color: var(--t3); font-size: .92em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t small.live { color: var(--green); }
+.badge { margin-left: auto; min-width: 1.6em; height: 1.6em; border-radius: 1em; background: var(--green); color: #fff; font-size: .85em; display: grid; place-items: center; padding: 0 .4em; }
+.rail .me { margin-top: auto; }
+.pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pane-h { padding: 1.6em 2em .2em; }
+.pane-h b { font-size: 1.7em; font-weight: 600; letter-spacing: -0.02em; }
+.pane-h small { display: block; color: var(--t3); font-size: .95em; margin-top: .2em; }
+.pane-h small em { font-style: normal; color: var(--green); }
+.tabs { display: flex; gap: .5em; margin-top: 1em; font-size: 1em; }
+.tabs span { padding: .35em .9em; border-radius: 1em; color: var(--t2); }
+.tabs .on { background: var(--ink); color: var(--paper-2); }
+.tabs sup { color: var(--green); font-size: .75em; margin-left: .15em; }
+.tabs .on sup { color: var(--mint); }
+.msgs { flex: 1; padding: 1.2em 2em; display: flex; flex-direction: column; gap: .8em; overflow: hidden; }
+.day { align-self: center; color: var(--t3); font-size: .9em; }
+.m { display: flex; gap: .7em; align-items: flex-end; }
+.m .av { width: 2em; height: 2em; }
+.bub { background: #F1EEE6; padding: .6em 1em; border-radius: 1.2em 1.2em 1.2em .35em; max-width: 60%; font-size: 1.1em; }
+.m.mine { justify-content: flex-end; }
+.m.mine .bub { background: var(--ink); color: var(--paper-2); border-radius: 1.2em 1.2em .35em 1.2em; }
+.who { font-size: .9em; color: var(--t3); margin: 0 0 .3em .3em; }
+.stem { background: #F1EEE6; border-radius: 1.2em; padding: 1em 1.2em; width: 24em; }
+.stem .l1 { display: flex; justify-content: space-between; font-size: 1.05em; }
+.stem .l1 b { font-weight: 600; }
+.stem .l1 i { font-style: normal; color: var(--t3); }
+.stem svg { display: block; width: 100%; height: 2.6em; margin: .6em 0 .5em; }
+.stem .l2 { display: flex; gap: .9em; font-size: .9em; color: var(--t3); white-space: nowrap; }
+.stem .l2 u { text-decoration: none; color: var(--green); }
+.inp { margin: 0 1.6em 1.6em; height: 3em; border-radius: 1.5em; background: #F1EEE6; color: var(--t3); font-size: 1em; display: flex; align-items: center; padding: 0 1.3em; }
+
+/* ── foot ── */
+.foot { background: var(--blue); color: var(--paper-2); padding: 170px 36px 30px; }
+.foot-in { display: flex; flex-direction: column; align-items: center; gap: 36px; }
+.foot .logo-big svg { width: min(460px, 76vw); height: auto; display: block; overflow: visible; }
+.foot .acts { display: flex; gap: 12px; }
+.foot .pill { background: var(--paper-2); color: var(--ink); height: 44px; padding: 0 24px; font-size: 14.5px; }
+.foot .pill.ghost { background: transparent; color: var(--paper-2); box-shadow: inset 0 0 0 1px rgba(251,250,247,.6); }
+.foot-row { display: flex; gap: 22px; margin-top: 140px; font-size: 12.5px; color: rgba(251,250,247,.72); }
+.foot-row a:hover { color: var(--paper-2); }
+.foot-row .r { margin-left: auto; }
+
+/* ── the door ── */
+.door { position: fixed; inset: 0; z-index: 40; display: none; grid-template-columns: 1fr 1fr; background: var(--paper); }
+.door.open { display: grid; animation: fade .25s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+.door-l { position: relative; background: var(--lilac); overflow: hidden; border-radius: 0 50% 50% 0 / 0 38% 38% 0; }
+.door-l > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.door-l .logo { position: absolute; left: 36px; top: 24px; }
+.door-r { display: flex; flex-direction: column; padding: 24px 36px; }
+.door-x { align-self: flex-end; font-size: 13.5px; color: var(--t2); }
+.door-x:hover { color: var(--ink); }
+.form { width: 100%; max-width: 340px; margin: auto; display: flex; flex-direction: column; }
+.form h2 { font-size: 56px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; margin-bottom: 30px; }
+.fld { position: relative; margin-bottom: 10px; }
+.fld input { width: 100%; height: 50px; border: 0; border-radius: 25px; background: rgba(26,25,23,.055); padding: 0 20px; font: inherit; font-size: 15px; color: var(--ink); outline: none; transition: background .15s, box-shadow .15s; }
+.fld input::placeholder { color: var(--t3); }
+.fld input:focus { background: var(--paper-2); box-shadow: 0 0 0 1.5px var(--ink); }
+.fld .show { position: absolute; right: 18px; top: 16px; font-size: 12.5px; color: var(--t3); }
+.lamps { display: none; flex-direction: column; gap: 10px; margin: 12px 0 4px 6px; font-size: 13px; color: var(--t2); }
+.lamp { display: flex; align-items: center; gap: 11px; cursor: pointer; user-select: none; }
+.lamp::before { content: ''; width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1.2px rgba(26,25,23,.4); flex: none; transition: background .15s; }
+.lamp.on::before { background: var(--green); box-shadow: none; }
+.lamp a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.lamp em { font-style: normal; color: var(--t3); }
+.form .go { margin-top: 18px; height: 50px; border-radius: 25px; background: var(--ink); color: var(--paper-2); font-size: 15px; }
+.form .go:hover { background: #000; }
+.swap { margin-top: 18px; text-align: center; font-size: 13.5px; color: var(--t3); }
+.swap button { color: var(--ink); }
+.su { display: none; }
+.door.signup .su { display: block; }
+.door.signup .lamps.su { display: flex; }
+.door.signup .si { display: none; }
+
+@media (max-width: 820px) {
+  .top { padding: 0 18px; }
+  .nav a, .nav .word { display: none; }
+  .arch { margin-top: -60px; border-radius: 50% 50% 0 0 / 64px 64px 0 0; }
+  .room { padding: 90px 16px 110px; }
+  .room h2 { margin-bottom: 36px; }
+  .foot { padding: 100px 18px 24px; }
+  .foot-row { flex-wrap: wrap; margin-top: 90px; }
+  .door { grid-template-columns: 1fr; }
+  .door-l { display: none; }
+  .door-r { padding: 20px 18px; }
+}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<header class="top">
+  <a class="logo" href="#"><svg class="breath" data-h="40" data-tie="#5C80FF"></svg><span class="studio">studio</span></a>
+  <nav class="nav">
+    <a href="downloads-draft.html">downloads</a>
+    <button class="word" data-door="signin">log in</button>
+    <button class="pill ink" data-door="signup">sign up</button>
+  </nav>
+</header>
+
+<section class="bar"><svg id="bar" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"></svg></section>
+
+<section class="arch room">
+  <h2>slur</h2>
+  <div class="win">
+    <div class="rail">
+      <h6>projects</h6>
+      <div class="row on"><div class="av" style="background:var(--blue)"></div><div class="t"><b>hanroro ep</b><small>jun: bridge take 3 is up</small></div><span class="badge">2</span></div>
+      <div class="row"><div class="av" style="background:var(--orange)"></div><div class="t"><b>friday set</b><small>soundcheck 5pm</small></div></div>
+      <div class="row"><div class="av" style="background:var(--lilac)"></div><div class="t"><b>demos</b><small>voice memo 0:42</small></div></div>
+      <h6>people</h6>
+      <div class="row"><div class="av p" style="background:var(--rose)"><span class="dot"></span></div><div class="t"><b>jun</b><small class="live">in the studio 2h</small></div></div>
+      <div class="row"><div class="av p" style="background:#E9C46A"></div><div class="t"><b>minseo</b><small>ok see you then</small></div></div>
+      <div class="row me"><div class="av p" style="background:var(--ink)"><span class="dot"></span></div><div class="t"><b>steven</b><small class="live">in the studio</small></div></div>
+    </div>
+    <div class="pane">
+      <div class="pane-h">
+        <b>hanroro ep</b>
+        <small>4 members <em>2 in the studio now</em></small>
+        <div class="tabs"><span class="on">chat</span><span>stems<sup>6</sup></span><span>calendar<sup>2</sup></span><span>notes</span></div>
+      </div>
+      <div class="msgs">
+        <span class="day">today</span>
+        <div class="m"><div class="av p" style="background:var(--rose)"></div><div><div class="who">jun</div>
+          <div class="stem">
+            <div class="l1"><b>bridge take 3</b><i>0:38</i></div>
+            <svg viewBox="0 0 200 20" preserveAspectRatio="none"><g fill="#1A1917" id="wf"></g><rect x="62" y="0" width="1.2" height="20" fill="#3FB872"/></svg>
+            <div class="l2"><span>bar 17</span><span>48k</span><u>import to daw</u></div>
+          </div></div></div>
+        <div class="m"><div class="av p" style="background:var(--rose)"></div><div class="bub">snare&rsquo;s a bit late on the 2nd one</div></div>
+        <div class="m mine"><div class="bub">fixing it now, back in 10</div></div>
+        <div class="m"><div class="av p" style="background:#E9C46A"></div><div class="bub">rehearsal fri 7pm?</div></div>
+      </div>
+      <div class="inp">message hanroro ep</div>
+    </div>
+  </div>
+</section>
+
+<footer class="arch foot">
+  <div class="foot-in">
+    <a class="logo-big" href="#"><svg viewBox="0 0 520 190" id="biglogo"></svg></a>
+    <div class="acts">
+      <button class="pill" data-door="signup">sign up</button>
+      <button class="pill ghost" data-door="signin">log in</button>
+    </div>
+  </div>
+  <div class="foot-row">
+    <a href="downloads-draft.html">downloads</a><a href="#">terms</a><a href="#">privacy</a><a href="#">copyright</a>
+    <span class="r">&copy; 2026</span>
+  </div>
+</footer>
+
+<div class="door" id="door">
+  <div class="door-l">
+    <svg id="doorbar" viewBox="0 0 720 900" preserveAspectRatio="xMidYMid slice"></svg>
+    <a class="logo" href="#"><svg class="breath" data-h="40" data-tie="#FBFAF7"></svg><span class="studio">studio</span></a>
+  </div>
+  <div class="door-r">
+    <button class="door-x" id="close">close</button>
+    <form class="form" onsubmit="return false">
+      <h2 class="si">log in</h2>
+      <h2 class="su">sign up</h2>
+      <div class="fld su"><input placeholder="name" autocomplete="off"></div>
+      <div class="fld su"><input placeholder="username" autocomplete="off"></div>
+      <div class="fld"><input type="email" placeholder="email" autocomplete="off"></div>
+      <div class="fld"><input type="password" placeholder="password" autocomplete="off"><button type="button" class="show">show</button></div>
+      <div class="lamps su">
+        <span class="lamp"><span><a href="#">terms</a> <em>required</em></span></span>
+        <span class="lamp"><span><a href="#">privacy policy</a> <em>required</em></span></span>
+        <span class="lamp"><span>14 or older <em>required</em></span></span>
+        <span class="lamp"><span>the odd update</span></span>
+      </div>
+      <button class="go"><span class="si">log in</span><span class="su">sign up</span></button>
+      <p class="swap si"><button type="button" data-door="signup">sign up</button></p>
+      <p class="swap su"><button type="button" data-door="signin">log in</button></p>
+    </form>
+  </div>
+</div>
+
+<script src="slur-marks.js"></script>
+<script>
+/* the big logo in the foot: the mark, then the name */
+;(() => {
+  const s = document.getElementById('biglogo')
+  s.setAttribute('viewBox', '20 10 206 148')
+  letterA(el('g', {}, s), { ink: C.white, tie: C.orange, width: 7.5 })
+})()
+
+// phones get their own phrase: four notes on a narrower staff
+if (matchMedia('(max-width: 820px)').matches) {
+  const svg = document.getElementById('bar'); svg.setAttribute('viewBox', '0 0 390 760')
+  bar(svg, 390, 760, {
+    y0: 300, gap: 34, s: 28,
+    notes: [
+      { x: 60, step: 1, c: C.blue },
+      { x: 150, step: 4, c: C.green, hollow: false },
+      { x: 240, step: 7, c: C.orange },
+      { x: 330, step: 3, c: C.rose, hollow: false },
+    ],
+  })
+} else bar(document.getElementById('bar'), 1440, 900, {
+  y0: 330, gap: 64, s: 56,
+  notes: [
+    { x: 250, step: 1, c: C.blue },
+    { x: 440, step: 3, c: C.green, hollow: false },
+    { x: 640, step: 6, c: C.orange },
+    { x: 820, step: 8, c: C.rose, hollow: false },
+    { x: 1010, step: 5, c: C.lilac },
+    { x: 1200, step: 2, c: C.ink },
+  ],
+})
+
+let doorDrawn = false
+function drawDoor () {
+  if (doorDrawn) return; doorDrawn = true
+  bar(document.getElementById('doorbar'), 720, 900, {
+    y0: 360, gap: 60, s: 50, lineOp: .35,
+    notes: [
+      { x: 170, step: 2, c: C.ink, hollow: false },
+      { x: 360, step: 6, c: C.paper },
+      { x: 550, step: 4, c: C.orange, hollow: false },
+    ],
+  })
+}
+
+/* the stem's waveform */
+;(() => {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  const g = document.getElementById('wf')
+  for (let i = 0; i < 100; i++) {
+    const env = Math.sin(Math.PI * i / 100) * .7 + .3, h = Math.max(1.4, (rnd() * .8 + .2) * 18 * env)
+    el('rect', { x: i * 2, y: 10 - h / 2, width: 1.2, height: h, rx: .6, opacity: i * 2 < 62 ? 1 : .28 }, g)
+  }
+})()
+
+/* the door */
+const door = document.getElementById('door')
+const openDoor = kind => { door.classList.add('open'); door.classList.toggle('signup', kind === 'signup'); drawDoor() }
+document.querySelectorAll('[data-door]').forEach(b => b.addEventListener('click', () => openDoor(b.dataset.door)))
+document.getElementById('close').onclick = () => door.classList.remove('open')
+document.querySelectorAll('.lamp').forEach(l => l.addEventListener('click', e => { if (e.target.tagName !== 'A') l.classList.toggle('on') }))
+if (location.hash === '#signin' || location.hash === '#signup') openDoor(location.hash.slice(1))
+</script>
+</body>
+</html>

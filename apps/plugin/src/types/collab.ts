@@ -91,7 +91,7 @@ export interface AttachmentTimelineMetadata {
      *  position the audio ORIGINALLY started at — the padding's musical
      *  length — so nothing about the source position is lost. */
     aligned_from_ppq?: number
-    source: 'bwf' | 'ixml' | 'daw_playhead' | 'ptsl'
+    source: 'bwf' | 'ixml' | 'daw_playhead' | 'ptsl' | 'luna'
     confidence: 'exact' | 'estimated'
   }
   tempo_map?: TempoMapPoint[]

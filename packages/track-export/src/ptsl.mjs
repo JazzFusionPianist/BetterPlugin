@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 // The licensed SDK stays outside the repository. No remote command endpoint.
 export function connectProTools(sdkRoot) {
-  if (!sdkRoot) throw new Error('Set ORB_PTSL_SDK to your licensed Pro Tools Scripting SDK directory.')
+  if (!sdkRoot) throw new Error('Install the Slur helper with SLUR_PTSL_SDK pointing to your licensed Pro Tools Scripting SDK directory.')
   const definition = loadSync(join(sdkRoot, 'Source', 'PTSL.proto'), {
     keepCase: true, longs: String, enums: String, defaults: false, oneofs: true,
   })

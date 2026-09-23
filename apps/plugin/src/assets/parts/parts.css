@@ -15,6 +15,17 @@
   --f-mono: 'Space Mono', ui-monospace, monospace;
   font-family: var(--f-sans);
 }
+/* the words under a print: the same size, but on a soft dark ground so the wall's light and the traces stop running through the letters;
+   the name in full ink, the value in the mono, a breath larger */
+.plugin.sounds .sg-label {
+  padding: 3px 7px; border-radius: 2px;
+  background: rgba(22, 20, 16, 0.72); box-shadow: 0 0 10px 4px rgba(22, 20, 16, 0.72);
+  color: var(--sg-ink); letter-spacing: 0.01em;
+}
+.plugin.sounds .sg-label .sg-name { font-weight: 500; }
+.plugin.sounds .sg-label .sg-flav { color: var(--sg-ink-60); }
+.plugin.sounds .sg-label .sg-val { font-family: var(--f-mono); font-size: 12px; color: var(--sg-ink); }
+.plugin.sounds .sg-node.off .sg-label { opacity: 0.6; }
 /* the prints are prints: their marks were drawn in Instrument Sans and stay so */
 .plugin.sounds .sg-print, .plugin.sounds .sg-print svg, .plugin.sounds .sg-print svg text,
 .plugin.sounds .sg-study-print, .plugin.sounds .sg-study-print svg text {

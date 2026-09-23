@@ -541,8 +541,8 @@ export default function FxWall ({ size: frame }: Props) {
   const Rz = R * zoom, NODEz = NODE * zoom
   // captions shrink slower than the prints and never below ~8px — the
   // words must stay legible when the flow is zoomed far out
-  const capScale = Math.max(0.72, Math.sqrt(zoom))
-  const capAlpha = Math.min(1, Math.max(0, (zoom - 0.55) / 0.2))   // far out, the wall is pictures only: the words fade
+  const capScale = Math.max(0.8, Math.sqrt(zoom))   // the words shrink slower than the prints, and never below four fifths
+  const capAlpha = Math.min(1, Math.max(0, (zoom - 0.42) / 0.16))   // far out, the wall is pictures only: the words fade (later than before)
   const toScreen = (p: Pt): Pt => ({ x: cx + (p.x - cx) * zoom + pan.x, y: cy + (p.y - cy) * zoom + pan.y })
   const toGraph = (p: Pt): Pt => ({ x: cx + (p.x - pan.x - cx) / zoom, y: cy + (p.y - pan.y - cy) / zoom })
 

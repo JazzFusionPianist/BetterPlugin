@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import SlurMark from './SlurMark'
 import { C, ellipsePath, hz, play, wholeNotePath } from './marks'
+import RoomPicture from './RoomPicture'
+import WallPicture from './WallPicture'
 import '@/app/slur.css'
 
 /* The catalogue. A new plug-in is one more entry: its name, its ground,
@@ -17,7 +19,7 @@ interface Plugin {
   hollow: boolean
   formats: string
   tag?: string            // release tag prefix on GitHub
-  fallback?: string       // the last known installer, used until the API answers
+  fallback?: { url: string; version: string }   // the last known installer, used until the API answers
   web?: boolean           // also runs in the browser
   glow?: boolean
 }
@@ -26,7 +28,7 @@ const PLUGINS: Plugin[] = [
   {
     name: 'patch on slur', ground: '#14120F', note: C.orange, ink: C.white, step: 5, hollow: false, formats: 'au vst3', glow: true,
     tag: 'patch-on-slur-',
-    fallback: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.7/Patch-on-Slur-1.0.7.pkg',
+    fallback: { url: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.9/Patch-on-Slur-1.0.9.pkg', version: '1.0.9' },
   },
 ]
 const REPO = 'JazzFusionPianist/BetterPlugin'
@@ -35,19 +37,19 @@ interface Release { tag_name: string; draft: boolean; prerelease: boolean; asset
 
 /** The newest published .pkg for each tag prefix. */
 function useInstallers () {
-  const [found, setFound] = useState<Record<string, string>>({})
+  const [found, setFound] = useState<Record<string, { url: string; version: string }>>({})
   useEffect(() => {
     let alive = true
     fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`)
       .then(r => (r.ok ? r.json() : []))
       .then((rels: Release[]) => {
         if (!alive || !Array.isArray(rels)) return
-        const out: Record<string, string> = {}
+        const out: Record<string, { url: string; version: string }> = {}
         for (const p of PLUGINS) {
           if (!p.tag) continue
           const rel = rels.find(r => !r.draft && !r.prerelease && r.tag_name.startsWith(p.tag!) && r.assets.some(a => a.name.endsWith('.pkg')))
           const pkg = rel?.assets.find(a => a.name.endsWith('.pkg'))
-          if (pkg) out[p.name] = pkg.browser_download_url
+          if (rel && pkg) out[p.name] = { url: pkg.browser_download_url, version: rel.tag_name.slice(p.tag!.length) }
         }
         setFound(out)
       })
@@ -57,12 +59,14 @@ function useInstallers () {
   return found
 }
 
+const slug = (name: string) => name.replace(/ /g, '-')
+
 function Tile ({ p }: { p: Plugin }) {
   const y = 130 + 4 * 26 - p.step * 13
   const line = p.ink === C.white ? 'rgba(251,250,247,.16)' : 'rgba(26,25,23,.14)'
   const [pre, post] = p.name.split('slur').map(x => x.trim())
   return (
-    <div className="sl-arch-tile" style={{ background: p.ground, cursor: 'pointer' }} onClick={() => play(hz(p.step), 0, 1.8)}>
+    <div className="sl-arch-tile" style={{ background: p.ground, cursor: 'pointer' }} onClick={() => { play(hz(p.step), 0, 1.8); document.getElementById(slug(p.name))?.scrollIntoView({ behavior: 'smooth' }) }}>
       <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         {p.glow && (
           <>
@@ -100,7 +104,7 @@ export default function Downloads () {
         <h1>downloads</h1>
         <div className="sl-shelf">
           {PLUGINS.map(p => {
-            const url = found[p.name] ?? p.fallback
+            const url = (found[p.name] ?? p.fallback)?.url
             return (
               <div className="sl-item" key={p.name}>
                 <Tile p={p} />
@@ -124,11 +128,86 @@ export default function Downloads () {
         </div>
       </main>
 
+      <About id="slur" ground="#BFE6CB" ink={C.ink} picture={<RoomPicture />} lede={<SlurMark height={150} arm={C.green} />}
+        rows={SLUR_ROWS} acts={<><a className="sl-pill ink" href="/?door=signin">open in the browser</a><span className="soon">mac soon</span></>} />
+
+      <About id="patch-on-slur" ground="#14120F" ink={C.white} dark picture={<WallPicture className="sl-wall" />}
+        lede={<div className="sl-lede-row"><span>patch on</span><SlurMark height={150} ink={C.white} arm={C.orange} /></div>}
+        rows={PATCH_ROWS} extra={<Families />}
+        acts={(() => { const r = found['patch on slur'] ?? PLUGINS[1].fallback!; return <><a className="sl-pill paper" href={r.url}>mac</a><span className="soon">{r.version} au vst3</span></> })()} />
+
       <div className="sl-foot-row plain">
         <a href="/terms">terms</a><a href="/privacy">privacy</a>
         <a href="mailto:wtsteven123@gmail.com?subject=copyright%20report">copyright</a>
         <span className="r">&copy; 2026 slur studio</span>
       </div>
+    </div>
+  )
+}
+
+/* ── the introductions ──
+   One arch per plug-in: its picture, its name lettered, and an index of
+   plain facts (a word, then what it is). No slogans. */
+
+const SLUR_ROWS: [string, string][] = [
+  ['room', 'one per band or per record. chat, stems, calendar and notes in it'],
+  ['takes', 'drag a region out of the daw and it lands on its bar. drag it back in, same bar'],
+  ['in the studio', 'who has the session open right now, and for how long'],
+  ['dates', 'type rehearsal fri 7pm and the whole band has it'],
+  ['live', 'go on air from the room. friends watch and talk while you play'],
+  ['games', 'chess, sudoku, gomoku and more, for the wait between takes'],
+  ['runs in', 'your daw as au, vst3 or aax, and the browser'],
+]
+const PATCH_ROWS: [string, string][] = [
+  ['prints', 'every effect is a print you hang on the wall. its shape tells you its family'],
+  ['wires', 'draw a wire to chain prints, split l/r, m/s or into bands, sum them back'],
+  ['hands', 'turn a print by hand, or give it to an lfo, a macro or a follower'],
+  ['no account', 'open it and play'],
+]
+
+function About ({ id, ground, ink, dark, picture, lede, rows, extra, acts }: {
+  id: string; ground: string; ink: string; dark?: boolean
+  picture: React.ReactNode; lede: React.ReactNode; rows: [string, string][]; extra?: React.ReactNode; acts: React.ReactNode
+}) {
+  return (
+    <section id={id} className={`sl-arch sl-about${dark ? ' dark' : ''}`} style={{ background: ground, color: ink }}>
+      <div className="sl-about-pic">{picture}</div>
+      <div className="sl-about-body">
+        <div className="sl-about-name">
+          {lede}
+          <div className="sl-about-acts">{acts}</div>
+        </div>
+        <ol className="sl-index">
+          {rows.map(([k, v]) => <li key={k}><b>{k}</b><span>{v}</span></li>)}
+        </ol>
+      </div>
+      {extra}
+    </section>
+  )
+}
+
+/* Patch on Slur's families, each by its plate's silhouette — told apart
+   from across the wall, the way the plug-in draws them. */
+const FAMILIES: { name: string; members: string; c: string; shape: string }[] = [
+  { name: 'tone', members: 'cut amp tone tape glue comp air', c: '#ECE2C8', shape: 'M -18 -18 H 18 V 18 H -18 Z' },
+  { name: 'grit', members: 'crush radio ring', c: '#F27BA6', shape: 'M -10 -18 H 18 V 10 L 10 18 H -18 V -10 Z' },
+  { name: 'space', members: 'delay space shimmer doubler stereo', c: '#7896FF', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z' },
+  { name: 'motion', members: 'mod tremolo swell stutter gate wow', c: '#DC78C8', shape: 'M -12 -18 H 22 L 12 18 H -22 Z' },
+  { name: 'pitch', members: 'pitch formant harmony arp grain', c: '#5CE0A8', shape: 'M 0 -21 L 21 0 L 0 21 L -21 0 Z' },
+  { name: 'utility', members: 'gain mix l/r m/s bands side', c: '#FBFAF7', shape: 'M -18 -2 H 18 V 2 H -18 Z M -2 -18 H 2 V 18 H -2 Z' },
+  { name: 'control', members: 'lfo macro follow', c: '#F89C38', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z M -9 0 A 9 9 0 1 1 9 0 A 9 9 0 1 1 -9 0 Z' },
+  { name: 'spectral', members: 'carve match vocode', c: '#B79CFF', shape: 'M -18 -18 H -12 V 18 H -18 Z M -7 -10 H -1 V 18 H -7 Z M 4 -18 H 10 V 18 H 4 Z M 14 -4 H 20 V 18 H 14 Z' },
+]
+function Families () {
+  return (
+    <div className="sl-families">
+      {FAMILIES.map(f => (
+        <div key={f.name}>
+          <svg viewBox="-24 -24 48 48" width="48" height="48" aria-hidden="true"><path d={f.shape} fill={f.c} fillRule="evenodd" /></svg>
+          <b>{f.name}</b>
+          <span>{f.members}</span>
+        </div>
+      ))}
     </div>
   )
 }

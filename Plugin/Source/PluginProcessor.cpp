@@ -86,6 +86,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                 int lo, hi; auxRange (type, k, lo, hi);
                 const int v = (int) std::lround (lo + n * (hi - lo));
                 if (type == orbfx::kCut && k == 0) return juce::String ((v >= 1 && v <= 4 ? v : 2) * 12) + " dB/oct";
+                if (type == orbfx::kComp) { if (k == 0) return juce::String (v / 10.0, 1) + ":1"; if (k == 1) return juce::String (v / 10.0, 1) + " ms"; if (k == 2) return juce::String (v) + " ms"; if (k == 3 || k == 4) return juce::String (v) + " dB"; }
                 if (type == orbfx::kRate || (type == orbfx::kLfo && k < 4))   // a clock reads as words in the host, as on the wall
                 {
                     static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
@@ -654,6 +655,11 @@ void OrbAudioProcessor::timerCallback()
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (ratePhaseOut[(size_t) i].load (std::memory_order_relaxed), 4);
     script << "],lcy:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << rateCycleOut[(size_t) i].load (std::memory_order_relaxed);
+    // a comp's meter: the key's peak since the last event and its reduction now, both dB-ready (linear peak, dB reduction)
+    script << "],cin:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kComp ? fxChain.takeCompIn (i) : 0.0f, 5);
+    script << "],cgr:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kComp ? fxChain.compReduction (i) : 0.0f, 2);
     script << "],fin:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kFollow ? fxChain.takeFollowIn (i) : 0.0f, 5);
     script << "],fenv:[";
@@ -1205,7 +1211,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1214,6 +1220,8 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
     { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
     { "octave", "fifth", "down" }, { "soft", "hard" }, { "beat", "bar" }, { "silk", "bright" }, { "ring", "am" }, { "tight", "loose" }, { "wow", "flutter", "both" },
+    {}, {}, {}, {}, {}, {}, {},   // L/R, M/S, LFO, rate, macro, side, follow
+    { "peak", "rms" },            // comp
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1237,6 +1245,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
         case orbfx::kLfo:     { static const char* const l[] = { "clock", "rate", "feel", "hz", "steps", "depth" }; return k < 6 ? l[k] : nullptr; }
         case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
+        case orbfx::kComp:    { static const char* const c[] = { "ratio", "attack", "release", "knee", "makeup" }; return k < 5 ? c[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1255,6 +1264,7 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
         case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } break;
+        case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB
         case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
         default: break;
     }
@@ -1292,7 +1302,7 @@ void OrbAudioProcessor::syncHandNames()
         const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
         auto& h = slotHost[i];
         auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
-        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : "amount"));
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : "amount"));
         put (h.mode->dynName,   prefix + "mode");
         put (h.decay->dynName,  prefix + "decay");
         put (h.fb->dynName,     prefix + "feedback");

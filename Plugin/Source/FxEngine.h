@@ -40,17 +40,19 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kMacro = 32,            // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
             // the sidechain: a source print, and a listener that turns a sound into a hand's push
             kSide = 33,             // the host's sidechain bus, as a print: no input, one output
-            kFollow = 34 };         // an envelope follower: audio in, a control wire out (attack, release, sense)
+            kFollow = 34,           // an envelope follower: audio in, a control wire out (attack, release, sense)
+            // an effect that came after the first twenty-eight: it has a slot like any print, just a higher number
+            kComp = 35 };           // a compressor: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
-inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp; }
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
-inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate; }   // a second input: the sound its detector listens to
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
@@ -137,6 +139,10 @@ struct NodeState
     float stEnvM = 0.0f, stEnvS = 0.0f;
     // glue
     float glueEnv = 0.0f;
+    // comp
+    float compEnvDb = -120.0f;   // the detector, in dB, through attack and release
+    float compRms = 0.0f;
+    float compInPk = 0.0f;       // for the meter: the loudest the key was since it last looked
     // gain
     float gainPrev[2] { 1.0f, 1.0f };
     bool  gainPrimed = false;
@@ -346,6 +352,10 @@ public:
                   const NodeParams* params, float& grDbOut,
                   const juce::AudioBuffer<float>* side = nullptr);
 
+    /** For a comp's meter: the key's peak since the meter last looked (reading clears it), and its gain reduction now, dB. */
+    float takeCompIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? compIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
+    float compReduction (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? compGr[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+
     /** For a follow's meter. `takeFollowIn`: the loudest it heard (after its sense) since the last call, linear; reading clears it.
      *  `followEnvelope`: where its envelope is now, linear (what is compared with the threshold). */
     float takeFollowIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? followIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
@@ -377,6 +387,7 @@ private:
     std::array<NodeState, kMaxNodes> nodes;
     std::array<std::atomic<float>, kMaxNodes> peaks {};
     std::array<std::atomic<float>, kMaxNodes> follows {};
+    std::array<std::atomic<float>, kMaxNodes> compIn {}, compGr {};
     std::array<std::atomic<float>, kMaxNodes> followIn {};       // a follow's input peak since the meter last looked
     std::array<std::atomic<float>, kMaxNodes> followEnvOut {};   // a follow's envelope now
     float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope

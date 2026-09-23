@@ -17,6 +17,7 @@ export const PRINT_SINCE: Record<number, string> = {
   28: '1.0.1', 29: '1.0.1',              // L/R, M/S
   30: '1.0.2', 31: '1.0.1', 32: '1.0.1', // LFO (its own clock since 1.0.2; before that it needed a rate), rate, macro
   33: '1.0.1', 34: '1.0.1',              // side, follow
+  35: '1.0.7',                           // comp
 }
 
 const parse = (v: string) => v.split('.').map(x => parseInt(x, 10) || 0)

@@ -1620,6 +1620,51 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
+        case kComp:
+        {
+            // A compressor as the desk has it, with numbers: the knob is the threshold
+            // (0 → 0 dB, nothing; up → down to −60 dB), aux 0 the ratio ×10 (1:1 … 20:1),
+            // aux 1 the attack ×10 ms (0.1 … 100), aux 2 the release ms (10 … 2000),
+            // aux 3 the knee dB (0 … 24), aux 4 the makeup dB (0 … 24). `peak` or `rms`
+            // detection. The detector hears the key when a wire lands on it.
+            const float thrDb  = -60.0f * a;
+            const float ratio  = juce::jlimit (1.0f, 20.0f, (p.aux[0] > 0 ? p.aux[0] : 40) / 10.0f);
+            const float atkMs  = juce::jlimit (0.1f, 100.0f, (p.aux[1] > 0 ? p.aux[1] : 100) / 10.0f);
+            const float relMs  = juce::jlimit (10.0f, 2000.0f, (float) (p.aux[2] > 0 ? p.aux[2] : 150));
+            const float knee   = juce::jlimit (0.0f, 24.0f, (float) p.aux[3]);
+            const float makeup = std::pow (10.0f, juce::jlimit (0.0f, 24.0f, (float) p.aux[4]) / 20.0f);
+            const bool  rms    = variant == 1;
+            const float atkK = 1.0f - std::exp (-1.0f / (atkMs * 0.001f * sr));
+            const float relK = 1.0f - std::exp (-1.0f / (relMs * 0.001f * sr));
+            const float rmsK = 1.0f - std::exp (-1.0f / (0.03f * sr));
+            float grMax = 0.0f, inPk = compInPk;
+            for (int i = 0; i < n; ++i)
+            {
+                const float kl = keyL != nullptr ? keyL[i] : L[i];
+                const float kr = keyL != nullptr ? (keyR != nullptr ? keyR[i] : kl) : (R != nullptr ? R[i] : kl);
+                float lvl;
+                if (rms) { const float sq = 0.5f * (kl * kl + kr * kr); compRms += (sq - compRms) * rmsK; lvl = std::sqrt (compRms); }
+                else lvl = juce::jmax (std::abs (kl), std::abs (kr));
+                inPk = juce::jmax (inPk, lvl);
+                const float lvlDb = juce::Decibels::gainToDecibels (lvl, -120.0f);
+                // the detector rides the level in dB: up at the attack, down at the release
+                compEnvDb += (lvlDb - compEnvDb) * (lvlDb > compEnvDb ? atkK : relK);
+                // the static curve, with a soft knee
+                const float over = compEnvDb - thrDb;
+                float outOver;
+                if (knee > 0.0f && std::abs (over) < knee * 0.5f) outOver = over + (1.0f / ratio - 1.0f) * (over + knee * 0.5f) * (over + knee * 0.5f) / (2.0f * knee);
+                else outOver = over > 0.0f ? over / ratio : over;
+                const float grNow = juce::jmax (0.0f, over - outOver);
+                grMax = juce::jmax (grMax, grNow);
+                const float g = std::pow (10.0f, -grNow / 20.0f) * makeup;
+                L[i] *= g;
+                if (R != nullptr) R[i] *= g;
+            }
+            grDb = grMax;
+            compInPk = inPk;
+            break;
+        }
+
         case kGate:
         {
             // A noise gate: an expander with an infinite ratio. The knob is
@@ -2334,6 +2379,13 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]));
             if (R != nullptr) for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (R[i]));
             peaks[(size_t) op.slot].store (pk, std::memory_order_relaxed);
+            if (op.type == kComp)
+            {
+                // for its meter: the key's peak since the meter last looked, and the reduction now
+                if (node.compInPk > compIn[(size_t) op.slot].load (std::memory_order_relaxed)) compIn[(size_t) op.slot].store (node.compInPk, std::memory_order_relaxed);
+                node.compInPk = 0.0f;
+                compGr[(size_t) op.slot].store (node.grDb, std::memory_order_relaxed);
+            }
             break;
         }
         default: break;
@@ -2360,7 +2412,7 @@ void Chain::process (juce::AudioBuffer<float>& buffer, float sampleRate,
     {
         const Op& op = active.ops[i];
         runOp (op, i, sampleRate, n, nc, params);
-        if (op.kind == Op::kProcess && op.type == kGlue)
+        if (op.kind == Op::kProcess && (op.type == kGlue || op.type == kComp))
             grDbOut = juce::jmax (grDbOut, nodes[(size_t) op.slot].grDb);
     }
     host = nullptr;

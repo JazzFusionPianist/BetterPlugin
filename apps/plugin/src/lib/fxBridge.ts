@@ -118,6 +118,8 @@ export const FX_MACROS = 8
  *  `follow` listens to whatever is wired into it and pushes a hand with what it hears. */
 export const FX_SIDE = 33
 export const FX_FOLLOW = 34
+/** A compressor with numbers: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms. */
+export const FX_COMP = 35
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
@@ -128,7 +130,7 @@ export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t =
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
-export const hasKeyType = (t: number) => t === 4 || t === 26
+export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */

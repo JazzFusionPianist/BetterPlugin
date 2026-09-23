@@ -1,5 +1,5 @@
 /**
- * greenroom — the workspace surface for the Orb Chat plugin build
+ * the studio — the workspace surface for the Slur plug-in build
  * (?surface=chat). Layout and print styling replicate the approved
  * WorkspaceDemo mockup (.wd-* classes, see studio.css): a project-first
  * rail on the left, a tabbed main pane (chat / files / calendar / notes)
@@ -48,6 +48,8 @@ import ProfilePage from '../components/studio/ProfilePage'
 import StudioCalendar from '../components/studio/StudioCalendar'
 import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
 import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
+import LivePane from '../components/studio/LivePane'
+import { useLive, type LiveSession } from '../hooks/useLive'
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
@@ -827,6 +829,16 @@ function DiceGlyph({ size = 12 }: { size?: number }) {
   )
 }
 
+/** A small broadcast mark — a dot with two arcs. */
+function LiveGlyph() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function SearchGlyph() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -1346,6 +1358,25 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // people search in the rail — null = closed
   const [peopleQuery, setPeopleQuery] = useState<string | null>(null)
+
+  // ── live — the broadcaster / viewer pane; mounted once shown and kept
+  // (hidden) so a stream never drops while the host answers a chat ────
+  const { liveSessions, mySession, liveHostIds, liveSessionByHost, startLive, endLive, updateLive } = useLive(supabase, user.id)
+  const [liveMounted, setLiveMounted] = useState(false)
+  const [liveShown, setLiveShown] = useState(false)
+  const [watchRequest, setWatchRequest] = useState<{ sessionId: string; nonce: number } | null>(null)
+  const [liveState, setLiveState] = useState<{ broadcasting: boolean; watching: LiveSession | null; viewers: number }>({ broadcasting: false, watching: null, viewers: 0 })
+  const openLive = useCallback((watchSessionId?: string) => {
+    setLiveMounted(true)
+    setLiveShown(true)
+    setGameShown(false)
+    if (watchSessionId) setWatchRequest({ sessionId: watchSessionId, nonce: Date.now() })
+  }, [])
+  const closeLive = useCallback(() => {
+    setLiveShown(false)
+    // nothing running → the pane can go entirely
+    if (!liveState.broadcasting && !liveState.watching) setLiveMounted(false)
+  }, [liveState])
 
   // Minute tick — re-splits the upcoming lists and advances the
   // "in the studio / 2h" elapsed labels while the plugin sits open.
@@ -2250,6 +2281,7 @@ function StudioShellInner({ supabase, user }: Props) {
     setSel(next)
     setTab('chat')
     setGameShown(false)
+    setLiveShown(false)
     if (next.kind !== 'dm' && next.kind !== 'group') return
     const cid = next.kind === 'group'
       ? next.conversationId
@@ -2267,6 +2299,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ── games wiring — CollabPage's block, verbatim in spirit ───────────
   const openGames = useCallback((invite: string | null = null) => {
+    setLiveShown(false)
     setGameInviteConv(invite)
     setGameScreen(prev => (invite ? 'list' : (prev ?? 'list')))
     setGameShown(true)
@@ -2581,6 +2614,19 @@ function StudioShellInner({ supabase, user }: Props) {
                 )}
               </span>
             </div>
+            <div className={`wd-row${liveShown ? ' on' : ''}`} onClick={() => openLive()}>
+              <span className={`wd-av tile${liveState.broadcasting ? ' onair' : ''}`}><LiveGlyph /></span>
+              <span className="wd-rname">
+                <b>live</b>
+                {liveState.broadcasting
+                  ? <span className="onair">{liveState.viewers > 0 ? `on air  ${liveState.viewers} watching` : 'on air'}</span>
+                  : liveState.watching && !liveShown
+                    ? <span className="onair">watching {profileById.get(liveState.watching.host_id)?.display_name ?? 'a friend'}</span>
+                    : liveHostIds.size > 0
+                      ? <span>{liveHostIds.size === 1 ? '1 friend live now' : `${liveHostIds.size} friends live now`}</span>
+                      : null}
+              </span>
+            </div>
             <div className="wd-sec">projects</div>
             {groupConversations.map(g => {
               const s: Sel = { kind: 'group', conversationId: g.conversationId }
@@ -2656,7 +2702,9 @@ function StudioShellInner({ supabase, user }: Props) {
                     dot={since !== undefined ? 'studio' : p.isOnline ? 'on' : undefined} />
                   <span className="wd-rname">
                     <b>{p.display_name}</b>
-                    {since !== undefined
+                    {liveHostIds.has(p.id)
+                      ? <span className="onair">{`live${liveSessionByHost.get(p.id)?.title ? `  ${liveSessionByHost.get(p.id)!.title}` : ''}`}</span>
+                      : since !== undefined
                       ? <span className="studio">{`in the studio${studioFor(since, nowTick)}`}</span>
                       : <span>{last ? snippet(last, last.sender_id === user.id ? 'you' : undefined) : (p.isOnline ? 'online' : 'offline')}</span>}
                   </span>
@@ -2726,6 +2774,23 @@ function StudioShellInner({ supabase, user }: Props) {
               onBackToList={() => { setGameScreen('list'); setGameInviteConv(null) }}
               onClose={closeGames}
               headline={gameInviteConv ? (headerTitle || 'this chat') : undefined}
+            />
+          )}
+          {liveMounted && (
+            <LivePane
+              supabase={supabase}
+              userId={user.id}
+              me={me}
+              profiles={profilesWithStatus}
+              liveSessions={liveSessions}
+              mySession={mySession}
+              startLive={startLive}
+              endLive={endLive}
+              updateLive={updateLive}
+              watchRequest={watchRequest}
+              hidden={!liveShown}
+              onClose={closeLive}
+              onState={setLiveState}
             />
           )}
           {dragOver && activeConvId && sel && sel.kind !== 'me' && (
@@ -2888,6 +2953,11 @@ function StudioShellInner({ supabase, user }: Props) {
                     )}
                     <div className="wd-hsub">{headerSub}</div>
                   </div>
+                  {selectedProfile && liveSessionByHost.has(selectedProfile.id) && (
+                    <button className="wd-word acc wd-head-act" onClick={() => openLive(liveSessionByHost.get(selectedProfile.id)!.id)}>
+                      watch live
+                    </button>
+                  )}
                 </div>
                 <div className="wd-tabs">
                   <span className={`wd-tab${tab === 'chat' ? ' on' : ''}`} onClick={() => setTab('chat')}>chat</span>

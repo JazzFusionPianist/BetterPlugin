@@ -125,7 +125,7 @@ export default function SettingsPage({ supabase, user }: Props) {
         <div className="wd-set-sec">
           <div className="wd-set-head">about</div>
           <div className="wd-set-row">
-            <span className="wd-set-k">orb chat</span>
+            <span className="wd-set-k">slur</span>
             <span className="wd-set-v tab">{APP_VERSION}</span>
           </div>
           <div className="wd-set-row">

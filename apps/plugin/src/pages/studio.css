@@ -1,5 +1,5 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━
-   greenroom — studio workspace, exhibition-catalogue print, one family (Instrument Sans).
+   slur — the studio workspace, exhibition-catalogue print, one family (Instrument Sans).
    Adapted 1:1 from the approved WorkspaceDemo mockup (.wd-*).
    Paper #FBFAF7 · ink #1A1917 · stage green #1B6E48 ·
    hairlines rgba(26,25,23,.16) / .5.
@@ -890,3 +890,26 @@
 .sc-add-bar button:disabled { background: #C0BCB3; cursor: default; }
 .sc-detail { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .sc-detail::-webkit-scrollbar { display: none; }
+
+
+/* ── live host — the broadcaster room / viewer, set into the pane like games ── */
+.wd-main .wd-live.plugin { position: absolute; inset: 0; z-index: 41; width: 100%; height: 100%; }
+.wd-main .wd-live.plugin[hidden] { display: none; }
+.wd-main .wd-live.plugin .top-bar.wd-games-bar { width: 100%; max-width: none; height: 46px; flex-direction: row;
+  align-items: center; justify-content: flex-start; gap: 16px; padding: 0 22px; margin: 0; border-bottom: 1px solid var(--border); }
+.wd-live .lvview { transform: none; transition: none; }
+/* studio print: no orb backdrop, no window-growing, the viewer's own header
+   duplicates the studio bar */
+.wd-live .float-orbs-layer { display: none; }
+.wd-live .live-viewer-expand-btn { display: none; }
+.wd-live .s-header.live-viewer-header .s-close { display: none; }
+.wd-live .live-setup > * { max-width: 420px; }
+.wd-live .live-body { padding: 22px 32px; }
+.wd-live-count { margin-left: auto; font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums; }
+/* on air — the one red in the studio */
+.wd-rname span.onair { color: #D6402E; font-weight: 500; }
+.wd-av.tile.onair { border-color: #D6402E; color: #D6402E; }
+.wd-head-act { margin-left: auto; align-self: center; }
+/* the setup form hugs the top so 'live now' stays in view under it */
+.wd-live .live-setup { flex: 0 0 auto; justify-content: flex-start; padding: 28px 0 32px; min-height: 0; }
+.wd-live .live-others { padding-top: 16px; }

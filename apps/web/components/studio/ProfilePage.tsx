@@ -38,6 +38,14 @@ interface Props {
 const cleanUsername = (v: string) => v.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20)
 const USERNAME_RE = /^[a-z0-9_.]{3,20}$/
 
+/** The person's colour, washed for the arch behind their masthead. */
+function tintOf(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '')
+  if (!m) return '#F1EEE6'
+  const v = parseInt(m[1]!, 16)
+  return `rgba(${(v >> 16) & 255}, ${(v >> 8) & 255}, ${v & 255}, 0.22)`
+}
+
 export const memberNo = (n: number | null | undefined) =>
   n != null ? `#${String(n).padStart(6, '0')}` : null
 
@@ -306,7 +314,7 @@ export default function ProfilePage({
       <div className="wd-prof-scroll">
 
         {/* ── masthead ─────────────────────────────────────────── */}
-        <div className="wd-prof-mast">
+        <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(profile.avatar_color) }}>
           <div
             className={`wd-prof-av${isMine ? ' mine' : ''}${uploading ? ' busy' : ''}`}
             style={{ background: profile.avatar_color }}

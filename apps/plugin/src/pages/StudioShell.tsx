@@ -50,6 +50,7 @@ import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
 import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
 import LivePane from '../components/studio/LivePane'
 import SlurMark from '../slur/SlurMark'
+import StudioHomeBar from '../components/studio/StudioHomeBar'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
@@ -3085,6 +3086,8 @@ function StudioShellInner({ supabase, user }: Props) {
             /* home — a quiet page: serif greeting, the prompt, today's
                tasks, then my programme. */
             <div className="wd-home">
+              <StudioHomeBar friends={friendProfiles} onlineIds={onlineIds} studioIds={new Set(studioAt.keys())}
+                onOpen={id => openSel({ kind: 'dm', userId: id })} />
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}

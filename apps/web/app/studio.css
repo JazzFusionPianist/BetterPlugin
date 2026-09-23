@@ -934,3 +934,212 @@
 .sc-add-bar button:disabled { background: #C0BCB3; cursor: default; }
 .sc-detail { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .sc-detail::-webkit-scrollbar { display: none; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   THE SLUR SKIN (2026-09-24) — the web's design brought into the
+   studio: paper #F3F0E8 around, white pane, a soft grey rail with the
+   open row as a white card, house-coloured avatars, pills for tabs and
+   the composer, grey / ink bubbles with one soft corner, green for
+   presence, badges and counts. Later rules win — this layer overrides
+   the catalogue print above it; the layout is untouched.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+.wd {
+  --acc: #3FB872; --acc-06: rgba(63,184,114,.06); --acc-10: rgba(63,184,114,.12); --acc-12: rgba(63,184,114,.14); --acc-35: rgba(63,184,114,.35);
+  --blue: #3FB872; --star: #3FB872; --ob-t: #3FB872;
+  --sl-fill: #F1EEE6; --sl-rail: #F4F2EC; --sl-paper: #F3F0E8; --sl-white: #FBFAF7;
+  background: var(--sl-white); border: none;
+}
+.wd-stage { background: var(--sl-paper); }
+/* the window frame — a card set in the paper (the plug-in edge is the
+   host's; a hairline keeps the pane from bleeding into the paper) */
+.wd-stage.web .wd, .wd { box-shadow: 0 0 0 1px rgba(26,25,23,.06); }
+
+/* ── rail ── */
+.wd .wd-rail { width: 236px; background: var(--sl-rail); border-right: none; padding: 16px 11px 12px; }
+.wd .wd-brand { padding: 2px 7px 12px; gap: 6px; align-items: flex-end; font-size: 12.5px; font-weight: 500; letter-spacing: -0.01em; }
+.wd .wd-brand svg { display: block; }
+.wd .wd-brand > span { padding-bottom: 3px; }
+.wd .wd-sec { font-size: 10.5px; letter-spacing: 0; font-weight: 500; color: #A5A199; padding: 12px 8px 5px; }
+.wd .wd-sec.people, .wd .wd-sec.row { padding-right: 6px; }
+.wd .wd-row { padding: 7px 8px; border-radius: 12px; gap: 9px; }
+.wd .wd-row:hover { background: rgba(26,25,23,.035); }
+.wd .wd-row.on, .wd .wd-row.on:hover { background: #fff; box-shadow: 0 1px 3px rgba(26,25,23,.06); }
+.wd .wd-av { width: 28px; height: 28px; font-size: 11.5px; font-weight: 500; }
+.wd .wd-av.grp { border-radius: 9px; }
+.wd .wd-dot { width: 9px; height: 9px; right: -2px; bottom: -2px; border: 2px solid var(--sl-rail); }
+.wd .wd-row.on .wd-dot { border-color: #fff; }
+.wd .wd-rname b { font-weight: 600; font-size: 12.5px; letter-spacing: -0.005em; }
+.wd .wd-rname span { font-size: 10.5px; }
+.wd .wd-rname span.studio, .wd .wd-rname span.play { font-style: normal; color: var(--acc); }
+.wd .wd-badge { background: var(--acc); font-size: 9.5px; min-width: 17px; height: 17px; border-radius: 9px; }
+.wd .wd-av.tile { border: none; background: rgba(26,25,23,.06); color: #1A1917; border-radius: 9px; }
+.wd .wd-row.on .wd-av.tile { background: var(--sl-fill); }
+.wd .wd-av.tile.onair { background: rgba(214,64,46,.12); color: #D6402E; }
+.wd .wd-rail-foot { border-top: none; padding: 8px 0 0; }
+.wd .wd-foot-me { padding: 7px 8px; border-radius: 12px; }
+.wd .wd-foot-me:hover { background: rgba(26,25,23,.035); }
+.wd .wd-rail-foot.on .wd-foot-me { background: #fff; box-shadow: 0 1px 3px rgba(26,25,23,.06); }
+.wd .wd-rail-foot.on .wd-foot-me span { color: #1A1917; }
+.wd .wd-foot-me > span:last-child { font-size: 12.5px; font-weight: 600; color: #1A1917; }
+.wd .wd-foot-gear { margin-right: 6px; }
+/* the search line in the rail becomes a pill */
+.wd .wd-search { padding: 6px 4px 4px; }
+.wd .wd-search-at { display: none; }
+.wd .wd-search-in { height: 32px; border-radius: 16px; background: var(--sl-fill); border: none; padding: 0 12px; font-size: 12px; }
+.wd .wd-search-in:focus { background: #fff; box-shadow: 0 0 0 1.5px #1A1917; }
+.wd .wd-search-x { margin-left: 2px; }
+.wd .wd-search-none { padding: 8px 12px; font-style: normal; }
+.wd .wd-sec-plus, .wd .wd-sec-search { color: #A5A199; }
+
+/* ── head + tabs ── */
+.wd .wd-head { padding: 18px 24px 0; border-bottom: none; }
+.wd .wd-head.plain { padding-bottom: 6px; }
+.wd .wd-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.wd .wd-sub { font-size: 11px; color: #A5A199; margin-top: 2px; }
+.wd .wd-htitle { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.wd .wd-hsub { font-size: 11px; margin-top: 2px; }
+.wd .wd-hsub em { font-style: normal; color: var(--acc); }
+.wd .wd-hav { width: 34px; height: 34px; }
+.wd .wd-hav.grp { border-radius: 10px; }
+.wd .wd-tabs { gap: 4px; margin-top: 12px; padding-bottom: 8px; }
+.wd .wd-tab { padding: 5px 12px; border-radius: 999px; font-size: 12px; color: #6E6B63; box-shadow: none; }
+.wd .wd-tab:hover { color: #1A1917; }
+.wd .wd-tab.on { background: #1A1917; color: var(--sl-white); box-shadow: none; }
+.wd .wd-tab.off { color: #C0BCB3; }
+.wd .wd-tab i { color: var(--acc); font-size: 9.5px; margin-left: 2px; vertical-align: super; line-height: 0; }
+.wd .wd-tab.on i { color: var(--acc); }
+.wd .wd-tab.off i { color: #C0BCB3; }
+
+/* ── chat ── */
+.wd .wd-chat { padding: 10px 24px; }
+.wd .wd-day { font-size: 10.5px; color: #A5A199; margin: 14px 0 6px; }
+.wd .wd-day::before, .wd .wd-day::after { display: none; }
+.wd .wd-mname { font-size: 10.5px; color: #A5A199; margin: 0 0 3px 4px; }
+.wd .wd-mtime { font-size: 9.5px; color: #C0BCB3; }
+.wd .wd-mav > span { width: 26px; height: 26px; font-size: 10.5px; }
+.wd .wd-bub { background: var(--sl-fill); border: none; border-radius: 16px; padding: 8px 13px; font-size: 13px; }
+.wd .wd-mrow.theirs .wd-bub.tail { border-top-left-radius: 16px; border-bottom-left-radius: 5px; }
+.wd .wd-mrow.mine .wd-bub { background: #1A1917; color: var(--sl-white); }
+.wd .wd-mrow.mine .wd-bub.tail { border-top-right-radius: 16px; border-bottom-right-radius: 5px; }
+.wd .wd-mrow.mine .wd-bub .msg-link { color: var(--sl-white); }
+.wd .wd-img, .wd .wd-vid { border-radius: 16px; }
+.wd .wd-mrow.theirs .wd-img.tail, .wd .wd-mrow.theirs .wd-vid.tail { border-top-left-radius: 16px; border-bottom-left-radius: 5px; }
+.wd .wd-mrow.mine .wd-img.tail, .wd .wd-mrow.mine .wd-vid.tail { border-top-right-radius: 16px; border-bottom-right-radius: 5px; }
+.wd .wd-file { background: var(--sl-fill); border: none; border-radius: 16px; }
+.wd .wd-expired { background: var(--sl-fill); border: none; border-radius: 16px; font-style: normal; color: #A5A199; }
+/* the audio plate — grey card, waveform, the import word in green */
+.wd .wd-plate { background: var(--sl-fill); border: none; border-radius: 16px; }
+.wd .wd-plate-rule { display: none; }
+.wd .wd-plate-sec + .wd-plate-sec::before { background: rgba(26,25,23,.08); }
+.wd .wd-plate-name, .wd .wd-plate-secname { font-weight: 600; }
+.wd .wd-ac-import .msg-att-import-btn, .wd .wd-ac-import .msg-att-link, .wd .wd-plate-dl { color: var(--acc); text-decoration: none; }
+.wd .wd-ac-import .msg-att-import-btn:hover, .wd .wd-plate-dl:hover { color: #1A1917; }
+.wd .wd-ac-import .msg-att-import-btn.ready { color: var(--acc); }
+.wd .wd-ticket { background: var(--sl-fill); border: none; border-radius: 16px; }
+.wd .wd-ticket-stub { border-right-color: rgba(26,25,23,.25); }
+.wd .wd-nowbar { border: none; border-radius: 16px; background: #fff; box-shadow: 0 2px 6px rgba(26,25,23,.08), 0 12px 28px -12px rgba(26,25,23,.2); }
+.wd .wd-upcard, .wd .wd-upnote { background: var(--sl-fill); border: none; border-radius: 16px; border-bottom-right-radius: 5px; }
+.wd .wd-read svg { color: var(--acc); }
+/* the composer — one grey pill, ink circles for + and → */
+.wd .wd-input { margin: 0 24px 16px; min-height: 44px; border: none; border-radius: 22px; background: var(--sl-fill); padding: 6px 6px 6px 8px; gap: 6px; }
+.wd .wd-input:focus-within { background: #fff; box-shadow: 0 0 0 1.5px #1A1917; }
+.wd .wd-input textarea { padding: 0 6px; font-size: 13px; }
+.wd .wd-input textarea::placeholder { color: #A5A199; }
+.wd .wd-input .wd-attach, .wd .wd-input .wd-gameinv, .wd .wd-input .wd-mic { width: 30px; height: 30px; border-radius: 15px; border: none; background: rgba(26,25,23,.06); color: #6E6B63; }
+.wd .wd-input .wd-attach:hover, .wd .wd-input .wd-gameinv:hover, .wd .wd-input .wd-mic:hover { background: rgba(26,25,23,.1); color: #1A1917; }
+.wd .wd-input .wd-send { width: 30px; height: 30px; border-radius: 15px; background: #1A1917; color: var(--sl-white); }
+.wd .wd-input .wd-send:disabled { background: rgba(26,25,23,.12); color: #fff; }
+.wd .wd-rec { padding: 0 8px; }
+
+/* ── home ── */
+.wd .wd-home { padding: 40px 44px 24px; }
+.wd .wd-home-greet { font-size: 26px; font-weight: 500; letter-spacing: -0.03em; }
+.wd .wd-home-date { margin-top: 4px; }
+.wd .wd-home .sprompt-bar, .wd .wd-home .sprompt-input { border-radius: 22px; }
+.wd .wd-up-head, .wd .wd-todos-head, .wd .wd-prof-sec-head, .wd .wd-set-head { font-size: 10.5px; letter-spacing: 0; font-weight: 500; text-transform: none; }
+.wd .wd-up-date.today, .wd .wd-todo.done .wd-todo-box { color: var(--acc); }
+.wd .wd-todo-box { border-radius: 50%; }
+
+/* ── words, fields, cards elsewhere ── */
+.wd .wd-word.acc { color: var(--acc); }
+.wd .wd-toast { border-radius: 999px; padding: 8px 16px; }
+.wd .wd-quiet { font-style: normal; }
+.wd .wd-search-none, .wd .wd-up-none, .wd .wd-prof-none, .wd .sc-none, .wd .wd-drop-fine, .wd .wd-dropask-fine { font-style: normal; }
+.wd .wd-prof-av { border-radius: 50%; }
+.wd .wd-prof-name { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
+.wd .wd-prof-name-in { font-weight: 600; letter-spacing: -0.03em; }
+.wd .wd-prof-bio-in, .wd .wd-prof-handle-in, .wd .wd-prof-name-in, .wd .wd-set-in, .wd .wd-cred-in { border-bottom-color: rgba(26,25,23,.14); }
+.wd .wd-cred-form { background: var(--sl-fill); border: none; border-radius: 16px; padding: 14px 16px 12px; }
+.wd .wd-cred-in { border-bottom-color: rgba(26,25,23,.12); }
+.wd .wd-cred-mark { color: var(--acc); }
+.wd .wd-dropask-card { border: none; border-radius: 20px; box-shadow: 0 12px 40px -12px rgba(26,25,23,.3); }
+.wd .wd-drop-card { border-radius: 20px; }
+/* calendar */
+.wd .sc-cell.sel, .wd .sc-cell.sel:hover, .wd .sc-wkcol.sel, .wd .sc-lday.sel { background: var(--acc-10); }
+.wd .sc-num.today { background: #1A1917; }
+.wd .sc-view.on { text-decoration: none; background: #1A1917; color: var(--sl-white); padding: 4px 11px; border-radius: 999px; }
+.wd .sc-views { align-items: center; }
+.wd .sc-add-bar { border: none; border-radius: 22px; background: var(--sl-fill); padding: 7px 7px 7px 14px; }
+.wd .sc-add-bar:focus-within { background: #fff; box-shadow: 0 0 0 1.5px #1A1917; }
+.wd .sc-add-bar button { width: 28px; height: 28px; border-radius: 14px; background: #1A1917; }
+.wd .sc-add-bar button:disabled { background: rgba(26,25,23,.12); }
+.wd .sc-ldate.today, .wd .sc-cred-state { color: var(--acc); }
+/* settings language words */
+.wd .wd-set-lang.on { text-decoration: none; background: #1A1917; color: var(--sl-white); padding: 4px 11px; border-radius: 999px; }
+.wd .wd-set-langs { align-items: center; }
+/* the games / live host bars */
+.wd .wd-games-bar { border-bottom: none !important; }
+/* the home prompt — the same pill as the composer */
+.wd .wd-home .sprompt-bar { border: none; border-radius: 22px; background: var(--sl-fill); padding: 7px 7px 7px 14px; }
+.wd .wd-home .sprompt-bar:focus-within { background: #fff; box-shadow: 0 0 0 1.5px #1A1917; }
+.wd .wd-home .sprompt-send { width: 30px; height: 30px; border-radius: 15px; background: #1A1917; }
+.wd .wd-home .sprompt-ainote { letter-spacing: 0; color: #C0BCB3; }
+
+/* ── web only: the room sits in the paper like the landing's window ── */
+.wd-stage.web { padding: 14px; background: var(--sl-paper, #F3F0E8); }
+.wd-stage.web .wd { border-radius: 22px; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(26,25,23,.28), 0 0 0 1px rgba(26,25,23,.06); }
+.wd-stage.web .wd-rail { border-radius: 22px 0 0 22px; }
+/* the games panel set into the pane */
+.wd-main .wd-games-host .games-panel { background: #FBFAF7; }
+.wd-main .wd-games-host .games-panel .float-orbs-layer { display: none; }
+.wd-main .wd-games-host .game-cd-hover-label { background: #1A1917; color: #FBFAF7; border: none; border-radius: 999px; padding: 6px 14px; box-shadow: none; backdrop-filter: none; }
+.wd-main .wd-games-host .game-cd-hover-title { color: #FBFAF7; }
+/* the calendar sheet set into the pane (my calendar) */
+.wd-calhost .cal-sheet { background: transparent; }
+
+/* ── the home's picture + the landing's display sizes ── */
+.wd .wd-home { padding: 0 0 24px; }
+.wd .wd-home > *:not(.wd-bar) { margin-left: 44px; margin-right: 44px; }
+.wd .wd-home-greet { margin-top: 6px; font-size: 40px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; }
+.wd .wd-home-date { margin-top: 8px; font-size: 12px; }
+.wd .wd-home-prompt { margin-top: 22px; max-width: 560px; }
+.wd .wd-home .wd-up, .wd .wd-home .wd-todos { max-width: 560px; }
+.wd-bar { position: relative; width: 100%; aspect-ratio: 1000 / 300; max-height: 300px; overflow: visible; }
+.wd-bar > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wd-bar .sl-note { transform-box: fill-box; transform-origin: center; transition: transform .25s cubic-bezier(.3,1.6,.5,1); cursor: pointer; }
+.wd-bar .sl-note:hover { transform: scale(1.08) rotate(-3deg); }
+.wd-bar .sl-note.in { opacity: 0; animation: wd-drop .9s cubic-bezier(.2,1.4,.4,1) forwards; }
+.wd-bar .sl-note.ring { animation: wd-ring .7s ease-out; }
+.wd-bar .sl-tie { animation: wd-tie 1.6s cubic-bezier(.5,0,.2,1) .35s both; cursor: pointer; }
+@keyframes wd-drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
+@keyframes wd-ring { 30% { transform: scale(1.14) rotate(-6deg); } }
+@keyframes wd-tie { from { clip-path: inset(-20% 100% -20% 0); } to { clip-path: inset(-20% 0 -20% 0); } }
+.wd-bar-names { position: absolute; left: 0; right: 0; top: 84%; height: 40px; }
+.wd-bar-name { position: absolute; transform: translateX(-50%); background: none; border: none; padding: 2px 6px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: #1A1917; white-space: nowrap; text-align: center; }
+.wd-bar-name small { display: block; font-size: 10px; font-weight: 400; color: var(--acc); }
+.wd-bar-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* the person's page — the masthead on a coloured arch */
+.wd .wd-prof-scroll { padding: 0 0 32px; }
+.wd .wd-prof-mast { padding: 44px 48px 36px; margin: 0 0 8px; border-radius: 0 0 50% 50% / 0 0 40px 40px; background: var(--prof-tint, #F1EEE6); }
+.wd .wd-prof-sec { margin: 32px 48px 0; }
+.wd .wd-prof-av { width: 92px; height: 92px; box-shadow: 0 0 0 4px rgba(255,255,255,.6); }
+.wd .wd-prof-name { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; }
+.wd .wd-prof-name-in { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; }
+.wd .wd-prof-handle { color: rgba(26,25,23,.6); }
+.wd .wd-prof-handle .no { color: rgba(26,25,23,.45); }
+.wd .wd-prof-bio { color: #1A1917; }
+/* settings + my calendar heads at the display size */
+.wd .wd-head.plain .wd-title { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; }
+.wd .wd-head.plain { padding: 34px 44px 8px; }
+.wd .wd-set-scroll { padding: 10px 44px 32px; }

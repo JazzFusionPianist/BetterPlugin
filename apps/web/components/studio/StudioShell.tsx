@@ -36,6 +36,8 @@ import NewGroupSheet from '../app/NewGroupSheet'
 import ProfilePage from './ProfilePage'
 import SettingsPage, { APP_VERSION } from './SettingsPage'
 import { UpcomingRows, useConversationNotes, StudioNotes } from './StudioBits'
+import SlurMark from '../slur/SlurMark'
+import StudioHomeBar from './StudioHomeBar'
 import '../../app/studio.css'
 
 const GamesPanel = dynamic(() => import('../games/GamesPanel'), { ssr: false })
@@ -59,15 +61,6 @@ function Avatar({ color, label, group, avatarUrl, dot }: {
       {avatarUrl ? <img src={avatarUrl} alt="" /> : label}
       {dot && <span className="wd-dot" />}
     </span>
-  )
-}
-
-function BrandMark() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <rect x="0.75" y="0.75" width="10.5" height="10.5" rx="3.2" stroke="#1A1917" strokeWidth="1" />
-      <circle cx="6" cy="6" r="2" fill="var(--acc)" />
-    </svg>
   )
 }
 
@@ -121,6 +114,8 @@ function useGameName(): (id: string) => string {
     return key ? t(key as 'game.chess') : id.replace(/_/g, ' ')
   }, [t])
 }
+
+const HOUSE = ['#5C80FF', '#F89C38', '#B79CFF', '#3FB872', '#F27BA6', '#E9C46A']
 
 /* ── the shell ────────────────────────────────────────────────────── */
 
@@ -185,11 +180,13 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   const groupColorByConv = useMemo(() => {
     const m = new Map<string, string>()
     for (const g of groupConversations) {
-      const colors = g.memberIds.map(id => profileById.get(id)?.avatar_color).filter((c): c is string => !!c)
-      m.set(g.conversationId, mixHexColors(colors))
+      // house colours, one per room — picked by the room id so a room keeps its colour
+      let h = 0
+      for (let i = 0; i < g.conversationId.length; i++) h = (h * 31 + g.conversationId.charCodeAt(i)) >>> 0
+      m.set(g.conversationId, HOUSE[h % HOUSE.length]!)
     }
     return m
-  }, [groupConversations, profileById])
+  }, [groupConversations])
   const groupTitleById = useMemo(() => {
     const m = new Map<string, string>()
     for (const g of groupConversations) m.set(g.conversationId, g.title || 'group')
@@ -218,9 +215,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
     if (selectedGroup) {
       const n = selectedGroup.memberIds.length
       const online = selectedGroup.memberIds.filter(id => id === user.id || onlineIds.has(id)).length
-      return `${n} members / ${online} online`
+      return <>{n} members <em>{online} online</em></>
     }
-    if (selectedProfile) return selectedProfile.isOnline ? 'online' : 'offline'
+    if (selectedProfile) return selectedProfile.isOnline ? <em>online</em> : 'offline'
     return ''
   }, [selectedGroup, selectedProfile, onlineIds, user.id])
 
@@ -325,7 +322,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
         <div className="wd-rail">
           <div className="wd-brand" onClick={goHome} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') goHome() }}>
-            <BrandMark />orb
+            <SlurMark height={28} />
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={openGames}>
@@ -576,6 +573,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
             </>
           ) : (
             <div className="wd-home">
+              <StudioHomeBar friends={friendProfiles} onlineIds={onlineIds} onOpen={id => openSel({ kind: 'dm', userId: id })} />
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
@@ -615,17 +613,3 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   )
 }
 
-/** Average a set of #RRGGBB strings into one hex (group tint). */
-function mixHexColors(hexes: string[]): string {
-  if (hexes.length === 0) return '#4A8FE7'
-  let r = 0, g = 0, b = 0
-  for (const h of hexes) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
-    if (!m) continue
-    const v = parseInt(m[1]!, 16)
-    r += (v >> 16) & 0xff; g += (v >> 8) & 0xff; b += v & 0xff
-  }
-  const n = hexes.length
-  const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
-  return `#${to2(r)}${to2(g)}${to2(b)}`
-}

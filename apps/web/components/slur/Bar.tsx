@@ -8,12 +8,14 @@ export interface BarNote { x: number; step: number; color: string; hollow?: bool
 /** A bar of music: five hairlines, the notes, one engraved slur over all of
     them. The slur draws in from the left; touching a note sounds it,
     touching the slur plays the phrase. */
-export default function Bar ({ w, h, y0, gap, s, notes, line = 'rgba(26,25,23,.28)', tie = C.ink, className }: {
+export default function Bar ({ w, h, y0, gap, s, notes, line = 'rgba(26,25,23,.28)', tie = C.ink, className, onNote }: {
   w: number; h: number; y0: number; gap: number; s: number
   notes: BarNote[]
   line?: string
   tie?: string
   className?: string
+  /** A note was touched (after it rings). */
+  onNote?: (index: number) => void
 }) {
   const [ringing, setRinging] = useState<Record<number, number>>({})
   const yOf = (step: number) => y0 + 4 * gap - step * gap / 2
@@ -35,7 +37,7 @@ export default function Bar ({ w, h, y0, gap, s, notes, line = 'rgba(26,25,23,.2
         onClick={() => pts.forEach((p, i) => play(hz(p.step), i * .16, 1.4))} />
       {pts.map((p, i) => (
         <g key={`${i}-${ringing[i] ?? 0}`} className={`sl-note${ringing[i] ? ' ring' : ' in'}`}
-          style={{ animationDelay: ringing[i] ? '0s' : `${.15 + i * .12}s` }} onClick={() => ring(i, p.step)}>
+          style={{ animationDelay: ringing[i] ? '0s' : `${.15 + i * .12}s` }} onClick={() => { ring(i, p.step); onNote?.(i) }}>
           <path d={wholeNotePath(p.x, p.y, s, p.hollow !== false)} fill={p.color} fillRule="evenodd" />
         </g>
       ))}

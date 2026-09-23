@@ -1107,3 +1107,45 @@
 .wd-live .live-chat { border-radius: 16px; background: #F1EEE6; border: none; }
 .wd-live .live-switch-toggle { border-radius: 999px; }
 .wd-live .s-section-label { font-size: 10.5px; letter-spacing: 0; text-transform: none; color: #A5A199; font-weight: 500; }
+
+/* ── the home's picture + the landing's display sizes ── */
+.wd .wd-home { padding: 0 0 24px; }
+.wd .wd-home > *:not(.wd-bar) { margin-left: 44px; margin-right: 44px; }
+.wd .wd-home-greet { margin-top: 6px; font-size: 40px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; }
+.wd .wd-home-date { margin-top: 8px; font-size: 12px; }
+.wd .wd-home-prompt { margin-top: 22px; max-width: 560px; }
+.wd .wd-home .wd-up, .wd .wd-home .wd-todos { max-width: 560px; }
+.wd-bar { position: relative; width: 100%; aspect-ratio: 1000 / 300; max-height: 300px; overflow: visible; }
+.wd-bar > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wd-bar .sl-note { transform-box: fill-box; transform-origin: center; transition: transform .25s cubic-bezier(.3,1.6,.5,1); cursor: pointer; }
+.wd-bar .sl-note:hover { transform: scale(1.08) rotate(-3deg); }
+.wd-bar .sl-note.in { opacity: 0; animation: wd-drop .9s cubic-bezier(.2,1.4,.4,1) forwards; }
+.wd-bar .sl-note.ring { animation: wd-ring .7s ease-out; }
+.wd-bar .sl-tie { animation: wd-tie 1.6s cubic-bezier(.5,0,.2,1) .35s both; cursor: pointer; }
+@keyframes wd-drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
+@keyframes wd-ring { 30% { transform: scale(1.14) rotate(-6deg); } }
+@keyframes wd-tie { from { clip-path: inset(-20% 100% -20% 0); } to { clip-path: inset(-20% 0 -20% 0); } }
+.wd-bar-names { position: absolute; left: 0; right: 0; top: 84%; height: 40px; }
+.wd-bar-name { position: absolute; transform: translateX(-50%); background: none; border: none; padding: 2px 6px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: #1A1917; white-space: nowrap; text-align: center; }
+.wd-bar-name small { display: block; font-size: 10px; font-weight: 400; color: var(--acc); }
+.wd-bar-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* the person's page — the masthead on a coloured arch */
+.wd .wd-prof-scroll { padding: 0 0 32px; }
+.wd .wd-prof-mast { padding: 44px 48px 36px; margin: 0 0 8px; border-radius: 0 0 50% 50% / 0 0 40px 40px; background: var(--prof-tint, #F1EEE6); }
+.wd .wd-prof-sec { margin: 32px 48px 0; }
+.wd .wd-prof-av { width: 92px; height: 92px; box-shadow: 0 0 0 4px rgba(255,255,255,.6); }
+.wd .wd-prof-name { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; }
+.wd .wd-prof-name-in { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; }
+.wd .wd-prof-handle { color: rgba(26,25,23,.6); }
+.wd .wd-prof-handle .no { color: rgba(26,25,23,.45); }
+.wd .wd-prof-bio { color: #1A1917; }
+/* settings + my calendar heads at the display size */
+.wd .wd-head.plain .wd-title { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; }
+.wd .wd-head.plain { padding: 34px 44px 8px; }
+.wd .wd-set-scroll { padding: 10px 44px 32px; }
+
+/* the plug-in's window sits in the paper like the web's */
+.wd-stage { padding: 12px; background: #F3F0E8; }
+.wd-stage .wd { border-radius: 20px; overflow: hidden; }
+.wd-stage .wd-rail { border-radius: 20px 0 0 20px; }

@@ -406,23 +406,27 @@ function LiveVal ({ node, played }: { node: FxGraphNode; played: boolean }) {
   return <>{' '}{fmtValue(node.type, a ?? node.amount, node.variant)}</>
 }
 
-/** The comp's print: the transfer curve — in along the bottom, out up the side; straight until the threshold, then bent by the ratio,
- *  the knee rounding the corner. The knob moves the corner down the line. */
+/** The comp's print: the transfer curve alone, thick, in the comp's green on a dark green ground — no axes. In along the bottom,
+ *  out up the side. Straight until the threshold, then bent by the ratio and rounded by the knee; the ground above the curve is
+ *  what the comp takes away, lit a little so the bend reads from across the wall. The knob moves the corner down the line. */
 function CompArt ({ node }: { node: { amount: number; aux: number[] } }) {
   const lvl = useContext(StrokeLevel) ?? 0
   const P = strokeFor(lvl)
   const thr = -60 * node.amount, ratio = Math.max(1, (node.aux[0] || 40) / 10), knee = Math.max(0, node.aux[3] || 0)
-  const x0 = 44, y0 = 176, S = 132 / 60   // −60..0 dB on 132 px, both ways
+  const x0 = 38, y0 = 182, S = 144 / 60   // −60..0 dB on 144 px, both ways
   const out = (inDb: number) => { const over = inDb - thr; if (knee > 0 && Math.abs(over) < knee / 2) return inDb + (1 / ratio - 1) * (over + knee / 2) ** 2 / (2 * knee); return over > 0 ? thr + over / ratio : inDb }
+  const X = (inDb: number) => x0 + (inDb + 60) * S, Y = (o: number) => y0 - (o + 60) * S
   let d = ''
-  for (let k = 0; k <= 60; k++) { const inDb = -60 + k; d += `${k === 0 ? 'M' : 'L'}${(x0 + (inDb + 60) * S).toFixed(1)} ${(y0 - (out(inDb) + 60) * S).toFixed(1)} ` }
-  const tx = x0 + (thr + 60) * S
+  for (let k = 0; k <= 120; k++) { const inDb = -60 + k / 2; d += `${k === 0 ? 'M' : 'L'}${X(inDb).toFixed(1)} ${Y(out(inDb)).toFixed(1)} ` }
+  const G = 'rgb(92, 224, 168)'
   return (
     <g>
-      <path d={`M${x0} ${y0} H${x0 + 132} M${x0} ${y0} V${y0 - 132}`} stroke={P} strokeOpacity={0.4} strokeWidth={1} />
-      <path d={`M${x0} ${y0} L${x0 + 132} ${y0 - 132}`} stroke={P} strokeOpacity={0.18} strokeWidth={0.8} strokeDasharray="2 3" />
-      <path d={`M${tx.toFixed(1)} ${y0} V${(y0 - (thr + 60) * S).toFixed(1)}`} stroke={P} strokeOpacity={0.35} strokeWidth={0.8} strokeDasharray="2 3" />
-      <path d={d} fill="none" stroke={P} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+      <rect x={x0} y={y0 - 144} width={144} height={144} rx={3} fill={G} fillOpacity={0.1} />
+      {/* what is taken away: between the straight line and the curve */}
+      <path d={`${d} L${X(0).toFixed(1)} ${Y(0).toFixed(1)} Z`} fill={G} fillOpacity={0.22} />
+      <path d={`M${X(-60)} ${Y(-60)} L${X(0)} ${Y(0)}`} stroke={P} strokeOpacity={0.22} strokeWidth={1} strokeDasharray="2 4" />
+      <path d={d} fill="none" stroke={G} strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={d} fill="none" stroke={P} strokeOpacity={0.5} strokeWidth={1.2} strokeLinejoin="round" strokeLinecap="round" />
     </g>
   )
 }

@@ -28,7 +28,6 @@ const PLUGINS: Plugin[] = [
     tag: 'patch-on-slur-',
     fallback: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.7/Patch-on-Slur-1.0.7.pkg',
   },
-  { name: 'slur games', ground: '#E4E9FF', note: C.blue, ink: C.ink, step: 7, hollow: true, formats: 'au vst3' },
 ]
 const REPO = 'JazzFusionPianist/BetterPlugin'
 

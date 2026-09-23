@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.8)   # bumped so hosts rescan: the AU gained a sidechain bus (Logic caches a plugin's buses per version)
+project(OrbPlugin VERSION 1.0.9)   # bumped so hosts rescan: the AU gained a sidechain bus (Logic caches a plugin's buses per version)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -63,6 +63,16 @@ juce_add_plugin(OrbPlugin
     COPY_PLUGIN_AFTER_BUILD     FALSE
 )
 
+# ── The page, carried inside every plugin ─────────────────────────────────────
+# build.sh builds apps/plugin and zips its dist here; the zip goes into the
+# binary and a resource provider serves it to the WebView (see PluginProcessor).
+set(ORB_WEBUI_ZIP "${CMAKE_BINARY_DIR}/webui/webui.zip")
+if(NOT EXISTS "${ORB_WEBUI_ZIP}")
+    message(FATAL_ERROR "The carried page is missing: ${ORB_WEBUI_ZIP} — run Plugin/build.sh (it builds apps/plugin and zips it here)")
+endif()
+juce_add_binary_data(OrbWebUI SOURCES "${ORB_WEBUI_ZIP}")
+set_target_properties(OrbWebUI PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_sources(OrbPlugin PRIVATE
     Source/TrackExportBridge.cpp
     Source/PluginProcessor.cpp
@@ -91,6 +101,7 @@ target_compile_definitions(OrbPlugin
 
 target_link_libraries(OrbPlugin
     PRIVATE
+        OrbWebUI
         juce::juce_audio_processors
         juce::juce_audio_utils
         juce::juce_gui_extra
@@ -180,6 +191,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
 
     target_link_libraries(${_target}
         PRIVATE
+            OrbWebUI
             juce::juce_audio_processors
             juce::juce_audio_utils
             juce::juce_gui_extra

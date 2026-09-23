@@ -1,5 +1,9 @@
 #pragma once
 #include "TrackExportBridge.h"
+#include <map>
+#include <optional>
+#include <thread>
+#include <memory>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "VideoCapture.h"
@@ -312,6 +316,20 @@ private:
 
     //── Embedded WKWebView (owned here so it outlives the editor) ────────────
     std::unique_ptr<juce::WebBrowserComponent> browser;
+    //── The page, carried inside the plugin ──────────────────────────────────
+    // A zip of apps/plugin's build rides in the binary (BinaryData::webui_zip).
+    // The WebView is served from it first, so the wall opens with no network,
+    // and instantly. Then, in the background, the site is asked which build it
+    // is: if it is newer than the carried one, the WebView moves to the site
+    // (so every push still reaches everyone who is online).
+    std::map<juce::String, std::vector<std::byte>> carriedPage;   // path → bytes, from the zip
+    juce::String carriedBuild;                                     // the carried page's build id
+    std::optional<juce::WebBrowserComponent::Resource> servePage (const juce::String& path);
+    juce::String pageQuery() const;                                // ?plugin=1&surface=…&ver=…
+    void loadCarriedPage();
+    void askSiteForNewer();                                        // background: moves to the site if it is newer
+    std::unique_ptr<std::thread> siteCheck;
+    std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>> (true);   // shared with the site check, so a late answer finds nobody home instead of a freed object
 
     //── Native function handlers (moved from editor) ─────────────────────────
     juce::File downloadToTemp (const juce::String& url, const juce::String& name);

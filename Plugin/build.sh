@@ -96,6 +96,22 @@ else
 fi
 [ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds | games)" >&2; exit 1; }
 
+# ── The page, carried inside the plugin ───────────────────────────────────────
+# The wall is a web page. The plugin loads it from the site when it can (so
+# every push reaches everyone), but it also carries a copy, built here and
+# zipped into the binary, so it opens with no network — and instantly.
+WEB_DIR="$(cd "$SCRIPT_DIR/../apps/plugin" && pwd)"
+WEB_ZIP_DIR="$BUILD_DIR/webui"
+if [ "${SKIP_WEB:-0}" != 1 ]; then
+  echo "→ building the page (apps/plugin) …"
+  ( cd "$WEB_DIR" && pnpm build > "$SCRIPT_DIR/build/web-build.log" 2>&1 ) || { echo "✗ the page did not build — see Plugin/build/web-build.log" >&2; exit 1; }
+  mkdir -p "$WEB_ZIP_DIR"
+  rm -f "$WEB_ZIP_DIR/webui.zip"
+  ( cd "$WEB_DIR/dist" && zip -q -r -X "$WEB_ZIP_DIR/webui.zip" . )
+  echo "  ✓ page zipped → $(du -h "$WEB_ZIP_DIR/webui.zip" | cut -f1)"
+fi
+[ -f "$WEB_ZIP_DIR/webui.zip" ] || { echo "✗ no carried page (Plugin/build/webui/webui.zip): run without SKIP_WEB" >&2; exit 1; }
+
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
       -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \

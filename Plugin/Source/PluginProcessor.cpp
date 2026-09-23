@@ -3,6 +3,7 @@
 #include "PluginEditor.h"
 #include "DragMonitor.h"
 #include <thread>
+#include "BinaryData.h"
 
 //==============================================================================
 // Base64 decoder — handles both padded and unpadded input.
@@ -120,6 +121,7 @@ OrbAudioProcessor::OrbAudioProcessor()
     browser = std::make_unique<juce::WebBrowserComponent> (
         juce::WebBrowserComponent::Options{}
             .withKeepPageLoadedWhenBrowserIsHidden()
+            .withResourceProvider ([this] (const juce::String& path) { return servePage (path); })
             .withNativeFunction ("prefetchAudio",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -341,19 +343,8 @@ OrbAudioProcessor::OrbAudioProcessor()
     // The v= cache-buster defeats WKWebView's disk cache, which otherwise
     // keeps serving a stale index.html (and so a stale bundle) across
     // fresh instances and even host restarts.
-    {
-        juce::String url (ORB_APP_URL);
-        url += (url.contains ("?") ? "&" : "?");
-        url += "plugin=1&v=" + juce::String (juce::Time::currentTimeMillis());
-       #ifdef ORB_SURFACE
-        // Split-out single-purpose builds (Orb Chat, …) tell the web app
-        // which surface to boot — it hides the other rooms.
-        url += juce::String ("&surface=") + ORB_SURFACE;
-        // …and which native build is hosting it (settings shows it).
-        url += juce::String ("&ver=") + JucePlugin_VersionString;
-       #endif
-        browser->goToURL (url);
-    }
+    loadCarriedPage();
+    askSiteForNewer();
 
     // Start polling the capture ring buffer and forwarding samples to JS.
     startTimer (20);
@@ -361,6 +352,8 @@ OrbAudioProcessor::OrbAudioProcessor()
 
 OrbAudioProcessor::~OrbAudioProcessor()
 {
+    alive->store (false);
+    if (siteCheck != nullptr && siteCheck->joinable()) siteCheck->join();
     trackExportBridge.shutdown();
     stopTimer();
 }
@@ -2144,4 +2137,90 @@ void OrbAudioProcessor::handleStartHostStemExport (
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new OrbAudioProcessor();
+}
+
+//==============================================================================
+// The page, carried inside the plugin.
+
+juce::String OrbAudioProcessor::pageQuery() const
+{
+    // ?plugin=1 lets the page tailor itself to living in a plugin; ?surface=
+    // picks the room; ?ver= says which engine hosts it (the update notice)
+    juce::String q = "plugin=1";
+   #ifdef ORB_SURFACE
+    q += juce::String ("&surface=") + ORB_SURFACE;
+    q += juce::String ("&ver=") + JucePlugin_VersionString;
+   #endif
+    return q;
+}
+
+void OrbAudioProcessor::loadCarriedPage()
+{
+    // unzip the carried build into memory once, path → bytes
+    if (carriedPage.empty())
+    {
+        juce::MemoryInputStream in (BinaryData::webui_zip, (size_t) BinaryData::webui_zipSize, false);
+        juce::ZipFile zip (in);
+        for (int i = 0; i < zip.getNumEntries(); ++i)
+        {
+            const auto* e = zip.getEntry (i);
+            if (e == nullptr || e->isSymbolicLink || e->filename.endsWithChar ('/')) continue;
+            std::unique_ptr<juce::InputStream> es (zip.createStreamForEntry (i));
+            if (es == nullptr) continue;
+            juce::MemoryBlock mb; es->readIntoMemoryBlock (mb);
+            std::vector<std::byte> bytes ((size_t) mb.getSize());
+            std::memcpy (bytes.data(), mb.getData(), mb.getSize());
+            carriedPage["/" + e->filename] = std::move (bytes);
+        }
+        if (auto it = carriedPage.find ("/build.json"); it != carriedPage.end())
+        {
+            const juce::var v = juce::JSON::parse (juce::String::fromUTF8 ((const char*) it->second.data(), (int) it->second.size()));
+            carriedBuild = v.getProperty ("build", "").toString();
+        }
+    }
+    browser->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + "index.html?" + pageQuery() + "&carried=1");
+}
+
+std::optional<juce::WebBrowserComponent::Resource> OrbAudioProcessor::servePage (const juce::String& pathIn)
+{
+    juce::String path = pathIn.upToFirstOccurrenceOf ("?", false, false);
+    if (path.isEmpty() || path == "/") path = "/index.html";
+    const auto it = carriedPage.find (path);
+    if (it == carriedPage.end()) return std::nullopt;
+    const juce::String ext = path.fromLastOccurrenceOf (".", false, false).toLowerCase();
+    static const std::map<juce::String, juce::String> mime = {
+        { "html", "text/html" }, { "js", "text/javascript" }, { "mjs", "text/javascript" }, { "css", "text/css" }, { "json", "application/json" },
+        { "svg", "image/svg+xml" }, { "png", "image/png" }, { "jpg", "image/jpeg" }, { "jpeg", "image/jpeg" }, { "webp", "image/webp" }, { "gif", "image/gif" },
+        { "ico", "image/x-icon" }, { "woff2", "font/woff2" }, { "woff", "font/woff" }, { "ttf", "font/ttf" }, { "otf", "font/otf" },
+        { "mp3", "audio/mpeg" }, { "wav", "audio/wav" }, { "webm", "video/webm" }, { "mp4", "video/mp4" }, { "txt", "text/plain" }, { "map", "application/json" } };
+    const auto m = mime.find (ext);
+    return juce::WebBrowserComponent::Resource { it->second, m != mime.end() ? m->second : "application/octet-stream" };
+}
+
+void OrbAudioProcessor::askSiteForNewer()
+{
+    // off the message thread: a short trip to the site's build.json. Newer than
+    // the carried page → the WebView moves to the site (the v= defeats the
+    // WebView's cache, which otherwise keeps a stale index.html for days).
+    siteCheck = std::make_unique<std::thread> ([this, alive = this->alive]
+    {
+        juce::String siteBuild;
+        {
+            juce::URL url (juce::String (ORB_APP_URL) + "/build.json?v=" + juce::String (juce::Time::currentTimeMillis()));
+            auto opts = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress).withConnectionTimeoutMs (2500);
+            if (auto in = url.createInputStream (opts))
+            {
+                const juce::var v = juce::JSON::parse (in->readEntireStreamAsString());
+                siteBuild = v.getProperty ("build", "").toString();
+            }
+        }
+        if (! alive->load() || siteBuild.isEmpty() || siteBuild == carriedBuild) return;
+        juce::MessageManager::callAsync ([this, alive]
+        {
+            if (! alive->load() || browser == nullptr) return;
+            juce::String url (ORB_APP_URL);
+            url += (url.contains ("?") ? "&" : "?") + pageQuery() + "&v=" + juce::String (juce::Time::currentTimeMillis());
+            browser->goToURL (url);
+        });
+    });
 }

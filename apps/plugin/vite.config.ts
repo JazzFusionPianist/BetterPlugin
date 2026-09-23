@@ -18,8 +18,19 @@ const pkgVersion = (): string => {
   catch { return '0.0.0' }
 }
 
+/** dist/build.json — which build this is. The plugin carries a copy of the site and compares this with the site's to know
+ *  whether the site is newer than what it carries. */
+function buildStamp () {
+  return {
+    name: 'build-stamp',
+    generateBundle (this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }) {
+      this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ build: buildId(), version: pkgVersion(), at: new Date().toISOString() }) })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), buildStamp()],
   define: {
     __BUILD_ID__: JSON.stringify(buildId()),
     __APP_VERSION__: JSON.stringify(pkgVersion()),

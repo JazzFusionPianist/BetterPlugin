@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { getInitials, type Profile } from '@orb/core'
 import { useCredits, type Credit } from '@/lib/useCredits'
+import { houseColor } from '../slur/marks'
 
 interface Props {
   supabase: SupabaseClient
@@ -314,10 +315,10 @@ export default function ProfilePage({
       <div className="wd-prof-scroll">
 
         {/* ── masthead ─────────────────────────────────────────── */}
-        <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(profile.avatar_color) }}>
+        <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(houseColor(profile.id)) }}>
           <div
             className={`wd-prof-av${isMine ? ' mine' : ''}${uploading ? ' busy' : ''}`}
-            style={{ background: profile.avatar_color }}
+            style={{ background: houseColor(profile.id) }}
             onClick={isMine && !uploading ? () => fileRef.current?.click() : undefined}
             role={isMine ? 'button' : undefined}
             title={isMine ? 'change photo' : undefined}

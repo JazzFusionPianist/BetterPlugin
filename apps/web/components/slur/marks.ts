@@ -9,6 +9,16 @@ export const C = {
   rose: '#F27BA6', yellow: '#E9C46A', ink: '#1A1917', paper: '#F3F0E8', white: '#FBFAF7',
 }
 
+/* ── house colours for people and rooms ──
+   Everyone signed up with the same default blue, so the colour comes
+   from the id: six house colours, spread so neighbours differ. */
+export const HOUSE = [C.blue, C.orange, C.lilac, C.green, C.rose, C.yellow]
+export function houseColor (id: string): string {
+  let h = 2166136261
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return HOUSE[(h >>> 0) % HOUSE.length]!
+}
+
 /** A tilted ellipse as a path, so a whole note's hole can be cut with evenodd. */
 export function ellipsePath (cx: number, cy: number, rx: number, ry: number, deg: number) {
   const t = deg * Math.PI / 180, dx = rx * Math.cos(t), dy = rx * Math.sin(t)

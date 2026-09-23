@@ -6,7 +6,7 @@
  */
 
 import Bar from '../../slur/Bar'
-import { C } from '../../slur/marks'
+import { C, houseColor } from '../../slur/marks'
 import type { Profile } from '../../types/collab'
 
 const W = 1000, H = 300, Y0 = 126, GAP = 30, S = 25
@@ -22,7 +22,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
   const n = Math.max(list.length, 1)
   const xs = list.map((_, i) => (n === 1 ? W / 2 : 110 + (i * (W - 220)) / (n - 1)))
   const notes = list.map((p, i) => ({
-    x: xs[i]!, step: STEPS[i % STEPS.length]!, color: p.avatar_color || C.blue,
+    x: xs[i]!, step: STEPS[i % STEPS.length]!, color: houseColor(p.id) || C.blue,
     hollow: !(studioIds?.has(p.id) || onlineIds.has(p.id)),
   }))
   // a quiet bar when there is no one yet — three house notes

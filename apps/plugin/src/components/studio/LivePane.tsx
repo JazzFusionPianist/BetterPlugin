@@ -19,6 +19,7 @@ import type { LiveSession, useLive } from '../../hooks/useLive'
 import { useMediaSource } from '../../hooks/useMediaSource'
 import { useLiveBroadcaster } from '../../hooks/useLiveBroadcaster'
 import { useLiveChat } from '../../hooks/useLiveChat'
+import { houseColor } from '../../slur/marks'
 import LivePanel from '../collab/LivePanel'
 import LiveViewer from '../collab/LiveViewer'
 import '../../pages/collab.css'
@@ -74,7 +75,7 @@ export default function LivePane({
   // One chat channel — my broadcast, or the one I'm watching.
   const chatSessionId = mySession?.id ?? watchingSession?.id ?? null
   const chatMe = useMemo(() => me ? {
-    id: userId, name: me.display_name || 'user', color: me.avatar_color || '#4A8FE7',
+    id: userId, name: me.display_name || 'user', color: houseColor(userId),
   } : null, [me, userId])
   const { messages: chatMessages, sendMessage: sendChat } = useLiveChat(supabase, chatSessionId, chatMe)
 

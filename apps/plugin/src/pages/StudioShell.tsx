@@ -57,6 +57,7 @@ import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
 import ExportTracksButton from '../components/collab/ExportTracksButton'
 import { prepareTrackExport } from '../lib/dawTrackExport'
+import { houseColor } from '../slur/marks'
 
 interface Props { supabase: SupabaseClient; user: User }
 
@@ -1406,11 +1407,8 @@ function StudioShellInner({ supabase, user }: Props) {
     const m = new Map<string, string>()
     // House colours, one per room — picked by the room id so a room keeps
     // its colour (the averaged member tint read as mud on the paper).
-    const HOUSE = ['#5C80FF', '#F89C38', '#B79CFF', '#3FB872', '#F27BA6', '#E9C46A']
     for (const g of groupConversations) {
-      let h = 0
-      for (let i = 0; i < g.conversationId.length; i++) h = (h * 31 + g.conversationId.charCodeAt(i)) >>> 0
-      m.set(g.conversationId, HOUSE[h % HOUSE.length]!)
+      m.set(g.conversationId, houseColor(g.conversationId))
     }
     return m
   }, [groupConversations, profileById])
@@ -2493,7 +2491,7 @@ function StudioShellInner({ supabase, user }: Props) {
           {!isMine && (
             <div className="wd-mav">
               {first && (
-                <span style={{ background: senderP?.avatar_color ?? '#C0BCB3' }}>
+                <span style={{ background: (senderP ? houseColor(senderP.id) : '#C0BCB3') }}>
                   {senderP?.avatar_url
                     ? <img src={senderP.avatar_url} alt="" />
                     : (senderP?.initials ?? '').slice(0, 1)}
@@ -2531,7 +2529,7 @@ function StudioShellInner({ supabase, user }: Props) {
                 {isGroup ? (
                   <span className="wd-read-avs">
                     {readers.slice(0, 4).map(r => (
-                      <span key={r.id} style={{ background: r.avatar_color }}>
+                      <span key={r.id} style={{ background: houseColor(r.id) }}>
                         {r.avatar_url ? <img src={r.avatar_url} alt="" /> : r.initials.slice(0, 1)}
                       </span>
                     ))}
@@ -2652,7 +2650,7 @@ function StudioShellInner({ supabase, user }: Props) {
                     const s: Sel = { kind: 'profile', userId: p.id }
                     return (
                       <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                        <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
+                        <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
                           dot={p.isOnline ? 'on' : undefined} />
                         <span className="wd-rname">
                           <b>{p.display_name}</b>
@@ -2673,7 +2671,7 @@ function StudioShellInner({ supabase, user }: Props) {
               const since = studioAt.get(p.id)
               return (
                 <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                  <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
+                  <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
                     dot={since !== undefined ? 'studio' : p.isOnline ? 'on' : undefined} />
                   <span className="wd-rname">
                     <b>{p.display_name}</b>
@@ -2696,7 +2694,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className={`wd-rail-foot${sel?.kind === 'profile' && sel.userId === user.id ? ' on' : ''}`}>
             <span className="wd-foot-me" onClick={() => openSel({ kind: 'profile', userId: user.id })} role="button" tabIndex={0}
               onKeyDown={e => { if (e.key === 'Enter') openSel({ kind: 'profile', userId: user.id }) }}>
-              <Avatar color={me?.avatar_color ?? '#1A1917'} label={(me?.initials ?? myName).slice(0, 1)}
+              <Avatar color={(me ? houseColor(me.id) : '#1A1917')} label={(me?.initials ?? myName).slice(0, 1)}
                 avatarUrl={me?.avatar_url} dot="studio" />
               <span>{myName}</span>
             </span>
@@ -2897,7 +2895,7 @@ function StudioShellInner({ supabase, user }: Props) {
                         : (selectedGroup.title || 'G').slice(0, 1)}
                     </span>
                   ) : selectedProfile ? (
-                    <span className="wd-hav click" style={{ background: selectedProfile.avatar_color }}
+                    <span className="wd-hav click" style={{ background: houseColor(selectedProfile.id) }}
                       onClick={() => openSel({ kind: 'profile', userId: selectedProfile.id })} role="button" title="profile">
                       {selectedProfile.avatar_url
                         ? <img src={selectedProfile.avatar_url} alt="" />

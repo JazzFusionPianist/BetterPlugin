@@ -17,6 +17,7 @@ import type { Profile } from '../../types/collab'
 import { getInitials } from '../../types/collab'
 import { useCredits, type Credit } from '../../hooks/useCredits'
 import { openExternalUrl } from '../../lib/linkify'
+import { houseColor } from '../../slur/marks'
 
 interface Props {
   supabase: SupabaseClient
@@ -314,10 +315,10 @@ export default function ProfilePage({
       <div className="wd-prof-scroll">
 
         {/* ── masthead ─────────────────────────────────────────── */}
-        <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(profile.avatar_color) }}>
+        <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(houseColor(profile.id)) }}>
           <div
             className={`wd-prof-av${isMine ? ' mine' : ''}${uploading ? ' busy' : ''}`}
-            style={{ background: profile.avatar_color }}
+            style={{ background: houseColor(profile.id) }}
             onClick={isMine && !uploading ? () => fileRef.current?.click() : undefined}
             role={isMine ? 'button' : undefined}
             title={isMine ? 'change photo' : undefined}

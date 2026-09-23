@@ -375,6 +375,31 @@ function FollowArt ({ node }: { node: { aux: number[] } }) {
   )
 }
 
+/** A print as the engine is playing it: the hands something plays (an LFO, a macro, a follow) are read from the engine every frame,
+ *  so the picture on the wall moves with them — the knob turns, the decay bar runs, the delay's feedback swings. Nothing is played:
+ *  it is the print as set. Only the played hands re-render, and only this print. */
+function LivePrint ({ node, played, ...rest }: React.ComponentProps<typeof Print> & { node: FxGraphNode; played: Set<string> }) {
+  const slot = played.size > 0 ? node.id : -1
+  const amount = useLiveHand(played.has('amount') ? slot : -1, LIVE_INDEX.amount)
+  const decay = useLiveHand(played.has('decay') ? slot : -1, LIVE_INDEX.decay)
+  const fb = useLiveHand(played.has('fb') ? slot : -1, LIVE_INDEX.fb)
+  const div = useLiveHand(played.has('div') ? slot : -1, LIVE_INDEX.div)
+  const ax = [0, 1, 2, 3, 4, 5].map(k => useLiveHand(played.has(`aux${k}`) ? slot : -1, LIVE_INDEX[`aux${k}`]))   // eslint-disable-line react-hooks/rules-of-hooks
+  if (played.size === 0) return <Print node={node} {...rest} />
+  const live: FxGraphNode = { ...node }
+  if (amount !== undefined) live.amount = amount
+  if (decay !== undefined) { live.decay = [...node.decay]; live.decay[node.variant] = decay }
+  if (fb !== undefined) live.delayFb = fb
+  if (div !== undefined) live.delayDiv = Math.round(div)
+  if (ax.some(v => v !== undefined)) { live.aux = [...node.aux]; ax.forEach((v, k) => { if (v !== undefined) live.aux[k] = Math.round(v) }) }
+  return <Print node={live} {...rest} />
+}
+/** The value under a print, as the engine is playing it while something plays the knob. */
+function LiveVal ({ node, played }: { node: FxGraphNode; played: boolean }) {
+  const a = useLiveHand(played ? node.id : -1, LIVE_INDEX.amount)
+  return <>{' '}{fmtValue(node.type, a ?? node.amount, node.variant)}</>
+}
+
 function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[] }
   size: number
@@ -609,6 +634,8 @@ export default function FxWall ({ size: frame }: Props) {
   const inPort: Pt = { x: PORT_INSET, y: size.h / 2 }
   const outPort: Pt = { x: size.w - PORT_INSET, y: size.h / 2 }
   const nodeById = (id: number) => graph.nodes.find(n => n.id === id)
+  /** The hands something plays on this print (a control wire landing on a hand; a wire onto a wire's depth does not count). */
+  const playedHands = (id: number) => new Set(graph.edges.filter(e => e.to === id && isControlEdge(e) && !wireRef(e.hand)).map(e => e.hand!))
   const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && !isControlEdge(x.e) && (x.e.in ?? 0) === 0)   // the sound wires in; control wires and keys land elsewhere
   /** The hands a control wire can play on a print: its numbers; a mix's are its wires' shares. */
   const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
@@ -1817,7 +1844,7 @@ export default function FxWall ({ size: frame }: Props) {
               <div className={`sg-print${handsShown(n) ? ' faded' : ''}`} style={isControlType(n.type) ? { padding: NODEz * (1 - CTRL_ART) / 2 } : undefined}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
-                <Print node={n} size={isControlType(n.type) ? NODEz * CTRL_ART : NODEz} shares={sharesOf(n.id)}
+                <LivePrint node={n} played={playedHands(n.id)} size={isControlType(n.type) ? NODEz * CTRL_ART : NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
                   onFb={(v, force) => updateNode(n.id, { delayFb: Math.min(1, Math.max(0, v)) }, !!force)}
@@ -1854,7 +1881,7 @@ export default function FxWall ({ size: frame }: Props) {
                       onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); gesture(n.id, 'amount', true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
                       onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true) }}>
-                      {' '}{fmtValue(n.type, n.amount, n.variant)}
+                      <LiveVal node={n} played={playedHands(n.id).has('amount')} />
                     </span>
                   )}
                   {hands(n)}

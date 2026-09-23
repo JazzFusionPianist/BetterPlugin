@@ -49,6 +49,7 @@ import StudioCalendar from '../components/studio/StudioCalendar'
 import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
 import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
 import LivePane from '../components/studio/LivePane'
+import SlurMark from '../slur/SlurMark'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
@@ -108,24 +109,6 @@ function zipName(): string {
   const d = new Date()
   const p = (n: number) => String(n).padStart(2, '0')
   return `stems-${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.zip`
-}
-
-/** Average a set of #RRGGBB strings into one hex — same helper CollabPage
- *  uses for group tint (visually unifies a member set). */
-function mixHexColors(hexes: string[]): string {
-  if (hexes.length === 0) return '#4A8FE7'
-  let r = 0, g = 0, b = 0
-  for (const h of hexes) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
-    if (!m) continue
-    const v = parseInt(m[1]!, 16)
-    r += (v >> 16) & 0xff
-    g += (v >> 8) & 0xff
-    b += v & 0xff
-  }
-  const n = hexes.length
-  const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
-  return `#${to2(r)}${to2(g)}${to2(b)}`
 }
 
 /** Same-sender messages closer than this form one bubble burst. */
@@ -895,17 +878,6 @@ function StudioInviteTicket({ roomId, gameType, isMine, senderName, onJoin }: {
   )
 }
 
-/** The greenroom mark — a small room (rounded-square outline, hairline
- *  ink) with the green presence dot inside. Quiet on purpose. */
-function BrandMark() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <rect x="0.75" y="0.75" width="10.5" height="10.5" rx="3.2" stroke="#1A1917" strokeWidth="1" />
-      <circle cx="6" cy="6" r="2" fill="var(--acc)" />
-    </svg>
-  )
-}
-
 /** Programme-margin upcoming list — date column · time · title, hairline
  *  separators, today in the accent. Shared by the home pane and the
  *  "my calendar" view (mirrors the web app's UpcomingList split). */
@@ -1431,11 +1403,13 @@ function StudioShellInner({ supabase, user }: Props) {
   // Group tint = averaged member colors (CollabPage's groupColorByConv).
   const groupColorByConv = useMemo(() => {
     const m = new Map<string, string>()
+    // House colours, one per room — picked by the room id so a room keeps
+    // its colour (the averaged member tint read as mud on the paper).
+    const HOUSE = ['#5C80FF', '#F89C38', '#B79CFF', '#3FB872', '#F27BA6', '#E9C46A']
     for (const g of groupConversations) {
-      const colors = g.memberIds
-        .map(id => profileById.get(id)?.avatar_color)
-        .filter((c): c is string => !!c)
-      m.set(g.conversationId, mixHexColors(colors))
+      let h = 0
+      for (let i = 0; i < g.conversationId.length; i++) h = (h * 31 + g.conversationId.charCodeAt(i)) >>> 0
+      m.set(g.conversationId, HOUSE[h % HOUSE.length]!)
     }
     return m
   }, [groupConversations, profileById])
@@ -1490,12 +1464,12 @@ function StudioShellInner({ supabase, user }: Props) {
     if (selectedGroup) {
       const n = selectedGroup.memberIds.length
       const inStudio = selectedGroup.memberIds.filter(id => studioAt.has(id)).length
-      if (inStudio > 0) return `${n} members / ${inStudio} in the studio now`
+      if (inStudio > 0) return <>{n} members <em>{inStudio} in the studio now</em></>
       const online = selectedGroup.memberIds.filter(id => id === user.id || onlineIds.has(id)).length
-      return `${n} members / ${online} online`
+      return <>{n} members {online} online</>
     }
     if (selectedProfile) {
-      if (studioAt.has(selectedProfile.id)) return 'in the studio'
+      if (studioAt.has(selectedProfile.id)) return <em>in the studio</em>
       return selectedProfile.isOnline ? 'online' : 'offline'
     }
     return ''
@@ -2602,7 +2576,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}
             onDoubleClick={() => setDiagOpen(true)}>
-            <BrandMark />slur
+            <SlurMark height={26} /><span>studio</span>
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>

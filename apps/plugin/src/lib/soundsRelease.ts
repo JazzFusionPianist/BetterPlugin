@@ -19,7 +19,7 @@ export const PRINT_SINCE: Record<number, string> = {
   33: '1.0.1', 34: '1.0.1',              // side, follow
   35: '1.0.7',                           // comp
   36: '1.0.8',                           // bands
-  37: '1.1.0', 38: '1.1.0', 39: '1.1.0', // carve, match, vocode
+  37: '1.0.10', 38: '1.0.10', 39: '1.0.10', // carve, match, vocode
 }
 
 const parse = (v: string) => v.split('.').map(x => parseInt(x, 10) || 0)

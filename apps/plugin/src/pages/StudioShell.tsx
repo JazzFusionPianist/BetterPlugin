@@ -2576,7 +2576,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}
             onDoubleClick={() => setDiagOpen(true)}>
-            <SlurMark height={26} /><span>studio</span>
+            <SlurMark height={28} />
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>

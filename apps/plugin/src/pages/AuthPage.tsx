@@ -92,10 +92,10 @@ export default function AuthPage() {
       <div className="sl-door" aria-label={mode === 'signin' ? 'log in' : 'sign up'}>
         <div className="sl-door-l">
           <Bar w={720} h={900} y0={360} gap={60} s={50} line="rgba(26,25,23,.35)" notes={DOOR_NOTES} />
-          <span className="sl-logo"><SlurMark height={40} arm={C.white} /><span>studio</span></span>
+          <span className="sl-logo"><SlurMark height={40} arm={C.white} /></span>
         </div>
         <div className="sl-door-r">
-          <span className="sl-logo narrow"><SlurMark height={32} /><span>studio</span></span>
+          <span className="sl-logo narrow"><SlurMark height={32} /></span>
           <form className="sl-form" onSubmit={submit}>
             <h2>{mode === 'signin' ? 'log in' : 'sign up'}</h2>
             {mode === 'signup' && (

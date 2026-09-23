@@ -42,13 +42,18 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kSide = 33,             // the host's sidechain bus, as a print: no input, one output
             kFollow = 34,           // an envelope follower: audio in, a control wire out (attack, release, sense)
             // an effect that came after the first twenty-eight: it has a slot like any print, just a higher number
-            kComp = 35 };           // a compressor: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms
+            kComp = 35,             // a compressor: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms
+            // a splitter with state: the sound cut into bands at up to five crossovers (aux 0..4, Hz, ascending; aux 5 = how many),
+            // each band a stereo pair on its own port (0 = the lowest). Linkwitz-Riley 4th order, with the allpasses that let
+            // the bands sum back to the sound.
+            kSplitBands = 36 };
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp; }
-inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS; }
+inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
+constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
@@ -139,6 +144,11 @@ struct NodeState
     float stEnvM = 0.0f, stEnvS = 0.0f;
     // glue
     float glueEnv = 0.0f;
+    // bands: per crossover the split (LP², HP²), and per (band, later crossover) the allpass that band goes through
+    Biquad bandLp[kMaxCross][2][2], bandHp[kMaxCross][2][2];          // [crossover][stage][channel]
+    Biquad bandApLp[kMaxCross][kMaxCross][2][2], bandApHp[kMaxCross][kMaxCross][2][2];   // [band][crossover][stage][channel]
+    int   bandBakedHz[kMaxCross] { -1, -1, -1, -1, -1 };
+    int   bandBakedN = -1;
     // comp
     float compEnvDb = -120.0f;   // the detector, in dB, through attack and release
     float compRms = 0.0f;
@@ -302,6 +312,7 @@ struct Op
                       kDelay,      // dst delayed by `samples` through delay line `slot`
                       kSplitLR,    // dst = (src.L, src.L), dst2 = (src.R, src.R)
                       kSplitMS,    // dst = (mid, mid), dst2 = (side, side)
+                      kSplitBands, // outs[0..n-1] = the bands of src, lowest first (n = the node's crossovers + 1); state in nodes[slot]
                       kJoinLR,     // dst.L = fold(src), dst.R = fold(src2); a missing lane (-1) is silence; flag 1 = add
                       kJoinMS,     // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
                       kSide,       // dst = the sidechain bus (silence when the host gives none)
@@ -316,6 +327,7 @@ struct Op
     int   src2 = -1;   // the second source of a join
     int   dst2 = -1;   // the second output of a split
     int   flag = 0;    // join: 1 = accumulate into dst
+    int   outs[kMaxCross + 1] { -1, -1, -1, -1, -1, -1 };   // a bands split: one buffer per band
 };
 
 constexpr int kMaxDelayLines = 32;

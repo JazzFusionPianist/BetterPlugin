@@ -120,12 +120,16 @@ export const FX_SIDE = 33
 export const FX_FOLLOW = 34
 /** A compressor with numbers: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms. */
 export const FX_COMP = 35
+/** A splitter that cuts the sound into bands at up to five crossovers, each band a stereo pair on its own port (0 = the lowest). */
+export const FX_BANDS = 36
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW
-export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW
+export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS
+/** How many output ports a print has (a splitter: two; the bands: one per band). */
+export const outPortsOf = (t: number, aux: number[]) => (t === FX_BANDS ? Math.max(2, Math.min(6, (aux[5] || 1) + 1)) : isSplitterType(t) ? 2 : 1)
 export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)

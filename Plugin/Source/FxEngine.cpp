@@ -293,6 +293,8 @@ void NodeState::reset()
     phFb[0] = phFb[1] = 0.0f;
     for (int st = 0; st < 4; ++st) for (int ch = 0; ch < 2; ++ch) { cutHp[st][ch] = {}; cutLp[st][ch] = {}; }
     cutBakedA = -1.0f; cutBakedVar = -1; cutBakedSlope = -1; cutUseHp = cutUseLp = false;
+    for (int k = 0; k < kMaxCross; ++k) { bandBakedHz[k] = -1; for (int st = 0; st < 2; ++st) for (int ch = 0; ch < 2; ++ch) { bandLp[k][st][ch] = {}; bandHp[k][st][ch] = {}; for (int j = 0; j < kMaxCross; ++j) { bandApLp[k][j][st][ch] = {}; bandApHp[k][j][st][ch] = {}; } } }
+    bandBakedN = -1;
     for (int ch = 0; ch < 2; ++ch)
     {
         ampHpState[ch] = 0.0f; ampDcState[ch] = 0.0f; ampLpState[ch] = 0.0f;
@@ -1782,7 +1784,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (! (e.to   == kPortOut || isNode (e.to)))   { error = "wire to nowhere";   return false; }
         if (e.in != 0 && ! (isNode (e.to) && hasKey (slotType[e.to]))) { error = "no key there"; return false; }
         if (e.from == e.to)                            { error = "wire to itself";    return false; }
-        const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? 2 : 1;
+        const int ports = isNode (e.from) && isSplitter (slotType[e.from]) ? (slotType[e.from] == kSplitBands ? juce::jlimit (2, kMaxCross + 1, (nodeOf[e.from] != nullptr ? nodeOf[e.from]->aux[5] : 1) + 1) : 2) : 1;
         if (e.port < 0 || e.port >= ports)             { error = "no such port";      return false; }
         for (int j = 0; j < i; ++j)
             if (edges[(size_t) j].from == e.from && edges[(size_t) j].to == e.to && edges[(size_t) j].port == e.port && edges[(size_t) j].in == e.in)   // the same sound may land on a print's input and on its key
@@ -2022,6 +2024,16 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
             Op fl; fl.kind = Op::kFollow; fl.slot = id; fl.src = b;
             if (! emit (fl)) return false;
             if (! fanOut (id, 0, b)) return false;   // no audio leaves it: this releases the buffer
+            continue;
+        }
+        if (slotType[id] == kSplitBands)
+        {
+            // the bands: port 0 keeps the buffer, each other band gets a fresh one; every band is a stereo pair
+            const int nb = juce::jlimit (2, kMaxCross + 1, (nodeOf[id] != nullptr ? nodeOf[id]->aux[5] : 1) + 1);
+            Op sp; sp.kind = Op::kSplitBands; sp.slot = id; sp.src = b; sp.dst = b; sp.outs[0] = b;
+            for (int k = 1; k < nb; ++k) { const int bk = alloc(); if (bk < 0) { error = "too many branches"; return false; } laneOfBuf[bk] = kLaneStereo; sp.outs[k] = bk; }
+            if (! emit (sp)) return false;
+            for (int k = 0; k < nb; ++k) if (! fanOut (id, k, sp.outs[k])) return false;
             continue;
         }
         if (isSplitter (slotType[id]))
@@ -2269,6 +2281,66 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             float* d0 = chan (op.dst, 0, n);
             if (d0 != sL) juce::FloatVectorOperations::copy (d0, sL, n);
             if (nc > 1) juce::FloatVectorOperations::copy (chan (op.dst, 1, n), d0, n);
+            break;
+        }
+        case Op::kSplitBands:
+        {
+            if (op.slot < 0 || op.slot >= kMaxNodes) break;
+            auto& nd = nodes[(size_t) op.slot];
+            const auto& p = params[op.slot];
+            int nb = 0; for (int k = 0; k <= kMaxCross; ++k) if (op.outs[k] >= 0) nb = k + 1;
+            const int nx = nb - 1;
+            // the crossovers, ascending whatever a hand did to them
+            int hz[kMaxCross];
+            for (int k = 0; k < nx; ++k) hz[k] = juce::jlimit (20, 20000, p.aux[k] > 0 ? p.aux[k] : 250);
+            for (int a = 1; a < nx; ++a) for (int b2 = a; b2 > 0 && hz[b2] < hz[b2 - 1]; --b2) std::swap (hz[b2], hz[b2 - 1]);
+            bool rebake = nd.bandBakedN != nx;
+            for (int k = 0; k < nx; ++k) rebake = rebake || nd.bandBakedHz[k] != hz[k];
+            if (rebake)
+            {
+                const float q[2] = { 0.70710678f, 0.70710678f };   // two Butterworth stages: Linkwitz-Riley 4th order
+                for (int k = 0; k < nx; ++k)
+                {
+                    const float f = juce::jlimit (20.0f, sampleRate * 0.45f, (float) hz[k]);
+                    for (int st = 0; st < 2; ++st) for (int ch = 0; ch < 2; ++ch)
+                    {
+                        auto& lp = nd.bandLp[k][st][ch]; bakeCutFilter (false, f, sampleRate, q[st], lp.b0, lp.b1, lp.b2, lp.a1, lp.a2);
+                        auto& hp = nd.bandHp[k][st][ch]; bakeCutFilter (true,  f, sampleRate, q[st], hp.b0, hp.b1, hp.b2, hp.a1, hp.a2);
+                        for (int bnd = 0; bnd < k; ++bnd)
+                        {
+                            auto& al = nd.bandApLp[bnd][k][st][ch]; bakeCutFilter (false, f, sampleRate, q[st], al.b0, al.b1, al.b2, al.a1, al.a2);
+                            auto& ah = nd.bandApHp[bnd][k][st][ch]; bakeCutFilter (true,  f, sampleRate, q[st], ah.b0, ah.b1, ah.b2, ah.a1, ah.a2);
+                        }
+                    }
+                    nd.bandBakedHz[k] = hz[k];
+                }
+                nd.bandBakedN = nx;
+            }
+            float* out[kMaxCross + 1][2];
+            for (int k = 0; k < nb; ++k) { out[k][0] = chan (op.outs[k], 0, n); out[k][1] = nc > 1 ? chan (op.outs[k], 1, n) : nullptr; }
+            for (int ch = 0; ch < nc; ++ch)
+            {
+                const float* src = chan (op.src, ch, n);   // out[0] may be this very buffer: each sample is read before its bands are written
+                for (int i = 0; i < n; ++i)
+                {
+                    float rest = src[i], band[kMaxCross + 1];
+                    for (int k = 0; k < nx; ++k)
+                    {
+                        band[k] = nd.bandLp[k][1][ch].run (nd.bandLp[k][0][ch].run (rest));
+                        rest    = nd.bandHp[k][1][ch].run (nd.bandHp[k][0][ch].run (rest));
+                    }
+                    band[nx] = rest;
+                    // a lower band goes through the allpass of every crossover above it (LP² − HP²), so the bands sum back flat
+                    for (int bnd = 0; bnd < nx; ++bnd)
+                        for (int k = bnd + 1; k < nx; ++k)
+                        {
+                            const float x = band[bnd];
+                            band[bnd] = nd.bandApLp[bnd][k][1][ch].run (nd.bandApLp[bnd][k][0][ch].run (x))
+                                      - nd.bandApHp[bnd][k][1][ch].run (nd.bandApHp[bnd][k][0][ch].run (x));
+                        }
+                    for (int k = 0; k < nb; ++k) if (out[k][ch] != nullptr) out[k][ch][i] = band[k];
+                }
+            }
             break;
         }
         case Op::kSplitMS:

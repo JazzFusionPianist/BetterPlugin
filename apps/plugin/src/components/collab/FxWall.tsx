@@ -9,12 +9,13 @@ import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, shapeAt, LFO_SHAPES, LFO_RANDOM, randomStep } from './LfoEditor'
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
+import { BandsEditor, BandsArt, BAND_RGB, crossovers, fmtHz } from './BandsEditor'
 import { LATEST, updateOut, engineHas, lfoOwnClock } from '../../lib/soundsRelease'
 import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -43,7 +44,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'side']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'bands', 'side']],
   ['control', ['LFO', 'macro', 'follow']],
 ]
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
@@ -88,7 +89,8 @@ const uid = () => Math.random().toString(36).slice(2, 8)
 void uid
 
 /** The lanes' colours: what a split wire carries. */
-const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132]]   // stereo, l, r, m, s
+const LANE_RGB: Array<[number, number, number]> = [[246, 243, 234], [92, 128, 255], [248, 156, 56], [246, 243, 234], [92, 200, 132], ...BAND_RGB]   // stereo, l, r, m, s, then the six bands low → high
+const BAND_LANE0 = 5
 const SPLIT_FAN = 22   // degrees between a splitter's two output ports
 const KEY_ANG = 42     // degrees below the input where a print's key point sits
 /** The hands a control wire can play, by print. */
@@ -120,7 +122,7 @@ const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
  *  the control prints are warm (they are hands); the side is the one other sound in the room, a deep sea green. */
 const UTILITY_TINTS: Record<number, [number, number, number]> = {
   [FX_MIX_TYPE]: [236, 226, 200], [FX_SPLIT_LR]: [120, 196, 255], [FX_SPLIT_MS]: [150, 236, 190],
-  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96],
+  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84],
 }
 const COMP_TINT: [number, number, number] = [92, 224, 168]   // comp — a cooler green than glue's
 function tintOf (type: number, variant = 0): [number, number, number] {
@@ -131,7 +133,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_MACRO) return `${Math.round(a * 100)}`
@@ -450,6 +452,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   return (
     <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
       {type === FX_MIX_TYPE ? <MixArt shares={shares ?? []} />
+        : type === FX_BANDS ? <BandsArt aux={node.aux} />
         : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
         : type === FX_LFO ? <LfoArt pts={node.pts} random={node.aux[4] || 0} />
         : type === FX_RATE ? <RateArt node={node} />
@@ -565,7 +568,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -672,6 +675,7 @@ export default function FxWall ({ size: frame }: Props) {
   /** The hands a control wire can play on a print: its numbers; a mix's are its wires' shares. */
   const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
     ? inputsOf(n.id).map(x => ({ key: `share:${x.e.from}`, label: x.e.from === FX_PORT_IN ? 'in' : nameOf(nodeById(x.e.from)?.type ?? -1) }))
+    : n.type === FX_BANDS ? crossovers(n.aux).map((hz, k) => ({ key: `aux${k}`, label: `${fmtHz(hz)} hz` }))
     : handsOfType(n.type)
   const handLabel = (n: FxGraphNode | undefined, key: string): string => {
     const ref = wireRef(key)
@@ -720,7 +724,9 @@ export default function FxWall ({ size: frame }: Props) {
     const n = nodeById(id); if (!n) return inPort
     const c = toScreen(n)
     if (!isSplitterType(n.type)) return { x: c.x + Rz * plateReach(n.type), y: c.y }
-    const ang = (port === 0 ? -1 : 1) * SPLIT_FAN * Math.PI / 180
+    const np = outPortsOf(n.type, n.aux)
+    const step = Math.min(SPLIT_FAN * 2, 110 / Math.max(1, np - 1))
+    const ang = (port - (np - 1) / 2) * step * Math.PI / 180
     return { x: c.x + Rz * Math.cos(ang), y: c.y + Rz * Math.sin(ang) }
   }
   /** What a wire carries: the lane of the port it leaves. A node passes
@@ -734,7 +740,8 @@ export default function FxWall ({ size: frame }: Props) {
         let l = 0
         if (e.from !== FX_PORT_IN && !isControlEdge(e)) {
           const n = nodeById(e.from)
-          if (n && isSplitterType(n.type)) l = n.type === FX_SPLIT_LR ? (e.port ? 2 : 1) : (e.port ? 4 : 3)
+          if (n && n.type === FX_BANDS) l = BAND_LANE0 + Math.min(5, e.port ?? 0)
+          else if (n && isSplitterType(n.type)) l = n.type === FX_SPLIT_LR ? (e.port ? 2 : 1) : (e.port ? 4 : 3)
           else if (n && isControlType(n.type)) l = 0
           else l = outLane.get(e.from) ?? 0
         }
@@ -810,7 +817,7 @@ export default function FxWall ({ size: frame }: Props) {
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], aux: [...LFO_AUX] } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
@@ -1492,7 +1499,7 @@ export default function FxWall ({ size: frame }: Props) {
           if (!isHeld('wet') && (h[5] === 1) !== !!n.wet && !isUtilityType(n.type)) set({ wet: h[5] === 1 })
           const aux = [...m.aux]; while (aux.length < 8) aux.push(0)
           let auxDirty = false
-          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_LFO || n.type === FX_FOLLOW || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
+          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_LFO || n.type === FX_FOLLOW || n.type === FX_BANDS || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
           if (auxDirty) set({ aux })
           if (dirty) changed = true
           return m
@@ -1907,7 +1914,7 @@ export default function FxWall ({ size: frame }: Props) {
                   <span className="sg-key-word" style={{ left: kp.x - (c.x - Rz) - 7, top: kp.y - (c.y - Rz), opacity: capAlpha }}>key</span>
                 </Fragment>) })()}
               {isSplitterType(n.type)
-                ? [0, 1].map(port => {
+                ? Array.from({ length: outPortsOf(n.type, n.aux) }, (_, port) => {
                     const p = outPortOf(n.id, port)
                     return <span key={port} className="sg-dot r" style={{ right: 'auto', left: p.x - (c.x - Rz) - 2.5, top: p.y - (c.y - Rz) - 2.5 }} onPointerDown={startWire(n.id, port)} />
                   })
@@ -1918,6 +1925,7 @@ export default function FxWall ({ size: frame }: Props) {
                   <span className="sg-name">{nameOf(n.type)}</span>
                   {(n.type === FX_RATE || (n.type === FX_LFO && lfoOwnClock())) && <span className="sg-flav"> {rateText(n)}</span>}
                   {n.type === FX_MACRO && <span className="sg-flav"> {(n.aux[0] || 0) + 1}</span>}
+                  {n.type === FX_BANDS && <span className="sg-flav"> {crossovers(n.aux).map(fmtHz).join(' / ')}</span>}
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
@@ -2047,6 +2055,9 @@ export default function FxWall ({ size: frame }: Props) {
             ? <LfoEditor pts={studyNode.pts ?? SINE_PTS} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
                 slot={lfoOwnClock() ? studyNode.id : undefined} random={lfoOwnClock() ? studyNode.aux[4] || 0 : 0}
                 onChange={(pts, final) => updateNode(studyNode.id, { pts, variant: -1 }, final)} />
+            : studyNode.type === FX_BANDS
+            ? <BandsEditor aux={studyNode.aux} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
+                onChange={(aux, final) => updateNode(studyNode.id, { aux }, final)} />
             : studyNode.type === FX_COMP
             ? <CompMeter slot={studyNode.id} threshold={-60 * studyNode.amount} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="92, 224, 168"
                 onThreshold={(db, final) => updateNode(studyNode.id, { amount: Math.max(0, Math.min(1, -db / 60)) }, final)}

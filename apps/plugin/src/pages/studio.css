@@ -1073,3 +1073,37 @@
 .wd .wd-home .sprompt-bar:focus-within { background: #fff; box-shadow: 0 0 0 1.5px #1A1917; }
 .wd .wd-home .sprompt-send { width: 30px; height: 30px; border-radius: 15px; background: #1A1917; }
 .wd .wd-home .sprompt-ainote { letter-spacing: 0; color: #C0BCB3; }
+
+/* ── the games wall and the live room, in the skin ──
+   Both hosts are .plugin-classed (collab.css draws them); the skin only
+   retunes their chrome to the studio's: white pane, no orb backdrop, pill
+   fields and words, the house green. */
+.wd-main .wd-games.plugin, .wd-main .wd-live.plugin { --bg: #FBFAF7; --card: #F1EEE6; --border: rgba(26,25,23,.08); --blue: #3FB872; }
+.wd-main .wd-games.plugin:not(.dark) { background: #FBFAF7; }
+.wd-main .wd-games.plugin:not(.dark) .float-orbs-layer { display: none; }
+.wd-main .wd-games.plugin:not(.dark) .game-cd-hover-label { background: #1A1917; color: #FBFAF7; border: none; border-radius: 999px; padding: 6px 14px; box-shadow: none; backdrop-filter: none; }
+.wd-main .wd-games.plugin:not(.dark) .game-cd-hover-title { color: #FBFAF7; }
+.wd-main .wd-games.plugin:not(.dark) .game-cd-hover-desc { color: rgba(251,250,247,.6); }
+.wd-main .wd-games.plugin .wd-games-bar, .wd-main .wd-live.plugin .wd-games-bar { border-bottom: none; }
+.wd-main .wd-games.plugin:not(.dark) .wd-games-back, .wd-main .wd-live.plugin .wd-games-back { color: #6E6B63; }
+.wd-main .wd-games.plugin:not(.dark) .wd-games-title, .wd-main .wd-live.plugin .wd-games-title { font-weight: 600; letter-spacing: -0.02em; font-size: 15px; }
+
+.wd-live .live-body { background: #FBFAF7; }
+.wd-live .live-setup-icon { width: 44px; height: 44px; border: none; background: rgba(214,64,46,.1); color: #D6402E; box-shadow: none; }
+.wd-live .live-setup-hint { font-size: 12.5px; color: #6E6B63; }
+.wd-live .live-field-label { font-size: 10.5px; letter-spacing: 0; color: #A5A199; text-transform: none; }
+.wd-live .live-title-input, .wd-live .live-select, .wd-live .live-field { height: 44px; border: none !important; border-radius: 22px; background: #F1EEE6 !important;
+  padding: 0 16px; font-size: 13.5px; box-shadow: none !important; }
+.wd-live .live-title-input:focus, .wd-live .live-select:focus { background: #fff !important; box-shadow: 0 0 0 1.5px #1A1917 !important; }
+.wd-live .live-go-btn { height: 44px; border-radius: 22px; background: #1A1917 !important; color: #FBFAF7 !important; border: none !important; box-shadow: none !important; font-size: 14px; font-weight: 500; }
+.wd-live .live-go-btn::before { background: #D6402E; }
+.wd-live .live-go-btn:hover:not(:disabled) { background: #000 !important; }
+.wd-live .live-end-btn { border-radius: 999px; padding: 8px 20px; border-color: rgba(214,64,46,.4); }
+.wd-live .live-others { border-top: none; }
+.wd-live .live-others-row { border-radius: 14px; padding: 8px 10px; }
+.wd-live .live-others-row:hover { background: #F1EEE6; }
+.wd-live .live-watch-btn { border-radius: 999px; padding: 5px 12px; font-size: 11px; background: #1A1917; color: #FBFAF7; border-color: #1A1917; }
+.wd-live .live-watch-btn:hover { background: #D6402E; border-color: #D6402E; }
+.wd-live .live-chat { border-radius: 16px; background: #F1EEE6; border: none; }
+.wd-live .live-switch-toggle { border-radius: 999px; }
+.wd-live .s-section-label { font-size: 10.5px; letter-spacing: 0; text-transform: none; color: #A5A199; font-weight: 500; }

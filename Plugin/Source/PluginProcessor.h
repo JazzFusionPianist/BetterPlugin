@@ -230,6 +230,8 @@ private:
         std::atomic<bool>  hasLfo { false };
         std::array<std::atomic<float>, orbfx::kLfoLen> lfo {};
         std::array<std::atomic<uint8_t>, orbfx::kLfoLen> lfoCliff {};   // 1 where the shape drops or climbs straight (a vertical line): the hand must jump there, not glide
+        std::atomic<bool>  hasLfo2 { false };
+        std::array<std::atomic<float>, orbfx::kLfoLen> lfo2 {};   // the shape it morphs toward (the `morph` hand says how far)
     };
     std::array<SlotParams, orbfx::kMaxNodes> fxSlots;
 

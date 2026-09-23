@@ -15,7 +15,7 @@ import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
 } from '../../lib/fxBridge'
 
@@ -40,18 +40,18 @@ const SHELF_H = 112
 /** The shelf's families: one row of prints at a time. */
 const FAMILIES: Array<[string, string[]]> = [
   ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'comp', 'air']],
-  ['grit', ['crush', 'radio', 'ring']],
+  ['grit', ['crush', 'radio', 'ring', 'fold']],
   ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
-  ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow']],
+  ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow', 'repeat']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'bands', 'side']],
-  ['control', ['LFO', 'macro', 'follow']],
-  ['spectral', ['carve', 'match', 'vocode']],
+  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'pan', 'bands', 'side']],
+  ['control', ['LFO', 'macro', 'follow', 'env']],
+  ['spectral', ['carve', 'match', 'vocode', 'freeze', 'shift', 'smear']],
 ]
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
  *  tone: a square, sharp; grit: a square with two opposite corners struck off; space: the circle; motion: a square leaning over;
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
-const familyOf = (type: number) => { if (type === FX_COMP) return 'tone'; if (isSpectralType(type)) return 'pitch'; const name = MODES.find(m => m.id === type)?.name; return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
+const familyOf = (type: number) => { if (type === FX_COMP) return 'tone'; if (isSpectralType(type)) return 'pitch'; if (type === FX_PAN) return 'space'; const name = nameOf(type); return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
 const LEAN = 0.34, LEAN_W = 1.08, DIAMOND = 1.36, STRUCK = 0.62
 /** The control prints (LFO, macro, follow) are hands, not sounds: a small hexagon, about half a sound print, lit in their own colour —
  *  small so they read as fittings, plated so the wall's light goes round them instead of through them. */
@@ -102,6 +102,10 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'tilt' }],
   [FX_MATCH]: [{ key: 'aux1', label: 'smooth' }],
   [FX_VOCODE]: [{ key: 'aux0', label: 'bands' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }],
+  [FX_FREEZE]: [{ key: 'aux0', label: 'gate' }],
+  [FX_SHIFT]: [{ key: 'aux0', label: 'hz' }, { key: 'aux1', label: 'feedback' }],
+  [FX_SMEAR]: [{ key: 'aux0', label: 'time' }, { key: 'aux1', label: 'blur' }],
+  [FX_REPEAT]: [{ key: 'aux4', label: 'threshold' }],
   [FX_COMP]: [{ key: 'aux0', label: 'ratio' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }, { key: 'aux3', label: 'knee' }, { key: 'aux4', label: 'makeup' }],
   15: [{ key: 'aux2', label: 'interval' }],
   16: [{ key: 'aux0', label: 'cents' }],
@@ -110,12 +114,14 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
 }
 const AURORA = !(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'round')   // the wall's light is an aurora; ?glow=round shows the old round lamps, to compare
 /** What a print's big knob is, where "amount" would be vague. */
-const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth' }
+const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'mix', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
-const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
+const ENV_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'decay' }, { key: 'aux2', label: 'sustain' }, { key: 'aux3', label: 'release' }, { key: 'aux4', label: 'threshold' }, { key: 'aux5', label: 'gate' }]   // gate: what lands here opens the envelope while it is up (wire mode)
+const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }, { key: 'decay', label: 'morph' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
+const NEW_VARIANTS: Record<number, string[]> = { [FX_FREEZE]: ['knob', 'gate'], [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
 const LFO_AUX = [0, 3, 0, 200, 0, 100, 0, 0]   // sync, 1/4, straight, 2 hz, not random, full depth
-const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
+const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']
@@ -126,20 +132,22 @@ const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
  *  the control prints are warm (they are hands); the side is the one other sound in the room, a deep sea green. */
 const UTILITY_TINTS: Record<number, [number, number, number]> = {
   [FX_MIX_TYPE]: [236, 226, 200], [FX_SPLIT_LR]: [120, 196, 255], [FX_SPLIT_MS]: [150, 236, 190],
-  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84],
+  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84], [FX_ENV]: [255, 172, 120],
 }
 const COMP_TINT: [number, number, number] = [92, 224, 168]   // comp — a cooler green than glue's
-const SPECTRAL_TINT: Record<number, [number, number, number]> = { [FX_CARVE]: [255, 112, 150], [FX_MATCH]: [120, 216, 255], [FX_VOCODE]: [210, 150, 255] }
+const SPECTRAL_TINT: Record<number, [number, number, number]> = { [FX_CARVE]: [255, 112, 150], [FX_MATCH]: [120, 216, 255], [FX_VOCODE]: [210, 150, 255], [FX_FREEZE]: [150, 232, 255], [FX_SHIFT]: [255, 150, 210], [FX_SMEAR]: [186, 196, 255] }
+const NEW_TINTS: Record<number, [number, number, number]> = { [FX_PAN]: [222, 222, 240], [FX_REPEAT]: [255, 190, 90], [FX_FOLD]: [255, 122, 84] }
 function tintOf (type: number, variant = 0): [number, number, number] {
   if (isUtilityType(type)) return UTILITY_TINTS[type] ?? [246, 243, 234]
   if (type === FX_COMP) return COMP_TINT
   if (isSpectralType(type)) return SPECTRAL_TINT[type]
+  if (NEW_TINTS[type]) return NEW_TINTS[type]
   return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
 }
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
-const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_MACRO) return `${Math.round(a * 100)}`
@@ -153,6 +161,7 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
   if (type === FX_COMP) return `${Math.round(-60 * a)} dB`
   if (type === FX_CARVE) return `${Math.round(-24 * a)} dB`
+  if (type === FX_PAN) { const p = Math.round((a - 0.5) * 200); return p === 0 ? 'centre' : p < 0 ? `L ${-p}` : `R ${p}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
@@ -176,6 +185,7 @@ function parseAmount (type: number, s: string, variant = 0): number | null {
   if (type === 5) return clamp(v < 0 ? (v / 60 + 1) * 0.75 : v / 48 + 0.75, 0, 1)
   if (type === FX_COMP) return clamp(-v / 60, 0, 1)
   if (type === FX_CARVE) return clamp(-v / 24, 0, 1)
+  if (type === FX_PAN) { if (t === 'c' || t === 'centre' || t === 'center') return 0.5; const side = /^l/.test(t) ? -1 : /^r/.test(t) ? 1 : Math.sign(v) || 1; return clamp(side * Math.abs(v) / 200 + 0.5, 0, 1) }
   if (type === 7) {
     if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
     const hz = Math.max(1, /k/i.test(s) ? v * 1000 : v)   // "2.5k" is 2500
@@ -369,6 +379,111 @@ function SideArt () {
     </g>
   )
 }
+/** freeze: a wave held still — its bars stand, one line runs on over them. */
+function FreezeArt ({ node }: { node: { amount: number; variant: number; aux: number[] } }) {
+  const C = 'rgb(150, 232, 255)'
+  const held = node.variant === 1 ? !!node.aux[0] : node.amount > 0.004
+  const bars = [0.3, 0.55, 0.9, 0.7, 1, 0.6, 0.8, 0.45, 0.35, 0.2]
+  return (
+    <g>
+      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
+      {bars.map((h, k) => <rect key={k} x={50 + k * 12.4} y={150 - 90 * h} width={8} height={90 * h} fill={C} fillOpacity={held ? 0.8 : 0.28} />)}
+      <path d="M46 160 H174" stroke={C} strokeOpacity={0.4} strokeWidth={1} />
+      {held ? null : <path d={`M46 110 ${bars.map((h, k) => `L${54 + k * 12.4} ${150 - 90 * h}`).join(' ')} L174 110`} fill="none" stroke={C} strokeWidth={2} strokeLinejoin="round" />}
+    </g>
+  )
+}
+/** shift: every line of the spectrum moved by the same hz — the harmonics slide, not scale. */
+function ShiftArt ({ node }: { node: { amount: number; aux: number[] } }) {
+  const C = 'rgb(255, 150, 210)'
+  const hz = Math.max(-2000, Math.min(2000, node.aux[0] || 0)), dx = 26 * (hz / 2000) * Math.max(0.15, node.amount)
+  const lines = [0, 1, 2, 3, 4].map(k => 56 + k * 26)
+  return (
+    <g>
+      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
+      {lines.map((x, k) => <path key={`d${k}`} d={`M${x} 150 V${150 - 70 / (k + 1)}`} stroke={C} strokeOpacity={0.3} strokeWidth={2} strokeDasharray="2 3" />)}
+      {lines.map((x, k) => <path key={`s${k}`} d={`M${x + dx} 150 V${150 - 70 / (k + 1)}`} stroke={C} strokeWidth={3} strokeLinecap="round" />)}
+      <path d="M46 160 H174" stroke={C} strokeOpacity={0.4} strokeWidth={1} />
+    </g>
+  )
+}
+/** smear: the spectrum's peaks left to fade slowly — a fog under the line. */
+function SmearArt ({ node }: { node: { amount: number; aux: number[] } }) {
+  const C = 'rgb(186, 196, 255)'
+  const live = (t: number) => 0.45 + 0.28 * Math.sin(t * 5.1) * Math.sin(t * 1.3 + 0.4) + 0.12 * Math.sin(t * 13)
+  const fog = (t: number) => { let m = 0; for (let k = 0; k < 8; k++) m = Math.max(m, live(t - k * 0.06)); return m }
+  const a = node.amount
+  return (
+    <g>
+      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
+      <path d={`${specPath(48, 124, 176, 130, (t, y) => y + (fog(t) - y) * 1)} L176 160 L48 160 Z`} fill={C} fillOpacity={0.12 + 0.28 * a} stroke="none" />
+      <path d={specPath(48, 124, 176, 130, (t, y) => y + (live(t) - y) * 1)} fill="none" stroke={C} strokeWidth={2} strokeOpacity={1 - 0.6 * a} strokeLinejoin="round" />
+    </g>
+  )
+}
+/** pan: the sound's place between the two ears. */
+function PanArt ({ a }: { a: number }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const x = 46 + (174 - 46) * a
+  return (
+    <g>
+      <path d="M46 110 H174" stroke={P} strokeOpacity={0.35} strokeWidth={1.2} strokeLinecap="round" />
+      <path d="M110 96 V124" stroke={P} strokeOpacity={0.35} strokeWidth={1} />
+      <text x={34} y={116} fontSize={15} fontFamily="inherit" fill={P} fillOpacity={0.7} textAnchor="middle">L</text>
+      <text x={186} y={116} fontSize={15} fontFamily="inherit" fill={P} fillOpacity={0.7} textAnchor="middle">R</text>
+      <circle cx={x} cy={110} r={9} fill={P} />
+    </g>
+  )
+}
+/** repeat: one slice of sound, caught at a hit, said again and again. */
+function RepeatArt ({ a }: { a: number }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const slice = [0.9, 0.5, 0.7, 0.3, 0.2]
+  return (
+    <g>
+      {[0, 1, 2].map(r => slice.map((h, k) => <rect key={`${r}${k}`} x={40 + r * 48 + k * 8} y={150 - 80 * h} width={6} height={80 * h} fill={P} fillOpacity={r === 0 ? 0.85 : 0.25 + 0.6 * a} />))}
+      <path d="M40 160 H184" stroke={P} strokeOpacity={0.3} strokeWidth={1} />
+      <path d="M40 54 V160" stroke={P} strokeOpacity={0.5} strokeWidth={1.2} strokeDasharray="3 3" />
+    </g>
+  )
+}
+/** env: attack, decay, sustain, release — the four sides of a gate. */
+function EnvArt ({ node }: { node: { aux: number[] } }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const lg = (v: number, lo: number, hi: number) => Math.log(Math.max(lo, Math.min(hi, v)) / lo) / Math.log(hi / lo)
+  const atk = 6 + 30 * lg(node.aux[0] || 10, 1, 5000), dec = 8 + 34 * lg(node.aux[1] || 200, 1, 5000), rel = 10 + 44 * lg(node.aux[3] || 300, 1, 10000)
+  const sus = Math.max(0, Math.min(100, node.aux[2] ?? 70)) / 100
+  const base = 150, top = 66, x0 = 40
+  const susW = Math.max(10, 150 - atk - dec - rel)
+  const xA = x0 + atk, xD = xA + dec, xS = xD + susW, xR = xS + rel
+  const yS = base - (base - top) * sus
+  return (
+    <g>
+      <path d={`M${x0} ${base} L${xA} ${top} L${xD} ${yS} L${xS} ${yS} L${xR} ${base} Z`} fill={P} fillOpacity={0.12} stroke="none" />
+      <path d={`M${x0} ${base} L${xA} ${top} L${xD} ${yS} L${xS} ${yS} L${xR} ${base}`} fill="none" stroke={P} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={`M34 ${base} H186`} stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
+      <path d={`M${x0} ${base + 3} V${base + 9} M${xS} ${base + 3} V${base + 9}`} stroke={P} strokeOpacity={0.6} strokeWidth={1} />
+    </g>
+  )
+}
+/** fold: a wave driven past the edge and bent back on itself. */
+function FoldArt ({ a, variant }: { a: number; variant: number }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const drive = 1 + a * a * 5
+  const fold = (x: number) => { if (variant !== 1) return Math.sin(x * Math.PI / 2); const t = x * 0.5 + 0.25; const f = t - Math.floor(t); return f < 0.5 ? f * 4 - 1 : 3 - f * 4 }
+  const pts: string[] = []
+  for (let i = 0; i <= 64; i++) { const t = i / 64; const x = 44 + t * 132; const y = 110 - 52 * fold(Math.sin(t * Math.PI * 2) * drive); pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`) }
+  return (
+    <g>
+      <path d="M44 58 H176 M44 162 H176" stroke={P} strokeOpacity={0.3} strokeWidth={1} strokeDasharray="3 4" />
+      <path d={pts.join(' ')} fill="none" stroke={P} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+    </g>
+  )
+}
 /** The follow's print: a sound's outline and the line that follows it. */
 function FollowArt ({ node }: { node: { aux: number[] } }) {
   const lvl = useContext(StrokeLevel) ?? 0
@@ -528,6 +643,13 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : type === FX_VOCODE ? <VocodeArt node={node} />
         : type === FX_SIDE ? <SideArt />
         : type === FX_FOLLOW ? <FollowArt node={node} />
+        : type === FX_ENV ? <EnvArt node={node} />
+        : type === FX_FREEZE ? <FreezeArt node={node} />
+        : type === FX_SHIFT ? <ShiftArt node={node} />
+        : type === FX_SMEAR ? <SmearArt node={node} />
+        : type === FX_PAN ? <PanArt a={a} />
+        : type === FX_REPEAT ? <RepeatArt a={a} />
+        : type === FX_FOLD ? <FoldArt a={a} variant={variant} />
         : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
         : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
         : type === 7 ? <Art a={a} variant={variant} />
@@ -636,7 +758,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -854,9 +976,9 @@ export default function FxWall ({ size: frame }: Props) {
   // (Painted on the canvas each frame; see backdropRef.)
   const intensityOf = (n: FxGraphNode) =>
     n.type === FX_MACRO ? 0.15 + 0.85 * n.amount            // a macro is as bright as its knob is up
-    : n.type === FX_SIDE || n.type === FX_FOLLOW ? 0.55     // these two breathe with what they hear (see the lamps)
+    : n.type === FX_SIDE || n.type === FX_FOLLOW || n.type === FX_ENV ? 0.55     // these breathe with what they hear (see the lamps)
     : isUtilityType(n.type) ? 0.4                           // a steady low light in its own colour
-    : (n.type === 0 || n.type === 16 || n.type === 17) ? Math.abs(n.amount - 0.5) * 2
+    : (n.type === 0 || n.type === 16 || n.type === 17 || n.type === FX_PAN) ? Math.abs(n.amount - 0.5) * 2
     : n.type === 5 ? (n.amount < 0.75 ? (0.75 - n.amount) / 0.75 : (n.amount - 0.75) / 0.25)
     : n.amount
   const litLevel = 0   // the ink reads the base wall: paper everywhere
@@ -885,7 +1007,7 @@ export default function FxWall ({ size: frame }: Props) {
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 0] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 0] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], aux: [...LFO_AUX] } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
@@ -929,11 +1051,11 @@ export default function FxWall ({ size: frame }: Props) {
     // a macro landing on a hand a rate already plays takes over that play's depth
     const src = nodeById(from)
     if (src?.type === FX_MACRO) {
-      const played = graph.edges.find(e => e.to === to && e.hand === hand && [FX_LFO, FX_RATE, FX_FOLLOW].includes(nodeById(e.from)?.type ?? -1))
+      const played = graph.edges.find(e => e.to === to && e.hand === hand && [FX_LFO, FX_RATE, FX_FOLLOW, FX_ENV].includes(nodeById(e.from)?.type ?? -1))
       if (played) hand = `wire:${played.from}:${hand}`
     }
     if (graph.edges.some(e => e.from === from && e.to === to && e.hand === hand)) return
-    commit({ ...graph, edges: [...graph.edges, { from, to, gain: src?.type === FX_MACRO || src?.type === FX_FOLLOW ? 1 : 0.5, port: 0, hand }] }, true)
+    commit({ ...graph, edges: [...graph.edges, { from, to, gain: src?.type === FX_MACRO || src?.type === FX_FOLLOW || src?.type === FX_ENV ? 1 : 0.5, port: 0, hand }] }, true)
   }
   const connect = (from: number, to: number, port = 0, inPort = 0) => {
     if (from === to) return
@@ -942,7 +1064,7 @@ export default function FxWall ({ size: frame }: Props) {
     const dst = to === FX_PORT_OUT ? null : nodeById(to)
     // an lfo feeds a rate its shape; a follow listens to any sound; nothing else meets a control print by a plain wire
     if (src && isControlType(src.type)) { if (!(src.type === FX_LFO && dst?.type === FX_RATE)) return }
-    else if (dst && isControlType(dst.type) && dst.type !== FX_FOLLOW) return
+    else if (dst && isControlType(dst.type) && dst.type !== FX_FOLLOW && dst.type !== FX_ENV) return
     if (graph.edges.some(e => e.from === from && e.to === to && (e.port ?? 0) === port && (e.in ?? 0) === inPort && !isControlEdge(e))) return
     const target = to === FX_PORT_OUT ? null : nodeById(to)
     if (inPort === 1) { commit({ ...graph, edges: [...graph.edges, { from, to, gain: 1, port, in: 1 }] }, true); return }
@@ -1218,7 +1340,7 @@ export default function FxWall ({ size: frame }: Props) {
       updateNode(n.id, { aux }, true)
     }
     const rows: React.ReactNode[] = []
-    const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
+    const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? NEW_VARIANTS[n.type] ?? []
     if (n.type === FX_LFO && lfoOwnClock()) {
       const isRandom = (n.aux[4] || 0) > 0, isSteps = !isRandom && n.variant === LFO_STEPS
       rows.push(<ChoiceRow key="shape" label="shape" list none="drawn" options={LFO_SHAPES.map(sh => sh.name)} value={isRandom ? LFO_RANDOM : n.variant}
@@ -1230,10 +1352,19 @@ export default function FxWall ({ size: frame }: Props) {
           updateNode(n.id, { pts: [...sh.pts!], variant: k, aux }, true)
         }} />)
       if (isRandom) rows.push(<GaugeRow key="steps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
+      if (!isRandom && !isSteps) {
+        // the morph: a second shape the LFO leans toward, as far as its `morph` hand says (a macro can play it)
+        const toShapes = LFO_SHAPES.filter(sh => sh.pts)
+        const cur = n.pts2 ? toShapes.findIndex(sh => sh.pts!.length === n.pts2!.length && sh.pts!.every((v, i) => Math.abs(v - n.pts2![i]) < 1e-6)) : -1
+        rows.push(<ChoiceRow key="morphto" label="morph to" list none="none" options={toShapes.map(sh => sh.name)} value={cur}
+          onPick={(k) => updateNode(n.id, { pts2: k < 0 || k === cur ? undefined : [...toShapes[k].pts!], ...(cur < 0 && k >= 0 ? { decay: [0, 0, 0] } : {}) }, true)} />)   // (a shape picked fresh starts unmorphed: the hand at 0)
+        if (n.pts2) rows.push(<GaugeRow key="morph" label="morph" value={Math.round((n.decay[Math.max(0, Math.min(2, n.variant))] ?? 0) * 100)} min={0} max={100} step={1} unit="%" defaultValue={0} liveMap={(v) => v * 100}
+          onChange={(v, final) => updateNode(n.id, { decay: [v / 100, v / 100, v / 100] }, final)} />)
+      }
       if (isSteps) rows.push(<GaugeRow key="nsteps" label="steps" value={n.aux[6] || 8} min={2} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`}
         onChange={(v) => { const c = Math.max(2, Math.round(v)); const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[6] = c; updateNode(n.id, { aux, pts: stepsToPts(ptsToSteps(n.pts ?? SINE_PTS, c)) }, true) }} />)
     }
-    if (n.type === FX_RATE || (n.type === FX_LFO && lfoOwnClock())) {
+    if (n.type === FX_RATE || n.type === FX_REPEAT || (n.type === FX_LFO && lfoOwnClock())) {
       rows.push(<ChoiceRow key="mode" label="clock" options={['sync', 'hz']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       if ((n.aux[0] || 0) === 0) {
         rows.push(<ChoiceRow key="div" label="rate" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
@@ -1243,6 +1374,25 @@ export default function FxWall ({ size: frame }: Props) {
           format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
       }
       if (n.type === FX_LFO) rows.push(<GaugeRow key="lfodepth" label="depth" value={n.aux[5] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(5, Math.round(v))} />)
+    }
+    if (n.type === FX_REPEAT) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
+    if (n.type === FX_FREEZE) rows.push(<ChoiceRow key="variant" label="held by" options={['knob', 'gate']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)   // knob: up from rest holds the moment; gate: the `gate` hand, from a wire
+    if (n.type === FX_SHIFT) {
+      rows.push(<GaugeRow key="shz" label="hz" value={n.aux[0] || 0} min={-2000} max={2000} step={1} bipolar defaultValue={0} fine={400} format={(v) => `${v > 0 ? '+' : ''}${Math.round(v)} hz`} onChange={(v) => setAux(0, Math.round(v))} />)
+      rows.push(<GaugeRow key="sfb" label="feedback" value={n.aux[1] || 0} min={0} max={95} step={1} unit="%" defaultValue={0} onChange={(v) => setAux(1, Math.round(v))} />)
+    }
+    if (n.type === FX_SMEAR) {
+      rows.push(<GaugeRow key="stime" label="time" value={n.aux[0] || 800} min={50} max={5000} step={10} defaultValue={800} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
+      rows.push(<GaugeRow key="blur" label="blur" value={n.aux[1] || 0} min={0} max={100} step={1} unit="%" defaultValue={0} onChange={(v) => setAux(1, Math.round(v))} />)
+    }
+    if (n.type === FX_ENV) {
+      // level: the envelope opens when the sound it hears is over the threshold; wire: when what lands on `gate` is up
+      rows.push(<ChoiceRow key="variant" label="opened by" options={['level', 'wire']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
+      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 10} min={1} max={5000} step={1} defaultValue={10} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
+      rows.push(<GaugeRow key="edecay" label="decay" value={n.aux[1] || 200} min={1} max={5000} step={1} defaultValue={200} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
+      rows.push(<GaugeRow key="sustain" label="sustain" value={n.aux[2] ?? 70} min={0} max={100} step={1} unit="%" defaultValue={70} onChange={(v) => setAux(2, Math.round(v))} />)
+      rows.push(<GaugeRow key="release" label="release" value={n.aux[3] || 300} min={1} max={10000} step={1} defaultValue={300} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(3, Math.round(v))} />)
+      if (n.variant === 0) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
     }
     if (n.type === FX_CARVE) {
       rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 20} min={1} max={200} step={1} defaultValue={20} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
@@ -1284,7 +1434,7 @@ export default function FxWall ({ size: frame }: Props) {
         onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
       rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
-    } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && flavours.length > 0) {
+    } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && n.type !== FX_ENV && n.type !== FX_FREEZE && flavours.length > 0) {
       rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
     }
     if (n.type === 2) {
@@ -1358,7 +1508,7 @@ export default function FxWall ({ size: frame }: Props) {
         else if (hand === 'div') { setting = n.delayDiv / 6; read = (f) => DIV_LABELS[Math.round(f * 6)] ?? '' }
         const made = group.map(({ e, i }) => {
           const src = nodeById(e.from)
-          const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'
+          const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_ENV ? 'env' : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'
           const both = e.pol === 2 || ((e.pol ?? 0) === 0 && (src?.type === FX_LFO || src?.type === FX_RATE))
           // a macro that holds this play's depth: the range is as wide as that macro's knob is up, and dragging it turns the macro
           const holder = graph.edges.find(m => m.to === n.id && wireRef(m.hand)?.from === e.from && wireRef(m.hand)?.hand === hand)
@@ -1408,16 +1558,20 @@ export default function FxWall ({ size: frame }: Props) {
         case 'int': case 'scatter': case 'shape': return 'aux2'
         case 'spray': return 'aux1'
         case 'pan': return 'aux5'
-        case 'mode': return t === FX_RATE || t === FX_LFO ? 'aux0' : null
-        case 'div': return t === FX_RATE || t === FX_LFO ? 'aux1' : null
-        case 'feel': return t === FX_RATE || t === FX_LFO ? 'aux2' : null
-        case 'hz': return t === FX_RATE || t === FX_LFO ? 'aux3' : null
+        case 'mode': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT ? 'aux0' : null
+        case 'div': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT ? 'aux1' : null
+        case 'feel': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT ? 'aux2' : null
+        case 'hz': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT ? 'aux3' : null
+        case 'morph': return t === FX_LFO ? 'decay' : null
+        case 'shz': case 'stime': return 'aux0'
+        case 'sfb': case 'blur': case 'edecay': return 'aux1'
+        case 'sustain': return t === FX_ENV ? 'aux2' : null
         case 'steps': return t === FX_LFO ? 'aux4' : null
         case 'lfodepth': return t === FX_LFO ? 'aux5' : null
         case 'nsteps': return t === FX_LFO ? 'aux6' : null
         case 'slope': return t === 7 ? 'aux0' : null
-        case 'attack': return t === FX_FOLLOW || t === FX_CARVE ? 'aux0' : t === FX_COMP || t === FX_VOCODE ? 'aux1' : null
-        case 'release': return t === FX_FOLLOW || t === FX_CARVE ? 'aux1' : t === FX_COMP || t === FX_VOCODE ? 'aux2' : null
+        case 'attack': return t === FX_FOLLOW || t === FX_CARVE || t === FX_ENV ? 'aux0' : t === FX_COMP || t === FX_VOCODE ? 'aux1' : null
+        case 'release': return t === FX_ENV ? 'aux3' : t === FX_FOLLOW || t === FX_CARVE ? 'aux1' : t === FX_COMP || t === FX_VOCODE ? 'aux2' : null
         case 'sense': return t === FX_FOLLOW ? 'aux2' : null
         case 'ratio': return t === FX_COMP ? 'aux0' : null
         case 'tilt': return t === FX_CARVE ? 'aux2' : null
@@ -1425,7 +1579,7 @@ export default function FxWall ({ size: frame }: Props) {
         case 'bands': return t === FX_VOCODE ? 'aux0' : null
         case 'knee': return t === FX_COMP ? 'aux3' : null
         case 'makeup': return t === FX_COMP ? 'aux4' : null
-        case 'threshold': return t === FX_FOLLOW ? 'aux3' : null
+        case 'threshold': return t === FX_FOLLOW ? 'aux3' : t === FX_ENV || t === FX_REPEAT ? 'aux4' : null
         default: return null
       }
     }
@@ -1595,7 +1749,7 @@ export default function FxWall ({ size: frame }: Props) {
           if (!isHeld('wet') && (h[5] === 1) !== !!n.wet && !isUtilityType(n.type)) set({ wet: h[5] === 1 })
           const aux = [...m.aux]; while (aux.length < 8) aux.push(0)
           let auxDirty = false
-          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_LFO || n.type === FX_FOLLOW || n.type === FX_BANDS || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
+          for (let k = 0; k < 6; k++) if (!isHeld(`aux${k}`) && h[6 + k] !== aux[k] && (n.type === FX_RATE || n.type === FX_LFO || n.type === FX_FOLLOW || n.type === FX_ENV || n.type === FX_BANDS || !isUtilityType(n.type))) { aux[k] = h[6 + k]; auxDirty = true }
           if (auxDirty) set({ aux })
           if (dirty) changed = true
           return m
@@ -1738,7 +1892,7 @@ export default function FxWall ({ size: frame }: Props) {
       envs.current[n.id] = pk > env ? env + (pk - env) * Math.min(1, dt * 30) : env + (pk - env) * Math.min(1, dt * 3)
       const breath = alive ? envs.current[n.id] : 0
       // the side and the follow are lit BY what they hear: dark in silence, full on a hit (the rest only breathe a little)
-      const hears = n.type === FX_SIDE || n.type === FX_FOLLOW
+      const hears = n.type === FX_SIDE || n.type === FX_FOLLOW || n.type === FX_ENV
       const kNow = hears ? kTarget * Math.min(1.6, 0.5 + 1.3 * Math.sqrt(Math.min(1, breath))) : kTarget * (0.85 + 0.35 * Math.min(1, breath))   // (in silence they still wear their colour, low)
       const easeK = playedA !== undefined ? 1 - Math.exp(-dt / 0.045) : ease   // a played knob's light keeps up with the play (the slow ease would smooth a fast rate away)
       st.k += (kNow - st.k) * easeK
@@ -1969,7 +2123,7 @@ export default function FxWall ({ size: frame }: Props) {
           const isSel = sel?.node === n.id
           const isMix = n.type === FX_MIX_TYPE
           const isUtil = !hasAmountType(n.type)   // no knob of its own
-          const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? []
+          const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? NEW_VARIANTS[n.type] ?? []
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (
@@ -2170,6 +2324,10 @@ export default function FxWall ({ size: frame }: Props) {
             ? <CompMeter slot={studyNode.id} threshold={-60 * studyNode.amount} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="92, 224, 168"
                 onThreshold={(db, final) => updateNode(studyNode.id, { amount: Math.max(0, Math.min(1, -db / 60)) }, final)}
                 onGesture={(on) => gesture(studyNode.id, 'amount', on)} />
+            : studyNode.type === FX_ENV && studyNode.variant === 0
+            ? <FollowMeter slot={studyNode.id} threshold={studyNode.aux[4] || -30} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="255, 172, 120"
+                onThreshold={(db, final) => { const aux = [...studyNode.aux]; while (aux.length < 8) aux.push(0); aux[4] = db; updateNode(studyNode.id, { aux }, final) }}
+                onGesture={(on) => gesture(studyNode.id, 'aux4', on)} />
             : studyNode.type === FX_FOLLOW
             ? <FollowMeter slot={studyNode.id} threshold={studyNode.aux[3] || -40} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="248, 156, 56"
                 onThreshold={(db, final) => { const aux = [...studyNode.aux]; while (aux.length < 8) aux.push(0); aux[3] = db; updateNode(studyNode.id, { aux }, final) }}

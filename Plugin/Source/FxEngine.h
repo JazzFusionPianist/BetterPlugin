@@ -50,20 +50,27 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             // the spectral prints: one short-time Fourier transform, a key, and a rule per bin
             kCarve = 37,            // cuts the sound where the key is loud (no key: where the sound itself sticks out — its resonances)
             kMatch = 38,            // learns the key's spectrum and the sound's, and pulls the sound's toward the key's
-            kVocode = 39 };         // the sound (carrier) shaped by the key's spectrum, band by band
+            kVocode = 39,           // the sound (carrier) shaped by the key's spectrum, band by band
+            kFreeze = 40,           // holds the spectrum of one moment and keeps it sounding (gate: the knob, or a wire on `gate`)
+            kShift = 41,            // a frequency shifter: every partial moved by the same Hz (feedback makes it a barber pole)
+            kSmear = 42,            // the spectrum blurred over time: a fog, not a reverb
+            kPan = 43,              // where the sound sits, left to right (the knob; an LFO on it is an autopan)
+            kRepeat = 44,           // at each transient, one `rate` of the sound is kept and repeated until the next
+            kEnv = 45,              // an envelope: attack, decay, sustain, release — started by the sound (over a threshold) or by a wire on `gate`
+            kFold = 46 };           // a wavefolder: the sound driven into folds, sine or triangle
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
-inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode; }
-inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t); }
+inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold; }
 constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
 constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
-inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
-inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || isSpectral (t); }   // a second input: the sound its detector listens to
+inline bool isListener (int t) noexcept { return t == kFollow || t == kEnv; }   // audio ends here (like out); a value comes out
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || isSpectral (t) || t == kRepeat; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
@@ -86,7 +93,7 @@ constexpr int kPortOut = -2;
  *  with unity at 0.75, everything else is off at 0. */
 inline float neutralAmount (int type) noexcept
 {
-    return type == kGain ? 0.75f : (type == kTone || type == kStereoize || type == kPitch || type == kFormant) ? 0.5f : 0.0f;
+    return type == kGain ? 0.75f : (type == kTone || type == kStereoize || type == kPitch || type == kFormant || type == kPan) ? 0.5f : 0.0f;
 }
 
 /** Per-block parameter snapshot for one node (plain values — the
@@ -155,6 +162,16 @@ struct NodeState
     std::vector<float> spRe, spIm, spKre, spKim, spWin;
     std::vector<float> spGain, spInAvg, spKeyAvg, spCurve, spTmp;   // kBins
     std::vector<float> spBandKey, spBandIn;                            // 64: the vocoder's band envelopes
+    std::vector<float> spHold, spHoldPh[2];                            // freeze: the held magnitudes (mid) and each channel's running phase
+    bool  spFrozen = false; float spLastAmt = 0.0f;
+    double spShiftPhase = 0.0;                                          // shift: the carrier's phase, continuous across frames
+    float spOutPrev[2] {};                                              // shift: the last output samples, for the feedback
+    // repeat: a ring of the last two seconds, and the loop that plays out of it
+    std::vector<float> rpRing[2]; int64_t rpN = 0; int64_t rpTrig = -1; int rpLen = 0; float rpFast = 0.0f, rpSlow = 0.0f; int rpHold = 0;
+    // env: the stage and where the value is
+    int envStage = 0; float envVal = 0.0f; bool envGate = false;
+    // fold: a dc blocker after the folds
+    float foldDc[2][2] {};
     int64_t spN = 0;                                                    // samples in so far
     bool spPrimed = false;
     void spectralFrame (int type, const NodeParams& p, float sr, bool keyed);
@@ -296,7 +313,10 @@ struct Graph
         float curve[kCurveLen] {};
         bool  hasLfo = false;       // an lfo print: its shape, sampled
         float lfo[kLfoLen] {};
+        bool  hasLfo2 = false;      // …and the shape it morphs toward (its `morph` hand, the decay, says how far)
+        float lfo2[kLfoLen] {};
         std::vector<float> pts;     // the lfo's drawn points, kept for the wall (the engine reads `lfo`)
+        std::vector<float> pts2;    // the points of the shape it morphs toward
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
     };
     struct Edge

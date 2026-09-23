@@ -229,7 +229,10 @@ void NodeState::prepare (double sampleRate)
     spWin.resize ((size_t) kFft); for (int i = 0; i < kFft; ++i) spWin[(size_t) i] = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * (float) i / (float) kFft);
     spGain.assign ((size_t) kBins, 0.0f); spInAvg.assign ((size_t) kBins, 0.0f); spKeyAvg.assign ((size_t) kBins, 0.0f); spCurve.assign ((size_t) kBins, 0.0f); spTmp.assign ((size_t) kBins, 0.0f);
     spBandKey.assign (64, 0.0f); spBandIn.assign (64, 0.0f);
+    spHold.assign ((size_t) kBins, 0.0f); spHoldPh[0].assign ((size_t) kBins, 0.0f); spHoldPh[1].assign ((size_t) kBins, 0.0f); spFrozen = false; spLastAmt = 0.0f; spShiftPhase = 0.0; spOutPrev[0] = spOutPrev[1] = 0.0f;
     spN = 0; spPrimed = false;
+    for (int ch = 0; ch < 2; ++ch) rpRing[ch].assign ((size_t) juce::jmax (4096, (int) (sampleRate * 2.0)), 0.0f);
+    rpN = 0; rpTrig = -1; rpLen = 0; rpFast = rpSlow = 0.0f; rpHold = 0; envStage = 0; envVal = 0.0f; envGate = false;
     // juce::Reverb boots with its own dry at 0.4 and SMOOTHS toward the
     // levels we set — 30 ms of leaked dry on every fresh node. Set our
     // levels first, then setSampleRate snaps the smoothers onto them.
@@ -300,7 +303,8 @@ void NodeState::reset()
     phFb[0] = phFb[1] = 0.0f;
     for (int st = 0; st < 4; ++st) for (int ch = 0; ch < 2; ++ch) { cutHp[st][ch] = {}; cutLp[st][ch] = {}; }
     cutBakedA = -1.0f; cutBakedVar = -1; cutBakedSlope = -1; cutUseHp = cutUseLp = false;
-    if (! spIn[0].empty()) { for (int ch = 0; ch < 2; ++ch) { std::fill (spIn[ch].begin(), spIn[ch].end(), 0.0f); std::fill (spKey[ch].begin(), spKey[ch].end(), 0.0f); std::fill (spOut[ch].begin(), spOut[ch].end(), 0.0f); } std::fill (spGain.begin(), spGain.end(), 0.0f); std::fill (spCurve.begin(), spCurve.end(), 0.0f); std::fill (spBandKey.begin(), spBandKey.end(), 0.0f); std::fill (spBandIn.begin(), spBandIn.end(), 0.0f); spN = 0; spPrimed = false; }
+    if (! spIn[0].empty()) { for (int ch = 0; ch < 2; ++ch) { std::fill (spIn[ch].begin(), spIn[ch].end(), 0.0f); std::fill (spKey[ch].begin(), spKey[ch].end(), 0.0f); std::fill (spOut[ch].begin(), spOut[ch].end(), 0.0f); } std::fill (spGain.begin(), spGain.end(), 0.0f); std::fill (spCurve.begin(), spCurve.end(), 0.0f); std::fill (spBandKey.begin(), spBandKey.end(), 0.0f); std::fill (spBandIn.begin(), spBandIn.end(), 0.0f); spN = 0; spPrimed = false; spFrozen = false; std::fill (spHold.begin(), spHold.end(), 0.0f); }
+    rpTrig = -1; rpLen = 0; rpHold = 0; envStage = 0; envVal = 0.0f; envGate = false; foldDc[0][0] = foldDc[0][1] = foldDc[1][0] = foldDc[1][1] = 0.0f;
     for (int k = 0; k < kMaxCross; ++k) { bandBakedHz[k] = -1; for (int st = 0; st < 2; ++st) for (int ch = 0; ch < 2; ++ch) { bandLp[k][st][ch] = {}; bandHp[k][st][ch] = {}; for (int j = 0; j < kMaxCross; ++j) { bandApLp[k][j][st][ch] = {}; bandApHp[k][j][st][ch] = {}; } } }
     bandBakedN = -1;
     for (int ch = 0; ch < 2; ++ch)
@@ -451,6 +455,38 @@ void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
         }
         for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = a * spCurve[(size_t) b];
     }
+    else if (t == kFreeze)
+    {
+        // the gate: the knob rising from rest (variant 0), or the `gate` hand held up by a wire (variant 1). While it is up the
+        // spectrum of the moment it rose is kept: its magnitudes, with each bin's phase turning at the bin's own rate — a tone
+        // that stands still. The knob is the mix with the live sound.
+        const bool gateUp = p.variant == 1 ? (p.aux[0] != 0) : (a > 0.004f);
+        if (gateUp && ! spFrozen)
+        {
+            for (int b = 0; b < kBins; ++b) { spHold[(size_t) b] = std::sqrt (spRe[(size_t) b] * spRe[(size_t) b] + spIm[(size_t) b] * spIm[(size_t) b]); spHoldPh[0][(size_t) b] = std::atan2 (spIm[(size_t) b], spRe[(size_t) b]); spHoldPh[1][(size_t) b] = spHoldPh[0][(size_t) b]; }
+            spFrozen = true;
+        }
+        if (! gateUp) spFrozen = false;
+        for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = 0.0f;   // (the frame is synthesised below, in the apply step, from spHold when frozen)
+    }
+    else if (t == kSmear)
+    {
+        // each bin's magnitude is held and let go slowly (`time`): the spectrum blurs into a fog. `blur` scatters the phases too.
+        // The knob is the mix.
+        const float relS = juce::jlimit (50, 5000, p.aux[0] > 0 ? p.aux[0] : 800) * 0.001f;
+        const float rel = 1.0f - std::exp (-hopS / relS);
+        for (int b = 0; b < kBins; ++b)
+        {
+            const float m = std::sqrt (spRe[(size_t) b] * spRe[(size_t) b] + spIm[(size_t) b] * spIm[(size_t) b]);
+            float& h = spHold[(size_t) b];
+            h = m > h ? m : h + (m - h) * rel;
+        }
+        for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = 0.0f;
+    }
+    else if (t == kShift)
+    {
+        for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = 0.0f;   // the shifting happens in the apply step, on the analytic signal
+    }
     else   // kVocode
     {
         // the key's spectrum in bands (8..64, log-spaced) becomes the sound's: each band of the sound is brought to the key's level there
@@ -482,6 +518,55 @@ void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
     {
         for (int i = 0; i < kFft; ++i) { spRe[(size_t) i] = at (spIn[ch], start + i) * spWin[(size_t) i]; spIm[(size_t) i] = 0.0f; }
         fftInPlace (spRe.data(), spIm.data(), kFft, false);
+        if (t == kFreeze && spFrozen)
+        {
+            // the held spectrum, its phases turned on by one hop each frame, mixed with the live one by the knob
+            const float mix = p.variant == 1 ? a : 1.0f;
+            for (int b = 0; b < kBins; ++b)
+            {
+                float& ph = spHoldPh[ch][(size_t) b];
+                ph += juce::MathConstants<float>::twoPi * (float) b * (float) kHop / (float) kFft;
+                if (ph > juce::MathConstants<float>::pi) ph -= juce::MathConstants<float>::twoPi * std::floor ((ph + juce::MathConstants<float>::pi) / juce::MathConstants<float>::twoPi);
+                const float fr = spHold[(size_t) b] * std::cos (ph), fi = spHold[(size_t) b] * std::sin (ph);
+                spRe[(size_t) b] = spRe[(size_t) b] * (1.0f - mix) + fr * mix; spIm[(size_t) b] = spIm[(size_t) b] * (1.0f - mix) + fi * mix;
+                if (b > 0 && b < kBins - 1) { spRe[(size_t) (kFft - b)] = spRe[(size_t) b]; spIm[(size_t) (kFft - b)] = -spIm[(size_t) b]; }
+            }
+        }
+        else if (t == kSmear)
+        {
+            // the smeared magnitudes with the live phases, scattered by `blur`; the knob mixes it in
+            const float blur = juce::jlimit (0, 100, p.aux[1]) / 100.0f;
+            uint32_t rng = (uint32_t) (spN * 2654435761u) ^ (uint32_t) (ch * 40503u);
+            for (int b = 0; b < kBins; ++b)
+            {
+                const float lr = spRe[(size_t) b], li = spIm[(size_t) b];
+                float ph = std::atan2 (li, lr);
+                rng = rng * 1664525u + 1013904223u;
+                ph += blur * ((float) (rng >> 8) / 16777216.0f - 0.5f) * juce::MathConstants<float>::twoPi;
+                const float m = spHold[(size_t) b] * 0.8f;
+                const float sr_ = m * std::cos (ph), si = m * std::sin (ph);
+                spRe[(size_t) b] = lr * (1.0f - a) + sr_ * a; spIm[(size_t) b] = li * (1.0f - a) + si * a;
+                if (b > 0 && b < kBins - 1) { spRe[(size_t) (kFft - b)] = spRe[(size_t) b]; spIm[(size_t) (kFft - b)] = -spIm[(size_t) b]; }
+            }
+        }
+        else if (t == kShift)
+        {
+            // the analytic signal (the negative frequencies dropped), turned by the shift's carrier, its real part back
+            for (int b = kBins; b < kFft; ++b) { spRe[(size_t) b] = 0.0f; spIm[(size_t) b] = 0.0f; }
+            for (int b = 1; b < kBins - 1; ++b) { spRe[(size_t) b] *= 2.0f; spIm[(size_t) b] *= 2.0f; }
+            fftInPlace (spRe.data(), spIm.data(), kFft, true);
+            const double hz = (double) juce::jlimit (-2000, 2000, p.aux[0]);
+            for (int i = 0; i < kFft; ++i)
+            {
+                const double th = juce::MathConstants<double>::twoPi * hz * (double) (start + i) / (double) sr;
+                const float shifted = spRe[(size_t) i] * (float) std::cos (th) - spIm[(size_t) i] * (float) std::sin (th);
+                const float dry = at (spIn[ch], start + i) * spWin[(size_t) i];
+                spRe[(size_t) i] = dry * (1.0f - a) + shifted * a;
+            }
+            for (int i = 0; i < kFft; ++i) spOut[ch][(size_t) (((start + i) % ring + ring) % ring)] += spRe[(size_t) i] * spWin[(size_t) i] * ola;
+            continue;
+        }
+        else
         for (int b = 0; b < kBins; ++b)
         {
             const float g = std::pow (10.0f, spGain[(size_t) b] / 20.0f);
@@ -515,7 +600,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
     const float a = amtSm;
 
     // Neutral positions cost nothing.
-    if (type == kTone || type == kStereoize || type == kPitch || type == kFormant)
+    if (type == kTone || type == kStereoize || type == kPitch || type == kFormant || type == kPan)
                             { if (std::abs (a - 0.5f) < 0.004f && std::abs (target - 0.5f) < 0.004f
                                   && ! (type == kPitch && p.aux[0] != 0)) return; }
     else if (type == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
@@ -1819,22 +1904,103 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
-        case kCarve: case kMatch: case kVocode:
+        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear:
         {
             // in and out through the rings; every kHop samples, a frame (the latency is one frame: kFft)
             if (spIn[0].empty()) break;
             const int ring = 2 * kFft;
             const bool keyed = keyL != nullptr;
+            const float fb = type == kShift ? juce::jlimit (0, 95, p.aux[1]) / 100.0f : 0.0f;   // shift: the output fed back in (a barber pole)
             for (int i = 0; i < n; ++i)
             {
                 const size_t w = (size_t) (spN % ring);
-                spIn[0][w] = L[i]; spIn[1][w] = R != nullptr ? R[i] : L[i];
+                spIn[0][w] = L[i] + fb * spOutPrev[0]; spIn[1][w] = (R != nullptr ? R[i] : L[i]) + fb * spOutPrev[1];
                 spKey[0][w] = keyed ? keyL[i] : 0.0f; spKey[1][w] = keyed ? (keyR != nullptr ? keyR[i] : keyL[i]) : 0.0f;
                 const size_t r = (size_t) (((spN - kFft) % ring + ring) % ring);   // one frame behind: every frame that touches it has been added
                 L[i] = spOut[0][r]; if (R != nullptr) R[i] = spOut[1][r];
+                spOutPrev[0] = juce::jlimit (-2.0f, 2.0f, spOut[0][r]); spOutPrev[1] = juce::jlimit (-2.0f, 2.0f, spOut[1][r]);
                 spOut[0][r] = 0.0f; spOut[1][r] = 0.0f;
                 ++spN;
                 if (spN % kHop == 0 && spN >= kFft) spectralFrame (type, p, sr, keyed);
+            }
+            break;
+        }
+
+        case kPan:
+        {
+            // where the sound sits: the knob from left (0) to right (1), equal power; off the middle the far side folds into the near
+            if (R == nullptr) break;
+            const float th = a * juce::MathConstants<float>::halfPi;
+            const float gl = std::cos (th) * 1.4142f, gr = std::sin (th) * 1.4142f;
+            const float lean = std::abs (a - 0.5f) * 2.0f;
+            for (int i = 0; i < n; ++i)
+            {
+                const float l = L[i], r = R[i], m = 0.5f * (l + r);
+                L[i] = (l + (m - l) * lean) * gl; R[i] = (r + (m - r) * lean) * gr;
+            }
+            break;
+        }
+        case kRepeat:
+        {
+            // At each transient one `rate` of the sound is kept and repeated until the next. The transient is heard on the key
+            // when one is wired, else on the sound. The knob is the mix. aux 0..3 are the clock (as the LFO's), aux 4 the threshold dB.
+            if (rpRing[0].empty()) break;
+            const int ringLen = (int) rpRing[0].size();
+            const int mode = p.aux[0], div = juce::jlimit (0, 7, p.aux[1]), feel = p.aux[2];
+            static const double kBeats8[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };
+            double lenS;
+            if (mode == 1) lenS = 1.0 / juce::jlimit (0.5, 200.0, (p.aux[3] > 0 ? p.aux[3] : 800) / 100.0);
+            else lenS = kBeats8[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0) * 60.0 / juce::jmax (20.0, (double) p.bpm);
+            const int len = juce::jlimit (64, ringLen / 2, (int) (lenS * sr));
+            const float thr = std::pow (10.0f, (float) juce::jlimit (-60, -1, p.aux[4] != 0 ? p.aux[4] : -30) / 20.0f);
+            const float ca = 1.0f - std::exp (-1.0f / (0.001f * sr)), cr = 1.0f - std::exp (-1.0f / (0.05f * sr)), cs = 1.0f - std::exp (-1.0f / (0.15f * sr));
+            const int xf = juce::jmin (256, len / 4);
+            for (int i = 0; i < n; ++i)
+            {
+                const size_t w = (size_t) (rpN % ringLen);
+                rpRing[0][w] = L[i]; rpRing[1][w] = R != nullptr ? R[i] : L[i];
+                const float kl = keyL != nullptr ? keyL[i] : L[i], kr = keyL != nullptr ? (keyR != nullptr ? keyR[i] : kl) : (R != nullptr ? R[i] : kl);
+                const float x = juce::jmax (std::abs (kl), std::abs (kr));
+                rpFast += (x > rpFast ? ca : cr) * (x - rpFast);
+                rpSlow += (x - rpSlow) * cs;
+                if (rpHold > 0) --rpHold;
+                else if (x > thr && rpFast > rpSlow * 2.0f) { rpTrig = rpN; rpLen = len; rpHold = juce::jmin (len, (int) (0.03f * sr)); }
+                if (rpTrig >= 0)
+                {
+                    const int64_t since = rpN - rpTrig;
+                    const int ph = (int) (since % rpLen);
+                    auto rd = [&] (int ch, int64_t idx) { return rpRing[ch][(size_t) (((idx % ringLen) + ringLen) % ringLen)]; };
+                    for (int ch = 0; ch < (R != nullptr ? 2 : 1); ++ch)
+                    {
+                        float y = rd (ch, rpTrig + ph);
+                        if (since >= rpLen && ph < xf) { const float tt = (float) ph / (float) xf; y = y * tt + rd (ch, rpTrig + rpLen + ph) * (1.0f - tt); }   // the seam, crossfaded
+                        float* d = ch == 0 ? L : R;
+                        d[i] = d[i] * (1.0f - a) + y * a;
+                    }
+                }
+                ++rpN;
+            }
+            break;
+        }
+        case kFold:
+        {
+            // a wavefolder: the sound driven up by the knob and folded back on itself — `sine` folds smoothly, `triangle` sharply.
+            // A dc blocker after, since folds leave an offset.
+            const float drive = 1.0f + a * a * 24.0f;
+            const float dcK = 1.0f - 2.0f * juce::MathConstants<float>::pi * 20.0f / sr;
+            for (int ch = 0; ch < (R != nullptr ? 2 : 1); ++ch)
+            {
+                float* d = ch == 0 ? L : R;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float x = d[i] * drive;
+                    float y;
+                    if (variant == 1) { const float tt = x * 0.5f + 0.25f; const float f = tt - std::floor (tt); y = (f < 0.5f ? f * 4.0f - 1.0f : 3.0f - f * 4.0f); }
+                    else y = std::sin (x * juce::MathConstants<float>::halfPi);
+                    const float out = y - foldDc[ch][0] + dcK * foldDc[ch][1];
+                    foldDc[ch][0] = y; foldDc[ch][1] = out;
+                    d[i] = out * 0.85f;
+                }
             }
             break;
         }
@@ -2193,7 +2359,7 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
         if (isListener (slotType[id]))
         {
             // a follow: listens, keeps nothing
-            Op fl; fl.kind = Op::kFollow; fl.slot = id; fl.src = b;
+            Op fl; fl.kind = Op::kFollow; fl.slot = id; fl.src = b; fl.type = slotType[id];
             if (! emit (fl)) return false;
             if (! fanOut (id, 0, b)) return false;   // no audio leaves it: this releases the buffer
             continue;
@@ -2294,7 +2460,7 @@ int Chain::nodeLatency (const Graph::Node& n) const noexcept
         case kHarmony: return latencyFine;
         case kArp:     return latencyLive;
         case kWow:     return latencyWow;
-        case kCarve: case kMatch: case kVocode: return kFft;
+        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear: return kFft;
         default:       return 0;
     }
 }
@@ -2584,6 +2750,45 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             const float* L = chan (op.src, 0, n);
             const float* R = nc > 1 ? chan (op.src, 1, n) : nullptr;
             const auto& p = params[op.slot];
+            if (op.type == kEnv)
+            {
+                // an envelope: attack, decay, sustain, release. The gate: the sound over the threshold (variant 0) or the `gate`
+                // hand held up by a wire (variant 1). Its value goes out like a follow's.
+                auto& nd = nodes[(size_t) op.slot];
+                const float atk = 1.0f - std::exp (-1.0f / (juce::jlimit (1, 5000, p.aux[0] > 0 ? p.aux[0] : 10) * 0.001f * sampleRate));
+                const float dec = 1.0f - std::exp (-1.0f / (juce::jlimit (1, 5000, p.aux[1] > 0 ? p.aux[1] : 200) * 0.001f * sampleRate));
+                const float sus = juce::jlimit (0, 100, p.aux[2]) / 100.0f;
+                const float rel = 1.0f - std::exp (-1.0f / (juce::jlimit (1, 10000, p.aux[3] > 0 ? p.aux[3] : 300) * 0.001f * sampleRate));
+                const float thr = std::pow (10.0f, (float) juce::jlimit (-60, -1, p.aux[4] != 0 ? p.aux[4] : -30) / 20.0f);
+                float inPk = 0.0f, lvl = followEnv[op.slot];
+                const float cl = 1.0f - std::exp (-1.0f / (0.003f * sampleRate));
+                for (int i = 0; i < n; ++i)
+                {
+                    const float x = juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f);
+                    inPk = juce::jmax (inPk, x);
+                    lvl += (x - lvl) * cl;
+                    const bool gate = p.variant == 1 ? (p.aux[5] != 0) : (nd.envGate ? lvl > thr * 0.7f : lvl > thr);
+                    if (gate && ! nd.envGate) nd.envStage = 1;             // the gate opens: attack, from wherever the value is
+                    if (! gate && nd.envGate) nd.envStage = 4;             // it closes: release
+                    nd.envGate = gate;
+                    float& v = nd.envVal;
+                    switch (nd.envStage)
+                    {
+                        case 1: v += (1.08f - v) * atk; if (v >= 1.0f) { v = 1.0f; nd.envStage = 2; } break;
+                        case 2: v += (sus - v) * dec; if (std::abs (v - sus) < 0.002f) nd.envStage = 3; break;
+                        case 3: v = sus; break;
+                        case 4: v += (0.0f - v) * rel; if (v < 0.0005f) { v = 0.0f; nd.envStage = 0; } break;
+                        default: break;
+                    }
+                }
+                followEnv[op.slot] = lvl;
+                if (inPk > followIn[(size_t) op.slot].load (std::memory_order_relaxed)) followIn[(size_t) op.slot].store (inPk, std::memory_order_relaxed);
+                followEnvOut[(size_t) op.slot].store (nd.envVal, std::memory_order_relaxed);
+                const float v = juce::jlimit (0.0f, 1.0f, nd.envVal);
+                follows[(size_t) op.slot].store (v, std::memory_order_relaxed);
+                peaks[(size_t) op.slot].store (v, std::memory_order_relaxed);
+                break;
+            }
             // attack and release in ms; sense in dB around 0 (0 = -24 dB, 50 = 0 dB, 100 = +24 dB);
             // threshold in dB: below it the follow hears nothing, from it up to 0 dBFS it goes 0..1
             const float atkMs = (float) juce::jlimit (1, 500, p.aux[0]);

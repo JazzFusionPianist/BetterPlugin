@@ -127,20 +127,27 @@ export const FX_BANDS = 36
 export const FX_CARVE = 37
 export const FX_MATCH = 38
 export const FX_VOCODE = 39
-export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE
+export const FX_FREEZE = 40
+export const FX_SHIFT = 41
+export const FX_SMEAR = 42
+export const FX_PAN = 43
+export const FX_REPEAT = 44
+export const FX_ENV = 45
+export const FX_FOLD = 46
+export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE || t === FX_FREEZE || t === FX_SHIFT || t === FX_SMEAR
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
 /** The graph-only nodes: no hand, no lamp, no bypass. */
-export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_ENV
 export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS
 /** How many output ports a print has (a splitter: two; the bands: one per band). */
 export const outPortsOf = (t: number, aux: number[]) => (t === FX_BANDS ? Math.max(2, Math.min(6, (aux[5] || 1) + 1)) : isSplitterType(t) ? 2 : 1)
-export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW
+export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW || t === FX_ENV
 /** The prints whose wire lands on a hand (a dashed control wire). */
-export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
+export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW || t === FX_ENV   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
-export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || isSpectralType(t)
+export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || t === FX_REPEAT || isSpectralType(t)
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
@@ -166,6 +173,7 @@ export interface FxGraphNode {
                           // grain [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze] (8 slots)
   curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape; lfo: its shape as 64 samples
   pts?: number[]          // lfo: the drawn points, flat [x, y, bend, …] (see LfoEditor)
+  pts2?: number[]         // lfo: the shape it morphs toward (its `morph` hand says how far)
   x: number
   y: number
 }

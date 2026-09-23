@@ -119,7 +119,7 @@ export async function exportLunaTracks({ call = lunaRequest, sessionId, options,
   await journal()
   let created = false, completed = false
   try {
-    const result = await call('/renders/new', { uid: renderId, type: 'bounce', name: 'Slur Chat track export',
+    const result = await call('/renders/new', { uid: renderId, type: 'bounce', name: 'Slur track export',
       real_time: false, add_to_session: false, record_point: 'post_pan', session_uid: sessionId,
       tracks, buses: {}, outputs: {}, output_paths })
     if (result.data?.uid !== renderId) throw new Error('LUNA did not create the requested render.')

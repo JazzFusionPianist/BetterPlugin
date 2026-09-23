@@ -212,8 +212,8 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     endforeach()
 endfunction()
 
-# Slur Chat — messages only (first split-out, 2026-09-11).
-orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur Chat"   chat   OrbChatAU)
+# Slur — messages only (first split-out, 2026-09-11; was Orb Chat, then Slur Chat).
+orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur"        chat   OrbChatAU)
 
 # Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
 # the plugin boots straight into the darkened room. The codes and bundle id

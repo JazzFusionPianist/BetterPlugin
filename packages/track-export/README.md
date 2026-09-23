@@ -1,4 +1,4 @@
-# Slur Chat — DAW track export
+# Slur — DAW track export
 
 ## Supported adapters
 

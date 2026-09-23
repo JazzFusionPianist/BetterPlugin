@@ -37,7 +37,7 @@ export function connectProTools(sdkRoot) {
     })
   }
   return { call, close: () => client.close(), register: () => call('RegisterConnection', {
-    company_name: 'Slur Studio', application_name: 'Slur Chat',
+    company_name: 'Slur Studio', application_name: 'Slur',
   }) }
 }
 

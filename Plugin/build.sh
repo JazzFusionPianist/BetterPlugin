@@ -63,7 +63,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
 # Slur Orb: CMake target → product name, one line each.
 SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
-SPLIT_NAMES=("Slur Chat" "Patch on Slur" "Slur Games")
+SPLIT_NAMES=("Slur" "Patch on Slur" "Slur Games")
 
 split_targets() { # AU + VST3 for every split-out (filtered by --only)
   local i out=""
@@ -173,31 +173,33 @@ if [ "$INSTALL" = true ]; then
     echo "✓ VST3 installed → $VST3_DEST/Slur Orb.vst3"
   fi
 
-  # The split-out plugins (Slur Chat, Patch on Slur, …) install alongside Slur Orb —
+  # The split-out plugins (Slur, Patch on Slur, …) install alongside Slur Orb —
   # only the ones this run built (this config), so --only=sounds never
-  # re-installs a stale Slur Chat.
+  # re-installs a stale Slur.
   for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
     case "$ONLY" in
-      chat)   [ "$SPLIT_NAME" = "Slur Chat" ]   || continue ;;
+      chat)   [ "$SPLIT_NAME" = "Slur" ]        || continue ;;
       sounds) [ "$SPLIT_NAME" = "Patch on Slur" ] || continue ;;
       games)  [ "$SPLIT_NAME" = "Slur Games" ]  || continue ;;
     esac
     case "$SPLIT_NAME" in
-      "Slur Chat")     OLD_SPLIT_NAME="Orb Chat" ;;
-      "Patch on Slur") OLD_SPLIT_NAME="Orb Sounds" ;;
-      "Slur Games")    OLD_SPLIT_NAME="Orb Games" ;;
+      "Slur")          OLD_SPLIT_NAMES=("Orb Chat" "Slur Chat") ;;
+      "Patch on Slur") OLD_SPLIT_NAMES=("Orb Sounds") ;;
+      "Slur Games")    OLD_SPLIT_NAMES=("Orb Games") ;;
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     if [ -n "$SPLIT_AU_PATH" ]; then
       # Renamed bundles keep their plugin codes, so the old filename must
       # not be left beside the new one in a host's scan directory.
-      rm -rf "$AU_DEST/$OLD_SPLIT_NAME.component" "$AU_DEST/$SPLIT_NAME.component"
+      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$AU_DEST/$OLD.component"; done
+      rm -rf "$AU_DEST/$SPLIT_NAME.component"
       cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
       echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"
     fi
     if [ -n "$SPLIT_VST3_PATH" ]; then
-      rm -rf "$VST3_DEST/$OLD_SPLIT_NAME.vst3" "$VST3_DEST/$SPLIT_NAME.vst3"
+      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$VST3_DEST/$OLD.vst3"; done
+      rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
       cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
       echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"
     fi

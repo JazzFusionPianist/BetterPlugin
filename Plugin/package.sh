@@ -50,7 +50,7 @@ done
 # still resolve their plugins after the displayed product names change.
 case "$PRODUCT" in
   orb)    TARGET="OrbPlugin"; NAME="Slur Orb";   IDENTIFIER_BASE="com.orb.plugin"; OLD_NAME="Orb" ;;
-  chat)   TARGET="OrbChat";   NAME="Slur Chat";  IDENTIFIER_BASE="com.orb.chat"; OLD_NAME="Orb Chat" ;;
+  chat)   TARGET="OrbChat";   NAME="Slur";       IDENTIFIER_BASE="com.orb.chat"; OLD_NAME="Orb Chat|Slur Chat" ;;   # was Orb Chat, then Slur Chat
   sounds) TARGET="OrbSounds"; NAME="Patch on Slur"; IDENTIFIER_BASE="com.orb.sounds"; OLD_NAME="Orb Sounds" ;;   # was Orb Sounds: same codes, same identifier (an upgrade), the old bundles are removed on install
   games)  TARGET="OrbGames";  NAME="Slur Games"; IDENTIFIER_BASE="com.orb.games"; OLD_NAME="Orb Games" ;;
   *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds | games)" >&2; exit 1 ;;
@@ -90,9 +90,14 @@ build_component() {
     local ext="${src##*.}"
     {
       echo '#!/bin/sh'
-      echo "rm -rf \"$dest/$OLD_NAME.$ext\""
       echo 'U=$(stat -f%Su /dev/console 2>/dev/null)'
-      echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$OLD_NAME.$ext\" \"/Users/\$U$dest/$NAME.$ext\""
+      local old olds
+      IFS='|' read -ra olds <<< "$OLD_NAME"   # a product renamed twice lists both old names
+      for old in "${olds[@]}"; do
+        echo "rm -rf \"$dest/$old.$ext\""
+        echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$old.$ext\""
+      done
+      echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$NAME.$ext\""
       echo 'exit 0'
     } > "$sdir/preinstall"
     chmod +x "$sdir/preinstall"

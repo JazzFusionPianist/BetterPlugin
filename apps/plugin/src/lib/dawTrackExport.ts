@@ -57,7 +57,7 @@ export interface TrackExportSnapshot {
 async function request(operation: string, sessionId?: string, options?: object) {
   const raw = await callJuceNative('trackExport', [operation, ...(sessionId ? [sessionId] : []),
     ...(options ? [JSON.stringify(options)] : [])], operation.startsWith('export') ? 1810000 : 250000)
-  if (raw.startsWith('error:')) throw new Error('The DAW bridge did not respond. Check the installed Slur Chat version.')
+  if (raw.startsWith('error:')) throw new Error('The DAW bridge did not respond. Check the installed Slur version.')
   const value = JSON.parse(raw)
   if (value.ok !== true) throw new Error(value.error || 'DAW track export failed.')
   return value

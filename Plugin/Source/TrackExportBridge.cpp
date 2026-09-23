@@ -20,7 +20,7 @@ public:
         const auto runtime = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
             .getChildFile ("Application Support/Slur/TrackExport");
         const auto folder = runtime.getChildFile ("Jobs").getChildFile (juce::Uuid().toString());
-        juce::var result = failure ("The Slur track export helper is not installed. Reinstall the matching Slur Chat build.");
+        juce::var result = failure ("The Slur track export helper is not installed. Reinstall the matching Slur build.");
         if (runtime.getChildFile ("node").existsAsFile() && runtime.getChildFile ("native.cjs").existsAsFile()
             && folder.createDirectory())
         {

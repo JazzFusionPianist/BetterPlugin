@@ -54,7 +54,7 @@ You can ship a fully official **AU + VST3 + Standalone** installer now (steps
 AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
 formats notarize and install cleanly.
 
-## Split-out plugins (Slur Chat, Patch on Slur, Slur Games)
+## Split-out plugins (Slur, Patch on Slur, Slur Games)
 
 Each single-purpose plugin is its own download with its own bundle id, so
 installing one never touches Slur Orb or another split-out.
@@ -63,7 +63,7 @@ installing one never touches Slur Orb or another split-out.
 cd Plugin
 ./build.sh --release --only=sounds        # or --only=chat; omit for everything
 ./package.sh --product=sounds --version=1.0.0   # → installer/Patch on Slur-1.0.0.pkg
-./package.sh --product=chat   --version=1.0.0   # → installer/Slur Chat-1.0.0.pkg
+./package.sh --product=chat   --version=1.0.0   # → installer/Slur-1.0.0.pkg
 ./package.sh --product=games  --version=1.0.0   # → installer/Slur Games-1.0.0.pkg
 ```
 

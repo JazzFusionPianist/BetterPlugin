@@ -46,18 +46,24 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             // a splitter with state: the sound cut into bands at up to five crossovers (aux 0..4, Hz, ascending; aux 5 = how many),
             // each band a stereo pair on its own port (0 = the lowest). Linkwitz-Riley 4th order, with the allpasses that let
             // the bands sum back to the sound.
-            kSplitBands = 36 };
+            kSplitBands = 36,
+            // the spectral prints: one short-time Fourier transform, a key, and a rule per bin
+            kCarve = 37,            // cuts the sound where the key is loud (no key: where the sound itself sticks out — its resonances)
+            kMatch = 38,            // learns the key's spectrum and the sound's, and pulls the sound's toward the key's
+            kVocode = 39 };         // the sound (carrier) shaped by the key's spectrum, band by band
 constexpr int kAuxCount = 8;
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
-inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp; }
+inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t); }
+constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
 constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow; }   // audio ends here (like out); a value comes out
-inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp; }   // a second input: the sound its detector listens to
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || isSpectral (t); }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
 /** The hands a control wire can play. aux k is kHandAux0 + k. */
@@ -144,6 +150,14 @@ struct NodeState
     float stEnvM = 0.0f, stEnvS = 0.0f;
     // glue
     float glueEnv = 0.0f;
+    // spectral: rings of the sound and the key coming in, the frames going out (overlap-added), the frame's spectrum, and per-bin memory
+    std::vector<float> spIn[2], spKey[2], spOut[2];   // 2 × kFft each, circular
+    std::vector<float> spRe, spIm, spKre, spKim, spWin;
+    std::vector<float> spGain, spInAvg, spKeyAvg, spCurve, spTmp;   // kBins
+    std::vector<float> spBandKey, spBandIn;                            // 64: the vocoder's band envelopes
+    int64_t spN = 0;                                                    // samples in so far
+    bool spPrimed = false;
+    void spectralFrame (int type, const NodeParams& p, float sr, bool keyed);
     // bands: per crossover the split (LP², HP²), and per (band, later crossover) the allpass that band goes through
     Biquad bandLp[kMaxCross][2][2], bandHp[kMaxCross][2][2];          // [crossover][stage][channel]
     Biquad bandApLp[kMaxCross][kMaxCross][2][2], bandApHp[kMaxCross][kMaxCross][2][2];   // [band][crossover][stage][channel]
@@ -400,6 +414,8 @@ private:
     std::array<std::atomic<float>, kMaxNodes> peaks {};
     std::array<std::atomic<float>, kMaxNodes> follows {};
     std::array<std::atomic<float>, kMaxNodes> compIn {}, compGr {};
+    float followSlow[kMaxNodes] {};   // transient mode: the slow envelope a hit must jump out of
+    int   followHold[kMaxNodes] {};   // transient mode: samples until the next hit may fire
     std::array<std::atomic<float>, kMaxNodes> followIn {};       // a follow's input peak since the meter last looked
     std::array<std::atomic<float>, kMaxNodes> followEnvOut {};   // a follow's envelope now
     float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope

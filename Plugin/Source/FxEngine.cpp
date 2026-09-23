@@ -223,6 +223,13 @@ static inline double beatAt (const NodeParams& p, double freeBeat, int i, float 
 void NodeState::prepare (double sampleRate)
 {
     const float srf = (float) sampleRate;
+    // the spectral prints' rings and spectra (every slot carries them: re-typing a slot must not allocate on the audio thread)
+    for (int ch = 0; ch < 2; ++ch) { spIn[ch].assign ((size_t) (2 * kFft), 0.0f); spKey[ch].assign ((size_t) (2 * kFft), 0.0f); spOut[ch].assign ((size_t) (2 * kFft), 0.0f); }
+    spRe.assign ((size_t) kFft, 0.0f); spIm.assign ((size_t) kFft, 0.0f); spKre.assign ((size_t) kFft, 0.0f); spKim.assign ((size_t) kFft, 0.0f);
+    spWin.resize ((size_t) kFft); for (int i = 0; i < kFft; ++i) spWin[(size_t) i] = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * (float) i / (float) kFft);
+    spGain.assign ((size_t) kBins, 0.0f); spInAvg.assign ((size_t) kBins, 0.0f); spKeyAvg.assign ((size_t) kBins, 0.0f); spCurve.assign ((size_t) kBins, 0.0f); spTmp.assign ((size_t) kBins, 0.0f);
+    spBandKey.assign (64, 0.0f); spBandIn.assign (64, 0.0f);
+    spN = 0; spPrimed = false;
     // juce::Reverb boots with its own dry at 0.4 and SMOOTHS toward the
     // levels we set — 30 ms of leaked dry on every fresh node. Set our
     // levels first, then setSampleRate snaps the smoothers onto them.
@@ -293,6 +300,7 @@ void NodeState::reset()
     phFb[0] = phFb[1] = 0.0f;
     for (int st = 0; st < 4; ++st) for (int ch = 0; ch < 2; ++ch) { cutHp[st][ch] = {}; cutLp[st][ch] = {}; }
     cutBakedA = -1.0f; cutBakedVar = -1; cutBakedSlope = -1; cutUseHp = cutUseLp = false;
+    if (! spIn[0].empty()) { for (int ch = 0; ch < 2; ++ch) { std::fill (spIn[ch].begin(), spIn[ch].end(), 0.0f); std::fill (spKey[ch].begin(), spKey[ch].end(), 0.0f); std::fill (spOut[ch].begin(), spOut[ch].end(), 0.0f); } std::fill (spGain.begin(), spGain.end(), 0.0f); std::fill (spCurve.begin(), spCurve.end(), 0.0f); std::fill (spBandKey.begin(), spBandKey.end(), 0.0f); std::fill (spBandIn.begin(), spBandIn.end(), 0.0f); spN = 0; spPrimed = false; }
     for (int k = 0; k < kMaxCross; ++k) { bandBakedHz[k] = -1; for (int st = 0; st < 2; ++st) for (int ch = 0; ch < 2; ++ch) { bandLp[k][st][ch] = {}; bandHp[k][st][ch] = {}; for (int j = 0; j < kMaxCross; ++j) { bandApLp[k][j][st][ch] = {}; bandApHp[k][j][st][ch] = {}; } } }
     bandBakedN = -1;
     for (int ch = 0; ch < 2; ++ch)
@@ -342,6 +350,149 @@ void NodeState::reset()
 }
 
 //==============================================================================
+//==============================================================================
+// A plain radix-2 FFT for the spectral prints (kFft points, in place, separate real and imaginary arrays).
+static void fftInPlace (float* re, float* im, int n, bool inverse)
+{
+    for (int i = 1, j = 0; i < n; ++i)
+    {
+        int bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) { std::swap (re[i], re[j]); std::swap (im[i], im[j]); }
+    }
+    for (int len = 2; len <= n; len <<= 1)
+    {
+        const double ang = (inverse ? 2.0 : -2.0) * juce::MathConstants<double>::pi / len;
+        const float wr = (float) std::cos (ang), wi = (float) std::sin (ang);
+        for (int i = 0; i < n; i += len)
+        {
+            float cr = 1.0f, ci = 0.0f;
+            for (int k = 0; k < len / 2; ++k)
+            {
+                const int a = i + k, b = a + len / 2;
+                const float tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+                re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+                const float ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+            }
+        }
+    }
+    if (inverse) { const float inv = 1.0f / (float) n; for (int i = 0; i < n; ++i) { re[i] *= inv; im[i] *= inv; } }
+}
+
+/** One frame of a spectral print: the last kFft samples of the sound (and the key), windowed, transformed, changed bin by bin
+ *  by the print's rule, transformed back, windowed again and added onto the frames going out. Stereo, the rule from the
+ *  mid of both. */
+void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
+{
+    const float a = juce::jlimit (0.0f, 1.0f, p.amount);
+    const int64_t start = spN - kFft;               // this frame covers [start, spN)
+    const int ring = 2 * kFft;
+    auto at = [&] (const std::vector<float>& r, int64_t idx) { return r[(size_t) (((idx % ring) + ring) % ring)]; };
+    // the mid of the sound and of the key, windowed, into the spectrum
+    for (int i = 0; i < kFft; ++i)
+    {
+        const int64_t idx = start + i;
+        spRe[(size_t) i] = 0.5f * (at (spIn[0], idx) + at (spIn[1], idx)) * spWin[(size_t) i]; spIm[(size_t) i] = 0.0f;
+        spKre[(size_t) i] = keyed ? 0.5f * (at (spKey[0], idx) + at (spKey[1], idx)) * spWin[(size_t) i] : 0.0f; spKim[(size_t) i] = 0.0f;
+    }
+    fftInPlace (spRe.data(), spIm.data(), kFft, false);
+    if (keyed) fftInPlace (spKre.data(), spKim.data(), kFft, false);
+    const float norm = 2.0f / (float) kFft;   // a full-scale sine reads about 0 dB
+    auto magDb = [&] (const float* re, const float* im, int b) { const float m = std::sqrt (re[b] * re[b] + im[b] * im[b]) * norm; return 20.0f * std::log10 (juce::jmax (1.0e-6f, m)); };
+    const float hopS = (float) kHop / sr;
+    // ── the rule: a gain per bin, in dB, into spGain (smoothed in time where the rule says) ──
+    if (t == kCarve)
+    {
+        // depth: the knob, up to 24 dB. attack / release: how fast a bin's cut follows. tilt: more cut low or high.
+        const float depth = 24.0f * a;
+        const float atk = 1.0f - std::exp (-hopS / (juce::jlimit (1, 200, p.aux[0] > 0 ? p.aux[0] : 20) * 0.001f));
+        const float rel = 1.0f - std::exp (-hopS / (juce::jlimit (20, 2000, p.aux[1] > 0 ? p.aux[1] : 200) * 0.001f));
+        const float tilt = juce::jlimit (-100, 100, p.aux[2]) / 100.0f;
+        if (! keyed)
+        {
+            // no key: the sound's own resonances — bins that stand out above the spectrum's own smooth envelope
+            for (int b = 0; b < kBins; ++b) spTmp[(size_t) b] = magDb (spRe.data(), spIm.data(), b);
+            for (int b = 0; b < kBins; ++b) { float acc = 0.0f; int c = 0; for (int k = juce::jmax (0, b - 24); k <= juce::jmin (kBins - 1, b + 24); ++k) { acc += spTmp[(size_t) k]; ++c; } spInAvg[(size_t) b] = acc / (float) c; }
+        }
+        for (int b = 0; b < kBins; ++b)
+        {
+            const float f = (float) b / (float) (kBins - 1);
+            const float w = juce::jlimit (0.0f, 2.0f, 1.0f + tilt * (2.0f * f - 1.0f));
+            float want;
+            if (keyed) { const float kdb = magDb (spKre.data(), spKim.data(), b); want = -depth * w * juce::jlimit (0.0f, 1.0f, (kdb + 48.0f) / 42.0f); }
+            else { const float excess = spTmp[(size_t) b] - spInAvg[(size_t) b]; want = -depth * w * juce::jlimit (0.0f, 1.0f, (excess - 3.0f) / 12.0f); }
+            float& g = spGain[(size_t) b];
+            g += (want - g) * (want < g ? atk : rel);
+        }
+    }
+    else if (t == kMatch)
+    {
+        // learn on: the sound's and the key's average spectra are gathered (a few seconds' worth); the curve is the difference,
+        // smoothed across bins, at most 12 dB either way; the knob is how much of it to apply. learn off: the curve is kept.
+        const bool learn = p.aux[0] != 0;
+        const int smooth = juce::jlimit (1, 48, p.aux[1] > 0 ? p.aux[1] : 12);
+        if (learn)
+        {
+            const float k = 1.0f - std::exp (-hopS / 3.0f);
+            for (int b = 0; b < kBins; ++b)
+            {
+                const float idb = magDb (spRe.data(), spIm.data(), b);
+                spInAvg[(size_t) b] = spPrimed ? spInAvg[(size_t) b] + (idb - spInAvg[(size_t) b]) * k : idb;
+                if (keyed) { const float kdb = magDb (spKre.data(), spKim.data(), b); spKeyAvg[(size_t) b] = spPrimed ? spKeyAvg[(size_t) b] + (kdb - spKeyAvg[(size_t) b]) * k : kdb; }
+            }
+            spPrimed = true;
+            for (int b = 0; b < kBins; ++b)
+            {
+                float acc = 0.0f; int c = 0;
+                for (int j = juce::jmax (0, b - smooth); j <= juce::jmin (kBins - 1, b + smooth); ++j) { acc += spKeyAvg[(size_t) j] - spInAvg[(size_t) j]; ++c; }
+                spCurve[(size_t) b] = keyed ? juce::jlimit (-12.0f, 12.0f, acc / (float) c) : 0.0f;
+            }
+        }
+        for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = a * spCurve[(size_t) b];
+    }
+    else   // kVocode
+    {
+        // the key's spectrum in bands (8..64, log-spaced) becomes the sound's: each band of the sound is brought to the key's level there
+        const int nb = juce::jlimit (8, 64, p.aux[0] > 0 ? p.aux[0] : 24);
+        const float atk = 1.0f - std::exp (-hopS / (juce::jlimit (1, 200, p.aux[1] > 0 ? p.aux[1] : 10) * 0.001f));
+        const float rel = 1.0f - std::exp (-hopS / (juce::jlimit (10, 2000, p.aux[2] > 0 ? p.aux[2] : 80) * 0.001f));
+        const float lo = 60.0f, hi = juce::jmin (16000.0f, sr * 0.45f);
+        auto edge = [&] (int i) { return lo * std::pow (hi / lo, (float) i / (float) nb); };
+        for (int i = 0; i < nb; ++i)
+        {
+            const int b0 = juce::jlimit (1, kBins - 1, (int) (edge (i) * kFft / sr)), b1 = juce::jlimit (b0 + 1, kBins, (int) (edge (i + 1) * kFft / sr));
+            float ek = 0.0f, ei = 0.0f;
+            for (int b = b0; b < b1; ++b)
+            {
+                ei += spRe[(size_t) b] * spRe[(size_t) b] + spIm[(size_t) b] * spIm[(size_t) b];
+                if (keyed) ek += spKre[(size_t) b] * spKre[(size_t) b] + spKim[(size_t) b] * spKim[(size_t) b];
+            }
+            ek = std::sqrt (ek / (float) (b1 - b0)); ei = std::sqrt (ei / (float) (b1 - b0));
+            spBandKey[(size_t) i] += (ek - spBandKey[(size_t) i]) * (ek > spBandKey[(size_t) i] ? atk : rel);
+            spBandIn[(size_t) i]  += (ei - spBandIn[(size_t) i])  * (ei > spBandIn[(size_t) i]  ? atk : rel);
+            const float g = keyed ? juce::jlimit (-60.0f, 24.0f, 20.0f * std::log10 ((spBandKey[(size_t) i] + 1.0e-6f) / (spBandIn[(size_t) i] + 1.0e-6f))) : 0.0f;
+            for (int b = b0; b < b1; ++b) spGain[(size_t) b] = g * a;   // the knob: how much of the shaping
+        }
+        for (int b = 0; b < juce::jlimit (1, kBins - 1, (int) (lo * kFft / sr)); ++b) spGain[(size_t) b] = keyed ? -60.0f * a : 0.0f;   // below the bands: nothing of the carrier
+    }
+    // ── apply, per channel: the gains onto each channel's own spectrum, back to time, out onto the frames ──
+    const float ola = 2.0f / 3.0f;   // four quarter-overlapped Hann² windows sum to 1.5
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        for (int i = 0; i < kFft; ++i) { spRe[(size_t) i] = at (spIn[ch], start + i) * spWin[(size_t) i]; spIm[(size_t) i] = 0.0f; }
+        fftInPlace (spRe.data(), spIm.data(), kFft, false);
+        for (int b = 0; b < kBins; ++b)
+        {
+            const float g = std::pow (10.0f, spGain[(size_t) b] / 20.0f);
+            spRe[(size_t) b] *= g; spIm[(size_t) b] *= g;
+            if (b > 0 && b < kBins - 1) { spRe[(size_t) (kFft - b)] *= g; spIm[(size_t) (kFft - b)] *= g; }
+        }
+        fftInPlace (spRe.data(), spIm.data(), kFft, true);
+        for (int i = 0; i < kFft; ++i) spOut[ch][(size_t) (((start + i) % ring + ring) % ring)] += spRe[(size_t) i] * spWin[(size_t) i] * ola;
+    }
+}
+
 void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* R,
                          juce::AudioBuffer<float>& scratch)
 {
@@ -370,6 +521,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
     else if (type == kGain) { if (variant == 0 && std::abs (a - 0.75f) < 0.002f
                                                && std::abs (target - 0.75f) < 0.002f)
                               { gainPrimed = false; return; } }
+    else if (isSpectral (type)) { /* never transparent: at rest they still delay by their frame, as the host was told */ }
     else                    { if (a < 0.004f && target < 0.004f)
                               {
                                   if (type == kGlue) grDb = 0.0f;
@@ -1667,6 +1819,26 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
+        case kCarve: case kMatch: case kVocode:
+        {
+            // in and out through the rings; every kHop samples, a frame (the latency is one frame: kFft)
+            if (spIn[0].empty()) break;
+            const int ring = 2 * kFft;
+            const bool keyed = keyL != nullptr;
+            for (int i = 0; i < n; ++i)
+            {
+                const size_t w = (size_t) (spN % ring);
+                spIn[0][w] = L[i]; spIn[1][w] = R != nullptr ? R[i] : L[i];
+                spKey[0][w] = keyed ? keyL[i] : 0.0f; spKey[1][w] = keyed ? (keyR != nullptr ? keyR[i] : keyL[i]) : 0.0f;
+                const size_t r = (size_t) (((spN - kFft) % ring + ring) % ring);   // one frame behind: every frame that touches it has been added
+                L[i] = spOut[0][r]; if (R != nullptr) R[i] = spOut[1][r];
+                spOut[0][r] = 0.0f; spOut[1][r] = 0.0f;
+                ++spN;
+                if (spN % kHop == 0 && spN >= kFft) spectralFrame (type, p, sr, keyed);
+            }
+            break;
+        }
+
         case kGate:
         {
             // A noise gate: an expander with an infinite ratio. The knob is
@@ -2122,6 +2294,7 @@ int Chain::nodeLatency (const Graph::Node& n) const noexcept
         case kHarmony: return latencyFine;
         case kArp:     return latencyLive;
         case kWow:     return latencyWow;
+        case kCarve: case kMatch: case kVocode: return kFft;
         default:       return 0;
     }
 }
@@ -2421,6 +2594,27 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             const float cr = 1.0f - std::exp (-1.0f / (relMs * 0.001f * sampleRate));
             float env = followEnv[op.slot];
             float inPk = 0.0f;
+            if (p.variant == 1)
+            {
+                // transient: a hit is a jump out of the slow envelope (6 dB above it, and above the threshold); the value leaps to
+                // full and falls at the release, and will not fire again for 30 ms. `attack` is how fast the fast side rises.
+                float slow = followSlow[op.slot]; int hold = followHold[op.slot];
+                const float cs = 1.0f - std::exp (-1.0f / (0.12f * sampleRate));
+                const float thrLin = std::pow (10.0f, thrDb / 20.0f);
+                float fast = 0.0f;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float x = juce::jmin (1.5f, gain * juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f));
+                    inPk = juce::jmax (inPk, x);
+                    fast += (x > fast ? ca : cr) * (x - fast);
+                    slow += (x - slow) * cs;
+                    if (hold > 0) --hold;
+                    else if (x > thrLin && x > slow * 2.0f) { env = 1.5f; hold = (int) (0.03f * sampleRate); }
+                    env += (0.0f - env) * cr;
+                }
+                followSlow[op.slot] = slow; followHold[op.slot] = hold;
+            }
+            else
             for (int i = 0; i < n; ++i)
             {
                 const float x = juce::jmin (1.5f, gain * juce::jmax (std::abs (L[i]), R != nullptr ? std::abs (R[i]) : 0.0f));
@@ -2432,7 +2626,7 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             if (inPk > followIn[(size_t) op.slot].load (std::memory_order_relaxed)) followIn[(size_t) op.slot].store (inPk, std::memory_order_relaxed);
             followEnvOut[(size_t) op.slot].store (env, std::memory_order_relaxed);
             const float envDb = 20.0f * std::log10 (juce::jmax (1.0e-5f, env));
-            const float v = juce::jlimit (0.0f, 1.0f, (envDb - thrDb) / (0.0f - thrDb));
+            const float v = p.variant == 1 ? juce::jlimit (0.0f, 1.0f, env) : juce::jlimit (0.0f, 1.0f, (envDb - thrDb) / (0.0f - thrDb));
             follows[(size_t) op.slot].store (v, std::memory_order_relaxed);
             peaks[(size_t) op.slot].store (v, std::memory_order_relaxed);
             break;

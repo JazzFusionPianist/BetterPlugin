@@ -31,9 +31,22 @@ export const LFO_SHAPES: Array<{ name: string; pts: number[] | null }> = [
   { name: 'square',   pts: [0, 1, 0, 0.5, 1, 0, 0.5, 0, 0, 1, 0, 0] },
   { name: 'pulse',    pts: [0, 1, 0, 0.25, 1, 0, 0.25, 0, 0, 1, 0, 0] },
   { name: 'stairs',   pts: [0, 0, 0, 0.25, 0, 0, 0.25, 1 / 3, 0, 0.5, 1 / 3, 0, 0.5, 2 / 3, 0, 0.75, 2 / 3, 0, 0.75, 1, 0, 1, 1, 0] },
+  { name: 'steps',    pts: null },   // a step sequencer: as many steps as you like, each at the height you drag it to (aux 6 = how many)
   { name: 'random',   pts: null },
 ]
 export const LFO_RANDOM = LFO_SHAPES.length - 1
+export const LFO_STEPS = LFO_SHAPES.length - 2
+/** The stairs of `heights` as points: each step two points, a cliff between neighbours (the engine reads a cliff as a jump). */
+export function stepsToPts (heights: number[]): number[] {
+  const n = heights.length, out: number[] = []
+  for (let k = 0; k < n; k++) out.push(k / n, heights[k], 0, (k + 1) / n, heights[k], 0)
+  return out
+}
+/** The heights back out of a stairs shape (every second point). */
+export function ptsToSteps (pts: number[], count: number): number[] {
+  const n = pts.length / 6
+  return Array.from({ length: count }, (_, k) => (k < n ? pts[k * 6 + 1] : 0.5))
+}
 export const SINE_PTS: number[] = LFO_SHAPES[0].pts!
 
 /** y at x along the shape: straight stretches, each bowed by its bend. At a cliff (two points on one x) the value is the one after it. The engine reads the shape the same way. */
@@ -66,7 +79,8 @@ export function randomStep (slot: number, cycle: number, steps: number, k: numbe
   return ((h >>> 0) & 0xffffff) / 0xffffff
 }
 
-export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
+export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0, steps = 0 }: {
+  steps?: number           // > 0: a step sequencer — drag a column to set that step's height
   pts: number[]
   size: number
   onChange: (pts: number[], final: boolean) => void
@@ -76,7 +90,7 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
 }) {
   const ref = useRef<SVGSVGElement>(null)
   const mark = useRef<SVGPathElement>(null)
-  const [drag, setDrag] = useState<{ kind: 'point' | 'bend'; i: number } | null>(null)
+  const [drag, setDrag] = useState<{ kind: 'point' | 'bend' | 'step'; i: number } | null>(null)
   const [cycle, setCycle] = useState(0)
   const n = pts.length / 3
   const pad = 6, W = size - pad * 2
@@ -124,6 +138,14 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
   return (
     <svg ref={ref} className="sg-lfo" width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', overflow: 'visible', touchAction: 'none' }}
       onPointerDown={(e) => {
+        if (steps > 0) {
+          // a step sequencer: press anywhere in a column and that step takes the height of the finger
+          e.stopPropagation(); grab(e)
+          const p = toShape(e), k = Math.min(steps - 1, Math.floor(p.x * steps))
+          const h = ptsToSteps(pts, steps); h[k] = p.y
+          set(stepsToPts(h), false); setDrag({ kind: 'step', i: k })
+          return
+        }
         // the empty grid: a new point, then drag it
         if (random > 0) return
         if ((e.target as Element).closest('[data-pt], [data-bend]')) return
@@ -139,6 +161,13 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
       onPointerMove={(e) => {
         if (!drag) return
         const p = toShape(e)
+        if (drag.kind === 'step') {
+          // the finger sweeps across columns: every column it passes takes its height
+          const k = Math.min(steps - 1, Math.floor(p.x * steps))
+          const h = ptsToSteps(pts, steps); h[k] = p.y
+          set(stepsToPts(h), false)
+          return
+        }
         const next = [...pts]
         if (drag.kind === 'point') {
           const i = drag.i
@@ -179,7 +208,7 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
         <path ref={mark} d={`M-5 ${pad - 11} H5 L0 ${pad - 3} Z M0 ${pad} V${pad + W}`} fill={ink(0.9)} stroke={ink(0.28)} strokeWidth={1} style={{ pointerEvents: 'none' }} />
       )}
       {/* the bends: a hollow point in the middle of every stretch (a cliff has none) */}
-      {random === 0 && Array.from({ length: Math.max(0, n - 1) }, (_, i) => {
+      {random === 0 && steps === 0 && Array.from({ length: Math.max(0, n - 1) }, (_, i) => {
         if (pts[(i + 1) * 3] - pts[i * 3] < 1e-6) return null
         const xm = (pts[i * 3] + pts[(i + 1) * 3]) / 2
         return (
@@ -189,7 +218,7 @@ export function LfoEditor ({ pts, size, onChange, ink, slot, random = 0 }: {
         )
       })}
       {/* the points */}
-      {random === 0 && Array.from({ length: n }, (_, i) => (
+      {random === 0 && steps === 0 && Array.from({ length: n }, (_, i) => (
         <circle key={`p${i}`} data-pt={i} cx={sx(pts[i * 3])} cy={sy(pts[i * 3 + 1])} r={4} fill={ink(1)} style={{ cursor: 'move' }}
           onPointerDown={(e) => { e.stopPropagation(); grab(e); setDrag({ kind: 'point', i }) }}
           onDoubleClick={(e) => {

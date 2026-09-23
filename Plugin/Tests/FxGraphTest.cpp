@@ -420,6 +420,35 @@ int main()
         CHECK (finite (wow) && wdiff > 0.05f && peakOf (wow, 4000, N) > 0.2f && peakOf (wow, 4000, N) < 1.0f, "wow: sways the signal, sane level");
     }
 
+    { // bands: the sound cut in two and summed again is the sound (Linkwitz-Riley: flat in level; the phase turns, so compare levels, late, once the filters have settled)
+        Graph g; g.nodes.push_back (node (3, kSplitBands, 0.0f));
+        g.edges.push_back ({ kPortIn, 3, 1.0f });
+        { Graph::Edge e; e.from = 3; e.to = kPortOut; e.gain = 1.0f; e.port = 0; g.edges.push_back (e); }
+        { Graph::Edge e; e.from = 3; e.to = kPortOut; e.gain = 1.0f; e.port = 1; g.edges.push_back (e); }
+        const auto out = run (g);
+        auto rmsOf = [] (const juce::AudioBuffer<float>& b, int from) { double acc = 0; int c = 0; for (int i = from; i < b.getNumSamples(); ++i) { const float v = b.getSample (0, i); acc += v * v; ++c; } return std::sqrt (acc / c); };
+        const double r0 = rmsOf (input, 4000), r1 = rmsOf (out, 4000);
+        const double db = 20.0 * std::log10 (r1 / r0);
+        std::printf ("    bands: sum of both bands vs the sound: %+.2f dB\n", db);
+        CHECK (std::abs (db) < 0.5, "bands: the bands summed give the sound's level back");
+    }
+    { // carve at depth 0: the sound, one frame later, untouched (the STFT round trip is clean)
+        Graph g; g.nodes.push_back (node (4, kCarve, 0.0f));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        float worst = 0.0f;
+        for (int i = kFft; i + kFft < input.getNumSamples(); ++i) worst = juce::jmax (worst, std::abs (out.getSample (0, i + kFft) - input.getSample (0, i)));
+        std::printf ("    carve @0: worst sample error after one frame of latency: %.5f\n", worst);
+        CHECK (worst < 2.0e-3f, "carve at depth 0 passes the sound through, one frame late");
+    }
+    { // carve at full depth with its own sound as the rule (no key): the level drops, the print does something
+        Graph g; g.nodes.push_back (node (4, kCarve, 1.0f));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        double a0 = 0, a1 = 0; for (int i = 4096; i < input.getNumSamples(); ++i) { a0 += std::abs (input.getSample (0, i - kFft)); a1 += std::abs (out.getSample (0, i)); }
+        std::printf ("    carve @full (no key): level ratio %.3f\n", a1 / a0);
+        CHECK (a1 < a0, "carve at full depth takes something away");
+    }
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

@@ -122,6 +122,12 @@ export const FX_FOLLOW = 34
 export const FX_COMP = 35
 /** A splitter that cuts the sound into bands at up to five crossovers, each band a stereo pair on its own port (0 = the lowest). */
 export const FX_BANDS = 36
+/** The spectral prints (one STFT, a key, a rule per bin): carve cuts where the key is loud, match pulls the sound's spectrum
+ *  toward the key's, vocode shapes the sound by the key's bands. One frame (2048 samples) of latency, reported to the host. */
+export const FX_CARVE = 37
+export const FX_MATCH = 38
+export const FX_VOCODE = 39
+export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
@@ -134,7 +140,7 @@ export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t =
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
-export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP
+export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || isSpectralType(t)
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */

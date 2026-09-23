@@ -167,3 +167,7 @@
 .plugin.sounds .sg-pol { display: inline-flex; flex: none; }
 .plugin.sounds .sg-range { display: inline-flex; flex: none; }
 .plugin.sounds .sg-num.sg-num-range { font-size: 11px; flex: 0 0 100px; min-width: 100px; }
+
+/* the words under a print stay on one line with the small range band beside the value */
+.plugin.sounds .sg-label { display: inline-flex; align-items: baseline; white-space: nowrap; gap: 0.35em; }
+.plugin.sounds .sg-label .sg-cap-range { align-self: center; flex: none; }

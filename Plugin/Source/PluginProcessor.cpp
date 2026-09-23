@@ -1205,7 +1205,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1214,9 +1214,9 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
     { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
     { "octave", "fifth", "down" }, { "soft", "hard" }, { "beat", "bar" }, { "silk", "bright" }, { "ring", "am" }, { "tight", "loose" }, { "wow", "flutter", "both" },
-    {}, {}, {}, {}, {}, {}, {},   // L/R, M/S, LFO, rate, macro, side, follow
+    {}, {}, {}, {}, {}, {}, { "envelope", "transient" },   // L/R, M/S, LFO, rate, macro, side, follow
     { "peak", "rms" },            // comp
-    {},                           // bands
+    {}, {}, {}, {},               // bands, carve, match, vocode
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1238,10 +1238,13 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
         case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
         case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
-        case orbfx::kLfo:     { static const char* const l[] = { "clock", "rate", "feel", "hz", "steps", "depth" }; return k < 6 ? l[k] : nullptr; }
+        case orbfx::kLfo:     { static const char* const l[] = { "clock", "rate", "feel", "hz", "steps", "depth", "reset" }; return k < 7 ? l[k] : nullptr; }
         case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
         case orbfx::kComp:    { static const char* const c[] = { "ratio", "attack", "release", "knee", "makeup" }; return k < 5 ? c[k] : nullptr; }
         case orbfx::kSplitBands: { static const char* const b[] = { "cross 1", "cross 2", "cross 3", "cross 4", "cross 5", "crossovers" }; return k < 6 ? b[k] : nullptr; }
+        case orbfx::kCarve:   { static const char* const c[] = { "attack", "release", "tilt" }; return k < 3 ? c[k] : nullptr; }
+        case orbfx::kMatch:   { static const char* const m[] = { "learn", "smooth" }; return k < 2 ? m[k] : nullptr; }
+        case orbfx::kVocode:  { static const char* const v[] = { "bands", "attack", "release" }; return k < 3 ? v[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1259,8 +1262,11 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
         case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
-        case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } break;
+        case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } else if (k == 6) { lo = 0; hi = 1; } break;
         case orbfx::kSplitBands: if (k < 5) { lo = 20; hi = 20000; } else if (k == 5) { lo = 1; hi = 5; } break;
+        case orbfx::kCarve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2) { lo = -100; hi = 100; } break;
+        case orbfx::kMatch:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 1; hi = 48; } break;
+        case orbfx::kVocode:  if (k == 0) { lo = 8; hi = 64; } else if (k == 1) { lo = 1; hi = 200; } else if (k == 2) { lo = 10; hi = 2000; } break;
         case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB
         case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
         default: break;
@@ -1299,7 +1305,7 @@ void OrbAudioProcessor::syncHandNames()
         const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
         auto& h = slotHost[i];
         auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
-        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : "amount"));
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : "amount"));
         put (h.mode->dynName,   prefix + "mode");
         put (h.decay->dynName,  prefix + "decay");
         put (h.fb->dynName,     prefix + "feedback");
@@ -1483,6 +1489,14 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
     {
         const auto& w = t.wires[i];
         const int a = w.hand - orbfx::kHandAux0;
+        if (a == 6)
+        {
+            // the reset hand: what lands here restarts the lfo when it rises past the middle (a follow's hit, a macro flicked up)
+            const bool on = value[w.from] > 0.5f;
+            if (on && ! resetWas[i]) rateReset[w.to] = true;
+            resetWas[i] = on;
+            return;
+        }
         if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, depth[i]));
     };
     auto playsAnLfo = [&] (const ModTable::Wire& w) { return w.target == -1 && w.to >= 0 && w.to < orbfx::kMaxNodes && t.isRate[w.to]; };
@@ -1504,6 +1518,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         const auto& rp = params[r];   // the host's clock, as pushed
         const int mode = rp.aux[0];
         double phase = ratePhase[r];
+        if (rateReset[r] && (mode == 1 || ! playing)) phase = 0.0;   // free-running: back to the start now
         if (mode == 1)
         {
             const double hz = juce::jlimit (0.01, 20.0, rp.aux[3] / 100.0);
@@ -1514,9 +1529,11 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
             const int div = juce::jlimit (0, 7, rp.aux[1]);
             const int feel = rp.aux[2];
             const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
-            if (playing) phase = ppq / beats;   // locked to the song: the shape's left edge is bar 1, so the same place in the song is the same place in the shape
+            if (playing && rateReset[r]) rateOffset[r] = ppq / beats;   // synced: from here the shape starts over, still locked to the song
+            if (playing) phase = ppq / beats - rateOffset[r];   // locked to the song: the shape's left edge is bar 1 (or the last reset), so the same place in the song is the same place in the shape
             else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
         }
+        rateReset[r] = false;
         // which turn this is: from the song while it plays (so a random shape is the same every time that bar is played), counted otherwise
         const double whole = std::floor (phase);
         if (playing && mode != 1) rateCycle[r] = (int64_t) whole; else rateCycle[r] += (int64_t) whole;

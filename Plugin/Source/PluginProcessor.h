@@ -255,7 +255,10 @@ private:
     int64_t            rateCycle[orbfx::kMaxNodes] {};        // audio thread: which turn of the shape this is (free-running: counted; playing: from the song position)
     int                rateLastIdx[orbfx::kMaxNodes] {};      // audio thread: where in the table the last block read
     int64_t            rateLastStep[orbfx::kMaxNodes] {};     // audio thread: the last random step
-    int                rateLastDepth[orbfx::kMaxNodes] {};    // audio thread: the lfo's own depth last block (a thrown depth makes its hands jump)
+    int                rateLastDepth[orbfx::kMaxNodes] {};
+    double             rateOffset[orbfx::kMaxNodes] {};        // audio thread: where in the song the lfo was last reset to its start (synced)
+    bool               rateReset[orbfx::kMaxNodes] {};         // audio thread: a reset arrived this block
+    bool               resetWas[orbfx::kMaxEdges] {};          // audio thread: the reset wire's last reading, for the rising edge    // audio thread: the lfo's own depth last block (a thrown depth makes its hands jump)
     std::array<std::atomic<float>, orbfx::kMaxNodes> ratePhaseOut {};   // for the wall: where each lfo is in its shape, 0..1
     std::array<std::atomic<int>, orbfx::kMaxNodes> rateCycleOut {};     // …and which turn (the random shape is drawn from it)
     std::array<std::atomic<float>, orbfx::kMaxNodes> rateValue {};   // what each rate is playing now, 0..1, for the wall

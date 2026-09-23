@@ -306,8 +306,13 @@ OrbAudioProcessor::OrbAudioProcessor()
                 [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
                     done (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
-                        : juce::PluginHostType().isProTools() ? "Pro Tools" : "Unsupported"));
+                        : juce::PluginHostType().isProTools() ? "Pro Tools"
+                        : juce::File::getSpecialLocation (juce::File::hostApplicationPath).getFullPathName().containsIgnoreCase ("/LUNA.app/")
+                            ? "LUNA" : juce::PluginHostType().getHostDescription()));
                 })
+            .withNativeFunction ("trackExportCapabilities",
+                [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                { done (juce::String ("{\"adapters\":[\"Pro Tools\",\"LUNA\"]}")); })
             .withNativeFunction ("trackExport",
                 [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 { trackExportBridge.invoke (args, std::move (done)); }));

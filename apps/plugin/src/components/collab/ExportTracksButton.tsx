@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ArrowUpRight, ChevronDown, ListMusic, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
-import { hasTrackExport, useTrackExportHost, exportDawTracks, inspectDawTracks, type TrackExportSnapshot } from '../../lib/dawTrackExport'
+import { hasTrackExport, useTrackExportHost, exportDawTracks, inspectDawTracks, type TrackExportSnapshot, type TrackExportDaw } from '../../lib/dawTrackExport'
 import { useT } from '../../i18n/LanguageContext'
 import './trackExport.css'
 
@@ -21,14 +21,16 @@ export default function ExportTracksButton({ onCapture, className }: {
   const [busy, setBusy] = useState<'loading' | 'exporting' | 'uploading' | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
+  const [chosenDaw, setChosenDaw] = useState<TrackExportDaw>('Pro Tools')
+  const daw = host.standalone ? chosenDaw : host.name as TrackExportDaw
   const archive = useRef<File | null>(null)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
-  if (!hasTrackExport() || !host.proTools) return null
-  const refresh = async () => {
+  if (!hasTrackExport() || !host.supported) return null
+  const refresh = async (target = daw) => {
     if (running.current) return
     running.current = true; setBusy('loading'); setError(''); archive.current = null
     try {
-      const next = await inspectDawTracks()
+      const next = await inspectDawTracks(target)
       if (!mounted.current) return
       setSnapshot(next)
       setSelected(next.tracks.filter(track => track.selected && !track.disabledReason).map(track => track.id))
@@ -65,11 +67,16 @@ export default function ExportTracksButton({ onCapture, className }: {
       <header>
         <div className="slur-track-export-mark"><ListMusic size={21} aria-hidden="true" /></div>
         <div className="slur-track-export-heading"><h2 id={`${id}-title`}>{t('trackExport.title')}</h2>
-          <p title={snapshot?.name}><span>Pro Tools</span>{snapshot ? ` / ${snapshot.name}` : ''}</p></div>
+          <p title={snapshot?.name}><span>{daw}</span>{snapshot ? ` / ${snapshot.name}` : ''}</p></div>
         <button type="button" className="slur-track-export-icon" disabled={!!busy} onClick={() => dialog.current?.close()} aria-label={t('common.close')}><X size={18} /></button>
       </header>
       <div className="slur-track-export-body">
         <div className="slur-track-export-toolbar">
+          {host.standalone && host.adapters.length > 1 && <select className="slur-track-export-daw" value={chosenDaw} disabled={!!busy}
+            aria-label={t('trackExport.daw')} onChange={e => {
+              const next = e.target.value as TrackExportDaw
+              setChosenDaw(next); setSnapshot(null); setSelected([]); setQuery(''); void refresh(next)
+            }}>{host.adapters.map(name => <option key={name} value={name}>{name}</option>)}</select>}
           <label className="slur-track-export-search"><Search size={16} aria-hidden="true" />
             <input type="search" value={query} disabled={!!busy} onChange={e => setQuery(e.target.value)}
               placeholder={t('trackExport.search')} aria-label={t('trackExport.search')} />
@@ -89,7 +96,7 @@ export default function ExportTracksButton({ onCapture, className }: {
               onChange={e => { archive.current = null; setSelected(old => e.target.checked ? [...old, track.id] : old.filter(id => id !== track.id)) }} />
             <span className="slur-track-export-name">{track.name}</span><span className="slur-track-export-type">{track.disabledReason ? t('trackExport.unavailable') : track.type}</span>
           </label>)}
-          {busy === 'loading' && <div className="slur-track-export-placeholder"><LoaderCircle size={22} className="slur-track-export-spin" /><p>{t('trackExport.loading')}</p></div>}
+          {busy === 'loading' && <div className="slur-track-export-placeholder"><LoaderCircle size={22} className="slur-track-export-spin" /><p>{t('trackExport.loading', { daw })}</p></div>}
           {!busy && snapshot && visibleTracks.length === 0 && <div className="slur-track-export-placeholder"><ListMusic size={24} /><p>{t(snapshot.tracks.length ? 'trackExport.noResults' : 'trackExport.empty')}</p></div>}
         </div>
         <div className="slur-track-export-settings">
@@ -97,21 +104,22 @@ export default function ExportTracksButton({ onCapture, className }: {
             <div className="slur-track-export-segments">
               <label><input type="radio" name={`${id}-range`} checked={mode === 'entire'} disabled={!snapshot?.ranges.entire}
                 onChange={() => { archive.current = null; setMode('entire') }} /><span>{t('trackExport.entire')}</span></label>
-              <label><input type="radio" name={`${id}-range`} checked={mode === 'selection'} disabled={!snapshot?.ranges.selection}
+              <label title={snapshot?.rangeNote}><input type="radio" name={`${id}-range`} checked={mode === 'selection'} disabled={!snapshot?.ranges.selection}
                 onChange={() => { archive.current = null; setMode('selection') }} /><span>{t('trackExport.selection')}</span></label>
             </div>
           </fieldset>
           {range && snapshot && <p className="slur-track-export-time"><span>{time(range.start, snapshot.sampleRate)} <span aria-hidden="true">→</span> {time(range.end, snapshot.sampleRate)}</span>
             <span className="slur-track-export-duration">{time(range.end - range.start, snapshot.sampleRate)} · {snapshot.sampleRate / 1000} kHz</span></p>}
           {snapshot?.entireError && <p className="slur-track-export-warning">{snapshot.entireError}</p>}
+          {snapshot?.daw === 'LUNA' && <p className="slur-track-export-warning">{t('trackExport.lunaRange')}</p>}
           <details className="slur-track-export-details"><summary>{t('trackExport.details')}<ChevronDown size={13} aria-hidden="true" /></summary>
-            <div><p>{mode === 'entire' ? t('trackExport.bounds') : t('trackExport.selectionHelp')}</p><p>{t('trackExport.routing')}</p></div>
+            <div><p>{daw === 'LUNA' ? t('trackExport.lunaBounds') : mode === 'entire' ? t('trackExport.bounds') : t('trackExport.selectionHelp')}</p><p>{t('trackExport.routing')}</p></div>
           </details>
         </div>
         {error && <p role="alert" className="slur-track-export-error">{error}</p>}
       </div>
       <footer><span className="slur-track-export-status" role="status" aria-live="polite">
-        {busy ? <><LoaderCircle size={15} className="slur-track-export-spin" />{t(`trackExport.${busy}`)}</> : <>{t('trackExport.count', { count: selected.length })}{selected.length > 0 && <button type="button" onClick={() => { archive.current = null; setSelected([]) }}>{t('trackExport.clearAll')}</button>}</>}
+        {busy ? <><LoaderCircle size={15} className="slur-track-export-spin" />{t(`trackExport.${busy}`, { daw })}</> : <>{t('trackExport.count', { count: selected.length })}{selected.length > 0 && <button type="button" onClick={() => { archive.current = null; setSelected([]) }}>{t('trackExport.clearAll')}</button>}</>}
       </span>
         <button type="button" className="slur-track-export-submit" disabled={!!busy || !selected.length || !range}
           onClick={() => void exportTracks()}>{t('trackExport.submit')}<ArrowUpRight size={16} aria-hidden="true" /></button></footer>

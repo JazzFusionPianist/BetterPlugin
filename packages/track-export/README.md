@@ -1,6 +1,53 @@
-# Slur Chat — Pro Tools track export
+# Slur Chat — DAW track export
 
-The native chat-composer track-list button uses PTSL, not screen automation or
+## Supported adapters
+
+| DAW | Track list | Offline export | Installation / limits |
+| --- | --- | --- | --- |
+| Pro Tools 2026.4 | Native PTSL IDs | Entire audio session / timeline selection | Licensed PTSL SDK staged locally |
+| LUNA 3.0.0 on macOS | Native track UIDs; no StemLink | Entire session, audio/instrument tracks | Built-in local service; no screen automation |
+| REAPER | Not connected in this release | Pending | Older experimental ReaScript needs rework and real-host tests |
+| Logic, Cubase/Nuendo, Live, Bitwig, FL Studio, Studio Pro, Mixbus | Not connected to this picker | Pending | Do not report the old MCU bank list or an opened export dialog as automatic export |
+
+LUNA does not yet support timeline selection or buses through this adapter.
+Its local API is host-version dependent, not a cross-DAW plugin standard.
+Read failures, missing ranges, real-time-only renders, session switches, missing
+files and short output fail closed. Extra render blocks are cropped to the
+displayed session end without shifting samples or re-encoding. No silence is
+invented to hide a short render. All output is Float32 WAV as rendered by LUNA.
+The existing chat uploader is shared by both adapters.
+
+The installed native build advertises adapter capabilities; older builds retain
+Pro Tools-only behavior. Standalone exposes an explicit DAW selector so it never
+guesses which of two open DAWs the user means.
+
+Architecture: picker → native private job → selected DAW adapter → validated
+WAV/archive → existing chat uploader. Jobs serialize host renders with local
+locks. An uncertain LUNA abort retains its lock/journal rather than starting
+another render. No host project, mixer routing, selection or track is edited
+by the export adapter. LUNA's render service updates internal media bookkeeping.
+
+Revisit for broader distribution: a bundled runtime instead of Homebrew Node,
+per-version host conformance tests, bounded parallel track reads, and a supported
+range API for LUNA before enabling its selection option. New adapters must
+preserve stable IDs and validate samples before opting into the native capability
+list. Do not automatically fall back to playback recording or UI automation.
+
+Real-host verification: synthetic LUNA session with duplicate track names and
+three mono sources at different positions/lengths; 48 kHz post-pan stereo exports
+validated at the same 307840-frame length without adding project tracks. The
+guarded command below never uploads or sends a message:
+
+```sh
+node packages/track-export/test/liveLunaTracks.mjs
+```
+
+For LUNA-only local installation, run `node packages/track-export/install.mjs`;
+the Avid SDK is only needed for the Pro Tools adapter.
+
+## Pro Tools adapter
+
+In Pro Tools, the native chat-composer track-list button uses PTSL, not screen automation or
 StemLink. It reads real track IDs, bounces checked tracks offline, validates the
 WAV files, and sends one multi-audio attachment using the existing upload path.
 The sender checks the destination again before sending; failed renders/uploads

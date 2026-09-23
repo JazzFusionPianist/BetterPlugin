@@ -23,6 +23,7 @@
 .slur-track-export button.slur-track-export-icon { width: 34px; height: 34px; padding: 0; flex: 0 0 auto; color: var(--t2, #6e6b63); }
 .slur-track-export-body { padding: 0 20px; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow-y: auto; }
 .slur-track-export-toolbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.slur-track-export-daw { max-width: 120px; height: 36px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; font: inherit; color: inherit; background: var(--card, #fff); }
 .slur-track-export-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; height: 36px; padding: 0 10px; background: var(--card, #fff); border: 1px solid var(--border); border-radius: 7px; color: var(--t2, #6e6b63); }
 .slur-track-export-search:focus-within { border-color: var(--acc, #1b6e48); }
 .slur-track-export-search svg { flex-shrink: 0; }

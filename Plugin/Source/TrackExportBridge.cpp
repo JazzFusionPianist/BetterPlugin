@@ -34,7 +34,7 @@ public:
                     runtime.getChildFile ("native.cjs").getFullPathName(), folder.getFullPathName()}))
                 {
                     const auto started = juce::Time::getMillisecondCounterHiRes();
-                    const auto deadline = request["operation"].toString() == "exportTracks" ? 1800000 : 240000;
+                    const auto deadline = request["operation"].toString().startsWith ("export") ? 1800000 : 240000;
                     while (child.isRunning() && ! shouldExit()
                         && juce::Time::getMillisecondCounterHiRes() - started < deadline) juce::Thread::sleep (25);
                     if (child.isRunning())
@@ -46,7 +46,7 @@ public:
                     {
                         result = juce::JSON::parse (folder.getChildFile ("response.json").loadFileAsString());
                         if (! result.isObject()) result = failure ("The track export helper returned no result.");
-                        else if (request["operation"].toString() == "exportTracks" && (bool) result["ok"])
+                        else if (request["operation"].toString().startsWith ("export") && (bool) result["ok"])
                         {
                             const auto file = folder.getChildFile ("selection.orb-regions.zip");
                             juce::MemoryBlock bytes;
@@ -76,11 +76,12 @@ void TrackExportBridge::invoke (const juce::var& args, juce::WebBrowserComponent
     auto reject = [&done] (const juce::String& message) { done (juce::JSON::toString (failure (message), true)); };
     if (! args.isArray() || args.size() < 1 || args.size() > 3) { reject ("Invalid track export request."); return; }
     const auto op = args[0].toString();
-    if (op != "inspectTracks" && op != "exportTracks") { reject ("Unknown track export operation."); return; }
+    if (op != "inspectTracks" && op != "exportTracks" && op != "inspectLunaTracks" && op != "exportLunaTracks")
+        { reject ("Unknown track export operation."); return; }
     if (pool.getNumJobs() != 0) { reject ("Another track export is running."); return; }
     auto* input = new juce::DynamicObject();
     input->setProperty ("operation", op);
-    if (op == "exportTracks")
+    if (op.startsWith ("export"))
     {
         const auto options = args.size() == 3 ? juce::JSON::parse (args[2].toString()) : juce::var();
         if (! options.isObject()) { delete input; reject ("Invalid track export options."); return; }

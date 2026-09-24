@@ -6,15 +6,15 @@ import { Capacitor } from '@capacitor/core'
 import AuthModal from './AuthModal'
 import SlurMark from './slur/SlurMark'
 import Bar from './slur/Bar'
-import Gallery from './slur/Gallery'
+import Cover from './slur/Cover'
 import TiedPhrase from './slur/TiedPhrase'
 import { C } from './slur/marks'
 import '@/app/slur.css'
 
-/* The page before you log in. A gallery first — the plug-ins, plate by
-   plate, under a pictogram nav (teenage engineering's grammar, in Slur's
-   voice) — then one phrase, tied, over a bar of music whose notes sound
-   when touched, then the door. Every edge is a curve. */
+/* The page before you log in. A cover first — one print on an empty
+   ground turning its pages, under a pictogram nav, the name travelling
+   along the floor — then one phrase, tied, over a bar of music whose notes
+   sound when touched, then the door. Every edge is a curve. */
 
 const WIDE = [
   { x: 180, step: 1, color: C.blue },
@@ -74,8 +74,7 @@ export default function Landing () {
     <div className="sl">
       <div className="sl-grain" />
 
-      <header className="sl-top te">
-        <a className="sl-logo" href="/" aria-label="slur studio"><SlurMark height={46} /></a>
+      <Cover nav={(
         <nav className="sl-cells">
           <a className="sl-cell hide-narrow" href="/downloads#slur">
             <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden="true"><path d="M -12.98 -5.24 A 14 9.8 -22 1 0 12.98 5.24 A 14 9.8 -22 1 0 -12.98 -5.24 Z M -2.3 -5.4 A 5.9 7.3 38 1 1 2.3 5.4 A 5.9 7.3 38 1 1 -2.3 -5.4 Z" fill={C.green} fillRule="evenodd" /></svg>
@@ -96,9 +95,7 @@ export default function Landing () {
             <span><b>log in</b><small>sign up<br />web</small></span>
           </button>
         </nav>
-      </header>
-
-      <Gallery />
+      )} />
 
       <section className="sl-arch sl-phrase" ref={phrase}>
         <TiedPhrase />

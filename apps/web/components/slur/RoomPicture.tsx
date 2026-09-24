@@ -21,7 +21,7 @@ export default function RoomPicture () {
     <div className="sl-win" aria-hidden="true">
       <div className="sl-rail">
         <h6>projects</h6>
-        <div className="sl-row on"><Av color={C.blue} /><div className="t"><b>hanroro ep</b><small>jun: bridge take 3 is up</small></div><span className="sl-badge">2</span></div>
+        <div className="sl-row on"><Av color={C.blue} /><div className="t"><b>night bus ep</b><small>jun: bridge take 3 is up</small></div><span className="sl-badge">2</span></div>
         <div className="sl-row"><Av color={C.orange} /><div className="t"><b>friday set</b><small>soundcheck 5pm</small></div></div>
         <div className="sl-row"><Av color={C.lilac} /><div className="t"><b>demos</b><small>voice memo 0:42</small></div></div>
         <h6>people</h6>
@@ -31,7 +31,7 @@ export default function RoomPicture () {
       </div>
       <div className="sl-pane">
         <div className="sl-pane-h">
-          <b>hanroro ep</b>
+          <b>night bus ep</b>
           <small>4 members <em>2 in the studio now</em></small>
           <div className="sl-tabs"><span className="on">chat</span><span>stems<sup>6</sup></span><span>calendar<sup>2</sup></span><span>notes</span></div>
         </div>
@@ -50,7 +50,7 @@ export default function RoomPicture () {
           <div className="sl-m mine"><div className="sl-bub">fixing it now, back in 10</div></div>
           <div className="sl-m"><Av color={C.yellow} round /><div className="sl-bub">rehearsal fri 7pm?</div></div>
         </div>
-        <div className="sl-inp">message hanroro ep</div>
+        <div className="sl-inp">message night bus ep</div>
       </div>
     </div>
   )

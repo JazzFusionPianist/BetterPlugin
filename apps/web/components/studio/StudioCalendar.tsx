@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CalendarEvent, EventCategory } from '@orb/core'
 import { EventPage, type EventPatch } from '../app/CalendarView'
+import { NoteGlyph } from './StudioHomeSchedule'
 
 interface Props {
   currentUserId: string
@@ -138,7 +139,7 @@ export default function StudioCalendar({
 
   const chip = (e: CalendarEvent, withTime: boolean) => (
     <span key={e.id} className="sc-chip" title={e.title}>
-      <i style={{ background: e.category_color || DEFAULT_COLOR }} />
+      <NoteGlyph size={10} color={e.category_color || DEFAULT_COLOR} />
       {withTime && <em>{timeOf(e)}</em>}
       <b>{e.title}</b>
     </span>
@@ -164,11 +165,13 @@ export default function StudioCalendar({
         </div>
         {categories.length > 0 && (
           <div className="sc-filters">
-            <button className={`sc-filter${filter === null ? ' on' : ''}`} onClick={() => setFilter(null)}>all</button>
+            <button className={`sc-filter${filter === null ? ' on' : ''}`} onClick={() => setFilter(null)}>
+              <NoteGlyph size={12} color="#1A1917" hollow={filter !== null} />all
+            </button>
             {categories.map(c => (
               <button key={c.id} className={`sc-filter${filter === c.name ? ' on' : ''}`}
                 onClick={() => setFilter(f => (f === c.name ? null : c.name))}>
-                <i style={{ background: c.color }} />{c.name}
+                <NoteGlyph size={12} color={c.color} hollow={filter !== c.name} />{c.name}
               </button>
             ))}
           </div>
@@ -269,7 +272,7 @@ export default function StudioCalendar({
                   return (
                     <div key={e.id} className="sc-row" onClick={() => setDetailId(e.id)} role="button">
                       <span className="sc-row-time">{timeOf(e)}</span>
-                      <i className="sc-row-bar" style={{ background: e.category_color || DEFAULT_COLOR }} />
+                      <NoteGlyph size={12} color={e.category_color || DEFAULT_COLOR} className="sc-row-note" />
                       <span className="sc-row-main">
                         <b>{e.title}</b>
                         {meta.length > 0 && <span className="sc-row-meta">{meta.map((m, i) => <span key={i}>{m}</span>)}</span>}
@@ -291,7 +294,9 @@ export default function StudioCalendar({
                     placeholder={`add to ${WEEKDAYS_LONG[selDate.getDay()]} ${selDate.getDate()}…`}
                     onChange={e => { setDraft(e.target.value); setAddErr(null) }}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
-                  <button disabled={!draft.trim() || adding} onClick={() => void submit()} aria-label="add">{adding ? '…' : '→'}</button>
+                  <button disabled={!draft.trim() || adding} onClick={() => void submit()} aria-label="add">
+                    <NoteGlyph size={28} color={draft.trim() && !adding ? '#3FB872' : '#C0BCB3'} />
+                  </button>
                 </div>
               </div>
             </>

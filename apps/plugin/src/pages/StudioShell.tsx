@@ -2815,10 +2815,6 @@ function StudioShellInner({ supabase, user }: Props) {
             /* my calendar — the personal programme, fuller. The prompt
                lives on the home pane now. */
             <>
-              <div className="wd-head plain">
-                <div className="wd-title">{myName}</div>
-                <div className="wd-sub">my calendar</div>
-              </div>
               {/* The real month page — everything RLS lets me see, from
                   any room; events added here are personal (no room). */}
               <StudioCalendar

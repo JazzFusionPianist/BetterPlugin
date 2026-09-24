@@ -480,10 +480,6 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
             })()
           ) : sel?.kind === 'me' ? (
             <>
-              <div className="wd-head plain">
-                <div className="wd-title">{myName}</div>
-                <div className="wd-sub">my calendar</div>
-              </div>
               <StudioCalendar events={allCalEvents} {...calendarProps}
                 onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, null)} />
             </>

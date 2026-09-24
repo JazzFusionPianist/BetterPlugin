@@ -1194,3 +1194,56 @@
 .wd .wd-week-more { align-self: flex-start; background: none; border: none; padding: 2px 4px; cursor: pointer; font-family: inherit;
   font-size: 11px; color: #1A1917; text-decoration: underline; text-underline-offset: 3px; }
 .wd .wd-week-ln { height: 1px; background: rgba(26,25,23,.12); }
+
+/* ── the calendar, in the pages' language ── */
+.wd .sc-head { padding: 28px 36px 10px 40px; }
+.wd .sc-title { font-size: 40px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; }
+.wd .sc-title span { color: #C0BCB3; }
+.wd .sc-filters { margin-top: 14px; gap: 8px 18px; }
+.wd .sc-filter { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6E6B63; }
+.wd .sc-filter i { display: none; }
+.wd .sc-filter.on { color: #1A1917; font-weight: 500; }
+.wd .sc-body { padding-right: 0; }
+.wd .sc-page { padding: 0 24px 0 40px; }
+.wd .sc-weekdays { letter-spacing: .06em; }
+.wd .sc-week { gap: 3px; }
+.wd .sc-weeks { gap: 3px; }
+.wd .sc-cell { border-radius: 14px; border-top: 1px solid rgba(26,25,23,.09); padding: 7px 6px 5px 8px; }
+.wd .sc-cell:hover { background: rgba(26,25,23,.03); }
+.wd .sc-cell.sel, .wd .sc-cell.sel:hover, .wd .sc-wkcol.sel, .wd .sc-lday.sel { background: #BFE6CB; border-top-color: transparent; }
+.wd .sc-num { font-weight: 500; }
+.wd .sc-chip i { display: none; }
+.wd .sc-chip > svg { flex-shrink: 0; }
+.wd .sc-more { color: #6E6B63; text-decoration: underline; text-underline-offset: 2px; }
+.wd .sc-wkcol { border-radius: 14px; }
+.wd .sc-lday { border-radius: 14px; }
+/* the chosen day — a mint arch on the right */
+.wd .sc-day { flex: 0 0 320px; margin-left: 8px; padding: 34px 26px 18px; background: #BFE6CB; border-left: none; border-radius: 80px 80px 0 0; }
+.wd .sc-day-title { font-size: 26px; font-weight: 500; letter-spacing: -0.03em; }
+.wd .sc-day-title span { color: rgba(26,25,23,.4); }
+.wd .sc-day-sub { color: rgba(26,25,23,.55); }
+.wd .sc-rows { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.wd .sc-row { align-items: center; gap: 8px; padding: 9px 12px 9px 10px; border: none; border-radius: 14px; background: rgba(255,255,255,.85); }
+.wd .sc-row:hover { background: #fff; }
+.wd .sc-row:hover b { text-decoration: none; }
+.wd .sc-row-time { flex: none; order: 2; width: auto; padding: 0; font-size: 10px; color: #A5A199; }
+.wd .sc-row-bar { display: none; }
+.wd .sc-row-note { flex-shrink: 0; }
+.wd .sc-row-main b { font-size: 12.5px; }
+.wd .sc-row-meta { font-size: 10px; }
+.wd .sc-row .wd-word { order: 3; }
+.wd .sc-add { padding-top: 12px; }
+.wd .sc-add-bar { background: #fff; border-radius: 23px; height: 46px; padding: 0 8px 0 18px; }
+.wd .sc-add-bar:focus-within { box-shadow: 0 0 0 1.5px #1A1917; }
+.wd .sc-add-bar input { font-size: 13px; }
+.wd .sc-add-bar button, .wd .sc-add-bar button:disabled { width: auto; height: auto; background: none; padding: 0; display: flex; }
+.wd .sc-add-bar button:hover:not(:disabled) svg { transform: scale(1.1) rotate(-6deg); }
+.wd .sc-add-bar button svg { transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+.wd .sc-add-err { color: #B8552F; }
+.wd .sc-detail { background: rgba(255,255,255,.85); border-radius: 20px; padding: 16px 18px; margin-top: 4px; }
+.wd .sc-none { font-style: normal; }
+
+/* the cell's hairline stays straight (a border would follow the radius) */
+.wd .sc-cell { border-top: none; position: relative; }
+.wd .sc-cell::before { content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px; background: rgba(26,25,23,.09); }
+.wd .sc-cell.sel::before { display: none; }

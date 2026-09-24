@@ -1,15 +1,16 @@
-import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColorOf, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
+import { MODES, VARIANTS, BLUE as BLUE_INK, fmtDecay, DIV_LABELS, KEY_NAMES, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
+import { printInner, PLATE_TINT, hexToRgb, REACH, type Family } from './printGlyphs'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn, parseLead, clamp } from './StudyControls'
 import { Cells } from '../../assets/parts/parts'
-import { LfoEditor, SINE_PTS, shapeAt, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, randomStep, stepsToPts, ptsToSteps } from './LfoEditor'
+import { LfoEditor, SINE_PTS, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, stepsToPts, ptsToSteps } from './LfoEditor'
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
-import { BandsEditor, BandsArt, BAND_RGB, crossovers, fmtHz } from './BandsEditor'
+import { BandsEditor, BAND_RGB, crossovers, fmtHz } from './BandsEditor'
 import { LATEST, updateOut, engineHas, lfoOwnClock } from '../../lib/soundsRelease'
 import { openExternalUrl } from '../../lib/linkify'
 import {
@@ -51,16 +52,18 @@ const FAMILIES: Array<[string, string[]]> = [
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
  *  tone: a square, sharp; grit: a square with two opposite corners struck off; space: the circle; motion: a square leaning over;
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
-const familyOf = (type: number) => { if (type === FX_COMP) return 'tone'; if (isSpectralType(type)) return 'pitch'; if (type === FX_PAN) return 'space'; const name = nameOf(type); return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
+const familyOf = (type: number) => { if (type === FX_COMP) return 'tone'; if (isSpectralType(type)) return 'spectral'; const name = nameOf(type); return FAMILIES.find(f => name !== undefined && f[1].includes(name))?.[0] ?? 'space' }
 const LEAN = 0.34, LEAN_W = 1.08, DIAMOND = 1.36, STRUCK = 0.62
 /** The control prints (LFO, macro, follow) are hands, not sounds: a small hexagon, about half a sound print, lit in their own colour —
  *  small so they read as fittings, plated so the wall's light goes round them instead of through them. */
-const CTRL_R = 0.6, CTRL_ART = 0.5   // the hexagon's reach and the picture's size, against a sound print's
-const plateReach = (type: number) => { if (isControlType(type)) return CTRL_R; if (isUtilityType(type)) return 1; const f = familyOf(type); return f === 'pitch' ? DIAMOND : f === 'motion' ? LEAN_W : 1 }
+const CTRL_R = 0.6, CTRL_ART = 0.6   // the ring's reach and the print's size, against a sound print's (the ring is drawn in the print itself)
+const plateReach = (type: number) => { if (isControlType(type)) return CTRL_R; const f = familyOf(type) as Family; return REACH[f] ?? 1 }
 function platePath (ctx: CanvasRenderingContext2D, type: number, cx: number, cy: number, R: number) {
   const fam = familyOf(type)
   ctx.beginPath()
-  if (isControlType(type)) { for (let k = 0; k < 6; k++) { const th = (k / 6) * Math.PI * 2; const x = cx + R * CTRL_R * Math.cos(th), y = cy + R * CTRL_R * Math.sin(th); if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) } ctx.closePath(); return }
+  if (isControlType(type)) { ctx.arc(cx, cy, R * CTRL_R, 0, Math.PI * 2); return }
+  if (fam === 'spectral') { ctx.rect(cx - R * 1.2, cy - R, R * 2.35, R * 2); return }
+  if (fam === 'utility') { ctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2); return }
   const poly = (pts: Array<[number, number]>) => { pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(cx + x * R, cy + y * R) : ctx.lineTo(cx + x * R, cy + y * R))); ctx.closePath() }
   if (fam === 'tone') ctx.rect(cx - R, cy - R, R * 2, R * 2)
   else if (fam === 'grit') poly([[-1, -1], [1 - STRUCK, -1], [1, -1 + STRUCK], [1, 1], [-1 + STRUCK, 1], [-1, 1 - STRUCK]])
@@ -112,7 +115,7 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   18: [{ key: 'aux0', label: 'size' }, { key: 'aux1', label: 'spray' }, { key: 'aux2', label: 'scatter' }, { key: 'aux5', label: 'pan' }],
   22: [{ key: 'aux0', label: 'depth' }],
 }
-const AURORA = !(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'round')   // the wall's light is an aurora; ?glow=round shows the old round lamps, to compare
+const AURORA = false   // the wall's light is the round lamp under each print, as bright and wide as its knob; the aurora is gone
 /** What a print's big knob is, where "amount" would be vague. */
 const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'hold', [FX_SIEVE]: 'keep', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
@@ -130,22 +133,12 @@ const RATE_FEEL = ['straight', 'dotted', 'triplet']
 /** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
 const rateText = (n: { aux: number[] }) => (n.aux[0] === 1 ? `${((n.aux[3] || 200) / 100).toFixed(2)} hz` : `${RATE_DIVS[n.aux[1] ?? 3] ?? '1/4'}${n.aux[2] === 1 ? '.' : n.aux[2] === 2 ? 't' : ''}`)
 const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
-/** The lamps of the prints with no plate. The routers are cool and pale (they only pass light on: a mix is every lamp at once, bone white);
- *  the control prints are warm (they are hands); the side is the one other sound in the room, a deep sea green. */
-const UTILITY_TINTS: Record<number, [number, number, number]> = {
-  [FX_MIX_TYPE]: [236, 226, 200], [FX_SPLIT_LR]: [120, 196, 255], [FX_SPLIT_MS]: [150, 236, 190],
-  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84], [FX_ENV]: [255, 172, 120], [FX_DRIFT]: [170, 200, 255], [FX_PULSE]: [255, 140, 140], [FX_SCENE]: [246, 226, 150],
-}
-const COMP_TINT: [number, number, number] = [92, 224, 168]   // comp — a cooler green than glue's
-const SPECTRAL_TINT: Record<number, [number, number, number]> = { [FX_CARVE]: [255, 112, 150], [FX_MATCH]: [120, 216, 255], [FX_VOCODE]: [210, 150, 255], [FX_FREEZE]: [150, 232, 255], [FX_SHIFT]: [255, 150, 210], [FX_SMEAR]: [186, 196, 255], [FX_SIEVE]: [255, 208, 120] }
-const NEW_TINTS: Record<number, [number, number, number]> = { [FX_PAN]: [222, 222, 240], [FX_REPEAT]: [255, 190, 90], [FX_FOLD]: [255, 122, 84] }
+/** A print's tint: one per print, flat, from the draft's table (the lamps, the wires and the words all take it). */
 function tintOf (type: number, variant = 0): [number, number, number] {
-  if (isUtilityType(type)) return UTILITY_TINTS[type] ?? [246, 243, 234]
-  if (type === FX_COMP) return COMP_TINT
-  if (isSpectralType(type)) return SPECTRAL_TINT[type]
-  if (NEW_TINTS[type]) return NEW_TINTS[type]
-  return VARIANT_TINTS[type]?.[variant] ?? WALL_TINTS[type] ?? [246, 243, 234]
+  void variant   // one tint per print now, whatever its mode
+  return TINT_RGB[type] ?? [246, 243, 234]
 }
+const TINT_RGB: Record<number, [number, number, number]> = Object.fromEntries(Object.entries(PLATE_TINT).map(([k, v]) => [Number(k), hexToRgb(v)]))
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
@@ -269,325 +262,6 @@ function grainTile (): HTMLCanvasElement | null {
   return c
 }
 
-/** The mix print: one ring cut into its inputs' shares, radial hairlines
- *  at the cuts, the first share in the second ink. */
-function MixArt ({ shares }: { shares: number[] }) {
-  const RR = 86, C = 110
-  const lvl = useContext(StrokeLevel) ?? 0
-  const PAPER = strokeFor(lvl)
-  const BLUE = lvl > 0.62 ? strokeFor(lvl) : BLUE_INK
-  const total = shares.reduce((s, x) => s + x, 0) || 1
-  let ang = -Math.PI / 2
-  const arcs = shares.map((s, i) => {
-    const frac = s / total
-    const a0 = ang + 0.06, a1 = ang + frac * Math.PI * 2 - 0.06
-    const p0 = [C + RR * Math.cos(a0), C + RR * Math.sin(a0)]
-    const p1 = [C + RR * Math.cos(a1), C + RR * Math.sin(a1)]
-    const el = (
-      <Fragment key={i}>
-        {frac > 0.02 && <path d={`M ${p0[0]} ${p0[1]} A ${RR} ${RR} 0 ${frac > 0.5 ? 1 : 0} 1 ${p1[0]} ${p1[1]}`}
-          stroke={i === 0 ? BLUE : PAPER} strokeWidth={i === 0 ? 3 : 1.5} fill="none" strokeLinecap="round" />}
-        <line x1={C} y1={C} x2={C + RR * Math.cos(ang)} y2={C + RR * Math.sin(ang)} stroke={PAPER} strokeWidth={0.8} opacity={0.7} />
-      </Fragment>
-    )
-    ang += frac * Math.PI * 2
-    return el
-  })
-  if (shares.length === 0) arcs.push(<circle key="e" cx={C} cy={C} r={RR} stroke={PAPER} strokeWidth={1} fill="none" opacity={0.5} />)
-  return (
-    <g>
-      {[22, 40, 58].map(rr => <circle key={rr} cx={C} cy={C} r={rr} stroke={PAPER} strokeWidth={0.8} fill="none" opacity={0.35} />)}
-      {arcs}
-    </g>
-  )
-}
-
-/** The splitters' prints: one line in, two out — the fork. */
-function SplitArt ({ ms }: { ms: boolean }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const [L, R, M, S] = [LANE_RGB[1], LANE_RGB[2], LANE_RGB[3], LANE_RGB[4]].map(c => `rgb(${c[0]}, ${c[1]}, ${c[2]})`)
-  return ms ? (
-    <g>
-      <path d="M28 110 H92" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-      <path d="M92 110 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-      <path d="M92 110 C122 110 122 66 152 66 H188" stroke={P} strokeOpacity={0.5} strokeWidth={1} strokeLinecap="round" fill="none" />
-      <path d="M92 110 C122 110 122 154 152 154 H188" stroke={P} strokeOpacity={0.5} strokeWidth={1} strokeLinecap="round" fill="none" />
-      <circle cx={92} cy={110} r={2.2} fill={P} />
-      <circle cx={192} cy={110} r={3} fill={M} /><circle cx={192} cy={66} r={2.4} fill={S} /><circle cx={192} cy={154} r={2.4} fill={S} />
-    </g>
-  ) : (
-    <g>
-      <path d="M28 110 H92" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-      <path d="M92 110 C122 110 122 74 152 74 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-      <path d="M92 110 C122 110 122 146 152 146 H188" stroke={P} strokeWidth={1.5} strokeLinecap="round" fill="none" />
-      <circle cx={92} cy={110} r={2.2} fill={P} />
-      <circle cx={192} cy={74} r={3} fill={L} /><circle cx={192} cy={146} r={3} fill={R} />
-      <path d="M40 100 V120 M46 100 V120" stroke={P} strokeOpacity={0.45} strokeWidth={0.8} />
-    </g>
-  )
-}
-
-/** The lfo's print: its shape, small. */
-function LfoArt ({ pts, random = 0 }: { pts?: number[]; random?: number }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const p = pts && pts.length >= 6 ? pts : SINE_PTS
-  let d = ''
-  if (random > 0) for (let k = 0; k < random; k++) { const y = (150 - randomStep(0, 0, random, k) * 80).toFixed(1); d += `${k === 0 ? 'M' : 'L'}${(34 + k / random * 152).toFixed(1)} ${y} L${(34 + (k + 1) / random * 152).toFixed(1)} ${y} ` }
-  else for (let k = 0; k <= 152; k++) { const x = k / 152; d += `${k === 0 ? 'M' : 'L'}${(34 + x * 152).toFixed(1)} ${(150 - shapeAt(p, x) * 80).toFixed(1)} ` }
-  return (
-    <g>
-      {[0, 2, 4, 6, 8].map(k => <path key={k} d={`M${34 + k * 19} 70 V150`} stroke={P} strokeOpacity={0.14} strokeWidth={0.8} />)}
-      <path d="M34 110 H186" stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
-      <path d={d} fill="none" stroke={P} strokeWidth={1.5} strokeLinejoin="round" />
-    </g>
-  )
-}
-/** The rate's print: a clock face with its word in the middle. */
-function RateArt ({ node }: { node: { aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  return (
-    <g>
-      <circle cx={110} cy={110} r={72} stroke={P} strokeOpacity={0.35} strokeWidth={1} fill="none" />
-      {Array.from({ length: 8 }, (_, k) => { const a = k / 8 * Math.PI * 2 - Math.PI / 2; return <path key={k} d={`M${110 + 66 * Math.cos(a)} ${110 + 66 * Math.sin(a)} L${110 + 72 * Math.cos(a)} ${110 + 72 * Math.sin(a)}`} stroke={P} strokeOpacity={0.6} strokeWidth={1} /> })}
-      <path d="M110 110 V44" stroke={P} strokeWidth={1.5} strokeLinecap="round" />
-      <text x={110} y={140} textAnchor="middle" fontSize="18" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>{rateText(node)}</text>
-    </g>
-  )
-}
-
-/** The macro's print: a ring that fills as the knob turns, its number in the middle. */
-function MacroArt ({ node }: { node: { amount: number; aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const a0 = -Math.PI * 0.75, a1 = a0 + Math.PI * 1.5 * Math.min(1, Math.max(0, node.amount))
-  const R = 70, C = 110
-  const arc = (a: number, b: number) => `M${C + R * Math.cos(a)} ${C + R * Math.sin(a)} A${R} ${R} 0 ${b - a > Math.PI ? 1 : 0} 1 ${C + R * Math.cos(b)} ${C + R * Math.sin(b)}`
-  return (
-    <g>
-      <path d={arc(a0, a0 + Math.PI * 1.5)} stroke={P} strokeOpacity={0.25} strokeWidth={1} fill="none" strokeLinecap="round" />
-      {node.amount > 0.005 && <path d={arc(a0, a1)} stroke={P} strokeWidth={3} fill="none" strokeLinecap="round" />}
-      <text x={C} y={C + 8} textAnchor="middle" fontSize="26" fill={P} style={{ fontFamily: "'Space Mono', monospace" }}>{(node.aux[0] || 0) + 1}</text>
-    </g>
-  )
-}
-
-/** The side's print: the sound that comes in from beside — an arrow from the edge into a circle. */
-function SideArt () {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  return (
-    <g>
-      <circle cx={110} cy={110} r={72} stroke={P} strokeOpacity={0.35} strokeWidth={1} fill="none" />
-      <path d="M22 110 H128" stroke={P} strokeWidth={1.5} strokeLinecap="round" />
-      <path d="M112 94 L128 110 L112 126" stroke={P} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={150} cy={110} r={5} fill={P} />
-    </g>
-  )
-}
-/** freeze: a wave held still — its bars stand, one line runs on over them. */
-function FreezeArt ({ node }: { node: { amount: number } }) {
-  const C = 'rgb(150, 232, 255)'
-  const held = node.amount > 0.5
-  const bars = [0.3, 0.55, 0.9, 0.7, 1, 0.6, 0.8, 0.45, 0.35, 0.2]
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      {bars.map((h, k) => <rect key={k} x={50 + k * 12.4} y={150 - 90 * h} width={8} height={90 * h} fill={C} fillOpacity={held ? 0.8 : 0.28} />)}
-      <path d="M46 160 H174" stroke={C} strokeOpacity={0.4} strokeWidth={1} />
-      {held ? null : <path d={`M46 110 ${bars.map((h, k) => `L${54 + k * 12.4} ${150 - 90 * h}`).join(' ')} L174 110`} fill="none" stroke={C} strokeWidth={2} strokeLinejoin="round" />}
-    </g>
-  )
-}
-/** shift: every line of the spectrum moved by the same hz — the harmonics slide, not scale. */
-function ShiftArt ({ node }: { node: { amount: number; aux: number[] } }) {
-  const C = 'rgb(255, 150, 210)'
-  const hz = Math.max(-2000, Math.min(2000, node.aux[0] || 0)), dx = 26 * (hz / 2000) * Math.max(0.15, node.amount)
-  const lines = [0, 1, 2, 3, 4].map(k => 56 + k * 26)
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      {lines.map((x, k) => <path key={`d${k}`} d={`M${x} 150 V${150 - 70 / (k + 1)}`} stroke={C} strokeOpacity={0.3} strokeWidth={2} strokeDasharray="2 3" />)}
-      {lines.map((x, k) => <path key={`s${k}`} d={`M${x + dx} 150 V${150 - 70 / (k + 1)}`} stroke={C} strokeWidth={3} strokeLinecap="round" />)}
-      <path d="M46 160 H174" stroke={C} strokeOpacity={0.4} strokeWidth={1} />
-    </g>
-  )
-}
-/** smear: the spectrum's peaks left to fade slowly — a fog under the line. */
-function SmearArt ({ node }: { node: { amount: number; aux: number[] } }) {
-  const C = 'rgb(186, 196, 255)'
-  const live = (t: number) => 0.45 + 0.28 * Math.sin(t * 5.1) * Math.sin(t * 1.3 + 0.4) + 0.12 * Math.sin(t * 13)
-  const fog = (t: number) => { let m = 0; for (let k = 0; k < 8; k++) m = Math.max(m, live(t - k * 0.06)); return m }
-  const a = node.amount
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      <path d={`${specPath(48, 124, 176, 130, (t, y) => y + (fog(t) - y) * 1)} L176 160 L48 160 Z`} fill={C} fillOpacity={0.12 + 0.28 * a} stroke="none" />
-      <path d={specPath(48, 124, 176, 130, (t, y) => y + (live(t) - y) * 1)} fill="none" stroke={C} strokeWidth={2} strokeOpacity={1 - 0.6 * a} strokeLinejoin="round" />
-    </g>
-  )
-}
-/** sieve: the spectrum's peaks — the loudest few stand, the rest fade. */
-function SieveArt ({ node }: { node: { amount: number } }) {
-  const C = 'rgb(255, 208, 120)'
-  const keep = Math.max(1, Math.round(Math.pow(2, (1 - node.amount) * 10)))
-  const heights = [0.55, 0.9, 0.35, 1, 0.5, 0.75, 0.3, 0.62, 0.42, 0.8, 0.28, 0.48]
-  const order = heights.map((h, k) => [h, k] as const).sort((x, y) => y[0] - x[0]).map(x => x[1])
-  const kept = new Set(order.slice(0, Math.min(heights.length, keep)))
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      {heights.map((h, k) => <path key={k} d={`M${52 + k * 10.6} 150 V${150 - 88 * h}`} stroke={C} strokeWidth={kept.has(k) ? 3 : 1.4} strokeOpacity={kept.has(k) ? 1 : 0.22} strokeLinecap="round" />)}
-      <path d="M46 160 H174" stroke={C} strokeOpacity={0.4} strokeWidth={1} />
-    </g>
-  )
-}
-/** pan: the sound's place between the two ears. */
-function PanArt ({ a }: { a: number }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const x = 46 + (174 - 46) * a
-  return (
-    <g>
-      <path d="M46 110 H174" stroke={P} strokeOpacity={0.35} strokeWidth={1.2} strokeLinecap="round" />
-      <path d="M110 96 V124" stroke={P} strokeOpacity={0.35} strokeWidth={1} />
-      <text x={34} y={116} fontSize={15} fontFamily="inherit" fill={P} fillOpacity={0.7} textAnchor="middle">L</text>
-      <text x={186} y={116} fontSize={15} fontFamily="inherit" fill={P} fillOpacity={0.7} textAnchor="middle">R</text>
-      <circle cx={x} cy={110} r={9} fill={P} />
-    </g>
-  )
-}
-/** repeat: one slice of sound, caught at a hit, said again and again. */
-function RepeatArt ({ a }: { a: number }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const slice = [0.9, 0.5, 0.7, 0.3, 0.2]
-  return (
-    <g>
-      {[0, 1, 2].map(r => slice.map((h, k) => <rect key={`${r}${k}`} x={40 + r * 48 + k * 8} y={150 - 80 * h} width={6} height={80 * h} fill={P} fillOpacity={r === 0 ? 0.85 : 0.25 + 0.6 * a} />))}
-      <path d="M40 160 H184" stroke={P} strokeOpacity={0.3} strokeWidth={1} />
-      <path d="M40 54 V160" stroke={P} strokeOpacity={0.5} strokeWidth={1.2} strokeDasharray="3 3" />
-    </g>
-  )
-}
-/** env: attack, decay, sustain, release — the four sides of a gate. */
-function EnvArt ({ node }: { node: { aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const lg = (v: number, lo: number, hi: number) => Math.log(Math.max(lo, Math.min(hi, v)) / lo) / Math.log(hi / lo)
-  const atk = 6 + 30 * lg(node.aux[0] || 10, 1, 5000), dec = 8 + 34 * lg(node.aux[1] || 200, 1, 5000), rel = 10 + 44 * lg(node.aux[3] || 300, 1, 10000)
-  const sus = Math.max(0, Math.min(100, node.aux[2] ?? 70)) / 100
-  const base = 150, top = 66, x0 = 40
-  const susW = Math.max(10, 150 - atk - dec - rel)
-  const xA = x0 + atk, xD = xA + dec, xS = xD + susW, xR = xS + rel
-  const yS = base - (base - top) * sus
-  return (
-    <g>
-      <path d={`M${x0} ${base} L${xA} ${top} L${xD} ${yS} L${xS} ${yS} L${xR} ${base} Z`} fill={P} fillOpacity={0.12} stroke="none" />
-      <path d={`M${x0} ${base} L${xA} ${top} L${xD} ${yS} L${xS} ${yS} L${xR} ${base}`} fill="none" stroke={P} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
-      <path d={`M34 ${base} H186`} stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
-      <path d={`M${x0} ${base + 3} V${base + 9} M${xS} ${base + 3} V${base + 9}`} stroke={P} strokeOpacity={0.6} strokeWidth={1} />
-    </g>
-  )
-}
-/** fold: a wave driven past the edge and bent back on itself. */
-function FoldArt ({ a, variant }: { a: number; variant: number }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const drive = 1 + a * a * 5
-  const fold = (x: number) => { if (variant !== 1) return Math.sin(x * Math.PI / 2); const t = x * 0.5 + 0.25; const f = t - Math.floor(t); return f < 0.5 ? f * 4 - 1 : 3 - f * 4 }
-  const pts: string[] = []
-  for (let i = 0; i <= 64; i++) { const t = i / 64; const x = 44 + t * 132; const y = 110 - 52 * fold(Math.sin(t * Math.PI * 2) * drive); pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`) }
-  return (
-    <g>
-      <path d="M44 58 H176 M44 162 H176" stroke={P} strokeOpacity={0.3} strokeWidth={1} strokeDasharray="3 4" />
-      <path d={pts.join(' ')} fill="none" stroke={P} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-    </g>
-  )
-}
-/** scene: A and B, and where between them the wall stands. */
-function SceneArt ({ node }: { node: { amount: number; sceneA?: number[]; sceneB?: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const a = Math.min(1, Math.max(0, node.amount)), x = 62 + 96 * a
-  const hasA = !!node.sceneA?.length, hasB = !!node.sceneB?.length
-  return (
-    <g style={{ fontFamily: "'Space Mono', monospace" }}>
-      <path d="M62 110 H158" stroke={P} strokeOpacity={0.3} strokeWidth={1.2} strokeLinecap="round" />
-      <circle cx={62} cy={110} r={hasA ? 7 : 4} fill={hasA ? P : 'none'} stroke={P} strokeOpacity={hasA ? 1 : 0.5} strokeWidth={1} />
-      <circle cx={158} cy={110} r={hasB ? 7 : 4} fill={hasB ? P : 'none'} stroke={P} strokeOpacity={hasB ? 1 : 0.5} strokeWidth={1} />
-      <text x={62} y={152} textAnchor="middle" fontSize="20" fill={P} fillOpacity={hasA ? 1 : 0.45}>A</text>
-      <text x={158} y={152} textAnchor="middle" fontSize="20" fill={P} fillOpacity={hasB ? 1 : 0.45}>B</text>
-      <circle cx={x} cy={110} r={5} fill={P} stroke="rgb(22, 20, 16)" strokeWidth={2} />
-    </g>
-  )
-}
-/** drift: a line that wanders — random targets, a curve between them. */
-function DriftArt ({ node }: { node: { aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const sm = Math.max(0, Math.min(100, node.aux[4] ?? 60)) / 100
-  const tgt = (c: number) => randomStep(3, c, 1, 0)
-  let d = ''
-  for (let k = 0; k <= 152; k++) {
-    const x = k / 152 * 3, c = Math.floor(x), t = x - c
-    const y0 = tgt(c - 1), y1 = tgt(c), y2 = tgt(c + 1), y3 = tgt(c + 2)
-    const cr = 0.5 * ((2 * y1) + (-y0 + y2) * t + (2 * y0 - 5 * y1 + 4 * y2 - y3) * t * t + (-y0 + 3 * y1 - 3 * y2 + y3) * t * t * t)
-    const v = Math.max(0, Math.min(1, (y1 + (y2 - y1) * t) * (1 - sm) + cr * sm))
-    d += `${k === 0 ? 'M' : 'L'}${(34 + k / 152 * 152).toFixed(1)} ${(150 - v * 80).toFixed(1)} `
-  }
-  return (
-    <g>
-      {[0, 1, 2, 3].map(k => <path key={k} d={`M${34 + k * 50.67} 70 V150`} stroke={P} strokeOpacity={0.14} strokeWidth={0.8} />)}
-      <path d="M34 110 H186" stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
-      <path d={d} fill="none" stroke={P} strokeWidth={1.5} strokeLinejoin="round" />
-    </g>
-  )
-}
-/** The pulse's pattern: `hits` of `steps`, spread as evenly as they can be (euclid), turned by `rotate`. */
-export function pulseHits (steps: number, hits: number, rotate: number): boolean[] {
-  const n = Math.max(1, Math.min(32, steps)), h = Math.max(0, Math.min(n, hits))
-  return Array.from({ length: n }, (_, k) => ((((k + rotate) % n) + n) % n * h) % n < h)
-}
-/** pulse: the steps in a ring, the hits filled. */
-function PulseArt ({ node }: { node: { aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const steps = node.aux[4] || 8, hits = pulseHits(steps, node.aux[5] ?? 3, node.aux[6] || 0)
-  const R = 58, r = steps > 16 ? 4 : steps > 8 ? 5.5 : 7
-  return (
-    <g>
-      <circle cx={110} cy={110} r={R} stroke={P} strokeOpacity={0.18} strokeWidth={0.8} fill="none" />
-      {hits.map((on, k) => { const a = -Math.PI / 2 + k / steps * Math.PI * 2; const x = 110 + R * Math.cos(a), y = 110 + R * Math.sin(a)
-        return on ? <circle key={k} cx={x} cy={y} r={r} fill={P} /> : <circle key={k} cx={x} cy={y} r={r * 0.55} fill="none" stroke={P} strokeOpacity={0.5} strokeWidth={1} /> })}
-      <path d={`M110 ${110 - R - 12} V${110 - R - 4}`} stroke={P} strokeOpacity={0.6} strokeWidth={1} />
-    </g>
-  )
-}
-/** The follow's print: a sound's outline and the line that follows it. */
-function FollowArt ({ node }: { node: { aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const atk = Math.min(500, Math.max(1, node.aux[0] || 10)), rel = Math.min(2000, Math.max(5, node.aux[1] || 200))
-  // the burst: a few bars of sound; the line: rises over the attack, falls over the release
-  const bars = [0.35, 0.8, 0.55, 1, 0.7, 0.45, 0.25, 0.15, 0.1, 0.06]
-  const x0 = 46, w = 12, base = 150
-  const up = 8 + 30 * Math.log10(atk) / Math.log10(500), down = 40 + 80 * Math.log10(rel / 5) / Math.log10(400)
-  const peakX = x0 + up, peakY = base - 78
-  const d = `M${x0} ${base} L${peakX} ${peakY} Q${peakX + down * 0.35} ${base - 10} ${Math.min(196, peakX + down)} ${base}`
-  const thr = Math.min(-1, Math.max(-60, node.aux[3] || -40)), thrY = base - 78 * (1 + thr / 60)   // -60 dB at the floor, 0 dB at the peak
-  return (
-    <g>
-      {bars.map((h, k) => <rect key={k} x={x0 + k * (w + 2)} y={base - 70 * h} width={w} height={70 * h} fill={P} fillOpacity={0.16} />)}
-      <path d={`M34 ${thrY.toFixed(1)} H186`} stroke={P} strokeOpacity={0.5} strokeWidth={0.8} strokeDasharray="3 3" />
-      <path d={`M34 ${base} H186`} stroke={P} strokeOpacity={0.22} strokeWidth={0.8} />
-      <path d={d} fill="none" stroke={P} strokeWidth={1.5} strokeLinecap="round" />
-    </g>
-  )
-}
-
 /** A print as the engine is playing it: the hands something plays (an LFO, a macro, a follow) are read from the engine every frame,
  *  so the picture on the wall moves with them — the knob turns, the decay bar runs, the delay's feedback swings. Nothing is played:
  *  it is the print as set. Only the played hands re-render, and only this print. */
@@ -624,79 +298,10 @@ function LiveVal ({ node, played }: { node: FxGraphNode; played: boolean }) {
   return <>{' '}{fmtValue(node.type, a ?? node.amount, node.variant)}</>
 }
 
-/** A spectrum, as a print sees one: a jagged line over a dark ground in the print's colour. */
-const SPEC_Y = [0.55, 0.62, 0.7, 0.66, 0.78, 0.72, 0.6, 0.66, 0.5, 0.58, 0.44, 0.52, 0.4, 0.46, 0.34, 0.4, 0.3, 0.34, 0.26, 0.3, 0.22]
-function specPath (x0: number, w: number, y0: number, h: number, f: (t: number, y: number) => number) {
-  return SPEC_Y.map((y, k) => { const t = k / (SPEC_Y.length - 1); return `${k === 0 ? 'M' : 'L'}${(x0 + t * w).toFixed(1)} ${(y0 - f(t, y) * h).toFixed(1)}` }).join(' ')
-}
-/** carve: the spectrum with a piece carved out of its middle, as deep as the knob. */
-function CarveArt ({ node }: { node: { amount: number } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl), C = 'rgb(255, 112, 150)'
-  const cut = (t: number) => Math.exp(-((t - 0.5) * (t - 0.5)) / 0.02) * 0.6 * node.amount
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      <path d={`${specPath(48, 124, 176, 130, (_t, y) => y)} L172 176 L48 176 Z`} fill={P} fillOpacity={0.12} />
-      <path d={specPath(48, 124, 176, 130, (_t, y) => y)} fill="none" stroke={P} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" />
-      <path d={specPath(48, 124, 176, 130, (t, y) => y - cut(t))} fill="none" stroke={C} strokeWidth={3} strokeLinejoin="round" />
-    </g>
-  )
-}
-/** match: the sound's spectrum pulled onto the key's, as far as the knob. */
-function MatchArt ({ node }: { node: { amount: number } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  void lvl
-  const C = 'rgb(120, 216, 255)'
-  const key = (t: number, y: number) => 0.45 + (y - 0.45) * 0.4 + 0.18 * Math.sin(t * 6)   // the key's shape: another curve
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      <path d={specPath(48, 124, 176, 130, key)} fill="none" stroke={C} strokeOpacity={0.45} strokeWidth={1.2} strokeDasharray="2 3" />
-      <path d={specPath(48, 124, 176, 130, (t, y) => y + (key(t, y) - y) * node.amount)} fill="none" stroke={C} strokeWidth={3} strokeLinejoin="round" />
-    </g>
-  )
-}
-/** vocode: the key's bands standing over the carrier. */
-function VocodeArt ({ node }: { node: { amount: number; aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl), C = 'rgb(210, 150, 255)'
-  const nb = Math.max(4, Math.min(16, Math.round((node.aux[0] || 24) / 4)))
-  return (
-    <g>
-      <rect x={38} y={38} width={144} height={144} rx={3} fill={C} fillOpacity={0.1} />
-      {Array.from({ length: nb }, (_, k) => { const h = (0.3 + 0.5 * Math.abs(Math.sin(k * 1.7 + 0.4))) * (0.35 + 0.65 * node.amount); const w = 124 / nb; return <rect key={k} x={48 + k * w + 1} y={176 - h * 130} width={Math.max(1, w - 2)} height={h * 130} fill={C} fillOpacity={0.75} /> })}
-      <path d={specPath(48, 124, 176, 130, (_t, y) => y * 0.5)} fill="none" stroke={P} strokeOpacity={0.35} strokeWidth={1} />
-    </g>
-  )
-}
-/** The comp's print: the transfer curve alone, thick, in the comp's green on a dark green ground — no axes. In along the bottom,
- *  out up the side. Straight until the threshold, then bent by the ratio and rounded by the knee; the ground above the curve is
- *  what the comp takes away, lit a little so the bend reads from across the wall. The knob moves the corner down the line. */
-function CompArt ({ node }: { node: { amount: number; aux: number[] } }) {
-  const lvl = useContext(StrokeLevel) ?? 0
-  const P = strokeFor(lvl)
-  const thr = -60 * node.amount, ratio = Math.max(1, (node.aux[0] || 40) / 10), knee = Math.max(0, node.aux[3] || 0)
-  const x0 = 38, y0 = 182, S = 144 / 60   // −60..0 dB on 144 px, both ways
-  const out = (inDb: number) => { const over = inDb - thr; if (knee > 0 && Math.abs(over) < knee / 2) return inDb + (1 / ratio - 1) * (over + knee / 2) ** 2 / (2 * knee); return over > 0 ? thr + over / ratio : inDb }
-  const X = (inDb: number) => x0 + (inDb + 60) * S, Y = (o: number) => y0 - (o + 60) * S
-  let d = ''
-  for (let k = 0; k <= 120; k++) { const inDb = -60 + k / 2; d += `${k === 0 ? 'M' : 'L'}${X(inDb).toFixed(1)} ${Y(out(inDb)).toFixed(1)} ` }
-  const G = 'rgb(92, 224, 168)'
-  return (
-    <g>
-      <rect x={x0} y={y0 - 144} width={144} height={144} rx={3} fill={G} fillOpacity={0.1} />
-      {/* what is taken away: between the straight line and the curve */}
-      <path d={`${d} L${X(0).toFixed(1)} ${Y(0).toFixed(1)} Z`} fill={G} fillOpacity={0.22} />
-      <path d={`M${X(-60)} ${Y(-60)} L${X(0)} ${Y(0)}`} stroke={P} strokeOpacity={0.22} strokeWidth={1} strokeDasharray="2 4" />
-      <path d={d} fill="none" stroke={G} strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
-      <path d={d} fill="none" stroke={P} strokeOpacity={0.5} strokeWidth={1.2} strokeLinejoin="round" strokeLinecap="round" />
-    </g>
-  )
-}
-
-function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
-  node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[] }
+/** A print: its family's flat plate in its tint with its picture inside in paper — or the bars / the fitting that are the
+ *  picture (see printGlyphs). Unit space: a plate of radius 1 is half the print's size; a motion plate and the bars overflow. */
+function Print ({ node, size, dim, shares }: {
+  node: Pick<FxGraphNode, 'type' | 'amount' | 'variant' | 'decay' | 'delayDiv' | 'delayFb' | 'aux'> & { curve?: number[]; pts?: number[]; sceneA?: number[]; sceneB?: number[] }
   size: number
   dim?: boolean
   shares?: number[]
@@ -705,49 +310,11 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
   onFb?: (v: number, force?: boolean) => void
   onFlip?: (bit: number) => void
 }) {
-  const { type, amount: a, variant } = node
-  const t = tintOf(type, variant)
-  // no filter halo: the lamps are the light, and a filter draws its own box
-  void t; void a; void dim
-  const glow = 'none'
-  const Art = ARTS[type]
+  void dim; void shares
+  const inner = useMemo(() => printInner(node, familyOf(node.type) as Family, PLATE_TINT[node.type] ?? '#F6F3EA'),
+    [node.type, node.amount, node.variant, node.aux, node.pts, node.sceneA, node.sceneB])   // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <svg viewBox="0 0 220 220" width={size} height={size} style={{ filter: glow, overflow: 'visible', display: 'block' }}>
-      {type === FX_MIX_TYPE ? <MixArt shares={shares ?? []} />
-        : type === FX_BANDS ? <BandsArt aux={node.aux} />
-        : isSplitterType(type) ? <SplitArt ms={type === FX_SPLIT_MS} />
-        : type === FX_LFO ? <LfoArt pts={node.pts} random={node.aux[4] || 0} />
-        : type === FX_RATE ? <RateArt node={node} />
-        : type === FX_MACRO ? <MacroArt node={node} />
-        : type === FX_COMP ? <CompArt node={node} />
-        : type === FX_CARVE ? <CarveArt node={node} />
-        : type === FX_MATCH ? <MatchArt node={node} />
-        : type === FX_VOCODE ? <VocodeArt node={node} />
-        : type === FX_SIDE ? <SideArt />
-        : type === FX_FOLLOW ? <FollowArt node={node} />
-        : type === FX_ENV ? <EnvArt node={node} />
-        : type === FX_DRIFT ? <DriftArt node={node} />
-        : type === FX_PULSE ? <PulseArt node={node} />
-        : type === FX_SCENE ? <SceneArt node={node} />
-        : type === FX_FREEZE ? <FreezeArt node={node} />
-        : type === FX_SHIFT ? <ShiftArt node={node} />
-        : type === FX_SMEAR ? <SmearArt node={node} />
-        : type === FX_SIEVE ? <SieveArt node={node} />
-        : type === FX_PAN ? <PanArt a={a} />
-        : type === FX_REPEAT ? <RepeatArt a={a} />
-        : type === FX_FOLD ? <FoldArt a={a} variant={variant} />
-        : type === 2 ? <Art a={a} variant={variant} decay={node.decay[variant] ?? 0.5} onDecay={onDecay} />
-        : type === 10 ? <Art a={a} div={node.delayDiv} fb={node.delayFb} onDiv={onDiv} onFb={onFb} />
-        : type === 7 ? <Art a={a} variant={variant} />
-        : type === 5 ? <Art a={a} pol={variant} onFlip={onFlip} />
-        : type === 12 ? <Art a={a} variant={variant} curve={node.curve} />
-        : type === 22 ? <Art a={a} variant={variant} depth={(node.aux[1] === 1 ? node.aux[0] : 100) / 100} />
-        : type === 18 ? <Art a={a} variant={variant} />
-        : type === 19 ? <Art a={a} variant={variant} />
-        : type === 13 ? <Art a={a} variant={variant} interval={node.aux[0] || 12} />
-        : type === 15 ? <Art a={a} degrees={node.aux[2]} keyRoot={node.aux[0]} scale={node.aux[1]} chromatic={variant === 1} />
-        : <Art a={a} />}
-    </svg>
+    <svg viewBox="-1 -1 2 2" width={size} height={size} style={{ overflow: 'visible', display: 'block' }} dangerouslySetInnerHTML={{ __html: inner }} />
   )
 }
 
@@ -1025,6 +592,7 @@ export default function FxWall ({ size: frame }: Props) {
     const fam = familyOf(n.type), yk = 0.6   // on a straight-sided plate: six tenths of the way down its left edge
     if (fam === 'tone') return { x: c.x - Rz, y: c.y + Rz * yk }
     if (fam === 'motion') return { x: c.x - Rz * (LEAN_W + LEAN * yk), y: c.y + Rz * yk }
+    if (fam === 'spectral') return { x: c.x - Rz * 1.15, y: c.y + Rz * yk }
     return { x: c.x - Rz * Math.cos(a), y: c.y + Rz * Math.sin(a) }
   }
   /** Where a wire leaves a node; a splitter's two ports sit either side of its middle. */
@@ -1102,8 +670,7 @@ export default function FxWall ({ size: frame }: Props) {
     : n.amount
   const litLevel = 0   // the ink reads the base wall: paper everywhere
   const inkVars = useMemo(() => {
-    const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(strokeFor(litLevel))
-    const [r, g, b] = m ? [m[1], m[2], m[3]] : ['246', '243', '234']
+    const [r, g, b] = ['246', '243', '234']   // paper, always: the ink reads the base wall
     const vars: Record<string, string> = { '--sg-ink': `rgb(${r}, ${g}, ${b})` }
     for (const a of [85, 70, 60, 55, 50, 42, 30, 22, 14]) vars[`--sg-ink-${a}`] = `rgba(${r}, ${g}, ${b}, 0.${a})`
     return vars as React.CSSProperties
@@ -1492,7 +1059,7 @@ export default function FxWall ({ size: frame }: Props) {
         rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260} liveMap={(v) => v / 100}
           format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
       }
-      if (n.type === FX_DRIFT) rows.push(<GaugeRow key="smooth" label="smooth" value={n.aux[4] ?? 60} min={0} max={100} step={1} unit="%" defaultValue={60} onChange={(v) => setAux(4, Math.round(v))} />)
+      if (n.type === FX_DRIFT) rows.push(<GaugeRow key="dsmooth" label="smooth" value={n.aux[4] ?? 60} min={0} max={100} step={1} unit="%" defaultValue={60} onChange={(v) => setAux(4, Math.round(v))} />)
       if (n.type === FX_PULSE) {
         rows.push(<GaugeRow key="psteps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
         rows.push(<GaugeRow key="hits" label="hits" value={n.aux[5] ?? 3} min={0} max={n.aux[4] || 8} step={1} defaultValue={3} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(5, Math.round(v))} />)
@@ -1700,7 +1267,7 @@ export default function FxWall ({ size: frame }: Props) {
         case 'div': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT || t === FX_DRIFT || t === FX_PULSE ? 'aux1' : null
         case 'feel': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT || t === FX_DRIFT || t === FX_PULSE ? 'aux2' : null
         case 'hz': return t === FX_RATE || t === FX_LFO || t === FX_REPEAT || t === FX_DRIFT || t === FX_PULSE ? 'aux3' : null
-        case 'smooth': case 'psteps': return 'aux4'
+        case 'dsmooth': case 'psteps': return 'aux4'
         case 'hits': return 'aux5'
         case 'rotate': return 'aux6'
         case 'length': return 'aux7'
@@ -1760,8 +1327,6 @@ export default function FxWall ({ size: frame }: Props) {
   //    included) — the DOM above only holds hits, ports, texts ─────────
   const overlayRef = useRef<(ctx: CanvasRenderingContext2D) => void>(() => {})
   overlayRef.current = (ctx) => {
-    const plugin = document.querySelector('.plugin') as HTMLElement | null
-    const wallNow = plugin ? getComputedStyle(plugin).backgroundColor : 'rgb(22, 20, 16)'
     const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(inkRgb)
     const paper: [number, number, number] = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [246, 243, 234]
     const rgba = (t: [number, number, number], a: number) => `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${a})`
@@ -1831,38 +1396,11 @@ export default function FxWall ({ size: frame }: Props) {
         ctx.restore()
       })
     }
-    // plates: a soft shadow below, then the disc lit from above
+    // the chosen print wears a paper hairline a breath outside its plate, in the plate's own shape (the plate itself is drawn in the print)
     for (const n of graph.nodes) {
-      if (isControlType(n.type)) {
-        // bare wall under it (the wall's light goes round), then a faint wash of its own colour, brighter as its lamp is
-        const c = toScreen(n), k = lamps.current.get(n.id)?.k ?? 0, t = tintOf(n.type, n.variant)
-        ctx.save()
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 9 * zoom; ctx.shadowOffsetY = 4 * zoom
-        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = wallNow; ctx.fill()
-        ctx.restore()
-        const lit = (f: number) => `rgb(${Math.round(18 + (t[0] - 18) * f)}, ${Math.round(17 + (t[1] - 17) * f)}, ${Math.round(14 + (t[2] - 14) * f)})`
-        const dg = ctx.createLinearGradient(c.x, c.y - Rz * CTRL_R, c.x, c.y + Rz * CTRL_R)
-        dg.addColorStop(0, lit(0.26 + k * 0.3)); dg.addColorStop(1, lit(0.14 + k * 0.18))
-        platePath(ctx, n.type, c.x, c.y, Rz + 1); ctx.fillStyle = dg; ctx.fill()
-        if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
-        continue
-      }
-      if (isUtilityType(n.type)) continue   // a utility has no plate: its picture sits on the wall alone
+      if (sel?.node !== n.id) continue
       const c = toScreen(n)
-      const alive = !isUtilityType(n.type) && live.has(n.id) && !n.bypass
-      const k = alive ? (lamps.current.get(n.id)?.k ?? 0) : 0
-      ctx.save()
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 14 * zoom; ctx.shadowOffsetY = 6 * zoom
-      platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = wallNow; ctx.fill()
-      ctx.restore()
-      // the plate sits IN the light, not brighter than it
-      const own = alive ? wallColorOf(tintOf(n.type, n.variant), k * 0.5) : 'rgb(16, 15, 12)'   // (every print has a tint here: the panel's table stops at the old sound prints)
-      const top = alive ? wallColorOf(tintOf(n.type, n.variant), Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
-      const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
-      dg.addColorStop(0, top); dg.addColorStop(1, own)
-      platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = dg; ctx.fill()
-      // the chosen print wears a paper hairline a breath outside its plate, in the plate's own shape
-      if (sel?.node === n.id) { platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke() }
+      platePath(ctx, n.type, c.x, c.y, Rz + 9); ctx.strokeStyle = rgba(paper, 0.22); ctx.lineWidth = 1; ctx.stroke()
     }
   }
   const overlayFn = useCallback((ctx: CanvasRenderingContext2D) => overlayRef.current(ctx), [])
@@ -2144,7 +1682,7 @@ export default function FxWall ({ size: frame }: Props) {
     try { localStorage.setItem('orb_wall_scope', JSON.stringify(scope)) } catch { /* fine */ }
   }, [scope])
   useEffect(() => () => setScopeInput(false), [])
-  const inkRgb = strokeFor(litLevel)
+  const inkRgb = 'rgb(246, 243, 234)'
   // the update window shows once for each new version on this machine; after `later` only the line at the foot says it
   const [updateSeen, setUpdateSeen] = useState(() => { try { return localStorage.getItem('slur_update_seen') === LATEST.version } catch { return false } })
   const dismissUpdate = () => { setUpdateSeen(true); try { localStorage.setItem('slur_update_seen', LATEST.version) } catch { /* fine */ } }
@@ -2190,7 +1728,7 @@ export default function FxWall ({ size: frame }: Props) {
   )
 
   return (
-    <StrokeLevel.Provider value={null}>
+    <>
     {patchBar}
     <div className="sg-frame" style={inkVars}>
     <div className="sg-left">
@@ -2505,6 +2043,6 @@ export default function FxWall ({ size: frame }: Props) {
       topBar.parentElement,
     )}
     </div>
-    </StrokeLevel.Provider>
+    </>
   )
 }

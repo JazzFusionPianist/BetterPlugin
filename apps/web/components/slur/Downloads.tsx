@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import SlurMark from './SlurMark'
-import { C, ellipsePath, hz, play, wholeNotePath } from './marks'
+import { C, FAMILIES, ellipsePath, hz, play, wholeNotePath } from './marks'
 import RoomPicture from './RoomPicture'
 import WallPicture from './WallPicture'
 import '@/app/slur.css'
@@ -188,16 +188,6 @@ function About ({ id, ground, ink, dark, picture, lede, rows, extra, acts }: {
 
 /* Patch on Slur's families, each by its plate's silhouette — told apart
    from across the wall, the way the plug-in draws them. */
-const FAMILIES: { name: string; members: string; c: string; shape: string }[] = [
-  { name: 'tone', members: 'cut amp tone tape glue comp air', c: '#ECE2C8', shape: 'M -18 -18 H 18 V 18 H -18 Z' },
-  { name: 'grit', members: 'crush radio ring', c: '#F27BA6', shape: 'M -10 -18 H 18 V 10 L 10 18 H -18 V -10 Z' },
-  { name: 'space', members: 'delay space shimmer doubler stereo', c: '#7896FF', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z' },
-  { name: 'motion', members: 'mod tremolo swell stutter gate wow', c: '#DC78C8', shape: 'M -12 -18 H 22 L 12 18 H -22 Z' },
-  { name: 'pitch', members: 'pitch formant harmony arp grain', c: '#5CE0A8', shape: 'M 0 -21 L 21 0 L 0 21 L -21 0 Z' },
-  { name: 'utility', members: 'gain mix l/r m/s bands side', c: '#FBFAF7', shape: 'M -18 -2 H 18 V 2 H -18 Z M -2 -18 H 2 V 18 H -2 Z' },
-  { name: 'control', members: 'lfo macro follow', c: '#F89C38', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z M -9 0 A 9 9 0 1 1 9 0 A 9 9 0 1 1 -9 0 Z' },
-  { name: 'spectral', members: 'carve match vocode', c: '#B79CFF', shape: 'M -18 -18 H -12 V 18 H -18 Z M -7 -10 H -1 V 18 H -7 Z M 4 -18 H 10 V 18 H 4 Z M 14 -4 H 20 V 18 H 14 Z' },
-]
 function Families () {
   return (
     <div className="sl-families">

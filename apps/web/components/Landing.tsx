@@ -1,30 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
 import AuthModal from './AuthModal'
 import SlurMark from './slur/SlurMark'
 import Bar from './slur/Bar'
-import RoomPicture from './slur/RoomPicture'
+import Gallery from './slur/Gallery'
+import TiedPhrase from './slur/TiedPhrase'
 import { C } from './slur/marks'
 import '@/app/slur.css'
 
-/* The page before you log in. No copy: a bar of music (five hairlines,
-   whole notes in the house colours, one engraved slur tying them), the
-   room you land in, and the door. Every edge is a curve. */
+/* The page before you log in. A gallery first — the plug-ins, plate by
+   plate, under a pictogram nav (teenage engineering's grammar, in Slur's
+   voice) — then one phrase, tied, over a bar of music whose notes sound
+   when touched, then the door. Every edge is a curve. */
 
 const WIDE = [
-  { x: 250, step: 1, color: C.blue },
-  { x: 440, step: 3, color: C.green, hollow: false },
-  { x: 640, step: 6, color: C.orange },
-  { x: 820, step: 8, color: C.rose, hollow: false },
-  { x: 1010, step: 5, color: C.lilac },
-  { x: 1200, step: 2, color: C.ink },
+  { x: 180, step: 1, color: C.blue },
+  { x: 390, step: 3, color: '#2F9A62', hollow: false },
+  { x: 600, step: 6, color: C.orange },
+  { x: 790, step: 8, color: C.rose, hollow: false },
+  { x: 990, step: 5, color: C.lilac },
+  { x: 1220, step: 2, color: C.ink },
 ]
 const NARROW = [
   { x: 60, step: 1, color: C.blue },
-  { x: 150, step: 4, color: C.green, hollow: false },
+  { x: 150, step: 4, color: '#2F9A62', hollow: false },
   { x: 240, step: 7, color: C.orange },
   { x: 330, step: 3, color: C.rose, hollow: false },
 ]
@@ -59,28 +61,52 @@ export default function Landing () {
 
   const open = (mode: 'signin' | 'signup') => { setAuthMode(mode); setAuthOpen(true) }
 
+  // the phrase ties itself and the notes fall when it comes into view, not on load
+  const phrase = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = phrase.current; if (!el) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { el.classList.add('seen'); io.disconnect() } }, { threshold: .35 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
   return (
     <div className="sl">
       <div className="sl-grain" />
 
-      <header className="sl-top">
-        <a className="sl-logo" href="/" aria-label="slur studio"><SlurMark height={40} /><span>studio</span></a>
-        <nav className="sl-nav">
-          {!isApp && <a href="/downloads">downloads</a>}
-          <button className="sl-word" onClick={() => open('signin')}>log in</button>
-          <button className="sl-pill ink" onClick={() => open('signup')}>sign up</button>
+      <header className="sl-top te">
+        <a className="sl-logo" href="/" aria-label="slur studio"><SlurMark height={46} /></a>
+        <nav className="sl-cells">
+          <a className="sl-cell hide-narrow" href="/downloads#slur">
+            <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden="true"><path d="M -12.98 -5.24 A 14 9.8 -22 1 0 12.98 5.24 A 14 9.8 -22 1 0 -12.98 -5.24 Z M -2.3 -5.4 A 5.9 7.3 38 1 1 2.3 5.4 A 5.9 7.3 38 1 1 -2.3 -5.4 Z" fill={C.green} fillRule="evenodd" /></svg>
+            <span><b>slur</b><small>the room<br />chat stems dates</small></span>
+          </a>
+          <a className="sl-cell hide-narrow" href="/downloads#patch-on-slur">
+            <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#8C5A3A" /><g fill="none" stroke={C.white} strokeWidth="1.1"><circle cx="15" cy="15" r="9" /><circle cx="15" cy="15" r="5.5" /><circle cx="15" cy="15" r="2.2" /></g></svg>
+            <span><b>patch on slur</b><small>the wall<br />no account</small></span>
+          </a>
+          {!isApp && (
+            <a className="sl-cell hide-narrow" href="/downloads">
+              <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M 4 29 V 13 A 11 11 0 0 1 26 13 V 29 Z" fill="none" stroke={C.ink} strokeWidth="1.6" /><path d="M 15 11 V 22 M 10.5 17.5 L 15 22 L 19.5 17.5" fill="none" stroke={C.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <span><b>downloads</b><small>mac<br />au vst3 aax</small></span>
+            </a>
+          )}
+          <button className="sl-cell" onClick={() => open('signin')}>
+            <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M 2 29 V 1 H 16 A 13 14 0 0 1 16 29 Z" fill={C.lilac} /><circle cx="20" cy="15" r="1.8" fill={C.ink} /></svg>
+            <span><b>log in</b><small>sign up<br />web</small></span>
+          </button>
         </nav>
       </header>
 
-      <section className="sl-bar">
-        {narrow
-          ? <Bar key="n" w={390} h={760} y0={300} gap={34} s={28} notes={NARROW} />
-          : <Bar key="w" w={1440} h={900} y0={330} gap={64} s={56} notes={WIDE} />}
-      </section>
+      <Gallery />
 
-      <section className="sl-arch sl-room">
-        <h2>slur</h2>
-        <RoomPicture />
+      <section className="sl-arch sl-phrase" ref={phrase}>
+        <TiedPhrase />
+        <div className="sl-phrase-bar">
+          {narrow
+            ? <Bar key="n" w={390} h={300} y0={130} gap={30} s={24} notes={NARROW} line="rgba(26,25,23,.22)" />
+            : <Bar key="w" w={1440} h={420} y0={110} gap={46} s={40} notes={WIDE} line="rgba(26,25,23,.22)" />}
+        </div>
       </section>
 
       <footer className="sl-arch sl-foot">

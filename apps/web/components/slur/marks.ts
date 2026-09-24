@@ -76,3 +76,16 @@ export function play (freq: number, when = 0, len = 1.6) {
 /** Treble staff: the bottom line (E4) is step 0, one step per line or space. */
 const STEPS = [293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99]
 export const hz = (step: number) => STEPS[step + 1] ?? 440
+
+/* Patch on Slur's families, each by its plate's silhouette (drawn in a
+   48 x 48 box around 0,0) — shared by the downloads page and the gallery. */
+export const FAMILIES: { name: string; members: string; c: string; shape: string }[] = [
+  { name: 'tone', members: 'cut amp tone tape glue comp air', c: '#ECE2C8', shape: 'M -18 -18 H 18 V 18 H -18 Z' },
+  { name: 'grit', members: 'crush radio ring', c: '#F27BA6', shape: 'M -10 -18 H 18 V 10 L 10 18 H -18 V -10 Z' },
+  { name: 'space', members: 'delay space shimmer doubler stereo', c: '#7896FF', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z' },
+  { name: 'motion', members: 'mod tremolo swell stutter gate wow', c: '#DC78C8', shape: 'M -12 -18 H 22 L 12 18 H -22 Z' },
+  { name: 'pitch', members: 'pitch formant harmony arp grain', c: '#5CE0A8', shape: 'M 0 -21 L 21 0 L 0 21 L -21 0 Z' },
+  { name: 'utility', members: 'gain mix l/r m/s bands side', c: '#FBFAF7', shape: 'M -18 -2 H 18 V 2 H -18 Z M -2 -18 H 2 V 18 H -2 Z' },
+  { name: 'control', members: 'lfo macro follow', c: '#F89C38', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z M -9 0 A 9 9 0 1 1 9 0 A 9 9 0 1 1 -9 0 Z' },
+  { name: 'spectral', members: 'carve match vocode', c: '#B79CFF', shape: 'M -18 -18 H -12 V 18 H -18 Z M -7 -10 H -1 V 18 H -7 Z M 4 -18 H 10 V 18 H 4 Z M 14 -4 H 20 V 18 H 14 Z' },
+]

@@ -1247,3 +1247,7 @@
 .wd .sc-cell { border-top: none; position: relative; }
 .wd .sc-cell::before { content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px; background: rgba(26,25,23,.09); }
 .wd .sc-cell.sel::before { display: none; }
+
+/* a breath between the bar and the greeting */
+.wd .wd-home-greet { margin-top: 26px; }
+.wd .wd-home > .wd-bar { max-height: 210px; }

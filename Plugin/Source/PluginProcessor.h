@@ -245,6 +245,8 @@ private:
         Wire wires[orbfx::kMaxEdges];
         bool isRate[orbfx::kMaxNodes] {};
         bool isFollow[orbfx::kMaxNodes] {};
+        bool isDrift[orbfx::kMaxNodes] {};    // a drift: an lfo whose shape is a smoothed random
+        bool isPulse[orbfx::kMaxNodes] {};    // a pulse: a rate whose value is a gate on a euclidean pattern (its wires push one way)
         bool isLfo[orbfx::kMaxNodes] {};      // an lfo print that is its own clock (it has the rate's hands, a depth, and may be random)   // a follow slot: its value is what the engine heard last block
         int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
         int  macroOf[orbfx::kMaxNodes];   // macro slot → macro index 0..7, or -1
@@ -258,6 +260,7 @@ private:
     int                rateLastIdx[orbfx::kMaxNodes] {};      // audio thread: where in the table the last block read
     int64_t            rateLastStep[orbfx::kMaxNodes] {};     // audio thread: the last random step
     int                rateLastDepth[orbfx::kMaxNodes] {};
+    bool               pulseWas[orbfx::kMaxNodes] {};        // audio thread: the pulse's gate last block (a flip makes its hands jump)
     double             rateOffset[orbfx::kMaxNodes] {};        // audio thread: where in the song the lfo was last reset to its start (synced)
     bool               rateReset[orbfx::kMaxNodes] {};         // audio thread: a reset arrived this block
     bool               resetWas[orbfx::kMaxEdges] {};          // audio thread: the reset wire's last reading, for the rising edge    // audio thread: the lfo's own depth last block (a thrown depth makes its hands jump)

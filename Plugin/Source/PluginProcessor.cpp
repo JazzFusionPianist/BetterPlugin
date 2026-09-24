@@ -94,7 +94,8 @@ OrbAudioProcessor::OrbAudioProcessor()
                 if (type == orbfx::kSmear) return k == 0 ? juce::String (v) + " ms" : juce::String (v) + " %";
                 if (type == orbfx::kEnv) { if (k == 2) return juce::String (v) + " %"; if (k == 4) return juce::String (v) + " dB"; if (k == 5) return juce::String (v ? "on" : "off"); return juce::String (v) + " ms"; }
                 if (type == orbfx::kRepeat && k == 4) return juce::String (v) + " dB";
-                if (type == orbfx::kRate || (type == orbfx::kLfo && k < 4) || (type == orbfx::kRepeat && k < 4))   // a clock reads as words in the host, as on the wall
+                if (type == orbfx::kDrift && k >= 4) return juce::String (v) + " %";
+                if (type == orbfx::kRate || ((type == orbfx::kLfo || type == orbfx::kRepeat || type == orbfx::kDrift || type == orbfx::kPulse) && k < 4))   // a clock reads as words in the host, as on the wall
                 {
                     static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
                     static const char* const feel[] = { "straight", "dotted", "triplet" };
@@ -1170,6 +1171,8 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
             if (nd.type == orbfx::kFollow || nd.type == orbfx::kEnv) t.isFollow[nd.id] = true;
             if (nd.type == orbfx::kLfo)   { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.shapeOf[nd.id] = nd.id; }   // an lfo plays hands itself: its own clock, its own shape
+            if (nd.type == orbfx::kDrift) { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.isDrift[nd.id] = true; }   // a drift is an lfo with a wandering shape
+            if (nd.type == orbfx::kPulse) { t.isRate[nd.id] = true; t.isPulse[nd.id] = true; }                          // a pulse is a rate whose value is a gate
         }
         for (auto& e : g.edges)
         {
@@ -1180,7 +1183,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             {
                 auto& w = t.wires[t.count++];
                 w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0 || t.isFollow[e.from], -1 };
-                w.uni = e.pol == 1 || (e.pol == 0 && w.fromMacro);
+                w.uni = e.pol == 1 || (e.pol == 0 && (w.fromMacro || t.isPulse[e.from]));   // a pulse pushes one way too: off is the setting, on is the throw
                 if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
             }
             else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
@@ -1212,7 +1215,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode", "freeze", "shift", "smear", "pan", "repeat", "env", "fold" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode", "freeze", "shift", "smear", "pan", "repeat", "env", "fold", "drift", "pulse" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1225,6 +1228,7 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     { "peak", "rms" },            // comp
     {}, {}, {}, {},               // bands, carve, match, vocode
     {}, {}, {}, {}, {}, { "level", "wire" }, { "sine", "triangle" },   // freeze, shift, smear, pan, repeat, env, fold
+    {}, {},                       // drift, pulse
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1257,6 +1261,8 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kSmear:   return k == 0 ? "time" : k == 1 ? "blur" : nullptr;
         case orbfx::kRepeat:  { static const char* const r[] = { "clock", "rate", "feel", "hz", "threshold" }; return k < 5 ? r[k] : nullptr; }
         case orbfx::kEnv:     { static const char* const e[] = { "attack", "decay", "sustain", "release", "threshold", "gate" }; return k < 6 ? e[k] : nullptr; }
+        case orbfx::kDrift:   { static const char* const d[] = { "clock", "rate", "feel", "hz", "smooth", "depth" }; return k < 6 ? d[k] : nullptr; }
+        case orbfx::kPulse:   { static const char* const p[] = { "clock", "rate", "feel", "hz", "steps", "hits", "rotate", "length" }; return k < 8 ? p[k] : nullptr; }
         default: return nullptr;
     }
 }
@@ -1284,6 +1290,8 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kShift:   if (k == 0) { lo = -2000; hi = 2000; } else if (k == 1) { lo = 0; hi = 95; } break;
         case orbfx::kSmear:   if (k == 0) { lo = 50; hi = 5000; } else if (k == 1) { lo = 0; hi = 100; } break;
         case orbfx::kRepeat:  if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = -60; hi = -1; } break;
+        case orbfx::kDrift:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 100; } else if (k == 5) { lo = 0; hi = 100; } break;
+        case orbfx::kPulse:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 1; hi = 32; } else if (k == 5) { lo = 0; hi = 32; } else if (k == 6) { lo = 0; hi = 31; } else if (k == 7) { lo = 0; hi = 100; } break;
         case orbfx::kEnv:     if (k == 0) { lo = 1; hi = 5000; } else if (k == 1) { lo = 1; hi = 5000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = 1; hi = 10000; } else if (k == 4) { lo = -60; hi = -1; } else if (k == 5) { lo = 0; hi = 1; } break;
         default: break;
     }
@@ -1561,8 +1569,29 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         float v;
         bool jumped = false;
         const int lfoSlot = t.shapeOf[r];
-        const int steps = t.isLfo[r] ? juce::jlimit (0, 32, rp.aux[4]) : 0;
-        if (steps > 0)
+        const int steps = t.isLfo[r] && ! t.isDrift[r] ? juce::jlimit (0, 32, rp.aux[4]) : 0;
+        if (t.isPulse[r])
+        {
+            // the pattern: `hits` of `steps` spread as evenly as they can be (euclid), turned by `rotate`; one step per turn of the clock.
+            // The gate is up for `length` of the step. Which step this is comes from the turn, so bar 9 is the same every time.
+            const int ns = juce::jlimit (1, 32, rp.aux[4] > 0 ? rp.aux[4] : 8), hits = juce::jlimit (0, ns, rp.aux[5]), rot = rp.aux[6], len = juce::jlimit (0, 100, rp.aux[7] > 0 ? rp.aux[7] : 50);
+            const int k = (int) (((rateCycle[r] % ns) + ns) % ns);
+            const bool hit = (((k + rot) % ns + ns) % ns * hits) % ns < hits;
+            const bool on = hit && phase < (double) len / 100.0;
+            v = on ? 1.0f : 0.0f;
+            jumped = on != pulseWas[r]; pulseWas[r] = on;
+        }
+        else if (t.isDrift[r])
+        {
+            // a random target every turn, and between the targets a curve (catmull-rom) — or a straight line, as `smooth` says
+            auto tgt = [&] (int64_t c) { uint32_t h = (uint32_t) (c * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u); h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return (float) (h & 0xffffff) / (float) 0xffffff; };
+            const float y0 = tgt (rateCycle[r] - 1), y1 = tgt (rateCycle[r]), y2 = tgt (rateCycle[r] + 1), y3 = tgt (rateCycle[r] + 2);
+            const float tt = (float) phase, t2 = tt * tt, t3 = t2 * tt;
+            const float cr = 0.5f * ((2.0f * y1) + (-y0 + y2) * tt + (2.0f * y0 - 5.0f * y1 + 4.0f * y2 - y3) * t2 + (-y0 + 3.0f * y1 - 3.0f * y2 + y3) * t3);
+            const float sm = juce::jlimit (0, 100, rp.aux[4]) / 100.0f;
+            v = juce::jlimit (0.0f, 1.0f, (y1 + (y2 - y1) * tt) * (1.0f - sm) + cr * sm);
+        }
+        else if (steps > 0)
         {
             // random: a new value every step, held. It comes from the turn and the step, not from a dice: bar 9 is the same every time.
             const int64_t step = rateCycle[r] * steps + (int64_t) (phase * steps);

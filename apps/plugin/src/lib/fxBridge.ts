@@ -137,7 +137,8 @@ export const FX_FOLD = 46
 export const FX_DRIFT = 47
 export const FX_PULSE = 48
 export const FX_SCENE = 49
-export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE || t === FX_FREEZE || t === FX_SHIFT || t === FX_SMEAR
+export const FX_SIEVE = 50
+export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE || t === FX_FREEZE || t === FX_SHIFT || t === FX_SMEAR || t === FX_SIEVE
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16

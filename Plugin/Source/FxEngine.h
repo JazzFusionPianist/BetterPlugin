@@ -60,13 +60,14 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kFold = 46,             // a wavefolder: the sound driven into folds, sine or triangle
             kDrift = 47,            // a control print: a random that wanders smoothly (the LFO's random, but between the steps a curve)
             kPulse = 48,            // a control print: a gate that fires on a euclidean pattern, one step per clock
-            kScene = 49 };          // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
+            kScene = 49,            // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
+            kSieve = 50 };          // keeps only the loudest partials: the knob says how few (all → one)
 constexpr int kAuxCount = 8;
 constexpr int kSceneHands = 14, kSceneStride = 15;   // a scene snapshot: 14 hands per print, led by the print's id
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
-inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear; }
+inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear || t == kSieve; }
 inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold; }
 constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
@@ -166,7 +167,8 @@ struct NodeState
     std::vector<float> spRe, spIm, spKre, spKim, spWin;
     std::vector<float> spGain, spInAvg, spKeyAvg, spCurve, spTmp;   // kBins
     std::vector<float> spBandKey, spBandIn;                            // 64: the vocoder's band envelopes
-    std::vector<float> spHold, spHoldPh[2];                            // freeze: the held magnitudes (mid) and each channel's running phase
+    std::vector<float> spHold, spHoldPh[2];                            // freeze: the held magnitudes (mid) and each channel's running phase; sieve: the mask, smoothed
+    std::vector<std::pair<float, int>> spPeaks;                        // sieve: the frame's peaks (magnitude, bin), scratch
     bool  spFrozen = false; float spLastAmt = 0.0f;
     double spShiftPhase = 0.0;                                          // shift: the carrier's phase, continuous across frames
     float spOutPrev[2] {};                                              // shift: the last output samples, for the feedback

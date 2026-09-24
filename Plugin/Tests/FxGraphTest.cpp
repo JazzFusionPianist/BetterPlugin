@@ -454,7 +454,7 @@ int main()
     }
     auto one = [&] (int type, float amount, int variant = 0) { Graph g; g.nodes.push_back (node (2, type, amount, variant)); g.edges.push_back ({ kPortIn, 2, 1.0f }); g.edges.push_back ({ 2, kPortOut, 1.0f }); return g; };
     auto finite = [] (const juce::AudioBuffer<float>& b) { for (int c = 0; c < 2; ++c) for (int i = 0; i < b.getNumSamples(); ++i) if (! std::isfinite (b.getSample (c, i))) return false; return true; };
-    for (int t : { (int) kFreeze, (int) kShift, (int) kSmear })
+    for (int t : { (int) kFreeze, (int) kShift, (int) kSmear, (int) kSieve })
     { // the new spectral prints at 0: the sound through, one frame late
         Graph g; g.nodes.push_back (node (4, t, 0.0f));
         g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
@@ -471,6 +471,12 @@ int main()
         float d = 0.0f; for (int i = 4096; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (out.getSample (0, i) - input.getSample (0, i - kFft)));
         std::printf ("    shift 200: diff %.4f peak %.4f finite %d\n", d, peakOf (out, 4096, input.getNumSamples()), (int) finite (out));
         CHECK (finite (out) && d > 0.1f && peakOf (out, 4096, input.getNumSamples()) < 1.2f, "shift 200 Hz: moves the sound, sane level");
+    }
+    { // sieve at 0.8 (four partials): a different signal, sane level, still finite
+        const auto sv = run (one (kSieve, 0.8f, 0));
+        float d = 0.0f; for (int i = 4096; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (sv.getSample (0, i) - input.getSample (0, i - kFft)));
+        std::printf ("    sieve @0.8: diff %.4f peak %.4f\n", d, peakOf (sv, 4096, input.getNumSamples()));
+        CHECK (finite (sv) && d > 0.05f && peakOf (sv, 4096, input.getNumSamples()) < 1.2f, "sieve: keeps a few partials, sane level");
     }
     { // pan in the middle is transparent; hard left leaves the right silent
         const auto mid = run (one (kPan, 0.5f, 0));

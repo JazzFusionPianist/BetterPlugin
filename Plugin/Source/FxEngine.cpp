@@ -1,5 +1,6 @@
 #include "FxEngine.h"
 #include <cmath>
+#include <algorithm>
 #include "signalsmith-stretch.h"
 
 namespace orbfx {
@@ -229,7 +230,7 @@ void NodeState::prepare (double sampleRate)
     spWin.resize ((size_t) kFft); for (int i = 0; i < kFft; ++i) spWin[(size_t) i] = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * (float) i / (float) kFft);
     spGain.assign ((size_t) kBins, 0.0f); spInAvg.assign ((size_t) kBins, 0.0f); spKeyAvg.assign ((size_t) kBins, 0.0f); spCurve.assign ((size_t) kBins, 0.0f); spTmp.assign ((size_t) kBins, 0.0f);
     spBandKey.assign (64, 0.0f); spBandIn.assign (64, 0.0f);
-    spHold.assign ((size_t) kBins, 0.0f); spHoldPh[0].assign ((size_t) kBins, 0.0f); spHoldPh[1].assign ((size_t) kBins, 0.0f); spFrozen = false; spLastAmt = 0.0f; spShiftPhase = 0.0; spOutPrev[0] = spOutPrev[1] = 0.0f;
+    spHold.assign ((size_t) kBins, 0.0f); spPeaks.reserve ((size_t) kBins); spHoldPh[0].assign ((size_t) kBins, 0.0f); spHoldPh[1].assign ((size_t) kBins, 0.0f); spFrozen = false; spLastAmt = 0.0f; spShiftPhase = 0.0; spOutPrev[0] = spOutPrev[1] = 0.0f;
     spN = 0; spPrimed = false;
     for (int ch = 0; ch < 2; ++ch) rpRing[ch].assign ((size_t) juce::jmax (4096, (int) (sampleRate * 2.0)), 0.0f);
     rpN = 0; rpTrig = -1; rpLen = 0; rpFast = rpSlow = 0.0f; rpHold = 0; envStage = 0; envVal = 0.0f; envGate = false;
@@ -485,6 +486,39 @@ void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
     else if (t == kShift)
     {
         for (int b = 0; b < kBins; ++b) spGain[(size_t) b] = 0.0f;   // the shifting happens in the apply step, on the analytic signal
+    }
+    else if (t == kSieve)
+    {
+        // the spectrum's peaks, the loudest `keep` of them kept with their lobes, the rest let go; the mask eases in and out
+        // (attack, release) so partials come and go without a click. keep runs from all (knob at rest) to one (knob full), by halves.
+        const int keep = juce::jmax (1, (int) std::lround (std::pow (2.0f, (1.0f - a) * 10.0f)));
+        const float atk = 1.0f - std::exp (-hopS / (juce::jlimit (1, 200, p.aux[0] > 0 ? p.aux[0] : 5) * 0.001f));
+        const float rel = 1.0f - std::exp (-hopS / (juce::jlimit (20, 2000, p.aux[1] > 0 ? p.aux[1] : 80) * 0.001f));
+        const float mix = juce::jlimit (0, 100, p.aux[2] > 0 || a < 0.004f ? p.aux[2] : 100) / 100.0f;
+        spPeaks.clear();
+        float mPrev = 0.0f, mCur = 0.0f;
+        for (int b = 1; b < kBins - 1; ++b)
+        {
+            const float mNext = std::sqrt (spRe[(size_t) b + 1] * spRe[(size_t) b + 1] + spIm[(size_t) b + 1] * spIm[(size_t) b + 1]);
+            if (b == 1) { mPrev = std::sqrt (spRe[0] * spRe[0] + spIm[0] * spIm[0]); mCur = std::sqrt (spRe[1] * spRe[1] + spIm[1] * spIm[1]); }
+            if (mCur > mPrev && mCur >= mNext && mCur > 1.0e-5f) spPeaks.emplace_back (mCur, b);
+            mPrev = mCur; mCur = mNext;
+        }
+        const bool all = keep >= (int) spPeaks.size();
+        if (! all) std::nth_element (spPeaks.begin(), spPeaks.begin() + keep, spPeaks.end(), [] (const std::pair<float, int>& x, const std::pair<float, int>& y) { return x.first > y.first; });
+        // the target mask: 1 on each kept peak and its lobe (two bins either side), 0 elsewhere
+        std::fill (spGain.begin(), spGain.end(), all ? 1.0f : 0.0f);   // (spGain holds the target for a moment; it is rewritten below in dB)
+        if (! all)
+            for (int i = 0; i < keep; ++i)
+                for (int d = -2; d <= 2; ++d) { const int b = spPeaks[(size_t) i].second + d; if (b >= 0 && b < kBins) spGain[(size_t) b] = 1.0f; }
+        for (int b = 0; b < kBins; ++b)
+        {
+            float& m = spHold[(size_t) b];
+            const float target = spGain[(size_t) b];
+            m += (target - m) * (target > m ? atk : rel);
+            const float g = mix * m + (1.0f - mix);
+            spGain[(size_t) b] = 20.0f * std::log10 (juce::jmax (1.0e-4f, g));
+        }
     }
     else   // kVocode
     {
@@ -1903,7 +1937,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             break;
         }
 
-        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear:
+        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear: case kSieve:
         {
             // in and out through the rings; every kHop samples, a frame (the latency is one frame: kFft)
             if (spIn[0].empty()) break;
@@ -2459,7 +2493,7 @@ int Chain::nodeLatency (const Graph::Node& n) const noexcept
         case kHarmony: return latencyFine;
         case kArp:     return latencyLive;
         case kWow:     return latencyWow;
-        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear: return kFft;
+        case kCarve: case kMatch: case kVocode: case kFreeze: case kShift: case kSmear: case kSieve: return kFft;
         default:       return 0;
     }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import SlurMark from './SlurMark'
 import { C, FAMILIES, ellipsePath, hz, play, wholeNotePath } from './marks'
 import RoomPicture from './RoomPicture'
+import PictoNav from './PictoNav'
 import WallPicture from './WallPicture'
 import '@/app/slur.css'
 
@@ -93,11 +94,7 @@ export default function Downloads () {
       <div className="sl-grain" />
       <header className="sl-top static">
         <a className="sl-logo" href="/" aria-label="slur studio"><SlurMark height={40} /><span>studio</span></a>
-        <nav className="sl-nav">
-          <a className="here" href="/downloads">downloads</a>
-          <a className="sl-word" href="/?door=signin">log in</a>
-          <a className="sl-pill ink" href="/?door=signup">sign up</a>
-        </nav>
+        <PictoNav here="downloads" />
       </header>
 
       <main className="sl-page">

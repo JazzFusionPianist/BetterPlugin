@@ -15,7 +15,7 @@ import { openExternalUrl } from '../../lib/linkify'
 import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
-  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
+  FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, FX_DRIFT, FX_PULSE, FX_SCENE, SCENE_HANDS, SCENE_STRIDE, sceneRow, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
   type FxGraph, type FxGraphNode, type FxGraphEdge,
 } from '../../lib/fxBridge'
 
@@ -45,7 +45,7 @@ const FAMILIES: Array<[string, string[]]> = [
   ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow', 'repeat']],
   ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
   ['utility', ['gain', 'mix', 'L/R', 'M/S', 'pan', 'bands', 'side']],
-  ['control', ['LFO', 'macro', 'follow', 'env', 'drift', 'pulse']],
+  ['control', ['LFO', 'macro', 'follow', 'env', 'drift', 'pulse', 'scene']],
   ['spectral', ['carve', 'match', 'vocode', 'freeze', 'shift', 'smear']],
 ]
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
@@ -122,7 +122,7 @@ const DRIFT_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'smooth' }, { key: 'au
 const PULSE_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'steps' }, { key: 'aux5', label: 'hits' }, { key: 'aux6', label: 'rotate' }, { key: 'aux7', label: 'length' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
 const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
 const LFO_AUX = [0, 3, 0, 200, 0, 100, 0, 0]   // sync, 1/4, straight, 2 hz, not random, full depth
-const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : type === FX_DRIFT ? DRIFT_HANDS : type === FX_PULSE ? PULSE_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
+const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : type === FX_DRIFT ? DRIFT_HANDS : type === FX_PULSE ? PULSE_HANDS : type === FX_SCENE ? [{ key: 'amount', label: 'scene' }] : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
 const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
 const RATE_FEEL = ['straight', 'dotted', 'triplet']
@@ -133,7 +133,7 @@ const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
  *  the control prints are warm (they are hands); the side is the one other sound in the room, a deep sea green. */
 const UTILITY_TINTS: Record<number, [number, number, number]> = {
   [FX_MIX_TYPE]: [236, 226, 200], [FX_SPLIT_LR]: [120, 196, 255], [FX_SPLIT_MS]: [150, 236, 190],
-  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84], [FX_ENV]: [255, 172, 120], [FX_DRIFT]: [170, 200, 255], [FX_PULSE]: [255, 140, 140],
+  [FX_LFO]: [196, 150, 255], [FX_RATE]: [255, 168, 72], [FX_MACRO]: [255, 110, 96], [FX_SIDE]: [40, 214, 170], [FX_FOLLOW]: [255, 214, 96], [FX_BANDS]: [236, 214, 84], [FX_ENV]: [255, 172, 120], [FX_DRIFT]: [170, 200, 255], [FX_PULSE]: [255, 140, 140], [FX_SCENE]: [246, 226, 150],
 }
 const COMP_TINT: [number, number, number] = [92, 224, 168]   // comp — a cooler green than glue's
 const SPECTRAL_TINT: Record<number, [number, number, number]> = { [FX_CARVE]: [255, 112, 150], [FX_MATCH]: [120, 216, 255], [FX_VOCODE]: [210, 150, 255], [FX_FREEZE]: [150, 232, 255], [FX_SHIFT]: [255, 150, 210], [FX_SMEAR]: [186, 196, 255] }
@@ -148,7 +148,7 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
 const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : type === FX_DRIFT ? 'drift' : type === FX_PULSE ? 'pulse' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
+const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : type === FX_DRIFT ? 'drift' : type === FX_PULSE ? 'pulse' : type === FX_SCENE ? 'scene' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
 
 function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_MACRO) return `${Math.round(a * 100)}`
@@ -164,6 +164,7 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_CARVE) return `${Math.round(-24 * a)} dB`
   if (type === FX_PAN) { const p = Math.round((a - 0.5) * 200); return p === 0 ? 'centre' : p < 0 ? `L ${-p}` : `R ${p}` }
   if (type === FX_FREEZE) return a > 0.5 ? 'held' : 'open'
+  if (type === FX_SCENE) return a <= 0.005 ? 'A' : a >= 0.995 ? 'B' : `${Math.round(a * 100)} %`
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
@@ -188,6 +189,7 @@ function parseAmount (type: number, s: string, variant = 0): number | null {
   if (type === FX_COMP) return clamp(-v / 60, 0, 1)
   if (type === FX_CARVE) return clamp(-v / 24, 0, 1)
   if (type === FX_FREEZE) return /^(held|hold|on|1)/.test(t) ? 1 : 0
+  if (type === FX_SCENE) { if (t === 'a') return 0; if (t === 'b') return 1 }
   if (type === FX_PAN) { if (t === 'c' || t === 'centre' || t === 'center') return 0.5; const side = /^l/.test(t) ? -1 : /^r/.test(t) ? 1 : Math.sign(v) || 1; return clamp(side * Math.abs(v) / 200 + 0.5, 0, 1) }
   if (type === 7) {
     if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
@@ -487,6 +489,23 @@ function FoldArt ({ a, variant }: { a: number; variant: number }) {
     </g>
   )
 }
+/** scene: A and B, and where between them the wall stands. */
+function SceneArt ({ node }: { node: { amount: number; sceneA?: number[]; sceneB?: number[] } }) {
+  const lvl = useContext(StrokeLevel) ?? 0
+  const P = strokeFor(lvl)
+  const a = Math.min(1, Math.max(0, node.amount)), x = 62 + 96 * a
+  const hasA = !!node.sceneA?.length, hasB = !!node.sceneB?.length
+  return (
+    <g style={{ fontFamily: "'Space Mono', monospace" }}>
+      <path d="M62 110 H158" stroke={P} strokeOpacity={0.3} strokeWidth={1.2} strokeLinecap="round" />
+      <circle cx={62} cy={110} r={hasA ? 7 : 4} fill={hasA ? P : 'none'} stroke={P} strokeOpacity={hasA ? 1 : 0.5} strokeWidth={1} />
+      <circle cx={158} cy={110} r={hasB ? 7 : 4} fill={hasB ? P : 'none'} stroke={P} strokeOpacity={hasB ? 1 : 0.5} strokeWidth={1} />
+      <text x={62} y={152} textAnchor="middle" fontSize="20" fill={P} fillOpacity={hasA ? 1 : 0.45}>A</text>
+      <text x={158} y={152} textAnchor="middle" fontSize="20" fill={P} fillOpacity={hasB ? 1 : 0.45}>B</text>
+      <circle cx={x} cy={110} r={5} fill={P} stroke="rgb(22, 20, 16)" strokeWidth={2} />
+    </g>
+  )
+}
 /** drift: a line that wanders — random targets, a curve between them. */
 function DriftArt ({ node }: { node: { aux: number[] } }) {
   const lvl = useContext(StrokeLevel) ?? 0
@@ -691,6 +710,7 @@ function Print ({ node, size, dim, onDecay, onDiv, onFb, onFlip, shares }: {
         : type === FX_ENV ? <EnvArt node={node} />
         : type === FX_DRIFT ? <DriftArt node={node} />
         : type === FX_PULSE ? <PulseArt node={node} />
+        : type === FX_SCENE ? <SceneArt node={node} />
         : type === FX_FREEZE ? <FreezeArt node={node} />
         : type === FX_SHIFT ? <ShiftArt node={node} />
         : type === FX_SMEAR ? <SmearArt node={node} />
@@ -805,7 +825,7 @@ export default function FxWall ({ size: frame }: Props) {
   const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
-    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD], ['drift', FX_DRIFT], ['pulse', FX_PULSE]])
+    const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD], ['drift', FX_DRIFT], ['pulse', FX_PULSE], ['scene', FX_SCENE]])
     return FAMILIES[shelfFam][1].map(n => byName.get(n)).filter((t): t is number => t !== undefined)
   }, [shelfFam])
   useEffect(() => {
@@ -863,10 +883,28 @@ export default function FxWall ({ size: frame }: Props) {
   }, [bridge])
 
   /** Apply a change: local state now, engine soon (structure = now). */
+  /** While a scene with both snapshots stands, a print edited on the wall is written into the snapshot the knob is nearer to: at A you
+   *  shape A, at B you shape B — and a hand the two then disagree on is the scene's to slide. (Editing the scene print itself is not.) */
+  const withSceneWrites = (prev: FxGraph, next: FxGraph): FxGraph => {
+    const sc = next.nodes.find(n => n.type === FX_SCENE && n.sceneA?.length && n.sceneB?.length)
+    if (!sc) return next
+    const was = new Map(prev.nodes.map(n => [n.id, n]))
+    const changed = next.nodes.filter(x => x.type !== FX_SCENE && (!was.has(x.id) || sceneRow(x).some((v, k) => v !== sceneRow(was.get(x.id)!)[k])))
+    if (changed.length === 0) return next
+    const key = sc.amount < 0.5 ? 'sceneA' : 'sceneB'
+    const arr = [...(sc[key] ?? [])]
+    for (const x of changed) {
+      const row = sceneRow(x)
+      let at = -1; for (let i = 0; i + SCENE_STRIDE <= arr.length; i += SCENE_STRIDE) if (arr[i] === x.id) { at = i; break }
+      if (at < 0) arr.push(...row); else arr.splice(at, SCENE_STRIDE, ...row)
+    }
+    return { ...next, nodes: next.nodes.map(n => n.id === sc.id ? { ...n, [key]: arr } : n) }
+  }
   const commit = useCallback((next: FxGraph, immediate = false) => {
+    next = withSceneWrites(graphRef.current, next)
     setGraphState(next)
     push(next, immediate)
-  }, [push])
+  }, [push])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateNode = useCallback((id: number, patch: Partial<FxGraphNode>, immediate = false) => {
     const g = graphRef.current
@@ -907,7 +945,22 @@ export default function FxWall ({ size: frame }: Props) {
   const outPort: Pt = { x: size.w - PORT_INSET, y: size.h / 2 }
   const nodeById = (id: number) => graph.nodes.find(n => n.id === id)
   /** The hands something plays on this print (a control wire landing on a hand; a wire onto a wire's depth does not count). */
-  const playedHands = (id: number) => new Set(graph.edges.filter(e => e.to === id && isControlEdge(e) && !wireRef(e.hand)).map(e => e.hand!))
+  /** The hands a scene holds (its two snapshots disagree on them), by print. */
+  const sceneHeld = useMemo(() => {
+    const m = new Map<number, Set<string>>()
+    const sc = graph.nodes.find(n => n.type === FX_SCENE && n.sceneA?.length && n.sceneB?.length)
+    if (!sc) return m
+    const rows = (arr: number[]) => { const r = new Map<number, number[]>(); for (let i = 0; i + SCENE_STRIDE <= arr.length; i += SCENE_STRIDE) r.set(arr[i], arr.slice(i + 1, i + SCENE_STRIDE)); return r }
+    const A = rows(sc.sceneA!), B = rows(sc.sceneB!)
+    for (const [id, a] of A) {
+      const b = B.get(id); if (!b || id === sc.id) continue
+      const set = new Set<string>()
+      a.forEach((v, k) => { if (Math.abs(v - b[k]) > 1e-4) set.add(SCENE_HANDS[k]) })
+      if (set.size) m.set(id, set)
+    }
+    return m
+  }, [graph])
+  const playedHands = (id: number) => new Set([...graph.edges.filter(e => e.to === id && isControlEdge(e) && !wireRef(e.hand)).map(e => e.hand!), ...(sceneHeld.get(id) ?? [])])
   const inputsOf = (id: number) => graph.edges.map((e, i) => ({ e, i })).filter(x => x.e.to === id && !isControlEdge(x.e) && (x.e.in ?? 0) === 0)   // the sound wires in; control wires and keys land elsewhere
   /** The hands a control wire can play on a print: its numbers; a mix's are its wires' shares. */
   const handsOf = (n: FxGraphNode) => n.type === FX_MIX_TYPE
@@ -1429,6 +1482,13 @@ export default function FxWall ({ size: frame }: Props) {
       }
       if (n.type === FX_LFO || n.type === FX_DRIFT) rows.push(<GaugeRow key="lfodepth" label="depth" value={n.aux[5] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(5, Math.round(v))} />)
     }
+    if (n.type === FX_SCENE) {
+      // take: the wall as it is set now, into A or B. From then on an edit at A shapes A, at B shapes B; the knob slides between them.
+      const take = (which: 'sceneA' | 'sceneB') => updateNode(n.id, { [which]: graph.nodes.filter(x => x.id !== n.id && x.type !== FX_SCENE).flatMap(sceneRow) }, true)
+      rows.push(<ChoiceRow key="take" label="take" options={['A', 'B']} value={-1} onPick={(k) => take(k === 0 ? 'sceneA' : 'sceneB')} />)
+      const held = [...sceneHeld.values()].reduce((s, set) => s + set.size, 0)
+      rows.push(<ChoiceRow key="held" label="holds" options={[n.sceneA?.length && n.sceneB?.length ? `${held} hand${held === 1 ? '' : 's'}` : n.sceneA?.length ? 'A only' : n.sceneB?.length ? 'B only' : 'nothing yet']} value={-1} onPick={() => {}} />)
+    }
     if (n.type === FX_REPEAT) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
     if (n.type === FX_SHIFT) {
       rows.push(<GaugeRow key="shz" label="hz" value={n.aux[0] || 0} min={-2000} max={2000} step={1} bipolar defaultValue={0} fine={400} format={(v) => `${v > 0 ? '+' : ''}${Math.round(v)} hz`} onChange={(v) => setAux(0, Math.round(v))} />)
@@ -1561,7 +1621,7 @@ export default function FxWall ({ size: frame }: Props) {
         else if (hand === 'div') { setting = n.delayDiv / 6; read = (f) => DIV_LABELS[Math.round(f * 6)] ?? '' }
         const made = group.map(({ e, i }) => {
           const src = nodeById(e.from)
-          const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_ENV ? 'env' : src?.type === FX_DRIFT ? `drift ${rateText(src)}` : src?.type === FX_PULSE ? `pulse ${rateText(src)}` : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'
+          const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_ENV ? 'env' : src?.type === FX_SCENE ? 'scene' : src?.type === FX_DRIFT ? `drift ${rateText(src)}` : src?.type === FX_PULSE ? `pulse ${rateText(src)}` : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'
           const both = e.pol === 2 || ((e.pol ?? 0) === 0 && (src?.type === FX_LFO || src?.type === FX_RATE || src?.type === FX_DRIFT))
           // a macro that holds this play's depth: the range is as wide as that macro's knob is up, and dragging it turns the macro
           const holder = graph.edges.find(m => m.to === n.id && wireRef(m.hand)?.from === e.from && wireRef(m.hand)?.hand === hand)
@@ -1941,7 +2001,7 @@ export default function FxWall ({ size: frame }: Props) {
       // A sound print is lit by its knob, and only on a way from in to out.
       const alive = isUtilityType(n.type) ? true : live.has(n.id) && !n.bypass
       // a knob that something plays (a rate, a macro, a follow) shines as it is played, not as it was set
-      const playedA = !isUtilityType(n.type) && graph.edges.some(e => e.to === n.id && e.hand === 'amount') ? getLiveHand(n.id, LIVE_INDEX.amount) : undefined
+      const playedA = !isUtilityType(n.type) && (graph.edges.some(e => e.to === n.id && e.hand === 'amount') || sceneHeld.get(n.id)?.has('amount')) ? getLiveHand(n.id, LIVE_INDEX.amount) : undefined
       const kTarget = alive ? Math.min(1, intensityOf(playedA === undefined ? n : { ...n, amount: playedA })) : 0
       const st = lamps.current.get(n.id) ?? { k: 0, reach: 0 }
       // signal breath: fast up, slow down
@@ -2398,7 +2458,7 @@ export default function FxWall ({ size: frame }: Props) {
             onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />}
         </div>
         <div className="sg-study-value">
-          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || studyNode.type === FX_FREEZE || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || studyNode.type === FX_FREEZE || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO && studyNode.type !== FX_SCENE) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 liveSlot={graph.edges.some(e => e.to === studyNode.id && e.hand === 'amount') ? studyNode.id : -1} liveText={(a) => fmtValue(studyNode.type, a, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}

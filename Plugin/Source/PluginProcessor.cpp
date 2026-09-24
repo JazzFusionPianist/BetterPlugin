@@ -1173,6 +1173,24 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
             if (nd.type == orbfx::kLfo)   { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.shapeOf[nd.id] = nd.id; }   // an lfo plays hands itself: its own clock, its own shape
             if (nd.type == orbfx::kDrift) { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.isDrift[nd.id] = true; }   // a drift is an lfo with a wandering shape
             if (nd.type == orbfx::kPulse) { t.isRate[nd.id] = true; t.isPulse[nd.id] = true; }                          // a pulse is a rate whose value is a gate
+            if (nd.type == orbfx::kScene && t.sceneSlot < 0)
+            {
+                t.sceneSlot = nd.id;
+                auto take = [] (const std::vector<float>& src, float (&dst)[orbfx::kMaxNodes][orbfx::kSceneHands], bool (&has)[orbfx::kMaxNodes])
+                {
+                    for (size_t i = 0; i + orbfx::kSceneStride <= src.size(); i += orbfx::kSceneStride)
+                    {
+                        const int id = (int) src[i]; if (id < 0 || id >= orbfx::kMaxNodes) continue;
+                        has[id] = true;
+                        for (int k = 0; k < orbfx::kSceneHands; ++k) dst[id][k] = src[i + 1 + (size_t) k];
+                    }
+                };
+                bool hasA[orbfx::kMaxNodes] {}, hasB[orbfx::kMaxNodes] {};
+                take (nd.sceneA, t.sceneA, hasA); take (nd.sceneB, t.sceneB, hasB);
+                for (int s = 0; s < orbfx::kMaxNodes; ++s)
+                    for (int k = 0; k < orbfx::kSceneHands; ++k)
+                        t.sceneHeld[s][k] = hasA[s] && hasB[s] && s != nd.id && std::abs (t.sceneA[s][k] - t.sceneB[s][k]) > 1.0e-4f;
+            }
         }
         for (auto& e : g.edges)
         {
@@ -1215,7 +1233,7 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
 
 static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
                                           "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
-                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode", "freeze", "shift", "smear", "pan", "repeat", "env", "fold", "drift", "pulse" };
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode", "freeze", "shift", "smear", "pan", "repeat", "env", "fold", "drift", "pulse", "scene" };
 
 /** The variants' words, as the wall spells them (mode text for the host). */
 static const std::vector<std::vector<const char*>> kVariantNames = {
@@ -1228,7 +1246,7 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     { "peak", "rms" },            // comp
     {}, {}, {}, {},               // bands, carve, match, vocode
     {}, {}, {}, {}, {}, { "level", "wire" }, { "sine", "triangle" },   // freeze, shift, smear, pan, repeat, env, fold
-    {}, {},                       // drift, pulse
+    {}, {}, {},                   // drift, pulse, scene
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1329,7 +1347,7 @@ void OrbAudioProcessor::syncHandNames()
         const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
         auto& h = slotHost[i];
         auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
-        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : type == orbfx::kPan ? "pan" : type == orbfx::kFold ? "drive" : type == orbfx::kFreeze ? "hold" : type == orbfx::kShift || type == orbfx::kSmear || type == orbfx::kRepeat ? "mix" : "amount"));
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : type == orbfx::kPan ? "pan" : type == orbfx::kFold ? "drive" : type == orbfx::kFreeze ? "hold" : type == orbfx::kScene ? "scene" : type == orbfx::kShift || type == orbfx::kSmear || type == orbfx::kRepeat ? "mix" : "amount"));
         put (h.mode->dynName,   prefix + "mode");
         put (h.decay->dynName,  prefix + (type == orbfx::kLfo ? "morph" : "decay"));
         put (h.fb->dynName,     prefix + "feedback");
@@ -1506,6 +1524,34 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         const auto& w = t.wires[i];
         if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
     }
+    // the scene: its knob (the host's, pushed by the macros and follows now, by a rate as it read last block) slides every hand the
+    // two snapshots disagree on between A and B — before the rates tick, so a held clock is the blended clock
+    if (t.sceneSlot >= 0)
+    {
+        float pos = params[t.sceneSlot].amount;
+        for (int i = 0; i < t.count; ++i)
+        {
+            const auto& w = t.wires[i];
+            if (w.to != t.sceneSlot || w.hand != orbfx::kHandAmount || w.target != -1) continue;
+            const float src = t.isRate[w.from] ? rateValue[(size_t) w.from].load (std::memory_order_relaxed) : value[w.from];
+            pos += (w.uni ? src * depth[i] * 2.0f : (src - 0.5f) * 2.0f * depth[i]) * 0.5f;
+        }
+        pos = juce::jlimit (0.0f, 1.0f, pos);
+        for (int s = 0; s < orbfx::kMaxNodes; ++s)
+        {
+            const bool* held = t.sceneHeld[s];
+            auto mix = [&] (int k) { return t.sceneA[s][k] + (t.sceneB[s][k] - t.sceneA[s][k]) * pos; };
+            auto pick = [&] (int k) { return pos < 0.5f ? t.sceneA[s][k] : t.sceneB[s][k]; };
+            auto& p = params[s];
+            if (held[0]) p.amount = juce::jlimit (0.0f, 1.0f, mix (0));
+            if (held[1]) p.variant = (int) std::lround (pick (1));
+            if (held[2]) p.decay = juce::jlimit (0.0f, 1.0f, mix (2));
+            if (held[3]) p.delayFb = juce::jlimit (0.0f, 1.0f, mix (3));
+            if (held[4]) p.delayDiv = (int) std::lround (pick (4));
+            if (held[5]) p.wet = pick (5) > 0.5f;
+            for (int k = 0; k < orbfx::kAuxCount; ++k) if (held[6 + k]) p.aux[k] = (int) std::lround (mix (6 + k));
+        }
+    }
     // Whatever plays an lfo's own hands (its clock, its depth) must land BEFORE that lfo ticks, or the lfo runs a block on the
     // setting it was supposed to be moved off (an lfo whose depth another lfo holds at 0 kept on playing). So: the macros and
     // follows first (their values are known), then the lfos in the order they feed one another.
@@ -1634,6 +1680,7 @@ void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSampl
         const auto& w = t.wires[i];
         if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
         if (t.isRate[w.to]) continue;   // an lfo's hands: landed above, before it ticked
+        if (w.to == t.sceneSlot) continue;   // the scene's knob: read above, before the blend
         auto& p = params[w.to];
         const float k = pushOf (w, depth[i]);
         // each hand moves by a fraction of its own range
@@ -1707,6 +1754,8 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
             for (float f : nd.pts2) pv.add ((double) f);
             o->setProperty ("pts2", pv);
         }
+        if (! nd.sceneA.empty()) { juce::Array<juce::var> sv; for (float f : nd.sceneA) sv.add ((double) f); o->setProperty ("sceneA", sv); }
+        if (! nd.sceneB.empty()) { juce::Array<juce::var> sv; for (float f : nd.sceneB) sv.add ((double) f); o->setProperty ("sceneB", sv); }
         o->setProperty ("x", (double) nd.x);
         o->setProperty ("y", (double) nd.y);
         nodes.add (juce::var (o));
@@ -1800,6 +1849,8 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
                 for (auto& f : *pv) nd.pts.push_back ((float) (double) f);
             if (auto* pv = n["pts2"].getArray())
                 for (auto& f : *pv) nd.pts2.push_back ((float) (double) f);
+            if (auto* sv = n["sceneA"].getArray()) for (auto& f : *sv) nd.sceneA.push_back ((float) (double) f);
+            if (auto* sv = n["sceneB"].getArray()) for (auto& f : *sv) nd.sceneB.push_back ((float) (double) f);
             // the shape, exactly as drawn: straight stretches between points, each bowed by its bend; two points on one x are a cliff
             auto bake = [] (const std::vector<float>& pts, float* table)
             {

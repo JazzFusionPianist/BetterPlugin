@@ -247,6 +247,9 @@ private:
         bool isFollow[orbfx::kMaxNodes] {};
         bool isDrift[orbfx::kMaxNodes] {};    // a drift: an lfo whose shape is a smoothed random
         bool isPulse[orbfx::kMaxNodes] {};    // a pulse: a rate whose value is a gate on a euclidean pattern (its wires push one way)
+        int  sceneSlot = -1;                  // the scene print (the first, if several): its knob slides every held hand between A and B
+        float sceneA[orbfx::kMaxNodes][orbfx::kSceneHands] {}, sceneB[orbfx::kMaxNodes][orbfx::kSceneHands] {};
+        bool  sceneHeld[orbfx::kMaxNodes][orbfx::kSceneHands] {};   // a hand the two snapshots disagree on: the scene owns it
         bool isLfo[orbfx::kMaxNodes] {};      // an lfo print that is its own clock (it has the rate's hands, a depth, and may be random)   // a follow slot: its value is what the engine heard last block
         int  shapeOf[orbfx::kMaxNodes];   // rate slot → lfo slot, or -1 = sine
         int  macroOf[orbfx::kMaxNodes];   // macro slot → macro index 0..7, or -1

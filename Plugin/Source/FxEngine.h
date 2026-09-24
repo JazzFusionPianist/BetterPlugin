@@ -59,8 +59,10 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kEnv = 45,              // an envelope: attack, decay, sustain, release — started by the sound (over a threshold) or by a wire on `gate`
             kFold = 46,             // a wavefolder: the sound driven into folds, sine or triangle
             kDrift = 47,            // a control print: a random that wanders smoothly (the LFO's random, but between the steps a curve)
-            kPulse = 48 };          // a control print: a gate that fires on a euclidean pattern, one step per clock
+            kPulse = 48,            // a control print: a gate that fires on a euclidean pattern, one step per clock
+            kScene = 49 };          // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
 constexpr int kAuxCount = 8;
+constexpr int kSceneHands = 14, kSceneStride = 15;   // a scene snapshot: 14 hands per print, led by the print's id
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
@@ -69,7 +71,7 @@ inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMi
 constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
 constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
-inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro || t == kDrift || t == kPulse; }
+inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro || t == kDrift || t == kPulse || t == kScene; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow || t == kEnv; }   // audio ends here (like out); a value comes out
 inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || t == kCarve || t == kMatch || t == kVocode || t == kRepeat; }   // a second input: the sound its detector listens to
@@ -319,6 +321,7 @@ struct Graph
         float lfo2[kLfoLen] {};
         std::vector<float> pts;     // the lfo's drawn points, kept for the wall (the engine reads `lfo`)
         std::vector<float> pts2;    // the points of the shape it morphs toward
+        std::vector<float> sceneA, sceneB;   // scene: the snapshots, flat: [id, amount, variant, decay, fb, div, wet, aux0..7] per print (stride kSceneStride)
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
     };
     struct Edge

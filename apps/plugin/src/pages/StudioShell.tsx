@@ -38,7 +38,6 @@ import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
-import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
 import { AudioAttachment, AudioEngineContext, ImportAllWord, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
@@ -51,6 +50,7 @@ import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../componen
 import LivePane from '../components/studio/LivePane'
 import SlurMark from '../slur/SlurMark'
 import StudioHomeBar from '../components/studio/StudioHomeBar'
+import { StudioHomePrompt, StudioWeek } from '../components/studio/StudioHomeSchedule'
 import { useLive, type LiveSession } from '../hooks/useLive'
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
@@ -880,58 +880,6 @@ function StudioInviteTicket({ roomId, gameType, isMine, senderName, onJoin }: {
   )
 }
 
-/** Programme-margin upcoming list — date column · time · title, hairline
- *  separators, today in the accent. Shared by the home pane and the
- *  "my calendar" view (mirrors the web app's UpcomingList split). */
-function UpcomingRows({ events, groupTitleById, limit, nowTick }: {
-  events: CalendarEvent[]; groupTitleById: Map<string, string>; limit: number; nowTick: number
-}) {
-  const rows = useMemo(() => {
-    const now = new Date(nowTick)
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return events
-      .filter(e => new Date(e.starts_at) >= (e.all_day ? dayStart : now))
-      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-      .slice(0, limit)
-  }, [events, limit, nowTick])
-
-  if (rows.length === 0) {
-    return <div className="wd-up"><div className="wd-up-head">upcoming</div>
-      <div className="wd-up-none">nothing scheduled — enjoy the quiet</div></div>
-  }
-
-  const now = new Date(nowTick)
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const label = (iso: string): { text: string; today: boolean } => {
-    const d = new Date(iso)
-    const days = Math.floor(
-      (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - dayStart.getTime()) / 86400000)
-    if (days <= 0) return { text: 'today', today: true }
-    if (days === 1) return { text: 'tomorrow', today: false }
-    if (days < 7) return { text: d.toLocaleDateString('en-GB', { weekday: 'short' }).toLowerCase(), today: false }
-    return { text: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toLowerCase(), today: false }
-  }
-
-  return (
-    <div className="wd-up">
-      <div className="wd-up-head">upcoming</div>
-      {rows.map(e => {
-        const l = label(e.starts_at)
-        return (
-          <div key={e.id} className="wd-up-row">
-            <span className={`wd-up-date${l.today ? ' today' : ''}`}>{l.text}</span>
-            <span className="wd-up-time">{e.all_day ? 'all day' : fmtTime(e.starts_at)}</span>
-            <span className="wd-up-title">{e.title}</span>
-            {e.conversation_id && (
-              <span className="wd-up-from">{groupTitleById.get(e.conversation_id) ?? ''}</span>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 /** ── notes — one document per show ──────────────────────────────────
  *  A band's room accumulates a note per show/broadcast/flight sheet
  *  (일정 · 타임테이블 · 셋리스트 · 예약번호), each opened and edited on
@@ -1534,7 +1482,7 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [supabase, calEnsureCategory, calAddEvents])
 
   // ── home todos ──────────────────────────────────────────────────────
-  const { todos, add: addTodo, toggle: toggleTodo, clearDone: clearDoneTodos } = useTodos(supabase, user.id)
+  const { add: addTodo } = useTodos(supabase, user.id)
 
   // The home prompt takes both lanes: schedule-looking text goes down
   // the existing parse→calendar path; anything else lands in todos.
@@ -3090,38 +3038,24 @@ function StudioShellInner({ supabase, user }: Props) {
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
-              <div className="wd-home-prompt">
-                <SchedulePrompt
-                  targets={[]}
-                  placeholder="add a schedule, or something to do today…"
-                  onSubmit={(text) => saveHomePrompt(text)}
-                />
-              </div>
-              {todos.length > 0 && (
-                <div className="wd-todos">
-                  <div className="wd-todos-head">
-                    <span>today</span>
-                    {todos.some(t => t.done) && (
-                      <button className="wd-todos-clear" onClick={() => void clearDoneTodos()}>clear done</button>
-                    )}
-                  </div>
-                  {todos.slice(0, 10).map(t => (
-                    <div key={t.id} className={`wd-todo${t.done ? ' done' : ''}`} onClick={() => void toggleTodo(t)}>
-                      <span className="wd-todo-box">
-                        {t.done && (
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 12.5l5 5L20 6.5" />
-                          </svg>
-                        )}
-                      </span>
-                      <span className="wd-todo-text">{t.content}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
-              <button className="wd-word sm wd-home-more" onClick={() => openSel({ kind: 'me' })}>my calendar</button>
+              <StudioHomePrompt
+                targets={[{ id: null, label: 'personal', color: '#1A1917' },
+                  ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
+                onSubmit={async (text, cid) => {
+                  try {
+                    if (cid) {
+                      const parsed = await parseSchedule(supabase, text)
+                      const withMeta = await Promise.all(parsed.map(async e => ({ ...e, category_color: await calEnsureCategory(e.category), conversation_id: cid })))
+                      const made = await calAddEvents(withMeta)
+                      return made.length ? null : 'couldn’t read that — try “fri 7pm rehearsal at studio b”'
+                    }
+                    // personal: schedule-looking text → calendar, anything else → today's list
+                    await saveHomePrompt(text)
+                    return null
+                  } catch { return 'couldn’t add that — try again' }
+                }}
+              />
+              <StudioWeek events={allCalEvents} groupTitleById={groupTitleById} nowTick={nowTick} onOpenCalendar={() => openSel({ kind: 'me' })} />
             </div>
           )}
         </div>

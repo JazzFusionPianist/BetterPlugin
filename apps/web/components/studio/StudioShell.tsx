@@ -38,6 +38,7 @@ import SettingsPage, { APP_VERSION } from './SettingsPage'
 import { UpcomingRows, useConversationNotes, StudioNotes } from './StudioBits'
 import SlurMark from '../slur/SlurMark'
 import StudioHomeBar from './StudioHomeBar'
+import { StudioHomePrompt, StudioWeek } from './StudioHomeSchedule'
 import '../../app/studio.css'
 import { houseColor } from '../slur/marks'
 
@@ -575,22 +576,15 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
-              <div className="wd-home-prompt">
-                <SchedulePrompt
-                  onSubmit={handleSchedule}
-                  onOpenCalendar={() => openSel({ kind: 'me' })}
-                  targets={targets}
-                  categories={categories}
-                  onUpdate={(id, patch) => { updateEvent(id, patch).catch(() => {}) }}
-                  onSetCategory={async (id, name) => {
-                    const color = name ? await ensureCategory(name) : null
-                    updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-                    return color
-                  }}
-                />
-              </div>
-              <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
-              <button className="wd-word sm wd-home-more" onClick={() => openSel({ kind: 'me' })}>my calendar</button>
+              <StudioHomePrompt
+                targets={[{ id: null, label: 'personal', color: '#1A1917' },
+                  ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
+                onSubmit={async (text, cid) => {
+                  try { const made = await handleSchedule(text, cid); return made.length ? null : 'couldn’t read that — try “fri 7pm rehearsal at studio b”' }
+                  catch { return 'couldn’t add that — try again' }
+                }}
+              />
+              <StudioWeek events={allCalEvents} groupTitleById={groupTitleById} nowTick={nowTick} onOpenCalendar={() => openSel({ kind: 'me' })} />
             </div>
           )}
         </div>

@@ -457,10 +457,9 @@ void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
     }
     else if (t == kFreeze)
     {
-        // the gate: the knob rising from rest (variant 0), or the `gate` hand held up by a wire (variant 1). While it is up the
-        // spectrum of the moment it rose is kept: its magnitudes, with each bin's phase turning at the bin's own rate — a tone
-        // that stands still. The knob is the mix with the live sound.
-        const bool gateUp = p.variant == 1 ? (p.aux[0] != 0) : (a > 0.004f);
+        // the hold: the knob is a switch — over half, the spectrum of that moment is kept: its magnitudes, with each bin's phase
+        // turning at the bin's own rate — a tone that stands still. A wire on the knob (an lfo's square, a follow) throws it.
+        const bool gateUp = a > 0.5f;
         if (gateUp && ! spFrozen)
         {
             for (int b = 0; b < kBins; ++b) { spHold[(size_t) b] = std::sqrt (spRe[(size_t) b] * spRe[(size_t) b] + spIm[(size_t) b] * spIm[(size_t) b]); spHoldPh[0][(size_t) b] = std::atan2 (spIm[(size_t) b], spRe[(size_t) b]); spHoldPh[1][(size_t) b] = spHoldPh[0][(size_t) b]; }
@@ -521,7 +520,7 @@ void NodeState::spectralFrame (int t, const NodeParams& p, float sr, bool keyed)
         if (t == kFreeze && spFrozen)
         {
             // the held spectrum, its phases turned on by one hop each frame, mixed with the live one by the knob
-            const float mix = p.variant == 1 ? a : 1.0f;
+            const float mix = 1.0f;
             for (int b = 0; b < kBins; ++b)
             {
                 float& ph = spHoldPh[ch][(size_t) b];

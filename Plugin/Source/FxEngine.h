@@ -70,7 +70,7 @@ constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six band
 inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro; }
 inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
 inline bool isListener (int t) noexcept { return t == kFollow || t == kEnv; }   // audio ends here (like out); a value comes out
-inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || isSpectral (t) || t == kRepeat; }   // a second input: the sound its detector listens to
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || t == kCarve || t == kMatch || t == kVocode || t == kRepeat; }   // a second input: the sound its detector listens to
 constexpr int kNumMacros = 8;
 constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
 /** The hands a control wire can play. aux k is kHandAux0 + k. */

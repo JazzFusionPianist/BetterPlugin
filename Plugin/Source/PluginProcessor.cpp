@@ -92,7 +92,6 @@ OrbAudioProcessor::OrbAudioProcessor()
                 if (type == orbfx::kShift && k == 0) return juce::String (v) + " Hz";
                 if (type == orbfx::kShift && k == 1) return juce::String (v) + " %";
                 if (type == orbfx::kSmear) return k == 0 ? juce::String (v) + " ms" : juce::String (v) + " %";
-                if (type == orbfx::kFreeze && k == 0) return juce::String (v ? "held" : "open");
                 if (type == orbfx::kEnv) { if (k == 2) return juce::String (v) + " %"; if (k == 4) return juce::String (v) + " dB"; if (k == 5) return juce::String (v ? "on" : "off"); return juce::String (v) + " ms"; }
                 if (type == orbfx::kRepeat && k == 4) return juce::String (v) + " dB";
                 if (type == orbfx::kRate || (type == orbfx::kLfo && k < 4) || (type == orbfx::kRepeat && k < 4))   // a clock reads as words in the host, as on the wall
@@ -1225,7 +1224,7 @@ static const std::vector<std::vector<const char*>> kVariantNames = {
     {}, {}, {}, {}, {}, {}, { "envelope", "transient" },   // L/R, M/S, LFO, rate, macro, side, follow
     { "peak", "rms" },            // comp
     {}, {}, {}, {},               // bands, carve, match, vocode
-    { "knob", "gate" }, {}, {}, {}, {}, { "level", "wire" }, { "sine", "triangle" },   // freeze, shift, smear, pan, repeat, env, fold
+    {}, {}, {}, {}, {}, { "level", "wire" }, { "sine", "triangle" },   // freeze, shift, smear, pan, repeat, env, fold
 };
 const char* OrbAudioProcessor::variantName (int type, int v)
 {
@@ -1254,7 +1253,6 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kCarve:   { static const char* const c[] = { "attack", "release", "tilt" }; return k < 3 ? c[k] : nullptr; }
         case orbfx::kMatch:   { static const char* const m[] = { "learn", "smooth" }; return k < 2 ? m[k] : nullptr; }
         case orbfx::kVocode:  { static const char* const v[] = { "bands", "attack", "release" }; return k < 3 ? v[k] : nullptr; }
-        case orbfx::kFreeze:  return k == 0 ? "gate" : nullptr;
         case orbfx::kShift:   return k == 0 ? "hz" : k == 1 ? "feedback" : nullptr;
         case orbfx::kSmear:   return k == 0 ? "time" : k == 1 ? "blur" : nullptr;
         case orbfx::kRepeat:  { static const char* const r[] = { "clock", "rate", "feel", "hz", "threshold" }; return k < 5 ? r[k] : nullptr; }
@@ -1283,7 +1281,6 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kVocode:  if (k == 0) { lo = 8; hi = 64; } else if (k == 1) { lo = 1; hi = 200; } else if (k == 2) { lo = 10; hi = 2000; } break;
         case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB
         case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
-        case orbfx::kFreeze:  if (k == 0) { lo = 0; hi = 1; } break;
         case orbfx::kShift:   if (k == 0) { lo = -2000; hi = 2000; } else if (k == 1) { lo = 0; hi = 95; } break;
         case orbfx::kSmear:   if (k == 0) { lo = 50; hi = 5000; } else if (k == 1) { lo = 0; hi = 100; } break;
         case orbfx::kRepeat:  if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = -60; hi = -1; } break;
@@ -1324,7 +1321,7 @@ void OrbAudioProcessor::syncHandNames()
         const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
         auto& h = slotHost[i];
         auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
-        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : type == orbfx::kPan ? "pan" : type == orbfx::kFold ? "drive" : type == orbfx::kFreeze || type == orbfx::kShift || type == orbfx::kSmear || type == orbfx::kRepeat ? "mix" : "amount"));
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : type == orbfx::kPan ? "pan" : type == orbfx::kFold ? "drive" : type == orbfx::kFreeze ? "hold" : type == orbfx::kShift || type == orbfx::kSmear || type == orbfx::kRepeat ? "mix" : "amount"));
         put (h.mode->dynName,   prefix + "mode");
         put (h.decay->dynName,  prefix + (type == orbfx::kLfo ? "morph" : "decay"));
         put (h.fb->dynName,     prefix + "feedback");

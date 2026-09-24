@@ -147,7 +147,7 @@ export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t =
 /** The prints whose wire lands on a hand (a dashed control wire). */
 export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW || t === FX_ENV   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
 /** The prints with a second input, the key: their detector listens to it (glue, gate). */
-export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || t === FX_REPEAT || isSpectralType(t)
+export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || t === FX_REPEAT || t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE
 /** The prints with no input point: the shapes and the sources. */
 export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
 /** The prints whose big number is a hand of their own (the effects, and a macro's knob). */

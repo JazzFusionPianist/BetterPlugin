@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
+import { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColorOf, BLUE as BLUE_INK, strokeFor, fmtDecay, DIV_LABELS, KEY_NAMES, StrokeLevel, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
@@ -16,7 +16,7 @@ import {
   getGraph, setGraph, hasGraphBridge, hasFxBridge, setScopeInput,
   listPresets, savePreset, loadPreset, deletePreset, hasPresetDialogs, savePresetDialog, openPresetDialog,
   FX_MIX_TYPE, FX_SPLIT_LR, FX_SPLIT_MS, FX_LFO, FX_RATE, FX_MACRO, FX_MACROS, FX_SIDE, FX_FOLLOW, FX_COMP, FX_BANDS, FX_CARVE, FX_MATCH, FX_VOCODE, FX_FREEZE, FX_SHIFT, FX_SMEAR, FX_PAN, FX_REPEAT, FX_ENV, FX_FOLD, isSpectralType, outPortsOf, FX_PORT_IN, FX_PORT_OUT, FX_MAX_NODES, isUtilityType, isSplitterType, isControlType, playsHandsType, noInputType, hasKeyType, hasAmountType, wireRef, paramGesture,
-  type FxGraph, type FxGraphNode, type FxGraphEdge, type FxMode,
+  type FxGraph, type FxGraphNode, type FxGraphEdge,
 } from '../../lib/fxBridge'
 
 /*  The patchable wall — Orb Sounds' room.
@@ -102,7 +102,6 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'tilt' }],
   [FX_MATCH]: [{ key: 'aux1', label: 'smooth' }],
   [FX_VOCODE]: [{ key: 'aux0', label: 'bands' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }],
-  [FX_FREEZE]: [{ key: 'aux0', label: 'gate' }],
   [FX_SHIFT]: [{ key: 'aux0', label: 'hz' }, { key: 'aux1', label: 'feedback' }],
   [FX_SMEAR]: [{ key: 'aux0', label: 'time' }, { key: 'aux1', label: 'blur' }],
   [FX_REPEAT]: [{ key: 'aux4', label: 'threshold' }],
@@ -114,12 +113,12 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
 }
 const AURORA = !(typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('glow') === 'round')   // the wall's light is an aurora; ?glow=round shows the old round lamps, to compare
 /** What a print's big knob is, where "amount" would be vague. */
-const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'mix', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
+const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'hold', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
 const ENV_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'decay' }, { key: 'aux2', label: 'sustain' }, { key: 'aux3', label: 'release' }, { key: 'aux4', label: 'threshold' }, { key: 'aux5', label: 'gate' }]   // gate: what lands here opens the envelope while it is up (wire mode)
 const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }, { key: 'decay', label: 'morph' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
-const NEW_VARIANTS: Record<number, string[]> = { [FX_FREEZE]: ['knob', 'gate'], [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
+const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
 const LFO_AUX = [0, 3, 0, 200, 0, 100, 0, 0]   // sync, 1/4, straight, 2 hz, not random, full depth
 const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
@@ -162,6 +161,7 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_COMP) return `${Math.round(-60 * a)} dB`
   if (type === FX_CARVE) return `${Math.round(-24 * a)} dB`
   if (type === FX_PAN) { const p = Math.round((a - 0.5) * 200); return p === 0 ? 'centre' : p < 0 ? `L ${-p}` : `R ${p}` }
+  if (type === FX_FREEZE) return a > 0.5 ? 'held' : 'open'
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
@@ -185,6 +185,7 @@ function parseAmount (type: number, s: string, variant = 0): number | null {
   if (type === 5) return clamp(v < 0 ? (v / 60 + 1) * 0.75 : v / 48 + 0.75, 0, 1)
   if (type === FX_COMP) return clamp(-v / 60, 0, 1)
   if (type === FX_CARVE) return clamp(-v / 24, 0, 1)
+  if (type === FX_FREEZE) return /^(held|hold|on|1)/.test(t) ? 1 : 0
   if (type === FX_PAN) { if (t === 'c' || t === 'centre' || t === 'center') return 0.5; const side = /^l/.test(t) ? -1 : /^r/.test(t) ? 1 : Math.sign(v) || 1; return clamp(side * Math.abs(v) / 200 + 0.5, 0, 1) }
   if (type === 7) {
     if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
@@ -380,9 +381,9 @@ function SideArt () {
   )
 }
 /** freeze: a wave held still — its bars stand, one line runs on over them. */
-function FreezeArt ({ node }: { node: { amount: number; variant: number; aux: number[] } }) {
+function FreezeArt ({ node }: { node: { amount: number } }) {
   const C = 'rgb(150, 232, 255)'
-  const held = node.variant === 1 ? !!node.aux[0] : node.amount > 0.004
+  const held = node.amount > 0.5
   const bars = [0.3, 0.55, 0.9, 0.7, 1, 0.6, 0.8, 0.45, 0.35, 0.2]
   return (
     <g>
@@ -1376,7 +1377,6 @@ export default function FxWall ({ size: frame }: Props) {
       if (n.type === FX_LFO) rows.push(<GaugeRow key="lfodepth" label="depth" value={n.aux[5] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(5, Math.round(v))} />)
     }
     if (n.type === FX_REPEAT) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
-    if (n.type === FX_FREEZE) rows.push(<ChoiceRow key="variant" label="held by" options={['knob', 'gate']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)   // knob: up from rest holds the moment; gate: the `gate` hand, from a wire
     if (n.type === FX_SHIFT) {
       rows.push(<GaugeRow key="shz" label="hz" value={n.aux[0] || 0} min={-2000} max={2000} step={1} bipolar defaultValue={0} fine={400} format={(v) => `${v > 0 ? '+' : ''}${Math.round(v)} hz`} onChange={(v) => setAux(0, Math.round(v))} />)
       rows.push(<GaugeRow key="sfb" label="feedback" value={n.aux[1] || 0} min={0} max={95} step={1} unit="%" defaultValue={0} onChange={(v) => setAux(1, Math.round(v))} />)
@@ -1434,7 +1434,7 @@ export default function FxWall ({ size: frame }: Props) {
         onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
       rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
       rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
-    } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && n.type !== FX_ENV && n.type !== FX_FREEZE && flavours.length > 0) {
+    } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && n.type !== FX_ENV && flavours.length > 0) {
       rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
     }
     if (n.type === 2) {
@@ -1539,6 +1539,7 @@ export default function FxWall ({ size: frame }: Props) {
       switches.push({ label: 'ø right', on: (n.variant & 2) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 2 }, true) })
     }
     if (n.type === 18) switches.push({ label: 'freeze', on: !!n.aux[7], set: (on) => setAux(7, on ? 1 : 0) })
+    if (n.type === FX_FREEZE) switches.push({ label: 'hold', on: n.amount > 0.5, set: (on) => updateNode(n.id, { amount: on ? 1 : 0 }, true), onGesture: (on) => gesture(n.id, 'amount', on) })   // the knob is this switch: a wire on it (an lfo's square, a follow) throws it
     if (n.type === FX_MATCH) switches.push({ label: 'learn', on: !!n.aux[0], set: (on) => setAux(0, on ? 1 : 0) })   // on: the curve follows the key and the sound; off: it is kept
     if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true), onGesture: (on) => gesture(n.id, 'wet', on) })
     if (!isUtilityType(n.type)) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
@@ -1713,8 +1714,8 @@ export default function FxWall ({ size: frame }: Props) {
       platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = wallNow; ctx.fill()
       ctx.restore()
       // the plate sits IN the light, not brighter than it
-      const own = alive ? wallColor(n.type as FxMode, n.variant, k * 0.5) : 'rgb(16, 15, 12)'
-      const top = alive ? wallColor(n.type as FxMode, n.variant, Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
+      const own = alive ? wallColorOf(tintOf(n.type, n.variant), k * 0.5) : 'rgb(16, 15, 12)'   // (every print has a tint here: the panel's table stops at the old sound prints)
+      const top = alive ? wallColorOf(tintOf(n.type, n.variant), Math.min(1, k * 0.68)) : 'rgb(20, 19, 16)'
       const dg = ctx.createLinearGradient(c.x, c.y - Rz, c.x, c.y + Rz)
       dg.addColorStop(0, top); dg.addColorStop(1, own)
       platePath(ctx, n.type, c.x, c.y, Rz + 2); ctx.fillStyle = dg; ctx.fill()
@@ -2179,7 +2180,7 @@ export default function FxWall ({ size: frame }: Props) {
                   {!isSel && flavours.length > 0 && <span className="sg-flav"> {n.type === 12 ? (TREM_PRESETS[n.aux[2] || 0]?.name ?? 'sine') : flavours[n.type === 5 ? 0 : n.variant] ?? ''}</span>}
                   {!isUtil && (
                     <span className="sg-val"
-                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); gesture(n.id, 'amount', true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}
+                      onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); if (n.type === FX_FREEZE) { updateNode(n.id, { amount: n.amount > 0.5 ? 0 : 1 }, true); return } gesture(n.id, 'amount', true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount }) }}   // a freeze's word is its switch: a tap throws it
                       onDoubleClick={(e) => { e.stopPropagation(); updateNode(n.id, { amount: neutralOf(n.type) }, true) }}
                       onWheel={(e) => { e.stopPropagation(); e.preventDefault(); updateNode(n.id, { amount: Math.min(1, Math.max(0, n.amount - wheelStep(e.deltaY))) }, true) }}>
                       <LiveVal node={n} played={playedHands(n.id).has('amount')} />
@@ -2301,6 +2302,7 @@ export default function FxWall ({ size: frame }: Props) {
             if ((e.target as Element).closest('.fx-hot')) return
             if (!hasAmountType(studyNode.type)) return
             e.stopPropagation()
+            if (studyNode.type === FX_FREEZE) { updateNode(studyNode.id, { amount: studyNode.amount > 0.5 ? 0 : 1 }, true); return }
             try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
             gesture(studyNode.id, 'amount', true); setDrag({ kind: 'amount', id: studyNode.id, y0: e.clientY, a0: studyNode.amount })
           }}
@@ -2339,7 +2341,7 @@ export default function FxWall ({ size: frame }: Props) {
             onFlip={(bit) => updateNode(studyNode.id, { variant: studyNode.variant ^ bit }, true)} />}
         </div>
         <div className="sg-study-value">
-          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
+          {isSplitterType(studyNode.type) || studyNode.type === FX_SIDE || studyNode.type === FX_FREEZE || (isControlType(studyNode.type) && studyNode.type !== FX_MACRO) ? null : studyNode.type !== FX_MIX_TYPE
             ? <StudyValue text={fmtValue(studyNode.type, studyNode.amount, studyNode.variant)}
                 liveSlot={graph.edges.some(e => e.to === studyNode.id && e.hand === 'amount') ? studyNode.id : -1} liveText={(a) => fmtValue(studyNode.type, a, studyNode.variant)}
                 parse={(s) => parseAmount(studyNode.type, s, studyNode.variant)}

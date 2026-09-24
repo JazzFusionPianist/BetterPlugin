@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.15)   # bumped so hosts rescan: the AU gained a sidechain bus (Logic caches a plugin's buses per version)
+project(OrbPlugin VERSION 1.0.16)   # bumped so hosts rescan: the AU gained a sidechain bus (Logic caches a plugin's buses per version)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

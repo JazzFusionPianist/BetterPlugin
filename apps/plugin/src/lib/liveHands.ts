@@ -13,6 +13,8 @@ export const LIVE_INDEX: Record<string, number> = { amount: 0, variant: 1, decay
 
 const live = new Float32Array(16 * LIVE_HANDS)
 const lfoPhase = new Float32Array(16), lfoCycle = new Float64Array(16)
+export const SPEC_BANDS = 40   // a spectral print's meter: 40 log bands, 30 Hz .. 16 kHz
+const spectra = new Map<number, number[]>()   // slot → [sound dB × 40, key dB × 40, gain dB × 40]
 let lfoAt = 0
 let have = false
 const subs = new Set<() => void>()
@@ -20,8 +22,9 @@ const notify = () => { for (const s of subs) s() }
 
 if (typeof window !== 'undefined' && hasJuceBridge) {
   window.addEventListener('__juceDawAudio', (e: Event) => {
-    const d = (e as CustomEvent).detail as { live?: number[][]; lph?: number[]; lcy?: number[] }
+    const d = (e as CustomEvent).detail as { live?: number[][]; lph?: number[]; lcy?: number[]; spec?: number[][] }
     if (Array.isArray(d.lph)) for (let i = 0; i < 16; i++) { lfoPhase[i] = Number(d.lph[i]) || 0; lfoCycle[i] = Number(d.lcy?.[i]) || 0 }
+    if (Array.isArray(d.spec)) { spectra.clear(); for (const row of d.spec) if (Array.isArray(row) && row.length === 1 + SPEC_BANDS * 3) spectra.set(Number(row[0]), row.slice(1).map(Number)) }
     lfoAt = performance.now()
     if (!Array.isArray(d.live)) return
     let changed = !have
@@ -54,3 +57,11 @@ export function getLfoClock (slot: number): { phase: number; cycle: number } {
   if (!hasJuceBridge || lfoAt === 0) { const t = performance.now() / 2400; return { phase: t - Math.floor(t), cycle: Math.floor(t) } }
   return { phase: lfoPhase[slot] ?? 0, cycle: lfoCycle[slot] ?? 0 }
 }
+
+/** A spectral print's meter right now (the engine's last frame): the sound, the key and the gain in dB over SPEC_BANDS log bands, or null (no engine, or not a spectral print). */
+export function getSpectrum (slot: number): { sound: number[]; key: number[]; gain: number[] } | null {
+  const r = spectra.get(slot); if (!r) return null
+  return { sound: r.slice(0, SPEC_BANDS), key: r.slice(SPEC_BANDS, 2 * SPEC_BANDS), gain: r.slice(2 * SPEC_BANDS) }
+}
+/** The band's centre frequency, for drawing. */
+export const specHz = (k: number) => 30 * Math.pow(16000 / 30, (k + 0.5) / SPEC_BANDS)

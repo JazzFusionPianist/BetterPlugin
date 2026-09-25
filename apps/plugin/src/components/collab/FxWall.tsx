@@ -11,6 +11,7 @@ import { LfoEditor, SINE_PTS, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, stepsToPts, pts
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
 import { BandsEditor, BAND_RGB, crossovers, fmtHz } from './BandsEditor'
+import SpectrumView from './SpectrumView'
 import { LATEST, updateOut, engineHas, lfoOwnClock } from '../../lib/soundsRelease'
 import { openExternalUrl } from '../../lib/linkify'
 import {
@@ -76,7 +77,7 @@ export function shelfLayout (): { print: number; gap: number; height: number } {
   return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
 }
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
-const SNAP_WIRE = 26           // drop a print this close to a wire to splice it in
+const SNAP_WIRE = 44           // drop a print this close to a wire to splice it in
 const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, doubler, mod, harmony, grain, shimmer
 
 type Pt = { x: number; y: number }
@@ -102,7 +103,7 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   2: [{ key: 'decay', label: 'decay' }],
   10: [{ key: 'fb', label: 'feedback' }],
   13: [{ key: 'aux0', label: 'step' }],
-  [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'tilt' }],
+  [FX_CARVE]: [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'from' }, { key: 'aux3', label: 'to' }],
   [FX_MATCH]: [{ key: 'aux1', label: 'smooth' }],
   [FX_VOCODE]: [{ key: 'aux0', label: 'bands' }, { key: 'aux1', label: 'attack' }, { key: 'aux2', label: 'release' }],
   [FX_SHIFT]: [{ key: 'aux0', label: 'hz' }, { key: 'aux1', label: 'feedback' }],
@@ -159,7 +160,7 @@ function fmtValue (type: number, a: number, variant = 0): string {
   if (type === FX_PAN) { const p = Math.round((a - 0.5) * 200); return p === 0 ? 'centre' : p < 0 ? `L ${-p}` : `R ${p}` }
   if (type === FX_FREEZE) return a > 0.5 ? 'held' : 'open'
   if (type === FX_SCENE) return a <= 0.005 ? 'A' : a >= 0.995 ? 'B' : `${Math.round(a * 100)} %`
-  if (type === FX_SIEVE) { const keep = Math.max(1, Math.round(Math.pow(2, (1 - a) * 10))); return a < 0.004 ? 'all' : keep === 1 ? '1 partial' : `${keep} partials` }
+  if (type === FX_SIEVE) { const keep = Math.max(1, Math.round(Math.pow(2, (1 - a) * 10))); return a < 0.004 ? 'all' : `${keep}` }
   if (type === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
     const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
@@ -693,7 +694,7 @@ export default function FxWall ({ size: frame }: Props) {
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 0] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
+    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 20000] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
     const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], aux: [...LFO_AUX] } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
@@ -867,7 +868,25 @@ export default function FxWall ({ size: frame }: Props) {
       if (p.x > 0 && p.y > 0 && p.x < size.w && p.y < size.h) addNode(drag.type, p)
     }
     else if (drag.kind === 'move') {
-      if (drag.moved) push(graphRef.current, true)
+      if (drag.moved) {
+        // a print with no sound wires set down on a wire joins it, as a shelf drop does
+        const g = graphRef.current, n = g.nodes.find(x => x.id === drag.id)
+        const wired = g.edges.some(e => (e.from === drag.id || e.to === drag.id) && !isControlEdge(e))
+        if (n && !wired && !isControlType(n.type)) {
+          let best = -1, bestD = SNAP_WIRE
+          g.edges.forEach((e, i) => {
+            if (isControlEdge(e) || e.from === drag.id || e.to === drag.id) return
+            const d = distToWire(outPortOf(e.from, e.port ?? 0), inPortOf(e.to, i), p)
+            if (d < bestD * Math.max(0.6, zoom)) { bestD = d; best = i }
+          })
+          if (best >= 0) {
+            const e = g.edges[best]
+            const edges = [...g.edges.slice(0, best), { from: e.from, to: drag.id, gain: e.gain, port: e.port ?? 0 }, { from: drag.id, to: e.to, gain: 1 }, ...g.edges.slice(best + 1)]
+            commit({ ...g, edges }, true); setDrag(null); return
+          }
+        }
+        push(graphRef.current, true)
+      }
       else { setSel({ node: drag.id }); setConfirm(null) }   // the print was only pressed: open its study
     }
     else if (drag.kind === 'amount') { push(graphRef.current, true); gesture(drag.id, 'amount', false) }
@@ -1101,7 +1120,10 @@ export default function FxWall ({ size: frame }: Props) {
     if (n.type === FX_CARVE) {
       rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 20} min={1} max={200} step={1} defaultValue={20} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
       rows.push(<GaugeRow key="release" label="release" value={n.aux[1] || 200} min={20} max={2000} step={1} defaultValue={200} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      rows.push(<GaugeRow key="tilt" label="tilt" value={n.aux[2] || 0} min={-100} max={100} step={1} bipolar defaultValue={0} format={(v) => (v === 0 ? 'even' : v < 0 ? `low ${-v}` : `high ${v}`)} onChange={(v) => setAux(2, Math.round(v))} />)
+      // from / to: the range that is carved, on a log track (the gauge's unit is 0..100 along it)
+      const toPos = (hz: number) => 100 * Math.log(Math.max(20, Math.min(20000, hz)) / 20) / Math.log(1000), toHz = (pos: number) => Math.round(20 * Math.pow(1000, Math.max(0, Math.min(100, pos)) / 100))
+      rows.push(<GaugeRow key="from" label="from" value={toPos(n.aux[2] || 20)} min={0} max={100} step={0.5} defaultValue={0} fine={400} liveMap={toPos} format={(v) => `${fmtHz(toHz(v))} hz`} onChange={(v) => setAux(2, toHz(v))} />)
+      rows.push(<GaugeRow key="to" label="to" value={toPos(n.aux[3] || 20000)} min={0} max={100} step={0.5} defaultValue={100} fine={400} liveMap={toPos} format={(v) => `${fmtHz(toHz(v))} hz`} onChange={(v) => setAux(3, toHz(v))} />)
     }
     if (n.type === FX_MATCH) {
       rows.push(<GaugeRow key="smooth" label="smooth" value={n.aux[1] || 12} min={1} max={48} step={1} defaultValue={12} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(1, Math.round(v))} />)
@@ -1284,7 +1306,8 @@ export default function FxWall ({ size: frame }: Props) {
         case 'release': return t === FX_ENV ? 'aux3' : t === FX_FOLLOW || t === FX_CARVE || t === FX_SIEVE ? 'aux1' : t === FX_COMP || t === FX_VOCODE ? 'aux2' : null
         case 'sense': return t === FX_FOLLOW ? 'aux2' : null
         case 'ratio': return t === FX_COMP ? 'aux0' : null
-        case 'tilt': return t === FX_CARVE ? 'aux2' : null
+        case 'from': return t === FX_CARVE ? 'aux2' : null
+        case 'to': return t === FX_CARVE ? 'aux3' : null
         case 'smooth': return t === FX_MATCH ? 'aux1' : null
         case 'bands': return t === FX_VOCODE ? 'aux0' : null
         case 'knee': return t === FX_COMP ? 'aux3' : null
@@ -2002,6 +2025,13 @@ export default function FxWall ({ size: frame }: Props) {
             : studyNode.type === FX_BANDS
             ? <BandsEditor aux={studyNode.aux} size={STUDY_PRINT} ink={(a) => `rgba(246, 243, 234, ${a})`}
                 onChange={(aux, final) => updateNode(studyNode.id, { aux }, final)} />
+            : studyNode.type === FX_CARVE
+            ? <SpectrumView slot={studyNode.id} mode="carve" width={STUDY_W - 56} height={STUDY_PRINT} hue={tintOf(studyNode.type).join(', ')}
+                range={[studyNode.aux[2] || 20, studyNode.aux[3] || 20000]}
+                onRange={(lo, hi, final) => { const aux = [...studyNode.aux]; while (aux.length < 8) aux.push(0); aux[2] = lo; aux[3] = hi; updateNode(studyNode.id, { aux }, final) }}
+                onGesture={(on) => { gesture(studyNode.id, 'aux2', on); gesture(studyNode.id, 'aux3', on) }} />
+            : studyNode.type === FX_MATCH
+            ? <SpectrumView slot={studyNode.id} mode="match" width={STUDY_W - 56} height={STUDY_PRINT} hue={tintOf(studyNode.type).join(', ')} />
             : studyNode.type === FX_COMP
             ? <CompMeter slot={studyNode.id} threshold={-60 * studyNode.amount} width={STUDY_W - 56} height={STUDY_PRINT} boxWidth={STUDY_PRINT} hue="92, 224, 168"
                 onThreshold={(db, final) => updateNode(studyNode.id, { amount: Math.max(0, Math.min(1, -db / 60)) }, final)}

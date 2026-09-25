@@ -64,6 +64,7 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kSieve = 50 };          // keeps only the loudest partials: the knob says how few (all → one)
 constexpr int kAuxCount = 8;
 constexpr int kSceneHands = 14, kSceneStride = 15;   // a scene snapshot: 14 hands per print, led by the print's id
+constexpr int kSpecBands = 40, kSpecN = kSpecBands * 3;   // a spectral print's meter: the sound, the key and the gain, in dB, over 40 bands 30 Hz..16 kHz
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
@@ -169,6 +170,10 @@ struct NodeState
     std::vector<float> spBandKey, spBandIn;                            // 64: the vocoder's band envelopes
     std::vector<float> spHold, spHoldPh[2];                            // freeze: the held magnitudes (mid) and each channel's running phase; sieve: the mask, smoothed
     std::vector<std::pair<float, int>> spPeaks;                        // sieve: the frame's peaks (magnitude, bin), scratch
+    std::vector<float> spPhase;                                        // shift: the carrier's phase at every sample of the ring (continuous, so hz can move without a click)
+    double spShiftAcc = 0.0; float spShiftHz = 0.0f;                   // shift: the carrier's phase and its hz, smoothed
+    uint32_t spRng = 0x9E3779B9u;                                      // freeze: the phases it deals each frame
+    float* spec = nullptr;                                             // the chain's spectrum meter for this slot (kSpecN floats), or null
     bool  spFrozen = false; float spLastAmt = 0.0f;
     double spShiftPhase = 0.0;                                          // shift: the carrier's phase, continuous across frames
     float spOutPrev[2] {};                                              // shift: the last output samples, for the feedback
@@ -413,6 +418,8 @@ public:
      *  `followEnvelope`: where its envelope is now, linear (what is compared with the threshold). */
     float takeFollowIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? followIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
     float followEnvelope (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? followEnvOut[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+    /** A spectral print's meter: kSpecN floats — the sound, the key and the gain, in dB, over kSpecBands log bands (see the frame rule). */
+    const float* spectrum (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? specOut[slot] : nullptr; }
 
     /** What a follow print hears now, 0..1 (0 when it isn't running). Any thread. */
     float followValue (int slot) const noexcept
@@ -445,6 +452,7 @@ private:
     int   followHold[kMaxNodes] {};   // transient mode: samples until the next hit may fire
     std::array<std::atomic<float>, kMaxNodes> followIn {};       // a follow's input peak since the meter last looked
     std::array<std::atomic<float>, kMaxNodes> followEnvOut {};   // a follow's envelope now
+    float specOut[kMaxNodes][kSpecN] {};                          // a spectral print's meter, written by the audio thread (floats read whole: torn values are a frame off, no worse)
     float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope
     const juce::AudioBuffer<float>* sideBuf = nullptr;   // per block: the host's sidechain, or null
     juce::AudioBuffer<float> scratch { 2, 2048 };

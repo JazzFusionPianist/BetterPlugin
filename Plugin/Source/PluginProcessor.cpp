@@ -87,7 +87,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                 int lo, hi; auxRange (type, k, lo, hi);
                 const int v = (int) std::lround (lo + n * (hi - lo));
                 if (type == orbfx::kCut && k == 0) return juce::String ((v >= 1 && v <= 4 ? v : 2) * 12) + " dB/oct";
-                if (type == orbfx::kSplitBands && k < 5) return v >= 1000 ? juce::String (v / 1000.0, 2) + " kHz" : juce::String (v) + " Hz";
+                if ((type == orbfx::kSplitBands && k < 5) || (type == orbfx::kCarve && (k == 2 || k == 3))) return v >= 1000 ? juce::String (v / 1000.0, 2) + " kHz" : juce::String (v) + " Hz";
                 if (type == orbfx::kComp) { if (k == 0) return juce::String (v / 10.0, 1) + ":1"; if (k == 1) return juce::String (v / 10.0, 1) + " ms"; if (k == 2) return juce::String (v) + " ms"; if (k == 3 || k == 4) return juce::String (v) + " dB"; }
                 if (type == orbfx::kShift && k == 0) return juce::String (v) + " Hz";
                 if (type == orbfx::kShift && k == 1) return juce::String (v) + " %";
@@ -665,6 +665,18 @@ void OrbAudioProcessor::timerCallback()
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String ((slotTypes[(size_t) i].load() == orbfx::kFollow || slotTypes[(size_t) i].load() == orbfx::kEnv) ? fxChain.takeFollowIn (i) : 0.0f, 5);
     script << "],fenv:[";
     for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String ((slotTypes[(size_t) i].load() == orbfx::kFollow || slotTypes[(size_t) i].load() == orbfx::kEnv) ? fxChain.followEnvelope (i) : 0.0f, 5);
+    // a spectral print's meter: [slot, 40 × sound dB, 40 × key dB, 40 × gain dB] for each carve / match / vocode / sieve on the wall
+    script << "],spec:[";
+    { bool first = true;
+      for (int i = 0; i < orbfx::kMaxNodes; ++i)
+      {
+          const int ty = slotTypes[(size_t) i].load();
+          if (! (ty == orbfx::kCarve || ty == orbfx::kMatch || ty == orbfx::kVocode || ty == orbfx::kSieve)) continue;
+          const float* sp = fxChain.spectrum (i); if (sp == nullptr) continue;
+          script << (first ? "[" : ",[") << i; first = false;
+          for (int k = 0; k < orbfx::kSpecN; ++k) script << "," << juce::String (sp[k], 1);
+          script << "]";
+      } }
     script << "],macros:[";
     for (int m = 0; m < orbfx::kNumMacros; ++m) script << (m ? "," : "") << juce::String (macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f, 4);
     script << "]}}))";
@@ -1273,7 +1285,7 @@ const char* OrbAudioProcessor::auxName (int type, int k)
         case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
         case orbfx::kComp:    { static const char* const c[] = { "ratio", "attack", "release", "knee", "makeup" }; return k < 5 ? c[k] : nullptr; }
         case orbfx::kSplitBands: { static const char* const b[] = { "cross 1", "cross 2", "cross 3", "cross 4", "cross 5", "crossovers" }; return k < 6 ? b[k] : nullptr; }
-        case orbfx::kCarve:   { static const char* const c[] = { "attack", "release", "tilt" }; return k < 3 ? c[k] : nullptr; }
+        case orbfx::kCarve:   { static const char* const c[] = { "attack", "release", "from", "to" }; return k < 4 ? c[k] : nullptr; }
         case orbfx::kMatch:   { static const char* const m[] = { "learn", "smooth" }; return k < 2 ? m[k] : nullptr; }
         case orbfx::kVocode:  { static const char* const v[] = { "bands", "attack", "release" }; return k < 3 ? v[k] : nullptr; }
         case orbfx::kShift:   return k == 0 ? "hz" : k == 1 ? "feedback" : nullptr;
@@ -1302,7 +1314,7 @@ void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
         case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
         case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } else if (k == 6) { lo = 0; hi = 1; } break;
         case orbfx::kSplitBands: if (k < 5) { lo = 20; hi = 20000; } else if (k == 5) { lo = 1; hi = 5; } break;
-        case orbfx::kCarve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2) { lo = -100; hi = 100; } break;
+        case orbfx::kCarve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2 || k == 3) { lo = 20; hi = 20000; } break;
         case orbfx::kMatch:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 1; hi = 48; } break;
         case orbfx::kVocode:  if (k == 0) { lo = 8; hi = 64; } else if (k == 1) { lo = 1; hi = 200; } else if (k == 2) { lo = 10; hi = 2000; } break;
         case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB

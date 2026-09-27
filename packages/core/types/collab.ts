@@ -16,7 +16,7 @@ export interface Profile {
 }
 
 export type AttachType =
-  | 'image' | 'video' | 'audio' | 'multi-audio'
+  | 'image' | 'video' | 'audio' | 'multi-audio' | 'file'
   /** Special chat bubble for in-chat game invites. `attachment_url`
    *  holds the room id and `attachment_name` holds the game type
    *  ('chess' | 'falling_blocks' | 'poker' | 'ear_training'). */
@@ -43,7 +43,7 @@ export interface AttachmentTimelineMetadata {
     ppq?: number
     bar?: number
     beat?: number
-    source: 'bwf' | 'ixml' | 'daw_playhead'
+    source: 'bwf' | 'ixml' | 'daw_playhead' | 'ptsl' | 'luna' | 'logic_export'
     confidence: 'exact' | 'estimated'
   }
   tempo_map?: TempoMapPoint[]

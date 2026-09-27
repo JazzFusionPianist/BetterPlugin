@@ -203,10 +203,11 @@ bool OrbControlBridge::setTrackSelected (int index, bool selected)
 
 bool OrbControlBridge::requestExport (const std::vector<int>& trackIndices, bool editSelection)
 {
-    juce::StringArray ids;
-    for (const int index : trackIndices) ids.add (juce::String (index));
-    send (0x04, juce::String (editSelection ? "selection" : "session") + "|" + ids.joinIntoString (","));
-    return source != 0;
+    // MIDI Remote/MCU can expose mixer state, but neither adapter currently
+    // supplies a verified background render job or completion receipt. Do not
+    // dispatch a GUI export command, even to an older installed remote script.
+    juce::ignoreUnused (trackIndices, editSelection);
+    return false;
 }
 
 juce::String OrbControlBridge::getStatusJson() const
@@ -220,9 +221,9 @@ juce::String OrbControlBridge::getStatusJson() const
     object->setProperty ("adapter", adapterName.isNotEmpty() ? adapterName : "Orb Control");
     object->setProperty ("connected", connected);
     object->setProperty ("trackListing", connected);
-    object->setProperty ("exportMode",
-        connected && host.containsIgnoreCase ("Cubase") && adapterName.contains ("Cubase")
-            ? "native" : "none");
+    object->setProperty ("exportMode", "none");
+    object->setProperty ("backgroundOfflineExport", false);
+    object->setProperty ("exportUnavailableReason", "background-export-unavailable");
     object->setProperty ("inputPort", "Orb Control Out");
     object->setProperty ("outputPort", "Orb Control In");
     return juce::JSON::toString (juce::var (object), false);

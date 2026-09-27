@@ -19,7 +19,7 @@ export function connectProTools(sdkRoot) {
       const stream = client.SendGrpcStreamingRequest({
         header: { command: `CId_${command}`, version: 2026, version_minor: 4, version_revision: 0, session_id: sessionId },
         request_body_json: JSON.stringify(body),
-      }, { deadline: Date.now() + (command === 'BounceTrack' ? 29 * 60_000 : 60_000) })
+      }, { deadline: Date.now() + (['BounceTrack', 'ImportAudioToClipList'].includes(command) ? 29 * 60_000 : 60_000) })
       stream.on('data', response => { finalResponse = response })
       stream.on('error', reject)
       stream.on('end', () => {

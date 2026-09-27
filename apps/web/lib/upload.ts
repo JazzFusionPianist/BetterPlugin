@@ -1,3 +1,5 @@
+import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
+import { supabase } from './supabase'
 import type { AttachType } from '@orb/core'
 
 /**
@@ -70,44 +72,10 @@ export function attachTypeFor(file: File): AttachType {
  */
 export async function uploadAttachment(
   file: File,
-  userId: string,
+  _userId: string,
   onProgress?: (ratio: number) => void,
-  scope: 'temp' | 'perm' = 'perm',
+  scope: 'temp' | 'perm' | 'public' = 'perm',
 ): Promise<UploadedAttachment> {
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-  const contentType = file.type || 'application/octet-stream'
-
-  const presignRes = await fetch(`${UPLOAD_API_BASE}/api/r2-upload-url`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ext, contentType, userId, scope }),
-  })
-  if (!presignRes.ok) {
-    throw new UploadError(`Could not start the upload (${presignRes.status}).`)
-  }
-  const { uploadUrl, publicUrl } = (await presignRes.json()) as {
-    uploadUrl: string; publicUrl: string
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('PUT', uploadUrl)
-    xhr.setRequestHeader('Content-Type', contentType)
-    let last = 0
-    xhr.upload.onprogress = (e) => {
-      if (!e.lengthComputable || !onProgress) return
-      const now = performance.now()
-      if (now - last < 100 && e.loaded < e.total) return
-      last = now
-      onProgress(Math.min(0.99, e.loaded / e.total))
-    }
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) { onProgress?.(1); resolve() }
-      else reject(new UploadError(`Upload failed (${xhr.status}).`))
-    }
-    xhr.onerror = () => reject(new UploadError('Upload failed — check your connection.'))
-    xhr.send(file)
-  })
-
-  return { url: publicUrl, type: attachTypeFor(file), name: file.name }
+  const { url } = await uploadSecureFile(supabase, file, { apiBase: UPLOAD_API_BASE, public: scope === 'public', onProgress })
+  return { url, type: attachTypeFor(file), name: file.name }
 }

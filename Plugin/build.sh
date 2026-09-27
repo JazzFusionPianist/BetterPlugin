@@ -52,6 +52,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
+mkdir -p "$BUILD_DIR"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Slur Plugin Build"
@@ -114,7 +115,7 @@ fi
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-      -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}" \
       $( [ "$BUILD_TYPE" = Release ] && echo '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' ) \
       -DORB_APP_URL="$ORB_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \

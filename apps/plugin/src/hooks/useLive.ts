@@ -8,6 +8,7 @@ export interface LiveSession {
   started_at: string
   has_video: boolean
   has_audio: boolean
+  audience: 'authenticated' | 'invited'
   video_source: 'daw' | 'screen' | 'camera' | 'none'
 }
 
@@ -28,25 +29,19 @@ export function useLive(client: SupabaseClient, userId: string) {
 
     const channel = client
       .channel('live-sessions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, (payload) => {
-        console.log('[useLive] realtime event:', payload.eventType, payload.new ?? payload.old)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, () => {
         fetchSessions()
       })
-      .subscribe(status => console.log('[useLive] sub status:', status))
-    return () => { client.removeChannel(channel) }
+      .subscribe()
+    const timer=setInterval(fetchSessions,15000)
+    return () => { client.removeChannel(channel); clearInterval(timer) }
   }, [client, userId, fetchSessions])
 
   const startLive = useCallback(async (
     title: string,
-    opts: { has_video: boolean; has_audio: boolean; video_source: LiveSession['video_source'] }
+    opts: { has_video: boolean; has_audio: boolean; video_source: LiveSession['video_source']; audience?: LiveSession['audience']; invited?: string[] }
   ) => {
-    // End any existing session first (in case of stale row)
-    await client.from('live_sessions').delete().eq('host_id', userId)
-    const { data, error } = await client
-      .from('live_sessions')
-      .insert({ host_id: userId, title, ...opts })
-      .select()
-      .single()
+    const {data,error}=await client.rpc('live_start',{p_title:title,p_video:opts.has_video,p_audio:opts.has_audio,p_source:opts.video_source,p_audience:opts.audience??'invited',p_invited:opts.invited??[]})
     if (error) {
       console.error('startLive insert failed:', error)
       throw new Error(error.message)
@@ -60,22 +55,20 @@ export function useLive(client: SupabaseClient, userId: string) {
   }, [client, userId, fetchSessions])
 
   const endLive = useCallback(async () => {
-    await client.from('live_sessions').delete().eq('host_id', userId)
+    if(mySession) { const {error}=await client.rpc('live_manage',{p_session:mySession.id,p_action:'end'}); if(error) throw error }
     setMySession(null)
     await fetchSessions()
-  }, [client, userId, fetchSessions])
+  }, [client, userId, fetchSessions, mySession])
 
   /** Update fields on the running session (e.g. has_video when source switches). */
   const updateLive = useCallback(async (
     opts: Partial<Pick<LiveSession, 'has_video' | 'has_audio' | 'video_source'>>
   ) => {
-    const { error } = await client
-      .from('live_sessions')
-      .update(opts)
-      .eq('host_id', userId)
+    if (!mySession) return
+    const { error } = await client.rpc('live_manage',{p_session:mySession.id,p_action:'update',p_video:opts.has_video??null,p_audio:opts.has_audio??null,p_source:opts.video_source??null})
     if (error) console.error('updateLive failed:', error)
     await fetchSessions()
-  }, [client, userId, fetchSessions])
+  }, [client, userId, fetchSessions, mySession])
 
   const liveHostIds = new Set(liveSessions.map(s => s.host_id))
   // Quick lookup so ChatView / FriendsList can render the broadcast title

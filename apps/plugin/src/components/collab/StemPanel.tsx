@@ -1,3 +1,6 @@
+import { resolveUrl } from '../../lib/r2Access'
+import { messageId, encryptChatMessage, decryptPrivatePayload, type Envelope } from '@orb/core/lib/chatCrypto.ts'
+import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
@@ -8,7 +11,6 @@ import type { AttachmentTimelineMetadata } from '../../types/collab'
 import { AudioAttachment, ImportAllWord } from './ChatView'
 import { alignToProjectStart, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
 import { useResolvedUrl } from '../../lib/r2Access'
-import { r2KeyFromUrl } from '../../lib/r2Keys'
 import { useT } from '../../i18n/LanguageContext'
 
 interface Props {
@@ -92,12 +94,14 @@ export default function StemPanel({
   const [stems, setStems] = useState<ConversationStem[]>([])
   const [loading, setLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
-  const [uploading, setUploading] = useState<{ name: string; progress: number }[]>([])
+  const [uploading, setUploading] = useState<{ id:string; name: string; progress: number }[]>([])
   const [error, setError] = useState('')
   const [hostTimeline, setHostTimeline] = useState<AttachmentTimelineMetadata | null>(null)
   const [audioFormats, setAudioFormats] = useState<Record<string, AudioFormatProbe | null>>({})
   const consumed = useRef(new Set<string>())
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const conversationRef = useRef(conversationId); conversationRef.current = conversationId
 
   const load = useCallback(async () => {
     const { data, error: loadError } = await supabase
@@ -105,10 +109,17 @@ export default function StemPanel({
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
+    if (conversationRef.current !== conversationId) return
     if (loadError) setError('couldn\'t load stems. try again.')
-    else setStems((data as ConversationStem[]) ?? [])
+    else {
+      const clear=await Promise.all(((data as (ConversationStem & {encrypted_payload?:Envelope})[])??[]).map(async row=>{
+        if(!row.encrypted_payload)return row
+        try{const payload=await decryptPrivatePayload(supabase,currentUserId,row.id,row.conversation_id,row.uploader_id,row.encrypted_payload);return {...row,...payload,id:row.id,conversation_id:row.conversation_id,uploader_id:row.uploader_id}}catch{return {...row,file_url:'',file_name:'Encrypted file — could not verify'}}
+      }))
+      if(conversationRef.current===conversationId)setStems(clear)
+    }
     setLoading(false)
-  }, [supabase, conversationId])
+  }, [supabase, conversationId,currentUserId])
 
   useEffect(() => {
     setLoading(true)
@@ -131,7 +142,7 @@ export default function StemPanel({
     const missing = stems.filter(stem => stem.timeline_metadata?.position.bit_depth == null && audioFormats[stem.file_url] === undefined)
     if (missing.length === 0) return
     let cancelled = false
-    void Promise.all(missing.map(async stem => ({ url: stem.file_url, format: await probeRemoteAudioFormat(stem.file_url) })))
+    void Promise.all(missing.map(async stem => ({ url: stem.file_url, format: await probeRemoteAudioFormat(await resolveUrl(stem.file_url)) })))
       .then(results => {
         if (cancelled) return
         setAudioFormats(previous => {
@@ -148,7 +159,7 @@ export default function StemPanel({
     if (sourceFile.size > MAX_SIZE) { setError(`${sourceFile.name} is larger than 1 GB.`); return }
 
     const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    setUploading(prev => [...prev, { name: sourceFile.name, progress: 0 }])
+    setUploading(prev => [...prev, { id:key,name: sourceFile.name, progress: 0 }])
     let file = sourceFile
     try {
       // The embedded stamp is read BEFORE upload so the studio's bar-1
@@ -160,55 +171,20 @@ export default function StemPanel({
         if (aligned) { file = aligned.file; timeline = aligned.metadata }
       }
 
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-      const contentType = file.type || 'application/octet-stream'
-      const presign = await fetch('/api/r2-upload-url', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // No scope → permanent key. Stems used to be temp (7-day
-        // expiry); files now persist and reads go presigned.
-        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
-      })
-      if (!presign.ok) throw new Error('presign')
-      const { uploadUrl, publicUrl, key: objectKey } =
-        await presign.json() as { uploadUrl: string; publicUrl: string; key?: string }
-      // R2 object key for the presign endpoint's keyed membership probe.
-      // The endpoint returns it directly; derive it from publicUrl via
-      // the canonical r2KeyFromUrl if a stale deploy doesn't.
-      const fileKey = objectKey
-        ?? r2KeyFromUrl(publicUrl, import.meta.env.VITE_R2_PUBLIC_URL as string | undefined)
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PUT', uploadUrl)
-        xhr.setRequestHeader('Content-Type', contentType)
-        xhr.upload.onprogress = event => {
-          if (!event.lengthComputable) return
-          setUploading(prev => prev.map((item, index) =>
-            index === prev.length - 1 ? { ...item, progress: event.loaded / event.total } : item))
-        }
-        xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('upload'))
-        xhr.onerror = () => reject(new Error('network'))
-        xhr.send(file)
-      })
-
-      const { error: insertError } = await supabase.from('conversation_stems').insert({
-        conversation_id: conversationId,
-        uploader_id: currentUserId,
-        file_url: publicUrl,
-        file_key: fileKey,
-        file_name: file.name,
-        file_size: file.size,
-        mime_type: contentType,
-        timeline_metadata: timeline,
-      })
+      const {url, key:fileKey} = await uploadSecureFile(supabase,file,{onProgress:progress=>setUploading(prev=>prev.map(item=>item.id===key?{...item,progress}:item))})
+      if(conversationRef.current!==conversationId)throw new Error('Conversation changed.')
+      const id=await messageId()
+      const encrypted_payload=await encryptChatMessage(supabase,currentUserId,id,conversationId,{file_url:url,file_name:file.name,mime_type:file.type||'application/octet-stream',timeline_metadata:timeline})
+      const {error:insertError}=await supabase.from('conversation_stems').insert({id,conversation_id:conversationId,uploader_id:currentUserId,
+        file_url:'orb-encrypted:',file_key:fileKey,file_name:'Encrypted file',file_size:file.size,
+        mime_type:'application/octet-stream',timeline_metadata:null,encrypted_payload})
       if (insertError) throw insertError
       await load()
     } catch (uploadError) {
-      console.error('[StemPanel] upload failed', uploadError, key)
       setError(`couldn't share ${file.name}. try again.`)
     } finally {
       setUploading(prev => {
-        const index = prev.findIndex(item => item.name === file.name)
+        const index = prev.findIndex(item => item.id === key)
         return index < 0 ? prev : prev.filter((_, i) => i !== index)
       })
     }

@@ -1,8 +1,30 @@
-import { unzipSync } from 'fflate'
-import { BUNDLE_MAX_BYTES, parseRegionBundle, sha256 } from './regionBundle.ts'
+import { unzipSync, zipSync, strToU8 } from 'fflate'
+import { BUNDLE_MAX_BYTES, parseRegionBundle, sha256, type RegionBundle } from './regionBundle.ts'
 
 export const BUNDLE_MAX_ARCHIVE_BYTES = BUNDLE_MAX_BYTES + 2 * 1024 * 1024
-export const isRegionArchive = (file: { name: string }) => /\.orb-regions\.zip$/i.test(file.name)
+export const isRegionArchive = (file: { name: string }) => /\.(?:slur|orb)-regions\.zip$/i.test(file.name)
+
+/** Lossless portable transfer; does not imply the destination DAW accepts ZIP. */
+export async function createRegionArchive(prepared: { bundle: RegionBundle; filesByAsset: Map<string, File> }) {
+  const bundle = parseRegionBundle(prepared.bundle)
+  if (!bundle) throw new Error('Invalid region layout.')
+  const files: Record<string, Uint8Array> = {}
+  const assetPaths: Record<string, string> = {}
+  for (const asset of bundle.assets) {
+    const file = prepared.filesByAsset.get(asset.id)
+    if (!file || file.size !== asset.bytes) throw new Error(`Missing or changed audio: ${asset.name}`)
+    const bytes = await file.arrayBuffer()
+    if (await sha256(bytes) !== asset.sha256) throw new Error(`Changed audio: ${asset.name}`)
+    const extension = asset.name.split('.').pop()?.toLowerCase()
+    const path = `audio/${asset.sha256}.${extension && /^[a-z0-9]{1,8}$/.test(extension) ? extension : 'bin'}`
+    assetPaths[asset.id] = path
+    files[path] = new Uint8Array(bytes)
+  }
+  const manifest = strToU8(JSON.stringify({ ...bundle, assetPaths }))
+  if (manifest.byteLength > 1024 * 1024) throw new Error('Region layout is too large.')
+  files['orb-regions.json'] = manifest // Keep the on-disk v1 protocol compatible.
+  return new File([Uint8Array.from(zipSync(files, { level: 0 }))], 'regions.slur-regions.zip', { type: 'application/zip' })
+}
 
 /** Bounded extraction shared by the browser and local DAW helper. No filesystem paths are trusted. */
 export function unpackRegionArchive(bytes: Uint8Array) {
@@ -45,7 +67,7 @@ export function unpackRegionArchive(bytes: Uint8Array) {
 
 /** Reattach a downloaded bundle without rebuilding (and losing) its source layout. */
 export async function prepareArchivedRegionBundle(file: File) {
-  if (!isRegionArchive(file)) throw new Error('Choose an Orb region bundle.')
+  if (!isRegionArchive(file)) throw new Error('Choose a Slur region bundle.')
   if (file.size > BUNDLE_MAX_ARCHIVE_BYTES) throw new Error('Region archive is too large.')
   const { bundle, assets } = unpackRegionArchive(new Uint8Array(await file.arrayBuffer()))
   const filesByAsset = new Map<string, File>()

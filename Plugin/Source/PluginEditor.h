@@ -32,6 +32,7 @@ public:
     // forwards to its DragMonitor (which is tied to the current NSWindow).
     void armDragMonitor (const std::string& path);
     void armDragMonitorMultiple (const std::vector<std::string>& paths);
+    void armRegionXml (const std::string& xml) { dragMonitor.armRegionXml (xml); }
 
 private:
    #ifdef ORB_SURFACE

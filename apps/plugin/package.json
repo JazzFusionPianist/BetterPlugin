@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test:native": "node --experimental-strip-types --test tests/juceBridge.test.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

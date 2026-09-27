@@ -26,7 +26,8 @@ interface Props {
   currentUserId: string
   chatMessages: LiveChatMessage[]
   onSendChat: (text: string) => void
-  onStartLive: (title: string, source: VideoSource, micDeviceId: string | null) => void
+  onStartLive: (title: string, source: VideoSource, micDeviceId: string | null, audience: LiveSession['audience'], invited: string[]) => void
+  onBanViewer: (userId: string) => void
   onEndLive: () => void
   onReplaceSource: (source: VideoSource, micDeviceId: string | null) => Promise<VideoSource | null>
   onWatchLive: (sessionId: string, hostId: string) => void
@@ -199,10 +200,13 @@ export default function LivePanel({
   totalViewers, peakViewers,
   mediaError, screenCaptureSupported,
   currentUserId, chatMessages, onSendChat,
-  onStartLive, onEndLive, onReplaceSource, onWatchLive, onClose,
+  onStartLive, onBanViewer, onEndLive, onReplaceSource, onWatchLive, onClose,
 }: Props) {
   const { t } = useT()
-  const [title, setTitle]         = useState('')
+  const [title, setTitle] = useState('')
+  const [audience, setAudience] = useState<LiveSession['audience']>('invited')
+  const [invited, setInvited] = useState<string[]>([])
+  const [banId, setBanId] = useState('')
   const [micDeviceId, setMicDeviceId] = useState<string>('') // '' = (None)
   // Default to (None) — user picks a video source when they want one
   const [selectedKey, setSelectedKey] = useState<string>('none:')
@@ -270,7 +274,7 @@ export default function LivePanel({
 
   const handleGoLive = () => {
     if (!selectedSource) return
-    onStartLive(title.trim(), selectedSource, micDeviceId || null)
+    onStartLive(title.trim(), selectedSource, micDeviceId || null, audience, invited)
   }
 
   return (
@@ -337,6 +341,14 @@ export default function LivePanel({
               </span>
             </div>
 
+            <div className="live-field">
+              <label className="live-field-label" htmlFor="live-ban">Remove and block a viewer</label>
+              <select id="live-ban" className="live-select" value={banId} onChange={e=>setBanId(e.target.value)}>
+                <option value="">Choose a user</option>
+                {profiles.filter(p=>p.id!==currentUserId).map(p=><option key={p.id} value={p.id}>{p.display_name || p.id}</option>)}
+              </select>
+              <button disabled={!banId} onClick={()=>{onBanViewer(banId);setBanId('')}}>Block from this broadcast</button>
+            </div>
             <InStreamSourceSwitcher
               sources={sources}
               microphones={microphones}
@@ -386,6 +398,21 @@ export default function LivePanel({
               onChange={e => setTitle(e.target.value)}
             />
 
+            <div className="live-field">
+              <label className="live-field-label" htmlFor="live-audience">Who can watch?</label>
+              <select id="live-audience" className="live-select" value={audience} onChange={e=>setAudience(e.target.value as LiveSession['audience'])}>
+                <option value="invited">Only invited people</option>
+                <option value="authenticated">Any signed-in user</option>
+              </select>
+              <p>Up to 8 viewers. Viewers can record what they receive.</p>
+              {audience==='invited' && <fieldset><legend>Invite viewers ({invited.length}/8)</legend>
+                <div style={{maxHeight:140,overflowY:'auto'}}>{profiles.filter(p=>p.id!==currentUserId).map(p=><label key={p.id} style={{display:'block'}}>
+                  <input type="checkbox" checked={invited.includes(p.id)} disabled={invited.length>=8 && !invited.includes(p.id)}
+                    onChange={e=>setInvited(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>{p.display_name || p.id}
+                </label>)}</div>
+                {invited.length===0 && <p>No one else can join until you select a viewer.</p>}
+              </fieldset>}
+            </div>
             <div className="live-field">
               <label className="live-field-label">{t('live.videoSource')}</label>
               <select

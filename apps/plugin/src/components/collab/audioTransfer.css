@@ -1,0 +1,12 @@
+.audio-transfer-actions { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.audio-transfer-actions .audio-download { display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 4px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; cursor: pointer; }
+.audio-transfer-actions .audio-download:hover:not(:disabled) { background: rgba(128,128,128,.12); }
+.audio-transfer-actions .audio-download.complete { color: var(--acc, #279766); opacity: 1; cursor: default; }
+.audio-transfer-actions .audio-drag { background: none; border: 0; padding: 4px 0; color: var(--acc, #279766);
+  font-family: inherit; font-size: 10.5px; white-space: nowrap; cursor: grab; }
+.audio-transfer-actions .audio-drag:active:not(:disabled) { cursor: grabbing; }
+.audio-transfer-actions .audio-drag:disabled { color: inherit; opacity: .35; cursor: default; }
+.audio-transfer-actions button:focus-visible { outline: 2px solid var(--blue, #6565ff); outline-offset: 2px; }
+.audio-transfer-error { max-width: 150px; color: #be493b; font-size: 10px; line-height: 1.3; }

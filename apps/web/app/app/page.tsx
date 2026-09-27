@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import AppShell from '@/components/app/AppShell'
 import StudioShell from '@/components/studio/StudioShell'
+import { EncryptedChatGate } from '@orb/core/components/EncryptedChatGate.tsx'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 
 /**
@@ -42,5 +43,5 @@ export default function AppHome() {
   if (checking || !user || !mounted) {
     return <div className="splash"><div className="spinner" /></div>
   }
-  return wide ? <StudioShell user={user} /> : <AppShell user={user} />
+  return <EncryptedChatGate client={supabase} userId={user.id}>{wide ? <StudioShell user={user} /> : <AppShell user={user} />}</EncryptedChatGate>
 }

@@ -37,7 +37,7 @@ export default function HomePortfolio({ supabase, me }: Props) {
       for (const f of files.slice(0, 12)) {
         try {
           const compressed = await compressImage(f)
-          const { url } = await uploadAttachment(compressed, me.id)
+          const { url } = await uploadAttachment(compressed, me.id, undefined, 'public')
           uploaded.push({ media_url: url })
         } catch (err) { console.error('[portfolio] photo upload', err) }
       }

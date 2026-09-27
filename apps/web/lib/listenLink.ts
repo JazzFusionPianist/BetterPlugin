@@ -27,7 +27,7 @@ export interface ListenParams {
 export function parseListenParams(search: string): ListenParams | null {
   const params = new URLSearchParams(search)
   const url = params.get('u')
-  if (!url || !/^(https?:)?\/\//.test(url) && !url.startsWith('/')) return null
+  if (!url || !(url.startsWith('https://') || url.startsWith('orb-file:'))) return null
   const out: ListenParams = { url, name: params.get('n') || 'audio' }
   const from = params.get('f')
   if (from) out.from = from
@@ -99,7 +99,7 @@ export function buildListenUrl(input: { url: string; name: string; from?: string
   if (input.from) params.set('f', input.from)
   const position = compactPosition(input.metadata)
   if (position) params.set('p', JSON.stringify(position))
-  return `${LISTEN_BASE}?${params.toString()}`
+  return `${LISTEN_BASE}#${params.toString()}`
 }
 
 /** "bar 17 · beat 1 · 120 bpm · 4/4" — the line a listener reads. */

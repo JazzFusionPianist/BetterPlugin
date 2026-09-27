@@ -1,12 +1,6 @@
-/**
- * Listen links — a stem or chat audio, playable by anyone with the URL,
- * no account and no plug-in. The web app's /listen page is static, so
- * everything it needs rides in the query string: the (already public)
- * R2 file URL, the file name, who sent it, and the original position
- * boiled down to what a listener reads (bar | beat, tempo, meter).
- *
- * The same compact shape is parsed by apps/web/app/listen — keep the
- * two in step.
+/** Listen links keep metadata and the file secret in the URL fragment.
+ * Private attachments still require sign-in and current conversation membership.
+ * Sharing the URL does not grant access to a new recipient.
  */
 import type { AttachmentTimelineMetadata } from '../types/collab'
 
@@ -78,7 +72,7 @@ export function buildListenUrl(input: {
   if (input.from) params.set('f', input.from)
   const position = compactPosition(input.metadata)
   if (position) params.set('p', JSON.stringify(position))
-  return `${LISTEN_BASE}?${params.toString()}`
+  return `${LISTEN_BASE}#${params.toString()}`
 }
 
 /** Clipboard write that also works inside the plug-in's WKWebView. */

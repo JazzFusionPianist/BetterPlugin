@@ -7,6 +7,11 @@
     "dev": "pnpm --filter plugin dev",
     "dev:plugin": "pnpm --filter plugin dev",
     "build:plugin": "pnpm --filter plugin build",
-    "typecheck:plugin": "pnpm --filter plugin exec tsc -b"
-  }
+    "typecheck:plugin": "pnpm --filter plugin exec tsc -b",
+    "test:security": "node --experimental-strip-types --test tests/security/*.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14"
+  },
+  "packageManager": "pnpm@11.5.3"
 }

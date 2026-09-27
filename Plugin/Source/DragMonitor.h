@@ -35,6 +35,7 @@ public:
     // ── drag-out ─────────────────────────────────────────────────────────────
     void arm         (const std::string& filePath);
     void armMultiple (const std::vector<std::string>& filePaths);
+    void armRegionXml (const std::string& xml);
     void disarm      ();
 
     // ── drop-in + keyboard ───────────────────────────────────────────────────
@@ -45,7 +46,7 @@ public:
     void setupDropHandling (void* juceRootNSView,
                             std::function<void(std::string /*name*/,
                                                std::string /*base64*/,
-                                               int /*seq*/)> onFileDrop);
+                                               int /*seq*/, std::string /*regionJSON*/)> onFileDrop);
 
     bool isDropSetupDone() const { return dropSetupDone; }
 

@@ -33,6 +33,10 @@ const R2_DEV_RE = /^https?:\/\/pub-[a-z0-9]+\.r2\.dev\//
  *             domains resolve too.
  */
 export function r2KeyFromUrl(url: string, base?: string): string | null {
+  if (url.startsWith('orb-file:')) {
+    const key = url.slice(9).split('#')[0]
+    return key && /^[A-Za-z0-9/_.-]+$/.test(key) && !key.includes('..') ? key : null
+  }
   const b = base?.replace(/\/$/, '')
   if (b && url.startsWith(b + '/')) {
     return url.slice(b.length + 1) || null

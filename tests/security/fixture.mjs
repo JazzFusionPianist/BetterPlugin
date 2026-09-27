@@ -66,7 +66,7 @@ export async function securityFixture(){
     grant all on conversations,messages,conversation_members,conversation_stems,live_sessions to authenticated;
     create schema storage;create table storage.objects(bucket_id text,name text);create table storage.buckets(id text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
   `)
-  await db.exec(await readFile(new URL('../../supabase/migrations/20260923185359_security_files_and_access.sql',import.meta.url),'utf8'))
+  await db.exec(await readFile(new URL('../../supabase/migrations/20260927184436_security_files_and_access.sql',import.meta.url),'utf8'))
   return db
 }
 export async function act(db,id,sql,params=[]){

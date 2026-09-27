@@ -8,7 +8,7 @@ const pub=k=>({user_id:k.user_id,box_key:k.box_key,sign_key:k.sign_key})
 test('encrypted chat rejects plaintext, key replacement, stale membership and leaked metadata',async()=>{
  const db=await securityFixture()
  try{
-  await db.exec(await readFile('supabase/migrations/20260923194549_security_encrypted_chat.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260927184452_security_encrypted_chat.sql','utf8'))
   await db.exec(`insert into conversations(id) values('${room}');insert into conversation_members(conversation_id,user_id) values('${room}','${A}'),('${room}','${B}')`)
   const a=await deriveIdentity(A,await createRecoveryCode()),b=await deriveIdentity(B,await createRecoveryCode())
   for(const k of [a,b])await act(db,k.user_id,'select register_chat_key($1,$2)',[k.box_key,k.sign_key])

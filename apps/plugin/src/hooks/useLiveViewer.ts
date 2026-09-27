@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LiveChannel } from '../lib/liveChannel'
 import type { SignalMessage } from '../types/live'
-import { rtcConfig, ensureTurnLoaded } from '../lib/webrtc'
+import { joinRelay, loadRelayGrant } from '../lib/webrtc'
+import { RelayLease, type RelayGrant } from '../lib/relayLease'
 
 export type ViewerStatus = 'idle' | 'connecting' | 'connected' | 'ended' | 'error'
 
@@ -52,9 +53,9 @@ export function useLiveViewer(
 
     // Ensure TURN credentials are loaded before creating the PC — without
     // them, symmetric NAT prevents the connection from establishing.
-    ensureTurnLoaded(client, sessionId).then(() => {
+    joinRelay(client, sessionId).then(grant => {
       if (cancelled || !sessionId || !hostId) return
-      cleanup = setupConnection()
+      cleanup = setupConnection(grant)
     }).catch(() => { if (!cancelled) setStatus('error') })
 
     return () => {
@@ -62,14 +63,34 @@ export function useLiveViewer(
       cleanup?.()
     }
 
-    function setupConnection(): () => void {
+    function setupConnection(grant:RelayGrant): () => void {
       // Re-check inside the function so TS narrows the types
       if (!sessionId || !hostId) throw new Error('unreachable')
 
-    const pc = new RTCPeerConnection(rtcConfig)
+    let disposed = false
+    let stopped = false
+    const pc = new RTCPeerConnection(grant.config)
     pcRef.current = pc
 
     const remote = new MediaStream()
+    const stopMedia = (nextStatus: ViewerStatus) => {
+      if (stopped) return
+      stopped = true
+      pc.close()
+      remote.getTracks().forEach(track => track.stop())
+      setRemoteStream(null)
+      setStatus(nextStatus)
+    }
+    const lease = new RelayLease(
+      grant,
+      () => loadRelayGrant(client, sessionId),
+      config => pc.setConfiguration(config),
+      () => {
+        if (disposed) return
+        channelRef.current?.close()
+        stopMedia('error')
+      },
+    )
     setRemoteStream(remote)
 
     const refreshDebug = () => {
@@ -162,20 +183,17 @@ export function useLiveViewer(
             await pc.setLocalDescription(answer)
             send({ type: 'answer', from: viewerId, to: hostId, sdp: answer })
           } catch (e) {
-            const err = e instanceof Error ? e.message : String(e)
-            console.warn('answer failed', e)
-            setDebug(d => ({ ...d, lastError: `answer: ${err}` }))
-            setStatus('error')
+            stopMedia('error')
+            setDebug(d => ({ ...d, lastError: 'Media negotiation failed' }))
           }
         } else if (msg.type === 'ice' && msg.to === viewerId) {
           try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)) }
           catch (e) {
-            const err = e instanceof Error ? e.message : String(e)
-            console.warn('addIceCandidate failed', e)
-            setDebug(d => ({ ...d, lastError: `ice: ${err}` }))
+            /* Late ICE candidates can be discarded. */
+            setDebug(d => ({ ...d, lastError: 'Media candidate rejected' }))
           }
         } else if (msg.type === 'bye') {
-          setStatus('ended')
+          lease.stop();channelRef.current?.close();stopMedia('ended')
         } else if (msg.type === 'source') {
 
           setHostSource({ has_video: msg.has_video, has_audio: msg.has_audio })
@@ -184,7 +202,11 @@ export function useLiveViewer(
         }
       })
       .subscribe((status) => {
-        if (status === 'CLOSED') { pc.close(); setRemoteStream(null); setStatus('ended'); if (retryTimer) clearInterval(retryTimer) }
+        if (status === 'CLOSED' && !disposed) {
+          lease.stop()
+          stopMedia('ended')
+          if (retryTimer) clearInterval(retryTimer)
+        }
 
         if (status === 'SUBSCRIBED') {
 
@@ -200,14 +222,14 @@ export function useLiveViewer(
     channelRef.current = channel
 
     return () => {
+      disposed = true
+      lease.stop()
       if (retryTimer) clearInterval(retryTimer)
       send({ type: 'leave', from: viewerId })
-      pc.close()
+      stopMedia('idle')
       pcRef.current = null
       channel.close()
       channelRef.current = null
-      setRemoteStream(null)
-      setStatus('idle')
     }
     }  // end setupConnection
   }, [client, viewerId, sessionId, hostId])

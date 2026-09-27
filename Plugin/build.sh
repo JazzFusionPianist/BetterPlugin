@@ -66,7 +66,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
 SPLIT_NAMES=("Slur" "Patch on Slur" "Slur Games")
 
-split_targets() { # AU + VST3 for every split-out (filtered by --only)
+split_targets() { # Every enabled format for each split-out (filtered by --only)
   local i out=""
   for i in "${!SPLIT_TARGETS[@]}"; do
     local t="${SPLIT_TARGETS[$i]}"
@@ -78,6 +78,7 @@ split_targets() { # AU + VST3 for every split-out (filtered by --only)
       *)       continue ;;
     esac
     out="$out ${t}_AU ${t}_VST3"
+    [ -n "$AAX_SDK_PATH" ] && out="$out ${t}_AAX"
   done
   echo "$out"
 }
@@ -115,7 +116,7 @@ fi
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-      -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}" \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" \
       $( [ "$BUILD_TYPE" = Release ] && echo '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' ) \
       -DORB_APP_URL="$ORB_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \
@@ -206,6 +207,10 @@ if [ "$INSTALL" = true ]; then
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    SPLIT_AAX_PATH=""
+    if [ -n "$AAX_SDK_PATH" ]; then
+      SPLIT_AAX_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.aaxplugin" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    fi
     if [ -n "$SPLIT_AU_PATH" ]; then
       # Renamed bundles keep their plugin codes, so the old filename must
       # not be left beside the new one in a host's scan directory.
@@ -219,6 +224,12 @@ if [ "$INSTALL" = true ]; then
       rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
       cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
       echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"
+    fi
+    if [ -n "$SPLIT_AAX_PATH" ]; then
+      sudo mkdir -p "$AAX_DEST"
+      sudo rm -rf "$AAX_DEST/$SPLIT_NAME.aaxplugin"
+      sudo cp -R "$SPLIT_AAX_PATH" "$AAX_DEST/"
+      echo "✓ AAX  installed → $AAX_DEST/$SPLIT_NAME.aaxplugin"
     fi
   done
 

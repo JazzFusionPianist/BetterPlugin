@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.24)   # Security rollout: refresh the carried client and native bridge.
+project(OrbPlugin VERSION 1.0.25)   # Release hardening: session controls, key locking and live relay renewal.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── macOS: universal binary, minimum target ───────────────────────────────────
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_OSX_ARCHITECTURES    "arm64;x86_64" CACHE STRING "Universal binary")
 
 # ── JUCE ─────────────────────────────────────────────────────────────────────

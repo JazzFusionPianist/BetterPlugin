@@ -12,7 +12,7 @@ const pins=new Map<string,string>()
 export const b64=(bytes:Uint8Array)=>sodium.to_base64(bytes,sodium.base64_variants.URLSAFE_NO_PADDING)
 export const unb64=(value:string)=>sodium.from_base64(value,sodium.base64_variants.URLSAFE_NO_PADDING)
 export async function cryptoReady(){await sodium.ready}
-export function lockChat(){generation++;for(const k of sessions.values()){sodium.memzero(k.boxSecret);sodium.memzero(k.signSecret)}sessions.clear();pins.clear()}
+export function lockChat(){generation++;for(const k of sessions.values()){sodium.memzero(k.boxSecret);sodium.memzero(k.signSecret)}sessions.clear();pins.clear();if(typeof window!=='undefined')window.dispatchEvent(new Event('orb-chat-locked'))}
 export function chatUnlocked(user:string){return sessions.has(user)}
 export async function createRecoveryCode(){await sodium.ready;return b64(sodium.randombytes_buf(32))}
 export async function deriveIdentity(user:string,code:string):Promise<LocalIdentity>{
@@ -28,10 +28,15 @@ export async function deriveIdentity(user:string,code:string):Promise<LocalIdent
 export async function unlockChat(client:SupabaseClient,user:string,code:string){
   const epoch=generation
   const keys=await deriveIdentity(user,code)
-  const {error}=await client.rpc('register_chat_key',{p_box:keys.box_key,p_sign:keys.sign_key})
-  const session=await client.auth.getSession()
-  if(error || epoch!==generation || session.data.session?.user.id!==user){sodium.memzero(keys.boxSecret);sodium.memzero(keys.signSecret);throw new Error('Could not unlock chat. Check your recovery key and connection.')}
-  sessions.set(user,keys)
+  let retained=false
+  try{
+    const {error}=await client.rpc('register_chat_key',{p_box:keys.box_key,p_sign:keys.sign_key})
+    const session=await client.auth.getSession()
+    if(error || epoch!==generation || session.data.session?.user.id!==user)throw new Error('Could not unlock chat. Check your recovery key and connection.')
+    const previous=sessions.get(user)
+    if(previous){sodium.memzero(previous.boxSecret);sodium.memzero(previous.signSecret)}
+    sessions.set(user,keys);retained=true
+  }finally{if(!retained){sodium.memzero(keys.boxSecret);sodium.memzero(keys.signSecret)}}
 }
 export async function fingerprint(identity:Identity){await sodium.ready;return sodium.to_hex(sodium.crypto_generichash(32,JSON.stringify([identity.user_id,identity.box_key,identity.sign_key]),null)).match(/.{1,4}/g)!.join(' ')}
 async function pin(viewer:string,key:Identity){
@@ -76,6 +81,7 @@ export async function encryptChatMessage(client:SupabaseClient,user:string,id:st
 export async function decryptChatMessage(client:SupabaseClient,user:string,row:Message & {encrypted_payload?:Envelope|null}):Promise<Message>{
   if(!row.encrypted_payload)return row // Legacy history remains explicitly outside the new encryption boundary.
   const hidden={...row,content:'🔒 Unlock encrypted chat to read this message.',attachment_url:null,attachment_type:null,attachment_name:null,attachment_metadata:null}
+  const epoch=generation
   const identity=sessions.get(user);if(!identity)return hidden
   try{
     const e=row.encrypted_payload
@@ -85,6 +91,7 @@ export async function decryptChatMessage(client:SupabaseClient,user:string,row:M
     const claimed=e.recipients.find(k=>k.user_id===row.sender_id)
     if(sender.sign_key!==claimed?.sign_key || sender.box_key!==claimed?.box_key)throw new Error('Unverified sender')
     const data=await openMessage(identity,row,e)
+    if(epoch!==generation)throw new Error('Chat locked')
     if(typeof data.content!=='string')throw new Error('Invalid message')
     return {...row,content:data.content,attachment_url:data.attachment_url??null,attachment_type:data.attachment_type??null,
       attachment_name:data.attachment_name??null,attachment_metadata:data.attachment_metadata??null}
@@ -92,13 +99,16 @@ export async function decryptChatMessage(client:SupabaseClient,user:string,row:M
 }
 
 export async function decryptPrivatePayload(client:SupabaseClient,user:string,id:string,conversation:string,senderId:string,e:Envelope){
+  const epoch=generation
   const identity=sessions.get(user);if(!identity)throw new Error('Unlock encrypted chat first.')
   const {data:sender,error}=await client.rpc('sender_chat_key',{p_conversation:conversation,p_sender:senderId})
   if(error || !sender)throw new Error('Could not verify sender.')
   await pin(user,sender)
   const claimed=e.recipients.find(k=>k.user_id===senderId)
   if(sender.sign_key!==claimed?.sign_key || sender.box_key!==claimed?.box_key)throw new Error('Sender key mismatch.')
-  return openMessage(identity,{id,conversation_id:conversation,sender_id:senderId},e)
+  const result=await openMessage(identity,{id,conversation_id:conversation,sender_id:senderId},e)
+  if(epoch!==generation)throw new Error('Chat locked')
+  return result
 }
 
 /** Works in native custom-scheme WebViews without crypto.randomUUID. */

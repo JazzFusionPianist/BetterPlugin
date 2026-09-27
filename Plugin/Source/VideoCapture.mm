@@ -445,8 +445,13 @@ static NSSet<NSString*>* knownDawBundles (void)
     if (self.stream != nil) [self stop];
 
     SCStreamConfiguration* cfg = [SCStreamConfiguration new];
-    int outW = (int) filter.contentRect.size.width;
-    int outH = (int) filter.contentRect.size.height;
+    int outW = 1280;
+    int outH = 720;
+    if (@available (macOS 14.0, *))
+    {
+        outW = (int) filter.contentRect.size.width;
+        outH = (int) filter.contentRect.size.height;
+    }
     if (outW <= 0) outW = 1280;
     if (outH <= 0) outH = 720;
     constexpr int MAX_W = 1280;

@@ -10,5 +10,6 @@ export default endpoint(async req => {
     body:JSON.stringify({ttl:600}),signal:AbortSignal.timeout(10000),
   })
   if(!res.ok) throw new HttpError(502,'Media relay unavailable')
-  return res.json()
+  const data=await res.json() as {iceServers:unknown}
+  return {iceServers:data.iceServers,expiresAt:Date.now()+540000}
 })

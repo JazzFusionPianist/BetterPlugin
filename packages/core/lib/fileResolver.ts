@@ -8,6 +8,7 @@ export function createFileResolver(client:SupabaseClient,apiBase='',publicBase?:
   let epoch=0
   const revoke=(url:string)=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url)}
   const clear=()=>{epoch++;for(const entry of cache.values())revoke(entry.url);cache.clear();listeners.forEach(f=>f())}
+  if(typeof window!=='undefined')window.addEventListener('orb-chat-locked',clear)
   client.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT' || event==='SIGNED_IN')clear()})
   return {
     clear,

@@ -1,58 +1,88 @@
 # Slur 보안 운영 적용 기록 — 2026-09-28 KST
 
-전체 보안 릴리스는 미완료다. 아래 두 추가 마이그레이션만 이번에 운영 적용했다.
-채팅 E2EE, 비공개 파일 API, 라이브 보호, 새 클라이언트는 아직 운영 배포하지 않았다.
+**전체 전환은 아직 미완료다.** 새 서버·웹은 운영 환경으로 빌드했지만 서비스 주소로
+승격하지 않았다. 새 Slur 설치본도 서버/DB와 함께 전환하기 위해 아직 설치하지 않았다.
+현재 중단 지점은 기존 R2 서버 키에 새 비공개 버킷을 허용하는 변경의 사용자 승인이다.
 
-## 이번에 운영 적용한 변경
+## 운영 적용 완료
 
-대상 Supabase 프로젝트: `svhjgiloekkjrcefclqs`.
+Supabase 프로젝트 `svhjgiloekkjrcefclqs`:
 
-- `20260927181510_security_avatar_ownership`: 타인 아바타 경로에 업로드·덮어쓰기·삭제를
-  막고 본인의 경로만 허용. 기존 웹 그룹 사진 경로 `groups/<conversation-id>/...`는
-  현재 관리자에게만 쓰기 허용. 이미지 종류와 10 MiB 업로드 제한 적용.
-- `20260927181602_security_internal_function_permissions`: 트리거 전용 함수
-  `enforce_group_member_cap`, `rls_auto_enable`의 공개·일반 사용자 직접 실행 권한 회수.
-  `poker_deal_hand` 익명 실행 회수, 로그인 사용자 호출은 기존 호스트 검사 유지.
-  게임 방 갱신 함수 5개의 search_path를 빈 값으로 고정.
-- 기존 `20260923185345_security_admin_roles` 적용 상태 확인.
+- 기존 `20260923185345_security_admin_roles` 적용 확인.
+- `20260927181510_security_avatar_ownership`: 자신의 아바타 경로만 쓰기·삭제 허용.
+  그룹 사진은 현재 그룹 관리자만 변경. 이미지 형식 및 10 MiB 제한.
+- `20260927181602_security_internal_function_permissions`: 내부 트리거 함수 직접
+  실행 권한 회수, poker_deal_hand 익명 실행 회수, 게임 함수 5개 search_path 고정.
 
-마이그레이션 파일 이름을 운영이 발급한 버전에 맞췄다. 미적용 files_and_access의
-아바타 DELETE 정책 생성 전에 DROP IF EXISTS를 추가하여 선적용과 충돌하지 않게 했다.
-전체 릴리스 시 적용 이력을 기준으로 누락된 파일만 순서대로 적용해야 한다.
-원격에는 로컬보다 뒤 버전의 호환 수정이 먼저 적용되어 있으므로 무작정 db push하지 않는다.
+Cloudflare:
 
-## 검증
+- 비공개 `slur-private-files` 버킷 생성(APAC, Standard). 공개 r2.dev 및 custom domain 없음.
+- CORS 저장 결과 확인: plugin/web 운영 주소, juce://juce.backend, capacitor://localhost;
+  GET/HEAD/PUT, Content-Type/If-None-Match/Range. 공개 읽기 권한을 만들지 않는다.
+- 기존 coop-chat-attachments는 공개 포트폴리오와 구형 첨부파일이 섞여 있으므로
+  비공개 파일 분류·이전 전까지 설정을 유지했다. 38개 / 약398 MB 관찰.
 
-- 기존 아바타 18개 모두 사용자 ID 경로와 소유자 일치 확인. 사용자 파일 내용은 읽지 않음.
-- `pnpm test:security`: 13개 통과. 타인 아바타 생성/덮어쓰기/경로 재할당/삭제 거부,
-  그룹 관리자 업로드 허용, 일반 멤버·외부인·퇴장 관리자 거부 시나리오 추가.
-- 권한을 회수해도 DB 트리거가 계속 작동하는 회귀 테스트 통과.
-- 적용 후 운영 pg_policies, proconfig, has_function_privilege와 마이그레이션 이력 재조회.
-  함수 검색 경로 경고 5건 제거 확인. 실제 사용자 UI의 로그인·업로드는 아직 미검증.
+Vercel better-plugin 운영/preview 환경:
 
-## 배포 차단 원인
+- 서버 전용 SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET 설정.
+- CLOUDFLARE_R2_PRIVATE_BUCKET 설정. 기존 R2/TURN 자격증명은 유지.
+- 비밀값을 클라이언트 환경변수·Git·출력에 넣지 않았다.
 
-- Vercel 연결의 팀 ID는 로컬 연결 정보와 일치하지만 프로젝트 목록은 0개.
-- get_project는 내부 `idOrName` 입력 규격 오류로 실패. 권한 오류라고 단정하지 않음.
-- Vercel CLI 60.1.3 `whoami`: Logged out.
-- 운영 대시보드는 로그인 페이지로 이동. Codex 브라우저에 로그인 화면을 열고 사용자에게
-  프로젝트 보유 계정 로그인을 요청했다. 인증키·비밀번호를 채팅에 요청하지 않았다.
-- R2 서버 자격증명·비공개 버킷·TURN·정리 작업 설정에 접근하지 못해 검증/배포 불가.
+## 통합 및 검증
 
-새 클라이언트 없이 E2EE 강제 정책만 적용하면 구형 Slur의 메시지 전송이 실패한다.
-따라서 나머지 강제 정책은 API·웹·설치 플러그인을 함께 전환할 때 적용한다.
-설치된 Slur에 보안 변경을 통합하는 작업도 남아 있다. 이전 로그인 수정만 설치된 상태와
-이번 DB 변경을 전체 제품 배포 완료로 혼동하지 않는다.
+- 최신 origin/main 92742b0 기반 managed worktree, branch codex/slur-security-release.
+  원래 frontend 작업의 무관한 지역/트랙 내보내기 변경은 포함하지 않았다.
+- 최신 StudioShell/LivePane과 네이티브 carried UI를 유지하면서 보안 코드를 통합했다.
+- 보안 회귀 테스트 **14개 통과**, plugin/web TypeScript 통과.
+- plugin Vite 및 web Next 빌드 통과, pnpm production dependency audit 취약점 0개.
+- 기존 기록 전환에서 처음 10개의 실패 기록 때문에 뒤 기록이 영구적으로 막히는 문제 수정.
+  커서가 다음 기록으로 이동하고 한 바퀴 뒤 실패 기록을 다시 시도하는 회귀 테스트 추가.
+- 테스트 계정 3개를 관리자 API로 생성해 실제 비밀번호 로그인 성공 확인.
+  이는 사용자의 기존 계정 또는 DAW 화면에서의 로그인 성공을 대신하지 않는다.
+- Slur 1.0.18 AU/VST3 universal(arm64/x86_64) 빌드 준비. Xcode27 환경 때문에 이 로컬
+  빌드는 macOS12 이상 대상; 기본 스크립트의 기존 macOS11 대상은 유지했다.
+  AAX는 이번 보안 릴리스로 빌드·설치하지 않았다.
 
-## 남은 운영 점검
+## 배포 및 실제 차단 사유
 
-Supabase advisors 재검사에서 다음이 남아 있다. 알림 개수는 취약점 확정 개수가 아니다.
+Vercel CLI 인증 완료. 연결 도구의 잘못된 빈 목록 응답은 CLI로 해결했다.
+커밋 작성자 이메일과 배포 계정 이메일이 달라 처음 배포가 BLOCKED였다.
+실제 인증된 사용자 계정 이메일로 릴리스 커밋을 만든 뒤 빌드가 READY가 됐다.
 
-- [유출 비밀번호 검사](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection): 비활성화 상태. Auth 설정 접근 및 플랜 지원 확인 필요.
-- [공개 스키마 확장](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public): pg_net 1건. 확장 이동 가능 여부와 기존 예약 작업 의존성 확인 필요.
-- [익명 SECURITY DEFINER 호출](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable): 4건. 공개 재생 집계·회원가입 이름 확인 및 권한 조회 helper가 포함됨.
-- [로그인 사용자 SECURITY DEFINER 호출](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable): 9건. 서버에서 권한을 검사하는 관리자 RPC 등 의도한 진입점이 포함됨.
-- [RLS 정책 없음](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): private 관리자 원장/감사 테이블 2건은 클라이언트 직접 접근을 막는 의도된 설정.
+서버 readiness 결과: authentication=true, privateStorage=false.
+Cloudflare 토큰 화면에서 기존 coop-chat-uploader의 적용 범위가
+coop-chat-attachments 한 곳인 것을 확인했다.
 
-전체 전환 절차와 암호화의 미구현 범위(전방향 안전성, 기기별 폐기 등)는
-`security-implementation-2026-09-24.md`에 기록되어 있다.
+해결할 변경은 해당 키의 Object Read & Write 범위에 slur-private-files를 추가하는 것이다.
+관리자 권한이나 다른 버킷 권한을 추가하지 않는다. 저장 직전까지 준비했고,
+브라우저 도구의 보안상 접근 확대 확인 규칙에 따라 사용자에게 승인을 요청했다.
+승인 없이 저장하지 않았다.
+
+## 다음 전환 순서
+
+1. 승인된 R2 토큰 범위 변경 저장, readiness의 privateStorage=true 확인.
+2. 검증된 staged plugin/web 빌드와 설치본을 함께 준비.
+3. 아직 미적용인 security_files_and_access부터 security_legacy_storage까지 7개
+   마이그레이션을 순서대로 적용. 이미 적용된 3개를 중복 실행하지 않는다.
+4. 별도 테스트 계정으로 E2EE 전송·평문 거부·비공개 파일 업로드/서명 다운로드·
+   CORS·파일 변조·탈퇴·라이브 초대/강퇴·TURN 접근을 검증한다.
+5. parse-schedule / cleanup-attachments 함수와 정리 작업 비밀값을 반영한다.
+6. staged 배포를 운영 도메인으로 승격, 백업 후 AU/VST3 설치. 열린 DAW를 강제 종료하지 않는다.
+7. 기존 공개 R2의 private 참조만 분류 후 비공개 복사/검증/DB 전환/공개 원본 제거.
+   구형 Supabase attachments는 준비된 비공개 정책과 서명 경로로 전환한다.
+8. 사용자가 복구 키를 설정한 뒤 이전 평문 기록을 본인 기기에서 암호화한다.
+
+새 클라이언트 없이 E2EE 강제 정책만 먼저 적용하면 구형 Slur가 메시지를 보내지 못하므로,
+현재는 기존 서비스 주소와 기존 설치본을 유지한다.
+
+## 남은 보안 범위
+
+현재 E2EE는 계정 복구 키 + libsodium의 메시지/파일 암호화다.
+Double Ratchet/전방향 안전성, 기기별 키와 선택적 기기 폐기, 독립 암호 검토는 미완료다.
+이전 평문 기록/백업은 자동으로 E2EE가 되지 않는다. 라이브 미디어는 WebRTC 보안과
+인증된 입장/시그널/TURN 권한을 사용하며, 라이브 채팅은 E2EE 대상이 아니다.
+장시간 TURN 갱신, SFU 확장, 운영 경보와 복구 훈련도 별도 검증이 필요하다.
+
+Supabase advisor에서 유출 비밀번호 검사 비활성화, pg_net 공개 스키마,
+일부 SECURITY DEFINER API 및 의도적으로 정책이 없는 private 테이블 경고가 남아 있다.
+코드 수정만으로 모든 보안 또는 법적 준수 완료를 선언하지 않는다.

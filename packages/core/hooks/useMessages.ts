@@ -20,6 +20,8 @@ import type { Message, AttachType, ChatTarget, AttachmentTimelineMetadata } from
 import { getOrCreateDmConversation } from '../lib/conversations'
 import { r2KeyFromUrl } from '../lib/r2Keys'
 
+import { messageId, encryptChatMessage, decryptChatMessage } from '../lib/chatCrypto'
+
 // Core is bundler-agnostic, so no env base here — pub-*.r2.dev urls
 // (the shape r2-upload-url mints) resolve without one. App-local copies
 // of this hook pass their configured base (VITE_R2_PUBLIC_URL /
@@ -112,7 +114,9 @@ export function useMessages(
         .limit(100)
 
       if (!alive) return
-      setMessages(((data as Message[]) ?? []).reverse())
+      const clear=await Promise.all(((data as Message[]) ?? []).reverse().map(m=>decryptChatMessage(supabase,currentUserId,m)))
+      if(!alive)return
+      setMessages(clear)
       setLoading(false)
 
       // Subscribe AFTER history loads so the dedupe below has the right
@@ -123,8 +127,9 @@ export function useMessages(
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-        }, (payload) => {
-          const msg = payload.new as Message
+        }, async (payload) => {
+          const msg = await decryptChatMessage(supabase,currentUserId,payload.new as Message)
+          if(!alive)return
           if (msg.conversation_id !== convIdRef.current) return
           setMessages(prev => {
             // Already seen by real id (re-subscribe edge case) — drop.
@@ -190,8 +195,9 @@ export function useMessages(
     // through presigned GETs. (Old rows may still carry an expiry.)
     const expiresAt = null
 
+    const id=await messageId()
     const optimistic: Message = {
-      id: `opt-${Date.now()}`,
+      id: `opt-${id}`,
       conversation_id: cid,
       sender_id: currentUserId,
       content: content.trim(),
@@ -206,23 +212,16 @@ export function useMessages(
 
     setMessages(prev => [...prev, optimistic])
 
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: cid,
-      sender_id: currentUserId,
-      content: content.trim(),
-      attachment_url: attachment?.url ?? null,
-      attachment_type: attachment?.type ?? null,
-      attachment_name: attachment?.name ?? null,
-      attachment_metadata: attachment?.metadata ?? null,
-      attachment_expires_at: expiresAt,
-      // R2 object keys — what the presign endpoint's membership probe
-      // matches on (exact keys, not url substrings).
-      attachment_keys: attachmentKeys(attachment),
-    })
+    let error: unknown
+    try {
+      const envelope=await encryptChatMessage(supabase,currentUserId,id,cid,{content:content.trim(),attachment_url:attachment?.url??null,attachment_type:attachment?.type??null,attachment_name:attachment?.name??null,attachment_metadata:attachment?.metadata??null})
+      const result=await supabase.from('messages').insert({id,conversation_id:cid,sender_id:currentUserId,content:'🔒 Encrypted message',encrypted_payload:envelope,attachment_keys:attachmentKeys(attachment)})
+      error=result.error
+    }catch(e){error=e}
 
     if (error) {
+      window.dispatchEvent(new CustomEvent('orb-chat-error',{detail:error instanceof Error?error.message:'Could not send the encrypted message.'}))
       console.error('[useMessages] send failed', {
-        error,
         conversation_id: cid,
         sender_id: currentUserId,
         content_len: content.trim().length,

@@ -1,3 +1,5 @@
+import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
+import { supabase as uploadClient } from '../../lib/supabase'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
@@ -59,23 +61,9 @@ const tintFor = (title: string) =>
   TINTS[[...title].reduce((a, c) => a + c.charCodeAt(0), 0) % TINTS.length]
 
 /** Same R2 presign flow the chat uses; no progress UI needed here. */
-async function uploadToR2(file: File, userId: string): Promise<string | null> {
-  try {
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-    const contentType = file.type || 'application/octet-stream'
-    const res = await fetch('/api/r2-upload-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ext, contentType, userId }),
-    })
-    if (!res.ok) return null
-    const { uploadUrl, publicUrl } = await res.json() as { uploadUrl: string; publicUrl: string }
-    const put = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file })
-    return put.ok ? publicUrl : null
-  } catch (err) {
-    console.error('[discography] upload', err)
-    return null
-  }
+async function uploadToR2(file: File, _userId: string): Promise<string | null> {
+  try { return uploadClient ? (await uploadSecureFile(uploadClient, file, { public: true })).url : null }
+  catch { return null }
 }
 
 interface Props {

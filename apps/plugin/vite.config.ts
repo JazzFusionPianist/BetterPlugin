@@ -30,7 +30,15 @@ function buildStamp () {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), buildStamp()],
+  plugins: [react(), tailwindcss(), buildStamp(), {
+    name: 'require-auth-configuration',
+    apply: 'build',
+    configResolved(config) {
+      if (!config.env.VITE_SUPABASE_URL?.startsWith('https://') || !config.env.VITE_SUPABASE_ANON_KEY || config.env.VITE_SUPABASE_ANON_KEY === 'your-supabase-anon-key-here') {
+        throw new Error('Login configuration missing: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building the plugin.')
+      }
+    },
+  }],
   define: {
     __BUILD_ID__: JSON.stringify(buildId()),
     __APP_VERSION__: JSON.stringify(pkgVersion()),

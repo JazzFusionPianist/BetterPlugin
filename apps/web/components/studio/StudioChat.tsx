@@ -1,4 +1,6 @@
 'use client'
+import { SecureImage, SecureVideo, SecureLink } from '@/components/SecureMedia'
+import { resolveUrl } from '@/lib/fileAccess'
 
 /**
  * The studio's chat pane on the web — the Orb Chat plug-in's messenger
@@ -89,7 +91,8 @@ function pseudoPeaks(seed: string): number[] {
   return out
 }
 
-function probeDuration(url: string): Promise<number> {
+async function probeDuration(url: string): Promise<number> {
+  try { url = await resolveUrl(url) } catch { return 0 }
   return new Promise(resolve => {
     const a = new Audio()
     a.preload = 'metadata'
@@ -102,7 +105,7 @@ function probeDuration(url: string): Promise<number> {
 }
 
 async function decodePeaks(url: string): Promise<WaveMeta> {
-  const res = await fetch(url)
+  const res = await fetch(await resolveUrl(url))
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const buf = await res.arrayBuffer()
   type AC = typeof AudioContext
@@ -415,14 +418,14 @@ export default function StudioChat({
   const [npPlaying, setNpPlaying] = useState(false)
   const [npCur, setNpCur] = useState(0)
   const [npDur, setNpDur] = useState(0)
-  const npStart = useCallback((t: { url: string; name: string }, at = 0) => {
+  const npStart = useCallback(async (t: { url: string; name: string }, at = 0) => {
     const a = audioRef.current
     if (!a) return
     if (trackRef.current?.url !== t.url) {
       trackRef.current = t
       setNpTrack(t); setNpCur(at); setNpDur(0)
       pendingSeekRef.current = at > 0 ? at : null
-      a.src = t.url
+      try { const resolved = await resolveUrl(t.url); if (trackRef.current?.url !== t.url) return; a.src = resolved } catch { setNpPlaying(false); return }
     } else {
       a.currentTime = at
       setNpCur(at)
@@ -643,10 +646,10 @@ export default function StudioChat({
           const url = m.attachment_url
           const name = m.attachment_name ?? 'file'
           if (m.attachment_type === 'image') {
-            pieces.push(<a key="att" href={url} target="_blank" rel="noopener noreferrer">
-              <img className={`wd-img${tailCls()}`} src={url} alt={name} /></a>)
+            pieces.push(<SecureLink key="att" href={url} target="_blank" rel="noopener noreferrer">
+              <SecureImage className={`wd-img${tailCls()}`} src={url} alt={name} /></SecureLink>)
           } else if (m.attachment_type === 'video') {
-            pieces.push(<video key="att" className={`wd-vid${tailCls()}`} src={url} controls preload="metadata" />)
+            pieces.push(<SecureVideo key="att" className={`wd-vid${tailCls()}`} src={url} controls preload="metadata" />)
           } else if (m.attachment_type === 'audio') {
             pieces.push(<StudioAudioCard key="att" tracks={[{ url, name }]} />)
           } else if (m.attachment_type === 'multi-audio') {
@@ -656,7 +659,7 @@ export default function StudioChat({
               ? <StudioAudioCard key="att" tracks={tracks} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
           } else {
-            pieces.push(<a key="att" className="wd-file" href={url} target="_blank" rel="noopener noreferrer"><i>▤</i><span>{name}</span></a>)
+            pieces.push(<SecureLink key="att" className="wd-file" href={url} target="_blank" rel="noopener noreferrer"><i>▤</i><span>{name}</span></SecureLink>)
           }
         }
       }

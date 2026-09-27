@@ -1,3 +1,10 @@
 Plugin/build
 apps/web/ios
 .git
+
+.vercel
+**/.env*
+**/node_modules
+**/.next
+**/out
+**/dist

@@ -4,6 +4,59 @@
 #include "DragMonitor.h"
 #include <thread>
 #include "BinaryData.h"
+#if JUCE_MAC || JUCE_LINUX
+#include <sys/stat.h>
+#endif
+
+namespace {
+constexpr juce::int64 maxBridgeFileBytes = 1024LL * 1024 * 1024;
+
+// Only the configured application can hold the privileged native bridge.
+class TrustedBrowser final : public juce::WebBrowserComponent {
+public:
+    explicit TrustedBrowser (const Options& options) : WebBrowserComponent (options) {}
+    bool pageAboutToLoad (const juce::String& raw) override {
+        const juce::URL target (raw), configured (ORB_APP_URL), carried (juce::WebBrowserComponent::getResourceProviderRoot());
+        if (raw.containsChar ('@') || raw.containsChar ('\\')) return false;
+        if (target.getScheme() == carried.getScheme() && target.getDomain() == carried.getDomain()
+            && target.getPort() == carried.getPort()) return true;
+        if (target.getScheme() == configured.getScheme()
+            && target.getDomain() == configured.getDomain()
+            && target.getPort() == configured.getPort()) return true;
+        return false;
+    }
+    void newWindowAttemptingToLoad (const juce::String&) override {}
+};
+
+bool allowedAudioDownload (const juce::String& raw) {
+    const juce::URL url (raw);
+    const auto host = url.getDomain().toLowerCase();
+    return url.getScheme() == "https" && (url.getPort() == 0 || url.getPort() == 443)
+        && !raw.containsChar ('@') && !raw.containsChar ('\\')
+        && (host.endsWith (".r2.dev") || host.endsWith (".r2.cloudflarestorage.com") || host.endsWith (".supabase.co"));
+}
+
+juce::File privateAudioTemp (const juce::String& name) {
+    if (name.isEmpty() || name.length() > 255 || name.containsAnyOf ("/\\") || name.contains ("..")) return {};
+    const auto legal = juce::File::createLegalFileName (name);
+    const auto ext = legal.fromLastOccurrenceOf (".", false, false).toLowerCase();
+    const juce::StringArray extensions { "wav", "aif", "aiff", "mp3", "flac", "ogg", "m4a", "aac", "opus", "mid", "midi" };
+    if (!extensions.contains (ext)) return {};
+    const auto base = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("OrbPrivateAudio");
+    if (base.createDirectory().failed()) return {};
+#if JUCE_MAC || JUCE_LINUX
+    if (::chmod (base.getFullPathName().toRawUTF8(), 0700) != 0) return {};
+#endif
+    const auto dir = base.getChildFile (juce::Uuid().toString());
+    if (dir.createDirectory().failed()) return {};
+#if JUCE_MAC || JUCE_LINUX
+    if (::chmod (dir.getFullPathName().toRawUTF8(), 0700) != 0) return {};
+#endif
+    return dir.getChildFile (legal);
+}
+}
+
+
 
 //==============================================================================
 // Base64 decoder — handles both padded and unpadded input.
@@ -28,6 +81,7 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
     };
+    if (b64.length() > 1431655800) return false;
     out.setSize (0, false);
     const auto  utf8 = b64.toUTF8();
     const char* p    = utf8.getAddress();
@@ -125,7 +179,7 @@ OrbAudioProcessor::OrbAudioProcessor()
     // Build the persistent WebView once per plugin instance. Its lifetime is
     // tied to the processor, so closing/reopening the editor never tears down
     // a live WebRTC session.
-    browser = std::make_unique<juce::WebBrowserComponent> (
+    browser = std::make_unique<TrustedBrowser> (
         juce::WebBrowserComponent::Options{}
             .withKeepPageLoadedWhenBrowserIsHidden()
             .withResourceProvider ([this] (const juce::String& path) { return servePage (path); })
@@ -689,12 +743,13 @@ void OrbAudioProcessor::timerCallback()
 juce::File OrbAudioProcessor::downloadToTemp (const juce::String& url,
                                                 const juce::String& name)
 {
-    juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                         .getChildFile ("Orb_" + name);
+    if (!allowedAudioDownload (url)) return {};
+    juce::File tmp = privateAudioTemp (name);
+    if (tmp == juce::File{}) return {};
 
     auto stream = juce::URL (url).createInputStream (
         juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
-            .withConnectionTimeoutMs (15000));
+            .withConnectionTimeoutMs (15000).withNumRedirectsToFollow (0));
 
     if (stream == nullptr) return juce::File{};
 
@@ -702,6 +757,7 @@ juce::File OrbAudioProcessor::downloadToTemp (const juce::String& url,
     if (! out.openedOk()) return juce::File{};
 
     const juce::int64 total      = stream->getTotalLength();
+    if (total > maxBridgeFileBytes) return {};
     juce::int64       downloaded = 0;
     int               lastReported = -1;
     const juce::int64 deadline   = juce::Time::currentTimeMillis() + 45000;
@@ -717,7 +773,7 @@ juce::File OrbAudioProcessor::downloadToTemp (const juce::String& url,
         const int bytesRead = stream->read (buf.getData(), chunkSize);
         if (bytesRead <= 0) break;
 
-        out.write (buf.getData(), (size_t) bytesRead);
+        if (downloaded + bytesRead > maxBridgeFileBytes || !out.write (buf.getData(), (size_t) bytesRead)) return {};
         downloaded += bytesRead;
 
         const int reportVal = total > 0
@@ -880,10 +936,9 @@ void OrbAudioProcessor::handleWriteAudioFile (const juce::var& args,
             return;
         }
 
-        juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                             .getChildFile ("Orb_" + name);
+        juce::File tmp = privateAudioTemp (name);
 
-        if (! tmp.replaceWithData (data.getData(), data.getSize()))
+        if (tmp == juce::File{} || data.getSize() > (size_t) maxBridgeFileBytes || ! tmp.replaceWithData (data.getData(), data.getSize()))
         {
             juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error:write")); });
             return;
@@ -914,7 +969,7 @@ void OrbAudioProcessor::handleWriteAudioFile (const juce::var& args,
 void OrbAudioProcessor::handleWriteAudioFiles (const juce::var& args,
                                                  juce::WebBrowserComponent::NativeFunctionCompletion completion)
 {
-    if (! args.isArray() || args.size() < 2 || (args.size() % 2) != 0)
+    if (! args.isArray() || args.size() < 2 || args.size() > 64 || (args.size() % 2) != 0)
     {
         completion (juce::var ("error:args"));
         return;
@@ -940,9 +995,8 @@ void OrbAudioProcessor::handleWriteAudioFiles (const juce::var& args,
                 return;
             }
 
-            juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                                 .getChildFile ("Orb_" + e.name);
-            if (! tmp.replaceWithData (data.getData(), data.getSize()))
+            juce::File tmp = privateAudioTemp (e.name);
+            if (tmp == juce::File{} || data.getSize() > (size_t) maxBridgeFileBytes || ! tmp.replaceWithData (data.getData(), data.getSize()))
             {
                 juce::MessageManager::callAsync ([compPtr] { (*compPtr) (juce::var ("error:write")); });
                 return;

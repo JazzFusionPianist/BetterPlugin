@@ -1,4 +1,6 @@
 'use client'
+import { SecureImage, SecureVideo, SecureAudio, SecureLink } from '@/components/SecureMedia'
+import { resolveUrl } from '@/lib/fileAccess'
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -113,7 +115,7 @@ function AudioPlayer({ url, name, from, metadata }: { url: string; name: string;
 
   return (
     <div className="msg-audio">
-      <audio
+      <SecureAudio
         ref={metaRef}
         src={url}
         preload="metadata"
@@ -278,13 +280,13 @@ function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; 
       )
     }
     case 'image':
-      return <img className="msg-img" src={url} alt={name} onClick={() => window.open(url, '_blank')} />
+      return <SecureLink href={url} target="_blank" rel="noreferrer"><SecureImage className="msg-img" src={url} alt={name} /></SecureLink>
     case 'video':
-      return <video className="msg-video" src={url} controls playsInline preload="metadata" />
+      return <SecureVideo className="msg-video" src={url} controls playsInline preload="metadata" />
     case 'game_invite':
       return <GameInviteBubble roomId={url} gameType={name} mine={mine} onJoin={onJoinGame} />
     default:
-      return <a className="msg-file" href={url} target="_blank" rel="noreferrer">{name}</a>
+      return <SecureLink className="msg-file" href={url} target="_blank" rel="noreferrer">{name}</SecureLink>
   }
 }
 
@@ -325,12 +327,12 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
   const [npDur, setNpDur] = useState(0)
   const npApi: NowPlayingApi = {
     track: npTrack, playing: npPlaying, cur: npCur, dur: npDur,
-    start: (t, at = 0) => {
+    start: async (t, at = 0) => {
       const a = audioRef.current
       if (!a) return
       if (npTrack?.url !== t.url) {
         setNpTrack(t); setNpCur(at); setNpDur(0)
-        a.src = t.url
+        try { const resolved = await resolveUrl(t.url); if (audioRef.current !== a) return; a.src = resolved } catch { setNpPlaying(false); return }
         pendingSeekRef.current = at > 0 ? at : null
       } else {
         a.currentTime = at

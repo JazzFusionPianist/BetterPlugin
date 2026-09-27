@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { LiveChannel } from '../lib/liveChannel'
 import type { SignalMessage } from '../types/live'
-import { rtcConfig, liveSignalingChannel, ensureTurnLoaded } from '../lib/webrtc'
+import { rtcConfig, ensureTurnLoaded } from '../lib/webrtc'
 
 export type ViewerStatus = 'idle' | 'connecting' | 'connected' | 'ended' | 'error'
 
@@ -40,7 +41,7 @@ export function useLiveViewer(
     trackCount: 0, audioTracks: 0, videoTracks: 0, lastError: '',
   })
   const pcRef      = useRef<RTCPeerConnection | null>(null)
-  const channelRef = useRef<RealtimeChannel | null>(null)
+  const channelRef = useRef<LiveChannel | null>(null)
 
   useEffect(() => {
     if (!sessionId || !hostId) return
@@ -51,10 +52,10 @@ export function useLiveViewer(
 
     // Ensure TURN credentials are loaded before creating the PC — without
     // them, symmetric NAT prevents the connection from establishing.
-    ensureTurnLoaded().then(() => {
+    ensureTurnLoaded(client, sessionId).then(() => {
       if (cancelled || !sessionId || !hostId) return
       cleanup = setupConnection()
-    })
+    }).catch(() => { if (!cancelled) setStatus('error') })
 
     return () => {
       cancelled = true
@@ -85,8 +86,7 @@ export function useLiveViewer(
     }
 
     pc.ontrack = (ev) => {
-      console.log('[viewer] ontrack:', ev.track.kind, 'id:', ev.track.id.slice(0, 8),
-        'enabled:', ev.track.enabled, 'muted:', ev.track.muted)
+
       // When the host cycles audio→video→audio→video, each video transition
       // creates a NEW video transceiver on the host (because replaceTrack(null)
       // leaves the sender with track=null and the next addTrack creates a fresh
@@ -104,28 +104,28 @@ export function useLiveViewer(
       setRemoteStream(new MediaStream(remote.getTracks()))
       refreshDebug()
       ev.track.onunmute = () => {
-        console.log('[viewer] track unmuted:', ev.track.kind)
+
         setRemoteStream(new MediaStream(remote.getTracks()))
       }
       ev.track.onmute = () => {
-        console.log('[viewer] track muted:', ev.track.kind)
+
       }
     }
     pc.onconnectionstatechange = () => {
-      console.log('[viewer] connectionState:', pc.connectionState)
+
       if (pc.connectionState === 'connected') setStatus('connected')
       if (pc.connectionState === 'closed') setStatus('ended')
       refreshDebug()
     }
     pc.oniceconnectionstatechange = () => {
-      console.log('[viewer] iceConnectionState:', pc.iceConnectionState)
+
       refreshDebug()
     }
     pc.onicegatheringstatechange = () => {
-      console.log('[viewer] iceGatheringState:', pc.iceGatheringState)
+
     }
     pc.onsignalingstatechange = () => {
-      console.log('[viewer] signalingState:', pc.signalingState)
+
       refreshDebug()
     }
 
@@ -135,26 +135,24 @@ export function useLiveViewer(
 
     pc.onicecandidate = (ev) => {
       if (ev.candidate) {
-        console.log('[viewer] local ICE candidate type=', ev.candidate.type, 'protocol=', ev.candidate.protocol)
+
         send({ type: 'ice', from: viewerId, to: hostId, candidate: ev.candidate.toJSON() })
       }
     }
 
-    const channel = client.channel(liveSignalingChannel(sessionId), {
-      config: { broadcast: { self: false, ack: false } },
-    })
+    const channel = new LiveChannel(client, sessionId)
 
     let retryTimer: ReturnType<typeof setInterval> | null = null
     let connected = false
 
-    console.log('[viewer] mounting, sessionId=', sessionId, 'hostId=', hostId, 'viewerId=', viewerId)
+
 
     channel
       .on('broadcast', { event: 'signal' }, async ({ payload }) => {
         const msg = payload as SignalMessage
         // Defensive self-filter
-        if (msg.from === viewerId) return
-        console.log('[viewer] received signal:', msg.type, 'to=' in msg ? (msg as { to?: string }).to : '-', 'from=', msg.from)
+        if (msg.from !== hostId) return
+
         if (msg.type === 'offer' && msg.to === viewerId) {
           try {
             connected = true
@@ -179,20 +177,21 @@ export function useLiveViewer(
         } else if (msg.type === 'bye') {
           setStatus('ended')
         } else if (msg.type === 'source') {
-          console.log('[viewer] host source update:', msg.has_video, msg.has_audio)
+
           setHostSource({ has_video: msg.has_video, has_audio: msg.has_audio })
         } else if (msg.type === 'viewer_count') {
           setViewerCount(msg.count)
         }
       })
       .subscribe((status) => {
-        console.log('[viewer] channel sub status:', status)
+        if (status === 'CLOSED') { pc.close(); setRemoteStream(null); setStatus('ended'); if (retryTimer) clearInterval(retryTimer) }
+
         if (status === 'SUBSCRIBED') {
-          console.log('[viewer] sending join, from=', viewerId)
+
           send({ type: 'join', from: viewerId })
           retryTimer = setInterval(() => {
             if (connected) { if (retryTimer) clearInterval(retryTimer); return }
-            console.log('[viewer] retry join')
+
             send({ type: 'join', from: viewerId })
           }, 2500)
         }
@@ -205,7 +204,7 @@ export function useLiveViewer(
       send({ type: 'leave', from: viewerId })
       pc.close()
       pcRef.current = null
-      client.removeChannel(channel)
+      channel.close()
       channelRef.current = null
       setRemoteStream(null)
       setStatus('idle')

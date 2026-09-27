@@ -1,3 +1,4 @@
+import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, Message, AttachType, AttachmentTimelineMetadata } from '../../types/collab'
@@ -14,7 +15,7 @@ import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } f
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
 import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
-import { resolveUrl, invalidateResolved } from '../../lib/r2Access'
+import { resolveUrl, invalidateResolved, useResolvedUrl } from '../../lib/r2Access'
 
 interface Attachment {
   url: string
@@ -109,18 +110,20 @@ function formatDur(s: number): string {
 
 // ── 이미지 첨부 ──────────────────────────────────────────────
 function ImageAttachment({ url, name }: { url: string; name: string }) {
+  const resolved=useResolvedUrl(url)
   return (
     <img
-      src={url}
+      src={resolved || undefined}
       alt={name}
       className="msg-att-img"
-      onClick={() => window.open(url, '_blank')}
+      onClick={() => resolved && window.open(resolved, '_blank', 'noopener,noreferrer')}
     />
   )
 }
 
 // ── 동영상 첨부 ──────────────────────────────────────────────
 function VideoAttachment({ url }: { url: string }) {
+  const resolved=useResolvedUrl(url)
   const [playing, setPlaying] = useState(false)
   const thumbRef = useRef<HTMLVideoElement>(null)
   const playRef  = useRef<HTMLVideoElement>(null)
@@ -140,7 +143,7 @@ function VideoAttachment({ url }: { url: string }) {
       <div className="msg-att-video-wrap">
         <video
           ref={playRef}
-          src={url}
+          src={resolved || undefined}
           className="msg-att-video"
           controls
           autoPlay
@@ -154,7 +157,7 @@ function VideoAttachment({ url }: { url: string }) {
     <div className="msg-att-video-wrap" onClick={start}>
       <video
         ref={thumbRef}
-        src={url}
+        src={resolved || undefined}
         className="msg-att-video"
         preload="metadata"
         muted
@@ -384,6 +387,7 @@ export function ShareLinkWord({ url, name, from, metadata, square = false }: {
 }
 
 export function AudioAttachment({ url, name, metadata, compact = false, from }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null }) {
+  const resolved=useResolvedUrl(url)
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
@@ -513,7 +517,7 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
       ;(async () => {
         try {
-          const res = await fetch(url, { signal: controller.signal })
+          const res = await fetch(await resolveUrl(url), { signal: controller.signal })
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
           const contentLength = Number(res.headers.get('content-length') ?? -1)
@@ -605,7 +609,7 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
     <div className="msg-att-audio-player">
       <audio
         ref={audioRef}
-        src={url}
+        src={resolved || undefined}
         onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
         onEnded={() => setPlaying(false)}
@@ -1677,65 +1681,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   //   3. XHR PUT to R2 — XMLHttpRequest exposes upload.onprogress, fetch doesn't.
   //   4. Tick the progress in state; remove the row on success/failure.
   const uploadFile = async (file: File, type: AttachType): Promise<Attachment | null> => {
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-    const contentType = file.type || 'application/octet-stream'
     const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     setPendingUploads(prev => [...prev, {
       id: pendingId, name: file.name, type, size: file.size, progress: 0,
     }])
 
     try {
-      const presignRes = await fetch('/api/r2-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // No scope → permanent key. Chat attachments used to be temp
-        // (7-day expiry); files now persist and reads go presigned.
-        body: JSON.stringify({ ext, contentType, userId: currentUserId }),
-      })
-      if (!presignRes.ok) {
-        const errText = await presignRes.text()
-        console.error('[upload] presign failed:', presignRes.status, errText)
-        removePending(pendingId)
-        return null
-      }
-      const { uploadUrl, publicUrl } = await presignRes.json() as {
-        uploadUrl: string; publicUrl: string
-      }
-
-      // PUT via XHR for upload.onprogress events (fetch can't do this yet).
-      const ok = await new Promise<boolean>((resolve) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PUT', uploadUrl)
-        xhr.setRequestHeader('Content-Type', contentType)
-        // Throttle progress updates to ~10fps — huge uploads can fire
-        // hundreds of progress events per second, which can stall older
-        // WebKits (Cubase's bundled WKWebView for example).
-        let lastUpdate = 0
-        xhr.upload.onprogress = e => {
-          if (!e.lengthComputable) return
-          const now = performance.now()
-          if (now - lastUpdate < 100 && e.loaded < e.total) return
-          lastUpdate = now
-          updatePendingProgress(pendingId, Math.min(0.99, e.loaded / e.total))
-        }
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            updatePendingProgress(pendingId, 1)
-            resolve(true)
-          } else {
-            console.error('[upload] R2 PUT failed:', xhr.status, xhr.responseText)
-            resolve(false)
-          }
-        }
-        xhr.onerror = () => {
-          console.error('[upload] R2 PUT network error')
-          resolve(false)
-        }
-        xhr.send(file)
-      })
-
+      const { url: publicUrl } = await uploadSecureFile(supabase, file, { onProgress: p => updatePendingProgress(pendingId, p) })
       removePending(pendingId)
-      if (!ok) return null
       return { url: publicUrl, type, name: file.name }
     } catch (e) {
       console.error('[upload] error:', e)

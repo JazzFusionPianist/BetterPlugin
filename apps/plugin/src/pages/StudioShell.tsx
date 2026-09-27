@@ -1,3 +1,4 @@
+import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
 /**
  * the studio — the workspace surface for the Slur plug-in build
  * (?surface=chat). Layout and print styling replicate the approved
@@ -1624,48 +1625,18 @@ function StudioShellInner({ supabase, user }: Props) {
   const MAX_SIZE = UPLOAD_FILE_LIMIT
   const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file'):
     Promise<{ url: string; type: 'audio' | 'image' | 'file'; name: string } | null> => {
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-    const contentType = file.type || 'application/octet-stream'
     const pid = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
     const drop = () => setUploads(prev => prev.filter(u => u.id !== pid))
     try {
-      const presignRes = await fetch('/api/r2-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // No scope → permanent key. Chat attachments used to be temp
-        // (7-day expiry); files now persist and reads go presigned.
-        body: JSON.stringify({ ext, contentType, userId: user.id }),
-      })
-      if (!presignRes.ok) {
-        console.error('[studio upload] presign failed:', presignRes.status, await presignRes.text())
-        drop(); return null
-      }
-      const { uploadUrl, publicUrl } = await presignRes.json() as { uploadUrl: string; publicUrl: string }
-      const ok = await new Promise<boolean>((resolve) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PUT', uploadUrl)
-        xhr.setRequestHeader('Content-Type', contentType)
-        let lastUpdate = 0   // throttle to ~10fps for older WebKits
-        xhr.upload.onprogress = e => {
-          if (!e.lengthComputable) return
-          const now = performance.now()
-          if (now - lastUpdate < 100 && e.loaded < e.total) return
-          lastUpdate = now
-          const progress = Math.min(0.99, e.loaded / e.total)
-          setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress } : u))
-        }
-        xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300)
-        xhr.onerror = () => { console.error('[studio upload] R2 PUT network error'); resolve(false) }
-        xhr.send(file)
-      })
+      const { url } = await uploadSecureFile(supabase, file, { onProgress: progress => setUploads(prev => prev.map(u => u.id === pid ? { ...u, progress } : u)) })
       drop()
-      return ok ? { url: publicUrl, type, name: file.name } : null
+      return { url, type, name: file.name }
     } catch (e) {
       console.error('[studio upload] error:', e)
       drop(); return null
     }
-  }, [user.id])
+  }, [supabase, user.id])
 
   const onFilesPicked = useCallback(async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return

@@ -1,3 +1,4 @@
+import { messageId, encryptChatMessage, decryptChatMessage } from '@orb/core/lib/chatCrypto.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getOrCreateDmConversation } from './conversations'
 import { isComputerPlayerId } from './computerPlayers'
@@ -236,14 +237,9 @@ export async function sendGameInviteMessage (
 ): Promise<void> {
   try {
     const conversationId = await getOrCreateDmConversation(supabase, senderId, recipientId)
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content: '',
-      attachment_type: 'game_invite',
-      attachment_url: roomId,
-      attachment_name: gameType,
-    })
+    const id=await messageId()
+    const encrypted_payload=await encryptChatMessage(supabase,senderId,id,conversationId,{content:'',attachment_type:'game_invite',attachment_url:roomId,attachment_name:gameType})
+    const { error } = await supabase.from('messages').insert({id,conversation_id:conversationId,sender_id:senderId,content:'🔒 Encrypted message',encrypted_payload})
     if (error) console.warn('[sendGameInviteMessage] insert failed', error)
   } catch (e) {
     console.warn('[sendGameInviteMessage] failed', e)
@@ -341,13 +337,12 @@ export async function deleteGameInviteMessage (
 ): Promise<void> {
   try {
     const conversationId = await getOrCreateDmConversation(supabase, senderId, recipientId)
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('conversation_id', conversationId)
-      .eq('sender_id', senderId)
-      .eq('attachment_type', 'game_invite')
-      .eq('attachment_url', roomId)
+    const {data,error:readError}=await supabase.from('messages').select('*').eq('conversation_id',conversationId).eq('sender_id',senderId).order('created_at',{ascending:false}).limit(100)
+    if(readError)throw readError
+    const decoded=await Promise.all((data??[]).map(row=>decryptChatMessage(supabase,senderId,row)))
+    const ids=decoded.filter(row=>row.attachment_type==='game_invite' && row.attachment_url===roomId).map(row=>row.id)
+    if(!ids.length)return
+    const {error}=await supabase.from('messages').delete().in('id',ids)
     if (error) console.warn('[deleteGameInviteMessage]', error)
   } catch (e) {
     console.warn('[deleteGameInviteMessage] failed', e)

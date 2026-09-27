@@ -1,19 +1,15 @@
 'use client'
 
-/**
- * /listen — one audio file, playable by anyone with the link.
- *
- * No account, no plug-in: the sender copied this URL from a chat bubble
- * or the stems panel, and everything the page needs is in the query
- * string (see lib/listenLink). The file itself is the public R2 object
- * chat already uses, so links live as long as the attachment does —
- * seven days.
+/** Listen links keep metadata and the file secret in the URL fragment.
+ * Private attachments still require sign-in and current conversation membership.
+ * Sharing the URL does not grant access to a new recipient.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readAudioMeta } from '@/lib/audioPeaks'
 import { describePosition, parseListenParams, type ListenParams } from '@/lib/listenLink'
 import './listen.css'
+import { resolveUrl } from '@/lib/fileAccess'
 
 const PEAKS_LIMIT_BYTES = 80 * 1024 * 1024  // beyond this, a plain bar — no full decode
 
@@ -76,13 +72,15 @@ export default function ListenPage() {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
-    setParams(parseListenParams(window.location.search))
+    const parsed=parseListenParams(window.location.hash.slice(1)||window.location.search)
+    if(!parsed){setParams(null);return}
+    void resolveUrl(parsed.url).then(url=>setParams({...parsed,url})).catch(()=>{setParams(parsed);setGone(true)})
   }, [])
 
   // Peaks come from a one-off decode of the file; a missing file (the
   // seven days are up) surfaces here and on the <audio> element alike.
   useEffect(() => {
-    if (!params) return
+    if (!params || gone) return
     let alive = true
     void (async () => {
       try {
@@ -101,7 +99,7 @@ export default function ListenPage() {
       }
     })()
     return () => { alive = false }
-  }, [params])
+  }, [params, gone])
 
   const toggle = useCallback(() => {
     const a = audioRef.current
@@ -143,7 +141,7 @@ export default function ListenPage() {
         ) : gone ? (
           <div className="ls-plate ls-quiet">
             <h1 className="ls-name">{params.name}</h1>
-            <p className="ls-note">this file has expired — audio shared in orb lives for seven days.</p>
+            <p className="ls-note">This file is unavailable. Private files require sign-in and conversation membership.</p>
           </div>
         ) : (
           <div className="ls-plate">

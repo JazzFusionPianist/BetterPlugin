@@ -1,3 +1,5 @@
+import { authHeaders } from '@orb/core/lib/secureFiles.ts'
+import { supabase } from '../lib/supabase'
 import { useEffect, useState } from 'react'
 
 /**
@@ -78,7 +80,9 @@ async function previewYoutube (url: URL): Promise<LinkPreview | null> {
 
 async function previewGeneric (raw: string): Promise<LinkPreview | null> {
   try {
-    const r = await fetch(`/api/unfurl?url=${encodeURIComponent(raw)}`)
+    if(!supabase)return null
+    const base=location.protocol==='juce:'?'https://better-plugin.vercel.app':''
+    const r = await fetch(`${base}/api/unfurl`,{method:'POST',headers:await authHeaders(supabase),body:JSON.stringify({url:raw})})
     if (!r.ok) return null
     const j = (await r.json()) as LinkPreview & { error?: string }
     if (j.error) return null

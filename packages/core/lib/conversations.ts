@@ -9,99 +9,13 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/** Module-level cache keyed by `${minId}|${maxId}`. Survives component
- *  unmount; cleared only on hard reload. Fine for our small user base
- *  — worst case a stale cache entry resolves to a deleted conversation
- *  and we fall through to re-create on the next miss. */
-const dmCache = new Map<string, string>()
-
-const dmKey = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`
-
-/**
- * Resolve (or create) the DM conversation between `me` and `other`.
- * Idempotent — concurrent first-opens on both sides converge to one
- * conversation because the membership lookup precedes the insert. There
- * is a benign race where both sides briefly create *separate* conversations;
- * we accept that as a pre-launch trade-off rather than serialize through
- * an RPC. Post-launch the right fix is a server-side `find_or_create_dm`
- * SECURITY DEFINER function.
- */
-export async function getOrCreateDmConversation(
-  supabase: SupabaseClient,
-  meId: string,
-  otherId: string,
-): Promise<string> {
-  const key = dmKey(meId, otherId)
-  const cached = dmCache.get(key)
-  if (cached) return cached
-
-  // 1. Look for an existing DM both of us belong to. We pull every
-  //    conv I'm in (small set), then intersect against convs the
-  //    other user is in. PostgREST can't express this in one round
-  //    trip without a custom RPC, so two queries it is.
-  const { data: mine } = await supabase
-    .from('conversation_members')
-    .select('conversation_id, conversations!inner(kind, created_at)')
-    .eq('user_id', meId)
-    .eq('conversations.kind', 'dm')
-
-  const myConvIds = (mine ?? []).map(r => r.conversation_id as string)
-  const createdAtByConv = new Map(
-    (mine ?? []).map(r => [
-      r.conversation_id as string,
-      new Date(((r.conversations as { created_at?: string })?.created_at) ?? 0).getTime(),
-    ]),
-  )
-
-  if (myConvIds.length > 0) {
-    const { data: theirs } = await supabase
-      .from('conversation_members')
-      .select('conversation_id')
-      .eq('user_id', otherId)
-      .in('conversation_id', myConvIds)
-
-    const sharedIds = ((theirs ?? []) as Array<{ conversation_id: string }>).map(r => r.conversation_id)
-    let hit: string | undefined
-    if (sharedIds.length === 1) {
-      hit = sharedIds[0]
-    } else if (sharedIds.length > 1) {
-      const { data: latest } = await supabase
-        .from('messages')
-        .select('conversation_id')
-        .in('conversation_id', sharedIds)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      hit = latest?.[0]?.conversation_id as string | undefined
-        ?? sharedIds.slice().sort((a, b) => (createdAtByConv.get(b) ?? 0) - (createdAtByConv.get(a) ?? 0))[0]
-    }
-    if (hit) { dmCache.set(key, hit); return hit }
-  }
-
-  // 2. None exists — create one. created_by must be me (RLS) and we
-  //    insert both membership rows in the same call.
-  const { data: conv, error: convErr } = await supabase
-    .from('conversations')
-    .insert({ kind: 'dm', created_by: meId })
-    .select('id')
-    .single()
-  if (convErr || !conv) throw convErr ?? new Error('conversation create failed')
-
-  const { error: memErr } = await supabase
-    .from('conversation_members')
-    .insert([
-      { conversation_id: conv.id, user_id: meId,    role: 'member' },
-      { conversation_id: conv.id, user_id: otherId, role: 'member' },
-    ])
-  if (memErr) throw memErr
-
-  dmCache.set(key, conv.id)
-  return conv.id
+/** Atomic server-side creation; authorization comes from the current session. */
+export async function getOrCreateDmConversation(client:SupabaseClient,_me:string,other:string):Promise<string>{
+  const {data,error}=await client.rpc('create_secure_conversation',{p_kind:'dm',p_members:[other]})
+  if(error || typeof data!=='string')throw error??new Error('Could not open conversation.')
+  return data
 }
-
-/** Drop the cached DM mapping for a pair — call after deleting a DM. */
-export function clearDmCache(meId: string, otherId: string): void {
-  dmCache.delete(dmKey(meId, otherId))
-}
+export function clearDmCache(_me:string,_other:string):void {}
 
 // `sendGameInviteMessage` lives in `./gameRooms.ts` alongside the
 // rest of the game-room helpers — see that file. We re-export here
@@ -177,32 +91,9 @@ export async function createGroupConversation(
   title: string,
   memberIds: string[],
 ): Promise<string> {
-  // Dedupe + drop self from the input — we always add ourselves below.
-  const others = Array.from(new Set(memberIds.filter(id => id !== meId)))
-  if (others.length === 0) throw new Error('group needs at least one other member')
-  if (others.length + 1 > 16) throw new Error('group is capped at 16 members')
-
-  const trimmed = title.trim()
-  if (!trimmed) throw new Error('group name is required')
-
-  const { data: conv, error: convErr } = await supabase
-    .from('conversations')
-    .insert({ kind: 'group', title: trimmed, created_by: meId })
-    .select('id')
-    .single()
-  if (convErr || !conv) throw convErr ?? new Error('group create failed')
-
-  // Creator joins as admin; everyone else as member.
-  const memberRows = [
-    { conversation_id: conv.id, user_id: meId, role: 'admin' as const },
-    ...others.map(uid => ({
-      conversation_id: conv.id, user_id: uid, role: 'member' as const,
-    })),
-  ]
-  const { error: memErr } = await supabase
-    .from('conversation_members')
-    .insert(memberRows)
-  if (memErr) throw memErr
-
-  return conv.id
+  const others=[...new Set(memberIds.filter(id=>id!==meId))]
+  if(!others.length || others.length>15)throw new Error('Choose between 1 and 15 participants.')
+  const {data,error}=await supabase.rpc('create_secure_conversation',{p_kind:'group',p_members:others,p_title:title.trim()})
+  if(error || typeof data!=='string')throw error??new Error('Could not create group.')
+  return data
 }

@@ -301,7 +301,7 @@ function CollabPageInner({ user }: Props) {
   const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
   const sources     = useMemo(() => listSources(),     [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
-  const { viewerCount, totalViewers, peakViewers } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
+  const { viewerCount, totalViewers, peakViewers, error:broadcastError } = useLiveBroadcaster(client, user.id, mySession?.id ?? null, localStream)
   // The viewer keeps its own snapshot of the session it's watching so the
   // LiveViewer stays mounted when the host ends the stream (the row drops
   // out of `liveSessions`). The ended screen needs to render until the
@@ -423,7 +423,8 @@ function CollabPageInner({ user }: Props) {
   const { messages: chatMessages, sendMessage: sendChat } = useLiveChat(client, chatSessionId, chatMe)
 
   const [liveError, setLiveError] = useState<string | null>(null)
-  const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null) => {
+  useEffect(()=>{if(broadcastError){setLiveError(broadcastError);stopStream();void endLive().catch(()=>{})}},[broadcastError,stopStream,endLive])
+  const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null, audience: LiveSession['audience'], invited: string[]) => {
     setLiveError(null)
     const ms = await startStream(source, micDeviceId)
     if (!ms) return
@@ -441,6 +442,7 @@ function CollabPageInner({ user }: Props) {
         has_video: hasVideo,
         has_audio: hasAudio,
         video_source: videoSource,
+        audience, invited,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -451,7 +453,7 @@ function CollabPageInner({ user }: Props) {
 
   const handleEndLive = useCallback(async () => {
     stopStream()
-    await endLive()
+    try{await endLive()}catch{setLiveError('Media stopped. Could not update the server; the session will expire.')}
   }, [stopStream, endLive])
 
   const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null): Promise<VideoSource | null> => {
@@ -1076,12 +1078,17 @@ function CollabPageInner({ user }: Props) {
               totalViewers={totalViewers}
               peakViewers={peakViewers}
               onReplaceSource={handleReplaceSource}
-              mediaError={mediaError || liveError}
+              mediaError={mediaError || liveError || broadcastError}
               screenCaptureSupported={screenCaptureSupported}
               currentUserId={user.id}
               chatMessages={chatMessages}
               onSendChat={sendChat}
               onStartLive={handleStartLive}
+              onBanViewer={async target=>{
+                if(!mySession)return
+                const {error}=await client.rpc('live_manage',{p_session:mySession.id,p_action:'ban',p_user:target})
+                if(error)setLiveError('Could not block this viewer. Try again.')
+              }}
               onEndLive={handleEndLive}
               onWatchLive={(sessionId) => handleOpenWatching(sessionId)}
               onClose={() => setLiveOpen(false)}

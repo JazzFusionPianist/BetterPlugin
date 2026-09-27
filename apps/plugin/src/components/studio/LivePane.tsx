@@ -51,7 +51,7 @@ export default function LivePane({
   const { stream: localStream, error: mediaError, startStream, stopStream, replaceSource, listSources, listMicrophones, screenCaptureSupported } = useMediaSource()
   const sources = useMemo(() => listSources(), [listSources])
   const microphones = useMemo(() => listMicrophones(), [listMicrophones])
-  const { viewerCount, totalViewers, peakViewers } = useLiveBroadcaster(supabase, userId, mySession?.id ?? null, localStream)
+  const { viewerCount, totalViewers, peakViewers, error: broadcastError } = useLiveBroadcaster(supabase, userId, mySession?.id ?? null, localStream)
 
   // The viewer keeps its own snapshot so the ended screen can still show
   // the host after the row has dropped out of liveSessions.
@@ -77,10 +77,10 @@ export default function LivePane({
   const chatMe = useMemo(() => me ? {
     id: userId, name: me.display_name || 'user', color: houseColor(userId),
   } : null, [me, userId])
-  const { messages: chatMessages, sendMessage: sendChat } = useLiveChat(supabase, chatSessionId, chatMe)
+  const { messages: chatMessages, sendMessage: sendChat, error: chatError } = useLiveChat(supabase, chatSessionId, chatMe)
 
   const [liveError, setLiveError] = useState<string | null>(null)
-  const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null) => {
+  const handleStartLive = useCallback(async (title: string, source: VideoSource, micDeviceId: string | null, audience: 'invited' | 'authenticated', invitees: string[]) => {
     setLiveError(null)
     const ms = await startStream(source, micDeviceId)
     if (!ms) return
@@ -92,13 +92,18 @@ export default function LivePane({
         : source.kind === 'native-display' ? 'screen'
         : source.kind === 'native-picker' ? 'daw'
         : source.kind
-      await startLive(title, { has_video: hasVideo, has_audio: hasAudio, video_source: videoSource })
+      await startLive(title, { has_video: hasVideo, has_audio: hasAudio, video_source: videoSource, audience, invited: invitees })
     } catch (e) {
       setLiveError(`couldn’t go live — ${e instanceof Error ? e.message : String(e)}`)
       stopStream()
     }
   }, [startStream, stopStream, startLive])
-  const handleEndLive = useCallback(async () => { stopStream(); await endLive() }, [stopStream, endLive])
+  useEffect(() => {
+    if (!broadcastError) return
+    stopStream()
+    void endLive().catch(() => setLiveError('Media stopped. Could not close the broadcast listing.'))
+  }, [broadcastError,stopStream,endLive])
+  const handleEndLive = useCallback(async () => { stopStream(); try { await endLive() } catch { setLiveError('Media stopped. Could not close the broadcast listing.') } }, [stopStream, endLive])
   const handleReplaceSource = useCallback(async (source: VideoSource, micDeviceId: string | null): Promise<VideoSource | null> => {
     const actual = await replaceSource(source, micDeviceId)
     if (!actual) return null
@@ -159,12 +164,17 @@ export default function LivePane({
               totalViewers={totalViewers}
               peakViewers={peakViewers}
               onReplaceSource={handleReplaceSource}
-              mediaError={mediaError || liveError}
+              mediaError={mediaError || liveError || broadcastError || chatError}
               screenCaptureSupported={screenCaptureSupported}
               currentUserId={userId}
               chatMessages={chatMessages}
               onSendChat={sendChat}
               onStartLive={handleStartLive}
+              onBanViewer={async target => {
+                if (!mySession) return
+                const {error}=await supabase.rpc('live_manage',{p_session:mySession.id,p_action:'ban',p_user:target})
+                if(error)setLiveError('Could not block this viewer. Please retry.')
+              }}
               onEndLive={handleEndLive}
               onWatchLive={(sessionId) => { const s = liveSessions.find(x => x.id === sessionId); if (s) setWatchingSession(s) }}
               onClose={onClose}

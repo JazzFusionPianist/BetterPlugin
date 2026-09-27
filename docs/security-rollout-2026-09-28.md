@@ -38,8 +38,8 @@ Vercel better-plugin 운영/preview 환경:
 - 기존 기록 전환에서 처음 10개의 실패 기록 때문에 뒤 기록이 영구적으로 막히는 문제 수정.
   커서가 다음 기록으로 이동하고 한 바퀴 뒤 실패 기록을 다시 시도하는 회귀 테스트 추가.
 - 테스트 계정 3개를 관리자 API로 생성해 실제 비밀번호 로그인 성공 확인.
-  이는 사용자의 기존 계정 또는 DAW 화면에서의 로그인 성공을 대신하지 않는다.
-- Slur 1.0.18 AU/VST3 universal(arm64/x86_64) 빌드 준비. Xcode27 환경 때문에 이 로컬
+  테스트 후 3개 모두 제거했다. 이는 사용자의 기존 계정 또는 DAW 화면에서의 로그인 성공을 대신하지 않는다.
+- Slur 1.0.18 AU/VST3 universal(arm64/x86_64) 빌드 및 codesign 검증 통과. Xcode27 환경 때문에 이 로컬
   빌드는 macOS12 이상 대상; 기본 스크립트의 기존 macOS11 대상은 유지했다.
   AAX는 이번 보안 릴리스로 빌드·설치하지 않았다.
 
@@ -86,3 +86,12 @@ Double Ratchet/전방향 안전성, 기기별 키와 선택적 기기 폐기, �
 Supabase advisor에서 유출 비밀번호 검사 비활성화, pg_net 공개 스키마,
 일부 SECURITY DEFINER API 및 의도적으로 정책이 없는 private 테이블 경고가 남아 있다.
 코드 수정만으로 모든 보안 또는 법적 준수 완료를 선언하지 않는다.
+
+## 준비된 릴리스 산출물
+
+- Draft PR: https://github.com/JazzFusionPianist/BetterPlugin/pull/42
+- Staged plugin/API: https://better-plugin-lmy6ygpkb-jazzfusionpianists-projects.vercel.app
+- Staged web: https://orb-pri2q9abq-jazzfusionpianists-projects.vercel.app
+- 두 배포 모두 빌드 성공. `--skip-domain`으로 기존 운영 주소는 유지했다.
+- 설치 후보: Plugin/build/OrbChat_artefacts/Release/AU/Slur.component 및 VST3/Slur.vst3.
+- 운영 점검용 /api/security-status는 CRON_SECRET 인증을 요구하며 비밀값과 사용자 정보를 반환하지 않는다.

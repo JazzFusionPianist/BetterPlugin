@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { audioDownloadCache } from './audioDownloadCache'
 import { createFileResolver } from '@orb/core/lib/fileResolver.ts'
 import { supabase as defaultSupabase } from './supabase'
 const resolvers=new WeakMap<SupabaseClient,ReturnType<typeof createFileResolver>>()
 function resolver(client:SupabaseClient){
   let r=resolvers.get(client)
-  if(!r){r=createFileResolver(client,'',import.meta.env.VITE_R2_PUBLIC_URL);resolvers.set(client,r)}
+  if(!r){r=createFileResolver(client,'',import.meta.env.VITE_R2_PUBLIC_URL);r.subscribe(()=>audioDownloadCache.clear());resolvers.set(client,r)}
   return r
 }
 export function invalidateResolved(url:string){if(defaultSupabase)resolver(defaultSupabase).invalidate(url)}

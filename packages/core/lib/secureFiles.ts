@@ -2,6 +2,11 @@ import { encryptFile, decryptFile } from './fileCrypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { r2KeyFromUrl } from './r2Keys'
 
+function defaultApiBase(){
+  if(typeof location==='undefined')return ''
+  return !['http:','https:'].includes(location.protocol) || location.hostname==='juce.backend' ? 'https://better-plugin.vercel.app' : ''
+}
+
 export async function authHeaders(client: SupabaseClient): Promise<Record<string,string>> {
   const { data, error } = await client.auth.getSession()
   if (error || !data.session) throw new Error('Sign in to access files.')
@@ -12,7 +17,7 @@ export async function uploadSecureFile(client: SupabaseClient, file: File, optio
   apiBase?: string; public?: boolean; onProgress?: (ratio: number) => void
 } = {}): Promise<{ url: string; key: string }> {
   if (!file.size || file.size > 1024*1024*1024-(options.public?0:65536)) throw new Error('Files must be between 1 byte and 1 GB.')
-  const base=options.apiBase ?? (typeof location!=='undefined' && location.protocol==='juce:'?'https://better-plugin.vercel.app':'')
+  const base=options.apiBase ?? defaultApiBase()
   const encrypted=options.public?null:await encryptFile(file)
   const upload=encrypted?.blob??file
   const headers=await authHeaders(client)
@@ -58,7 +63,7 @@ export async function resolveSecureFile(client: SupabaseClient, url: string, api
     if(parsed.protocol!=='https:' && parsed.protocol!=='blob:') throw new Error('Unsupported file URL.')
     return url
   }
-  const base=apiBase || (typeof location!=='undefined' && location.protocol==='juce:'?'https://better-plugin.vercel.app':'')
+  const base=apiBase || defaultApiBase()
   const res=await fetch(`${base}/api/r2-file-url`, {method:'POST',headers:await authHeaders(client),body:JSON.stringify({key})})
   if(!res.ok) throw new Error('This file is unavailable or you no longer have access.')
   const data=await res.json() as {url?:string}

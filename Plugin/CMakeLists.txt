@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.18)   # Security rollout: refresh the carried client and native bridge.
+project(OrbPlugin VERSION 1.0.24)   # Security rollout: refresh the carried client and native bridge.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

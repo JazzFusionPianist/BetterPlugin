@@ -20,6 +20,18 @@ function reason(track) {
   return null
 }
 
+/** Lightweight polling: no EDL export or track list walk. Never changes selection. */
+export async function inspectProToolsTrackRange(call) {
+  const ids = await call('GetSessionIDs')
+  if (!ids.instance_id) throw new Error('No current Pro Tools session.')
+  const sampleRate = Number(String((await call('GetSessionSampleRate')).sample_rate).replace(/^(SRate_|SR_)/, ''))
+  if (![44100, 48000, 88200, 96000, 176400, 192000].includes(sampleRate)) throw new Error('Unsupported session sample rate.')
+  const range = await call('GetTimelineSelection', { location_type: 'TLType_Samples' })
+  const start = samples(range.in_time), end = samples(range.out_time)
+  if ((await call('GetSessionIDs')).instance_id !== ids.instance_id) throw new Error('Session changed while reading its selection.')
+  return { sessionId: ids.instance_id, sampleRate, selection: end > start ? { start, end } : null }
+}
+
 export async function inspectProToolsTracks(call) {
   const session = await inspectSession(call)
   const selection = await call('GetTimelineSelection', { location_type: 'TLType_Samples' })
@@ -87,6 +99,7 @@ export async function exportProToolsTracks({ call, sessionId, options, directory
   const journal = () => writeFile(join(directory, 'export.json'), JSON.stringify(receipt), { mode: 0o600 })
   await journal()
   let total = 0
+  let bouncePending = false
   try {
     for (const [index, track] of selected.entries()) {
       const current = await inspectSession(call)
@@ -97,15 +110,21 @@ export async function exportProToolsTracks({ call, sessionId, options, directory
       const output = join(directory, `track-${index}`)
       await mkdir(output, { mode: 0o700 })
       const prefix = track.name.replace(/[\x00-\x1f/\\:]/g, '_').slice(0, 100) || 'Track'
+      receipt.activeTrack = track.name; receipt.stage = 'waiting-for-pro-tools-bounce'; await journal()
+      bouncePending = true
       const result = await call('BounceTrack', {
         // 2026.4 accepts file_name; the shipped schema documents file_name_prefix.
         file_name: prefix, file_name_prefix: prefix, file_type: 'EMFType_WAV',
-        audio_info: {}, audio_encoding_options: {}, src_track_id: track.id,
+        audio_info: { compression_type: 'CType_PCM', export_format: 'EFormat_Interleaved', bit_depth: 'BDepth_24',
+          sample_rate: `SRate_${snapshot.sampleRate}`, pad_to_frame_boundary: 'TBool_False' },
+        audio_encoding_options: {}, src_track_id: track.id,
         offline_bounce: 'TBool_True',
         in_location: { location: String(range.start), time_type: 'TLType_Samples' },
         out_location: { location: String(range.end), time_type: 'TLType_Samples' },
         location_info: { import_after_bounce: 'TBool_False', file_destination: 'EMFDestination_Directory', directory: output + sep },
       })
+      bouncePending = false
+      receipt.stage = 'validating-audio'; await journal()
       if ((await call('GetSessionIDs')).instance_id !== sessionId) throw new Error('Session changed during bounce.')
       if (result.file_paths?.length !== 1) throw new Error('Expected one interleaved WAV per track. Check the Pro Tools Track Bounce settings.')
       const root = await realpath(output), path = await realpath(result.file_paths[0])
@@ -133,6 +152,9 @@ export async function exportProToolsTracks({ call, sessionId, options, directory
     return { name: 'tracks.orb-regions.zip', tracks: selected.length }
   } catch (error) {
     receipt.status = 'failed'; receipt.error = error.message; await journal()
+    // A disconnected/timed-out RPC does not cancel an in-host bounce. Keep the
+    // cross-instance lock rather than allowing a second concurrent bounce.
+    if (bouncePending) error.cleanupUncertain = true
     throw error
   }
 }

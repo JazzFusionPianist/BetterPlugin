@@ -335,6 +335,7 @@ private:
     // (so every push still reaches everyone who is online).
     std::map<juce::String, std::vector<std::byte>> carriedPage;   // path → bytes, from the zip
     juce::String carriedBuild;                                     // the carried page's build id
+    juce::Time carriedBuiltAt;                                    // prevent an older site build replacing a new local page
     std::optional<juce::WebBrowserComponent::Resource> servePage (const juce::String& path);
     juce::String pageQuery() const;                                // ?plugin=1&surface=…&ver=…
     void loadCarriedPage();

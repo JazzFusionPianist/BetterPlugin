@@ -34,7 +34,8 @@ public:
                     runtime.getChildFile ("native.cjs").getFullPathName(), folder.getFullPathName()}))
                 {
                     const auto started = juce::Time::getMillisecondCounterHiRes();
-                    const auto deadline = request["operation"].toString().startsWith ("export") ? 1800000 : 240000;
+                    const auto deadline = request["operation"].toString() == "inspectTrackRange" ? 4000 : request["operation"].toString().startsWith ("export")
+                        || request["operation"].toString().startsWith ("import") ? 1800000 : 240000;
                     while (child.isRunning() && ! shouldExit()
                         && juce::Time::getMillisecondCounterHiRes() - started < deadline) juce::Thread::sleep (25);
                     if (child.isRunning())
@@ -76,12 +77,14 @@ void TrackExportBridge::invoke (const juce::var& args, juce::WebBrowserComponent
     auto reject = [&done] (const juce::String& message) { done (juce::JSON::toString (failure (message), true)); };
     if (! args.isArray() || args.size() < 1 || args.size() > 3) { reject ("Invalid track export request."); return; }
     const auto op = args[0].toString();
-    if (op != "inspectTracks" && op != "exportTracks" && op != "inspectLunaTracks" && op != "exportLunaTracks")
-        { reject ("Unknown track export operation."); return; }
+    if (op != "inspectTracks" && op != "inspectTrackRange" && op != "exportTracks" && op != "inspectLunaRegions"
+        && op != "exportLunaRegions" && op != "inspectLunaDestination" && op != "importLunaRegions"
+        && op != "inspectProToolsDestination" && op != "importProToolsRegions")
+        { reject ("Track export is available only for Pro Tools."); return; }
     if (pool.getNumJobs() != 0) { reject ("Another track export is running."); return; }
     auto* input = new juce::DynamicObject();
     input->setProperty ("operation", op);
-    if (op.startsWith ("export"))
+    if (op.startsWith ("export") || op.startsWith ("import"))
     {
         const auto options = args.size() == 3 ? juce::JSON::parse (args[2].toString()) : juce::var();
         if (! options.isObject()) { delete input; reject ("Invalid track export options."); return; }

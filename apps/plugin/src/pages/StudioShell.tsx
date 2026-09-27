@@ -33,8 +33,8 @@ import { useCalendarEvents, type NewCalendarEvent, type CalendarEvent } from '..
 import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
-import { extractAudioTimeline, getDawTimelineSnapshot, getDropIngestionReports, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
-import { mergeDroppedRegions, mergeFailureText, resolveDawDrop } from '../lib/audioMerge'
+import { getDawTimelineSnapshot, getDropIngestionReports, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
+import { mergeDroppedRegions, mergeFailureText } from '../lib/audioMerge'
 import { buildZip } from '../lib/zipStore'
 import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
@@ -57,7 +57,18 @@ import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
 import ExportTracksButton from '../components/collab/ExportTracksButton'
+import StemGroupDisclosure from '../components/collab/StemGroupDisclosure'
+import ShareRegionsButton from '../components/collab/ShareRegionsButton'
+import PlaceRegionsButton from '../components/collab/PlaceRegionsButton'
+import { selectedRegionBundle } from '../lib/regionPlacement'
+import { downloadAudio } from '../lib/audioDownloads'
 import { prepareTrackExport } from '../lib/dawTrackExport'
+import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
+import { prepareSharedRegions, uploadSharedRegions, rememberRegionEvidence } from '../lib/regionSharing'
+import { planVstRegionDrag } from '@orb/core/lib/regionVstXml.ts'
+import { isRegionArchive, prepareArchivedRegionBundle, createRegionArchive } from '@orb/core/lib/regionArchive.ts'
+import { hasCompleteLayout, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
+import { createRegionDawproject } from '@orb/core/lib/regionDawproject.ts'
 import { houseColor } from '../slur/marks'
 
 interface Props { supabase: SupabaseClient; user: User }
@@ -396,7 +407,119 @@ function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) 
    arming, __juceImported / cooldown handling — runs byte-for-byte
    unchanged. Playback is a remote control on the shared engine. */
 
-interface StudioTrack { url: string; name: string; metadata?: AttachmentTimelineMetadata; from?: string }
+interface StudioTrack { url: string; name: string; projectName?: string; metadata?: AttachmentTimelineMetadata; from?: string; assetId?: string; regionId?: string; regionBundle?: RegionBundle }
+
+function studioPositionLabel(track: StudioTrack) {
+  const bundle = parseRegionBundle(track.regionBundle)
+  const region = bundle?.regions.find(r => r.id === track.regionId)
+  if (!region?.start) return timelinePositionLabel(track.metadata)
+  const milliseconds = Math.round(region.start.samples * 1000 / region.start.sampleRate)
+  const seconds = Math.floor(milliseconds / 1000)
+  return { text: `at ${fmtDur(seconds)}.${String(milliseconds % 1000).padStart(3, '0')}`,
+    tooltip: 'Edited region position from the source DAW, relative to song zero. The complete bundle retains sample precision.' }
+}
+
+function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('')
+  const [projectReady, setProjectReady] = useState(false)
+  const projectToken = useRef<string | null>(null)
+  const layout = useRef<ReturnType<typeof planVstRegionDrag> | null>(null)
+  const [layoutReady, setLayoutReady] = useState(false)
+  const transferGeneration = useRef(0)
+  const bundle = selectedRegionBundle(tracks[0]?.regionBundle, tracks)
+  useEffect(() => {
+    projectToken.current = null; setProjectReady(false); setError('')
+    layout.current = null; setLayoutReady(false)
+    return () => { transferGeneration.current++ }
+  }, [bundle?.id])
+  if (!bundle) return null
+  const save = async (format: 'archive' | 'dawproject' | 'layout' = 'archive') => {
+    if (busy) return
+    const generation = transferGeneration.current
+    setBusy(true); setError('')
+    try {
+      const entries = bundle.assets.map((asset, index) => {
+        const track = tracks.find(t => t.assetId === asset.id)
+        if (!track) throw new Error('Missing region audio.')
+        return { url: track.url, name: asset.name, assetId: asset.id, ...(index === 0 ? { regionBundle: bundle } : {}) }
+      })
+      if (!readBundleAttachment(entries)) throw new Error('Invalid region attachment.')
+      const filesByAsset = new Map<string, File>()
+      for (const asset of bundle.assets) {
+        const entry = entries.find(item => item.assetId === asset.id)!
+        if (generation !== transferGeneration.current) return
+        const data = await downloadAudio(entry.url)
+        if (data.bytes !== asset.bytes) throw new Error('Region download size mismatch.')
+        const decoded = atob(data.base64)
+        filesByAsset.set(asset.id, new File([Uint8Array.from(decoded, c => c.charCodeAt(0))], asset.name))
+      }
+      const archive = format === 'dawproject' || format === 'layout'
+        ? await createRegionDawproject({ bundle, filesByAsset })
+        : await createRegionArchive({ bundle, filesByAsset })
+      if (format === 'layout') {
+        // DAWproject validation above checks SHA, WAV headers, trim and channels.
+        const tokens = new Map<string, string>()
+        for (const asset of bundle.assets) {
+          if (generation !== transferGeneration.current) return
+          const bytes = new Uint8Array(await filesByAsset.get(asset.id)!.arrayBuffer())
+          let binary = ''
+          for (let p = 0; p < bytes.length; p += 0x8000) binary += String.fromCharCode(...bytes.subarray(p, p + 0x8000))
+          const token = await callJuceNative('cacheRegionAudio', [btoa(binary)], 120000)
+          if (typeof token !== 'string') throw new Error('Could not prepare region audio.')
+          tokens.set(asset.id, token)
+        }
+        if (generation !== transferGeneration.current) return
+        layout.current = planVstRegionDrag(bundle, tokens); setLayoutReady(true)
+        return
+      }
+      const nativeFunction = format === 'dawproject' ? 'cacheRegionProject' : 'saveRegionArchive'
+      if (generation !== transferGeneration.current) return
+      if (hasJuceNativeFunction(nativeFunction)) {
+        const bytes = new Uint8Array(await archive.arrayBuffer())
+        let binary = ''
+        for (let offset = 0; offset < bytes.length; offset += 0x8000)
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+        const result = await callJuceNative(nativeFunction, [btoa(binary)], 120000)
+        if (generation !== transferGeneration.current) return
+        if (format === 'dawproject') {
+          if (typeof result !== 'string' || !/^[a-f0-9-]{36}$/.test(result)) throw new Error('Could not prepare the DAWproject.')
+          projectToken.current = result; setProjectReady(true)
+        } else if (result !== 'saved') throw new Error('Could not save the region bundle.')
+        return
+      }
+      const url = URL.createObjectURL(archive), link = document.createElement('a')
+      link.href = url; link.download = archive.name; link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) { if (generation === transferGeneration.current) setError(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
+  return <span>
+    <button className="wd-word" type="button" disabled={busy} onClick={() => void save()}
+      title="Save audio and available region metadata. This archive is for Slur, not a universal DAW import file.">{busy ? 'saving…' : 'save regions'}</button>
+    <PlaceRegionsButton bundle={bundle} entries={tracks} />
+    {hasCompleteLayout(bundle) && <button className="wd-word" type="button" disabled={busy}
+      title="Audio-only DAWproject: preserves known positions in seconds. For compatible DAWs; may open a new project, not insert into the current one. No tempo map or effects."
+      onClick={() => { if (!projectReady) void save('dawproject') }}
+      onMouseDown={e => {
+        if (!projectToken.current || e.button !== 0) return
+        e.preventDefault(); e.stopPropagation()
+        void callJuceNative('dragRegionProject', [projectToken.current]).then(result => {
+          if (result !== 'armed') { projectToken.current = null; setProjectReady(false); setError('Please prepare the DAWproject again.') }
+        }).catch(() => { setProjectReady(false); projectToken.current = null; setError('Could not start the project drag.') })
+      }}>{projectReady ? 'drag DAWproject ↗' : 'DAWproject'}</button>}
+    {hasCompleteLayout(bundle) && hasJuceNativeFunction('dragRegionLayout') && <button className="wd-word" type="button" disabled={busy}
+      title="VST-XML region drag for compatible Cubase, Nuendo and Studio One versions. Includes positions and track groups; host behavior must be verified."
+      onClick={() => { if (!layoutReady) void save('layout') }}
+      onMouseDown={e => {
+        if (!layout.current || e.button !== 0) return
+        e.preventDefault(); e.stopPropagation()
+        void callJuceNative('dragRegionLayout', [layout.current]).then(result => {
+          if (result !== 'armed') throw new Error('Please prepare the region drag again.')
+        }).catch(error => { layout.current = null; setLayoutReady(false); setError(String(error)) })
+      }}>{layoutReady ? 'drag regions ↗' : 'prepare region drag'}</button>}
+    {error && <span role="alert">{error}</span>}
+  </span>
+}
 
 /** Bind one track to the shared engine + its cached waveform. Duration
  *  prefers the live engine, then the decoded meta, so a card reads its
@@ -428,7 +551,7 @@ function useStudioTrack(url: string, name: string) {
  *  underlined import word. All geometry lives in CSS. */
 function StudioAudioPlate({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const position = timelinePositionLabel(track.metadata)
+  const position = studioPositionLabel(track)
   return (
     <div className="wd-plate">
       <div className="wd-plate-art">
@@ -447,6 +570,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
+          <SaveRegionsButton tracks={[track]} />
         </span>
       </div>
     </div>
@@ -457,7 +581,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
  *  name · time · import word) over its own 24px fine waveform. */
 function StudioPlateSection({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const position = timelinePositionLabel(track.metadata)
+  const position = studioPositionLabel(track)
   return (
     <div className="wd-plate-sec">
       <div className="wd-plate-secrow">
@@ -578,47 +702,29 @@ function DropDiagnosticsOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Multi-plate top row — "N tracks", the summed duration, and the
- *  batched import-all word (every track fetched, one writeAudioFiles
- *  call, ONE armed multi-file drag — the group drag-out machinery).
- *  Durations come from the same per-url wave-meta cache the sections
- *  read, so the total costs nothing extra. */
-function StudioPlateHead({ tracks }: { tracks: StudioTrack[] }) {
-  // tracks is re-parsed JSON each render — key the effect on the urls.
+/** Group actions stay available while closed. Do not fetch waveform data
+ *  until the user expands the tracks. */
+function StudioPlateActions({ tracks }: { tracks: StudioTrack[] }) {
   const key = tracks.map(t => t.url).join('\n')
-  const tracksRef = useRef(tracks); tracksRef.current = tracks
-  const [total, setTotal] = useState<number | null>(null)
-  useEffect(() => {
-    let dead = false
-    setTotal(null)
-    void Promise.all(tracksRef.current.map(t => getWaveMeta(t.url)))
-      .then(ms => { if (!dead) setTotal(ms.reduce((s, m) => s + (m.duration || 0), 0)) })
-    return () => { dead = true }
-  }, [key])
   return (
     <>
-      <div className="wd-plate-caphead">
-        <span className="wd-plate-secname">{tracks.length} tracks</span>
-        <span className="wd-plate-right">
-          {total != null && total > 0 && <span className="wd-plate-time">{fmtDur(total)} total</span>}
-          <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
-        </span>
-      </div>
-      <div className="wd-plate-rule" />
+      <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
+      <SaveRegionsButton tracks={tracks} />
     </>
   )
 }
 
-/** Single track → the full plate; several → ONE plate whose sections
- *  stack behind interior hairlines (a numbered figure list). */
+/** Each shared stem batch starts closed, including a one-track export. */
 function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
   if (tracks.length === 0) return null
-  if (tracks.length === 1) return <StudioAudioPlate track={tracks[0]!} />
+  const bundle = parseRegionBundle(tracks[0]?.regionBundle)
+  const projectName = tracks.map(track => track.projectName).find(name => typeof name === 'string' && name.trim())
   return (
-    <div className="wd-plate">
-      <StudioPlateHead tracks={tracks} />
-      {tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}
-    </div>
+    <StemGroupDisclosure projectName={projectName} trackCount={bundle?.tracks.length || tracks.length}
+      actions={<StudioPlateActions tracks={tracks} />}>
+      {bundle && !hasCompleteLayout(bundle) && <div className="wd-stem-layout-note">Region positions are incomplete.</div>}
+      {tracks.map((t, index) => <StudioPlateSection key={t.regionId ?? `${t.url}:${index}`} track={t} />)}
+    </StemGroupDisclosure>
   )
 }
 
@@ -1623,7 +1729,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ChatView's R2 upload flow: presign → XHR PUT (for onprogress) → send.
   const MAX_SIZE = UPLOAD_FILE_LIMIT
-  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file'):
+  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file', throwOnError = false):
     Promise<{ url: string; type: 'audio' | 'image' | 'file'; name: string } | null> => {
     const pid = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
@@ -1634,12 +1740,28 @@ function StudioShellInner({ supabase, user }: Props) {
       return { url, type, name: file.name }
     } catch (e) {
       console.error('[studio upload] error:', e)
-      drop(); return null
+      drop()
+      if (throwOnError) throw e
+      return null
     }
   }, [supabase, user.id])
 
   const onFilesPicked = useCallback(async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return
+    const archives = Array.from(list).filter(isRegionArchive)
+    for (const archive of archives) {
+      const destination = activeConvIdRef.current
+      try {
+        const prepared = await prepareArchivedRegionBundle(archive)
+        const uploaded = await uploadSharedRegions(prepared, async file => {
+          if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+          return uploadFile(file, 'audio')
+        })
+        if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+        if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${prepared.bundle.regions.length} Regions` }))
+          throw new Error('Regions were not sent. Please retry.')
+      } catch (error) { notify(error instanceof Error ? error.message : String(error)) }
+    }
     const AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', 'caf', 'opus', 'aac'])
     const typed = Array.from(list)
       .map(f => {
@@ -1673,37 +1795,31 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE, notify])
 
-  // Upload audio files (each stamped with its own timeline, `fallback`
-  // filling the gaps) and send them as ONE chat message — a single
-  // audio bubble or a multi-track card.
-  const sendAudioListToChat = useCallback(async (list: File[], fallback: AttachmentTimelineMetadata | null) => {
-    const uploaded: { url: string; name: string; metadata?: AttachmentTimelineMetadata }[] = []
-    for (const f of list) {
-      if (f.size > MAX_SIZE) { notify(`${f.name} (${fmtBytes(f.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`); continue }
-      const metadata = await extractAudioTimeline(f, fallback)
-      const a = await uploadFile(f, 'audio')
-      if (a) uploaded.push({ url: a.url, name: a.name, metadata: metadata ?? undefined })
-    }
-    if (uploaded.length === 1) {
-      await send('', { url: uploaded[0]!.url, type: 'audio', name: uploaded[0]!.name, metadata: uploaded[0]!.metadata })
-    } else if (uploaded.length > 1) {
-      await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks`, metadata: fallback ?? undefined })
-    }
-  }, [uploadFile, send, MAX_SIZE])
+  // One lossless region bundle, published only after EVERY asset succeeds.
+  // Playhead snapshots are not a substitute for edited region positions.
+  const sendAudioListToChat = useCallback(async (list: File[], _fallback: AttachmentTimelineMetadata | null) => {
+    const destination = activeConvIdRef.current
+    try {
+      if (list.some(file => file.size > MAX_SIZE)) throw new Error('A region exceeds the upload limit. Nothing was sent.')
+      const prepared = await prepareSharedRegions(list)
+      const uploaded = await uploadSharedRegions(prepared, async file => {
+        if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+        return uploadFile(file, 'audio')
+      })
+      if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+      if (!await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${list.length} Regions` }))
+        throw new Error('Regions were not sent. Please retry.')
+    } catch (error) { notify(error instanceof Error ? error.message : String(error)) }
+  }, [uploadFile, send, MAX_SIZE, notify])
 
-  // A DAW drop lands here (not the picker) — by now the multi-track
-  // chooser has already intercepted batches of ≥2 audio files, so this
-  // is the single-audio (plus stray non-audio) path. Regions that
-  // prove, by their BWF stamps, to sit side by side on one track merge
-  // into a single clip at their original positions; anything else goes
-  // as separate tracks.
+  // Keep region occurrences separate. Only explicit native region evidence
+  // establishes placement; file recording timestamps never establish it.
   const sendDawFiles = useCallback(async (files: File[], fallback: AttachmentTimelineMetadata | null) => {
     const audio = files.filter(isAudioFile)
     const rest = files.filter(f => !isAudioFile(f))
     if (rest.length > 0) await onFilesPicked(rest)
     if (audio.length === 0) return
-    const resolved = await resolveDawDrop(audio)
-    await sendAudioListToChat(resolved.kind === 'merged' ? [resolved.file] : resolved.files, fallback)
+    await sendAudioListToChat(audio, fallback)
   }, [onFilesPicked, sendAudioListToChat])
 
   // ── DAW drag-and-drop → main pane ───────────────────────────────────
@@ -1742,7 +1858,9 @@ function StudioShellInner({ supabase, user }: Props) {
   const outDragActive = useRef(false)       // an AudioAttachment drag-out is live
   const outDragArmedUrl = useRef<string | null>(null)
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const dropBuffer = useRef<{ name: string; data: string; seq?: number }[]>([])
+  const dropBuffer = useRef<{ name: string; data: string; seq?: number; region?: unknown }[]>([])
+  const dropCapture = useRef<string | null>(null)
+  const dropConversation = useRef<string | null>(null)
   const dropGroupCount = useRef(1)
   const dropTimelineRef = useRef<ReturnType<typeof getDawTimelineSnapshot>>(null)
   const dropTimelinePromiseRef = useRef<Promise<ReturnType<typeof getDawTimelineSnapshot>> | null>(null)
@@ -1805,9 +1923,9 @@ function StudioShellInner({ supabase, user }: Props) {
       return
     }
     try {
-      const entries = await Promise.all(
-        files.map(async f => ({ name: f.name, data: await f.arrayBuffer() })))
-      const zip = new File([buildZip(entries)], zipName(), { type: 'application/zip' })
+      const zip = files.every(isAudioFile)
+        ? await createRegionArchive(await prepareSharedRegions(files))
+        : new File([buildZip(await Promise.all(files.map(async f => ({ name: f.name, data: await f.arrayBuffer() }))))], zipName(), { type: 'application/zip' })
       if (zip.size > MAX_SIZE) { notify(`the zip (${fmtBytes(zip.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`); return }
       const a = await uploadFile(zip, 'file')
       if (a) await send('', { url: a.url, type: 'file', name: a.name })
@@ -1933,6 +2051,8 @@ function StudioShellInner({ supabase, user }: Props) {
   // follow, so a multi-region drag lands as ONE grouped message.
   useEffect(() => {
     const handler = (e: Event) => {
+      dropCapture.current = (e as CustomEvent).detail?.captureId ?? null
+      dropConversation.current = activeConvIdRef.current
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
       dropBuffer.current = []
       // Freeze host context at the drop, before slow async exports.
@@ -1961,7 +2081,9 @@ function StudioShellInner({ supabase, user }: Props) {
     const flush = () => {
       if (dropBuffer.current.length < dropGroupCount.current) return
       const batch = dropBuffer.current
+      const destinationAtDrop = dropConversation.current
       dropBuffer.current = []
+      dropCapture.current = null
       dropGroupCount.current = 1
       if (batch.every(f => Number.isFinite(f.seq)))
         batch.sort((a, b) => a.seq! - b.seq!)
@@ -1975,7 +2097,20 @@ function StudioShellInner({ supabase, user }: Props) {
         // A region over the drag limit stops here, out loud. (Older
         // plug-in builds hand it over regardless; newer ones reject it
         // natively before the base64 round trip.)
-        const all = batch.map(f => nativeToFile(f.name, f.data))
+        const all = batch.map(f => {
+          const file = nativeToFile(f.name, f.data)
+          return f.region ? rememberRegionEvidence(file, f.region) : file
+        })
+        if (batch.some(f => f.region)) {
+          // Structured selections are one atomic bundle, never a merge/zip
+          // of whole source files. The chat also makes it available in Files.
+          if (!batch.every(f => f.region)) throw new Error('Incomplete DAW region selection.')
+          if (destinationAtDrop !== activeConvIdRef.current) throw new Error('Conversation changed. Regions were not sent.')
+          if (new Set(batch.map(f => f.seq)).size !== batch.length || batch.some((f, i) => f.seq !== i))
+            throw new Error('Incomplete DAW region sequence. Nothing was sent.')
+          await sendDawFilesRef.current(all, null)
+          return
+        }
         for (const f of all.filter(f => f.size > DAW_FILE_LIMIT))
           notifyRef.current(`${f.name} (${fmtBytes(f.size)}) is over ${fmtBytes(DAW_FILE_LIMIT)}, the limit for regions dragged from the daw — export it and drop the file instead`)
         const dropped = all.filter(f => f.size <= DAW_FILE_LIMIT)
@@ -2004,15 +2139,23 @@ function StudioShellInner({ supabase, user }: Props) {
           return
         }
         await sendDawFilesRef.current(dropped, fallback)
-      })()
+      })().catch(error => notifyRef.current(error instanceof Error ? error.message : String(error)))
     }
     const onFile = (e: Event) => {
       if (outDragActive.current) return
-      const { name, data, seq } = (e as CustomEvent<{ name: string; data: string; seq?: number }>).detail
-      dropBuffer.current.push({ name, data, seq })
+      const { name, data, seq, region } = (e as CustomEvent).detail
+      if ((region?.captureId ?? null) !== dropCapture.current) return
+      dropBuffer.current.push({ name, data, seq, region })
       flush()
     }
+    const onRegionError = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.captureId && detail.captureId !== dropCapture.current) return
+      dropBuffer.current = []; dropCapture.current = null; dropGroupCount.current = 1
+      notifyRef.current(detail?.message ?? 'Could not read this DAW selection. Nothing was sent.')
+    }
     const onRejected = (e: Event) => {
+      if (dropCapture.current !== null) return // structured drops fail atomically via onRegionError
       const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
       notifyRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
       dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
@@ -2020,9 +2163,11 @@ function StudioShellInner({ supabase, user }: Props) {
     }
     window.addEventListener('__juceFileDrop', onFile)
     window.addEventListener('__juceFileDropRejected', onRejected)
+    window.addEventListener('__juceRegionDropError', onRegionError)
     return () => {
       window.removeEventListener('__juceFileDrop', onFile)
       window.removeEventListener('__juceFileDropRejected', onRejected)
+      window.removeEventListener('__juceRegionDropError', onRegionError)
     }
   }, [])
 
@@ -2372,13 +2517,21 @@ function StudioShellInner({ supabase, user }: Props) {
           } else if (m.attachment_type === 'audio') {
             const from = profileById.get(m.sender_id)?.display_name
             pieces.push(
-              <StudioAudioCard key="att"
-                tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined, from }]} />,
+              <StudioAudioPlate key="att"
+                track={{ url, name, metadata: m.attachment_metadata ?? undefined, from }} />,
             )
           } else if (m.attachment_type === 'multi-audio') {
             const from = profileById.get(m.sender_id)?.display_name
             let tracks: StudioTrack[] = []
-            try { tracks = (JSON.parse(url) as StudioTrack[]).map(t => ({ ...t, from })) } catch { /* fall through to chip */ }
+            try {
+              const entries = JSON.parse(url) as StudioTrack[]
+              const bundle = parseRegionBundle(entries[0]?.regionBundle)
+              tracks = bundle ? bundle.regions.map(region => {
+                const entry = entries.find(item => item.assetId === region.assetId)
+                if (!entry) throw new Error('Missing region asset')
+                return { ...entry, name: region.name, regionId: region.id, regionBundle: bundle, from }
+              }) : entries.map(t => ({ ...t, from }))
+            } catch { /* fall through to chip */ }
             pieces.push(tracks.length > 0
               ? <StudioAudioCard key="att" tracks={tracks} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
@@ -2904,13 +3057,26 @@ function StudioShellInner({ supabase, user }: Props) {
                     <input
                       ref={fileRef}
                       type="file"
-                      accept="audio/*,image/*,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac,.mp3"
+                      accept="audio/*,image/*,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac,.mp3,.zip"
                       multiple
                       style={{ display: 'none' }}
                       onChange={e => { void onFilesPicked(e.target.files); if (e.target) e.target.value = '' }}
                     />
                     <button className="wd-attach" onClick={() => fileRef.current?.click()} aria-label="attach a file">+</button>
-                    <ExportTracksButton key={activeConvId} className="wd-gameinv" onCapture={async archive => {
+                    <ShareRegionsButton key={`regions-${activeConvId}`} className="wd-gameinv" onCapture={async archive => {
+                      const destination = activeConvId, selection = sel
+                      const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
+                      const prepared = await prepareArchivedRegionBundle(archive)
+                      const uploaded = await uploadSharedRegions(prepared, async file => {
+                        if (!current()) throw new Error('Conversation changed. Regions were not sent.')
+                        const audio = await uploadFile(file, 'audio')
+                        return audio ? { url: audio.url, name: file.name } : null
+                      })
+                      if (!current()) throw new Error('Conversation changed. Regions were not sent.')
+                      if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${prepared.bundle.regions.length} Regions` }))
+                        throw new Error('Regions could not be sent. Please retry.')
+                    }} />
+                    <ExportTracksButton key={activeConvId} className="wd-gameinv" onCapture={async (archive, projectName) => {
                       const destination = activeConvId
                       const selection = sel
                       const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
@@ -2918,9 +3084,9 @@ function StudioShellInner({ supabase, user }: Props) {
                       const uploaded = []
                       for (const track of tracks) {
                         if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
-                        const audio = await uploadFile(track.file, 'audio')
+                        const audio = await uploadFile(track.file, 'audio', true)
                         if (!audio) throw new Error('Track upload failed. Nothing was sent; you can retry.')
-                        uploaded.push({ url: audio.url, name: track.file.name, metadata: track.metadata,
+                        uploaded.push({ url: audio.url, name: track.file.name, projectName, metadata: track.metadata,
                           assetId: track.assetId, regionBundle: track.bundle })
                       }
                       if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
@@ -2958,7 +3124,7 @@ function StudioShellInner({ supabase, user }: Props) {
                       pendingDrop={pendingStemDrop}
                       onDropConsumed={consumeStemDrop}
                       onMultiFileDrop={routeStemsDrop}
-                      alignToBarOne
+                      alignToBarOne={false}
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>

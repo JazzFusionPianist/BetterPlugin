@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { inspectProToolsTracks, exportProToolsTracks, probeWave } from '../src/proToolsTracks.mjs'
+import { inspectProToolsTracks, inspectProToolsTrackRange, exportProToolsTracks, probeWave } from '../src/proToolsTracks.mjs'
 import { unpackRegionArchive } from '../../core/lib/regionArchive.ts'
 
 function wav(frames = 96000) {
@@ -33,6 +33,9 @@ function fixture({ midi = false, state = 'TransportStopped', duration = 96000 } 
       case 'ExportSessionInfoAsText': return { session_info: 'SAMPLE RATE:\t48000\nTRACK NAME:\tVoice\nCHANNEL\tEVENT\tCLIP NAME\tSTART TIME\tEND TIME\tDURATION\tSTATE\n1\t1\tVoice\t0\t96000\t96000\tUnmuted\n' }
       case 'BounceTrack': {
         assert.equal(body.offline_bounce, 'TBool_True')
+        assert.equal(body.audio_info.export_format, 'EFormat_Interleaved')
+        assert.equal(body.audio_info.sample_rate, 'SRate_48000')
+        assert.equal(body.audio_info.bit_depth, 'BDepth_24')
         assert.equal(body.location_info.import_after_bounce, 'TBool_False')
         assert.equal(body.in_location.location, '0'); assert.equal(body.out_location.location, '96000')
         const path = join(body.location_info.directory, 'audio.wav')
@@ -52,6 +55,17 @@ test('track inspection uses clip end, not the default 24-hour session length', a
   assert.deepEqual(result.ranges.entire, { start: 0, end: 96000 })
   assert.equal(result.tracks[0].selected, true)
   assert.ok(!calls.some(c => c.command === 'GetSessionLength'))
+})
+test('live selection polling is read-only and does not scan tracks or export an EDL', async () => {
+  const { call, calls } = fixture()
+  const range = await inspectProToolsTrackRange(call)
+  assert.deepEqual(range, { sessionId: 'session', sampleRate: 48000, selection: { start: 0, end: 96000 } })
+  assert.ok(calls.every(c => ['GetSessionIDs', 'GetSessionSampleRate', 'GetTimelineSelection'].includes(c.command)))
+  assert.equal((await inspectProToolsTrackRange((command, body) => command === 'GetTimelineSelection'
+    ? { in_time: '100', out_time: '100' } : call(command, body))).selection, null)
+  let count = 0
+  await assert.rejects(inspectProToolsTrackRange((command, body) => command === 'GetSessionIDs'
+    ? { instance_id: count++ ? 'changed' : 'session' } : call(command, body)), /Session changed/)
 })
 test('MIDI content requires an explicit timeline range rather than a guessed song end', async () => {
   const result = await inspectProToolsTracks(fixture({ midi: true }).call)
@@ -97,4 +111,13 @@ test('WAV validation rejects truncated files and reads the actual render format'
   assert.equal(probeWave(wav()).frames, 96000)
   assert.equal(probeWave(wav()).bits, 16)
   assert.throws(() => probeWave(wav().subarray(0, 50)), /Truncated/)
+})
+test('lost bounce response marks uncertain host state and forbids automatic retry', async () => {
+  const original = fixture(), dir = await directory()
+  const call = (command, body) => {
+    if (command === 'BounceTrack') throw new Error('DEADLINE_EXCEEDED')
+    return original.call(command, body)
+  }
+  await assert.rejects(exportProToolsTracks({ call, sessionId: 'session', options, directory: dir }), e => e.cleanupUncertain === true)
+  assert.equal(JSON.parse(await readFile(join(dir, 'export.json'))).stage, 'waiting-for-pro-tools-bounce')
 })

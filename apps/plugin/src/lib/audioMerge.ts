@@ -24,10 +24,9 @@
  *    regions sit on the timeline. Gaps are lost, which is why this one
  *    only runs when the user explicitly asks.
  *
- * `resolveDawDrop` is the default policy for a multi-region drop: merge
- * silently when the timestamps prove the regions sit side by side on one
- * timeline, send separately when they overlap (that is two tracks, not
- * one), and leave the decision to the user when nothing can be proven.
+ * `resolveDawDrop` preserves separate regions by default. Recording
+ * timestamps alone do not establish current positions or track membership.
+ * The merge modes here are explicit, destructive user choices only.
  */
 import { anchorBarOnePpq, extractAudioTimeline } from './audioTimeline'
 import { MERGED_OUTPUT_LIMIT, UPLOAD_FILE_LIMIT } from './limits'
@@ -502,21 +501,14 @@ export type DawDropResolution =
   | { kind: 'separate'; files: File[]; reason: 'single' | 'no-timing' | 'overlap' | 'mixed-rate' | 'too-large' | 'decode' }
 
 /**
- * Decide what a dropped batch becomes. Merges only when the embedded
- * timestamps prove one timeline (side by side, no overlap); overlapping
- * regions are different tracks and stay separate; unstamped files can't
- * be judged and stay separate too — the caller may still offer a manual
- * merge for those.
+ * Preserve each dropped occurrence. Callers may offer explicit merging,
+ * but cannot infer a shared track or edited position from recording clocks.
  */
 export async function resolveDawDrop(files: File[]): Promise<DawDropResolution> {
-  if (files.length < 2) return { kind: 'separate', files, reason: 'single' }
-  const regions = await Promise.all(files.map(analyzeRegion))
-  const placement = planPlacement(regions)
-  if ('reason' in placement) return { kind: 'separate', files, reason: placement.reason }
-  if (outputBytes(placement.plan.totalFrames, regions) > MERGED_OUTPUT_LIMIT) return { kind: 'separate', files, reason: 'too-large' }
-  const file = await renderPlaced(regions, placement.plan)
-  if (!file) return { kind: 'separate', files, reason: 'decode' }
-  return { kind: 'merged', file, regionCount: files.length }
+  // Embedded recording clocks prove neither edited placement nor track
+  // membership. Never merge merely because two timestamps are adjacent.
+  // Explicit user-requested merge modes above remain available.
+  return { kind: 'separate', files, reason: files.length < 2 ? 'single' : 'no-timing' }
 }
 
 // ── Bar-1 alignment (studio FILES-tab stems) ──────────────────────────────

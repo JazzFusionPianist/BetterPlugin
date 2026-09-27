@@ -286,6 +286,16 @@
    import-all word, in the caption grammar (10.5px, underlined,
    quiet ink → full ink when armed). */
 .wd-plate-caphead { display: flex; align-items: baseline; gap: 8px; padding: 9px 16px 7px; }
+.wd-stem-group .wd-plate-caphead { align-items: center; flex-wrap: wrap; padding: 8px 14px; }
+.wd-stem-toggle { display: flex; align-items: center; gap: 7px; flex: 1 1 160px; min-width: 0;
+  padding: 5px 0; border: 0; background: none; color: inherit; font: inherit;
+  font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.wd-stem-toggle svg, .wd-stem-count { flex-shrink: 0; }
+.wd-stem-project { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-stem-count { opacity: .65; font-weight: 400; font-variant-numeric: tabular-nums; }
+.wd-stem-toggle:focus-visible { outline: 2px solid var(--blue, #6565ff); outline-offset: 3px; border-radius: 4px; }
+.wd-stem-group .wd-plate-right { margin-left: auto; flex-wrap: wrap; }
+.wd-stem-layout-note { padding: 8px 16px; font-size: 11px; opacity: .65; }
 .wd-plate-caphead .import-all-word,
 .wd-pane .import-all-word { font-size: 10.5px; color: rgba(26,25,23,.55); position: relative; top: -1px; }
 .wd-plate-caphead .import-all-word:hover,

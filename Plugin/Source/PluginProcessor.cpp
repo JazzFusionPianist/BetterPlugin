@@ -1,4 +1,6 @@
 #include <iterator>
+#include <cstring>
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
@@ -207,6 +209,131 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleWriteAudioFiles (args, std::move (completion));
                 })
+            .withNativeFunction ("saveRegionArchive",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done ("error:invalid-region-archive"); return; }
+                    juce::MemoryBlock bytes;
+                    if (! decodeBase64 (args[0].toString(), bytes) || bytes.getSize() < 4
+                        || bytes.getSize() > 502ULL * 1024 * 1024
+                        || std::memcmp (bytes.getData(), "PK\x03\x04", 4) != 0)
+                    { done ("error:invalid-region-archive"); return; }
+                    const auto folder = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                        .getChildFile ("Slur Region Transfers");
+                    if (! folder.createDirectory()) { done ("error:save-folder"); return; }
+                    const auto file = folder.getChildFile ("regions-" + juce::Uuid().toString() + ".slur-regions.zip");
+                    if (! file.replaceWithData (bytes.getData(), bytes.getSize()))
+                    { done ("error:save-region-archive"); return; }
+                    file.revealToUser();
+                    done ("saved");
+                })
+            .withNativeFunction ("cacheRegionProject",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done ("error:invalid-project"); return; }
+                    juce::MemoryBlock bytes;
+                    if (! decodeBase64 (args[0].toString(), bytes) || bytes.getSize() < 4
+                        || bytes.getSize() > 502ULL * 1024 * 1024
+                        || std::memcmp (bytes.getData(), "PK\x03\x04", 4) != 0)
+                    { done ("error:invalid-project"); return; }
+                    // Never extract a received ZIP or accept a caller-supplied path.
+                    juce::MemoryInputStream stream (bytes, false);
+                    juce::ZipFile zip (stream);
+                    if (zip.getIndexOfFileName ("project.xml") < 0 || zip.getIndexOfFileName ("metadata.xml") < 0)
+                    { done ("error:invalid-project"); return; }
+                    const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("Slur Region Projects");
+                    if (! folder.createDirectory()) { done ("error:project-folder"); return; }
+                    const auto token = juce::Uuid().toDashedString();
+                    const auto file = folder.getChildFile (token + ".dawproject");
+                    if (! file.replaceWithData (bytes.getData(), bytes.getSize()))
+                    { done ("error:write-project"); return; }
+                    done (token);
+                })
+            .withNativeFunction ("cacheRegionAudio",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (!args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done("error:args"); return; }
+                    juce::MemoryBlock bytes;
+                    if (!decodeBase64(args[0].toString(), bytes) || bytes.getSize() < 44
+                        || bytes.getSize() > 500ULL * 1024 * 1024
+                        || std::memcmp(bytes.getData(), "RIFF", 4) != 0
+                        || std::memcmp(static_cast<const char*>(bytes.getData()) + 8, "WAVE", 4) != 0)
+                    { done("error:audio"); return; }
+                    // Hosts may reference dragged media instead of copying it.
+                    // Keep this library persistent, not in a purgeable temp folder.
+                    const auto folder = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                        .getChildFile("Slur").getChildFile("Shared Region Audio");
+                    if (!folder.createDirectory()) { done("error:folder"); return; }
+                    const auto token = juce::Uuid().toDashedString();
+                    if (!folder.getChildFile(token + ".wav").replaceWithData(bytes.getData(), bytes.getSize()))
+                    { done("error:write"); return; }
+                    done(token);
+                })
+            .withNativeFunction ("dragRegionLayout",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (!args.isArray() || args.size() != 1 || !args[0].isArray() || args[0].size() < 1 || args[0].size() > 512)
+                    { done("error:args"); return; }
+                    juce::XmlElement xml("vst-xml"); xml.setAttribute("version", "1.3");
+                    xml.createNewChildElement("sourceApp")->addTextElement("Slur Studio");
+                    const auto folder = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                        .getChildFile("Slur").getChildFile("Shared Region Audio");
+                    for (int i = 0; i < args[0].size(); ++i) {
+                        const auto r = args[0][i];
+                        const auto token = r.getProperty("token", {}).toString();
+                        const auto channel = r.getProperty("channel", {}).toString();
+                        const auto name = r.getProperty("name", {}).toString();
+                        auto numeric = [&r](const char* key) {
+                            auto v = r.getProperty(key, {});
+                            return (v.isInt() || v.isInt64() || v.isDouble()) && std::isfinite(static_cast<double>(v)) && static_cast<double>(v) >= 0;
+                        };
+                        if (token.length() != 36 || !token.containsOnly("0123456789abcdef-")
+                            || channel.isEmpty() || channel.length() > 128 || name.isEmpty() || name.length() > 512
+                            || !numeric("seconds") || !numeric("offset") || !numeric("end"))
+                        { done("error:region"); return; }
+                        const auto file = folder.getChildFile(token + ".wav");
+                        juce::WavAudioFormat format;
+                        auto input = file.createInputStream();
+                        if (!input) { done("error:missing-audio"); return; }
+                        std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(input.release(), true));
+                        const double offset = r["offset"], end = r["end"];
+                        if (!reader || offset != std::floor(offset) || end != std::floor(end)
+                            || end <= offset || end > reader->lengthInSamples)
+                        { done("error:trim"); return; }
+                        auto* region = xml.createNewChildElement("region");
+                        region->setAttribute("id", i + 1); region->setAttribute("channelID", channel);
+                        region->createNewChildElement("name")->addTextElement(name);
+                        region->createNewChildElement("filename")->addTextElement(file.getFullPathName());
+                        region->createNewChildElement("start")->addTextElement(juce::String(static_cast<juce::int64>(offset)));
+                        region->createNewChildElement("end")->addTextElement(juce::String(static_cast<juce::int64>(end)));
+                        auto* time = region->createNewChildElement("projectTime"); time->setAttribute("domain", "seconds");
+                        time->addTextElement(juce::String(static_cast<double>(r["seconds"]), 17));
+                    }
+                    if (auto* editor = dynamic_cast<OrbAudioProcessorEditor*>(getActiveEditor())) {
+                        editor->armRegionXml(xml.toString().toStdString()); done("armed");
+                    } else done("error:no-editor");
+                })
+            .withNativeFunction ("dragRegionProject",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1) { done ("error:args"); return; }
+                    const auto token = args[0].toString();
+                    if (token.length() != 36 || ! token.containsOnly ("0123456789abcdef-"))
+                    { done ("error:token"); return; }
+                    const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("Slur Region Projects").getChildFile (token + ".dawproject");
+                    if (! file.existsAsFile()) { done ("error:missing-project"); return; }
+                    if (auto* editor = dynamic_cast<OrbAudioProcessorEditor*> (getActiveEditor()))
+                    {
+                        editor->armDragMonitor (file.getFullPathName().toStdString());
+                        done ("armed");
+                    }
+                    else done ("error:no-editor");
+                })
             .withNativeFunction ("startVideoCapture",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -372,15 +499,40 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     done (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
                         : juce::PluginHostType().isProTools() ? "Pro Tools"
+                        : juce::PluginHostType().isLogic() ? "Logic Pro"
                         : juce::File::getSpecialLocation (juce::File::hostApplicationPath).getFullPathName().containsIgnoreCase ("/LUNA.app/")
                             ? "LUNA" : juce::PluginHostType().getHostDescription()));
                 })
             .withNativeFunction ("trackExportCapabilities",
                 [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
-                { done (juce::String ("{\"adapters\":[\"Pro Tools\",\"LUNA\"]}")); })
+                { done (juce::String ("{\"adapters\":[\"Pro Tools\"]}")); })
             .withNativeFunction ("trackExport",
                 [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
-                { trackExportBridge.invoke (args, std::move (done)); }));
+                {
+                    if (! juce::JUCEApplicationBase::isStandaloneApp() && ! juce::PluginHostType().isProTools())
+                    {
+                        done (juce::String ("{\"ok\":false,\"error\":\"Track export is available only for Pro Tools.\"}"));
+                        return;
+                    }
+                    if (! args.isArray() || (args[0].toString() != "inspectTracks" && args[0].toString() != "inspectTrackRange" && args[0].toString() != "exportTracks"))
+                    { done (juce::String ("{\"ok\":false,\"error\":\"Invalid track operation.\"}")); return; }
+                    trackExportBridge.invoke (args, std::move (done));
+                })
+            .withNativeFunction ("regionTransfer",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    const bool luna = juce::File::getSpecialLocation (juce::File::hostApplicationPath)
+                        .getFullPathName().containsIgnoreCase ("/LUNA.app/");
+                    const auto op = args.isArray() && args.size() > 0 ? args[0].toString() : juce::String();
+                    const bool standalone = juce::JUCEApplicationBase::isStandaloneApp();
+                    const bool lunaOperation = op == "inspectLunaRegions" || op == "exportLunaRegions"
+                        || op == "inspectLunaDestination" || op == "importLunaRegions";
+                    const bool proToolsOperation = op == "inspectProToolsDestination" || op == "importProToolsRegions";
+                    if (! ((lunaOperation && (standalone || luna))
+                        || (proToolsOperation && (standalone || juce::PluginHostType().isProTools()))))
+                    { done (juce::String ("{\"ok\":false,\"error\":\"This DAW does not support automatic region placement.\"}")); return; }
+                    trackExportBridge.invoke (args, std::move (done));
+                }));
 
     controlBridge = std::make_unique<OrbControlBridge> (
         juce::PluginHostType().getHostDescription());
@@ -2325,7 +2477,7 @@ void OrbAudioProcessor::handleStartHostStemExport (
 
     const bool editSelection = args[1].toString() == "selection";
     completion (controlBridge->requestExport (indices, editSelection) ? "started"
-                                                                      : "error:no-port");
+                                                                      : "error:background-export-unavailable");
 }
 
 //==============================================================================
@@ -2372,6 +2524,7 @@ void OrbAudioProcessor::loadCarriedPage()
         {
             const juce::var v = juce::JSON::parse (juce::String::fromUTF8 ((const char*) it->second.data(), (int) it->second.size()));
             carriedBuild = v.getProperty ("build", "").toString();
+            carriedBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());
         }
     }
     browser->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + "index.html?" + pageQuery() + "&carried=1");
@@ -2401,16 +2554,29 @@ void OrbAudioProcessor::askSiteForNewer()
     siteCheck = std::make_unique<std::thread> ([this, alive = this->alive]
     {
         juce::String siteBuild;
+        juce::Time siteBuiltAt;
         {
             juce::URL url (juce::String (ORB_APP_URL) + "/build.json?v=" + juce::String (juce::Time::currentTimeMillis()));
             auto opts = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress).withConnectionTimeoutMs (2500);
             if (auto in = url.createInputStream (opts))
             {
                 const juce::var v = juce::JSON::parse (in->readEntireStreamAsString());
+                // A newer site must preserve the carried page's transfer contract.
+                // Timestamp alone previously replaced the picker with a page
+                // that did not contain it. Keep the bundled UI until compatible.
+                if ((int) v.getProperty ("regionSharing", 0) < 1
+                    || (int) v.getProperty ("regionDawproject", 0) < 1
+                    || (int) v.getProperty ("regionVstXml", 0) < 1
+                    || (int) v.getProperty ("regionLuna", 0) < 1
+                    || (int) v.getProperty ("stemDownloads", 0) < 1
+                    || (int) v.getProperty ("regionPlacement", 0) < 1
+                    || v.getProperty ("trackExportPolicy", "").toString() != "pro-tools-only") return;
                 siteBuild = v.getProperty ("build", "").toString();
+                siteBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());
             }
         }
-        if (! alive->load() || siteBuild.isEmpty() || siteBuild == carriedBuild) return;
+        if (! alive->load() || siteBuild.isEmpty() || siteBuild == carriedBuild
+            || carriedBuiltAt.toMilliseconds() <= 0 || siteBuiltAt <= carriedBuiltAt) return;
         juce::MessageManager::callAsync ([this, alive]
         {
             if (! alive->load() || browser == nullptr) return;

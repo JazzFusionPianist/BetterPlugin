@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LiveChannel } from '../lib/liveChannel'
 import type { SignalMessage } from '../types/live'
-import { rtcConfig, ensureTurnLoaded } from '../lib/webrtc'
+import { joinRelay, loadRelayGrant } from '../lib/webrtc'
+import { RelayLease, type RelayGrant } from '../lib/relayLease'
 
 /**
  * Host-side: accepts viewer join requests, creates a per-viewer
@@ -55,9 +56,9 @@ export function useLiveBroadcaster(
     // Make sure TURN credentials are loaded before we accept any joins.
     // Without this the very first viewer gets a STUN-only PC and can't
     // traverse symmetric NATs.
-    ensureTurnLoaded(client, sessionId).then(() => {
+    joinRelay(client, sessionId).then(grant => {
       if (cancelled) return
-      cleanup = setupChannel()
+      cleanup = setupChannel(grant)
     }).catch(() => { if (!cancelled) {setViewerIds(new Set());setError('Media authorization failed. Broadcast stopped.')} })
 
     return () => {
@@ -65,16 +66,39 @@ export function useLiveBroadcaster(
       cleanup?.()
     }
 
-    function setupChannel(): () => void {
+    function setupChannel(grant:RelayGrant): () => void {
     if (!sessionId) throw new Error('unreachable')
 
+    let disposed = false
+    const stopBroadcast = () => {
+      peersRef.current.forEach(pc => pc.close())
+      peersRef.current.clear()
+      localStreamRef.current?.getTracks().forEach(track => track.stop())
+      setViewerIds(new Set())
+      setError('방송 접근을 확인하지 못해 송출을 중단했습니다. 다시 시작해 주세요.')
+    }
+    const lease = new RelayLease(
+      grant,
+      () => loadRelayGrant(client, sessionId),
+      config => {
+        for (const pc of peersRef.current.values()) {
+          pc.setConfiguration(config)
+          pc.restartIce()
+        }
+      },
+      () => {
+        if (disposed) return
+        channelRef.current?.close()
+        stopBroadcast()
+      },
+    )
     const send = (msg: SignalMessage) => {
       channelRef.current?.send({ type: 'broadcast', event: 'signal', payload: msg })
     }
 
     const handleJoin = (viewerId: string) => {
       if (peersRef.current.has(viewerId) || peersRef.current.size >= 8) return
-      const pc = new RTCPeerConnection(rtcConfig)
+      const pc = new RTCPeerConnection(lease.config)
       peersRef.current.set(viewerId, pc)
       setViewerIds(prev => {
         const n = new Set(prev).add(viewerId)
@@ -95,7 +119,7 @@ export function useLiveBroadcaster(
       pc.onconnectionstatechange = () => {
 
         refreshPeerStates()
-        if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+        if (['failed', 'closed'].includes(pc.connectionState)) {
           removeViewer(viewerId)
         }
       }
@@ -121,7 +145,7 @@ export function useLiveBroadcaster(
 
           send({ type: 'offer', from: hostId, to: viewerId, sdp: pc.localDescription! })
         } catch (e) {
-          console.warn('[broadcaster] renegotiation failed', e)
+          removeViewer(viewerId)
         } finally {
           makingOffer = false
         }
@@ -154,7 +178,7 @@ export function useLiveBroadcaster(
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp))
       } catch (e) {
-        console.error('[broadcaster] setRemoteDescription failed for', viewerId, e)
+        setError('미디어 연결을 확인하지 못했습니다.')
         pc.close()
         peersRef.current.delete(viewerId)
         setViewerIds(prev => { const n = new Set(prev); n.delete(viewerId); return n })
@@ -165,7 +189,7 @@ export function useLiveBroadcaster(
       const pc = peersRef.current.get(viewerId)
       if (!pc) return
       try { await pc.addIceCandidate(new RTCIceCandidate(candidate)) }
-      catch (e) { console.warn('addIceCandidate failed', e) }
+      catch { /* Late candidates may belong to a previous ICE generation. */ }
     }
 
     const removeViewer = (viewerId: string) => {
@@ -200,13 +224,18 @@ export function useLiveBroadcaster(
         }
       })
       .subscribe(status => {
-        if (status === 'CLOSED') { setError('Live connection lost. Broadcast stopped.'); peersRef.current.forEach(pc => pc.close()); peersRef.current.clear(); setViewerIds(new Set()) }
+        if (status === 'CLOSED' && !disposed) {
+          lease.stop()
+          stopBroadcast()
+        }
 
       })
 
     channelRef.current = channel
 
     return () => {
+      disposed = true
+      lease.stop()
       send({ type: 'bye', from: hostId })
       peersRef.current.forEach(pc => pc.close())
       peersRef.current.clear()

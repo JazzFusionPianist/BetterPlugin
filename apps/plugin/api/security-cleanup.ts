@@ -25,6 +25,7 @@ export default async function handler(req: Request) {
       await rpc('', 'finish_storage_erasure', {p_id:job.id,p_success:success},true)
       if(success)storageCompleted++
     }
+    await rpc('', 'security_record_cleanup', {p_failed:jobs.length-completed+storageJobs.length-storageCompleted},true)
     return response(req, { completed, pending: jobs.length-completed, storageCompleted, storagePending:storageJobs.length-storageCompleted })
   } catch (e) { return response(req, { error: e instanceof HttpError ? e.message : 'Cleanup failed' }, e instanceof HttpError ? e.status : 500) }
 }

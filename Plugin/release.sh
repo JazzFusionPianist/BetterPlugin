@@ -53,7 +53,7 @@ if [ "$YES" != "--yes" ]; then
 fi
 
 echo "→ publishing $TAG …"
-gh release create "$TAG" "$HERE/installer/$ASSET" --title "Patch on Slur $VERSION" --notes "Patch on Slur $VERSION — installer for macOS 11+ (Apple silicon and Intel): Audio Unit and VST3."
+gh release create "$TAG" "$HERE/installer/$ASSET" --title "Patch on Slur $VERSION" --notes "Patch on Slur $VERSION — installer for macOS 12+ (Apple silicon and Intel): Audio Unit and VST3."
 rm -f "$HERE/installer/$ASSET"
 
 echo "→ telling the wall …"

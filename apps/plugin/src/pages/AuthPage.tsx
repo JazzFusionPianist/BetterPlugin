@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Turnstile } from '@orb/core/components/Turnstile.tsx'
 import { supabase } from '../lib/supabase'
 import { openExternalUrl } from '../lib/linkify'
 import Bar from '../slur/Bar'
@@ -39,8 +40,10 @@ export default function AuthPage() {
   const [agreePrivacy, setAgreePrivacy] = useState(false)
   const [agreeAge, setAgreeAge] = useState(false)
   const [agreeMarketing, setAgreeMarketing] = useState(false)
+  const [captchaToken,setCaptchaToken]=useState('')
+  const [captchaReset,setCaptchaReset]=useState(0)
 
-  const toggle = () => { setMode(m => (m === 'signin' ? 'signup' : 'signin')); setError(null); setNote(null) }
+  const toggle = () => { setMode(m => (m === 'signin' ? 'signup' : 'signin')); setError(null); setNote(null);setCaptchaToken('');setCaptchaReset(x=>x+1) }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,10 +52,11 @@ export default function AuthPage() {
       return
     }
     if (busy) return
+    if (!captchaToken) {setError('complete the security check to continue.');return}
     setBusy(true); setError(null); setNote(null)
     try {
       if (mode === 'signin') {
-        const { error } = await supabase!.auth.signInWithPassword({ email, password })
+        const { error } = await supabase!.auth.signInWithPassword({ email, password,options:{captchaToken} })
         if (error) setError(/invalid/i.test(error.message) ? 'that email and password don’t match.' : error.message)
       } else {
         const handle = username.trim()
@@ -63,7 +67,7 @@ export default function AuthPage() {
         if (!agreeTerms || !agreePrivacy || !agreeAge) { setError('the required agreements need a check to continue.'); return }
         const { data, error } = await supabase!.auth.signUp({
           email, password,
-          options: { data: {
+          options: { captchaToken,data: {
             display_name: name.trim() || handle, username: handle,
             tos_agreed: 'v1.0', privacy_agreed: 'v1.0', age_over_14: true,
             marketing_opt_in: agreeMarketing, consent_at: new Date().toISOString(),
@@ -80,6 +84,7 @@ export default function AuthPage() {
       setError('something went wrong — try again.')
     } finally {
       setBusy(false)
+      setCaptchaToken('');setCaptchaReset(x=>x+1)
     }
   }
 
@@ -130,9 +135,10 @@ export default function AuthPage() {
                 {lamp(agreeMarketing, setAgreeMarketing, <>the odd update</>, false)}
               </div>
             )}
+            <Turnstile resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')}/>
             {error && <div className="sl-msg err">{error}</div>}
             {note && <div className="sl-msg">{note}</div>}
-            <button type="submit" className="sl-go" disabled={busy || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
+            <button type="submit" className="sl-go" disabled={busy || !captchaToken || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
               {busy ? (mode === 'signin' ? 'logging in…' : 'signing up…') : (mode === 'signin' ? 'log in' : 'sign up')}
             </button>
             <button type="button" className="sl-swap" onClick={toggle}>{mode === 'signin' ? 'sign up' : 'log in'}</button>

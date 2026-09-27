@@ -121,6 +121,7 @@ html:has(.sl-one), html:has(.sl-one) body { height: 100%; overflow: hidden; over
 .sl-lamp input:focus-visible { outline: 1.5px solid var(--sl-ink); outline-offset: 2px; }
 .sl-lamp a { color: var(--sl-ink); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .sl-lamp em { font-style: normal; color: var(--sl-t3); }
+.sl-turnstile { width: 300px; min-height: 65px; max-width: 100%; align-self: center; }
 .sl-msg { font-size: 13px; color: var(--sl-green); padding: 4px 6px; }
 .sl-msg.err { color: #D6402E; }
 .sl-go { margin-top: 8px; height: 50px; border-radius: 25px; background: var(--sl-ink) !important; color: var(--sl-white) !important; font-size: 15px; }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.25)   # Release hardening: session controls, key locking and live relay renewal.
+project(OrbPlugin VERSION 1.0.26)   # Trusted-device chat keys: Keychain/WebCrypto auto-unlock across sign-ins.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -82,9 +82,12 @@ target_sources(OrbPlugin PRIVATE
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
     Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
+if(APPLE)
+    target_sources(OrbPlugin PRIVATE Source/DeviceKeychain.mm)
+endif()
 
 # ObjC++ files require ARC (rest of the project uses MRC)
-set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm
+set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm Source/DeviceKeychain.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
@@ -122,6 +125,7 @@ if(APPLE)
         "-framework UniformTypeIdentifiers"
         "-framework CoreMIDI"
         "-framework CoreAudio"
+        "-framework Security"
     )
 endif()
 
@@ -176,6 +180,9 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
         Source/DragMonitor.mm
         Source/VideoCapture.mm
     )
+    if(APPLE)
+        target_sources(${_target} PRIVATE Source/DeviceKeychain.mm)
+    endif()
 
     target_include_directories(${_target} PRIVATE Source/ThirdParty)
     target_compile_definitions(${_target}
@@ -211,6 +218,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
             "-framework UniformTypeIdentifiers"
             "-framework CoreMIDI"
             "-framework CoreAudio"
+            "-framework Security"
         )
     endif()
 

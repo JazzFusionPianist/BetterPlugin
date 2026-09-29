@@ -6,12 +6,27 @@
 #include "DragMonitor.h"
 #include <thread>
 #include "BinaryData.h"
+#if JUCE_MAC
+#include "DeviceKeychain.h"
+#endif
 #if JUCE_MAC || JUCE_LINUX
 #include <sys/stat.h>
 #endif
 
 namespace {
 constexpr juce::int64 maxBridgeFileBytes = 1024LL * 1024 * 1024;
+
+bool validChatKeyUser (const juce::String& value)
+{
+    if (value.length() != 36 || value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-') return false;
+    const auto compact = value.removeCharacters ("-");
+    return compact.length() == 32 && compact.containsOnly ("0123456789abcdefABCDEF");
+}
+
+bool validRecoveryCode (const juce::String& value)
+{
+    return value.length() == 43 && value.containsOnly ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
+}
 
 // Only the configured application can hold the privileged native bridge.
 class TrustedBrowser final : public juce::WebBrowserComponent {
@@ -375,6 +390,32 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleGetClipboardText (args, std::move (completion));
+                })
+            .withNativeFunction ("chatRecoveryKey",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() < 2 || args.size() > 3)
+                    { done ("error:invalid"); return; }
+                    const auto operation = args[0].toString();
+                    const auto user = args[1].toString();
+                    if (! validChatKeyUser (user)) { done ("error:invalid"); return; }
+#if JUCE_MAC
+                    if (operation == "load" && args.size() == 2)
+                    {
+                        const auto value = orb::deviceKeychain::load (user);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : "missing");
+                        return;
+                    }
+                    if (operation == "store" && args.size() == 3)
+                    {
+                        const auto value = args[2].toString();
+                        done (validRecoveryCode (value) && orb::deviceKeychain::store (user, value) ? "ok" : "error:keychain");
+                        return;
+                    }
+                    if (operation == "delete" && args.size() == 2)
+                    { done (orb::deviceKeychain::remove (user) ? "ok" : "error:keychain"); return; }
+#endif
+                    done ("error:unsupported");
                 })
             .withNativeFunction ("listLocalFonts",
                 [this] (const juce::var& args,

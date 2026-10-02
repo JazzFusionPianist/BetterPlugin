@@ -1,7 +1,14 @@
+#include <iterator>
+#include <cstring>
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
 #include <thread>
+#include "BinaryData.h"
+#if JUCE_MAC
+#include "DeviceKeychain.h"
+#endif
 #if JUCE_MAC || JUCE_LINUX
 #include <sys/stat.h>
 #endif
@@ -9,13 +16,27 @@
 namespace {
 constexpr juce::int64 maxBridgeFileBytes = 1024LL * 1024 * 1024;
 
+bool validChatKeyUser (const juce::String& value)
+{
+    if (value.length() != 36 || value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-') return false;
+    const auto compact = value.removeCharacters ("-");
+    return compact.length() == 32 && compact.containsOnly ("0123456789abcdefABCDEF");
+}
+
+bool validRecoveryCode (const juce::String& value)
+{
+    return value.length() == 43 && value.containsOnly ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
+}
+
 // Only the configured application can hold the privileged native bridge.
 class TrustedBrowser final : public juce::WebBrowserComponent {
 public:
     explicit TrustedBrowser (const Options& options) : WebBrowserComponent (options) {}
     bool pageAboutToLoad (const juce::String& raw) override {
-        const juce::URL target (raw), configured (ORB_APP_URL);
+        const juce::URL target (raw), configured (ORB_APP_URL), carried (juce::WebBrowserComponent::getResourceProviderRoot());
         if (raw.containsChar ('@') || raw.containsChar ('\\')) return false;
+        if (target.getScheme() == carried.getScheme() && target.getDomain() == carried.getDomain()
+            && target.getPort() == carried.getPort()) return true;
         if (target.getScheme() == configured.getScheme()
             && target.getDomain() == configured.getDomain()
             && target.getPort() == configured.getPort()) return true;
@@ -51,6 +72,8 @@ juce::File privateAudioTemp (const juce::String& name) {
     return dir.getChildFile (legal);
 }
 }
+
+
 
 //==============================================================================
 // Base64 decoder — handles both padded and unpadded input.
@@ -105,7 +128,8 @@ static bool decodeBase64 (const juce::String& b64, juce::MemoryBlock& out)
 OrbAudioProcessor::OrbAudioProcessor()
     : AudioProcessor (BusesProperties()
           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-          .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), true))    // the host's side chain (on by default, as JUCE's own sidechain plugins declare it: Logic offers its Side Chain menu for it)
 {
     // Delete only this feature's stale, private scratch directories. DAW imports
     // are copies owned by the project; user project paths are never traversed.
@@ -114,12 +138,75 @@ OrbAudioProcessor::OrbAudioProcessor()
         if (dir.getLastModificationTime().toMilliseconds() < juce::Time::currentTimeMillis() - 24LL * 60 * 60 * 1000)
             dir.deleteRecursively();
 
+    // twelve hands per slot for the host to automate, grouped by slot ("print 3 › delay feedback")
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        slotTypes[(size_t) i].store (orbfx::kNone);
+        const juce::String pid = "print" + juce::String (i + 1), pname = "print " + juce::String (i + 1) + " ";
+        auto group = std::make_unique<juce::AudioProcessorParameterGroup> (pid, "print " + juce::String (i + 1), " ");
+        auto& h = slotHost[i];
+        auto amount = std::make_unique<SlotFloatParam> (pid + "amount", pname + "amount");
+        auto mode   = std::make_unique<SlotIntParam>   (pid + "mode",   pname + "mode", 0, 7, 0);
+        auto decay  = std::make_unique<SlotFloatParam> (pid + "decay",  pname + "decay", 0.5f);
+        auto fb     = std::make_unique<SlotFloatParam> (pid + "fb",     pname + "feedback", 0.35f);
+        auto div    = std::make_unique<SlotIntParam>   (pid + "div",    pname + "time", 0, 6, 2);
+        auto wet    = std::make_unique<SlotBoolParam>  (pid + "wet",    pname + "wet only");
+        mode->text = [this, i] (int v) { const char* n = variantName (slotTypes[(size_t) i].load(), v); return n != nullptr ? juce::String (n) : juce::String (v); };
+        div->text  = [] (int v) { static const char* const d[] = { "1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2" }; return v >= 0 && v < 7 ? juce::String (d[v]) : juce::String (v); };
+        h.amount = amount.get(); h.mode = mode.get(); h.decay = decay.get(); h.fb = fb.get(); h.div = div.get(); h.wet = wet.get();
+        group->addChild (std::move (amount)); group->addChild (std::move (mode)); group->addChild (std::move (decay));
+        group->addChild (std::move (fb)); group->addChild (std::move (div)); group->addChild (std::move (wet));
+        for (int k = 0; k < 6; ++k)
+        {
+            auto ax = std::make_unique<SlotFloatParam> (pid + "aux" + juce::String (k), pname + "aux " + juce::String (k + 1));
+            ax->text = [this, i, k] (float n)
+            {
+                const int type = slotTypes[(size_t) i].load();
+                int lo, hi; auxRange (type, k, lo, hi);
+                const int v = (int) std::lround (lo + n * (hi - lo));
+                if (type == orbfx::kCut && k == 0) return juce::String ((v >= 1 && v <= 4 ? v : 2) * 12) + " dB/oct";
+                if ((type == orbfx::kSplitBands && k < 5) || (type == orbfx::kCarve && (k == 2 || k == 3))) return v >= 1000 ? juce::String (v / 1000.0, 2) + " kHz" : juce::String (v) + " Hz";
+                if (type == orbfx::kComp) { if (k == 0) return juce::String (v / 10.0, 1) + ":1"; if (k == 1) return juce::String (v / 10.0, 1) + " ms"; if (k == 2) return juce::String (v) + " ms"; if (k == 3 || k == 4) return juce::String (v) + " dB"; }
+                if (type == orbfx::kShift && k == 0) return juce::String (v) + " Hz";
+                if (type == orbfx::kShift && k == 1) return juce::String (v) + " %";
+                if (type == orbfx::kSmear) return k == 0 ? juce::String (v) + " ms" : juce::String (v) + " %";
+                if (type == orbfx::kEnv) { if (k == 2) return juce::String (v) + " %"; if (k == 4) return juce::String (v) + " dB"; if (k == 5) return juce::String (v ? "on" : "off"); return juce::String (v) + " ms"; }
+                if (type == orbfx::kRepeat && k == 4) return juce::String (v) + " dB";
+                if (type == orbfx::kDrift && k >= 4) return juce::String (v) + " %";
+                if (type == orbfx::kSieve) return k == 2 ? juce::String (v) + " %" : juce::String (v) + " ms";
+                if (type == orbfx::kRate || ((type == orbfx::kLfo || type == orbfx::kRepeat || type == orbfx::kDrift || type == orbfx::kPulse) && k < 4))   // a clock reads as words in the host, as on the wall
+                {
+                    static const char* const divs[] = { "1/32", "1/16", "1/8", "1/4", "1/2", "1/1", "2/1", "4/1" };
+                    static const char* const feel[] = { "straight", "dotted", "triplet" };
+                    if (k == 0) return juce::String (v == 1 ? "hz" : "sync");
+                    if (k == 1) return juce::String (divs[juce::jlimit (0, 7, v)]);
+                    if (k == 2) return juce::String (feel[juce::jlimit (0, 2, v)]);
+                    if (k == 3) return juce::String (v / 100.0, 2) + " hz";
+                }
+                return juce::String (v);
+            };
+            h.aux[k] = ax.get();
+            group->addChild (std::move (ax));
+        }
+        addParameterGroup (std::move (group));
+    }
+    {
+        auto group = std::make_unique<juce::AudioProcessorParameterGroup> ("macros", "macros", " ");
+        for (int m = 0; m < orbfx::kNumMacros; ++m)
+        {
+            auto prm = std::make_unique<SlotFloatParam> ("macro" + juce::String (m + 1), "macro " + juce::String (m + 1));
+            macroParam[m] = prm.get();
+            group->addChild (std::move (prm));
+        }
+        addParameterGroup (std::move (group));
+    }
     // Build the persistent WebView once per plugin instance. Its lifetime is
     // tied to the processor, so closing/reopening the editor never tears down
     // a live WebRTC session.
     browser = std::make_unique<TrustedBrowser> (
         juce::WebBrowserComponent::Options{}
             .withKeepPageLoadedWhenBrowserIsHidden()
+            .withResourceProvider ([this] (const juce::String& path) { return servePage (path); })
             .withNativeFunction ("prefetchAudio",
                 [this] (const juce::var& args,
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
@@ -143,6 +230,131 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleWriteAudioFiles (args, std::move (completion));
+                })
+            .withNativeFunction ("saveRegionArchive",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done ("error:invalid-region-archive"); return; }
+                    juce::MemoryBlock bytes;
+                    if (! decodeBase64 (args[0].toString(), bytes) || bytes.getSize() < 4
+                        || bytes.getSize() > 502ULL * 1024 * 1024
+                        || std::memcmp (bytes.getData(), "PK\x03\x04", 4) != 0)
+                    { done ("error:invalid-region-archive"); return; }
+                    const auto folder = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                        .getChildFile ("Slur Region Transfers");
+                    if (! folder.createDirectory()) { done ("error:save-folder"); return; }
+                    const auto file = folder.getChildFile ("regions-" + juce::Uuid().toString() + ".slur-regions.zip");
+                    if (! file.replaceWithData (bytes.getData(), bytes.getSize()))
+                    { done ("error:save-region-archive"); return; }
+                    file.revealToUser();
+                    done ("saved");
+                })
+            .withNativeFunction ("cacheRegionProject",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done ("error:invalid-project"); return; }
+                    juce::MemoryBlock bytes;
+                    if (! decodeBase64 (args[0].toString(), bytes) || bytes.getSize() < 4
+                        || bytes.getSize() > 502ULL * 1024 * 1024
+                        || std::memcmp (bytes.getData(), "PK\x03\x04", 4) != 0)
+                    { done ("error:invalid-project"); return; }
+                    // Never extract a received ZIP or accept a caller-supplied path.
+                    juce::MemoryInputStream stream (bytes, false);
+                    juce::ZipFile zip (stream);
+                    if (zip.getIndexOfFileName ("project.xml") < 0 || zip.getIndexOfFileName ("metadata.xml") < 0)
+                    { done ("error:invalid-project"); return; }
+                    const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("Slur Region Projects");
+                    if (! folder.createDirectory()) { done ("error:project-folder"); return; }
+                    const auto token = juce::Uuid().toDashedString();
+                    const auto file = folder.getChildFile (token + ".dawproject");
+                    if (! file.replaceWithData (bytes.getData(), bytes.getSize()))
+                    { done ("error:write-project"); return; }
+                    done (token);
+                })
+            .withNativeFunction ("cacheRegionAudio",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (!args.isArray() || args.size() != 1 || args[0].toString().length() > 700000000)
+                    { done("error:args"); return; }
+                    juce::MemoryBlock bytes;
+                    if (!decodeBase64(args[0].toString(), bytes) || bytes.getSize() < 44
+                        || bytes.getSize() > 500ULL * 1024 * 1024
+                        || std::memcmp(bytes.getData(), "RIFF", 4) != 0
+                        || std::memcmp(static_cast<const char*>(bytes.getData()) + 8, "WAVE", 4) != 0)
+                    { done("error:audio"); return; }
+                    // Hosts may reference dragged media instead of copying it.
+                    // Keep this library persistent, not in a purgeable temp folder.
+                    const auto folder = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                        .getChildFile("Slur").getChildFile("Shared Region Audio");
+                    if (!folder.createDirectory()) { done("error:folder"); return; }
+                    const auto token = juce::Uuid().toDashedString();
+                    if (!folder.getChildFile(token + ".wav").replaceWithData(bytes.getData(), bytes.getSize()))
+                    { done("error:write"); return; }
+                    done(token);
+                })
+            .withNativeFunction ("dragRegionLayout",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (!args.isArray() || args.size() != 1 || !args[0].isArray() || args[0].size() < 1 || args[0].size() > 512)
+                    { done("error:args"); return; }
+                    juce::XmlElement xml("vst-xml"); xml.setAttribute("version", "1.3");
+                    xml.createNewChildElement("sourceApp")->addTextElement("Slur Studio");
+                    const auto folder = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                        .getChildFile("Slur").getChildFile("Shared Region Audio");
+                    for (int i = 0; i < args[0].size(); ++i) {
+                        const auto r = args[0][i];
+                        const auto token = r.getProperty("token", {}).toString();
+                        const auto channel = r.getProperty("channel", {}).toString();
+                        const auto name = r.getProperty("name", {}).toString();
+                        auto numeric = [&r](const char* key) {
+                            auto v = r.getProperty(key, {});
+                            return (v.isInt() || v.isInt64() || v.isDouble()) && std::isfinite(static_cast<double>(v)) && static_cast<double>(v) >= 0;
+                        };
+                        if (token.length() != 36 || !token.containsOnly("0123456789abcdef-")
+                            || channel.isEmpty() || channel.length() > 128 || name.isEmpty() || name.length() > 512
+                            || !numeric("seconds") || !numeric("offset") || !numeric("end"))
+                        { done("error:region"); return; }
+                        const auto file = folder.getChildFile(token + ".wav");
+                        juce::WavAudioFormat format;
+                        auto input = file.createInputStream();
+                        if (!input) { done("error:missing-audio"); return; }
+                        std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(input.release(), true));
+                        const double offset = r["offset"], end = r["end"];
+                        if (!reader || offset != std::floor(offset) || end != std::floor(end)
+                            || end <= offset || end > reader->lengthInSamples)
+                        { done("error:trim"); return; }
+                        auto* region = xml.createNewChildElement("region");
+                        region->setAttribute("id", i + 1); region->setAttribute("channelID", channel);
+                        region->createNewChildElement("name")->addTextElement(name);
+                        region->createNewChildElement("filename")->addTextElement(file.getFullPathName());
+                        region->createNewChildElement("start")->addTextElement(juce::String(static_cast<juce::int64>(offset)));
+                        region->createNewChildElement("end")->addTextElement(juce::String(static_cast<juce::int64>(end)));
+                        auto* time = region->createNewChildElement("projectTime"); time->setAttribute("domain", "seconds");
+                        time->addTextElement(juce::String(static_cast<double>(r["seconds"]), 17));
+                    }
+                    if (auto* editor = dynamic_cast<OrbAudioProcessorEditor*>(getActiveEditor())) {
+                        editor->armRegionXml(xml.toString().toStdString()); done("armed");
+                    } else done("error:no-editor");
+                })
+            .withNativeFunction ("dragRegionProject",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() != 1) { done ("error:args"); return; }
+                    const auto token = args[0].toString();
+                    if (token.length() != 36 || ! token.containsOnly ("0123456789abcdef-"))
+                    { done ("error:token"); return; }
+                    const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                        .getChildFile ("Slur Region Projects").getChildFile (token + ".dawproject");
+                    if (! file.existsAsFile()) { done ("error:missing-project"); return; }
+                    if (auto* editor = dynamic_cast<OrbAudioProcessorEditor*> (getActiveEditor()))
+                    {
+                        editor->armDragMonitor (file.getFullPathName().toStdString());
+                        done ("armed");
+                    }
+                    else done ("error:no-editor");
                 })
             .withNativeFunction ("startVideoCapture",
                 [this] (const juce::var& args,
@@ -185,6 +397,32 @@ OrbAudioProcessor::OrbAudioProcessor()
                         juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     handleGetClipboardText (args, std::move (completion));
+                })
+            .withNativeFunction ("chatRecoveryKey",
+                [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! args.isArray() || args.size() < 2 || args.size() > 3)
+                    { done ("error:invalid"); return; }
+                    const auto operation = args[0].toString();
+                    const auto user = args[1].toString();
+                    if (! validChatKeyUser (user)) { done ("error:invalid"); return; }
+#if JUCE_MAC
+                    if (operation == "load" && args.size() == 2)
+                    {
+                        const auto value = orb::deviceKeychain::load (user);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : "missing");
+                        return;
+                    }
+                    if (operation == "store" && args.size() == 3)
+                    {
+                        const auto value = args[2].toString();
+                        done (validRecoveryCode (value) && orb::deviceKeychain::store (user, value) ? "ok" : "error:keychain");
+                        return;
+                    }
+                    if (operation == "delete" && args.size() == 2)
+                    { done (orb::deviceKeychain::remove (user) ? "ok" : "error:keychain"); return; }
+#endif
+                    done ("error:unsupported");
                 })
             .withNativeFunction ("listLocalFonts",
                 [this] (const juce::var& args,
@@ -230,6 +468,22 @@ OrbAudioProcessor::OrbAudioProcessor()
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleSavePresetDialog (a, std::move (done)); })
             .withNativeFunction ("openPresetDialog",
                 [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done) { handleOpenPresetDialog (a, std::move (done)); })
+            .withNativeFunction ("gesture",
+                [this] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    // [slot, begin, hand]: the wall's finger is on one of a print's hands
+                    if (auto* arr = a.getArray(); arr != nullptr && arr->size() >= 2)
+                    {
+                        const int slot = (int) (*arr)[0];
+                        const juce::String hand = arr->size() >= 3 ? (*arr)[2].toString() : "amount";
+                        if (auto* prm = handParam (slot, hand))
+                        {
+                            if ((bool) (*arr)[1]) prm->beginChangeGesture();
+                            else                  prm->endChangeGesture();
+                        }
+                    }
+                    done (juce::var (true));
+                })
             .withNativeFunction ("orbLog",
                 [] (const juce::var& a, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
@@ -296,7 +550,7 @@ OrbAudioProcessor::OrbAudioProcessor()
                                               : host.isLogic() ? "Logic Pro"
                                               : host.isProTools() ? "Pro Tools" : host.getHostDescription()));
                 })
-            .withNativeFunction ("regionTransfer",
+            .withNativeFunction ("regionBundleTransfer",
                 [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
                 {
                     auto target = juce::Component::SafePointer<juce::WebBrowserComponent> (browser.get());
@@ -325,6 +579,45 @@ OrbAudioProcessor::OrbAudioProcessor()
                     regionBridge.invoke (jobArgs, [target, completion = std::move (completion)] (juce::var result) {
                         if (target != nullptr) completion (result);
                     }, browser.get());
+                })
+            .withNativeFunction ("trackExportHost",
+                [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    done (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
+                        : juce::PluginHostType().isProTools() ? "Pro Tools"
+                        : juce::PluginHostType().isLogic() ? "Logic Pro"
+                        : juce::File::getSpecialLocation (juce::File::hostApplicationPath).getFullPathName().containsIgnoreCase ("/LUNA.app/")
+                            ? "LUNA" : juce::PluginHostType().getHostDescription()));
+                })
+            .withNativeFunction ("trackExportCapabilities",
+                [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                { done (juce::String ("{\"adapters\":[\"Pro Tools\"]}")); })
+            .withNativeFunction ("trackExport",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    if (! juce::JUCEApplicationBase::isStandaloneApp() && ! juce::PluginHostType().isProTools())
+                    {
+                        done (juce::String ("{\"ok\":false,\"error\":\"Track export is available only for Pro Tools.\"}"));
+                        return;
+                    }
+                    if (! args.isArray() || (args[0].toString() != "inspectTracks" && args[0].toString() != "inspectTrackRange" && args[0].toString() != "exportTracks"))
+                    { done (juce::String ("{\"ok\":false,\"error\":\"Invalid track operation.\"}")); return; }
+                    trackExportBridge.invoke (args, std::move (done));
+                })
+            .withNativeFunction ("regionTransfer",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    const bool luna = juce::File::getSpecialLocation (juce::File::hostApplicationPath)
+                        .getFullPathName().containsIgnoreCase ("/LUNA.app/");
+                    const auto op = args.isArray() && args.size() > 0 ? args[0].toString() : juce::String();
+                    const bool standalone = juce::JUCEApplicationBase::isStandaloneApp();
+                    const bool lunaOperation = op == "inspectLunaRegions" || op == "exportLunaRegions"
+                        || op == "inspectLunaDestination" || op == "importLunaRegions";
+                    const bool proToolsOperation = op == "inspectProToolsDestination" || op == "importProToolsRegions";
+                    if (! ((lunaOperation && (standalone || luna))
+                        || (proToolsOperation && (standalone || juce::PluginHostType().isProTools()))))
+                    { done (juce::String ("{\"ok\":false,\"error\":\"This DAW does not support automatic region placement.\"}")); return; }
+                    trackExportBridge.invoke (args, std::move (done));
                 }));
 
     controlBridge = std::make_unique<OrbControlBridge> (
@@ -349,19 +642,8 @@ OrbAudioProcessor::OrbAudioProcessor()
     // The v= cache-buster defeats WKWebView's disk cache, which otherwise
     // keeps serving a stale index.html (and so a stale bundle) across
     // fresh instances and even host restarts.
-    {
-        juce::String url (ORB_APP_URL);
-        url += (url.contains ("?") ? "&" : "?");
-        url += "plugin=1&v=" + juce::String (juce::Time::currentTimeMillis());
-       #ifdef ORB_SURFACE
-        // Split-out single-purpose builds (Orb Chat, …) tell the web app
-        // which surface to boot — it hides the other rooms.
-        url += juce::String ("&surface=") + ORB_SURFACE;
-        // …and which native build is hosting it (settings shows it).
-        url += juce::String ("&ver=") + JucePlugin_VersionString;
-       #endif
-        browser->goToURL (url);
-    }
+    loadCarriedPage();
+    askSiteForNewer();
 
     // Start polling the capture ring buffer and forwarding samples to JS.
     startTimer (20);
@@ -370,6 +652,9 @@ OrbAudioProcessor::OrbAudioProcessor()
 OrbAudioProcessor::~OrbAudioProcessor()
 {
     regionBridge.shutdown();
+    alive->store (false);
+    if (siteCheck != nullptr && siteCheck->joinable()) siteCheck->join();
+    trackExportBridge.shutdown();
     stopTimer();
 }
 
@@ -389,8 +674,9 @@ void OrbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         // Re-publish whatever patch is current (state may have loaded
         // before the engine existed at this sample rate).
         juce::String err;
+        hostParamsToGraph();   // the host's params win over the graph copy (automation, or a host that set a param before re-initialising)
         const juce::ScopedLock sl (fxGraphLock);
-        if (fxGraph.nodes.empty() && fxGraph.edges.empty()) rebuildLegacyGraph();
+        if (fxGraph.nodes.empty() && fxGraph.edges.empty()) freshGraph();
         else applyGraph (fxGraph, err);
     }
 }
@@ -404,6 +690,12 @@ bool OrbAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 {
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
+    if (layouts.inputBuses.size() > 1)
+    {
+        // the sidechain: off, mono or stereo
+        const auto side = layouts.getChannelSet (true, 1);
+        if (! (side.isDisabled() || side == juce::AudioChannelSet::mono() || side == juce::AudioChannelSet::stereo())) return false;
+    }
 
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
         || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::mono();
@@ -485,8 +777,15 @@ void OrbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // One-knob FX — before the capture FIFO, so the shared/streamed audio
-    // carries the same sound the DAW hears.
-    processFx (buffer);
+    // carries the same sound the DAW hears. The wall works on the main
+    // bus; the sidechain bus (when the host routes one) is handed along.
+    {
+        auto main = getBusBuffer (buffer, true, 0);
+        const bool hasSide = getBusCount (true) > 1 && getBus (true, 1)->isEnabled() && getChannelCountOfBus (true, 1) > 0;
+        juce::AudioBuffer<float> side;
+        if (hasSide) side = getBusBuffer (buffer, true, 1);
+        processFx (main, hasSide ? &side : nullptr);
+    }
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = juce::jmin (buffer.getNumChannels(), captureBuffer.getNumChannels());
@@ -622,6 +921,57 @@ void OrbAudioProcessor::timerCallback()
     // per-slot block peaks: the wall's lamps breathe with what passes through
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
         script << (i ? "," : "") << juce::String (fxChain.nodePeak (i), 3);
+    // per-slot hands as the host has them: automation reaches the wall this way
+    hostParamsToGraph();
+    script << "],hands:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const auto& h = slotHost[i];
+        const int type = slotTypes[(size_t) i].load();
+        script << (i ? ",[" : "[") << juce::String (h.amount->get(), 4) << "," << h.mode->get() << "," << juce::String (h.decay->get(), 4) << ","
+               << juce::String (h.fb->get(), 4) << "," << h.div->get() << "," << (h.wet->get() ? 1 : 0);
+        for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); script << "," << (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)); }
+        script << "]";
+    }
+    // per-slot hands as played (the pushes in): the study shows these move
+    script << "],live:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const auto* L = &liveHands[(size_t) i * 12];
+        script << (i ? ",[" : "[") << juce::String (L[0].load (std::memory_order_relaxed), 4) << "," << (int) L[1].load (std::memory_order_relaxed) << ","
+               << juce::String (L[2].load (std::memory_order_relaxed), 4) << "," << juce::String (L[3].load (std::memory_order_relaxed), 4) << ","
+               << (int) L[4].load (std::memory_order_relaxed) << "," << (int) L[5].load (std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) script << "," << (int) L[6 + k].load (std::memory_order_relaxed);
+        script << "]";
+    }
+    // a follow's meter: what it heard (peak since the last event, after its sense) and where its envelope is, both linear
+    script << "],lph:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (ratePhaseOut[(size_t) i].load (std::memory_order_relaxed), 4);
+    script << "],lcy:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << rateCycleOut[(size_t) i].load (std::memory_order_relaxed);
+    // a comp's meter: the key's peak since the last event and its reduction now, both dB-ready (linear peak, dB reduction)
+    script << "],cin:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kComp ? fxChain.takeCompIn (i) : 0.0f, 5);
+    script << "],cgr:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String (slotTypes[(size_t) i].load() == orbfx::kComp ? fxChain.compReduction (i) : 0.0f, 2);
+    script << "],fin:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String ((slotTypes[(size_t) i].load() == orbfx::kFollow || slotTypes[(size_t) i].load() == orbfx::kEnv) ? fxChain.takeFollowIn (i) : 0.0f, 5);
+    script << "],fenv:[";
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) script << (i ? "," : "") << juce::String ((slotTypes[(size_t) i].load() == orbfx::kFollow || slotTypes[(size_t) i].load() == orbfx::kEnv) ? fxChain.followEnvelope (i) : 0.0f, 5);
+    // a spectral print's meter: [slot, 40 × sound dB, 40 × key dB, 40 × gain dB] for each carve / match / vocode / sieve on the wall
+    script << "],spec:[";
+    { bool first = true;
+      for (int i = 0; i < orbfx::kMaxNodes; ++i)
+      {
+          const int ty = slotTypes[(size_t) i].load();
+          if (! (ty == orbfx::kCarve || ty == orbfx::kMatch || ty == orbfx::kVocode || ty == orbfx::kSieve)) continue;
+          const float* sp = fxChain.spectrum (i); if (sp == nullptr) continue;
+          script << (first ? "[" : ",[") << i; first = false;
+          for (int k = 0; k < orbfx::kSpecN; ++k) script << "," << juce::String (sp[k], 1);
+          script << "]";
+      } }
+    script << "],macros:[";
+    for (int m = 0; m < orbfx::kNumMacros; ++m) script << (m ? "," : "") << juce::String (macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f, 4);
     script << "]}}))";
 
     browser->evaluateJavascript (script,
@@ -1056,6 +1406,32 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) return;
     auto& s = fxSlots[(size_t) nd.id];
     s.amount.store (juce::jlimit (0.0f, 1.0f, nd.amount), std::memory_order_relaxed);
+    slotTypes[(size_t) nd.id].store (nd.type);
+    if (nd.type == orbfx::kMacro)
+    {
+        const int m = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
+        if (std::abs (macroParam[m]->get() - nd.amount) > 1.0e-4f) macroParam[m]->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, nd.amount));
+        return;
+    }
+    // the host's params follow the wall (only what differs, so automation being played back is left alone)
+    auto& h = slotHost[nd.id];
+    auto setF = [] (SlotFloatParam* prm, float v) { v = juce::jlimit (0.0f, 1.0f, v); if (prm != nullptr && std::abs (prm->get() - v) > 1.0e-4f) prm->setValueNotifyingHost (v); };
+    auto setI = [] (SlotIntParam* prm, int v) { if (prm != nullptr && prm->get() != v) prm->setValueNotifyingHost (prm->convertTo0to1 ((float) v)); };
+    setF (h.amount, nd.amount);
+    setI (h.mode, juce::jlimit (0, 7, nd.variant));
+    setF (h.decay, nd.decay[juce::jlimit (0, 2, nd.variant)]);
+    setF (h.fb, nd.delayFb);
+    setI (h.div, juce::jlimit (0, 6, nd.delayDiv));
+    if (h.wet != nullptr && h.wet->get() != nd.wet) h.wet->setValueNotifyingHost (nd.wet ? 1.0f : 0.0f);
+    for (int k = 0; k < 6; ++k)
+    {
+        // an aux hand is an integer on the wall: leave the param alone while it already means that integer
+        // (re-normalising would nudge a value the host just set)
+        int lo, hi; auxRange (nd.type, k, lo, hi);
+        if (h.aux[k] == nullptr) continue;
+        const int now = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)));
+        if (now != nd.aux[k]) setF (h.aux[k], hi > lo ? (float) (nd.aux[k] - lo) / (float) (hi - lo) : 0.0f);
+    }
     s.variant.store (juce::jlimit (0, 7, nd.variant), std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i)
         s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
@@ -1066,6 +1442,14 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     for (int i = 0; i < orbfx::kCurveLen; ++i)
         s.curve[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.curve[i]), std::memory_order_relaxed);
     s.hasCurve.store (nd.hasCurve, std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kLfoLen; ++i)
+    {
+        s.lfo[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo[i]), std::memory_order_relaxed);
+        s.lfoCliff[(size_t) i].store (std::abs (nd.lfo[(i + 1) % orbfx::kLfoLen] - nd.lfo[i]) > 0.12f ? 1 : 0, std::memory_order_relaxed);   // one step of the table is 1/1024 of a turn: a change this big in it is a drawn cliff (or the shape's seam)
+    }
+    s.hasLfo.store (nd.hasLfo, std::memory_order_relaxed);
+    for (int i = 0; i < orbfx::kLfoLen; ++i) s.lfo2[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.lfo2[i]), std::memory_order_relaxed);
+    s.hasLfo2.store (nd.hasLfo2, std::memory_order_relaxed);
 }
 
 bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
@@ -1076,11 +1460,262 @@ bool OrbAudioProcessor::applyGraph (const orbfx::Graph& g, juce::String& error)
         const juce::ScopedLock sl (fxGraphLock);
         fxGraph = g;
     }
+    for (int i = 0; i < orbfx::kMaxNodes; ++i) slotTypes[(size_t) i].store (orbfx::kNone);
     for (auto& nd : g.nodes) writeSlot (nd);
+    syncHandNames();
     fxChain.publish (prog);
+    {
+        ModTable t;
+        bool isLfo[orbfx::kMaxNodes] {};
+        int  typeOf[orbfx::kMaxNodes]; for (auto& x : typeOf) x = orbfx::kNone;
+        for (auto& nd : g.nodes)
+        {
+            if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
+            typeOf[nd.id] = nd.type;
+            if (nd.type == orbfx::kRate)  t.isRate[nd.id] = true;
+            if (nd.type == orbfx::kLfo)   isLfo[nd.id] = true;
+            if (nd.type == orbfx::kMacro) t.macroOf[nd.id] = juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0]);
+            if (nd.type == orbfx::kFollow || nd.type == orbfx::kEnv) t.isFollow[nd.id] = true;
+            if (nd.type == orbfx::kLfo)   { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.shapeOf[nd.id] = nd.id; }   // an lfo plays hands itself: its own clock, its own shape
+            if (nd.type == orbfx::kDrift) { t.isRate[nd.id] = true; t.isLfo[nd.id] = true; t.isDrift[nd.id] = true; }   // a drift is an lfo with a wandering shape
+            if (nd.type == orbfx::kPulse) { t.isRate[nd.id] = true; t.isPulse[nd.id] = true; }                          // a pulse is a rate whose value is a gate
+            if (nd.type == orbfx::kScene && t.sceneSlot < 0)
+            {
+                t.sceneSlot = nd.id;
+                auto take = [] (const std::vector<float>& src, float (&dst)[orbfx::kMaxNodes][orbfx::kSceneHands], bool (&has)[orbfx::kMaxNodes])
+                {
+                    for (size_t i = 0; i + orbfx::kSceneStride <= src.size(); i += orbfx::kSceneStride)
+                    {
+                        const int id = (int) src[i]; if (id < 0 || id >= orbfx::kMaxNodes) continue;
+                        has[id] = true;
+                        for (int k = 0; k < orbfx::kSceneHands; ++k) dst[id][k] = src[i + 1 + (size_t) k];
+                    }
+                };
+                bool hasA[orbfx::kMaxNodes] {}, hasB[orbfx::kMaxNodes] {};
+                take (nd.sceneA, t.sceneA, hasA); take (nd.sceneB, t.sceneB, hasB);
+                for (int s = 0; s < orbfx::kMaxNodes; ++s)
+                    for (int k = 0; k < orbfx::kSceneHands; ++k)
+                        t.sceneHeld[s][k] = hasA[s] && hasB[s] && s != nd.id && std::abs (t.sceneA[s][k] - t.sceneB[s][k]) > 1.0e-4f;
+            }
+        }
+        for (auto& e : g.edges)
+        {
+            const bool nodes = e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes;
+            if (! nodes) continue;
+            const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
+            if ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src && t.count < orbfx::kMaxEdges)
+            {
+                auto& w = t.wires[t.count++];
+                w = { e.from, e.to, e.hand, juce::jlimit (-1.0f, 1.0f, e.gain), typeOf[e.to], t.macroOf[e.from] >= 0 || t.isFollow[e.from], -1 };
+                w.uni = e.pol == 1 || (e.pol == 0 && (w.fromMacro || t.isPulse[e.from]));   // a pulse pushes one way too: off is the setting, on is the throw
+                if (e.refHand != orbfx::kHandNone) { w.hand = orbfx::kHandNone; w.target = -2; }   // resolved below
+            }
+            else if (e.hand == orbfx::kHandNone && isLfo[e.from] && t.isRate[e.to])
+                t.shapeOf[e.to] = e.from;
+        }
+        // a wire that plays another wire's depth: find that wire by (from, to, hand)
+        {
+            int k = 0;
+            for (auto& e : g.edges)
+            {
+                if (! (e.from >= 0 && e.from < orbfx::kMaxNodes && e.to >= 0 && e.to < orbfx::kMaxNodes)) continue;
+                const bool src = t.isRate[e.from] || t.macroOf[e.from] >= 0 || t.isFollow[e.from];
+                if (! ((e.hand != orbfx::kHandNone || e.refHand != orbfx::kHandNone) && src)) continue;
+                if (k >= t.count) break;
+                if (e.refHand != orbfx::kHandNone)
+                    for (int j = 0; j < t.count; ++j)
+                        if (t.wires[j].from == e.refFrom && t.wires[j].to == e.to && t.wires[j].hand == e.refHand) { t.wires[k].target = j; break; }
+                ++k;
+            }
+        }
+        const juce::SpinLock::ScopedLockType sl (modLock);
+        modPending = t;
+        modPendingFlag.store (true, std::memory_order_release);
+    }
     // the host lines the track up by this much (mix aligned, monitoring late)
     if (getLatencySamples() != prog.latency) setLatencySamples (prog.latency);
     return true;
+}
+
+static const char* const kTypeNames[] = { "tone", "tape", "space", "stereo", "glue", "gain", "mod", "cut", "amp", "doubler", "delay", "mix",
+                                          "tremolo", "arp", "radio", "harmony", "pitch", "formant", "grain", "voice", "crush",
+                                          "shimmer", "swell", "stutter", "air", "ring", "gate", "wow", "L/R", "M/S", "LFO", "rate", "macro", "side", "follow", "comp", "bands", "carve", "match", "vocode", "freeze", "shift", "smear", "pan", "repeat", "env", "fold", "drift", "pulse", "scene", "sieve" };
+
+/** The variants' words, as the wall spells them (mode text for the host). */
+static const std::vector<std::vector<const char*>> kVariantNames = {
+    {}, { "hard", "clean" }, { "hall", "room", "plate" }, {}, {}, {}, { "chorus", "flanger", "phaser" }, { "high pass", "low pass", "band" },
+    { "clean", "crunch", "lead", "fuzz" }, { "tight", "wide" }, { "clean", "tape", "pingpong" }, { "blend", "sum" },
+    { "sine", "triangle", "square", "pulse", "saw" }, { "up", "down", "up-down", "random" }, { "am", "phone" }, { "key", "chromatic" },
+    { "raw", "natural" }, {}, { "cloud", "stutter", "reverse" }, { "female", "male", "child", "giant" }, { "both", "bits", "rate" },
+    { "octave", "fifth", "down" }, { "soft", "hard" }, { "beat", "bar" }, { "silk", "bright" }, { "ring", "am" }, { "tight", "loose" }, { "wow", "flutter", "both" },
+    {}, {}, {}, {}, {}, {}, { "envelope", "transient" },   // L/R, M/S, LFO, rate, macro, side, follow
+    { "peak", "rms" },            // comp
+    {}, {}, {}, {},               // bands, carve, match, vocode
+    {}, {}, {}, {}, {}, { "level", "wire" }, { "sine", "triangle" },   // freeze, shift, smear, pan, repeat, env, fold
+    {}, {}, {}, {},               // drift, pulse, scene, sieve
+};
+const char* OrbAudioProcessor::variantName (int type, int v)
+{
+    if (type < 0 || type >= (int) kVariantNames.size()) return nullptr;
+    const auto& names = kVariantNames[(size_t) type];
+    return v >= 0 && v < (int) names.size() ? names[(size_t) v] : nullptr;
+}
+/** An aux hand's name and range, by print (the wall's HANDS table, plus the rate's clock). */
+const char* OrbAudioProcessor::auxName (int type, int k)
+{
+    switch (type)
+    {
+        case orbfx::kCut:     return k == 0 ? "slope" : nullptr;
+        case orbfx::kTremolo: return k == 0 ? "moves" : k == 2 ? "shape" : nullptr;
+        case orbfx::kArp:     return k == 0 ? "step" : nullptr;
+        case orbfx::kHarmony: return k == 0 ? "key" : k == 1 ? "scale" : k == 2 ? "interval" : nullptr;
+        case orbfx::kPitch:   return k == 0 ? "cents" : k == 1 ? "engine" : nullptr;
+        case orbfx::kFormant: return k == 0 ? "engine" : nullptr;
+        case orbfx::kGrain:   { static const char* const g[] = { "size", "spray", "scatter", "key", "scale", "pan" }; return k < 6 ? g[k] : nullptr; }
+        case orbfx::kSwell:   return k == 0 ? "depth" : nullptr;
+        case orbfx::kRate:    { static const char* const r[] = { "clock", "rate", "feel", "hz" }; return k < 4 ? r[k] : nullptr; }
+        case orbfx::kLfo:     { static const char* const l[] = { "clock", "rate", "feel", "hz", "steps", "depth", "reset" }; return k < 7 ? l[k] : nullptr; }
+        case orbfx::kFollow:  { static const char* const f[] = { "attack", "release", "sense", "threshold" }; return k < 4 ? f[k] : nullptr; }
+        case orbfx::kComp:    { static const char* const c[] = { "ratio", "attack", "release", "knee", "makeup" }; return k < 5 ? c[k] : nullptr; }
+        case orbfx::kSplitBands: { static const char* const b[] = { "cross 1", "cross 2", "cross 3", "cross 4", "cross 5", "crossovers" }; return k < 6 ? b[k] : nullptr; }
+        case orbfx::kCarve:   { static const char* const c[] = { "attack", "release", "from", "to" }; return k < 4 ? c[k] : nullptr; }
+        case orbfx::kMatch:   { static const char* const m[] = { "learn", "smooth" }; return k < 2 ? m[k] : nullptr; }
+        case orbfx::kVocode:  { static const char* const v[] = { "bands", "attack", "release" }; return k < 3 ? v[k] : nullptr; }
+        case orbfx::kShift:   return k == 0 ? "hz" : k == 1 ? "feedback" : nullptr;
+        case orbfx::kSmear:   return k == 0 ? "time" : k == 1 ? "blur" : nullptr;
+        case orbfx::kRepeat:  { static const char* const r[] = { "clock", "rate", "feel", "hz", "threshold" }; return k < 5 ? r[k] : nullptr; }
+        case orbfx::kEnv:     { static const char* const e[] = { "attack", "decay", "sustain", "release", "threshold", "gate" }; return k < 6 ? e[k] : nullptr; }
+        case orbfx::kDrift:   { static const char* const d[] = { "clock", "rate", "feel", "hz", "smooth", "depth" }; return k < 6 ? d[k] : nullptr; }
+        case orbfx::kSieve:   { static const char* const s[] = { "attack", "release", "mix" }; return k < 3 ? s[k] : nullptr; }
+        case orbfx::kPulse:   { static const char* const p[] = { "clock", "rate", "feel", "hz", "steps", "hits", "rotate", "length" }; return k < 8 ? p[k] : nullptr; }
+        default: return nullptr;
+    }
+}
+void OrbAudioProcessor::auxRange (int type, int k, int& lo, int& hi)
+{
+    lo = 0; hi = 100;
+    switch (type)
+    {
+        case orbfx::kCut:     if (k == 0) { lo = 0; hi = 4; } break;   // 1..4 = 12, 24, 36, 48 dB per octave (0 = unset = 24)
+        case orbfx::kTremolo: if (k == 0) { lo = 0; hi = 1; } else if (k == 2) { lo = 0; hi = 13; } break;
+        case orbfx::kArp:     if (k == 0) { lo = 1; hi = 12; } break;
+        case orbfx::kHarmony: if (k == 0) { lo = 0; hi = 11; } else if (k == 1) { lo = 0; hi = 1; } else if (k == 2) { lo = -12; hi = 12; } break;
+        case orbfx::kPitch:   if (k == 0) { lo = -100; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
+        case orbfx::kFormant: if (k == 0) { lo = 0; hi = 1; } break;
+        case orbfx::kGrain:   if (k == 0) { lo = 10; hi = 600; } else if (k == 1) { lo = 0; hi = 1500; } else if (k == 2) { lo = 0; hi = 24; } else if (k == 3) { lo = 0; hi = 11; } else if (k == 4) { lo = 0; hi = 1; } else { lo = 0; hi = 100; } break;
+        case orbfx::kSwell:   if (k == 0) { lo = 0; hi = 100; } else if (k == 1) { lo = 0; hi = 1; } break;
+        case orbfx::kRate:    if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } break;
+        case orbfx::kLfo:     if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 32; } else if (k == 5) { lo = 0; hi = 100; } else if (k == 6) { lo = 0; hi = 1; } break;
+        case orbfx::kSplitBands: if (k < 5) { lo = 20; hi = 20000; } else if (k == 5) { lo = 1; hi = 5; } break;
+        case orbfx::kCarve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2 || k == 3) { lo = 20; hi = 20000; } break;
+        case orbfx::kMatch:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 1; hi = 48; } break;
+        case orbfx::kVocode:  if (k == 0) { lo = 8; hi = 64; } else if (k == 1) { lo = 1; hi = 200; } else if (k == 2) { lo = 10; hi = 2000; } break;
+        case orbfx::kComp:    if (k == 0) { lo = 10; hi = 200; } else if (k == 1) { lo = 1; hi = 1000; } else if (k == 2) { lo = 10; hi = 2000; } else if (k == 3) { lo = 0; hi = 24; } else if (k == 4) { lo = 0; hi = 24; } break;   // ratio ×10, attack ×10 ms, release ms, knee dB, makeup dB
+        case orbfx::kFollow:  if (k == 0) { lo = 1; hi = 500; } else if (k == 1) { lo = 5; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = -60; hi = -1; } break;
+        case orbfx::kShift:   if (k == 0) { lo = -2000; hi = 2000; } else if (k == 1) { lo = 0; hi = 95; } break;
+        case orbfx::kSmear:   if (k == 0) { lo = 50; hi = 5000; } else if (k == 1) { lo = 0; hi = 100; } break;
+        case orbfx::kRepeat:  if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = -60; hi = -1; } break;
+        case orbfx::kSieve:   if (k == 0) { lo = 1; hi = 200; } else if (k == 1) { lo = 20; hi = 2000; } else if (k == 2) { lo = 0; hi = 100; } break;
+        case orbfx::kDrift:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 0; hi = 100; } else if (k == 5) { lo = 0; hi = 100; } break;
+        case orbfx::kPulse:   if (k == 0) { lo = 0; hi = 1; } else if (k == 1) { lo = 0; hi = 7; } else if (k == 2) { lo = 0; hi = 2; } else if (k == 3) { lo = 1; hi = 2000; } else if (k == 4) { lo = 1; hi = 32; } else if (k == 5) { lo = 0; hi = 32; } else if (k == 6) { lo = 0; hi = 31; } else if (k == 7) { lo = 0; hi = 100; } break;
+        case orbfx::kEnv:     if (k == 0) { lo = 1; hi = 5000; } else if (k == 1) { lo = 1; hi = 5000; } else if (k == 2) { lo = 0; hi = 100; } else if (k == 3) { lo = 1; hi = 10000; } else if (k == 4) { lo = -60; hi = -1; } else if (k == 5) { lo = 0; hi = 1; } break;
+        default: break;
+    }
+}
+
+juce::AudioProcessorParameter* OrbAudioProcessor::handParam (int slot, const juce::String& hand) const
+{
+    if (slot < 0 || slot >= orbfx::kMaxNodes) return nullptr;
+    const auto& h = slotHost[slot];
+    if (hand == "amount" && slotTypes[(size_t) slot].load() == orbfx::kMacro)
+    {
+        const juce::ScopedLock sl (fxGraphLock);
+        for (auto& nd : fxGraph.nodes) if (nd.id == slot) return macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])];
+        return nullptr;
+    }
+    if (hand == "amount")  return h.amount;
+    if (hand == "variant") return h.mode;
+    if (hand == "decay")   return h.decay;
+    if (hand == "fb")      return h.fb;
+    if (hand == "div")     return h.div;
+    if (hand == "wet")     return h.wet;
+    if (hand.startsWith ("aux")) { const int k = hand.substring (3).getIntValue(); return k >= 0 && k < 6 ? h.aux[k] : nullptr; }
+    return nullptr;
+}
+
+void OrbAudioProcessor::syncHandNames()
+{
+    bool changed = false;
+    const juce::ScopedLock sl (fxGraphLock);
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        int type = orbfx::kNone;
+        for (auto& nd : fxGraph.nodes) if (nd.id == i) type = nd.type;
+        const bool named = type >= 0 && type < (int) std::size (kTypeNames);
+        const juce::String prefix = named ? juce::String (kTypeNames[type]) + " " : "print " + juce::String (i + 1) + " ";
+        auto& h = slotHost[i];
+        auto put = [&] (juce::String& dyn, const juce::String& name) { if (dyn != name) { dyn = name; changed = true; } };
+        put (h.amount->dynName, prefix + (type == orbfx::kCut ? "cutoff" : type == orbfx::kComp ? "threshold" : type == orbfx::kCarve ? "depth" : type == orbfx::kPan ? "pan" : type == orbfx::kFold ? "drive" : type == orbfx::kFreeze ? "hold" : type == orbfx::kScene ? "scene" : type == orbfx::kSieve ? "keep" : type == orbfx::kShift || type == orbfx::kSmear || type == orbfx::kRepeat ? "mix" : "amount"));
+        put (h.mode->dynName,   prefix + "mode");
+        put (h.decay->dynName,  prefix + (type == orbfx::kLfo ? "morph" : "decay"));
+        put (h.fb->dynName,     prefix + "feedback");
+        put (h.div->dynName,    prefix + (type == orbfx::kTremolo || type == orbfx::kArp ? "rate" : "time"));
+        put (h.wet->dynName,    prefix + "wet only");
+        for (int k = 0; k < 6; ++k)
+        {
+            const char* an = auxName (type, k);
+            // a hand named like its print (the rate's rate) is said once
+            put (h.aux[k]->dynName, an == nullptr ? prefix + "aux " + juce::String (k + 1) : (named && juce::String (an) == kTypeNames[type]) ? prefix.trim() : prefix + an);
+        }
+    }
+    if (changed) updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withParameterInfoChanged (true));
+}
+
+void OrbAudioProcessor::hostParamsToGraph()
+{
+    // automation moved a param: the graph copy (what gets saved, what the wall reads back) follows
+    const juce::ScopedLock sl (fxGraphLock);
+    for (auto& nd : fxGraph.nodes)
+    {
+        if (nd.id < 0 || nd.id >= orbfx::kMaxNodes) continue;
+        const auto& h = slotHost[nd.id];
+        auto& s = fxSlots[(size_t) nd.id];
+        if (nd.type == orbfx::kMacro)
+        {
+            const float mv = macroParam[juce::jlimit (0, orbfx::kNumMacros - 1, nd.aux[0])]->get();
+            if (std::abs (mv - nd.amount) > 1.0e-4f) { nd.amount = mv; s.amount.store (mv, std::memory_order_relaxed); }
+            continue;
+        }
+        const float a = h.amount->get(); if (std::abs (a - nd.amount) > 1.0e-4f) { nd.amount = a; s.amount.store (a, std::memory_order_relaxed); }
+        const int v = h.mode->get(); if (v != nd.variant) { nd.variant = v; s.variant.store (v, std::memory_order_relaxed); }
+        const int vi = juce::jlimit (0, 2, nd.variant);
+        const float d = h.decay->get(); if (std::abs (d - nd.decay[vi]) > 1.0e-4f) { nd.decay[vi] = d; s.decay[(size_t) vi].store (d, std::memory_order_relaxed); }
+        const float f = h.fb->get(); if (std::abs (f - nd.delayFb) > 1.0e-4f) { nd.delayFb = f; s.delayFb.store (f, std::memory_order_relaxed); }
+        const int dv = h.div->get(); if (dv != nd.delayDiv) { nd.delayDiv = dv; s.delayDiv.store (dv, std::memory_order_relaxed); }
+        const bool w = h.wet->get(); if (w != nd.wet) { nd.wet = w; s.wet.store (w, std::memory_order_relaxed); }
+        for (int k = 0; k < 6; ++k)
+        {
+            int lo, hi; auxRange (nd.type, k, lo, hi);
+            const int x = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo)));
+            if (x != nd.aux[k]) { nd.aux[k] = x; s.aux[(size_t) k].store (x, std::memory_order_relaxed); }
+        }
+    }
+}
+
+void OrbAudioProcessor::freshGraph()
+{
+    // Patch on Slur opens on a bare wall: no print, no wire (the sound passes). The other surfaces keep the one print.
+   #ifdef ORB_SURFACE
+    if (juce::String (ORB_SURFACE) == "sounds")
+    {
+        orbfx::Graph g;
+        juce::String err;
+        applyGraph (g, err);
+        fxGraphMode.store (true);
+        return;
+    }
+   #endif
+    rebuildLegacyGraph();
 }
 
 void OrbAudioProcessor::rebuildLegacyGraph()
@@ -1106,7 +1741,7 @@ void OrbAudioProcessor::rebuildLegacyGraph()
     fxGraphMode.store (false);
 }
 
-void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
+void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer, const juce::AudioBuffer<float>* side)
 {
     const int n  = buffer.getNumSamples();
     const int nc = buffer.getNumChannels();
@@ -1122,13 +1757,16 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
     {
         auto& s = fxSlots[(size_t) i];
         auto& p = params[i];
-        p.amount   = s.amount.load (std::memory_order_relaxed);
-        p.variant  = s.variant.load (std::memory_order_relaxed);
-        p.decay    = s.decay[(size_t) juce::jlimit (0, 2, p.variant)].load (std::memory_order_relaxed);
-        p.delayDiv = s.delayDiv.load (std::memory_order_relaxed);
-        p.delayFb  = s.delayFb.load (std::memory_order_relaxed);
-        p.wet      = s.wet.load (std::memory_order_relaxed);
+        const auto& h = slotHost[i];
+        const int type = slotTypes[(size_t) i].load (std::memory_order_relaxed);
+        p.amount   = h.amount->get();
+        p.variant  = h.mode->get();
+        p.decay    = h.decay->get();
+        p.delayDiv = h.div->get();
+        p.delayFb  = h.fb->get();
+        p.wet      = h.wet->get();
         for (int k = 0; k < orbfx::kAuxCount; ++k) p.aux[k] = s.aux[(size_t) k].load (std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) { int lo, hi; auxRange (type, k, lo, hi); p.aux[k] = juce::jlimit (lo, hi, (int) std::lround (lo + h.aux[k]->get() * (float) (hi - lo))); }
         p.hasCurve = s.hasCurve.load (std::memory_order_relaxed);
         if (p.hasCurve)
             for (int k = 0; k < orbfx::kCurveLen; ++k) p.curve[k] = s.curve[(size_t) k].load (std::memory_order_relaxed);
@@ -1137,15 +1775,253 @@ void OrbAudioProcessor::processFx (juce::AudioBuffer<float>& buffer)
         p.playing  = playing;
     }
 
+    applyModulation (params, n, sr, bpm, playing, ppq);
+    // what is actually being played, for the study to show moving
+    for (int i = 0; i < orbfx::kMaxNodes; ++i)
+    {
+        const auto& p = params[i];
+        auto* L = &liveHands[(size_t) i * 12];
+        L[0].store (p.amount, std::memory_order_relaxed); L[1].store ((float) p.variant, std::memory_order_relaxed);
+        L[2].store (p.decay, std::memory_order_relaxed);  L[3].store (p.delayFb, std::memory_order_relaxed);
+        L[4].store ((float) p.delayDiv, std::memory_order_relaxed); L[5].store (p.wet ? 1.0f : 0.0f, std::memory_order_relaxed);
+        for (int k = 0; k < 6; ++k) L[6 + k].store ((float) p.aux[k], std::memory_order_relaxed);
+    }
+
     float gr = 0.0f;
-    fxChain.process (buffer, sr, params, gr);
+    fxChain.process (buffer, sr, params, gr, side);
     glueGrDb.store (gr, std::memory_order_relaxed);
+}
+
+/*  The rates tick and play their shapes into the hands they are wired
+    to. Block-rate: each effect smooths its own hand, so a block's step
+    is a slope, not a click. A synced rate is locked to the transport
+    while it plays and free-runs at the tempo otherwise.               */
+void OrbAudioProcessor::applyModulation (orbfx::NodeParams* params, int numSamples, float sr, float bpm, bool playing, double ppq)
+{
+    if (modPendingFlag.load (std::memory_order_acquire) && modLock.tryEnter())
+    {
+        modActive = modPending;
+        modPendingFlag.store (false, std::memory_order_relaxed);
+        modLock.exit();
+    }
+    const auto& t = modActive;
+    if (t.count == 0) return;
+    float macroVal[orbfx::kNumMacros];
+    for (int m = 0; m < orbfx::kNumMacros; ++m) macroVal[m] = macroParam[m] != nullptr ? macroParam[m]->get() : 0.0f;
+    static const double kBeats[8] = { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };   // 1/32 … 4/1 in quarter notes
+    float value[orbfx::kMaxNodes];
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) value[r] = 0.5f;
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.macroOf[r] >= 0) value[r] = macroVal[t.macroOf[r]];
+    for (int r = 0; r < orbfx::kMaxNodes; ++r) if (t.isFollow[r]) value[r] = fxChain.followValue (r);   // what it heard last block
+    // a wire's push: a rate swings both ways around the setting, a macro pushes one way from it
+    // (a push of 1 moves a hand half its travel: a rate at full depth swings the whole travel around the setting;
+    //  a macro or a follow pushes one way, so at full depth it carries the hand the whole travel from the setting)
+    // one way: the source's 0..1 carries the hand from the setting as far as the depth says (depth 1 = the whole travel).
+    // both ways: the source swings round its middle, the hand goes depth/2 of its travel to either side of the setting.
+    auto pushOf = [&] (const ModTable::Wire& w, float depth) { return w.uni ? value[w.from] * depth * 2.0f : (value[w.from] - 0.5f) * 2.0f * depth; };
+    auto pushAux = [&] (orbfx::NodeParams& p, int type, int a, float k)
+    {
+        int lo, hi; auxRange (type, a, lo, hi);
+        p.aux[a] = juce::jlimit (lo, hi, p.aux[a] + (int) std::lround (k * 0.5f * (float) (hi - lo)));
+    };
+    // first the wires that set other wires' depths (a macro on a played hand becomes that play's depth): a macro's value is known already
+    float depth[orbfx::kMaxEdges];
+    for (int i = 0; i < t.count; ++i) depth[i] = t.wires[i].depth;
+    for (int i = 0; i < t.count; ++i)
+    {
+        const auto& w = t.wires[i];
+        if (w.target >= 0 && w.target < t.count) depth[w.target] = juce::jlimit (-1.0f, 1.0f, value[w.from] * w.depth);   // the macro's knob IS the depth, as it reads
+    }
+    // the scene: its knob (the host's, pushed by the macros and follows now, by a rate as it read last block) slides every hand the
+    // two snapshots disagree on between A and B — before the rates tick, so a held clock is the blended clock
+    if (t.sceneSlot >= 0)
+    {
+        float pos = params[t.sceneSlot].amount;
+        for (int i = 0; i < t.count; ++i)
+        {
+            const auto& w = t.wires[i];
+            if (w.to != t.sceneSlot || w.hand != orbfx::kHandAmount || w.target != -1) continue;
+            const float src = t.isRate[w.from] ? rateValue[(size_t) w.from].load (std::memory_order_relaxed) : value[w.from];
+            pos += (w.uni ? src * depth[i] * 2.0f : (src - 0.5f) * 2.0f * depth[i]) * 0.5f;
+        }
+        pos = juce::jlimit (0.0f, 1.0f, pos);
+        for (int s = 0; s < orbfx::kMaxNodes; ++s)
+        {
+            const bool* held = t.sceneHeld[s];
+            auto mix = [&] (int k) { return t.sceneA[s][k] + (t.sceneB[s][k] - t.sceneA[s][k]) * pos; };
+            auto pick = [&] (int k) { return pos < 0.5f ? t.sceneA[s][k] : t.sceneB[s][k]; };
+            auto& p = params[s];
+            if (held[0]) p.amount = juce::jlimit (0.0f, 1.0f, mix (0));
+            if (held[1]) p.variant = (int) std::lround (pick (1));
+            if (held[2]) p.decay = juce::jlimit (0.0f, 1.0f, mix (2));
+            if (held[3]) p.delayFb = juce::jlimit (0.0f, 1.0f, mix (3));
+            if (held[4]) p.delayDiv = (int) std::lround (pick (4));
+            if (held[5]) p.wet = pick (5) > 0.5f;
+            for (int k = 0; k < orbfx::kAuxCount; ++k) if (held[6 + k]) p.aux[k] = (int) std::lround (mix (6 + k));
+        }
+    }
+    // Whatever plays an lfo's own hands (its clock, its depth) must land BEFORE that lfo ticks, or the lfo runs a block on the
+    // setting it was supposed to be moved off (an lfo whose depth another lfo holds at 0 kept on playing). So: the macros and
+    // follows first (their values are known), then the lfos in the order they feed one another.
+    auto landOnLfo = [&] (int i)
+    {
+        const auto& w = t.wires[i];
+        const int a = w.hand - orbfx::kHandAux0;
+        if (a == 6)
+        {
+            // the reset hand: what lands here restarts the lfo when it rises past the middle (a follow's hit, a macro flicked up)
+            const bool on = value[w.from] > 0.5f;
+            if (on && ! resetWas[i]) rateReset[w.to] = true;
+            resetWas[i] = on;
+            return;
+        }
+        if (a >= 0 && a < orbfx::kAuxCount) pushAux (params[w.to], w.toType, a, pushOf (w, depth[i]));
+    };
+    auto playsAnLfo = [&] (const ModTable::Wire& w) { return w.target == -1 && w.to >= 0 && w.to < orbfx::kMaxNodes && t.isRate[w.to]; };
+    for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].fromMacro) landOnLfo (i);
+    bool ticked[orbfx::kMaxNodes] {};
+    int order[orbfx::kMaxNodes]; int nOrder = 0;
+    for (int pass = 0; pass < orbfx::kMaxNodes; ++pass)
+        for (int r = 0; r < orbfx::kMaxNodes; ++r)
+        {
+            if (! t.isRate[r] || ticked[r]) continue;
+            bool waits = false;   // does an lfo that has not ticked yet play this one's hands?
+            for (int i = 0; i < t.count && ! waits; ++i) { const auto& w = t.wires[i]; waits = playsAnLfo (w) && w.to == r && ! w.fromMacro && w.from != r && t.isRate[w.from] && ! ticked[w.from]; }
+            if (waits && pass < orbfx::kMaxNodes - 1) continue;   // (a ring of lfos playing one another: the last pass takes them as they come)
+            ticked[r] = true; order[nOrder++] = r;
+        }
+    for (int q = 0; q < nOrder; ++q)
+    {
+        const int r = order[q];
+        const auto& rp = params[r];   // the host's clock, as pushed
+        const int mode = rp.aux[0];
+        double phase = ratePhase[r];
+        if (rateReset[r] && (mode == 1 || ! playing)) phase = 0.0;   // free-running: back to the start now
+        if (mode == 1)
+        {
+            const double hz = juce::jlimit (0.01, 20.0, rp.aux[3] / 100.0);
+            phase += hz * numSamples / (double) sr;
+        }
+        else
+        {
+            const int div = juce::jlimit (0, 7, rp.aux[1]);
+            const int feel = rp.aux[2];
+            const double beats = kBeats[div] * (feel == 1 ? 1.5 : feel == 2 ? 2.0 / 3.0 : 1.0);
+            if (playing && rateReset[r]) rateOffset[r] = ppq / beats;   // synced: from here the shape starts over, still locked to the song
+            if (playing) phase = ppq / beats - rateOffset[r];   // locked to the song: the shape's left edge is bar 1 (or the last reset), so the same place in the song is the same place in the shape
+            else phase += (juce::jmax (20.0, (double) bpm) / 60.0 / beats) * numSamples / (double) sr;
+        }
+        rateReset[r] = false;
+        // which turn this is: from the song while it plays (so a random shape is the same every time that bar is played), counted otherwise
+        const double whole = std::floor (phase);
+        if (playing && mode != 1) rateCycle[r] = (int64_t) whole; else rateCycle[r] += (int64_t) whole;
+        phase -= whole;
+        ratePhase[r] = phase;
+        ratePhaseOut[(size_t) r].store ((float) phase, std::memory_order_relaxed);
+        rateCycleOut[(size_t) r].store ((int) (rateCycle[r] & 0x7fffffff), std::memory_order_relaxed);
+        // the shape: the lfo wired in, or a sine
+        float v;
+        bool jumped = false;
+        const int lfoSlot = t.shapeOf[r];
+        const int steps = t.isLfo[r] && ! t.isDrift[r] ? juce::jlimit (0, 32, rp.aux[4]) : 0;
+        if (t.isPulse[r])
+        {
+            // the pattern: `hits` of `steps` spread as evenly as they can be (euclid), turned by `rotate`; one step per turn of the clock.
+            // The gate is up for `length` of the step. Which step this is comes from the turn, so bar 9 is the same every time.
+            const int ns = juce::jlimit (1, 32, rp.aux[4] > 0 ? rp.aux[4] : 8), hits = juce::jlimit (0, ns, rp.aux[5]), rot = rp.aux[6], len = juce::jlimit (0, 100, rp.aux[7] > 0 ? rp.aux[7] : 50);
+            const int k = (int) (((rateCycle[r] % ns) + ns) % ns);
+            const bool hit = (((k + rot) % ns + ns) % ns * hits) % ns < hits;
+            const bool on = hit && phase < (double) len / 100.0;
+            v = on ? 1.0f : 0.0f;
+            jumped = on != pulseWas[r]; pulseWas[r] = on;
+        }
+        else if (t.isDrift[r])
+        {
+            // a random target every turn, and between the targets a curve (catmull-rom) — or a straight line, as `smooth` says
+            auto tgt = [&] (int64_t c) { uint32_t h = (uint32_t) (c * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u); h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return (float) (h & 0xffffff) / (float) 0xffffff; };
+            const float y0 = tgt (rateCycle[r] - 1), y1 = tgt (rateCycle[r]), y2 = tgt (rateCycle[r] + 1), y3 = tgt (rateCycle[r] + 2);
+            const float tt = (float) phase, t2 = tt * tt, t3 = t2 * tt;
+            const float cr = 0.5f * ((2.0f * y1) + (-y0 + y2) * tt + (2.0f * y0 - 5.0f * y1 + 4.0f * y2 - y3) * t2 + (-y0 + 3.0f * y1 - 3.0f * y2 + y3) * t3);
+            const float sm = juce::jlimit (0, 100, rp.aux[4]) / 100.0f;
+            v = juce::jlimit (0.0f, 1.0f, (y1 + (y2 - y1) * tt) * (1.0f - sm) + cr * sm);
+        }
+        else if (steps > 0)
+        {
+            // random: a new value every step, held. It comes from the turn and the step, not from a dice: bar 9 is the same every time.
+            const int64_t step = rateCycle[r] * steps + (int64_t) (phase * steps);
+            uint32_t h = (uint32_t) (step * 2654435761u) ^ (uint32_t) (r * 40503u + 12345u);
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+            v = (float) (h & 0xffffff) / (float) 0xffffff;
+            jumped = step != rateLastStep[r]; rateLastStep[r] = step;
+        }
+        else if (lfoSlot >= 0 && fxSlots[(size_t) lfoSlot].hasLfo.load (std::memory_order_relaxed))
+        {
+            // read as drawn: no blending between two entries, so a vertical line is a step
+            auto& slot = fxSlots[(size_t) lfoSlot];
+            const int idx = juce::jlimit (0, orbfx::kLfoLen - 1, (int) (phase * orbfx::kLfoLen));
+            v = slot.lfo[(size_t) idx].load (std::memory_order_relaxed);
+            if (slot.hasLfo2.load (std::memory_order_relaxed))   // the morph: between this shape and the one it morphs toward, by the `morph` hand
+            {
+                const float m = juce::jlimit (0.0f, 1.0f, rp.decay);
+                v += (slot.lfo2[(size_t) idx].load (std::memory_order_relaxed) - v) * m;
+            }
+            // did this block pass over a cliff? then the hand jumps (no glide)
+            int k = rateLastIdx[r], guard = 0;
+            while (k != idx && guard++ < orbfx::kLfoLen) { if (slot.lfoCliff[(size_t) k].load (std::memory_order_relaxed)) { jumped = true; break; } k = (k + 1) % orbfx::kLfoLen; }
+            rateLastIdx[r] = idx;
+        }
+        else v = 0.5f + 0.5f * (float) std::sin (phase * juce::MathConstants<double>::twoPi);
+        if (t.isLfo[r])
+        {
+            const int dep = juce::jlimit (0, 100, rp.aux[5]);
+            v = 0.5f + (v - 0.5f) * (float) dep / 100.0f;   // the lfo's own depth: how far it swings, for every hand it plays
+            if (std::abs (dep - rateLastDepth[r]) > 25) jumped = true;   // its depth was thrown (a square lfo on it): what it plays jumps too, no glide
+            rateLastDepth[r] = dep;
+        }
+        if (jumped) for (int i = 0; i < t.count; ++i) if (t.wires[i].from == r && t.wires[i].to >= 0 && t.wires[i].to < orbfx::kMaxNodes) params[t.wires[i].to].snap = true;
+        value[r] = v;
+        rateValue[(size_t) r].store (v, std::memory_order_relaxed);
+        for (int i = 0; i < t.count; ++i) if (playsAnLfo (t.wires[i]) && t.wires[i].from == r && ! t.wires[i].fromMacro) landOnLfo (i);   // onto the lfos it plays, before they tick
+    }
+    for (int i = 0; i < t.count; ++i)
+    {
+        const auto& w = t.wires[i];
+        if (w.target != -1 || w.to < 0 || w.to >= orbfx::kMaxNodes) continue;
+        if (t.isRate[w.to]) continue;   // an lfo's hands: landed above, before it ticked
+        if (w.to == t.sceneSlot) continue;   // the scene's knob: read above, before the blend
+        auto& p = params[w.to];
+        const float k = pushOf (w, depth[i]);
+        // each hand moves by a fraction of its own range
+        auto lim = [] (float x, float lo, float hi) { return juce::jlimit (lo, hi, x); };
+        auto limi = [] (int x, int lo, int hi) { return juce::jlimit (lo, hi, x); };
+        if (w.hand >= orbfx::kHandShare0)
+        {
+            const int idx = w.hand - orbfx::kHandShare0;   // from + 1
+            if (idx >= 0 && idx <= orbfx::kMaxNodes) p.shareK[idx] += k;
+            continue;
+        }
+        switch (w.hand)
+        {
+            case orbfx::kHandAmount: p.amount = lim (p.amount + k * 0.5f, 0.0f, 1.0f); break;
+            case orbfx::kHandDecay:  p.decay  = lim (p.decay  + k * 0.5f, 0.0f, 1.0f); break;
+            case orbfx::kHandFb:     p.delayFb = lim (p.delayFb + k * 0.5f, 0.0f, 1.0f); break;
+            default:
+            {
+                const int a = w.hand - orbfx::kHandAux0;
+                if (a >= 0 && a < orbfx::kAuxCount) pushAux (p, w.toType, a, k);
+                break;
+            }
+        }
+    }
 }
 
 //==============================================================================
 // Patch ⇄ JSON. Shape:
 //   { nodes: [{ id, type, amount, variant, decay:[3], delayDiv, delayFb, wet, x, y }],
 //     edges: [{ from, to, gain }] }          from/to: node id, -1 = in, -2 = out
+
+static juce::String handName (int hand);
+static int handOf (const juce::String& s);
 
 juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
 {
@@ -1173,6 +2049,21 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
             for (int i = 0; i < orbfx::kCurveLen; ++i) cv.add ((double) nd.curve[i]);
             o->setProperty ("curve", cv);
         }
+        // (an lfo's table is not sent back: the wall has the points it was made from)
+        if (! nd.pts.empty())
+        {
+            juce::Array<juce::var> pv;
+            for (float f : nd.pts) pv.add ((double) f);
+            o->setProperty ("pts", pv);
+        }
+        if (! nd.pts2.empty())
+        {
+            juce::Array<juce::var> pv;
+            for (float f : nd.pts2) pv.add ((double) f);
+            o->setProperty ("pts2", pv);
+        }
+        if (! nd.sceneA.empty()) { juce::Array<juce::var> sv; for (float f : nd.sceneA) sv.add ((double) f); o->setProperty ("sceneA", sv); }
+        if (! nd.sceneB.empty()) { juce::Array<juce::var> sv; for (float f : nd.sceneB) sv.add ((double) f); o->setProperty ("sceneB", sv); }
         o->setProperty ("x", (double) nd.x);
         o->setProperty ("y", (double) nd.y);
         nodes.add (juce::var (o));
@@ -1184,12 +2075,40 @@ juce::String OrbAudioProcessor::graphToJson (const orbfx::Graph& g)
         o->setProperty ("from", e.from);
         o->setProperty ("to", e.to);
         o->setProperty ("gain", (double) e.gain);
+        if (e.port != 0) o->setProperty ("port", e.port);
+        if (e.in != 0) o->setProperty ("in", e.in);
+        if (e.pol != 0) o->setProperty ("pol", e.pol);
+        if (e.hand != orbfx::kHandNone) o->setProperty ("hand", handName (e.hand));
+        else if (e.refHand != orbfx::kHandNone) o->setProperty ("hand", "wire:" + juce::String (e.refFrom) + ":" + handName (e.refHand));
         edges.add (juce::var (o));
     }
     auto* root = new juce::DynamicObject();
     root->setProperty ("nodes", nodes);
     root->setProperty ("edges", edges);
     return juce::JSON::toString (juce::var (root), true);
+}
+
+/** The hands by name, as the wall writes them: amount, decay, fb, aux0 … aux7. */
+static juce::String handName (int hand)
+{
+    switch (hand)
+    {
+        case orbfx::kHandAmount: return "amount";
+        case orbfx::kHandDecay:  return "decay";
+        case orbfx::kHandFb:     return "fb";
+        default:
+            if (hand >= orbfx::kHandShare0) return "share:" + juce::String (hand - orbfx::kHandShare0 - 1);
+            return hand >= orbfx::kHandAux0 ? "aux" + juce::String (hand - orbfx::kHandAux0) : juce::String();
+    }
+}
+static int handOf (const juce::String& s)
+{
+    if (s == "amount") return orbfx::kHandAmount;
+    if (s == "decay")  return orbfx::kHandDecay;
+    if (s == "fb")     return orbfx::kHandFb;
+    if (s.startsWith ("aux")) { const int k = s.substring (3).getIntValue(); return k >= 0 && k < orbfx::kAuxCount ? orbfx::kHandAux0 + k : orbfx::kHandNone; }
+    if (s.startsWith ("share:")) { const int from = s.substring (6).getIntValue(); return from >= orbfx::kPortIn && from < orbfx::kMaxNodes ? orbfx::kHandShare0 + from + 1 : orbfx::kHandNone; }
+    return orbfx::kHandNone;
 }
 
 bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g, juce::String& error)
@@ -1215,12 +2134,54 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             nd.bypass   = n.hasProperty ("bypass")   ? (bool) n["bypass"] : false;
             if (auto* ax = n["aux"].getArray())
                 for (int i = 0; i < orbfx::kAuxCount && i < ax->size(); ++i) nd.aux[i] = (int) (*ax)[i];
-            if (auto* cv = n["curve"].getArray(); cv != nullptr && cv->size() == orbfx::kCurveLen)
+            if (auto* cv = n["curve"].getArray(); cv != nullptr && nd.type == orbfx::kLfo && cv->size() > 1)
+            {
+                // an lfo's shape: resampled onto the engine's table whatever its length
+                nd.hasLfo = true;
+                const int m = cv->size();
+                for (int i = 0; i < orbfx::kLfoLen; ++i)
+                {
+                    const double x = (double) i / orbfx::kLfoLen * m;
+                    const int i0 = (int) x % m, i1 = (i0 + 1) % m;
+                    const float f = (float) (x - std::floor (x));
+                    nd.lfo[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i0] * (1.0f - f) + (float) (double) (*cv)[i1] * f);
+                }
+            }
+            else if (auto* cv2 = n["curve"].getArray(); cv2 != nullptr && cv2->size() == orbfx::kCurveLen)
             {
                 nd.hasCurve = true;
                 for (int i = 0; i < orbfx::kCurveLen; ++i)
-                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[i]);
+                    nd.curve[i] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv2)[i]);
             }
+            if (auto* pv = n["pts"].getArray())
+                for (auto& f : *pv) nd.pts.push_back ((float) (double) f);
+            if (auto* pv = n["pts2"].getArray())
+                for (auto& f : *pv) nd.pts2.push_back ((float) (double) f);
+            if (auto* sv = n["sceneA"].getArray()) for (auto& f : *sv) nd.sceneA.push_back ((float) (double) f);
+            if (auto* sv = n["sceneB"].getArray()) for (auto& f : *sv) nd.sceneB.push_back ((float) (double) f);
+            // the shape, exactly as drawn: straight stretches between points, each bowed by its bend; two points on one x are a cliff
+            auto bake = [] (const std::vector<float>& pts, float* table)
+            {
+                const int np = (int) pts.size() / 3;
+                auto at = [&] (float x) -> float
+                {
+                    for (int i = 0; i < np - 1; ++i)
+                    {
+                        const float x0 = pts[(size_t) i * 3], y0 = pts[(size_t) i * 3 + 1], b = pts[(size_t) i * 3 + 2];
+                        const float x1 = pts[(size_t) (i + 1) * 3], y1 = pts[(size_t) (i + 1) * 3 + 1];
+                        if (x < x0) return y0;
+                        if (x < x1 || i == np - 2)
+                        {
+                            const float tt = x1 > x0 ? juce::jlimit (0.0f, 1.0f, (x - x0) / (x1 - x0)) : 1.0f;
+                            return juce::jlimit (0.0f, 1.0f, y0 + (y1 - y0) * tt + b * 0.5f * 4.0f * tt * (1.0f - tt));
+                        }
+                    }
+                    return pts[(size_t) (np - 1) * 3 + 1];
+                };
+                for (int i = 0; i < orbfx::kLfoLen; ++i) table[i] = at ((float) i / (float) orbfx::kLfoLen);
+            };
+            if (nd.type == orbfx::kLfo && nd.pts.size() >= 6)  { nd.hasLfo = true;  bake (nd.pts,  nd.lfo); }
+            if (nd.type == orbfx::kLfo && nd.pts2.size() >= 6) { nd.hasLfo2 = true; bake (nd.pts2, nd.lfo2); }
             nd.x        = (float) (double) n["x"];
             nd.y        = (float) (double) n["y"];
             out.nodes.push_back (nd);
@@ -1235,6 +2196,22 @@ bool OrbAudioProcessor::graphFromJson (const juce::String& json, orbfx::Graph& g
             ed.from = (int) e["from"];
             ed.to   = (int) e["to"];
             ed.gain = e.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) e["gain"]) : 1.0f;
+            ed.port = e.hasProperty ("port") ? juce::jlimit (0, 1, (int) e["port"]) : 0;
+            ed.in   = e.hasProperty ("in") ? juce::jlimit (0, 1, (int) e["in"]) : 0;
+            ed.pol  = e.hasProperty ("pol") ? juce::jlimit (0, 2, (int) e["pol"]) : 0;
+            if (e.hasProperty ("hand"))
+            {
+                const juce::String hs = e["hand"].toString();
+                if (hs.startsWith ("wire:"))
+                {
+                    // a wire onto a wire: "wire:<from>:<hand>" — it sets that wire's depth
+                    const int colon = hs.indexOfChar (5, ':');
+                    ed.refFrom = hs.substring (5, colon).getIntValue();
+                    ed.refHand = handOf (hs.substring (colon + 1));
+                }
+                else ed.hand = handOf (hs);
+            }
+            if (ed.hand != orbfx::kHandNone || ed.refHand != orbfx::kHandNone) ed.gain = juce::jlimit (-1.0f, 1.0f, e.hasProperty ("gain") ? (float) (double) e["gain"] : 0.5f);
             out.edges.push_back (ed);
         }
     }
@@ -1509,7 +2486,7 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
                 restored = true;
             }
         }
-        if (! restored) rebuildLegacyGraph();
+        if (! restored) freshGraph();
     }
 }
 
@@ -1587,7 +2564,7 @@ void OrbAudioProcessor::handleStartHostStemExport (
 
     const bool editSelection = args[1].toString() == "selection";
     completion (controlBridge->requestExport (indices, editSelection) ? "started"
-                                                                      : "error:no-port");
+                                                                      : "error:background-export-unavailable");
 }
 
 //==============================================================================
@@ -1595,4 +2572,104 @@ void OrbAudioProcessor::handleStartHostStemExport (
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new OrbAudioProcessor();
+}
+
+//==============================================================================
+// The page, carried inside the plugin.
+
+juce::String OrbAudioProcessor::pageQuery() const
+{
+    // ?plugin=1 lets the page tailor itself to living in a plugin; ?surface=
+    // picks the room; ?ver= says which engine hosts it (the update notice)
+    juce::String q = "plugin=1";
+   #ifdef ORB_SURFACE
+    q += juce::String ("&surface=") + ORB_SURFACE;
+    q += juce::String ("&ver=") + JucePlugin_VersionString;
+   #endif
+    return q;
+}
+
+void OrbAudioProcessor::loadCarriedPage()
+{
+    // unzip the carried build into memory once, path → bytes
+    if (carriedPage.empty())
+    {
+        juce::MemoryInputStream in (BinaryData::webui_zip, (size_t) BinaryData::webui_zipSize, false);
+        juce::ZipFile zip (in);
+        for (int i = 0; i < zip.getNumEntries(); ++i)
+        {
+            const auto* e = zip.getEntry (i);
+            if (e == nullptr || e->isSymbolicLink || e->filename.endsWithChar ('/')) continue;
+            std::unique_ptr<juce::InputStream> es (zip.createStreamForEntry (i));
+            if (es == nullptr) continue;
+            juce::MemoryBlock mb; es->readIntoMemoryBlock (mb);
+            std::vector<std::byte> bytes ((size_t) mb.getSize());
+            std::memcpy (bytes.data(), mb.getData(), mb.getSize());
+            carriedPage["/" + e->filename] = std::move (bytes);
+        }
+        if (auto it = carriedPage.find ("/build.json"); it != carriedPage.end())
+        {
+            const juce::var v = juce::JSON::parse (juce::String::fromUTF8 ((const char*) it->second.data(), (int) it->second.size()));
+            carriedBuild = v.getProperty ("build", "").toString();
+            carriedBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());
+        }
+    }
+    browser->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + "index.html?" + pageQuery() + "&carried=1");
+}
+
+std::optional<juce::WebBrowserComponent::Resource> OrbAudioProcessor::servePage (const juce::String& pathIn)
+{
+    juce::String path = pathIn.upToFirstOccurrenceOf ("?", false, false);
+    if (path.isEmpty() || path == "/") path = "/index.html";
+    const auto it = carriedPage.find (path);
+    if (it == carriedPage.end()) return std::nullopt;
+    const juce::String ext = path.fromLastOccurrenceOf (".", false, false).toLowerCase();
+    static const std::map<juce::String, juce::String> mime = {
+        { "html", "text/html" }, { "js", "text/javascript" }, { "mjs", "text/javascript" }, { "css", "text/css" }, { "json", "application/json" },
+        { "svg", "image/svg+xml" }, { "png", "image/png" }, { "jpg", "image/jpeg" }, { "jpeg", "image/jpeg" }, { "webp", "image/webp" }, { "gif", "image/gif" },
+        { "ico", "image/x-icon" }, { "woff2", "font/woff2" }, { "woff", "font/woff" }, { "ttf", "font/ttf" }, { "otf", "font/otf" },
+        { "mp3", "audio/mpeg" }, { "wav", "audio/wav" }, { "webm", "video/webm" }, { "mp4", "video/mp4" }, { "txt", "text/plain" }, { "map", "application/json" } };
+    const auto m = mime.find (ext);
+    return juce::WebBrowserComponent::Resource { it->second, m != mime.end() ? m->second : "application/octet-stream" };
+}
+
+void OrbAudioProcessor::askSiteForNewer()
+{
+    // off the message thread: a short trip to the site's build.json. Newer than
+    // the carried page → the WebView moves to the site (the v= defeats the
+    // WebView's cache, which otherwise keeps a stale index.html for days).
+    siteCheck = std::make_unique<std::thread> ([this, alive = this->alive]
+    {
+        juce::String siteBuild;
+        juce::Time siteBuiltAt;
+        {
+            juce::URL url (juce::String (ORB_APP_URL) + "/build.json?v=" + juce::String (juce::Time::currentTimeMillis()));
+            auto opts = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress).withConnectionTimeoutMs (2500);
+            if (auto in = url.createInputStream (opts))
+            {
+                const juce::var v = juce::JSON::parse (in->readEntireStreamAsString());
+                // A newer site must preserve the carried page's transfer contract.
+                // Timestamp alone previously replaced the picker with a page
+                // that did not contain it. Keep the bundled UI until compatible.
+                if ((int) v.getProperty ("regionSharing", 0) < 1
+                    || (int) v.getProperty ("regionDawproject", 0) < 1
+                    || (int) v.getProperty ("regionVstXml", 0) < 1
+                    || (int) v.getProperty ("regionLuna", 0) < 1
+                    || (int) v.getProperty ("stemDownloads", 0) < 1
+                    || (int) v.getProperty ("regionPlacement", 0) < 1
+                    || v.getProperty ("trackExportPolicy", "").toString() != "pro-tools-only") return;
+                siteBuild = v.getProperty ("build", "").toString();
+                siteBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());
+            }
+        }
+        if (! alive->load() || siteBuild.isEmpty() || siteBuild == carriedBuild
+            || carriedBuiltAt.toMilliseconds() <= 0 || siteBuiltAt <= carriedBuiltAt) return;
+        juce::MessageManager::callAsync ([this, alive]
+        {
+            if (! alive->load() || browser == nullptr) return;
+            juce::String url (ORB_APP_URL);
+            url += (url.contains ("?") ? "&" : "?") + pageQuery() + "&v=" + juce::String (juce::Time::currentTimeMillis());
+            browser->goToURL (url);
+        });
+    });
 }

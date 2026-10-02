@@ -16,7 +16,7 @@
 #   ./package.sh                  # package whatever exists in build/…/Release
 #   ./package.sh --version 1.2.0  # stamp a version (default 1.0.0)
 #   ./package.sh --product=sounds # one of the split-outs: orb (default) | chat | sounds | games
-#                                 # → installer/Orb Sounds-1.0.0.pkg, its own identifier
+#                                 # → installer/Patch on Slur-1.0.0.pkg, its own identifier
 #   SIGN_ID="Developer ID Installer: …" ./package.sh   # signed pkg
 #
 # Prereqs: run ./build.sh --release first. Formats that weren't built
@@ -44,16 +44,17 @@ for arg in "$@"; do
   esac
 done
 
-# Each split-out is its own downloadable installer with its own bundle
-# identifier, so installing Orb Sounds never touches an installed Orb.
+# Keep the existing bundle identifiers and plugin codes so old DAW sessions
+# still resolve their plugins after the displayed product names change.
 case "$PRODUCT" in
-  orb)    TARGET="OrbPlugin"; NAME="Orb";        IDENTIFIER_BASE="com.orb.plugin" ;;
-  chat)   TARGET="OrbChat";   NAME="Orb Chat";   IDENTIFIER_BASE="com.orb.chat"   ;;
-  sounds) TARGET="OrbSounds"; NAME="Orb Sounds"; IDENTIFIER_BASE="com.orb.sounds" ;;
-  games)  TARGET="OrbGames";  NAME="Orb Games";  IDENTIFIER_BASE="com.orb.games"  ;;
+  orb)    TARGET="OrbPlugin"; NAME="Slur Orb";   IDENTIFIER_BASE="com.orb.plugin"; OLD_NAME="Orb" ;;
+  chat)   TARGET="OrbChat";   NAME="Slur";       IDENTIFIER_BASE="com.orb.chat"; OLD_NAME="Orb Chat|Slur Chat" ;;   # was Orb Chat, then Slur Chat
+  sounds) TARGET="OrbSounds"; NAME="Patch on Slur"; IDENTIFIER_BASE="com.orb.sounds"; OLD_NAME="Orb Sounds" ;;   # was Orb Sounds: same codes, same identifier (an upgrade), the old bundles are removed on install
+  games)  TARGET="OrbGames";  NAME="Slur Games"; IDENTIFIER_BASE="com.orb.games"; OLD_NAME="Orb Games" ;;
   *) echo "✗ unknown --product=$PRODUCT (orb | chat | sounds | games)" >&2; exit 1 ;;
 esac
 SLUG="${NAME// /}"   # inner component pkgs get a space-free name
+OLD_NAME="${OLD_NAME:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTEFACTS="$SCRIPT_DIR/build/${TARGET}_artefacts/Release"
@@ -80,7 +81,28 @@ build_component() {
   local root="$WORK/roots/$key"
   mkdir -p "$root$dest"
   cp -R "$src" "$root$dest/"
+  # a renamed product: its old bundles carry the same plugin codes, so a host would list it twice — take them out first
+  local scripts=()
+  if [ -n "$OLD_NAME" ]; then
+    local sdir="$WORK/scripts/$key"; mkdir -p "$sdir"
+    local ext="${src##*.}"
+    {
+      echo '#!/bin/sh'
+      echo 'U=$(stat -f%Su /dev/console 2>/dev/null)'
+      local old olds
+      IFS='|' read -ra olds <<< "$OLD_NAME"   # a product renamed twice lists both old names
+      for old in "${olds[@]}"; do
+        echo "rm -rf \"$dest/$old.$ext\""
+        echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$old.$ext\""
+      done
+      echo "[ -n \"\$U\" ] && [ \"\$U\" != root ] && rm -rf \"/Users/\$U$dest/$NAME.$ext\""
+      echo 'exit 0'
+    } > "$sdir/preinstall"
+    chmod +x "$sdir/preinstall"
+    scripts=(--scripts "$sdir")
+  fi
   pkgbuild \
+    ${scripts[@]+"${scripts[@]}"} \
     --root "$root" \
     --identifier "$IDENTIFIER_BASE.$key" \
     --version "$VERSION" \

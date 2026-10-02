@@ -102,9 +102,66 @@ export function setFx (patch: {
    -1 = in) to a node id (or -2 = out) with a send level. Feedback is
    refused by the engine ("cycle"). */
 export const FX_MIX_TYPE = 11
+/** Graph-only splitters: two output ports. l/r gives the left and the
+ *  right as mono lanes; m/s the mid and the side. Lanes that meet again
+ *  (or reach out) join back into a stereo pair. */
+export const FX_SPLIT_LR = 28
+export const FX_SPLIT_MS = 29
+/** Control nodes: no audio passes through them. An lfo is a drawn shape;
+ *  a rate is a clock that plays a shape into a hand of another print. */
+export const FX_LFO = 30
+export const FX_RATE = 31
+/** A knob the host can turn (macro 1 … 8): played into hands, or onto a control wire's depth. */
+export const FX_MACRO = 32
+export const FX_MACROS = 8
+/** The sidechain: `side` is the host's side bus as a print (no input, one output);
+ *  `follow` listens to whatever is wired into it and pushes a hand with what it hears. */
+export const FX_SIDE = 33
+export const FX_FOLLOW = 34
+/** A compressor with numbers: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms. */
+export const FX_COMP = 35
+/** A splitter that cuts the sound into bands at up to five crossovers, each band a stereo pair on its own port (0 = the lowest). */
+export const FX_BANDS = 36
+/** The spectral prints (one STFT, a key, a rule per bin): carve cuts where the key is loud, match pulls the sound's spectrum
+ *  toward the key's, vocode shapes the sound by the key's bands. One frame (2048 samples) of latency, reported to the host. */
+export const FX_CARVE = 37
+export const FX_MATCH = 38
+export const FX_VOCODE = 39
+export const FX_FREEZE = 40
+export const FX_SHIFT = 41
+export const FX_SMEAR = 42
+export const FX_PAN = 43
+export const FX_REPEAT = 44
+export const FX_ENV = 45
+export const FX_FOLD = 46
+export const FX_DRIFT = 47
+export const FX_PULSE = 48
+export const FX_SCENE = 49
+export const FX_SIEVE = 50
+export const isSpectralType = (t: number) => t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE || t === FX_FREEZE || t === FX_SHIFT || t === FX_SMEAR || t === FX_SIEVE
 export const FX_PORT_IN = -1
 export const FX_PORT_OUT = -2
 export const FX_MAX_NODES = 16
+/** The graph-only nodes: no hand, no lamp, no bypass. */
+export const isUtilityType = (t: number) => t === FX_MIX_TYPE || t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS || t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_SIDE || t === FX_FOLLOW || t === FX_ENV || t === FX_DRIFT || t === FX_PULSE || t === FX_SCENE
+export const isSplitterType = (t: number) => t === FX_SPLIT_LR || t === FX_SPLIT_MS || t === FX_BANDS
+/** How many output ports a print has (a splitter: two; the bands: one per band). */
+export const outPortsOf = (t: number, aux: number[]) => (t === FX_BANDS ? Math.max(2, Math.min(6, (aux[5] || 1) + 1)) : isSplitterType(t) ? 2 : 1)
+export const isControlType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW || t === FX_ENV || t === FX_DRIFT || t === FX_PULSE || t === FX_SCENE
+/** The prints whose wire lands on a hand (a dashed control wire). */
+export const playsHandsType = (t: number) => t === FX_LFO || t === FX_RATE || t === FX_MACRO || t === FX_FOLLOW || t === FX_ENV || t === FX_DRIFT || t === FX_PULSE   // (a rate is the old separate clock: kept for patches on engines from before the lfo had its own)
+/** The prints with a second input, the key: their detector listens to it (glue, gate). */
+export const hasKeyType = (t: number) => t === 4 || t === 26 || t === FX_COMP || t === FX_REPEAT || t === FX_CARVE || t === FX_MATCH || t === FX_VOCODE
+/** The prints with no input point: the shapes and the sources. */
+export const noInputType = (t: number) => t === FX_LFO || t === FX_SIDE
+/** The prints whose big number is a hand of their own (the effects, and a macro's knob). */
+export const hasAmountType = (t: number) => !isUtilityType(t) || t === FX_MACRO || t === FX_SCENE
+/** A control wire's target: a hand, or another control wire ("wire:<from>:<hand>") whose depth it sets. */
+export const wireRef = (hand: string | undefined): { from: number; hand: string } | null => {
+  if (!hand || !hand.startsWith('wire:')) return null
+  const i = hand.indexOf(':', 5)
+  return i < 0 ? null : { from: Number(hand.slice(5, i)), hand: hand.slice(i + 1) }
+}
 
 export interface FxGraphNode {
   id: number
@@ -118,11 +175,23 @@ export interface FxGraphNode {
   bypass?: boolean        // the print hangs there, the signal passes it by
   aux: number[]           // tremolo [vol|pan]; arp [interval st]; harmony [key root, scale, degrees];
                           // grain [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze] (8 slots)
-  curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape
+  curve?: number[]        // tremolo: a drawn cycle (32 points, 0..1) overriding the shape; lfo: its shape as 64 samples
+  pts?: number[]          // lfo: the drawn points, flat [x, y, bend, …] (see LfoEditor)
+  pts2?: number[]         // lfo: the shape it morphs toward (its `morph` hand says how far)
+  sceneA?: number[]       // scene: snapshot A, flat rows of [id, ...SCENE_HANDS] (see SCENE_HANDS)
+  sceneB?: number[]       // scene: snapshot B
   x: number
   y: number
 }
-export interface FxGraphEdge { from: number; to: number; gain: number }
+export interface FxGraphEdge {
+  from: number; to: number
+  gain: number            // an audio wire's send level; a control wire's depth (-1..1)
+  port?: number           // which output of `from` (a splitter has two)
+  in?: number             // which input of `to`: 1 = its key (glue and gate listen to it)
+  pol?: number            // a control wire's polarity: 1 = one way from the setting, 2 = both ways round it (unset: an lfo both ways, a macro or a follow one way)
+  hand?: string           // a control wire: which hand of `to` it plays (amount, decay, fb, aux0…)
+}
+
 export interface FxGraph { nodes: FxGraphNode[]; edges: FxGraphEdge[] }
 
 export function hasGraphBridge (): boolean {
@@ -140,6 +209,12 @@ export async function getGraph (): Promise<FxGraph | null> {
 }
 
 /** Push a whole patch; resolves to the engine's verdict. */
+/** The wall's finger lands on (or leaves) a print's amount: the host records automation in between. */
+export function paramGesture (slot: number, begin: boolean, hand = 'amount'): void {
+  if (!hasJuceNativeFunction('gesture')) return
+  void callJuceNative('gesture', [slot, begin, hand]).catch(() => {})
+}
+
 export async function setGraph (g: FxGraph): Promise<{ ok: boolean; error?: string }> {
   if (!hasGraphBridge()) return { ok: false, error: 'no bridge' }
   try {
@@ -223,3 +298,8 @@ export async function openPresetDialog (): Promise<{ name: string; graph: FxGrap
     return g && Array.isArray(g.nodes) && o.name ? { name: o.name, graph: g } : null
   } catch { return null }
 }
+
+/** A scene snapshot's row: the print's id, then these hands in this order. */
+export const SCENE_HANDS = ['amount', 'variant', 'decay', 'fb', 'div', 'wet', 'aux0', 'aux1', 'aux2', 'aux3', 'aux4', 'aux5', 'aux6', 'aux7'] as const
+export const SCENE_STRIDE = SCENE_HANDS.length + 1
+export const sceneRow = (x: FxGraphNode): number[] => { const aux = [...x.aux]; while (aux.length < 8) aux.push(0); return [x.id, x.amount, x.variant, x.decay[Math.max(0, Math.min(2, x.variant))] ?? 0.5, x.delayFb, x.delayDiv, x.wet ? 1 : 0, ...aux.slice(0, 8)] }

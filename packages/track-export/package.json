@@ -1,0 +1,9 @@
+{
+  "name": "@slur/track-export",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --experimental-strip-types --test test/*.test.mjs" },
+  "dependencies": { "@grpc/grpc-js": "^1.14.4", "@grpc/proto-loader": "^0.8.1", "fflate": "^0.8.3" },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

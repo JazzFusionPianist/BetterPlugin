@@ -348,7 +348,7 @@ export default function CalendarPanel({
 const fmtSheetDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 
-function EventPage({ event, own, groupTitle, onUpdate, onBack }: {
+export function EventPage({ event, own, groupTitle, onUpdate, onBack }: {
   event: CalendarEvent
   own: boolean
   groupTitle: string | null

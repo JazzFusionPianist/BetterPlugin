@@ -1,7 +1,7 @@
 {
-  "name": "orb",
-  "short_name": "orb",
-  "description": "your crew, your sessions, your sound",
+  "name": "slur",
+  "short_name": "slur",
+  "description": "slur studio",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,4 +1,4 @@
-# Plugin distribution (macOS)
+# Slur Studio plugins — official distribution
 
 How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 
@@ -53,8 +53,8 @@ PACE_CUSTOMER_NUMBER="<Slur Studio number from PACE Central>" \
 # It can auto-sign AAX when PACE_CUSTOMER_NUMBER and APPLE_SIGN_ID are set.
 SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
-# Notarize and staple the resulting installer with a configured notary profile.
-./notarize.sh "installer/FINAL-INSTALLER-NAME.pkg"
+# Notarize and staple with a configured notary profile.
+./notarize.sh 'installer/Slur Orb-1.0.0.pkg'
 ```
 
 ## Partial release when AAX signing is unavailable
@@ -63,23 +63,19 @@ SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 release Pro Tools will reject. AU, VST3, and Standalone can still be packaged
 independently once their own signing and notarization requirements are met.
 
-## Legacy split-out build targets
-
-The target names and installer names below are inherited from the current
-source tree. They are **not** approved names for new releases; rename product
-and bundle metadata before making a public package.
+## Split-out plugins (Slur, Patch on Slur, Slur Games)
 
 Each single-purpose plugin is its own download with its own bundle id, so
-installing one never touches the full Orb or another split-out.
+installing one never touches Slur Orb or another split-out.
 
 ```bash
 cd Plugin
 ./build.sh --release --only=sounds        # or --only=chat; omit for everything
-./package.sh --product=sounds --version=1.0.0   # → installer/Orb Sounds-1.0.0.pkg
-./package.sh --product=chat   --version=1.0.0   # → installer/Orb Chat-1.0.0.pkg
-./package.sh --product=games  --version=1.0.0   # → installer/Orb Games-1.0.0.pkg
+./package.sh --product=sounds --version=1.0.0   # → installer/Patch on Slur-1.0.0.pkg
+./package.sh --product=chat   --version=1.0.0   # → installer/Slur-1.0.0.pkg
+./package.sh --product=games  --version=1.0.0   # → installer/Slur Games-1.0.0.pkg
 ```
 
-Sign and notarize exactly as above. Orb Sounds needs no account — it boots
-straight into the one-knob room. Orb Games keeps the sign-in (multiplayer rooms,
+Sign and notarize exactly as above. Patch on Slur needs no account — it boots
+straight into the one-knob room. Slur Games keeps the sign-in (multiplayer rooms,
 invites and world scores are account-bound) and boots onto the CD wall.

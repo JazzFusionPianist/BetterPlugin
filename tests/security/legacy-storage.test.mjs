@@ -10,7 +10,7 @@ test('legacy public attachments become private; only owner-backed conversation r
    insert into messages(id,conversation_id,sender_id,content,attachment_url) values('${id}','${room}','${A}','old','https://svhjgiloekkjrcefclqs.supabase.co/storage/v1/object/public/attachments/${A}/old%20file.wav');
    insert into storage.objects values('attachments','${A}/old file.wav');insert into storage.buckets(id,public) values('attachments',true),('avatars',true);
    create function delete_my_account() returns void language sql security definer as $$delete from auth.users where id=auth.uid()$$;`)
-  for(const file of ['20260923190630_security_live_permissions','20260923194549_security_encrypted_chat','20260923200122_security_membership_and_sessions','20260923200855_security_history_upgrade','20260923201050_security_erasure_queue','20260923201942_security_legacy_storage'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'))
+  for(const file of ['20260927184448_security_live_permissions','20260927184452_security_encrypted_chat','20260927184456_security_membership_and_sessions','20260927184459_security_history_upgrade','20260927184503_security_erasure_queue','20260927184507_security_legacy_storage'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'))
   assert.equal((await db.query("select public from storage.buckets where id='attachments'")).rows[0].public,false)
   const path=A+'/old file.wav'
   assert.equal((await act(db,B,'select can_read_legacy_attachment($1) allowed',[path])).rows[0].allowed,true)

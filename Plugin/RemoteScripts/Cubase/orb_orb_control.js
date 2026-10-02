@@ -88,13 +88,6 @@ for (var channelIndex = 0; channelIndex < trackCount; ++channelIndex) {
     })(channelIndex)
 }
 
-var exportButton = deviceDriver.mSurface.makeButton(9, 0, 1, 1)
-exportButton.mSurfaceValue.mMidiBinding
-    .setInputPort(midiInput)
-    .setOutputPort(midiOutput)
-    .bindToNote(0, 100)
-page.makeCommandBinding(exportButton.mSurfaceValue, 'Audio Export', 'Perform Audio Export')
-
 midiInput.mOnSysex = function (activeDevice, msg) {
     if (!startsWithHeader(msg)) return
     var command = msg[5]
@@ -108,12 +101,9 @@ midiInput.mOnSysex = function (activeDevice, msg) {
         if (selectIndex >= 0 && selectIndex < selectedButtons.length)
             selectedButtons[selectIndex].mSurfaceValue.setProcessValue(activeDevice, selectParts[1] === '1' ? 1 : 0)
     } else if (command === 0x04) {
-        var exportParts = payload.split('|')
-        var requested = exportParts.length > 1 && exportParts[1] ? exportParts[1].split(',') : []
-        for (var i = 0; i < selectedButtons.length; ++i)
-            selectedButtons[i].mSurfaceValue.setProcessValue(activeDevice, requested.indexOf(String(i)) >= 0 ? 1 : 0)
-        exportButton.mSurfaceValue.setProcessValue(activeDevice, 1)
-        exportButton.mSurfaceValue.setProcessValue(activeDevice, 0)
+        // Command dispatch is not a headless render contract. Reject old
+        // clients too, without changing selection or opening a DAW dialog.
+        send(activeDevice, 0x14, 'error:background-export-unavailable')
     }
 }
 

@@ -1,7 +1,7 @@
-import { analyzeRegion } from './audioMerge'
+import { prepareSharedRegions } from './regionSharing'
 import { buildZip, type ZipEntry } from './zipStore'
 import { resolveUrl } from './r2Access'
-import { prepareRegionBundle, uploadRegionBundle, readBundleAttachment, sha256, type BundleAudioEntry } from './regionBundle'
+import { uploadRegionBundle, readBundleAttachment, sha256, type BundleAudioEntry } from './regionBundle'
 import { isRegionArchive, prepareArchivedRegionBundle } from '@orb/core/lib/regionArchive.ts'
 export { isRegionArchive } from '@orb/core/lib/regionArchive.ts'
 
@@ -10,7 +10,7 @@ export async function prepareRegionTransfer(files: File[]) {
     if (files.length !== 1) throw new Error('Send one region bundle at a time, without additional files.')
     return prepareArchivedRegionBundle(files[0])
   }
-  return prepareRegionBundle(files, analyzeRegion)
+  return prepareSharedRegions(files)
 }
 
 export async function createRegionBundleAttachment(

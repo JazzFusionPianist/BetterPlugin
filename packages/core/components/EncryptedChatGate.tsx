@@ -1,15 +1,20 @@
 'use client'
+import { SessionSecurity } from './SessionSecurity'
 import { upgradeHistory } from '../lib/historyUpgrade'
 import { useEffect, useState, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { chatUnlocked, createRecoveryCode, lockChat, unlockChat, securityFingerprints } from '../lib/chatCrypto'
+import { forgetRememberedRecoveryCode, loadRememberedRecoveryCode, rememberRecoveryCode, trustedDeviceStorageAvailable } from '../lib/deviceKeyStore'
 
 /** Recovery secrets stay on the device and are never sent to an API. */
 export function EncryptedChatGate({client,userId,children}:{client:SupabaseClient;userId:string;children:ReactNode}) {
   const [migrationStatus,setMigrationStatus]=useState('')
   const [migrating,setMigrating]=useState(false)
   const [fingerprints,setFingerprints]=useState<Array<{user_id:string;fingerprint:string}>|null>(null)
-  const [state,setState]=useState<'loading'|'new'|'unlock'|'ready'|'error'>('loading')
+  const [state,setState]=useState<'loading'|'new'|'confirm'|'unlock'|'ready'|'error'>('loading')
+  const [confirmation,setConfirmation]=useState('')
+  const [rememberDevice,setRememberDevice]=useState(true)
+  const canRemember=trustedDeviceStorageAvailable()
   const [code,setCode]=useState(''),[saved,setSaved]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false)
   useEffect(()=>{
     let alive=true
@@ -19,14 +24,27 @@ export function EncryptedChatGate({client,userId,children}:{client:SupabaseClien
       const {data,error}=await client.rpc('my_chat_key')
       if(!alive)return
       if(error){setState('error');return}
-      if(data)setState('unlock')
+      if(data){
+        const remembered=await loadRememberedRecoveryCode(userId)
+        if(!alive)return
+        if(remembered){
+          try{await unlockChat(client,userId,remembered);if(alive)setState('ready');return}
+          catch{if(alive)setError('저장된 기기 키로 자동으로 열지 못했습니다. 복구 키를 입력해 주세요.')}
+        }
+        setState('unlock')
+      }
       else {const key=await createRecoveryCode();if(alive){setCode(key);setState('new')}}
     }
     void check().catch(()=>{if(alive)setState('error')})
     const {data}=client.auth.onAuthStateChange((event,session)=>{
       if(event==='SIGNED_OUT' || (session && session.user.id!==userId)){lockChat();if(alive){setState('loading');setCode('')}}
     })
-    return ()=>{alive=false;data.subscription.unsubscribe()}
+    const sessionTimer=setInterval(()=>{void client.rpc('security_check_session').abortSignal(AbortSignal.timeout(10000)).then(({error})=>{if(error&&alive){if(error.code==='42501')void forgetRememberedRecoveryCode(userId).catch(()=>{});lockChat();setCode('');setState('error')}})},30000)
+    const onLock=()=>{if(alive){setCode('');setConfirmation('');setState('unlock')}}
+    window.addEventListener('orb-chat-locked',onLock)
+    const onHide=()=>lockChat()
+    window.addEventListener('pagehide',onHide)
+    return ()=>{alive=false;clearInterval(sessionTimer);data.subscription.unsubscribe();window.removeEventListener('orb-chat-locked',onLock);window.removeEventListener('pagehide',onHide)}
   },[client,userId])
   useEffect(()=>{const onError=(e:Event)=>setError(String((e as CustomEvent).detail));window.addEventListener('orb-chat-error',onError);return()=>window.removeEventListener('orb-chat-error',onError)},[])
   if(state==='ready')return <>
@@ -43,12 +61,24 @@ export function EncryptedChatGate({client,userId,children}:{client:SupabaseClien
         finally{setMigrating(false)}
       }}>내 이전 기록 암호화</button>
       <p role="status">{migrationStatus}</p>
+      <SessionSecurity client={client}/>
+      <button onClick={()=>{setFingerprints(null);lockChat()}}>지금 대화 잠그기</button>
+      <button onClick={()=>void forgetRememberedRecoveryCode(userId).then(()=>{setFingerprints(null);lockChat()}).catch(()=>setError('이 기기에 저장된 키를 지우지 못했습니다. 다시 시도해 주세요.'))}>이 기기 기억 해제</button>
       <button onClick={()=>setFingerprints(null)}>닫기</button>
     </section>}
     {error&&<div role="alert" style={{position:'fixed',top:12,left:'10%',right:'10%',zIndex:10000,background:'#fff4e5',color:'#4c2800',padding:16}}>{error}<button onClick={()=>setError('')} aria-label="Close">×</button></div>}{children}</>
   const submit=async()=>{
     setBusy(true);setError('')
-    try{await unlockChat(client,userId,code);setCode('');setState('ready')}
+    if(state==='new'){setState('confirm');setBusy(false);return}
+    if(state==='confirm'&&confirmation.trim()!==code){setError('저장한 복구 키가 일치하지 않습니다. 다시 확인해 주세요.');setBusy(false);return}
+    try{
+      await unlockChat(client,userId,code)
+      try{
+        if(rememberDevice&&canRemember)await rememberRecoveryCode(userId,code)
+        else await forgetRememberedRecoveryCode(userId)
+      }catch{setError('대화는 열었지만 이 기기에 복구 키를 안전하게 저장하지 못했습니다.')}
+      setCode('');setConfirmation('');setState('ready')
+    }
     catch(e){setError(e instanceof Error?e.message:'Could not unlock chat.')}
     finally{setBusy(false)}
   }
@@ -56,10 +86,12 @@ export function EncryptedChatGate({client,userId,children}:{client:SupabaseClien
     <h2>종단간 암호화 채팅</h2>
     {state==='loading'?<p>암호화 설정을 확인하고 있습니다…</p>:state==='error'?<p role="alert">암호화 서비스를 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>:<form onSubmit={e=>{e.preventDefault();void submit()}}>
       <p>{state==='new'?'대화는 참여자의 기기에서만 열 수 있습니다. 아래 복구 키를 비밀번호 관리자 등 안전한 곳에 보관해 주세요.':'이 기기에서 대화를 열려면 보관한 복구 키를 입력해 주세요.'}</p>
-      <p>복구 키는 서버에 전송되지 않습니다. 앱을 다시 열거나 새 기기로 옮길 때 필요하며, 분실하면 운영자도 대화를 복원할 수 없습니다.</p>
-      <label>복구 키<input style={{width:'100%',fontFamily:'monospace',padding:10}} type={state==='new'?'text':'password'} autoComplete="off" spellCheck={false} readOnly={state==='new'} value={code} onChange={e=>setCode(e.target.value)} required /></label>
+      <p>복구 키는 서버에 전송되지 않습니다. 새 기기로 옮길 때 필요하며, 분실하면 운영자도 대화를 복원할 수 없습니다.</p>
+      {state==='confirm'?<><p>보관한 복구 키를 다시 입력해 주세요. 정확히 보관했는지 확인한 뒤 암호화를 시작합니다.</p><label>저장한 복구 키<input type="password" autoComplete="off" spellCheck={false} value={confirmation} onChange={e=>setConfirmation(e.target.value)} required/></label><button type="button" onClick={()=>{setConfirmation('');setState('new')}}>복구 키 다시 보기</button></>:<label>복구 키<input style={{width:'100%',fontFamily:'monospace',padding:10}} type={state==='new'?'text':'password'} autoComplete="off" spellCheck={false} readOnly={state==='new'} value={code} onChange={e=>setCode(e.target.value)} required /></label>}
       {state==='new'&&<label style={{display:'block',marginTop:16}}><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/> 복구 키를 안전한 곳에 저장했습니다.</label>}
-      <button style={{marginTop:16,padding:12}} disabled={busy || !code || (state==='new'&&!saved)}>{busy?'확인 중…':state==='new'?'암호화 채팅 시작':'대화 열기'}</button>
+      <label style={{display:'block',marginTop:12}}><input type="checkbox" checked={rememberDevice&&canRemember} disabled={!canRemember} onChange={e=>setRememberDevice(e.target.checked)}/> 이 개인 기기에 안전하게 저장하고, 로그아웃 후에도 자동으로 열기</label>
+      {!canRemember&&<p>이 환경에서는 안전한 기기 저장소를 사용할 수 없어 복구 키를 다시 입력해야 합니다.</p>}
+      <button style={{marginTop:16,padding:12}} disabled={busy || !code || (state==='new'&&!saved)}>{busy?'확인 중…':state==='new'?'저장한 키 확인':state==='confirm'?'확인하고 암호화 시작':'대화 열기'}</button>
       {error&&<p role="alert">{error}</p>}
     </form>}
   </section>

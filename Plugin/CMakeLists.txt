@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.0)
+project(OrbPlugin VERSION 1.0.26)   # Trusted-device chat keys: Keychain/WebCrypto auto-unlock across sign-ins.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── macOS: universal binary, minimum target ───────────────────────────────────
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_OSX_ARCHITECTURES    "arm64;x86_64" CACHE STRING "Universal binary")
 
 # ── JUCE ─────────────────────────────────────────────────────────────────────
@@ -27,19 +27,19 @@ set(ORB_APP_URL "https://better-plugin.vercel.app" CACHE STRING "Orb web app URL
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
 juce_add_plugin(OrbPlugin
-    COMPANY_NAME                "Orb"
+    COMPANY_NAME                "Slur Studio"
     COMPANY_WEBSITE             "https://orb.app"
     COMPANY_EMAIL               "hello@orb.app"
 
     PLUGIN_MANUFACTURER_CODE    Orb1   # 4 chars (>=1 uppercase for AU)
     PLUGIN_CODE                 OrbA   # 4 chars, unique per plugin
 
-    # Standalone produces an Orb.app that runs the plugin UI without a
+    # Standalone produces a Slur Orb.app that runs the plugin UI without a
     # DAW — useful for fast dev iteration. AU/VST3 are the production
     # formats DAWs actually load.
     FORMATS                     ${ORB_FORMATS}
 
-    PRODUCT_NAME                "Orb"
+    PRODUCT_NAME                "Slur Orb"
     BUNDLE_ID                   "com.orb.plugin"
 
     # Bundle icon — JUCE converts the PNG to .icns and embeds it on macOS.
@@ -63,7 +63,18 @@ juce_add_plugin(OrbPlugin
     COPY_PLUGIN_AFTER_BUILD     FALSE
 )
 
+# ── The page, carried inside every plugin ─────────────────────────────────────
+# build.sh builds apps/plugin and zips its dist here; the zip goes into the
+# binary and a resource provider serves it to the WebView (see PluginProcessor).
+set(ORB_WEBUI_ZIP "${CMAKE_BINARY_DIR}/webui/webui.zip")
+if(NOT EXISTS "${ORB_WEBUI_ZIP}")
+    message(FATAL_ERROR "The carried page is missing: ${ORB_WEBUI_ZIP} — run Plugin/build.sh (it builds apps/plugin and zips it here)")
+endif()
+juce_add_binary_data(OrbWebUI SOURCES "${ORB_WEBUI_ZIP}")
+set_target_properties(OrbWebUI PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 target_sources(OrbPlugin PRIVATE
+    Source/TrackExportBridge.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/DawRegionBridge.cpp
@@ -72,9 +83,12 @@ target_sources(OrbPlugin PRIVATE
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
     Source/VideoCapture.mm     # ObjC++ — ScreenCaptureKit window/screen capture
 )
+if(APPLE)
+    target_sources(OrbPlugin PRIVATE Source/DeviceKeychain.mm)
+endif()
 
 # ObjC++ files require ARC (rest of the project uses MRC)
-set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm
+set_source_files_properties(Source/DragMonitor.mm Source/VideoCapture.mm Source/DeviceKeychain.mm
     PROPERTIES COMPILE_FLAGS "-fobjc-arc"
 )
 
@@ -91,6 +105,7 @@ target_compile_definitions(OrbPlugin
 
 target_link_libraries(OrbPlugin
     PRIVATE
+        OrbWebUI
         juce::juce_audio_processors
         juce::juce_audio_utils
         juce::juce_gui_extra
@@ -111,6 +126,7 @@ if(APPLE)
         "-framework UniformTypeIdentifiers"
         "-framework CoreMIDI"
         "-framework CoreAudio"
+        "-framework Security"
     )
 endif()
 
@@ -134,7 +150,7 @@ endforeach()
 #   orb_add_surface_plugin(<target> <plugin code> <bundle id> "<product name>" <surface> <AU export prefix>)
 function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     juce_add_plugin(${_target}
-        COMPANY_NAME                "Orb"
+        COMPANY_NAME                "Slur Studio"
         COMPANY_WEBSITE             "https://orb.app"
         COMPANY_EMAIL               "hello@orb.app"
         PLUGIN_MANUFACTURER_CODE    Orb1
@@ -157,6 +173,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     )
 
     target_sources(${_target} PRIVATE
+        Source/TrackExportBridge.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/DawRegionBridge.cpp
@@ -165,6 +182,9 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
         Source/DragMonitor.mm
         Source/VideoCapture.mm
     )
+    if(APPLE)
+        target_sources(${_target} PRIVATE Source/DeviceKeychain.mm)
+    endif()
 
     target_include_directories(${_target} PRIVATE Source/ThirdParty)
     target_compile_definitions(${_target}
@@ -180,6 +200,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
 
     target_link_libraries(${_target}
         PRIVATE
+            OrbWebUI
             juce::juce_audio_processors
             juce::juce_audio_utils
             juce::juce_gui_extra
@@ -199,6 +220,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
             "-framework UniformTypeIdentifiers"
             "-framework CoreMIDI"
             "-framework CoreAudio"
+            "-framework Security"
         )
     endif()
 
@@ -212,8 +234,8 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     endforeach()
 endfunction()
 
-# Orb Chat — messages only (first split-out, 2026-09-11).
-orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbChatAU)
+# Slur — messages only (first split-out, 2026-09-11; was Orb Chat, then Slur Chat).
+orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur"        chat   OrbChatAU)
 
 # Opt-in, distinct AU identity: local DAW QA must not replace the installed chat plug-in.
 option(ORB_BUILD_LOGIC_QA "Build an isolated Logic region-transfer QA plug-in" OFF)
@@ -221,13 +243,14 @@ if(ORB_BUILD_LOGIC_QA)
     orb_add_surface_plugin(OrbLogicQA OrbQ "com.orb.logic-qa" "Orb Logic QA" chat OrbLogicQAAU)
 endif()
 
-# Orb Sounds — the one-knob fx chain, no account needed: the plugin boots
-# straight into the darkened room.
-orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Orb Sounds" sounds OrbSoundsAU)
+# Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
+# the plugin boots straight into the darkened room. The codes and bundle id
+# stay so hosts keep finding it in old sessions; only the name shown changed.
+orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds OrbSoundsAU)
 
-# Orb Games — the mini-games CD wall. Keeps the account (rooms, invites,
+# Slur Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.
-orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Orb Games"  games  OrbGamesAU)
+orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Slur Games"  games  OrbGamesAU)
 
 # ── Engine self-test (console) ────────────────────────────────────────────────
 # Runs the FX graph compiler + program runner on synthetic audio and checks

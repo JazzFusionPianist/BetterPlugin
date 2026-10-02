@@ -1,9 +1,10 @@
-import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
+import { callJuceNative, hasJuceNativeFunction, juceRegisteredFunctions } from './juceBridge'
+import { regionBundleFunction } from './regionBundleProtocol'
 import { downloadRegionBundle } from './regionBundleIO'
 import type { BundleAudioEntry } from './regionBundle'
 import { useEffect, useState } from 'react'
 
-export const hasRegionBridge = () => hasJuceNativeFunction('regionTransfer')
+export const hasRegionBridge = () => regionBundleFunction(juceRegisteredFunctions()) !== null
 
 export function useRegionHost() {
   const [host, setHost] = useState('')
@@ -20,7 +21,9 @@ async function request(operation: 'inspect' | 'capture' | 'import' | 'exportLogi
   const args = [operation, ...(sessionId ? [sessionId] : []), ...(data ? [data] : [])]
   // Native conversion has its own four-minute deadline; the save dialog waits
   // for the user's choice and must not report a timeout after a successful save.
-  const raw = await callJuceNative('regionTransfer', args, operation === 'exportLogic' ? 0 : operation.includes('Logic') ? 610000 : 250000)
+  const nativeFunction = regionBundleFunction(juceRegisteredFunctions())
+  if (!nativeFunction) throw new Error('The region bundle bridge is unavailable.')
+  const raw = await callJuceNative(nativeFunction, args, operation === 'exportLogic' ? 0 : operation.includes('Logic') ? 610000 : 250000)
   if (raw.startsWith('error:')) throw new Error('The DAW transfer did not return a result. Inspect the transfer journal before retrying.')
   const response = JSON.parse(raw) as { ok: boolean; error?: string; sessionId?: string; name?: string; data?: string; status?: string; ticket?: string }
   if (response.ok !== true) throw new Error(response.error || 'The DAW transfer failed.')

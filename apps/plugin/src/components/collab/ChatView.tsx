@@ -16,12 +16,11 @@ import { createRegionBundleAttachment, isRegionArchive } from '../../lib/regionB
 import RegionBundleAttachment from './RegionBundleAttachment'
 import CaptureRegionsButton from './CaptureRegionsButton'
 import ExportTracksButton from './ExportTracksButton'
-import { useResolvedUrl } from '../../lib/r2Access'
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
 import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
-import { resolveUrl, invalidateResolved } from '../../lib/r2Access'
-import { callJuceNative } from '../../lib/juceBridge'
+import { useResolvedUrl } from '../../lib/r2Access'
+import AudioTransferActions from './AudioTransferActions'
 
 interface Attachment {
   url: string
@@ -181,7 +180,6 @@ function VideoAttachment({ url }: { url: string }) {
   )
 }
 
-type DragState = 'idle' | 'fetching' | 'armed' | 'dragging' | 'fallback' | 'imported'
 
 // ── 오디오 첨부 ──────────────────────────────────────────────
 interface TimelineDisplay {
@@ -210,6 +208,7 @@ function formatSampleRate(sampleRate: number): string {
 
 function timelineDisplay(metadata?: AttachmentTimelineMetadata): TimelineDisplay | null {
   if (!metadata) return null
+  if (metadata.position.meaning === 'recording_timestamp') return null
   const { position } = metadata
   const tempoPoints = metadata.tempo_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
   const signaturePoints = metadata.time_signature_map?.slice().sort((a, b) => a.ppq - b.ppq) ?? []
@@ -332,7 +331,7 @@ export function ShareLinkWord({ url, name, from, metadata, square = false }: {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => setState('idle'), 1600)
   }
-  const label = state === 'copied' ? 'copied' : state === 'failed' ? 'couldn\'t copy' : 'link'
+  const label = state === 'copied' ? 'copied' : state === 'failed' ? 'couldn\'t copy' : 'copy link'
   const title = 'copy a listen link — plays in any browser, no plug-in needed'
   if (square) {
     return (
@@ -355,11 +354,6 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
   const [duration, setDuration]   = useState(0)
-  const [dragState, setDragState] = useState<DragState>('idle')
-  const [dlBytes, setDlBytes]     = useState(0)
-  const armedResetTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cachedBase64     = useRef<string | null>(null)   // 다운로드된 base64 캐시 (재드래그용)
-  const [totalBytes, setTotalBytes] = useState(-1)
   const [compactExpanded, setCompactExpanded] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -373,176 +367,8 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
   // show its duration before it has ever been played.
   const shownDuration = engine ? ((engineActive && engine.duration) || duration) : duration
 
-  const juceBackend = !!window.__JUCE__?.backend
-
-  // A row can be deleted mid-play (stems, messages) — pause on unmount
-  // so a detached <audio> element can't keep sounding.
+  // A detached row must not keep playing its private audio element.
   useEffect(() => () => { audioRef.current?.pause() }, [])
-
-  // C++에서 진행률 업데이트 수신 (CustomEvent → 여러 컴포넌트 동시 수신 가능)
-  useEffect(() => {
-    const onProgress = (e: Event) => {
-      const { dl, tot } = (e as CustomEvent<{ dl: number; tot: number }>).detail
-      setDlBytes(dl)
-      setTotalBytes(tot)
-    }
-    window.addEventListener('__juceProgress', onProgress)
-    return () => window.removeEventListener('__juceProgress', onProgress)
-  }, [])
-
-  // DAW 임포트 성공 → 'imported' 상태 유지 (재드래그 가능)
-  // 드래그 취소 → 즉시 'idle' 복원 (바로 재드래그 가능)
-  useEffect(() => {
-    const onImported = (e: Event) => {
-      const evUrl = (e as CustomEvent<{ url: string }>).detail?.url
-      if (evUrl !== url) return
-      // 15s 자동 리셋 타이머 취소 — imported 상태는 영구 유지
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setDragState('imported')
-    }
-    const onCancel = (e: Event) => {
-      const evUrl = (e as CustomEvent<{ url: string }>).detail?.url
-      if (evUrl !== url) return
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      // 캐시가 있으면 imported 유지 (바로 재드래그 가능), 없으면 idle
-      setDragState(cachedBase64.current ? 'imported' : 'idle')
-    }
-    window.addEventListener('__juceImported',      onImported)
-    window.addEventListener('__juceOutDragCancel', onCancel)
-    return () => {
-      window.removeEventListener('__juceImported',      onImported)
-      window.removeEventListener('__juceOutDragCancel', onCancel)
-    }
-  }, [url])
-
-  // Prefetch disabled: causes a second simultaneous download that Supabase
-  // CDN throttles to 0 bps, making startAudioDrag hang indefinitely.
-  const handleMouseEnter = () => {}
-
-  // 마우스 누르면 OS 레벨 드래그 시작
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
-
-    if (juceBackend) {
-      // 이미 armed: C++가 준비돼있음 — 그냥 드래그하면 됨 (re-arm 불필요)
-      if (dragState === 'armed') return
-      if (dragState === 'fetching') return   // 이미 진행 중
-
-      // 공통 arm 완료 처리
-      const onArmed = () => {
-        window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url } }))
-        setDragState('armed')
-        if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
-        armedResetTimer.current = setTimeout(() => {
-          armedResetTimer.current = null
-          setDragState(s => s === 'armed' ? 'idle' : s)
-        }, 15_000)
-      }
-
-      // ── 'imported': 이미 base64 캐시 있음 → 재다운로드 없이 바로 re-arm ──
-      if (dragState === 'imported' && cachedBase64.current) {
-        setDragState('fetching')
-        ;(async () => {
-          try {
-            if (!window.__JUCE__?.backend) { setDragState('imported'); return }
-            const result = await callJuceNative('writeAudioFile', [cachedBase64.current!, name], 250000)
-            if (result === 'armed') onArmed()
-            else setDragState('imported')   // 실패시 imported 상태 유지
-          } catch {
-            setDragState('imported')
-          }
-        })()
-        return
-      }
-
-      // ── 최초 다운로드 + arm ───────────────────────────────────────────────
-      setDlBytes(0)
-      setTotalBytes(-1)
-      setDragState('fetching')
-
-      const controller = new AbortController()
-
-      const finish = (result: string) => {
-        clearTimeout(timer)
-        delete (window as unknown as Record<string, unknown>).__juceStartDragComplete
-        if (result === 'armed') {
-          onArmed()
-        } else {
-          setDragState('idle')
-        }
-      }
-
-      // 60s hard timeout
-      const timer = setTimeout(() => { controller.abort(); finish('error') }, 60_000)
-
-      // Direct JS callback so C++ can also signal completion
-      ;(window as unknown as Record<string, unknown>).__juceStartDragComplete = finish
-
-      ;(async () => {
-        try {
-          const res = await fetch(await resolveUrl(url), { signal: controller.signal })
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-          const contentLength = Number(res.headers.get('content-length') ?? -1)
-          setTotalBytes(contentLength)
-
-          const reader = res.body!.getReader()
-          const chunks: Uint8Array[] = []
-          let received = 0
-
-          for (;;) {
-            const { done, value } = await reader.read()
-            if (done) break
-            chunks.push(value)
-            received += value.length
-            setDlBytes(received)
-          }
-
-          // Merge chunks into one buffer
-          const merged = new Uint8Array(received)
-          let pos = 0
-          for (const chunk of chunks) { merged.set(chunk, pos); pos += chunk.length }
-
-          // Base64 encode in 32 KB slices to avoid call-stack overflow
-          const CHUNK = 0x8000
-          let b64 = ''
-          for (let i = 0; i < merged.length; i += CHUNK)
-            b64 += String.fromCharCode(...merged.subarray(i, i + CHUNK))
-          const base64 = btoa(b64)
-
-          // base64 캐시 저장 (이후 재드래그 시 재다운로드 없이 사용)
-          cachedBase64.current = base64
-
-          // Hand off to C++: decode + write to temp file + arm drag
-          if (!window.__JUCE__?.backend) { finish('error:no-juce'); return }
-          const result = await callJuceNative('writeAudioFile', [base64, name], 250000)
-          finish(result)
-        } catch (err) {
-          finish('error:exception:' + String(err).slice(0, 60))
-        }
-      })()
-      return
-    }
-
-    // JUCE 없는 환경 폴백: 클립보드 복사
-    setDragState('fallback')
-    navigator.clipboard.writeText(url)
-      .catch(() => window.open(url, '_blank'))
-    setTimeout(() => setDragState('idle'), 2000)
-  }
-
-  const fetchingLabel = dlBytes > 0
-    ? (totalBytes > 0 ? `${Math.round(dlBytes * 100 / totalBytes)}%` : `${Math.round(dlBytes / 1024)} KB`)
-    : 'preparing…'
-  const dragLabel: Record<DragState, string> = {
-    idle:     'import to DAW',
-    fetching: fetchingLabel,
-    armed:    'drag to track ↗',
-    dragging: 'dragging…',
-    fallback: 'couldn\'t import — link copied',
-    imported: 'drag to track ↗',
-  }
 
   const toggle = () => {
     if (engine) {
@@ -592,7 +418,6 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
   )
 
   if (compact) {
-    const ready = dragState === 'armed' || dragState === 'dragging' || dragState === 'imported'
     // Sample-exact stems announce where they belong — the receiver
     // shouldn't have to ask which bar to drop a session take at.
     const position = timelinePositionLabel(metadata)
@@ -606,30 +431,7 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
             </span>
           )}
           <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
-          <button
-            className={`stem-import-square${ready ? ' ready' : ''}`}
-            onMouseEnter={handleMouseEnter}
-            onMouseDown={handleMouseDown}
-            onClick={event => event.stopPropagation()}
-            title={dragLabel[dragState]}
-            aria-label={dragLabel[dragState]}
-          >
-            {dragState === 'fetching' ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
-              </svg>
-            ) : ready ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8.5 11V5.5a1.7 1.7 0 0 1 3.4 0V10" />
-                <path d="M11.9 10V8.2a1.7 1.7 0 0 1 3.4 0V11" />
-                <path d="M15.3 11v-.8a1.7 1.7 0 0 1 3.4 0v3.3c0 4.4-2.4 7-6.8 7H11c-2.3 0-3.4-1.1-4.5-2.8l-2.3-3.6a1.8 1.8 0 0 1 2.9-2.2l1.4 1.4V11Z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 4v12M7 11l5 5 5-5M6 20h12"/>
-              </svg>
-            )}
-          </button>
+          <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
         </div>
         {compactExpanded && (
           <div className="stem-audio-details">
@@ -672,31 +474,8 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
       {player}
 
-      {/* Import / Drag button — its own row under the player, the listen link beside it */}
       <div className="msg-att-row">
-      <button
-        className={`msg-att-import-btn${dragState === 'armed' || dragState === 'dragging' || dragState === 'imported' ? ' ready' : ''}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseDown={handleMouseDown}
-        title={dragLabel[dragState]}
-      >
-        {dragState === 'fetching' && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
-          </svg>
-        )}
-        {(dragState === 'idle' || dragState === 'fallback') && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
-          </svg>
-        )}
-        {(dragState === 'armed' || dragState === 'dragging' || dragState === 'imported') && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
-          </svg>
-        )}
-        <span>{dragLabel[dragState]}</span>
-      </button>
+      <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
       <ShareLinkWord url={url} name={name} from={from} metadata={metadata} />
       </div>
     </div>
@@ -706,302 +485,30 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 // ── 첨부 렌더러 ──────────────────────────────────────────────
 // ── 멀티 트랙 그룹 첨부 ──────────────────────────────────────
 interface TrackInfo { url: string; name: string; metadata?: AttachmentTimelineMetadata }
-type GroupDragState = 'idle' | 'fetching' | 'armed' | 'imported'
-
 function AudioGroupAttachment({ tracks, groupUrl }: { tracks: TrackInfo[]; groupUrl: string }) {
-  const [expanded, setExpanded]     = useState(false)
-  const [dragState, setDragState]   = useState<GroupDragState>('idle')
-  const [fetchedCount, setFetchedCount] = useState(0)
-  const cachedBase64s   = useRef<string[]>([])
-  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const juceBackend     = !!window.__JUCE__?.backend
-
-  // import 성공 / 취소 이벤트 수신
-  useEffect(() => {
-    const onImported = (e: Event) => {
-      if ((e as CustomEvent<{url:string}>).detail?.url !== groupUrl) return
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setDragState('imported')
-    }
-    const onCancel = (e: Event) => {
-      if ((e as CustomEvent<{url:string}>).detail?.url !== groupUrl) return
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setDragState(cachedBase64s.current.length === tracks.length ? 'imported' : 'idle')
-    }
-    window.addEventListener('__juceImported',      onImported)
-    window.addEventListener('__juceOutDragCancel', onCancel)
-    return () => {
-      window.removeEventListener('__juceImported',      onImported)
-      window.removeEventListener('__juceOutDragCancel', onCancel)
-    }
-  }, [groupUrl, tracks.length])
-
-  const armDone = () => {
-    window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url: groupUrl } }))
-    setDragState('armed')
-    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
-    armedResetTimer.current = setTimeout(() => {
-      armedResetTimer.current = null
-      setDragState(s => s === 'armed' ? 'imported' : s)
-    }, 15_000)
-  }
-
-  const handleGroupMouseDown = async (e: React.MouseEvent) => {
-    e.stopPropagation(); e.preventDefault()
-    if (!juceBackend || dragState === 'armed' || dragState === 'fetching') return
-
-    setDragState('fetching')
-
-    // 캐시가 있으면 재다운로드 없이 바로 re-arm
-    if (dragState === 'imported' && cachedBase64s.current.length === tracks.length) {
-      const args = tracks.flatMap((t, i) => [cachedBase64s.current[i], t.name])
-      try {
-        const r = await callJuceNative('writeAudioFiles', args, 250000)
-        if (r === 'armed') armDone()
-        else setDragState('imported')
-      } catch { setDragState('imported') }
-      return
-    }
-
-    // 처음: 순차 다운로드
-    const CHUNK = 0x8000
-    const b64s: string[] = []
-    setFetchedCount(0)
-
-    for (let i = 0; i < tracks.length; i++) {
-      try {
-        const res = await fetch(tracks[i].url)
-        if (!res.ok) { setDragState('idle'); return }
-        const chunks: Uint8Array[] = []
-        let received = 0
-        const reader = res.body!.getReader()
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) break
-          chunks.push(value); received += value.length
-        }
-        const merged = new Uint8Array(received)
-        let pos = 0
-        for (const c of chunks) { merged.set(c, pos); pos += c.length }
-        let b64 = ''
-        for (let j = 0; j < merged.length; j += CHUNK)
-          b64 += String.fromCharCode(...merged.subarray(j, j + CHUNK))
-        b64s.push(btoa(b64))
-        setFetchedCount(i + 1)
-      } catch { setDragState('idle'); return }
-    }
-
-    cachedBase64s.current = b64s
-    const args = tracks.flatMap((t, i) => [b64s[i], t.name])
-    try {
-      const r = await callJuceNative('writeAudioFiles', args, 250000)
-      if (r === 'armed') armDone()
-      else setDragState('idle')
-    } catch { setDragState('idle') }
-  }
-
-  const isReady    = dragState === 'armed' || dragState === 'imported'
-  const isFetching = dragState === 'fetching'
-  const btnLabel   = isFetching
-    ? (fetchedCount > 0 ? `${fetchedCount}/${tracks.length}…` : 'preparing…')
-    : (isReady ? 'drag to track ↗' : 'import to DAW')
-
-  return (
-    <div className="msg-att-audio-group">
-      <div className="msg-att-audio-group-header">
-        {/* 음표 아이콘 */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-        </svg>
-        <span className="msg-att-audio-name">{tracks.length} Tracks</span>
-
-        {juceBackend && (
-          <button
-            className={`msg-att-import-btn${isReady ? ' ready' : ''}`}
-            onMouseDown={handleGroupMouseDown}
-            onClick={e => e.stopPropagation()}
-          >
-            {isFetching && (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="spin">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
-              </svg>
-            )}
-            {!isFetching && !isReady && (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>
-              </svg>
-            )}
-            {isReady && (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 4h10M7 8h10M7 12h6"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/>
-              </svg>
-            )}
-            <span>{btnLabel}</span>
-          </button>
-        )}
-
-        <button
-          className="msg-att-group-chevron"
-          onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
-        >
-          {expanded ? '▲' : '▼'}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="msg-att-group-tracks">
-          {tracks.map(t => (
-            <AudioAttachment key={t.url} url={t.url} name={t.name} metadata={t.metadata} />
-          ))}
-        </div>
-      )}
+  const [expanded, setExpanded] = useState(false)
+  return <div className="msg-att-audio-group">
+    <div className="msg-att-audio-group-header">
+      <span className="msg-att-audio-name">{tracks.length} Tracks</span>
+      <ImportAllWord tracks={tracks} groupKey={groupUrl} />
+      <button type="button" className="msg-att-group-chevron" aria-expanded={expanded}
+        aria-label={expanded ? 'Hide tracks' : 'Show tracks'} onClick={() => setExpanded(value => !value)}>
+        {expanded ? '▲' : '▼'}
+      </button>
     </div>
-  )
+    {expanded && <div className="msg-att-group-tracks">
+      {tracks.map((track, index) => <AudioAttachment key={`${track.url}:${index}`} {...track} />)}
+    </div>}
+  </div>
 }
 
-// ── "import all" — batched multi-stem import as one quiet word ──────
-// Shared by the studio's multi-audio plates and the files tab. Resolves
-// every track url to a presigned GET (r2Access — stored urls are the
-// bucket's public urls), fetches each, and hands the whole set to the
-// native `writeAudioFiles` fn in ONE call — the same machinery
-// AudioGroupAttachment's multi drag-out uses: C++ batch-writes all
-// files to temp and arms a single multi-file drag (the native contract
-// supports exactly one armed drag, carrying many files). A track that
-// fails to fetch is skipped; the batch continues, and the word reads
-// "imported 6/7" briefly before settling on the armed wording. Armed /
-// imported wording and the 15s arm timeout mirror the single button.
-type ImportAllState = 'idle' | 'fetching' | 'armed' | 'imported'
-
+/** Single and batch controls share the same downloaded bytes and readiness. */
 export function ImportAllWord({ tracks, groupKey, className }: {
   tracks: { url: string; name: string }[]
-  /** Stable identity for the arming events (__localDragArmed /
-   *  __juceImported / __juceOutDragCancel) — plays the role the single
-   *  button's url plays. */
   groupKey: string
   className?: string
 }) {
-  const [state, setState] = useState<ImportAllState>('idle')
-  const [fetched, setFetched] = useState(0)
-  /** ok-count to flash as "imported 6/7" when some tracks were skipped. */
-  const [partial, setPartial] = useState<number | null>(null)
-  const cached = useRef<{ b64: string; name: string }[]>([])
-  const cachedKey = useRef('')
-  const armedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const partialTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const juceBackend = !!window.__JUCE__?.backend
-
-  // Import success / drag-cancel come back keyed on groupKey (the shell
-  // echoes whatever url __localDragArmed announced).
-  useEffect(() => {
-    const onImported = (e: Event) => {
-      if ((e as CustomEvent<{ url: string }>).detail?.url !== groupKey) return
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setState('imported')
-    }
-    const onCancel = (e: Event) => {
-      if ((e as CustomEvent<{ url: string }>).detail?.url !== groupKey) return
-      if (armedResetTimer.current) { clearTimeout(armedResetTimer.current); armedResetTimer.current = null }
-      setState(cached.current.length > 0 ? 'imported' : 'idle')
-    }
-    window.addEventListener('__juceImported',      onImported)
-    window.addEventListener('__juceOutDragCancel', onCancel)
-    return () => {
-      window.removeEventListener('__juceImported',      onImported)
-      window.removeEventListener('__juceOutDragCancel', onCancel)
-    }
-  }, [groupKey])
-
-  useEffect(() => () => {
-    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
-    if (partialTimer.current) clearTimeout(partialTimer.current)
-  }, [])
-
-  const armDone = () => {
-    window.dispatchEvent(new CustomEvent('__localDragArmed', { detail: { url: groupKey } }))
-    setState('armed')
-    if (armedResetTimer.current) clearTimeout(armedResetTimer.current)
-    armedResetTimer.current = setTimeout(() => {
-      armedResetTimer.current = null
-      setState(s => s === 'armed' ? 'imported' : s)
-    }, 15_000)
-  }
-
-  const handleMouseDown = async (e: React.MouseEvent) => {
-    e.stopPropagation(); e.preventDefault()
-    if (!juceBackend || state === 'armed' || state === 'fetching' || tracks.length === 0) return
-
-    setState('fetching')
-    setFetched(0)
-    setPartial(null)
-    if (partialTimer.current) { clearTimeout(partialTimer.current); partialTimer.current = null }
-
-    // Re-arm from cache — no re-download (single/group button parity).
-    const key = tracks.map(t => t.url).join('\n')
-    let entries = cachedKey.current === key ? cached.current : []
-
-    if (entries.length === 0) {
-      const CHUNK = 0x8000
-      const got: { b64: string; name: string }[] = []
-      let done = 0
-      for (const t of tracks) {
-        try {
-          const resolved = await resolveUrl(t.url)
-          let res = await fetch(resolved)
-          // A 403 on a presigned url = the cached entry expired
-          // mid-session — invalidate, re-resolve, retry once.
-          if (res.status === 403 && resolved !== t.url) {
-            invalidateResolved(t.url)
-            const fresh = await resolveUrl(t.url)
-            if (fresh !== resolved) res = await fetch(fresh)
-          }
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          const buf = new Uint8Array(await res.arrayBuffer())
-          let b64 = ''
-          for (let i = 0; i < buf.length; i += CHUNK)
-            b64 += String.fromCharCode(...buf.subarray(i, i + CHUNK))
-          got.push({ b64: btoa(b64), name: t.name })
-        } catch { /* one bad track never sinks the batch — skip it */ }
-        done++
-        setFetched(done)
-      }
-      entries = got
-    }
-
-    if (entries.length === 0) { setState('idle'); return }
-    cached.current = entries
-    cachedKey.current = key
-
-    try {
-      const r = await callJuceNative('writeAudioFiles', entries.flatMap(en => [en.b64, en.name]), 250000)
-      if (r !== 'armed') { setState('idle'); return }
-      armDone()
-      if (entries.length < tracks.length) {
-        setPartial(entries.length)
-        partialTimer.current = setTimeout(() => { partialTimer.current = null; setPartial(null) }, 2500)
-      }
-    } catch { setState('idle') }
-  }
-
-  if (!juceBackend) return null
-
-  const isReady = state === 'armed' || state === 'imported'
-  const label = state === 'fetching'
-    ? (fetched > 0 ? `importing ${fetched}/${tracks.length}…` : 'importing…')
-    : partial != null ? `imported ${partial}/${tracks.length}`
-    : isReady ? 'drag to track ↗'
-    : 'import all'
-
-  return (
-    <button
-      type="button"
-      className={`import-all-word${isReady ? ' ready' : ''}${className ? ` ${className}` : ''}`}
-      onMouseDown={e => { void handleMouseDown(e) }}
-      onClick={e => e.stopPropagation()}
-      title={label}
-    >
-      {label}
-    </button>
-  )
+  return <AudioTransferActions tracks={tracks} groupKey={groupKey} batch className={className} />
 }
 
 function ExpiredAttachment({ type, name }: { type: AttachType; name?: string | null }) {

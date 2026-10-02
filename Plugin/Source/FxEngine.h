@@ -30,12 +30,61 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kTremolo = 12, kArp, kRadio, kHarmony,
             kPitch = 16, kFormant, kGrain, kVoice, kCrush,
             kShimmer = 21, kSwell, kStutter, kAir, kRing, kGate, kWow,
-            kNumFx = 28, kNone = -1 };
+            kNumFx = 28, kNone = -1,
+            // graph-only splitters: two output ports, no DSP state
+            kSplitLR = 28,          // port 0 = the left as mono, port 1 = the right as mono
+            kSplitMS = 29,          // port 0 = the mid as mono,  port 1 = the side as mono
+            // control prints: no audio passes through them
+            kLfo  = 30,             // a drawn shape (64 samples over one cycle)
+            kRate = 31,             // a clock that plays a shape into a hand of another print
+            kMacro = 32,            // a knob the host can turn (macro 1..8), played into hands, or into a control wire's depth
+            // the sidechain: a source print, and a listener that turns a sound into a hand's push
+            kSide = 33,             // the host's sidechain bus, as a print: no input, one output
+            kFollow = 34,           // an envelope follower: audio in, a control wire out (attack, release, sense)
+            // an effect that came after the first twenty-eight: it has a slot like any print, just a higher number
+            kComp = 35,             // a compressor: threshold (the knob), ratio, attack, release, knee, makeup; a key; peak or rms
+            // a splitter with state: the sound cut into bands at up to five crossovers (aux 0..4, Hz, ascending; aux 5 = how many),
+            // each band a stereo pair on its own port (0 = the lowest). Linkwitz-Riley 4th order, with the allpasses that let
+            // the bands sum back to the sound.
+            kSplitBands = 36,
+            // the spectral prints: one short-time Fourier transform, a key, and a rule per bin
+            kCarve = 37,            // cuts the sound where the key is loud (no key: where the sound itself sticks out — its resonances)
+            kMatch = 38,            // learns the key's spectrum and the sound's, and pulls the sound's toward the key's
+            kVocode = 39,           // the sound (carrier) shaped by the key's spectrum, band by band
+            kFreeze = 40,           // holds the spectrum of one moment and keeps it sounding (gate: the knob, or a wire on `gate`)
+            kShift = 41,            // a frequency shifter: every partial moved by the same Hz (feedback makes it a barber pole)
+            kSmear = 42,            // the spectrum blurred over time: a fog, not a reverb
+            kPan = 43,              // where the sound sits, left to right (the knob; an LFO on it is an autopan)
+            kRepeat = 44,           // at each transient, one `rate` of the sound is kept and repeated until the next
+            kEnv = 45,              // an envelope: attack, decay, sustain, release — started by the sound (over a threshold) or by a wire on `gate`
+            kFold = 46,             // a wavefolder: the sound driven into folds, sine or triangle
+            kDrift = 47,            // a control print: a random that wanders smoothly (the LFO's random, but between the steps a curve)
+            kPulse = 48,            // a control print: a gate that fires on a euclidean pattern, one step per clock
+            kScene = 49,            // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
+            kSieve = 50 };          // keeps only the loudest partials: the knob says how few (all → one)
 constexpr int kAuxCount = 8;
+constexpr int kSceneHands = 14, kSceneStride = 15;   // a scene snapshot: 14 hands per print, led by the print's id
+constexpr int kSpecBands = 40, kSpecN = kSpecBands * 3;   // a spectral print's meter: the sound, the key and the gain, in dB, over 40 bands 30 Hz..16 kHz
 /** A graph-only node: sums its inputs (per-wire gain), no DSP state. */
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
-inline bool isEffect (int t) noexcept { return t >= 0 && t < kNumFx && t != kMixSlot; }
+inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear || t == kSieve; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold; }
+constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
+inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
+constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
+inline bool isControl (int t) noexcept { return t == kLfo || t == kRate || t == kMacro || t == kDrift || t == kPulse || t == kScene; }
+inline bool isSource (int t) noexcept { return t == kSide; }       // audio starts here (like in)
+inline bool isListener (int t) noexcept { return t == kFollow || t == kEnv; }   // audio ends here (like out); a value comes out
+inline bool hasKey (int t) noexcept { return t == kGlue || t == kGate || t == kComp || t == kCarve || t == kMatch || t == kVocode || t == kRepeat; }   // a second input: the sound its detector listens to
+constexpr int kNumMacros = 8;
+constexpr int kLfoLen = 1024;   // fine enough that a vertical line in a drawn shape is a step, not a ramp (read without interpolation)
+/** The hands a control wire can play. aux k is kHandAux0 + k. */
+enum Hand : int { kHandNone = -1, kHandAmount = 0, kHandDecay, kHandFb, kHandAux0,
+                  kHandShare0 = 64 };   // + (from + 1): the share of the wire from `from` into a mix (in = 64)
+/** A buffer's lane: what one wire of a split carries. Two lanes meeting
+ *  at a node (or at out) join back into a stereo pair. */
+enum Lane : int { kLaneStereo = 0, kLaneL, kLaneR, kLaneM, kLaneS };
 
 constexpr int kMaxNodes   = 16;
 constexpr int kMaxEdges   = 48;
@@ -50,7 +99,7 @@ constexpr int kPortOut = -2;
  *  with unity at 0.75, everything else is off at 0. */
 inline float neutralAmount (int type) noexcept
 {
-    return type == kGain ? 0.75f : (type == kTone || type == kStereoize || type == kPitch || type == kFormant) ? 0.5f : 0.0f;
+    return type == kGain ? 0.75f : (type == kTone || type == kStereoize || type == kPitch || type == kFormant || type == kPan) ? 0.5f : 0.0f;
 }
 
 /** Per-block parameter snapshot for one node (plain values — the
@@ -65,11 +114,13 @@ struct NodeParams
     bool  wet      = false;  // space/delay/doubler/mod: drop the dry (Wet Solo)
     int   aux[kAuxCount] {};      // tremolo: [vol|pan]; arp: [interval st]; harmony: [key, scale, degrees];
                                   // grain: [size ms, spray ms, scatter st, key, scale, pan %, pitch mode, freeze]
+    float shareK[kMaxNodes + 1] {};   // a rate's push on each input wire's share, by source (in = 0, node id + 1); zero when not played
     bool  hasCurve = false;  // tremolo: a drawn cycle overrides the shape
     float curve[kCurveLen] {};
     float bpm      = 120.0f;
     double ppq     = 0.0;    // host position at block start (quarter notes)
     bool  playing  = false;  // transport rolling → tempo-synced things lock to ppq
+    bool  snap     = false;  // the hand just jumped on purpose (an lfo's cliff, a random step): take it at once, no glide
 };
 
 struct Biquad
@@ -91,6 +142,8 @@ struct NodeState
     float amtSm   = 0.0f;   // smoothed amount
     int   lastVar = 0;      // variant seen last block (for light-touch rebakes)
     float grDb    = 0.0f;   // glue: current gain reduction (UI meter)
+    const float* keyL = nullptr;   // this block's key, when a wire lands on the key input (glue, gate)
+    const float* keyR = nullptr;
 
     // tone
     float tiltApplied = 999.0f;
@@ -110,6 +163,38 @@ struct NodeState
     float stEnvM = 0.0f, stEnvS = 0.0f;
     // glue
     float glueEnv = 0.0f;
+    // spectral: rings of the sound and the key coming in, the frames going out (overlap-added), the frame's spectrum, and per-bin memory
+    std::vector<float> spIn[2], spKey[2], spOut[2];   // 2 × kFft each, circular
+    std::vector<float> spRe, spIm, spKre, spKim, spWin;
+    std::vector<float> spGain, spInAvg, spKeyAvg, spCurve, spTmp;   // kBins
+    std::vector<float> spBandKey, spBandIn;                            // 64: the vocoder's band envelopes
+    std::vector<float> spHold, spHoldPh[2];                            // freeze: the held magnitudes (mid) and each channel's running phase; sieve: the mask, smoothed
+    std::vector<std::pair<float, int>> spPeaks;                        // sieve: the frame's peaks (magnitude, bin), scratch
+    std::vector<float> spPhase;                                        // shift: the carrier's phase at every sample of the ring (continuous, so hz can move without a click)
+    double spShiftAcc = 0.0; float spShiftHz = 0.0f;                   // shift: the carrier's phase and its hz, smoothed
+    uint32_t spRng = 0x9E3779B9u;                                      // freeze: the phases it deals each frame
+    float* spec = nullptr;                                             // the chain's spectrum meter for this slot (kSpecN floats), or null
+    bool  spFrozen = false; float spLastAmt = 0.0f;
+    double spShiftPhase = 0.0;                                          // shift: the carrier's phase, continuous across frames
+    float spOutPrev[2] {};                                              // shift: the last output samples, for the feedback
+    // repeat: a ring of the last two seconds, and the loop that plays out of it
+    std::vector<float> rpRing[2]; int64_t rpN = 0; int64_t rpTrig = -1; int rpLen = 0; float rpFast = 0.0f, rpSlow = 0.0f; int rpHold = 0;
+    // env: the stage and where the value is
+    int envStage = 0; float envVal = 0.0f; bool envGate = false;
+    // fold: a dc blocker after the folds
+    float foldDc[2][2] {};
+    int64_t spN = 0;                                                    // samples in so far
+    bool spPrimed = false;
+    void spectralFrame (int type, const NodeParams& p, float sr, bool keyed);
+    // bands: per crossover the split (LP², HP²), and per (band, later crossover) the allpass that band goes through
+    Biquad bandLp[kMaxCross][2][2], bandHp[kMaxCross][2][2];          // [crossover][stage][channel]
+    Biquad bandApLp[kMaxCross][kMaxCross][2][2], bandApHp[kMaxCross][kMaxCross][2][2];   // [band][crossover][stage][channel]
+    int   bandBakedHz[kMaxCross] { -1, -1, -1, -1, -1 };
+    int   bandBakedN = -1;
+    // comp
+    float compEnvDb = -120.0f;   // the detector, in dB, through attack and release
+    float compRms = 0.0f;
+    float compInPk = 0.0f;       // for the meter: the loudest the key was since it last looked
     // gain
     float gainPrev[2] { 1.0f, 1.0f };
     bool  gainPrimed = false;
@@ -120,10 +205,11 @@ struct NodeState
     float phX1[6][2] {}, phY1[6][2] {};
     float phFb[2] { 0.0f, 0.0f };
     // cut
-    Biquad cutBqHp[2], cutBqLp[2], cutBqHp2[2], cutBqLp2[2];
+    Biquad cutHp[4][2], cutLp[4][2];   // up to four second-order stages each: 12, 24, 36, 48 dB per octave
+    int   cutStages = 2;
     bool  cutUseHp = false, cutUseLp = false;
     float cutBakedA = -1.0f;
-    int   cutBakedVar = -1;
+    int   cutBakedVar = -1, cutBakedSlope = -1;
     // amp
     float ampHpState[2] {}, ampDcState[2] {}, ampLpState[2] {};
     float ampLp2State[2] {}, ampMidLo[2] {}, ampMidHi[2] {}, ampEnv[2] {};
@@ -236,13 +322,26 @@ struct Graph
         int   aux[kAuxCount] {};
         bool  hasCurve = false;
         float curve[kCurveLen] {};
+        bool  hasLfo = false;       // an lfo print: its shape, sampled
+        float lfo[kLfoLen] {};
+        bool  hasLfo2 = false;      // …and the shape it morphs toward (its `morph` hand, the decay, says how far)
+        float lfo2[kLfoLen] {};
+        std::vector<float> pts;     // the lfo's drawn points, kept for the wall (the engine reads `lfo`)
+        std::vector<float> pts2;    // the points of the shape it morphs toward
+        std::vector<float> sceneA, sceneB;   // scene: the snapshots, flat: [id, amount, variant, decay, fb, div, wet, aux0..7] per print (stride kSceneStride)
         float x = 0.0f, y = 0.0f;   // wall position — the engine ignores it
     };
     struct Edge
     {
         int   from = kPortIn;    // node id, or kPortIn
         int   to   = kPortOut;   // node id, or kPortOut
-        float gain = 1.0f;       // send level
+        float gain = 1.0f;       // send level; a control wire's depth (-1..1)
+        int   port = 0;          // which output of `from` (only a splitter has a second)
+        int   hand = kHandNone;  // a control wire: which hand of `to` it plays
+        int   refFrom = -1;      // a control wire whose target is another control wire's depth: that wire's `from` …
+        int   refHand = kHandNone;   // … and its hand (it lands on the same `to`)
+        int   pol = 0;           // a control wire's polarity: 0 = as its source goes (an lfo swings both ways, a macro or a follow pushes one way), 1 = one way from the setting, 2 = both ways round it
+        int   in = 0;            // which input of `to`: 0 = the sound, 1 = the key (glue, gate)
     };
     std::vector<Node> nodes;
     std::vector<Edge> edges;
@@ -256,7 +355,14 @@ struct Op
                       kScale,      // dst = gain * src
                       kAccum,      // dst += gain * src
                       kProcess,    // node `slot` (typed `type`) in place on dst
-                      kDelay };    // dst delayed by `samples` through delay line `slot`
+                      kDelay,      // dst delayed by `samples` through delay line `slot`
+                      kSplitLR,    // dst = (src.L, src.L), dst2 = (src.R, src.R)
+                      kSplitMS,    // dst = (mid, mid), dst2 = (side, side)
+                      kSplitBands, // outs[0..n-1] = the bands of src, lowest first (n = the node's crossovers + 1); state in nodes[slot]
+                      kJoinLR,     // dst.L = fold(src), dst.R = fold(src2); a missing lane (-1) is silence; flag 1 = add
+                      kJoinMS,     // m = fold(src), s = fold(src2): dst.L = m + s, dst.R = m - s; flag 1 = add
+                      kSide,       // dst = the sidechain bus (silence when the host gives none)
+                      kFollow };   // follow[slot] = envelope of src (attack, release, sense from params[slot].aux)
     int   kind = kCopy;
     int   slot = -1;
     int   type = kNone;
@@ -264,6 +370,10 @@ struct Op
     int   src  = 0;
     float gain = 1.0f;
     int   samples = 0;
+    int   src2 = -1;   // the second source of a join
+    int   dst2 = -1;   // the second output of a split
+    int   flag = 0;    // join: 1 = accumulate into dst
+    int   outs[kMaxCross + 1] { -1, -1, -1, -1, -1, -1 };   // a bands split: one buffer per band
 };
 
 constexpr int kMaxDelayLines = 32;
@@ -297,7 +407,25 @@ public:
     /** Audio thread: run the current Program. `params` is indexed by
      *  slot; `grDbOut` reports glue's reduction (max over glue nodes). */
     void process (juce::AudioBuffer<float>& buffer, float sampleRate,
-                  const NodeParams* params, float& grDbOut);
+                  const NodeParams* params, float& grDbOut,
+                  const juce::AudioBuffer<float>* side = nullptr);
+
+    /** For a comp's meter: the key's peak since the meter last looked (reading clears it), and its gain reduction now, dB. */
+    float takeCompIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? compIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
+    float compReduction (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? compGr[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+
+    /** For a follow's meter. `takeFollowIn`: the loudest it heard (after its sense) since the last call, linear; reading clears it.
+     *  `followEnvelope`: where its envelope is now, linear (what is compared with the threshold). */
+    float takeFollowIn (int slot) noexcept { return slot >= 0 && slot < kMaxNodes ? followIn[(size_t) slot].exchange (0.0f, std::memory_order_relaxed) : 0.0f; }
+    float followEnvelope (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? followEnvOut[(size_t) slot].load (std::memory_order_relaxed) : 0.0f; }
+    /** A spectral print's meter: kSpecN floats — the sound, the key and the gain, in dB, over kSpecBands log bands (see the frame rule). */
+    const float* spectrum (int slot) const noexcept { return slot >= 0 && slot < kMaxNodes ? specOut[slot] : nullptr; }
+
+    /** What a follow print hears now, 0..1 (0 when it isn't running). Any thread. */
+    float followValue (int slot) const noexcept
+    {
+        return slot >= 0 && slot < kMaxNodes ? follows[(size_t) slot].load (std::memory_order_relaxed) : 0.0f;
+    }
 
     /** Samples of latency a node adds at this sample rate (its quality
      *  word chooses between the fine and the live shifter). */
@@ -318,6 +446,15 @@ private:
 
     std::array<NodeState, kMaxNodes> nodes;
     std::array<std::atomic<float>, kMaxNodes> peaks {};
+    std::array<std::atomic<float>, kMaxNodes> follows {};
+    std::array<std::atomic<float>, kMaxNodes> compIn {}, compGr {};
+    float followSlow[kMaxNodes] {};   // transient mode: the slow envelope a hit must jump out of
+    int   followHold[kMaxNodes] {};   // transient mode: samples until the next hit may fire
+    std::array<std::atomic<float>, kMaxNodes> followIn {};       // a follow's input peak since the meter last looked
+    std::array<std::atomic<float>, kMaxNodes> followEnvOut {};   // a follow's envelope now
+    float specOut[kMaxNodes][kSpecN] {};                          // a spectral print's meter, written by the audio thread (floats read whole: torn values are a frame off, no worse)
+    float followEnv[kMaxNodes] {};                 // audio thread: each follow's envelope
+    const juce::AudioBuffer<float>* sideBuf = nullptr;   // per block: the host's sidechain, or null
     juce::AudioBuffer<float> scratch { 2, 2048 };
     std::vector<juce::AudioBuffer<float>> pool;   // indices 1..kMaxBuffers-1
     juce::AudioBuffer<float>* host = nullptr;     // buffer 0, per block

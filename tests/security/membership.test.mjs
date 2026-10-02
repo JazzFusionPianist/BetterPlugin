@@ -12,9 +12,9 @@ test('atomic conversations deny former creators, role escalation and revoked ses
    create table game_chats(id uuid primary key default gen_random_uuid(),room_id uuid,sender_id uuid,content text);
    alter table game_chats enable row level security;grant all on game_chats,game_rooms to authenticated;
   `)
-  await db.exec(await readFile('supabase/migrations/20260923190630_security_live_permissions.sql','utf8'))
-  await db.exec(await readFile('supabase/migrations/20260923194549_security_encrypted_chat.sql','utf8'))
-  await db.exec(await readFile('supabase/migrations/20260923200122_security_membership_and_sessions.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260927184448_security_live_permissions.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260927184452_security_encrypted_chat.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260927184456_security_membership_and_sessions.sql','utf8'))
   const created=await act(db,A,`select create_secure_conversation('group',$1,'Private room') id`,[[B]])
   const room=created.rows[0].id
   assert.equal((await act(db,A,'select * from conversation_members where conversation_id=$1',[room])).rows.length,2)

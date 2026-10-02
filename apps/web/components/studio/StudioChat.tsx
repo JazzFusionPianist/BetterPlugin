@@ -21,6 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useMessages, useConversationReads, type ChatTarget, type Message, type Profile } from '@orb/core'
 import { uploadAttachment, type UploadedAttachment } from '@/lib/upload'
 import type { JoinResult } from '@/lib/games/gameRooms'
+import { houseColor } from '../slur/marks'
 
 /* ── little formatters ────────────────────────────────────────────── */
 
@@ -674,7 +675,7 @@ export default function StudioChat({
           {!isMine && (
             <div className="wd-mav">
               {first && (
-                <span style={{ background: senderP?.avatar_color ?? '#C0BCB3' }}>
+                <span style={{ background: (senderP ? houseColor(senderP.id) : '#C0BCB3') }}>
                   {senderP?.avatar_url ? <img src={senderP.avatar_url} alt="" /> : (senderP?.initials ?? '').slice(0, 1)}
                 </span>
               )}
@@ -697,7 +698,7 @@ export default function StudioChat({
                 {isGroup ? (
                   <span className="wd-read-avs">
                     {readers.slice(0, 4).map(r => (
-                      <span key={r.id} style={{ background: r.avatar_color }}>
+                      <span key={r.id} style={{ background: houseColor(r.id) }}>
                         {r.avatar_url ? <img src={r.avatar_url} alt="" /> : r.initials.slice(0, 1)}
                       </span>
                     ))}

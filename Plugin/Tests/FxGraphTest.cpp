@@ -38,6 +38,7 @@ static void paramsFor (const Graph& g, NodeParams* params)
         p.amount = nd.amount; p.variant = nd.variant;
         p.decay = nd.decay[juce::jlimit (0, 2, nd.variant)];
         p.delayDiv = nd.delayDiv; p.delayFb = nd.delayFb; p.wet = nd.wet; p.bpm = 120.0f;
+        for (int k = 0; k < kAuxCount; ++k) p.aux[k] = nd.aux[k];
     }
 }
 
@@ -254,7 +255,9 @@ int main()
         const auto o = run (g);
         float e = 0; for (int i = 6000; i < 10000; ++i) e += o.getSample (0, i) * o.getSample (0, i);
         float ei = 0; for (int i = 6000; i < 10000; ++i) ei += input.getSample (0, i) * input.getSample (0, i);
-        CHECK (e > ei * 1.3f, "harmony: the voice adds energy on top of the dry");
+        float d = 0; for (int i = 6000; i < 10000; ++i) d = std::max (d, std::abs (o.getSample (0, i) - input.getSample (0, i)));
+        std::printf ("    [harmony +12] energy ratio %.3f, diff %.3f\n", e / ei, d);
+        CHECK (e > ei * 0.5f && d > 0.1f, "harmony +12: the octave voice is there, at a sane level");   // (the knob mixes toward the voice; at full it is the voice, an octave up through the shifter)
     }
     { // harmony in key: the tracker hears 440 (A) and C major a third above A is C (+3 st)
         Graph g; auto n = node (15, kHarmony, 1.0f, 0); n.aux[0] = 0; n.aux[1] = 0; n.aux[2] = 2; n.wet = true; g.nodes.push_back (n);
@@ -420,6 +423,80 @@ int main()
         CHECK (finite (wow) && wdiff > 0.05f && peakOf (wow, 4000, N) > 0.2f && peakOf (wow, 4000, N) < 1.0f, "wow: sways the signal, sane level");
     }
 
+    { // bands: the sound cut in two and summed again is the sound (Linkwitz-Riley: flat in level; the phase turns, so compare levels, late, once the filters have settled)
+        Graph g; g.nodes.push_back (node (3, kSplitBands, 0.0f));
+        g.edges.push_back ({ kPortIn, 3, 1.0f });
+        { Graph::Edge e; e.from = 3; e.to = kPortOut; e.gain = 1.0f; e.port = 0; g.edges.push_back (e); }
+        { Graph::Edge e; e.from = 3; e.to = kPortOut; e.gain = 1.0f; e.port = 1; g.edges.push_back (e); }
+        const auto out = run (g);
+        auto rmsOf = [] (const juce::AudioBuffer<float>& b, int from) { double acc = 0; int c = 0; for (int i = from; i < b.getNumSamples(); ++i) { const float v = b.getSample (0, i); acc += v * v; ++c; } return std::sqrt (acc / c); };
+        const double r0 = rmsOf (input, 4000), r1 = rmsOf (out, 4000);
+        const double db = 20.0 * std::log10 (r1 / r0);
+        std::printf ("    bands: sum of both bands vs the sound: %+.2f dB\n", db);
+        CHECK (std::abs (db) < 0.5, "bands: the bands summed give the sound's level back");
+    }
+    { // carve at depth 0: the sound, one frame later, untouched (the STFT round trip is clean)
+        Graph g; g.nodes.push_back (node (4, kCarve, 0.0f));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        float worst = 0.0f;
+        for (int i = kFft; i + kFft < input.getNumSamples(); ++i) worst = juce::jmax (worst, std::abs (out.getSample (0, i + kFft) - input.getSample (0, i)));
+        std::printf ("    carve @0: worst sample error after one frame of latency: %.5f\n", worst);
+        CHECK (worst < 2.0e-3f, "carve at depth 0 passes the sound through, one frame late");
+    }
+    { // carve at full depth with its own sound as the rule (no key): the level drops, the print does something
+        Graph g; g.nodes.push_back (node (4, kCarve, 1.0f));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        double a0 = 0, a1 = 0; for (int i = 4096; i < input.getNumSamples(); ++i) { a0 += std::abs (input.getSample (0, i - kFft)); a1 += std::abs (out.getSample (0, i)); }
+        std::printf ("    carve @full (no key): level ratio %.3f\n", a1 / a0);
+        CHECK (a1 < a0, "carve at full depth takes something away");
+    }
+    auto one = [&] (int type, float amount, int variant = 0) { Graph g; g.nodes.push_back (node (2, type, amount, variant)); g.edges.push_back ({ kPortIn, 2, 1.0f }); g.edges.push_back ({ 2, kPortOut, 1.0f }); return g; };
+    auto finite = [] (const juce::AudioBuffer<float>& b) { for (int c = 0; c < 2; ++c) for (int i = 0; i < b.getNumSamples(); ++i) if (! std::isfinite (b.getSample (c, i))) return false; return true; };
+    for (int t : { (int) kFreeze, (int) kShift, (int) kSmear, (int) kSieve })
+    { // the new spectral prints at 0: the sound through, one frame late
+        Graph g; g.nodes.push_back (node (4, t, 0.0f));
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        float worst = 0.0f;
+        for (int i = kFft; i + kFft < input.getNumSamples(); ++i) worst = juce::jmax (worst, std::abs (out.getSample (0, i + kFft) - input.getSample (0, i)));
+        std::printf ("    spectral type %d @0: worst sample error after one frame: %.5f\n", t, worst);
+        CHECK (worst < 2.0e-3f, "a spectral print at 0 passes the sound through, one frame late");
+    }
+    { // shift at full, 200 Hz: a different signal, sane level
+        Graph g; auto n = node (4, kShift, 1.0f); n.aux[0] = 200; g.nodes.push_back (n);
+        g.edges.push_back ({ kPortIn, 4, 1.0f }); g.edges.push_back ({ 4, kPortOut, 1.0f });
+        const auto out = run (g);
+        float d = 0.0f; for (int i = 4096; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (out.getSample (0, i) - input.getSample (0, i - kFft)));
+        std::printf ("    shift 200: diff %.4f peak %.4f finite %d\n", d, peakOf (out, 4096, input.getNumSamples()), (int) finite (out));
+        CHECK (finite (out) && d > 0.1f && peakOf (out, 4096, input.getNumSamples()) < 1.2f, "shift 200 Hz: moves the sound, sane level");
+    }
+    { // sieve at 0.8 (four partials): a different signal, sane level, still finite
+        const auto sv = run (one (kSieve, 0.8f, 0));
+        float d = 0.0f; for (int i = 4096; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (sv.getSample (0, i) - input.getSample (0, i - kFft)));
+        std::printf ("    sieve @0.8: diff %.4f peak %.4f\n", d, peakOf (sv, 4096, input.getNumSamples()));
+        CHECK (finite (sv) && d > 0.05f && peakOf (sv, 4096, input.getNumSamples()) < 1.2f, "sieve: keeps a few partials, sane level");
+    }
+    { // pan in the middle is transparent; hard left leaves the right silent
+        const auto mid = run (one (kPan, 0.5f, 0));
+        float d = 0.0f; for (int i = 0; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (mid.getSample (0, i) - input.getSample (0, i)));
+        CHECK (d < 1.0e-4f, "pan in the middle is transparent");
+        const auto left = run (one (kPan, 0.0f, 0));
+        CHECK (finite (left) && peakOf (left, 4000, input.getNumSamples()) > 0.3f, "pan hard left keeps the sound on the left");
+    }
+    { // fold at 0 is transparent (bar the dc blocker's 20 Hz), at full it is a different signal within bounds
+        const auto f0 = run (one (kFold, 0.0f, 0));
+        float d = 0.0f; for (int i = 4000; i < input.getNumSamples(); ++i) d = std::max (d, std::abs (f0.getSample (0, i) - input.getSample (0, i)));
+        std::printf ("    fold @0: worst error %.4f\n", d);
+        CHECK (finite (f0) && d < 0.2f, "fold at 0 leaves the sound close to itself");
+        const auto f1 = run (one (kFold, 1.0f, 0));
+        CHECK (finite (f1) && peakOf (f1, 4000, input.getNumSamples()) < 1.0f, "fold at full stays within bounds");
+    }
+    { // repeat at full: after the click something keeps sounding, within bounds
+        const auto rp = run (one (kRepeat, 1.0f, 0));
+        CHECK (finite (rp) && peakOf (rp, 4000, input.getNumSamples()) < 1.5f, "repeat: sane level");
+    }
     std::printf (failures == 0 ? "\nall green\n" : "\n%d failure(s)\n", failures);
     return failures == 0 ? 0 : 1;
 }

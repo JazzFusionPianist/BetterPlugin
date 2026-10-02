@@ -1,0 +1,22 @@
+name: Production security health
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: production-security-health
+  cancel-in-progress: false
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check private storage, authentication and cleanup freshness
+        env:
+          HEALTH_TOKEN: ${{ secrets.SLUR_HEALTH_TOKEN }}
+        run: |
+          test -n "$HEALTH_TOKEN" || { echo 'Missing read-only health token'; exit 1; }
+          curl --fail --silent --show-error --max-time 30 --retry 2 --retry-delay 10 \
+            --header "Authorization: Bearer $HEALTH_TOKEN" \
+            https://better-plugin.vercel.app/api/security-status

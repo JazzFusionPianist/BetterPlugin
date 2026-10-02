@@ -34,7 +34,10 @@ export async function rpc<T>(token: string, name: string, args: Record<string, u
     if (failure.code === '22023') throw new HttpError(400, 'Invalid request')
     throw new HttpError(502, 'Database operation failed')
   }
-  return res.json() as Promise<T>
+  // PostgREST returns an empty body for PostgreSQL void functions (rate limits,
+  // finalization and cleanup). Treat that as null instead of a JSON parse error.
+  const body = await res.text()
+  return (body.trim() ? JSON.parse(body) : null) as T
 }
 export async function authenticate(req: Request, action: string) {
   const token = bearer(req)
@@ -76,7 +79,14 @@ export function endpoint(fn: (req: Request) => Promise<unknown>) {
     if (req.method === 'OPTIONS') return response(req, null, 204)
     if (req.method !== 'POST') return response(req, { error: 'POST required' }, 405)
     try { return response(req, await fn(req)) }
-    catch (error) { return response(req, { error: error instanceof HttpError ? error.message : 'Request failed' }, error instanceof HttpError ? error.status : 500) }
+    catch (error) {
+      if (!(error instanceof HttpError)) {
+        // Stack locations only: exception messages can contain URLs or tokens.
+        console.error('Security endpoint failure', error instanceof Error ? error.name : typeof error,
+          error instanceof Error ? error.stack?.split('\n').slice(1, 3).join('\n') : '')
+      }
+      return response(req, { error: error instanceof HttpError ? error.message : 'Request failed' }, error instanceof HttpError ? error.status : 500)
+    }
   }
 }
 export function r2() {

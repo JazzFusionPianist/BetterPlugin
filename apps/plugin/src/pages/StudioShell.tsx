@@ -1,6 +1,6 @@
 import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
 /**
- * greenroom — the workspace surface for the Orb Chat plugin build
+ * the studio — the workspace surface for the Slur plug-in build
  * (?surface=chat). Layout and print styling replicate the approved
  * WorkspaceDemo mockup (.wd-* classes, see studio.css): a project-first
  * rail on the left, a tabbed main pane (chat / files / calendar / notes)
@@ -34,27 +34,44 @@ import { useEventCategories } from '../hooks/useEventCategories'
 import { parseSchedule } from '../lib/parseSchedule'
 import { linkify, firstUrl, openExternalUrl } from '../lib/linkify'
 import { getDawTimelineSnapshot, getDropIngestionReports, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../lib/audioTimeline'
-import { createRegionBundleAttachment, isRegionArchive } from '../lib/regionBundleIO'
-import RegionBundleAttachment from '../components/collab/RegionBundleAttachment'
-import CaptureRegionsButton from '../components/collab/CaptureRegionsButton'
-import ExportTracksButton from '../components/collab/ExportTracksButton'
-
-import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, fmtBytes } from '../lib/limits'
+import { mergeDroppedRegions, mergeFailureText } from '../lib/audioMerge'
+import { buildZip } from '../lib/zipStore'
+import { DAW_FILE_LIMIT, UPLOAD_FILE_LIMIT, ZIP_TOTAL_LIMIT, fmtBytes } from '../lib/limits'
 import { resolveUrl, useResolvedUrl, invalidateResolved } from '../lib/r2Access'
 import StemPanel from '../components/collab/StemPanel'
-import ChatCalendar from '../components/collab/ChatCalendar'
-import SchedulePrompt from '../components/collab/SchedulePrompt'
 import LinkPreviewCard from '../components/collab/LinkPreviewCard'
 import { AudioAttachment, AudioEngineContext, ImportAllWord, ScheduleChip, looksLikeSchedule, type ExternalAudioEngine } from '../components/collab/ChatView'
 import { LanguageProvider } from '../i18n/LanguageContext'
 import type { AttachmentTimelineMetadata, ChatTarget, Message, Profile } from '../types/collab'
 import type { StemDropRequest } from '../types/stems'
 import ProfilePage from '../components/studio/ProfilePage'
+import StudioCalendar from '../components/studio/StudioCalendar'
 import SettingsPage, { APP_VERSION } from '../components/studio/SettingsPage'
 import GamesPane, { SOLO_GAMES, useGameName, type GameScreen } from '../components/studio/GamesPane'
+import LivePane from '../components/studio/LivePane'
+import SlurMark from '../slur/SlurMark'
+import StudioHomeBar from '../components/studio/StudioHomeBar'
+import { StudioHomePrompt, StudioWeek } from '../components/studio/StudioHomeSchedule'
+import { useLive, type LiveSession } from '../hooks/useLive'
 import type { GameId } from '../components/collab/GameListView'
 import type { GameType, JoinResult } from '../lib/gameRooms'
 import './studio.css'
+import ExportTracksButton from '../components/collab/ExportTracksButton'
+import StemGroupDisclosure from '../components/collab/StemGroupDisclosure'
+import ShareRegionsButton from '../components/collab/ShareRegionsButton'
+import CaptureRegionsButton from '../components/collab/CaptureRegionsButton'
+import { exportLogicSelection, hasRegionBridge, useRegionHost } from '../lib/dawRegionBridge'
+import PlaceRegionsButton from '../components/collab/PlaceRegionsButton'
+import { selectedRegionBundle } from '../lib/regionPlacement'
+import { downloadAudio } from '../lib/audioDownloads'
+import { prepareTrackExport } from '../lib/dawTrackExport'
+import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
+import { prepareSharedRegions, uploadSharedRegions, rememberRegionEvidence } from '../lib/regionSharing'
+import { planVstRegionDrag } from '@orb/core/lib/regionVstXml.ts'
+import { isRegionArchive, prepareArchivedRegionBundle, createRegionArchive } from '@orb/core/lib/regionArchive.ts'
+import { hasCompleteLayout, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
+import { createRegionDawproject } from '@orb/core/lib/regionDawproject.ts'
+import { houseColor } from '../slur/marks'
 
 interface Props { supabase: SupabaseClient; user: User }
 
@@ -94,29 +111,20 @@ function dragHasFiles(e: ReactDragEvent): boolean {
   return Array.from(e.dataTransfer?.types ?? []).includes('Files')
 }
 
-/** One complete audio drop routed to the intended conversation surface. */
-interface RegionDrop {
+/** A multi-track drop (native DAW batch or Finder) held while the small
+ *  chooser card asks how it should land — separately, merged, or (chat
+ *  only) as one zip. Single files never wait here. */
+interface PendingDropChoice {
   files: File[]                                    // the audio files (≥2)
   target: 'chat' | 'stems'
   fallback: AttachmentTimelineMetadata | null
 }
 
-/** Average a set of #RRGGBB strings into one hex — same helper CollabPage
- *  uses for group tint (visually unifies a member set). */
-function mixHexColors(hexes: string[]): string {
-  if (hexes.length === 0) return '#4A8FE7'
-  let r = 0, g = 0, b = 0
-  for (const h of hexes) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
-    if (!m) continue
-    const v = parseInt(m[1]!, 16)
-    r += (v >> 16) & 0xff
-    g += (v >> 8) & 0xff
-    b += v & 0xff
-  }
-  const n = hexes.length
-  const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
-  return `#${to2(r)}${to2(g)}${to2(b)}`
+/** "stems-250914-1732.zip" — the zip option's archive name. */
+function zipName(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `stems-${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.zip`
 }
 
 /** Same-sender messages closer than this form one bubble burst. */
@@ -401,7 +409,131 @@ function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) 
    arming, __juceImported / cooldown handling — runs byte-for-byte
    unchanged. Playback is a remote control on the shared engine. */
 
-interface StudioTrack { url: string; name: string; metadata?: AttachmentTimelineMetadata; from?: string }
+interface StudioTrack { url: string; name: string; projectName?: string; metadata?: AttachmentTimelineMetadata; from?: string; assetId?: string; regionId?: string; regionBundle?: RegionBundle }
+
+function studioPositionLabel(track: StudioTrack) {
+  const bundle = parseRegionBundle(track.regionBundle)
+  const region = bundle?.regions.find(r => r.id === track.regionId)
+  if (!region?.start) return timelinePositionLabel(track.metadata)
+  const milliseconds = Math.round(region.start.samples * 1000 / region.start.sampleRate)
+  const seconds = Math.floor(milliseconds / 1000)
+  return { text: `at ${fmtDur(seconds)}.${String(milliseconds % 1000).padStart(3, '0')}`,
+    tooltip: 'Edited region position from the source DAW, relative to song zero. The complete bundle retains sample precision.' }
+}
+
+function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
+  const host = useRegionHost()
+  const logicExport = useRef<AbortController | null>(null)
+  const [busy, setBusy] = useState(false), [error, setError] = useState('')
+  const [projectReady, setProjectReady] = useState(false)
+  const projectToken = useRef<string | null>(null)
+  const layout = useRef<ReturnType<typeof planVstRegionDrag> | null>(null)
+  const [layoutReady, setLayoutReady] = useState(false)
+  const transferGeneration = useRef(0)
+  const bundle = selectedRegionBundle(tracks[0]?.regionBundle, tracks)
+  useEffect(() => {
+    projectToken.current = null; setProjectReady(false); setError('')
+    layout.current = null; setLayoutReady(false)
+    return () => { transferGeneration.current++; logicExport.current?.abort() }
+  }, [bundle?.id])
+  if (!bundle) return null
+  const save = async (format: 'archive' | 'dawproject' | 'layout' | 'logicAAF' = 'archive') => {
+    if (busy) return
+    const generation = transferGeneration.current
+    setBusy(true); setError('')
+    try {
+      const entries = bundle.assets.map((asset, index) => {
+        const track = tracks.find(t => t.assetId === asset.id)
+        if (!track) throw new Error('Missing region audio.')
+        return { url: track.url, name: asset.name, assetId: asset.id, ...(index === 0 ? { regionBundle: bundle } : {}) }
+      })
+      if (!readBundleAttachment(entries)) throw new Error('Invalid region attachment.')
+      if (format === 'logicAAF') {
+        const controller = new AbortController()
+        logicExport.current = controller
+        try { await exportLogicSelection(entries, controller.signal) }
+        finally { if (logicExport.current === controller) logicExport.current = null }
+        return
+      }
+      const filesByAsset = new Map<string, File>()
+      for (const asset of bundle.assets) {
+        const entry = entries.find(item => item.assetId === asset.id)!
+        if (generation !== transferGeneration.current) return
+        const data = await downloadAudio(entry.url)
+        if (data.bytes !== asset.bytes) throw new Error('Region download size mismatch.')
+        const decoded = atob(data.base64)
+        filesByAsset.set(asset.id, new File([Uint8Array.from(decoded, c => c.charCodeAt(0))], asset.name))
+      }
+      const archive = format === 'dawproject' || format === 'layout'
+        ? await createRegionDawproject({ bundle, filesByAsset })
+        : await createRegionArchive({ bundle, filesByAsset })
+      if (format === 'layout') {
+        // DAWproject validation above checks SHA, WAV headers, trim and channels.
+        const tokens = new Map<string, string>()
+        for (const asset of bundle.assets) {
+          if (generation !== transferGeneration.current) return
+          const bytes = new Uint8Array(await filesByAsset.get(asset.id)!.arrayBuffer())
+          let binary = ''
+          for (let p = 0; p < bytes.length; p += 0x8000) binary += String.fromCharCode(...bytes.subarray(p, p + 0x8000))
+          const token = await callJuceNative('cacheRegionAudio', [btoa(binary)], 120000)
+          if (typeof token !== 'string') throw new Error('Could not prepare region audio.')
+          tokens.set(asset.id, token)
+        }
+        if (generation !== transferGeneration.current) return
+        layout.current = planVstRegionDrag(bundle, tokens); setLayoutReady(true)
+        return
+      }
+      const nativeFunction = format === 'dawproject' ? 'cacheRegionProject' : 'saveRegionArchive'
+      if (generation !== transferGeneration.current) return
+      if (hasJuceNativeFunction(nativeFunction)) {
+        const bytes = new Uint8Array(await archive.arrayBuffer())
+        let binary = ''
+        for (let offset = 0; offset < bytes.length; offset += 0x8000)
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+        const result = await callJuceNative(nativeFunction, [btoa(binary)], 120000)
+        if (generation !== transferGeneration.current) return
+        if (format === 'dawproject') {
+          if (typeof result !== 'string' || !/^[a-f0-9-]{36}$/.test(result)) throw new Error('Could not prepare the DAWproject.')
+          projectToken.current = result; setProjectReady(true)
+        } else if (result !== 'saved') throw new Error('Could not save the region bundle.')
+        return
+      }
+      const url = URL.createObjectURL(archive), link = document.createElement('a')
+      link.href = url; link.download = archive.name; link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) { if (generation === transferGeneration.current) setError(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
+  return <span>
+    <button className="wd-word" type="button" disabled={busy} onClick={() => void save()}
+      title="Save audio and available region metadata. This archive is for Slur, not a universal DAW import file.">{busy ? 'saving…' : 'save regions'}</button>
+    <PlaceRegionsButton bundle={bundle} entries={tracks} />
+    {host.logic && hasRegionBridge() && hasCompleteLayout(bundle) && <button
+      className="wd-word" type="button" disabled={busy} onClick={() => void save('logicAAF')}
+      title="Save an AAF for manual import into Logic. This does not place regions by drag-and-drop.">export Logic AAF</button>}
+    {hasCompleteLayout(bundle) && <button className="wd-word" type="button" disabled={busy}
+      title="Audio-only DAWproject: preserves known positions in seconds. For compatible DAWs; may open a new project, not insert into the current one. No tempo map or effects."
+      onClick={() => { if (!projectReady) void save('dawproject') }}
+      onMouseDown={e => {
+        if (!projectToken.current || e.button !== 0) return
+        e.preventDefault(); e.stopPropagation()
+        void callJuceNative('dragRegionProject', [projectToken.current]).then(result => {
+          if (result !== 'armed') { projectToken.current = null; setProjectReady(false); setError('Please prepare the DAWproject again.') }
+        }).catch(() => { setProjectReady(false); projectToken.current = null; setError('Could not start the project drag.') })
+      }}>{projectReady ? 'drag DAWproject ↗' : 'DAWproject'}</button>}
+    {hasCompleteLayout(bundle) && hasJuceNativeFunction('dragRegionLayout') && <button className="wd-word" type="button" disabled={busy}
+      title="VST-XML region drag for compatible Cubase, Nuendo and Studio One versions. Includes positions and track groups; host behavior must be verified."
+      onClick={() => { if (!layoutReady) void save('layout') }}
+      onMouseDown={e => {
+        if (!layout.current || e.button !== 0) return
+        e.preventDefault(); e.stopPropagation()
+        void callJuceNative('dragRegionLayout', [layout.current]).then(result => {
+          if (result !== 'armed') throw new Error('Please prepare the region drag again.')
+        }).catch(error => { layout.current = null; setLayoutReady(false); setError(String(error)) })
+      }}>{layoutReady ? 'drag regions ↗' : 'prepare region drag'}</button>}
+    {error && <span role="alert">{error}</span>}
+  </span>
+}
 
 /** Bind one track to the shared engine + its cached waveform. Duration
  *  prefers the live engine, then the decoded meta, so a card reads its
@@ -433,7 +565,7 @@ function useStudioTrack(url: string, name: string) {
  *  underlined import word. All geometry lives in CSS. */
 function StudioAudioPlate({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const position = timelinePositionLabel(track.metadata)
+  const position = studioPositionLabel(track)
   return (
     <div className="wd-plate">
       <div className="wd-plate-art">
@@ -452,6 +584,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
+          <SaveRegionsButton tracks={[track]} />
         </span>
       </div>
     </div>
@@ -462,7 +595,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
  *  name · time · import word) over its own 24px fine waveform. */
 function StudioPlateSection({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
-  const position = timelinePositionLabel(track.metadata)
+  const position = studioPositionLabel(track)
   return (
     <div className="wd-plate-sec">
       <div className="wd-plate-secrow">
@@ -583,47 +716,29 @@ function DropDiagnosticsOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Multi-plate top row — "N tracks", the summed duration, and the
- *  batched import-all word (every track fetched, one writeAudioFiles
- *  call, ONE armed multi-file drag — the group drag-out machinery).
- *  Durations come from the same per-url wave-meta cache the sections
- *  read, so the total costs nothing extra. */
-function StudioPlateHead({ tracks }: { tracks: StudioTrack[] }) {
-  // tracks is re-parsed JSON each render — key the effect on the urls.
+/** Group actions stay available while closed. Do not fetch waveform data
+ *  until the user expands the tracks. */
+function StudioPlateActions({ tracks }: { tracks: StudioTrack[] }) {
   const key = tracks.map(t => t.url).join('\n')
-  const tracksRef = useRef(tracks); tracksRef.current = tracks
-  const [total, setTotal] = useState<number | null>(null)
-  useEffect(() => {
-    let dead = false
-    setTotal(null)
-    void Promise.all(tracksRef.current.map(t => getWaveMeta(t.url)))
-      .then(ms => { if (!dead) setTotal(ms.reduce((s, m) => s + (m.duration || 0), 0)) })
-    return () => { dead = true }
-  }, [key])
   return (
     <>
-      <div className="wd-plate-caphead">
-        <span className="wd-plate-secname">{tracks.length} tracks</span>
-        <span className="wd-plate-right">
-          {total != null && total > 0 && <span className="wd-plate-time">{fmtDur(total)} total</span>}
-          <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
-        </span>
-      </div>
-      <div className="wd-plate-rule" />
+      <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
+      <SaveRegionsButton tracks={tracks} />
     </>
   )
 }
 
-/** Single track → the full plate; several → ONE plate whose sections
- *  stack behind interior hairlines (a numbered figure list). */
+/** Each shared stem batch starts closed, including a one-track export. */
 function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
   if (tracks.length === 0) return null
-  if (tracks.length === 1) return <StudioAudioPlate track={tracks[0]!} />
+  const bundle = parseRegionBundle(tracks[0]?.regionBundle)
+  const projectName = tracks.map(track => track.projectName).find(name => typeof name === 'string' && name.trim())
   return (
-    <div className="wd-plate">
-      <StudioPlateHead tracks={tracks} />
-      {tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}
-    </div>
+    <StemGroupDisclosure projectName={projectName} trackCount={bundle?.tracks.length || tracks.length}
+      actions={<StudioPlateActions tracks={tracks} />}>
+      {bundle && !hasCompleteLayout(bundle) && <div className="wd-stem-layout-note">Region positions are incomplete.</div>}
+      {tracks.map((t, index) => <StudioPlateSection key={t.regionId ?? `${t.url}:${index}`} track={t} />)}
+    </StemGroupDisclosure>
   )
 }
 
@@ -820,6 +935,16 @@ function DiceGlyph({ size = 12 }: { size?: number }) {
   )
 }
 
+/** A small broadcast mark — a dot with two arcs. */
+function LiveGlyph() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function SearchGlyph() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -872,69 +997,6 @@ function StudioInviteTicket({ roomId, gameType, isMine, senderName, onJoin }: {
           {busy ? '…' : isMine ? 'open' : 'join'}
         </button>
       )}
-    </div>
-  )
-}
-
-/** The greenroom mark — a small room (rounded-square outline, hairline
- *  ink) with the green presence dot inside. Quiet on purpose. */
-function BrandMark() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <rect x="0.75" y="0.75" width="10.5" height="10.5" rx="3.2" stroke="#1A1917" strokeWidth="1" />
-      <circle cx="6" cy="6" r="2" fill="var(--acc)" />
-    </svg>
-  )
-}
-
-/** Programme-margin upcoming list — date column · time · title, hairline
- *  separators, today in the accent. Shared by the home pane and the
- *  "my calendar" view (mirrors the web app's UpcomingList split). */
-function UpcomingRows({ events, groupTitleById, limit, nowTick }: {
-  events: CalendarEvent[]; groupTitleById: Map<string, string>; limit: number; nowTick: number
-}) {
-  const rows = useMemo(() => {
-    const now = new Date(nowTick)
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return events
-      .filter(e => new Date(e.starts_at) >= (e.all_day ? dayStart : now))
-      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-      .slice(0, limit)
-  }, [events, limit, nowTick])
-
-  if (rows.length === 0) {
-    return <div className="wd-up"><div className="wd-up-head">upcoming</div>
-      <div className="wd-up-none">nothing scheduled — enjoy the quiet</div></div>
-  }
-
-  const now = new Date(nowTick)
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const label = (iso: string): { text: string; today: boolean } => {
-    const d = new Date(iso)
-    const days = Math.floor(
-      (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - dayStart.getTime()) / 86400000)
-    if (days <= 0) return { text: 'today', today: true }
-    if (days === 1) return { text: 'tomorrow', today: false }
-    if (days < 7) return { text: d.toLocaleDateString('en-GB', { weekday: 'short' }).toLowerCase(), today: false }
-    return { text: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toLowerCase(), today: false }
-  }
-
-  return (
-    <div className="wd-up">
-      <div className="wd-up-head">upcoming</div>
-      {rows.map(e => {
-        const l = label(e.starts_at)
-        return (
-          <div key={e.id} className="wd-up-row">
-            <span className={`wd-up-date${l.today ? ' today' : ''}`}>{l.text}</span>
-            <span className="wd-up-time">{e.all_day ? 'all day' : fmtTime(e.starts_at)}</span>
-            <span className="wd-up-title">{e.title}</span>
-            {e.conversation_id && (
-              <span className="wd-up-from">{groupTitleById.get(e.conversation_id) ?? ''}</span>
-            )}
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -1328,9 +1390,6 @@ export default function StudioShell({ supabase, user }: Props) {
 function StudioShellInner({ supabase, user }: Props) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
-  const selectionRef = useRef(''); selectionRef.current = JSON.stringify(sel)
-  const mountedRef = useRef(true)
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
 
   // ── games — the wall sets into the main pane; a live room stays
   // mounted (hidden) while the player answers a chat ──────────────────
@@ -1342,6 +1401,25 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // people search in the rail — null = closed
   const [peopleQuery, setPeopleQuery] = useState<string | null>(null)
+
+  // ── live — the broadcaster / viewer pane; mounted once shown and kept
+  // (hidden) so a stream never drops while the host answers a chat ────
+  const { liveSessions, mySession, liveHostIds, liveSessionByHost, startLive, endLive, updateLive } = useLive(supabase, user.id)
+  const [liveMounted, setLiveMounted] = useState(false)
+  const [liveShown, setLiveShown] = useState(false)
+  const [watchRequest, setWatchRequest] = useState<{ sessionId: string; nonce: number } | null>(null)
+  const [liveState, setLiveState] = useState<{ broadcasting: boolean; watching: LiveSession | null; viewers: number }>({ broadcasting: false, watching: null, viewers: 0 })
+  const openLive = useCallback((watchSessionId?: string) => {
+    setLiveMounted(true)
+    setLiveShown(true)
+    setGameShown(false)
+    if (watchSessionId) setWatchRequest({ sessionId: watchSessionId, nonce: Date.now() })
+  }, [])
+  const closeLive = useCallback(() => {
+    setLiveShown(false)
+    // nothing running → the pane can go entirely
+    if (!liveState.broadcasting && !liveState.watching) setLiveMounted(false)
+  }, [liveState])
 
   // Minute tick — re-splits the upcoming lists and advances the
   // "in the studio / 2h" elapsed labels while the plugin sits open.
@@ -1396,11 +1474,10 @@ function StudioShellInner({ supabase, user }: Props) {
   // Group tint = averaged member colors (CollabPage's groupColorByConv).
   const groupColorByConv = useMemo(() => {
     const m = new Map<string, string>()
+    // House colours, one per room — picked by the room id so a room keeps
+    // its colour (the averaged member tint read as mud on the paper).
     for (const g of groupConversations) {
-      const colors = g.memberIds
-        .map(id => profileById.get(id)?.avatar_color)
-        .filter((c): c is string => !!c)
-      m.set(g.conversationId, mixHexColors(colors))
+      m.set(g.conversationId, houseColor(g.conversationId))
     }
     return m
   }, [groupConversations, profileById])
@@ -1413,6 +1490,12 @@ function StudioShellInner({ supabase, user }: Props) {
       : { kind: 'group', conversationId: sel.conversationId }
   }, [sel])
   const { messages, loading: messagesLoading, send, deleteMessage, conversationId: activeConvId } = useMessages(supabase, user.id, chatTarget)
+  const trackExportContext = useRef({ selection: sel, mounted: true })
+  trackExportContext.current.selection = sel
+  useEffect(() => {
+    trackExportContext.current.mounted = true
+    return () => { trackExportContext.current.mounted = false }
+  }, [])
   const reads = useConversationReads(supabase, activeConvId ?? null, user.id)
 
   // Clear the unread badge for whatever is open — on open (once the DM
@@ -1449,12 +1532,12 @@ function StudioShellInner({ supabase, user }: Props) {
     if (selectedGroup) {
       const n = selectedGroup.memberIds.length
       const inStudio = selectedGroup.memberIds.filter(id => studioAt.has(id)).length
-      if (inStudio > 0) return `${n} members / ${inStudio} in the studio now`
+      if (inStudio > 0) return <>{n} members <em>{inStudio} in the studio now</em></>
       const online = selectedGroup.memberIds.filter(id => id === user.id || onlineIds.has(id)).length
-      return `${n} members / ${online} online`
+      return <>{n} members {online} online</>
     }
     if (selectedProfile) {
-      if (studioAt.has(selectedProfile.id)) return 'in the studio'
+      if (studioAt.has(selectedProfile.id)) return <em>in the studio</em>
       return selectedProfile.isOnline ? 'online' : 'offline'
     }
     return ''
@@ -1476,7 +1559,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ── calendar wiring ─────────────────────────────────────────────────
   const { events: allCalEvents, addEvents: calAddEvents, deleteEvent: calDeleteEvent, updateEvent: calUpdateEvent } = useCalendarEvents(supabase, user.id)
-  const { categories: calCategories, ensureCategory: calEnsureCategory, renameCategory: calRenameCategory, deleteCategory: calDeleteCategory } = useEventCategories(supabase, user.id)
+  const { categories: calCategories, ensureCategory: calEnsureCategory } = useEventCategories(supabase, user.id)
 
   // The calendar TAB shows only this conversation's events; MY schedule
   // (everything RLS lets me see) lives on the home pane + "my calendar".
@@ -1520,7 +1603,7 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [supabase, calEnsureCategory, calAddEvents])
 
   // ── home todos ──────────────────────────────────────────────────────
-  const { todos, add: addTodo, toggle: toggleTodo, clearDone: clearDoneTodos } = useTodos(supabase, user.id)
+  const { add: addTodo } = useTodos(supabase, user.id)
 
   // The home prompt takes both lanes: schedule-looking text goes down
   // the existing parse→calendar path; anything else lands in todos.
@@ -1660,7 +1743,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ChatView's R2 upload flow: presign → XHR PUT (for onprogress) → send.
   const MAX_SIZE = UPLOAD_FILE_LIMIT
-  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file'):
+  const uploadFile = useCallback(async (file: File, type: 'audio' | 'image' | 'file', throwOnError = false):
     Promise<{ url: string; type: 'audio' | 'image' | 'file'; name: string } | null> => {
     const pid = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     setUploads(prev => [...prev, { id: pid, name: file.name, progress: 0 }])
@@ -1671,22 +1754,27 @@ function StudioShellInner({ supabase, user }: Props) {
       return { url, type, name: file.name }
     } catch (e) {
       console.error('[studio upload] error:', e)
-      drop(); return null
+      drop()
+      if (throwOnError) throw e
+      return null
     }
-  }, [user.id])
+  }, [supabase, user.id])
 
   const onFilesPicked = useCallback(async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return
-    if (Array.from(list).some(isRegionArchive)) {
+    const archives = Array.from(list).filter(isRegionArchive)
+    for (const archive of archives) {
       const destination = activeConvIdRef.current
-      const selection = selectionRef.current
       try {
-        const attachment = await createRegionBundleAttachment(Array.from(list), file => uploadFile(file, 'audio'))
-        if (!mountedRef.current || selection !== selectionRef.current || destination !== activeConvIdRef.current)
-          throw new Error('Conversation changed. The bundle was not sent.')
-        if (!await send('', attachment)) notify('The region bundle was not sent. Please try again.')
-      } catch (error) { notify(error instanceof Error ? error.message : 'Could not send the region bundle.') }
-      return
+        const prepared = await prepareArchivedRegionBundle(archive)
+        const uploaded = await uploadSharedRegions(prepared, async file => {
+          if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+          return uploadFile(file, 'audio')
+        })
+        if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+        if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${prepared.bundle.regions.length} Regions` }))
+          throw new Error('Regions were not sent. Please retry.')
+      } catch (error) { notify(error instanceof Error ? error.message : String(error)) }
     }
     const AUDIO_EXTS = new Set(['mp3', 'wav', 'aif', 'aiff', 'm4a', 'ogg', 'flac', 'caf', 'opus', 'aac'])
     const typed = Array.from(list)
@@ -1700,21 +1788,19 @@ function StudioShellInner({ supabase, user }: Props) {
       .filter((x): x is { f: File; type: 'audio' | 'image' } => x.type !== null)
     for (const t of typed.filter(t => t.f.size > MAX_SIZE))
       notify(`${t.f.name} (${fmtBytes(t.f.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`)
-    if (typed.some(t => t.f.size > MAX_SIZE)) return
     const kept = typed.filter(t => t.f.size <= MAX_SIZE)
     if (kept.length === 0) return
 
     // Several audio files at once → one multi-track message (ChatView parity).
     const audios = kept.filter(t => t.type === 'audio')
     if (audios.length > 1 && audios.length === kept.length) {
-      const destination = activeConvIdRef.current
-      const selection = selectionRef.current
-      try {
-        const attachment = await createRegionBundleAttachment(audios.map(t => t.f), file => uploadFile(file, 'audio'))
-        if (!mountedRef.current || selection !== selectionRef.current || destination !== activeConvIdRef.current)
-          throw new Error('Conversation changed. The bundle was not sent.')
-        if (!await send('', attachment)) notify('The region bundle was not sent. Please try again.')
-      } catch (error) { notify(error instanceof Error ? error.message : 'Could not send the region bundle.') }
+      const uploaded: { url: string; name: string }[] = []
+      for (const t of audios) {
+        const a = await uploadFile(t.f, 'audio')
+        if (a) uploaded.push({ url: a.url, name: a.name })
+      }
+      if (uploaded.length === 1) await send('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
+      else if (uploaded.length > 1) await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${uploaded.length} Tracks` })
       return
     }
     for (const t of kept) {
@@ -1723,23 +1809,40 @@ function StudioShellInner({ supabase, user }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE, notify])
 
-  // Keep one message per drop and retain every independent region.
-  const sendAudioListToChat = useCallback(async (list: File[], fallback: AttachmentTimelineMetadata | null) => {
-    // Transport snapshots are not the positions of the dragged clips.
-    void fallback
-    const destination = activeConvIdRef.current
-    const selection = selectionRef.current
-    try {
-      const attachment = await createRegionBundleAttachment(list, file => uploadFile(file, 'audio'))
-      if (!mountedRef.current || selection !== selectionRef.current || destination !== activeConvIdRef.current)
-        throw new Error('Conversation changed. The bundle was not sent.')
-      if (!await send('', attachment)) notify('The region bundle was not sent. Please try again.')
-    } catch (error) { notify(error instanceof Error ? error.message : 'Could not send the region bundle.') }
-  }, [uploadFile, send, notify])
+  const sendCapturedRegions = async (archive: File) => {
+    const destination = activeConvId, selection = sel
+    const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
+    const prepared = await prepareArchivedRegionBundle(archive)
+    const uploaded = await uploadSharedRegions(prepared, async file => {
+      if (!current()) throw new Error('Conversation changed. Regions were not sent.')
+      const audio = await uploadFile(file, 'audio')
+      return audio ? { url: audio.url, name: file.name } : null
+    })
+    if (!current()) throw new Error('Conversation changed. Regions were not sent.')
+    if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${prepared.bundle.regions.length} Regions` }))
+      throw new Error('Regions could not be sent. Please retry.')
+  }
 
-  // Route audio without inferring tracks from file names or BWF stamps.
+  // One lossless region bundle, published only after EVERY asset succeeds.
+  // Playhead snapshots are not a substitute for edited region positions.
+  const sendAudioListToChat = useCallback(async (list: File[], _fallback: AttachmentTimelineMetadata | null) => {
+    const destination = activeConvIdRef.current
+    try {
+      if (list.some(file => file.size > MAX_SIZE)) throw new Error('A region exceeds the upload limit. Nothing was sent.')
+      const prepared = await prepareSharedRegions(list)
+      const uploaded = await uploadSharedRegions(prepared, async file => {
+        if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+        return uploadFile(file, 'audio')
+      })
+      if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
+      if (!await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${list.length} Regions` }))
+        throw new Error('Regions were not sent. Please retry.')
+    } catch (error) { notify(error instanceof Error ? error.message : String(error)) }
+  }, [uploadFile, send, MAX_SIZE, notify])
+
+  // Keep region occurrences separate. Only explicit native region evidence
+  // establishes placement; file recording timestamps never establish it.
   const sendDawFiles = useCallback(async (files: File[], fallback: AttachmentTimelineMetadata | null) => {
-    if (files.some(isRegionArchive)) { await onFilesPicked(files); return }
     const audio = files.filter(isAudioFile)
     const rest = files.filter(f => !isAudioFile(f))
     if (rest.length > 0) await onFilesPicked(rest)
@@ -1762,16 +1865,31 @@ function StudioShellInner({ supabase, user }: Props) {
   // Hidden drop-ingestion diagnostics (double-click the 'orb' wordmark).
   const [diagOpen, setDiagOpen] = useState(false)
   const [pendingStemDrop, setPendingStemDrop] = useState<StemDropRequest | null>(null)
+  // ≥2 audio files in one drop → the chooser card (separately / merge
+  // keep-timing / merge join / zip). Opened AFTER the batch finishes
+  // collecting; the drop overlay lifecycle above it is untouched.
+  const [dropChoice, setDropChoice] = useState<PendingDropChoice | null>(null)
+  // "send as zip" is a MODIFIER, not a third action: it applies to
+  // whichever action row is pressed (separately -> zip of the files;
+  // merge -> zip of the single merged clip). Chat only.
+  const [dropZip, setDropZip] = useState(false)
+  const [dropBusy, setDropBusy] = useState<'placed' | 'joined' | 'zip' | null>(null)
+  // mergeDroppedRegions refused for that mode — the row greys out with
+  // the refusal, in the user's words (mergeFailureText), instead of
+  // failing silently. 'placed' means missing stamps or mixed rates
+  // (overlaps are mixed now, never refused); 'joined' means the size
+  // cap or nothing decoded.
+  const [mergeFailed, setMergeFailed] = useState<{ placed: string | null; joined: string | null }>({ placed: null, joined: null })
   const dragCounter = useRef(0)
   const juceDragActive = useRef(false)      // C++ owns the overlay while true
   const isCancelDrag = useRef(false)        // own drag-out returning → don't attach
   const outDragActive = useRef(false)       // an AudioAttachment drag-out is live
   const outDragArmedUrl = useRef<string | null>(null)
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const dropBuffer = useRef<{ name: string; data: string; seq?: number }[]>([])
+  const dropBuffer = useRef<{ name: string; data: string; seq?: number; region?: unknown }[]>([])
+  const dropCapture = useRef<string | null>(null)
+  const dropConversation = useRef<string | null>(null)
   const dropGroupCount = useRef(1)
-  const dropRejected = useRef(false)
-  const dropDestination = useRef<string | null>(null)
   const dropTimelineRef = useRef<ReturnType<typeof getDawTimelineSnapshot>>(null)
   const dropTimelinePromiseRef = useRef<Promise<ReturnType<typeof getDawTimelineSnapshot>> | null>(null)
 
@@ -1784,47 +1902,132 @@ function StudioShellInner({ supabase, user }: Props) {
   const onFilesPickedRef = useRef(onFilesPicked); onFilesPickedRef.current = onFilesPicked
   const sendDawFilesRef = useRef(sendDawFiles); sendDawFilesRef.current = sendDawFiles
 
-  // A new conversation invalidates a stale routed drop.
+  // A new conversation invalidates a stale routed drop — and a chooser
+  // still waiting on the old room's batch.
   useEffect(() => {
     setPendingStemDrop(null)
+    setDropChoice(null); setDropBusy(null); setMergeFailed({ placed: null, joined: null })
   }, [activeConvId])
 
   const consumeStemDrop = useCallback((id: string) => {
     setPendingStemDrop(current => current?.id === id ? null : current)
   }, [])
 
-  // Keep every region as a separate item in one bundle.
-  const routeRegionDrop = useCallback((choice: RegionDrop) => {
-    if (choice.target === 'stems') {
-      setPendingStemDrop({ id: crypto.randomUUID(), files: choice.files, fallbackMetadata: choice.fallback })
-    } else {
-      void sendAudioListToChat(choice.files, choice.fallback)
+  /* ── multi-track drop chooser ─────────────────────────────────────
+     Every route with ≥2 audio files parks the batch here instead of
+     proceeding; the card offers "send separately" / "merge / keep
+     timing" / "merge / join end-to-end" (both tabs) and "send as zip"
+     (chat only). Esc, the veil, or the cancel row discards the drop. */
+  const openDropChoice = useCallback((choice: PendingDropChoice) => {
+    setDropZip(false)
+    setDropBusy(null); setMergeFailed({ placed: null, joined: null })
+    setDropChoice(choice)
+  }, [])
+  const openDropChoiceRef = useRef(openDropChoice); openDropChoiceRef.current = openDropChoice
+
+  useEffect(() => {
+    if (!dropChoice) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !dropBusy) setDropChoice(null)
     }
-  }, [sendAudioListToChat])
-  const routeRegionDropRef = useRef(routeRegionDrop); routeRegionDropRef.current = routeRegionDrop
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dropChoice, dropBusy])
 
+  // "send separately" — chat: today's one multi-audio message; files
+  // tab: plain File[] through pendingStemDrop, which StemPanel uploads
+  // as individual rows WITHOUT its native-batch auto-merge (that path
+  // only runs for nativeFiles).
+  // Zip modifier — STORE-method archive (wav doesn't compress; speed
+  // matters) through the generic attachment path. Called by either
+  // action row when the toggle is on (chat only).
+  const sendAsZip = useCallback(async (files: File[]) => {
+    // The archive is built in memory (every file's bytes + the Blob's
+    // copy), so the sum is capped low; "send separately" streams each
+    // file and has no such ceiling.
+    const total = files.reduce((s, f) => s + f.size, 0)
+    if (total > ZIP_TOTAL_LIMIT) {
+      notify(`a zip of these would be ${fmtBytes(total)} — over ${fmtBytes(ZIP_TOTAL_LIMIT)}. send them separately instead`)
+      return
+    }
+    try {
+      const zip = files.every(isAudioFile)
+        ? await createRegionArchive(await prepareSharedRegions(files))
+        : new File([buildZip(await Promise.all(files.map(async f => ({ name: f.name, data: await f.arrayBuffer() }))))], zipName(), { type: 'application/zip' })
+      if (zip.size > MAX_SIZE) { notify(`the zip (${fmtBytes(zip.size)}) is over ${fmtBytes(MAX_SIZE)} — not sent`); return }
+      const a = await uploadFile(zip, 'file')
+      if (a) await send('', { url: a.url, type: 'file', name: a.name })
+      else notify('the zip didn\'t upload — check your connection and try again')
+    } catch (e) {
+      console.error('[studio zip] failed', e)
+      notify('couldn\'t build the zip — send the files separately instead')
+    }
+  }, [uploadFile, send, MAX_SIZE, notify])
 
+  const choiceSeparate = useCallback(() => {
+    const c = dropChoice
+    if (!c || dropBusy) return
+    setDropChoice(null)
+    if (c.target === 'stems') {
+      setPendingStemDrop({
+        id: `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        files: c.files,
+        fallbackMetadata: c.fallback,
+      })
+    } else if (dropZip) {
+      void sendAsZip(c.files)
+    } else {
+      void sendAudioListToChat(c.files, c.fallback)
+    }
+  }, [dropChoice, dropBusy, dropZip, sendAsZip, sendAudioListToChat])
+
+  // The two merge rows — 'placed' lays regions at their BWF-stamped
+  // positions, mixing any overlaps in place (refused only for missing
+  // stamps or mixed rates); 'joined' butt-joins, stamps setting only
+  // the ORDER (timeline order when every region is stamped, the batch's
+  // own order otherwise — never filename order, which Logic derives
+  // from the take, not the timeline) — the one for comped/moved regions
+  // whose stamped POSITIONS would scatter them. The single merged WAV
+  // then rides the same route a lone file would.
+  const choiceMerge = useCallback((mode: 'placed' | 'joined') => {
+    const c = dropChoice
+    if (!c || dropBusy || mergeFailed[mode]) return
+    setDropBusy(mode)
+    void (async () => {
+      const result = await mergeDroppedRegions(c.files, mode)
+      setDropBusy(null)
+      if (!result.ok) { setMergeFailed(f => ({ ...f, [mode]: mergeFailureText(result.reason) })); return }   // chooser stays up, row greys
+      const merged = result.file
+      setDropChoice(null)
+      if (c.target === 'stems') {
+        setPendingStemDrop({
+          id: `choice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          files: [merged],
+          fallbackMetadata: c.fallback,
+        })
+      } else if (dropZip) {
+        void sendAsZip([merged])
+      } else {
+        void sendAudioListToChat([merged], c.fallback)
+      }
+    })()
+  }, [dropChoice, dropBusy, mergeFailed, dropZip, sendAsZip, sendAudioListToChat])
 
 
   // One HTML5 drop aimed at the files tab — from the shell's own stems
   // branch OR handed up by StemPanel's drop zone (onMultiFileDrop).
-  // Audio stays together; non-audio attachments still go to chat.
+  // ≥2 audio → the chooser; one audio → straight to StemPanel; images
+  // and other strays still go to chat.
   const routeStemsDrop = useCallback((files: File[]) => {
-    if (files.some(isRegionArchive)) {
-      routeRegionDrop({ files, target: 'stems', fallback: null })
-      return
-    }
     const audio = files.filter(isAudioFile)
     const rest = files.filter(f => !isAudioFile(f))
     if (rest.length > 0) void onFilesPicked(rest)
     if (audio.length === 0) return
-    const destination = activeConvIdRef.current
     void (async () => {
       const fresh = await refreshDawTimelineSnapshot()
-      if (destination !== activeConvIdRef.current) return
       const fallback = fresh ?? getDawTimelineSnapshot()
       if (audio.length >= 2) {
-        routeRegionDrop({ files: audio, target: 'stems', fallback })
+        openDropChoice({ files: audio, target: 'stems', fallback })
       } else {
         setPendingStemDrop({
           id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1833,7 +2036,7 @@ function StudioShellInner({ supabase, user }: Props) {
         })
       }
     })()
-  }, [onFilesPicked, routeRegionDrop])
+  }, [onFilesPicked, openDropChoice])
 
   // __juceDragEnter / __juceDragEnterCancel — C++ heartbeats (~100 ms)
   // while a native drag hovers the WKWebView.
@@ -1876,10 +2079,10 @@ function StudioShellInner({ supabase, user }: Props) {
   // follow, so a multi-region drag lands as ONE grouped message.
   useEffect(() => {
     const handler = (e: Event) => {
+      dropCapture.current = (e as CustomEvent).detail?.captureId ?? null
+      dropConversation.current = activeConvIdRef.current
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
       dropBuffer.current = []
-      dropRejected.current = false
-      dropDestination.current = activeConvIdRef.current
       // Freeze host context at the drop, before slow async exports.
       dropTimelineRef.current = getDawTimelineSnapshot()
       dropTimelinePromiseRef.current = refreshDawTimelineSnapshot()
@@ -1906,48 +2109,56 @@ function StudioShellInner({ supabase, user }: Props) {
     const flush = () => {
       if (dropBuffer.current.length < dropGroupCount.current) return
       const batch = dropBuffer.current
+      const destinationAtDrop = dropConversation.current
       dropBuffer.current = []
+      dropCapture.current = null
       dropGroupCount.current = 1
       if (batch.every(f => Number.isFinite(f.seq)))
         batch.sort((a, b) => a.seq! - b.seq!)
-      if (dropRejected.current || (dropDestination.current && dropDestination.current !== activeConvIdRef.current)) return
       if (batch.length === 0 || !activeConvIdRef.current) return
 
-      const destination = activeConvIdRef.current
-      const target = tabRef.current
       void (async () => {
         const fresh = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
         const fallback = fresh ?? dropTimelineRef.current
         dropTimelineRef.current = null
         dropTimelinePromiseRef.current = null
-        if (destination !== activeConvIdRef.current) return
         // A region over the drag limit stops here, out loud. (Older
         // plug-in builds hand it over regardless; newer ones reject it
         // natively before the base64 round trip.)
-        const all = batch.map(f => nativeToFile(f.name, f.data))
+        const all = batch.map(f => {
+          const file = nativeToFile(f.name, f.data)
+          return f.region ? rememberRegionEvidence(file, f.region) : file
+        })
+        if (batch.some(f => f.region)) {
+          // Structured selections are one atomic bundle, never a merge/zip
+          // of whole source files. The chat also makes it available in Files.
+          if (!batch.every(f => f.region)) throw new Error('Incomplete DAW region selection.')
+          if (destinationAtDrop !== activeConvIdRef.current) throw new Error('Conversation changed. Regions were not sent.')
+          if (new Set(batch.map(f => f.seq)).size !== batch.length || batch.some((f, i) => f.seq !== i))
+            throw new Error('Incomplete DAW region sequence. Nothing was sent.')
+          await sendDawFilesRef.current(all, null)
+          return
+        }
         for (const f of all.filter(f => f.size > DAW_FILE_LIMIT))
           notifyRef.current(`${f.name} (${fmtBytes(f.size)}) is over ${fmtBytes(DAW_FILE_LIMIT)}, the limit for regions dragged from the daw — export it and drop the file instead`)
-        if (all.some(f => f.size > DAW_FILE_LIMIT)) return
         const dropped = all.filter(f => f.size <= DAW_FILE_LIMIT)
         const keptBatch = batch.filter((_, i) => all[i]!.size <= DAW_FILE_LIMIT)
         if (dropped.length === 0) return
-        if (dropped.some(isRegionArchive)) {
-          routeRegionDropRef.current({ files: dropped, target: target === 'stems' ? 'stems' : 'chat', fallback: null })
-          return
-        }
-        // Preserve the complete audio bundle on either surface.
+        // ≥2 audio files → the chooser card decides (separately /
+        // merge / zip) instead of any automatic policy. Non-audio
+        // strays still ride the chat attachment path directly.
         const audio = dropped.filter(isAudioFile)
         if (audio.length >= 2) {
           const rest = dropped.filter(f => !isAudioFile(f))
           if (rest.length > 0) void onFilesPickedRef.current(rest)
-          routeRegionDropRef.current({
+          openDropChoiceRef.current({
             files: audio,
-            target: target === 'stems' ? 'stems' : 'chat',
+            target: tabRef.current === 'stems' ? 'stems' : 'chat',
             fallback,
           })
           return
         }
-        if (target === 'stems') {
+        if (tabRef.current === 'stems') {
           setPendingStemDrop({
             id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             nativeFiles: keptBatch,
@@ -1956,16 +2167,23 @@ function StudioShellInner({ supabase, user }: Props) {
           return
         }
         await sendDawFilesRef.current(dropped, fallback)
-      })().catch(error => notifyRef.current(error instanceof Error ? error.message : 'Could not read the region bundle.'))
+      })().catch(error => notifyRef.current(error instanceof Error ? error.message : String(error)))
     }
     const onFile = (e: Event) => {
       if (outDragActive.current) return
-      const { name, data, seq } = (e as CustomEvent<{ name: string; data: string; seq?: number }>).detail
-      dropBuffer.current.push({ name, data, seq })
+      const { name, data, seq, region } = (e as CustomEvent).detail
+      if ((region?.captureId ?? null) !== dropCapture.current) return
+      dropBuffer.current.push({ name, data, seq, region })
       flush()
     }
+    const onRegionError = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.captureId && detail.captureId !== dropCapture.current) return
+      dropBuffer.current = []; dropCapture.current = null; dropGroupCount.current = 1
+      notifyRef.current(detail?.message ?? 'Could not read this DAW selection. Nothing was sent.')
+    }
     const onRejected = (e: Event) => {
-      dropRejected.current = true
+      if (dropCapture.current !== null) return // structured drops fail atomically via onRegionError
       const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
       notifyRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
       dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
@@ -1973,9 +2191,11 @@ function StudioShellInner({ supabase, user }: Props) {
     }
     window.addEventListener('__juceFileDrop', onFile)
     window.addEventListener('__juceFileDropRejected', onRejected)
+    window.addEventListener('__juceRegionDropError', onRegionError)
     return () => {
       window.removeEventListener('__juceFileDrop', onFile)
       window.removeEventListener('__juceFileDropRejected', onRejected)
+      window.removeEventListener('__juceRegionDropError', onRegionError)
     }
   }, [])
 
@@ -2072,17 +2292,18 @@ function StudioShellInner({ supabase, user }: Props) {
       return
     }
 
-    if (files.some(isRegionArchive)) { void onFilesPicked(files); return }
-
     const audio = files.filter(isAudioFile)
     if (audio.length >= 2) {
       const rest = files.filter(f => !isAudioFile(f))
       if (rest.length > 0) void onFilesPicked(rest)
-      routeRegionDrop({ files: audio, target: 'chat', fallback: null })
+      void (async () => {
+        const fresh = await refreshDawTimelineSnapshot()
+        openDropChoice({ files: audio, target: 'chat', fallback: fresh ?? getDawTimelineSnapshot() })
+      })()
       return
     }
     void onFilesPicked(files)
-  }, [activeConvId, tab, onFilesPicked, routeStemsDrop, routeRegionDrop])
+  }, [activeConvId, tab, onFilesPicked, routeStemsDrop, openDropChoice])
 
   // Chat scroll — jump to the bottom whenever a conversation (re)opens;
   // after that, new messages re-pin the view only while the reader is
@@ -2125,6 +2346,7 @@ function StudioShellInner({ supabase, user }: Props) {
     setSel(next)
     setTab('chat')
     setGameShown(false)
+    setLiveShown(false)
     if (next.kind !== 'dm' && next.kind !== 'group') return
     const cid = next.kind === 'group'
       ? next.conversationId
@@ -2142,6 +2364,7 @@ function StudioShellInner({ supabase, user }: Props) {
 
   // ── games wiring — CollabPage's block, verbatim in spirit ───────────
   const openGames = useCallback((invite: string | null = null) => {
+    setLiveShown(false)
     setGameInviteConv(invite)
     setGameScreen(prev => (invite ? 'list' : (prev ?? 'list')))
     setGameShown(true)
@@ -2322,17 +2545,22 @@ function StudioShellInner({ supabase, user }: Props) {
           } else if (m.attachment_type === 'audio') {
             const from = profileById.get(m.sender_id)?.display_name
             pieces.push(
-              <StudioAudioCard key="att"
-                tracks={[{ url, name, metadata: m.attachment_metadata ?? undefined, from }]} />,
+              <StudioAudioPlate key="att"
+                track={{ url, name, metadata: m.attachment_metadata ?? undefined, from }} />,
             )
           } else if (m.attachment_type === 'multi-audio') {
             const from = profileById.get(m.sender_id)?.display_name
             let tracks: StudioTrack[] = []
-            let raw: unknown = null
-            try { raw = JSON.parse(url); if (Array.isArray(raw)) tracks = raw.map(t => ({ ...t, from })) } catch { /* fall through to chip */ }
-            pieces.push(Array.isArray(raw) && raw[0]?.regionBundle
-              ? <RegionBundleAttachment key="att" value={raw} renderAudio={entry =>
-                <StudioAudioCard tracks={[entry]} />} /> : tracks.length > 0
+            try {
+              const entries = JSON.parse(url) as StudioTrack[]
+              const bundle = parseRegionBundle(entries[0]?.regionBundle)
+              tracks = bundle ? bundle.regions.map(region => {
+                const entry = entries.find(item => item.assetId === region.assetId)
+                if (!entry) throw new Error('Missing region asset')
+                return { ...entry, name: region.name, regionId: region.id, regionBundle: bundle, from }
+              }) : entries.map(t => ({ ...t, from }))
+            } catch { /* fall through to chip */ }
+            pieces.push(tracks.length > 0
               ? <StudioAudioCard key="att" tracks={tracks} />
               : <div key="att" className="wd-file"><i>♪</i><span>{name}</span></div>)
           } else {
@@ -2363,7 +2591,7 @@ function StudioShellInner({ supabase, user }: Props) {
           {!isMine && (
             <div className="wd-mav">
               {first && (
-                <span style={{ background: senderP?.avatar_color ?? '#C0BCB3' }}>
+                <span style={{ background: (senderP ? houseColor(senderP.id) : '#C0BCB3') }}>
                   {senderP?.avatar_url
                     ? <img src={senderP.avatar_url} alt="" />
                     : (senderP?.initials ?? '').slice(0, 1)}
@@ -2401,7 +2629,7 @@ function StudioShellInner({ supabase, user }: Props) {
                 {isGroup ? (
                   <span className="wd-read-avs">
                     {readers.slice(0, 4).map(r => (
-                      <span key={r.id} style={{ background: r.avatar_color }}>
+                      <span key={r.id} style={{ background: houseColor(r.id) }}>
                         {r.avatar_url ? <img src={r.avatar_url} alt="" /> : r.initials.slice(0, 1)}
                       </span>
                     ))}
@@ -2447,7 +2675,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className="wd-brand" onClick={() => { setSel(null); setGameShown(false) }} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') { setSel(null); setGameShown(false) } }}
             onDoubleClick={() => setDiagOpen(true)}>
-            <BrandMark />orb
+            <SlurMark height={28} />
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>
@@ -2457,6 +2685,19 @@ function StudioShellInner({ supabase, user }: Props) {
                 {gameScreen && gameScreen !== 'list' && !gameShown && (
                   <span className="play">{gameName(gameScreen)} in play</span>
                 )}
+              </span>
+            </div>
+            <div className={`wd-row${liveShown ? ' on' : ''}`} onClick={() => openLive()}>
+              <span className={`wd-av tile${liveState.broadcasting ? ' onair' : ''}`}><LiveGlyph /></span>
+              <span className="wd-rname">
+                <b>live</b>
+                {liveState.broadcasting
+                  ? <span className="onair">{liveState.viewers > 0 ? `on air  ${liveState.viewers} watching` : 'on air'}</span>
+                  : liveState.watching && !liveShown
+                    ? <span className="onair">watching {profileById.get(liveState.watching.host_id)?.display_name ?? 'a friend'}</span>
+                    : liveHostIds.size > 0
+                      ? <span>{liveHostIds.size === 1 ? '1 friend live now' : `${liveHostIds.size} friends live now`}</span>
+                      : null}
               </span>
             </div>
             <div className="wd-sec">projects</div>
@@ -2509,7 +2750,7 @@ function StudioShellInner({ supabase, user }: Props) {
                     const s: Sel = { kind: 'profile', userId: p.id }
                     return (
                       <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                        <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
+                        <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
                           dot={p.isOnline ? 'on' : undefined} />
                         <span className="wd-rname">
                           <b>{p.display_name}</b>
@@ -2530,11 +2771,13 @@ function StudioShellInner({ supabase, user }: Props) {
               const since = studioAt.get(p.id)
               return (
                 <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                  <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
+                  <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url}
                     dot={since !== undefined ? 'studio' : p.isOnline ? 'on' : undefined} />
                   <span className="wd-rname">
                     <b>{p.display_name}</b>
-                    {since !== undefined
+                    {liveHostIds.has(p.id)
+                      ? <span className="onair">{`live${liveSessionByHost.get(p.id)?.title ? `  ${liveSessionByHost.get(p.id)!.title}` : ''}`}</span>
+                      : since !== undefined
                       ? <span className="studio">{`in the studio${studioFor(since, nowTick)}`}</span>
                       : <span>{last ? snippet(last, last.sender_id === user.id ? 'you' : undefined) : (p.isOnline ? 'online' : 'offline')}</span>}
                   </span>
@@ -2551,7 +2794,7 @@ function StudioShellInner({ supabase, user }: Props) {
           <div className={`wd-rail-foot${sel?.kind === 'profile' && sel.userId === user.id ? ' on' : ''}`}>
             <span className="wd-foot-me" onClick={() => openSel({ kind: 'profile', userId: user.id })} role="button" tabIndex={0}
               onKeyDown={e => { if (e.key === 'Enter') openSel({ kind: 'profile', userId: user.id }) }}>
-              <Avatar color={me?.avatar_color ?? '#1A1917'} label={(me?.initials ?? myName).slice(0, 1)}
+              <Avatar color={(me ? houseColor(me.id) : '#1A1917')} label={(me?.initials ?? myName).slice(0, 1)}
                 avatarUrl={me?.avatar_url} dot="studio" />
               <span>{myName}</span>
             </span>
@@ -2606,6 +2849,23 @@ function StudioShellInner({ supabase, user }: Props) {
               headline={gameInviteConv ? (headerTitle || 'this chat') : undefined}
             />
           )}
+          {liveMounted && (
+            <LivePane
+              supabase={supabase}
+              userId={user.id}
+              me={me}
+              profiles={profilesWithStatus}
+              liveSessions={liveSessions}
+              mySession={mySession}
+              startLive={startLive}
+              endLive={endLive}
+              updateLive={updateLive}
+              watchRequest={watchRequest}
+              hidden={!liveShown}
+              onClose={closeLive}
+              onState={setLiveState}
+            />
+          )}
           {dragOver && activeConvId && sel && sel.kind !== 'me' && (
             <div className={`wd-drop${dragKind === 'cancel' ? ' cancel' : ''}`}>
               <div className="wd-drop-card">
@@ -2621,11 +2881,63 @@ function StudioShellInner({ supabase, user }: Props) {
               </div>
             </div>
           )}
+          {dropChoice && (
+            <div className="wd-dropask" role="dialog" aria-modal="true">
+              <div className="wd-dropask-veil" onClick={() => { if (!dropBusy) setDropChoice(null) }} />
+              <div className="wd-dropask-card">
+                <div className="wd-dropask-title">{dropChoice.files.length} tracks</div>
+                <div className="wd-dropask-fine">
+                  {dropChoice.target === 'stems'
+                    ? 'dropped on files — how should they land?'
+                    : `how should they reach ${headerTitle || 'this chat'}?`}
+                </div>
+                {dropChoice.target === 'chat' && (
+                  <button
+                    className={`wd-dropask-zip${dropZip ? ' on' : ''}`}
+                    disabled={!!dropBusy}
+                    onClick={() => setDropZip(z => !z)}
+                    aria-pressed={dropZip}
+                  >
+                    <span className="wd-dropask-zipbox" aria-hidden="true" />
+                    <span>as zip</span>
+                    <small>bundle the result into one .zip</small>
+                  </button>
+                )}
+                <button className="wd-dropask-row" disabled={!!dropBusy} onClick={choiceSeparate}>
+                  <span>send separately{dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}</span>
+                  <small>{dropChoice.target === 'stems' ? 'one row per file' : dropZip ? 'every file, inside one archive' : 'one message, every track listed'}</small>
+                </button>
+                <button
+                  className={`wd-dropask-row${mergeFailed.placed ? ' off' : ''}`}
+                  disabled={!!dropBusy || !!mergeFailed.placed}
+                  onClick={() => choiceMerge('placed')}
+                >
+                  <span>{dropBusy === 'placed' ? 'merging…' : `merge / keep timing${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
+                  <small>{mergeFailed.placed ? mergeFailed.placed : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'as placed on the timeline — overlaps are mixed'}</small>
+                </button>
+                <button
+                  className={`wd-dropask-row${mergeFailed.joined ? ' off' : ''}`}
+                  disabled={!!dropBusy || !!mergeFailed.joined}
+                  onClick={() => choiceMerge('joined')}
+                >
+                  <span>{dropBusy === 'joined' ? 'merging…' : `merge / join end-to-end${dropChoice.target === 'chat' && dropZip ? ' / zipped' : ''}`}</span>
+                  <small>{mergeFailed.joined ? mergeFailed.joined : dropZip && dropChoice.target === 'chat' ? 'one merged clip, inside an archive' : 'gaps removed, one continuous take'}</small>
+                </button>
+                <button
+                  className="wd-dropask-cancel"
+                  disabled={!!dropBusy}
+                  onClick={() => setDropChoice(null)}
+                >
+                  cancel
+                </button>
+              </div>
+            </div>
+          )}
           {sel?.kind === 'settings' ? (
             <>
               <div className="wd-head plain">
                 <div className="wd-title">settings</div>
-                <div className="wd-sub">orb chat {APP_VERSION}</div>
+                <div className="wd-sub">slur chat {APP_VERSION}</div>
               </div>
               <SettingsPage supabase={supabase} user={user} />
             </>
@@ -2655,15 +2967,17 @@ function StudioShellInner({ supabase, user }: Props) {
             /* my calendar — the personal programme, fuller. The prompt
                lives on the home pane now. */
             <>
-              <div className="wd-head plain">
-                <div className="wd-title">{myName}</div>
-                <div className="wd-sub">my calendar</div>
-              </div>
-              <div className="wd-me">
-                <div className="wd-me-scroll">
-                  <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={30} nowTick={nowTick} />
-                </div>
-              </div>
+              {/* The real month page — everything RLS lets me see, from
+                  any room; events added here are personal (no room). */}
+              <StudioCalendar
+                currentUserId={user.id}
+                events={allCalEvents}
+                categories={calCategories}
+                groupTitleById={groupTitleById}
+                onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+                onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+                onAdd={(text, day) => saveMyEvents(`on ${day}: ${text}`)}
+              />
             </>
           ) : sel ? (
             <>
@@ -2677,7 +2991,7 @@ function StudioShellInner({ supabase, user }: Props) {
                         : (selectedGroup.title || 'G').slice(0, 1)}
                     </span>
                   ) : selectedProfile ? (
-                    <span className="wd-hav click" style={{ background: selectedProfile.avatar_color }}
+                    <span className="wd-hav click" style={{ background: houseColor(selectedProfile.id) }}
                       onClick={() => openSel({ kind: 'profile', userId: selectedProfile.id })} role="button" title="profile">
                       {selectedProfile.avatar_url
                         ? <img src={selectedProfile.avatar_url} alt="" />
@@ -2708,6 +3022,11 @@ function StudioShellInner({ supabase, user }: Props) {
                     )}
                     <div className="wd-hsub">{headerSub}</div>
                   </div>
+                  {selectedProfile && liveSessionByHost.has(selectedProfile.id) && (
+                    <button className="wd-word acc wd-head-act" onClick={() => openLive(liveSessionByHost.get(selectedProfile.id)!.id)}>
+                      watch live
+                    </button>
+                  )}
                 </div>
                 <div className="wd-tabs">
                   <span className={`wd-tab${tab === 'chat' ? ' on' : ''}`} onClick={() => setTab('chat')}>chat</span>
@@ -2766,16 +3085,32 @@ function StudioShellInner({ supabase, user }: Props) {
                     <input
                       ref={fileRef}
                       type="file"
-                      accept="audio/*,image/*,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac,.mp3,.orb-regions.zip"
+                      accept="audio/*,image/*,.wav,.aif,.aiff,.m4a,.ogg,.flac,.caf,.opus,.aac,.mp3,.zip"
                       multiple
                       style={{ display: 'none' }}
                       onChange={e => { void onFilesPicked(e.target.files); if (e.target) e.target.value = '' }}
                     />
                     <button className="wd-attach" onClick={() => fileRef.current?.click()} aria-label="attach a file">+</button>
-                    <CaptureRegionsButton key={activeConvId} className="wd-gameinv"
-                      onCapture={file => onFilesPicked([file])} onError={notify} />
-                    <ExportTracksButton key={`tracks-${activeConvId}`} className="wd-gameinv"
-                      onCapture={file => onFilesPicked([file])} />
+                    <ShareRegionsButton key={`regions-${activeConvId}`} className="wd-gameinv" onCapture={sendCapturedRegions} />
+                    <CaptureRegionsButton key={`logic-regions-${activeConvId}`} logicOnly className="wd-gameinv"
+                      onCapture={sendCapturedRegions} onError={notify} />
+                    <ExportTracksButton key={activeConvId} className="wd-gameinv" onCapture={async (archive, projectName) => {
+                      const destination = activeConvId
+                      const selection = sel
+                      const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
+                      const tracks = await prepareTrackExport(archive)
+                      const uploaded = []
+                      for (const track of tracks) {
+                        if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
+                        const audio = await uploadFile(track.file, 'audio', true)
+                        if (!audio) throw new Error('Track upload failed. Nothing was sent; you can retry.')
+                        uploaded.push({ url: audio.url, name: track.file.name, projectName, metadata: track.metadata,
+                          assetId: track.assetId, regionBundle: track.bundle })
+                      }
+                      if (!current()) throw new Error('Conversation changed. Exported tracks were not sent.')
+                      if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${tracks.length} Tracks` }))
+                        throw new Error('The exported tracks could not be sent. Please retry.')
+                    }} />
                     <button className="wd-gameinv" onClick={() => { if (activeConvId) openGames(activeConvId) }}
                       aria-label="invite to a game" title="invite to a game"><DiceGlyph size={11} /></button>
                     <textarea
@@ -2807,36 +3142,24 @@ function StudioShellInner({ supabase, user }: Props) {
                       pendingDrop={pendingStemDrop}
                       onDropConsumed={consumeStemDrop}
                       onMultiFileDrop={routeStemsDrop}
-                      alignToBarOne
+                      alignToBarOne={false}
                     />
                   ) : <div className="wd-quiet">loading…</div>}
                 </div>
               )}
 
               {tab === 'calendar' && (
-                <div className="wd-pane">
-                  {activeConvId ? (
-                    <ChatCalendar
-                      currentUserId={user.id}
-                      events={convCalEvents}
-                      categories={calCategories}
-                      groupTitleById={groupTitleById}
-                      onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
-                      onSetCategory={async (id, name) => {
-                        const color = await calEnsureCategory(name)
-                        calUpdateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-                      }}
-                      onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
-                      onAddCategory={(name) => { calEnsureCategory(name).catch(() => {}) }}
-                      onRenameCategory={(id, name) => { calRenameCategory(id, name).catch(() => {}) }}
-                      onDeleteCategory={(id) => { calDeleteCategory(id).catch(() => {}) }}
-                      onSubmitPrompt={async (text) => {
-                        const parsed = await parseSchedule(supabase, text)
-                        return saveChatEvents(parsed)
-                      }}
-                    />
-                  ) : <div className="wd-quiet">loading…</div>}
-                </div>
+                activeConvId ? (
+                  <StudioCalendar
+                    currentUserId={user.id}
+                    events={convCalEvents}
+                    categories={calCategories}
+                    groupTitleById={groupTitleById}
+                    onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
+                    onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
+                    onAdd={async (text, day) => saveChatEvents(await parseSchedule(supabase, `on ${day}: ${text}`))}
+                  />
+                ) : <div className="wd-quiet">loading…</div>
               )}
 
               {tab === 'notes' && (
@@ -2860,42 +3183,30 @@ function StudioShellInner({ supabase, user }: Props) {
             /* home — a quiet page: serif greeting, the prompt, today's
                tasks, then my programme. */
             <div className="wd-home">
+              <StudioHomeBar friends={friendProfiles} onlineIds={onlineIds} studioIds={new Set(studioAt.keys())}
+                onOpen={id => openSel({ kind: 'dm', userId: id })} />
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
-              <div className="wd-home-prompt">
-                <SchedulePrompt
-                  targets={[]}
-                  placeholder="add a schedule, or something to do today…"
-                  onSubmit={(text) => saveHomePrompt(text)}
-                />
-              </div>
-              {todos.length > 0 && (
-                <div className="wd-todos">
-                  <div className="wd-todos-head">
-                    <span>today</span>
-                    {todos.some(t => t.done) && (
-                      <button className="wd-todos-clear" onClick={() => void clearDoneTodos()}>clear done</button>
-                    )}
-                  </div>
-                  {todos.slice(0, 10).map(t => (
-                    <div key={t.id} className={`wd-todo${t.done ? ' done' : ''}`} onClick={() => void toggleTodo(t)}>
-                      <span className="wd-todo-box">
-                        {t.done && (
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 12.5l5 5L20 6.5" />
-                          </svg>
-                        )}
-                      </span>
-                      <span className="wd-todo-text">{t.content}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
-              <button className="wd-word sm wd-home-more" onClick={() => openSel({ kind: 'me' })}>my calendar</button>
+              <StudioHomePrompt
+                targets={[{ id: null, label: 'personal', color: '#1A1917' },
+                  ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
+                onSubmit={async (text, cid) => {
+                  try {
+                    if (cid) {
+                      const parsed = await parseSchedule(supabase, text)
+                      const withMeta = await Promise.all(parsed.map(async e => ({ ...e, category_color: await calEnsureCategory(e.category), conversation_id: cid })))
+                      const made = await calAddEvents(withMeta)
+                      return made.length ? null : 'couldn’t read that — try “fri 7pm rehearsal at studio b”'
+                    }
+                    // personal: schedule-looking text → calendar, anything else → today's list
+                    await saveHomePrompt(text)
+                    return null
+                  } catch { return 'couldn’t add that — try again' }
+                }}
+              />
+              <StudioWeek events={allCalEvents} groupTitleById={groupTitleById} nowTick={nowTick} onOpenCalendar={() => openSel({ kind: 'me' })} />
             </div>
           )}
         </div>

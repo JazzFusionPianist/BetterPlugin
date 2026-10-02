@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fixture, as, A, B, C } from './fixture.mjs'
-const migration=await readFile(new URL('../../supabase/migrations/20260923185359_security_files_and_access.sql',import.meta.url),'utf8')
+const migration=await readFile(new URL('../../supabase/migrations/20260927184436_security_files_and_access.sql',import.meta.url),'utf8')
 const ROOM='10000000-0000-4000-8000-000000000001'
 const OTHER='10000000-0000-4000-8000-000000000002'
 test('file authorization, forged references, quotas, revoked sessions and durable cleanup',async()=>{

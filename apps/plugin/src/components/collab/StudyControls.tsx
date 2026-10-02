@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
+import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Polarity, Range, Steps, type Hue, type Tone } from '../../assets/parts/parts'
+import { useLiveHand } from '../../lib/liveHands'
 
 /*  The study's hands — the rows under the big print.
 
-    Every parameter is one row: its name at the left, the control at the
-    right, a hairline under it. On a number row the hairline IS the
-    gauge — it fills, in the print's own ink, as far as the value.
+    Every parameter is one row: its name at the left, the part at the
+    right in one 236px column. The parts are drawn in assets/parts; the
+    wrappers here only place them and change their state. Each hand has
+    a colour (1 blue, 2 green, 3 white, 4 orange, then again).
     Drag a number (up or right = more), double-click it to type, ⌥-click
-    it to rest. A choice is a hairline segment; on/off is a switch.      */
+    it to rest.                                                          */
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+const COL = 236
 
 const quant = (v: number, step: number) => {
   const q = Math.round(v / step) * step
   const dec = step >= 1 ? 0 : Math.min(6, Math.ceil(-Math.log10(step)))
   return Number(q.toFixed(dec))
 }
+
+const hueVar = (c: Tone) => ({ '--sg-hue': c === 't' ? 'var(--sg-tint)' : `var(--sg-c${c})` } as React.CSSProperties)
 
 /** A number that turns into a caret when double-clicked. */
 export function useTypeIn (opts: { text: string; parse: (s: string) => number | null; commit: (v: number) => void; reset?: () => void; className?: string }) {
@@ -56,10 +62,23 @@ export function parseLead (s: string): number | null {
   return v
 }
 
-/* ── one row ─────────────────────────────────────────────────────────── */
+/** "35 %" → the number in the mono, the unit small after it. */
+function Value ({ text }: { text: string }) {
+  const m = /^([+\-−]?\d*\.?\d+)(.*)$/.exec(text)
+  if (!m) return <>{text}</>
+  const unit = m[2].trim()
+  return <>{m[1]}{unit ? <span className="sg-unit">{unit}</span> : null}</>
+}
 
-export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, fine }: {
+/* ── a number: drag it, type into it; the bar beside it is the gauge ── */
+
+export function GaugeRow ({ label, tag, value, min, max, step = 1, bipolar, unit, format, parse, defaultValue, onChange, onGesture, fine, colour = 3, liveKey, liveMap, bands }: {
+  bands?: Array<[number, number]>   // where its players carry this hand (0..1 of its travel), shown under the track
   label: string
+  tag?: React.ReactNode       // what plays this hand (a rate), shown after the label
+  liveKey?: [number, number]  // a played hand: [slot, hand index] — the number follows what the engine plays, the handle stays at the setting
+  liveMap?: (v: number) => number   // the engine's unit → this row's unit
+  onGesture?: (on: boolean) => void   // the finger lands on / leaves this hand (the host records automation in between)
   value: number
   min: number
   max: number
@@ -71,12 +90,18 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
   defaultValue: number
   fine?: number              // pixels for the whole range (default 180)
   onChange: (v: number, final: boolean) => void
+  colour?: Hue
 }) {
-  const text = format ? format(value) : `${quant(value, step)}${unit ? ' ' + unit : ''}`
-  const commit = (v: number) => onChange(clamp(quant(v, step), min, max), true)
+  const fmt = (v: number) => (format ? format(v) : `${quant(v, step)}${unit ? ' ' + unit : ''}`)
+  const text = fmt(value)
+  const commit = (v: number) => { onGesture?.(true); onChange(clamp(quant(v, step), min, max), true); onGesture?.(false) }
   const typing = useTypeIn({ text, parse: parse ?? parseLead, commit, reset: () => onChange(defaultValue, true) })
   const drag = useRef<{ x0: number; y0: number; v0: number; last: number; moved: boolean } | null>(null)
   const [live, setLive] = useState(false)
+  // the engine's number for this hand, while something plays it (and no finger is on it)
+  const raw = useLiveHand(liveKey ? liveKey[0] : -1, liveKey ? liveKey[1] : -1)
+  const played = raw !== undefined && !live && !typing.editing ? clamp(liveMap ? liveMap(raw) : raw, min, max) : undefined
+  const [hover, setHover] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   // the wheel is ours (React's onWheel is passive — the body would scroll)
   useEffect(() => {
@@ -85,22 +110,23 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
       e.preventDefault(); e.stopPropagation()
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? -e.deltaY : e.deltaX
       const v = clamp(quant(value + d * (max - min) / 1600, step), min, max)
-      if (v !== value) onChange(v, true)
+      if (v !== value) { onGesture?.(true); onChange(v, true); onGesture?.(false) }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [value, min, max, step, onChange])
+  }, [value, min, max, step, onChange, onGesture])
   const span = max - min
   const f = span > 0 ? clamp((value - min) / span, 0, 1) : 0
   const zero = bipolar ? clamp((0 - min) / span, 0, 1) : 0
-  const left = Math.min(f, zero), width = Math.abs(f - zero)
   return (
-    <div ref={rowRef} className={`sg-row gauge${live ? ' live' : ''}${typing.editing ? ' typing' : ''}`}
+    <div ref={rowRef} className={`sg-row gauge${live ? ' live' : ''}${typing.editing ? ' typing' : ''}`} style={hueVar(colour)}
+      onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
       onPointerDown={(e) => {
         if (typing.editing) return
         e.stopPropagation()
-        if (e.altKey) { onChange(defaultValue, true); return }
+        if (e.altKey) { onGesture?.(true); onChange(defaultValue, true); onGesture?.(false); return }
         try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
+        onGesture?.(true)
         drag.current = { x0: e.clientX, y0: e.clientY, v0: value, last: value, moved: false }
       }}
       onPointerMove={(e) => {
@@ -115,77 +141,170 @@ export function GaugeRow ({ label, value, min, max, step = 1, bipolar, unit, for
         const d = drag.current; drag.current = null
         setLive(false)
         if (d?.moved) onChange(d.last, true)
+        if (d) onGesture?.(false)
       }}
       onDoubleClick={(e) => { e.stopPropagation(); if (!typing.editing) typing.begin() }}>
-      <span className="sg-row-label">{label}</span>
-      <span className="sg-row-ctl"><span className="sg-num">{typing.input ?? text}</span></span>
-      <i className="sg-rule"><i className="sg-fill" style={{ left: `${left * 100}%`, width: `${width * 100}%` }} /></i>
+      <span className="sg-row-label">{label}{tag}</span>
+      <span className="sg-row-ctl">
+        <Bar bands={bands} mark={played === undefined ? undefined : (span > 0 ? clamp((played - min) / span, 0, 1) : 0)} f={f} zero={zero} hue={colour} live={live} hover={hover} width={COL - 52 - 12} />
+        <span className="sg-num">{typing.input ?? <Value text={played === undefined ? text : fmt(played)} />}</span>
+      </span>
     </div>
   )
 }
 
-export function ChoiceRow ({ label, options, value, onPick, fill }: {
+/* ── a player's range on a hand: who plays it, which way, and how far — drawn on the hand's own scale ──
+      `at` is the hand's setting (0..1 of its travel), `depth` the wire's depth (−1..1).
+      One way: the hand is carried from the setting to setting + depth. Both ways: depth/2 to either side.
+      Drag the bar to move the end; the key before it turns the polarity; alt-click takes the default. */
+export function RangeRow ({ who, at, depth, both, read, defaultDepth, onDepth, onPolarity, onGesture, colour = 3, locked }: {
+  who: React.ReactNode
+  at: number
+  depth: number
+  both: boolean
+  read: (f: number) => string           // 0..1 of the hand's travel, as the hand reads it
+  defaultDepth: number
+  onDepth: (d: number, final: boolean) => void
+  onPolarity?: () => void
+  onGesture?: (on: boolean) => void
+  colour?: Hue
+  locked?: boolean                      // a macro holds this depth: the polarity cannot be turned here
+}) {
+  const [live, setLive] = useState(false)
+  const [hover, setHover] = useState(false)
+  const [hp, setHp] = useState(false)
+  const drag = useRef<{ last: number } | null>(null)
+  const W = COL - 100 - 12 - 26   // the read-out holds two values when it goes both ways
+  const a = clamp(both ? at - Math.abs(depth) / 2 : at, 0, 1), b = clamp(both ? at + Math.abs(depth) / 2 : at + depth, 0, 1)
+  const depthAt = (e: React.PointerEvent, el: Element) => {
+    const r = el.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1)
+    return clamp(both ? Math.abs(f - at) * 2 : f - at, -1, 1)
+  }
+  const text = both ? `${read(a)} – ${read(b)}` : `${read(b)}`
+  return (
+    <div className={`sg-row range${live ? ' live' : ''}`} style={hueVar(colour)} onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
+      <span className="sg-row-label">{who}</span>
+      <span className="sg-row-ctl">
+        <span className="sg-pol" onPointerEnter={() => setHp(true)} onPointerLeave={() => setHp(false)}
+          onPointerDown={(e) => { e.stopPropagation(); if (!locked) onPolarity?.() }} style={{ cursor: locked ? 'default' : 'pointer', opacity: locked ? 0.4 : 1 }}>
+          <Polarity both={both} hover={hp && !locked} hue={colour} />
+        </span>
+        <span className="sg-range" style={{ cursor: 'ew-resize', touchAction: 'none' }}
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            if (e.altKey) { onGesture?.(true); onDepth(defaultDepth, true); onGesture?.(false); return }
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* fine */ }
+            onGesture?.(true); setLive(true)
+            const d = depthAt(e, e.currentTarget); drag.current = { last: d }; onDepth(d, false)
+          }}
+          onPointerMove={(e) => { if (!drag.current) return; const d = depthAt(e, e.currentTarget); if (d !== drag.current.last) { drag.current.last = d; onDepth(d, false) } }}
+          onPointerUp={() => { const d = drag.current; drag.current = null; setLive(false); if (d) { onDepth(d.last, true); onGesture?.(false) } }}>
+          <Range s={at} a={a} b={b} both={both} hue={colour} live={live} hover={hover} width={W} />
+        </span>
+        <span className="sg-num sg-num-range">{text}</span>
+      </span>
+    </div>
+  )
+}
+
+/* ── a choice: cells, steps, the keyboard, or a list, by what it holds ── */
+
+export function ChoiceRow ({ label, options, value, onPick, onGesture, fill, list, none, colour = 1 }: {
   label: string
   options: string[]
   value: number
   onPick: (i: number) => void
-  fill?: boolean              // the cells share the row's width evenly (a keyboard)
+  onGesture?: (on: boolean) => void
+  fill?: boolean              // the divisions and the keyboard fill the column
+  list?: boolean              // a drawer, however few the options
+  none?: string               // what the key reads when nothing is chosen (value < 0)
+  colour?: Hue
 }) {
-  const asList = !fill && options.length > 8
+  const [hover, setHover] = useState(-1)
+  const [down, setDown] = useState(-1)
   const [open, setOpen] = useState(false)
+  const keys = fill && options.length === 12
+  const steps = fill && !keys
+  const asList = list || (!fill && options.length > 8)
+  const listRef = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
+    // a press anywhere else shuts the drawer. A press INSIDE the list must not: with a real mouse the browser lets this
+    // state change land before React hears the same press, so the drawer was gone by then and its row was never picked.
+    const close = (e: PointerEvent) => { if (listRef.current && e.target instanceof Node && listRef.current.contains(e.target)) return; setOpen(false) }
     document.addEventListener('pointerdown', close, true)
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
+  const pick = (i: number) => { setDown(-1); if (i !== value) { onGesture?.(true); onPick(i); onGesture?.(false) } }
+  const press = (i: number, e: React.PointerEvent) => { e.stopPropagation(); setDown(i) }
+  const leave = () => { setHover(-1); setDown(-1) }
+  const hoverOf = (e: React.PointerEvent, n: number, w: number) => {
+    const r = (e.currentTarget as SVGElement).getBoundingClientRect()
+    setHover(clamp(Math.floor((e.clientX - r.left) / (r.width || w) * n), 0, n - 1))
+  }
   return (
-    <div className="sg-row choice" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="sg-row choice" style={hueVar(colour)} onPointerDown={(e) => e.stopPropagation()}>
       <span className="sg-row-label">{label}</span>
       <span className="sg-row-ctl">
-        {asList
-          ? (
-            <span className={`sg-seg list${open ? ' open' : ''}`}>
-              <span className="sg-seg-cell on pick" onPointerDown={(e) => { e.stopPropagation(); setOpen(v => !v) }}>
-                {options[value] ?? ''}<span className="sg-pick-arrow">▾</span>
+        {keys && (
+          <span onPointerLeave={leave} onPointerUp={() => { if (down >= 0) pick(down) }}>
+            <Keyboard names={options.map(s => s.toLowerCase())} value={value} hue={colour} hover={hover} width={COL}
+              onKey={(i, e) => { press(i, e); setHover(i) }} />
+          </span>
+        )}
+        {steps && (
+          <>
+            <span onPointerLeave={leave} onPointerMove={(e) => hoverOf(e, options.length, COL - 64)} onPointerUp={() => { if (down >= 0) pick(down) }}>
+              <Steps count={options.length} value={value} hue={colour} hover={hover} width={COL - 52 - 12} onStep={press} />
+            </span>
+            <span className="sg-num">{options[hover >= 0 ? hover : value]}</span>
+          </>
+        )}
+        {asList && (
+          <span className="sg-list" ref={listRef}>
+            {open && (
+              <span className="sg-list-drawer" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setHover(-1)}>
+                <Drawer options={options} value={value} hue={colour} hover={hover} width={COL}
+                  onRow={(i, e) => { e.stopPropagation(); pick(i); setOpen(false) }} />
               </span>
-              {open && (
-                <span className="sg-pick-list" onPointerDown={(e) => e.stopPropagation()}>
-                  {options.map((o, i) => (
-                    <span key={o} className={`sg-pick-row${i === value ? ' on' : ''}`}
-                      onPointerDown={(e) => { e.stopPropagation(); onPick(i); setOpen(false) }}>{o}</span>
-                  ))}
-                </span>
-              )}
-            </span>
-          )
-          : (
-            <span className={`sg-seg${fill ? ' fill' : ''}`}>
-              {options.map((o, i) => (
-                <span key={o} className={`sg-seg-cell${i === value ? ' on' : ''}`}
-                  onPointerDown={(e) => { e.stopPropagation(); if (i !== value) onPick(i) }}>{o}</span>
-              ))}
-            </span>
-          )}
+            )}
+            <button type="button" className={`sg-key sg-list-key${open ? ' open' : ''}`} style={{ width: COL, justifyContent: 'space-between' }}
+              onPointerDown={(e) => { e.stopPropagation(); setOpen(v => !v) }}
+              onPointerMove={open ? (e) => {
+                const d = (e.currentTarget.previousSibling as HTMLElement | null); if (!d) return
+                const r = d.getBoundingClientRect(); const i = Math.floor((e.clientY - r.top - 2) / 16); setHover(i >= 0 && i < options.length ? i : -1)
+              } : undefined}>
+              <span>{options[value] ?? none ?? ''}</span><Chevron up={open} />
+            </button>
+          </span>
+        )}
+        {!keys && !steps && !asList && (
+          <span onPointerLeave={leave} onPointerMove={(e) => hoverOf(e, options.length, COL)} onPointerUp={() => { if (down >= 0) pick(down) }}>
+            <Cells options={options} value={value} hue={colour} hover={hover} down={down} width={COL} onCell={press} />
+          </span>
+        )}
       </span>
-      <i className="sg-rule" />
     </div>
   )
 }
 
-export function SwitchRow ({ items }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean }> }) {
+/* ── on / off: a lamp beside each word ── */
+
+export function SwitchRow ({ items, colour = 4 }: { items: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }>; colour?: Hue }) {
+  const [hover, setHover] = useState(-1)
   if (items.length === 0) return null
   return (
     <div className="sg-row switches" onPointerDown={(e) => e.stopPropagation()}>
       <span className="sg-row-ctl">
-        {items.map(it => (
-          <span key={it.label} className={`sg-sw-item${it.on ? ' on' : ''}`} onPointerDown={(e) => { e.stopPropagation(); it.set(!it.on) }}>
+        {items.map((it, i) => (
+          <span key={it.label} className={`sg-sw-item${it.on ? ' on' : ''}`}
+            onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(-1)}
+            onPointerDown={(e) => { e.stopPropagation(); it.onGesture?.(true); it.set(!it.on); it.onGesture?.(false) }}>
+            <Lamp on={it.on} hover={hover === i} hue={it.quiet ? 3 : colour} />
             <span className="sg-row-label">{it.label}</span>
-            <span className={`sg-switch${it.on ? ' on' : ''}${it.quiet ? ' quiet' : ''}`}><i /></span>
           </span>
         ))}
       </span>
-      <i className="sg-rule" />
     </div>
   )
 }

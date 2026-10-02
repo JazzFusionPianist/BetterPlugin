@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { callJuceNative } from '../src/lib/juceBridge.ts'
+import { regionBundleFunction } from '../src/lib/regionBundleProtocol.ts'
+
+test('bundle and native placement protocols cannot be confused after merging', () => {
+  assert.equal(regionBundleFunction([]), null)
+  assert.equal(regionBundleFunction(['regionTransfer', 'trackExportHost']), null)
+  assert.equal(regionBundleFunction(['regionTransferHost']), null)
+  assert.equal(regionBundleFunction(['regionTransfer', 'regionTransferHost']), 'regionTransfer')
+  assert.equal(regionBundleFunction(['regionTransfer', 'regionTransferHost', 'regionBundleTransfer']), 'regionBundleTransfer')
+})
 
 function native(t) {
   const previous = globalThis.window

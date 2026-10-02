@@ -29,14 +29,18 @@ import type { GameScreen } from '../games/GamesPanel'
 import type { JoinResult, GameType } from '@/lib/games/gameRooms'
 import ChatSettingsSheet from '../app/ChatSettingsSheet'
 import StudioChat from './StudioChat'
-import CalendarView from '../app/CalendarView'
+import StudioCalendar from './StudioCalendar'
 import SchedulePrompt from '../app/SchedulePrompt'
 import FollowAlerts from '../app/FollowAlerts'
 import NewGroupSheet from '../app/NewGroupSheet'
 import ProfilePage from './ProfilePage'
 import SettingsPage, { APP_VERSION } from './SettingsPage'
 import { UpcomingRows, useConversationNotes, StudioNotes } from './StudioBits'
+import SlurMark from '../slur/SlurMark'
+import StudioHomeBar from './StudioHomeBar'
+import { StudioHomePrompt, StudioWeek } from './StudioHomeSchedule'
 import '../../app/studio.css'
+import { houseColor } from '../slur/marks'
 
 const GamesPanel = dynamic(() => import('../games/GamesPanel'), { ssr: false })
 
@@ -59,15 +63,6 @@ function Avatar({ color, label, group, avatarUrl, dot }: {
       {avatarUrl ? <img src={avatarUrl} alt="" /> : label}
       {dot && <span className="wd-dot" />}
     </span>
-  )
-}
-
-function BrandMark() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <rect x="0.75" y="0.75" width="10.5" height="10.5" rx="3.2" stroke="#1A1917" strokeWidth="1" />
-      <circle cx="6" cy="6" r="2" fill="var(--acc)" />
-    </svg>
   )
 }
 
@@ -185,11 +180,11 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   const groupColorByConv = useMemo(() => {
     const m = new Map<string, string>()
     for (const g of groupConversations) {
-      const colors = g.memberIds.map(id => profileById.get(id)?.avatar_color).filter((c): c is string => !!c)
-      m.set(g.conversationId, mixHexColors(colors))
+      // house colours, one per room — picked by the room id so a room keeps its colour
+      m.set(g.conversationId, houseColor(g.conversationId))
     }
     return m
-  }, [groupConversations, profileById])
+  }, [groupConversations])
   const groupTitleById = useMemo(() => {
     const m = new Map<string, string>()
     for (const g of groupConversations) m.set(g.conversationId, g.title || 'group')
@@ -218,9 +213,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
     if (selectedGroup) {
       const n = selectedGroup.memberIds.length
       const online = selectedGroup.memberIds.filter(id => id === user.id || onlineIds.has(id)).length
-      return `${n} members / ${online} online`
+      return <>{n} members <em>{online} online</em></>
     }
-    if (selectedProfile) return selectedProfile.isOnline ? 'online' : 'offline'
+    if (selectedProfile) return selectedProfile.isOnline ? <em>online</em> : 'offline'
     return ''
   }, [selectedGroup, selectedProfile, onlineIds, user.id])
 
@@ -289,15 +284,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
     categories,
     groupTitleById,
     onDelete: (id: string) => { deleteEvent(id).catch(() => {}) },
-    onSetCategory: async (id: string, name: string) => {
-      const color = await ensureCategory(name)
-      updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-    },
     onUpdate: (id: string, patch: Parameters<typeof updateEvent>[1]) => { updateEvent(id, patch).catch(() => {}) },
-    onAddCategory: (name: string) => { ensureCategory(name).catch(() => {}) },
-    onRenameCategory: async (id: string, name: string) => { await renameCategory(id, name).catch(() => {}); refetchEvents() },
-    onDeleteCategory: async (id: string) => { await deleteCategory(id).catch(() => {}); refetchEvents() },
   }
+
 
   // ── notes ───────────────────────────────────────────────────────────
   const { notes, loaded: notesLoaded, refresh: refreshNotes } = useConversationNotes(supabase, activeConvId)
@@ -331,7 +320,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
         <div className="wd-rail">
           <div className="wd-brand" onClick={goHome} role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter') goHome() }}>
-            <BrandMark />orb
+            <SlurMark height={28} />
           </div>
           <div className="wd-rail-scroll">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={openGames}>
@@ -397,7 +386,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                     const s: Sel = { kind: 'profile', userId: p.id }
                     return (
                       <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                        <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url} dot={p.isOnline ? 'on' : undefined} />
+                        <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url} dot={p.isOnline ? 'on' : undefined} />
                         <span className="wd-rname">
                           <b>{p.display_name}</b>
                           <span className="handle">
@@ -416,7 +405,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
               const last = conv ? (convLastMessages.get(conv.conversationId) ?? conv.lastMessage) : null
               return (
                 <div key={p.id} className={`wd-row${isSel(s) ? ' on' : ''}`} onClick={() => openSel(s)}>
-                  <Avatar color={p.avatar_color} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url} dot={p.isOnline ? 'on' : undefined} />
+                  <Avatar color={houseColor(p.id)} label={p.initials.slice(0, 1)} avatarUrl={p.avatar_url} dot={p.isOnline ? 'on' : undefined} />
                   <span className="wd-rname">
                     <b>{p.display_name}</b>
                     <span>{last ? snippet(last, last.sender_id === user.id ? 'you' : undefined) : (p.isOnline ? 'online' : 'offline')}</span>
@@ -434,7 +423,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
           <div className={`wd-rail-foot${sel?.kind === 'profile' && sel.userId === user.id ? ' on' : ''}`}>
             <span className="wd-foot-me" onClick={() => openSel({ kind: 'profile', userId: user.id })} role="button" tabIndex={0}
               onKeyDown={e => { if (e.key === 'Enter') openSel({ kind: 'profile', userId: user.id }) }}>
-              <Avatar color={me?.avatar_color ?? '#1A1917'} label={(me?.initials ?? myName).slice(0, 1)} avatarUrl={me?.avatar_url} dot="on" />
+              <Avatar color={(me ? houseColor(me.id) : '#1A1917')} label={(me?.initials ?? myName).slice(0, 1)} avatarUrl={me?.avatar_url} dot="on" />
               <span>{myName}</span>
             </span>
             <button className={`wd-foot-gear${sel?.kind === 'settings' ? ' on' : ''}`}
@@ -491,13 +480,8 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
             })()
           ) : sel?.kind === 'me' ? (
             <>
-              <div className="wd-head plain">
-                <div className="wd-title">{myName}</div>
-                <div className="wd-sub">my calendar</div>
-              </div>
-              <div className="wd-pane wd-calhost">
-                <CalendarView open events={allCalEvents} onClose={goHome} {...calendarProps} />
-              </div>
+              <StudioCalendar events={allCalEvents} {...calendarProps}
+                onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, null)} />
             </>
           ) : sel && chatTarget ? (
             <>
@@ -508,7 +492,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                       {selectedGroup.avatarUrl ? <img src={selectedGroup.avatarUrl} alt="" /> : (selectedGroup.title || 'G').slice(0, 1)}
                     </span>
                   ) : selectedProfile ? (
-                    <span className="wd-hav click" style={{ background: selectedProfile.avatar_color }}
+                    <span className="wd-hav click" style={{ background: houseColor(selectedProfile.id) }}
                       onClick={() => openSel({ kind: 'profile', userId: selectedProfile.id })} role="button" title="profile">
                       {selectedProfile.avatar_url ? <img src={selectedProfile.avatar_url} alt="" /> : selectedProfile.initials.slice(0, 1)}
                     </span>
@@ -565,9 +549,8 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 />
               )}
               {tab === 'calendar' && activeConvId && (
-                <div className="wd-pane wd-calhost">
-                  <CalendarView open events={convCalEvents} onClose={() => setTab('chat')} {...calendarProps} />
-                </div>
+                <StudioCalendar events={convCalEvents} {...calendarProps}
+                  onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, activeConvId)} />
               )}
               {tab === 'notes' && activeConvId && (
                 <StudioNotes
@@ -584,26 +567,20 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
             </>
           ) : (
             <div className="wd-home">
+              <StudioHomeBar friends={friendProfiles} onlineIds={onlineIds} onOpen={id => openSel({ kind: 'dm', userId: id })} />
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
-              <div className="wd-home-prompt">
-                <SchedulePrompt
-                  onSubmit={handleSchedule}
-                  onOpenCalendar={() => openSel({ kind: 'me' })}
-                  targets={targets}
-                  categories={categories}
-                  onUpdate={(id, patch) => { updateEvent(id, patch).catch(() => {}) }}
-                  onSetCategory={async (id, name) => {
-                    const color = name ? await ensureCategory(name) : null
-                    updateEvent(id, { category: name || null, category_color: color }).catch(() => {})
-                    return color
-                  }}
-                />
-              </div>
-              <UpcomingRows events={allCalEvents} groupTitleById={groupTitleById} limit={8} nowTick={nowTick} />
-              <button className="wd-word sm wd-home-more" onClick={() => openSel({ kind: 'me' })}>my calendar</button>
+              <StudioHomePrompt
+                targets={[{ id: null, label: 'personal', color: '#1A1917' },
+                  ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
+                onSubmit={async (text, cid) => {
+                  try { const made = await handleSchedule(text, cid); return made.length ? null : 'couldn’t read that — try “fri 7pm rehearsal at studio b”' }
+                  catch { return 'couldn’t add that — try again' }
+                }}
+              />
+              <StudioWeek events={allCalEvents} groupTitleById={groupTitleById} nowTick={nowTick} onOpenCalendar={() => openSel({ kind: 'me' })} />
             </div>
           )}
         </div>
@@ -623,17 +600,3 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   )
 }
 
-/** Average a set of #RRGGBB strings into one hex (group tint). */
-function mixHexColors(hexes: string[]): string {
-  if (hexes.length === 0) return '#4A8FE7'
-  let r = 0, g = 0, b = 0
-  for (const h of hexes) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
-    if (!m) continue
-    const v = parseInt(m[1]!, 16)
-    r += (v >> 16) & 0xff; g += (v >> 8) & 0xff; b += v & 0xff
-  }
-  const n = hexes.length
-  const to2 = (x: number) => Math.round(x / n).toString(16).padStart(2, '0')
-  return `#${to2(r)}${to2(g)}${to2(b)}`
-}

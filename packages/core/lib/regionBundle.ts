@@ -18,6 +18,8 @@ export interface BundleRegion {
   start: SampleTime | null
   offsetFrames: number | null
   lengthFrames: number | null
+  /** Original file clock only; never evidence of the current edited placement. */
+  recordingTimestamp?: SampleTime & { source: 'bwf' | 'ixml' }
 }
 export interface RegionBundle {
   format: 'orb-region-bundle'
@@ -92,6 +94,9 @@ export function parseRegionBundle(value: unknown): RegionBundle | null {
     if (!record(r) || !text(r.name) || !assets.has(r.assetId) || (r.trackId !== null && !tracks.has(r.trackId))
       || (r.start !== null && !time(r.start)) || !optionalInt(r.offsetFrames)
       || !optionalInt(r.lengthFrames, 1)) return null
+    if (r.recordingTimestamp !== undefined && (!time(r.recordingTimestamp)
+      || !record(r.recordingTimestamp) || !['bwf', 'ixml'].includes(r.recordingTimestamp.source as string)
+      || r.recordingTimestamp.samples < 0)) return null
     const a = assets.get(r.assetId)!
     if (a.frames !== null && typeof r.offsetFrames === 'number' && typeof r.lengthFrames === 'number'
       && r.offsetFrames + r.lengthFrames > a.frames) return null
@@ -110,7 +115,9 @@ export function parseRegionBundle(value: unknown): RegionBundle | null {
       sampleRate: a.sampleRate, channels: a.channels, frames: a.frames })),
     regions: value.regions.map(r => ({ id: r.id, assetId: r.assetId, trackId: r.trackId, name: r.name,
       start: r.start === null ? null : { samples: r.start.samples, sampleRate: r.start.sampleRate },
-      offsetFrames: r.offsetFrames, lengthFrames: r.lengthFrames })),
+      offsetFrames: r.offsetFrames, lengthFrames: r.lengthFrames,
+      ...(r.recordingTimestamp ? { recordingTimestamp: { samples: r.recordingTimestamp.samples,
+        sampleRate: r.recordingTimestamp.sampleRate, source: r.recordingTimestamp.source } } : {}) })),
   }
 }
 

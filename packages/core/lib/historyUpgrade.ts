@@ -2,9 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { conversationKeys, encryptChatMessage } from './chatCrypto'
 import { resolveSecureFile, uploadSecureFile } from './secureFiles'
 
+// Continue past unavailable participants/files on subsequent batches. The
+// cursor wraps so skipped records are retried once their prerequisites exist.
+const cursors=new WeakMap<SupabaseClient,Map<string,{message:string;stem:string}>>()
+
 /** One bounded batch, authored by the signed-in user. No plaintext sent back. */
 export async function upgradeHistory(client:SupabaseClient,user:string,apiBase:string){
   let upgraded=0,skipped=0
+  let users=cursors.get(client)
+  if(!users){users=new Map();cursors.set(client,users)}
+  let cursor=users.get(user)
+  if(!cursor){cursor={message:'',stem:''};users.set(user,cursor)}
   const files=new Map<string,{url:string;key:string}>()
   const migrateFile=async(url:string,name:string)=>{
     const cached=files.get(url);if(cached)return cached
@@ -19,8 +27,11 @@ export async function upgradeHistory(client:SupabaseClient,user:string,apiBase:s
   }
   for(const kind of ['message','stem'] as const){
     const table=kind==='message'?'messages':'conversation_stems',author=kind==='message'?'sender_id':'uploader_id'
-    const {data,error}=await client.from(table).select('*').eq(author,user).is('encrypted_payload',null).order('created_at',{ascending:true}).limit(10)
+    let query=client.from(table).select('*').eq(author,user).is('encrypted_payload',null).order('id',{ascending:true}).limit(10)
+    if(cursor[kind])query=query.gt('id',cursor[kind])
+    const {data,error}=await query
     if(error)throw new Error('Could not read legacy history.')
+    cursor[kind]=data?.length===10?data[data.length-1].id:''
     for(const row of data??[]){
       try{
         // Check all participants before spending upload bandwidth.

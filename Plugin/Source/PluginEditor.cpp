@@ -155,20 +155,17 @@ void OrbAudioProcessorEditor::trySetupDropHandling()
 
         dragMonitor.setupDropHandling (
             peer->getNativeHandle(),
-            [safe] (std::string name, std::string base64, int seq)
+            [safe] (std::string name, std::string base64, int seq, std::string regionJSON)
             {
                 if (auto* c = safe.getComponent())
                 {
-                    juce::String jsName   = juce::String (name.c_str()).replace ("'", "\\'");
-                    juce::String jsBase64 = juce::String (base64.c_str());
-
-                    // seq = drag order at drop registration; JS sorts the
-                    // batch by it so concurrent promise resolution can't
-                    // scramble a multi-region drop.
-                    juce::String script =
-                        "window.dispatchEvent(new CustomEvent('__juceFileDrop',"
-                        "{detail:{name:'" + jsName + "',data:'" + jsBase64
-                        + "',seq:" + juce::String (seq) + "}}))";
+                    auto* detail = new juce::DynamicObject();
+                    detail->setProperty("name", juce::String(name));
+                    detail->setProperty("data", juce::String(base64));
+                    detail->setProperty("seq", seq);
+                    if (!regionJSON.empty()) detail->setProperty("region", juce::JSON::parse(juce::String(regionJSON)));
+                    juce::String script = "window.dispatchEvent(new CustomEvent('__juceFileDrop',{detail:"
+                        + juce::JSON::toString(juce::var(detail), true) + "}))";
 
                     if (auto* b = c->processorRef.getBrowser())
                         b->evaluateJavascript (script, [] (juce::WebBrowserComponent::EvaluationResult) {});

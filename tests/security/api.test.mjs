@@ -16,7 +16,7 @@ test('file APIs reject anonymous/malformed/unauthorized requests, preserve CORS 
  try{
   globalThis.fetch=async url=>{
    if(String(url).endsWith('/security_check_session'))return Response.json({id:'00000000-0000-4000-8000-000000000001'})
-   if(String(url).endsWith('/security_rate_limit'))return Response.json(null)
+   if(String(url).endsWith('/security_rate_limit'))return new Response(null,{status:204})
    if(String(url).endsWith('/file_access'))return Response.json({code:'42501',message:'internal secret detail'},{status:403})
    if(String(url).endsWith('/reserve_file'))return Response.json({object_key:'private/test/file.bin',storage:'private',size:99,mime:'application/octet-stream'})
    throw new Error('Unexpected network request')

@@ -182,6 +182,7 @@ export default function StemPanel({
       const { url: publicUrl, key: fileKey } = await uploadSecureFile(supabase, file, { onProgress: progress =>
         setUploading(prev => prev.map(item => item.id === key ? { ...item, progress } : item)) })
 
+      if (conversationRef.current !== conversationId) throw new Error('Conversation changed.')
       const row = {
         conversation_id: conversationId,
         uploader_id: currentUserId,
@@ -193,7 +194,9 @@ export default function StemPanel({
         timeline_metadata: timeline,
       }
       if (deferInsert) return row
-      const { error: insertError } = await supabase.from('conversation_stems').insert(await encryptedRow(row))
+      const encrypted = await encryptedRow(row)
+      if (conversationRef.current !== conversationId) throw new Error('Conversation changed.')
+      const { error: insertError } = await supabase.from('conversation_stems').insert(encrypted)
       if (insertError) throw insertError
       await load()
     } catch (uploadError) {
@@ -222,7 +225,7 @@ export default function StemPanel({
         return { url: row.file_url, name: row.file_name }
       })
       // One INSERT is atomic; private-file access still uses each original file_key.
-      const { error: insertError } = await supabase.from('conversation_stems').insert(await Promise.all(rows.map((row, i) => encryptedRow({
+      const encryptedRows = await Promise.all(rows.map((row, i) => encryptedRow({
         ...row,
         timeline_metadata: {
           ...row.timeline_metadata,
@@ -230,11 +233,13 @@ export default function StemPanel({
           bundle_asset_id: prepared.bundle.assets[i].id,
           ...(i === 0 ? { region_bundle: prepared.bundle } : {}),
         },
-      }))))
+      })))
+      if (conversationRef.current !== conversationId) throw new Error('Conversation changed. Regions were not sent.')
+      const { error: insertError } = await supabase.from('conversation_stems').insert(encryptedRows)
       if (insertError) throw insertError
       await load()
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The region bundle was not sent.') }
-  }, [pendingDrop?.fallbackMetadata, uploadOne, supabase, load])
+  }, [conversationId, pendingDrop?.fallbackMetadata, uploadOne, supabase, load])
 
   useEffect(() => {
     if (!pendingDrop || consumed.current.has(pendingDrop.id)) return

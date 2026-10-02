@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slur downloads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+<style>
+/* Slur Studio, downloads. Draft 1, 2026-09-23.
+   One arch per plug-in, in its colour, with its note. The row grows as the
+   studio makes more; the empty arch at the end is the next one. */
+:root {
+  --paper: #F3F0E8; --paper-2: #FBFAF7; --ink: #1A1917; --t2: #6E6B63; --t3: #A5A199;
+  --f: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--paper); }
+body { color: var(--ink); font-family: var(--f); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.grain { position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .22; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1  0 0 0 0 .09  0 0 0 0 .08  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+.top { display: flex; align-items: center; height: 76px; padding: 0 36px; }
+.logo { display: inline-flex; align-items: flex-end; gap: 6px; }
+.logo svg { display: block; overflow: visible; }
+.logo .studio { font-size: 13px; font-weight: 500; letter-spacing: -0.01em; padding-bottom: 5px; }
+.nav { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 13.5px; color: var(--t2); }
+.nav a:hover, .nav button:hover { color: var(--ink); }
+.nav .here { color: var(--ink); }
+.pill { display: inline-flex; align-items: center; height: 36px; padding: 0 18px; border-radius: 999px; font-size: 13.5px; transition: transform .15s ease; }
+.pill:hover { transform: translateY(-1px); }
+.pill.ink { background: var(--ink); color: var(--paper-2); }
+
+.page { padding: 56px 36px 120px; }
+.page h1 { font-size: clamp(56px, 9vw, 132px); font-weight: 500; letter-spacing: -0.045em; line-height: .9; margin-bottom: 56px; }
+
+.shelf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.arch { position: relative; aspect-ratio: 3 / 4; border-radius: 50% 50% 28px 28px / 34% 34% 28px 28px; overflow: hidden; }
+.arch svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.arch .nm { position: absolute; left: 22px; bottom: 16px; display: flex; align-items: flex-end; gap: 6px; font-size: 19px; font-weight: 500; letter-spacing: -0.02em; }
+.arch .nm span { padding-bottom: 6px; }
+.arch .nm svg { position: static; width: auto; height: auto; overflow: visible; }
+.arch.next { background: none; box-shadow: inset 0 0 0 1.5px rgba(26,25,23,.22); }
+.note { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: transform .3s cubic-bezier(.3,1.6,.5,1); }
+.item:hover .note { transform: scale(1.06) rotate(-4deg); }
+.meta { display: flex; align-items: center; gap: 8px; padding: 16px 4px 0; }
+.meta .f { font-size: 13px; color: var(--t3); margin-right: auto; }
+.meta .pill { height: 34px; padding: 0 16px; font-size: 13px; }
+.meta .pill.line { box-shadow: inset 0 0 0 1px rgba(26,25,23,.35); }
+.meta .soon { font-size: 13px; color: var(--t3); }
+
+.foot-row { display: flex; gap: 22px; padding: 22px 36px 28px; font-size: 12.5px; color: var(--t3); }
+.foot-row a:hover { color: var(--ink); }
+.foot-row .r { margin-left: auto; }
+
+@media (max-width: 1000px) { .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) {
+  .top { padding: 0 18px; } .nav a:not(.here), .nav .word { display: none; }
+  .page { padding: 36px 16px 90px; } .shelf { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .foot-row { padding: 20px 18px; flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<header class="top">
+  <a class="logo" href="landing-draft.html"><svg class="breath" data-h="40" data-tie="#5C80FF"></svg><span class="studio">studio</span></a>
+  <nav class="nav">
+    <a class="here" href="#">downloads</a>
+    <a class="word" href="landing-draft.html#signin">log in</a>
+    <a class="pill ink" href="landing-draft.html#signup">sign up</a>
+  </nav>
+</header>
+
+<main class="page">
+  <h1>downloads</h1>
+  <div class="shelf" id="shelf"></div>
+</main>
+
+<div class="foot-row">
+  <a href="#">terms</a><a href="#">privacy</a><a href="#">copyright</a><span class="r">&copy; 2026</span>
+</div>
+
+<script src="slur-marks.js"></script>
+<script>
+/* The catalogue. A new plug-in is one more line here: a name, a ground, a
+   note colour, the step it sounds, what it runs as. */
+const PLUGINS = [
+  { name: 'slur',          ground: '#BFE6CB', note: C.green,  tie: C.green,  ink: C.ink,   step: 3, hollow: true,  formats: 'au vst3 aax', web: true },
+  { name: 'patch on slur', ground: '#14120F', note: C.orange, tie: C.orange, ink: C.white, step: 5, hollow: false, formats: 'au vst3', glow: true },
+  { name: 'slur games',    ground: '#E4E9FF', note: C.blue,   tie: C.blue,   ink: C.ink,   step: 7, hollow: true,  formats: 'au vst3' },
+  { next: true },
+]
+
+const shelf = document.getElementById('shelf')
+PLUGINS.forEach((p, i) => {
+  const item = document.createElement('div'); item.className = 'item'
+  const arch = document.createElement('div'); arch.className = 'arch' + (p.next ? ' next' : '')
+  if (!p.next) arch.style.background = p.ground
+  item.appendChild(arch)
+  shelf.appendChild(item)   // in the page before anything is measured
+  const svg = el('svg', { viewBox: '0 0 300 400', preserveAspectRatio: 'xMidYMid slice' }, arch)
+  // a staff fragment the note sits on
+  const lineC = p.next ? 'rgba(26,25,23,.12)' : p.ink === C.white ? 'rgba(251,250,247,.16)' : 'rgba(26,25,23,.14)'
+  for (let k = 0; k < 5; k++) el('line', { x1: 0, x2: 300, y1: 130 + k * 26, y2: 130 + k * 26, stroke: lineC }, svg)
+  const y = 130 + 4 * 26 - (p.next ? 4 : p.step) * 13
+  if (p.glow) {
+    const d = el('defs', {}, svg), r = el('radialGradient', { id: 'glow' + i }, d)
+    el('stop', { offset: 0, 'stop-color': p.note, 'stop-opacity': .55 }, r); el('stop', { offset: 1, 'stop-color': p.note, 'stop-opacity': 0 }, r)
+    el('ellipse', { cx: 150, cy: y, rx: 150, ry: 170, fill: `url(#glow${i})` }, svg)
+  }
+  const g = el('g', { class: 'note' }, svg)
+  if (p.next) {
+    el('path', { d: ellipsePath(150, y, 44, 31, -22), fill: 'none', stroke: 'rgba(26,25,23,.3)', 'stroke-width': 1.5, 'stroke-dasharray': '4 5' }, g)
+  } else {
+    wholeNote(g, 150, y, 44, p.note, p.hollow)
+    const sound = () => play(hz(p.step), 0, 1.8)
+    arch.addEventListener('click', sound)
+    arch.style.cursor = 'pointer'
+  }
+  if (!p.next) {
+    // the family name: the lettered slur, with the product's own word beside it
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.style.color = p.ink; arch.appendChild(nm)
+    const [pre, post] = p.name.split('slur').map(x => x.trim())
+    if (pre) nm.insertAdjacentHTML('beforeend', `<span>${pre}</span>`)
+    const mk = el('svg', { class: 'breath', 'data-h': 52, 'data-tie': p.tie, 'data-ink': p.ink }, nm); breathMark(mk)
+    if (post) nm.insertAdjacentHTML('beforeend', `<span>${post}</span>`)
+  }
+  const meta = document.createElement('div'); meta.className = 'meta'
+  meta.innerHTML = p.next
+    ? '<span class="soon">soon</span>'
+    : `<span class="f">${p.formats}</span>${p.web ? '<a class="pill line" href="landing-draft.html#signin">web</a>' : ''}<a class="pill ink" href="#">mac</a>`
+  item.appendChild(meta)
+})
+</script>
+</body>
+</html>

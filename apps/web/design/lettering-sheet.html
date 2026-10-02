@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slur lettering</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* Slur Studio, lettering sheet. No font: the word "slur" drawn four ways.
+   Each row: large on paper, on colour, as the header lockup, as an icon. */
+:root { --paper: #F3F0E8; --ink: #1A1917; --t3: #A5A199; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: 'Instrument Sans', sans-serif; padding: 28px 32px; }
+.row { display: grid; grid-template-columns: 34px 1.25fr 1fr 190px 150px; gap: 14px; align-items: center; margin-bottom: 14px; }
+.k { font-size: 28px; font-weight: 500; letter-spacing: -0.03em; align-self: start; padding-top: 4px; }
+.tile { height: 220px; border-radius: 26px; display: grid; place-items: center; overflow: hidden; }
+.tile svg { display: block; overflow: visible; }
+.lock { height: 220px; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
+.lock div { display: flex; align-items: flex-end; gap: 7px; font-size: 15px; font-weight: 500; letter-spacing: -0.02em; }
+.lock svg { display: block; overflow: visible; }
+.icon { width: 150px; height: 150px; border-radius: 36px; display: grid; place-items: center; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="rows"></div>
+<script src="slur-marks.js"></script>
+<script>
+/* Every drawing lives in a 240 x 200 box: baseline 150, x-height 96,
+   ascender 34. */
+
+/* A · one breath: letterA, in slur-marks.js. */
+
+/* B · notation. The s is a hairline with a swelling spine and note heads
+   for terminals; the l is a stem; the u is a tie; the r is a stem and an
+   eighth-note flag. */
+function letterB (g, { ink = C.ink, tie = C.blue, flag = C.ink } = {}) {
+  // s: hairline bowls, swelling spine, two note-head terminals
+  el('path', { d: 'M 65 103 C 60 94, 40 92, 38 106', fill: 'none', stroke: ink, 'stroke-width': 2.4, 'stroke-linecap': 'round' }, g)
+  el('path', { d: 'M 38 106 C 36 116, 48 120, 56 124 C 66 129, 70 138, 64 146 C 72 136, 66 126, 55 121 C 45 116, 37 113, 38 106 Z', fill: ink }, g)
+  el('path', { d: 'M 64 146 C 58 154, 40 154, 36 144', fill: 'none', stroke: ink, 'stroke-width': 2.4, 'stroke-linecap': 'round' }, g)
+  wholeNote(g, 66, 101, 5.4, ink, false)
+  wholeNote(g, 35, 142, 5.4, ink, false)
+  // l: a stem, square cut like engraving
+  el('rect', { x: 86, y: 34, width: 7.5, height: 116, fill: ink }, g)
+  // u: a tie, the one coloured stroke; its ends reach the x-height
+  slur(g, 112, 96, 146, 96, -72, -9, tie)
+  // r: stem and flag
+  el('rect', { x: 162, y: 96, width: 7.5, height: 54, fill: ink }, g)
+  el('path', { d: 'M 169.5 96 C 176 104, 196 106, 199 124 C 200 130, 197 136, 194 140 C 196 124, 184 116, 169.5 116 Z', fill: flag }, g)
+}
+
+/* C · cut paper. Four strips in four colours, each laid a little crooked,
+   overlapping so the paper multiplies. */
+function letterC (g, { cols = [C.blue, C.orange, C.rose, C.green], w = 22 } = {}) {
+  const strip = (d, c, rot, cx, cy) => el('path', { d, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', transform: `rotate(${rot} ${cx} ${cy})`, style: 'mix-blend-mode:multiply' }, g)
+  strip('M 70 104 C 62 92, 32 92, 32 110 C 32 128, 70 118, 70 136 C 70 154, 38 156, 30 142', cols[0], -6, 50, 124)
+  strip('M 94 36 L 94 148', cols[1], 4, 94, 92)
+  strip('M 118 98 L 118 128 C 118 152, 150 152, 150 128 L 150 98 M 150 128 L 150 148', cols[2], -3, 134, 124)
+  strip('M 176 148 L 176 104 C 180 96, 196 92, 206 100', cols[3], 5, 190, 122)
+}
+
+/* D · a real face for comparison: Instrument Serif italic, tied by hand. */
+function letterD (g, { ink = C.ink, tie = C.orange } = {}) {
+  const t = el('text', { x: 28, y: 150, fill: ink, 'font-family': 'Instrument Serif', 'font-style': 'italic', 'font-size': 150, 'letter-spacing': -4 }, g)
+  t.textContent = 'slur'
+  slur(g, 40, 84, 214, 96, 58, 7, tie)
+}
+
+const LETTERS = [
+  { k: 'a', draw: letterA, paper: {}, color: ['#BFE6CB', { ink: C.ink, tie: C.green }], icon: [C.ink, { ink: C.white, tie: C.orange }], small: { tie: C.blue } },
+  { k: 'b', draw: letterB, paper: {}, color: [C.blue, { ink: C.white, tie: C.orange, flag: C.white }], icon: [C.orange, { ink: C.ink, tie: C.white }], small: {} },
+  { k: 'c', draw: letterC, paper: {}, color: [C.white, {}], icon: [C.white, {}], small: {} },
+  { k: 'd', draw: letterD, paper: {}, color: [C.ink, { ink: C.white, tie: C.orange }], icon: [C.lilac, { ink: C.ink, tie: C.ink }], small: {} },
+]
+
+const rows = document.getElementById('rows')
+const put = (host, W, H, draw, opts, pad = 0) => {
+  const s = el('svg', { width: W, height: H, viewBox: `${16 - pad} ${14 - pad} ${210 + pad * 2} ${150 + pad * 2}` }, host)
+  draw(el('g', {}, s), opts); return s
+}
+LETTERS.forEach(L => {
+  const row = document.createElement('div'); row.className = 'row'
+  row.innerHTML = `<span class="k">${L.k}</span>`
+  const t1 = document.createElement('div'); t1.className = 'tile'; t1.style.background = '#FBFAF7'; row.appendChild(t1)
+  put(t1, 280, 200, L.draw, L.paper)
+  const t2 = document.createElement('div'); t2.className = 'tile'; t2.style.background = L.color[0]; row.appendChild(t2)
+  put(t2, 240, 172, L.draw, L.color[1])
+  const lock = document.createElement('div'); lock.className = 'lock'; row.appendChild(lock)
+  ;[34, 22].forEach(h => {
+    const d = document.createElement('div'); lock.appendChild(d)
+    put(d, h * 1.4, h, L.draw, L.small)
+    const w = document.createElement('span'); w.textContent = 'studio'; w.style.fontSize = (h * .5) + 'px'; w.style.paddingBottom = (h * .06) + 'px'; d.appendChild(w)
+  })
+  const ic = document.createElement('div'); ic.className = 'icon'; ic.style.background = L.icon[0]; row.appendChild(ic)
+  put(ic, 118, 88, L.draw, L.icon[1], 8)
+  rows.appendChild(row)
+})
+</script>
+</body>
+</html>

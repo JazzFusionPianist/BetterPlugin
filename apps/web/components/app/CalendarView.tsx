@@ -359,7 +359,7 @@ export default function CalendarView({
 const fmtSheetDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
 
-function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose }: {
+export function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose }: {
   event: CalendarEvent
   own: boolean
   groupTitle: string | null

@@ -18,8 +18,20 @@ const pkgVersion = (): string => {
   catch { return '0.0.0' }
 }
 
+/** dist/build.json — which build this is. The plugin carries a copy of the site and compares this with the site's to know
+ *  whether the site is newer than what it carries. */
+function buildStamp () {
+  return {
+    name: 'build-stamp',
+    generateBundle (this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }) {
+      this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ build: buildId(), version: pkgVersion(), at: new Date().toISOString(),
+        regionSharing: 1, regionDawproject: 1, regionVstXml: 1, regionLuna: 1, stemDownloads: 1, regionPlacement: 1, trackExportPolicy: 'pro-tools-only' }) })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), {
+  plugins: [react(), tailwindcss(), buildStamp(), {
     name: 'require-auth-configuration',
     apply: 'build',
     configResolved(config) {

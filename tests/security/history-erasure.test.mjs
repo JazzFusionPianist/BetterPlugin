@@ -10,7 +10,7 @@ test('legacy author upgrades once, plaintext columns disappear; erasure queue su
   await db.exec(`insert into conversations(id) values('${room}');insert into conversation_members(conversation_id,user_id) values('${room}','${A}'),('${room}','${B}');insert into messages(id,conversation_id,sender_id,content) values('${id}','${room}','${A}','old plaintext');
     create function delete_my_account() returns void language sql security definer as $$delete from auth.users where id=auth.uid()$$;
     insert into storage.objects values('avatars','${C}/pic.png'),('avatars','${B}/keep.png');`)
-  for(const file of ['20260923194549_security_encrypted_chat','20260923200855_security_history_upgrade','20260923201050_security_erasure_queue'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'))
+  for(const file of ['20260927184452_security_encrypted_chat','20260927184459_security_history_upgrade','20260927184503_security_erasure_queue'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'))
   const a=await deriveIdentity(A,await createRecoveryCode()),b=await deriveIdentity(B,await createRecoveryCode())
   for(const k of [a,b])await act(db,k.user_id,'select register_chat_key($1,$2)',[k.box_key,k.sign_key])
   const pub=k=>({user_id:k.user_id,box_key:k.box_key,sign_key:k.sign_key})

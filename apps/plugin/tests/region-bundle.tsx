@@ -51,7 +51,7 @@ if (new URLSearchParams(location.search).has('native')) {
   const handlers = new Map<number, (data: unknown) => void>()
   let nextSubscription = 0
   window.__JUCE__ = {
-    initialisationData: { __juce__functions: ['regionTransfer', 'regionTransferHost'], __juce__platform: ['test'] },
+    initialisationData: { __juce__functions: ['regionBundleTransfer', 'regionTransferHost'], __juce__platform: ['test'] },
     backend: {
       addEventListener: (event, handler) => {
         const id = nextSubscription++

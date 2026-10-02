@@ -7,7 +7,7 @@ packages:
 # nor blocks `pnpm <script>` on the ignored-build check.
 allowBuilds:
   esbuild: true
-  protobufjs: false
+  protobufjs: true
   sharp: false
 
 # Security-patched transitive releases. Web uses static export / unoptimized images.

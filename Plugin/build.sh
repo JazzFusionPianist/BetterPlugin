@@ -52,20 +52,21 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
+mkdir -p "$BUILD_DIR"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Orb Plugin Build"
+echo "  Slur Plugin Build"
 echo "  Config : $BUILD_TYPE"
 echo "  URL    : $ORB_APP_URL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── CMake configure ────────────────────────────────────────────────────────────
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
-# the full Orb: CMake target → product name, one line each.
+# Slur Orb: CMake target → product name, one line each.
 SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
-SPLIT_NAMES=("Orb Chat" "Orb Sounds" "Orb Games")
+SPLIT_NAMES=("Slur" "Patch on Slur" "Slur Games")
 
-split_targets() { # AU + VST3 for every split-out (filtered by --only)
+split_targets() { # Every enabled format for each split-out (filtered by --only)
   local i out=""
   for i in "${!SPLIT_TARGETS[@]}"; do
     local t="${SPLIT_TARGETS[$i]}"
@@ -77,6 +78,7 @@ split_targets() { # AU + VST3 for every split-out (filtered by --only)
       *)       continue ;;
     esac
     out="$out ${t}_AU ${t}_VST3"
+    [ -n "$AAX_SDK_PATH" ] && out="$out ${t}_AAX"
   done
   echo "$out"
 }
@@ -96,9 +98,26 @@ else
 fi
 [ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds | games)" >&2; exit 1; }
 
+# ── The page, carried inside the plugin ───────────────────────────────────────
+# The wall is a web page. The plugin loads it from the site when it can (so
+# every push reaches everyone), but it also carries a copy, built here and
+# zipped into the binary, so it opens with no network — and instantly.
+WEB_DIR="$(cd "$SCRIPT_DIR/../apps/plugin" && pwd)"
+WEB_ZIP_DIR="$BUILD_DIR/webui"
+if [ "${SKIP_WEB:-0}" != 1 ]; then
+  echo "→ building the page (apps/plugin) …"
+  ( cd "$WEB_DIR" && pnpm build > "$SCRIPT_DIR/build/web-build.log" 2>&1 ) || { echo "✗ the page did not build — see Plugin/build/web-build.log" >&2; exit 1; }
+  mkdir -p "$WEB_ZIP_DIR"
+  rm -f "$WEB_ZIP_DIR/webui.zip"
+  ( cd "$WEB_DIR/dist" && zip -q -r -X "$WEB_ZIP_DIR/webui.zip" . )
+  echo "  ✓ page zipped → $(du -h "$WEB_ZIP_DIR/webui.zip" | cut -f1)"
+fi
+[ -f "$WEB_ZIP_DIR/webui.zip" ] || { echo "✗ no carried page (Plugin/build/webui/webui.zip): run without SKIP_WEB" >&2; exit 1; }
+
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-      -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" \
+      $( [ "$BUILD_TYPE" = Release ] && echo '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' ) \
       -DORB_APP_URL="$ORB_APP_URL" \
       -DAAX_SDK_PATH="$AAX_SDK_PATH" \
       -G Xcode \
@@ -108,18 +127,18 @@ cmake -B "$BUILD_DIR" \
 cmake --build "$BUILD_DIR" \
       --config "$BUILD_TYPE" \
       --target $BUILD_TARGETS \
-      -- -quiet
+      -- -quiet $( [ "$BUILD_TYPE" = Release ] && echo 'ONLY_ACTIVE_ARCH=NO' )   # a release is for everyone's Mac: both architectures
 
 echo ""
 echo "✓ Build complete."
 echo ""
 
 # ── Locate built products ─────────────────────────────────────────────────────
-AU_PATH=$(find "$BUILD_DIR" -name "Orb.component"  -maxdepth 6 2>/dev/null | head -1)
-VST3_PATH=$(find "$BUILD_DIR" -name "Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
-STANDALONE_PATH=$(find "$BUILD_DIR" -name "Orb.app"        -maxdepth 6 2>/dev/null | head -1)
+AU_PATH=$(find "$BUILD_DIR" -name "Slur Orb.component"  -maxdepth 6 2>/dev/null | head -1)
+VST3_PATH=$(find "$BUILD_DIR" -name "Slur Orb.vst3"     -maxdepth 6 2>/dev/null | head -1)
+STANDALONE_PATH=$(find "$BUILD_DIR" -name "Slur Orb.app"        -maxdepth 6 2>/dev/null | head -1)
 
-# --only=<split> builds just that plugin: leave the full Orb's products
+# --only=<split> builds just that plugin: leave Slur Orb's products
 # (and its install below) untouched.
 FULL_ORB=true
 [ -n "$ONLY" ] && [ "$ONLY" != orb ] && FULL_ORB=false
@@ -141,7 +160,7 @@ if [ "$RUN" = true ] && [ -n "$STANDALONE_PATH" ]; then
   echo "→ Launching standalone…"
   # Re-launching the same bundle: kill the running instance first so the
   # rebuild's binary is actually what we open.
-  pkill -x Orb 2>/dev/null || true
+  pkill -x "Slur Orb" 2>/dev/null || true
   open "$STANDALONE_PATH"
 fi
 
@@ -155,43 +174,62 @@ if [ "$INSTALL" = true ]; then
   # prompts for an administrator password and aborts before cache refresh).
   AAX_PATH=""
   if [ -n "$AAX_SDK_PATH" ]; then
-    AAX_PATH=$(find "$BUILD_DIR" -name "Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
+    AAX_PATH=$(find "$BUILD_DIR" -name "Slur Orb.aaxplugin" -maxdepth 6 2>/dev/null | head -1)
   fi
 
   mkdir -p "$AU_DEST" "$VST3_DEST"
 
   if [ "$FULL_ORB" = true ] && [ -n "$AU_PATH" ]; then
-    rm -rf "$AU_DEST/Orb.component"
+    rm -rf "$AU_DEST/Orb.component" "$AU_DEST/Slur Orb.component"
     cp -R "$AU_PATH" "$AU_DEST/"
-    echo "✓ AU   installed → $AU_DEST/Orb.component"
+    echo "✓ AU   installed → $AU_DEST/Slur Orb.component"
   fi
 
   if [ "$FULL_ORB" = true ] && [ -n "$VST3_PATH" ]; then
-    rm -rf "$VST3_DEST/Orb.vst3"
+    rm -rf "$VST3_DEST/Orb.vst3" "$VST3_DEST/Slur Orb.vst3"
     cp -R "$VST3_PATH" "$VST3_DEST/"
-    echo "✓ VST3 installed → $VST3_DEST/Orb.vst3"
+    echo "✓ VST3 installed → $VST3_DEST/Slur Orb.vst3"
   fi
 
-  # The split-out plugins (Orb Chat, Orb Sounds, …) install alongside Orb —
+  # The split-out plugins (Slur, Patch on Slur, …) install alongside Slur Orb —
   # only the ones this run built (this config), so --only=sounds never
-  # re-installs a stale Orb Chat.
+  # re-installs a stale Slur.
   for SPLIT_NAME in "${SPLIT_NAMES[@]}"; do
     case "$ONLY" in
-      chat)   [ "$SPLIT_NAME" = "Orb Chat" ]   || continue ;;
-      sounds) [ "$SPLIT_NAME" = "Orb Sounds" ] || continue ;;
-      games)  [ "$SPLIT_NAME" = "Orb Games" ]  || continue ;;
+      chat)   [ "$SPLIT_NAME" = "Slur" ]        || continue ;;
+      sounds) [ "$SPLIT_NAME" = "Patch on Slur" ] || continue ;;
+      games)  [ "$SPLIT_NAME" = "Slur Games" ]  || continue ;;
+    esac
+    case "$SPLIT_NAME" in
+      "Slur")          OLD_SPLIT_NAMES=("Orb Chat" "Slur Chat") ;;
+      "Patch on Slur") OLD_SPLIT_NAMES=("Orb Sounds") ;;
+      "Slur Games")    OLD_SPLIT_NAMES=("Orb Games") ;;
     esac
     SPLIT_AU_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.component" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
     SPLIT_VST3_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.vst3" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    SPLIT_AAX_PATH=""
+    if [ -n "$AAX_SDK_PATH" ]; then
+      SPLIT_AAX_PATH=$(find "$BUILD_DIR" -maxdepth 6 -name "$SPLIT_NAME.aaxplugin" -path "*/$BUILD_TYPE/*" 2>/dev/null | head -1)
+    fi
     if [ -n "$SPLIT_AU_PATH" ]; then
+      # Renamed bundles keep their plugin codes, so the old filename must
+      # not be left beside the new one in a host's scan directory.
+      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$AU_DEST/$OLD.component"; done
       rm -rf "$AU_DEST/$SPLIT_NAME.component"
       cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
       echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"
     fi
     if [ -n "$SPLIT_VST3_PATH" ]; then
+      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$VST3_DEST/$OLD.vst3"; done
       rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
       cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
       echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"
+    fi
+    if [ -n "$SPLIT_AAX_PATH" ]; then
+      sudo mkdir -p "$AAX_DEST"
+      sudo rm -rf "$AAX_DEST/$SPLIT_NAME.aaxplugin"
+      sudo cp -R "$SPLIT_AAX_PATH" "$AAX_DEST/"
+      echo "✓ AAX  installed → $AAX_DEST/$SPLIT_NAME.aaxplugin"
     fi
   done
 
@@ -210,9 +248,9 @@ if [ "$INSTALL" = true ]; then
 
   if [ "$FULL_ORB" = true ] && [ -n "$AAX_PATH" ]; then
     sudo mkdir -p "$AAX_DEST"
-    sudo rm -rf "$AAX_DEST/Orb.aaxplugin"
+    sudo rm -rf "$AAX_DEST/Orb.aaxplugin" "$AAX_DEST/Slur Orb.aaxplugin"
     sudo cp -R "$AAX_PATH" "$AAX_DEST/"
-    echo "✓ AAX  installed → $AAX_DEST/Orb.aaxplugin"
+    echo "✓ AAX  installed → $AAX_DEST/Slur Orb.aaxplugin"
   fi
 
   # Notify Logic Pro / AudioComponentRegistrar

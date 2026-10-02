@@ -456,6 +456,7 @@ export function timelinePositionLabel(
   metadata: AttachmentTimelineMetadata | null | undefined,
 ): TimelinePositionLabel | null {
   if (!metadata || metadata.position.confidence !== 'exact') return null
+  if (metadata.position.meaning === 'recording_timestamp') return null
   const bpm = metadata.bpm
   if (bpm == null || !Number.isFinite(bpm) || bpm <= 0) return null
   const { position } = metadata

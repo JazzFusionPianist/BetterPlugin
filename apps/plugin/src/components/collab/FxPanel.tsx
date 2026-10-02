@@ -78,6 +78,7 @@ const R = 86
 /* the wall: near-black at zero, each mode's own light — full and loud
    — at the top of the knob */
 const WALL_DARK: [number, number, number] = [22, 20, 16]
+const PAPER_TINT: [number, number, number] = [246, 243, 234]
 const WALL_TINTS: Array<[number, number, number]> = [
   [255, 178, 44],   // tone — noon amber
   [255, 108, 36],   // tape/hard — hot orange
@@ -158,10 +159,13 @@ function glowRgb (mode: FxMode, variant: number): string {
  *  tone's dense hatching) — even the score with a per-plate boost. */
 const GLOW_BOOST = [1, 1, 1.9, 1.6, 1.35, 1.55, 1.15, 1.3, 1, 1.35, 1.5, 1, 1.3, 1.4, 1.2, 1.4, 1.3, 1.3, 1.4, 1.3, 1.3]
 
-function wallColor (mode: FxMode, variant: number, a: number): string {
-  const t = VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode]
+/** The wall's dark lifted toward a tint by `a`. */
+function wallColorOf (t: [number, number, number], a: number): string {
   const c = WALL_DARK.map((d, i) => Math.round(d + (t[i] - d) * a))
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
+}
+function wallColor (mode: FxMode, variant: number, a: number): string {
+  return wallColorOf(VARIANT_TINTS[mode]?.[variant] ?? WALL_TINTS[mode] ?? PAPER_TINT, a)
 }
 
 /* strokes ride from paper to ink as the wall brightens, so the print
@@ -1022,7 +1026,7 @@ function fmtValue (mode: FxMode, a: number, variant = 0): string {
   if (mode === 16 || mode === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
   if (mode === 7) {
     if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
-    const hz = variant === 0 ? 20 * Math.pow(2, a * 8) : 20000 * Math.pow(2, -a * 8.3)
+    const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
     return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`
   }
   return `${Math.round(a * 100)}`
@@ -1318,4 +1322,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, wallColorOf, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate }

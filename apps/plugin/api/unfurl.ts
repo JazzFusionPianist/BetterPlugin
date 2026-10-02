@@ -1,3 +1,4 @@
+import { authenticate, readBody, response } from '../server/security'
 /**
  * Vercel Edge Function: unfurl a URL into Open Graph metadata.
  *
@@ -73,7 +74,7 @@ function decodeEntities (s: string): string {
  *  just stick it in an <img src>. */
 function absolutise (raw: string | undefined, base: string): string | undefined {
   if (!raw) return undefined
-  try { return new URL(raw, base).toString() }
+  try { const u=new URL(raw,base);return u.protocol==='https:' && ['i.ytimg.com','img.youtube.com','i.scdn.co','i1.sndcdn.com','is1-ssl.mzstatic.com'].includes(u.hostname)?u.toString():undefined }
   catch { return undefined }
 }
 
@@ -99,14 +100,18 @@ async function readBoundedText (resp: Response, maxBytes: number): Promise<strin
 }
 
 export default async function handler (req: Request): Promise<Response> {
-  const reqUrl = new URL(req.url)
-  const target = reqUrl.searchParams.get('url')
+  if(req.method==='OPTIONS')return response(req,null,204)
+  if(req.method!=='POST')return response(req,{error:'POST required'},405)
+  let target:unknown
+  try{await authenticate(req,'unfurl');target=(await readBody<{url:unknown}>(req)).url}catch{return response(req,{error:'Not authorized'},403)}
+  if(typeof target!=='string' || target.length>2048)return response(req,{error:'Invalid URL'},400)
   if (!target) return jsonError(400, 'missing url')
 
   let parsed: URL
   try { parsed = new URL(target) }
   catch { return jsonError(400, 'invalid url') }
-  if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return jsonError(400, 'bad scheme')
+  const allowed=new Set(['www.youtube.com','youtube.com','youtu.be','soundcloud.com','open.spotify.com','music.apple.com'])
+  if (!ALLOWED_PROTOCOLS.has(parsed.protocol) || parsed.protocol!=='https:' || parsed.username || parsed.password || (parsed.port && parsed.port!=='443') || !allowed.has(parsed.hostname)) return jsonError(400, 'bad scheme')
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -115,7 +120,7 @@ export default async function handler (req: Request): Promise<Response> {
   try {
     const resp = await fetch(parsed.toString(), {
       signal: controller.signal,
-      redirect: 'follow',
+      redirect: 'error',
       headers: {
         // Some sites gate OG tags behind a non-bot user agent.
         'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
@@ -127,9 +132,9 @@ export default async function handler (req: Request): Promise<Response> {
     const ct = resp.headers.get('content-type') || ''
     if (!ct.includes('html')) return jsonError(415, 'not html')
     html = await readBoundedText(resp, MAX_BYTES)
-  } catch (e) {
+  } catch {
     clearTimeout(timer)
-    return jsonError(504, e instanceof Error ? e.message : 'fetch failed')
+    return jsonError(504, 'Preview unavailable')
   }
   clearTimeout(timer)
 
@@ -161,7 +166,7 @@ export default async function handler (req: Request): Promise<Response> {
     status: 200,
     headers: {
       'content-type': 'application/json',
-      'cache-control': 'public, s-maxage=14400, stale-while-revalidate=86400',
+      'cache-control': 'private, no-store',
       'access-control-allow-origin': '*',
     },
   })

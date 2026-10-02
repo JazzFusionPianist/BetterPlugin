@@ -56,7 +56,7 @@ export default function PortfolioPage({ supabase, currentUserId, owner, onClose 
       for (const f of files.slice(0, 12)) {
         try {
           const compressed = await compressImage(f)
-          const { url } = await uploadAttachment(compressed, currentUserId)
+          const { url } = await uploadAttachment(compressed, currentUserId, undefined, 'public')
           uploaded.push({ media_url: url })
         } catch (err) { console.error('[portfolio] photo upload', err) }
       }
@@ -313,7 +313,7 @@ export function ReleaseComposer({ currentUserId, onCreate, onClose }: {
     setCoverBusy(true)
     try {
       const compressed = await compressImage(file)
-      const { url } = await uploadAttachment(compressed, currentUserId)
+      const { url } = await uploadAttachment(compressed, currentUserId, undefined, 'public')
       setCoverUrl(url)
     } catch (err) { console.error('[portfolio] cover upload', err) }
     finally { setCoverBusy(false) }

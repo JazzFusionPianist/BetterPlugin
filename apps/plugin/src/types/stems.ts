@@ -1,4 +1,5 @@
 import type { AttachmentTimelineMetadata } from './collab'
+import type { RegionBundle } from '../lib/regionBundle'
 
 export interface ConversationStem {
   id: string
@@ -8,7 +9,11 @@ export interface ConversationStem {
   file_name: string
   file_size: number
   mime_type?: string | null
-  timeline_metadata?: AttachmentTimelineMetadata | null
+  timeline_metadata?: (Partial<AttachmentTimelineMetadata> & {
+    bundle_id?: string
+    bundle_asset_id?: string
+    region_bundle?: RegionBundle
+  }) | null
   created_at: string
 }
 

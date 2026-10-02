@@ -119,7 +119,7 @@ export function useOpenCall(supabase: SupabaseClient, currentUserId: string) {
     onProgress?.(0.02)
     if (meta === undefined) meta = await readAudioMeta(file)
     onProgress?.(0.15)
-    const att = await uploadAttachment(file, currentUserId, (r) => onProgress?.(0.15 + r * 0.8))
+    const att = await uploadAttachment(file, currentUserId, (r) => onProgress?.(0.15 + r * 0.8), 'public')
     const { data, error } = await supabase
       .from('demo_tracks')
       .insert({

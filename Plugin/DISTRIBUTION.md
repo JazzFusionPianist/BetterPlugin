@@ -1,31 +1,39 @@
-# Orb — official distribution
+# Plugin distribution (macOS)
 
 How to produce a signed, notarized installer for AU / VST3 / AAX / Standalone.
 
-## Prerequisites (one-time, human — cannot be scripted)
+## AAX signing without PACE product registration
 
-| # | Item | Status (2026-06-16) | Needed for |
-|---|------|---------------------|------------|
-| 1 | Apple Developer Program membership | ✅ enrolled | all formats |
-| 2 | **Developer ID Application** cert | ❌ not created yet | sign AU/VST3/Standalone **and** AAX (`wraptool --signid`) |
-| 3 | **Developer ID Installer** cert | ❌ not created yet | sign the `.pkg` |
-| 4 | App-specific password / notary profile | ❌ | notarize the `.pkg` |
-| 5 | Avid Developer + AAX agreement | SDK present (`../aax-sdk-2-9-0`) | build AAX |
-| 6 | **PACE / Eden developer account → `wraptool`** | ❌ **not held** (iLok is a consumer account, no signing cert) | sign AAX for release Pro Tools |
-| 7 | PACE product registration → `wcguid` | ❌ | sign AAX |
+The Slur Studio publisher account has signing-only access. PACE Code Signing
+for AAX SDK 6 supports `wraptool sign` with the company's customer number and
+name, so a PACE Product or Wrap Configuration (`WCGUID`) is **not** needed to
+develop or sign an AAX plugin. This is code signing, not iLok copy protection.
+Each final AAX bundle must still be signed separately before release.
 
-**Create #2 + #3:** Xcode ▸ Settings ▸ Accounts ▸ (your Apple ID) ▸ Manage
-Certificates ▸ **+** ▸ "Developer ID Application", then again "Developer ID
-Installer". Verify: `security find-identity -v -p codesigning`.
+On 2026-09-21, a temporary AAX copy passed both `wraptool verify` and macOS
+`codesign --verify --deep --strict`. PACE reported signer `Slur Studio` and an
+empty Product GUID. This was a signing smoke test only; the legacy-named binary
+was not installed or prepared for distribution.
 
-**Create #4:** `xcrun notarytool store-credentials orb-notary --apple-id
-<id> --team-id <TEAMID> --password <app-specific-pw>` (app-specific password
-from account.apple.com ▸ Sign-In and Security).
+Prerequisites:
 
-**#6/#7 (AAX, the long pole):** apply at paceap.com for the Eden developer
-program, install PACE Eden Tools (gives `wraptool`), and register Orb to get
-its `wcguid`. Until then, AAX can only be a Developer build (loads in Pro
-Tools Developer, not release).
+- Build the desired AAX with the Avid SDK.
+- Install PACE Code Signing for AAX SDK 6 (provides `wraptool`).
+- Activate the PACE Tools license and PACE Central Access license in the
+  `puddingnpiano@gmail.com` account; keep the licensed iLok USB connected.
+- In iLok License Manager, select that USB and run **Synchronize** to install
+  the Slur Studio signing certificate. If synchronization fails, PACE signing
+  will fail with `CouldNotFindSignerCredentials` even though the tool license
+  is verified.
+- Have an Apple **Developer ID Application** certificate in the keychain.
+- Obtain the Slur Studio customer number from PACE Central → Admin → Company
+  Details. Do not commit it or any account password to the repository.
+
+`sign-aax.sh` signs exactly one specified bundle and runs `wraptool verify`.
+Do not sign or install a release build until its final public product name and
+bundle metadata have been chosen. If `PACE_PRODUCT_NAME` is omitted, PACE uses
+the AAX bundle filename as the product name in the signature; this is **not**
+PACE Product registration.
 
 ## Build & ship
 
@@ -33,28 +41,33 @@ Tools Developer, not release).
 cd Plugin
 ./build.sh --release                 # builds all 4 formats (AAX if SDK present)
 
-# Apple bundles (needs #2)
+# Apple bundles
 APPLE_SIGN_ID="Developer ID Application: <Name> (<TEAMID>)" ./sign-apple.sh
 
-# AAX (needs #2 + #6 + #7) — skip if PACE not ready yet
-PACE_ACCOUNT=<acct> PACE_WCGUID=<guid> \
-  APPLE_SIGN_ID="Developer ID Application: <Name> (<TEAMID>)" ./sign-aax.sh
+# AAX: no WCGUID or PACE Product registration required
+PACE_CUSTOMER_NUMBER="<Slur Studio number from PACE Central>" \
+  APPLE_SIGN_ID="Developer ID Application: <Name> (<TEAMID>)" \
+  ./sign-aax.sh /absolute/path/to/FinalName.aaxplugin
 
-# Installer, signed (needs #3). Auto-signs AAX too if PACE_ACCOUNT is set.
+# Installer: package.sh includes AAX only after successful PACE verification.
+# It can auto-sign AAX when PACE_CUSTOMER_NUMBER and APPLE_SIGN_ID are set.
 SIGN_ID="Developer ID Installer: <Name> (<TEAMID>)" ./package.sh --version=1.0.0
 
-# Notarize + staple (needs #4)
-./notarize.sh installer/Orb-1.0.0.pkg
+# Notarize and staple the resulting installer with a configured notary profile.
+./notarize.sh "installer/FINAL-INSTALLER-NAME.pkg"
 ```
 
-## Partial release (PACE not ready)
+## Partial release when AAX signing is unavailable
 
-You can ship a fully official **AU + VST3 + Standalone** installer now (steps
-2–4 only) and add AAX later once the PACE account lands. `build.sh` without the
-AAX SDK, or simply not signing AAX, leaves it out / unsigned; the other three
-formats notarize and install cleanly.
+`package.sh` excludes an unsigned AAX rather than installing a plugin that
+release Pro Tools will reject. AU, VST3, and Standalone can still be packaged
+independently once their own signing and notarization requirements are met.
 
-## Split-out plugins (Orb Chat, Orb Sounds, Orb Games)
+## Legacy split-out build targets
+
+The target names and installer names below are inherited from the current
+source tree. They are **not** approved names for new releases; rename product
+and bundle metadata before making a public package.
 
 Each single-purpose plugin is its own download with its own bundle id, so
 installing one never touches the full Orb or another split-out.

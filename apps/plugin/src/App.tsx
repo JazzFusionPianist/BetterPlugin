@@ -1,3 +1,4 @@
+import { EncryptedChatGate } from '@orb/core/components/EncryptedChatGate.tsx'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
@@ -69,16 +70,16 @@ export default function App() {
 
   // Orb Chat surface (?surface=chat) gets the Studio workspace.
   if (supabase && new URLSearchParams(window.location.search).get('surface') === 'chat') {
-    return <StudioShell supabase={supabase} user={user} />
+    return <EncryptedChatGate client={supabase} userId={user.id}><StudioShell supabase={supabase} user={user} /></EncryptedChatGate>
   }
   // Orb Games surface (?surface=games) — the CD wall, nothing else.
   if (supabase && SURFACE === 'games') {
-    return <GamesPage supabase={supabase} user={user} />
+    return <EncryptedChatGate client={supabase} userId={user.id}><GamesPage supabase={supabase} user={user} /></EncryptedChatGate>
   }
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
-      <CollabPage user={user} />
+      {supabase && <EncryptedChatGate client={supabase} userId={user.id}><CollabPage user={user} /></EncryptedChatGate>}
     </div>
   )
 }

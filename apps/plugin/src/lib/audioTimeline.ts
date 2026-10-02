@@ -4,6 +4,7 @@ import type {
   TempoMapPoint,
   TimeSignatureMapPoint,
 } from '../types/collab'
+import { callJuceNative } from './juceBridge'
 
 interface DawTimelineEventDetail {
   sr: number
@@ -26,7 +27,6 @@ let latest: DawTimelineEventDetail | null = null
 /** The last snapshot verbatim, minus the audio payload fields the live
  *  event rides in on — kept for the drop diagnostics ring buffer. */
 let latestRaw: Record<string, unknown> | null = null
-let nativeTimelinePromiseId = -1
 const tempoMap: TempoMapPoint[] = []
 const signatureMap: TimeSignatureMapPoint[] = []
 
@@ -80,25 +80,7 @@ export function initAudioTimelineTracking() {
 
 /** Ask the native plug-in for a fresh snapshot at the exact drop moment. */
 export async function refreshDawTimelineSnapshot(): Promise<AttachmentTimelineMetadata | null> {
-  const backend = window.__JUCE__?.backend
-  if (!backend) return getDawTimelineSnapshot()
-
-  const promiseId = nativeTimelinePromiseId--
-  const raw = await new Promise<unknown>(resolve => {
-    const timeout = window.setTimeout(() => {
-      backend.removeEventListener('__juce__complete', handler)
-      resolve(null)
-    }, 750)
-    const handler = (data: unknown) => {
-      const result = data as { promiseId?: number; result?: unknown }
-      if (result.promiseId !== promiseId) return
-      window.clearTimeout(timeout)
-      backend.removeEventListener('__juce__complete', handler)
-      resolve(result.result)
-    }
-    backend.addEventListener('__juce__complete', handler)
-    backend.emitEvent('__juce__invoke', { name: 'getDawTimeline', params: [], resultId: promiseId })
-  })
+  const raw = await callJuceNative('getDawTimeline', [], 750)
 
   try {
     const detail = typeof raw === 'string' ? JSON.parse(raw) as DawTimelineEventDetail : raw as DawTimelineEventDetail

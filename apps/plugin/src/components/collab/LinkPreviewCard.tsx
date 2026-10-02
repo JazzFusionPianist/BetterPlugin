@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLinkPreview } from '../../hooks/useLinkPreview'
 import { openExternalUrl } from '../../lib/linkify'
 
@@ -15,7 +16,9 @@ import { openExternalUrl } from '../../lib/linkify'
  *   - Image-less previews → compact text-only card.
  */
 export default function LinkPreviewCard ({ url }: { url: string }) {
-  const p = useLinkPreview(url)
+  const [enabled,setEnabled]=useState(false)
+  const p = useLinkPreview(enabled?url:null)
+  if(!enabled)return <button type="button" onClick={()=>setEnabled(true)} title="This sends the link to the preview service and linked website.">링크 미리보기 불러오기</button>
   if (!p) return null
 
   const handleOpen = () => openExternalUrl(p.url)

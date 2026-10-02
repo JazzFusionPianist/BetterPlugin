@@ -54,9 +54,10 @@ export async function parseSchedule(
   supabase: SupabaseClient,
   text: string,
 ): Promise<NewCalendarEvent[]> {
+  if(!window.confirm('선택한 아래 내용을 Anthropic AI에 전달하여 일정을 추출합니다. 계속할까요?\n\n'+text.slice(0,1500))) throw new ScheduleParseError('AI 전송을 취소했습니다.')
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   const { data, error } = await supabase.functions.invoke('parse-schedule', {
-    body: { text, timezone, now: new Date().toISOString() },
+    body: { text, consent: true, timezone, now: new Date().toISOString() },
   })
 
   if (error) {

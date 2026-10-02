@@ -17,8 +17,8 @@ declare global {
         __juce__platform: string[]
       }
       backend: {
-        addEventListener:    (event: string, handler: (data: unknown) => void) => void
-        removeEventListener: (event: string, handler: (data: unknown) => void) => void
+        addEventListener:    (event: string, handler: (data: unknown) => void) => [string, number]
+        removeEventListener: (subscription: [string, number]) => void
         emitEvent:           (event: string, data: unknown) => void
       }
     }
@@ -42,6 +42,8 @@ export function hasJuceNativeFunction (name: string): boolean {
  * browser, 'error:no-function' if the plugin build didn't register the
  * name (so we never hang waiting for a reply that will never come), and
  * 'error:timeout' if the plugin took longer than `timeoutMs`.
+ * Pass 0 only for native operations with their own deadline followed by a
+ * user-controlled dialog; waiting for a user decision has no API deadline.
  */
 export function callJuceNative (
   name: string,
@@ -57,25 +59,33 @@ export function callJuceNative (
     let done = false
 
     const handler = (data: unknown) => {
+      if (!data || typeof data !== 'object') return
       const d = data as { promiseId: number; result: string }
       if (d.promiseId === promiseId) {
         if (done) return
         done = true
         clearTimeout(timer)
-        backend.removeEventListener('__juce__complete', handler)
+        backend.removeEventListener(subscription)
         resolve(d.result)
       }
     }
 
-    const timer = setTimeout(() => {
+    const timer = timeoutMs > 0 ? setTimeout(() => {
       if (done) return
       done = true
-      backend.removeEventListener('__juce__complete', handler)
+      backend.removeEventListener(subscription)
       resolve('error:timeout')
-    }, timeoutMs)
+    }, timeoutMs) : undefined
 
-    backend.addEventListener('__juce__complete', handler)
-    backend.emitEvent('__juce__invoke', { name, params, resultId: promiseId })
+    const subscription = backend.addEventListener('__juce__complete', handler)
+    try {
+      backend.emitEvent('__juce__invoke', { name, params, resultId: promiseId })
+    } catch {
+      done = true
+      clearTimeout(timer)
+      backend.removeEventListener(subscription)
+      resolve('error:bridge')
+    }
   })
 }
 

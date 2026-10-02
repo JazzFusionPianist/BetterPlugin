@@ -19,12 +19,37 @@ const pkgVersion = (): string => {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), {
+    name: 'require-auth-configuration',
+    apply: 'build',
+    configResolved(config) {
+      const url = config.env.VITE_SUPABASE_URL
+      const key = config.env.VITE_SUPABASE_ANON_KEY
+      if (!url?.startsWith('https://') || !key || key === 'your-supabase-anon-key-here') {
+        throw new Error('Login configuration missing: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building the plugin.')
+      }
+    },
+  }, {
+    name: 'orb-native-region-qa',
+    configureServer(server) {
+      if (!['1', 'tracks'].includes(process.env.ORB_REGION_QA ?? '')) return
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url || '/', 'http://localhost')
+        if (url.pathname !== '/' || url.searchParams.get('qa') === 'off') return next()
+        const page = process.env.ORB_REGION_QA === 'tracks' ? 'track-export' : 'region-bundle'
+        res.writeHead(302, { Location: `/tests/${page}.html${url.search}` })
+        res.end()
+      })
+    },
+  }],
   define: {
     __BUILD_ID__: JSON.stringify(buildId()),
     __APP_VERSION__: JSON.stringify(pkgVersion()),
   },
   server: {
     port: 5173,
+    proxy: process.env.ORB_DEV_API_URL ? {
+      '/api': { target: process.env.ORB_DEV_API_URL, changeOrigin: true },
+    } : undefined,
   },
 })

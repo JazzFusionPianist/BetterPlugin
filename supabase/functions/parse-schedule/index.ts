@@ -32,7 +32,7 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control':'private, no-store' },
   })
 
 /**
@@ -151,8 +151,22 @@ Deno.serve(async (req) => {
 
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
-  let body: { text?: string; timezone?: string; now?: string }
-  try { body = await req.json() } catch { return json({ error: 'invalid JSON' }, 400) }
+  const authorization=req.headers.get('authorization')??''
+  if(!/^Bearer [^\s]+$/.test(authorization))return json({error:'Sign in required'},401)
+  const check=await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/rpc/security_rate_limit`,{
+    method:'POST',headers:{authorization,apikey:Deno.env.get('SUPABASE_ANON_KEY')??'','Content-Type':'application/json'},
+    body:JSON.stringify({p_action:'schedule'}),signal:AbortSignal.timeout(10000),
+  }).catch(()=>null)
+  if(!check?.ok)return json({error:'Request not authorized or rate limited'},403)
+  let body: { text?: string; timezone?: string; now?: string; consent?:boolean }
+  try {
+    const reader=req.body?.getReader();if(!reader)throw new Error('Missing body')
+    let total=0;const parts:Uint8Array[]=[]
+    try{for(;;){const {value,done}=await reader.read();if(done)break;total+=value.length;if(total>16384)throw new Error('Too large');parts.push(value)}}finally{await reader.cancel()}
+    const bytes=new Uint8Array(total);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length}
+    body=JSON.parse(new TextDecoder().decode(bytes))
+    if(body.consent!==true || typeof body.text!=='string' || body.text.length>8000)throw new Error('Invalid request')
+  } catch { return json({ error: 'invalid JSON' }, 400) }
 
   const text = (body.text ?? '').trim()
   if (!text) return json({ error: 'empty text' }, 400)
@@ -215,6 +229,7 @@ Deno.serve(async (req) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(aReq),
+      signal: AbortSignal.timeout(30000),
     })
   } catch (e) {
     console.error('[parse-schedule] fetch failed', e)
@@ -222,8 +237,7 @@ Deno.serve(async (req) => {
   }
 
   if (!resp.ok) {
-    const detail = await resp.text()
-    console.error('[parse-schedule] anthropic error', resp.status, detail)
+    console.error('[parse-schedule] upstream status', resp.status)
     return json({ error: 'AI request failed', status: resp.status }, 502)
   }
 

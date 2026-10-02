@@ -66,6 +66,7 @@ juce_add_plugin(OrbPlugin
 target_sources(OrbPlugin PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/DawRegionBridge.cpp
     Source/OrbControlBridge.cpp
     Source/FxEngine.cpp
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
@@ -158,6 +159,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
     target_sources(${_target} PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
+        Source/DawRegionBridge.cpp
         Source/OrbControlBridge.cpp
     Source/FxEngine.cpp
         Source/DragMonitor.mm
@@ -212,6 +214,12 @@ endfunction()
 
 # Orb Chat — messages only (first split-out, 2026-09-11).
 orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Orb Chat"   chat   OrbChatAU)
+
+# Opt-in, distinct AU identity: local DAW QA must not replace the installed chat plug-in.
+option(ORB_BUILD_LOGIC_QA "Build an isolated Logic region-transfer QA plug-in" OFF)
+if(ORB_BUILD_LOGIC_QA)
+    orb_add_surface_plugin(OrbLogicQA OrbQ "com.orb.logic-qa" "Orb Logic QA" chat OrbLogicQAAU)
+endif()
 
 # Orb Sounds — the one-knob fx chain, no account needed: the plugin boots
 # straight into the darkened room.

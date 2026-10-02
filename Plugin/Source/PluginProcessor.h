@@ -4,6 +4,7 @@
 #include "VideoCapture.h"
 #include "OrbControlBridge.h"
 #include "FxEngine.h"
+#include "DawRegionBridge.h"
 #include <array>
 #include <atomic>
 #include <functional>
@@ -86,6 +87,7 @@ public:
     }
 
 private:
+    DawRegionBridge regionBridge;
     //── Capture ring buffer ───────────────────────────────────────────────────
     static constexpr int kCaptureBufferSize = 96000;
     juce::AbstractFifo    captureFifo { kCaptureBufferSize };

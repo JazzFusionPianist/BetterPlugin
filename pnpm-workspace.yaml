@@ -6,4 +6,12 @@ packages:
 # pages use no next/image. Explicitly skip its build so pnpm neither warns
 # nor blocks `pnpm <script>` on the ignored-build check.
 allowBuilds:
+  esbuild: true
+  protobufjs: false
   sharp: false
+
+# Security-patched transitive releases. Web uses static export / unoptimized images.
+overrides:
+  postcss: 8.5.28
+  'nanoid@3': 3.3.19
+  sharp: 0.35.4

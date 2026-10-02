@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { openExternalUrl } from '../lib/linkify'
 import type { User } from '@supabase/supabase-js'
+import { AdminMfaGate } from '../components/AdminMfaGate'
 
 type AdminTab = 'members' | 'credits'
 
@@ -616,12 +617,8 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data } = await client
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', currentUser.id)
-        .single()
-      setIsAdmin(data?.is_admin ?? false)
+      const { data } = await client.rpc('is_platform_admin')
+      setIsAdmin(data === true)
     }
     checkAdmin()
     fetchProfiles()
@@ -633,10 +630,11 @@ function AdminPageInner({ client, currentUser }: { client: SupabaseClient; curre
   }, [isAdmin, fetchCredits])
 
   const toggleVerified = async (profile: AdminProfile) => {
-    await client
+    const { error } = await client
       .from('profiles')
       .update({ is_verified: !profile.is_verified })
       .eq('id', profile.id)
+    if (error) { alert('변경 실패: 인증 상태를 확인해 주세요.'); return }
     setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, is_verified: !p.is_verified } : p))
   }
 
@@ -898,5 +896,5 @@ export default function AdminPage() {
     )
   }
 
-  return <AdminPageInner client={supabase} currentUser={user} />
+  return <AdminMfaGate client={supabase}><AdminPageInner client={supabase} currentUser={user} /></AdminMfaGate>
 }

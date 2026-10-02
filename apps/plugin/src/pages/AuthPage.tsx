@@ -67,6 +67,10 @@ export default function AuthPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!supabase) {
+      setError('This plugin build is missing its login configuration. Please install the updated plugin.')
+      return
+    }
     if (busy) return
     setBusy(true); setError(null); setNote(null)
     try {

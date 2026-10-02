@@ -1,0 +1,30 @@
+.slur-track-export { box-sizing: border-box; width: min(460px, calc(100vw - 28px)); max-height: calc(100vh - 28px); padding: 0; border: 1px solid var(--border, #555); border-radius: 14px; background: var(--bg, #f8f7f4); color: var(--t1, var(--text, #242424)); font: 14px/1.45 var(--f-sans, system-ui), sans-serif; box-shadow: 0 20px 80px #0005; }
+.slur-track-export::backdrop { background: #0006; }
+.slur-track-export[open] { display: flex; flex-direction: column; margin: auto; }
+.slur-track-export header, .slur-track-export footer { display: flex; align-items: center; gap: 12px; padding: 18px; flex-shrink: 0; }
+.slur-track-export header > div { flex: 1; min-width: 0; }
+.slur-track-export h2 { margin: 0; font-family: inherit; font-size: 20px; font-weight: 600; line-height: 1.3; }
+.slur-track-export header p { font-size: 12px; opacity: .65; margin: 5px 0 0; overflow-wrap: anywhere; }
+.slur-track-export button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #8885; border-radius: 7px; padding: 8px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.slur-track-export button:disabled { opacity: .4; cursor: default; }
+.slur-track-export-body { padding: 0 18px; overflow: auto; min-height: 0; }
+.slur-track-export-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.slur-track-export-toolbar button { font-size: 12px; }
+.slur-track-export-list { max-height: 220px; overflow: auto; border: 1px solid #8884; border-radius: 8px; }
+.slur-track-export-list label { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid #8882; }
+.slur-track-export-list label:last-child { border-bottom: 0; }
+.slur-track-export-list label:has(input:checked) { background: #8585ef18; }
+.slur-track-export input { accent-color: var(--acc, #6866dc); flex-shrink: 0; }
+.slur-track-export-list span { min-width: 0; }
+.slur-track-export-list strong { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.slur-track-export-list small { display: block; opacity: .6; font-size: 11px; margin-top: 2px; }
+.slur-track-export fieldset { border: 0; padding: 0; margin: 18px 0 12px; display: flex; flex-wrap: wrap; gap: 12px; }
+.slur-track-export legend { margin-bottom: 8px; font-size: 12px; opacity: .65; }
+.slur-track-export fieldset label { display: flex; align-items: center; gap: 6px; }
+.slur-track-export-time { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-variant-numeric: tabular-nums; margin: 8px 0; }
+.slur-track-export-time span { opacity: .65; }
+.slur-track-export-help { font-size: 12px; opacity: .65; margin: 8px 0; }
+.slur-track-export-error { color: #c64242; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.slur-track-export footer { border-top: 1px solid #8883; margin-top: 16px; flex-wrap: wrap; justify-content: space-between; }
+.slur-track-export footer span { font-size: 12px; flex: 1; min-width: 100px; }
+.slur-track-export button.slur-track-export-submit { background: var(--acc, #6866dc); color: white; border: 0; padding: 10px 14px; }

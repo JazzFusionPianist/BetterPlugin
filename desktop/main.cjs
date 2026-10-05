@@ -16,7 +16,7 @@ function createWindow() {
     height: 840,
     minWidth: 720,
     minHeight: 560,
-    title: 'orb',
+    title: 'Slur',
     // Paper, so the frame never flashes white before the page paints.
     backgroundColor: '#FBFAF7',
     webPreferences: {

@@ -452,7 +452,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
             <>
               <div className="wd-head plain">
                 <div className="wd-title">settings</div>
-                <div className="wd-sub">orb {APP_VERSION}</div>
+                <div className="wd-sub">Slur {APP_VERSION}</div>
               </div>
               <SettingsPage supabase={supabase} user={user} />
             </>

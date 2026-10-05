@@ -144,6 +144,8 @@ export default function SettingsPage({ supabase, user }: Props) {
         <div className="wd-set-sec">
           <div className="wd-set-head">session</div>
           <div className="wd-set-row">
+          </div>
+          <div className="wd-set-row">
             <button className="wd-word" disabled={signingOut}
               onClick={() => { setSigningOut(true); void supabase.auth.signOut() }}>
               {signingOut ? 'signing out…' : 'sign out'}

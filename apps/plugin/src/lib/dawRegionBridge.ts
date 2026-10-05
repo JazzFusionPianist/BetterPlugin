@@ -10,25 +10,27 @@ export function useRegionHost() {
   const [host, setHost] = useState('')
   useEffect(() => {
     let active = true
-    if (hasJuceNativeFunction('regionTransferHost'))
-      void callJuceNative('regionTransferHost', []).then(value => { if (active) setHost(value) }).catch(() => {})
+    const probe = hasJuceNativeFunction('trackExportHost') ? 'trackExportHost' : 'regionTransferHost'
+    if (hasJuceNativeFunction(probe))
+      void callJuceNative(probe, []).then(value => { if (active) setHost(value) }).catch(() => {})
     return () => { active = false }
   }, [])
-  return { logic: /logic/i.test(host), proTools: /pro tools|standalone/i.test(host) }
+  return { logic: /logic/i.test(host), proTools: /pro tools|standalone/i.test(host), resolved: !!host }
 }
 
-async function request(operation: 'inspect' | 'capture' | 'import' | 'exportLogic' | 'captureLogic', sessionId?: string, data?: string) {
+async function request(operation: 'inspect' | 'capture' | 'import' | 'exportLogic' | 'captureLogic' | 'inspectLogic', sessionId?: string, data?: string) {
   const args = [operation, ...(sessionId ? [sessionId] : []), ...(data ? [data] : [])]
   // Native conversion has its own four-minute deadline; the save dialog waits
   // for the user's choice and must not report a timeout after a successful save.
   const nativeFunction = regionBundleFunction(juceRegisteredFunctions())
   if (!nativeFunction) throw new Error('The region bundle bridge is unavailable.')
-  const raw = await callJuceNative(nativeFunction, args, operation === 'exportLogic' ? 0 : operation.includes('Logic') ? 610000 : 250000)
+  const raw = await callJuceNative(nativeFunction, args, operation === 'inspectLogic' ? 12000 : operation === 'exportLogic' ? 0 : operation.includes('Logic') ? 610000 : 250000)
   if (raw.startsWith('error:')) throw new Error('The DAW transfer did not return a result. Inspect the transfer journal before retrying.')
-  const response = JSON.parse(raw) as { ok: boolean; error?: string; sessionId?: string; name?: string; data?: string; status?: string; ticket?: string }
+  const response = JSON.parse(raw) as { ok: boolean; error?: string; sessionId?: string; name?: string; data?: string; status?: string; ticket?: string; snapshot?: unknown }
   if (response.ok !== true) throw new Error(response.error || 'The DAW transfer failed.')
   return response
 }
+export async function inspectLogicDropSelection() { return (await request('inspectLogic')).snapshot }
 
 export async function captureRegionSelection(logic = false): Promise<File> {
   const source = logic ? null : await request('inspect')

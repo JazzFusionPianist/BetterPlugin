@@ -59,8 +59,9 @@ import './studio.css'
 import ExportTracksButton from '../components/collab/ExportTracksButton'
 import StemGroupDisclosure from '../components/collab/StemGroupDisclosure'
 import ShareRegionsButton from '../components/collab/ShareRegionsButton'
-import CaptureRegionsButton from '../components/collab/CaptureRegionsButton'
-import { exportLogicSelection, hasRegionBridge, useRegionHost } from '../lib/dawRegionBridge'
+import { useRegionHost } from '../lib/dawRegionBridge'
+import { useLogicDropCapture } from '../lib/logicDropCapture'
+import AudioTransferActions from '../components/collab/AudioTransferActions'
 import PlaceRegionsButton from '../components/collab/PlaceRegionsButton'
 import { selectedRegionBundle } from '../lib/regionPlacement'
 import { downloadAudio } from '../lib/audioDownloads'
@@ -69,7 +70,7 @@ import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
 import { prepareSharedRegions, uploadSharedRegions, rememberRegionEvidence } from '../lib/regionSharing'
 import { planVstRegionDrag } from '@orb/core/lib/regionVstXml.ts'
 import { isRegionArchive, prepareArchivedRegionBundle, createRegionArchive } from '@orb/core/lib/regionArchive.ts'
-import { hasCompleteLayout, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
+import { hasCompleteLayout, hasMusicalLayout, musicalPositionLabel, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
 import { createRegionDawproject } from '@orb/core/lib/regionDawproject.ts'
 import { houseColor } from '../slur/marks'
 
@@ -414,6 +415,10 @@ interface StudioTrack { url: string; name: string; projectName?: string; metadat
 function studioPositionLabel(track: StudioTrack) {
   const bundle = parseRegionBundle(track.regionBundle)
   const region = bundle?.regions.find(r => r.id === track.regionId)
+  if (!region?.start && region?.musicalStart) return {
+    text: `bar ${musicalPositionLabel(region.musicalStart)}`,
+    tooltip: `${bundle?.tracks.find(t => t.id === region.trackId)?.name ?? ''} / Logic bars, beats, divisions, ticks`,
+  }
   if (!region?.start) return timelinePositionLabel(track.metadata)
   const milliseconds = Math.round(region.start.samples * 1000 / region.start.sampleRate)
   const seconds = Math.floor(milliseconds / 1000)
@@ -423,7 +428,6 @@ function studioPositionLabel(track: StudioTrack) {
 
 function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
   const host = useRegionHost()
-  const logicExport = useRef<AbortController | null>(null)
   const [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [projectReady, setProjectReady] = useState(false)
   const projectToken = useRef<string | null>(null)
@@ -434,10 +438,10 @@ function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
   useEffect(() => {
     projectToken.current = null; setProjectReady(false); setError('')
     layout.current = null; setLayoutReady(false)
-    return () => { transferGeneration.current++; logicExport.current?.abort() }
+    return () => { transferGeneration.current++ }
   }, [bundle?.id])
-  if (!bundle) return null
-  const save = async (format: 'archive' | 'dawproject' | 'layout' | 'logicAAF' = 'archive') => {
+  if (!bundle || host.logic || (!host.resolved && hasJuceNativeFunction('trackExportHost'))) return null
+  const save = async (format: 'archive' | 'dawproject' | 'layout' = 'archive') => {
     if (busy) return
     const generation = transferGeneration.current
     setBusy(true); setError('')
@@ -448,13 +452,6 @@ function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
         return { url: track.url, name: asset.name, assetId: asset.id, ...(index === 0 ? { regionBundle: bundle } : {}) }
       })
       if (!readBundleAttachment(entries)) throw new Error('Invalid region attachment.')
-      if (format === 'logicAAF') {
-        const controller = new AbortController()
-        logicExport.current = controller
-        try { await exportLogicSelection(entries, controller.signal) }
-        finally { if (logicExport.current === controller) logicExport.current = null }
-        return
-      }
       const filesByAsset = new Map<string, File>()
       for (const asset of bundle.assets) {
         const entry = entries.find(item => item.assetId === asset.id)!
@@ -508,9 +505,6 @@ function SaveRegionsButton({ tracks }: { tracks: StudioTrack[] }) {
     <button className="wd-word" type="button" disabled={busy} onClick={() => void save()}
       title="Save audio and available region metadata. This archive is for Slur, not a universal DAW import file.">{busy ? 'saving…' : 'save regions'}</button>
     <PlaceRegionsButton bundle={bundle} entries={tracks} />
-    {host.logic && hasRegionBridge() && hasCompleteLayout(bundle) && <button
-      className="wd-word" type="button" disabled={busy} onClick={() => void save('logicAAF')}
-      title="Save an AAF for manual import into Logic. This does not place regions by drag-and-drop.">export Logic AAF</button>}
     {hasCompleteLayout(bundle) && <button className="wd-word" type="button" disabled={busy}
       title="Audio-only DAWproject: preserves known positions in seconds. For compatible DAWs; may open a new project, not insert into the current one. No tempo map or effects."
       onClick={() => { if (!projectReady) void save('dawproject') }}
@@ -582,7 +576,8 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
             {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
-            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
+            {track.regionBundle ? <AudioTransferActions tracks={[track]} groupKey={`region:${track.regionId}`} />
+              : <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />}
           </span>
           <SaveRegionsButton tracks={[track]} />
         </span>
@@ -608,7 +603,8 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
             {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
-            <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
+            {track.regionBundle ? <AudioTransferActions tracks={[track]} groupKey={`region:${track.regionId}`} />
+              : <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />}
           </span>
         </span>
       </div>
@@ -736,7 +732,8 @@ function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
   return (
     <StemGroupDisclosure projectName={projectName} trackCount={bundle?.tracks.length || tracks.length}
       actions={<StudioPlateActions tracks={tracks} />}>
-      {bundle && !hasCompleteLayout(bundle) && <div className="wd-stem-layout-note">Region positions are incomplete.</div>}
+      {bundle && !hasCompleteLayout(bundle) && !hasMusicalLayout(bundle) && <div className="wd-stem-layout-note">Region positions are incomplete.</div>}
+      {bundle && hasMusicalLayout(bundle) && <div className="wd-stem-layout-note">{bundle.tracks.slice().sort((a, b) => a.order - b.order).map(t => t.name).join(' / ')}</div>}
       {tracks.map((t, index) => <StudioPlateSection key={t.regionId ?? `${t.url}:${index}`} track={t} />)}
     </StemGroupDisclosure>
   )
@@ -1388,6 +1385,10 @@ export default function StudioShell({ supabase, user }: Props) {
 }
 
 function StudioShellInner({ supabase, user }: Props) {
+  const regionHost = useRegionHost()
+  const captureLogicDrop = useLogicDropCapture()
+  const captureLogicDropRef = useRef(captureLogicDrop); captureLogicDropRef.current = captureLogicDrop
+  const logicDrop = useRef(false); logicDrop.current = regionHost.logic
   const [sel, setSel] = useState<Sel | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
 
@@ -1888,6 +1889,8 @@ function StudioShellInner({ supabase, user }: Props) {
   const outDragCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dropBuffer = useRef<{ name: string; data: string; seq?: number; region?: unknown }[]>([])
   const dropCapture = useRef<string | null>(null)
+  const dropLogicCapture = useRef<string | null>(null)
+  const dropFailed = useRef(false)
   const dropConversation = useRef<string | null>(null)
   const dropGroupCount = useRef(1)
   const dropTimelineRef = useRef<ReturnType<typeof getDawTimelineSnapshot>>(null)
@@ -2023,6 +2026,10 @@ function StudioShellInner({ supabase, user }: Props) {
     const rest = files.filter(f => !isAudioFile(f))
     if (rest.length > 0) void onFilesPicked(rest)
     if (audio.length === 0) return
+    if (logicDrop.current) {
+      setPendingStemDrop({ id: `logic-files-${crypto.randomUUID()}`, files: audio, fallbackMetadata: null })
+      return
+    }
     void (async () => {
       const fresh = await refreshDawTimelineSnapshot()
       const fallback = fresh ?? getDawTimelineSnapshot()
@@ -2080,6 +2087,8 @@ function StudioShellInner({ supabase, user }: Props) {
   useEffect(() => {
     const handler = (e: Event) => {
       dropCapture.current = (e as CustomEvent).detail?.captureId ?? null
+      dropLogicCapture.current = (e as CustomEvent).detail?.logicCaptureId ?? null
+      dropFailed.current = false
       dropConversation.current = activeConvIdRef.current
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
       dropBuffer.current = []
@@ -2107,9 +2116,11 @@ function StudioShellInner({ supabase, user }: Props) {
   // orders stamped batches by their BWF timestamps).
   useEffect(() => {
     const flush = () => {
-      if (dropBuffer.current.length < dropGroupCount.current) return
+      if (dropFailed.current || dropBuffer.current.length < dropGroupCount.current) return
       const batch = dropBuffer.current
       const destinationAtDrop = dropConversation.current
+      const logicCaptureId = dropLogicCapture.current
+      dropLogicCapture.current = null
       dropBuffer.current = []
       dropCapture.current = null
       dropGroupCount.current = 1
@@ -2125,10 +2136,19 @@ function StudioShellInner({ supabase, user }: Props) {
         // A region over the drag limit stops here, out loud. (Older
         // plug-in builds hand it over regardless; newer ones reject it
         // natively before the base64 round trip.)
-        const all = batch.map(f => {
+        let all = batch.map(f => {
           const file = nativeToFile(f.name, f.data)
           return f.region ? rememberRegionEvidence(file, f.region) : file
         })
+        if (logicCaptureId) all = await captureLogicDropRef.current(all, logicCaptureId)
+        if (destinationAtDrop !== activeConvIdRef.current) throw new Error('Conversation changed. Regions were not sent.')
+        if (logicDrop.current) {
+          if (all.some(f => f.size > DAW_FILE_LIMIT)) throw new Error('A region exceeds the transfer limit. Nothing was sent.')
+          if (tabRef.current === 'stems') {
+            setPendingStemDrop({ id: `logic-${crypto.randomUUID()}`, files: all, fallbackMetadata: null })
+          } else await sendDawFilesRef.current(all, null)
+          return
+        }
         if (batch.some(f => f.region)) {
           // Structured selections are one atomic bundle, never a merge/zip
           // of whole source files. The chat also makes it available in Files.
@@ -2170,7 +2190,7 @@ function StudioShellInner({ supabase, user }: Props) {
       })().catch(error => notifyRef.current(error instanceof Error ? error.message : String(error)))
     }
     const onFile = (e: Event) => {
-      if (outDragActive.current) return
+      if (outDragActive.current || dropFailed.current) return
       const { name, data, seq, region } = (e as CustomEvent).detail
       if ((region?.captureId ?? null) !== dropCapture.current) return
       dropBuffer.current.push({ name, data, seq, region })
@@ -2179,11 +2199,14 @@ function StudioShellInner({ supabase, user }: Props) {
     const onRegionError = (e: Event) => {
       const detail = (e as CustomEvent).detail
       if (detail?.captureId && detail.captureId !== dropCapture.current) return
+      dropFailed.current = true
       dropBuffer.current = []; dropCapture.current = null; dropGroupCount.current = 1
       notifyRef.current(detail?.message ?? 'Could not read this DAW selection. Nothing was sent.')
     }
     const onRejected = (e: Event) => {
       if (dropCapture.current !== null) return // structured drops fail atomically via onRegionError
+      dropFailed.current = true
+      dropBuffer.current = []
       const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
       notifyRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
       dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
@@ -2293,6 +2316,10 @@ function StudioShellInner({ supabase, user }: Props) {
     }
 
     const audio = files.filter(isAudioFile)
+    if (logicDrop.current && audio.length) {
+      void sendDawFilesRef.current(files, null)
+      return
+    }
     if (audio.length >= 2) {
       const rest = files.filter(f => !isAudioFile(f))
       if (rest.length > 0) void onFilesPicked(rest)
@@ -2530,7 +2557,7 @@ function StudioShellInner({ supabase, user }: Props) {
         }
       } else if (m.attachment_type) {
         if (m.attachment_expired) {
-          pieces.push(<div key="att" className="wd-expired">file expired (7 days)</div>)
+          pieces.push(<div key="att" className="wd-expired">file expired</div>)
         } else if (m.attachment_url) {
           const url = m.attachment_url
           const name = m.attachment_name ?? 'file'
@@ -2575,8 +2602,8 @@ function StudioShellInner({ supabase, user }: Props) {
       }
       if (pieces.length === 0) continue
 
-      const previewUrl = m.content ? firstUrl(m.content) : null
-      const readers = isMine ? readersByMsgId.get(m.id) : undefined
+      const previewUrl = !m.private && m.content ? firstUrl(m.content) : null
+      const readers = isMine && !m.pending ? readersByMsgId.get(m.id) : undefined
       const time = fmtTime(m.created_at)
       // Audio cards get a wide column — the text-bubble cap doesn't apply.
       const wideAudio = (m.attachment_type === 'audio' || m.attachment_type === 'multi-audio')
@@ -2585,7 +2612,7 @@ function StudioShellInner({ supabase, user }: Props) {
       rows.push(
         <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
           {/* Optimistic rows ('opt-') have no server row to delete yet. */}
-          {isMine && !m.id.startsWith('opt-') && (
+          {isMine && !m.pending && !m.id.startsWith('opt-') && (
             <MsgDeleteWord onConfirm={() => { void handleDeleteMessage(m) }} />
           )}
           {!isMine && (
@@ -2614,7 +2641,8 @@ function StudioShellInner({ supabase, user }: Props) {
               )
             })}
             {previewUrl && <div className="wd-linkcard"><LinkPreviewCard url={previewUrl} /></div>}
-            {m.content && activeConvId && !chipDone.has(m.id) && looksLikeSchedule(m.content) && (
+            {m.pending && <span className="wd-mtime" role="status">Sending...</span>}
+            {!m.private && m.content && activeConvId && !chipDone.has(m.id) && looksLikeSchedule(m.content) && (
               <div className="wd-chip">
                 <ScheduleChip
                   text={m.content}
@@ -3092,8 +3120,6 @@ function StudioShellInner({ supabase, user }: Props) {
                     />
                     <button className="wd-attach" onClick={() => fileRef.current?.click()} aria-label="attach a file">+</button>
                     <ShareRegionsButton key={`regions-${activeConvId}`} className="wd-gameinv" onCapture={sendCapturedRegions} />
-                    <CaptureRegionsButton key={`logic-regions-${activeConvId}`} logicOnly className="wd-gameinv"
-                      onCapture={sendCapturedRegions} onError={notify} />
                     <ExportTracksButton key={activeConvId} className="wd-gameinv" onCapture={async (archive, projectName) => {
                       const destination = activeConvId
                       const selection = sel

@@ -9,22 +9,27 @@
     "typecheck": "tsc --noEmit",
     "cap:sync": "cap sync",
     "cap:ios": "cap open ios",
-    "build:static": "next build"
+    "build:static": "next build",
+    "cap:android": "cap open android",
+    "cap:sync:android": "cap sync android",
+    "cap:run:android": "cap run android",
+    "build:android": "pnpm build:static && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "6.2.1",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
     "@orb/core": "workspace:*",
     "@supabase/supabase-js": "^2.101.1",
     "next": "15.5.26",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
-    "typescript": "^5.7.3",
-    "@capacitor/cli": "^6.2.0"
+    "typescript": "^5.7.3"
   }
 }

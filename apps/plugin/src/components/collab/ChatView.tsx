@@ -13,6 +13,7 @@ import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
 import { regionToFile } from '../../lib/audioMerge'
 import { createRegionBundleAttachment, isRegionArchive } from '../../lib/regionBundleIO'
+import { useLogicDropCapture } from '../../lib/logicDropCapture'
 import RegionBundleAttachment from './RegionBundleAttachment'
 import CaptureRegionsButton from './CaptureRegionsButton'
 import ExportTracksButton from './ExportTracksButton'
@@ -349,7 +350,7 @@ export function ShareLinkWord({ url, name, from, metadata, square = false }: {
   )
 }
 
-export function AudioAttachment({ url, name, metadata, compact = false, from }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null }) {
+export function AudioAttachment({ url, name, metadata, compact = false, from, previewOnly = false }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null; previewOnly?: boolean }) {
   const resolved=useResolvedUrl(url)
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
@@ -430,8 +431,8 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
               {position.text}
             </span>
           )}
-          <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
-          <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
+          {!previewOnly && <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />}
+          {!previewOnly && <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />}
         </div>
         {compactExpanded && (
           <div className="stem-audio-details">
@@ -474,10 +475,10 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
       {player}
 
-      <div className="msg-att-row">
+      {!previewOnly && <div className="msg-att-row">
       <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
       <ShareLinkWord url={url} name={name} from={from} metadata={metadata} />
-      </div>
+      </div>}
     </div>
   )
 }
@@ -693,7 +694,7 @@ function GameInviteBubble ({
 
 export function ResolvedBundleAudio({ url, name }: { url: string; name: string }) {
   const resolved = useResolvedUrl(url)
-  return <AudioAttachment compact url={resolved} name={name} />
+  return <AudioAttachment compact previewOnly url={resolved} name={name} />
 }
 
 function AttachmentView({ url, type, name, metadata }: { url: string; type: AttachType; name: string; metadata?: AttachmentTimelineMetadata }) {
@@ -839,6 +840,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // registration) and the flush sorts by it. Old binaries keep arrival order.
   const dropBuffer        = useRef<{ name: string; data: string; seq?: number }[]>([])
   const dropGroupCount    = useRef(1)
+  const dropLogicCapture = useRef<string | null>(null)
+  const captureLogicDrop = useLogicDropCapture()
+  const captureLogicDropRef = useRef(captureLogicDrop); captureLogicDropRef.current = captureLogicDrop
+  const attachAudioRef = useRef<(files: File[]) => Promise<void>>(async () => {})
   const dropRejected = useRef(false)
   const conversationKey = JSON.stringify([conversationId, otherProfile?.id])
   const conversationRef = useRef(conversationKey); conversationRef.current = conversationKey
@@ -866,6 +871,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   useEffect(() => {
     const handler = (e: Event) => {
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
+      dropLogicCapture.current = (e as CustomEvent).detail?.logicCaptureId ?? null
       dropBuffer.current = []
       dropRejected.current = false
       dropConversation.current = conversationRef.current
@@ -886,6 +892,9 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       if (dropBuffer.current.length < dropGroupCount.current) return
 
       const all = dropBuffer.current
+      const logicCaptureId = dropLogicCapture.current
+      dropLogicCapture.current = null
+      const destinationAtDrop = dropConversation.current
       dropBuffer.current = []
       dropGroupCount.current = 1
       if (all.every(f => Number.isFinite(f.seq)))
@@ -901,6 +910,16 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         return false
       })
       if (batch.length === 0 || batch.length !== all.length) return
+
+      if (logicCaptureId) {
+        try {
+          const files = await captureLogicDropRef.current(batch.map(r => regionToFile(r.name, r.data)), logicCaptureId)
+          if (!mountedRef.current || destinationAtDrop !== conversationRef.current) return
+          if (onStemDrop) onStemDrop({ id: `logic-${crypto.randomUUID()}`, files, fallbackMetadata: null })
+          else await attachAudioRef.current(files)
+        } catch (error) { showErrRef.current(error instanceof Error ? error.message : 'Could not read Logic region positions.') }
+        return
+      }
 
       if (onStemDrop) {
         const destination = conversationRef.current
@@ -1227,6 +1246,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     try { await attachAudioFiles(batch.map(r => regionToFile(r.name, r.data))) }
     catch { showErr('Could not read the region bundle.') }
   }
+  useEffect(() => { attachAudioRef.current = attachAudioFiles })
   useEffect(() => { processMultiDropRef.current = attachDroppedBatch })
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -1519,10 +1539,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                       : null
                 )}
                 {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
-                {g.msg.content && firstUrl(g.msg.content) && (
+                {!g.msg.private && g.msg.content && firstUrl(g.msg.content) && (
                   <LinkPreviewCard url={firstUrl(g.msg.content)!} />
                 )}
-                {g.msg.content && conversationId && !chipDone.has(g.msg.id) && looksLikeSchedule(g.msg.content) && (
+                {!g.msg.private && g.msg.content && conversationId && !chipDone.has(g.msg.id) && looksLikeSchedule(g.msg.content) && (
                   <ScheduleChip
                     text={g.msg.content}
                     onParse={parseChatSchedule}
@@ -1532,7 +1552,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                 )}
                 <div className="mtime">
                   <span>{formatTime(g.msg.created_at)}</span>
-                  {isMine && readers.length > 0 && (
+                  {g.msg.pending && <span role="status">Sending...</span>}
+                  {isMine && !g.msg.pending && readers.length > 0 && (
                     groupHeader ? (
                       <span
                         className="mg-readby"

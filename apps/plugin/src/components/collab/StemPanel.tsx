@@ -1,6 +1,8 @@
 import { resolveUrl } from '../../lib/r2Access'
-import { messageId, encryptChatMessage, decryptPrivatePayload, type Envelope } from '@orb/core/lib/chatCrypto.ts'
+import { messageId, decryptPrivatePayload, type Envelope } from '@orb/core/lib/chatCrypto.ts'
 import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
+import { sendAccountStems } from '@orb/core/lib/accountChat.ts'
+import {readAttachmentStatus,attachmentStatus} from '@orb/core/lib/attachmentRetention.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
@@ -12,6 +14,7 @@ import { AudioAttachment, ImportAllWord, ResolvedBundleAudio } from './ChatView'
 import { alignToProjectStart, regionToFile } from '../../lib/audioMerge'
 import { uploadRegionBundle, type BundleAudioEntry } from '../../lib/regionBundle'
 import { isRegionArchive, prepareRegionTransfer } from '../../lib/regionBundleIO'
+import { useRegionHost } from '../../lib/dawRegionBridge'
 import RegionBundleAttachment from './RegionBundleAttachment'
 import CaptureRegionsButton from './CaptureRegionsButton'
 import ExportTracksButton from './ExportTracksButton'
@@ -54,7 +57,8 @@ function StemRow({ stem, uploader, displayTimeline, mine, deleting, onDelete }: 
   deleting: boolean
   onDelete: () => void
 }) {
-  const resolvedUrl = useResolvedUrl(stem.file_url)
+  const resolvedUrl = useResolvedUrl(stem.expired?'':stem.file_url)
+  const {t}=useT()
   // Two-tap delete — the house pattern ("delete" → "sure?"; never a
   // native confirm). Reverts on its own after 2.6 s.
   const [delSure, setDelSure] = useState(false)
@@ -70,13 +74,13 @@ function StemRow({ stem, uploader, displayTimeline, mine, deleting, onDelete }: 
           ? <img src={uploader.avatar_url} alt="" />
           : (uploader?.initials.slice(0, 1) ?? '?')}
       </div>
-      <AudioAttachment
+      {stem.expired?<div className="stem-empty"><strong>{stem.file_name}</strong><span>{t('chat.fileExpired')}</span></div>:<AudioAttachment
         compact
         url={resolvedUrl}
         name={stem.file_name}
         metadata={displayTimeline}
         from={uploader?.display_name}
-      />
+      />}
       {mine && (
         <button
           className={`stem-del${delSure ? ' sure' : ''}`}
@@ -93,6 +97,7 @@ export default function StemPanel({
   supabase, conversationId, currentUserId, participants, pendingDrop, onDropConsumed, onMultiFileDrop, alignToBarOne,
 }: Props) {
   const { t } = useT()
+  const host = useRegionHost()
   const [stems, setStems] = useState<ConversationStem[]>([])
   const [loading, setLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
@@ -117,10 +122,25 @@ export default function StemPanel({
         if(!row.encrypted_payload)return row
         try{const payload=await decryptPrivatePayload(supabase,currentUserId,row.id,row.conversation_id,row.uploader_id,row.encrypted_payload);return {...row,...payload,id:row.id,conversation_id:row.conversation_id,uploader_id:row.uploader_id}}catch{return {...row,file_url:'',file_name:'Encrypted file — could not verify'}}
       }))
-      if(conversationRef.current===conversationId)setStems(clear)
+      const statuses=await readAttachmentStatus(supabase,conversationId)
+      if(conversationRef.current===conversationId)setStems(clear.map(stem=>{
+        const status=attachmentStatus(stem.file_url,statuses)
+        return {...stem,expired:status?.expired??false,expires_at:status?.expires_at??null}
+      }))
     }
     setLoading(false)
   }, [supabase, conversationId,currentUserId])
+  useEffect(()=>{
+    const timer=setInterval(()=>setStems(previous=>previous.map(stem=>!stem.expired&&stem.expires_at&&Date.parse(stem.expires_at)<=Date.now()
+      ?{...stem,expired:true}:stem)),30000)
+    return()=>clearInterval(timer)
+  },[])
+
+  useEffect(()=>{
+    const delivered=(event:Event)=>{if((event as CustomEvent).detail?.conversation===conversationId)void load()}
+    window.addEventListener('slur-chat-delivered',delivered)
+    return ()=>window.removeEventListener('slur-chat-delivered',delivered)
+  },[conversationId,load])
 
   useEffect(() => {
     setLoading(true)
@@ -140,7 +160,7 @@ export default function StemPanel({
   }, [conversationId])
 
   useEffect(() => {
-    const missing = stems.filter(stem => !stem.timeline_metadata?.bundle_id && stem.timeline_metadata?.position?.bit_depth == null && audioFormats[stem.file_url] === undefined)
+    const missing = stems.filter(stem => !stem.expired && !stem.timeline_metadata?.bundle_id && stem.timeline_metadata?.position?.bit_depth == null && audioFormats[stem.file_url] === undefined)
     if (missing.length === 0) return
     let cancelled = false
     void Promise.all(missing.map(async stem => ({ url: stem.file_url, format: await probeRemoteAudioFormat(await resolveUrl(stem.file_url)) })))
@@ -155,10 +175,9 @@ export default function StemPanel({
     return () => { cancelled = true }
   }, [audioFormats, stems])
 
-  const encryptedRow = async (row: {conversation_id:string;uploader_id:string;file_url:string;file_key:string;file_name:string;file_size:number;mime_type:string;timeline_metadata:unknown}) => {
+  const accountRow = async (row: {conversation_id:string;uploader_id:string;file_url:string;file_key:string;file_name:string;file_size:number;mime_type:string;timeline_metadata:unknown}) => {
     const id=await messageId()
-    const encrypted_payload=await encryptChatMessage(supabase,currentUserId,id,row.conversation_id,{file_url:row.file_url,file_name:row.file_name,mime_type:row.mime_type,timeline_metadata:row.timeline_metadata})
-    return {...row,id,file_url:'orb-encrypted:',file_name:'Encrypted file',mime_type:'application/octet-stream',timeline_metadata:null,encrypted_payload}
+    return {...row,id,encrypted_payload:null}
   }
 
   const uploadOne = useCallback(async (sourceFile: File, fallbackMetadata = pendingDrop?.fallbackMetadata ?? null, deferInsert = false) => {
@@ -194,10 +213,9 @@ export default function StemPanel({
         timeline_metadata: timeline,
       }
       if (deferInsert) return row
-      const encrypted = await encryptedRow(row)
+      const record = await accountRow(row)
       if (conversationRef.current !== conversationId) throw new Error('Conversation changed.')
-      const { error: insertError } = await supabase.from('conversation_stems').insert(encrypted)
-      if (insertError) throw insertError
+      await sendAccountStems(supabase,currentUserId,[record])
       await load()
     } catch (uploadError) {
       console.error('[StemPanel] upload failed')
@@ -213,7 +231,7 @@ export default function StemPanel({
 
   const uploadFiles = useCallback(async (files: File[], fallback = pendingDrop?.fallbackMetadata ?? null) => {
     if (!files.length) return
-    if (files.length === 1 && !isRegionArchive(files[0])) { await uploadOne(files[0], fallback); return }
+    if (!host.logic && files.length === 1 && !isRegionArchive(files[0])) { await uploadOne(files[0], fallback); return }
     setError('')
     try {
       const prepared = await prepareRegionTransfer(files)
@@ -225,7 +243,7 @@ export default function StemPanel({
         return { url: row.file_url, name: row.file_name }
       })
       // One INSERT is atomic; private-file access still uses each original file_key.
-      const encryptedRows = await Promise.all(rows.map((row, i) => encryptedRow({
+      const accountRows = await Promise.all(rows.map((row, i) => accountRow({
         ...row,
         timeline_metadata: {
           ...row.timeline_metadata,
@@ -235,11 +253,10 @@ export default function StemPanel({
         },
       })))
       if (conversationRef.current !== conversationId) throw new Error('Conversation changed. Regions were not sent.')
-      const { error: insertError } = await supabase.from('conversation_stems').insert(encryptedRows)
-      if (insertError) throw insertError
+      await sendAccountStems(supabase,currentUserId,accountRows)
       await load()
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The region bundle was not sent.') }
-  }, [conversationId, pendingDrop?.fallbackMetadata, uploadOne, supabase, load])
+  }, [host.logic, conversationId, pendingDrop?.fallbackMetadata, uploadOne, supabase, load])
 
   useEffect(() => {
     if (!pendingDrop || consumed.current.has(pendingDrop.id)) return
@@ -325,13 +342,13 @@ export default function StemPanel({
         </div>
       ))}
 
-      {/* Batched import — every stem listed, one armed multi-file drag.
+      {/* Bundles have their own region-aware drag; only batch standalone files here.
           Quiet word at the list's top right; only where a JUCE host can
           actually receive the drag, and only once there's a set. */}
-      {!!window.__JUCE__?.backend && stems.length >= 2 && (
+      {!!window.__JUCE__?.backend && stems.filter(stem => !stem.expired&&!stem.timeline_metadata?.bundle_id).length >= 2 && (
         <div className="stem-list-head">
           <ImportAllWord
-            tracks={stems.map(stem => ({ url: stem.file_url, name: stem.file_name }))}
+            tracks={stems.filter(stem => !stem.expired&&!stem.timeline_metadata?.bundle_id).map(stem => ({ url: stem.file_url, name: stem.file_name }))}
             groupKey={`import-all-stems:${conversationId}`}
             className="stem-import-all"
           />
@@ -346,6 +363,10 @@ export default function StemPanel({
           if (bundleId) {
             const members = stems.filter(s => s.timeline_metadata?.bundle_id === bundleId && s.uploader_id === stem.uploader_id)
             if (members[0]?.id !== stem.id) return null
+            if(members.some(s=>s.expired))return <div key={`${stem.uploader_id}:${bundleId}`} className="stem-empty">
+              <strong>{t('chat.fileExpired')}</strong>
+              {members.map(s=>s.expired?<span key={s.id}>{s.file_name}</span>:<StemRow key={s.id} stem={s} uploader={participants.find(p=>p.id===s.uploader_id)}
+                mine={s.uploader_id===currentUserId} deleting={deletingIds.has(s.id)} onDelete={()=>void deleteStem(s)} displayTimeline={undefined}/>)}</div>
             const manifest = members.find(s => s.timeline_metadata?.region_bundle)?.timeline_metadata?.region_bundle
             const entries: BundleAudioEntry[] = members.map(s => ({
               url: s.file_url, name: s.file_name, assetId: s.timeline_metadata?.bundle_asset_id ?? '',

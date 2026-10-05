@@ -102,8 +102,8 @@ const yearOf = (r: ReleaseRow) =>
  *  paper check, sized to the line's cap height. */
 function ApprovedMark() {
   return (
-    <svg className="wd-cred-mark" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-label="approved by orb">
-      <title>approved by orb</title>
+    <svg className="wd-cred-mark" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-label="approved by Slur">
+      <title>approved by Slur</title>
       <circle cx="12" cy="12" r="12" fill="var(--acc)" />
       <path d="M6.8 12.6l3.4 3.4 7-7.2" stroke="#FBFAF7" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>

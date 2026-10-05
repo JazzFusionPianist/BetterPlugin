@@ -3,6 +3,12 @@ import type { RegionBundle } from '../lib/regionBundle'
 
 export interface ConversationStem {
   id: string
+  pending?: boolean
+  expired?:boolean
+  expires_at?:string|null
+  pendingId?: string
+  pendingState?: import('@orb/core/lib/privateChat.ts').DeliveryState
+  pendingReason?: import('@orb/core/lib/privateChat.ts').DeliveryReason|null
   conversation_id: string
   uploader_id: string
   file_url: string

@@ -10,7 +10,7 @@ import { inspectProToolsTracks, exportProToolsTracks } from './proToolsTracks.mj
 import { importToProTools } from './proToolsImport.mjs'
 import { stageArchive } from './archive.mjs'
 import { exportLogicAAF } from './logicExport.mjs'
-import { captureLogicSelection } from './logicHost.mjs'
+import { captureLogicSelection, callLogicHelper } from './logicHost.mjs'
 import { assertRegionOperationEnabled } from './operationPolicy.mjs'
 
 const run = promisify(execFile)
@@ -21,7 +21,12 @@ let client, lock, lockOwned = false
 try {
   const request = JSON.parse(await readFile(join(folder, 'request.json'), 'utf8'))
   assertRegionOperationEnabled(request.operation)
-  if (!['inspect', 'inspectTracks', 'exportTracks', 'capture', 'import', 'exportLogic', 'captureLogic'].includes(request.operation)) throw new Error('Unknown region operation.')
+  if (!['inspect', 'inspectTracks', 'exportTracks', 'capture', 'import', 'exportLogic', 'captureLogic', 'inspectLogic'].includes(request.operation)) throw new Error('Unknown region operation.')
+  if (request.operation === 'inspectLogic') {
+    const result = await callLogicHelper('inspect', undefined, { timeout: 8000 })
+    await writeFile(join(folder, 'response.json'), JSON.stringify({ ok: true, snapshot: result.snapshot }), { mode: 0o600 })
+    return
+  }
   const settings = JSON.parse(await readFile(join(scriptDirectory, '..', 'settings.json'), 'utf8'))
   if (request.operation === 'captureLogic') {
     const result = await captureLogicSelection({ directory: folder, python: settings.python, sampleRate: Number(request.sessionId),

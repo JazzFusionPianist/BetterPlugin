@@ -2,6 +2,10 @@ import { prepareRegionBundle, parseRegionBundle, uploadRegionBundle } from '@orb
 import { analyzeRegion } from './audioMerge'
 import type { AttachmentTimelineMetadata } from '../types/collab'
 import { applyVstLayout, cropVstWave, parseVstEvidence, type VstRegionEvidence } from '@orb/core/lib/regionVstXml.ts'
+import { applyLogicLayout, type LogicRegionEvidence } from '@orb/core/lib/logicRegionDrop.ts'
+
+const logicEvidence = new WeakMap<File, LogicRegionEvidence>()
+export function rememberLogicEvidence(file: File, evidence: LogicRegionEvidence) { logicEvidence.set(file, evidence); return file }
 
 const nativeEvidence = new WeakMap<File, VstRegionEvidence>()
 export function rememberRegionEvidence(file: File, value: unknown): File {
@@ -14,6 +18,15 @@ export function rememberRegionEvidence(file: File, value: unknown): File {
 /** Keep each occurrence, including repeats, without guessing tracks/placement.
  * A raw recording timestamp travels separately from verified edited positions. */
 export async function prepareSharedRegions(files: File[]) {
+  const logic = files.map(f => logicEvidence.get(f))
+  if (logic.some(Boolean)) {
+    if (!logic.every(Boolean)) throw new Error('Incomplete Logic region selection. Nothing was sent.')
+    const info = await Promise.all(files.map(analyzeRegion))
+    const byFile = new Map(info.map(item => [item.file, item]))
+    const prepared = await prepareRegionBundle(files, async file => byFile.get(file) ?? {})
+    prepared.bundle = applyLogicLayout(prepared.bundle, logic as LogicRegionEvidence[])
+    return prepared
+  }
   const evidence = files.map(f => nativeEvidence.get(f))
   if (evidence.some(Boolean)) {
     if (!evidence.every(Boolean)) throw new Error('Incomplete DAW region data. Nothing was sent.')

@@ -25,7 +25,7 @@ function buildStamp () {
     name: 'build-stamp',
     generateBundle (this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }) {
       this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ build: buildId(), version: pkgVersion(), at: new Date().toISOString(),
-        regionSharing: 1, regionDawproject: 1, regionVstXml: 1, regionLuna: 1, stemDownloads: 1, regionPlacement: 1, trackExportPolicy: 'pro-tools-only' }) })
+        regionSharing: 1, regionDawproject: 1, regionVstXml: 1, regionLuna: 1, stemDownloads: 1, regionPlacement: 1, regionAudioDrag: 1, accountChat: 1, automaticPrivateChat: 0, logicRegionPositions: 1, trackExportPolicy: 'pro-tools-only' }) })
     },
   }
 }

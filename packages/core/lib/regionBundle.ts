@@ -1,5 +1,10 @@
 /** Portable, non-destructive region layout. File timestamps are not clip positions. */
 export interface SampleTime { samples: number; sampleRate: number }
+export interface MusicalPosition {
+  bar: number; beat: number; division: number; tick: number
+  divisionDenominator: number | null
+  resolution: 'logic-tick'
+}
 export interface BundleTrack { id: string; name: string; order: number; channels: number }
 export interface BundleAsset {
   id: string
@@ -16,6 +21,8 @@ export interface BundleRegion {
   trackId: string | null
   name: string
   start: SampleTime | null
+  musicalStart?: MusicalPosition
+  musicalEnd?: MusicalPosition
   offsetFrames: number | null
   lengthFrames: number | null
   /** Original file clock only; never evidence of the current edited placement. */
@@ -50,12 +57,29 @@ function optionalInt(v: unknown, min = 0): boolean { return v === null || int(v,
 function time(v: unknown): v is SampleTime {
   return record(v) && Number.isSafeInteger(v.samples) && int(v.sampleRate, 1) && v.sampleRate <= 768000
 }
+export function isMusicalPosition(v: unknown): v is MusicalPosition {
+  return record(v) && v.resolution === 'logic-tick' && int(v.bar, 1) && v.bar <= 1000000
+    && int(v.beat, 1) && v.beat <= 128 && int(v.division, 1) && v.division <= 256
+    && int(v.tick, 1) && v.tick <= 3840
+    && (v.divisionDenominator === null || [1, 2, 4, 8, 16, 32, 64, 128, 256].includes(v.divisionDenominator as number))
+}
+function musicalPosition(v: MusicalPosition): MusicalPosition {
+  return { bar: v.bar, beat: v.beat, division: v.division, tick: v.tick,
+    divisionDenominator: v.divisionDenominator, resolution: 'logic-tick' }
+}
 function uniqueIds(items: unknown[], max: number): boolean {
   return items.length <= max && items.every(v => record(v) && text(v.id, 128))
     && new Set(items.map(v => (v as { id: string }).id)).size === items.length
 }
 
-function remoteAudioUrl(value: string): boolean {
+function supportedAudioReference(value: string): boolean {
+  if (!text(value, 8192)) return false
+  // Private uploads carry an object reference, not a public download URL.
+  // The authenticated file resolver handles authorization and decryption later.
+  if (value.startsWith('orb-file:')) {
+    const match = /^orb-file:([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*)(?:#e2ee=[A-Za-z0-9_-]{43})?$/.exec(value)
+    return !!match && !match[1].includes('..') && !match[1].split('/').includes('.')
+  }
   try {
     const url = new URL(value)
     const host = url.hostname.toLowerCase().replace(/\.$/, '')
@@ -94,6 +118,8 @@ export function parseRegionBundle(value: unknown): RegionBundle | null {
     if (!record(r) || !text(r.name) || !assets.has(r.assetId) || (r.trackId !== null && !tracks.has(r.trackId))
       || (r.start !== null && !time(r.start)) || !optionalInt(r.offsetFrames)
       || !optionalInt(r.lengthFrames, 1)) return null
+    if ((r.musicalStart !== undefined && !isMusicalPosition(r.musicalStart))
+      || (r.musicalEnd !== undefined && !isMusicalPosition(r.musicalEnd))) return null
     if (r.recordingTimestamp !== undefined && (!time(r.recordingTimestamp)
       || !record(r.recordingTimestamp) || !['bwf', 'ixml'].includes(r.recordingTimestamp.source as string)
       || r.recordingTimestamp.samples < 0)) return null
@@ -116,6 +142,8 @@ export function parseRegionBundle(value: unknown): RegionBundle | null {
     regions: value.regions.map(r => ({ id: r.id, assetId: r.assetId, trackId: r.trackId, name: r.name,
       start: r.start === null ? null : { samples: r.start.samples, sampleRate: r.start.sampleRate },
       offsetFrames: r.offsetFrames, lengthFrames: r.lengthFrames,
+      ...(r.musicalStart ? { musicalStart: musicalPosition(r.musicalStart) } : {}),
+      ...(r.musicalEnd ? { musicalEnd: musicalPosition(r.musicalEnd) } : {}),
       ...(r.recordingTimestamp ? { recordingTimestamp: { samples: r.recordingTimestamp.samples,
         sampleRate: r.recordingTimestamp.sampleRate, source: r.recordingTimestamp.source } } : {}) })),
   }
@@ -125,6 +153,14 @@ export function hasCompleteLayout(b: RegionBundle): boolean {
   return b.source !== null && b.tracks.length > 0 && b.regions.every(r =>
     r.trackId !== null && r.start !== null && r.offsetFrames !== null && r.lengthFrames !== null
     && b.assets.find(a => a.id === r.assetId)?.sampleRate != null)
+}
+export function hasMusicalLayout(b: RegionBundle): boolean {
+  return b.source !== null && b.tracks.length > 0 && b.regions.every(r => r.trackId !== null
+    && isMusicalPosition(r.musicalStart) && r.offsetFrames !== null && r.lengthFrames !== null
+    && b.assets.find(a => a.id === r.assetId)?.sampleRate != null)
+}
+export function musicalPositionLabel(p: MusicalPosition): string {
+  return `${p.bar}.${p.beat}.${p.division}.${p.tick}`
 }
 
 export async function sha256(data: ArrayBuffer): Promise<string> {
@@ -172,7 +208,7 @@ export async function uploadRegionBundle(
     if (!file) throw new Error(`Missing audio: ${asset.name}`)
     const result = await upload(file)
     if (!result) throw new Error(`Could not upload ${asset.name}. The bundle was not sent.`)
-    if (!remoteAudioUrl(result.url)) throw new Error('The upload returned an invalid audio URL.')
+    if (!supportedAudioReference(result.url)) throw new Error('The upload returned an invalid audio URL.')
     entries.push({ url: result.url, name: asset.name, assetId: asset.id })
   }
   entries[0]!.regionBundle = bundle
@@ -189,7 +225,7 @@ export function readBundleAttachment(value: unknown): { bundle: RegionBundle; en
     if (!record(entry) || !text(entry.url, 8192) || !text(entry.name) || !text(entry.assetId, 128)
       || seen.has(entry.assetId) || !bundle.assets.some(a => a.id === entry.assetId)) return null
     // Remote attachments cannot address local files or services.
-    if (!remoteAudioUrl(entry.url)) return null
+    if (!supportedAudioReference(entry.url)) return null
     seen.add(entry.assetId)
     entries.push({ url: entry.url, name: entry.name, assetId: entry.assetId })
   }

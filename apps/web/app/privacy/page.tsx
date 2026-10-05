@@ -1,20 +1,20 @@
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Privacy Policy — Orb' }
+export const metadata: Metadata = { title: 'Privacy Policy — Slur' }
 
 /**
  * 개인정보처리방침 — 가입 시 필수 동의 문서. [대괄호] 항목은 사업자등록 후 채울 것.
  * 개정 시 VERSION을 올리고 하단 개정 이력에 남긴다.
  */
-const PRIVACY_VERSION = '1.0 (2026-08-18)'
+const PRIVACY_VERSION = '1.1 (2026-10-06 개정안)'
 
 export default function PrivacyPage() {
   return (
     <main className="legal">
       <header className="legal-head">
-        <div className="legal-brand">orb</div>
+        <div className="legal-brand">Slur</div>
         <h1>개인정보처리방침</h1>
-        <div className="legal-meta">버전 {PRIVACY_VERSION} · 시행일 2026-08-18</div>
+        <div className="legal-meta">버전 {PRIVACY_VERSION} · 시행일 별도 공지</div>
       </header>
 
       <section>
@@ -25,12 +25,13 @@ export default function PrivacyPage() {
             <tbody>
               <tr><td>이메일, 비밀번호(암호화), 아이디, 표시 이름</td><td>회원 식별·로그인</td><td>탈퇴 시 지체 없이 파기</td></tr>
               <tr><td>프로필 사진, 소개글</td><td>프로필 표시</td><td>탈퇴 또는 삭제 시 파기</td></tr>
-              <tr><td>채팅 메시지, 업로드 파일(오디오·이미지), 일정</td><td>서비스 핵심 기능 제공</td><td>탈퇴 또는 삭제 시 파기 (채팅 첨부파일은 업로드 7일 후 자동 삭제)</td></tr>
+              <tr><td>채팅 메시지, 업로드 파일(오디오·이미지), 일정</td><td>서비스 핵심 기능 제공</td><td>메시지·일정은 탈퇴 또는 삭제 시 파기. 채팅·스템 첨부파일은 업로드 후 7일 보관하며, 유료 구독 도입 후 해당 회원이 업로드한 파일은 3개월 보관</td></tr>
               <tr><td>서비스 이용기록, 접속 로그</td><td>안정적 운영·오류 대응</td><td>통신비밀보호법에 따라 3개월</td></tr>
             </tbody>
           </table>
         </div>
         <p>만 14세 미만 아동의 개인정보는 수집하지 않으며, 가입 시 만 14세 이상임을 확인합니다.</p>
+        <p>첨부파일 보관기간은 업로드 당시 보낸 회원의 구독 등급을 기준으로 정합니다. 보관기간이 끝나면 다운로드가 차단되고 저장소에서 순차적으로 삭제됩니다. 이미 다운로드한 파일에는 이 보관기간이 적용되지 않습니다. 공개 프로필 사진·공개 포트폴리오 파일은 채팅 첨부파일 보관기간의 적용 대상이 아닙니다.</p>
       </section>
 
       <section>
@@ -41,7 +42,7 @@ export default function PrivacyPage() {
             <thead><tr><th>수탁자</th><th>국가</th><th>이전 항목</th><th>목적</th><th>보유기간</th></tr></thead>
             <tbody>
               <tr><td>Supabase, Inc. (AWS)</td><td>미국 등</td><td>계정정보, 프로필, 채팅, 일정</td><td>데이터베이스·인증 호스팅</td><td>탈퇴 시까지</td></tr>
-              <tr><td>Cloudflare, Inc.</td><td>미국 등</td><td>업로드 파일(오디오·이미지)</td><td>파일 저장</td><td>탈퇴 또는 삭제 시까지 (채팅 첨부는 7일)</td></tr>
+              <tr><td>Cloudflare, Inc.</td><td>미국 등</td><td>업로드 파일(오디오·이미지)</td><td>파일 저장</td><td>채팅·스템 첨부는 업로드 후 7일, 유료 구독 도입 후 해당 회원의 업로드 파일은 3개월. 공개 프로필·포트폴리오 파일은 탈퇴 또는 삭제 시까지</td></tr>
               <tr><td>Vercel, Inc.</td><td>미국 등</td><td>접속 로그</td><td>웹·API 호스팅</td><td>수탁사 정책에 따름</td></tr>
               <tr><td>Anthropic, PBC</td><td>미국</td><td>일정 인식 요청 텍스트</td><td>AI 일정 인식</td><td>처리 즉시 파기 요청</td></tr>
             </tbody>
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
 
       <footer className="legal-foot">
         <p>[상호/사업자명] · 대표 [대표자명] · 사업자등록번호 [000-00-00000]</p>
-        <p>이 방침은 2026-08-18부터 적용됩니다. 변경 시 최소 7일 전 공지합니다.</p>
+        <p>이 개정안의 시행일은 서비스 내에서 별도로 공지합니다. 변경 시 최소 7일 전 공지합니다.</p>
         <p><a href="/terms">이용약관 →</a></p>
       </footer>
     </main>

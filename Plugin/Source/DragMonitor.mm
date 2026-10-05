@@ -10,6 +10,7 @@
 #import <objc/message.h>
 #import <os/log.h>
 #include "VstXmlDrop.h"
+#include "SlurWebSecurity.h"
 
 #include <atomic>
 
@@ -62,6 +63,13 @@ static unsigned long long fileSizeAt (NSURL* fileURL)
     NSNumber* n = nil;
     [fileURL getResourceValue:&n forKey:NSURLFileSizeKey error:nil];
     return n ? n.unsignedLongLongValue : 0ULL;
+}
+
+static void failFileDrop (WKWebView* view)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [view evaluateJavaScript:@"window.dispatchEvent(new CustomEvent('__juceRegionDropError',{detail:{message:'Could not receive the audio files from your DAW. Nothing was sent.'}}))" completionHandler:nil];
+    });
 }
 
 //==============================================================================
@@ -406,6 +414,7 @@ static IMP  gOrigPerformDragOp   = nil;
 static IMP  gOrigDraggingEntered = nil;
 static IMP  gOrigDraggingExited  = nil;
 static IMP  gOrigDraggingUpdated = nil;
+static IMP  gOrigPrepareDragOp   = nil;
 static BOOL gSwizzleInstalled    = NO;
 
 // ── Mouse-position overlay timer ─────────────────────────────────────────────
@@ -656,6 +665,9 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             [pb readObjectsForClasses:@[[NSFilePromiseReceiver class]] options:nil];
         if (rcvs.count > 0)
         {
+            NSUInteger fileCount = 0;
+            for (NSFilePromiseReceiver* receiver in rcvs)
+                fileCount += MAX((NSUInteger)1, receiver.fileTypes.count);
             // Dismiss the drag overlay immediately (Logic file promises never
             // fire a JS 'drop' event, so React can't do it itself).
             stopDragTimer();
@@ -665,7 +677,9 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                 // one multi-track message instead of separate messages.
                 NSString* startJS = [NSString stringWithFormat:
                     @"window.dispatchEvent(new CustomEvent('__juceDropGroupStart',"
-                     "{detail:{count:%lu}}))", (unsigned long)rcvs.count];
+                     "{detail:{count:%lu,logicCaptureId:%@}}))", (unsigned long)fileCount,
+                    [pb.types containsObject:@"com.apple.musicapps.LGRegionsPboardType"]
+                        ? [NSString stringWithFormat:@"'logic-%ld'", (long)info.draggingSequenceNumber] : @"null"];
                 [wkv evaluateJavaScript:startJS completionHandler:nil];
                 [wkv evaluateJavaScript:
                     @"window.dispatchEvent(new Event('__juceDragComplete'))"
@@ -674,19 +688,30 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 
             NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
             bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
+            bgQueue.maxConcurrentOperationCount = 1;
 
             // Process ALL receivers, not just the first one. Capture each
             // promise's index NOW, at registration — the receivers resolve
             // concurrently, so the readers fire in completion order.
+            NSUInteger sequenceBase = 0;
             for (NSUInteger idx = 0; idx < rcvs.count; idx++) {
                 NSFilePromiseReceiver* rcv = rcvs[idx];
-                const int seq = (int) idx;
+                __block int seq = (int) sequenceBase;
+                sequenceBase += MAX((NSUInteger)1, rcv.fileTypes.count);
+                NSURL* destination = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+                    stringByAppendingPathComponent:[@"slur-drop-" stringByAppendingString:NSUUID.UUID.UUIDString]] isDirectory:YES];
+                if (![[NSFileManager defaultManager] createDirectoryAtURL:destination withIntermediateDirectories:YES
+                    attributes:@{NSFilePosixPermissions: @0700} error:nil]) {
+                    failFileDrop(wkv);
+                    continue;
+                }
                 [rcv receivePromisedFilesAtDestination:
-                        [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
+                        destination
                                              options:@{}
                                      operationQueue:bgQueue
                                              reader:^(NSURL* fileURL, NSError* err) {
-                    if (err) { NSLog (@"[DragMonitor] promise error: %@", err); return; }
+                    const int fileSequence = seq++;
+                    if (err) { NSLog (@"[DragMonitor] promise error: %@", err); failFileDrop(wkv); return; }
                     const unsigned long long size = fileSizeAt (fileURL);
                     if (size > kMaxDropBytes) {
                         rejectDropFile (wkv, fileURL, size);
@@ -694,10 +719,11 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                         return;
                     }
                     NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
-                    if (!raw) return;
+                    if (!raw.length) { failFileDrop(wkv); return; }
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
                     NSString* name = fileURL.lastPathComponent;
-                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, seq, @""); });
+                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, fileSequence, @""); });
+                    [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
                 }];
             }
             return YES;
@@ -806,15 +832,23 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
-    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    WKWebView* wkv = objc_getAssociatedObject(selfView, &kWKViewRefKey);
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
-    BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
+    BOOL logicDrag = objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isLogicRegionDrag (info.draggingPasteboard);
 
     ORB_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
               info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
     if ((ownDrag || logicDrag) && wkv)
     {
+        if (!ownDrag && [info.draggingPasteboard.types containsObject:@"com.apple.musicapps.LGRegionsPboardType"])
+        {
+            NSString* captureJS = [NSString stringWithFormat:
+                @"window.dispatchEvent(new CustomEvent('__juceLogicRegionEnter',{detail:{captureId:'logic-%ld'}}))",
+                (long)info.draggingSequenceNumber];
+            [wkv evaluateJavaScript:captureJS completionHandler:nil];
+        }
         // Fire the initial overlay event immediately, then start the position
         // timer which keeps it alive and detects when the drag truly leaves.
         NSString* evt = ownDrag ? @"__juceDragEnterCancel" : @"__juceDragEnter";
@@ -823,6 +857,9 @@ static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
         [wkv evaluateJavaScript:js completionHandler:nil];
         startDragTimerIfNeeded (wkv);
     }
+
+    // WebKit may reject promises that our native receiver can handle.
+    if (logicDrag) return NSDragOperationCopy;
 
     if (gOrigDraggingEntered)
         return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingEntered)
@@ -854,13 +891,23 @@ static NSDragOperation orbDraggingUpdated (id selfView, SEL _cmd,
 {
     // Ensure the timer is running (it may have been stopped if draggingEntered:
     // fired before draggingUpdated: was swizzled, or after a re-entry).
-    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    WKWebView* wkv = objc_getAssociatedObject(selfView, &kWKViewRefKey);
     if (wkv) startDragTimerIfNeeded (wkv);
+
+    if (objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isAcceptableAudioDrag(info.draggingPasteboard)) return NSDragOperationCopy;
 
     if (gOrigDraggingUpdated)
         return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingUpdated)
                    (selfView, _cmd, info);
     return NSDragOperationCopy;
+}
+
+static BOOL orbPrepareDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
+{
+    if (objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isAcceptableAudioDrag(info.draggingPasteboard)) return YES;
+    return gOrigPrepareDragOp ? ((BOOL(*)(id,SEL,id<NSDraggingInfo>))gOrigPrepareDragOp)(selfView, _cmd, info) : NO;
 }
 
 // ── Helper: install one swizzle ───────────────────────────────────────────────
@@ -886,6 +933,7 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
 
     WKWebView* wk = findWKWebView (rootView);
     if (!wk) return;
+    installSlurWebSecurity(wk);
 
     NSView* dropView = findViewWithDragTypes (wk);
     if (!dropView) dropView = wk;
@@ -912,6 +960,11 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
     objc_setAssociatedObject (dropView, &kDropCallbackKey, box,
                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
+    NSMutableSet* acceptedTypes = [NSMutableSet setWithArray:dropView.registeredDraggedTypes];
+    [acceptedTypes addObjectsFromArray:NSFilePromiseReceiver.readableDraggedTypes];
+    [acceptedTypes addObjectsFromArray:@[NSPasteboardTypeFileURL, @"NSFilenamesPboardType", NSPasteboardTypeString]];
+    [dropView registerForDraggedTypes:acceptedTypes.allObjects];
+
     // ── Class-level method swizzles (once per process) ────────────────────────
     if (!gSwizzleInstalled)
     {
@@ -926,6 +979,8 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
                         (IMP) orbDraggingExited,   &gOrigDraggingExited);
         installSwizzle (cls, @selector(draggingUpdated:),
                         (IMP) orbDraggingUpdated,  &gOrigDraggingUpdated);
+        installSwizzle (cls, @selector(prepareForDragOperation:),
+                        (IMP) orbPrepareDragOp, &gOrigPrepareDragOp);
         gSwizzleInstalled = YES;
         NSLog (@"[DragMonitor] swizzle install complete");
     }

@@ -22,6 +22,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message } from '../types/collab'
+import { decryptChatMessage } from '../lib/chatCrypto'
 
 const lsKey = (uid: string, cid: string) => `notif_lastseen_${uid}_${cid}`
 const readLocal  = (uid: string, cid: string) => Number(localStorage.getItem(lsKey(uid, cid)) ?? 0)
@@ -87,7 +88,8 @@ export function useConversationNotifications (supabase: SupabaseClient, currentU
       // 3. First-run init: stamp `last_seen_at = now` for any conversation
       //    we have no read row for, so a brand-new device doesn't act
       //    like every old message is suddenly unread.
-      const messages = (msgs as Message[] | null) ?? []
+      const messages = await Promise.all(((msgs as Message[] | null) ?? []).map(m=>decryptChatMessage(supabase,currentUserId,m)))
+      if(!alive)return
       const convs    = new Set(messages.map(m => m.conversation_id))
       const initRows: Array<{ user_id: string; conversation_id: string; last_seen_at: string }> = []
       const nowMs    = Date.now()
@@ -139,8 +141,9 @@ export function useConversationNotifications (supabase: SupabaseClient, currentU
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-      }, payload => {
-        const msg = payload.new as Message
+      }, async payload => {
+        const msg = await decryptChatMessage(supabase,currentUserId,payload.new as Message)
+        if(!alive)return
         if (msg.sender_id === currentUserId) return   // my own send
         if (!initialisedRef.current) { pending.push(msg); return }
         const seen = effectiveSeen(msg.conversation_id)

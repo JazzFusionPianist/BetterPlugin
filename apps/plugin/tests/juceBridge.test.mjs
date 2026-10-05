@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { callJuceNative } from '../src/lib/juceBridge.ts'
 import { regionBundleFunction } from '../src/lib/regionBundleProtocol.ts'
+import { loadRememberedRecoveryCode, ensureRememberedRecoveryCode } from '../../../packages/core/lib/deviceKeyStore.ts'
 
 test('bundle and native placement protocols cannot be confused after merging', () => {
   assert.equal(regionBundleFunction([]), null)
@@ -37,7 +38,7 @@ function native(t) {
     },
   }
   globalThis.window = { __JUCE__: {
-    initialisationData: { __juce__functions: ['writeAudioFiles', 'regionTransfer', 'getDawTimeline'], __juce__platform: ['test'] },
+    initialisationData: { __juce__functions: ['writeAudioFiles', 'regionTransfer', 'getDawTimeline', 'chatRecoveryKey'], __juce__platform: ['test'] },
     backend,
   } }
   const emit = data => [...subscriptions.values()].forEach(({ handler }) => handler(data))
@@ -66,6 +67,33 @@ test('chat writes, region export and timeline replies cannot cross-resolve', asy
   assert.deepEqual(await Promise.all([writes, exportAAF, timeline]),
     ['armed', '{"ok":true,"status":"saved"}', '{"bpm":120}'])
   assert.equal(mock.subscriptions.size, 0)
+})
+
+test('keychain and plugin calls share IDs and release JUCE subscription tuples',async t=>{
+  const mock=native(t)
+  const audio=callJuceNative('writeAudioFiles',['audio'])
+  const key=loadRememberedRecoveryCode('user')
+  assert.notEqual(mock.requests[0].resultId,mock.requests[1].resultId)
+  mock.reply(mock.requests[1],'value:private-test-value')
+  mock.reply(mock.requests[0],'armed')
+  assert.deepEqual(await Promise.all([audio,key]),['armed','private-test-value'])
+  assert.equal(mock.subscriptions.size,0)
+})
+
+test('keychain failures are not mistaken for a missing identity',async t=>{
+  const mock=native(t)
+  const result=loadRememberedRecoveryCode('user')
+  mock.reply(mock.requests[0],'error:keychain')
+  await assert.rejects(result,/keychain/)
+})
+
+test('native provisioning uses insert-only create and respects the existing winner',async t=>{
+  const mock=native(t)
+  const result=ensureRememberedRecoveryCode('user','candidate')
+  assert.deepEqual(mock.requests[0].params,['create','user','candidate'])
+  mock.reply(mock.requests[0],'value:existing')
+  assert.equal(await result,'existing')
+  assert.equal(mock.subscriptions.size,0)
 })
 
 test('save dialogs can remain open beyond the conversion deadline', async t => {

@@ -128,7 +128,7 @@ export const T = {
 
   // ───── Chat ─────────────────────────────────────────────────────────────
   'chat.placeholder':   { en: 'message',  ko: '메시지', ja: 'メッセージ', zh: '消息', es: 'mensaje', de: 'Nachricht', fr: 'message', hi: 'संदेश' },
-  'chat.fileExpired':   { en: 'expired — files last 7 days', ko: '만료됨 — 파일은 7일 동안 보관돼요', ja: '期限切れ — ファイルの保存期間は7日です', zh: '已过期 — 文件保留 7 天', es: 'expirado — los archivos duran 7 días', de: 'abgelaufen — Dateien halten 7 Tage', fr: 'expiré — les fichiers durent 7 jours', hi: 'समाप्त — फ़ाइलें 7 दिन रहती हैं' },
+  'chat.fileExpired':   { en: 'file expired', ko: '보관기간이 만료된 파일이에요', ja: 'ファイルの保存期限が切れました', zh: '文件保留期限已过', es: 'archivo caducado', de: 'Datei abgelaufen', fr: 'fichier expiré', hi: 'फ़ाइल की अवधि समाप्त हो गई' },
   'chat.messageWith':   { en: 'message {name}…', ko: '{name}에게 메시지…', ja: '{name}にメッセージ…', zh: '给 {name} 发消息…', es: 'mensaje a {name}…', de: 'Nachricht an {name}…', fr: 'message à {name}…', hi: '{name} को संदेश…' },
   'chat.noMessages':    { en: 'no messages yet — say hi', ko: '아직 메시지가 없어요 — 인사를 건네 보세요', ja: 'まだメッセージがありません — 声をかけてみて', zh: '还没有消息 — 打个招呼吧', es: 'aún no hay mensajes — saluda', de: 'noch keine Nachrichten — sag hallo', fr: 'pas encore de messages — dites bonjour', hi: 'अभी कोई संदेश नहीं — हाय कहें' },
   'chat.sendFailed':    { en: 'message didn\'t send. try again.', ko: '메시지가 전송되지 않았어요. 다시 시도해 주세요.', ja: 'メッセージを送信できませんでした。もう一度お試しください。', zh: '消息未发送，请重试。', es: 'el mensaje no se envió. inténtalo de nuevo.', de: 'Nachricht nicht gesendet. versuch es erneut.', fr: 'le message n’est pas parti. réessayez.', hi: 'संदेश नहीं भेजा गया। फिर से कोशिश करें।' },

@@ -209,7 +209,7 @@ export default function SettingsSheet({
           <span>·</span>
           <a href="mailto:wtsteven123@gmail.com?subject=copyright%20report">report copyright</a>
         </div>
-        <div className="sset-ver">orb {APP_VERSION}</div>
+        <div className="sset-ver">Slur {APP_VERSION}</div>
       </div>
     </div>
   )

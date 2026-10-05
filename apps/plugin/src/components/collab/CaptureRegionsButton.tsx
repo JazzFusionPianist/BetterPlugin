@@ -3,8 +3,8 @@ import { Layers } from 'lucide-react'
 import { captureRegionSelection, hasRegionBridge, useRegionHost } from '../../lib/dawRegionBridge'
 import { useT } from '../../i18n/LanguageContext'
 
-export default function CaptureRegionsButton({ onCapture, onError, className, logicOnly = false }: {
-  onCapture: (file: File) => Promise<void>; onError: (error: string) => void; className?: string; logicOnly?: boolean
+export default function CaptureRegionsButton({ onCapture, onError, className }: {
+  onCapture: (file: File) => Promise<void>; onError: (error: string) => void; className?: string
 }) {
   const [busy, setBusy] = useState(false)
   const running = useRef(false)
@@ -12,12 +12,12 @@ export default function CaptureRegionsButton({ onCapture, onError, className, lo
   const { t } = useT()
   const host = useRegionHost()
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
-  if (!hasRegionBridge() || (!host.proTools && !host.logic) || (logicOnly && !host.logic)) return null
+  if (!hasRegionBridge() || !host.proTools || host.logic) return null
   const capture = async () => {
     if (running.current) return
     running.current = true; setBusy(true)
     try {
-      const file = await captureRegionSelection(host.logic)
+      const file = await captureRegionSelection()
       if (mounted.current) await onCapture(file)
     } catch (error) {
       if (mounted.current) onError(error instanceof Error ? error.message : t('bundle.failed'))
@@ -27,7 +27,7 @@ export default function CaptureRegionsButton({ onCapture, onError, className, lo
     }
   }
   return <button type="button" className={className} disabled={busy} onClick={() => void capture()}
-    aria-label={t(host.logic ? 'bundle.captureLogic' : 'bundle.capture')} title={t(host.logic ? 'bundle.captureLogic' : 'bundle.capture')}>
+    aria-label={t('bundle.capture')} title={t('bundle.capture')}>
     {busy ? '...' : <Layers size={16} />}
   </button>
 }

@@ -129,7 +129,7 @@ export default function ListenPage() {
   return (
     <div className="ls-page">
       <header className="ls-top">
-        <a className="word" href="/"><span className="mark" />Orb</a>
+        <a className="word" href="/"><span className="mark" />Slur</a>
         <span className="ls-kicker">listen</span>
       </header>
 
@@ -179,7 +179,7 @@ export default function ListenPage() {
       </main>
 
       <footer className="ls-foot">
-        <span>sent from the daw with <a href="/">orb</a></span>
+        <span>sent from the daw with <a href="/">Slur</a></span>
         <span className="ls-foot-dim">links live seven days</span>
       </footer>
     </div>

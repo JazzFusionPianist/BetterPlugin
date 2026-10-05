@@ -110,6 +110,10 @@ export interface AttachmentTimelineMetadata {
 
 export interface Message {
   id: string
+  pending?: boolean
+  pendingState?: import('@orb/core/lib/privateChat.ts').DeliveryState
+  pendingReason?: import('@orb/core/lib/privateChat.ts').DeliveryReason|null
+  private?: boolean
   /** Owning conversation. Drives realtime filtering, RLS, and unread
    *  bookkeeping. Replaces the legacy `receiver_id` column — for DMs
    *  the partner is now derived via `conversation_members`. */
@@ -121,8 +125,8 @@ export interface Message {
   attachment_type?: AttachType | null
   attachment_name?: string | null
   attachment_metadata?: AttachmentTimelineMetadata | null
-  attachment_expires_at?: string | null   // ISO timestamp, 7 days after upload
-  attachment_expired?: boolean            // true once storage object is deleted
+  attachment_expires_at?: string | null   // Server-assigned deadline: free 7 days, paid 3 calendar months
+  attachment_expired?: boolean            // Retention deadline passed or storage deletion started
 }
 
 export type ConversationKind = 'dm' | 'group'

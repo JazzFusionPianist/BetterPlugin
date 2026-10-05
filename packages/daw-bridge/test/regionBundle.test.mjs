@@ -78,6 +78,32 @@ test('attachment round trip keeps all original asset URLs and full manifest', as
     assert.equal(readBundleAttachment([{ ...entries[0], url }, entries[1]]), null)
 })
 
+test('private and encrypted upload references survive bundle send and receive unchanged', async () => {
+  const prepared = await prepareRegionBundle([new File(['audio'], 'take.wav')])
+  for (const url of ['orb-file:private/user/asset.bin', `orb-file:private/user/asset.bin#e2ee=${'A'.repeat(43)}`]) {
+    const entries = await uploadRegionBundle(prepared, async file => ({ url, name: file.name }))
+    const received = readBundleAttachment(JSON.parse(JSON.stringify(entries)))
+    assert.deepEqual(received.bundle, prepared.bundle)
+    assert.equal(received.entries[0].url, url)
+  }
+})
+
+test('private references do not relax URL, path or encryption-fragment validation', async () => {
+  const prepared = await prepareRegionBundle([new File(['audio'], 'take.wav')])
+  const entries = await uploadRegionBundle(prepared, async file => ({ url: 'https://media.example/take.wav', name: file.name }))
+  for (const url of [
+    'orb-file:', 'orb-file:/private/a', 'orb-file://localhost/a', 'orb-file:a//b',
+    'orb-file:a/../b', 'orb-file:a/./b', 'orb-file:a/%2e%2e/b', 'orb-file:a\\b',
+    'orb-file:a?redirect=https://localhost', 'orb-file:a#unknown=secret',
+    'orb-file:a#e2ee=short', `orb-file:a#e2ee=${'A'.repeat(43)}&extra=1`,
+    'file:///tmp/take.wav', 'http://media.example/take.wav', 'blob:https://media.example/take',
+    'https://127.0.0.1/a', 'https://host.internal/a', 'https://user:pass@media.example/a',
+  ]) {
+    await assert.rejects(uploadRegionBundle(prepared, async file => ({ url, name: file.name })), /invalid audio URL/)
+    assert.equal(readBundleAttachment([{ ...entries[0], url }]), null)
+  }
+})
+
 test('track order, gaps, overlaps and source trims survive the import plan', () => {
   const plan = planRegionImport(fixture().bundle, 44100)
   assert.deepEqual(plan.map(t => t.name), ['Voice', 'Guitar'])

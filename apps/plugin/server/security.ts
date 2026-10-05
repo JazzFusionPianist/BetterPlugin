@@ -31,6 +31,7 @@ export async function rpc<T>(token: string, name: string, args: Record<string, u
     if (failure.code === 'P0001' && failure.message === 'Rate limit exceeded') throw new HttpError(429, 'Too many requests')
     if (res.status === 401) throw new HttpError(401, 'Session expired')
     if (failure.code === '42501' || res.status === 403) throw new HttpError(403, 'Access denied')
+    if (failure.code === 'P0002' && failure.message === 'Attachment expired') throw new HttpError(410, 'Attachment expired')
     if (failure.code === '22023') throw new HttpError(400, 'Invalid request')
     throw new HttpError(502, 'Database operation failed')
   }
@@ -97,4 +98,4 @@ export function objectUrl(key: string, storage: 'private' | 'public' | 'legacy')
   const bucket = storage === 'private' ? env('CLOUDFLARE_R2_PRIVATE_BUCKET') : env('CLOUDFLARE_R2_BUCKET')
   return `https://${env('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com/${encodeURIComponent(bucket)}/${key.split('/').map(encodeURIComponent).join('/')}`
 }
-export interface FileRecord { object_key: string; storage: 'private' | 'public' | 'legacy'; size: number; mime: string; name: string; status: string }
+export interface FileRecord { object_key: string; storage: 'private' | 'public' | 'legacy'; size: number; mime: string; name: string; status: string; retention_expires_at?:string|null }

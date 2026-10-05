@@ -1,21 +1,19 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.orb.app',
-  appName: 'Orb',
-  // Static export output; bundled into the native app as the offline
-  // fallback. During development `server.url` overrides this with the
-  // live dev server (hot reload inside the native shell).
+  appId: 'com.slur.app',
+  appName: 'Slur',
+  // Bundle the static web app so the installed app opens without a dev server.
   webDir: 'out',
-  server: {
-    // ── DEV: load the live Next dev server so edits hot-reload in the app.
-    //    iOS simulator can reach the Mac's localhost directly. For a real
-    //    device, swap to your Mac's LAN IP (e.g. http://192.168.x.x:3000).
-    //    Comment this whole `server` block out for a production build —
-    //    then the app serves the bundled `out/` instead.
-    url: 'http://localhost:3000',
-    cleartext: true,
-  },
+  // Android enables native HTTPS in MainActivity; iOS keeps its existing transport.
+  plugins: { CapacitorHttp: { enabled: false } },
+  // Optional live reload: CAPACITOR_DEV_SERVER_URL=http://localhost:3000 pnpm cap:sync
+  ...(process.env.CAPACITOR_DEV_SERVER_URL ? {
+    server: {
+      url: process.env.CAPACITOR_DEV_SERVER_URL,
+      cleartext: process.env.CAPACITOR_DEV_SERVER_URL.startsWith('http://'),
+    },
+  } : {}),
 }
 
 export default config

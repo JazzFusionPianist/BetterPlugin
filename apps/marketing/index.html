@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Orb — Make music together</title>
+<title>Slur — Make music together</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<!-- One unified font (DM Sans) for absolutely everything, Orb wordmark included. -->
+<!-- One unified font (DM Sans) for absolutely everything, Slur wordmark included. -->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -231,7 +231,7 @@
 <div class="shell">
   <!-- top -->
   <div class="top">
-    <span class="word"><span class="mark"></span>Orb</span>
+    <span class="word"><span class="mark"></span>Slur</span>
     <a href="#" class="login">Log in</a>
   </div>
 
@@ -248,7 +248,7 @@
   <!-- bottom -->
   <div class="bottom">
     <span class="meta"><span class="dot"></span> Early access · macOS</span>
-    <span>© 2026 Orb</span>
+    <span>© 2026 Slur</span>
   </div>
 </div>
 
@@ -260,7 +260,7 @@
     </button>
     <div class="modal-mark"></div>
     <div class="modal-title" id="auth-title">Welcome back</div>
-    <div class="modal-sub" id="auth-subtitle">Sign in to your Orb account.</div>
+    <div class="modal-sub" id="auth-subtitle">Sign in to your Slur account.</div>
 
     <form id="auth-form">
       <div class="field signup-only">
@@ -279,7 +279,7 @@
     </form>
 
     <div class="modal-foot" id="auth-foot">
-      <span id="auth-foot-text">New to Orb?</span>
+      <span id="auth-foot-text">New to Slur?</span>
       <button type="button" id="auth-toggle">Create account</button>
     </div>
   </div>
@@ -430,7 +430,7 @@ function setMode(m) {
   if (m === 'signup') {
     card.classList.remove('mode-signin'); card.classList.add('mode-signup');
     title.textContent  = 'Create your account';
-    sub.textContent    = 'Join Orb and bring your crew in.';
+    sub.textContent    = 'Join Slur and bring your crew in.';
     submit.textContent = 'Create account';
     footT.textContent  = 'Already have an account?';
     toggle.textContent = 'Sign in';
@@ -438,9 +438,9 @@ function setMode(m) {
   } else {
     card.classList.remove('mode-signup'); card.classList.add('mode-signin');
     title.textContent  = 'Welcome back';
-    sub.textContent    = 'Sign in to your Orb account.';
+    sub.textContent    = 'Sign in to your Slur account.';
     submit.textContent = 'Sign in';
-    footT.textContent  = 'New to Orb?';
+    footT.textContent  = 'New to Slur?';
     toggle.textContent = 'Create account';
     pw.setAttribute('autocomplete', 'current-password');
   }

@@ -58,7 +58,8 @@ public:
                 else
                 {
                     const auto started = juce::Time::getMillisecondCounterHiRes();
-                    const auto deadline = input["operation"].toString() == "exportTracks" ? 1800000
+                    const auto deadline = input["operation"].toString() == "inspectLogic" ? 10000
+                        : input["operation"].toString() == "exportTracks" ? 1800000
                         : input["operation"].toString().containsIgnoreCase ("logic") ? 600000 : 240000;
                     while (child.isRunning() && ! shouldExit()
                            && juce::Time::getMillisecondCounterHiRes() - started < deadline)
@@ -126,7 +127,7 @@ void DawRegionBridge::invoke (const juce::var& args, juce::WebBrowserComponent::
     { done (juce::var (errorResult ("Dialog-driven Logic restoration is disabled. Native timeline restoration is not supported."))); return; }
     if (operation != "inspect" && operation != "inspectTracks" && operation != "exportTracks"
         && operation != "capture" && operation != "import" && operation != "exportLogic"
-        && operation != "captureLogic")
+        && operation != "captureLogic" && operation != "inspectLogic")
     { done (juce::var (errorResult ("Unknown region request."))); return; }
     if (pool.getNumJobs() != 0)
     { done (juce::var (errorResult ("A region transfer is already running."))); return; }

@@ -409,8 +409,17 @@ OrbAudioProcessor::OrbAudioProcessor()
 #if JUCE_MAC
                     if (operation == "load" && args.size() == 2)
                     {
-                        const auto value = orb::deviceKeychain::load (user);
-                        done (value && validRecoveryCode (*value) ? "value:" + *value : "missing");
+                        bool missing = false;
+                        const auto value = orb::deviceKeychain::load (user, &missing);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : missing ? "missing" : "error:keychain");
+                        return;
+                    }
+                    if (operation == "create" && args.size() == 3)
+                    {
+                        const auto candidate = args[2].toString();
+                        if (! validRecoveryCode (candidate)) { done ("error:invalid"); return; }
+                        const auto value = orb::deviceKeychain::create (user, candidate);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : "error:keychain");
                         return;
                     }
                     if (operation == "store" && args.size() == 3)
@@ -643,7 +652,8 @@ OrbAudioProcessor::OrbAudioProcessor()
     // keeps serving a stale index.html (and so a stale bundle) across
     // fresh instances and even host restarts.
     loadCarriedPage();
-    askSiteForNewer();
+    // Keep private-chat code inside the installed app. A hosted-page timestamp
+    // must not replace code that can access the device's conversation keys.
 
     // Start polling the capture ring buffer and forwarding samples to JS.
     startTimer (20);
@@ -2657,6 +2667,9 @@ void OrbAudioProcessor::askSiteForNewer()
                     || (int) v.getProperty ("regionLuna", 0) < 1
                     || (int) v.getProperty ("stemDownloads", 0) < 1
                     || (int) v.getProperty ("regionPlacement", 0) < 1
+                    || (int) v.getProperty ("regionAudioDrag", 0) < 1
+                    || (int) v.getProperty ("accountChat", 0) < 1
+                    || (int) v.getProperty ("logicRegionPositions", 0) < 1
                     || v.getProperty ("trackExportPolicy", "").toString() != "pro-tools-only") return;
                 siteBuild = v.getProperty ("build", "").toString();
                 siteBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());

@@ -5,6 +5,7 @@ import { LanguageProvider } from '@/lib/games/i18n'
 import type { Profile } from '@/lib/games/types'
 import type { GameType } from '@/lib/games/gameRooms'
 import GameListView from './GameListView'
+import ArcadeLobby, { ArcadeContext } from './ArcadeLobby'
 import ChessView from './ChessView'
 import FallingBlocksView from './FallingBlocksView'
 import PokerView from './PokerView'
@@ -22,6 +23,8 @@ interface Props {
   screen: GameScreen
   onScreenChange: (s: GameScreen) => void
   onClose: () => void
+  /** Wide screens (the desktop studio): the arcade lobby and colour rooms. */
+  arcade?: boolean
 }
 
 /**
@@ -31,32 +34,31 @@ interface Props {
  * and realtime all ride the same Supabase tables, so a match started
  * in the plugin continues seamlessly here and vice versa.
  */
-export default function GamesPanel({ supabase, me, friends, screen, onScreenChange, onClose }: Props) {
+export default function GamesPanel({ supabase, me, friends, screen, onScreenChange, onClose, arcade = false }: Props) {
   const onlineIds = new Set(friends.filter((f) => f.isOnline).map((f) => f.id))
+  // Pinball is solo — no room to resume. Otherwise pick up an in-flight
+  // room of the chosen game if one exists.
+  const selectGame = async (g: GameScreen) => {
+    if (g !== 'pinball' && g !== 'orb_merge') {
+      const { findActiveGame } = await import('@/lib/games/gameRooms')
+      const active = await findActiveGame(supabase, me.id)
+      if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
+    }
+    onScreenChange(g)
+  }
   return (
     // Each game washes the whole page its own colour (wall-*), fx-room style.
-    <div className={`games-panel${screen !== 'list' ? ` wall-${screen}` : ''}`}>
+    <div className={`games-panel${arcade ? ' arcade-skin' : ''}${screen !== 'list' ? ` wall-${screen}` : ''}`}>
+      <ArcadeContext.Provider value={arcade}>
       <LanguageProvider>
-        {screen === 'list' && (
+        {screen === 'list' && arcade && <ArcadeLobby onSelectGame={selectGame} onClose={onClose} />}
+        {screen === 'list' && !arcade && (
           <button className="games-close" onClick={onClose} aria-label="Close games">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         )}
-        {screen === 'list' && (
-          <GameListView
-            inviteContext={null}
-            onSelectGame={async (g) => {
-              // Pinball is solo — no room to resume.
-              if (g !== 'pinball' && g !== 'orb_merge') {
-                // Resume an in-flight room of this game if one exists.
-                const { findActiveGame } = await import('@/lib/games/gameRooms')
-                const active = await findActiveGame(supabase, me.id)
-                if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
-              }
-              onScreenChange(g)
-            }}
-            onClose={onClose}
-          />
+        {screen === 'list' && !arcade && (
+          <GameListView inviteContext={null} onSelectGame={selectGame} onClose={onClose} />
         )}
         {screen === 'chess' && (
           <ChessView
@@ -124,6 +126,7 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
           />
         )}
       </LanguageProvider>
+      </ArcadeContext.Provider>
     </div>
   )
 }

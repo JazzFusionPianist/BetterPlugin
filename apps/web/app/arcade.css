@@ -1,0 +1,388 @@
+/* ═══ The arcade — wide-screen games ══════════════════════════════════════
+   Everything here hangs off `.games-panel.arcade-skin`, which only the
+   desktop studio turns on (GamesPanel's `arcade` prop). Phones never get
+   the class, so none of this reaches them.
+
+   The lobby is a row of arches, one flat colour per game. Choosing one
+   floods the room with that colour: the wall-* blocks below set the wall
+   and re-point the games' own tokens (--ink, --t2, --line…) so the ported
+   plugin styles follow without being rewritten. */
+
+/* ── lobby ─────────────────────────────────────────────────────────────── */
+.arcade {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: 36px 48px 40px;
+  font-family: var(--f-sans);
+  animation: gwall-view-in .5s ease both;
+}
+.arcade-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex: none; padding-bottom: 36px;
+}
+.arcade-title { font-size: 15px; font-weight: 500; color: #1A1917; text-transform: lowercase; }
+.arcade-close {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: 400 15px var(--f-sans); color: #6E6B63; text-transform: lowercase;
+}
+.arcade-close:hover { color: #1A1917; }
+.arcade-row {
+  flex: 1; min-height: 0;
+  display: flex; gap: 16px;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.arcade-row::-webkit-scrollbar { display: none; }
+.arcade-arch {
+  flex: 1 1 0; min-width: 132px; max-width: 196px;
+  display: flex; flex-direction: column; align-items: stretch;
+  background: none; border: none; padding: 0; cursor: pointer;
+  text-align: left; font-family: var(--f-sans);
+}
+.arcade-door {
+  flex: 1; min-height: 0; max-height: 620px;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 0 34px;
+  border-radius: 999px 999px 12px 12px;
+  transition: transform .34s cubic-bezier(.2, 1.3, .4, 1);
+}
+.arcade-object {
+  display: block; width: 83%; max-width: 132px; height: auto;
+  transition: transform .34s cubic-bezier(.2, 1.3, .4, 1);
+}
+.arcade-arch:hover .arcade-door { transform: translateY(-8px); }
+.arcade-arch:hover .arcade-object { transform: translateY(-6px) rotate(-3deg); }
+.arcade-arch:active .arcade-door { transform: translateY(-2px); }
+.arcade-name {
+  margin: 16px 2px 0;
+  font-size: 17px; font-weight: 500; line-height: 1.22; color: #1A1917;
+  text-transform: lowercase; white-space: nowrap;
+}
+.arcade-sub {
+  margin: 3px 2px 0;
+  font-size: 13px; line-height: 1.22; color: #6E6B63;
+  text-transform: lowercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── rooms: wall + tokens ──────────────────────────────────────────────── */
+.games-panel.arcade-skin { transition: background-color .5s ease; }
+.games-panel.arcade-skin.wall-yacht { --gwall: #F5B82E; }
+
+/* ink on the wall — green, gold, pink */
+.games-panel.arcade-skin:is(.wall-yacht) {
+  --paper: var(--gwall);
+  --card: transparent;
+  --ink: #1A1917;
+  --ar-on: #FBFAF7;                         /* words set on an ink pill */
+  --hair: rgba(26, 25, 23, 0.55);
+  --line: rgba(26, 25, 23, 0.18);
+  --t1: #1A1917;
+  --t2: rgba(26, 25, 23, 0.62);
+  --t3: rgba(26, 25, 23, 0.45);
+  --bg: var(--gwall);
+  --bg2: rgba(26, 25, 23, 0.07);
+  --bg3: rgba(26, 25, 23, 0.12);
+  --border: rgba(26, 25, 23, 0.2);
+  --border2: rgba(26, 25, 23, 0.4);
+  --mine-bg: #1A1917;
+  --mine-t: #FBFAF7;
+  --blue: #1A1917;                          /* the room has one ink; no second accent */
+  color: var(--ink);
+}
+
+/* ── rooms: shared chrome ──────────────────────────────────────────────── */
+.games-panel.arcade-skin[class*="wall-"] .game-view,
+.games-panel.arcade-skin[class*="wall-"] .game-view.no-chat-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  font-family: var(--f-sans);
+  animation: gwall-view-in .5s ease both;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-view .game-action-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 0 22px;
+  min-height: 0; flex: none;
+  padding: 36px 48px 0;
+  background: transparent; border: none;
+}
+/* back is a word */
+.games-panel.arcade-skin[class*="wall-"] .game-view .game-inline-back {
+  width: auto; height: auto; padding: 0; border-radius: 0;
+  background: none; color: var(--ink);
+  font: 500 15px var(--f-sans); text-transform: lowercase;
+  margin-right: auto;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-view .game-inline-back:hover { background: none; opacity: .65; }
+/* the game's name drops to its own line, top of the left column */
+.games-panel.arcade-skin[class*="wall-"] .game-view .game-action-status {
+  order: 3; flex: 0 0 100%;
+  max-width: none; margin: 44px 0 0;
+  justify-self: start; text-align: left;
+  font: 500 17px var(--f-sans); letter-spacing: 0; color: var(--ink);
+  text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-row-controls { gap: 22px; }
+/* header controls are words too */
+.games-panel.arcade-skin[class*="wall-"] .game-btn,
+.games-panel.arcade-skin[class*="wall-"] .game-btn.game-btn-danger {
+  background: none; border: none; border-radius: 0; padding: 0;
+  font: 400 15px var(--f-sans); color: var(--ink); opacity: .62;
+  text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-btn:hover { background: none; opacity: 1; }
+.games-panel.arcade-skin[class*="wall-"] .game-view .game-area {
+  max-width: none; width: 100%; margin: 0;
+  padding: 0; gap: 0; overflow: hidden;
+}
+
+/* the table talk — a quiet column on the right, the input is an outlined pill */
+.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat) {
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 24%, 300px);
+}
+.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat) .game-action-row { grid-column: 1 / -1; }
+.games-panel.arcade-skin[class*="wall-"] .game-view > .game-chat {
+  grid-column: 2; grid-row: 2;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  margin: 0; padding: 0 48px 48px 0; gap: 12px;
+  min-height: 0; max-height: none; flex-basis: auto;
+  background: none; border: none; border-radius: 0;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-chat-scroll { flex: 0 1 auto; max-height: none; min-height: 0; padding: 0; }
+.games-panel.arcade-skin[class*="wall-"] .game-chat-empty { display: none; }
+.games-panel.arcade-skin[class*="wall-"] .game-chat-msg {
+  background: none; border: none; padding: 0; margin: 0 0 10px; max-width: none;
+  align-self: stretch; text-align: left;
+  font: 400 15px/1.35 var(--f-sans); color: var(--ink);
+}
+.games-panel.arcade-skin[class*="wall-"] .game-chat-meta-name { font: 500 15px var(--f-sans); color: var(--ink); font-style: normal; }
+.games-panel.arcade-skin[class*="wall-"] .game-chat-inputrow {
+  height: 48px; padding: 0 20px; gap: 10px;
+  border: 1.5px solid var(--ink); border-radius: 999px; background: none;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-chat-input {
+  background: none; border: none; padding: 0; height: 100%;
+  font: 400 15px var(--f-sans); color: var(--ink);
+}
+.games-panel.arcade-skin[class*="wall-"] .game-chat-input::placeholder { color: var(--t3); }
+.games-panel.arcade-skin[class*="wall-"] .game-chat-send {
+  background: none; border: none; padding: 0; height: auto; border-radius: 0;
+  font: 500 15px var(--f-sans); color: var(--ink); text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-chat-send:disabled { opacity: .4; }
+
+/* pills — the filled one is the next move, outlines are the rest */
+.games-panel.arcade-skin[class*="wall-"] .game-invite-btn {
+  width: 100%; height: 64px; padding: 0 28px;
+  border-radius: 999px; border: none;
+  background: var(--ink); color: var(--ar-on);
+  font: 500 17px var(--f-sans); text-transform: lowercase;
+  transition: transform .12s ease, opacity .15s ease;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-invite-btn:hover { background: var(--ink); opacity: .86; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-btn:active { transform: scale(.98); }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-btn.game-computer-btn {
+  background: none; color: var(--ink);
+  border: 1.5px solid var(--ink);
+}
+.games-panel.arcade-skin[class*="wall-"] .game-invite-btn.game-computer-btn:hover { background: var(--bg2); opacity: 1; }
+/* how many at the table — one pill cut into cells, the chosen one filled */
+.games-panel.arcade-skin[class*="wall-"] .game-computer-picker,
+.games-panel.arcade-skin[class*="wall-"] .game-count-picker {
+  flex-wrap: nowrap; gap: 0; padding: 3px;
+  border: 1.5px solid var(--ink); border-radius: 999px;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-computer-count,
+.games-panel.arcade-skin[class*="wall-"] .game-count-btn {
+  flex: 1; min-width: 0; height: 44px; padding: 0;
+  border: none; border-radius: 999px; background: none;
+  font: 500 15px var(--f-sans); color: var(--t2);
+}
+.games-panel.arcade-skin[class*="wall-"] .game-computer-count:hover,
+.games-panel.arcade-skin[class*="wall-"] .game-count-btn:hover { background: none; color: var(--ink); }
+.games-panel.arcade-skin[class*="wall-"] .game-computer-count.selected,
+.games-panel.arcade-skin[class*="wall-"] .game-count-btn.active {
+  background: var(--ink); color: var(--ar-on);
+}
+
+/* before / after play — no card: the name large on the left, the choices on the right */
+.games-panel.arcade-skin[class*="wall-"] .game-finish-overlay {
+  background: none; backdrop-filter: none;
+  align-items: stretch; justify-content: stretch;
+  padding: 0 48px 48px;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-finish-card {
+  flex: 1; min-width: 0; max-width: none;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 372px);
+  column-gap: 48px; row-gap: 0;
+  align-content: center; align-items: center;
+  padding: 0; background: none; border: none; border-radius: 0; box-shadow: none;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-finish-card > * { grid-column: 2; margin-top: 12px; }
+.games-panel.arcade-skin[class*="wall-"] .game-finish-card > .game-finish-title {
+  grid-column: 1; grid-row: 1 / span 12; align-self: center; margin: 0;
+  text-align: left;
+  font: 500 clamp(64px, 8.6vw, 112px)/1 var(--f-sans); letter-spacing: -0.04em;
+  color: var(--ink); text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-finish-readystate {
+  font-size: 13px; color: var(--t2); text-align: center; text-transform: lowercase;
+}
+
+/* world ranking — a plain list */
+.games-panel.arcade-skin[class*="wall-"] .pb-lb { width: 100%; margin: 0 0 12px; }
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-title {
+  font: 500 15px var(--f-sans); color: var(--ink); text-transform: lowercase; letter-spacing: 0;
+  border: none; padding: 0 0 8px;
+}
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-rows > * { border: none; min-height: 30px; font-size: 15px; }
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-mine { font-size: 13px; color: var(--t2); }
+
+/* ── yacht dice ────────────────────────────────────────────────────────── */
+/* three columns: the score on the left, the dice in the middle, the sheet
+   always open on the right. .yacht-stage dissolves so its shelf, table and
+   buttons can sit in different columns. */
+.games-panel.arcade-skin.wall-yacht .game-board-wrap.fill { height: 100%; }
+.games-panel.arcade-skin.wall-yacht .yacht-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(300px, 1.6fr) minmax(220px, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr) auto;
+  column-gap: 32px; row-gap: 0;
+  align-items: start; justify-items: start;
+  padding: 4px 48px 48px; overflow: visible;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-stage { display: contents; }
+
+.games-panel.arcade-skin.wall-yacht .yacht-topline {
+  grid-column: 1; grid-row: 1;
+  flex-direction: column; align-items: flex-start; justify-content: flex-start;
+  gap: 0; max-width: none;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-round {
+  order: -1; font-size: 15px; color: var(--t2);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip { font-size: 15px; color: var(--t2); gap: 8px; }
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip em { font: 400 15px var(--f-sans); letter-spacing: 0; }
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip b { font-weight: 500; }
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip.turn em { color: var(--ink); font-style: normal; font-weight: 500; }
+/* my own total is the numeral */
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip.me { order: 0; margin: 2px 0 10px -6px; }
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip.me em { display: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip.me b {
+  font: 500 clamp(96px, 12vw, 168px)/1 var(--f-sans); letter-spacing: -0.04em; color: var(--ink);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-total-chip:not(.me) { order: 1; }
+.games-panel.arcade-skin.wall-yacht .yacht-status {
+  grid-column: 1; grid-row: 2; max-width: none; padding: 10px 0 0;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-status-line {
+  font: 500 15px var(--f-sans); letter-spacing: 0; color: var(--t2);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-status-line.mine { color: var(--ink); }
+
+/* the shelf — kept dice stand on one drawn line */
+.games-panel.arcade-skin.wall-yacht .yacht-shelf {
+  grid-column: 2; grid-row: 1 / 4; align-self: end;
+  width: 100%; max-width: 460px; justify-self: center; align-items: stretch;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-shelf-label,
+.games-panel.arcade-skin.wall-yacht .yacht-shelf-hint { display: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-shelf-dice {
+  min-height: clamp(64px, 9vh, 96px); min-width: 0;
+  justify-content: flex-start; align-items: flex-end; gap: 10px;
+  padding: 0 0 6px;
+  border-bottom: 2px solid var(--ink);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-table-dice {
+  grid-column: 2; grid-row: 4 / 6; align-self: start;
+  width: 100%; max-width: 460px; justify-self: center;
+  min-height: 120px; gap: clamp(10px, 2vw, 26px); padding-top: clamp(24px, 5vh, 48px);
+}
+/* flat dice: paper with ink pips, no line, no cast shadow */
+.games-panel.arcade-skin.wall-yacht .yacht-die,
+.games-panel.arcade-skin.wall-yacht .yacht-shelf-dice .yacht-die {
+  flex: 0 1 84px; min-width: 0; width: auto; height: auto; aspect-ratio: 1;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-die.held { transform: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-die-body svg { filter: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-die-shadow { display: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-die rect { fill: #FBFAF7; stroke: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-die circle { fill: #1A1917; }
+.games-panel.arcade-skin.wall-yacht .yacht-die.blank rect {
+  fill: none; stroke: #1A1917; stroke-opacity: .4; stroke-width: 2; stroke-dasharray: 3 8; stroke-linecap: round;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-die:not(:disabled):hover .yacht-die-body { translate: 0 -4px; }
+.games-panel.arcade-skin.wall-yacht .yacht-die-body { transition: translate .18s cubic-bezier(.2, 1.3, .4, 1); }
+
+/* roll — the one filled pill; the dots are the rolls left */
+.games-panel.arcade-skin.wall-yacht .yacht-actions {
+  grid-column: 1; grid-row: 5; align-self: end; gap: 12px;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-roll-btn {
+  height: 60px; min-width: 184px; padding: 0 28px 0 30px;
+  justify-content: space-between; gap: 28px;
+  background: var(--ink); color: var(--ar-on);
+  border-radius: 999px;
+  font: 500 17px var(--f-sans);
+  transition: transform .12s ease, opacity .15s ease;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-roll-btn:hover:not(:disabled) { background: var(--ink); opacity: .86; }
+.games-panel.arcade-skin.wall-yacht .yacht-roll-btn:active:not(:disabled) { transform: scale(.97); }
+.games-panel.arcade-skin.wall-yacht .yacht-roll-pips { gap: 7px; }
+.games-panel.arcade-skin.wall-yacht .yacht-roll-pip {
+  width: 9px; height: 9px; box-sizing: border-box;
+  background: none; border: 1.5px solid var(--ar-on);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-roll-pip.on { background: var(--ar-on); }
+/* the sheet is already open — nothing to summon */
+.games-panel.arcade-skin.wall-yacht .yacht-write-btn,
+.games-panel.arcade-skin.wall-yacht .yacht-ledger-veil,
+.games-panel.arcade-skin.wall-yacht .yacht-ledger-head { display: none; }
+
+/* the score sheet */
+.games-panel.arcade-skin.wall-yacht .yacht-ledger {
+  grid-column: 3; grid-row: 1 / 6; align-self: stretch; justify-self: stretch;
+  position: static; width: auto; max-height: none;
+  transform: none; opacity: 1; pointer-events: auto; transition: none;
+  background: none; border: none; border-radius: 0; box-shadow: none; padding: 0;
+  min-height: 0; max-width: 300px; width: 100%; justify-self: end;
+  overflow-y: auto; scrollbar-width: none;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-card,
+.games-panel.arcade-skin.wall-yacht .yacht-ledger .yacht-card { max-width: none; border-top: none; overflow: visible; flex: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-head,
+.games-panel.arcade-skin.wall-yacht .yacht-card-row { border-bottom: none; min-height: clamp(25px, 4.1vh, 36px); gap: 6px; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-cat {
+  font: 400 15px var(--f-sans); letter-spacing: 0; color: var(--t2);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-card-cat em { font-size: 13px; color: var(--t3); }
+.games-panel.arcade-skin.wall-yacht .yacht-card-player {
+  width: 62px; text-align: right;
+  font: 400 13px var(--f-sans); letter-spacing: 0; color: var(--t2);
+}
+.games-panel.arcade-skin.wall-yacht .yacht-card-player.turn,
+.games-panel.arcade-skin.wall-yacht .yacht-card-player.me { color: var(--ink); font-style: normal; font-weight: 500; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell {
+  width: 62px; text-align: right; padding: 0;
+  font: 500 15px var(--f-sans); color: var(--ink);
+}
+/* an empty line stays empty — no placeholder mark */
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.open { font-size: 0; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.filled.zero { color: var(--t3); text-decoration: none; }
+/* what this throw would score, waiting to be taken */
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.pick {
+  border: none; border-radius: 999px; font-style: normal;
+  color: var(--ink); opacity: .34; cursor: pointer;
+  transition: opacity .12s ease;
+}
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.pick.zero { opacity: .2; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row:has(.pick) { cursor: pointer; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row:has(.pick):hover .yacht-card-cell.pick,
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.pick:hover { opacity: 1; background: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row:has(.pick):hover .yacht-card-cat { color: var(--ink); }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row.bonus .yacht-card-cell { font-size: 13px; font-weight: 400; color: var(--t3); }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row.bonus .yacht-card-cell.bonus-hit { color: var(--ink); font-weight: 500; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row.total { border-top: 2px solid var(--ink); margin-top: 8px; padding-top: 6px; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row.total .yacht-card-cat { color: var(--ink); font-weight: 500; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row.total .yacht-card-cell { font-size: 15px; font-weight: 500; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-cell.stamped { color: var(--ink); }

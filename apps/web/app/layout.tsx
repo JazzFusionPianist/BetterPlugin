@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import './games.css'
+import './arcade.css'
 
 export const metadata: Metadata = {
   title: 'Slur Studio',

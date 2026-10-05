@@ -1100,7 +1100,7 @@
 .wd-stage.web .wd { border-radius: 22px; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(26,25,23,.28), 0 0 0 1px rgba(26,25,23,.06); }
 .wd-stage.web .wd-rail { border-radius: 22px 0 0 22px; }
 /* the games panel set into the pane */
-.wd-main .wd-games-host .games-panel { background: #FBFAF7; }
+.wd-main .wd-games-host .games-panel:not([class*="wall-"]) { background: #FBFAF7; }
 .wd-main .wd-games-host .games-panel .float-orbs-layer { display: none; }
 .wd-main .wd-games-host .game-cd-hover-label { background: #1A1917; color: #FBFAF7; border: none; border-radius: 999px; padding: 6px 14px; box-shadow: none; backdrop-filter: none; }
 .wd-main .wd-games-host .game-cd-hover-title { color: #FBFAF7; }
@@ -1286,3 +1286,23 @@
 .sc-wt-now::before { content: ''; position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: #1A1917; }
 .sc-wt-ev.slim { padding-left: 7px; padding-right: 3px; }
 .sc-wt-ev.slim em { display: none; }   /* three or more side by side: the title alone (the time is the block's place) */
+
+/* ── month: washes, like the week ──
+   An event is a pill washed in its category's colour with a bar down its
+   edge and the hour small before the title; an all-day one is the fuller
+   pill. The cells keep the rules they had. */
+.sc-cell, .wd .sc-cell { gap: 2px; }
+.sc-ev { position: relative; flex-shrink: 0; display: flex; align-items: center; gap: 5px; min-width: 0; height: 17px; padding: 0 6px 0 8px; border-radius: 6px; overflow: hidden; }
+.sc-ev::before { content: ''; position: absolute; inset: 0; background: var(--c); opacity: .2; }
+.sc-ev::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2.5px; background: var(--c); }
+.sc-ev em, .sc-ev b { position: relative; white-space: nowrap; }
+.sc-ev em { flex-shrink: 0; font-style: normal; font-size: 9.5px; color: #6E6B63; font-variant-numeric: tabular-nums; }
+.sc-ev b { flex: 1; min-width: 0; font-size: 10.5px; font-weight: 500; color: #1A1917; overflow: hidden; text-overflow: ellipsis; }
+.sc-ev.all { border-radius: 9px; }
+.sc-ev.all::before { opacity: .55; }
+.sc-ev.all::after { display: none; }
+.sc-cell.out .sc-ev { opacity: .45; }
+.sc-cell.sel .sc-ev { background: rgba(255,255,255,.78); }
+.sc-cell.sel .sc-ev::before { opacity: 0; }
+.sc-cell.sel .sc-ev.all::before { opacity: .45; }
+.sc-cell .sc-more { padding-left: 8px; }

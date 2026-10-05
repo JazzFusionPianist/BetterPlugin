@@ -1284,3 +1284,5 @@
 .sc-wt-ev.short b { font-size: 10px; }
 .sc-wt-now { position: absolute; left: 0; right: 0; height: 0; border-top: 1.2px solid #1A1917; pointer-events: none; }
 .sc-wt-now::before { content: ''; position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: #1A1917; }
+.sc-wt-ev.slim { padding-left: 7px; padding-right: 3px; }
+.sc-wt-ev.slim em { display: none; }   /* three or more side by side: the title alone (the time is the block's place) */

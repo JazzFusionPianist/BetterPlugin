@@ -308,7 +308,7 @@ export default function StudioCalendar({
                         {placeDay(byDay.get(k) ?? []).map(({ e, start, end, lane, lanes }) => {
                           const h = (end - start) / 60 * HOUR_PX - 2
                           return (
-                            <button key={e.id} className={`sc-wt-ev${h < 34 ? ' short' : ''}`} title={`${hhmm(start)} ${e.title}`}
+                            <button key={e.id} className={`sc-wt-ev${h < 34 ? ' short' : ''}${lanes >= 3 ? ' slim' : ''}`} title={`${hhmm(start)} ${e.title}`}
                               style={{ top: start / 60 * HOUR_PX + 1, height: h, left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - ${lanes > 1 ? 4 : 6}px)`, '--c': e.category_color || DEFAULT_COLOR } as React.CSSProperties}
                               onClick={ev => { ev.stopPropagation(); open(k, e.id) }}>
                               <em>{hhmm(start)}</em><b>{e.title}</b>

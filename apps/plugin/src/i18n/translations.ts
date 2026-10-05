@@ -155,6 +155,20 @@ export const T = {
   'addFriend.loadMore':      { en: 'load more', ko: '더 보기', ja: 'もっと見る', zh: '加载更多', es: 'cargar más', de: 'mehr laden', fr: 'charger plus', hi: 'और लोड करें' },
 
   // ───── Game list ────────────────────────────────────────────────────────
+  // the arcade lobby's line under each name — short, commas not dots
+  'arcade.chess': { en: "with a friend", ko: "친구와 한 판", ja: "友達と一局", zh: "与好友对弈", es: "con un amigo", de: "mit einem Freund", fr: "avec un ami", hi: "दोस्त के साथ" },
+  'arcade.fallingBlocks': { en: "2 to 4 players", ko: "2~4인", ja: "2〜4人", zh: "2 至 4 人", es: "2 a 4 jugadores", de: "2 bis 4 Spieler", fr: "2 à 4 joueurs", hi: "2 से 4 खिलाड़ी" },
+  'arcade.poker': { en: "texas hold'em", ko: "텍사스 홀덤", ja: "テキサスホールデム", zh: "德州扑克", es: "texas hold’em", de: "Texas Hold’em", fr: "texas hold’em", hi: "टेक्सास होल्ड’एम" },
+  'arcade.pinball': { en: "solo, world ranking", ko: "혼자서, 월드 랭킹", ja: "ソロ、世界ランキング", zh: "单人，世界排名", es: "solo, ranking mundial", de: "solo, Weltrangliste", fr: "solo, classement mondial", hi: "सोलो, विश्व रैंकिंग" },
+  'arcade.yacht': { en: "roll, hold, score", ko: "굴리고, 킵하고, 채우고", ja: "振って、残して、埋める", zh: "掷骰，保留，计分", es: "tira, guarda, anota", de: "würfeln, halten, punkten", fr: "lance, garde, marque", hi: "रोल, होल्ड, स्कोर" },
+  'arcade.orbMerge': { en: "drop and merge", ko: "떨어뜨려 합치기", ja: "落として合体", zh: "掉落并合并", es: "suelta y fusiona", de: "fallen lassen, fusionieren", fr: "lâche et fusionne", hi: "गिराओ और मिलाओ" },
+  'arcade.earTraining': { en: "intervals and chords", ko: "음정과 화음", ja: "音程と和音", zh: "音程与和弦", es: "intervalos y acordes", de: "Intervalle und Akkorde", fr: "intervalles et accords", hi: "अंतराल और कॉर्ड" },
+  'arcade.sudoku': { en: "solo, easy to hard", ko: "혼자서, 난이도 선택", ja: "ソロ、難易度を選ぶ", zh: "单人，难度可选", es: "solo, de fácil a difícil", de: "solo, leicht bis schwer", fr: "solo, de facile à difficile", hi: "सोलो, आसान से कठिन" },
+  'arcade.minesweeper': { en: "solo, easy to hard", ko: "혼자서, 난이도 선택", ja: "ソロ、難易度を選ぶ", zh: "单人，难度可选", es: "solo, de fácil a difícil", de: "solo, leicht bis schwer", fr: "solo, de facile à difficile", hi: "सोलो, आसान से कठिन" },
+  'arcade.solitaire': { en: "klondike", ko: "클론다이크", ja: "クロンダイク", zh: "克朗代克", es: "klondike", de: "Klondike", fr: "klondike", hi: "क्लोंडाइक" },
+  'arcade.connect4': { en: "four in a row", ko: "넷을 이어라", ja: "四つ並べる", zh: "四子连线", es: "cuatro en raya", de: "vier in einer Reihe", fr: "quatre à la suite", hi: "चार एक कतार में" },
+  'arcade.gomoku': { en: "five in a row", ko: "다섯을 이어라", ja: "五つ並べる", zh: "五子连线", es: "cinco en raya", de: "fünf in einer Reihe", fr: "cinq à la suite", hi: "पाँच एक कतार में" },
+  'arcade.reversi': { en: "flank and flip", ko: "끼워서 뒤집기", ja: "挟んで返す", zh: "夹住并翻转", es: "rodea y voltea", de: "einschließen, umdrehen", fr: "encadre et retourne", hi: "घेरो और पलटो" },
   'game.games':              { en: 'games',          ko: '게임',          ja: 'ゲーム',         zh: '游戏',      es: 'juegos',         de: 'Spiele',          fr: 'jeux',           hi: 'खेल' },
   'game.chess':              { en: 'chess',          ko: '체스',          ja: 'チェス',         zh: '国际象棋',  es: 'ajedrez',        de: 'Schach',          fr: 'échecs',         hi: 'शतरंज' },
   'game.fallingBlocks':      { en: 'falling blocks', ko: '폴링 블록',     ja: 'フォーリングブロック', zh: '方块下落',  es: 'bloques que caen', de: 'fallende Blöcke', fr: 'blocs qui tombent', hi: 'गिरते ब्लॉक' },

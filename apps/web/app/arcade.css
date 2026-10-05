@@ -26,15 +26,19 @@
   font: 400 15px var(--f-sans); color: #6E6B63; text-transform: lowercase;
 }
 .arcade-close:hover { color: #1A1917; }
-.arcade-row {
+.arcade, .arcade * { box-sizing: border-box; }
+/* a scrolling row clips what leaves it, so the row keeps 14px of its own
+   headroom for the arches to rise into on hover */
+.arcade .arcade-row {
   flex: 1; min-height: 0;
   display: flex; gap: 16px;
+  padding-top: 14px; margin-top: -14px;
   overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none;
 }
 .arcade-row::-webkit-scrollbar { display: none; }
 .arcade-arch {
-  flex: 1 1 0; min-width: 104px; max-width: 196px;
+  flex: 1 1 0; min-width: 116px; max-width: 196px;
   display: flex; flex-direction: column; align-items: stretch;
   background: none; border: none; padding: 0; cursor: pointer;
   text-align: left; font-family: var(--f-sans);
@@ -53,15 +57,16 @@
 .arcade-arch:hover .arcade-door { transform: translateY(-8px); }
 .arcade-arch:hover .arcade-object { transform: translateY(-6px) rotate(-3deg); }
 .arcade-arch:active .arcade-door { transform: translateY(-2px); }
-.arcade-name {
+/* (two classes: the studio's `.wd * { margin: 0 }` would win over one) */
+.arcade .arcade-name {
   margin: 16px 2px 0;
   font-size: 17px; font-weight: 500; line-height: 1.22; color: #1A1917;
   text-transform: lowercase; white-space: nowrap;
 }
-.arcade-sub {
+.arcade .arcade-sub {
   margin: 3px 2px 0;
   font-size: 13px; line-height: 1.22; color: #6E6B63;
-  text-transform: lowercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-transform: lowercase;                 /* a long line wraps; it is never cut with dots */
 }
 
 /* ── rooms: wall + tokens ──────────────────────────────────────────────── */
@@ -166,10 +171,10 @@
 }
 
 /* the table talk — a quiet column on the right, the input is an outlined pill */
-.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat) {
+.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat:not(.no-room)) {
   grid-template-columns: minmax(0, 1fr) clamp(220px, 24%, 300px);
 }
-.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat) .game-action-row { grid-column: 1 / -1; }
+.games-panel.arcade-skin[class*="wall-"] .game-view:has(> .game-chat:not(.no-room)) .game-action-row { grid-column: 1 / -1; }
 .games-panel.arcade-skin[class*="wall-"] .game-view > .game-chat {
   grid-column: 2; grid-row: 2;
   display: flex; flex-direction: column; justify-content: flex-end;
@@ -255,6 +260,7 @@
   grid-column: 1; grid-row: 1 / span 12; align-self: center; margin: 0;
   text-align: left;
   font: 500 clamp(64px, 8.6vw, 112px)/1 var(--f-sans); letter-spacing: -0.04em;
+  font-size: clamp(56px, 9.2cqw, 112px);     /* sized to the room, not the window */
   color: var(--ink); text-transform: lowercase;
 }
 .games-panel.arcade-skin[class*="wall-"] .game-finish-readystate {
@@ -732,7 +738,7 @@
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-action-row > * { pointer-events: auto; }
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-action-status { pointer-events: none; }
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-area { grid-column: 1; grid-row: 1 / -1; }
-.games-panel.arcade-skin.wall-falling_blocks .game-view:has(> .game-chat) .game-area { grid-column: 1 / -1; }
+.games-panel.arcade-skin.wall-falling_blocks .game-view:has(> .game-chat:not(.no-room)) .game-area { grid-column: 1 / -1; }
 .games-panel.arcade-skin.wall-falling_blocks .game-board-wrap.fill { height: 100%; }
 .games-panel.arcade-skin.wall-falling_blocks .falling-blocks-game-layout {
   --fbh: 82vh;
@@ -795,7 +801,8 @@
 }
 .games-panel.arcade-skin.wall-falling_blocks .fb-next { order: -1; }
 .games-panel.arcade-skin.wall-falling_blocks .fb-rail-label { font: 400 13px var(--f-sans); letter-spacing: 0; color: var(--t2); }
-.games-panel.arcade-skin.wall-falling_blocks .fb-rail-level { display: none; }   /* the level sits with the score */
+.games-panel.arcade-skin.wall-falling_blocks .fb-rail-level { flex-direction: row; align-items: baseline; gap: 8px; }
+.games-panel.arcade-skin.wall-falling_blocks .fb-rail-level-num { font: 500 15px var(--f-sans); color: var(--ink); }
 .games-panel.arcade-skin.wall-falling_blocks .fb-next-queue { align-items: flex-start; gap: 18px; overflow: visible; }
 .games-panel.arcade-skin.wall-falling_blocks .fb-rail-piece { min-height: 36px; justify-content: flex-start; }
 .games-panel.arcade-skin.wall-falling_blocks .falling-blocks-rail .falling-blocks-next-piece { zoom: 1.9; }
@@ -840,7 +847,7 @@
   grid-template-rows: minmax(0, 1fr); column-gap: 24px;
   padding: 0 48px 48px;
 }
-.games-panel.arcade-skin.wall-ear_training .game-view:has(> .game-chat) .game-area { grid-column: 1 / -1; }
+.games-panel.arcade-skin.wall-ear_training .game-view:has(> .game-chat:not(.no-room)) .game-area { grid-column: 1 / -1; }
 .games-panel.arcade-skin.wall-ear_training .game-above,
 .games-panel.arcade-skin.wall-ear_training .game-below {
   display: block; grid-row: 1; align-self: start; width: auto; max-width: none; margin: 0;
@@ -1034,3 +1041,23 @@
 .games-panel.arcade-skin[class*="wall-"] :is(.chess-promo-modal, .chess-promo-modal-inner) { border-radius: 28px; padding: 22px; }
 .games-panel.arcade-skin[class*="wall-"] .chess-promo-choice { width: 64px; height: 64px; border-radius: 16px; background: rgba(26, 25, 23, 0.06); border: none; }
 .games-panel.arcade-skin[class*="wall-"] .chess-promo-choice:hover { background: #F5B82E; }
+
+/* ── the room's object, standing over its name before and after play ──── */
+.games-panel.arcade-skin.wall-chess { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Ccircle cx='60' cy='40' r='23' fill='%23FBFAF7'/%3E%3Crect x='36' y='62' width='48' height='10' rx='5' fill='%23FBFAF7'/%3E%3Cpath d='M45 72 C45 104 33 116 28 134 H92 C87 116 75 104 75 72 Z' fill='%23FBFAF7'/%3E%3Crect x='18' y='132' width='84' height='18' rx='9' fill='%23FBFAF7'/%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-falling_blocks { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Crect x='1' y='121' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='31' y='121' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='61' y='121' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='91' y='121' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='1' y='91' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='31' y='91' width='28' height='28' rx='6' fill='%23FBFAF7'/%3E%3Crect x='91' y='61' width='28' height='28' rx='6' fill='%231A1917'/%3E%3Crect x='91' y='31' width='28' height='28' rx='6' fill='%231A1917'/%3E%3Crect x='61' y='31' width='28' height='28' rx='6' fill='%231A1917'/%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-poker { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Crect x='12' y='56' width='62' height='88' rx='9' fill='%231A1917' transform='rotate(-11 43 100)'/%3E%3Cg transform='rotate(7 81 100)'%3E%3Crect x='50' y='54' width='62' height='90' rx='9' fill='%23FBFAF7'/%3E%3Cpath transform='translate(81 102) scale(1.15)' fill='%23D6402E' d='M0 9 C-16 -3 -13 -15 -6 -15 C-2.5 -15 0 -12.5 0 -9.5 C0 -12.5 2.5 -15 6 -15 C13 -15 16 -3 0 9 Z'/%3E%3C/g%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-pinball { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Cpath d='M20 48 A40 40 0 0 1 100 48' stroke='%23FBFAF7' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='60' cy='66' r='17' fill='%23FBFAF7'/%3E%3Cpath d='M12 116 L50 136' stroke='%231A1917' stroke-width='16' stroke-linecap='round'/%3E%3Cpath d='M108 116 L70 136' stroke='%231A1917' stroke-width='16' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-yacht { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Crect x='4' y='88' width='62' height='62' rx='14' fill='%23FBFAF7'/%3E%3Ccircle cx='20' cy='104' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='50' cy='104' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='35' cy='119' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='20' cy='134' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='50' cy='134' r='5.5' fill='%231A1917'/%3E%3Cg transform='rotate(12 87 53)'%3E%3Crect x='56' y='22' width='62' height='62' rx='14' fill='%23FBFAF7'/%3E%3Ccircle cx='72' cy='38' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='87' cy='53' r='5.5' fill='%231A1917'/%3E%3Ccircle cx='102' cy='68' r='5.5' fill='%231A1917'/%3E%3C/g%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-orb_merge { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Ccircle cx='40' cy='114' r='36' fill='%23FBFAF7'/%3E%3Ccircle cx='98' cy='128' r='22' fill='%231A1917'/%3E%3Ccircle cx='86' cy='82' r='12' stroke='%23FBFAF7' stroke-width='5' fill='none'/%3E%3Ccircle cx='52' cy='34' r='9' fill='%23FBFAF7'/%3E%3C/svg%3E"); }
+.games-panel.arcade-skin.wall-ear_training { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Cellipse cx='32' cy='128' rx='18' ry='12' transform='rotate(-20 32 128)' stroke='%23FBFAF7' stroke-width='9' fill='none'/%3E%3Cellipse cx='88' cy='104' rx='18' ry='12' transform='rotate(-20 88 104)' stroke='%23FBFAF7' stroke-width='9' fill='none'/%3E%3Cpath d='M14 98 C28 58 70 44 104 70' stroke='%23F5B82E' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E"); }
+.games-panel.arcade-skin[class*="wall-"] .game-finish-card > .game-finish-title::before {
+  content: ''; display: block;
+  width: clamp(120px, 15vw, 204px); aspect-ratio: 120 / 150; margin: 0 0 clamp(10px, 2vh, 22px) 4px;
+  background: var(--ar-object) no-repeat left bottom / contain;
+}
+/* a room is not a page of text: nothing in it selects, except what you type */
+.games-panel.arcade-skin[class*="wall-"] .game-view { user-select: none; -webkit-user-select: none; }
+.games-panel.arcade-skin[class*="wall-"] .game-view :is(input, textarea) { user-select: text; -webkit-user-select: text; }
+
+.games-panel.arcade-skin.wall-yacht .yacht-card-head:not(:has(.yacht-card-player + .yacht-card-player)) { display: none; }
+.games-panel.arcade-skin.wall-yacht .yacht-card-row:has(.yacht-card-cell.filled) .yacht-card-cat { color: var(--ink); font-weight: 500; }

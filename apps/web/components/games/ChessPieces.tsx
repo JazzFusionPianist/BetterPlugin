@@ -102,6 +102,42 @@ export function PieceGlyph({ piece, size }: { piece: string; size?: number | str
   )
 }
 
+// ── Drag ghost ───────────────────────────────────────────────────────────────
+// A dragged piece carries its own picture. Left to the browser, the ghost is
+// a snapshot of the page around the piece, which in some WebViews picks up
+// whatever else is painted there.
+function pieceSvg(piece: string, size: number): string {
+  const white = piece.startsWith('w')
+  const g = GLYPHS[piece[1] ?? 'P'] ?? GLYPHS.P
+  const fill = white ? PAPER : INK
+  const contrast = white ? INK : PAPER
+  const parts: string[] = []
+  for (const d of g.paths) parts.push(`<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`)
+  for (const [cx, cy, r] of g.balls ?? []) parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${INK}" stroke-width="1.5"/>`)
+  for (const [x1, y1, x2, y2] of g.lines ?? []) parts.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`)
+  for (const d of g.contrast ?? []) {
+    parts.push(d[0] === 'dot'
+      ? `<circle cx="${d[1]}" cy="${d[2]}" r="${d[3]}" fill="${contrast}"/>`
+      : `<line x1="${d[1]}" y1="${d[2]}" x2="${d[3]}" y2="${d[4]}" stroke="${contrast}" stroke-width="1.8" stroke-linecap="round"/>`)
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 45 45">${parts.join('')}</svg>`
+}
+
+const dragGhosts = new Map<string, HTMLImageElement>()
+
+/** The piece as an image at `size` px. Ask for it on pointer-down so it has
+ *  decoded by the time the drag starts; check `.complete` before using it. */
+export function pieceDragImage(piece: string, size: number): HTMLImageElement {
+  const key = `${piece}@${size}`
+  let img = dragGhosts.get(key)
+  if (!img) {
+    img = new Image(size, size)
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(pieceSvg(piece, size))}`
+    dragGhosts.set(key, img)
+  }
+  return img
+}
+
 export const PIECE_LABELS: Record<string, string> = {
   wK: 'White King', wQ: 'White Queen', wR: 'White Rook',
   wB: 'White Bishop', wN: 'White Knight', wP: 'White Pawn',

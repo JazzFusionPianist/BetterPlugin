@@ -15,7 +15,7 @@ import { useT } from '../../i18n/LanguageContext'
 import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
-import { PieceGlyph } from './ChessPieces'
+import { PieceGlyph, pieceDragImage } from './ChessPieces'
 
 const PIECE_NAMES: Record<string, string> = {
   wK: 'white king', wQ: 'white queen', wR: 'white rook',
@@ -175,6 +175,10 @@ function ChessBoard({
     }
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', `${row},${col}`)
+    // our own picture of the piece as the ghost (see pieceDragImage)
+    const size = Math.round((e.currentTarget as HTMLElement).getBoundingClientRect().width)
+    const ghost = pieceDragImage(piece, size)
+    if (ghost.complete && ghost.naturalWidth > 0) e.dataTransfer.setDragImage(ghost, size / 2, size / 2)
     const moves = getValidMoves(state, [row, col])
     setSelected([row, col])
     setValidMoves(moves)
@@ -299,6 +303,7 @@ function ChessBoard({
                   <span
                     className={`chess-piece chess-piece-${piece.startsWith('b') ? 'black' : 'white'}`}
                     draggable={canDragThis}
+                    onPointerDown={e => { if (canDragThis) pieceDragImage(piece, Math.round(e.currentTarget.getBoundingClientRect().width)) }}
                     onDragStart={e => handleDragStart(e, row, col)}
                     onDragEnd={handleDragEnd}
                     style={{

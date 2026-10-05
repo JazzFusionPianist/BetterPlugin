@@ -26,7 +26,8 @@ const INK = '#1A1917'
 interface Arch {
   id: GameId
   nameKey: TKey
-  descKey: TKey
+  /** The arcade's own short line (not the CD wall's description). */
+  subKey: TKey
   /** The arch and the room's wall. */
   wall: string
   object: ReactNode
@@ -35,7 +36,7 @@ interface Arch {
 // Objects are drawn in a 120×150 box, standing on its bottom edge.
 const ARCHES: Arch[] = [
   {
-    id: 'chess', nameKey: 'game.chess', descKey: 'game.chessDesc', wall: '#1E9E63',
+    id: 'chess', nameKey: 'game.chess', subKey: 'arcade.chess', wall: '#1E9E63',
     object: (
       <>
         <circle cx="60" cy="40" r="23" fill={PAPER} />
@@ -46,7 +47,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'falling_blocks', nameKey: 'game.fallingBlocks', descKey: 'game.fallingBlocksDesc', wall: '#7B5CFF',
+    id: 'falling_blocks', nameKey: 'game.fallingBlocks', subKey: 'arcade.fallingBlocks', wall: '#7B5CFF',
     object: (
       <>
         {[0, 30, 60, 90].map(x => <rect key={x} x={x + 1} y="121" width="28" height="28" rx="6" fill={PAPER} />)}
@@ -59,7 +60,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'poker', nameKey: 'game.poker', descKey: 'game.pokerDesc', wall: '#D6402E',
+    id: 'poker', nameKey: 'game.poker', subKey: 'arcade.poker', wall: '#D6402E',
     object: (
       <>
         <rect x="12" y="56" width="62" height="88" rx="9" fill={INK} transform="rotate(-11 43 100)" />
@@ -72,7 +73,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'pinball', nameKey: 'game.pinball', descKey: 'game.pinballDesc', wall: '#2440FF',
+    id: 'pinball', nameKey: 'game.pinball', subKey: 'arcade.pinball', wall: '#2440FF',
     object: (
       <>
         <path d="M20 48 A40 40 0 0 1 100 48" stroke={PAPER} strokeWidth="7" strokeLinecap="round" fill="none" />
@@ -83,7 +84,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'yacht', nameKey: 'game.yacht', descKey: 'game.yachtDesc', wall: '#F5B82E',
+    id: 'yacht', nameKey: 'game.yacht', subKey: 'arcade.yacht', wall: '#F5B82E',
     object: (
       <>
         <rect x="4" y="88" width="62" height="62" rx="14" fill={PAPER} />
@@ -96,7 +97,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'orb_merge', nameKey: 'game.orbMerge', descKey: 'game.orbMergeDesc', wall: '#F3A3C0',
+    id: 'orb_merge', nameKey: 'game.orbMerge', subKey: 'arcade.orbMerge', wall: '#F3A3C0',
     object: (
       <>
         <circle cx="40" cy="114" r="36" fill={PAPER} />
@@ -107,7 +108,7 @@ const ARCHES: Arch[] = [
     ),
   },
   {
-    id: 'ear_training', nameKey: 'game.earTraining', descKey: 'game.earTrainingDesc', wall: '#1A1917',
+    id: 'ear_training', nameKey: 'game.earTraining', subKey: 'arcade.earTraining', wall: '#1A1917',
     object: (
       <>
         <ellipse cx="32" cy="128" rx="18" ry="12" transform="rotate(-20 32 128)" stroke={PAPER} strokeWidth="9" fill="none" />
@@ -138,8 +139,7 @@ export default function ArcadeLobby({ onSelectGame, onClose }: Props) {
               <svg className="arcade-object" viewBox="0 0 120 150" fill="none" aria-hidden="true">{a.object}</svg>
             </span>
             <span className="arcade-name">{t(a.nameKey)}</span>
-            {/* the catalogue's rule: words are set apart by commas, never dots */}
-            <span className="arcade-sub">{t(a.descKey).replace(/\s*[·・]\s*/g, ', ')}</span>
+            <span className="arcade-sub">{t(a.subKey)}</span>
           </button>
         ))}
       </div>

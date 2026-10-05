@@ -10260,6 +10260,7 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 .sd-cell.same { background: rgba(36, 64, 255, 0.14); }
 .sd-cell.selected { background: rgba(36, 64, 255, 0.26); }
 .sd-cell.wrong { color: #D6402E; }
+.sd-cell.mistake { color: #D6402E; }
 .sd-notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; font-size: 1.8cqw; color: var(--t3); }
 .sd-notes i { font-style: normal; display: flex; align-items: center; justify-content: center; line-height: 1; }
 .sd-pad { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 440px; }

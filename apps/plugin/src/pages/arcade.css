@@ -1168,7 +1168,18 @@
 .plugin.arcade-skin.gwall-sudoku .sd-cell.peer { background: rgba(251, 250, 247, 0.78); }
 .plugin.arcade-skin.gwall-sudoku .sd-cell.same { background: #FBFAF7; box-shadow: inset 0 0 0 2px #1A1917; }
 .plugin.arcade-skin.gwall-sudoku .sd-cell.selected { background: #F5B82E; box-shadow: none; color: #1A1917; }
-.plugin.arcade-skin.gwall-sudoku .sd-cell.wrong { color: #D6402E; }
+/* a mistake fills its cell red, as the cell you are on is filled gold. Only
+   the wrong digit's own cell: a correct digit that merely clashes with it
+   keeps its ink, so nothing right is painted as wrong. */
+.plugin.arcade-skin.gwall-sudoku .sd-cell.wrong { color: inherit; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell.given.wrong { color: #1A1917; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell.mistake,
+.plugin.arcade-skin.gwall-sudoku .sd-cell.mistake.peer,
+.plugin.arcade-skin.gwall-sudoku .sd-cell.mistake.same {
+  background: #D6402E; color: #FBFAF7; font-weight: 500; box-shadow: none;
+}
+/* …and still shows it is the cell you are on */
+.plugin.arcade-skin.gwall-sudoku .sd-cell.mistake.selected { background: #D6402E; color: #FBFAF7; box-shadow: inset 0 0 0 3px #1A1917; }
 .plugin.arcade-skin.gwall-sudoku .sd-notes { padding: 8%; font-size: 2.1cqw; font-weight: 500; color: rgba(26, 25, 23, 0.55); }
 .plugin.arcade-skin.gwall-sudoku .sd-pad { display: contents; }
 .plugin.arcade-skin.gwall-sudoku .sd-key {

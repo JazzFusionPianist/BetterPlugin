@@ -241,6 +241,10 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
                 selected === i ? 'selected' : peer ? 'peer' : '',
                 same ? 'same' : '',
                 conflicts.has(i) ? 'wrong' : '',
+                // a digit that isn't the solution's — the same test that counts a
+                // mistake, so every counted mistake is marked on its cell (a clash
+                // with a peer alone missed the wrong digits that clash with nothing)
+                v !== 0 && !isGiven(i) && !!puzzle && v !== puzzle.solution[i] ? 'mistake' : '',
                 c % 3 === 2 && c !== 8 ? 'br' : '', r % 3 === 2 && r !== 8 ? 'bb' : '',
               ].filter(Boolean).join(' ')
               return (

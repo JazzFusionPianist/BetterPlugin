@@ -34,7 +34,7 @@
 }
 .arcade-row::-webkit-scrollbar { display: none; }
 .arcade-arch {
-  flex: 1 1 0; min-width: 132px; max-width: 196px;
+  flex: 1 1 0; min-width: 104px; max-width: 196px;
   display: flex; flex-direction: column; align-items: stretch;
   background: none; border: none; padding: 0; cursor: pointer;
   text-align: left; font-family: var(--f-sans);
@@ -70,6 +70,7 @@
 .games-panel.arcade-skin.wall-chess { --gwall: #1E9E63; }
 .games-panel.arcade-skin.wall-poker { --gwall: #D6402E; }
 .games-panel.arcade-skin.wall-falling_blocks { --gwall: #7B5CFF; }
+.games-panel.arcade-skin.wall-ear_training { --gwall: #1A1917; --ar-accent: #F5B82E; }
 
 /* ink on the wall — green, gold, pink */
 .games-panel.arcade-skin:is(.wall-yacht, .wall-chess) {
@@ -94,7 +95,7 @@
 }
 
 /* paper on the wall — violet, red, blue, ink */
-.games-panel.arcade-skin:is(.wall-poker, .wall-falling_blocks) {
+.games-panel.arcade-skin:is(.wall-poker, .wall-falling_blocks, .wall-ear_training) {
   --paper: var(--gwall);
   --card: transparent;
   --ink: #FBFAF7;
@@ -806,3 +807,112 @@
 .games-panel.arcade-skin.wall-falling_blocks .game-view > .game-chat {
   grid-column: 2; grid-row: 1 / -1; align-self: end; position: relative; z-index: 3; max-height: 40%;
 }
+
+/* ── ear training ──────────────────────────────────────────────────────── */
+/* the two scores are the numerals at either edge; the sound and the
+   answers sit between them. One accent in this room: gold. */
+.games-panel.arcade-skin.wall-ear_training .game-view .game-action-row {
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
+}
+.games-panel.arcade-skin.wall-ear_training .game-view .game-action-row > * { pointer-events: auto; }
+.games-panel.arcade-skin.wall-ear_training .game-view .game-action-status { pointer-events: none; }
+.games-panel.arcade-skin.wall-ear_training .et-scorebar {
+  display: flex; justify-content: space-between; align-items: flex-start; width: 100%;
+  margin: 10px -6px 0; padding: 0; background: none; border: none; border-radius: 0;
+  font: 500 clamp(96px, 12vw, 168px)/1 var(--f-sans); letter-spacing: -0.04em;
+}
+.games-panel.arcade-skin.wall-ear_training .et-scorebar .et-score-sep { display: none; }
+.games-panel.arcade-skin.wall-ear_training .et-score-mine { color: var(--ink); }
+.games-panel.arcade-skin.wall-ear_training .et-score-theirs { color: rgba(251, 250, 247, 0.32); }
+.games-panel.arcade-skin.wall-ear_training .game-view .game-area {
+  grid-column: 1; grid-row: 1 / -1;
+  display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 520px) minmax(130px, 1fr);
+  grid-template-rows: minmax(0, 1fr); column-gap: 24px;
+  padding: 0 48px 48px;
+}
+.games-panel.arcade-skin.wall-ear_training .game-view:has(> .game-chat) .game-area { grid-column: 1 / -1; }
+.games-panel.arcade-skin.wall-ear_training .game-above,
+.games-panel.arcade-skin.wall-ear_training .game-below {
+  display: block; grid-row: 1; align-self: start; width: auto; max-width: none; margin: 0;
+  padding: clamp(230px, calc(12vw + 130px), 300px) 0 0;
+}
+.games-panel.arcade-skin.wall-ear_training .game-below { grid-column: 1; }
+.games-panel.arcade-skin.wall-ear_training .game-above { grid-column: 3; justify-self: end; text-align: right; }
+.games-panel.arcade-skin.wall-ear_training .game-player-row { flex-direction: column; align-items: inherit; gap: 4px; }
+.games-panel.arcade-skin.wall-ear_training .game-above .game-player-row { align-items: flex-end; }
+.games-panel.arcade-skin.wall-ear_training .game-below .game-player-row { align-items: flex-start; }
+.games-panel.arcade-skin.wall-ear_training .game-player-name { flex: none; font: 400 15px var(--f-sans); color: var(--t2); text-transform: lowercase; }
+.games-panel.arcade-skin.wall-ear_training .game-player-turn { font: 400 13px var(--f-sans); color: var(--ar-accent); text-transform: lowercase; }
+.games-panel.arcade-skin.wall-ear_training .game-board-wrap { grid-column: 2; grid-row: 1; align-self: center; width: 100%; height: auto; flex: none; }
+.games-panel.arcade-skin.wall-ear_training .game-board-wrap.has-overlay {
+  grid-column: 1 / -1; align-self: stretch; height: 100%;
+}
+.games-panel.arcade-skin.wall-ear_training .game-view:has(.game-board-wrap.has-overlay) :is(.game-above, .game-below) { display: none; }
+.games-panel.arcade-skin.wall-ear_training .et-arena { max-width: none; margin: 0; padding: 60px 0 0; }
+.games-panel.arcade-skin.wall-ear_training .et-round { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; }
+.games-panel.arcade-skin.wall-ear_training .et-round-label {
+  order: 0; align-self: center; margin-bottom: 18px;
+  font: 400 15px var(--f-sans); letter-spacing: 0; color: var(--t2); text-transform: lowercase;
+}
+.games-panel.arcade-skin.wall-ear_training .et-hero { order: 1; justify-content: center; gap: 0; margin: 0; }
+.games-panel.arcade-skin.wall-ear_training .et-bulb { display: none; }   /* who has answered is written under each name */
+.games-panel.arcade-skin.wall-ear_training .et-hero-center { gap: 14px; }
+.games-panel.arcade-skin.wall-ear_training .et-play-btn {
+  width: clamp(104px, 11.5vw, 150px); height: clamp(104px, 11.5vw, 150px); border-radius: 50%;
+  background: var(--ar-accent); color: #1A1917; border: none; box-shadow: none;
+  transition: transform .14s cubic-bezier(.2, 1.3, .4, 1), opacity .15s ease;
+}
+.games-panel.arcade-skin.wall-ear_training .et-play-btn svg { width: 46%; height: 46%; margin-left: 5%; }
+.games-panel.arcade-skin.wall-ear_training .et-play-btn:hover:not(:disabled) { background: var(--ar-accent); transform: scale(1.04); }
+.games-panel.arcade-skin.wall-ear_training .et-play-btn:disabled { background: var(--ar-accent); color: #1A1917; opacity: .35; }
+.games-panel.arcade-skin.wall-ear_training .et-replays { font: 400 13px var(--f-sans); letter-spacing: 0; color: var(--t2); text-transform: lowercase; }
+.games-panel.arcade-skin.wall-ear_training .et-progress {
+  order: 2; width: 100%; height: 3px; margin: 26px 0 0; border-radius: 2px; background: rgba(251, 250, 247, 0.22);
+}
+.games-panel.arcade-skin.wall-ear_training .et-progress-fill { background: var(--ar-accent); border-radius: 2px; }
+.games-panel.arcade-skin.wall-ear_training .et-progress.out .et-progress-fill { background: var(--ar-accent); }
+.games-panel.arcade-skin.wall-ear_training .et-prompt {
+  order: 3; margin: 22px 0 16px; text-align: left;
+  font: 500 17px var(--f-sans); letter-spacing: 0; color: var(--ink); text-transform: lowercase;
+}
+.games-panel.arcade-skin.wall-ear_training .et-options {
+  order: 4; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: none; width: 100%;
+}
+.games-panel.arcade-skin.wall-ear_training .et-option {
+  height: 52px; padding: 0 10px; border-radius: 999px;
+  background: none; border: 1.5px solid rgba(251, 250, 247, 0.45); color: var(--ink);
+  font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+.games-panel.arcade-skin.wall-ear_training .et-option:hover:not(:disabled) { background: none; border-color: var(--ink); }
+.games-panel.arcade-skin.wall-ear_training .et-option.picked { background: var(--ink); border-color: var(--ink); color: #1A1917; }
+.games-panel.arcade-skin.wall-ear_training .et-option:disabled:not(.picked) { opacity: .45; }
+.games-panel.arcade-skin.wall-ear_training .et-pending { order: 5; margin-top: 18px; font: 400 15px var(--f-sans); color: var(--t2); font-style: normal; text-align: left; text-transform: lowercase; }
+.games-panel.arcade-skin.wall-ear_training .et-reveal {
+  order: 5; align-items: stretch; gap: 10px; margin-top: 6px; padding: 0; background: none; border: none; border-radius: 0; box-shadow: none;
+}
+.games-panel.arcade-skin.wall-ear_training .et-reveal-answer {
+  font: 500 28px/1.1 var(--f-sans); letter-spacing: -0.02em; color: var(--ar-accent); text-align: left; text-transform: lowercase;
+}
+.games-panel.arcade-skin.wall-ear_training .et-reveal-rows { gap: 2px; }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row {
+  padding: 4px 0; background: none; border: none; border-radius: 0; font: 400 15px var(--f-sans); color: var(--t2);
+}
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row.ok,
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row.bad { background: none; border: none; }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row-label { font-weight: 500; color: var(--ink); text-transform: lowercase; }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row.mine .et-reveal-row-label { color: var(--ink); }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row.ok .et-reveal-row-mark { color: var(--ar-accent); }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row.bad .et-reveal-row-mark { color: var(--t3); }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-score { display: none; }   /* the numerals are already on the wall */
+/* the lobby's settings */
+.games-panel.arcade-skin.wall-ear_training .et-lobby-card { max-width: none; }
+.games-panel.arcade-skin.wall-ear_training .et-setup { width: 100%; gap: 8px; }
+.games-panel.arcade-skin.wall-ear_training .et-setup-label { font: 400 13px var(--f-sans); letter-spacing: 0; color: var(--t2); }
+.games-panel.arcade-skin.wall-ear_training .et-setup-row { gap: 8px; flex-wrap: wrap; }
+.games-panel.arcade-skin.wall-ear_training .et-chip {
+  height: 44px; padding: 0 18px; border-radius: 999px;
+  background: none; border: 1.5px solid rgba(251, 250, 247, 0.45); color: var(--ink);
+  font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+.games-panel.arcade-skin.wall-ear_training .et-chip.on { background: var(--ink); border-color: var(--ink); color: #1A1917; }
+.games-panel.arcade-skin.wall-ear_training .et-final-score { font: 500 34px var(--f-sans); letter-spacing: -0.02em; color: var(--ink); justify-self: start; }

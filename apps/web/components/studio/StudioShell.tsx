@@ -39,6 +39,8 @@ import { UpcomingRows, useConversationNotes, StudioNotes } from './StudioBits'
 import SlurMark from '../slur/SlurMark'
 import StudioHomeBar from './StudioHomeBar'
 import { StudioHomePrompt, StudioWeek } from './StudioHomeSchedule'
+import StudioTasks from './StudioTasks'
+import { useRoomTasks, useMyTasks, type RoomTask } from '@/lib/useRoomTasks'
 import '../../app/studio.css'
 import { houseColor } from '../slur/marks'
 
@@ -51,7 +53,7 @@ type Sel =
   | { kind: 'profile'; userId: string }
   | { kind: 'settings' }
 
-type Tab = 'chat' | 'calendar' | 'notes'
+type Tab = 'chat' | 'calendar' | 'notes' | 'tasks'
 
 /* ── small marks ──────────────────────────────────────────────────── */
 
@@ -291,6 +293,33 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
   // ── notes ───────────────────────────────────────────────────────────
   const { notes, loaded: notesLoaded, refresh: refreshNotes } = useConversationNotes(supabase, activeConvId)
 
+  // ── tasks — the room's, and mine for the home's week ────────────────
+  const { tasks: roomTasks, loaded: roomTasksLoaded, add: addTask, setDone: setTaskDone, remove: removeTask } = useRoomTasks(supabase, activeConvId ?? null, user.id)
+  const { tasks: myTasks } = useMyTasks(supabase, user.id)
+  const openTaskCount = useMemo(() => roomTasks.filter(t => !t.done_at).length, [roomTasks])
+  const weekTasks = useMemo(() => myTasks.filter(t => !!t.due_on).map(t => ({
+    id: t.id, title: t.title, due_on: t.due_on!, conversation_id: t.conversation_id,
+    who: t.assignee_id ? (t.assignee_id === user.id ? 'me' : nameOf(t.assignee_id)) : 'me',
+  })), [myTasks, user.id, nameOf])
+  // the day is read by the schedule parser; its title is the line without the day's words
+  const parseTaskDay = useCallback(async (text: string): Promise<{ due: string | null; title: string }> => {
+    try {
+      const evs = await parseSchedule(supabase, text)
+      const e = evs[0]
+      if (!e) return { due: null, title: text }
+      const d = new Date(e.starts_at)
+      const due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return { due, title: e.title?.trim() || text }
+    } catch { return { due: null, title: text } }
+  }, [supabase])
+  // finishing a task tells the room — one plain line in its chat
+  const finishTask = useCallback(async (t: RoomTask, done: boolean): Promise<string | null> => {
+    const err = await setTaskDone(t.id, done)
+    if (err || !done || !t.conversation_id) return err
+    await supabase.from('messages').insert({ conversation_id: t.conversation_id, sender_id: user.id, content: `finished  ${t.title}` })
+    return null
+  }, [setTaskDone, supabase, user.id])
+
   // ── search ──────────────────────────────────────────────────────────
   const searchResults = useMemo(() => {
     const q = (peopleQuery ?? '').trim().toLowerCase().replace(/^@/, '')
@@ -522,6 +551,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                   <span className={`wd-tab${tab === 'notes' ? ' on' : ''}${activeConvId ? '' : ' off'}`} onClick={() => activeConvId && setTab('notes')}>
                     notes{notes.length > 0 && <i>{notes.length}</i>}
                   </span>
+                  <span className={`wd-tab${tab === 'tasks' ? ' on' : ''}${activeConvId ? '' : ' off'}`} onClick={() => activeConvId && setTab('tasks')}>
+                    tasks{openTaskCount > 0 && <i>{openTaskCount}</i>}
+                  </span>
                 </div>
               </div>
 
@@ -559,6 +591,19 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 <StudioCalendar events={convCalEvents} {...calendarProps}
                   onAdd={(text, day) => handleSchedule(`on ${day}: ${text}`, activeConvId)} />
               )}
+              {tab === 'tasks' && activeConvId && (
+                <StudioTasks
+                  tasks={roomTasks}
+                  loaded={roomTasksLoaded}
+                  userId={user.id}
+                  members={chatMembers}
+                  nameOf={nameOf}
+                  onAdd={addTask}
+                  onDone={finishTask}
+                  onRemove={removeTask}
+                  parseDay={parseTaskDay}
+                />
+              )}
               {tab === 'notes' && activeConvId && (
                 <StudioNotes
                   supabase={supabase}
@@ -588,7 +633,9 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                   catch { return 'couldn’t add that — try again' }
                 }}
               />
-              <StudioWeek events={allCalEvents} groupTitleById={groupTitleById} nowTick={nowTick} onOpenCalendar={() => openSel({ kind: 'me' })} />
+              <StudioWeek events={allCalEvents} tasks={weekTasks} groupTitleById={groupTitleById} nowTick={nowTick}
+                onOpenCalendar={() => openSel({ kind: 'me' })}
+                onOpenTask={t => { if (t.conversation_id) { openSel({ kind: 'group', conversationId: t.conversation_id }); setTab('tasks') } }} />
             </div>
           )}
         </div>

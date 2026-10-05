@@ -1352,3 +1352,28 @@
 .wd .wd-person-main b { display: block; font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; color: #1A1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wd .wd-person-main small { display: block; font-size: 11px; line-height: 1.3; color: #6E6B63; }
 .wd .wd-person-who:hover b { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+/* ── tasks tab ── */
+.wd .wd-tasks { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 24px 0; }
+.wd .wd-tasks .wd-noteline { margin: 0; }
+.wd .wd-tasks-hint { margin: 8px 0 0 6px; font-size: 11px; color: #A5A199; }
+.wd .wd-tasks-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-bottom: 16px; }
+.wd .wd-tasks-scroll::-webkit-scrollbar { display: none; }
+.wd .wd-tasks-sec { font-size: 10.5px; font-weight: 500; color: #A5A199; margin: 22px 0 2px; padding-bottom: 4px; border-bottom: 1px solid rgba(26,25,23,.12); }
+.wd .wd-task { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid rgba(26,25,23,.08); }
+.wd .wd-tasks-sec + .wd-task { border-top: none; }
+.wd .wd-task-check { background: none; border: none; padding: 0; cursor: pointer; display: flex; transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+.wd .wd-task-check:hover { transform: scale(1.12) rotate(-6deg); }
+.wd .wd-task-main { flex: 1; min-width: 0; }
+.wd .wd-task-main b { display: block; font-size: 13.5px; font-weight: 600; color: #1A1917; overflow-wrap: anywhere; }
+.wd .wd-task-main small { display: block; font-size: 10.5px; color: #A5A199; margin-top: 1px; }
+.wd .wd-task-who { display: flex; align-items: center; gap: 6px; width: 110px; flex-shrink: 0; font-size: 11.5px; color: #6E6B63; }
+.wd .wd-task-who i { width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: 9px; font-style: normal; display: grid; place-items: center; }
+.wd .wd-task-due { width: 84px; flex-shrink: 0; text-align: right; font-size: 11.5px; color: #A5A199; font-variant-numeric: tabular-nums; }
+.wd .wd-task-due.today { color: var(--acc); font-weight: 500; }
+.wd .wd-task-due.late { color: #B8552F; font-weight: 500; }
+.wd .wd-task-x { width: 46px; text-align: right; opacity: 0; }
+.wd .wd-task:hover .wd-task-x, .wd .wd-task-x.sure { opacity: 1; }
+.wd .wd-task.done .wd-task-main b { color: #A5A199; font-weight: 500; text-decoration: line-through; text-decoration-color: rgba(26,25,23,.3); }
+.wd .wd-task.done .wd-task-who, .wd .wd-task.done .wd-task-due { color: #C0BCB3; }
+.wd .wd-arch-ev.task b { font-weight: 500; }

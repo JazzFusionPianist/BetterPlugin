@@ -85,12 +85,17 @@ export function StudioHomePrompt({ targets, onSubmit, onOpenCalendar }: {
 }
 
 /** The week — seven arches, one per day, today's in mint. */
-export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, onOpenEvent }: {
+export interface WeekTask { id: string; title: string; due_on: string; conversation_id: string | null; who: string }
+
+export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpenCalendar, onOpenEvent, onOpenTask }: {
   events: CalendarEvent[]
+  /** Open tasks with a day — hollow notes under the events. */
+  tasks?: WeekTask[]
   groupTitleById: Map<string, string>
   nowTick: number
   onOpenCalendar: () => void
   onOpenEvent?: (id: string) => void
+  onOpenTask?: (t: WeekTask) => void
 }) {
   const today = new Date(nowTick); today.setHours(0, 0, 0, 0)
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d })
@@ -131,6 +136,9 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
           let drop = i === 0 ? evs.length - keep : 0
           shown = evs.filter(e => { if (drop > 0 && over(e)) { drop--; return false } return true }).slice(0, keep)
         }
+        const dayTasks = tasks.filter(t => t.due_on === k)
+        const shownTasks = dayTasks.slice(0, Math.max(0, fit - shown.length))
+        const hidden = (evs.length - shown.length) + (dayTasks.length - shownTasks.length)
         return (
           <div key={k} className={`wd-arch${i === 0 ? ' today' : ''}`}>
             <header>
@@ -150,8 +158,17 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
                 </button>
               )
             })}
-            {evs.length > shown.length && (
-              <button className="wd-arch-more" onClick={onOpenCalendar}>{evs.length - shown.length} more</button>
+            {shownTasks.map(t => (
+              <button key={t.id} className="wd-arch-ev task" onClick={() => onOpenTask?.(t)} title={t.title}>
+                <NoteGlyph size={12} color={t.conversation_id ? houseColor(t.conversation_id) : C.ink} hollow />
+                <span>
+                  <b>{t.title}</b>
+                  <small>task  {t.who}</small>
+                </span>
+              </button>
+            ))}
+            {hidden > 0 && (
+              <button className="wd-arch-more" onClick={onOpenCalendar}>{hidden} more</button>
             )}
           </div>
         )

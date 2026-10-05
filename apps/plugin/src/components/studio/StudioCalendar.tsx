@@ -47,6 +47,8 @@ const timeOf = (e: CalendarEvent) => {
 /** The week's time frame: an hour is this tall, and the frame opens on the working day. */
 const HOUR_PX = 40
 const minsOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes() }
+/** The month's pills carry the hour small: 7p, 11a, 4:30p. */
+const shortTime = (iso: string) => { const d = new Date(iso), h = d.getHours(), m = d.getMinutes(); return `${((h + 11) % 12) + 1}${m ? ':' + pad(m) : ''}${h >= 12 ? 'p' : 'a'}` }
 const hhmm = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
 interface Placed { e: CalendarEvent; start: number; end: number; lane: number; lanes: number }
 /** A day's timed events as blocks: start and end in minutes (an hour when no end is set, and never
@@ -123,8 +125,8 @@ export default function StudioCalendar({
     return keys.slice(0, 40)
   }, [byDay, todayKey])
 
-  // How many rows a month cell holds: as many chips as its height allows
-  // (a chip is 14px and 3px of gap, under a 20px number and 12px of
+  // How many rows a month cell holds: as many pills as its height allows
+  // (a pill is 17px and 2px of gap, under a 20px number and 12px of
   // padding), so a tall window shows a busy day whole instead of "+n more".
   const weeksRef = useRef<HTMLDivElement>(null)
   const [fit, setFit] = useState(4)
@@ -132,7 +134,7 @@ export default function StudioCalendar({
     const el = weeksRef.current; if (!el) return
     const measure = () => {
       const cell = el.clientHeight / Math.max(1, monthWeeks.length)
-      setFit(Math.max(2, Math.min(9, Math.floor((cell - 12 - 20) / 17))))
+      setFit(Math.max(2, Math.min(9, Math.floor((cell - 12 - 20) / 19))))
     }
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)
@@ -198,6 +200,13 @@ export default function StudioCalendar({
     }
   }
 
+  /** A month cell's event: a wash of its category's colour with a bar down the edge and the hour small; an all-day one is the fuller pill. */
+  const pill = (e: CalendarEvent) => (
+    <span key={e.id} className={`sc-ev${e.all_day ? ' all' : ''}`} title={e.title} style={{ '--c': e.category_color || DEFAULT_COLOR } as React.CSSProperties}>
+      {!e.all_day && <em>{shortTime(e.starts_at)}</em>}
+      <b>{e.title}</b>
+    </span>
+  )
   const chip = (e: CalendarEvent, withTime: boolean) => (
     <span key={e.id} className="sc-chip" title={e.title}>
       <NoteGlyph size={10} color={e.category_color || DEFAULT_COLOR} />
@@ -257,7 +266,7 @@ export default function StudioCalendar({
                           onClick={() => pick(k)}>
                           <span className={`sc-num${k === todayKey ? ' today' : ''}`}>{d.getDate()}</span>
                           {/* all of them when they fit; otherwise one row is the "+n more" */}
-                          {(evs.length <= fit ? evs : evs.slice(0, fit - 1)).map(e => chip(e, false))}
+                          {(evs.length <= fit ? evs : evs.slice(0, fit - 1)).map(pill)}
                           {evs.length > fit && <span className="sc-more">+{evs.length - (fit - 1)} more</span>}
                         </button>
                       )

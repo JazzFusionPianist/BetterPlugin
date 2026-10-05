@@ -74,6 +74,14 @@ export function applyVstLayout(bundle: RegionBundle, evidence: VstRegionEvidence
 /** Lossless PCM crop. Deliberately excludes unselected source audio and private metadata. */
 export async function cropVstWave(file: File, evidence: VstRegionEvidence): Promise<File> {
   if (!parseVstEvidence(evidence)) throw new Error('Invalid DAW region metadata.')
+  return cropWaveRegion(file, evidence)
+}
+
+/** Render an ordinary audio file for a region without changing its PCM samples. */
+export async function cropWaveRegion(file: File, evidence: { name: string; offsetFrames: number; lengthFrames: number }): Promise<File> {
+  if (!evidence.name || !Number.isSafeInteger(evidence.offsetFrames) || evidence.offsetFrames < 0
+    || !Number.isSafeInteger(evidence.lengthFrames) || evidence.lengthFrames < 1)
+    throw new Error('Invalid audio trim.')
   const bytes = new Uint8Array(await file.arrayBuffer()), v = new DataView(bytes.buffer)
   const tag = (p: number) => String.fromCharCode(...bytes.subarray(p, p + 4))
   if (bytes.length < 44 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE' || v.getUint32(4, true) + 8 !== bytes.length)

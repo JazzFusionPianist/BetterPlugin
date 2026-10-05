@@ -1,3 +1,5 @@
+import { callJuceNative, hasJuceNativeFunction } from './juceBridge.ts'
+
 const DB_NAME='orb-chat-device-keys-v1'
 const STORE_NAME='trusted-devices'
 const CONTEXT='orb-chat-device-v1'
@@ -8,31 +10,8 @@ interface TrustedDeviceRecord extends WrappedRecoveryCode {user:string;key:Crypt
 const encoder=new TextEncoder(),decoder=new TextDecoder()
 const additionalData=(user:string)=>encoder.encode(`${CONTEXT}:${user}`)
 
-type JuceBackend={
-  addEventListener:(event:string,handler:(data:unknown)=>void)=>void
-  removeEventListener:(event:string,handler:(data:unknown)=>void)=>void
-  emitEvent:(event:string,data:unknown)=>void
-}
-type JuceHost={initialisationData?:{__juce__functions?:string[]};backend?:JuceBackend}
-let nativeCallId=0
-function juceHost(){return typeof window==='undefined'?undefined:(window as unknown as {__JUCE__?:JuceHost}).__JUCE__}
-function nativeStorageAvailable(){const host=juceHost();return !!host?.backend && !!host.initialisationData?.__juce__functions?.includes('chatRecoveryKey')}
-function callNative(params:string[]){
-  return new Promise<string>((resolve,reject)=>{
-    const host=juceHost(),backend=host?.backend
-    if(!backend || !nativeStorageAvailable()){reject(new Error('Native trusted device storage is unavailable.'));return}
-    const promiseId=nativeCallId++
-    let finished=false
-    const handler=(value:unknown)=>{
-      const data=value as {promiseId?:number;result?:string}
-      if(data.promiseId!==promiseId || finished)return
-      finished=true;clearTimeout(timer);backend.removeEventListener('__juce__complete',handler);resolve(String(data.result??''))
-    }
-    const timer=setTimeout(()=>{if(finished)return;finished=true;backend.removeEventListener('__juce__complete',handler);reject(new Error('Native trusted device storage timed out.'))},5000)
-    backend.addEventListener('__juce__complete',handler)
-    backend.emitEvent('__juce__invoke',{name:'chatRecoveryKey',params,resultId:promiseId})
-  })
-}
+function nativeStorageAvailable(){return hasJuceNativeFunction('chatRecoveryKey')}
+function callNative(params:string[]){return callJuceNative('chatRecoveryKey',params)}
 
 export function trustedDeviceStorageAvailable(){
   return nativeStorageAvailable() || (typeof indexedDB!=='undefined' && typeof crypto!=='undefined' && !!crypto.subtle)
@@ -90,7 +69,10 @@ export async function rememberRecoveryCode(user:string,code:string){
 
 export async function loadRememberedRecoveryCode(user:string){
   if(nativeStorageAvailable()){
-    try{const result=await callNative(['load',user]);return result.startsWith('value:')?result.slice(6):null}catch{return null}
+    const result=await callNative(['load',user])
+    if(result.startsWith('value:'))return result.slice(6)
+    if(result==='missing')return null
+    throw new Error('Could not read the device keychain.')
   }
   if(!trustedDeviceStorageAvailable())return null
   try{
@@ -118,5 +100,33 @@ export async function forgetRememberedRecoveryCode(user:string){
     const transaction=db.transaction(STORE_NAME,'readwrite')
     transaction.objectStore(STORE_NAME).delete(user)
     await transactionDone(transaction)
+  }finally{db.close()}
+}
+
+/** Insert-only: simultaneous windows must use the same durable identity. */
+export async function ensureRememberedRecoveryCode(user:string,candidate:string){
+  if(nativeStorageAvailable()){
+    const result=await callNative(['create',user,candidate])
+    if(result.startsWith('value:'))return result.slice(6)
+    throw new Error('Could not prepare the device keychain.')
+  }
+  const key=await createDeviceWrappingKey(),wrapped=await wrapRecoveryCode(key,user,candidate)
+  const db=await openDatabase()
+  let record:TrustedDeviceRecord|undefined
+  try{
+    const transaction=db.transaction(STORE_NAME,'readwrite')
+    const done=transactionDone(transaction)
+    const store=transaction.objectStore(STORE_NAME)
+    const request=store.get(user)
+    request.onsuccess=()=>{
+      record=request.result as TrustedDeviceRecord|undefined
+      if(!record){
+        record={...wrapped,user,key,createdAt:Date.now()}
+        store.add(record)
+      }
+    }
+    await done
+    if(!record)throw new Error('Could not prepare device storage.')
+    return await unwrapRecoveryCode(record.key,user,record)
   }finally{db.close()}
 }

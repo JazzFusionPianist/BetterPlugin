@@ -77,6 +77,7 @@ target_sources(OrbPlugin PRIVATE
     Source/TrackExportBridge.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/DawRegionBridge.cpp
     Source/OrbControlBridge.cpp
     Source/FxEngine.cpp
     Source/DragMonitor.mm      # ObjC++ — NSEvent-based drag for WKWebView
@@ -175,6 +176,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
         Source/TrackExportBridge.cpp
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
+        Source/DawRegionBridge.cpp
         Source/OrbControlBridge.cpp
     Source/FxEngine.cpp
         Source/DragMonitor.mm
@@ -234,6 +236,12 @@ endfunction()
 
 # Slur — messages only (first split-out, 2026-09-11; was Orb Chat, then Slur Chat).
 orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur"        chat   OrbChatAU)
+
+# Opt-in, distinct AU identity: local DAW QA must not replace the installed chat plug-in.
+option(ORB_BUILD_LOGIC_QA "Build an isolated Logic region-transfer QA plug-in" OFF)
+if(ORB_BUILD_LOGIC_QA)
+    orb_add_surface_plugin(OrbLogicQA OrbQ "com.orb.logic-qa" "Orb Logic QA" chat OrbLogicQAAU)
+endif()
 
 # Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
 # the plugin boots straight into the darkened room. The codes and bundle id

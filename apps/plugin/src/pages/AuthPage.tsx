@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Turnstile } from '@orb/core/components/Turnstile.tsx'
+import PluginSecurityCheck from '../components/PluginSecurityCheck'
 import { supabase } from '../lib/supabase'
 import { openExternalUrl } from '../lib/linkify'
 import Bar from '../slur/Bar'
@@ -135,8 +135,10 @@ export default function AuthPage() {
                 {lamp(agreeMarketing, setAgreeMarketing, <>the odd update</>, false)}
               </div>
             )}
-            <Turnstile resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')}/>
+            <PluginSecurityCheck resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')}/>
             {error && <div className="sl-msg err">{error}</div>}
+            {error === 'security check unavailable — try again.' && <button type="button" className="sl-swap"
+              onClick={() => { setError(null); setCaptchaToken(''); setCaptchaReset(x => x + 1) }}>retry security check</button>}
             {note && <div className="sl-msg">{note}</div>}
             <button type="submit" className="sl-go" disabled={busy || !captchaToken || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
               {busy ? (mode === 'signin' ? 'logging in…' : 'signing up…') : (mode === 'signin' ? 'log in' : 'sign up')}

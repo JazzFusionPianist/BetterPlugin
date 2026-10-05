@@ -121,7 +121,7 @@ export default function SettingsPage({ supabase, user }: Props) {
         <div className="wd-set-sec">
           <div className="wd-set-head">about</div>
           <div className="wd-set-row">
-            <span className="wd-set-k">orb</span>
+            <span className="wd-set-k">Slur</span>
             <span className="wd-set-v tab">{APP_VERSION}</span>
           </div>
           <div className="wd-set-row">
@@ -139,6 +139,8 @@ export default function SettingsPage({ supabase, user }: Props) {
 
         <div className="wd-set-sec">
           <div className="wd-set-head">session</div>
+          <div className="wd-set-row">
+          </div>
           <div className="wd-set-row">
             <button className="wd-word" disabled={signingOut}
               onClick={() => { setSigningOut(true); void supabase.auth.signOut() }}>

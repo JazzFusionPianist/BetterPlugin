@@ -32,6 +32,8 @@ public:
     // forwards to its DragMonitor (which is tied to the current NSWindow).
     void armDragMonitor (const std::string& path);
     void armDragMonitorMultiple (const std::vector<std::string>& paths);
+    void armLogicRegionDrag (const std::string& token, std::function<void(double, double, bool)> callback);
+    void cancelLogicRegionDrag (const std::string& token);
     void armRegionXml (const std::string& xml) { dragMonitor.armRegionXml (xml); }
 
 private:

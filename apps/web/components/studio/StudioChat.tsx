@@ -666,7 +666,7 @@ export default function StudioChat({
       if (m.content) pieces.push(<div key="txt" className={`wd-bub${tailCls()}`}>{linkify(m.content)}</div>)
       if (pieces.length === 0) continue
 
-      const readers = isMine ? readersByMsgId.get(m.id) : undefined
+      const readers = isMine && !m.pending ? readersByMsgId.get(m.id) : undefined
       const time = fmtTime(m.created_at)
       const wideAudio = (m.attachment_type === 'audio' || m.attachment_type === 'multi-audio') && !m.attachment_expired && !!m.attachment_url
 
@@ -693,6 +693,7 @@ export default function StudioChat({
                 </div>
               )
             })}
+            {m.pending && <span className="wd-mtime" role="status">Sending...</span>}
             {readers && readers.length > 0 && (
               <div className="wd-read">
                 {isGroup ? (

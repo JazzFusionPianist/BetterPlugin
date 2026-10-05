@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Terms of Service — Orb' }
+export const metadata: Metadata = { title: 'Terms of Service — Slur' }
 
 /**
  * 이용약관 — 가입 시 필수 동의 문서. [대괄호] 항목은 사업자등록 후 채울 것.
@@ -12,14 +12,14 @@ export default function TermsPage() {
   return (
     <main className="legal">
       <header className="legal-head">
-        <div className="legal-brand">orb</div>
+        <div className="legal-brand">Slur</div>
         <h1>이용약관</h1>
         <div className="legal-meta">버전 {TERMS_VERSION} · 시행일 2026-08-18</div>
       </header>
 
       <section>
         <h2>제1조 (목적)</h2>
-        <p>이 약관은 [상호/사업자명] (이하 &ldquo;회사&rdquo;)이 제공하는 음악 협업 서비스 Orb — 웹, 모바일 앱, DAW 플러그인을 포함합니다 (이하 &ldquo;서비스&rdquo;) — 의 이용과 관련하여 회사와 회원의 권리·의무를 정합니다.</p>
+        <p>이 약관은 [상호/사업자명] (이하 &ldquo;회사&rdquo;)이 제공하는 음악 협업 서비스 Slur — 웹, 모바일 앱, DAW 플러그인을 포함합니다 (이하 &ldquo;서비스&rdquo;) — 의 이용과 관련하여 회사와 회원의 권리·의무를 정합니다.</p>
       </section>
 
       <section>

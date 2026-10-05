@@ -1,4 +1,4 @@
-import { encryptFile, decryptFile } from './fileCrypto'
+import { decryptFile } from './fileCrypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { r2KeyFromUrl } from './r2Keys'
 
@@ -16,15 +16,14 @@ export async function authHeaders(client: SupabaseClient): Promise<Record<string
 export async function uploadSecureFile(client: SupabaseClient, file: File, options: {
   apiBase?: string; public?: boolean; onProgress?: (ratio: number) => void
 } = {}): Promise<{ url: string; key: string }> {
-  if (!file.size || file.size > 1024*1024*1024-(options.public?0:65536)) throw new Error('Files must be between 1 byte and 1 GB.')
+  if (!file.size || file.size > 1024*1024*1024) throw new Error('Files must be between 1 byte and 1 GB.')
   const base=options.apiBase ?? defaultApiBase()
-  const encrypted=options.public?null:await encryptFile(file)
-  const upload=encrypted?.blob??file
+  const upload=file
   const headers=await authHeaders(client)
-  const mime=encrypted?'application/octet-stream':file.type || 'application/octet-stream'
+  const mime=/^(audio\/[a-zA-Z0-9.+-]+|video\/(mp4|webm|quicktime)|image\/(png|jpeg|webp|gif)|application\/(octet-stream|zip))$/.test(file.type)?file.type:'application/octet-stream'
   const res=await fetch(`${base}/api/r2-upload-url`, { method:'POST',headers,
-    body:JSON.stringify({ ext:encrypted?'bin':file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8) || 'bin',
-      contentType:mime,size:upload.size,name:encrypted?'encrypted-attachment':file.name.slice(0,255),visibility:options.public?'public':'private' }) })
+    body:JSON.stringify({ ext:file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8) || 'bin',
+      contentType:mime,size:upload.size,name:file.name.slice(0,255),visibility:options.public?'public':'private' }) })
   if (!res.ok) throw new Error(res.status===429?'Too many uploads. Try again shortly.':'Could not authorize this upload.')
   const ticket=await res.json() as { uploadUrl: string; publicUrl: string; key: string }
   await new Promise<void>((resolve,reject)=>{
@@ -44,7 +43,7 @@ export async function uploadSecureFile(client: SupabaseClient, file: File, optio
   const complete=await fetch(`${base}/api/r2-upload-complete`, {method:'POST',headers:await authHeaders(client),body:JSON.stringify({key:ticket.key})})
   if(!complete.ok) throw new Error('The uploaded file could not be verified.')
   options.onProgress?.(1)
-  return {url:ticket.publicUrl+(encrypted?'#e2ee='+encrypted.key:''),key:ticket.key}
+  return {url:ticket.publicUrl,key:ticket.key}
 }
 
 /** No public fallback for private/legacy attachments, including 401 and 403. */
@@ -56,7 +55,11 @@ export async function resolveSecureFile(client: SupabaseClient, url: string, api
     if(parsed.protocol==='https:' && parsed.hostname.endsWith('.supabase.co') && parsed.pathname.startsWith(legacyPrefix)){
       const path=decodeURIComponent(parsed.pathname.slice(legacyPrefix.length))
       if(!path || path.startsWith('/') || path.includes('..'))throw new Error('Invalid attachment path.')
-      const {data,error}=await client.storage.from('attachments').createSignedUrl(path,300)
+      const expiry=await client.rpc('legacy_attachment_expiry',{p_path:path})
+      if(expiry.error || typeof expiry.data!=='string')throw new Error('This legacy attachment is unavailable or expired.')
+      const seconds=Math.min(300,Math.floor((Date.parse(expiry.data)-Date.now())/1000))
+      if(!Number.isFinite(seconds)||seconds<1)throw new Error('This attachment has expired.')
+      const {data,error}=await client.storage.from('attachments').createSignedUrl(path,seconds)
       if(error || !data?.signedUrl)throw new Error('This legacy attachment is unavailable or access was revoked.')
       return data.signedUrl
     }

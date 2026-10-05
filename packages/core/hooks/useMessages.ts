@@ -18,46 +18,16 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, AttachType, ChatTarget, AttachmentTimelineMetadata } from '../types/collab'
 import { getOrCreateDmConversation } from '../lib/conversations'
-import { r2KeyFromUrl } from '../lib/r2Keys'
+import { sendAccountMessage } from '../lib/accountChat'
+import {readAttachmentStatus,withAttachmentRetention,expireAttachments} from '../lib/attachmentRetention'
 
-import { messageId, encryptChatMessage, decryptChatMessage } from '../lib/chatCrypto'
-
-// Core is bundler-agnostic, so no env base here — pub-*.r2.dev urls
-// (the shape r2-upload-url mints) resolve without one. App-local copies
-// of this hook pass their configured base (VITE_R2_PUBLIC_URL /
-// NEXT_PUBLIC_R2_PUBLIC_URL) for custom-domain urls.
-const keyFromR2Url = (url: string): string | null => r2KeyFromUrl(url)
+import { messageId, decryptChatMessage } from '../lib/chatCrypto'
 
 // The plugin deployment hosts the API routes. Core is bundler-agnostic
 // (no env access), so the origin is fixed here; app-local copies of
 // this hook resolve it their own way (plugin: same-origin, web:
 // NEXT_PUBLIC_UPLOAD_API_BASE — see apps/web/lib/upload.ts).
 const DELETE_API_BASE = 'https://better-plugin.vercel.app'
-
-/** messages.attachment_keys for an outgoing attachment: every R2 object
- *  key it references — [key] for a plain R2 url; all track keys for a
- *  multi-audio attachment, whose url field is a JSON array of
- *  { url, name } tracks (see ChatView's multi-audio send paths);
- *  null when nothing R2-backed is referenced. */
-function attachmentKeys(attachment?: { url: string; type: AttachType }): string[] | null {
-  if (!attachment) return null
-  if (attachment.type === 'multi-audio') {
-    try {
-      const tracks = JSON.parse(attachment.url) as unknown
-      if (!Array.isArray(tracks)) return null
-      const keys = tracks
-        .map(t => (t && typeof t === 'object' && typeof (t as { url?: unknown }).url === 'string')
-          ? keyFromR2Url((t as { url: string }).url)
-          : null)
-        .filter((k): k is string => k !== null)
-      return keys.length > 0 ? keys : null
-    } catch {
-      return null
-    }
-  }
-  const key = keyFromR2Url(attachment.url)
-  return key ? [key] : null
-}
 
 export function useMessages(
   supabase: SupabaseClient,
@@ -66,6 +36,7 @@ export function useMessages(
 ) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
+  const [deliveryVersion, setDeliveryVersion] = useState(0)
   // The DM's conversation_id once resolved. `null` while loading or if
   // no thread is open. Used by `send()` and the realtime filter.
   const [convId, setConvId] = useState<string | null>(null)
@@ -73,6 +44,17 @@ export function useMessages(
   const channelRef = useRef<ReturnType<SupabaseClient['channel']> | null>(null)
 
   useEffect(() => { convIdRef.current = convId }, [convId])
+  useEffect(()=>{
+    const timer=setInterval(()=>setMessages(previous=>expireAttachments(previous)),30000)
+    return()=>clearInterval(timer)
+  },[])
+  useEffect(() => {
+    const delivered=(event:Event)=>{
+      if((event as CustomEvent).detail?.conversation===convIdRef.current)setDeliveryVersion(n=>n+1)
+    }
+    window.addEventListener('slur-chat-delivered',delivered)
+    return ()=>window.removeEventListener('slur-chat-delivered',delivered)
+  },[])
 
   useEffect(() => {
     // Tear down any prior channel before swapping threads.
@@ -115,8 +97,9 @@ export function useMessages(
 
       if (!alive) return
       const clear=await Promise.all(((data as Message[]) ?? []).reverse().map(m=>decryptChatMessage(supabase,currentUserId,m)))
+      const statuses=await readAttachmentStatus(supabase,cid)
       if(!alive)return
-      setMessages(clear)
+      setMessages(clear.map(m=>withAttachmentRetention(m,statuses)))
       setLoading(false)
 
       // Subscribe AFTER history loads so the dedupe below has the right
@@ -128,12 +111,14 @@ export function useMessages(
           schema: 'public',
           table: 'messages',
         }, async (payload) => {
-          const msg = await decryptChatMessage(supabase,currentUserId,payload.new as Message)
+          const incoming = payload.new as Message
+          if(incoming.conversation_id!==cid)return
+          const msg = withAttachmentRetention(await decryptChatMessage(supabase,currentUserId,incoming),await readAttachmentStatus(supabase,cid))
           if(!alive)return
           if (msg.conversation_id !== convIdRef.current) return
           setMessages(prev => {
             // Already seen by real id (re-subscribe edge case) — drop.
-            if (prev.some(m => m.id === msg.id)) return prev
+            if (prev.some(m => m.id === msg.id)) return prev.map(m=>m.id===msg.id?msg:m)
             // Echo of my own send: replace the matching optimistic row
             // (same sender, same content, same attachment) in-place so
             // the user doesn't see it twice. The optimistic id starts
@@ -170,7 +155,9 @@ export function useMessages(
         .subscribe()
 
       channelRef.current = channel
-    })()
+    })().catch(()=>{
+      if(alive){setLoading(false);window.dispatchEvent(new CustomEvent('orb-chat-error',{detail:'Could not load messages. Try again.'}))}
+    })
 
     return () => {
       alive = false
@@ -182,7 +169,7 @@ export function useMessages(
   // Stringify the target so we re-run when the actual target changes,
   // not on every parent re-render that creates a new object literal.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, currentUserId, target ? `${target.kind}:${target.kind === 'dm' ? `${target.otherUserId}:${target.conversationId ?? ''}` : target.conversationId}` : null])
+  }, [supabase, currentUserId, deliveryVersion, target ? `${target.kind}:${target.kind === 'dm' ? `${target.otherUserId}:${target.conversationId ?? ''}` : target.conversationId}` : null])
 
   const send = useCallback(async (
     content: string,
@@ -191,8 +178,7 @@ export function useMessages(
     const cid = convIdRef.current
     if (!cid || (!content.trim() && !attachment)) return false
 
-    // Attachments no longer expire — files persist in R2 and reads go
-    // through presigned GETs. (Old rows may still carry an expiry.)
+    // The server determines expiry from the uploader's plan; no client-supplied deadline.
     const expiresAt = null
 
     const id=await messageId()
@@ -208,19 +194,20 @@ export function useMessages(
       attachment_metadata: attachment?.metadata ?? null,
       attachment_expires_at: expiresAt,
       attachment_expired: false,
+      pending: true,
     }
 
     setMessages(prev => [...prev, optimistic])
 
     let error: unknown
     try {
-      const envelope=await encryptChatMessage(supabase,currentUserId,id,cid,{content:content.trim(),attachment_url:attachment?.url??null,attachment_type:attachment?.type??null,attachment_name:attachment?.name??null,attachment_metadata:attachment?.metadata??null})
-      const result=await supabase.from('messages').insert({id,conversation_id:cid,sender_id:currentUserId,content:'🔒 Encrypted message',encrypted_payload:envelope,attachment_keys:attachmentKeys(attachment)})
-      error=result.error
+      await sendAccountMessage(supabase,currentUserId,id,cid,content,attachment)
+      const statuses=attachment?await readAttachmentStatus(supabase,cid):[]
+      setMessages(prev=>prev.map(m=>m.id===optimistic.id?withAttachmentRetention({...m,id,pending:false},statuses):m))
     }catch(e){error=e}
 
     if (error) {
-      window.dispatchEvent(new CustomEvent('orb-chat-error',{detail:error instanceof Error?error.message:'Could not send the encrypted message.'}))
+      window.dispatchEvent(new CustomEvent('orb-chat-error',{detail:'Could not send the message. Check your connection and try again.'}))
       console.error('[useMessages] send failed', {
         conversation_id: cid,
         sender_id: currentUserId,

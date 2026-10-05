@@ -25,7 +25,7 @@ function buildStamp () {
     name: 'build-stamp',
     generateBundle (this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }) {
       this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ build: buildId(), version: pkgVersion(), at: new Date().toISOString(),
-        regionSharing: 1, regionDawproject: 1, regionVstXml: 1, regionLuna: 1, stemDownloads: 1, regionPlacement: 1, trackExportPolicy: 'pro-tools-only' }) })
+        regionSharing: 1, regionDawproject: 1, regionVstXml: 1, regionLuna: 1, stemDownloads: 1, regionPlacement: 1, regionAudioDrag: 1, accountChat: 1, automaticPrivateChat: 0, logicRegionPositions: 1, trackExportPolicy: 'pro-tools-only' }) })
     },
   }
 }
@@ -35,9 +35,23 @@ export default defineConfig({
     name: 'require-auth-configuration',
     apply: 'build',
     configResolved(config) {
-      if (!config.env.VITE_SUPABASE_URL?.startsWith('https://') || !config.env.VITE_SUPABASE_ANON_KEY || config.env.VITE_SUPABASE_ANON_KEY === 'your-supabase-anon-key-here') {
+      const url = config.env.VITE_SUPABASE_URL
+      const key = config.env.VITE_SUPABASE_ANON_KEY
+      if (!url?.startsWith('https://') || !key || key === 'your-supabase-anon-key-here') {
         throw new Error('Login configuration missing: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building the plugin.')
       }
+    },
+  }, {
+    name: 'orb-native-region-qa',
+    configureServer(server) {
+      if (!['1', 'tracks'].includes(process.env.ORB_REGION_QA ?? '')) return
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url || '/', 'http://localhost')
+        if (url.pathname !== '/' || url.searchParams.get('qa') === 'off') return next()
+        const page = process.env.ORB_REGION_QA === 'tracks' ? 'track-export' : 'region-bundle'
+        res.writeHead(302, { Location: `/tests/${page}.html${url.search}` })
+        res.end()
+      })
     },
   }],
   define: {
@@ -46,5 +60,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: process.env.ORB_DEV_API_URL ? {
+      '/api': { target: process.env.ORB_DEV_API_URL, changeOrigin: true },
+    } : undefined,
   },
 })

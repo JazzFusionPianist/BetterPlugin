@@ -634,7 +634,7 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
           return (
             <div key={m.id} className={`chatt-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
               {/* Optimistic rows ('opt-') have no server row to delete yet. */}
-              {mine && !m.id.startsWith('opt-') && (
+              {mine && !m.pending && !m.id.startsWith('opt-') && (
                 <MsgDeleteWord onConfirm={() => { void handleDelete(m) }} />
               )}
               <div className="chatt-col">
@@ -648,7 +648,8 @@ export default function ChatThread({ supabase, currentUserId, target, profileByI
                   {m.content && <span className="chatt-text">{m.content}</span>}
                   <span className="chatt-time">{fmtTime(m.created_at)}</span>
                 </div>
-                {readers.length > 0 && (
+                {m.pending && <span className="chatt-time" role="status">Sending...</span>}
+                {!m.pending && readers.length > 0 && (
                   isGroup ? (
                     <span
                       className="chatt-read chatt-read-group"

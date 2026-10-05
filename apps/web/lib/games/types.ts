@@ -30,8 +30,8 @@ export interface Message {
   attachment_url?: string | null
   attachment_type?: AttachType | null
   attachment_name?: string | null
-  attachment_expires_at?: string | null   // ISO timestamp, 7 days after upload
-  attachment_expired?: boolean            // true once storage object is deleted
+  attachment_expires_at?: string | null   // Server-assigned deadline: free 7 days, paid 3 calendar months
+  attachment_expired?: boolean            // Retention deadline passed or storage deletion started
 }
 
 export type ConversationKind = 'dm' | 'group'

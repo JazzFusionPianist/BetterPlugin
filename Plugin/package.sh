@@ -23,12 +23,10 @@
 # are skipped with a warning (e.g. AAX without the Avid SDK).
 #
 # Notes:
-#   • Unsigned pkgs show a Gatekeeper warning on other machines
-#     (right-click → Open works). For distribution, set SIGN_ID to a
-#     "Developer ID Installer" cert and notarize the result.
-#   • AAX additionally needs PACE/iLok signing to load in release
-#     Pro Tools — the unsigned AAX here only works in PT Developer
-#     builds. The pkg still installs it for that workflow.
+#   • For distribution, set SIGN_ID to a Developer ID Installer certificate
+#     and notarize the resulting package.
+#   • Release Pro Tools requires a PACE-signed AAX. Unsigned AAX bundles
+#     are excluded from the installer.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -114,18 +112,32 @@ build_component() {
   return 0
 }
 
-# Auto-sign AAX with PACE/iLok before packaging when credentials are present.
-# Without this the bundled .aaxplugin only loads in Pro Tools Developer builds.
-# See sign-aax.sh for the one-time account prerequisites.
-if [ -n "${PACE_ACCOUNT:-}" ] && [ -d "$ARTEFACTS/AAX/$NAME.aaxplugin" ]; then
-  echo "  • signing AAX (PACE_ACCOUNT set) …"
-  "$SCRIPT_DIR/sign-aax.sh" || echo "  ⚠ AAX signing failed — packaging the unsigned bundle"
+# PACE SDK 6 signs with Slur Studio's customer identity, with no product or
+# Wrap Configuration registration. Never ship an unsigned AAX by accident.
+AAX_SOURCE="$ARTEFACTS/AAX/$NAME.aaxplugin"
+AAX_SIGNED=0
+if [ -d "$AAX_SOURCE" ]; then
+  PACE_WRAPTOOL="${PACE_WRAPTOOL:-/Applications/PACEAntiPiracy/Eden/Fusion/Current/bin/wraptool}"
+  if [ ! -x "$PACE_WRAPTOOL" ]; then
+    PACE_WRAPTOOL="$(command -v wraptool || true)"
+  fi
+  if [ -n "${PACE_CUSTOMER_NUMBER:-}" ] && [ -n "${APPLE_SIGN_ID:-}" ]; then
+    echo "  • signing AAX for Slur Studio …"
+    "$SCRIPT_DIR/sign-aax.sh" "$AAX_SOURCE"
+  fi
+  if [ -x "$PACE_WRAPTOOL" ] && "$PACE_WRAPTOOL" verify --in "$AAX_SOURCE" >/dev/null 2>&1; then
+    AAX_SIGNED=1
+  else
+    echo "  ⚠ Skipping unsigned AAX; set PACE_CUSTOMER_NUMBER and APPLE_SIGN_ID to include it"
+  fi
 fi
 
 HAVE_VST3=0; HAVE_AU=0; HAVE_AAX=0; HAVE_APP=0
 build_component vst3       "$ARTEFACTS/VST3/$NAME.vst3"         "/Library/Audio/Plug-Ins/VST3"                      && HAVE_VST3=1 || true
 build_component au         "$ARTEFACTS/AU/$NAME.component"      "/Library/Audio/Plug-Ins/Components"                && HAVE_AU=1   || true
-build_component aax        "$ARTEFACTS/AAX/$NAME.aaxplugin"     "/Library/Application Support/Avid/Audio/Plug-Ins"  && HAVE_AAX=1  || true
+if [ "$AAX_SIGNED" -eq 1 ]; then
+  build_component aax "$AAX_SOURCE" "/Library/Application Support/Avid/Audio/Plug-Ins" && HAVE_AAX=1 || true
+fi
 build_component standalone "$ARTEFACTS/Standalone/$NAME.app"    "/Applications"                                     && HAVE_APP=1  || true
 
 if [ $((HAVE_VST3 + HAVE_AU + HAVE_AAX + HAVE_APP)) -eq 0 ]; then

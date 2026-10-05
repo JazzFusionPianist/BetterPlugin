@@ -23,6 +23,7 @@ out
 
 # JUCE plugin build artifacts
 Plugin/build/
+Plugin/build-logic-qa/
 Plugin/*.bak
 
 # Vercel

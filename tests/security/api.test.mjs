@@ -37,10 +37,39 @@ test('file APIs reject anonymous/malformed/unauthorized requests, preserve CORS 
   assert.equal(signed.headers.get('cache-control'),'private, no-store')
  }finally{globalThis.fetch=oldFetch}
 })
-test('format inspection rejects active content masquerading as media and requires encrypted header for private uploads',()=>{
+test('private media uses normal format validation while generic attachments remain private-only',()=>{
  const b=s=>new TextEncoder().encode(s)
  assert.equal(matchesFileType(b('<html><script>alert(1)</script>'),'image/png',false),false)
  assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',false),true)
  assert.equal(matchesFileType(b('ORBFIL01encrypted bytes'),'application/octet-stream',true),true)
- assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',true),false)
+ assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',true),true)
+ assert.equal(matchesFileType(b('<html><script>alert(1)</script>'),'image/png',true),false)
+ assert.equal(matchesFileType(b('plain attachment'),'application/octet-stream',true),true)
+ assert.equal(matchesFileType(b('plain attachment'),'application/octet-stream',false),false)
+ assert.equal(matchesFileType(new Uint8Array(),'application/octet-stream',true),false)
+ assert.equal(matchesFileType(b('PK\x03\x04archive'),'application/zip',true),true)
+ assert.equal(matchesFileType(b('PK\x03\x04archive'),'application/zip',false),false)
+})
+test('signed download lifetime stops at attachment expiry and expired authorized files return 410',async()=>{
+ const download=await load('r2-file-url'),previous=globalThis.fetch
+ Object.assign(process.env,{SUPABASE_URL:'https://db.example.invalid',SUPABASE_ANON_KEY:'test-anon',CLOUDFLARE_R2_PRIVATE_BUCKET:'test-private',CLOUDFLARE_R2_ACCESS_KEY_ID:'test-key',CLOUDFLARE_R2_SECRET_ACCESS_KEY:'test-secret',CLOUDFLARE_ACCOUNT_ID:'test-account'})
+ let deadline=new Date(Date.now()+45000).toISOString(),expired=false
+ try{
+   globalThis.fetch=async url=>{
+     if(String(url).endsWith('/security_check_session'))return Response.json({id:'00000000-0000-4000-8000-000000000001'})
+     if(String(url).endsWith('/security_rate_limit'))return new Response(null,{status:204})
+     assert.ok(String(url).endsWith('/file_access'))
+     if(expired)return Response.json({code:'P0002',message:'Attachment expired'},{status:404})
+     return Response.json({object_key:'private/test/file.wav',storage:'private',size:20,mime:'audio/wav',retention_expires_at:deadline})
+   }
+   const req=()=>new Request('https://app.example.invalid/api/r2-file-url',{method:'POST',headers:{authorization:'Bearer test-session','content-type':'application/json'},body:JSON.stringify({key:'private/test/file.wav'})})
+   const response=await download(req());assert.equal(response.status,200)
+   const body=await response.json()
+   assert.ok(body.expiresIn>0&&body.expiresIn<=45)
+   assert.equal(Number(new URL(body.url).searchParams.get('X-Amz-Expires')),body.expiresIn)
+   deadline=new Date(Date.now()-1000).toISOString()
+   assert.equal((await download(req())).status,410)
+   expired=true
+   assert.equal((await download(req())).status,410)
+ }finally{globalThis.fetch=previous}
 })

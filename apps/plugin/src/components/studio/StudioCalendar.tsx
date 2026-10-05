@@ -1,13 +1,13 @@
 /**
  * The studio calendar (draft A, approved 2026-09-19). The month grid is
  * the page: event titles sit IN the day cells behind a 2px category bar
- * ("+2 more" when a day overflows), today is an ink disc, the chosen day
+ * ("+n more" only when a day outgrows its cell), today is an ink disc, the chosen day
  * a green wash. The right column is that day's programme — time, bar,
  * title, room / place — with a prompt at its foot that adds to THAT day.
  * Views are words: month / week / list. One family, no icons.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import type { EventCategory } from '../../hooks/useEventCategories'
 import { EventPage, type EventPatch } from '../collab/CalendarPanel'
@@ -96,6 +96,22 @@ export default function StudioCalendar({
     return keys.slice(0, 40)
   }, [byDay, todayKey])
 
+  // How many rows a month cell holds: as many chips as its height allows
+  // (a chip is 14px and 3px of gap, under a 20px number and 12px of
+  // padding), so a tall window shows a busy day whole instead of "+n more".
+  const weeksRef = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState(4)
+  useEffect(() => {
+    const el = weeksRef.current; if (!el) return
+    const measure = () => {
+      const cell = el.clientHeight / Math.max(1, monthWeeks.length)
+      setFit(Math.max(2, Math.min(9, Math.floor((cell - 12 - 20) / 17))))
+    }
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el)
+    return () => ro.disconnect()
+  }, [monthWeeks.length, view])
+
   const pick = (k: string) => { setSelected(k); setDetailId(null) }
   const step = (dir: 1 | -1) => {
     if (view === 'week') {
@@ -182,7 +198,7 @@ export default function StudioCalendar({
           {view === 'month' && (
             <>
               <div className="sc-weekdays">{WEEKDAYS.map(d => <span key={d}>{d}</span>)}</div>
-              <div className="sc-weeks">
+              <div className="sc-weeks" ref={weeksRef}>
                 {monthWeeks.map((week, wi) => (
                   <div key={wi} className="sc-week">
                     {week.map((d, di) => {
@@ -194,8 +210,9 @@ export default function StudioCalendar({
                           className={`sc-cell${out ? ' out' : ''}${k === selected ? ' sel' : ''}${di >= 5 ? ' wkend' : ''}`}
                           onClick={() => pick(k)}>
                           <span className={`sc-num${k === todayKey ? ' today' : ''}`}>{d.getDate()}</span>
-                          {evs.slice(0, 3).map(e => chip(e, false))}
-                          {evs.length > 3 && <span className="sc-more">+{evs.length - 3} more</span>}
+                          {/* all of them when they fit; otherwise one row is the "+n more" */}
+                          {(evs.length <= fit ? evs : evs.slice(0, fit - 1)).map(e => chip(e, false))}
+                          {evs.length > fit && <span className="sc-more">+{evs.length - (fit - 1)} more</span>}
                         </button>
                       )
                     })}

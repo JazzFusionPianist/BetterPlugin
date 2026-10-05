@@ -44,6 +44,33 @@ const timeOf = (e: CalendarEvent) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** The week's time frame: an hour is this tall, and the frame opens on the working day. */
+const HOUR_PX = 40
+const minsOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes() }
+const hhmm = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+interface Placed { e: CalendarEvent; start: number; end: number; lane: number; lanes: number }
+/** A day's timed events as blocks: start and end in minutes (an hour when no end is set, and never
+ *  past midnight), and — where they overlap — side by side in lanes. */
+function placeDay (evs: CalendarEvent[]): Placed[] {
+  const items = evs.filter(e => !e.all_day).map(e => {
+    const start = minsOf(e.starts_at)
+    const sameDay = e.ends_at && keyOf(new Date(e.ends_at)) === keyOf(new Date(e.starts_at))
+    const end = e.ends_at ? (sameDay ? minsOf(e.ends_at) : 24 * 60) : start + 60
+    return { e, start, end: Math.min(24 * 60, Math.max(end, start + 30)), lane: 0, lanes: 1 }
+  }).sort((x, y) => x.start - y.start || y.end - x.end)
+  // a cluster is a run of events each touching the one before; inside it, each takes the first free lane
+  let cluster: Placed[] = [], clusterEnd = -1
+  const close = () => { const n = Math.max(0, ...cluster.map(c => c.lane)) + 1; cluster.forEach(c => { c.lanes = n }); cluster = [] }
+  for (const it of items) {
+    if (cluster.length && it.start >= clusterEnd) close()
+    const taken = new Set(cluster.filter(c => c.end > it.start).map(c => c.lane))
+    let lane = 0; while (taken.has(lane)) lane++
+    it.lane = lane; cluster.push(it); clusterEnd = Math.max(clusterEnd, it.end)
+  }
+  if (cluster.length) close()
+  return items
+}
+
 export default function StudioCalendar({
   currentUserId, events, categories, groupTitleById, onDelete, onUpdate, onAdd,
 }: Props) {
@@ -112,7 +139,26 @@ export default function StudioCalendar({
     return () => ro.disconnect()
   }, [monthWeeks.length, view])
 
+  // The week's frame is the whole day, scrolled to where the week's first
+  // event is (never later than 08:00); a minute hand marks now.
+  const frameRef = useRef<HTMLDivElement>(null)
+  const weekKey = keyOf(weekDays[0]!)
+  useEffect(() => {
+    if (view !== 'week' || !frameRef.current) return
+    const firsts = weekDays.flatMap(d => (byDay.get(keyOf(d)) ?? []).filter(e => !e.all_day).map(e => minsOf(e.starts_at)))
+    const from = Math.min(8 * 60, ...(firsts.length ? [Math.min(...firsts) - 30] : []))
+    frameRef.current.scrollTop = Math.max(0, Math.max(0, from) / 60 * HOUR_PX - 12)   // a little air above the first hour's label
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, weekKey])
+  const [nowMin, setNowMin] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes() })
+  useEffect(() => {
+    if (view !== 'week') return
+    const t = window.setInterval(() => { const n = new Date(); setNowMin(n.getHours() * 60 + n.getMinutes()) }, 30000)
+    return () => window.clearInterval(t)
+  }, [view])
+
   const pick = (k: string) => { setSelected(k); setDetailId(null) }
+  const open = (k: string, id: string) => { setSelected(k); setDetailId(id) }
   const step = (dir: 1 | -1) => {
     if (view === 'week') {
       const d = addDays(dateOf(selected), dir * 7)
@@ -223,20 +269,58 @@ export default function StudioCalendar({
           )}
 
           {view === 'week' && (
-            <div className="sc-wk">
-              {weekDays.map((d, di) => {
-                const k = keyOf(d)
-                const evs = byDay.get(k) ?? []
-                return (
-                  <button key={k} className={`sc-wkcol${k === selected ? ' sel' : ''}`} onClick={() => pick(k)}>
-                    <span className="sc-wkhead">
+            <div className="sc-wt">
+              <div className="sc-wt-head">
+                <span />
+                {weekDays.map((d, di) => {
+                  const k = keyOf(d)
+                  return (
+                    <button key={k} className={`sc-wt-day${k === selected ? ' sel' : ''}${di >= 5 ? ' wkend' : ''}`} onClick={() => pick(k)}>
                       <span>{WEEKDAYS[di]}</span>
                       <span className={`sc-num${k === todayKey ? ' today' : ''}`}>{d.getDate()}</span>
-                    </span>
-                    {evs.map(e => chip(e, true))}
-                  </button>
-                )
-              })}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="sc-wt-all">
+                <span className="sc-wt-lab">all day</span>
+                {weekDays.map(d => {
+                  const k = keyOf(d)
+                  return (
+                    <div key={k} className={`sc-wt-allcell${k === selected ? ' sel' : ''}`} onClick={() => pick(k)}>
+                      {(byDay.get(k) ?? []).filter(e => e.all_day).map(e => (
+                        <button key={e.id} className="sc-wt-pill" title={e.title} style={{ '--c': e.category_color || DEFAULT_COLOR } as React.CSSProperties}
+                          onClick={ev => { ev.stopPropagation(); open(k, e.id) }}><b>{e.title}</b></button>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="sc-wt-frame" ref={frameRef}>
+                <div className="sc-wt-grid" style={{ height: 24 * HOUR_PX }}>
+                  <div className="sc-wt-hours">
+                    {Array.from({ length: 23 }, (_, h) => <span key={h} style={{ top: (h + 1) * HOUR_PX }}>{pad(h + 1)}:00</span>)}
+                  </div>
+                  {weekDays.map(d => {
+                    const k = keyOf(d)
+                    return (
+                      <div key={k} className={`sc-wt-col${k === selected ? ' sel' : ''}`} onClick={() => pick(k)}>
+                        {placeDay(byDay.get(k) ?? []).map(({ e, start, end, lane, lanes }) => {
+                          const h = (end - start) / 60 * HOUR_PX - 2
+                          return (
+                            <button key={e.id} className={`sc-wt-ev${h < 34 ? ' short' : ''}`} title={`${hhmm(start)} ${e.title}`}
+                              style={{ top: start / 60 * HOUR_PX + 1, height: h, left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - ${lanes > 1 ? 4 : 6}px)`, '--c': e.category_color || DEFAULT_COLOR } as React.CSSProperties}
+                              onClick={ev => { ev.stopPropagation(); open(k, e.id) }}>
+                              <em>{hhmm(start)}</em><b>{e.title}</b>
+                            </button>
+                          )
+                        })}
+                        {k === todayKey && <i className="sc-wt-now" style={{ top: nowMin / 60 * HOUR_PX }} />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

@@ -354,7 +354,7 @@ export default function StudioCalendar({
                 groupTitle={detail.conversation_id ? groupTitleById.get(detail.conversation_id) ?? null : null}
                 onUpdate={onUpdate}
                 onBack={() => setDetailId(null)}
-                onClose={() => setDetailId(null)}
+                onDelete={onDelete}
               />
             </div>
           ) : (

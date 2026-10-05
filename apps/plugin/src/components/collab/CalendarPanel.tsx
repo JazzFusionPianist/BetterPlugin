@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import type { EventCategory } from '../../hooks/useEventCategories'
 
@@ -106,6 +106,7 @@ export default function CalendarPanel({
           groupTitle={detail.conversation_id ? groupTitleById.get(detail.conversation_id) ?? null : null}
           onUpdate={onUpdate}
           onBack={() => setDetailId(null)}
+          onDelete={onDelete}
         />
       </div>
     )
@@ -342,20 +343,63 @@ export default function CalendarPanel({
 }
 
 /* ── Event page — the panel turns to this like a booklet page ───────────
-   Title, date/time (am/pm chips — the fast way to fix an am/pm the AI
-   misheard), place, and room for notes. Everything saves as you go. */
+   The title with its note, when it starts and when it ends (am/pm one tap
+   away — the fast way to fix an am/pm the AI misheard — and the length as
+   pills), the day as a ruler with the event on it, place, notes.
+   Everything saves as you go. */
 
 const fmtSheetDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+  new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
+const pad2 = (n: number) => String(n).padStart(2, '0')
+/** As the calendar's own day heading reads ("thursday 8"), whatever the browser's language. */
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+const LENGTHS: [string, number][] = [['30m', 30], ['1h', 60], ['2h', 120], ['3h', 180], ['4h', 240]]
+const lengthText = (m: number) => {
+  const h = Math.floor(m / 60), r = m % 60
+  return h === 0 ? `${r} min` : r === 0 ? `${h} ${h === 1 ? 'hour' : 'hours'}` : `${h} h ${r} min`
+}
+/** A category's colour as a wash (hex colours only; anything else stays whole). */
+const wash = (c: string) => (/^#[0-9a-f]{6}$/i.test(c) ? `${c}3D` : c)
 
-export function EventPage({ event, own, groupTitle, onUpdate, onBack }: {
+/** One clock time, typed in place: hour, minutes, and am/pm as a key that flips. */
+function TimeField ({ at, onSet, end, label }: { at: Date; onSet: (h24: number, m: number) => void; end?: boolean; label: string }) {
+  const pm = at.getHours() >= 12
+  const h12 = ((at.getHours() + 11) % 12) + 1
+  const mm = pad2(at.getMinutes())
+  const blurOnEnter = (ev: React.KeyboardEvent<HTMLInputElement>) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }
+  return (
+    <span className={`evp-time${end ? ' end' : ''}`} key={at.toISOString()}>
+      <input className="evp-num" inputMode="numeric" maxLength={2} defaultValue={h12} style={{ width: `${String(h12).length}ch` }}
+        onFocus={(ev) => ev.target.select()} onKeyDown={blurOnEnter} aria-label={`${label} hour`}
+        onBlur={(ev) => {
+          const v = parseInt(ev.target.value, 10)
+          if (!isFinite(v) || v < 1 || v > 12) { ev.target.value = String(h12); return }
+          if (v !== h12) onSet((v % 12) + (pm ? 12 : 0), at.getMinutes())
+        }} />
+      <i>:</i>
+      <input className="evp-num" inputMode="numeric" maxLength={2} defaultValue={mm} style={{ width: '2ch' }}
+        onFocus={(ev) => ev.target.select()} onKeyDown={blurOnEnter} aria-label={`${label} minutes`}
+        onBlur={(ev) => {
+          const v = parseInt(ev.target.value, 10)
+          if (!isFinite(v) || v < 0 || v > 59) { ev.target.value = mm; return }
+          if (pad2(v) !== mm) onSet(at.getHours(), v)
+        }} />
+      <button className="evp-ampm" onClick={() => onSet((at.getHours() + 12) % 24, at.getMinutes())} aria-label={`${label} ${pm ? 'pm' : 'am'}, switch`}>{pm ? 'pm' : 'am'}</button>
+    </span>
+  )
+}
+
+export function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose, onDelete }: {
   event: CalendarEvent
   own: boolean
   groupTitle: string | null
   onUpdate: (id: string, patch: EventPatch) => void
   onBack: () => void
+  /** The phone's sheet closes the whole calendar from here. */
+  onClose?: () => void
+  onDelete?: (id: string) => void
 }) {
-  // Commit any un-blurred notes when the page closes, so nothing typed
+  // Commit any un-blurred notes when the sheet closes, so nothing typed
   // is lost even if the textarea never lost focus. Layout effect: its
   // cleanup runs before React detaches the ref on unmount.
   const notesRef = useRef<HTMLTextAreaElement>(null)
@@ -369,130 +413,145 @@ export function EventPage({ event, own, groupTitle, onUpdate, onBack }: {
     if ((e.notes ?? '') !== v) update(e.id, { notes: v || null })
   }, [])
 
+  // Lift the sheet above the on-screen keyboard (notes live at the bottom).
+  const [kbInset, setKbInset] = useState(0)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
+    onResize()
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize) }
+  }, [])
+
+  const start = new Date(event.starts_at)
+  const end = event.ends_at ? new Date(event.ends_at) : null
+  const mins = end ? Math.round((end.getTime() - start.getTime()) / 60000) : null
+
   /** Reschedule, preserving the event's duration if it has an end. */
   const applyStart = (next: Date) => {
     const patch: EventPatch = { starts_at: next.toISOString() }
     if (event.ends_at) {
-      const delta = next.getTime() - new Date(event.starts_at).getTime()
+      const delta = next.getTime() - start.getTime()
       patch.ends_at = new Date(new Date(event.ends_at).getTime() + delta).toISOString()
     }
     onUpdate(event.id, patch)
   }
-  const stepDay = (delta: number) => {
-    const next = new Date(event.starts_at)
-    next.setDate(next.getDate() + delta)
-    applyStart(next)
+  const stepDay = (delta: number) => { const next = new Date(start); next.setDate(next.getDate() + delta); applyStart(next) }
+  const setStart = (h24: number, m: number) => { const next = new Date(start); next.setHours(h24, m, 0, 0); applyStart(next) }
+  /** The end is a clock time on the start's day — or the next day's, when it is not after the start (a set that runs past midnight). */
+  const setEnd = (h24: number, m: number) => {
+    const next = new Date(start); next.setHours(h24, m, 0, 0)
+    if (next.getTime() <= start.getTime()) next.setDate(next.getDate() + 1)
+    onUpdate(event.id, { ends_at: next.toISOString() })
   }
-  const setHour24 = (h24: number) => {
-    const next = new Date(event.starts_at)
-    next.setHours(h24)
-    applyStart(next)
-  }
+  /** A length pill sets the end; the one that is on takes it away again. */
+  const setLength = (m: number) => onUpdate(event.id, {
+    all_day: false,
+    ends_at: !event.all_day && mins === m ? null : new Date(start.getTime() + m * 60000).toISOString(),
+  })
 
-  const start = new Date(event.starts_at)
-  const isPm = start.getHours() >= 12
-  const h12 = ((start.getHours() + 11) % 12) + 1
-  const mm2 = String(start.getMinutes()).padStart(2, '0')
+  // the day as a ruler: 06:00 to midnight, or the whole day for an early start
+  const sH = start.getHours() + start.getMinutes() / 60
+  const eH = end ? (end.toDateString() === start.toDateString() ? end.getHours() + end.getMinutes() / 60 : 24) : Math.min(24, sH + 1)
+  const from = sH < 6 ? 0 : 6
+  const at = (h: number) => `${((h - from) / (24 - from) * 100).toFixed(2)}%`
+  const color = event.category_color || '#7C7C86'
+
+  const [sure, setSure] = useState(false)
+  useEffect(() => {
+    if (!sure) return
+    const t = window.setTimeout(() => setSure(false), 2600)
+    return () => window.clearTimeout(t)
+  }, [sure])
 
   return (
-    <div className="cal-evpage">
-      <div className="evsheet-head">
-        <button className="cal-evpage-back" onClick={onBack} aria-label="Back to calendar">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-          <span className="evsheet-kicker">
-            {own ? 'edit event' : groupTitle ? `shared · ${groupTitle}` : 'event'}
-          </span>
+    <div className="cal-evpage evp" style={{ paddingBottom: `calc(8px + ${kbInset}px)` }}>
+      <div className="evp-head">
+        <button className="evp-back" onClick={onBack} aria-label="Back to the day">
+          <i>‹</i>{DAY_NAMES[start.getDay()]} {start.getDate()}
         </button>
+        {onClose && (
+          <button className="evp-x" onClick={onClose} aria-label="Close calendar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        )}
       </div>
 
-      {own ? (
-        <input
-          className="evsheet-title"
-          defaultValue={event.title}
-          onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
-          onBlur={(ev) => {
-            const v = ev.target.value.trim()
-            if (v && v !== event.title) onUpdate(event.id, { title: v })
-          }}
-        />
-      ) : (
-        <div className="evsheet-title evsheet-title-ro">{event.title}</div>
-      )}
-
-      <div className="evsheet-row">
-        <span className="evsheet-label">when</span>
-        <div className="evsheet-when">
-          <div className="evsheet-daterow">
-            <span className="evsheet-date">{fmtSheetDate(event.starts_at)}</span>
-            {own && (
-              <button className="evsheet-dstep" onClick={() => stepDay(-1)} aria-label="Previous day">‹</button>
-            )}
-            {own && (
-              <button className="evsheet-dstep" onClick={() => stepDay(1)} aria-label="Next day">›</button>
-            )}
-            {own && (
-              <button
-                className={`evsheet-allday${event.all_day ? ' on' : ''}`}
-                onClick={() => onUpdate(event.id, { all_day: !event.all_day })}
-              >
-                all day
-              </button>
-            )}
-          </div>
-          {!event.all_day && (own ? (
-            <div className="evsheet-timerow" key={event.starts_at}>
-              <input
-                className="evsheet-tinput"
-                inputMode="numeric"
-                maxLength={2}
-                defaultValue={h12}
-                onFocus={(ev) => ev.target.select()}
-                onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
-                onBlur={(ev) => {
-                  const v = parseInt(ev.target.value, 10)
-                  if (!isFinite(v) || v < 1 || v > 12) { ev.target.value = String(h12); return }
-                  if (v !== h12) setHour24((v % 12) + (isPm ? 12 : 0))
-                }}
-                aria-label="Hour"
-              />
-              <span className="evsheet-tcolon">:</span>
-              <input
-                className="evsheet-tinput"
-                inputMode="numeric"
-                maxLength={2}
-                defaultValue={mm2}
-                onFocus={(ev) => ev.target.select()}
-                onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
-                onBlur={(ev) => {
-                  const v = parseInt(ev.target.value, 10)
-                  if (!isFinite(v) || v < 0 || v > 59) { ev.target.value = mm2; return }
-                  if (String(v).padStart(2, '0') !== mm2) {
-                    const next = new Date(event.starts_at)
-                    next.setMinutes(v)
-                    applyStart(next)
-                  }
-                }}
-                aria-label="Minutes"
-              />
-              <div className="evsheet-ampm">
-                <button className={isPm ? '' : 'on'} onClick={() => { if (isPm) setHour24(start.getHours() - 12) }}>am</button>
-                <button className={isPm ? 'on' : ''} onClick={() => { if (!isPm) setHour24(start.getHours() + 12) }}>pm</button>
-              </div>
-            </div>
-          ) : (
-            <span className="evsheet-timero">
-              {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="evsheet-row">
-        <span className="evsheet-label">where</span>
+      <div className="evp-title">
+        <span className="evp-note" style={{ background: color }} />
         {own ? (
           <input
-            className="evsheet-input evsheet-grow"
-            placeholder="add a place…"
+            defaultValue={event.title}
+            aria-label="Title"
+            onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+            onBlur={(ev) => {
+              const v = ev.target.value.trim()
+              if (v && v !== event.title) onUpdate(event.id, { title: v })
+            }}
+          />
+        ) : <b>{event.title}</b>}
+      </div>
+      {(event.category || groupTitle || !own) && (
+        <div className="evp-pills">
+          {event.category && <span style={{ background: wash(color) }}>{event.category}</span>}
+          {groupTitle && <span>{groupTitle}</span>}
+          {!own && <span>shared</span>}
+        </div>
+      )}
+
+      <div className="evp-rule" />
+      <div className="evp-date">
+        <span>{fmtSheetDate(event.starts_at)}</span>
+        {own && (
+          <span className="evp-steps">
+            <button onClick={() => stepDay(-1)} aria-label="Previous day">‹</button>
+            <button onClick={() => stepDay(1)} aria-label="Next day">›</button>
+          </span>
+        )}
+      </div>
+
+      <div className="evp-times">
+        {event.all_day ? <b className="evp-allday">all day</b> : own ? (
+          <>
+            <TimeField at={start} onSet={setStart} label="Start" />
+            <small>to</small>
+            {end
+              ? <TimeField at={end} onSet={setEnd} end label="End" />
+              : <button className="evp-noend" onClick={() => setLength(60)} aria-label="Set an end time">––:––</button>}
+          </>
+        ) : (
+          <b className="evp-ro">
+            {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()}
+            {end && <> <small>to</small> {end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</>}
+          </b>
+        )}
+      </div>
+      {!event.all_day && mins !== null && mins > 0 && <div className="evp-long">{lengthText(mins)}</div>}
+
+      <div className="evp-ruler">
+        <i style={event.all_day ? { left: 0, right: 0, background: color, opacity: .7 } : { left: at(Math.max(from, sH)), width: `calc(${at(Math.max(eH, sH + .25))} - ${at(Math.max(from, sH))})`, background: color, opacity: end ? 1 : .45 }} />
+      </div>
+      <div className="evp-ticks">
+        {(from === 0 ? [0, 6, 12, 18, 24] : [6, 12, 18, 24]).map(h => <span key={h} style={{ left: at(h) }}>{pad2(h)}</span>)}
+      </div>
+
+      {own && (
+        <div className="evp-lengths">
+          {LENGTHS.map(([name, m]) => (
+            <button key={name} className={!event.all_day && mins === m ? 'on' : ''} onClick={() => setLength(m)}>{name}</button>
+          ))}
+          <button className={`all${event.all_day ? ' on' : ''}`} onClick={() => onUpdate(event.id, { all_day: !event.all_day })}>all day</button>
+        </div>
+      )}
+
+      <div className="evp-rule" />
+      <div className="evp-row">
+        <label>where</label>
+        {own ? (
+          <input
+            placeholder="add a place"
             defaultValue={event.location ?? ''}
             onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
             onBlur={(ev) => {
@@ -500,29 +559,31 @@ export function EventPage({ event, own, groupTitle, onUpdate, onBack }: {
               if ((event.location ?? '') !== v) onUpdate(event.id, { location: v || null })
             }}
           />
-        ) : (
-          <span className="evsheet-ro">{event.location ?? '—'}</span>
-        )}
+        ) : <span>{event.location ?? '—'}</span>}
       </div>
-
-      <div className="evsheet-row evsheet-row-notes">
-        <span className="evsheet-label">notes</span>
+      <div className="evp-rule" />
+      <div className="evp-row notes">
+        <label>notes</label>
         {own ? (
           <textarea
             ref={notesRef}
-            className="evsheet-notes"
-            placeholder="setlist, gear, who brings what…"
+            placeholder="setlist, gear, who brings what"
             defaultValue={event.notes ?? ''}
-            rows={5}
+            rows={4}
             onBlur={(ev) => {
               const v = ev.target.value.replace(/\s+$/, '')
               if ((event.notes ?? '') !== v) onUpdate(event.id, { notes: v || null })
             }}
           />
-        ) : (
-          <div className="evsheet-notes evsheet-ro">{event.notes ?? '—'}</div>
-        )}
+        ) : <span>{event.notes ?? '—'}</span>}
       </div>
+
+      {own && onDelete && (
+        <button className={`evp-remove${sure ? ' sure' : ''}`}
+          onClick={() => { if (sure) { onDelete(event.id); onBack() } else setSure(true) }}>
+          {sure ? 'sure?' : 'remove'}
+        </button>
+      )}
     </div>
   )
 }

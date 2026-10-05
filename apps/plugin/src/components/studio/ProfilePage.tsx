@@ -1,7 +1,9 @@
 /**
  * Profile page — the studio's catalogue entry for a person. Mine is
  * editable in place (photo, name, @handle, bio); a friend's is the same
- * page read-only, plus follow / message. Below the masthead sits the
+ * page read-only, plus follow / message. The masthead counts who they
+ * follow and who follows them; either number opens that list in place
+ * of the discography. Below the masthead sits the
  * discography: credit lines ("bass on <work>") that an admin approves
  * before anyone else sees them, and the person's releases if they've
  * shelved any in the app.
@@ -30,6 +32,14 @@ interface Props {
   onFollow?: () => Promise<void>
   onUnfollow?: () => Promise<void>
   onMessage?: () => void
+  /** My own follow sets and actions — for the rows of a following / followers list. */
+  myFollowingIds?: Set<string>
+  myFollowerIds?: Set<string>
+  onFollowId?: (id: string) => Promise<void>
+  onUnfollowId?: (id: string) => Promise<void>
+  /** Anyone's profile by id (the shell holds them all), and how to open one. */
+  profileOf?: (id: string) => Profile | undefined
+  onOpenProfile?: (id: string) => void
   /** Called after any profile write so the shell refetches. */
   onUpdated: () => void
   /** Optimistic local patch for my own profile. */
@@ -93,6 +103,32 @@ function useReleases(supabase: SupabaseClient, ownerId: string) {
     return () => { dead = true }
   }, [supabase, ownerId])
   return rows
+}
+
+/** Who this person follows and who follows them, as ids — the counts in
+ *  the masthead and the rows of the lists. `stamp` changes when a follow
+ *  that touches this page is made or undone, so the numbers keep up. */
+function useFollowLists(supabase: SupabaseClient, ownerId: string, stamp: string) {
+  const [lists, setLists] = useState<{ following: string[]; followers: string[] } | null>(null)
+  useEffect(() => {
+    let dead = false
+    const all = async (pick: 'following_id' | 'follower_id', where: 'following_id' | 'follower_id') => {
+      const out: string[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from('follows').select(pick).eq(where, ownerId).range(from, from + 999)
+        const rows = (data ?? []) as unknown as Record<string, string>[]
+        out.push(...rows.map(r => r[pick]!))
+        if (rows.length < 1000) break
+      }
+      return out
+    }
+    void (async () => {
+      const [following, followers] = await Promise.all([all('following_id', 'follower_id'), all('follower_id', 'following_id')])
+      if (!dead) setLists({ following, followers })
+    })()
+    return () => { dead = true }
+  }, [supabase, ownerId, stamp])
+  return lists
 }
 
 const yearOf = (r: ReleaseRow) =>
@@ -166,6 +202,7 @@ function CreditForm({ draft, onChange, onSubmit, onCancel, submitWord, busy }: {
 
 export default function ProfilePage({
   supabase, user, profile, isMine, following, follower, onFollow, onUnfollow, onMessage, onUpdated, updateMe,
+  myFollowingIds, myFollowerIds, onFollowId, onUnfollowId, profileOf, onOpenProfile,
 }: Props) {
   const { credits, loaded: creditsLoaded, add, update, remove } = useCredits(supabase, profile.id)
   const releases = useReleases(supabase, profile.id)
@@ -263,6 +300,30 @@ export default function ProfilePage({
     setFollowBusy(true)
     try { if (following) await onUnfollow?.(); else await onFollow?.() }
     finally { setFollowBusy(false) }
+  }
+
+  // ── following / followers ───────────────────────────────────────────
+  const follows = useFollowLists(supabase, profile.id, `${following}-${myFollowingIds?.size ?? 0}-${myFollowerIds?.size ?? 0}`)
+  const [list, setList] = useState<'following' | 'followers' | null>(null)
+  const [rowBusy, setRowBusy] = useState<string | null>(null)
+  const people = useMemo(() => {
+    if (!list || !follows) return []
+    return follows[list].map(id => profileOf?.(id)).filter((p): p is Profile => !!p)
+      .sort((a, b) => a.display_name.localeCompare(b.display_name))
+  }, [list, follows, profileOf])
+  const [rowSure, setRowSure] = useState<string | null>(null)   // unfollowing from a list takes two taps
+  useEffect(() => {
+    if (!rowSure) return
+    const t = window.setTimeout(() => setRowSure(null), 2600)
+    return () => window.clearTimeout(t)
+  }, [rowSure])
+  const toggleRow = async (id: string) => {
+    if (rowBusy) return
+    const mine = !!myFollowingIds?.has(id)
+    if (mine && rowSure !== id) { setRowSure(id); return }
+    setRowSure(null); setRowBusy(id)
+    try { if (mine) await onUnfollowId?.(id); else await onFollowId?.(id) }
+    finally { setRowBusy(null) }
   }
 
   // ── credits ─────────────────────────────────────────────────────────
@@ -367,6 +428,13 @@ export default function ProfilePage({
                   {profile.username && <span>@{profile.username}</span>}
                   {no && <span className="no">{no}</span>}
                 </div>
+                <div className="wd-prof-follows">
+                  {follows && (['following', 'followers'] as const).map(k => (
+                    <button key={k} className={list === k ? 'on' : undefined} onClick={() => setList(l => (l === k ? null : k))}>
+                      <b>{follows[k].length}</b>{k}
+                    </button>
+                  ))}
+                </div>
                 {profile.bio
                   ? <div className="wd-prof-bio">{profile.bio}</div>
                   : isMine && <div className="wd-prof-bio empty">no line about you yet</div>}
@@ -389,8 +457,37 @@ export default function ProfilePage({
           </div>
         </div>
 
+        {/* ── following / followers — the people, in place of the discography ── */}
+        {list && (
+          <div className="wd-prof-sec">
+            <div className="wd-prof-sec-head">
+              <span>{list}</span>
+              <span className="wd-prof-sec-right"><button className="wd-word sm" onClick={() => setList(null)}>back</button></span>
+            </div>
+            {people.length === 0 && <div className="wd-prof-none">no one yet</div>}
+            {people.map(p => (
+              <div key={p.id} className="wd-person">
+                <button className="wd-person-who" onClick={() => onOpenProfile?.(p.id)}>
+                  <span className="wd-person-av" style={{ background: houseColor(p.id) }}>
+                    {p.avatar_url ? <img src={p.avatar_url} alt="" /> : (p.initials || getInitials(p.display_name || '?')).slice(0, 2)}
+                  </span>
+                  <span className="wd-person-main">
+                    <b>{p.display_name}</b>
+                    {p.username && <small>@{p.username}</small>}
+                  </span>
+                </button>
+                {p.id === user.id ? <span className="wd-prof-fine">you</span> : onFollowId && (
+                  <button className={`wd-word sm${rowSure === p.id ? ' sure' : myFollowingIds?.has(p.id) ? ' dim' : ' acc'}`} disabled={rowBusy === p.id} onClick={() => void toggleRow(p.id)}>
+                    {rowBusy === p.id ? '…' : rowSure === p.id ? 'unfollow?' : myFollowingIds?.has(p.id) ? 'following' : myFollowerIds?.has(p.id) ? 'follow back' : 'follow'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── discography — credits ─────────────────────────────── */}
-        <div className="wd-prof-sec">
+        {!list && <div className="wd-prof-sec">
           <div className="wd-prof-sec-head">
             <span>discography</span>
             <span className="wd-prof-sec-right">
@@ -448,10 +545,10 @@ export default function ProfilePage({
               </div>
             )
           ))}
-        </div>
+        </div>}
 
         {/* ── releases — the app's shelves, read-only here ─────── */}
-        {releases.length > 0 && (
+        {!list && releases.length > 0 && (
           <div className="wd-prof-sec">
             <div className="wd-prof-sec-head"><span>releases</span></div>
             {releases.map((r, i) => (

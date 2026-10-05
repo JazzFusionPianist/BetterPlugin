@@ -475,6 +475,12 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                   onUnfollow={() => unfollow(p.id)}
                   onMessage={() => openSel({ kind: 'dm', userId: p.id })}
                   onUpdated={() => { void refetchProfiles() }}
+                  myFollowingIds={followingIds}
+                  myFollowerIds={followerIds}
+                  onFollowId={follow}
+                  onUnfollowId={unfollow}
+                  profileOf={id => (id === user.id ? me ?? undefined : profileById.get(id))}
+                  onOpenProfile={id => openSel({ kind: 'profile', userId: id })}
                   updateMe={isMine ? updateMe : undefined}
                 />
               )

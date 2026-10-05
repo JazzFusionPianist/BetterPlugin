@@ -1338,3 +1338,17 @@
 .wd-bar-go i { width: 36px; height: 36px; border-radius: 18px; box-shadow: inset 0 0 0 1px rgba(26,25,23,.35); display: grid; place-items: center; font-style: normal; font-size: 15px; color: #1A1917; background: #FBFAF7; }
 .wd-bar-go:hover i { background: #F1EEE6; }
 .wd .wd-home > .wd-bar { max-height: none; height: 206px; }
+
+/* the profile's following / followers — two counts in the masthead; either opens its people below */
+.wd .wd-prof-follows { display: flex; gap: 18px; min-height: 18px; margin-top: 12px; }
+.wd .wd-prof-follows button { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 12.5px; line-height: 18px; color: rgba(26,25,23,.6); }
+.wd .wd-prof-follows b { margin-right: 5px; font-weight: 600; color: #1A1917; font-variant-numeric: tabular-nums; }
+.wd .wd-prof-follows button:hover, .wd .wd-prof-follows button.on { color: #1A1917; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.wd .wd-person { display: flex; align-items: center; gap: 14px; padding: 9px 2px; border-bottom: 1px solid rgba(26,25,23,.08); }
+.wd .wd-person-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: none; border: none; padding: 0; cursor: pointer; text-align: left; font-family: inherit; }
+.wd .wd-person-av { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: #1A1917; }
+.wd .wd-person-av img { width: 100%; height: 100%; object-fit: cover; }
+.wd .wd-person-main { min-width: 0; }
+.wd .wd-person-main b { display: block; font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; color: #1A1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-person-main small { display: block; font-size: 11px; line-height: 1.3; color: #6E6B63; }
+.wd .wd-person-who:hover b { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }

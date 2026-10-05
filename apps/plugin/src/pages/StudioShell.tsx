@@ -3172,6 +3172,7 @@ function StudioShellInner({ supabase, user }: Props) {
                 {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
               </div>
               <StudioHomePrompt
+                onOpenCalendar={() => openSel({ kind: 'me' })}
                 targets={[{ id: null, label: 'personal', color: '#1A1917' },
                   ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
                 onSubmit={async (text, cid) => {

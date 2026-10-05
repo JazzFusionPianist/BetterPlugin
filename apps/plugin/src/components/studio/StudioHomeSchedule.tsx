@@ -3,11 +3,12 @@
  * line (a whole note sends it; the targets are whole notes in each
  * room's colour), and "this week" is a mint arch holding seven days as
  * columns — today an ink disc, events as white pills with a whole note
- * in their category colour. The home never scrolls: a column shows two
- * and says "n more", which opens the calendar.
+ * in their category colour. The home never scrolls: a column shows as
+ * many as its height holds, and only past that says "n more", which
+ * opens the calendar.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, houseColor } from '../../slur/marks'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 
@@ -91,18 +92,31 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
     const arr = byDay.get(k) ?? []; arr.push(e); byDay.set(k, arr)
   }
   for (const arr of byDay.values()) arr.sort((a, b) => Number(b.all_day) - Number(a.all_day) || a.starts_at.localeCompare(b.starts_at))
-  const CAP = 2
+  // how many pills a column's height holds, measured live
+  const daysRef = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState(2)
+  useEffect(() => {
+    const el = daysRef.current; if (!el) return
+    const measure = () => {
+      const head = el.querySelector<HTMLElement>('.wd-week-dh')?.offsetHeight ?? 26
+      const row = el.querySelector<HTMLElement>('.wd-week-ev')?.offsetHeight ?? 40
+      setFit(Math.max(1, Math.floor((el.clientHeight - head) / (row + 6))))
+    }
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el)
+    return () => ro.disconnect()
+  }, [events.length])
   return (
     <div className="wd-week">
       <div className="wd-week-head">
         <h2>this week</h2>
         <button className="wd-week-cal" onClick={onOpenCalendar}>my calendar</button>
       </div>
-      <div className="wd-week-days">
+      <div className="wd-week-days" ref={daysRef}>
         {days.map((d, i) => {
           const k = keyOf(d)
           const evs = byDay.get(k) ?? []
-          const shown = evs.slice(0, CAP)
+          const shown = evs.length <= fit ? evs : evs.slice(0, Math.max(1, fit - 1))   // the last row goes to "n more"
           return (
             <div key={k} className="wd-week-day">
               <div className="wd-week-dh">
@@ -123,8 +137,8 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
                   </button>
                 )
               })}
-              {evs.length > CAP && (
-                <button className="wd-week-more" onClick={onOpenCalendar}>{evs.length - CAP} more</button>
+              {evs.length > shown.length && (
+                <button className="wd-week-more" onClick={onOpenCalendar}>{evs.length - shown.length} more</button>
               )}
               {evs.length === 0 && <span className="wd-week-ln" />}
             </div>

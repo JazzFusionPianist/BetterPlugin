@@ -73,7 +73,7 @@ function FallingBlocksBoard({ board, currentPiece, ghost, topOut, size = 'self' 
     if (currentPiece) {
       for (const [r, c] of pieceCells(currentPiece)) {
         if (r >= 0 && r < BOARD_ROWS && c >= 0 && c < BOARD_COLS) {
-          out[r][c] = currentPiece.type
+          out[r][c] = `live-${currentPiece.type}`
         }
       }
     }
@@ -92,6 +92,10 @@ function FallingBlocksBoard({ board, currentPiece, ghost, topOut, size = 'self' 
               if (cell.startsWith('ghost-')) {
                 const t = cell.slice('ghost-'.length)
                 cls += ` falling-blocks-cell--ghost ${PIECE_CLASS[t] ?? ''}`
+              } else if (cell.startsWith('live-')) {
+                // the piece in hand — same colour class, plus a mark the
+                // wide-screen room uses to draw it in ink
+                cls += ` falling-blocks-cell--live ${PIECE_CLASS[cell.slice('live-'.length)] ?? ''}`
               } else {
                 cls += ` ${PIECE_CLASS[cell] ?? ''}`
               }

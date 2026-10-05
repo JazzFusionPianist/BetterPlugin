@@ -27,6 +27,7 @@ import FollowAlerts from '../components/collab/FollowAlerts'
 import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
+import { ArcadeContext } from '../components/collab/ArcadeLobby'
 import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
@@ -50,6 +51,7 @@ import { applyScreenSize, adoptSharedWindowSize, watchSharedWindowSize, type Scr
 import { hasJuceBridge } from '../lib/juceBridge'
 import ResizeGrip from '../components/collab/ResizeGrip'
 import './collab.css'
+import './arcade.css'
 
 interface Props { user: User }
 interface TooltipInfo { profile: Profile; x: number; y: number; arrowX: number; arrowUp: boolean }
@@ -749,6 +751,7 @@ function CollabPageInner({ user }: Props) {
     closeSearch()
   }
 
+  const arcadeGames = !!(hasJuceBridge || screenPreview) && screenSize === 'large'
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     chatFromConvList ? 'chat-from-conv-list' : '',
@@ -770,6 +773,8 @@ function CollabPageInner({ user }: Props) {
     fxOpen            ? 'fx-open'            : '',
     fxClosing         ? 'fx-closing'         : '',
     gameOpen          ? 'game-open'          : '',
+    // large window: the games are the arcade lobby and colour rooms (arcade.css)
+    (gameOpen && arcadeGames) ? 'arcade-skin' : '',
     // Each game darkens the room in its own colour, fx-room style. The
     // `dark` token set rides along so every surface (chat included)
     // inverts with the wall.
@@ -1097,6 +1102,7 @@ function CollabPageInner({ user }: Props) {
         </div>
 
         {/* Game view */}
+        <ArcadeContext.Provider value={arcadeGames}>
         <div className="view gview">
           {gameScreen === 'list' && (
             <GameListView
@@ -1231,6 +1237,7 @@ function CollabPageInner({ user }: Props) {
             />
           )}
         </div>
+        </ArcadeContext.Provider>
 
         <div className="view afview">
           <AddFriendPanel

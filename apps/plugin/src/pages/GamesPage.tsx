@@ -4,6 +4,7 @@ import { useProfiles } from '../hooks/useProfiles'
 import { usePresence } from '../hooks/usePresence'
 import { useFollows } from '../hooks/useFollows'
 import GameListView, { type GameId } from '../components/collab/GameListView'
+import ArcadeLobby, { ArcadeContext } from '../components/collab/ArcadeLobby'
 import ChessView from '../components/collab/ChessView'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
 import PinballView from '../components/collab/PinballView'
@@ -19,6 +20,7 @@ import ResizeGrip from '../components/collab/ResizeGrip'
 import { hasJuceBridge } from '../lib/juceBridge'
 import { adoptSharedWindowSize, watchSharedWindowSize } from '../lib/pluginWindow'
 import './collab.css'
+import './arcade.css'
 
 interface Props { supabase: SupabaseClient; user: User }
 
@@ -86,9 +88,12 @@ export default function GamesPage({ supabase, user }: Props) {
   }
   const backToList = () => setScreen('list')
 
+  const arcade = fill && wide
   const cls = [
     'plugin', 'games', 'game-open',
-    (fill && wide) ? 'screen-wide' : '',
+    // wide windows get the arcade lobby and colour rooms (arcade.css);
+    // the 300×500 frame keeps the CD wall
+    arcade ? 'screen-wide arcade-skin' : '',
     isDark ? 'dark' : '',
     // Each game darkens the room in its own colour; the `dark` token set
     // rides along so the wordmark and every card invert with the wall.
@@ -113,10 +118,12 @@ export default function GamesPage({ supabase, user }: Props) {
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void supabase.auth.signOut() } }}
         >sign out</span>
       </div>
+      <ArcadeContext.Provider value={arcade}>
       <div className="content">
         <div className="view gview">
-          {screen === 'list' && (
-            <GameListView onSelectGame={(g) => { void openGame(g) }} onClose={() => {}} />
+          {screen === 'list' && (arcade
+            ? <ArcadeLobby onSelectGame={(g) => { void openGame(g) }} />
+            : <GameListView onSelectGame={(g) => { void openGame(g) }} onClose={() => {}} />
           )}
           {screen === 'chess' && (
             <ChessView key={joinNonce} {...common} friendProfiles={friendProfiles} />
@@ -148,6 +155,7 @@ export default function GamesPage({ supabase, user }: Props) {
           )}
         </div>
       </div>
+      </ArcadeContext.Provider>
     </div>
   )
 }

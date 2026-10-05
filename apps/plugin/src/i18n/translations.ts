@@ -155,6 +155,7 @@ export const T = {
   'addFriend.loadMore':      { en: 'load more', ko: '더 보기', ja: 'もっと見る', zh: '加载更多', es: 'cargar más', de: 'mehr laden', fr: 'charger plus', hi: 'और लोड करें' },
 
   // ───── Game list ────────────────────────────────────────────────────────
+  'game.games':              { en: 'games',          ko: '게임',          ja: 'ゲーム',         zh: '游戏',      es: 'juegos',         de: 'Spiele',          fr: 'jeux',           hi: 'खेल' },
   'game.chess':              { en: 'chess',          ko: '체스',          ja: 'チェス',         zh: '国际象棋',  es: 'ajedrez',        de: 'Schach',          fr: 'échecs',         hi: 'शतरंज' },
   'game.fallingBlocks':      { en: 'falling blocks', ko: '폴링 블록',     ja: 'フォーリングブロック', zh: '方块下落',  es: 'bloques que caen', de: 'fallende Blöcke', fr: 'blocs qui tombent', hi: 'गिरते ब्लॉक' },
   'game.poker':              { en: 'poker',          ko: '포커',          ja: 'ポーカー',        zh: '扑克',     es: 'póker',          de: 'Poker',           fr: 'poker',          hi: 'पोकर' },

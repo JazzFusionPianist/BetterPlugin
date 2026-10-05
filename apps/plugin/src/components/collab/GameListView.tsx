@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
+import ArcadeLobby, { useArcade } from './ArcadeLobby'
 
 export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'
   | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'
@@ -240,7 +241,16 @@ const GAMES: GameCard[] = [
  * centred, so we can mark it `.centred` for the scale-up animation
  * and route Enter / click to the right card.
  */
-export default function GameListView({ onSelectGame, inviteContext }: Props) {
+/** On a wide, arcade-skinned surface the lobby is the arcade; everywhere
+ *  else it is the CD wall below. */
+export default function GameListView(props: Props) {
+  const arcade = useArcade()
+  return arcade
+    ? <ArcadeLobby onSelectGame={props.onSelectGame} onClose={props.onClose} />
+    : <CdWall {...props} />
+}
+
+function CdWall({ onSelectGame, inviteContext }: Props) {
   void inviteContext // reserved for the optional CTA swap later — parent owns invite logic
   const { t } = useT()
   const [viewIndex, setViewIndex] = useState(0)

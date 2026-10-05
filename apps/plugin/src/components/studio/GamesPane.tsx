@@ -13,7 +13,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
-import GameListView, { type GameId } from '../collab/GameListView'
+import type { GameId } from '../collab/GameListView'
+import ArcadeLobby, { ArcadeContext } from '../collab/ArcadeLobby'
 import ChessView from '../collab/ChessView'
 import FallingBlocksView from '../collab/FallingBlocksView'
 import PinballView from '../collab/PinballView'
@@ -27,6 +28,7 @@ import SolitaireView from '../collab/SolitaireView'
 import BoardGameView from '../collab/BoardGameView'
 import { useT } from '../../i18n/LanguageContext'
 import '../../pages/collab.css'
+import '../../pages/arcade.css'
 
 export type GameScreen = 'list' | GameId
 
@@ -96,7 +98,8 @@ export default function GamesPane({
 
   const common = { supabase, currentUserId: userId, currentUserProfile: me, onClose: onBackToList }
   const cls = [
-    'wd-games', 'plugin', 'games', 'game-open', 'screen-wide',
+    // the pane is always wide: the arcade lobby and colour rooms (arcade.css)
+    'wd-games', 'plugin', 'games', 'game-open', 'screen-wide', 'arcade-skin',
     screen !== 'list' ? `gwall-${screen} dark` : '',
   ].filter(Boolean).join(' ')
 
@@ -104,19 +107,13 @@ export default function GamesPane({
     <div ref={hostRef} className={cls} hidden={hidden}>
       {/* The studio line sits over the wall only; a game brings its own
           header (‹ back to the wall), so the bar steps out of its way. */}
-      {screen === 'list' && (
-        <div className="top-bar wd-games-bar">
-          <button className="wd-games-back" onClick={onClose}>‹ studio</button>
-          <span className="wd-games-title">
-            {inviteConversationId ? `invite ${headline ?? 'them'} to…` : 'games'}
-          </span>
-        </div>
-      )}
+      <ArcadeContext.Provider value>
       <div className="content">
         <div className="view gview">
+          {/* the arcade carries its own line: the title and a way out */}
           {screen === 'list' && (
-            <GameListView
-              inviteContext={inviteConversationId ? { conversationId: inviteConversationId } : null}
+            <ArcadeLobby
+              title={inviteConversationId ? `invite ${headline ?? 'them'} to…` : undefined}
               onSelectGame={onSelectGame}
               onClose={onClose}
             />
@@ -147,6 +144,7 @@ export default function GamesPane({
           )}
         </div>
       </div>
+      </ArcadeContext.Provider>
     </div>
   )
 }

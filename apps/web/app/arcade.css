@@ -498,9 +498,9 @@
   grid-column: 2; grid-row: 1 / -1; align-self: center;
   width: var(--bd); height: var(--bd); max-width: none; margin: 0; position: relative; z-index: 1;
 }
-.games-panel.arcade-skin.wall-chess .chess-shell .chess-board-wrap { width: 100%; height: 100%; max-width: none; margin: 0; padding: 0; }
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-board-wrap { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; }
 .games-panel.arcade-skin.wall-chess .chess-shell .chess-board {
-  width: 100%; height: 100%; max-width: none;
+  width: 100%; height: 100%; max-width: none; max-height: none;
   border: none; border-radius: 16px; overflow: hidden; box-shadow: none;
   background: rgba(26, 25, 23, 0.2);
 }
@@ -538,7 +538,8 @@
 .games-panel.arcade-skin.wall-chess .chess-shell .chess-dock {
   grid-column: 3; grid-row: 2 / -1;
   display: flex; flex-direction: column; gap: 20px;
-  width: auto; max-width: 300px; height: auto; min-height: 0; margin: 0 0 0 auto;
+  box-sizing: border-box; width: 100%; max-width: 300px; height: auto; min-height: 0;
+  margin: 0; justify-self: end;
   padding: 6px 48px 48px 0;
   background: none; border: none;
 }

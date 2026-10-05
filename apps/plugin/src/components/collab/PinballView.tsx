@@ -9,6 +9,7 @@ import type { PinballTheme, PinballPhase } from '../../lib/pinball'
 import { useWorldScores } from '../../hooks/useWorldScores'
 import type { WorldStanding } from '../../hooks/useWorldScores'
 import GameShell, { GameOverlayCard } from './GameShell'
+import { useArcade } from './ArcadeLobby'
 
 interface Props {
   supabase: SupabaseClient
@@ -26,15 +27,18 @@ function readTheme(el: HTMLElement): PinballTheme {
     return val || fallback
   }
   return {
-    paper: v('--bg', '#FBFAF7'),
+    // --pb-* let a room restate the table's inks (the arcade's blue room
+    // can't light its targets in blue); unset, the catalogue tokens stand.
+    paper: v('--pb-paper', v('--bg', '#FBFAF7')),
     ink: v('--t1', '#1A1917'),
-    blue: '#2440FF',
+    blue: v('--pb-accent', '#2440FF'),
     t3: v('--t3', '#8A8782'),
   }
 }
 
 export default function PinballView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
+  const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'pinball_scores')
 
   const gameRef = useRef<PinballGame | null>(null)
@@ -264,7 +268,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
             <div className="pb-lb-mine">
               {t('pb.yourBest')} {standing.myBest.toLocaleString()}
               {standing.myRank != null && standing.totalPlayers > 0 && (
-                <> · {t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
+                <><span className="pb-sep"> · </span>{t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
               )}
             </div>
           )}
@@ -273,7 +277,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
         <button className="game-invite-btn pb-start-btn" onClick={handleStart}>
           {isOver ? t('pb.playAgain') : t('pb.start')}
         </button>
-        <div className="pb-hint">{t('pb.hintKeys')}</div>
+        <div className="pb-hint">{arcade ? t('pb.hintKeys').replace(/\s*[·・]\s*/g, ', ') : t('pb.hintKeys')}</div>
         <div className="pb-hint pb-hint-touch">{t('pb.hintTouch')}</div>
       </GameOverlayCard>
     )

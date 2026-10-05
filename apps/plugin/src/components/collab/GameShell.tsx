@@ -22,6 +22,7 @@
 import { useState, useMemo, type ReactNode } from 'react'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
+import { useArcade } from './ArcadeLobby'
 import ConfirmDialog from './ConfirmDialog'
 
 // ── Shared avatar ─────────────────────────────────────────────────────────────
@@ -231,14 +232,18 @@ export default function GameShell ({
   title, onBack, controls, actionStatus, aboveBoard, board, belowBoard, overlay, chat, fillBoard, className, invite, confirm, extraModals,
 }: GameShellProps) {
   const { t } = useT()
+  const arcade = useArcade()
   const hasActionStatus = actionStatus != null
   return (
     <div className={`game-view${fillBoard ? ' game-view-fill' : ''}${className ? ' ' + className : ''}`}>
       <div className="game-action-row">
         <button className="game-inline-back" onClick={onBack} aria-label={t('common.goBack')}>
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          {/* the arcade's chrome is words, not icons */}
+          {arcade ? t('common.back') : (
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </button>
         <span className={`game-action-status${hasActionStatus ? ' active' : ''}`}>{actionStatus ?? title}</span>
         {controls && <div className="game-row-controls">{controls}</div>}

@@ -11,6 +11,9 @@ import { useState } from 'react'
 import { C, houseColor } from '../../slur/marks'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 
+/** A clock time as the app writes it: 7 pm, 7:30 pm, 12 am. */
+const clock = (d: Date) => { const h = d.getHours(), m = d.getMinutes(); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 ? 'pm' : 'am'}` }
+
 const pad = (n: number) => String(n).padStart(2, '0')
 const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const WD = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
@@ -115,7 +118,7 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
                     <NoteGlyph size={12} color={color} />
                     <span>
                       <b>{e.title}</b>
-                      <small>{e.all_day ? 'all day' : `${pad(t.getHours())}:${pad(t.getMinutes())}`}{room ? `  ${room}` : ''}</small>
+                      <small>{e.all_day ? 'all day' : clock(t)}{room ? `  ${room}` : ''}</small>
                     </span>
                   </button>
                 )

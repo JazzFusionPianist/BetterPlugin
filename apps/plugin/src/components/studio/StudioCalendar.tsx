@@ -38,18 +38,18 @@ const dateOf = (k: string) => new Date(k + 'T00:00:00')
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 /** Monday of the week holding `d`. */
 const weekStart = (d: Date) => addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -((d.getDay() + 6) % 7))
-const timeOf = (e: CalendarEvent) => {
-  if (e.all_day) return 'all day'
-  const d = new Date(e.starts_at)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+/** A clock time as the app writes it: 7 pm, 7:30 pm, 12 am. */
+const clock = (d: Date) => { const h = d.getHours(), m = d.getMinutes(); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 ? 'pm' : 'am'}` }
+const timeOf = (e: CalendarEvent) => (e.all_day ? 'all day' : clock(new Date(e.starts_at)))
 
 /** The week's time frame: an hour is this tall, and the frame opens on the working day. */
 const HOUR_PX = 40
 const minsOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes() }
 /** The month's pills carry the hour small: 7p, 11a, 4:30p. */
 const shortTime = (iso: string) => { const d = new Date(iso), h = d.getHours(), m = d.getMinutes(); return `${((h + 11) % 12) + 1}${m ? ':' + pad(m) : ''}${h >= 12 ? 'p' : 'a'}` }
-const hhmm = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+/** Minutes of the day as a clock time (the week's blocks), and an hour for its gutter. */
+const hhmm = (m: number) => clock(new Date(2000, 0, 1, Math.floor(m / 60), m % 60))
+const hourLabel = (h: number) => `${((h + 11) % 12) + 1} ${h >= 12 ? 'pm' : 'am'}`
 interface Placed { e: CalendarEvent; start: number; end: number; lane: number; lanes: number }
 /** A day's timed events as blocks: start and end in minutes (an hour when no end is set, and never
  *  past midnight), and — where they overlap — side by side in lanes. */
@@ -308,7 +308,7 @@ export default function StudioCalendar({
               <div className="sc-wt-frame" ref={frameRef}>
                 <div className="sc-wt-grid" style={{ height: 24 * HOUR_PX }}>
                   <div className="sc-wt-hours">
-                    {Array.from({ length: 23 }, (_, h) => <span key={h} style={{ top: (h + 1) * HOUR_PX }}>{pad(h + 1)}:00</span>)}
+                    {Array.from({ length: 23 }, (_, h) => <span key={h} style={{ top: (h + 1) * HOUR_PX }}>{hourLabel(h + 1)}</span>)}
                   </div>
                   {weekDays.map(d => {
                     const k = keyOf(d)

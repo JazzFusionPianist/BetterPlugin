@@ -254,7 +254,7 @@ export default function CalendarPanel({
                 return (
                   <li key={e.id} className="cal-ev">
                     <span className="cal-ev-time">
-                      {e.all_day ? 'all day' : new Date(e.starts_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                      {e.all_day ? 'all day' : clock(new Date(e.starts_at))}
                     </span>
                     <span className="cal-ev-bar" style={{ background: color }} />
                     <div
@@ -351,6 +351,8 @@ export default function CalendarPanel({
 const fmtSheetDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
 const pad2 = (n: number) => String(n).padStart(2, '0')
+/** A clock time as the app writes it: 7 pm, 7:30 pm, 12 am. */
+const clock = (d: Date) => { const h = d.getHours(), m = d.getMinutes(); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 ? 'pm' : 'am'}` }
 /** As the calendar's own day heading reads ("thursday 8"), whatever the browser's language. */
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 const LENGTHS: [string, number][] = [['30m', 30], ['1h', 60], ['2h', 120], ['3h', 180], ['4h', 240]]
@@ -523,8 +525,8 @@ export function EventPage({ event, own, groupTitle, onUpdate, onBack, onClose, o
           </>
         ) : (
           <b className="evp-ro">
-            {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()}
-            {end && <> <small>to</small> {end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</>}
+            {clock(start)}
+            {end && <> <small>to</small> {clock(end)}</>}
           </b>
         )}
       </div>

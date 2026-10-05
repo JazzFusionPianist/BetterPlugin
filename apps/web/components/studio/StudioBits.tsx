@@ -10,9 +10,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CalendarEvent } from '@orb/core'
 
+/** A clock time as the app writes it: 7 pm, 7:30 pm, 12 am. */
 export function fmtTime(iso: string): string {
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = new Date(iso), h = d.getHours(), m = d.getMinutes()
+  return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 ? 'pm' : 'am'}`
 }
 
 

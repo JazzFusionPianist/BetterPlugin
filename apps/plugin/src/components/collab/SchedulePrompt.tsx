@@ -13,7 +13,8 @@ const fmtWhen = (e: CalendarEvent) => {
   const d = new Date(e.starts_at)
   const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
   if (e.all_day) return `${day} / all day`
-  return `${day} / ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+  const h = d.getHours(), m = d.getMinutes()
+  return `${day} / ${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 ? 'pm' : 'am'}`
 }
 
 export default function SchedulePrompt({ onSubmit, targets, placeholder }: Props) {

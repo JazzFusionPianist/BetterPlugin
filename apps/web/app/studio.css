@@ -1114,8 +1114,11 @@
 .wd .wd-home-date { margin-top: 8px; font-size: 12px; }
 .wd .wd-home-prompt { margin-top: 22px; max-width: 560px; }
 .wd .wd-home .wd-up, .wd .wd-home .wd-todos { max-width: 560px; }
-.wd-bar { position: relative; width: 100%; aspect-ratio: 1000 / 300; max-height: 300px; overflow: visible; }
-.wd-bar > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wd-bar { position: relative; width: 100%; height: 206px; overflow: hidden; }
+.wd-bar-strip { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
+.wd-bar-strip::-webkit-scrollbar { display: none; }
+.wd-bar-sheet { position: relative; height: 206px; }
+.wd-bar-sheet > svg { display: block; }
 .wd-bar .sl-note { transform-box: fill-box; transform-origin: center; transition: transform .25s cubic-bezier(.3,1.6,.5,1); cursor: pointer; }
 .wd-bar .sl-note:hover { transform: scale(1.08) rotate(-3deg); }
 .wd-bar .sl-note.in { opacity: 0; animation: wd-drop .9s cubic-bezier(.2,1.4,.4,1) forwards; }
@@ -1124,7 +1127,6 @@
 @keyframes wd-drop { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: none; } }
 @keyframes wd-ring { 30% { transform: scale(1.14) rotate(-6deg); } }
 @keyframes wd-tie { from { clip-path: inset(-20% 100% -20% 0); } to { clip-path: inset(-20% 0 -20% 0); } }
-.wd-bar-names { position: absolute; left: 0; right: 0; top: 84%; height: 40px; }
 .wd-bar-name { position: absolute; transform: translateX(-50%); background: none; border: none; padding: 2px 6px; cursor: pointer;
   font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: #1A1917; white-space: nowrap; text-align: center; }
 .wd-bar-name small { display: block; font-size: 10px; font-weight: 400; color: var(--acc); }
@@ -1306,3 +1308,17 @@
 .sc-cell.sel .sc-ev::before { opacity: 0; }
 .sc-cell.sel .sc-ev.all::before { opacity: .45; }
 .sc-cell .sc-more { padding-left: 8px; }
+
+/* the bar's names sit in one row under the staff, each in its own slot; who is away is quieter */
+.wd .wd-bar-name { max-width: 90px; padding: 2px 0; font-size: 12.5px; font-weight: 500; line-height: 1.25; }
+.wd-bar-name span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-bar-name.off { font-weight: 400; color: #A5A199; }
+.wd-bar-name small { white-space: nowrap; }
+/* more people than the pane holds: the strip slides */
+.wd-bar-fade { position: absolute; top: 0; bottom: 0; right: 0; width: 130px; background: linear-gradient(90deg, rgba(251,250,247,0), #FBFAF7 55%); pointer-events: none; }
+.wd-bar-fade.back { right: auto; left: 0; width: 96px; background: linear-gradient(270deg, rgba(251,250,247,0), #FBFAF7 55%); }
+.wd-bar-go { position: absolute; right: 14px; top: 66px; width: 44px; display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; font-size: 11px; line-height: 1; white-space: nowrap; color: #6E6B63; }
+.wd-bar-go.back { right: auto; left: 14px; }
+.wd-bar-go i { width: 36px; height: 36px; border-radius: 18px; box-shadow: inset 0 0 0 1px rgba(26,25,23,.35); display: grid; place-items: center; font-style: normal; font-size: 15px; color: #1A1917; background: #FBFAF7; }
+.wd-bar-go:hover i { background: #F1EEE6; }
+.wd .wd-home > .wd-bar { max-height: none; height: 206px; }

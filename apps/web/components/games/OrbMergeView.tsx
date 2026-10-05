@@ -68,7 +68,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
         drawOrbMerge(ctx, g, (w * dpr) / OM_W, {
           paper: cs.getPropertyValue('--bg0') || '#FCFBF9',
           ink: cs.getPropertyValue('--t1').trim() || '#1A1917',
-          faint: 'rgba(127, 127, 127, 0.45)',
+          faint: cs.getPropertyValue('--om-line').trim() || 'rgba(127, 127, 127, 0.45)',
         })
       }
       if (g.score !== scoreRef.current) { scoreRef.current = g.score; setScore(g.score) }
@@ -151,7 +151,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
             <div className="pb-lb-mine">
               {t('pb.yourBest')} {standing.myBest.toLocaleString()}
               {standing.myRank != null && standing.totalPlayers > 0 && (
-                <> · {t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
+                <><span className="pb-sep"> · </span>{t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
               )}
             </div>
           )}

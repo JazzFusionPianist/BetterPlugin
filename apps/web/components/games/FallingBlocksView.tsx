@@ -913,7 +913,7 @@ export default function FallingBlocksView({
         <div className="pb-lb-mine">
           {t('pb.yourBest')} {standing.myBest.toLocaleString()}
           {standing.myRank != null && standing.totalPlayers > 0 && (
-            <> · {t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
+            <><span className="pb-sep"> · </span>{t('pb.rank')} {standing.myRank}/{standing.totalPlayers}</>
           )}
         </div>
       )}

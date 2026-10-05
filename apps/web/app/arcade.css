@@ -71,9 +71,11 @@
 .games-panel.arcade-skin.wall-poker { --gwall: #D6402E; }
 .games-panel.arcade-skin.wall-falling_blocks { --gwall: #7B5CFF; }
 .games-panel.arcade-skin.wall-ear_training { --gwall: #1A1917; --ar-accent: #F5B82E; }
+.games-panel.arcade-skin.wall-pinball { --gwall: #2440FF; --pb-paper: #2237CC; --pb-accent: #F3A3C0; }
+.games-panel.arcade-skin.wall-orb_merge { --gwall: #F3A3C0; --om-line: rgba(26, 25, 23, 0.72); }
 
 /* ink on the wall — green, gold, pink */
-.games-panel.arcade-skin:is(.wall-yacht, .wall-chess) {
+.games-panel.arcade-skin:is(.wall-yacht, .wall-chess, .wall-orb_merge) {
   --paper: var(--gwall);
   --card: transparent;
   --ink: #1A1917;
@@ -95,7 +97,7 @@
 }
 
 /* paper on the wall — violet, red, blue, ink */
-.games-panel.arcade-skin:is(.wall-poker, .wall-falling_blocks, .wall-ear_training) {
+.games-panel.arcade-skin:is(.wall-poker, .wall-falling_blocks, .wall-ear_training, .wall-pinball) {
   --paper: var(--gwall);
   --card: transparent;
   --ink: #FBFAF7;
@@ -290,6 +292,13 @@
 }
 .games-panel.arcade-skin[class*="wall-"] .pb-lb-rows > * { border: none; min-height: 30px; font-size: 15px; }
 .games-panel.arcade-skin[class*="wall-"] .pb-lb-mine { font-size: 13px; color: var(--t2); }
+.games-panel.arcade-skin[class*="wall-"] .pb-sep { display: inline-block; width: 14px; overflow: hidden; color: transparent; }  /* a gap, not a dot */
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: baseline; color: var(--t2); }
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-row.me { color: var(--ink); font-weight: 500; }
+.games-panel.arcade-skin[class*="wall-"] .pb-lb-rank { color: var(--t3); }
+.games-panel.arcade-skin[class*="wall-"] .pb-final-score { font: 500 34px var(--f-sans); letter-spacing: -0.02em; color: var(--ink); justify-self: start; }
+.games-panel.arcade-skin[class*="wall-"] .pb-newbest { font: 500 15px var(--f-sans); color: var(--ink); justify-self: start; text-transform: lowercase; background: none; border: none; padding: 0; }
+.games-panel.arcade-skin[class*="wall-"] .pb-hint { font: 400 13px var(--f-sans); color: var(--t3); text-align: center; text-transform: lowercase; }
 
 /* ── yacht dice ────────────────────────────────────────────────────────── */
 /* three columns: the score on the left, the dice in the middle, the sheet
@@ -916,3 +925,111 @@
 }
 .games-panel.arcade-skin.wall-ear_training .et-chip.on { background: var(--ink); border-color: var(--ink); color: #1A1917; }
 .games-panel.arcade-skin.wall-ear_training .et-final-score { font: 500 34px var(--f-sans); letter-spacing: -0.02em; color: var(--ink); justify-self: start; }
+
+/* ── pinball · orb merge ───────────────────────────────────────────────── */
+/* both are one tall drawn object: it stands full height in the middle
+   (the header floats over the room), the score to its left. */
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-row {
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
+}
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-row > * { pointer-events: auto; }
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-status { pointer-events: none; }
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-area { grid-column: 1; grid-row: 1 / -1; }
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-board-wrap.fill { height: 100%; }
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .pinball-layout {
+  --tbh: 82vh;
+  --tbh: calc(100cqh - 96px);
+  display: grid; grid-template-columns: minmax(170px, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto; column-gap: 32px;
+  width: 100%; height: 100%; box-sizing: border-box; padding: 48px;
+}
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .pinball-head {
+  grid-column: 1; grid-row: 1; max-width: none; width: auto;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 76px 0 0;
+}
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .pinball-score {
+  margin-left: -5px; font: 500 clamp(56px, 7.4vw, 96px)/1 var(--f-sans); letter-spacing: -0.04em; color: var(--ink);
+}
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .pinball-canvas-wrap,
+.games-panel.arcade-skin.wall-orb_merge .om-canvas-wrap {
+  grid-column: 2; grid-row: 1 / -1; align-self: center;
+  height: var(--tbh); width: auto; max-height: none; max-width: none; margin: 0; flex: none;
+}
+.games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .pinball-canvas { width: 100%; height: 100%; display: block; }
+/* the table's head is an arch, like its door in the lobby */
+.games-panel.arcade-skin.wall-pinball .pinball-canvas-wrap { border-radius: 9999px 9999px 18px 18px; overflow: hidden; border: none; box-shadow: none; }
+.games-panel.arcade-skin.wall-pinball .pinball-balls { gap: 7px; }
+.games-panel.arcade-skin.wall-pinball .pb-ball-dot {
+  width: 9px; height: 9px; box-sizing: border-box; border-radius: 50%;
+  background: var(--ink); border: 1.5px solid var(--ink); opacity: 1;
+}
+.games-panel.arcade-skin.wall-pinball .pb-ball-dot.spent { background: none; }
+.games-panel.arcade-skin.wall-pinball .pinball-mult {
+  height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 999px;
+  background: var(--ink); color: var(--ar-on); border: none; font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+/* the jar: an outline, open at the top */
+.games-panel.arcade-skin.wall-orb_merge .om-canvas-wrap { border: none; border-radius: 0; box-shadow: none; }
+.games-panel.arcade-skin.wall-orb_merge .om-next { width: 48px; height: 48px; border: 1.5px solid var(--ink); }
+.games-panel.arcade-skin.wall-orb_merge .om-next i,
+.games-panel.arcade-skin.wall-orb_merge .om-chain-item i { border: none; }
+.games-panel.arcade-skin.wall-orb_merge .om-chain {
+  grid-column: 1; grid-row: 3; align-self: end; justify-content: flex-start; gap: 10px; padding: 0; flex-wrap: wrap; max-width: 260px;
+}
+.games-panel.arcade-skin.wall-orb_merge .om-chain-item b { display: none; }   /* the sizes already say the order */
+
+/* ── slips: confirm, invite, promotion ─────────────────────────────────── */
+/* anything laid over a room is a paper slip with its own ink, whatever
+   the wall — so the tokens are restated here. */
+.games-panel.arcade-skin[class*="wall-"] :is(.et-confirm-modal, .game-invite-modal, .chess-promo-modal, .chess-promo-modal-inner) {
+  --ink: #1A1917; --t1: #1A1917; --t2: rgba(26, 25, 23, 0.62); --t3: rgba(26, 25, 23, 0.45);
+  --line: rgba(26, 25, 23, 0.14); --hair: rgba(26, 25, 23, 0.4);
+  --bg: #FBFAF7; --bg2: rgba(26, 25, 23, 0.05); --bg3: rgba(26, 25, 23, 0.09);
+  --border: rgba(26, 25, 23, 0.16); --border2: rgba(26, 25, 23, 0.34);
+  --blue: #1A1917; --red: #1A1917; --ar-on: #FBFAF7;
+  background: #FBFAF7; color: #1A1917; border: none; box-shadow: none;
+  font-family: var(--f-sans);
+}
+.games-panel.arcade-skin[class*="wall-"] :is(.et-confirm-overlay, .game-invite-modal-overlay, .chess-promo-modal-overlay) {
+  background: rgba(26, 25, 23, 0.3); backdrop-filter: none;
+  align-items: center; justify-content: center;
+}
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-modal { max-width: 360px; padding: 30px 28px 24px; gap: 22px; align-items: stretch; border-radius: 28px; }
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-text { font: 500 19px/1.3 var(--f-sans); letter-spacing: -0.01em; text-align: left; text-transform: lowercase; }
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-actions { gap: 8px; }
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-btn {
+  height: 52px; padding: 0 18px; border-radius: 999px;
+  background: none; border: 1.5px solid #1A1917; color: #1A1917;
+  font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-btn:hover { background: rgba(26, 25, 23, 0.05); }
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-danger { background: #1A1917; color: #FBFAF7; }
+.games-panel.arcade-skin[class*="wall-"] .et-confirm-danger:hover { background: #1A1917; opacity: .86; }
+
+.games-panel.arcade-skin[class*="wall-"] .game-invite-modal {
+  width: min(440px, 92%); height: min(560px, 82%); max-height: none;
+  border-radius: 28px; padding: 8px 0 12px; overflow: hidden;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-invite-modal-header { padding: 20px 28px 12px; border: none; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-modal-title { font: 500 19px var(--f-sans); letter-spacing: -0.01em; text-transform: lowercase; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-search-wrap {
+  margin: 4px 28px 8px; height: 48px; padding: 0 16px 0 40px;
+  background: none; border: 1.5px solid #1A1917; border-radius: 999px;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-invite-search-icon { left: 16px; color: #1A1917; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-search-input { font-size: 15px; padding: 0; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-row { padding: 8px 28px; height: 56px; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-name { font: 500 15px var(--f-sans); text-transform: lowercase; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-empty { font-size: 15px; text-transform: lowercase; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-do-btn {
+  height: 36px; padding: 0 16px; border-radius: 999px;
+  background: #1A1917; color: #FBFAF7; border: 1.5px solid #1A1917;
+  font: 500 13px var(--f-sans); text-transform: lowercase;
+}
+.games-panel.arcade-skin[class*="wall-"] .game-invite-do-btn:hover:not(:disabled) { background: #1A1917; opacity: .86; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-do-btn.invited { background: none; color: #1A1917; }
+.games-panel.arcade-skin[class*="wall-"] .game-invite-do-btn:disabled { background: none; color: rgba(26, 25, 23, 0.4); border-color: rgba(26, 25, 23, 0.2); }
+
+.games-panel.arcade-skin[class*="wall-"] :is(.chess-promo-modal, .chess-promo-modal-inner) { border-radius: 28px; padding: 22px; }
+.games-panel.arcade-skin[class*="wall-"] .chess-promo-choice { width: 64px; height: 64px; border-radius: 16px; background: rgba(26, 25, 23, 0.06); border: none; }
+.games-panel.arcade-skin[class*="wall-"] .chess-promo-choice:hover { background: #F5B82E; }

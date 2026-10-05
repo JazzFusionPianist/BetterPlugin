@@ -799,11 +799,11 @@ export function drawPinball(
   ctx.font = 'italic 13px "Instrument Sans", sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillStyle = withAlpha(INK_BLUE, 0.5)
+  ctx.fillStyle = withAlpha(th.blue, 0.5)
   ctx.fillText('orb pinball', 210, 122)
 
   // Inlane arrows — faint blue chevrons pointing at the flippers
-  ctx.strokeStyle = withAlpha(INK_BLUE, 0.4)
+  ctx.strokeStyle = withAlpha(th.blue, 0.4)
   ctx.lineWidth = 1.4
   for (const [x, dir] of [[82, 1], [338, -1]] as const) {
     for (let i = 0; i < 2; i++) {
@@ -889,17 +889,17 @@ export function drawPinball(
 
   // Rollover lanes (a · b · c) — blue
   for (const ro of g.rollovers) {
-    setGlow(ctx, INK_BLUE, Math.max(ro.heat, ro.lit ? 0.35 : 0))
+    setGlow(ctx, th.blue, Math.max(ro.heat, ro.lit ? 0.35 : 0))
     ctx.beginPath()
     ctx.arc(ro.x, ro.y, ro.r, 0, Math.PI * 2)
     if (ro.lit) {
-      ctx.fillStyle = INK_BLUE
+      ctx.fillStyle = th.blue
       ctx.fill()
     } else if (ro.heat > 0) {
-      ctx.fillStyle = withAlpha(INK_BLUE, ro.heat * 0.5)
+      ctx.fillStyle = withAlpha(th.blue, ro.heat * 0.5)
       ctx.fill()
     }
-    ctx.strokeStyle = ro.lit ? INK_BLUE : th.ink
+    ctx.strokeStyle = ro.lit ? th.blue : th.ink
     ctx.lineWidth = 1.4
     ctx.stroke()
     clearGlow(ctx)
@@ -911,10 +911,10 @@ export function drawPinball(
   // Spinner — a bar that whirls in the left orbit when the ball rips past
   {
     const sp = g.spinner
-    setGlow(ctx, INK_BLUE, sp.heat)
+    setGlow(ctx, th.blue, sp.heat)
     ctx.beginPath()
     ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2)
-    ctx.strokeStyle = withAlpha(INK_BLUE, 0.45)
+    ctx.strokeStyle = withAlpha(th.blue, 0.45)
     ctx.lineWidth = 1
     ctx.setLineDash([2, 3])
     ctx.stroke()
@@ -923,7 +923,7 @@ export function drawPinball(
     ctx.beginPath()
     ctx.moveTo(sp.x - c * sp.r, sp.y - s2 * sp.r * 0.35)
     ctx.lineTo(sp.x + c * sp.r, sp.y + s2 * sp.r * 0.35)
-    ctx.strokeStyle = sp.heat > 0.05 ? INK_BLUE : th.ink
+    ctx.strokeStyle = sp.heat > 0.05 ? th.blue : th.ink
     ctx.lineWidth = 3
     ctx.stroke()
     clearGlow(ctx)
@@ -933,11 +933,11 @@ export function drawPinball(
   const frenzyOn = g.time < g.frenzyUntil
   for (const bp of g.bumpers) {
     const heatEff = Math.max(bp.heat, frenzyOn ? 0.45 : 0)
-    setGlow(ctx, INK_BLUE, heatEff)
+    setGlow(ctx, th.blue, heatEff)
     if (heatEff > 0) {
       ctx.beginPath()
       ctx.arc(bp.x, bp.y, bp.r + 6 * heatEff, 0, Math.PI * 2)
-      ctx.fillStyle = withAlpha(INK_BLUE, heatEff * 0.35)
+      ctx.fillStyle = withAlpha(th.blue, heatEff * 0.35)
       ctx.fill()
     }
     ctx.beginPath()
@@ -947,12 +947,12 @@ export function drawPinball(
     ctx.stroke()
     ctx.beginPath()
     ctx.arc(bp.x, bp.y, bp.r - 7, 0, Math.PI * 2)
-    ctx.strokeStyle = bp.heat > 0.05 ? INK_BLUE : withAlpha(INK_BLUE, 0.45)
+    ctx.strokeStyle = bp.heat > 0.05 ? th.blue : withAlpha(th.blue, 0.45)
     ctx.lineWidth = 1.2
     ctx.stroke()
     ctx.beginPath()
     ctx.arc(bp.x, bp.y, 3.5, 0, Math.PI * 2)
-    ctx.fillStyle = INK_BLUE
+    ctx.fillStyle = th.blue
     ctx.fill()
     clearGlow(ctx)
   }
@@ -960,18 +960,18 @@ export function drawPinball(
   // Saucer — blue well
   {
     const sc = g.saucer
-    setGlow(ctx, INK_BLUE, Math.max(sc.heat, sc.holding ? 0.8 : 0))
+    setGlow(ctx, th.blue, Math.max(sc.heat, sc.holding ? 0.8 : 0))
     ctx.beginPath()
     ctx.arc(sc.x, sc.y, sc.r, 0, Math.PI * 2)
-    ctx.fillStyle = withAlpha(INK_BLUE, sc.holding ? 0.85 : 0.12 + sc.heat * 0.4)
+    ctx.fillStyle = withAlpha(th.blue, sc.holding ? 0.85 : 0.12 + sc.heat * 0.4)
     ctx.fill()
-    ctx.strokeStyle = INK_BLUE
+    ctx.strokeStyle = th.blue
     ctx.lineWidth = 1.6
     ctx.stroke()
     ctx.setLineDash([2.5, 3.5])
     ctx.beginPath()
     ctx.arc(sc.x, sc.y, sc.r + 5, 0, Math.PI * 2)
-    ctx.strokeStyle = withAlpha(INK_BLUE, 0.5)
+    ctx.strokeStyle = withAlpha(th.blue, 0.5)
     ctx.lineWidth = 1
     ctx.stroke()
     ctx.setLineDash([])
@@ -1012,7 +1012,7 @@ export function drawPinball(
   ctx.stroke()
   ctx.beginPath()
   ctx.arc(386, Math.min(knobY, TABLE_H - 6), 5, 0, Math.PI * 2)
-  ctx.fillStyle = pull > 0.02 ? INK_BLUE : th.ink
+  ctx.fillStyle = pull > 0.02 ? th.blue : th.ink
   ctx.fill()
   if (g.phase === 'captive') {
     // Power gauge on the lane wall: ticks + blue fill by pull.
@@ -1028,7 +1028,7 @@ export function drawPinball(
       ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + 3.5, yy); ctx.stroke()
     }
     if (pull > 0.01) {
-      ctx.strokeStyle = INK_BLUE
+      ctx.strokeStyle = th.blue
       ctx.lineWidth = 3
       ctx.beginPath()
       ctx.moveTo(gx, gy0)
@@ -1069,7 +1069,7 @@ export function drawPinball(
       if (g.phase === 'live' && g.time < g.ballSaveUntil && !g.ballSaveUsed) {
         ctx.beginPath()
         ctx.arc(b.x, b.y, BALL_R + 5, 0, Math.PI * 2)
-        ctx.strokeStyle = INK_BLUE
+        ctx.strokeStyle = th.blue
         ctx.lineWidth = 1.2
         ctx.setLineDash([3, 3])
         ctx.stroke()
@@ -1082,7 +1082,7 @@ export function drawPinball(
   for (const p of g.popups) {
     const t = p.age / p.ttl
     ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - Math.max(0, (t - 0.55) / 0.45)
-    ctx.fillStyle = INK_BLUE
+    ctx.fillStyle = th.blue
     ctx.font = `italic ${p.big ? 22 : 13}px "Instrument Sans", sans-serif`
     ctx.fillText(p.text, p.x, p.y - t * 18)
     ctx.globalAlpha = 1

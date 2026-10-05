@@ -73,8 +73,12 @@ export function useBoardRoom(supabase: SupabaseClient, currentUserId: string, ga
   const startGame = useCallback(async (
     board: (string | null)[][],
     opts: { firstPlayer?: 'host' | 'guest'; computer?: boolean } = {},
+    /** The room to start, when the caller has only just created it — the
+     *  `room` this callback closed over is still the one from before. */
+    target?: BoardRoom | null,
   ): Promise<BoardRoom | null> => {
-    if (!room) return null
+    const r = target ?? room
+    if (!r) return null
     const first = opts.firstPlayer ?? 'host'
     const { data, error } = await supabase.from('board_rooms').update({
       status: 'playing',
@@ -87,7 +91,7 @@ export function useBoardRoom(supabase: SupabaseClient, currentUserId: string, ga
       move_count: 0,
       host_ready: false,
       guest_ready: false,
-    }).eq('id', room.id).select().single()
+    }).eq('id', r.id).select().single()
     if (error || !data) { console.error('[useBoardRoom.startGame]', error); return null }
     setRoom(data as BoardRoom)
     return data as BoardRoom

@@ -303,7 +303,7 @@
 .plugin.arcade-skin[class*="gwall-"] .game-result-mark { display: none; }
 
 /* world ranking — a plain list */
-.plugin.arcade-skin[class*="gwall-"] .pb-lb { width: 100%; margin: 0 0 12px; }
+.plugin.arcade-skin[class*="gwall-"] .pb-lb { width: 100%; margin: 12px 0; }
 .plugin.arcade-skin[class*="gwall-"] .pb-lb-title {
   font: 500 15px var(--f-sans); color: var(--ink); text-transform: lowercase; letter-spacing: 0;
   border: none; padding: 0 0 8px;
@@ -1068,17 +1068,332 @@
 .plugin.arcade-skin .chess-sq,
 .plugin.arcade-skin .yacht-die-body { transition: none; }
 
-/* ── the six newer games ───────────────────────────────────────────────── */
-/* they take the room's colour, words and pills; their boards keep the
-   layout they already have, centred under the floating header. */
-.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire, .gwall-connect4, .gwall-gomoku, .gwall-reversi) .game-view .game-area {
-  padding: 8px 48px 48px; overflow: auto; align-items: stretch;
+/* ── parts only one of the two skins shows ─────────────────────────────── */
+/* a few header lines are written in parts (title · numeral · note) so a
+   wide room can set them apart; outside the arcade they read as one line. */
+.ar-only { display: none; }
+.plugin.arcade-skin .ar-only { display: revert; }
+.plugin.arcade-skin .ar-hide { display: none; }
+
+/* ── sudoku · minesweeper · solitaire: shared header ───────────────────── */
+/* solo boards: the header floats over the room's left side — name, setting,
+   one large numeral, a note — and the board takes the height. */
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-view { position: relative; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-view .game-action-row {
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
 }
-.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire, .gwall-connect4, .gwall-gomoku, .gwall-reversi) .game-board-wrap {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-view .game-action-row > * { pointer-events: auto; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-view .game-action-status { pointer-events: none; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-view .game-area { grid-column: 1; grid-row: 1 / -1; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-board-wrap.fill { height: 100%; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .game-action-status.active {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  overflow: visible; white-space: nowrap; background: none; border: none; padding: 0;
 }
-.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire, .gwall-connect4, .gwall-gomoku, .gwall-reversi) .game-board-wrap.has-overlay { align-items: stretch; }
-.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire, .gwall-connect4, .gwall-gomoku, .gwall-reversi) .game-finish-overlay { padding: 0; }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .ar-title { order: 0; font: 500 17px/1.22 var(--f-sans); color: var(--ink); }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .ar-sub { order: 1; margin-top: 5px; font: 400 15px/1.22 var(--f-sans); color: var(--t2); }
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .ar-num {
+  order: 2; margin: 8px 0 12px -6px;
+  font: 500 clamp(96px, 13cqw, 168px)/1 var(--f-sans); letter-spacing: -0.04em; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.plugin.arcade-skin:is(.gwall-sudoku, .gwall-minesweeper, .gwall-solitaire) .ar-note { order: 3; font: 400 15px/1.6 var(--f-sans); color: var(--t2); }
+
+/* ── sudoku ────────────────────────────────────────────────────────────── */
+/* the clock is the numeral. Cells are paper with a hair of wall between
+   them and a wider strip between the nine boxes; the nine keys are rounds
+   on the right, each with how many of it are still to place. */
+.plugin.arcade-skin.gwall-sudoku .ar-num { font-size: clamp(64px, 9cqw, 120px); }
+.plugin.arcade-skin.gwall-sudoku .sd-layout {
+  --sdb: 70vh;
+  --sdb: min(100cqh - 156px, 100cqw - 606px);
+  height: 100%; box-sizing: border-box; padding: 48px;
+  display: grid; align-items: center; justify-items: center;
+  grid-template-columns: minmax(0, 1fr) auto 28px 56px 56px 56px;
+  grid-template-rows: minmax(0, 1fr) 56px 56px 56px minmax(0, 1fr);
+  column-gap: 10px; row-gap: 24px;
+}
+.plugin.arcade-skin.gwall-sudoku .sd-board {
+  grid-column: 2; grid-row: 1 / -1;
+  width: var(--sdb); height: var(--sdb); max-width: none; flex: none;
+  grid-template-columns: repeat(3, 1fr) 3px repeat(3, 1fr) 3px repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr) 3px repeat(3, 1fr) 3px repeat(3, 1fr);
+  gap: 3px;
+  background: none; border: none; border-radius: 0; overflow: visible; box-shadow: none;
+}
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+1) { grid-column: 1; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+2) { grid-column: 2; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+3) { grid-column: 3; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+4) { grid-column: 5; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+5) { grid-column: 6; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+6) { grid-column: 7; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+7) { grid-column: 9; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+8) { grid-column: 10; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(9n+9) { grid-column: 11; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+1):nth-child(-n+9) { grid-row: 1; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+10):nth-child(-n+18) { grid-row: 2; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+19):nth-child(-n+27) { grid-row: 3; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+28):nth-child(-n+36) { grid-row: 5; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+37):nth-child(-n+45) { grid-row: 6; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+46):nth-child(-n+54) { grid-row: 7; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+55):nth-child(-n+63) { grid-row: 9; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+64):nth-child(-n+72) { grid-row: 10; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell:nth-child(n+73):nth-child(-n+81) { grid-row: 11; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell,
+.plugin.arcade-skin.gwall-sudoku .sd-cell.br,
+.plugin.arcade-skin.gwall-sudoku .sd-cell.bb {
+  background: #FBFAF7; border: none; border-radius: 15%;
+  font-weight: 400; color: rgba(26, 25, 23, 0.62);     /* what you wrote */
+}
+.plugin.arcade-skin.gwall-sudoku .sd-cell.given { font-weight: 500; color: #1A1917; }   /* what was printed */
+.plugin.arcade-skin.gwall-sudoku .sd-cell.peer { background: rgba(251, 250, 247, 0.78); }
+.plugin.arcade-skin.gwall-sudoku .sd-cell.same { background: #FBFAF7; box-shadow: inset 0 0 0 2px #1A1917; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell.selected { background: #F5B82E; box-shadow: none; color: #1A1917; }
+.plugin.arcade-skin.gwall-sudoku .sd-cell.wrong { color: #D6402E; }
+.plugin.arcade-skin.gwall-sudoku .sd-notes { padding: 8%; font-size: 2.1cqw; font-weight: 500; color: rgba(26, 25, 23, 0.55); }
+.plugin.arcade-skin.gwall-sudoku .sd-pad { display: contents; }
+.plugin.arcade-skin.gwall-sudoku .sd-key {
+  flex: none; width: 56px; height: 56px; min-width: 0; padding: 0;
+  border: 1.5px solid var(--ink); border-radius: 50%; background: none; color: var(--ink);
+  font: 500 22px var(--f-sans);
+  transition: background-color .12s ease, color .12s ease;
+}
+.plugin.arcade-skin.gwall-sudoku .sd-key:hover:not(:disabled) { background: var(--ink); color: var(--gwall); }
+.plugin.arcade-skin.gwall-sudoku .sd-key:disabled { opacity: .4; }
+.plugin.arcade-skin.gwall-sudoku .sd-key small {
+  position: absolute; top: calc(100% + 4px); bottom: auto; left: 0; right: 0; text-align: center;
+  font: 400 13px var(--f-sans); color: var(--t3);
+}
+.plugin.arcade-skin.gwall-sudoku .sd-key.done { opacity: .25; }
+.plugin.arcade-skin.gwall-sudoku .sd-key.done small { visibility: hidden; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(3n+1) { grid-column: 4; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(3n+2) { grid-column: 5; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(3n) { grid-column: 6; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(-n+3) { grid-row: 2; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(n+4):nth-child(-n+6) { grid-row: 3; }
+.plugin.arcade-skin.gwall-sudoku .sd-key:nth-child(n+7):nth-child(-n+9) { grid-row: 4; }
+/* pencil and erase: pills at the foot of the left column; pencil fills while it is on */
+.plugin.arcade-skin.gwall-sudoku .sd-key.sd-key-tool {
+  grid-column: 1; grid-row: 5; align-self: end; justify-self: start;
+  width: auto; height: 60px; padding: 0 28px; border-radius: 999px;
+  font: 500 15px var(--f-sans); letter-spacing: 0; text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-sudoku .sd-key.sd-key-tool:nth-child(11) { margin-left: 128px; }
+.plugin.arcade-skin.gwall-sudoku .sd-key.sd-key-tool.on { background: var(--ink); color: var(--ar-on); border-color: var(--ink); }
+
+/* ── minesweeper ───────────────────────────────────────────────────────── */
+/* mines left is the numeral. Unopened tiles are paper; opened ground is the
+   wall a shade down; every number is the one ink. */
+.plugin.arcade-skin.gwall-minesweeper .ms-mines-label { order: 3; }
+.plugin.arcade-skin.gwall-minesweeper .ms-clock { order: 4; }
+.plugin.arcade-skin.gwall-minesweeper .ms-layout {
+  height: 100%; box-sizing: border-box; overflow: hidden;
+  padding: 48px 48px 48px clamp(250px, 30cqw, 400px);
+}
+.plugin.arcade-skin.gwall-minesweeper .ms-board {
+  border: none; border-radius: 14px; overflow: hidden; box-shadow: none;
+  background: rgba(26, 25, 23, 0.14);
+  font-weight: 500;
+}
+.plugin.arcade-skin.gwall-minesweeper .ms-board.idle { opacity: 1; }
+/* the gap between tiles is drawn inside each cell, so no click falls between them */
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.hidden {
+  padding: 1.5px; background: #FBFAF7 content-box; border-radius: 9px; box-shadow: none;
+  color: #1A1917;
+}
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.hidden:hover { filter: none; background-color: #F1EEE6; }
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.open,
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.open[class*=" n"] { background: none; box-shadow: none; color: #1A1917; }
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.flag { color: #1A1917; }
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.mine { background: none; color: #1A1917; }
+.plugin.arcade-skin.gwall-minesweeper .ms-cell.mine.blown { padding: 1.5px; background: #D6402E content-box; border-radius: 9px; color: #FBFAF7; }
+/* flag mode: one pill at the foot of the left column, filled while it is on.
+   (the header is stretched over the room so the pill can stand on its floor) */
+.plugin.arcade-skin.gwall-minesweeper .game-view .game-action-row { grid-row: 1 / -1; align-content: flex-start; }
+.plugin.arcade-skin.gwall-minesweeper .game-btn.ms-flag-btn {
+  position: absolute; left: 48px; bottom: 48px; z-index: 3;
+  height: 60px; padding: 0 30px; border-radius: 999px;
+  border: 1.5px solid var(--ink); background: none; color: var(--ink); opacity: 1;
+  font: 500 15px var(--f-sans);
+}
+.plugin.arcade-skin.gwall-minesweeper .game-btn.ms-flag-btn:hover { background: var(--bg2); }
+.plugin.arcade-skin.gwall-minesweeper .game-btn.ms-flag-btn.ms-flag-on { background: var(--ink); color: var(--ar-on); border-color: var(--ink); }
+
+/* ── solitaire ─────────────────────────────────────────────────────────── */
+/* moves are the numeral. Backs are ink, faces are the poker room's cards;
+   a hair of wall parts one card from the next in a run. */
+.plugin.arcade-skin.gwall-solitaire .sol-clock { order: 4; }
+.plugin.arcade-skin.gwall-solitaire .sol-score { order: 5; }
+.plugin.arcade-skin.gwall-solitaire .sol-layout {
+  height: 100%; box-sizing: border-box; max-width: none; width: 100%; margin: 0;
+  padding: 96px 48px 48px clamp(250px, 31cqw, 372px); gap: 0;
+  container-type: inline-size;
+}
+.plugin.arcade-skin.gwall-solitaire .sol-layout.idle { opacity: 1; }
+.plugin.arcade-skin.gwall-solitaire :is(.sol-top, .sol-tableau) { --sol-gap: 2.3cqw; gap: var(--sol-gap); }
+.plugin.arcade-skin.gwall-solitaire .sol-top { margin-bottom: 7.6cqw; }
+.plugin.arcade-skin.gwall-solitaire .sol-pile { --sol-step-down: 1.8cqw; --sol-step-up: 5.1cqw; }
+.plugin.arcade-skin.gwall-solitaire .sol-card { border-radius: 13.5% / 9.7%; }
+.plugin.arcade-skin.gwall-solitaire .sol-face { background: #FBFAF7; border: none; box-shadow: 0 -2.5px 0 var(--gwall); }
+.plugin.arcade-skin.gwall-solitaire .sol-back { background: #1A1917; border: none; box-shadow: 0 -2.5px 0 var(--gwall); }
+.plugin.arcade-skin.gwall-solitaire .sol-slot { border: 1.5px solid rgba(251, 250, 247, 0.5); background: none; }
+.plugin.arcade-skin.gwall-solitaire .sol-recycle { color: rgba(251, 250, 247, 0.7); font-size: 24cqw; }
+.plugin.arcade-skin.gwall-solitaire .sol-rank {
+  top: 5%; left: 11%; display: flex; align-items: center; gap: 7cqw;
+  font: 500 23cqw/1 var(--f-sans);
+}
+.plugin.arcade-skin.gwall-solitaire .sol-rank-suit { font-size: 19cqw; }
+.plugin.arcade-skin.gwall-solitaire .sol-suit { right: 10%; bottom: 7%; font-size: 34cqw; }
+.plugin.arcade-skin.gwall-solitaire .sol-card.selected { outline: 3px solid #F5B82E; outline-offset: -1px; }
+.plugin.arcade-skin.gwall-solitaire .sol-waste .sol-fan { box-shadow: -2.5px 0 0 var(--gwall); }
+.plugin.arcade-skin.gwall-solitaire .sol-count { bottom: auto; top: calc(100% + 8px); font: 400 13px var(--f-sans); color: var(--t2); }
+
+/* ── connect four · gomoku · reversi: shared room ──────────────────────── */
+/* the chess room's plan: the board at full height in the middle, the two
+   players to its left, the talk at the foot of the right column. */
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .game-view.chess-shell {
+  position: relative;
+  grid-template-columns: minmax(150px, 1fr) auto minmax(200px, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  column-gap: 32px;
+  --bd: min(72vh, 44vw);
+  --bd: min(100cqh - 96px, 100cqw - 520px);
+}
+/* (not positioned: the "your turn" line is placed against the room itself,
+   top or foot, and the board in the middle column never covers back/resign) */
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-action-row {
+  grid-column: 1 / -1; grid-row: 1; pointer-events: none; position: static;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-action-row > * { pointer-events: auto; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-action-status,
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-action-status.active { pointer-events: none; background: none; border: none; padding: 0; color: var(--ink); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-area { display: contents; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell :is(.game-above, .game-below) {
+  grid-column: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  width: auto; max-width: none; margin: 0; padding: 0 0 0 48px; min-width: 0;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-above { grid-row: 2; padding-top: 44px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-below { grid-row: 4; align-self: end; padding-bottom: 48px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-player-name {
+  flex: none; max-width: 100%; overflow: visible; white-space: normal; text-overflow: clip;
+  font: 500 17px/1.22 var(--f-sans); letter-spacing: 0; color: var(--ink); text-transform: lowercase;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-player-name--unknown { color: var(--t2); font-weight: 400; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-board-wrap {
+  grid-column: 2; grid-row: 1 / -1; align-self: center;
+  width: var(--bd); height: var(--bd); max-width: none; margin: 0; position: relative; z-index: 1;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .chess-board-wrap { width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .bg-board { width: 100%; height: 100%; max-width: none; max-height: none; box-shadow: none; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .game-board-wrap.has-overlay {
+  grid-column: 1 / -1; grid-row: 2 / -1; width: auto; height: auto; align-self: stretch;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell:has(.game-board-wrap.has-overlay) :is(.game-above, .game-below) { display: none; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell:has(.game-chat:not(.no-room)) .game-finish-overlay { padding-right: 340px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .chess-dock {
+  grid-column: 3; grid-row: 2 / -1; position: relative; z-index: 11;
+  display: flex; flex-direction: column; gap: 20px;
+  box-sizing: border-box; width: 100%; max-width: 300px; height: auto; min-height: 0;
+  margin: 0; justify-self: end; padding: 6px 48px 48px 0;
+  background: none; border: none;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .chess-dock .game-chat {
+  flex: 1 1 auto; justify-content: flex-end; min-height: 0; gap: 12px;
+  margin: 0; padding: 0; border: none; background: none; border-radius: 0;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-shell .chess-dock .game-chat-scroll { flex: 0 1 auto; max-height: none; padding: 0; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h { flex-direction: column; align-items: flex-start; gap: 6px; padding: 0; width: 100%; max-width: 180px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-name { font: 400 13px var(--f-sans); letter-spacing: 0; font-style: normal; color: var(--t2); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-bar { flex: none; width: 100%; min-width: 0; height: 22px; border: 1.5px solid var(--ink); border-radius: 999px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-seg { font: 500 11px var(--f-sans); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-w { background: var(--ink); color: var(--ar-on); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-d { background: transparent; color: var(--ink); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-l { background: none; color: var(--ink); box-shadow: inset 1.5px 0 0 var(--ink); }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .chess-h2h-score { display: none; }
+/* stones are flat; the last one played carries a gold dot */
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .bg-stone { box-shadow: none; border: none; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .bg-cell.last .bg-stone { outline: none; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .bg-cell.last::before {
+  content: ''; position: absolute; z-index: 2; width: 20%; height: 20%; border-radius: 50%; background: #F5B82E;
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku, .gwall-reversi) .bg-swatch { width: 20px; height: 20px; border: none; }
+
+/* connect four and gomoku: a name with its stone under it; whose move it is
+   is written beside that player's stone */
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .bg-player-row { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .bg-player-row .game-player-name { order: -1; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .ar-title { display: none; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .chess-shell .game-action-status.active {
+  /* (placed against the room: an absolutely placed box in a grid measures
+     from its own grid area, so the area is named as the whole grid) */
+  position: absolute; grid-column: 1 / -1; grid-row: 1 / -1;
+  left: 78px; top: 128px; margin: 0; flex: none; max-width: none;
+  font: 500 15px/20px var(--f-sans);
+}
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .chess-shell:has(.bg-board.my-turn) .game-action-status.active { top: auto; bottom: 48px; }
+.plugin.arcade-skin:is(.gwall-connect4, .gwall-gomoku) .ar-note { font: inherit; color: var(--ink); }
+
+/* ── connect four ──────────────────────────────────────────────────────── */
+/* the rack is the wall a shade down; an empty hole is cut back to the wall */
+.plugin.arcade-skin.gwall-connect4 .bg-shell-connect4 { --bg-first: #FBFAF7; --bg-second: #1A1917; }
+.plugin.arcade-skin.gwall-connect4 .chess-shell .game-board-wrap { height: calc(var(--bd) * 6 / 7 + var(--bd) * 0.01); }
+.plugin.arcade-skin.gwall-connect4 .bg-connect4 {
+  background: rgba(26, 25, 23, 0.2); padding: 2.6%; gap: 2%; border-radius: 6% / 7%;
+}
+.plugin.arcade-skin.gwall-connect4 .bg-connect4 .bg-cell { background: var(--gwall); border-radius: 50%; }
+.plugin.arcade-skin.gwall-connect4 .bg-connect4 .bg-stone { width: 100%; height: 100%; }
+.plugin.arcade-skin.gwall-connect4 .bg-stone-ghost { background: rgba(251, 250, 247, 0.55); }
+
+/* ── gomoku ────────────────────────────────────────────────────────────── */
+/* fifteen lines each way, drawn through the cells and stopped at the outer
+   crossings; stones sit on the crossings */
+.plugin.arcade-skin.gwall-gomoku .bg-shell-gomoku { --bg-first: #1A1917; --bg-second: #FBFAF7; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku { background: none; padding: 0; border-radius: 0; overflow: visible; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell {
+  --ln: rgba(26, 25, 23, 0.5);
+  --hw: 100%; --hx: center; --vh: 100%; --vy: center;
+  background-image: linear-gradient(var(--ln), var(--ln)), linear-gradient(var(--ln), var(--ln));
+  background-size: var(--hw) 1.5px, 1.5px var(--vh);
+  background-position: var(--hx) center, center var(--vy);
+  background-repeat: no-repeat;
+}
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell:nth-child(15n+1) { --hw: 50%; --hx: right; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell:nth-child(15n) { --hw: 50%; --hx: left; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell:nth-child(-n+15) { --vh: 50%; --vy: bottom; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell:nth-child(n+211) { --vh: 50%; --vy: top; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell:is(:nth-child(49), :nth-child(57), :nth-child(113), :nth-child(169), :nth-child(177))::before {
+  content: ''; position: absolute; width: 20%; height: 20%; border-radius: 50%; background: rgba(26, 25, 23, 0.6);
+}
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-cell.last::before { width: 26%; height: 26%; background: #F5B82E; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku .bg-stone { position: relative; z-index: 1; width: 86%; height: 86%; }
+.plugin.arcade-skin.gwall-gomoku .bg-gomoku.my-turn .bg-cell.legal:hover::after { background: rgba(26, 25, 23, 0.28); }
+
+/* ── reversi ───────────────────────────────────────────────────────────── */
+/* the count of discs is the score: yours on the left, theirs on the right,
+   as in the ear training room. Squares sit a shade up from the wall so
+   both colours of disc read. */
+.plugin.arcade-skin.gwall-reversi .bg-shell-reversi { --bg-first: #1A1917; --bg-second: #FBFAF7; }
+.plugin.arcade-skin.gwall-reversi .chess-shell .game-action-status.active {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 5px; overflow: visible;
+}
+.plugin.arcade-skin.gwall-reversi .ar-title { font: 500 17px/1.22 var(--f-sans); color: var(--ink); }
+.plugin.arcade-skin.gwall-reversi .ar-note { font: 400 15px/1.22 var(--f-sans); color: var(--t2); }
+.plugin.arcade-skin.gwall-reversi .chess-shell .game-below { grid-row: 2; align-self: start; padding: 8px 0 0 48px; }
+.plugin.arcade-skin.gwall-reversi .chess-shell .game-above { grid-column: 3; grid-row: 2; align-items: flex-end; padding: 8px 48px 0 0; justify-self: end; }
+.plugin.arcade-skin.gwall-reversi .bg-player-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 10px; }
+.plugin.arcade-skin.gwall-reversi .game-above .bg-player-row { justify-content: flex-end; }
+.plugin.arcade-skin.gwall-reversi .bg-player-row .game-player-name { font: 400 15px/1.22 var(--f-sans); color: var(--t2); }
+.plugin.arcade-skin.gwall-reversi .game-above .bg-swatch { order: 2; }
+.plugin.arcade-skin.gwall-reversi .bg-count {
+  order: -1; flex: 0 0 100%; margin-left: -6px;
+  font: 500 clamp(96px, 13cqw, 168px)/1 var(--f-sans); letter-spacing: -0.04em; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.plugin.arcade-skin.gwall-reversi .game-above .bg-count { text-align: right; margin: 0 -6px 0 0; opacity: .34; }
+.plugin.arcade-skin.gwall-reversi .bg-reversi { background: none; gap: 0.75%; padding: 0; border-radius: 0; overflow: visible; }
+.plugin.arcade-skin.gwall-reversi .bg-reversi .bg-cell { background: rgba(251, 250, 247, 0.13); border-radius: 15%; }
+.plugin.arcade-skin.gwall-reversi .bg-reversi .bg-cell.legal::after { width: 20%; height: 20%; background: rgba(251, 250, 247, 0.45); }
+.plugin.arcade-skin.gwall-reversi .bg-reversi .bg-stone { width: 76%; height: 76%; }
 
 /* ── the room's object, standing over its name before and after play ──── */
 .plugin.arcade-skin.gwall-chess { --ar-object: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 150' fill='none'%3E%3Ccircle cx='60' cy='40' r='23' fill='%23FBFAF7'/%3E%3Crect x='36' y='62' width='48' height='10' rx='5' fill='%23FBFAF7'/%3E%3Cpath d='M45 72 C45 104 33 116 28 134 H92 C87 116 75 104 75 72 Z' fill='%23FBFAF7'/%3E%3Crect x='18' y='132' width='84' height='18' rx='9' fill='%23FBFAF7'/%3E%3C/svg%3E"); }

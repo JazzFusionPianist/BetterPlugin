@@ -291,7 +291,7 @@
 .games-panel.arcade-skin[class*="wall-"] .game-result-mark { display: none; }
 
 /* world ranking — a plain list */
-.games-panel.arcade-skin[class*="wall-"] .pb-lb { width: 100%; margin: 0 0 12px; }
+.games-panel.arcade-skin[class*="wall-"] .pb-lb { width: 100%; margin: 12px 0; }
 .games-panel.arcade-skin[class*="wall-"] .pb-lb-title {
   font: 500 15px var(--f-sans); color: var(--ink); text-transform: lowercase; letter-spacing: 0;
   border: none; padding: 0 0 8px;

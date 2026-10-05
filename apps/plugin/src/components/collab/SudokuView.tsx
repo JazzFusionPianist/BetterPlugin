@@ -6,6 +6,7 @@ import { useWorldScores, type WorldStanding } from '../../hooks/useWorldScores'
 import { holdKeyboard } from '../../lib/keyboardCapture'
 import { generateSudoku, sudokuScore, formatClock, boxOf, SUDOKU_DIFFICULTIES, type SudokuPuzzle, type SudokuDifficulty } from '../../lib/sudoku'
 import GameShell, { GameOverlayCard } from './GameShell'
+import { useArcade, commas } from './ArcadeLobby'
 import WorldRanking from './WorldRanking'
 
 interface Props {
@@ -20,6 +21,7 @@ type Phase = 'ready' | 'live' | 'won'
 /** Sudoku — solo, three difficulties, pencil marks, world ranking. */
 export default function SudokuView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
+  const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'sudoku_scores')
 
   const [difficulty, setDifficulty] = useState<SudokuDifficulty>(() => (localStorage.getItem('orb_sudoku_diff') as SudokuDifficulty) || 'easy')
@@ -174,7 +176,7 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
     overlay = (
       <GameOverlayCard title={won ? t('sd.solved') : t('game.sudoku')} className="pb-overlay-card">
         {won && <div className="pb-final-score">{finalScore.toLocaleString()}</div>}
-        {won && <div className="game-finish-readystate">{formatClock(seconds)} · {t('sd.mistakes')} {mistakes}</div>}
+        {won && <div className="game-finish-readystate">{formatClock(seconds)}<span className="pb-sep"> · </span>{t('sd.mistakes')} {mistakes}</div>}
         {won && standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         <div className="game-computer-picker" role="radiogroup" aria-label={t('diff.label')}>
           {SUDOKU_DIFFICULTIES.map(d => (
@@ -187,7 +189,7 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
         <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
           {won ? t('pb.playAgain') : t('pb.start')}
         </button>
-        <div className="pb-hint">{t('sd.hint')}</div>
+        <div className="pb-hint">{arcade ? commas(t('sd.hint')) : t('sd.hint')}</div>
       </GameOverlayCard>
     )
   }
@@ -202,7 +204,17 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
       title={t('game.sudoku')}
       onBack={onClose}
       className="pinball-shell sd-shell"
-      actionStatus={phase === 'live' ? <>{formatClock(seconds)} · {t('sd.mistakes')} {mistakes}</> : undefined}
+      actionStatus={phase === 'live' ? (
+        // in parts so the wide room can set the clock large (ar-* live in arcade.css;
+        // the small panel still reads "0:42 · mistakes 1")
+        <>
+          <span className="ar-only ar-title">{t('game.sudoku')}</span>
+          <span className="ar-only ar-sub">{t(`diff.${difficulty}` as const)}</span>
+          <span className="ar-num">{formatClock(seconds)}</span>
+          <span className="ar-hide"> · </span>
+          <span className="ar-note">{t('sd.mistakes')} {mistakes}</span>
+        </>
+      ) : undefined}
       controls={phase === 'live' ? (
         <>
           <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>

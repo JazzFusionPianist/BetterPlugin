@@ -6,6 +6,7 @@ import { useWorldScores, type WorldStanding } from '../../hooks/useWorldScores'
 import { SolitaireGame, isRed, rankLabel, SUIT_GLYPH, type Card, type SolSource, type SolTarget } from '../../lib/solitaire'
 import { formatClock } from '../../lib/sudoku'
 import GameShell, { GameOverlayCard } from './GameShell'
+import { useArcade, commas } from './ArcadeLobby'
 import WorldRanking from './WorldRanking'
 
 interface Props {
@@ -36,7 +37,7 @@ function CardFace({ card, className, style, onClick, onDoubleClick }: {
   if (!card.faceUp) return <div className={`sol-card sol-back${className ? ' ' + className : ''}`} style={style} onClick={onClick} />
   return (
     <div className={`sol-card sol-face${isRed(card.suit) ? ' red' : ''}${className ? ' ' + className : ''}`} style={style} onClick={onClick} onDoubleClick={onDoubleClick}>
-      <span className="sol-rank">{rankLabel(card.rank)}</span>
+      <span className="sol-rank">{rankLabel(card.rank)}<span className="ar-only sol-rank-suit">{SUIT_GLYPH[card.suit]}</span></span>
       <span className="sol-suit">{SUIT_GLYPH[card.suit]}</span>
     </div>
   )
@@ -46,6 +47,7 @@ function CardFace({ card, className, style, onClick, onDoubleClick }: {
  *  to a foundation. Draw 1 or 3 is picked on the start card. */
 export default function SolitaireView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
+  const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'solitaire_scores')
 
   const [drawCount, setDrawCount] = useState<1 | 3>(() => (localStorage.getItem('orb_sol_draw') === '3' ? 3 : 1))
@@ -153,7 +155,7 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
     overlay = (
       <GameOverlayCard title={over ? (won ? t('sol.won') : t('pb.gameOver')) : t('game.solitaire')} className="pb-overlay-card">
         {over && <div className="pb-final-score">{finalScore.toLocaleString()}</div>}
-        {over && <div className="game-finish-readystate">{formatClock(seconds)} · {g.moves} {t('sol.moves')}</div>}
+        {over && <div className="game-finish-readystate">{formatClock(seconds)}<span className="pb-sep"> · </span>{g.moves} {t('sol.moves')}</div>}
         {over && standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         <div className="game-computer-picker" role="radiogroup">
           {([1, 3] as const).map(d => (
@@ -166,7 +168,7 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
         <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(drawCount)}>
           {over ? t('pb.playAgain') : t('pb.start')}
         </button>
-        <div className="pb-hint">{t('sol.hint')}</div>
+        <div className="pb-hint">{arcade ? commas(t('sol.hint')) : t('sol.hint')}</div>
       </GameOverlayCard>
     )
   }
@@ -179,7 +181,19 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
       title={t('game.solitaire')}
       onBack={onClose}
       className="pinball-shell sol-shell"
-      actionStatus={phase === 'live' ? <>{formatClock(seconds)} · {g.score.toLocaleString()}</> : undefined}
+      actionStatus={phase === 'live' ? (
+        // in parts so the wide room can set the moves large (ar-* live in
+        // arcade.css; the small panel still reads "0:42 · 120")
+        <>
+          <span className="ar-only ar-title">{t('game.solitaire')}</span>
+          <span className="ar-only ar-sub">{drawCount === 1 ? t('sol.draw1') : t('sol.draw3')}</span>
+          <span className="ar-only ar-num">{g.moves}</span>
+          <span className="ar-only ar-note sol-moves-label">{t('sol.moves')}</span>
+          <span className="ar-note sol-clock">{formatClock(seconds)}</span>
+          <span className="ar-hide"> · </span>
+          <span className="ar-note sol-score"><span className="ar-only">{t('fb.score')} </span>{g.score.toLocaleString()}</span>
+        </>
+      ) : undefined}
       controls={phase === 'live' ? (
         <>
           <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>

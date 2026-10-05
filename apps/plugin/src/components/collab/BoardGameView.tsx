@@ -11,6 +11,7 @@ import {
   type Board, type Seat, type Move,
 } from '../../lib/boardGames'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
+import { useArcade, commas } from './ArcadeLobby'
 import GameChat from './GameChat'
 
 interface Props {
@@ -53,6 +54,7 @@ function H2HBar({ name, w, d, l }: { name: string; w: number; d: number; l: numb
  */
 export default function BoardGameView({ game, supabase, currentUserId, currentUserProfile, friendProfiles, onClose }: Props) {
   const { t } = useT()
+  const arcade = useArcade()
   const { room, loading, createRoom, joinRoom, startGame, toggleReady, makeMove, endGame, inviteFriend, cancelInvite, leaveRoom, deleteCurrentRoom, findActiveRoom } =
     useBoardRoom(supabase, currentUserId, game)
   const [resolvingRoom, setResolvingRoom] = useState(true)
@@ -140,7 +142,10 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
     if (!target) { setComputerStartPending(false); return }
     // alternate who opens between games against the computer
     const first: BoardSeat = target.status === 'finished' && target.computer ? (target.first_player === 'host' ? 'guest' : 'host') : 'host'
-    const fresh = await startGame(createBoard(game, seatOf(first)), { firstPlayer: first, computer: true })
+    // pass the room along: on a first press it was created a moment ago and
+    // startGame's own `room` is still null (the press used to do nothing but
+    // open a lobby; a second press was needed to start)
+    const fresh = await startGame(createBoard(game, seatOf(first)), { firstPlayer: first, computer: true }, target)
     if (!fresh) setComputerStartPending(false)
   }, [room, createRoom, startGame, game])
 
@@ -270,7 +275,7 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
           <button className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>{t('chess.inviteCta')}</button>
           <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>{t('game.playComputer')}</button>
           {room && !hasGuest && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
-          <div className="pb-hint">{t(HINT_KEY[game])}</div>
+          <div className="pb-hint">{arcade ? commas(t(HINT_KEY[game])) : t(HINT_KEY[game])}</div>
         </GameOverlayCard>
       )
     } else {
@@ -327,7 +332,15 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
       className={`chess-shell bg-shell bg-shell-${game}`}
       title={t(NAME_KEY[game])}
       onBack={handleBack}
-      actionStatus={isPlaying ? (isMyTurn ? <>● {t('chess.yourTurn')}</> : <>● {t('common.thinking')}</>) : undefined}
+      actionStatus={isPlaying ? (
+        // the wide room drops the bullet (a stone swatch marks the player) and,
+        // for reversi, keeps the game's name above the line
+        <>
+          <span className="ar-only ar-title">{t(NAME_KEY[game])}</span>
+          <span className="ar-hide">● </span>
+          <span className="ar-note">{isMyTurn ? t('chess.yourTurn') : t('common.thinking')}</span>
+        </>
+      ) : undefined}
       controls={isPlaying ? (
         <button className="game-btn game-btn-danger" onClick={() => setShowResignConfirm(true)}>{t('chess.resign')}</button>
       ) : undefined}

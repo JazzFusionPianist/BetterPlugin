@@ -9,7 +9,7 @@ import type { PinballTheme, PinballPhase } from '../../lib/pinball'
 import { useWorldScores } from '../../hooks/useWorldScores'
 import type { WorldStanding } from '../../hooks/useWorldScores'
 import GameShell, { GameOverlayCard } from './GameShell'
-import { useArcade } from './ArcadeLobby'
+import { useArcade, commas } from './ArcadeLobby'
 
 interface Props {
   supabase: SupabaseClient
@@ -277,7 +277,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
         <button className="game-invite-btn pb-start-btn" onClick={handleStart}>
           {isOver ? t('pb.playAgain') : t('pb.start')}
         </button>
-        <div className="pb-hint">{arcade ? t('pb.hintKeys').replace(/\s*[·・]\s*/g, ', ') : t('pb.hintKeys')}</div>
+        <div className="pb-hint">{arcade ? commas(t('pb.hintKeys')) : t('pb.hintKeys')}</div>
         <div className="pb-hint pb-hint-touch">{t('pb.hintTouch')}</div>
       </GameOverlayCard>
     )

@@ -19,6 +19,11 @@ import type { GameId } from './GameListView'
 export const ArcadeContext = createContext(false)
 export const useArcade = () => useContext(ArcadeContext)
 
+/** A translated line as the arcade sets it: its parts set apart by commas.
+ *  (The dictionary's hint lines are written with middle dots for the small
+ *  panel; the arcade never shows one.) */
+export const commas = (s: string) => s.replace(/\s*[·・]\s*/g, ', ')
+
 const PAPER = '#FBFAF7'
 const INK = '#1A1917'
 

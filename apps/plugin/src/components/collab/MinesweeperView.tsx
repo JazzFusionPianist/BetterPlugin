@@ -6,6 +6,7 @@ import { useWorldScores, type WorldStanding } from '../../hooks/useWorldScores'
 import { MinesweeperGame, minesweeperScore, MS_DIFFICULTIES, MS_PRESETS, type MsDifficulty } from '../../lib/minesweeper'
 import { formatClock } from '../../lib/sudoku'
 import GameShell, { GameOverlayCard } from './GameShell'
+import { useArcade, commas } from './ArcadeLobby'
 import WorldRanking from './WorldRanking'
 
 interface Props {
@@ -21,6 +22,7 @@ type Phase = 'ready' | 'live' | 'won' | 'lost'
  *  reveals (or chords an open number), right click / flag mode flags. */
 export default function MinesweeperView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
+  const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'minesweeper_scores')
 
   const [difficulty, setDifficulty] = useState<MsDifficulty>(() => (localStorage.getItem('orb_ms_diff') as MsDifficulty) || 'easy')
@@ -60,13 +62,14 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
       const w = wrap.clientWidth, h = wrap.clientHeight
       if (w === 0 || h === 0) return
       const px = Math.floor(Math.min((w - 2) / g.cols, (h - 2) / g.rows))
-      setCellPx(Math.max(14, Math.min(34, px)))
+      // the wide room has the height for larger tiles
+      setCellPx(Math.max(14, Math.min(arcade ? 38 : 34, px)))
     }
     compute()
     const ro = new ResizeObserver(compute)
     ro.observe(wrap)
     return () => ro.disconnect()
-  }, [phase, difficulty])
+  }, [phase, difficulty, arcade])
 
   const handleStart = useCallback((d: MsDifficulty = difficulty) => {
     localStorage.setItem('orb_ms_diff', d)
@@ -140,7 +143,7 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
         <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
           {won || lost ? t('pb.playAgain') : t('pb.start')}
         </button>
-        <div className="pb-hint">{t('ms.hint')}</div>
+        <div className="pb-hint">{arcade ? commas(t('ms.hint')) : t('ms.hint')}</div>
       </GameOverlayCard>
     )
   }
@@ -150,10 +153,21 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
       title={t('game.minesweeper')}
       onBack={onClose}
       className="pinball-shell ms-shell"
-      actionStatus={phase === 'live' ? <>{formatClock(seconds)} · {t('ms.mines')} {minesLeft}</> : undefined}
+      actionStatus={phase === 'live' ? (
+        // in parts so the wide room can set the mines left large (ar-* live in
+        // arcade.css; the small panel still reads "0:42 · mines 38")
+        <>
+          <span className="ar-only ar-title">{t('game.minesweeper')}</span>
+          <span className="ar-only ar-sub">{t(`diff.${difficulty}` as const)}</span>
+          <span className="ar-note ms-clock">{formatClock(seconds)}</span>
+          <span className="ar-hide"> · </span>
+          <span className="ar-note ms-mines-label">{t('ms.mines')} </span>
+          <span className="ar-num">{minesLeft}</span>
+        </>
+      ) : undefined}
       controls={phase === 'live' ? (
         <>
-          <button className={`game-btn${flagMode ? ' ms-flag-on' : ''}`} onClick={() => setFlagMode(f => !f)} title="F">⚑ {t('ms.flagMode')}</button>
+          <button className={`game-btn ms-flag-btn${flagMode ? ' ms-flag-on' : ''}`} onClick={() => setFlagMode(f => !f)} title="F"><span className="ar-hide">⚑ </span>{t('ms.flagMode')}</button>
           <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>
           <button className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</button>
         </>

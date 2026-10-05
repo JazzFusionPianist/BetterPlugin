@@ -468,7 +468,7 @@
 }
 .games-panel.arcade-skin.wall-chess .chess-shell .game-action-row {
   grid-column: 1 / -1; grid-row: 1;
-  pointer-events: none; position: relative; z-index: 2;
+  pointer-events: none; position: relative; z-index: 20;
 }
 .games-panel.arcade-skin.wall-chess .chess-shell .game-action-row > * { pointer-events: auto; }
 .games-panel.arcade-skin.wall-chess .chess-shell .game-action-status,
@@ -510,6 +510,17 @@
   border: none; border-radius: 16px; overflow: hidden; box-shadow: none;
   background: rgba(26, 25, 23, 0.2);
 }
+/* eight equal tracks each way, fixed by the board and never by what stands
+   on a square: with plain `1fr` columns and auto rows WebKit (Safari, and
+   the WebView inside a DAW) let the pieces' own size widen the tracks, and
+   the board showed four squares across instead of eight */
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-board {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  aspect-ratio: auto;
+}
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-sq { min-width: 0; min-height: 0; aspect-ratio: auto; overflow: hidden; }
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-piece { min-width: 0; min-height: 0; }
 .games-panel.arcade-skin.wall-chess .chess-sq.sq-light { background: #FBFAF7; }
 .games-panel.arcade-skin.wall-chess .chess-sq.sq-dark { background: transparent; }
 .games-panel.arcade-skin.wall-chess .chess-sq.sq-lastmove { background: #F5B82E !important; box-shadow: none; }
@@ -733,7 +744,7 @@
    and the others' wells on the right. Two tones only: what has landed is
    paper, the piece in hand is ink, where it will land is an outline. */
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-action-row {
-  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 20; pointer-events: none;
 }
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-action-row > * { pointer-events: auto; }
 .games-panel.arcade-skin.wall-falling_blocks .game-view .game-action-status { pointer-events: none; }
@@ -777,6 +788,14 @@
   background: rgba(26, 25, 23, 0.22); border: none; border-radius: 16px; box-shadow: none;
 }
 .games-panel.arcade-skin.wall-falling_blocks .falling-blocks-board.is-opponent { border-radius: 8px; }
+/* ten by twenty equal tracks, fixed by the well and never by the cells (the
+   same WebKit trap as the chess board: square cells on plain `1fr` tracks
+   keep their old size when the room shrinks, and the well overflows) */
+.games-panel.arcade-skin.wall-falling_blocks .falling-blocks-board {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-rows: repeat(20, minmax(0, 1fr));
+}
+.games-panel.arcade-skin.wall-falling_blocks .falling-blocks-cell { aspect-ratio: auto; min-width: 0; min-height: 0; }
 .games-panel.arcade-skin.wall-falling_blocks .falling-blocks-cell:not([data-filled]) { box-shadow: none; }
 .games-panel.arcade-skin.wall-falling_blocks .falling-blocks-cell[class*="cell--"] {
   background: #FBFAF7; box-shadow: none; border-radius: 24%; transform: scale(.9);
@@ -829,7 +848,7 @@
 /* the two scores are the numerals at either edge; the sound and the
    answers sit between them. One accent in this room: gold. */
 .games-panel.arcade-skin.wall-ear_training .game-view .game-action-row {
-  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 20; pointer-events: none;
 }
 .games-panel.arcade-skin.wall-ear_training .game-view .game-action-row > * { pointer-events: auto; }
 .games-panel.arcade-skin.wall-ear_training .game-view .game-action-status { pointer-events: none; }
@@ -938,7 +957,7 @@
 /* both are one tall drawn object: it stands full height in the middle
    (the header floats over the room), the score to its left. */
 .games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-row {
-  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 2; pointer-events: none;
+  grid-column: 1 / -1; grid-row: 1; position: relative; z-index: 20; pointer-events: none;
 }
 .games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-row > * { pointer-events: auto; }
 .games-panel.arcade-skin:is(.wall-pinball, .wall-orb_merge) .game-view .game-action-status { pointer-events: none; }
@@ -1061,3 +1080,9 @@
 
 .games-panel.arcade-skin.wall-yacht .yacht-card-head:not(:has(.yacht-card-player + .yacht-card-player)) { display: none; }
 .games-panel.arcade-skin.wall-yacht .yacht-card-row:has(.yacht-card-cell.filled) .yacht-card-cat { color: var(--ink); font-weight: 500; }
+
+/* the right column stands over the before-play card (so the talk stays
+   reachable) — but only its contents take the pointer, never its empty
+   space, or it would swallow the presses meant for the card's pills */
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-dock { pointer-events: none; }
+.games-panel.arcade-skin.wall-chess .chess-shell .chess-dock > * { pointer-events: auto; }

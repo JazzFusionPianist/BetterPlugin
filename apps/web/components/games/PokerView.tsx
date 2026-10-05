@@ -647,7 +647,8 @@ export default function PokerView({
           {/* Pot info */}
           <div className="poker-pot-info">
             <div className="poker-pot-row">
-              <span>Pot: {pot}</span>
+              {/* split so the wide-screen room can set the number large */}
+              <span className="poker-pot"><span className="poker-pot-label">Pot</span><span className="poker-pot-colon">: </span><span className="poker-pot-num">{pot}</span></span>
               {roomCurrentBet > 0 && <span>Bet: {roomCurrentBet}</span>}
               {typeof roomState.hand_number === 'number' && (
                 <span>Hand #{roomState.hand_number}</span>

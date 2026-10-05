@@ -1,11 +1,12 @@
 /**
  * The home's schedule, in the pages' language: the prompt is a note
  * line (a whole note sends it; the targets are whole notes in each
- * room's colour), and "this week" is a mint arch holding seven days as
- * columns — today an ink disc, events as white pills with a whole note
- * in their category colour. The home never scrolls: a column shows as
- * many as its height holds, and only past that says "n more", which
- * opens the calendar.
+ * room's colour), and the week is a mint arch: today first, as a list
+ * you can read from across the room, then the six days after as
+ * columns of white pills with a whole note in their category colour.
+ * The home never scrolls: the list and the columns show as many as
+ * their height holds, and only past that say "n more", which opens the
+ * calendar.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -76,7 +77,7 @@ export function StudioHomePrompt({ targets, onSubmit }: {
   )
 }
 
-/** This week — the mint arch. */
+/** Today, then the six days after — the mint arch. */
 export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, onOpenEvent }: {
   events: CalendarEvent[]
   groupTitleById: Map<string, string>
@@ -92,58 +93,98 @@ export function StudioWeek({ events, groupTitleById, nowTick, onOpenCalendar, on
     const arr = byDay.get(k) ?? []; arr.push(e); byDay.set(k, arr)
   }
   for (const arr of byDay.values()) arr.sort((a, b) => Number(b.all_day) - Number(a.all_day) || a.starts_at.localeCompare(b.starts_at))
-  // how many pills a column's height holds, measured live
+
+  // how many rows today's list holds and how many pills a day's column holds, measured live
+  const rowsRef = useRef<HTMLDivElement>(null)
   const daysRef = useRef<HTMLDivElement>(null)
-  const [fit, setFit] = useState(2)
+  const [fit, setFit] = useState({ rows: 4, pills: 2 })
   useEffect(() => {
-    const el = daysRef.current; if (!el) return
+    const rows = rowsRef.current, cols = daysRef.current; if (!rows || !cols) return
     const measure = () => {
-      const head = el.querySelector<HTMLElement>('.wd-week-dh')?.offsetHeight ?? 26
-      const row = el.querySelector<HTMLElement>('.wd-week-ev')?.offsetHeight ?? 40
-      setFit(Math.max(1, Math.floor((el.clientHeight - head) / (row + 6))))
+      const row = rows.querySelector<HTMLElement>('.wd-week-row')?.offsetHeight ?? 51
+      const head = cols.querySelector<HTMLElement>('.wd-week-dh')?.offsetHeight ?? 24
+      const pill = cols.querySelector<HTMLElement>('.wd-week-ev')?.offsetHeight ?? 47
+      setFit({ rows: Math.max(1, Math.floor(rows.clientHeight / row)), pills: Math.max(1, Math.floor((cols.clientHeight - 10 - head) / (pill + 6))) })
     }
     measure()
-    const ro = new ResizeObserver(measure); ro.observe(el)
+    const ro = new ResizeObserver(measure); ro.observe(rows); ro.observe(cols)
     return () => ro.disconnect()
   }, [events.length])
+
+  const colorOf = (e: CalendarEvent) => e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : C.ink)
+  const roomOf = (e: CalendarEvent) => (e.conversation_id ? groupTitleById.get(e.conversation_id) : null)
+  const open = (e: CalendarEvent) => (onOpenEvent ? onOpenEvent(e.id) : onOpenCalendar())
+
+  // today: what is over is dimmed, what comes next is marked; when the list is longer than its
+  // height, what is over leaves first
+  const over = (e: CalendarEvent) => !e.all_day && (e.ends_at ? new Date(e.ends_at).getTime() : new Date(e.starts_at).getTime() + 3600_000) < nowTick
+  const mine = byDay.get(keyOf(today)) ?? []
+  const next = mine.find(e => !e.all_day && !over(e))
+  let rows = mine
+  if (mine.length > fit.rows) {
+    const keep = Math.max(1, fit.rows - 1)
+    let drop = mine.length - keep
+    rows = mine.filter(e => { if (drop > 0 && over(e)) { drop--; return false } return true }).slice(0, keep)
+  }
+
   return (
     <div className="wd-week">
-      <div className="wd-week-head">
-        <h2>this week</h2>
-        <button className="wd-week-cal" onClick={onOpenCalendar}>my calendar</button>
+      <div className="wd-week-now">
+        <div className="wd-week-head">
+          <h2>today</h2>
+          <span>{WD[today.getDay()]} {today.getDate()}</span>
+        </div>
+        <div className="wd-week-rows" ref={rowsRef}>
+          {rows.map(e => {
+            const room = roomOf(e)
+            return (
+              <button key={e.id} className={`wd-week-row${over(e) ? ' past' : ''}${e === next ? ' next' : ''}`} onClick={() => open(e)} title={e.title}>
+                <time>{e.all_day ? 'all day' : clock(new Date(e.starts_at))}</time>
+                <NoteGlyph size={15} color={colorOf(e)} />
+                <b>{e.title}</b>
+                {room && <small>{room}</small>}
+              </button>
+            )
+          })}
+          {mine.length > rows.length && <button className="wd-week-more" onClick={onOpenCalendar}>{mine.length - rows.length} more</button>}
+          {mine.length === 0 && <p className="wd-week-none">nothing today</p>}
+        </div>
       </div>
-      <div className="wd-week-days" ref={daysRef}>
-        {days.map((d, i) => {
-          const k = keyOf(d)
-          const evs = byDay.get(k) ?? []
-          const shown = evs.length <= fit ? evs : evs.slice(0, Math.max(1, fit - 1))   // the last row goes to "n more"
-          return (
-            <div key={k} className="wd-week-day">
-              <div className="wd-week-dh">
-                <span>{WD[d.getDay()]}</span>
-                {i === 0 ? <em>{d.getDate()}</em> : <b>{d.getDate()}</b>}
+      <div className="wd-week-rest">
+        <div className="wd-week-head">
+          <h2>this week</h2>
+          <button className="wd-week-cal" onClick={onOpenCalendar}>my calendar</button>
+        </div>
+        <div className="wd-week-days" ref={daysRef}>
+          {days.slice(1).map(d => {
+            const k = keyOf(d)
+            const evs = byDay.get(k) ?? []
+            const shown = evs.length <= fit.pills ? evs : evs.slice(0, Math.max(1, fit.pills - 1))   // the last row goes to "n more"
+            return (
+              <div key={k} className="wd-week-day">
+                <div className="wd-week-dh">
+                  <span>{WD[d.getDay()]}</span>
+                  <b>{d.getDate()}</b>
+                </div>
+                {shown.map(e => {
+                  const room = roomOf(e)
+                  return (
+                    <button key={e.id} className="wd-week-ev" onClick={() => open(e)} title={e.title}>
+                      <NoteGlyph size={12} color={colorOf(e)} />
+                      <span>
+                        <b>{e.title}</b>
+                        <small>{e.all_day ? 'all day' : clock(new Date(e.starts_at))}{room ? `  ${room}` : ''}</small>
+                      </span>
+                    </button>
+                  )
+                })}
+                {evs.length > shown.length && (
+                  <button className="wd-week-more" onClick={onOpenCalendar}>{evs.length - shown.length} more</button>
+                )}
               </div>
-              {shown.map(e => {
-                const color = e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : C.ink)
-                const t = new Date(e.starts_at)
-                const room = e.conversation_id ? groupTitleById.get(e.conversation_id) : null
-                return (
-                  <button key={e.id} className="wd-week-ev" onClick={() => onOpenEvent ? onOpenEvent(e.id) : onOpenCalendar()} title={e.title}>
-                    <NoteGlyph size={12} color={color} />
-                    <span>
-                      <b>{e.title}</b>
-                      <small>{e.all_day ? 'all day' : clock(t)}{room ? `  ${room}` : ''}</small>
-                    </span>
-                  </button>
-                )
-              })}
-              {evs.length > shown.length && (
-                <button className="wd-week-more" onClick={onOpenCalendar}>{evs.length - shown.length} more</button>
-              )}
-              {evs.length === 0 && <span className="wd-week-ln" />}
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )

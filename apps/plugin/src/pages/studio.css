@@ -1183,29 +1183,44 @@
 .wd .wd-noteline-target.on { color: #1A1917; font-weight: 500; }
 .wd .wd-noteline-note { font-size: 11.5px; color: var(--acc); }
 .wd .wd-noteline-note.err { color: #B8552F; }
-.wd .wd-week { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 24px; padding: 30px 44px 18px;
+.wd .wd-week { flex: 1; min-height: 0; display: flex; gap: 30px; margin-top: 24px; padding: 30px 44px 0;
   background: #BFE6CB; border-radius: 110px 110px 0 0; }
+.wd .wd-week-now { width: 30%; min-width: 220px; max-width: 440px; flex-shrink: 0; display: flex; flex-direction: column; }
+.wd .wd-week-rest { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .wd .wd-week-head { flex-shrink: 0; display: flex; align-items: baseline; }
 .wd .wd-week-head h2 { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.03em; color: #1A1917; }
+.wd .wd-week-head span { margin-left: 12px; font-size: 12px; color: #6E6B63; }
 .wd .wd-week-cal { margin-left: auto; background: #1A1917; color: var(--sl-white); border: none; cursor: pointer; font-family: inherit;
   font-size: 12px; font-weight: 500; padding: 7px 14px; border-radius: 999px; }
 .wd .wd-week-cal:hover { background: #000; }
-.wd .wd-week-days { flex: 1; min-height: 0; display: flex; gap: 8px; margin-top: 16px; }
-.wd .wd-week-day { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
-.wd .wd-week-dh { flex-shrink: 0; box-sizing: border-box; height: 26px; display: flex; align-items: center; gap: 6px; padding-bottom: 4px; font-size: 10.5px; font-weight: 500; color: #6E6B63; }
-.wd .wd-week-dh b { font-size: 12px; font-weight: 500; color: #1A1917; }
-.wd .wd-week-dh em { font-style: normal; width: 22px; height: 22px; border-radius: 11px; background: #1A1917; color: var(--sl-white);
-  font-size: 11px; font-weight: 600; display: grid; place-items: center; }
-.wd .wd-week-ev { display: flex; align-items: center; gap: 7px; text-align: left; background: rgba(255,255,255,.85); border: none; cursor: pointer;
-  border-radius: 14px; padding: 7px 10px 7px 9px; font-family: inherit; flex-shrink: 0; }
+.wd .wd-week-rows { flex: 1; min-height: 0; margin: 12px 0 18px; overflow: hidden; }
+.wd .wd-week-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 2px; text-align: left; background: none; border: none;
+  border-top: 1px solid rgba(26,25,23,.14); cursor: pointer; font-family: inherit; color: #1A1917; }
+.wd .wd-week-row:first-child { border-top: none; }
+.wd .wd-week-row time { width: 74px; flex-shrink: 0; font-size: 13.5px; color: #6E6B63; font-variant-numeric: tabular-nums; }
+.wd .wd-week-row > svg { flex-shrink: 0; }
+.wd .wd-week-row b { min-width: 0; font-size: 18px; font-weight: 500; line-height: 24px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-week-row small { margin-left: auto; flex-shrink: 0; max-width: 40%; font-size: 12px; color: #6E6B63; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-week-row:hover b { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.wd .wd-week-row.past { opacity: .4; }
+.wd .wd-week-row.next time { color: #1A1917; font-weight: 600; }
+.wd .wd-week-none { padding: 13px 2px; font-size: 18px; line-height: 24px; letter-spacing: -0.02em; color: rgba(26,25,23,.4); }
+.wd .wd-week-days { flex: 1; min-height: 0; display: flex; margin-top: 14px; }
+.wd .wd-week-day { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 5px 0; overflow: hidden;
+  border-left: 1px solid rgba(26,25,23,.1); }
+.wd .wd-week-day:first-child { border-left: none; }
+.wd .wd-week-dh { flex-shrink: 0; box-sizing: border-box; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 11.5px; font-weight: 500; color: #6E6B63; }
+.wd .wd-week-dh b { font-size: 13px; font-weight: 500; color: #1A1917; }
+.wd .wd-week-ev { display: flex; align-items: flex-start; gap: 7px; text-align: left; background: rgba(255,255,255,.92); border: none; cursor: pointer;
+  border-radius: 12px; padding: 8px 9px 8px 8px; font-family: inherit; flex-shrink: 0; }
 .wd .wd-week-ev:hover { background: #fff; }
-.wd .wd-week-ev > svg { flex-shrink: 0; }
+.wd .wd-week-ev > svg { flex-shrink: 0; margin-top: 2px; }
 .wd .wd-week-ev > span { min-width: 0; }
-.wd .wd-week-ev b { display: block; font-size: 11.5px; font-weight: 600; color: #1A1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wd .wd-week-ev small { display: block; font-size: 10px; color: #A5A199; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wd .wd-week-more { align-self: flex-start; background: none; border: none; padding: 2px 4px; cursor: pointer; font-family: inherit;
+.wd .wd-week-ev b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.25; color: #1A1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-week-ev small { display: block; margin-top: 1px; font-size: 11px; color: #6E6B63; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd .wd-week-more { flex-shrink: 0; align-self: flex-start; background: none; border: none; padding: 2px 4px; cursor: pointer; font-family: inherit;
   font-size: 11px; color: #1A1917; text-decoration: underline; text-underline-offset: 3px; }
-.wd .wd-week-ln { height: 1px; background: rgba(26,25,23,.12); }
+.wd .wd-week-rows .wd-week-more { margin-top: 8px; padding: 2px; font-size: 12px; }
 
 /* ── the calendar, in the pages' language ── */
 .wd .sc-head { padding: 28px 36px 10px 40px; }

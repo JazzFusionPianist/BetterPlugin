@@ -100,7 +100,7 @@ export default function GameChat({ supabase, currentUserId, roomId, names, other
     : t('chat.placeholder')
 
   return (
-    <div className="game-chat">
+    <div className={`game-chat${roomId ? '' : ' no-room'}`}>
       <div className="game-chat-scroll">
         {!roomId ? (
           <div className="game-chat-empty">{t('common.waiting')}</div>

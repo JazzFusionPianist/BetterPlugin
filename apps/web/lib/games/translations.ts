@@ -253,6 +253,14 @@ export const T = {
   'fb.playerWon':   { en: '{name} won', ko: '{name} 승리', ja: '{name} の勝ち', zh: '{name} 获胜', es: '{name} ganó', de: '{name} hat gewonnen', fr: '{name} a gagné', hi: '{name} जीते' },
   'fb.hold':        { en: 'hold',       ko: '홀드',     ja: 'ホールド',   zh: '暂存',    es: 'reserva',   de: 'halten',     fr: 'réserve',   hi: 'होल्ड' },
   'fb.combo':       { en: 'combo',      ko: '콤보',     ja: 'コンボ',     zh: '连击',    es: 'combo',     de: 'Combo',      fr: 'combo',     hi: 'कॉम्बो' },
+  'fb.single':      { en: 'single',     ko: '싱글',     ja: 'シングル',   zh: '单消',    es: 'simple',    de: 'Single',     fr: 'simple',    hi: 'सिंगल' },
+  'fb.double':      { en: 'double',     ko: '더블',     ja: 'ダブル',     zh: '双消',    es: 'doble',     de: 'Double',     fr: 'double',    hi: 'डबल' },
+  'fb.triple':      { en: 'triple',     ko: '트리플',   ja: 'トリプル',   zh: '三消',    es: 'triple',    de: 'Triple',     fr: 'triple',    hi: 'ट्रिपल' },
+  'fb.quad':        { en: 'quad',       ko: '쿼드',     ja: 'クアッド',   zh: '四消',    es: 'cuádruple', de: 'Quad',       fr: 'quadruple', hi: 'क्वाड' },
+  'fb.tspin':       { en: 't-spin',     ko: '티스핀',   ja: 'Tスピン',    zh: 'T旋',     es: 't-spin',    de: 'T-Spin',     fr: 't-spin',    hi: 'टी-स्पिन' },
+  'fb.miniTspin':   { en: 'mini t-spin', ko: '미니 티스핀', ja: 'Tスピンミニ', zh: '迷你T旋', es: 'mini t-spin', de: 'Mini-T-Spin', fr: 'mini t-spin', hi: 'मिनी टी-स्पिन' },
+  'fb.b2b':         { en: 'back-to-back', ko: '백투백',  ja: 'バックトゥバック', zh: '连续', es: 'back-to-back', de: 'Back-to-Back', fr: 'back-to-back', hi: 'बैक-टू-बैक' },
+  'fb.perfectClear': { en: 'perfect clear', ko: '퍼펙트 클리어', ja: 'パーフェクトクリア', zh: '全消', es: 'limpieza perfecta', de: 'Perfect Clear', fr: 'perfect clear', hi: 'परफ़ेक्ट क्लियर' },
   'fb.level':       { en: 'level',      ko: '레벨',     ja: 'レベル',     zh: '等级',    es: 'nivel',     de: 'Level',      fr: 'niveau',    hi: 'स्तर' },
 
   // ───── Pinball ──────────────────────────────────────────────────────────

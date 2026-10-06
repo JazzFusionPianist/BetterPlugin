@@ -65,6 +65,11 @@ export type ChordQuality =
   | 'maj' | 'min' | 'dim' | 'aug'
   | 'sus2' | 'sus4'
   | 'maj7' | 'min7' | 'dom7' | 'm7b5'
+  | 'dim7' | 'mMaj7'
+  // with tensions
+  | 'maj9' | 'maj7s11'
+  | 'min9' | 'min11'
+  | 'dom9' | 'dom13' | '7b9' | '7s9' | '7s11' | '7b13'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,7 +89,29 @@ const CHORD_SHAPES: Record<ChordQuality, number[]> = {
   min7: [0, 3, 7, 10],
   dom7: [0, 4, 7, 10],
   m7b5: [0, 3, 6, 10],
+  dim7: [0, 3, 6, 9],
+  mMaj7: [0, 3, 7, 11],
+  // Tensions sit on top of the seventh chord, in the octave above.
+  maj9:    [0, 4, 7, 11, 14],
+  maj7s11: [0, 4, 7, 11, 14, 18],
+  min9:    [0, 3, 7, 10, 14],
+  min11:   [0, 3, 7, 10, 14, 17],
+  dom9:    [0, 4, 7, 10, 14],
+  dom13:   [0, 4, 7, 10, 14, 21],
+  '7b9':   [0, 4, 7, 10, 13],
+  '7s9':   [0, 4, 7, 10, 15],
+  '7s11':  [0, 4, 7, 10, 14, 18],
+  '7b13':  [0, 4, 7, 10, 14, 20],
 }
+
+/** Chords that are easily mistaken for one another. On advanced the wrong
+ *  choices come from the answer's own family first — telling a 7♯9 from a
+ *  maj9 is no test; telling it from a 7♭9 is. */
+const CHORD_FAMILIES: ChordQuality[][] = [
+  ['maj7', 'maj9', 'maj7s11'],
+  ['min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7'],
+  ['dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13'],
+]
 
 const DIFFICULTY_INTERVALS: Record<Difficulty, IntervalAnswer[]> = {
   basic:        ['m3', 'M3', 'P4', 'P5', 'P8'],
@@ -93,9 +120,11 @@ const DIFFICULTY_INTERVALS: Record<Difficulty, IntervalAnswer[]> = {
 }
 
 const DIFFICULTY_CHORDS: Record<Difficulty, ChordQuality[]> = {
-  basic:        ['maj', 'min'],
-  intermediate: ['maj', 'min', 'dim', 'aug'],
-  advanced:     ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
+  basic:        ['maj', 'min', 'dim', 'aug'],
+  intermediate: ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
+  // sevenths and their tensions — the plain triads are left to the levels below
+  advanced:     ['maj7', 'maj9', 'maj7s11', 'min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7',
+                 'dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13'],
 }
 
 // Tones stay between 100 Hz and 8 kHz: lower and small speakers have nothing
@@ -175,10 +204,13 @@ function buildIntervalOptions (rng: () => number, answer: IntervalAnswer, pool: 
   return shuffle(rng, [answer, ...shuffled])
 }
 
-function buildChordOptions (rng: () => number, answer: ChordQuality, pool: ChordQuality[]): ChordQuality[] {
-  const distractors = pool.filter(q => q !== answer)
-  const shuffled = shuffle(rng, distractors).slice(0, 3)
-  return shuffle(rng, [answer, ...shuffled])
+function buildChordOptions (rng: () => number, answer: ChordQuality, pool: ChordQuality[], sameFamily = false): ChordQuality[] {
+  const others = pool.filter(q => q !== answer)
+  if (!sameFamily) return shuffle(rng, [answer, ...shuffle(rng, others).slice(0, 3)])
+  const family = CHORD_FAMILIES.find(f => f.includes(answer)) ?? []
+  const near = shuffle(rng, others.filter(q => family.includes(q)))
+  const far = shuffle(rng, others.filter(q => !family.includes(q)))
+  return shuffle(rng, [answer, ...[...near, ...far].slice(0, 3)])
 }
 
 /** Four neighbouring steps of the scale with the answer somewhere among
@@ -220,11 +252,14 @@ export function generateQuestion (roomId: string, round: number, config: RoomCon
   // chord
   const pool = DIFFICULTY_CHORDS[config.difficulty]
   const answer = pick(rng, pool)
+  // A chord that reaches into the second octave is rooted lower, so its
+  // top notes stay in a register where they can be told apart.
+  const tall = Math.max(...CHORD_SHAPES[answer]) > 12
   return {
     type: 'chord',
-    rootMidi,
+    rootMidi: tall && rootMidi > 60 ? rootMidi - 12 : rootMidi,
     quality: answer,
-    options: buildChordOptions(rng, answer, pool),
+    options: buildChordOptions(rng, answer, pool, config.difficulty === 'advanced'),
     answer,
   }
 }
@@ -327,10 +362,14 @@ export function playQuestion (q: Question): number {
     return 1550
   }
 
-  // chord
+  // chord — more notes, each a little quieter, so a six-note chord is no
+  // louder than a triad; the tall ones are rolled slightly, low to high,
+  // which lets the ear pick the tensions off the top
   const shape = CHORD_SHAPES[q.quality]
-  for (const off of shape) playNote(ac, q.rootMidi + off, now, 1.6)
-  return 1600
+  const gain = Math.min(0.16, 0.56 / shape.length)
+  const roll = shape.length > 4 ? 0.028 : 0
+  shape.forEach((off, i) => playNote(ac, q.rootMidi + off, now + i * roll, 1.9 - i * roll, gain))
+  return shape.length > 4 ? 1900 : 1600
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
@@ -344,6 +383,10 @@ export const CHORD_LABELS: Record<ChordQuality, string> = {
   maj: 'maj', min: 'min', dim: 'dim', aug: 'aug',
   sus2: 'sus2', sus4: 'sus4',
   maj7: 'maj7', min7: 'min7', dom7: 'dom7', m7b5: 'm7♭5',
+  dim7: 'dim7', mMaj7: 'mMaj7',
+  maj9: 'maj9', maj7s11: 'maj7♯11',
+  min9: 'min9', min11: 'min11',
+  dom9: 'dom9', dom13: 'dom13', '7b9': '7♭9', '7s9': '7♯9', '7s11': '7♯11', '7b13': '7♭13',
 }
 
 /** 250 → "250 Hz", 1250 → "1.25 kHz". */

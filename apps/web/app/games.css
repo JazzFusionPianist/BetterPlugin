@@ -1102,6 +1102,8 @@
   cursor: pointer;
   transition: background .1s, transform .08s, border-color .1s;
 }
+/* the label is fitted to the button by the view (FitLabel): one line, never cut */
+.et-fit { display: inline-block; white-space: nowrap; }
 .et-option:hover:not(:disabled) { background: var(--border); }
 .et-option:active:not(:disabled) { transform: scale(0.96); }
 .et-option:disabled { cursor: default; }

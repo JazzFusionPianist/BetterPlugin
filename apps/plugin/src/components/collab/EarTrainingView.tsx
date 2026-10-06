@@ -11,7 +11,7 @@ import { useT } from '../../i18n/LanguageContext'
 import { computerPlayerName, isComputerPlayerId } from '../../lib/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
-import EarTrainingSolo, { SoloSetup, SOLO_DIFFICULTIES, SOLO_MODES } from './EarTrainingSolo'
+import EarTrainingSolo, { FitLabel, SoloSetup, SOLO_DIFFICULTIES, SOLO_MODES } from './EarTrainingSolo'
 
 interface Props {
   supabase: SupabaseClient
@@ -545,7 +545,7 @@ export default function EarTrainingView ({
                         className={`et-option${isMyPick ? ' picked' : ''}`}
                         onClick={() => handleAnswer(opt)}
                         disabled={!!myAnswer}
-                      >{answerText(question, opt)}</button>
+                      ><FitLabel>{answerText(question, opt)}</FitLabel></button>
                     )
                   })}
                 </div>

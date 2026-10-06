@@ -911,7 +911,7 @@
 }
 .plugin.arcade-skin.gwall-ear_training .game-view:has(.game-board-wrap.has-overlay) :is(.game-above, .game-below) { display: none; }
 .plugin.arcade-skin.gwall-ear_training .et-arena { max-width: none; margin: 0; padding: 60px 0 0; }
-.plugin.arcade-skin.gwall-ear_training .et-round { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; }
+.plugin.arcade-skin.gwall-ear_training .et-round { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; max-width: none; }   /* the small panel's 260px cap is not this room's */
 .plugin.arcade-skin.gwall-ear_training .et-round-label {
   order: 0; align-self: center; margin-bottom: 18px;
   font: 400 15px var(--f-sans); letter-spacing: 0; color: var(--t2); text-transform: lowercase;
@@ -937,8 +937,21 @@
   order: 3; margin: 22px 0 16px; text-align: left;
   font: 500 17px var(--f-sans); letter-spacing: 0; color: var(--ink); text-transform: lowercase;
 }
+/* as many answers to a row as fit at a readable width: four across in a
+   wide room, two by two (or one by one) as it narrows */
 .plugin.arcade-skin.gwall-ear_training .et-options {
-  order: 4; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: none; width: 100%;
+  order: 4; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 112px), 1fr)); gap: 12px; max-width: none; width: 100%;
+}
+.plugin.arcade-skin.gwall-ear_training .et-option { min-width: 0; overflow: hidden; }
+/* a narrow room gives the middle more of itself */
+@container (max-width: 820px) {
+  .plugin.arcade-skin.gwall-ear_training .game-view .game-area {
+    grid-template-columns: minmax(72px, 1fr) minmax(0, 520px) minmax(72px, 1fr); column-gap: 16px;
+  }
+  /* the lamps drop under their word rather than run into the middle */
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses { flex-wrap: wrap; row-gap: 5px; }
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses .et-miss:first-of-type { margin-left: 0; }
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses .et-miss:last-of-type { margin-right: 40px; }
 }
 .plugin.arcade-skin.gwall-ear_training .et-option {
   height: 52px; padding: 0 10px; border-radius: 999px;

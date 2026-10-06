@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   generateQuestion, playQuestion, isCorrect, answerLabel,
   ROUND_DURATION_MS, MAX_PLAYS,
@@ -24,6 +24,31 @@ function readBest (d: Difficulty, modes: Mode[]): number {
 }
 function writeBest (d: Difficulty, modes: Mode[], n: number) {
   try { localStorage.setItem(bestKey(d, modes), String(n)) } catch { /* private window: the best just isn't kept */ }
+}
+
+/** A label that shrinks to fit the button it sits in (a long chord name in
+ *  a narrow column), and never grows past the button's own type size. */
+export function FitLabel ({ children }: { children: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    const box = el?.parentElement
+    if (!el || !box) return
+    const fit = () => {
+      el.style.fontSize = ''
+      const cs = getComputedStyle(box)
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4
+      const w = el.offsetWidth
+      if (w > room) el.style.fontSize = `${Math.max(0.5, room / w)}em`
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(box)
+    // the webfont arriving changes the width without resizing the button
+    document.fonts?.ready.then(fit).catch(() => {})
+    return () => ro.disconnect()
+  }, [children])
+  return <span ref={ref} className="et-fit">{children}</span>
 }
 
 /** What to practise: any of intervals, chords and frequencies (at least
@@ -226,7 +251,7 @@ export default function EarTrainingSolo ({ modes, onModes, difficulty, onDifficu
                 <div className="et-options">
                   {question.options.map(opt => (
                     <button key={opt} className="et-option" onClick={() => answer(opt)}>
-                      {answerLabel(question, opt)}
+                      <FitLabel>{answerLabel(question, opt)}</FitLabel>
                     </button>
                   ))}
                 </div>

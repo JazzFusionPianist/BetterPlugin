@@ -66,10 +66,14 @@ export type ChordQuality =
   | 'sus2' | 'sus4'
   | 'maj7' | 'min7' | 'dom7' | 'm7b5'
   | 'dim7' | 'mMaj7'
-  // with tensions
+  // with one tension…
   | 'maj9' | 'maj7s11'
   | 'min9' | 'min11'
   | 'dom9' | 'dom13' | '7b9' | '7s9' | '7s11' | '7b13'
+  // …or several
+  | 'maj69' | 'maj9s11' | 'maj13'
+  | 'min69' | 'mMaj9' | 'min13'
+  | 'dom9s11' | 'dom13s11' | '13b9' | '7b9s11' | '7s9s11' | '7b9b13' | '7s9b13'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -104,15 +108,30 @@ const CHORD_SHAPES: Record<ChordQuality, number[]> = {
   '7s9':   [0, 4, 7, 10, 15],
   '7s11':  [0, 4, 7, 10, 18],
   '7b13':  [0, 4, 7, 10, 20],
+  // Several tensions at once.
+  maj69:    [0, 4, 7, 9, 14],
+  maj9s11:  [0, 4, 7, 11, 14, 18],
+  maj13:    [0, 4, 7, 11, 14, 21],
+  min69:    [0, 3, 7, 9, 14],
+  mMaj9:    [0, 3, 7, 11, 14],
+  min13:    [0, 3, 7, 10, 14, 21],
+  dom9s11:  [0, 4, 7, 10, 14, 18],
+  dom13s11: [0, 4, 10, 14, 18, 21],      // the fifth gives way, as it does on the page
+  '13b9':   [0, 4, 7, 10, 13, 21],
+  '7b9s11': [0, 4, 7, 10, 13, 18],
+  '7s9s11': [0, 4, 7, 10, 15, 18],
+  '7b9b13': [0, 4, 7, 10, 13, 20],
+  '7s9b13': [0, 4, 7, 10, 15, 20],
 }
 
 /** Chords that are easily mistaken for one another. On advanced the wrong
  *  choices come from the answer's own family first — telling a 7♯9 from a
  *  maj9 is no test; telling it from a 7♭9 is. */
 const CHORD_FAMILIES: ChordQuality[][] = [
-  ['maj7', 'maj9', 'maj7s11'],
-  ['min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7'],
-  ['dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13'],
+  ['maj7', 'maj9', 'maj7s11', 'maj69', 'maj9s11', 'maj13'],
+  ['min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7', 'min69', 'mMaj9', 'min13'],
+  ['dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13',
+   'dom9s11', 'dom13s11', '13b9', '7b9s11', '7s9s11', '7b9b13', '7s9b13'],
 ]
 
 const DIFFICULTY_INTERVALS: Record<Difficulty, IntervalAnswer[]> = {
@@ -125,8 +144,10 @@ const DIFFICULTY_CHORDS: Record<Difficulty, ChordQuality[]> = {
   basic:        ['maj', 'min', 'dim', 'aug'],
   intermediate: ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
   // sevenths and their tensions — the plain triads are left to the levels below
-  advanced:     ['maj7', 'maj9', 'maj7s11', 'min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7',
-                 'dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13'],
+  advanced:     ['maj7', 'maj9', 'maj7s11', 'maj69', 'maj9s11', 'maj13',
+                 'min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7', 'min69', 'mMaj9', 'min13',
+                 'dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13',
+                 'dom9s11', 'dom13s11', '13b9', '7b9s11', '7s9s11', '7b9b13', '7s9b13'],
 }
 
 // Tones stay between 100 Hz and 8 kHz: lower and small speakers have nothing
@@ -410,6 +431,10 @@ export const CHORD_LABELS: Record<ChordQuality, string> = {
   maj9: 'maj9', maj7s11: 'maj7♯11',
   min9: 'min9', min11: 'min11',
   dom9: '9', dom13: '13', '7b9': '7♭9', '7s9': '7♯9', '7s11': '7♯11', '7b13': '7♭13',
+  maj69: '6/9', maj9s11: 'maj9♯11', maj13: 'maj13',
+  min69: 'min6/9', mMaj9: 'min9(maj7)', min13: 'min13',
+  dom9s11: '9♯11', dom13s11: '13♯11', '13b9': '13♭9',
+  '7b9s11': '7♭9♯11', '7s9s11': '7♯9♯11', '7b9b13': '7♭9♭13', '7s9b13': '7♯9♭13',
 }
 
 /** 250 → "250 Hz", 1250 → "1.25 kHz". */

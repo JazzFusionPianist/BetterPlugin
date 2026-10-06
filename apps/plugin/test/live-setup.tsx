@@ -3,6 +3,7 @@
 // (window.__supabaseTouched), going live throws, and nothing submits.
 //   ?frame=studio   rail + main pane, as StudioShell lays them out (default)
 //   ?frame=pane     the studio's live pane alone, filling the window
+//   ?frame=panel    the side panel (?surface=panel) with the live page open
 //   ?frame=classic  the 300×500 plug-in shell (CollabPage)
 //   ?friends=N      friends offered by the invite checklist (default 12)
 import { createRoot } from 'react-dom/client'
@@ -47,8 +48,8 @@ const SOURCES: VideoSource[] = [
 ]
 const MICS = [{ deviceId: 'fixture-mic', label: 'Microphone 1' }]
 
-function Studio({ withRail }: { withRail: boolean }) {
-  return <div className="wd-stage"><div className="wd">
+function Studio({ withRail, panel }: { withRail: boolean; panel: boolean }) {
+  return <div className={`wd-stage${panel ? ' panel' : ''}`}><div className={`wd${panel ? ' inside' : ''}`}>
     {withRail && <div className="wd-rail"><div className="wd-rail-scroll">
       <div className="wd-row"><span className="wd-av tile" /><span className="wd-rname"><b>games</b></span></div>
       <div className="wd-row on"><span className="wd-av tile" /><span className="wd-rname"><b>live</b></span></div>
@@ -74,5 +75,6 @@ function Classic() {
 }
 
 const root = createRoot(document.getElementById('root')!)
-root.render(<LanguageProvider>{frame === 'classic' ? <Classic /> : <Studio withRail={frame !== 'pane'} />}</LanguageProvider>)
+root.render(<LanguageProvider>{frame === 'classic' ? <Classic />
+  : <Studio withRail={frame !== 'pane'} panel={frame === 'panel'} />}</LanguageProvider>)
 if (import.meta.hot) import.meta.hot.dispose(() => root.unmount())

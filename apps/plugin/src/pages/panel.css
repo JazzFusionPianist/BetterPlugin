@@ -1,0 +1,348 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   the studio as a side panel — Slur DAW's right-hand column (?surface=panel).
+
+   The same studio, stood on end: about 300 wide, as tall as the room (834
+   on a 1440 x 900 screen, 602 in the DAW's smallest window). Colours,
+   type and radii are the wide studio's (studio.css, the slur skin); only
+   the arrangement is new, after the approved draft
+   (Daw/design/slur-panel-draft-1.html):
+
+     home    the picture, the greeting and the week on paper, and the rail
+             (games | live, projects, people, me) as a sheet under them
+     a page  a room, a person, games, live, settings, my calendar: it
+             covers the whole panel, with a tile that leads back
+     no logo the DAW carries none
+
+   Everything hangs off `.wd-stage.panel`, which only that surface sets,
+   so the wide studio is untouched.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* the pair of rows that stand side by side in the panel is no box anywhere else */
+.wd-duo { display: contents; }
+.wd-plate-pos i { font-style: normal; }
+
+.wd-stage.panel { padding: 0; background: #FBFAF7; }
+.wd-stage.panel .wd { flex-direction: column; border-radius: 0; box-shadow: none; font-size: 13px; line-height: 1.3; }
+.wd-stage.panel .wd-brand { display: none; }
+
+/* the way back: a soft tile, the rail's own */
+.wd-back { flex: none; width: 28px; height: 28px; border-radius: 9px; border: none; padding: 0; cursor: pointer;
+  background: rgba(26,25,23,.06); color: #1A1917; display: flex; align-items: center; justify-content: center; }
+.wd-back:hover { background: rgba(26,25,23,.1); }
+.wd-back svg { display: block; }
+
+/* ── home: paper above, the rail as a sheet below ───────────────────── */
+.wd-stage.panel .wd.at-home .wd-main { flex: none; order: 0; }
+.wd-stage.panel .wd.at-home .wd-rail { order: 1; flex: 1; min-height: 0; width: 100%; padding: 8px 8px 0; border-radius: 18px 18px 0 0; }
+.wd-stage.panel .wd.inside .wd-rail { display: none; }
+.wd-stage.panel .wd.inside .wd-main { flex: 1; min-height: 0; }
+
+.wd-stage.panel .wd .wd-home { flex: none; overflow: visible; }
+.wd-stage.panel .wd .wd-home > .wd-bar { height: 104px; max-height: none; }
+.wd-stage.panel .wd-bar-sheet { height: 104px; }
+.wd-stage.panel .wd .wd-bar-name { max-width: 56px; padding: 0; font-size: 10px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; color: #1A1917; }
+.wd-stage.panel .wd .wd-bar-name.off { font-weight: 400; color: #A5A199; }
+.wd-stage.panel .wd-bar-name small { font-size: 8.5px; font-style: italic; font-weight: 400; color: var(--acc); }
+.wd-stage.panel .wd-bar-fade { width: 46px; background: linear-gradient(90deg, rgba(251,250,247,0), #FBFAF7 70%); }
+.wd-stage.panel .wd-bar-fade.back { width: 34px; background: linear-gradient(270deg, rgba(251,250,247,0), #FBFAF7 70%); }
+.wd-stage.panel .wd-bar-go { right: 8px; top: 76px; width: auto; flex-direction: row; gap: 0; font-size: 9.5px; line-height: 1.3; color: #6E6B63; }
+.wd-stage.panel .wd-bar-go.back { right: auto; left: 0; top: 70px; padding: 4px 10px 6px 8px; }
+.wd-stage.panel .wd-bar-go i { display: none; }
+.wd-stage.panel .wd-bar-go.back i { display: block; width: auto; height: auto; border-radius: 0; box-shadow: none; background: none; font-size: 12px; line-height: 1.3; color: #6E6B63; }
+.wd-stage.panel .wd-bar-go b { font-weight: 400; white-space: pre; }
+.wd-stage.panel .wd-bar-go:hover, .wd-stage.panel .wd-bar-go:hover i { color: #1A1917; background: none; }
+
+/* (whole-pixel line heights here: WebKit rounds a line's height and Chrome does not, and the week below would sit a pixel or two apart) */
+.wd-stage.panel .wd .wd-home > .wd-home-greet { margin: 8px 14px 0; font-size: 19px; font-weight: 500; letter-spacing: -0.03em; line-height: 22px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-stage.panel .wd .wd-home > .wd-home-date { margin: 3px 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 10.5px; line-height: 14px; color: #A5A199; }
+.wd-stage.panel .wd .wd-home-date > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wd-stage.panel .wd .wd-noteline-cal { margin-left: 0; font-size: 10.5px; font-weight: 500; line-height: 14px; padding: 4px 10px; }
+
+.wd-stage.panel .wd .wd-week { flex: none; gap: 5px; margin: 12px 14px 14px; }
+.wd-stage.panel .wd .wd-arch { height: 86px; gap: 0; align-items: center; padding: 13px 0 0; border: none; cursor: pointer; font-family: inherit;
+  border-radius: 999px 999px 8px 8px; }
+.wd-stage.panel .wd .wd-arch:hover { background: #E8E4DA; }
+.wd-stage.panel .wd .wd-arch.today:hover { background: #B2DEC0; }
+.wd-stage.panel .wd .wd-arch header { margin: 0; }
+.wd-stage.panel .wd .wd-arch header span { font-size: 9px; font-weight: 400; line-height: 1; color: #6E6B63; }
+.wd-stage.panel .wd .wd-arch header b { margin-top: 4px; font-size: 14px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+.wd-stage.panel .wd-arch-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; margin-top: 4px; background: currentColor; }
+.wd-stage.panel header + .wd-arch-dot { margin-top: 9px; }
+.wd-stage.panel .wd-arch-dot.task { background: none; box-shadow: inset 0 0 0 1.2px currentColor; }
+.wd-stage.panel .wd-arch-dot.past { opacity: .4; }
+
+/* the rail, as the sheet */
+.wd-stage.panel .wd-duo { display: flex; gap: 4px; }
+.wd-stage.panel .wd-duo > .wd-row { flex: 1; min-width: 0; }
+.wd-stage.panel .wd .wd-row { height: 42px; }
+.wd-stage.panel .wd .wd-badge { min-width: 16px; height: 16px; border-radius: 8px; }
+.wd-stage.panel .wd .wd-rail-foot { margin-top: 0; padding: 4px 0 8px; gap: 0; }
+.wd-stage.panel .wd .wd-foot-me { height: 42px; gap: 9px; }
+.wd-stage.panel .wd .wd-foot-me > span:last-child { font-size: 11px; font-weight: 400; color: #6E6B63; }
+.wd-stage.panel .wd .wd-foot-gear { margin: 0; padding: 0 9px; }
+.wd-stage.panel .wd .wd-search { padding: 6px 0 4px; }
+
+/* ── a room ─────────────────────────────────────────────────────────── */
+.wd-stage.panel .wd .wd-head { padding: 12px 14px 0; }
+.wd-stage.panel .wd-head-row { gap: 9px; }
+.wd-stage.panel .wd .wd-hav { width: 30px; height: 30px; font-size: 13px; font-weight: 500; }
+.wd-stage.panel .wd .wd-hav.grp { border-radius: 9px; }
+.wd-stage.panel .wd .wd-htitle, .wd-stage.panel .wd-htitle-input { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.wd-stage.panel .wd .wd-hsub { margin-top: 0; font-size: 10.5px; line-height: 1.3; }
+.wd-stage.panel .wd-head-act { font-size: 11px; }
+.wd-stage.panel .wd .wd-tabs { gap: 2px; margin: 0 -2px; padding: 10px 0 8px; overflow-x: auto; scrollbar-width: none; }
+.wd-stage.panel .wd .wd-tabs::-webkit-scrollbar { display: none; }
+.wd-stage.panel .wd .wd-tab { flex: none; padding: 5px 10px; font-size: 11.5px; line-height: 1.3; white-space: nowrap; }
+.wd-stage.panel .wd .wd-tab i { font-size: 9px; }
+/* five tabs just fit the panel; once two or three of them carry a count they do not, and the row closes up a little */
+.wd-stage.panel .wd .wd-tabs.tight .wd-tab { padding: 5px 8px; }
+
+/* the chat: no column for the faces — a sender's photo sits on the name's line, and a plate runs the panel's width */
+.wd-stage.panel .wd .wd-chat { padding: 4px 14px 8px; }
+.wd-stage.panel .wd .wd-day { margin: 12px 0 4px; font-size: 10.5px; }
+.wd-stage.panel .wd-chat-col > .wd-day:first-child { margin-top: 4px; }
+/* one even step between lines; a sender's name line takes a little more above it */
+.wd-stage.panel .wd-mrow, .wd-stage.panel .wd-mrow.first, .wd-stage.panel .wd-day + .wd-mrow { position: relative; margin-top: 4px; }
+.wd-stage.panel .wd-mrow.named, .wd-stage.panel .wd-day + .wd-mrow.named { margin-top: 10px; }
+.wd-stage.panel .wd-mav { display: none; }
+.wd-stage.panel .wd-mrow.named .wd-mav { display: block; position: absolute; left: 0; top: 0; width: 18px; margin: 0; }
+.wd-stage.panel .wd .wd-mrow.named .wd-mav > span { width: 18px; height: 18px; font-size: 9px; }
+.wd-stage.panel .wd .wd-mname { margin: 0 0 1px; padding-left: 24px; font-size: 10.5px; line-height: 18px; color: #A5A199; }
+.wd-stage.panel .wd-mcol { max-width: 100%; }
+.wd-stage.panel .wd-mcol.wide { max-width: 100%; width: 100%; }
+.wd-stage.panel .wd-mline, .wd-stage.panel .wd-mname + .wd-mline { margin-top: 4px; }
+.wd-stage.panel .wd-mcol > .wd-mline:first-child { margin-top: 0; }
+.wd-stage.panel .wd-mcol.wide > .wd-mline { width: 100%; }
+/* a plate takes the line; its time goes under it, at the far side from the sender */
+.wd-stage.panel .wd-mline.plate { flex-wrap: wrap; row-gap: 3px; }
+.wd-stage.panel .wd-mline.plate > .wd-mtime { order: 2; margin: 0 2px 0 auto; }
+.wd-stage.panel .wd-mrow.mine .wd-mline.plate > .wd-mtime { margin: 0 auto 0 2px; }
+.wd-stage.panel .wd .wd-bub { max-width: 214px; padding: 8px 12px; line-height: 1.3; }
+.wd-stage.panel .wd-mcol.wide .wd-bub { max-width: 214px; }
+.wd-stage.panel .wd .wd-expired { padding: 8px 12px; font-size: 13px; line-height: 1.3; }
+.wd-stage.panel .wd .wd-mtime { margin-bottom: 2px; }
+.wd-stage.panel .wd-img, .wd-stage.panel .wd-vid { max-width: min(100%, 214px); max-height: 240px; }
+.wd-stage.panel .wd-file { max-width: 100%; padding: 8px 12px; }
+.wd-stage.panel .wd-linkcard .msg-link-preview { max-width: 100%; }
+/* my own lines: the word that deletes one stands just left of the line and takes no room of its own;
+   a plate leaves no room beside it, so there the word stands at the plate's top right */
+.wd-stage.panel .wd-mdel { flex: none; width: 0; margin: 0 6px 2px 0; display: flex; justify-content: flex-end; align-self: flex-end; overflow: visible;
+  font-size: 10px; line-height: 1.3; }
+.wd-stage.panel .wd-mrow.mine:has(.wd-mline.plate) .wd-mdel { position: absolute; z-index: 2; right: 14px; top: 1px; width: auto; margin: 0; }
+.wd-stage.panel .wd-mrow.mine:has(.wd-mline.plate .wd-stem-group) .wd-mdel { top: 11px; }
+
+/* the plate: the figure, the name and the clock on one row, the place and the actions on the next */
+.wd-stage.panel .wd .wd-plate { width: 100%; }
+.wd-stage.panel .wd-plate-art { padding: 12px 14px 6px; }
+.wd-stage.panel .wd-plate-cap { flex-wrap: wrap; column-gap: 8px; row-gap: 0; padding: 6px 14px 10px; }
+/* (the break is a line of its own with no height; the second row keeps its distance by its own margin) */
+.wd-stage.panel .wd-plate-cap::after, .wd-stage.panel .wd-plate-secrow::after { content: ''; order: 5; flex: 0 0 100%; height: 0; }
+.wd-stage.panel .wd-plate-cap .wd-plate-pos, .wd-stage.panel .wd-plate-cap .wd-ac-import { margin-top: 5px; }
+.wd-stage.panel .wd-plate-secrow .wd-plate-pos, .wd-stage.panel .wd-plate-secrow .wd-ac-import { margin-top: 4px; }
+.wd-stage.panel .wd-plate-cap .wd-plate-right, .wd-stage.panel .wd-plate-secrow .wd-plate-right,
+.wd-stage.panel .wd-plate-cap .wd-plate-time, .wd-stage.panel .wd-plate-secrow .wd-plate-time { display: contents; }
+.wd-stage.panel .wd-plate-cap .wd-ac-play, .wd-stage.panel .wd-plate-secrow .wd-ac-play { order: 0; }
+.wd-stage.panel .wd .wd-plate-name, .wd-stage.panel .wd .wd-plate-secname { order: 1; flex: 1 1 0; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal; }
+.wd-stage.panel .wd-plate-clock { order: 2; flex: none; font-size: 10px; color: rgba(26,25,23,.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wd-stage.panel .wd-plate-pos { order: 6; flex: 1 1 auto; min-width: 0; font-size: 10px; color: rgba(26,25,23,.55); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; }
+.wd-stage.panel .wd-plate-pos i { display: none; }
+.wd-stage.panel .wd-plate-cap .wd-ac-import, .wd-stage.panel .wd-plate-secrow .wd-ac-import { order: 7; margin-left: auto; gap: 10px; }
+.wd-stage.panel .wd .wd-ac-play { opacity: 1; }
+.wd-stage.panel .wd-plate-cap > .wd-plate-right > span:last-child:not(.wd-ac-import) { order: 8; flex: 0 0 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 10px; }
+.wd-stage.panel .wd-plate-cap > .wd-plate-right > span:last-child:not(.wd-ac-import):not(:empty) { margin-top: 5px; }
+.wd-stage.panel .wd-plate-cap > .wd-plate-right > span:last-child:not(.wd-ac-import) .wd-word { font-size: 10.5px; }
+.wd-stage.panel .audio-transfer-actions { gap: 10px; }
+/* a 14px mark in a 20px button: the button keeps its size for the hand and gives the 3px around the mark back to the row */
+.wd-stage.panel .audio-transfer-actions .audio-download { width: 20px; height: 20px; padding: 3px; margin: -3px; }
+.wd-stage.panel .audio-transfer-actions .audio-download svg { width: 14px; height: 14px; }
+.wd-stage.panel .audio-transfer-actions .audio-drag { padding: 0; font-size: 10.5px; line-height: 1.3; }
+.wd-stage.panel .wd-ac-import .msg-att-link { top: 0; font-size: 10.5px; line-height: 1.3; }
+.wd-stage.panel .audio-transfer-error { max-width: 100%; }
+/* shared stems: the name on the first row, what to do with them on the second */
+.wd-stage.panel .wd-stem-group .wd-plate-caphead { padding: 10px 14px; row-gap: 5px; }
+.wd-stage.panel .wd-stem-toggle { flex: 1 1 100%; padding: 0; font-size: 12px; line-height: 1.3; }
+.wd-stage.panel .wd-stem-toggle svg { width: 14px; height: 14px; margin: 0 -4px; }
+.wd-stage.panel .wd-stem-count { opacity: 1; font-weight: 400; }
+.wd-stage.panel .wd-stem-group .wd-plate-right { gap: 4px 10px; justify-content: flex-end; }
+.wd-stage.panel .wd-plate-secrow { flex-wrap: wrap; column-gap: 8px; row-gap: 4px; padding: 8px 14px 5px; align-items: center; }
+.wd-stage.panel .wd-plate-secwave { padding: 0 14px 10px; }
+.wd-stage.panel .wd-plate-sec + .wd-plate-sec::before { left: 14px; right: 14px; }
+.wd-stage.panel .wd-stem-layout-note { padding: 8px 14px; }
+
+/* the ticket, the chips, what is on its way up, the player */
+.wd-stage.panel .wd .wd-ticket { gap: 12px; min-width: 0; max-width: 100%; padding: 9px 14px 9px 12px; }
+.wd-stage.panel .wd-ticket-stub { padding-right: 12px; }
+.wd-stage.panel .wd-ticket-game { line-height: 20px; }
+.wd-stage.panel .wd-ticket-act { font-size: 12.5px; }
+.wd-stage.panel .wd-upcards { margin: 0 14px 8px; }
+.wd-stage.panel .wd-upcard, .wd-stage.panel .wd-upnote { width: 100%; }
+.wd-stage.panel .wd .wd-nowbar { height: 48px; margin: 0 14px 8px; gap: 8px; padding: 0 10px 0 12px; }
+.wd-stage.panel .wd-nowbar-name { max-width: 96px; font-size: 12px; }
+.wd-stage.panel .wd-nowbar-time { display: none; }   /* the plate it plays from shows the clock; the room here goes to the waveform */
+.wd-stage.panel .wd .wd-input { margin: 0 14px 12px; }
+.wd-stage.panel .wd .wd-input textarea { padding: 0 4px; }
+.wd-stage.panel .wd .wd-input .wd-attach, .wd-stage.panel .wd .wd-input .wd-gameinv, .wd-stage.panel .wd .wd-input .wd-mic,
+.wd-stage.panel .wd .wd-input .wd-send { flex: 0 0 28px; width: 28px; }
+.wd-stage.panel .wd-quiet { padding: 0 20px; }
+
+/* dropping files on the panel */
+.wd-stage.panel .wd-drop-card { padding: 18px 22px; max-width: calc(100% - 28px); text-align: center; }
+.wd-stage.panel .wd-dropask-card { width: calc(100% - 28px); }
+
+/* ── pages the draft did not draw: laid out by the same rules ─────────────────────────────────────── */
+
+/* files (the stems of a room) */
+.wd-stage.panel .wd-pane .stem-panel { padding: 8px 14px 12px; }
+
+/* the calendar: the month with a dot per event, the chosen day as a sheet under it */
+.wd-stage.panel .wd .sc-head { padding: 12px 14px 8px; }
+.wd-stage.panel .sc-title-row { flex-wrap: wrap; align-items: center; gap: 10px 9px; }
+.wd-stage.panel .wd .sc-title { flex: 1 1 0; min-width: 0; font-size: 19px; font-weight: 500; letter-spacing: -0.03em; line-height: 28px; }
+.wd-stage.panel .sc-title-row > .wd-back + .sc-title { flex-basis: calc(100% - 37px); }
+.wd-stage.panel .sc-title-row > .sc-title:first-child { flex-basis: 100%; }
+.wd-stage.panel .sc-views { gap: 2px; margin: 0 auto 0 -2px; }
+.wd-stage.panel .sc-view { padding: 5px 10px; border-radius: 999px; font-size: 11.5px; line-height: 1.3; }
+.wd-stage.panel .sc-view:not(.on) { color: #6E6B63; }
+.wd-stage.panel .wd .sc-view.on { padding: 5px 10px; font-weight: 400; }
+.wd-stage.panel .sc-nav { gap: 12px; align-items: center; }
+.wd-stage.panel .sc-navw { font-size: 11.5px; }
+.wd-stage.panel .sc-chev { font-size: 15px; padding: 0 3px; }
+.wd-stage.panel .wd .sc-filters { flex-wrap: nowrap; gap: 14px; margin: 10px -14px 0; padding: 0 14px; overflow-x: auto; scrollbar-width: none; }
+.wd-stage.panel .sc-filters::-webkit-scrollbar { display: none; }
+.wd-stage.panel .wd .sc-filter { flex: none; font-size: 11px; white-space: nowrap; }
+.wd-stage.panel .sc-body { flex-direction: column; }
+.wd-stage.panel .wd .sc-page { flex: none; padding: 0 10px; }
+.wd-stage.panel .sc-weekdays { padding-bottom: 4px; font-size: 9px; letter-spacing: 0; }
+.wd-stage.panel .sc-weekdays span { padding: 0; text-align: center; }
+.wd-stage.panel .wd .sc-weeks { flex: none; gap: 2px; }
+.wd-stage.panel .wd .sc-week { flex: none; height: 34px; gap: 2px; }
+.wd-stage.panel .wd .sc-cell { align-items: center; gap: 3px; padding: 5px 0 0; border-radius: 10px; }
+.wd-stage.panel .wd .sc-cell::before { left: 4px; right: 4px; }
+.wd-stage.panel .sc-num { align-self: center; min-width: 18px; height: 16px; font-size: 10.5px; line-height: 16px; text-align: center; }
+.wd-stage.panel .sc-num.today { border-radius: 8px; font-size: 10px; }
+.wd-stage.panel .sc-dots { display: flex; gap: 2px; justify-content: center; }
+.wd-stage.panel .sc-dots i { width: 4px; height: 4px; border-radius: 50%; }
+.wd-stage.panel .sc-cell.out .sc-dots { opacity: .45; }
+.wd-stage.panel .wd .sc-list { margin: 0 4px; }
+.wd-stage.panel .sc-lday { gap: 10px; padding: 9px 6px; }
+.wd-stage.panel .sc-ldate { flex: 0 0 62px; font-size: 10.5px; }
+.wd-stage.panel .sc-page:has(.sc-list) { flex: 1 1 0; min-height: 90px; }
+.wd-stage.panel .wd .sc-day { flex: 1 1 0; min-height: 0; margin: 8px 0 0; padding: 14px 14px 12px; border-radius: 18px 18px 0 0; }
+.wd-stage.panel .wd .sc-day-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.wd-stage.panel .sc-day-sub { margin-top: 1px; font-size: 10.5px; }
+.wd-stage.panel .wd .sc-rows { margin-top: 10px; gap: 5px; }
+.wd-stage.panel .wd .sc-row { padding: 8px 10px 8px 9px; border-radius: 12px; }
+.wd-stage.panel .sc-row .wd-word { opacity: 1; font-size: 10.5px; }
+.wd-stage.panel .wd .sc-add { padding-top: 8px; }
+.wd-stage.panel .wd .sc-add-bar { height: 44px; border-radius: 22px; padding: 0 8px 0 14px; }
+.wd-stage.panel .wd .sc-detail { border-radius: 14px; padding: 12px 12px; margin-top: 0; }
+
+/* notes */
+.wd-stage.panel .wd-notes-bar { padding: 4px 14px 0; }
+.wd-stage.panel .wd-notes-list { padding: 4px 14px 12px; }
+.wd-stage.panel .wd-note-row { gap: 8px; padding: 10px 0 9px; }
+.wd-stage.panel .wd-note-ed { padding: 6px 14px 10px; }
+.wd-stage.panel .wd-note-ed-head { flex-wrap: wrap; gap: 4px 8px; }
+.wd-stage.panel .wd-note-ed-fine { flex-basis: 100%; white-space: normal; }
+.wd-stage.panel .wd-note-tools { gap: 11px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
+.wd-stage.panel .wd-note-tools::-webkit-scrollbar { display: none; }
+.wd-stage.panel .wd-tool { flex: none; white-space: nowrap; }
+.wd-stage.panel .wd-note-ed-body { margin-top: 10px; font-size: 13px; line-height: 1.6; }
+
+/* tasks: who and when go under the task */
+.wd-stage.panel .wd .wd-tasks { padding: 4px 14px 0; }
+.wd-stage.panel .wd .wd-noteline-bar { width: 100%; height: 44px; border-radius: 22px; padding: 0 8px 0 14px; }
+.wd-stage.panel .wd .wd-noteline-bar input { font-size: 13px; }
+.wd-stage.panel .wd .wd-tasks-hint { margin: 6px 0 0 4px; font-size: 10.5px; line-height: 1.35; }
+.wd-stage.panel .wd .wd-tasks-sec { margin: 16px 0 2px; }
+.wd-stage.panel .wd .wd-task { flex-wrap: wrap; gap: 2px 10px; padding: 9px 2px; }
+.wd-stage.panel .wd .wd-task-main { flex: 1 1 0; min-width: 0; }
+.wd-stage.panel .wd .wd-task-main b { font-size: 12.5px; }
+.wd-stage.panel .wd .wd-task-x { order: 2; width: auto; opacity: 1; font-size: 10.5px; }
+.wd-stage.panel .wd .wd-task-who { order: 3; width: auto; margin-left: 30px; font-size: 10.5px; }
+.wd-stage.panel .wd .wd-task-who i { width: 14px; height: 14px; font-size: 8px; }
+.wd-stage.panel .wd .wd-task-due { order: 4; width: auto; margin-left: auto; font-size: 10.5px; }
+.wd-stage.panel .wd .wd-task::after { content: ''; order: 2; flex: 0 0 100%; height: 0; }
+.wd-stage.panel .wd .wd-task-x { order: 1; }
+
+/* ── a person ───────────────────────────────────────────────────────── */
+.wd-stage.panel .wd .wd-prof-scroll { padding: 0 0 20px; }
+.wd-stage.panel .wd .wd-prof-mast { display: grid; grid-template-columns: 62px minmax(0, 1fr); column-gap: 14px; row-gap: 16px; align-items: start;
+  padding: 12px 18px 30px 18px; margin: 0; border-radius: 0 0 50% 50% / 0 0 26px 26px; }
+.wd-stage.panel .wd-prof-mast > .wd-back { grid-column: 1 / -1; margin-left: -4px; }
+.wd-stage.panel .wd .wd-prof-av { width: 62px; height: 62px; font-size: 22px; box-shadow: none; }
+.wd-stage.panel .wd-prof-col { padding-top: 0; }
+.wd-stage.panel .wd .wd-prof-name, .wd-stage.panel .wd .wd-prof-name-in { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.wd-stage.panel .wd .wd-prof-name { overflow-wrap: anywhere; }
+.wd-stage.panel .wd .wd-prof-handle { gap: 10px; margin-top: 5px; font-size: 10.5px; flex-wrap: wrap; }
+.wd-stage.panel .wd .wd-prof-follows { gap: 12px; min-height: 0; margin-top: 9px; }
+.wd-stage.panel .wd .wd-prof-follows button { font-size: 11.5px; line-height: 1.3; }
+.wd-stage.panel .wd .wd-prof-follows b { margin-right: 3px; }
+.wd-stage.panel .wd .wd-prof-bio { margin-top: 9px; font-size: 12px; line-height: 1.4; }
+.wd-stage.panel .wd-prof-acts { gap: 12px; margin-top: 9px; flex-wrap: wrap; }
+.wd-stage.panel .wd-prof-acts .wd-word, .wd-stage.panel .wd-prof-fine { font-size: 11px; }
+.wd-stage.panel .wd-prof-handle-row { flex-wrap: wrap; }
+.wd-stage.panel .wd-prof-handle-in { width: 110px; }
+.wd-stage.panel .wd-prof-handle-state { margin-left: 0; flex-basis: 100%; }
+.wd-stage.panel .wd .wd-prof-sec { margin: 20px 18px 0; max-width: none; }
+.wd-stage.panel .wd .wd-prof-sec-head { padding-bottom: 8px; border-bottom-color: rgba(26,25,23,.14); }
+.wd-stage.panel .wd-prof-sec-head .wd-word { font-size: 11px; }
+.wd-stage.panel .wd .wd-cred { grid-template-columns: 14px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; padding: 11px 0 12px; border-bottom-color: rgba(26,25,23,.14); }
+.wd-stage.panel .wd-cred-no { padding-top: 2px; }
+.wd-stage.panel .wd .wd-cred-work { font-size: 12.5px; letter-spacing: 0; overflow-wrap: anywhere; }
+.wd-stage.panel .wd-cred-mark { margin-left: 3px; vertical-align: -2px; }
+.wd-stage.panel .wd-cred-sub { gap: 8px; margin-top: 3px; font-size: 10.5px; }
+.wd-stage.panel .wd-cred-acts { grid-column: 2; align-self: start; }
+.wd-stage.panel .wd-cred-acts .wd-word { font-size: 11px; }
+.wd-stage.panel .wd-cred-form-row { flex-wrap: wrap; gap: 10px 12px; }
+.wd-stage.panel .wd-cred-in { flex: 1 1 100%; }
+.wd-stage.panel .wd-cred-in.year { flex: 0 0 52px; }
+.wd-stage.panel .wd-cred-in.link { flex: 1 1 0; }
+.wd-stage.panel .wd .wd-person { gap: 10px; }
+.wd-stage.panel .wd .wd-person-who { gap: 10px; }
+.wd-stage.panel .wd .wd-person-av { width: 28px; height: 28px; font-size: 11px; }
+.wd-stage.panel .wd .wd-person-main b { font-size: 12.5px; }
+.wd-stage.panel .wd .wd-person-main small { font-size: 10.5px; }
+
+/* ── settings ───────────────────────────────────────────────────────── */
+.wd-stage.panel .wd .wd-head.plain { padding: 12px 14px 6px; }
+.wd-stage.panel .wd .wd-head.plain .wd-back { margin-bottom: 14px; }
+.wd-stage.panel .wd .wd-head.plain .wd-title { font-size: 19px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.15; }
+.wd-stage.panel .wd .wd-set-scroll { padding: 8px 14px 20px; }
+.wd-stage.panel .wd-set-sec + .wd-set-sec { margin-top: 22px; }
+.wd-stage.panel .wd-set-row { gap: 10px; }
+.wd-stage.panel .wd-set-k { width: 64px; }
+.wd-stage.panel .wd-set-v { flex-wrap: wrap; gap: 4px 12px; overflow-wrap: anywhere; }
+.wd-stage.panel .wd-set-pw { padding-left: 2px; }
+.wd-stage.panel .wd-set-in { max-width: none; }
+
+/* ── games: the arches two by two ───────────────────────────────────── */
+.wd-stage.panel .arcade.upright { padding: 0; }
+.wd-stage.panel .arcade.upright .arcade-head { padding: 16px 16px 14px; }
+.wd-stage.panel .arcade.upright .arcade-title { font-size: 13px; }
+.wd-stage.panel .arcade.upright .arcade-close { font-size: 13px; }
+.wd-stage.panel .arcade.upright .arcade-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 16px 10px;
+  margin-top: 0; padding: 0 14px 20px; overflow-x: hidden; overflow-y: auto; }
+.wd-stage.panel .arcade.upright .arcade-arch { min-width: 0; max-width: none; }
+.wd-stage.panel .arcade.upright .arcade-door { flex: none; height: 172px; padding: 0 0 20px; border-radius: 999px 999px 10px 10px; }
+.wd-stage.panel .arcade.upright .arcade-object { width: 58%; max-width: none; }
+.wd-stage.panel .arcade.upright .arcade-arch:hover .arcade-door { transform: translateY(-4px); }
+.wd-stage.panel .arcade.upright .arcade-arch:hover .arcade-object { transform: translateY(-3px) rotate(-3deg); }
+.wd-stage.panel .arcade.upright .arcade-name { margin: 8px 2px 0; font-size: 13px; white-space: normal; }
+.wd-stage.panel .arcade.upright .arcade-sub { margin: 1px 2px 0; font-size: 10.5px; }
+
+/* ── live ───────────────────────────────────────────────────────────── */
+.wd-stage.panel .wd-main .wd-live.plugin .top-bar.wd-games-bar { height: 52px; gap: 9px; padding: 0 14px; }
+/* its way back is the panel's tile (the words "‹ studio" belong to the wide studio, where the rail is in sight) */
+.wd-stage.panel .wd-live .wd-games-back { flex: none; width: 28px; height: 28px; border-radius: 9px; font-size: 0; color: transparent;
+  background: rgba(26,25,23,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%231A1917' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 1.5L1.8 6 6 10.5'/%3E%3C/svg%3E") center / 8px 12px no-repeat; }
+.wd-stage.panel .wd-live .wd-games-back:hover { background-color: rgba(26,25,23,.1); }
+.wd-stage.panel .wd-main .wd-live.plugin .wd-games-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.wd-stage.panel .wd-live-count { font-size: 10.5px; }
+.wd-stage.panel .wd-live .live-body { padding: 8px 14px 14px; }
+.wd-stage.panel .wd-live .live-setup > * { max-width: none; }
+.wd-stage.panel .wd-live .live-setup { padding: 12px 0 20px; }

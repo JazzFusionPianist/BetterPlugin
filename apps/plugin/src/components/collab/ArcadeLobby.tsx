@@ -199,9 +199,12 @@ interface Props {
   onClose?: () => void
   /** Replaces the word "games" — e.g. "invite sam to…". */
   title?: string
+  /** A narrow, tall pane (Slur DAW's side panel): the arches stand two by two and the lobby scrolls
+   *  down instead of sideways. */
+  upright?: boolean
 }
 
-export default function ArcadeLobby({ onSelectGame, onClose, title }: Props) {
+export default function ArcadeLobby({ onSelectGame, onClose, title, upright = false }: Props) {
   const { t } = useT()
   // Thirteen arches overflow most panes. A plain mouse wheel has no
   // horizontal axis, so vertical ticks are turned sideways; trackpads
@@ -209,7 +212,7 @@ export default function ArcadeLobby({ onSelectGame, onClose, title }: Props) {
   const rowRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const row = rowRef.current
-    if (!row) return
+    if (!row || upright) return          // an upright lobby scrolls the way the wheel turns
     const onWheel = (e: WheelEvent) => {
       if (e.deltaX !== 0 || e.deltaY === 0) return
       e.preventDefault()
@@ -217,9 +220,9 @@ export default function ArcadeLobby({ onSelectGame, onClose, title }: Props) {
     }
     row.addEventListener('wheel', onWheel, { passive: false })
     return () => row.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [upright])
   return (
-    <div className="arcade">
+    <div className={`arcade${upright ? ' upright' : ''}`}>
       <div className="arcade-head">
         <span className="arcade-title">{title ?? t('game.games')}</span>
         {onClose && <button className="arcade-close" onClick={onClose}>{t('common.close')}</button>}

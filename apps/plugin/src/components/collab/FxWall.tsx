@@ -36,7 +36,7 @@ const STUDY_W = 380          // the study: a column on the right where the chose
 const STUDY_PRINT = 240
 const R = NODE / 2
 const SHELF_PRINT = 48
-const SHELF_H = 112
+const SHELF_H = 126   // the family tabs at the top (12 down), the prints' row under them
 /** One row of prints that scrolls sideways (the wheel's up and down
  *  walks it); the page needs its height to size the wall. */
 /** The shelf's families: one row of prints at a time. */
@@ -82,7 +82,7 @@ const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, 
 
 type Pt = { x: number; y: number }
 type Drag =
-  | { kind: 'amount'; id: number; y0: number; a0: number }
+  | { kind: 'amount'; id: number; y0: number; a0: number; per?: number }   // per: pixels for the whole travel (a fader's handle rides its own track; the word uses 190)
   | { kind: 'move'; id: number; dx: number; dy: number; x0: number; y0: number; moved: boolean }   // a press that never moves is a click: it opens the study
   | { kind: 'wire'; from: number; port: number; at: Pt }
   | { kind: 'share'; edge: number; y0: number; g0: number }
@@ -376,8 +376,8 @@ interface Props { size: { w: number; h: number } }
 
 export default function FxWall ({ size: frame }: Props) {
   const wallRef = useRef<HTMLDivElement>(null)
-  const shelfRef = useRef<HTMLDivElement>(null)
-  // the shelf is one long row: a vertical wheel walks it sideways
+  const shelfRef = useRef<HTMLDivElement>(null)   // the prints' row (it scrolls); the tabs sit above it
+  // the shelf's row of prints is one long row: a vertical wheel walks it sideways
   useEffect(() => {
     const el = shelfRef.current; if (!el) return
     const onWheel = (e: WheelEvent) => {
@@ -492,6 +492,43 @@ export default function FxWall ({ size: frame }: Props) {
     setGraphState(next)
     push(next, immediate)
   }, [push])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── undo / redo: the wall settles 400 ms after its last change, and every settled state is one step back (a drag is one
+  //    step, however long it ran). ⌘Z and ⇧⌘Z, or the two words at the foot. ──
+  const undoStack = useRef<FxGraph[]>([]), redoStack = useRef<FxGraph[]>([]), settled = useRef<FxGraph | null>(null)
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [historyN, setHistoryN] = useState(0)   // bumps so the words re-read the stacks
+  const sameGraph = (a: FxGraph, b: FxGraph) => JSON.stringify(a) === JSON.stringify(b)
+  useEffect(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current)
+    settleTimer.current = setTimeout(() => {
+      const cur = graphRef.current
+      if (!settled.current) { settled.current = cur; return }
+      if (sameGraph(settled.current, cur)) return
+      undoStack.current.push(settled.current); if (undoStack.current.length > 100) undoStack.current.shift()
+      redoStack.current = []
+      settled.current = cur
+      setHistoryN(x => x + 1)
+    }, 400)
+  }, [graph])
+  const stepHistory = useCallback((back: boolean) => {
+    const from = back ? undoStack.current : redoStack.current, to = back ? redoStack.current : undoStack.current
+    const g = from.pop(); if (!g) return
+    to.push(graphRef.current)
+    settled.current = g
+    setGraphState(g); push(g, true); setSel(null)
+    setHistoryN(x => x + 1)
+  }, [push])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); stepHistory(!e.shiftKey) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [stepHistory])
+  void historyN
 
   const updateNode = useCallback((id: number, patch: Partial<FxGraphNode>, immediate = false) => {
     const g = graphRef.current
@@ -804,7 +841,7 @@ export default function FxWall ({ size: frame }: Props) {
     }
     else if (drag.kind === 'amount') {
       const n = nodeById(drag.id); if (!n) return
-      updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
+      updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / (drag.per ?? 190))) })
     }
     else if (drag.kind === 'share') setShare(drag.edge, drag.g0 + (drag.y0 - e.clientY) / 160)
     else if (drag.kind === 'hand') {
@@ -1848,6 +1885,12 @@ export default function FxWall ({ size: frame }: Props) {
               <div className={`sg-print${handsShown(n) ? ' faded' : ''}`} style={isControlType(n.type) ? { padding: NODEz * (1 - CTRL_ART) / 2 } : undefined}
                 onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtil) { e.stopPropagation(); updateNode(n.id, { bypass: !n.bypass }, true) } }}
                 onDoubleClick={() => { if (!isUtil) updateNode(n.id, { amount: neutralOf(n.type) }, true) }}>
+                {n.type === 5 && (() => {
+                  // the gain's handle: the one part of the fitting that takes the finger (the rest of the print moves it)
+                  const u = Rz * 0.7, cy = Rz + (0.75 - n.amount) * 0.9 * u
+                  return <div className="fx-hot" title="gain" style={{ position: 'absolute', left: Rz - 0.5 * u, top: cy - 0.16 * u, width: u, height: 0.32 * u, cursor: 'ns-resize', zIndex: 2 }}
+                    onPointerDown={(e) => { e.stopPropagation(); setSel({ node: n.id }); setConfirm(null); gesture(n.id, 'amount', true); setDrag({ kind: 'amount', id: n.id, y0: e.clientY, a0: n.amount, per: 0.9 * u }) }} />
+                })()}
                 <LivePrint node={n} played={playedHands(n.id)} size={isControlType(n.type) ? NODEz * CTRL_ART : NODEz} shares={sharesOf(n.id)}
                   onDecay={(v, force) => { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, v)); updateNode(n.id, { decay: d }, !!force) }}
                   onDiv={(v) => updateNode(n.id, { delayDiv: v }, true)}
@@ -1942,8 +1985,11 @@ export default function FxWall ({ size: frame }: Props) {
                 </span>
               </>
             )}
-            <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input }))}>input</span>
-            <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output }))}>output</span>
+            <span className={`sg-word${undoStack.current.length ? '' : ' quiet'}`} title="⌘Z" onPointerDown={() => stepHistory(true)}>undo</span>
+            <span className={`sg-word${redoStack.current.length ? '' : ' quiet'}`} title="⇧⌘Z" onPointerDown={() => stepHistory(false)}>redo</span>
+            {/* the trace: the input or the output, one at a time (both drew over each other); the lit word again puts it away */}
+            <span className={`sg-word${scope.input ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, input: !v.input, output: false }))}>input</span>
+            <span className={`sg-word${scope.output ? ' on' : ''}`} onPointerDown={() => setScope(v => ({ ...v, output: !v.output, input: false }))}>output</span>
           </div>
         </div>
 
@@ -1977,11 +2023,13 @@ export default function FxWall ({ size: frame }: Props) {
         onPointerDown={(e) => e.stopPropagation()} onClick={toggleShelf}>
         <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
-      <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ gap: shelf.gap, height: shelfOpen ? shelf.height : 0 }}>
+      <div className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ height: shelfOpen ? shelf.height : 0 }}>
+        {/* the family tabs, centred at the top of the shelf; the prints of the family in a row under them, centred while they fit */}
         <span className="sg-shelf-fam" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setFamHover(-1)}
           onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFamHover(Math.min(FAMILIES.length - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * FAMILIES.length)))) }}>
           <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
         </span>
+        <div ref={shelfRef} className="sg-shelf-row" style={{ gap: shelf.gap }}>
         {shelfTypes.map(type => (
           <div key={type} className={`sg-shelf-item${engineHas(type) ? '' : ' shut'}`}
             onPointerDown={(e) => { if (full || !engineHas(type)) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
@@ -1989,6 +2037,7 @@ export default function FxWall ({ size: frame }: Props) {
             <span>{nameOf(type)}</span>
           </div>
         ))}
+        </div>
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(
@@ -2011,7 +2060,7 @@ export default function FxWall ({ size: frame }: Props) {
           }}
           onPointerMove={(e) => {
             if (drag?.kind !== 'amount' || drag.id !== studyNode.id) return
-            updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / 190)) })
+            updateNode(drag.id, { amount: Math.min(1, Math.max(0, drag.a0 + (drag.y0 - e.clientY) / (drag.per ?? 190))) })
           }}
           onPointerUp={() => { if (drag?.kind === 'amount') { push(graphRef.current, true); setDrag(null) } }}
           onClick={(e) => { if ((e.metaKey || e.ctrlKey) && !isUtilityType(studyNode.type)) { e.stopPropagation(); updateNode(studyNode.id, { bypass: !studyNode.bypass }, true) } }}

@@ -10112,13 +10112,21 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
 .sg-flav, .sg-val { color: rgba(246, 243, 234, 0.5); }
 /* the shelf: every print at hand, dimmed until it is hung on the wall */
 .sg-shelf {
-  flex-shrink: 0; height: 112px; box-sizing: border-box;
+  flex-shrink: 0; height: 126px; box-sizing: border-box;
   border-top: 1px solid rgba(246, 243, 234, 0.14);
-  display: flex; align-items: center; justify-content: flex-start; gap: 18px;
-  padding: 0 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 12px 0 0;
+  overflow: hidden;
+}
+/* the prints' row: centred while it fits (the auto margins on its ends), scrolling sideways when it does not */
+.sg-shelf-row {
+  display: flex; align-items: flex-start; gap: 14px; margin-top: 14px;
+  max-width: 100%; box-sizing: border-box; padding: 0 24px;
   overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
 }
-.sg-shelf::-webkit-scrollbar { display: none; }
+.sg-shelf-row::-webkit-scrollbar { display: none; }
+.sg-shelf-row > .sg-shelf-item:first-child { margin-left: auto; }
+.sg-shelf-row > .sg-shelf-item:last-child { margin-right: auto; }
 .sg-shelf-item {
   flex: none;
   display: flex; flex-direction: column; align-items: center; gap: 7px;

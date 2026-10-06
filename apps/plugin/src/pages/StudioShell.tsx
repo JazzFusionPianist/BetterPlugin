@@ -72,8 +72,10 @@ import { isRegionArchive, prepareArchivedRegionBundle, createRegionArchive } fro
 import { hasCompleteLayout, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
 import { createRegionDawproject } from '@orb/core/lib/regionDawproject.ts'
 import { houseColor } from '../slur/marks'
+import { BackTile, PanelContext, usePanel } from '../components/studio/panel'
+import './panel.css'
 
-interface Props { supabase: SupabaseClient; user: User }
+interface Props { supabase: SupabaseClient; user: User; /** Slur DAW's side panel: the studio stood on end. */ panel?: boolean }
 
 type Sel =
   | { kind: 'dm'; userId: string }
@@ -393,6 +395,12 @@ function MsgDeleteWord({ onConfirm }: { onConfirm: () => void }) {
 }
 
 function PlayGlyph({ playing, size = 16 }: { playing: boolean; size?: number }) {
+  // the side panel's plates set the glyph flush with the waveform's edge: a 9 x 10 mark with no air around it
+  if (usePanel()) {
+    return playing
+      ? <svg viewBox="0 0 9 10" fill="currentColor" width={9} height={10}><rect x="1" y=".8" width="2.6" height="8.4" /><rect x="5.4" y=".8" width="2.6" height="8.4" /></svg>
+      : <svg viewBox="0 0 9 10" fill="currentColor" width={9} height={10}><path d="M1 .8v8.4L8.2 5z" /></svg>
+  }
   return playing
     ? <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
     : <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size}><path d="M8 5v14l11-7z" /></svg>
@@ -547,6 +555,17 @@ function useStudioTrack(url: string, name: string) {
   return { peaks: meta?.peaks ?? null, active, playing, cur, total, toggle, seek }
 }
 
+/** A plate's time: elapsed / total, then where the audio sits in its song. One line in the wide studio;
+ *  the side panel sets the place on the row below (panel.css), so the two are separate pieces. */
+function PlateTime({ cur, total, position }: { cur: number; total: number; position: { text: string; tooltip?: string } | null | undefined }) {
+  return (
+    <span className="wd-plate-time" title={position?.tooltip}>
+      <span className="wd-plate-clock">{fmtDur(cur)} / {fmtDur(total)}</span>
+      {position != null && <span className="wd-plate-pos"><i> / </i>{position.text}</span>}
+    </span>
+  )
+}
+
 /** One track = the full plate. The 52px fine-print waveform is the
  *  framed figure; under the full-width caption rule sits ONE baseline
  *  row — bare ink glyph · name (wraps) · elapsed/total · the
@@ -554,21 +573,20 @@ function useStudioTrack(url: string, name: string) {
 function StudioAudioPlate({ track }: { track: StudioTrack }) {
   const { peaks, active, playing, cur, total, toggle, seek } = useStudioTrack(track.url, track.name)
   const position = studioPositionLabel(track)
+  const panel = usePanel()
   return (
     <div className="wd-plate">
       <div className="wd-plate-art">
-        <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={52} head={active} onSeek={seek} />
+        <StudioWaveform peaks={peaks} frac={total ? cur / total : 0} height={panel ? 40 : 52} head={active} onSeek={seek} />
       </div>
       <div className="wd-plate-rule" />
       <div className="wd-plate-cap">
         <button className="wd-ac-play" onClick={toggle} aria-label={playing ? 'pause' : 'play'}>
           <PlayGlyph playing={playing} size={14} />
         </button>
-        <span className="wd-plate-name">{track.name}</span>
+        <span className="wd-plate-name" title={track.name}>{track.name}</span>
         <span className="wd-plate-right">
-          <span className="wd-plate-time" title={position?.tooltip}>
-            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
-          </span>
+          <PlateTime cur={cur} total={total} position={position} />
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
@@ -592,9 +610,7 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
         </button>
         <span className="wd-plate-secname" title={track.name}>{track.name}</span>
         <span className="wd-plate-right">
-          <span className="wd-plate-time" title={position?.tooltip}>
-            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
-          </span>
+          <PlateTime cur={cur} total={total} position={position} />
           <span className="wd-ac-import">
             <AudioAttachment url={track.url} name={track.name} metadata={track.metadata} from={track.from} />
           </span>
@@ -1367,17 +1383,23 @@ function NoteEditor({ supabase, note, userId, nameOf, nowTick, autoFocusTitle, o
   )
 }
 
-export default function StudioShell({ supabase, user }: Props) {
+export default function StudioShell({ supabase, user, panel = false }: Props) {
   return (
     <LanguageProvider>
-      <StudioShellInner supabase={supabase} user={user} />
+      <PanelContext.Provider value={panel}>
+        <StudioShellInner supabase={supabase} user={user} panel={panel} />
+      </PanelContext.Provider>
     </LanguageProvider>
   )
 }
 
-function StudioShellInner({ supabase, user }: Props) {
+function StudioShellInner({ supabase, user, panel = false }: Props) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
+  // the side panel shows one page at a time: a person opened from a room leads back to that room
+  const selRef = useRef<Sel | null>(null)
+  selRef.current = sel
+  const [backTo, setBackTo] = useState<Sel | null>(null)
 
   // ── games — the wall sets into the main pane; a live room stays
   // mounted (hidden) while the player answers a chat ──────────────────
@@ -2344,6 +2366,8 @@ function StudioShellInner({ supabase, user }: Props) {
   }, [messages, messagesLoading, tab, sel])
 
   const openSel = useCallback((next: Sel) => {
+    const from = selRef.current
+    setBackTo(next.kind === 'profile' && from && (from.kind === 'dm' || from.kind === 'group') ? from : null)
     setSel(next)
     setTab('chat')
     setGameShown(false)
@@ -2584,7 +2608,7 @@ function StudioShellInner({ supabase, user }: Props) {
         && !m.attachment_expired && !!m.attachment_url
 
       rows.push(
-        <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
+        <div key={m.id} className={`wd-mrow${isMine ? ' mine' : ' theirs'}${first ? ' first' : ''}${!isMine && first && isGroup ? ' named' : ''}${deletingIds.has(m.id) ? ' deleting' : ''}`}>
           {/* Optimistic rows ('opt-') have no server row to delete yet. */}
           {isMine && !m.id.startsWith('opt-') && (
             <MsgDeleteWord onConfirm={() => { void handleDeleteMessage(m) }} />
@@ -2606,8 +2630,10 @@ function StudioShellInner({ supabase, user }: Props) {
             )}
             {pieces.map((p, idx) => {
               const withTime = lastInBurst && idx === pieces.length - 1
+              // a plate or a card of stems takes the whole line (the side panel sets its time under it)
+              const plate = wideAudio && idx === 0
               return (
-                <div key={idx} className="wd-mline">
+                <div key={idx} className={`wd-mline${plate ? ' plate' : ''}`}>
                   {isMine && withTime && <span className="wd-mtime">{time}</span>}
                   {p}
                   {!isMine && withTime && <span className="wd-mtime">{time}</span>}
@@ -2667,9 +2693,17 @@ function StudioShellInner({ supabase, user }: Props) {
     return h < 5 ? 'working late' : h < 12 ? 'good morning' : h < 18 ? 'good afternoon' : 'good evening'
   }, [nowTick])
 
+  // the side panel: a page covers the whole panel; home is the picture and the week over the rail
+  const inside = !!sel || gameShown || liveShown
+  const goBack = () => {
+    if (backTo) { setSel(backTo); setTab('chat') } else setSel(null)
+    setBackTo(null)
+  }
+  const back = panel ? <BackTile onClick={goBack} /> : null
+
   return (
-    <div className="wd-stage">
-      <div className="wd">
+    <div className={`wd-stage${panel ? ' panel' : ''}`}>
+      <div className={`wd${panel ? (inside ? ' inside' : ' at-home') : ''}`}>
 
         {/* ── rail ─────────────────────────────────────────────── */}
         <div className="wd-rail">
@@ -2679,6 +2713,7 @@ function StudioShellInner({ supabase, user }: Props) {
             <SlurMark height={28} />
           </div>
           <div className="wd-rail-scroll">
+            <div className="wd-duo">
             <div className={`wd-row${gameShown ? ' on' : ''}`} onClick={() => openGames()}>
               <span className="wd-av tile"><DiceGlyph /></span>
               <span className="wd-rname">
@@ -2700,6 +2735,7 @@ function StudioShellInner({ supabase, user }: Props) {
                       ? <span>{liveHostIds.size === 1 ? '1 friend live now' : `${liveHostIds.size} friends live now`}</span>
                       : null}
               </span>
+            </div>
             </div>
             <div className="wd-sec">projects</div>
             {groupConversations.map(g => {
@@ -2848,6 +2884,7 @@ function StudioShellInner({ supabase, user }: Props) {
               onBackToList={() => { setGameScreen('list'); setGameInviteConv(null) }}
               onClose={closeGames}
               headline={gameInviteConv ? (headerTitle || 'this chat') : undefined}
+              panel={panel}
             />
           )}
           {liveMounted && (
@@ -2937,6 +2974,7 @@ function StudioShellInner({ supabase, user }: Props) {
           {sel?.kind === 'settings' ? (
             <>
               <div className="wd-head plain">
+                {back}
                 <div className="wd-title">settings</div>
                 <div className="wd-sub">slur chat {APP_VERSION}</div>
               </div>
@@ -2967,6 +3005,7 @@ function StudioShellInner({ supabase, user }: Props) {
                   profileOf={id => (id === user.id ? me ?? undefined : profileById.get(id))}
                   onOpenProfile={id => openSel({ kind: 'profile', userId: id })}
                   updateMe={isMine ? updateMe : undefined}
+                  back={back}
                 />
               )
             })()
@@ -2984,12 +3023,14 @@ function StudioShellInner({ supabase, user }: Props) {
                 onDelete={(id) => { calDeleteEvent(id).catch(() => {}) }}
                 onUpdate={(id, patch) => { calUpdateEvent(id, patch).catch(() => {}) }}
                 onAdd={(text, day) => saveMyEvents(`on ${day}: ${text}`)}
+                back={back}
               />
             </>
           ) : sel ? (
             <>
               <div className="wd-head">
                 <div className="wd-head-row">
+                  {back}
                   {selectedGroup ? (
                     <span className="wd-hav grp"
                       style={{ background: groupColorByConv.get(selectedGroup.conversationId) ?? '#4A8FE7' }}>
@@ -3035,7 +3076,7 @@ function StudioShellInner({ supabase, user }: Props) {
                     </button>
                   )}
                 </div>
-                <div className="wd-tabs">
+                <div className={`wd-tabs${panel && [convUpcomingCount, notes.length, openTaskCount].filter(n => n > 0).length >= 2 ? ' tight' : ''}`}>
                   <span className={`wd-tab${tab === 'chat' ? ' on' : ''}`} onClick={() => setTab('chat')}>chat</span>
                   <span className={`wd-tab${tab === 'stems' ? ' on' : ''}`} onClick={() => activeConvId && setTab('stems')}>files</span>
                   <span className={`wd-tab${tab === 'calendar' ? ' on' : ''}`} onClick={() => activeConvId && setTab('calendar')}>
@@ -3217,12 +3258,14 @@ function StudioShellInner({ supabase, user }: Props) {
                tasks, then my programme. */
             <div className="wd-home">
               <StudioHomeBar friends={friendProfiles} onlineIds={onlineIds} studioIds={new Set(studioAt.keys())}
-                onOpen={id => openSel({ kind: 'dm', userId: id })} />
+                onOpen={id => openSel({ kind: 'dm', userId: id })} compact={panel} />
               <div className="wd-home-greet">{greeting}, {myName}</div>
               <div className="wd-home-date">
-                {new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}
+                <span>{new Date(nowTick).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toLowerCase()}</span>
+                {/* the panel has no room for the note line: what a day holds, and adding to it, are in the calendar */}
+                {panel && <button className="wd-noteline-cal" onClick={() => openSel({ kind: 'me' })}>my calendar</button>}
               </div>
-              <StudioHomePrompt
+              {!panel && <StudioHomePrompt
                 onOpenCalendar={() => openSel({ kind: 'me' })}
                 targets={[{ id: null, label: 'personal', color: '#1A1917' },
                   ...groupConversations.map(g => ({ id: g.conversationId, label: g.title || 'group', color: groupColorByConv.get(g.conversationId) ?? '#5C80FF' }))]}
@@ -3239,8 +3282,8 @@ function StudioShellInner({ supabase, user }: Props) {
                     return null
                   } catch { return 'couldn’t add that — try again' }
                 }}
-              />
-              <StudioWeek events={allCalEvents} tasks={weekTasks} groupTitleById={groupTitleById} nowTick={nowTick}
+              />}
+              <StudioWeek events={allCalEvents} tasks={weekTasks} groupTitleById={groupTitleById} nowTick={nowTick} dots={panel}
                 onOpenCalendar={() => openSel({ kind: 'me' })}
                 onOpenTask={t => { if (t.conversation_id) { openSel({ kind: 'group', conversationId: t.conversation_id }); setTab('tasks') } }} />
             </div>

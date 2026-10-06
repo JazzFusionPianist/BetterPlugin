@@ -30,7 +30,7 @@ export function createAuthSessionStorage(storageKey: string, getPersistentStorag
       if (getRememberMe()) {
         try {
           const persistent = getPersistentStorage()
-          if (persistent) return persistent.getItem(key)
+          if (persistent) return persistent.getItem(key) ?? memory.get(key) ?? null
         } catch { /* Storage is unavailable; retain the current in-memory session. */ }
       }
       return memory.get(key) ?? null

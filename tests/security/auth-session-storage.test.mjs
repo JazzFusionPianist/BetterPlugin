@@ -52,6 +52,9 @@ test('works without browser storage and fails login safely when durable erasure 
   disk.setItem('test', 'saved')
   const denied = createAuthSessionStorage('test', () => ({ ...disk, removeItem() { throw new Error('denied') } }))
   assert.throws(() => denied.setRememberMe(false), /denied/)
+  const full = createAuthSessionStorage('test', () => ({ ...backend(), setItem() { throw new Error('quota exceeded') } }))
+  full.storage.setItem('test', 'memory-fallback')
+  assert.equal(full.storage.getItem('test'), 'memory-fallback')
 })
 
 for (const remembered of [true, false]) {

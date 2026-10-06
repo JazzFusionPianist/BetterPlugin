@@ -13,6 +13,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message } from '../types/collab'
+import { decryptChatMessage } from '../lib/chatCrypto'
 
 export interface Conversation {
   /** The other DM member's user id. Kept as `partnerId` so the
@@ -82,6 +83,7 @@ export function useConversations(supabase: SupabaseClient, userId: string) {
       const latestByConv = new Map<string, Message>()
       for (const m of (dmMsgs as Message[] | null) ?? [])
         if (!latestByConv.has(m.conversation_id)) latestByConv.set(m.conversation_id, m)
+      for (const [cid,m] of latestByConv) latestByConv.set(cid,await decryptChatMessage(supabase,userId,m))
 
       const out: Conversation[] = []
       for (const [cid, partnerId] of partnerByConv) {
@@ -124,6 +126,7 @@ export function useConversations(supabase: SupabaseClient, userId: string) {
       const latestByGroup = new Map<string, Message>()
       for (const m of (gMsgs as Message[] | null) ?? [])
         if (!latestByGroup.has(m.conversation_id)) latestByGroup.set(m.conversation_id, m)
+      for (const [cid,m] of latestByGroup) latestByGroup.set(cid,await decryptChatMessage(supabase,userId,m))
 
       const out: GroupConversation[] = groupRows.map(r => ({
         conversationId: r.conversation_id,

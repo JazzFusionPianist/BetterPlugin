@@ -1,4 +1,5 @@
-import { messageId, encryptChatMessage, decryptChatMessage } from '@orb/core/lib/chatCrypto.ts'
+import { messageId, decryptChatMessage } from '@orb/core/lib/chatCrypto.ts'
+import { sendAccountMessage } from '@orb/core/lib/accountChat.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getOrCreateDmConversation } from './conversations'
 import { isComputerPlayerId } from './computerPlayers'
@@ -238,9 +239,7 @@ export async function sendGameInviteMessage (
   try {
     const conversationId = await getOrCreateDmConversation(supabase, senderId, recipientId)
     const id=await messageId()
-    const encrypted_payload=await encryptChatMessage(supabase,senderId,id,conversationId,{content:'',attachment_type:'game_invite',attachment_url:roomId,attachment_name:gameType})
-    const { error } = await supabase.from('messages').insert({id,conversation_id:conversationId,sender_id:senderId,content:'🔒 Encrypted message',encrypted_payload})
-    if (error) console.warn('[sendGameInviteMessage] insert failed', error)
+    await sendAccountMessage(supabase,senderId,id,conversationId,'',{type:'game_invite',url:roomId,name:gameType})
   } catch (e) {
     console.warn('[sendGameInviteMessage] failed', e)
   }

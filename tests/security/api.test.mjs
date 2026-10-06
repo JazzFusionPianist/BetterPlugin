@@ -37,10 +37,16 @@ test('file APIs reject anonymous/malformed/unauthorized requests, preserve CORS 
   assert.equal(signed.headers.get('cache-control'),'private, no-store')
  }finally{globalThis.fetch=oldFetch}
 })
-test('format inspection rejects active content masquerading as media and requires encrypted header for private uploads',()=>{
+test('private media uses normal format validation while generic attachments remain private-only',()=>{
  const b=s=>new TextEncoder().encode(s)
  assert.equal(matchesFileType(b('<html><script>alert(1)</script>'),'image/png',false),false)
  assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',false),true)
  assert.equal(matchesFileType(b('ORBFIL01encrypted bytes'),'application/octet-stream',true),true)
- assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',true),false)
+ assert.equal(matchesFileType(b('RIFF1234WAVErest'),'audio/wav',true),true)
+ assert.equal(matchesFileType(b('<html><script>alert(1)</script>'),'image/png',true),false)
+ assert.equal(matchesFileType(b('plain attachment'),'application/octet-stream',true),true)
+ assert.equal(matchesFileType(b('plain attachment'),'application/octet-stream',false),false)
+ assert.equal(matchesFileType(new Uint8Array(),'application/octet-stream',true),false)
+ assert.equal(matchesFileType(b('PK\x03\x04archive'),'application/zip',true),true)
+ assert.equal(matchesFileType(b('PK\x03\x04archive'),'application/zip',false),false)
 })

@@ -1,19 +1,23 @@
 import sodium from 'libsodium-wrappers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message } from '../types/collab'
+import { loadRememberedRecoveryCode } from './deviceKeyStore.ts'
 
 export interface Identity { user_id:string; box_key:string; sign_key:string }
 export interface LocalIdentity extends Identity { boxSecret:Uint8Array; signSecret:Uint8Array }
 export interface Envelope { v:1; id:string; conversation:string; sender:string; nonce:string; body:string; recipients:Array<Identity & {key:string}>; signature:string }
+export class ParticipantsPending extends Error { constructor(){super('Waiting to deliver.');this.name='ParticipantsPending'} }
 const PREFIX='orb-chat-v1'
 let generation=0
 const sessions=new Map<string,LocalIdentity>()
 const pins=new Map<string,string>()
+const legacyUnlocks=new WeakMap<SupabaseClient,Map<string,{epoch:number;task:Promise<void>}>>()
 export const b64=(bytes:Uint8Array)=>sodium.to_base64(bytes,sodium.base64_variants.URLSAFE_NO_PADDING)
 export const unb64=(value:string)=>sodium.from_base64(value,sodium.base64_variants.URLSAFE_NO_PADDING)
 export async function cryptoReady(){await sodium.ready}
 export function lockChat(){generation++;for(const k of sessions.values()){sodium.memzero(k.boxSecret);sodium.memzero(k.signSecret)}sessions.clear();pins.clear();if(typeof window!=='undefined')window.dispatchEvent(new Event('orb-chat-locked'))}
 export function chatUnlocked(user:string){return sessions.has(user)}
+export function chatGeneration(){return generation}
 export async function createRecoveryCode(){await sodium.ready;return b64(sodium.randombytes_buf(32))}
 export async function deriveIdentity(user:string,code:string):Promise<LocalIdentity>{
   await sodium.ready
@@ -30,6 +34,8 @@ export async function unlockChat(client:SupabaseClient,user:string,code:string){
   const keys=await deriveIdentity(user,code)
   let retained=false
   try{
+    const before=await client.auth.getSession()
+    if(epoch!==generation || before.error || before.data.session?.user.id!==user)throw new Error('Session changed.')
     const {error}=await client.rpc('register_chat_key',{p_box:keys.box_key,p_sign:keys.sign_key})
     const session=await client.auth.getSession()
     if(error || epoch!==generation || session.data.session?.user.id!==user)throw new Error('Could not unlock chat. Check your recovery key and connection.')
@@ -37,6 +43,23 @@ export async function unlockChat(client:SupabaseClient,user:string,code:string){
     if(previous){sodium.memzero(previous.boxSecret);sodium.memzero(previous.signSecret)}
     sessions.set(user,keys);retained=true
   }finally{if(!retained){sodium.memzero(keys.boxSecret);sodium.memzero(keys.signSecret)}}
+}
+
+/** Restore locally remembered identity without a recovery-key prompt. */
+async function loadLegacyIdentity(client:SupabaseClient,user:string){
+  if(chatUnlocked(user))return
+  let pending=legacyUnlocks.get(client)
+  if(!pending){pending=new Map();legacyUnlocks.set(client,pending)}
+  const epoch=generation,previous=pending.get(user)
+  if(previous?.epoch===epoch)return previous.task
+  const task=(async()=>{
+    try{
+      const code=await loadRememberedRecoveryCode(user)
+      if(code && generation===epoch)await unlockChat(client,user,code)
+    }catch{/* A missing legacy key must not block account-based chat. */}
+  })()
+  pending.set(user,{epoch,task})
+  return task
 }
 export async function fingerprint(identity:Identity){await sodium.ready;return sodium.to_hex(sodium.crypto_generichash(32,JSON.stringify([identity.user_id,identity.box_key,identity.sign_key]),null)).match(/.{1,4}/g)!.join(' ')}
 async function pin(viewer:string,key:Identity){
@@ -50,7 +73,7 @@ export async function conversationKeys(client:SupabaseClient,viewer:string,conve
   const {data,error}=await client.rpc('conversation_chat_keys',{p_conversation:conversation})
   if(error || !Array.isArray(data) || !data.length || data.length>16)throw new Error('Could not verify conversation participants.')
   const keys=data as Identity[]
-  if(keys.some(k=>!k.box_key || !k.sign_key))throw new Error('Every participant must set up encrypted chat before messages can be sent.')
+  if(keys.some(k=>!k.box_key || !k.sign_key))throw new ParticipantsPending()
   for(const key of keys)await pin(viewer,key)
   return keys.sort((a,b)=>a.user_id.localeCompare(b.user_id))
 }
@@ -61,7 +84,7 @@ export async function sealMessage(identity:LocalIdentity,id:string,conversation:
   const key=sodium.crypto_secretbox_keygen(),nonce=sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
   try {
     const e:Envelope={v:1,id,conversation,sender:identity.user_id,nonce:b64(nonce),body:b64(sodium.crypto_secretbox_easy(JSON.stringify(payload),nonce,key)),
-      recipients:[...recipients].sort((a,b)=>a.user_id.localeCompare(b.user_id)).map(k=>({...k,key:b64(sodium.crypto_box_seal(key,unb64(k.box_key)))})),signature:''}
+      recipients:[...recipients].sort((a,b)=>a.user_id.localeCompare(b.user_id)).map(k=>({user_id:k.user_id,box_key:k.box_key,sign_key:k.sign_key,key:b64(sodium.crypto_box_seal(key,unb64(k.box_key)))})),signature:''}
     e.signature=b64(sodium.crypto_sign_detached(signed(e),identity.signSecret));return e
   } finally{sodium.memzero(key)}
 }
@@ -75,13 +98,25 @@ export async function openMessage(identity:LocalIdentity,row:Pick<Message,'id'|'
 }
 export async function encryptChatMessage(client:SupabaseClient,user:string,id:string,conversation:string,payload:unknown){
   const identity=sessions.get(user)
-  if(!identity)throw new Error('Unlock encrypted chat with your recovery key first.')
+  if(!identity)throw new Error('Connect this device to continue.')
   return sealMessage(identity,id,conversation,payload,await conversationKeys(client,user,conversation))
 }
+export async function sealPendingMessage(user:string,id:string,conversation:string,payload:unknown){
+  const identity=sessions.get(user);if(!identity)throw new Error('Connect this device to continue.')
+  return sealMessage(identity,id,conversation,payload,[{user_id:user,box_key:identity.box_key,sign_key:identity.sign_key}])
+}
+export async function openPendingMessage(user:string,id:string,conversation:string,envelope:Envelope){
+  const identity=sessions.get(user);if(!identity)throw new Error('Connect this device to continue.')
+  const sender=envelope.recipients?.find(k=>k.user_id===user)
+  if(sender?.box_key!==identity.box_key || sender.sign_key!==identity.sign_key)throw new Error('Could not verify pending message.')
+  return openMessage(identity,{id,conversation_id:conversation,sender_id:user},envelope)
+}
 export async function decryptChatMessage(client:SupabaseClient,user:string,row:Message & {encrypted_payload?:Envelope|null}):Promise<Message>{
-  if(!row.encrypted_payload)return row // Legacy history remains explicitly outside the new encryption boundary.
-  const hidden={...row,content:'🔒 Unlock encrypted chat to read this message.',attachment_url:null,attachment_type:null,attachment_name:null,attachment_metadata:null}
+  if(!row.encrypted_payload)return row
+  const hidden={...row,content:'This older message is unavailable on this device.',attachment_url:null,attachment_type:null,attachment_name:null,attachment_metadata:null}
   const epoch=generation
+  await loadLegacyIdentity(client,user)
+  if(epoch!==generation)return hidden
   const identity=sessions.get(user);if(!identity)return hidden
   try{
     const e=row.encrypted_payload
@@ -95,12 +130,14 @@ export async function decryptChatMessage(client:SupabaseClient,user:string,row:M
     if(typeof data.content!=='string')throw new Error('Invalid message')
     return {...row,content:data.content,attachment_url:data.attachment_url??null,attachment_type:data.attachment_type??null,
       attachment_name:data.attachment_name??null,attachment_metadata:data.attachment_metadata??null}
-  }catch{return {...hidden,content:'🔒 This message could not be verified or decrypted.'}}
+  }catch{return {...hidden,content:'This message is unavailable on this device.'}}
 }
 
 export async function decryptPrivatePayload(client:SupabaseClient,user:string,id:string,conversation:string,senderId:string,e:Envelope){
   const epoch=generation
-  const identity=sessions.get(user);if(!identity)throw new Error('Unlock encrypted chat first.')
+  await loadLegacyIdentity(client,user)
+  if(epoch!==generation)throw new Error('Session changed.')
+  const identity=sessions.get(user);if(!identity)throw new Error('Connect this device to continue.')
   const {data:sender,error}=await client.rpc('sender_chat_key',{p_conversation:conversation,p_sender:senderId})
   if(error || !sender)throw new Error('Could not verify sender.')
   await pin(user,sender)

@@ -1,5 +1,6 @@
 import { resolveUrl } from '../../lib/r2Access'
-import { messageId, encryptChatMessage, decryptPrivatePayload, type Envelope } from '@orb/core/lib/chatCrypto.ts'
+import { messageId, decryptPrivatePayload, type Envelope } from '@orb/core/lib/chatCrypto.ts'
+import { sendAccountStems } from '@orb/core/lib/accountChat.ts'
 import { uploadSecureFile } from '@orb/core/lib/secureFiles.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -174,11 +175,9 @@ export default function StemPanel({
       const {url, key:fileKey} = await uploadSecureFile(supabase,file,{onProgress:progress=>setUploading(prev=>prev.map(item=>item.id===key?{...item,progress}:item))})
       if(conversationRef.current!==conversationId)throw new Error('Conversation changed.')
       const id=await messageId()
-      const encrypted_payload=await encryptChatMessage(supabase,currentUserId,id,conversationId,{file_url:url,file_name:file.name,mime_type:file.type||'application/octet-stream',timeline_metadata:timeline})
-      const {error:insertError}=await supabase.from('conversation_stems').insert({id,conversation_id:conversationId,uploader_id:currentUserId,
-        file_url:'orb-encrypted:',file_key:fileKey,file_name:'Encrypted file',file_size:file.size,
-        mime_type:'application/octet-stream',timeline_metadata:null,encrypted_payload})
-      if (insertError) throw insertError
+      await sendAccountStems(supabase,currentUserId,[{id,conversation_id:conversationId,uploader_id:currentUserId,
+        file_url:url,file_key:fileKey,file_name:file.name,file_size:file.size,
+        mime_type:file.type||'application/octet-stream',timeline_metadata:timeline}])
       await load()
     } catch (uploadError) {
       setError(`couldn't share ${file.name}. try again.`)

@@ -6,7 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import { authSessionStorage, supabase } from '@/lib/supabase'
 import AppShell from '@/components/app/AppShell'
 import StudioShell from '@/components/studio/StudioShell'
-import { EncryptedChatGate } from '@orb/core/components/EncryptedChatGate.tsx'
+import { ChatSession } from '@orb/core/components/ChatSession.tsx'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 
 /**
@@ -44,5 +44,5 @@ export default function AppHome() {
   if (checking || !user || !mounted) {
     return <div className="splash"><div className="spinner" /></div>
   }
-  return <EncryptedChatGate client={supabase} userId={user.id}>{wide ? <StudioShell user={user} /> : <AppShell user={user} />}</EncryptedChatGate>
+  return <ChatSession client={supabase} userId={user.id}>{wide ? <StudioShell user={user} /> : <AppShell user={user} />}</ChatSession>
 }

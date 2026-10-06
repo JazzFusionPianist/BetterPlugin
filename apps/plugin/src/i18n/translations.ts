@@ -456,6 +456,8 @@ export const T = {
   'et.modes':               { en: 'modes', ko: '모드', ja: 'モード', zh: '模式', es: 'modos', de: 'Modi', fr: 'modes', hi: 'मोड' },
   'et.modeInterval':        { en: 'intervals', ko: '음정', ja: '音程', zh: '音程', es: 'intervalos', de: 'Intervalle', fr: 'intervalles', hi: 'अंतराल' },
   'et.modeChord':           { en: 'chords', ko: '화음', ja: '和音', zh: '和弦', es: 'acordes', de: 'Akkorde', fr: 'accords', hi: 'कॉर्ड' },
+  'et.modeFrequency':       { en: 'frequencies', ko: '주파수', ja: '周波数', zh: '频率', es: 'frecuencias', de: 'Frequenzen', fr: 'fréquences', hi: 'आवृत्ति' },
+  'et.whatFrequency':       { en: 'what frequency did you hear?', ko: '어떤 주파수가 들렸나요?', ja: 'どの周波数が聞こえましたか？', zh: '你听到的是什么频率？', es: '¿qué frecuencia escuchaste?', de: 'Welche Frequenz hast du gehört?', fr: 'quelle fréquence as-tu entendue ?', hi: 'आपने कौन-सी आवृत्ति सुनी?' },
   'et.difficulty':          { en: 'difficulty', ko: '난이도', ja: '難易度', zh: '难度', es: 'dificultad', de: 'Schwierigkeit', fr: 'difficulté', hi: 'कठिनाई' },
   'et.basic':               { en: 'basic',        ko: '초급', ja: '初級', zh: '基础', es: 'básico',  de: 'einfach',  fr: 'facile', hi: 'सरल' },
   'et.intermediate':        { en: 'intermediate', ko: '중급', ja: '中級', zh: '中级', es: 'intermedio', de: 'mittel', fr: 'moyen', hi: 'मध्यम' },

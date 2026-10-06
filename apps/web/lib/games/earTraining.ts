@@ -1,5 +1,6 @@
 /**
- * Ear Training Duel — pure domain logic + audio.
+ * Ear Training — pure domain logic + audio (intervals, chords, and pure
+ * tones to place by frequency).
  *
  * Two responsibilities, kept in one file because they share music
  * vocabulary (intervals, chord shapes, MIDI math):
@@ -12,7 +13,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Mode = 'interval' | 'chord'
+export type Mode = 'interval' | 'chord' | 'frequency'
 
 export type Difficulty = 'basic' | 'intermediate' | 'advanced'
 
@@ -44,7 +45,17 @@ export interface ChordQuestion {
   answer: ChordQuality
 }
 
-export type Question = IntervalQuestion | ChordQuestion
+/** A pure tone to place on the spectrum (an engineer's ear, not a
+ *  player's). Answers are the frequency in Hz, written as a string. */
+export interface FrequencyQuestion {
+  type: 'frequency'
+  hz: number
+  /** Choices in rising order — neighbours on the scale, not a shuffle. */
+  options: string[]
+  answer: string
+}
+
+export type Question = IntervalQuestion | ChordQuestion | FrequencyQuestion
 
 export type IntervalAnswer =
   | 'm2' | 'M2' | 'm3' | 'M3' | 'P4' | 'tt' | 'P5'
@@ -85,6 +96,15 @@ const DIFFICULTY_CHORDS: Record<Difficulty, ChordQuality[]> = {
   basic:        ['maj', 'min'],
   intermediate: ['maj', 'min', 'dim', 'aug'],
   advanced:     ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
+}
+
+// Tones stay between 100 Hz and 8 kHz: lower and small speakers have nothing
+// to say, higher and a pure tone is only unpleasant.
+const DIFFICULTY_FREQS: Record<Difficulty, number[]> = {
+  basic:        [125, 500, 2000, 8000],                                    // two octaves apart
+  intermediate: [125, 250, 500, 1000, 2000, 4000, 8000],                   // octaves
+  advanced:     [100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000,   // third-octaves
+                 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000],
 }
 
 /** MIDI 48 = C3, 84 = C6. We stay within this for consistent register. */
@@ -161,11 +181,27 @@ function buildChordOptions (rng: () => number, answer: ChordQuality, pool: Chord
   return shuffle(rng, [answer, ...shuffled])
 }
 
+/** Four neighbouring steps of the scale with the answer somewhere among
+ *  them — telling 1 kHz from 8 kHz is no question at all. */
+function buildFrequencyOptions (rng: () => number, answer: number, pool: number[]): string[] {
+  const at = pool.indexOf(answer)
+  const size = Math.min(4, pool.length)
+  const lo = Math.max(0, at - (size - 1)), hi = Math.min(at, pool.length - size)
+  const start = lo + Math.floor(rng() * (hi - lo + 1))
+  return pool.slice(start, start + size).map(String)
+}
+
 export function generateQuestion (roomId: string, round: number, config: RoomConfig): Question {
   const rng = makeRng(roomId, round, config)
   const modes = config.modes.length > 0 ? config.modes : ['interval' as Mode, 'chord' as Mode]
   const mode  = pick(rng, modes)
   const rootMidi = Math.floor(rng() * (MAX_ROOT - MIN_ROOT + 1)) + MIN_ROOT
+
+  if (mode === 'frequency') {
+    const pool = DIFFICULTY_FREQS[config.difficulty]
+    const hz = pick(rng, pool)
+    return { type: 'frequency', hz, options: buildFrequencyOptions(rng, hz, pool), answer: String(hz) }
+  }
 
   if (mode === 'interval') {
     const pool = DIFFICULTY_INTERVALS[config.difficulty]
@@ -245,6 +281,25 @@ function playNote (ac: AudioContext, midi: number, when: number, durSec: number,
   o2.stop(when + durSec + 0.05)
 }
 
+/** One pure tone, eased in and out so it neither clicks nor startles.
+ *  The ear is far keener around 2–5 kHz than at the ends, so the level
+ *  leans the other way. */
+function playTone (ac: AudioContext, hz: number, when: number, durSec: number) {
+  const level = hz <= 160 ? 0.2 : hz <= 400 ? 0.15 : hz <= 1000 ? 0.1 : hz <= 2000 ? 0.07 : hz <= 5000 ? 0.05 : 0.065
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.0001, when)
+  g.gain.exponentialRampToValueAtTime(level, when + 0.04)
+  g.gain.setValueAtTime(level, when + durSec - 0.12)
+  g.gain.exponentialRampToValueAtTime(0.0001, when + durSec)
+  g.connect(ac.destination)
+  const o = ac.createOscillator()
+  o.type = 'sine'
+  o.frequency.value = hz
+  o.connect(g)
+  o.start(when)
+  o.stop(when + durSec + 0.05)
+}
+
 /** Play a question. Returns approximate total duration in ms so the
  *  caller can decrement replays / disable the play button correctly. */
 export function playQuestion (q: Question): number {
@@ -252,6 +307,11 @@ export function playQuestion (q: Question): number {
   if (!ac) return 0
   if (ac.state === 'suspended') ac.resume().catch(() => {})
   const now = ac.currentTime + 0.04
+
+  if (q.type === 'frequency') {
+    playTone(ac, q.hz, now, 1.3)
+    return 1300
+  }
 
   if (q.type === 'interval') {
     const a = q.rootMidi
@@ -284,6 +344,19 @@ export const CHORD_LABELS: Record<ChordQuality, string> = {
   maj: 'maj', min: 'min', dim: 'dim', aug: 'aug',
   sus2: 'sus2', sus4: 'sus4',
   maj7: 'maj7', min7: 'min7', dom7: 'dom7', m7b5: 'm7♭5',
+}
+
+/** 250 → "250 Hz", 1250 → "1.25 kHz". */
+export function frequencyLabel (hz: number): string {
+  return hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`
+}
+
+/** How an answer code reads on a button or in the reveal. Case matters
+ *  here (m2 is not M2), so whatever shows this must not change its case. */
+export function answerLabel (q: Question, raw: string): string {
+  if (q.type === 'frequency') return frequencyLabel(Number(raw))
+  const table: Record<string, string> = q.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
+  return table[raw] ?? raw
 }
 
 export function isCorrect (q: Question, answer: string): boolean {

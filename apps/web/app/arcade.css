@@ -931,7 +931,7 @@
 .games-panel.arcade-skin.wall-ear_training .et-option {
   height: 52px; padding: 0 10px; border-radius: 999px;
   background: none; border: 1.5px solid rgba(251, 250, 247, 0.45); color: var(--ink);
-  font: 500 15px var(--f-sans); text-transform: lowercase;
+  font: 500 15px var(--f-sans); text-transform: none;   /* an answer keeps its case: m2 is not M2 */
 }
 .games-panel.arcade-skin.wall-ear_training .et-option:hover:not(:disabled) { background: none; border-color: var(--ink); }
 .games-panel.arcade-skin.wall-ear_training .et-option.picked { background: var(--ink); border-color: var(--ink); color: #1A1917; }
@@ -941,7 +941,7 @@
   order: 5; align-items: stretch; gap: 10px; margin-top: 6px; padding: 0; background: none; border: none; border-radius: 0; box-shadow: none;
 }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-answer {
-  font: 500 28px/1.1 var(--f-sans); letter-spacing: -0.02em; color: var(--ar-accent); text-align: left; text-transform: lowercase;
+  font: 500 28px/1.1 var(--f-sans); letter-spacing: -0.02em; color: var(--ar-accent); text-align: left; text-transform: none;
 }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-rows { gap: 2px; }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row {
@@ -949,6 +949,7 @@
 }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row.ok,
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row.bad { background: none; border: none; }
+.games-panel.arcade-skin.wall-ear_training .et-reveal-row-pick { text-transform: none; }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row-label { font-weight: 500; color: var(--ink); text-transform: lowercase; }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row.mine .et-reveal-row-label { color: var(--ink); }
 .games-panel.arcade-skin.wall-ear_training .et-reveal-row.ok .et-reveal-row-mark { color: var(--ar-accent); }

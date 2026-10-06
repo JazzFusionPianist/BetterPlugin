@@ -3548,12 +3548,41 @@
 }
 
 .live-field-hint {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--t3);
   font-family: var(--f-sans);
   margin: 2px 0 0;
   line-height: 1.4;
 }
+
+/* The invite checklist under "who can watch?" — a tick and a name per
+   friend; past a handful of rows it scrolls on its own. */
+.live-invite {
+  min-width: 0;
+  margin: 4px 0 0;
+  padding: 0;
+  border: none;
+}
+.live-invite-list {
+  max-height: 140px;
+  overflow-y: auto;
+}
+.live-invite-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  font-family: var(--f-sans);
+  color: var(--t1);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.live-invite-row input { flex-shrink: 0; margin: 2px 0 0; cursor: inherit; }
+.live-invite-row span { min-width: 0; }
+.live-invite-row input:disabled,
+.live-invite-row input:disabled + span { color: var(--t3); cursor: default; }
 
 .live-audio-row {
   display: flex;

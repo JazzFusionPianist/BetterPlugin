@@ -22,7 +22,7 @@ test('hosted challenge accepts only its bound parent and sends tokens over a pri
   let callbacks
   const window = { addEventListener: (type, fn) => listeners.set(type, fn),
     removeEventListener: type => listeners.delete(type), turnstile: { render: (_, options) => { callbacks = options } } }
-  vm.runInNewContext(source, { location: { hash: '#' + nonce }, parent, window,
+  vm.runInNewContext(source, { location: { hash: '#' + nonce }, parent, window, console: { warn() {} },
     document: { createElement: () => ({}), head: { appendChild: script => scripts.push(script) } } })
   const connect = listeners.get('message')
   const event = { source: parent, origin: 'null', data: { type: 'slur-security-check', nonce },

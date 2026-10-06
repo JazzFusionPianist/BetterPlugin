@@ -4,7 +4,8 @@
   let port
   const report = (type, token) => port?.postMessage({ type, nonce, ...(token ? { token } : {}) })
   const connect = event => {
-    if (event.source !== parent || !['null', 'juce://juce.backend', 'https://juce.backend'].includes(event.origin)
+    if (event.source !== parent || !['null', 'juce://juce.backend', 'https://juce.backend',
+      'capacitor://localhost', 'http://localhost', 'https://localhost'].includes(event.origin)
       || event.data?.type !== 'slur-security-check' || event.data.nonce !== nonce || !event.ports[0] || port) return
     port = event.ports[0]
     window.removeEventListener('message', connect)
@@ -18,7 +19,7 @@
           callback: token => report('token', token),
           'expired-callback': () => report('expired'),
           'timeout-callback': () => report('expired'),
-          'error-callback': () => report('error'),
+          'error-callback': code => { report('error'); console.warn('Slur security check failed:', code) },
         })
         report('ready')
       } catch { report('error') }

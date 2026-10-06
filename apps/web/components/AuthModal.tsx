@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Turnstile } from '@orb/core/components/Turnstile.tsx'
+import { SecurityCheck } from '@orb/core/components/SecurityCheck.tsx'
 import { supabase } from '@/lib/supabase'
 import SlurMark from './slur/SlurMark'
 import Bar from './slur/Bar'
@@ -181,9 +181,16 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
               {lamp(agreeMarketing, setAgreeMarketing, <>the odd update</>, false)}
             </div>
           )}
-          <Turnstile resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')} />
+          <SecurityCheck resetKey={captchaReset} onToken={token => {
+            setCaptchaToken(token)
+            if (token) setError(current => current === 'security check unavailable — try again.' ? null : current)
+          }} onError={()=>setError('security check unavailable — try again.')} />
 
           {error && <div className="sl-msg err">{error}</div>}
+          {error === 'security check unavailable — try again.' && <button type="button" className="sl-swap"
+            onClick={() => { setError(null); setCaptchaToken(''); setCaptchaReset(value => value + 1) }}>
+            retry security check
+          </button>}
           {note && <div className="sl-msg">{note}</div>}
 
           <button type="submit" className="sl-go" disabled={busy || !captchaToken || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>

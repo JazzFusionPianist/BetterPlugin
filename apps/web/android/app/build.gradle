@@ -9,8 +9,8 @@ android {
         applicationId "com.slur.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "1.0.2"
         resValue "string", "slur_source_commit", slurSourceCommit
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

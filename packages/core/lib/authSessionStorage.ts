@@ -70,5 +70,7 @@ export function createAuthSessionStorage(storageKey: string, getPersistentStorag
     for (const [key, stored] of saved) if (stored !== null) storage.setItem(key, stored)
   }
 
-  return { storage, getRememberMe, setRememberMe }
+  // Supabase broadcasts auth events across tabs. A temporary sign-in belongs
+  // only to its own page; other tabs must not display an unusable signed-in UI.
+  return { storage, getRememberMe, setRememberMe, hasSession: () => storage.getItem(storageKey) !== null }
 }

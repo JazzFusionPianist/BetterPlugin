@@ -35,6 +35,8 @@ test('unchecking removes durable session, user, and PKCE copies without touching
   const reopened = createAuthSessionStorage(key, () => disk)
   assert.equal(reopened.getRememberMe(), false)
   assert.equal(reopened.storage.getItem(key), null)
+  assert.equal(adapter.hasSession(), true)
+  assert.equal(reopened.hasSession(), false)
   assert.equal(disk.getItem('chat-device-key'), 'unchanged')
   adapter.setRememberMe(true)
   assert.equal(disk.getItem(key), 'refreshed-temporary-session')

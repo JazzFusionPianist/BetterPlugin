@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { authSessionStorage, supabase } from '@/lib/supabase'
 import AppShell from '@/components/app/AppShell'
 import StudioShell from '@/components/studio/StudioShell'
 import { EncryptedChatGate } from '@orb/core/components/EncryptedChatGate.tsx'
@@ -34,6 +34,7 @@ export default function AppHome() {
       setChecking(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session && !authSessionStorage.hasSession()) return
       if (!session) router.replace('/')
       else setUser(session.user)
     })

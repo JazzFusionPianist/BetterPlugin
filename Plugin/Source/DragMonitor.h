@@ -37,6 +37,8 @@ public:
     void armMultiple (const std::vector<std::string>& filePaths);
     void armRegionXml (const std::string& xml);
     void disarm      ();
+    void armRegionAction (const std::string& token, std::function<void(double, double, bool)> onDrop);
+    void cancelRegionAction (const std::string& token);
 
     // ── drop-in + keyboard ───────────────────────────────────────────────────
     // Pass the root NSView of the JUCE component peer.

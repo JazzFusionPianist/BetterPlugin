@@ -1,97 +1,47 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# Orb — AAX PACE/iLok signing
-#
-# An AAX plugin only loads in *release* Pro Tools if it is signed with PACE's
-# `wraptool`. The unsigned bundle that `build.sh` produces only loads in a
-# Pro Tools *Developer* build. This script wraps the canonical wraptool call.
-#
-# It does NOT (and cannot) create the accounts or licences that wraptool needs
-# — those are one-time, human steps gated behind Avid + PACE agreements. See
-# the CHECKLIST at the bottom. Once you have them, this script signs in place.
+# Sign one built AAX plugin with Slur Studio's PACE signing-only account.
+# PACE Code Signing for AAX SDK 6 can sign with the publisher's customer name
+# and number; no product or Wrap Configuration registration is required.
 #
 # Usage:
-#   PACE_ACCOUNT=you@studio.com \
-#   PACE_WCGUID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX \
-#   APPLE_SIGN_ID="Developer ID Application: Your Name (TEAMID)" \
-#   ./sign-aax.sh
+#   PACE_CUSTOMER_NUMBER=<number-from-PACE-Central> \
+#   APPLE_SIGN_ID='Developer ID Application: ...' \
+#   ./sign-aax.sh /path/to/Plugin.aaxplugin
 #
-#   # password is prompted (never pass it on the command line / env if avoidable)
-#   # or use iLok Cloud:  ICLOUD=1 ./sign-aax.sh   (adds --usecloud)
-#
-# Prereqs checked at runtime: wraptool on PATH, the built .aaxplugin, and the
-# three values above.
-# ─────────────────────────────────────────────────────────────────────────────
+# Optional: PACE_PRODUCT_NAME=<display-name> overrides the name embedded in
+# the PACE signature. Otherwise wraptool uses the AAX bundle's filename.
+# Keep the iLok USB connected and sign in to iLok License Manager first.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AAX="$SCRIPT_DIR/build/OrbPlugin_artefacts/Release/AAX/Slur Orb.aaxplugin"
-
-PACE_ACCOUNT="${PACE_ACCOUNT:-}"
-PACE_WCGUID="${PACE_WCGUID:-}"
-APPLE_SIGN_ID="${APPLE_SIGN_ID:-}"
-USECLOUD="${ICLOUD:-0}"
 
 fail() { echo "✗ $1" >&2; exit 1; }
 
-command -v wraptool >/dev/null 2>&1 || fail "wraptool not on PATH. Install PACE Eden Tools (see CHECKLIST in this file)."
-[ -d "$AAX" ]            || fail "AAX bundle not built: $AAX  (run ./build.sh --release first)"
-[ -n "$PACE_ACCOUNT" ]   || fail "Set PACE_ACCOUNT=<your PACE/iLok account name>"
-[ -n "$PACE_WCGUID" ]    || fail "Set PACE_WCGUID=<the product GUID you registered in your PACE account>"
-[ -n "$APPLE_SIGN_ID" ]  || fail "Set APPLE_SIGN_ID=<'Developer ID Application: … (TEAMID)'> — wraptool Apple-signs the bundle too"
+[ "$#" -eq 1 ] || fail "Usage: $0 /path/to/Plugin.aaxplugin"
+AAX="$1"
+[ -d "$AAX" ] || fail "AAX bundle not found: $AAX"
+[[ "$AAX" == *.aaxplugin ]] || fail "Expected a .aaxplugin bundle: $AAX"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  AAX signing"
-echo "    bundle : $AAX"
-echo "    account: $PACE_ACCOUNT"
-echo "    wcguid : $PACE_WCGUID"
-echo "    apple  : $APPLE_SIGN_ID"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+PACE_WRAPTOOL="${PACE_WRAPTOOL:-/Applications/PACEAntiPiracy/Eden/Fusion/Current/bin/wraptool}"
+if [ ! -x "$PACE_WRAPTOOL" ]; then
+  PACE_WRAPTOOL="$(command -v wraptool || true)"
+fi
+[ -n "$PACE_WRAPTOOL" ] && [ -x "$PACE_WRAPTOOL" ] || fail "PACE wraptool is not installed"
 
-CLOUD_ARGS=()
-[ "$USECLOUD" = "1" ] && CLOUD_ARGS=(--usecloud)
+PACE_CUSTOMER_NAME="${PACE_CUSTOMER_NAME:-Slur Studio}"
+PACE_CUSTOMER_NUMBER="${PACE_CUSTOMER_NUMBER:-}"
+APPLE_SIGN_ID="${APPLE_SIGN_ID:-}"
+[ -n "$PACE_CUSTOMER_NUMBER" ] || fail "Set PACE_CUSTOMER_NUMBER from PACE Central → Admin → Company Details"
+[ -n "$APPLE_SIGN_ID" ] || fail "Set APPLE_SIGN_ID to your Developer ID Application certificate name"
 
-# wraptool signs in place (--in == --out). It both PACE-wraps and Apple
-# codesigns the bundle with --signid, so no separate `codesign` pass is needed
-# for the .aaxplugin itself.
-wraptool sign --verbose \
-  --account "$PACE_ACCOUNT" \
-  --wcguid  "$PACE_WCGUID" \
-  --signid  "$APPLE_SIGN_ID" \
-  --dsig1-compat off \
-  --allowsigningservice \
-  ${CLOUD_ARGS[@]+"${CLOUD_ARGS[@]}"} \
-  --in  "$AAX" \
-  --out "$AAX"
+echo "Signing $AAX for $PACE_CUSTOMER_NAME"
+args=(sign --verbose
+  --customernumber "$PACE_CUSTOMER_NUMBER"
+  --customername "$PACE_CUSTOMER_NAME"
+  --signid "$APPLE_SIGN_ID"
+  --dsig1-compat off)
+[ -z "${PACE_ACCOUNT:-}" ] || args+=(--account "$PACE_ACCOUNT")
+[ -z "${PACE_PRODUCT_NAME:-}" ] || args+=(--productname "$PACE_PRODUCT_NAME")
+args+=(--in "$AAX")
 
-echo ""
-echo "── verifying signature ──"
-wraptool verify --verbose --in "$AAX" || fail "verify failed"
-
-echo ""
-echo "✓ AAX signed:  $AAX"
-echo "  It will now load in release Pro Tools. Re-run ./package.sh to bundle it."
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CHECKLIST — one-time, human-only prerequisites (cannot be scripted):
-#
-#  1. Avid Developer / AAX program
-#       https://developer.avid.com/  → join, accept the AAX agreement.
-#       (You already have the AAX SDK at ../aax-sdk-2-9-0.)
-#
-#  2. PACE / Eden developer account + iLok
-#       https://www.paceap.com/  (PACE Anti-Piracy / "Eden Tools").
-#       - Sign the PACE developer agreement.
-#       - Install "PACE Eden Tools" → gives you `wraptool` on PATH.
-#       - You already have iLok License Manager. PACE deposits a developer
-#         signing certificate onto your iLok (USB) or iLok Cloud.
-#
-#  3. Register the product → get a wcguid
-#       In your PACE developer account create a product entry for Orb and
-#       copy its GUID. That is PACE_WCGUID above.
-#
-#  4. Apple "Developer ID Application" certificate (paid Apple Developer
-#       Program). The Mac currently only has an "Apple Development" cert,
-#       which is NOT valid for distribution. The same cert is also required
-#       to notarize the AU / VST3 / Standalone for the .pkg.
-# ─────────────────────────────────────────────────────────────────────────────
+"$PACE_WRAPTOOL" "${args[@]}"
+"$PACE_WRAPTOOL" verify --verbose --in "$AAX" || fail "PACE signature verification failed"
+echo "✓ AAX signed and verified: $AAX"

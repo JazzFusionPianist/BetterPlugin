@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, Profile } from '@orb/core'
+import {decryptChatMessage} from '@orb/core/lib/chatCrypto.ts'
 import {
   renameGroupConversation,
   addGroupMembers,
@@ -98,15 +99,15 @@ export default function ChatSettingsSheet({
   const refetchShared = async () => {
     const { data, error: err } = await supabase
       .from('messages')
-      .select('id, attachment_url, attachment_type, attachment_name, attachment_expired, created_at')
+      .select('*')
       .eq('conversation_id', conversationId)
-      .not('attachment_type', 'is', null)
-      .neq('attachment_type', 'game_invite')
       .order('created_at', { ascending: false })
       .limit(300)
     if (err) { console.error('[ChatSettings] shared', err); return }
     const items: SharedItem[] = []
-    for (const m of (data ?? []) as Message[]) {
+    const clear=await Promise.all(((data??[]) as Message[]).map(m=>decryptChatMessage(supabase,currentUserId,m)))
+    for (const m of clear) {
+      if(!m.attachment_type || m.attachment_type==='game_invite')continue
       const expired = !!m.attachment_expired
       if (m.attachment_type === 'multi-audio' && !expired && m.attachment_url) {
         // A bundle message: unpack each track into its own row.

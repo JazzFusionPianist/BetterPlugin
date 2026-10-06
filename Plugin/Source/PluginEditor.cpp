@@ -186,3 +186,13 @@ void OrbAudioProcessorEditor::trySetupDropHandling()
         });
     }
 }
+
+void OrbAudioProcessorEditor::armLogicRegionDrag (const std::string& token, std::function<void(double, double, bool)> callback)
+{
+    dragMonitor.armRegionAction (token, std::move(callback));
+}
+
+void OrbAudioProcessorEditor::cancelLogicRegionDrag (const std::string& token)
+{
+    dragMonitor.cancelRegionAction (token);
+}

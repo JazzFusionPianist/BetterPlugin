@@ -128,7 +128,7 @@ export async function decryptChatMessage(client:SupabaseClient,user:string,row:M
     const data=await openMessage(identity,row,e)
     if(epoch!==generation)throw new Error('Chat locked')
     if(typeof data.content!=='string')throw new Error('Invalid message')
-    return {...row,content:data.content,attachment_url:data.attachment_url??null,attachment_type:data.attachment_type??null,
+    return {...row,private:true,content:data.content,attachment_url:data.attachment_url??null,attachment_type:data.attachment_type??null,
       attachment_name:data.attachment_name??null,attachment_metadata:data.attachment_metadata??null}
   }catch{return {...hidden,content:'This message is unavailable on this device.'}}
 }

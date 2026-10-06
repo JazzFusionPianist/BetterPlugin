@@ -131,6 +131,13 @@ OrbAudioProcessor::OrbAudioProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
           .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), true))    // the host's side chain (on by default, as JUCE's own sidechain plugins declare it: Logic offers its Side Chain menu for it)
 {
+    // Delete only this feature's stale, private scratch directories. DAW imports
+    // are copies owned by the project; user project paths are never traversed.
+    const auto scratch = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("OrbPrivateAudio");
+    for (const auto& dir : scratch.findChildFiles (juce::File::findDirectories, false))
+        if (dir.getLastModificationTime().toMilliseconds() < juce::Time::currentTimeMillis() - 24LL * 60 * 60 * 1000)
+            dir.deleteRecursively();
+
     // twelve hands per slot for the host to automate, grouped by slot ("print 3 › delay feedback")
     for (int i = 0; i < orbfx::kMaxNodes; ++i)
     {
@@ -402,8 +409,17 @@ OrbAudioProcessor::OrbAudioProcessor()
 #if JUCE_MAC
                     if (operation == "load" && args.size() == 2)
                     {
-                        const auto value = orb::deviceKeychain::load (user);
-                        done (value && validRecoveryCode (*value) ? "value:" + *value : "missing");
+                        bool missing = false;
+                        const auto value = orb::deviceKeychain::load (user, &missing);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : missing ? "missing" : "error:keychain");
+                        return;
+                    }
+                    if (operation == "create" && args.size() == 3)
+                    {
+                        const auto candidate = args[2].toString();
+                        if (! validRecoveryCode (candidate)) { done ("error:invalid"); return; }
+                        const auto value = orb::deviceKeychain::create (user, candidate);
+                        done (value && validRecoveryCode (*value) ? "value:" + *value : "error:keychain");
                         return;
                     }
                     if (operation == "store" && args.size() == 3)
@@ -535,6 +551,44 @@ OrbAudioProcessor::OrbAudioProcessor()
                 {
                     handleStartHostStemExport (args, std::move (completion));
                 })
+            .withNativeFunction ("regionTransferHost",
+                [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    const juce::PluginHostType host;
+                    completion (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
+                                              : host.isLogic() ? "Logic Pro"
+                                              : host.isProTools() ? "Pro Tools" : host.getHostDescription()));
+                })
+            .withNativeFunction ("regionBundleTransfer",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion completion)
+                {
+                    auto target = juce::Component::SafePointer<juce::WebBrowserComponent> (browser.get());
+                    if (args.isArray() && args.size() > 0 && args[0].toString() == "armLogic")
+                    {
+                        completion (juce::String ("{\"ok\":false,\"error\":\"Dialog-driven Logic restoration is disabled. Native timeline restoration is not supported.\"}"));
+                        return;
+                    }
+                    if (args.isArray() && args.size() == 2 && args[0].toString() == "cancelLogic")
+                    {
+                        auto* editor = dynamic_cast<OrbAudioProcessorEditor*> (getActiveEditor());
+                        const auto ticket = args[1].toString();
+                        if (editor == nullptr || !juce::PluginHostType().isLogic() || ticket.length() < 32 || ticket.length() > 36
+                            || ticket.retainCharacters("0123456789abcdefABCDEF-") != ticket)
+                        { completion (juce::String ("{\"ok\":false,\"error\":\"No active Logic editor or invalid transfer.\"}")); return; }
+                        editor->cancelLogicRegionDrag(ticket.toStdString());
+                        completion(juce::String("{\"ok\":true,\"status\":\"cancelled\"}"));
+                        return;
+                    }
+                    auto jobArgs = args;
+                    if (args.isArray() && args.size() > 0 && args[0].toString() == "captureLogic") {
+                        juce::Array<juce::var> values {args[0], juce::var(juce::String(getSampleRate(), 0))};
+                        if (args.size() == 3) values.add(args[2]);
+                        jobArgs = juce::var(values);
+                    }
+                    regionBridge.invoke (jobArgs, [target, completion = std::move (completion)] (juce::var result) {
+                        if (target != nullptr) completion (result);
+                    }, browser.get());
+                })
             .withNativeFunction ("trackExportHost",
                 [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
@@ -598,7 +652,8 @@ OrbAudioProcessor::OrbAudioProcessor()
     // keeps serving a stale index.html (and so a stale bundle) across
     // fresh instances and even host restarts.
     loadCarriedPage();
-    askSiteForNewer();
+    // Keep private-chat code inside the installed app. A hosted-page timestamp
+    // must not replace code that can access the device's conversation keys.
 
     // Start polling the capture ring buffer and forwarding samples to JS.
     startTimer (20);
@@ -606,6 +661,7 @@ OrbAudioProcessor::OrbAudioProcessor()
 
 OrbAudioProcessor::~OrbAudioProcessor()
 {
+    regionBridge.shutdown();
     alive->store (false);
     if (siteCheck != nullptr && siteCheck->joinable()) siteCheck->join();
     trackExportBridge.shutdown();
@@ -2611,6 +2667,9 @@ void OrbAudioProcessor::askSiteForNewer()
                     || (int) v.getProperty ("regionLuna", 0) < 1
                     || (int) v.getProperty ("stemDownloads", 0) < 1
                     || (int) v.getProperty ("regionPlacement", 0) < 1
+                    || (int) v.getProperty ("regionAudioDrag", 0) < 1
+                    || (int) v.getProperty ("accountChat", 0) < 1
+                    || (int) v.getProperty ("logicRegionPositions", 0) < 1
                     || v.getProperty ("trackExportPolicy", "").toString() != "pro-tools-only") return;
                 siteBuild = v.getProperty ("build", "").toString();
                 siteBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());

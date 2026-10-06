@@ -90,7 +90,7 @@ export default function Sidebar({
   return (
     <aside className="webapp-sidebar">
       <div className="rail-head">
-        <span className="word"><span className="mark" />Orb</span>
+        <span className="word"><span className="mark" />Slur</span>
       </div>
 
       <div className="rail-section-label">chats</div>

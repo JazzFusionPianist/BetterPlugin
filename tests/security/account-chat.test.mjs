@@ -14,6 +14,10 @@ async function setup(){
   for(const file of ['20260927184452_security_encrypted_chat.sql','20260927184456_security_membership_and_sessions.sql','20260927184459_security_history_upgrade.sql'])
     await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'))
   await db.exec(await readFile(migration,'utf8'))
+  for(const name of ['20261003033724_automatic_private_chat.sql','20261003112523_private_chat_outbox_lifecycle.sql'])
+    await db.exec(await readFile(`supabase/migrations/${name}`,'utf8'))
+  await db.exec('update private.chat_rollout set enabled=true')
+  await db.exec(await readFile('supabase/migrations/20261005152712_account_chat_default.sql','utf8'))
   await db.exec(`insert into conversations(id) values('${room}');insert into conversation_members(conversation_id,user_id) values('${room}','${A}'),('${room}','${B}');
     create policy ss on conversation_stems for select to authenticated using(is_conversation_member(conversation_id));`)
   return db
@@ -27,6 +31,7 @@ test('accounts with no device keys exchange chat and read it after a new login',
   const db=await setup()
   try{
     assert.equal((await db.query('select count(*)::int n from chat_identity_keys')).rows[0].n,0)
+    assert.equal((await act(db,A,'select chat_security_mode() mode')).rows[0].mode,0)
     await insertMessage(db,A,accountMessage(id,A,room,' hello '))
     const read=await act(db,B,'select * from messages where id=$1',[id])
     assert.equal(read.rows[0].content,'hello')

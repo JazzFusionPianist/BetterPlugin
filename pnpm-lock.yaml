@@ -65,6 +65,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@capacitor/android':
+        specifier: 6.2.2
+        version: 6.2.2(@capacitor/core@6.2.2)
       '@capacitor/core':
         specifier: ^6.2.2
         version: 6.2.2
@@ -122,6 +125,22 @@ importers:
         specifier: ^19.2.0
         version: 19.2.7
 
+  packages/daw-bridge:
+    dependencies:
+      '@grpc/grpc-js':
+        specifier: ^1.14.4
+        version: 1.14.5
+      '@grpc/proto-loader':
+        specifier: ^0.8.1
+        version: 0.8.1
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+    devDependencies:
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
+
   packages/track-export:
     dependencies:
       '@grpc/grpc-js':
@@ -139,6 +158,11 @@ importers:
         version: 0.25.12
 
 packages:
+
+  '@capacitor/android@6.2.2':
+    resolution: {integrity: sha512-JjIu1ryNE16PQTp51rb4NEygxP7cSCDMmUqx4f5f12xscKdGKTjO9bkEP3TroLnTa/J6p2QopIhRbrd3E/7DrA==}
+    peerDependencies:
+      '@capacitor/core': ^6.2.0
 
   '@capacitor/cli@6.2.1':
     resolution: {integrity: sha512-JKl0FpFge8PgQNInw12kcKieQ4BmOyazQ4JGJOfEpVXlgrX1yPhSZTPjngupzTCiK3I7q7iGG5kjun0fDqgSCA==}
@@ -1548,6 +1572,10 @@ packages:
     resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
 
 snapshots:
+
+  '@capacitor/android@6.2.2(@capacitor/core@6.2.2)':
+    dependencies:
+      '@capacitor/core': 6.2.2
 
   '@capacitor/cli@6.2.1':
     dependencies:

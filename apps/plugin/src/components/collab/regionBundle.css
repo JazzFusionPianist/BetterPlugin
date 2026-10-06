@@ -1,0 +1,24 @@
+.region-bundle { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid currentColor; border-radius: 8px; padding: 12px; color: inherit; }
+.region-bundle header { display: flex; align-items: center; gap: 12px; }
+.region-bundle button { color: inherit; font: inherit; cursor: pointer; }
+.region-bundle-summary { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 0; }
+.region-bundle-summary strong, .region-bundle-summary span { display: block; overflow-wrap: anywhere; }
+.region-bundle-summary strong { font-size: 14px; }
+.region-bundle-summary span { font-size: 12px; margin-top: 4px; opacity: .7; }
+.region-bundle-download { flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid currentColor; border-radius: 6px; background: transparent; font-size: 20px !important; }
+.region-bundle-download:disabled { opacity: .5; cursor: wait; }
+.region-bundle-status, .region-bundle-error { font-size: 12px; margin: 10px 0 0; overflow-wrap: anywhere; }
+.region-bundle-status { opacity: .7; }
+.region-bundle-error { color: #b83c3c; }
+.region-bundle-groups { max-height: 260px; overflow: auto; margin-top: 12px; }
+.region-bundle h4 { font-size: 12px; margin: 10px 0 4px; overflow-wrap: anywhere; }
+.region-bundle ul { list-style: none; padding: 0; margin: 0; }
+.region-bundle li { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; padding: 5px 0; }
+.region-bundle li span { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
+.region-bundle li small { flex: 0 1 auto; opacity: .65; }
+.region-bundle-download { display: grid; place-items: center; }
+.region-bundle-audio { display: grid; gap: 8px; margin-top: 12px; min-width: 0; }
+.region-bundle-audio > div { min-width: 0; }
+.region-bundle-audio .msg-att-audio, .region-bundle-audio .wd-plate {
+  border: 0; border-radius: 0; box-shadow: none; background: transparent; max-width: 100%;
+}

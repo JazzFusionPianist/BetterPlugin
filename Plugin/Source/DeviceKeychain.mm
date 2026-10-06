@@ -31,19 +31,35 @@ bool store (const juce::String& user, const juce::String& recoveryCode)
     return status == errSecSuccess;
 }
 
-std::optional<juce::String> load (const juce::String& user)
+std::optional<juce::String> load (const juce::String& user, bool* missing)
 {
+    if (missing != nullptr) *missing = false;
     auto* query = baseQuery (user);
     query[(__bridge id) kSecReturnData] = @YES;
     query[(__bridge id) kSecMatchLimit] = (__bridge id) kSecMatchLimitOne;
     CFTypeRef result = nullptr;
     const auto status = SecItemCopyMatching ((__bridge CFDictionaryRef) query, &result);
-    if (status == errSecItemNotFound) return std::nullopt;
+    if (status == errSecItemNotFound)
+    {
+        if (missing != nullptr) *missing = true;
+        return std::nullopt;
+    }
     if (status != errSecSuccess || result == nullptr) return std::nullopt;
     NSData* data = CFBridgingRelease (result);
     NSString* value = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     if (value == nil) return std::nullopt;
     return juce::String::fromUTF8 (value.UTF8String);
+}
+
+std::optional<juce::String> create (const juce::String& user, const juce::String& candidate)
+{
+    auto* query = baseQuery (user);
+    query[(__bridge id) kSecValueData] = [ns (candidate) dataUsingEncoding:NSUTF8StringEncoding];
+    query[(__bridge id) kSecAttrAccessible] = (__bridge id) kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly;
+    // SecItemAdd is atomic across plugin instances; never update an existing identity.
+    const auto status = SecItemAdd ((__bridge CFDictionaryRef) query, nullptr);
+    if (status != errSecSuccess && status != errSecDuplicateItem) return std::nullopt;
+    return load (user);
 }
 
 bool remove (const juce::String& user)

@@ -1,10 +1,10 @@
 {
-  "name": "orb-desktop",
-  "productName": "orb",
+  "name": "slur-desktop",
+  "productName": "Slur",
   "version": "0.1.1",
-  "description": "orb — your crew, your sessions, your sound",
+  "description": "Slur — your crew, your sessions, your sound",
   "main": "main.cjs",
-  "author": "orb",
+  "author": "Slur",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -15,8 +15,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.orb.desktop",
-    "productName": "orb",
+    "appId": "com.slur.desktop",
+    "productName": "Slur",
     "directories": {
       "output": "dist"
     },

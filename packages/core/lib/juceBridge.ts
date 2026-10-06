@@ -9,21 +9,27 @@
  * Mirrors the pattern from JUCE's shipped index.js.
  */
 
-type NativeBackend = {
-  addEventListener: (event: string, handler: (data: unknown) => void) => [string, number]
-  removeEventListener: (subscription: [string, number]) => void
-  emitEvent: (event: string, data: unknown) => void
-}
-function nativeBridge() {
-  return typeof window === 'undefined' ? undefined :
-    (window as unknown as {__JUCE__?: {initialisationData: {__juce__functions: string[]}, backend: NativeBackend}}).__JUCE__
+declare global {
+  interface Window {
+    __JUCE__?: {
+      initialisationData: {
+        __juce__functions: string[]
+        __juce__platform: string[]
+      }
+      backend: {
+        addEventListener:    (event: string, handler: (data: unknown) => void) => [string, number]
+        removeEventListener: (subscription: [string, number]) => void
+        emitEvent:           (event: string, data: unknown) => void
+      }
+    }
+  }
 }
 
 let _juceNextId = 0
 
 /** List of C++ native functions registered by the plugin, exposed at init. */
 export function juceRegisteredFunctions (): string[] {
-  return nativeBridge()?.initialisationData.__juce__functions ?? []
+  return typeof window === 'undefined' ? [] : window.__JUCE__?.initialisationData.__juce__functions ?? []
 }
 
 /** Is a specific native function registered by the plugin build? */
@@ -45,7 +51,7 @@ export function callJuceNative (
   timeoutMs = 5000,
 ): Promise<string> {
   return new Promise<string>((resolve) => {
-    const backend = nativeBridge()?.backend
+    const backend = typeof window === 'undefined' ? undefined : window.__JUCE__?.backend
     if (!backend) { resolve('error:no-juce'); return }
     if (!hasJuceNativeFunction(name)) { resolve('error:no-function'); return }
 
@@ -84,4 +90,4 @@ export function callJuceNative (
 }
 
 /** True if the app is running inside a JUCE WebBrowserComponent. */
-export const hasJuceBridge = !!nativeBridge()?.backend
+export const hasJuceBridge = typeof window !== 'undefined' && !!window.__JUCE__?.backend

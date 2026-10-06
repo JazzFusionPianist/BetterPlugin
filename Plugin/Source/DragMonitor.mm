@@ -10,6 +10,7 @@
 #import <objc/message.h>
 #import <os/log.h>
 #include "VstXmlDrop.h"
+#include "SlurWebSecurity.h"
 
 #include <atomic>
 
@@ -64,6 +65,13 @@ static unsigned long long fileSizeAt (NSURL* fileURL)
     return n ? n.unsignedLongLongValue : 0ULL;
 }
 
+static void failFileDrop (WKWebView* view)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [view evaluateJavaScript:@"window.dispatchEvent(new CustomEvent('__juceRegionDropError',{detail:{message:'Could not receive the audio files from your DAW. Nothing was sent.'}}))" completionHandler:nil];
+    });
+}
+
 //==============================================================================
 // Forward declarations
 //==============================================================================
@@ -87,9 +95,21 @@ static void stopDragTimer (void);
 @property (nonatomic, strong) id         monitor;      // NSEvent monitor token
 @property (nonatomic, weak)   WKWebView* wkView;       // for JS event dispatch
 @property (nonatomic, assign) BOOL       isDragging;   // YES while NSDraggingSession is live
+@property (nonatomic, copy) NSString* regionToken;
+@property (nonatomic, copy) void (^regionAction)(double, double, bool);
+@property (nonatomic, assign) BOOL regionCancelled;
+- (void) cancelPendingRegionAction;
 @end
 
 @implementation JuceDragHelper
+
+- (void) cancelPendingRegionAction
+{
+    if (!self.regionAction || self.isDragging) return;
+    auto callback = self.regionAction;
+    [self disarm];
+    callback (0, 0, true);
+}
 
 - (NSDragOperation) draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)ctx
@@ -103,7 +123,10 @@ static void stopDragTimer (void);
          endedAtPoint:(NSPoint)screenPoint
             operation:(NSDragOperation)operation
 {
-    (void)session; (void)screenPoint;
+    (void)session;
+    auto regionAction = self.regionAction;
+    const bool cancelled = self.regionCancelled
+        || (NSApp.currentEvent.type == NSEventTypeKeyDown && NSApp.currentEvent.keyCode == 53);
     self.isDragging = NO;
     stopDragTimer();
     if (self.wkView) {
@@ -117,6 +140,8 @@ static void stopDragTimer (void);
         [self.wkView evaluateJavaScript:js completionHandler:nil];
     }
     [self disarm];
+    if (regionAction)
+        regionAction (screenPoint.x, CGDisplayBounds(CGMainDisplayID()).size.height - screenPoint.y, cancelled);
 }
 
 - (BOOL) armWithPaths:(NSArray<NSString*>*)paths
@@ -136,12 +161,13 @@ static void stopDragTimer (void);
     self.mouseDownPos = pointerEvent && initiatingEvent.window == self.sourceWindow
         ? initiatingEvent.locationInWindow
         : (self.sourceWindow ? [self.sourceWindow convertPointFromScreen:[NSEvent mouseLocation]] : NSZeroPoint);
+    self.regionCancelled = NO;
 
     __weak JuceDragHelper* ws = self;
 
     NSEventMask mask = NSEventMaskLeftMouseDown
                      | NSEventMaskLeftMouseDragged
-                     | NSEventMaskLeftMouseUp;
+                     | NSEventMaskLeftMouseUp | NSEventMaskKeyDown;
 
     self.monitor = [NSEvent addLocalMonitorForEventsMatchingMask:mask
                                                          handler:^NSEvent*(NSEvent* ev)
@@ -156,12 +182,17 @@ static void stopDragTimer (void);
         switch (ev.type) {
 
             case NSEventTypeLeftMouseDown:
+                // A prepared region action belongs only to the original press.
+                if (s.regionAction && !s.isDragging) {
+                    [s cancelPendingRegionAction];
+                    break;
+                }
                 s.mouseDownPos   = ev.locationInWindow;
                 s.sessionStarted = NO;
                 break;
 
             case NSEventTypeLeftMouseDragged: {
-                if (s.sessionStarted || (s.filePaths.count == 0 && !s.regionXml.length)) break;
+                if (s.sessionStarted || (s.filePaths.count == 0 && !s.regionAction && !s.regionXml.length)) break;
 
                 // Use the delivered event, not a separately sampled global
                 // pointer which can lag tablet, remote or queued input events.
@@ -182,9 +213,10 @@ static void stopDragTimer (void);
 
                 // Build one NSDraggingItem per file, slightly cascaded.
                 NSMutableArray<NSDraggingItem*>* items = [NSMutableArray array];
-                if (s.regionXml.length) {
+                if (s.regionAction || s.regionXml.length) {
                     NSPasteboardItem* payload = [[NSPasteboardItem alloc] init];
-                    [payload setString:s.regionXml forType:NSPasteboardTypeString];
+                    if (s.regionAction) [payload setString:s.regionToken forType:@"com.orb.region-transfer"];
+                    else [payload setString:s.regionXml forType:NSPasteboardTypeString];
                     NSDraggingItem* item = [[NSDraggingItem alloc] initWithPasteboardWriter:payload];
                     NSImage* icon = [NSImage imageNamed:NSImageNameMultipleDocuments];
                     [item setDraggingFrame:NSMakeRect(lp.x - 16, lp.y - 16, 32, 32) contents:icon];
@@ -224,7 +256,15 @@ static void stopDragTimer (void);
             }
 
             case NSEventTypeLeftMouseUp:
+                [s cancelPendingRegionAction];
                 [s disarm];
+                break;
+
+            case NSEventTypeKeyDown:
+                if (ev.keyCode == 53) {
+                    s.regionCancelled = YES;
+                    [s cancelPendingRegionAction];
+                }
                 break;
 
             default:
@@ -250,6 +290,10 @@ static void stopDragTimer (void);
     self.regionXml      = nil;
     self.sourceWindow   = nil;
     self.sessionStarted = NO;
+    if (!self.isDragging) {
+        self.regionAction = nil;
+        self.regionToken = nil;
+    }
     // NOTE: do NOT clear isDragging here.  disarm() is called from the
     // NSEvent mouseUp handler which can fire during an active NSDraggingSession,
     // prematurely clearing the flag before the session actually ends.
@@ -282,6 +326,8 @@ void DragMonitor::armRegionXml (const std::string& xml)
 DragMonitor::~DragMonitor()
 {
     JuceDragHelper* h = (__bridge JuceDragHelper*) helper;
+    h.regionCancelled = YES;
+    h.regionAction = nil;
     [h disarm];
     CFRelease (helper);
 
@@ -316,6 +362,28 @@ void DragMonitor::disarm()
     [(__bridge JuceDragHelper*) helper disarm];
 }
 
+void DragMonitor::armRegionAction (const std::string& token, std::function<void(double, double, bool)> callback)
+{
+    JuceDragHelper* h = (__bridge JuceDragHelper*) helper;
+    // The WebKit request may arrive after mouse-up. Never arm a future gesture.
+    if (([NSEvent pressedMouseButtons] & 1) == 0 || h.isDragging) {
+        callback (0, 0, true);
+        return;
+    }
+    [h armWithPaths:@[]];
+    h.regionToken = [NSString stringWithUTF8String:token.c_str()];
+    h.regionAction = ^(double x, double y, bool cancelled) { callback (x, y, cancelled); };
+}
+
+void DragMonitor::cancelRegionAction (const std::string& token)
+{
+    JuceDragHelper* h = (__bridge JuceDragHelper*) helper;
+    if ([h.regionToken isEqualToString:[NSString stringWithUTF8String:token.c_str()]]) {
+        h.regionCancelled = YES;
+        if (!h.isDragging) [h disarm];
+    }
+}
+
 //==============================================================================
 // Drop-IN + Keyboard + Drag-overlay handling
 //==============================================================================
@@ -346,6 +414,7 @@ static IMP  gOrigPerformDragOp   = nil;
 static IMP  gOrigDraggingEntered = nil;
 static IMP  gOrigDraggingExited  = nil;
 static IMP  gOrigDraggingUpdated = nil;
+static IMP  gOrigPrepareDragOp   = nil;
 static BOOL gSwizzleInstalled    = NO;
 
 // ── Mouse-position overlay timer ─────────────────────────────────────────────
@@ -491,6 +560,30 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
     {
         NSPasteboard* pb = info.draggingPasteboard;
         ORB_LOG ("performDragOperation: types=%{public}@", pb.types);
+#if DEBUG
+        // Opt-in local fixture only; never record production audio drags.
+        WKWebView* diagnosticView = objc_getAssociatedObject (selfView, &kWKViewRefKey);
+        if ([diagnosticView.URL.host isEqualToString:@"127.0.0.1"]
+            && [diagnosticView.URL.path isEqualToString:@"/tests/region-bundle.html"])
+        {
+            NSMutableArray* values = [NSMutableArray array];
+            for (NSPasteboardType type in pb.types)
+            {
+                NSData* data = [pb dataForType:type];
+                [values addObject:@{ @"type": type, @"bytes": @(data.length),
+                    @"base64": data.length <= 128 * 1024 ? [data base64EncodedStringWithOptions:0] ?: @"" : @"" }];
+            }
+            NSString* path = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                [NSString stringWithFormat:@"orb-logic-drag-%@.json", NSUUID.UUID.UUIDString]];
+            NSDictionary* report = @{ @"types": values, @"items": @(pb.pasteboardItems.count),
+                @"sourceClass": info.draggingSource ? NSStringFromClass([info.draggingSource class]) : @"external" };
+            NSData* json = [NSJSONSerialization dataWithJSONObject:report options:0 error:nil];
+            [json writeToFile:path atomically:YES];
+            NSString* script = [NSString stringWithFormat:
+                @"window.dispatchEvent(new CustomEvent('__orbDropDiagnostic',{detail:'%@'}))", jsQuoted(path)];
+            [diagnosticView evaluateJavaScript:script completionHandler:nil];
+        }
+#endif
 #if defined(SLUR_DRAG_QA)
         // Local synthetic-fixture qualification only; never part of a shipped plug-in.
         NSMutableDictionary* report = [NSMutableDictionary dictionary];
@@ -572,6 +665,9 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             [pb readObjectsForClasses:@[[NSFilePromiseReceiver class]] options:nil];
         if (rcvs.count > 0)
         {
+            NSUInteger fileCount = 0;
+            for (NSFilePromiseReceiver* receiver in rcvs)
+                fileCount += MAX((NSUInteger)1, receiver.fileTypes.count);
             // Dismiss the drag overlay immediately (Logic file promises never
             // fire a JS 'drop' event, so React can't do it itself).
             stopDragTimer();
@@ -581,7 +677,9 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                 // one multi-track message instead of separate messages.
                 NSString* startJS = [NSString stringWithFormat:
                     @"window.dispatchEvent(new CustomEvent('__juceDropGroupStart',"
-                     "{detail:{count:%lu}}))", (unsigned long)rcvs.count];
+                     "{detail:{count:%lu,logicCaptureId:%@}}))", (unsigned long)fileCount,
+                    [pb.types containsObject:@"com.apple.musicapps.LGRegionsPboardType"]
+                        ? [NSString stringWithFormat:@"'logic-%ld'", (long)info.draggingSequenceNumber] : @"null"];
                 [wkv evaluateJavaScript:startJS completionHandler:nil];
                 [wkv evaluateJavaScript:
                     @"window.dispatchEvent(new Event('__juceDragComplete'))"
@@ -590,19 +688,30 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 
             NSOperationQueue* bgQueue = [[NSOperationQueue alloc] init];
             bgQueue.qualityOfService  = NSQualityOfServiceUserInitiated;
+            bgQueue.maxConcurrentOperationCount = 1;
 
             // Process ALL receivers, not just the first one. Capture each
             // promise's index NOW, at registration — the receivers resolve
             // concurrently, so the readers fire in completion order.
+            NSUInteger sequenceBase = 0;
             for (NSUInteger idx = 0; idx < rcvs.count; idx++) {
                 NSFilePromiseReceiver* rcv = rcvs[idx];
-                const int seq = (int) idx;
+                __block int seq = (int) sequenceBase;
+                sequenceBase += MAX((NSUInteger)1, rcv.fileTypes.count);
+                NSURL* destination = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+                    stringByAppendingPathComponent:[@"slur-drop-" stringByAppendingString:NSUUID.UUID.UUIDString]] isDirectory:YES];
+                if (![[NSFileManager defaultManager] createDirectoryAtURL:destination withIntermediateDirectories:YES
+                    attributes:@{NSFilePosixPermissions: @0700} error:nil]) {
+                    failFileDrop(wkv);
+                    continue;
+                }
                 [rcv receivePromisedFilesAtDestination:
-                        [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES]
+                        destination
                                              options:@{}
                                      operationQueue:bgQueue
                                              reader:^(NSURL* fileURL, NSError* err) {
-                    if (err) { NSLog (@"[DragMonitor] promise error: %@", err); return; }
+                    const int fileSequence = seq++;
+                    if (err) { NSLog (@"[DragMonitor] promise error: %@", err); failFileDrop(wkv); return; }
                     const unsigned long long size = fileSizeAt (fileURL);
                     if (size > kMaxDropBytes) {
                         rejectDropFile (wkv, fileURL, size);
@@ -610,10 +719,11 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                         return;
                     }
                     NSData*   raw  = [NSData dataWithContentsOfURL:fileURL];
-                    if (!raw) return;
+                    if (!raw.length) { failFileDrop(wkv); return; }
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
                     NSString* name = fileURL.lastPathComponent;
-                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, seq, @""); });
+                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, fileSequence, @""); });
+                    [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
                 }];
             }
             return YES;
@@ -722,15 +832,23 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
 static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
                                              id<NSDraggingInfo> info)
 {
-    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    WKWebView* wkv = objc_getAssociatedObject(selfView, &kWKViewRefKey);
     BOOL ownDrag   = gDragHelper && gDragHelper.isDragging;
-    BOOL logicDrag = isLogicRegionDrag (info.draggingPasteboard);
+    BOOL logicDrag = objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isLogicRegionDrag (info.draggingPasteboard);
 
     ORB_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
               info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
     if ((ownDrag || logicDrag) && wkv)
     {
+        if (!ownDrag && [info.draggingPasteboard.types containsObject:@"com.apple.musicapps.LGRegionsPboardType"])
+        {
+            NSString* captureJS = [NSString stringWithFormat:
+                @"window.dispatchEvent(new CustomEvent('__juceLogicRegionEnter',{detail:{captureId:'logic-%ld'}}))",
+                (long)info.draggingSequenceNumber];
+            [wkv evaluateJavaScript:captureJS completionHandler:nil];
+        }
         // Fire the initial overlay event immediately, then start the position
         // timer which keeps it alive and detects when the drag truly leaves.
         NSString* evt = ownDrag ? @"__juceDragEnterCancel" : @"__juceDragEnter";
@@ -739,6 +857,9 @@ static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
         [wkv evaluateJavaScript:js completionHandler:nil];
         startDragTimerIfNeeded (wkv);
     }
+
+    // WebKit may reject promises that our native receiver can handle.
+    if (logicDrag) return NSDragOperationCopy;
 
     if (gOrigDraggingEntered)
         return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingEntered)
@@ -770,13 +891,23 @@ static NSDragOperation orbDraggingUpdated (id selfView, SEL _cmd,
 {
     // Ensure the timer is running (it may have been stopped if draggingEntered:
     // fired before draggingUpdated: was swizzled, or after a re-entry).
-    WKWebView* wkv = gDragHelper ? gDragHelper.wkView : nil;
+    WKWebView* wkv = objc_getAssociatedObject(selfView, &kWKViewRefKey);
     if (wkv) startDragTimerIfNeeded (wkv);
+
+    if (objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isAcceptableAudioDrag(info.draggingPasteboard)) return NSDragOperationCopy;
 
     if (gOrigDraggingUpdated)
         return ((NSDragOperation(*)(id,SEL,id<NSDraggingInfo>)) gOrigDraggingUpdated)
                    (selfView, _cmd, info);
     return NSDragOperationCopy;
+}
+
+static BOOL orbPrepareDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
+{
+    if (objc_getAssociatedObject(selfView, &kDropCallbackKey)
+        && isAcceptableAudioDrag(info.draggingPasteboard)) return YES;
+    return gOrigPrepareDragOp ? ((BOOL(*)(id,SEL,id<NSDraggingInfo>))gOrigPrepareDragOp)(selfView, _cmd, info) : NO;
 }
 
 // ── Helper: install one swizzle ───────────────────────────────────────────────
@@ -802,6 +933,7 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
 
     WKWebView* wk = findWKWebView (rootView);
     if (!wk) return;
+    installSlurWebSecurity(wk);
 
     NSView* dropView = findViewWithDragTypes (wk);
     if (!dropView) dropView = wk;
@@ -828,6 +960,11 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
     objc_setAssociatedObject (dropView, &kDropCallbackKey, box,
                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
+    NSMutableSet* acceptedTypes = [NSMutableSet setWithArray:dropView.registeredDraggedTypes];
+    [acceptedTypes addObjectsFromArray:NSFilePromiseReceiver.readableDraggedTypes];
+    [acceptedTypes addObjectsFromArray:@[NSPasteboardTypeFileURL, @"NSFilenamesPboardType", NSPasteboardTypeString]];
+    [dropView registerForDraggedTypes:acceptedTypes.allObjects];
+
     // ── Class-level method swizzles (once per process) ────────────────────────
     if (!gSwizzleInstalled)
     {
@@ -842,6 +979,8 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
                         (IMP) orbDraggingExited,   &gOrigDraggingExited);
         installSwizzle (cls, @selector(draggingUpdated:),
                         (IMP) orbDraggingUpdated,  &gOrigDraggingUpdated);
+        installSwizzle (cls, @selector(prepareForDragOperation:),
+                        (IMP) orbPrepareDragOp, &gOrigPrepareDragOp);
         gSwizzleInstalled = YES;
         NSLog (@"[DragMonitor] swizzle install complete");
     }
@@ -902,6 +1041,8 @@ void DragMonitor::setupDropHandling (void* juceRootNSView,
 #else  // Non-Mac stubs
 DragMonitor::DragMonitor()  {}
 DragMonitor::~DragMonitor() {}
+void DragMonitor::armRegionAction (const std::string&, std::function<void(double, double, bool)>) {}
+void DragMonitor::cancelRegionAction (const std::string&) {}
 void DragMonitor::arm (const std::string&) {}
 void DragMonitor::armRegionXml (const std::string&) {}
 void DragMonitor::disarm() {}

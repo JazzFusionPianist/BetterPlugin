@@ -55,7 +55,11 @@ export async function resolveSecureFile(client: SupabaseClient, url: string, api
     if(parsed.protocol==='https:' && parsed.hostname.endsWith('.supabase.co') && parsed.pathname.startsWith(legacyPrefix)){
       const path=decodeURIComponent(parsed.pathname.slice(legacyPrefix.length))
       if(!path || path.startsWith('/') || path.includes('..'))throw new Error('Invalid attachment path.')
-      const {data,error}=await client.storage.from('attachments').createSignedUrl(path,300)
+      const expiry=await client.rpc('legacy_attachment_expiry',{p_path:path})
+      if(expiry.error || typeof expiry.data!=='string')throw new Error('This legacy attachment is unavailable or expired.')
+      const seconds=Math.min(300,Math.floor((Date.parse(expiry.data)-Date.now())/1000))
+      if(!Number.isFinite(seconds)||seconds<1)throw new Error('This attachment has expired.')
+      const {data,error}=await client.storage.from('attachments').createSignedUrl(path,seconds)
       if(error || !data?.signedUrl)throw new Error('This legacy attachment is unavailable or access was revoked.')
       return data.signedUrl
     }

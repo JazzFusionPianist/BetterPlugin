@@ -13,6 +13,7 @@ export default async function handler(req: Request) {
       await rpc('', 'finish_file_deletion', { p_key: job.object_key, p_success: success }, true)
       if (success) completed++
     }
+    await rpc('', 'queue_expired_legacy_attachments', {}, true)
     const storageJobs=await rpc<Array<{id:number;bucket:string;name:string}>>('', 'claim_storage_erasures', {}, true)
     let storageCompleted=0
     for(const job of storageJobs){

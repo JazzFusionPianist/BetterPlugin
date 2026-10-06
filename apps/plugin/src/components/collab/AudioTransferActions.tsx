@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { CircleCheck, Download, LoaderCircle } from 'lucide-react'
-import { downloadAudio, useAudioDownloads } from '../../lib/audioDownloads'
+import { useAudioDownloads } from '../../lib/audioDownloads'
+import { audioFileTransfers, type AudioFileTrack, type AudioFileTransfer } from '@orb/core/lib/regionAudioFiles.ts'
+import { downloadAudioTransfer } from '../../lib/regionAudioDownloads'
 import { audioDownloadCache } from '../../lib/audioDownloadCache'
 import { callJuceNative, hasJuceNativeFunction } from '../../lib/juceBridge'
 import './audioTransfer.css'
@@ -8,20 +10,22 @@ import './audioTransfer.css'
 /** Downloading bytes never initiates a DAW drag. Both controls read the
  * same URL-keyed cache, including downloads started by a different row. */
 export default function AudioTransferActions({ tracks, groupKey, batch = false, className = '' }: {
-  tracks: { url: string; name: string }[]
+  tracks: AudioFileTrack[]
   groupKey: string
   batch?: boolean
   className?: string
 }) {
   const cache = useAudioDownloads()
-  const readyCount = tracks.filter(track => cache.peek(track.url)).length
-  const ready = tracks.length > 0 && readyCount === tracks.length
-  const pending = tracks.some(track => cache.progress(track.url))
+  let files: AudioFileTransfer[] = [], manifestError = ''
+  try { files = audioFileTransfers(tracks) } catch (e) { manifestError = String(e) }
+  const readyCount = files.filter(file => cache.peek(file.key)).length
+  const ready = files.length > 0 && readyCount === files.length
+  const pending = files.some(file => cache.progress(file.key))
   const [busy, setBusy] = useState(false), [arming, setArming] = useState(false)
   const [error, setError] = useState('')
   const mounted = useRef(true), armed = useRef(false), running = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fn = batch ? 'writeAudioFiles' : 'writeAudioFile'
+  const fn = batch || files.length > 1 ? 'writeAudioFiles' : 'writeAudioFile'
   const canDrag = hasJuceNativeFunction(fn)
   useEffect(() => {
     mounted.current = true
@@ -46,9 +50,9 @@ export default function AudioTransferActions({ tracks, groupKey, batch = false, 
     running.current = true; setBusy(true); setError('')
     const scope = cache.scope()
     let failed = 0
-    for (const track of tracks) {
+    for (const file of files) {
       if (!mounted.current || cache.scope() !== scope) break
-      try { await downloadAudio(track.url) } catch { failed++ }
+      try { await downloadAudioTransfer(file) } catch { failed++ }
     }
     if (mounted.current) {
       if (failed) setError(`${failed} ${failed === 1 ? 'download failed' : 'downloads failed'}. Click to retry missing tracks.`)
@@ -61,10 +65,11 @@ export default function AudioTransferActions({ tracks, groupKey, batch = false, 
     event.preventDefault(); event.stopPropagation()
     if (!ready || !canDrag || arming || armed.current) return
     // Re-read the cache: eviction/sign-out must never cause an implicit download.
-    const entries = tracks.map(track => ({ ...track, audio: audioDownloadCache.peek(track.url) }))
+    const entries = files.map(file => ({ ...file, audio: audioDownloadCache.peek(file.key) }))
     if (entries.some(entry => !entry.audio)) return
     setArming(true); setError('')
     try {
+      if (entries.length > 32) throw new Error('Drag up to 32 audio files at a time.')
       const result = await callJuceNative(fn, entries.flatMap(entry => [entry.audio!.base64, entry.name]), 120_000)
       if (!mounted.current) return
       if (result !== 'armed') throw new Error('Could not prepare the drag. Try again.')
@@ -78,11 +83,11 @@ export default function AudioTransferActions({ tracks, groupKey, batch = false, 
 
   const downloading = busy || pending
   const label = ready ? (batch ? 'All tracks downloaded' : 'Downloaded')
-    : downloading ? (batch ? `Downloading ${readyCount}/${tracks.length}` : 'Downloading')
-    : batch ? `Download all (${readyCount}/${tracks.length} ready)` : 'Download'
+    : downloading ? (batch ? `Downloading ${readyCount}/${files.length}` : 'Downloading')
+    : batch ? `Download all (${readyCount}/${files.length} ready)` : 'Download'
   return <span className={`audio-transfer-actions ${className}`}>
     <button type="button" className={`audio-download${ready ? ' complete' : ''}`}
-      disabled={ready || busy} aria-label={label} title={error || label}
+      disabled={ready || busy || !!manifestError || !files.length} aria-label={label} title={error || manifestError || label}
       onMouseDown={event => event.stopPropagation()}
       onClick={event => { event.stopPropagation(); void download() }}>
       {ready ? <CircleCheck size={16} aria-hidden="true" /> : downloading
@@ -93,6 +98,6 @@ export default function AudioTransferActions({ tracks, groupKey, batch = false, 
       onMouseDown={event => { void drag(event) }} onClick={event => event.stopPropagation()}>
       {arming ? 'Preparing drag…' : batch ? 'Drag all to DAW' : 'Drag to DAW'}
     </button>
-    {error && <span className="audio-transfer-error" role="alert">{error}</span>}
+    {(error || manifestError) && <span className="audio-transfer-error" role="alert">{error || manifestError}</span>}
   </span>
 }

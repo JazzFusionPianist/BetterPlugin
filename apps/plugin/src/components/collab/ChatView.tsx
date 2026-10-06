@@ -11,9 +11,14 @@ import ChatCalendar from './ChatCalendar'
 import { useCalendarEvents, type CalendarEvent, type NewCalendarEvent } from '../../hooks/useCalendarEvents'
 import { useEventCategories } from '../../hooks/useEventCategories'
 import { parseSchedule } from '../../lib/parseSchedule'
-import { mergeDroppedRegions, mergeFailureText, regionToFile, resolveDawDrop } from '../../lib/audioMerge'
+import { regionToFile } from '../../lib/audioMerge'
+import { createRegionBundleAttachment, isRegionArchive } from '../../lib/regionBundleIO'
+import { useLogicDropCapture } from '../../lib/logicDropCapture'
+import RegionBundleAttachment from './RegionBundleAttachment'
+import CaptureRegionsButton from './CaptureRegionsButton'
+import ExportTracksButton from './ExportTracksButton'
 import { DAW_FILE_LIMIT, fmtBytes } from '../../lib/limits'
-import { extractAudioTimeline, getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
+import { getDawTimelineSnapshot, initAudioTimelineTracking, refreshDawTimelineSnapshot, timelinePositionLabel } from '../../lib/audioTimeline'
 import { buildListenUrl, copyText } from '../../lib/shareLink'
 import { useResolvedUrl } from '../../lib/r2Access'
 import AudioTransferActions from './AudioTransferActions'
@@ -174,25 +179,6 @@ function VideoAttachment({ url }: { url: string }) {
       </div>
     </div>
   )
-}
-
-// ── JUCE 네이티브 함수 타입 선언 ──────────────────────────────
-// window.__JUCE__.backend is an event emitter, NOT an object with named methods.
-// Use callJuceNative() to invoke registered C++ functions.
-declare global {
-  interface Window {
-    __JUCE__?: {
-      initialisationData: {
-        __juce__functions: string[]
-        __juce__platform: string[]
-      }
-      backend: {
-        addEventListener:    (event: string, handler: (data: unknown) => void) => void
-        removeEventListener: (event: string, handler: (data: unknown) => void) => void
-        emitEvent:           (event: string, data: unknown) => void
-      }
-    }
-  }
 }
 
 
@@ -364,7 +350,7 @@ export function ShareLinkWord({ url, name, from, metadata, square = false }: {
   )
 }
 
-export function AudioAttachment({ url, name, metadata, compact = false, from }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null }) {
+export function AudioAttachment({ url, name, metadata, compact = false, from, previewOnly = false }: { url: string; name: string; metadata?: AttachmentTimelineMetadata; compact?: boolean; from?: string | null; previewOnly?: boolean }) {
   const resolved=useResolvedUrl(url)
   const [playing, setPlaying]     = useState(false)
   const [current, setCurrent]     = useState(0)
@@ -445,8 +431,8 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
               {position.text}
             </span>
           )}
-          <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />
-          <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
+          {!previewOnly && <ShareLinkWord url={url} name={name} from={from} metadata={metadata} square />}
+          {!previewOnly && <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />}
         </div>
         {compactExpanded && (
           <div className="stem-audio-details">
@@ -489,10 +475,10 @@ export function AudioAttachment({ url, name, metadata, compact = false, from }: 
 
       {player}
 
-      <div className="msg-att-row">
+      {!previewOnly && <div className="msg-att-row">
       <AudioTransferActions tracks={[{ url, name }]} groupKey={url} />
       <ShareLinkWord url={url} name={name} from={from} metadata={metadata} />
-      </div>
+      </div>}
     </div>
   )
 }
@@ -706,6 +692,11 @@ function GameInviteBubble ({
   )
 }
 
+export function ResolvedBundleAudio({ url, name }: { url: string; name: string }) {
+  const resolved = useResolvedUrl(url)
+  return <AudioAttachment compact previewOnly url={resolved} name={name} />
+}
+
 function AttachmentView({ url, type, name, metadata }: { url: string; type: AttachType; name: string; metadata?: AttachmentTimelineMetadata }) {
   if (type === 'image') return <ImageAttachment url={url} name={name} />
   if (type === 'video') return <VideoAttachment url={url} />
@@ -713,7 +704,10 @@ function AttachmentView({ url, type, name, metadata }: { url: string; type: Atta
   if (type === 'multi-audio') {
     let tracks: TrackInfo[] = []
     try { tracks = JSON.parse(url) } catch {}
-    if (tracks.length > 0) return <AudioGroupAttachment tracks={tracks} groupUrl={url} />
+    if (Array.isArray(tracks) && (tracks[0] as { regionBundle?: unknown })?.regionBundle)
+      return <RegionBundleAttachment value={tracks} renderAudio={entry =>
+        <ResolvedBundleAudio url={entry.url} name={entry.name} />} />
+    if (Array.isArray(tracks) && tracks.length > 0) return <AudioGroupAttachment tracks={tracks} groupUrl={url} />
   }
   return null
 }
@@ -788,11 +782,6 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   const [menuOpen, setMenuOpen]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadErrMsg, setUploadErrMsg] = useState('')
-  // Pending multi-region DAW drop awaiting the user's choice (merge into
-  // one file vs send each region separately). Single-region drops skip
-  // the sheet and attach directly. Holds the base64 payloads from C++.
-  const [dropChoice, setDropChoice] = useState<{ name: string; data: string }[] | null>(null)
-  const [merging, setMerging] = useState(false)
 
   useEffect(() => { initAudioTimelineTracking() }, [])
 
@@ -843,44 +832,6 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // ── C++ drop-in: Logic region → chat attachment ───────────────────────────
   // C++ resolves the NSFilePromise (Logic's async export), then fires
   // '__juceFileDrop' with base64-encoded audio data.
-  const processDroppedFileRef = useRef<(file: File) => Promise<void>>(async () => {})
-  useEffect(() => { processDroppedFileRef.current = processDroppedFile })
-  useEffect(() => {
-    processMultiDropRef.current = async (batch: { name: string; data: string }[]) => {
-      const toFile = (n: string, d: string) => {
-        const binary = atob(d)
-        const bytes  = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-        const ext = n.split('.').pop()?.toLowerCase() ?? ''
-        const mimeMap: Record<string, string> = {
-          wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
-          mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
-          ogg: 'audio/ogg', flac: 'audio/flac',
-        }
-        return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
-      }
-
-      setUploading(true)
-      const uploaded: TrackInfo[] = []
-      for (const { name: n, data: d } of batch) {
-        const file = toFile(n, d)
-        if (file.size > MAX_SIZE) { showErr(`${n}: too large (max ${MAX_SIZE_MB}MB)`); continue }
-        const att = await uploadFile(file, 'audio')
-        if (att) uploaded.push({ url: att.url, name: att.name })
-      }
-      setUploading(false)
-
-      if (uploaded.length === 1) {
-        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
-      } else if (uploaded.length > 1) {
-        await onSend('', {
-          url:  JSON.stringify(uploaded),
-          type: 'multi-audio',
-          name: `${uploaded.length} Tracks`,
-        })
-      }
-    }
-  })
 
   // Buffer for grouping multiple __juceFileDrop events from a single Logic drag.
   // C++ fires __juceDropGroupStart{count} first so we know how many to expect.
@@ -889,6 +840,16 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // registration) and the flush sorts by it. Old binaries keep arrival order.
   const dropBuffer        = useRef<{ name: string; data: string; seq?: number }[]>([])
   const dropGroupCount    = useRef(1)
+  const dropLogicCapture = useRef<string | null>(null)
+  const captureLogicDrop = useLogicDropCapture()
+  const captureLogicDropRef = useRef(captureLogicDrop); captureLogicDropRef.current = captureLogicDrop
+  const attachAudioRef = useRef<(files: File[]) => Promise<void>>(async () => {})
+  const dropRejected = useRef(false)
+  const conversationKey = JSON.stringify([conversationId, otherProfile?.id])
+  const conversationRef = useRef(conversationKey); conversationRef.current = conversationKey
+  const dropConversation = useRef(conversationKey)
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
   const processMultiDropRef = useRef<(files: { name: string; data: string }[]) => Promise<void>>(async () => {})
 
   // __juceDragComplete: fired by C++ the instant performDragOperation: is
@@ -910,7 +871,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   useEffect(() => {
     const handler = (e: Event) => {
       dropGroupCount.current = (e as CustomEvent<{ count: number }>).detail?.count ?? 1
+      dropLogicCapture.current = (e as CustomEvent).detail?.logicCaptureId ?? null
       dropBuffer.current = []
+      dropRejected.current = false
+      dropConversation.current = conversationRef.current
       // Freeze the host context at the actual drop, before async file promises
       // and uploads introduce seconds of delay.
       dropTimelineRef.current = getDawTimelineSnapshot()
@@ -928,10 +892,14 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
       if (dropBuffer.current.length < dropGroupCount.current) return
 
       const all = dropBuffer.current
+      const logicCaptureId = dropLogicCapture.current
+      dropLogicCapture.current = null
+      const destinationAtDrop = dropConversation.current
       dropBuffer.current = []
       dropGroupCount.current = 1
       if (all.every(f => Number.isFinite(f.seq)))
         all.sort((a, b) => a.seq! - b.seq!)
+      if (dropRejected.current || dropConversation.current !== conversationRef.current) return
 
       // A region over the drag limit stops here, out loud (base64 size
       // ≈ 1.33× the file; newer plug-in builds reject it natively).
@@ -941,10 +909,22 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         showErrRef.current(`${f.name} (${fmtBytes(bytes)}) is over ${fmtBytes(DAW_FILE_LIMIT)}, the limit for regions dragged from the daw — export it and drop the file instead`)
         return false
       })
-      if (batch.length === 0) return
+      if (batch.length === 0 || batch.length !== all.length) return
+
+      if (logicCaptureId) {
+        try {
+          const files = await captureLogicDropRef.current(batch.map(r => regionToFile(r.name, r.data)), logicCaptureId)
+          if (!mountedRef.current || destinationAtDrop !== conversationRef.current) return
+          if (onStemDrop) onStemDrop({ id: `logic-${crypto.randomUUID()}`, files, fallbackMetadata: null })
+          else await attachAudioRef.current(files)
+        } catch (error) { showErrRef.current(error instanceof Error ? error.message : 'Could not read Logic region positions.') }
+        return
+      }
 
       if (onStemDrop) {
+        const destination = conversationRef.current
         const freshTimeline = await (dropTimelinePromiseRef.current ?? refreshDawTimelineSnapshot())
+        if (destination !== conversationRef.current) return
         onStemDrop({
           id: `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           nativeFiles: batch,
@@ -955,10 +935,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         return
       }
 
-      // Instead of attaching immediately, offer a choice: send the dragged
-      // region as-is, or open the bar-range capture flow. The dropped
-      // files are stashed so "attach directly" can resume the old path.
-      setDropChoice(batch)
+      await processMultiDropRef.current(batch)
     }
     const onFile = (e: Event) => {
       if (outDragActive.current) return
@@ -969,6 +946,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     // The native side skipped a file over the drag limit; it still
     // counts toward the group so the rest of the drop isn't left waiting.
     const onRejected = (e: Event) => {
+      dropRejected.current = true
       const { name, size, limit } = (e as CustomEvent<{ name: string; size: number; limit: number }>).detail
       showErrRef.current(`${name} (${fmtBytes(size)}) is over ${fmtBytes(limit)}, the limit for regions dragged from the daw — export it and drop the file instead`)
       dropGroupCount.current = Math.max(0, dropGroupCount.current - 1)
@@ -1188,25 +1166,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     if (files.length === 0) return
     setMenuOpen(false)
 
-    // 오디오 여러 개 선택 → 멀티 트랙 메시지
-    if (type === 'audio' && files.length > 1) {
-      setUploading(true)
-      const uploaded: TrackInfo[] = []
-      for (const file of files) {
-        if (file.size > MAX_SIZE) { showErr(`${file.name}: too large (max ${MAX_SIZE_MB}MB)`); continue }
-        const att = await uploadFile(file, 'audio')
-        if (att) uploaded.push({ url: att.url, name: att.name })
-      }
-      setUploading(false)
-      if (uploaded.length === 1) {
-        await onSend('', { url: uploaded[0].url, type: 'audio', name: uploaded[0].name })
-      } else if (uploaded.length > 1) {
-        await onSend('', {
-          url:  JSON.stringify(uploaded),
-          type: 'multi-audio',
-          name: `${uploaded.length} Tracks`,
-        })
-      }
+    if (type === 'audio' && (files.length > 1 || files.some(isRegionArchive))) {
+      await attachAudioFiles(files)
       if (e.target) e.target.value = ''
       return
     }
@@ -1249,6 +1210,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   }
 
   const processDroppedFile = async (file: File, metadata?: AttachmentTimelineMetadata) => {
+    if (isRegionArchive(file)) { await attachAudioFiles([file]); return }
     const mime = file.type
     const ext  = file.name.split('.').pop()?.toLowerCase() ?? ''
     const AUDIO_EXTS = new Set(['mp3','wav','aif','aiff','m4a','ogg','flac','caf','opus','aac'])
@@ -1267,113 +1229,25 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     else await onSend('', { ...att, metadata })
   }
 
-  // base64 audio payload (from a DAW region drop) → File
-  const b64ToAudioFile = (n: string, d: string) => {
-    const binary = atob(d)
-    const bytes  = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    const ext  = n.split('.').pop()?.toLowerCase() ?? ''
-    const mimeMap: Record<string, string> = {
-      wav: 'audio/wav', aif: 'audio/aiff', aiff: 'audio/aiff',
-      mp3: 'audio/mpeg', m4a: 'audio/mp4', caf: 'audio/x-caf',
-      ogg: 'audio/ogg', flac: 'audio/flac',
-    }
-    return new File([bytes], n, { type: mimeMap[ext] ?? 'audio/aiff' })
-  }
-
-  // A single dragged region needs no choice — attach it straight away.
-  // Several regions: their BWF stamps decide first. Side by side on one
-  // timeline → merged into one placed clip; overlapping → two tracks,
-  // sent separately. Only unstamped files still ask.
-  useEffect(() => {
-    if (!dropChoice) return
-    if (dropChoice.length === 1) {
-      const b = dropChoice
-      setDropChoice(null)
-      void attachDroppedBatch(b)
-      return
-    }
-    let cancelled = false
-    setMerging(true)
-    void (async () => {
-      const resolved = await resolveDawDrop(dropChoice.map(r => regionToFile(r.name, r.data)))
-      if (cancelled) return
-      setMerging(false)
-      if (resolved.kind === 'merged') {
-        setDropChoice(null)
-        await sendMergedFile(resolved.file)
-      } else if (resolved.reason === 'overlap') {
-        const b = dropChoice
-        setDropChoice(null)
-        await attachDroppedBatch(b)
-      }
-      // otherwise the choice sheet stays up
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dropChoice])
-
-  // Upload one merged clip. Its own bext stamp makes the position exact.
-  const sendMergedFile = async (file: File) => {
-    if (file.size > MAX_SIZE) { showErr(`merged file too large (max ${MAX_SIZE_MB} MB)`); return }
-    const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
+  // Upload the complete drop without merging or inferring source tracks.
+  const attachAudioFiles = async (files: File[]) => {
+    const destination = conversationRef.current
     setUploading(true)
-    const att = await uploadFile(file, 'audio')
-    setUploading(false)
-    if (att) await onSend('', { ...att, metadata: metadata ?? undefined })
-    else showErr('upload failed — check the file size or your connection.')
-    dropTimelineRef.current = null
+    try {
+      if (files.some(f => f.size > MAX_SIZE)) throw new Error(`File too large (max ${MAX_SIZE_MB}MB). The bundle was not sent.`)
+      const attachment = await createRegionBundleAttachment(files, file => uploadFile(file, 'audio'))
+      if (!mountedRef.current || destination !== conversationRef.current) throw new Error('Conversation changed. The bundle was not sent.')
+      if (!await onSend('', attachment)) showErr('The region bundle was not sent. Please try again.')
+    } catch (error) { showErr(error instanceof Error ? error.message : 'Could not send the region bundle.') }
+    finally { setUploading(false); dropTimelineRef.current = null }
   }
 
-  // "Merge into one" branch — the user's call for unstamped regions:
-  // joined back to back (timeline order when every region carries an
-  // exact stamp, the batch's own order otherwise).
-  const mergeAndSend = async (batch: { name: string; data: string }[]) => {
-    setMerging(true)
-    const result = await mergeDroppedRegions(batch)
-    setMerging(false)
-    setDropChoice(null)
-    if (!result.ok) { showErr(`${mergeFailureText(result.reason)} — send them separately.`); return }
-    await sendMergedFile(result.file)
-  }
-
-  // "Attach directly" branch of the drop choice — sends the dragged
-  // region(s) as-is (single audio, or a multi-track message).
   const attachDroppedBatch = async (batch: { name: string; data: string }[]) => {
-    if (batch.length === 1) {
-      const file = b64ToAudioFile(batch[0]!.name, batch[0]!.data)
-      const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
-      await processDroppedFile(file, metadata ?? undefined)
-      dropTimelineRef.current = null
-      return
-    }
-    setUploading(true)
-    const uploaded: TrackInfo[] = []
-    for (const { name: n, data: d } of batch) {
-      const file = b64ToAudioFile(n, d)
-      if (file.size > MAX_SIZE) { showErr(`${n}: too large (max ${MAX_SIZE_MB}MB)`); continue }
-      const metadata = await extractAudioTimeline(file, dropTimelineRef.current)
-      const att = await uploadFile(file, 'audio')
-      if (att) uploaded.push({ url: att.url, name: att.name, metadata: metadata ?? undefined })
-    }
-    setUploading(false)
-    if (uploaded.length === 1) {
-      await onSend('', {
-        url: uploaded[0]!.url,
-        type: 'audio',
-        name: uploaded[0]!.name,
-        metadata: uploaded[0]!.metadata,
-      })
-    } else if (uploaded.length > 1) {
-      await onSend('', {
-        url: JSON.stringify(uploaded),
-        type: 'multi-audio',
-        name: `${uploaded.length} Tracks`,
-        metadata: dropTimelineRef.current ?? undefined,
-      })
-    }
-    dropTimelineRef.current = null
+    try { await attachAudioFiles(batch.map(r => regionToFile(r.name, r.data))) }
+    catch { showErr('Could not read the region bundle.') }
   }
+  useEffect(() => { attachAudioRef.current = attachAudioFiles })
+  useEffect(() => { processMultiDropRef.current = attachDroppedBatch })
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
@@ -1418,6 +1292,7 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
 
     const files = Array.from(e.dataTransfer.files ?? [])
     if (files.length === 0) return
+    if (files.some(isRegionArchive)) { await attachAudioFiles(files); return }
 
     // macOS Finder 드래그 시 MIME type이 비어있거나 잘못 올 수 있어서 확장자도 함께 체크
     const AUDIO_EXTS = new Set(['mp3','wav','aif','aiff','m4a','ogg','flac','caf','opus','aac'])
@@ -1429,20 +1304,18 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
     const otherFiles = files.filter(f => !isAudioFile(f))
 
     if (audioFiles.length > 0 && onStemDrop) {
+      const destination = conversationRef.current
       const freshTimeline = await refreshDawTimelineSnapshot()
+      if (destination !== conversationRef.current) return
       onStemDrop({
         id: `files-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         files: audioFiles,
         fallbackMetadata: freshTimeline ?? getDawTimelineSnapshot(),
       })
-    }
+    } else if (audioFiles.length > 0) await attachAudioFiles(audioFiles)
 
     // Images and video remain regular chat attachments.
     for (const file of otherFiles) await processDroppedFile(file)
-    if (audioFiles.length > 0) return
-
-    const file = files[0]
-    if (file) await processDroppedFile(file)
   }
 
   // 날짜별 그룹 구분선
@@ -1666,10 +1539,10 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                       : null
                 )}
                 {g.msg.content && <div className="mb">{linkify(g.msg.content)}</div>}
-                {g.msg.content && firstUrl(g.msg.content) && (
+                {!g.msg.private && g.msg.content && firstUrl(g.msg.content) && (
                   <LinkPreviewCard url={firstUrl(g.msg.content)!} />
                 )}
-                {g.msg.content && conversationId && !chipDone.has(g.msg.id) && looksLikeSchedule(g.msg.content) && (
+                {!g.msg.private && g.msg.content && conversationId && !chipDone.has(g.msg.id) && looksLikeSchedule(g.msg.content) && (
                   <ScheduleChip
                     text={g.msg.content}
                     onParse={parseChatSchedule}
@@ -1679,7 +1552,8 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
                 )}
                 <div className="mtime">
                   <span>{formatTime(g.msg.created_at)}</span>
-                  {isMine && readers.length > 0 && (
+                  {g.msg.pending && <span role="status">Sending...</span>}
+                  {isMine && !g.msg.pending && readers.length > 0 && (
                     groupHeader ? (
                       <span
                         className="mg-readby"
@@ -1779,55 +1653,17 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
         </div>
       )}
 
-      {/* Multi-region DAW drop → merge into one file, or send separately */}
-      {dropChoice && dropChoice.length > 1 && (
-        <div className="dawcap-overlay" role="dialog" aria-modal="true">
-          <div className="dawcap-backdrop" onClick={merging ? undefined : () => setDropChoice(null)} />
-          <div className="dawcap-sheet">
-            <div className="dawcap-head">
-              <span className="dawcap-title">{dropChoice.length} regions from DAW</span>
-              <button className="dawcap-close" onClick={() => !merging && setDropChoice(null)} aria-label="Close">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 2l8 8M10 2l-8 8" /></svg>
-              </button>
-            </div>
-
-            {merging ? (
-              <div className="dawcap-progress">
-                <div className="dawcap-progress-spinner" />
-                <div className="dawcap-progress-text">merging {dropChoice.length} regions…</div>
-              </div>
-            ) : (
-              <div className="dropchoice-grid">
-                <button className="dropchoice-card" onClick={() => mergeAndSend(dropChoice)}>
-                  <div className="dropchoice-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 8l-4 4 4 4M17 8l4 4-4 4M3 12h18"/>
-                    </svg>
-                  </div>
-                  <div className="dropchoice-label">merge into one</div>
-                  <div className="dropchoice-sub">regions on one track</div>
-                </button>
-                <button className="dropchoice-card" onClick={() => { const b = dropChoice; setDropChoice(null); void attachDroppedBatch(b) }}>
-                  <div className="dropchoice-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="15" width="18" height="5" rx="1.5"/>
-                    </svg>
-                  </div>
-                  <div className="dropchoice-label">send separately</div>
-                  <div className="dropchoice-sub">one file per region</div>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Input bar */}
       <div className="input-bar">
+        <CaptureRegionsButton key={conversationId} className="attach-btn"
+          onCapture={file => attachAudioFiles([file])} onError={showErr} />
+        <ExportTracksButton key={`tracks-${conversationId}`} className="attach-btn"
+          onCapture={file => attachAudioFiles([file])} />
         {/* 숨겨진 파일 입력들 */}
         <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'image')} />
         <input ref={vidRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleFile(e, 'video')} />
-        <input ref={audRef} type="file" accept="audio/*" multiple style={{ display: 'none' }} onChange={e => handleFile(e, 'audio')} />
+        <input ref={audRef} type="file" accept="audio/*,.orb-regions.zip" multiple style={{ display: 'none' }} onChange={e => handleFile(e, 'audio')} />
 
         {/* + 버튼 */}
         <button

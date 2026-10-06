@@ -19,6 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, AttachType, ChatTarget, AttachmentTimelineMetadata } from '../types/collab'
 import { getOrCreateDmConversation } from '../lib/conversations'
 import { sendAccountMessage } from '../lib/accountChat'
+import {readAttachmentStatus,withAttachmentRetention,expireAttachments} from '../lib/attachmentRetention'
 
 import { messageId, decryptChatMessage } from '../lib/chatCrypto'
 
@@ -43,6 +44,10 @@ export function useMessages(
   const channelRef = useRef<ReturnType<SupabaseClient['channel']> | null>(null)
 
   useEffect(() => { convIdRef.current = convId }, [convId])
+  useEffect(()=>{
+    const timer=setInterval(()=>setMessages(previous=>expireAttachments(previous)),30000)
+    return()=>clearInterval(timer)
+  },[])
   useEffect(() => {
     const delivered=(event:Event)=>{
       if((event as CustomEvent).detail?.conversation===convIdRef.current)setDeliveryVersion(n=>n+1)
@@ -92,8 +97,9 @@ export function useMessages(
 
       if (!alive) return
       const clear=await Promise.all(((data as Message[]) ?? []).reverse().map(m=>decryptChatMessage(supabase,currentUserId,m)))
+      const statuses=await readAttachmentStatus(supabase,cid)
       if(!alive)return
-      setMessages(clear)
+      setMessages(clear.map(m=>withAttachmentRetention(m,statuses)))
       setLoading(false)
 
       // Subscribe AFTER history loads so the dedupe below has the right
@@ -107,7 +113,7 @@ export function useMessages(
         }, async (payload) => {
           const incoming = payload.new as Message
           if(incoming.conversation_id!==cid)return
-          const msg = await decryptChatMessage(supabase,currentUserId,incoming)
+          const msg = withAttachmentRetention(await decryptChatMessage(supabase,currentUserId,incoming),await readAttachmentStatus(supabase,cid))
           if(!alive)return
           if (msg.conversation_id !== convIdRef.current) return
           setMessages(prev => {
@@ -188,6 +194,7 @@ export function useMessages(
       attachment_metadata: attachment?.metadata ?? null,
       attachment_expires_at: expiresAt,
       attachment_expired: false,
+      pending: true,
     }
 
     setMessages(prev => [...prev, optimistic])
@@ -195,7 +202,8 @@ export function useMessages(
     let error: unknown
     try {
       await sendAccountMessage(supabase,currentUserId,id,cid,content,attachment)
-      setMessages(prev => prev.map(m => m.id === optimistic.id ? {...m, id} : m))
+      const statuses=attachment?await readAttachmentStatus(supabase,cid):[]
+      setMessages(prev=>prev.map(m=>m.id===optimistic.id?withAttachmentRetention({...m,id,pending:false},statuses):m))
     }catch(e){error=e}
 
     if (error) {

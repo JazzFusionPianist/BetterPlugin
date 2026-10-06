@@ -1,8 +1,8 @@
 {
-  "name": "orb-monorepo",
+  "name": "slur-monorepo",
   "private": true,
   "version": "0.0.0",
-  "description": "Orb \u2014 collaboration for music makers. Plugin / web / mobile / marketing.",
+  "description": "Slur — collaboration for music makers. Plugin / web / mobile / marketing.",
   "scripts": {
     "dev": "pnpm --filter plugin dev",
     "dev:plugin": "pnpm --filter plugin dev",

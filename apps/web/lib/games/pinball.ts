@@ -800,7 +800,7 @@ export function drawPinball(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = withAlpha(th.blue, 0.5)
-  ctx.fillText('orb pinball', 210, 122)
+  ctx.fillText('Slur pinball', 210, 122)
 
   // Inlane arrows — faint blue chevrons pointing at the flippers
   ctx.strokeStyle = withAlpha(th.blue, 0.4)

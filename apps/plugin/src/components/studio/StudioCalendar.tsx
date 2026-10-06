@@ -7,11 +7,12 @@
  * Views are words: month / week / list. One family, no icons.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { CalendarEvent } from '../../hooks/useCalendarEvents'
 import type { EventCategory } from '../../hooks/useEventCategories'
 import { EventPage, type EventPatch } from '../collab/CalendarPanel'
 import { NoteGlyph } from './StudioHomeSchedule'
+import { usePanel } from './panel'
 
 interface Props {
   currentUserId: string
@@ -22,6 +23,8 @@ interface Props {
   onUpdate: (id: string, patch: EventPatch) => void
   /** Free text for the chosen day → parse → persist. */
   onAdd: (text: string, dayKey: string) => Promise<CalendarEvent[]>
+  /** The side panel's way back, set before the title (my calendar only; a room's has its own). */
+  back?: ReactNode
 }
 
 type View = 'month' | 'week' | 'list'
@@ -74,9 +77,12 @@ function placeDay (evs: CalendarEvent[]): Placed[] {
 }
 
 export default function StudioCalendar({
-  currentUserId, events, categories, groupTitleById, onDelete, onUpdate, onAdd,
+  currentUserId, events, categories, groupTitleById, onDelete, onUpdate, onAdd, back,
 }: Props) {
   const todayKey = keyOf(new Date())
+  // Slur DAW's side panel: the month's cells are too slim for a title, so a day shows a dot per event,
+  // and the week's frame (seven columns of hours) is left out — month and list are what fit
+  const panel = usePanel()
   const [view, setView] = useState<View>('month')
   const [selected, setSelected] = useState(todayKey)
   /** First of the month on the month page. */
@@ -219,9 +225,10 @@ export default function StudioCalendar({
     <div className="sc">
       <div className="sc-head">
         <div className="sc-title-row">
+          {back}
           <h2 className="sc-title">{title}</h2>
           <span className="sc-views">
-            {(['month', 'week', 'list'] as View[]).map(v => (
+            {((panel ? ['month', 'list'] : ['month', 'week', 'list']) as View[]).map(v => (
               <button key={v} className={`sc-view${view === v ? ' on' : ''}`} onClick={() => setView(v)}>{v}</button>
             ))}
           </span>
@@ -265,9 +272,15 @@ export default function StudioCalendar({
                           className={`sc-cell${out ? ' out' : ''}${k === selected ? ' sel' : ''}${di >= 5 ? ' wkend' : ''}`}
                           onClick={() => pick(k)}>
                           <span className={`sc-num${k === todayKey ? ' today' : ''}`}>{d.getDate()}</span>
-                          {/* all of them when they fit; otherwise one row is the "+n more" */}
-                          {(evs.length <= fit ? evs : evs.slice(0, fit - 1)).map(pill)}
-                          {evs.length > fit && <span className="sc-more">+{evs.length - (fit - 1)} more</span>}
+                          {panel ? (
+                            evs.length > 0 && <span className="sc-dots">{evs.slice(0, 4).map(e => <i key={e.id} style={{ background: e.category_color || DEFAULT_COLOR }} />)}</span>
+                          ) : (
+                            <>
+                              {/* all of them when they fit; otherwise one row is the "+n more" */}
+                              {(evs.length <= fit ? evs : evs.slice(0, fit - 1)).map(pill)}
+                              {evs.length > fit && <span className="sc-more">+{evs.length - (fit - 1)} more</span>}
+                            </>
+                          )}
                         </button>
                       )
                     })}

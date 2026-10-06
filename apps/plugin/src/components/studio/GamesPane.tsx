@@ -77,11 +77,14 @@ interface Props {
   headline?: string
   /** Keep mounted but off the wall (a live room must not drop). */
   hidden?: boolean
+  /** Slur DAW's side panel (about 300 wide): the lobby stands its arches two by two, and a game is
+   *  drawn as the plug-in's small window draws it — the wide colour rooms need a wide pane. */
+  panel?: boolean
 }
 
 export default function GamesPane({
   supabase, userId, me, friendProfiles, onlineIds, screen, joinNonce, inviteConversationId,
-  onSelectGame, onBackToList, onClose, headline, hidden,
+  onSelectGame, onBackToList, onClose, headline, hidden, panel = false,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
 
@@ -98,8 +101,9 @@ export default function GamesPane({
 
   const common = { supabase, currentUserId: userId, currentUserProfile: me, onClose: onBackToList }
   const cls = [
-    // the pane is always wide: the arcade lobby and colour rooms (arcade.css)
-    'wd-games', 'plugin', 'games', 'game-open', 'screen-wide', 'arcade-skin',
+    // the pane is wide: the arcade lobby and colour rooms (arcade.css). The side panel is not: it keeps
+    // the lobby, and leaves the rooms to the small window's own layout (collab.css)
+    'wd-games', 'plugin', 'games', 'game-open', panel ? 'in-panel' : 'screen-wide arcade-skin',
     screen !== 'list' ? `gwall-${screen} dark` : '',
   ].filter(Boolean).join(' ')
 
@@ -107,7 +111,7 @@ export default function GamesPane({
     <div ref={hostRef} className={cls} hidden={hidden}>
       {/* The studio line sits over the wall only; a game brings its own
           header (‹ back to the wall), so the bar steps out of its way. */}
-      <ArcadeContext.Provider value>
+      <ArcadeContext.Provider value={!panel}>
       <div className="content">
         <div className="view gview">
           {/* the arcade carries its own line: the title and a way out */}
@@ -116,6 +120,7 @@ export default function GamesPane({
               title={inviteConversationId ? `invite ${headline ?? 'them'} to…` : undefined}
               onSelectGame={onSelectGame}
               onClose={onClose}
+              upright={panel}
             />
           )}
           {screen === 'chess' && (

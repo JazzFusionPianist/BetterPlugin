@@ -867,6 +867,13 @@
 .games-panel.arcade-skin.wall-ear_training .et-scorebar .et-score-sep { display: none; }
 .games-panel.arcade-skin.wall-ear_training .et-score-mine { color: var(--ink); }
 .games-panel.arcade-skin.wall-ear_training .et-score-theirs { color: rgba(251, 250, 247, 0.32); }
+/* solo practice: the faint numeral is my own best; three lamps count the misses */
+.games-panel.arcade-skin.wall-ear_training .et-scorebar.et-solo .et-score-theirs { display: inline; }
+.games-panel.arcade-skin.wall-ear_training .et-solo-bestnum { display: none; }
+.games-panel.arcade-skin.wall-ear_training .et-solo-misses { gap: 6px; }
+.games-panel.arcade-skin.wall-ear_training .et-miss { width: 10px; height: 10px; border: 1.5px solid rgba(251, 250, 247, 0.55); opacity: 1; }
+.games-panel.arcade-skin.wall-ear_training .et-miss:first-of-type { margin-left: 6px; }
+.games-panel.arcade-skin.wall-ear_training .et-miss.on { background: var(--ar-accent); border-color: var(--ar-accent); }
 .games-panel.arcade-skin.wall-ear_training .game-view .game-area {
   grid-column: 1; grid-row: 1 / -1;
   display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 520px) minmax(130px, 1fr);

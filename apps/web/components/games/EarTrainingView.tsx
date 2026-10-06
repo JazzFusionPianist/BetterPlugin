@@ -15,6 +15,7 @@ import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '@/lib/
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
+import EarTrainingSolo, { SOLO_DIFFICULTIES } from './EarTrainingSolo'
 
 interface Props {
   supabase: SupabaseClient
@@ -84,6 +85,18 @@ export default function EarTrainingView ({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [computerStartPending, setComputerStartPending] = useState(false)
+  // Solo practice: no room, no opponent — its own screen (EarTrainingSolo).
+  const [solo, setSolo] = useState(false)
+  const [soloDifficulty, setSoloDifficulty] = useState<Difficulty>(() => {
+    try {
+      const d = localStorage.getItem('orb_et_solo_diff') as Difficulty | null
+      return d && SOLO_DIFFICULTIES.includes(d) ? d : 'basic'
+    } catch { return 'basic' }
+  })
+  const pickSoloDifficulty = useCallback((d: Difficulty) => {
+    setSoloDifficulty(d)
+    try { localStorage.setItem('orb_et_solo_diff', d) } catch { /* not kept */ }
+  }, [])
 
   // Auto-resume any in-progress game on mount, or auto-accept a pending
   // invite that landed us on this screen.
@@ -471,7 +484,24 @@ export default function EarTrainingView ({
   } else if (isLobby && !hasOpponent) {
     overlay = (
       <GameOverlayCard emoji="🎧" title={t('game.earTraining')} className="et-lobby-card">
-        <button className="game-invite-btn" onClick={() => setShowInvite(true)}>
+        {/* solo first: most ears train alone */}
+        {!room && (
+          <>
+            <button className="game-invite-btn" onClick={() => setSolo(true)}>
+              {t('fb.playSolo')}
+            </button>
+            <div className="game-computer-picker" role="radiogroup" aria-label={t('et.difficulty')}>
+              {SOLO_DIFFICULTIES.map(d => (
+                <button key={d} type="button" role="radio" aria-checked={soloDifficulty === d}
+                  className={`game-computer-count${soloDifficulty === d ? ' selected' : ''}`}
+                  onClick={() => pickSoloDifficulty(d)}>
+                  {t(`et.${d}`)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <button className={`game-invite-btn${room ? '' : ' game-computer-btn'}`} onClick={() => setShowInvite(true)}>
           {t('chess.inviteCta')}
         </button>
         <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer}>
@@ -480,6 +510,10 @@ export default function EarTrainingView ({
         {room && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
       </GameOverlayCard>
     )
+  }
+
+  if (solo && !room) {
+    return <EarTrainingSolo difficulty={soloDifficulty} onDifficulty={pickSoloDifficulty} onExit={() => setSolo(false)} />
   }
 
   return (

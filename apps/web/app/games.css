@@ -1001,6 +1001,12 @@
   background: var(--bg2); border: 1px solid var(--border);
   padding: 3px 10px; border-radius: 8px;
 }
+/* solo practice: one score in the header; the best and the misses are
+   written in the two name rows */
+.et-scorebar.et-solo .et-score-sep, .et-scorebar.et-solo .et-score-theirs { display: none; }
+.et-solo-misses { display: inline-flex; align-items: center; gap: 5px; }
+.et-miss { width: 7px; height: 7px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.55; }
+.et-miss.on { background: #D6402E; border-color: #D6402E; opacity: 1; }
 .et-score-mine { color: var(--blue); }
 .et-score-theirs { color: var(--t2); }
 .et-score-sep { color: var(--t3); margin: 0 2px; }

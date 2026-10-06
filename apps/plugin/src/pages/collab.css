@@ -10335,6 +10335,16 @@ text.sg-word { fill: rgba(246, 243, 234, 0.55); pointer-events: all; }
 .sol-slot { border: 1px dashed rgba(246, 243, 234, 0.35); background: rgba(0, 0, 0, 0.15); }
 .sol-recycle { display: flex; align-items: center; justify-content: center; color: rgba(246, 243, 234, 0.6); font-size: 18px; }
 .sol-card.selected { outline: 2px solid #FFD84D; outline-offset: -1px; }
+/* carried cards ride the pointer (the view sets --sol-dx / --sol-dy on the
+   layout); they let the pointer through so the drop is read beneath them */
+.sol-face { cursor: grab; touch-action: none; }
+.sol-card.dragging {
+  transform: translate(var(--sol-dx, 0px), var(--sol-dy, 0px));
+  z-index: 1000 !important; pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.sol-layout.carrying, .sol-layout.carrying .sol-card { cursor: grabbing; }
+.sol-foundation .sol-under { position: absolute; top: 0; left: 0; }
 /* the empty wall is a camera: drag to carry the flow */
 .sg-wall { cursor: grab; }
 .sg-wall.dragging.pan { cursor: grabbing; }

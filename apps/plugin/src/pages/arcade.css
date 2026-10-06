@@ -1336,6 +1336,7 @@
 .plugin.arcade-skin.gwall-solitaire .sol-rank-suit { font-size: 19cqw; }
 .plugin.arcade-skin.gwall-solitaire .sol-suit { right: 10%; bottom: 7%; font-size: 34cqw; }
 .plugin.arcade-skin.gwall-solitaire .sol-card.selected { outline: 3px solid #F5B82E; outline-offset: -1px; }
+.plugin.arcade-skin.gwall-solitaire .sol-card.dragging { box-shadow: 0 10px 0 rgba(26, 25, 23, 0.18); }
 .plugin.arcade-skin.gwall-solitaire .sol-waste .sol-fan { box-shadow: -2.5px 0 0 var(--gwall); }
 .plugin.arcade-skin.gwall-solitaire .sol-count { bottom: auto; top: calc(100% + 8px); font: 400 13px var(--f-sans); color: var(--t2); }
 

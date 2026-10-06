@@ -26,25 +26,27 @@ function sameSource(a: SolSource | null, b: SolSource): boolean {
   return false
 }
 
-function CardFace({ card, className, style, onClick, onDoubleClick }: {
+function CardFace({ card, className, style, onClick, onDoubleClick, onPointerDown }: {
   card: Card | null
   className?: string
   style?: CSSProperties
   onClick?: (e: React.MouseEvent) => void
   onDoubleClick?: (e: React.MouseEvent) => void
+  onPointerDown?: (e: React.PointerEvent) => void
 }) {
   if (!card) return <div className={`sol-card sol-slot${className ? ' ' + className : ''}`} style={style} onClick={onClick} />
   if (!card.faceUp) return <div className={`sol-card sol-back${className ? ' ' + className : ''}`} style={style} onClick={onClick} />
   return (
-    <div className={`sol-card sol-face${isRed(card.suit) ? ' red' : ''}${className ? ' ' + className : ''}`} style={style} onClick={onClick} onDoubleClick={onDoubleClick}>
+    <div className={`sol-card sol-face${isRed(card.suit) ? ' red' : ''}${className ? ' ' + className : ''}`} style={style} onClick={onClick} onDoubleClick={onDoubleClick} onPointerDown={onPointerDown}>
       <span className="sol-rank">{rankLabel(card.rank)}<span className="ar-only sol-rank-suit">{SUIT_GLYPH[card.suit]}</span></span>
       <span className="sol-suit">{SUIT_GLYPH[card.suit]}</span>
     </div>
   )
 }
 
-/** Klondike — tap a card, then tap where it goes; double-tap sends it
- *  to a foundation. Draw 1 or 3 is picked on the start card. */
+/** Klondike — drag a card (or a run) to where it goes, or tap it and then
+ *  tap the place; double-tap sends it to a foundation. Draw 1 or 3 is
+ *  picked on the start card. */
 export default function SolitaireView({ supabase, currentUserId, onClose }: Props) {
   const { t } = useT()
   const arcade = useArcade()
@@ -133,6 +135,85 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
     if (gameRef.current.autoFoundation(src)) { setSelected(null); afterMove() }
   }, [phase, afterMove])
 
+  // ── Drag: pick a card (or a run) up and let it go where it belongs. A
+  // press that never moves is still a tap. The carried cards follow the
+  // pointer through two CSS variables on the layout, so nothing re-renders
+  // while they travel. ──
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+  const [dragSrc, setDragSrc] = useState<SolSource | null>(null)
+  const dragRef = useRef<{ src: SolSource; x: number; y: number; el: HTMLElement; pointerId: number; active: boolean } | null>(null)
+  const carriedRef = useRef(false)   // the click that ends a carry is not a tap
+
+  const beginDrag = useCallback((src: SolSource, e: React.PointerEvent) => {
+    if (phase !== 'live' || (e.pointerType === 'mouse' && e.button !== 0)) return
+    if (gameRef.current.cardsAt(src).length === 0) return
+    dragRef.current = { src, x: e.clientX, y: e.clientY, el: e.currentTarget as HTMLElement, pointerId: e.pointerId, active: false }
+  }, [phase])
+
+  useEffect(() => {
+    const clear = () => {
+      dragRef.current = null
+      setDragSrc(null)
+      layoutRef.current?.style.removeProperty('--sol-dx')
+      layoutRef.current?.style.removeProperty('--sol-dy')
+    }
+    const move = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d || e.pointerId !== d.pointerId) return
+      const dx = e.clientX - d.x, dy = e.clientY - d.y
+      if (!d.active) {
+        if (Math.hypot(dx, dy) < 6) return
+        d.active = true
+        setSelected(null)
+        setDragSrc(d.src)
+      }
+      layoutRef.current?.style.setProperty('--sol-dx', `${dx}px`)
+      layoutRef.current?.style.setProperty('--sol-dy', `${dy}px`)
+    }
+    const up = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d || e.pointerId !== d.pointerId) return
+      if (!d.active) { dragRef.current = null; return }
+      carriedRef.current = true
+      window.setTimeout(() => { carriedRef.current = false }, 80)
+      // It lands on whichever pile or foundation the carried card covers most.
+      const card = d.el.getBoundingClientRect()
+      let best: SolTarget | null = null
+      let bestArea = 0
+      for (const el of Array.from(layoutRef.current?.querySelectorAll<HTMLElement>('[data-sol-drop]') ?? [])) {
+        const r = el.getBoundingClientRect()
+        const w = Math.min(card.right, r.right) - Math.max(card.left, r.left)
+        const h = Math.min(card.bottom, r.bottom) - Math.max(card.top, r.top)
+        if (w <= 0 || h <= 0 || w * h <= bestArea) continue
+        const [kind, n] = (el.dataset.solDrop ?? '').split(':')
+        const dst: SolTarget = kind === 'f' ? { kind: 'foundation', index: Number(n) } : { kind: 'tableau', pile: Number(n) }
+        if (dst.kind === 'tableau' && d.src.kind === 'tableau' && d.src.pile === dst.pile) continue   // back where it came from
+        if (dst.kind === 'foundation' && d.src.kind === 'foundation' && d.src.index === dst.index) continue
+        best = dst
+        bestArea = w * h
+      }
+      const src = d.src
+      clear()
+      if (best && e.type === 'pointerup') tryMove(src, best)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [tryMove])
+
+  const isDragged = (src: SolSource): boolean => {
+    if (!dragSrc || dragSrc.kind !== src.kind) return false
+    if (src.kind === 'waste') return true
+    if (src.kind === 'foundation' && dragSrc.kind === 'foundation') return src.index === dragSrc.index
+    if (src.kind === 'tableau' && dragSrc.kind === 'tableau') return src.pile === dragSrc.pile && src.index >= dragSrc.index
+    return false
+  }
+
   const handleDraw = useCallback(() => {
     if (phase !== 'live') return
     setSelected(null)
@@ -209,7 +290,11 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
       }}
       fillBoard
       board={
-        <div className={`sol-layout${phase !== 'live' ? ' idle' : ''}`}>
+        <div
+          className={`sol-layout${phase !== 'live' ? ' idle' : ''}${dragSrc ? ' carrying' : ''}`}
+          ref={layoutRef}
+          onClickCapture={e => { if (carriedRef.current) { carriedRef.current = false; e.stopPropagation() } }}
+        >
           <div className="sol-top">
             <div className="sol-stock" onClick={handleDraw} title={t('sol.draw')}>
               {g.stock.length > 0 ? <div className="sol-card sol-back" /> : <div className="sol-card sol-slot sol-recycle">↻</div>}
@@ -221,8 +306,9 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
                 <CardFace
                   key={c.id}
                   card={c}
-                  className={`sol-fan${i === wasteFan.length - 1 ? (isSel({ kind: 'waste' }) ? ' selected' : '') : ' under'}`}
+                  className={`sol-fan${i === wasteFan.length - 1 ? `${isSel({ kind: 'waste' }) ? ' selected' : ''}${isDragged({ kind: 'waste' }) ? ' dragging' : ''}` : ' under'}`}
                   style={{ left: `${i * 22}%` }}
+                  onPointerDown={i === wasteFan.length - 1 ? e => beginDrag({ kind: 'waste' }, e) : undefined}
                   onClick={i === wasteFan.length - 1 ? () => tapSource({ kind: 'waste' }) : undefined}
                   onDoubleClick={i === wasteFan.length - 1 ? () => sendUp({ kind: 'waste' }) : undefined}
                 />
@@ -231,14 +317,20 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
             </div>
             <div className="sol-spacer" />
             {g.foundations.map((f, i) => (
-              <div key={i} className="sol-foundation" onClick={() => (f.length ? tapSource({ kind: 'foundation', index: i }) : tapTarget({ kind: 'foundation', index: i }))}>
-                <CardFace card={f.length ? f[f.length - 1] : null} className={isSel({ kind: 'foundation', index: i }) ? 'selected' : ''} />
+              <div key={i} className="sol-foundation" data-sol-drop={`f:${i}`} onClick={() => (f.length ? tapSource({ kind: 'foundation', index: i }) : tapTarget({ kind: 'foundation', index: i }))}>
+                {/* the card under the top one shows while the top one is carried off */}
+                {isDragged({ kind: 'foundation', index: i }) && <CardFace card={f.length > 1 ? f[f.length - 2] : null} className="sol-under" />}
+                <CardFace
+                  card={f.length ? f[f.length - 1] : null}
+                  className={`${isSel({ kind: 'foundation', index: i }) ? 'selected' : ''}${isDragged({ kind: 'foundation', index: i }) ? ' dragging' : ''}`}
+                  onPointerDown={f.length ? e => beginDrag({ kind: 'foundation', index: i }, e) : undefined}
+                />
               </div>
             ))}
           </div>
           <div className="sol-tableau">
             {g.tableau.map((pile, p) => (
-              <div key={p} className="sol-pile" onClick={() => pile.length === 0 && tapTarget({ kind: 'tableau', pile: p })}>
+              <div key={p} className="sol-pile" data-sol-drop={`t:${p}`} onClick={() => pile.length === 0 && tapTarget({ kind: 'tableau', pile: p })}>
                 {pile.length === 0 && <div className="sol-card sol-slot" />}
                 {pile.map((c, i) => {
                   const src: SolSource = { kind: 'tableau', pile: p, index: i }
@@ -249,8 +341,9 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
                     <CardFace
                       key={c.id}
                       card={c}
-                      className={`sol-stacked${selFrom ? ' selected' : ''}`}
+                      className={`sol-stacked${selFrom ? ' selected' : ''}${isDragged(src) ? ' dragging' : ''}`}
                       style={{ top: `calc(${downs} * var(--sol-step-down) + ${ups} * var(--sol-step-up))`, zIndex: i + 1 }}
+                      onPointerDown={c.faceUp ? e => beginDrag(src, e) : undefined}
                       onClick={e => {
                         e.stopPropagation()
                         if (!c.faceUp) {

@@ -481,7 +481,7 @@ export default function PokerView({
                   onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
                   type="button"
                 >
-                  1:{n}
+                  {n + 1}p
                 </button>
               ))}
             </div>
@@ -516,7 +516,7 @@ export default function PokerView({
               onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
               type="button"
             >
-              1:{n}
+              {n + 1}p
             </button>
           ))}
         </div>

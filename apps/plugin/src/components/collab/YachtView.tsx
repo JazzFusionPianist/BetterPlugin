@@ -543,7 +543,7 @@ export default function YachtView({
                 <button key={n}
                   className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
                   onClick={() => setComputerOpponents(n as 1 | 2 | 3)} type="button">
-                  1:{n}
+                  {n + 1}p
                 </button>
               ))}
             </div>
@@ -571,7 +571,7 @@ export default function YachtView({
             <button key={n}
               className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
               onClick={() => setComputerOpponents(n as 1 | 2 | 3)} type="button">
-              1:{n}
+              {n + 1}p
             </button>
           ))}
         </div>

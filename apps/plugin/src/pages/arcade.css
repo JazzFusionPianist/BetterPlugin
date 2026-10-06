@@ -787,8 +787,11 @@
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-stat-value.combo-hot { color: var(--ink); }
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-stat:first-child { margin: 0 0 8px -5px; }
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-stat:first-child .falling-blocks-stat-label { display: none; }
+/* the numeral gives way as the score grows a digit, so it never runs under the well */
+.plugin.arcade-skin.gwall-falling_blocks .falling-blocks-side-info { container-type: inline-size; }
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-stat:first-child .falling-blocks-stat-value {
   font: 500 clamp(56px, 7.4vw, 96px)/1 var(--f-sans); letter-spacing: -0.04em;
+  font-size: min(clamp(56px, 7.4vw, 96px), calc(100cqw / (var(--fb-score-chars, 1) * 0.54)));
 }
 
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-self-row {
@@ -820,6 +823,10 @@
 .plugin.arcade-skin.gwall-falling_blocks .fb-combo-flash {
   font: 500 44px var(--f-sans); letter-spacing: -0.02em; font-style: normal; color: #FBFAF7; text-shadow: none;
 }
+.plugin.arcade-skin.gwall-falling_blocks .fb-flash-line,
+.plugin.arcade-skin.gwall-falling_blocks .fb-flash-combo { font-size: 15px; letter-spacing: 0; }
+.plugin.arcade-skin.gwall-falling_blocks .fb-flash-combo { display: flex; align-items: baseline; gap: 6px; }
+.plugin.arcade-skin.gwall-falling_blocks .fb-flash-num { font-size: 44px; letter-spacing: -0.02em; }
 
 /* what comes next, what is held */
 .plugin.arcade-skin.gwall-falling_blocks .falling-blocks-rail {

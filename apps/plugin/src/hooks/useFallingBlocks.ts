@@ -1,12 +1,15 @@
 // Pure-functions FallingBlocks game logic for multiplayer battle FallingBlocks.
 // No React. All functions are pure (return new state, do not mutate inputs).
 //
-// Guideline-flavoured ruleset (tetr.io-style):
+// Guideline ruleset:
 //   - 10×20 board, 7-bag randomizer, 5-piece preview
 //   - Hold piece (once per piece, Shift/C)
 //   - SRS wall kicks on rotation
-//   - Scoring: base line score × level × combo multiplier, back-to-back
-//     tetris ×1.5, soft drop +1/cell, hard drop +2/cell
+//   - Scoring (all × level): single 100, double 300, triple 500, four 800;
+//     T-spin 400 / 800 / 1200 / 1600 for 0–3 lines, mini T-spin 100 / 200 /
+//     400; back-to-back ×1.5 on a four or a T-spin clear that follows one;
+//     combo +50 × (consecutive clears − 1); perfect clear 800 / 1200 / 1800 /
+//     2000 (3200 back-to-back); soft drop +1/cell, hard drop +2/cell
 //   - Level rises every 10 lines; gravity follows the guideline curve
 
 export type Cell = string | null
@@ -20,6 +23,17 @@ export interface Piece {
   col: number
 }
 
+export type SpinKind = 'none' | 'mini' | 'full'
+
+/** What the last scoring placement was — for the callout over the board. */
+export interface ClearAction {
+  spin: SpinKind
+  lines: number // 0–4 (0 only for a T-spin that cleared nothing)
+  b2b: boolean // the back-to-back bonus was paid
+  perfect: boolean // the clear left the board empty
+  combo: number // consecutive clears before this one (0 = no combo bonus)
+}
+
 export interface FallingBlocksState {
   board: Board // 20×10
   current: Piece | null // null between piece-lock and next-spawn (briefly)
@@ -28,7 +42,10 @@ export interface FallingBlocksState {
   hold: PieceType | null // held piece (tetr.io-style swap)
   holdUsed: boolean // true once hold was used for the current piece
   combo: number // consecutive line-clearing placements (0 = none)
-  b2b: boolean // last clear was a tetris (back-to-back armed)
+  b2b: boolean // last clear was a four or a T-spin (back-to-back armed)
+  lastKick: number | null // kick used by the last move if it was a rotation, else null
+  action: ClearAction | null // the last scoring placement
+  actionSeq: number // bumps with every scoring placement
   score: number
   lines: number
   topOut: boolean // true if game over
@@ -39,7 +56,7 @@ export interface FallingBlocksState {
 export interface LockResult {
   state: FallingBlocksState
   linesCleared: number // 0–4
-  garbageToSend: number // = max(0, linesCleared - 1) for MVP
+  garbageToSend: number // guideline attack: lines, T-spin, back-to-back, combo, perfect clear
 }
 
 // ---------------------------------------------------------------------------
@@ -50,8 +67,6 @@ export const BOARD_ROWS = 20
 export const BOARD_COLS = 10
 export const LOCK_DELAY_MS = 500
 const PREVIEW_SIZE = 5
-/** Combo multiplier cap — 10× is already apocalyptic. */
-const COMBO_CAP = 10
 const ALL_PIECES: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
 // Each piece described as a 4×4 matrix per rotation, with 1 = filled, 0 = empty.
@@ -244,13 +259,21 @@ const SHAPES: Record<PieceType, ShapeSet> = {
   ],
 }
 
-const LINE_SCORES: Record<number, number> = {
-  0: 0,
-  1: 100,
-  2: 300,
-  3: 500,
-  4: 800,
-}
+// Guideline score tables, indexed by lines cleared. Everything × level.
+const LINE_SCORES = [0, 100, 300, 500, 800]
+const TSPIN_SCORES = [400, 800, 1200, 1600]
+const MINI_TSPIN_SCORES = [100, 200, 400]
+const COMBO_SCORE = 50
+const B2B_MULT = 1.5
+const PERFECT_CLEAR_SCORES = [0, 800, 1200, 1800, 2000]
+const PERFECT_CLEAR_B2B_FOUR = 3200
+
+// Guideline attack tables (garbage lines sent in a battle).
+const LINE_ATTACK = [0, 0, 1, 2, 4]
+const TSPIN_ATTACK = [0, 2, 4, 6]
+const MINI_TSPIN_ATTACK = [0, 0, 1]
+const COMBO_ATTACK = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5] // by combo count
+const PERFECT_CLEAR_ATTACK = 10
 
 // SRS wall-kick offsets. Tables are in guideline (x, y) coordinates with +y
 // pointing UP — converted to (col, row) at test time (row = -y).
@@ -353,6 +376,28 @@ function applyLockTimer(state: FallingBlocksState): FallingBlocksState {
     return { ...state, lockTimer: LOCK_DELAY_MS }
   }
   return { ...state, lockTimer: null }
+}
+
+/** Guideline T-spin test (three corners). The T's last move must have been
+ *  a rotation and three of the four cells diagonal to its centre must be
+ *  taken (walls and floor count). Both corners on the pointing side taken →
+ *  a full T-spin; only one → a mini, unless the rotation used the last,
+ *  two-down kick, which always counts as full. */
+function detectTSpin(board: Board, piece: Piece, lastKick: number | null): SpinKind {
+  if (piece.type !== 'T' || lastKick === null) return 'none'
+  const taken = (r: number, c: number) =>
+    c < 0 || c >= BOARD_COLS || r >= BOARD_ROWS || (r >= 0 && board[r][c] !== null)
+  const tl = taken(piece.row, piece.col)
+  const tr = taken(piece.row, piece.col + 2)
+  const bl = taken(piece.row + 2, piece.col)
+  const br = taken(piece.row + 2, piece.col + 2)
+  // Rotation 0 points up, then clockwise: right, down, left.
+  const front = [[tl, tr], [tr, br], [bl, br], [tl, bl]][piece.rotation]
+  const back = [[bl, br], [tl, bl], [tl, tr], [tr, br]][piece.rotation]
+  const frontCount = front.filter(Boolean).length
+  if (frontCount + back.filter(Boolean).length < 3) return 'none'
+  if (frontCount === 2 || lastKick === 4) return 'full'
+  return 'mini'
 }
 
 function clearLines(board: Board): { board: Board; cleared: number } {
@@ -519,6 +564,7 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
     next: queue,
     bag,
     holdUsed: false,
+    lastKick: null,
     garbagePending: 0,
     topOut: false,
     lockTimer: null,
@@ -536,6 +582,9 @@ export function initialFallingBlocksState(): FallingBlocksState {
     holdUsed: false,
     combo: 0,
     b2b: false,
+    lastKick: null,
+    action: null,
+    actionSeq: 0,
     score: 0,
     lines: 0,
     topOut: false,
@@ -553,7 +602,7 @@ export function tryMove(state: FallingBlocksState, dx: number, dy: number): Fall
     row: state.current.row + dy,
   }
   if (!isValidPosition(state.board, candidate)) return state
-  return applyLockTimer({ ...state, current: candidate })
+  return applyLockTimer({ ...state, current: candidate, lastKick: null })
 }
 
 export function tryRotate(state: FallingBlocksState, dir: 1 | -1): FallingBlocksState {
@@ -563,7 +612,8 @@ export function tryRotate(state: FallingBlocksState, dir: 1 | -1): FallingBlocks
   const to = ((((from + dir) % 4) + 4) % 4) as 0 | 1 | 2 | 3
   const table = state.current.type === 'I' ? KICKS_I : KICKS_JLSTZ
   const kicks = table[`${from}>${to}`] ?? [[0, 0] as const]
-  for (const [kx, ky] of kicks) {
+  for (let i = 0; i < kicks.length; i++) {
+    const [kx, ky] = kicks[i]
     const candidate: Piece = {
       ...state.current,
       rotation: to,
@@ -571,7 +621,7 @@ export function tryRotate(state: FallingBlocksState, dir: 1 | -1): FallingBlocks
       row: state.current.row - ky, // kick tables use +y = up
     }
     if (isValidPosition(state.board, candidate)) {
-      return applyLockTimer({ ...state, current: candidate })
+      return applyLockTimer({ ...state, current: candidate, lastKick: i })
     }
   }
   return state
@@ -591,6 +641,7 @@ export function holdSwap(state: FallingBlocksState): FallingBlocksState {
       current: piece,
       hold: stashed,
       holdUsed: true,
+      lastKick: null,
     })
   }
   const { piece: nextType, bag, queue } = drawPiece(state.bag, state.next)
@@ -603,6 +654,7 @@ export function holdSwap(state: FallingBlocksState): FallingBlocksState {
     bag,
     hold: stashed,
     holdUsed: true,
+    lastKick: null,
   })
 }
 
@@ -610,35 +662,60 @@ export function lockPiece(state: FallingBlocksState): LockResult {
   if (!state.current) {
     return { state, linesCleared: 0, garbageToSend: 0 }
   }
+  const spin = detectTSpin(state.board, state.current, state.lastKick)
   const cells = pieceCells(state.current)
   const written = cellsToBoard(cells, state.current.type, state.board)
   const { board: cleared, cleared: linesCleared } = clearLines(written)
 
-  // tetr.io-style combo: every consecutive line-clearing placement bumps the
-  // multiplier — 1st clear ×1, next ×2, then ×3… A placement that clears
-  // nothing breaks the chain.
-  const combo = linesCleared > 0 ? state.combo + 1 : 0
+  // The level the clear was made at pays for it (guideline).
   const level = levelForLines(state.lines)
-  let gained = 0
-  if (linesCleared > 0) {
-    const base = LINE_SCORES[linesCleared] ?? 0
-    const comboMult = Math.min(combo, COMBO_CAP)
-    const b2bBonus = linesCleared === 4 && state.b2b ? 1.5 : 1
-    gained = Math.round(base * level * comboMult * b2bBonus)
-  }
-  const b2b = linesCleared === 0 ? state.b2b : linesCleared === 4
+  // Combo counts consecutive line-clearing placements; the first one pays
+  // nothing extra, and a placement that clears nothing ends the run.
+  const combo = linesCleared > 0 ? state.combo + 1 : 0
+  const comboCount = Math.max(0, combo - 1)
+  // Back-to-back: a four or a T-spin clear straight after another one. A
+  // plain single, double or triple breaks the chain; no clear leaves it.
+  const difficult = linesCleared === 4 || (spin !== 'none' && linesCleared > 0)
+  const b2bPaid = difficult && state.b2b
+  const b2b = linesCleared === 0 ? state.b2b : difficult
+  const perfect = linesCleared > 0 && cleared.every((row) => row.every((cell) => cell === null))
 
-  const score = state.score + gained
-  const lines = state.lines + linesCleared
-  const garbageToSend = Math.max(0, linesCleared - 1)
+  const table =
+    spin === 'full' ? TSPIN_SCORES : spin === 'mini' ? MINI_TSPIN_SCORES : LINE_SCORES
+  const base = (table[linesCleared] ?? TSPIN_SCORES[linesCleared] ?? 0) * level
+  let gained = Math.round(base * (b2bPaid ? B2B_MULT : 1))
+  gained += COMBO_SCORE * comboCount * level
+  if (perfect) {
+    gained +=
+      (linesCleared === 4 && b2bPaid ? PERFECT_CLEAR_B2B_FOUR : PERFECT_CLEAR_SCORES[linesCleared]) *
+      level
+  }
+
+  let garbageToSend = 0
+  if (linesCleared > 0) {
+    const attack =
+      spin === 'full' ? TSPIN_ATTACK : spin === 'mini' ? MINI_TSPIN_ATTACK : LINE_ATTACK
+    garbageToSend =
+      (attack[linesCleared] ?? TSPIN_ATTACK[linesCleared] ?? 0) +
+      (b2bPaid ? 1 : 0) +
+      COMBO_ATTACK[Math.min(comboCount, COMBO_ATTACK.length - 1)] +
+      (perfect ? PERFECT_CLEAR_ATTACK : 0)
+  }
+
+  const scored = linesCleared > 0 || spin !== 'none'
   const next: FallingBlocksState = {
     ...state,
     board: cleared,
     current: null,
     combo,
     b2b,
-    score,
-    lines,
+    lastKick: null,
+    action: scored
+      ? { spin, lines: linesCleared, b2b: b2bPaid, perfect, combo: comboCount }
+      : state.action,
+    actionSeq: scored ? state.actionSeq + 1 : state.actionSeq,
+    score: state.score + gained,
+    lines: state.lines + linesCleared,
     lockTimer: null,
   }
   return { state: next, linesCleared, garbageToSend }
@@ -656,10 +733,12 @@ export function hardDrop(state: FallingBlocksState): LockResult {
     piece = candidate
     distance++
   }
-  // Hard drop scores +2 per cell travelled (guideline).
+  // Hard drop scores +2 per cell travelled (guideline). A piece that fell
+  // any distance did not finish on a rotation, so it is no T-spin.
   const dropped: FallingBlocksState = {
     ...state,
     current: piece,
+    lastKick: distance > 0 ? null : state.lastKick,
     score: state.score + distance * 2,
   }
   return lockPiece(dropped)
@@ -674,7 +753,7 @@ export function softDropTick(
   const candidate: Piece = { ...state.current, row: state.current.row + 1 }
   if (isValidPosition(state.board, candidate)) {
     // Piece can keep falling; clear any pending lock timer.
-    return { ...state, current: candidate, lockTimer: null }
+    return { ...state, current: candidate, lastKick: null, lockTimer: null }
   }
 
   // Piece is on the ground. Decrement (or start) the lock timer.

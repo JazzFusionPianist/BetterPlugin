@@ -20,9 +20,10 @@ import {
   BOARD_ROWS,
   BOARD_COLS,
 } from '@/lib/games/useFallingBlocks'
-import type { FallingBlocksState, Board, Piece, PieceType } from '@/lib/games/useFallingBlocks'
+import type { FallingBlocksState, Board, Piece, PieceType, ClearAction } from '@/lib/games/useFallingBlocks'
 import { sfx } from '@/lib/games/sfx'
 import { useT } from '@/lib/games/i18n'
+import type { TKey } from '@/lib/games/translations'
 import { useWorldScores } from '@/lib/games/useWorldScores'
 import type { WorldStanding } from '@/lib/games/useWorldScores'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
@@ -36,6 +37,9 @@ const MAX_PLAYERS = 4
 /** On top of the per-10-lines level, the clock itself adds +1 level every
  *  minute — the slow, inevitable speed creep of classic marathon play. */
 const TIME_LEVEL_MS = 60_000
+
+/** Names for 1–3 lines cleared with a T-spin (a four cannot be one). */
+const CLEAR_NAMES: Record<number, TKey> = { 1: 'fb.single', 2: 'fb.double', 3: 'fb.triple' }
 
 const PIECE_CLASS: Record<string, string> = {
   I: 'falling-blocks-cell--I',
@@ -226,8 +230,9 @@ export default function FallingBlocksView({
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-  // Combo flash — bumps `seq` so the CSS animation restarts per combo step.
-  const [comboFlash, setComboFlash] = useState<{ mult: number; seq: number } | null>(null)
+  // Callout over the board — what the last placement was (T-spin, four,
+  // back-to-back, perfect clear, combo). `seq` restarts the CSS animation.
+  const [clearFlash, setClearFlash] = useState<{ action: ClearAction; seq: number } | null>(null)
 
   // Solo run (no room, world leaderboard)
   const [solo, setSolo] = useState(false)
@@ -251,6 +256,9 @@ export default function FallingBlocksView({
     holdUsed: false,
     combo: 0,
     b2b: false,
+    lastKick: null,
+    action: null,
+    actionSeq: 0,
     score: 0,
     lines: 0,
     topOut: false,
@@ -359,7 +367,7 @@ export default function FallingBlocksView({
     const fresh = initialFallingBlocksState()
     setGame(fresh)
     playStartRef.current = Date.now()
-    setComboFlash(null)
+    setClearFlash(null)
   }, [deleteCurrentRoom])
 
   // Solo game over → record the score, refresh the world ranking.
@@ -442,7 +450,7 @@ export default function FallingBlocksView({
       const fresh = initialFallingBlocksState()
       setGame(fresh)
       playStartRef.current = Date.now()
-      setComboFlash(null)
+      setClearFlash(null)
       // Push initial state to server
       updateMyState({
         board: fresh.board,
@@ -454,15 +462,17 @@ export default function FallingBlocksView({
     }
   }, [room?.player_ids, status, updateMyState])
 
-  // ── Combo flash when the multiplier kicks in (×2 and up) ─────────────────
-  const prevComboRef = useRef(0)
+  // ── Callout for placements worth naming; plain singles, doubles and
+  // triples outside a combo pass without one ────────────────────────────────
+  const prevActionSeqRef = useRef(0)
   useEffect(() => {
-    const prev = prevComboRef.current
-    prevComboRef.current = game.combo
-    if (game.combo >= 2 && game.combo > prev) {
-      setComboFlash(f => ({ mult: game.combo, seq: (f?.seq ?? 0) + 1 }))
-    }
-  }, [game.combo])
+    if (game.actionSeq === prevActionSeqRef.current) return
+    prevActionSeqRef.current = game.actionSeq
+    const a = game.action
+    if (!a || game.actionSeq === 0) return
+    if (a.spin === 'none' && a.lines < 4 && !a.perfect && a.combo < 1) return
+    setClearFlash({ action: a, seq: game.actionSeq })
+  }, [game.actionSeq, game.action])
 
   // ── Apply incoming garbage from server inbox ─────────────────────────────
   useEffect(() => {
@@ -1075,10 +1085,24 @@ export default function FallingBlocksView({
                   size="self"
                 />
 
-                {/* Combo flash — restarts its animation on every step up. */}
-                {localActive && comboFlash && game.combo >= 2 && (
-                  <div key={comboFlash.seq} className="fb-combo-flash" aria-hidden="true">
-                    ×{Math.min(comboFlash.mult, 10)}
+                {/* Callout — restarts its animation on every new placement. */}
+                {localActive && clearFlash && (
+                  <div key={clearFlash.seq} className="fb-combo-flash" aria-hidden="true">
+                    {clearFlash.action.b2b && <span className="fb-flash-line">{t('fb.b2b')}</span>}
+                    {clearFlash.action.spin !== 'none' ? (
+                      <span className="fb-flash-line">
+                        {t(clearFlash.action.spin === 'mini' ? 'fb.miniTspin' : 'fb.tspin')}
+                        {clearFlash.action.lines > 0 && ` ${t(CLEAR_NAMES[clearFlash.action.lines])}`}
+                      </span>
+                    ) : clearFlash.action.lines === 4 && (
+                      <span className="fb-flash-line">{t('fb.quad')}</span>
+                    )}
+                    {clearFlash.action.perfect && <span className="fb-flash-line">{t('fb.perfectClear')}</span>}
+                    {clearFlash.action.combo >= 1 && (
+                      <span className="fb-flash-combo">
+                        <span className="fb-flash-num">{clearFlash.action.combo}</span> {t('fb.combo')}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -1124,7 +1148,12 @@ export default function FallingBlocksView({
           <div className="falling-blocks-side-info">
             <div className="falling-blocks-stat">
               <span className="falling-blocks-stat-label">{t('fb.score')}</span>
-              <span className="falling-blocks-stat-value">{game.score.toLocaleString()}</span>
+              <span
+                className="falling-blocks-stat-value"
+                style={{ '--fb-score-chars': game.score.toLocaleString().length } as React.CSSProperties}
+              >
+                {game.score.toLocaleString()}
+              </span>
             </div>
             <div className="falling-blocks-stat">
               <span className="falling-blocks-stat-label">{t('fb.lines')}</span>
@@ -1133,7 +1162,7 @@ export default function FallingBlocksView({
             <div className="falling-blocks-stat">
               <span className="falling-blocks-stat-label">{t('fb.combo')}</span>
               <span className={`falling-blocks-stat-value${game.combo >= 2 ? ' combo-hot' : ''}`}>
-                {game.combo >= 1 ? `×${Math.min(game.combo, 10)}` : '—'}
+                {game.combo >= 2 ? game.combo - 1 : '—'}
               </span>
             </div>
             <div className="falling-blocks-stat">

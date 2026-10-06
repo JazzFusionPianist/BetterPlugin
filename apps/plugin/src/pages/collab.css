@@ -9147,6 +9147,10 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-size: 26px; color: var(--accent, #2440FF);
   animation: fb-combo-pop 0.9s ease-out forwards;
 }
+/* the callout stacks: what the placement was, then the combo count */
+.fb-combo-flash { flex-direction: column; align-items: center; gap: 2px; line-height: 1.1; animation-duration: 1.3s; }
+.fb-flash-line, .fb-flash-combo { font-size: 0.42em; white-space: nowrap; }
+.fb-flash-num { font-size: 2.4em; }
 @keyframes fb-combo-pop {
   0%   { opacity: 0; transform: scale(0.7) translateY(6px); }
   18%  { opacity: 1; transform: scale(1.12) translateY(0); }

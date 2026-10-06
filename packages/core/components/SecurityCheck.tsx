@@ -44,8 +44,12 @@ function HostedCheck({ onToken, onError }: Omit<Props, 'resetKey'>) {
     channel.current = connection
     connection.port1.onmessage = ({ data }) => {
       if (!data || data.nonce !== nonce) return
-      // A loaded widget is not a successful verification. Keep the token deadline.
-      if (data.type === 'ready') return
+      // The load deadline ends when the widget is ready. Human interaction may
+      // take longer; login still requires the separate verified token below.
+      if (data.type === 'ready') {
+        if (timer.current) clearTimeout(timer.current)
+        return
+      }
       if (data.type === 'token' && typeof data.token === 'string' && data.token.length > 0 && data.token.length <= 2048) {
         if (timer.current) clearTimeout(timer.current)
         callbacks.current.onToken(data.token)

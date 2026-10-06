@@ -1014,6 +1014,60 @@
   height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 999px;
   background: var(--ink); color: var(--ar-on); border: none; font: 500 15px var(--f-sans); text-transform: lowercase;
 }
+/* ── pinball: the notes either side of the table ───────────────────────── */
+.plugin.arcade-skin.gwall-pinball { --pb-flat: 1; }
+.plugin.arcade-skin.gwall-pinball .pinball-canvas-wrap { background: none; }
+.plugin.arcade-skin.gwall-pinball .pinball-head { container-type: inline-size; gap: 0; }
+.plugin.arcade-skin.gwall-pinball .pinball-ballline { display: block; font: 400 15px var(--f-sans); color: var(--t2); text-transform: lowercase; margin-bottom: 10px; }
+.plugin.arcade-skin.gwall-pinball .pinball-balls { display: none; }
+/* the numeral gives way as the score grows a digit, so it never runs under the table */
+.plugin.arcade-skin.gwall-pinball .pinball-score { font-size: min(clamp(56px, 7.4vw, 96px), calc(100cqw / (var(--pb-score-chars, 1) * 0.54))); }
+.plugin.arcade-skin.gwall-pinball .pinball-mult { margin-top: 18px; }
+.plugin.arcade-skin.gwall-pinball .pinball-mult-word { display: none; }
+.plugin.arcade-skin.gwall-pinball .pinball-mission { display: flex; flex-direction: column; gap: 4px; margin-top: 30px; text-transform: lowercase; }
+.plugin.arcade-skin.gwall-pinball .pinball-mission-name { font: 500 17px var(--f-sans); color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-mission-time { font: 400 15px var(--f-sans); color: var(--t2); font-variant-numeric: tabular-nums; }
+
+.plugin.arcade-skin.gwall-pinball .pinball-side {
+  grid-column: 3; grid-row: 1 / -1; align-self: start; justify-self: end;
+  display: flex; flex-direction: column; width: 100%; max-width: 292px; min-width: 0;
+  padding-top: 76px; font: 400 15px var(--f-sans); color: var(--ink); text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-side-title { font: 500 17px var(--f-sans); color: var(--ink); margin-bottom: 10px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-title:not(:first-child) { margin-top: 30px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row { display: flex; align-items: center; gap: 12px; min-height: 36px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-name { color: var(--t2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row.now .pinball-side-name { color: var(--ink); font-weight: 500; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row.done .pinball-side-name { color: var(--t3); }
+.plugin.arcade-skin.gwall-pinball .pinball-side-val { margin-left: auto; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-lamps { display: inline-flex; gap: 6px; }
+.plugin.arcade-skin.gwall-pinball .pb-lamp {
+  flex: none; width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%;
+  border: 1.5px solid var(--t3);
+}
+.plugin.arcade-skin.gwall-pinball .pb-lamp.on { background: var(--ink); border-color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pb-lamp.now { background: #F5B82E; border-color: #F5B82E; }
+.plugin.arcade-skin.gwall-pinball .pinball-orb { gap: 14px; font-weight: 500; color: var(--t3); }
+.plugin.arcade-skin.gwall-pinball .pinball-orb .on { color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-kickback { display: flex; align-items: center; justify-content: space-between; }
+.plugin.arcade-skin.gwall-pinball .pinball-kickback.off { color: var(--t3); }
+
+.plugin.arcade-skin.gwall-pinball .pinball-nudge {
+  grid-column: 1; grid-row: 3; align-self: end; justify-self: start;
+  display: flex; align-items: center; gap: 20px; text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn {
+  height: 44px; padding: 0 24px; border-radius: 999px; background: none; cursor: pointer;
+  border: 1.5px solid var(--t3); color: var(--ink); font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn:hover:not(:disabled) { border-color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn:disabled { opacity: .4; cursor: default; }
+.plugin.arcade-skin.gwall-pinball .pinball-tilt { display: inline-flex; align-items: center; gap: 8px; font: 400 15px var(--f-sans); color: var(--t2); }
+/* a narrow room keeps the table and drops the right-hand notes */
+@container (max-width: 860px) {
+  .plugin.arcade-skin.gwall-pinball .pinball-side { display: none; }
+}
+
 /* the jar: an outline, open at the top */
 .plugin.arcade-skin.gwall-orb_merge .om-canvas-wrap { border: none; border-radius: 0; box-shadow: none; }
 .plugin.arcade-skin.gwall-orb_merge .om-next { width: 48px; height: 48px; border: 1.5px solid var(--ink); }

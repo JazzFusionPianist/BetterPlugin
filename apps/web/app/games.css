@@ -2855,6 +2855,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; color: var(--blue);
 }
+/* the room's side notes belong to the arcade's wide room; the small table
+   tells its story on the plate itself */
+.pinball-ballline, .pinball-mission, .pinball-side, .pinball-nudge { display: none; }
 .pinball-canvas-wrap {
   flex: 1; min-height: 0;
   width: auto; max-width: 100%;

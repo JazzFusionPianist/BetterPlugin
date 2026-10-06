@@ -4,13 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/games/types'
 import { useT } from '@/lib/games/i18n'
-import { PinballGame, drawPinball, TABLE_W, TABLE_H } from '@/lib/games/pinball'
+import { PinballGame, drawPinball, TABLE_W, TABLE_H, MISSIONS } from '@/lib/games/pinball'
 import { sfx } from '@/lib/games/sfx'
-import type { PinballTheme, PinballPhase } from '@/lib/games/pinball'
+import type { PinballTheme, PinballPhase, PinballHud } from '@/lib/games/pinball'
 import { useWorldScores } from '@/lib/games/useWorldScores'
 import type { WorldStanding } from '@/lib/games/useWorldScores'
 import { useArcade } from './ArcadeLobby'
 import GameShell, { GameOverlayCard } from './GameShell'
+
+const MISSION_KEYS = {
+  lanes: 'pb.mLanes', banks: 'pb.mBanks', ramps: 'pb.mRamps', spinner: 'pb.mSpinner', bumpers: 'pb.mBumpers',
+} as const
 
 interface Props {
   supabase: SupabaseClient
@@ -34,6 +38,8 @@ function readTheme(el: HTMLElement): PinballTheme {
     ink: v('--t1', '#1A1917'),
     blue: v('--pb-accent', '#2440FF'),
     t3: v('--t3', '#8A8782'),
+    // the arcade's room draws the table flat, straight on its wall
+    flat: v('--pb-flat', '') === '1',
   }
 }
 
@@ -51,9 +57,10 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
 
   // Coarse UI mirror of the engine — updated only when a value changes so
   // React renders a few times per second, not per frame.
-  const [ui, setUi] = useState<{ phase: PinballPhase; score: number; ball: number; ballsTotal: number; bonusMult: number }>({
+  const [ui, setUi] = useState<{ phase: PinballPhase; score: number; ball: number; ballsTotal: number; bonusMult: number; hudKey: string; hud: PinballHud }>(() => ({
     phase: 'ready', score: 0, ball: 1, ballsTotal: 3, bonusMult: 1,
-  })
+    hudKey: gameRef.current!.hudKey(), hud: gameRef.current!.hud(),
+  }))
   const [standing, setStanding] = useState<WorldStanding | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [confirmKind, setConfirmKind] = useState<null | 'reset' | 'end'>(null)
@@ -101,13 +108,17 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
         }
       }
 
+      const hudKey = g.hudKey()
       setUi(prev => {
         if (
           prev.phase === g.phase && prev.score === g.score &&
           prev.ball === g.ballNumber && prev.ballsTotal === g.ballsTotal &&
-          prev.bonusMult === g.bonusMult
+          prev.bonusMult === g.bonusMult && prev.hudKey === hudKey
         ) return prev
-        return { phase: g.phase, score: g.score, ball: g.ballNumber, ballsTotal: g.ballsTotal, bonusMult: g.bonusMult }
+        return {
+          phase: g.phase, score: g.score, ball: g.ballNumber, ballsTotal: g.ballsTotal, bonusMult: g.bonusMult,
+          hudKey, hud: prev.hudKey === hudKey ? prev.hud : g.hud(),
+        }
       })
     }
     raf = requestAnimationFrame(loop)
@@ -193,6 +204,10 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
         case 'ArrowDown': case ' ':
           e.preventDefault()
           if (g.phase === 'captive') g.setPlungerDown(true)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (!e.repeat) g.nudge()
           break
         case 'Enter':
           if (g.phase === 'ready' || g.phase === 'over') { e.preventDefault(); handleStart() }
@@ -306,6 +321,9 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
     )
   }
 
+  const hud = ui.hud
+  const live = ui.phase === 'captive' || ui.phase === 'live'
+
   const ballDots: React.ReactNode[] = []
   for (let i = 1; i <= ui.ballsTotal; i++) {
     ballDots.push(
@@ -339,9 +357,30 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       board={
         <div className="pinball-layout">
           <div className="pinball-head">
-            <span className="pinball-score">{ui.score.toLocaleString()}</span>
+            <span className="pinball-ballline">
+              {hud.tilted ? t('pb.tilt') : hud.multiball ? t('pb.multiball') : t('pb.ballOf', { n: ui.ball, m: ui.ballsTotal })}
+            </span>
+            <span
+              className="pinball-score"
+              style={{ '--pb-score-chars': ui.score.toLocaleString().length } as React.CSSProperties}
+            >
+              {ui.score.toLocaleString()}
+            </span>
             <span className="pinball-balls" aria-label={t('pb.ball')}>{ballDots}</span>
-            {ui.bonusMult > 1 && <span className="pinball-mult">bonus ×{ui.bonusMult}</span>}
+            {ui.bonusMult > 1 && <span className="pinball-mult"><span className="pinball-mult-word">bonus </span>×{ui.bonusMult}</span>}
+            {/* what the table is asking for right now */}
+            {live && hud.multiball && (
+              <span className="pinball-mission">
+                <span className="pinball-mission-name">{t('pb.jackpot')}</span>
+                <span className="pinball-mission-time">25,000</span>
+              </span>
+            )}
+            {live && !hud.multiball && hud.mission && (
+              <span className="pinball-mission">
+                <span className="pinball-mission-name">{t(MISSION_KEYS[hud.mission])}</span>
+                <span className="pinball-mission-time">{t('pb.seconds', { n: hud.missionSeconds })}</span>
+              </span>
+            )}
           </div>
           <div
             className="pinball-canvas-wrap"
@@ -354,6 +393,53 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
           >
             <canvas ref={canvasRef} className="pinball-canvas" />
           </div>
+          {live && (
+            <div className="pinball-side">
+              <div className="pinball-side-title">{t('pb.missions')}</div>
+              {MISSIONS.map((id, i) => {
+                const now = hud.mission === id
+                const done = hud.missionsDone[i]
+                return (
+                  <div key={id} className={`pinball-side-row${now ? ' now' : done ? ' done' : ''}`}>
+                    <span className={`pb-lamp${now ? ' now' : done ? ' on' : ''}`} />
+                    <span className="pinball-side-name">{t(MISSION_KEYS[id])}</span>
+                    {now && <span className="pinball-side-val">{t('pb.of', { n: hud.missionProgress, m: hud.missionGoal })}</span>}
+                  </div>
+                )
+              })}
+              <div className="pinball-side-title">{t('pb.multiball')}</div>
+              <div className="pinball-side-row pinball-orb">
+                {['o', 'r', 'b'].map((ch, i) => (
+                  <span key={ch} className={hud.orb[i] || hud.lockLit ? 'on' : ''}>{ch}</span>
+                ))}
+              </div>
+              <div className="pinball-side-row">
+                <span className="pinball-side-name">{t('pb.locked')}</span>
+                <span className="pinball-side-val pinball-side-lamps">
+                  {[0, 1].map(i => <span key={i} className={`pb-lamp${i < hud.locked ? ' on' : hud.lockLit && i === hud.locked ? ' now' : ''}`} />)}
+                </span>
+              </div>
+              <div className="pinball-side-row">
+                <span className="pinball-side-name">{t('pb.jackpots')}</span>
+                <span className="pinball-side-val">{hud.jackpots}</span>
+              </div>
+              <div className={`pinball-side-title pinball-kickback${hud.kickback ? '' : ' off'}`}>
+                {t('pb.kickback')}
+                <span className={`pb-lamp${hud.kickback ? ' now' : ''}`} />
+              </div>
+            </div>
+          )}
+          {live && (
+            <div className="pinball-nudge">
+              <button type="button" className="pinball-nudge-btn" onClick={() => gameRef.current!.nudge()} disabled={hud.tilted}>
+                {t('pb.nudge')}
+              </button>
+              <span className="pinball-tilt">
+                {t('pb.tilt')}
+                {[0, 1].map(i => <span key={i} className={`pb-lamp${i < hud.tiltWarnings ? ' on' : ''}`} />)}
+              </span>
+            </div>
+          )}
         </div>
       }
       overlay={overlay}

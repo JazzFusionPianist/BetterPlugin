@@ -36,7 +36,7 @@ const STUDY_W = 380          // the study: a column on the right where the chose
 const STUDY_PRINT = 240
 const R = NODE / 2
 const SHELF_PRINT = 48
-const SHELF_H = 112
+const SHELF_H = 126   // the family tabs at the top (12 down), the prints' row under them
 /** One row of prints that scrolls sideways (the wheel's up and down
  *  walks it); the page needs its height to size the wall. */
 /** The shelf's families: one row of prints at a time. */
@@ -376,8 +376,8 @@ interface Props { size: { w: number; h: number } }
 
 export default function FxWall ({ size: frame }: Props) {
   const wallRef = useRef<HTMLDivElement>(null)
-  const shelfRef = useRef<HTMLDivElement>(null)
-  // the shelf is one long row: a vertical wheel walks it sideways
+  const shelfRef = useRef<HTMLDivElement>(null)   // the prints' row (it scrolls); the tabs sit above it
+  // the shelf's row of prints is one long row: a vertical wheel walks it sideways
   useEffect(() => {
     const el = shelfRef.current; if (!el) return
     const onWheel = (e: WheelEvent) => {
@@ -2023,11 +2023,13 @@ export default function FxWall ({ size: frame }: Props) {
         onPointerDown={(e) => e.stopPropagation()} onClick={toggleShelf}>
         <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
-      <div ref={shelfRef} className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ gap: shelf.gap, height: shelfOpen ? shelf.height : 0 }}>
+      <div className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ height: shelfOpen ? shelf.height : 0 }}>
+        {/* the family tabs, centred at the top of the shelf; the prints of the family in a row under them, centred while they fit */}
         <span className="sg-shelf-fam" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setFamHover(-1)}
           onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFamHover(Math.min(FAMILIES.length - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * FAMILIES.length)))) }}>
           <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
         </span>
+        <div ref={shelfRef} className="sg-shelf-row" style={{ gap: shelf.gap }}>
         {shelfTypes.map(type => (
           <div key={type} className={`sg-shelf-item${engineHas(type) ? '' : ' shut'}`}
             onPointerDown={(e) => { if (full || !engineHas(type)) return; e.preventDefault(); setDrag({ kind: 'shelf', type, at: wallPt(e) }) }}>
@@ -2035,6 +2037,7 @@ export default function FxWall ({ size: frame }: Props) {
             <span>{nameOf(type)}</span>
           </div>
         ))}
+        </div>
       </div>
     </div>
     {studyNode && topBar?.parentElement && createPortal(

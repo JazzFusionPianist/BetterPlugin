@@ -18,4 +18,14 @@ SDK paths belong in ignored `local.properties`; build output, copied web assets 
 
 The web UI is bundled; no local development server is required. Login and collaboration still connect to the existing Slur services. Android uses native Capacitor HTTPS in `MainActivity`, because the deployed attachment service's browser CORS list does not include Android's `https://localhost` origin. The iOS HTTP configuration is preserved. Camera and microphone access is requested by the WebView when a user invokes those features. Application backup is disabled for local chat and authentication data.
 
+## Authentication verification
+
+Version 1.0.2 renders Turnstile on the approved HTTPS challenge page and receives the verified token over a nonce-bound MessageChannel. Native runtime dependencies are patched to Capacitor 6.2.2. The shared login form retains the token requirement and offers a retry when verification fails.
+
+The instrumented test opens the native login screen and waits for a real token to enable its login button; it enters no credentials and never submits login. Run on a disposable emulator after syncing the bundled web assets:
+
+```sh
+./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.slur.app.NativeSecurityCheckTest
+```
+
 The platform was generated using the [official Capacitor Android workflow](https://capacitorjs.com/docs/v6/android).

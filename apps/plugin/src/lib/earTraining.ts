@@ -91,17 +91,19 @@ const CHORD_SHAPES: Record<ChordQuality, number[]> = {
   m7b5: [0, 3, 6, 10],
   dim7: [0, 3, 6, 9],
   mMaj7: [0, 3, 7, 11],
-  // Tensions sit on top of the seventh chord, in the octave above.
+  // Tensions sit on top of the seventh chord, in the octave above — root
+  // position always, and only the notes the name spells (a 7♯11 has no 9
+  // in it; an 11 and a 13 carry the 9, as written chords do).
   maj9:    [0, 4, 7, 11, 14],
-  maj7s11: [0, 4, 7, 11, 14, 18],
+  maj7s11: [0, 4, 7, 11, 18],
   min9:    [0, 3, 7, 10, 14],
   min11:   [0, 3, 7, 10, 14, 17],
   dom9:    [0, 4, 7, 10, 14],
   dom13:   [0, 4, 7, 10, 14, 21],
   '7b9':   [0, 4, 7, 10, 13],
   '7s9':   [0, 4, 7, 10, 15],
-  '7s11':  [0, 4, 7, 10, 14, 18],
-  '7b13':  [0, 4, 7, 10, 14, 20],
+  '7s11':  [0, 4, 7, 10, 18],
+  '7b13':  [0, 4, 7, 10, 20],
 }
 
 /** Chords that are easily mistaken for one another. On advanced the wrong
@@ -252,12 +254,12 @@ export function generateQuestion (roomId: string, round: number, config: RoomCon
   // chord
   const pool = DIFFICULTY_CHORDS[config.difficulty]
   const answer = pick(rng, pool)
-  // A chord that reaches into the second octave is rooted lower, so its
-  // top notes stay in a register where they can be told apart.
-  const tall = Math.max(...CHORD_SHAPES[answer]) > 12
+  // On advanced every chord is rooted between C3 and C4, tensions or not:
+  // low enough that the top notes stay apart, and the same for all of them
+  // so the register gives nothing away.
   return {
     type: 'chord',
-    rootMidi: tall && rootMidi > 60 ? rootMidi - 12 : rootMidi,
+    rootMidi: config.difficulty === 'advanced' ? 48 + ((rootMidi - MIN_ROOT) % 13) : rootMidi,
     quality: answer,
     options: buildChordOptions(rng, answer, pool, config.difficulty === 'advanced'),
     answer,
@@ -287,15 +289,33 @@ function midiToHz (midi: number): number {
 
 /** Play one note with a soft piano-like envelope.
  *  Two oscillators (sine + triangle) detuned slightly for warmth. */
-function playNote (ac: AudioContext, midi: number, when: number, durSec: number, gain = 0.16) {
+function playNote (ac: AudioContext, midi: number, when: number, durSec: number, gain = 0.16, bass = false) {
   const freq = midiToHz(midi)
   const g = ac.createGain()
   // Quick attack, exponential decay, sustain near zero for plucky feel.
+  // A bass note (a chord's root) holds on instead of dying away under the
+  // notes above it.
   g.gain.setValueAtTime(0.0001, when)
   g.gain.exponentialRampToValueAtTime(gain, when + 0.015)
-  g.gain.exponentialRampToValueAtTime(gain * 0.45, when + 0.2)
+  g.gain.exponentialRampToValueAtTime(gain * (bass ? 0.8 : 0.45), when + (bass ? 0.5 : 0.2))
   g.gain.exponentialRampToValueAtTime(0.0001, when + durSec)
   g.connect(ac.destination)
+
+  if (bass) {
+    // Overtones, so the root still reads on small speakers that cannot
+    // carry its fundamental.
+    for (const [mult, level] of [[2, 0.4], [3, 0.18]] as const) {
+      const o = ac.createOscillator()
+      o.type = 'sine'
+      o.frequency.value = freq * mult
+      const og = ac.createGain()
+      og.gain.value = level
+      o.connect(og)
+      og.connect(g)
+      o.start(when)
+      o.stop(when + durSec + 0.05)
+    }
+  }
 
   const o1 = ac.createOscillator()
   o1.type = 'sine'
@@ -362,14 +382,15 @@ export function playQuestion (q: Question): number {
     return 1550
   }
 
-  // chord — more notes, each a little quieter, so a six-note chord is no
-  // louder than a triad; the tall ones are rolled slightly, low to high,
-  // which lets the ear pick the tensions off the top
-  const shape = CHORD_SHAPES[q.quality]
-  const gain = Math.min(0.16, 0.56 / shape.length)
-  const roll = shape.length > 4 ? 0.028 : 0
-  shape.forEach((off, i) => playNote(ac, q.rootMidi + off, now + i * roll, 1.9 - i * roll, gain))
-  return shape.length > 4 ? 1900 : 1600
+  // chord — the root speaks first, louder and held, so the ear has its
+  // footing; the rest comes in over it, rolled low to high. Every chord is
+  // played this way (so the manner of playing tells nothing), and the more
+  // notes there are the quieter each one is.
+  const [, ...upper] = CHORD_SHAPES[q.quality]
+  playNote(ac, q.rootMidi, now, 2.2, 0.2, true)
+  const gain = Math.min(0.13, 0.46 / upper.length)
+  upper.forEach((off, i) => playNote(ac, q.rootMidi + off, now + 0.26 + i * 0.03, 1.9 - i * 0.03, gain))
+  return 2200
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
@@ -379,14 +400,16 @@ export const INTERVAL_LABELS: Record<IntervalAnswer, string> = {
   m6: 'm6', M6: 'M6', m7: 'm7', M7: 'M7', P8: 'P8',
 }
 
+// Written as chord symbols are, less the root: a dominant chord is a bare
+// 7, 9 or 13 (never "dom"); maj and min are always spelled out.
 export const CHORD_LABELS: Record<ChordQuality, string> = {
   maj: 'maj', min: 'min', dim: 'dim', aug: 'aug',
   sus2: 'sus2', sus4: 'sus4',
-  maj7: 'maj7', min7: 'min7', dom7: 'dom7', m7b5: 'm7♭5',
-  dim7: 'dim7', mMaj7: 'mMaj7',
+  maj7: 'maj7', min7: 'min7', dom7: '7', m7b5: 'min7♭5',
+  dim7: 'dim7', mMaj7: 'min(maj7)',
   maj9: 'maj9', maj7s11: 'maj7♯11',
   min9: 'min9', min11: 'min11',
-  dom9: 'dom9', dom13: 'dom13', '7b9': '7♭9', '7s9': '7♯9', '7s11': '7♯11', '7b13': '7♭13',
+  dom9: '9', dom13: '13', '7b9': '7♭9', '7s9': '7♯9', '7s11': '7♯11', '7b13': '7♭13',
 }
 
 /** 250 → "250 Hz", 1250 → "1.25 kHz". */

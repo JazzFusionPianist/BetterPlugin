@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Turnstile } from '@orb/core/components/Turnstile.tsx'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import { RememberMe } from '@orb/core/components/RememberMe.tsx'
+import PluginSecurityCheck from '../components/PluginSecurityCheck'
+import { authSessionStorage, supabase } from '../lib/supabase'
 import { openExternalUrl } from '../lib/linkify'
 import Bar from '../slur/Bar'
 import SlurMark from '../slur/SlurMark'
@@ -36,6 +37,8 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
+  useEffect(() => { setRememberMe(authSessionStorage.getRememberMe()) }, [])
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [agreePrivacy, setAgreePrivacy] = useState(false)
   const [agreeAge, setAgreeAge] = useState(false)
@@ -56,6 +59,7 @@ export default function AuthPage() {
     setBusy(true); setError(null); setNote(null)
     try {
       if (mode === 'signin') {
+        authSessionStorage.setRememberMe(rememberMe)
         const { error } = await supabase!.auth.signInWithPassword({ email, password,options:{captchaToken} })
         if (error) setError(/invalid/i.test(error.message) ? 'that email and password don’t match.' : error.message)
       } else {
@@ -127,6 +131,7 @@ export default function AuthPage() {
                   aria-label={showPw ? 'hide password' : 'show password'}>{showPw ? 'hide' : 'show'}</button>
               )}
             </div>
+            {mode === 'signin' && <RememberMe checked={rememberMe} onChange={setRememberMe} disabled={busy} />}
             {mode === 'signup' && (
               <div className="sl-lamps">
                 {lamp(agreeTerms, setAgreeTerms, <a href={`${LEGAL_BASE}/terms`} onClick={openLegal(`${LEGAL_BASE}/terms`)}>terms</a>)}
@@ -135,8 +140,10 @@ export default function AuthPage() {
                 {lamp(agreeMarketing, setAgreeMarketing, <>the odd update</>, false)}
               </div>
             )}
-            <Turnstile resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')}/>
+            <PluginSecurityCheck resetKey={captchaReset} onToken={setCaptchaToken} onError={()=>setError('security check unavailable — try again.')}/>
             {error && <div className="sl-msg err">{error}</div>}
+            {error === 'security check unavailable — try again.' && <button type="button" className="sl-swap"
+              onClick={() => { setError(null); setCaptchaToken(''); setCaptchaReset(x => x + 1) }}>retry security check</button>}
             {note && <div className="sl-msg">{note}</div>}
             <button type="submit" className="sl-go" disabled={busy || !captchaToken || (mode === 'signup' && !(agreeTerms && agreePrivacy && agreeAge))}>
               {busy ? (mode === 'signin' ? 'logging in…' : 'signing up…') : (mode === 'signin' ? 'log in' : 'sign up')}

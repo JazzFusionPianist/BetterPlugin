@@ -1,6 +1,6 @@
 import { EncryptedChatGate } from '@orb/core/components/EncryptedChatGate.tsx'
 import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { authSessionStorage, supabase } from './lib/supabase'
 import AuthPage from './pages/AuthPage'
 import CollabPage from './pages/CollabPage'
 import AdminPage from './pages/AdminPage'
@@ -45,6 +45,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        if (session && !authSessionStorage.hasSession()) return
         setUser(session?.user ?? null)
       }
     )

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { SecurityCheck } from '@orb/core/components/SecurityCheck.tsx'
-import { supabase } from '@/lib/supabase'
+import { RememberMe } from '@orb/core/components/RememberMe.tsx'
+import { authSessionStorage, supabase } from '@/lib/supabase'
 import SlurMark from './slur/SlurMark'
 import Bar from './slur/Bar'
 import { C } from './slur/marks'
@@ -38,6 +39,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   // Signup consent — required boxes gate the submit; the choices ride
   // signUp metadata as the consent record.
   const [agreeTerms, setAgreeTerms] = useState(false)
@@ -52,6 +54,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
   useEffect(() => {
     if (open) {
       setMode(initialMode); setError(null); setNote(null)
+      setRememberMe(authSessionStorage.getRememberMe())
       setCaptchaToken('');setCaptchaReset(x=>x+1)
       const t = setTimeout(() => emailRef.current?.focus(), 260)
       return () => clearTimeout(t)
@@ -79,6 +82,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
     setBusy(true); setError(null); setNote(null)
     try {
       if (mode === 'signin') {
+        authSessionStorage.setRememberMe(rememberMe)
         const { error } = await supabase.auth.signInWithPassword({ email, password,options:{captchaToken} })
         if (error) {
           setError(/invalid login credentials/i.test(error.message)
@@ -173,6 +177,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signin', onAut
             )}
           </div>
 
+          {mode === 'signin' && <RememberMe checked={rememberMe} onChange={setRememberMe} disabled={busy} />}
           {mode === 'signup' && (
             <div className="sl-lamps">
               {lamp(agreeTerms, setAgreeTerms, <><a href="/terms" target="_blank" rel="noreferrer">terms</a></>)}

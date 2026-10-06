@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, YachtState } from '../../types/collab'
 import { useYachtRoom } from '../../hooks/useYachtRoom'
@@ -117,7 +117,7 @@ export default function YachtView({
   const [flicker, setFlicker] = useState<number[]>([1, 1, 1, 1, 1])
   const tumbleTimers = useRef<number[]>([])
   const dieRefs = useRef<Map<number, HTMLElement>>(new Map())
-  const lastRects = useRef<Map<number, DOMRect>>(new Map())
+  const lastRects = useRef<Map<number, { left: number; top: number }>>(new Map())
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [stampSeq, setStampSeq] = useState<{ cat: number; seq: number } | null>(null)
 
@@ -130,14 +130,26 @@ export default function YachtView({
 
   // FLIP: whenever a die moves between the table and the keep shelf, it
   // slides there instead of teleporting.
-  useEffect(() => {
+  //
+  // A die's place is read from the layout (offsets), never from where it is
+  // drawn: while dice tumble the view redraws many times a second, and a
+  // slide measured in mid-flight was taken for a new move — every redraw
+  // threw the die to the far side of where it was going. And it is done
+  // before the browser paints, so a die is never seen at its new place for
+  // one frame before it sets off from the old one.
+  useLayoutEffect(() => {
     const map = dieRefs.current
     for (const [i, el] of map) {
       const prev = lastRects.current.get(i)
-      const now = el.getBoundingClientRect()
-      if (prev && (Math.abs(prev.left - now.left) > 2 || Math.abs(prev.top - now.top) > 2)) {
-        const dx = prev.left - now.left
-        const dy = prev.top - now.top
+      let left = 0
+      let top = 0
+      for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) {
+        left += n.offsetLeft
+        top += n.offsetTop
+      }
+      if (prev && (Math.abs(prev.left - left) > 2 || Math.abs(prev.top - top) > 2)) {
+        const dx = prev.left - left
+        const dy = prev.top - top
         el.style.transition = 'none'
         el.style.transform = `translate(${dx}px, ${dy}px)`
         requestAnimationFrame(() => {
@@ -145,7 +157,7 @@ export default function YachtView({
           el.style.transform = ''
         })
       }
-      lastRects.current.set(i, now)
+      lastRects.current.set(i, { left, top })
     }
   })
 
@@ -202,11 +214,20 @@ export default function YachtView({
   // ── Tumble: any time dice change with a roll spent, the fresh dice
   //    flicker faces and land one after another (remote rolls included). ──
   const prevRollRef = useRef<{ rollsLeft: number; turn: number } | null>(null)
+  const diceKey = st ? st.dice.join('') : ''
   useEffect(() => {
     if (!st) { prevRollRef.current = null; return }
     const prev = prevRollRef.current
     prevRollRef.current = { rollsLeft: st.rollsLeft, turn: st.turn }
-    const rolledNow = prev && prev.turn === st.turn && st.rollsLeft < prev.rollsLeft
+    if (prev && prev.turn !== st.turn) {
+      // the turn passed on: nothing of the last throw goes on moving
+      for (const t of tumbleTimers.current) window.clearTimeout(t)
+      tumbleTimers.current = []
+      setTumbling(new Set())
+      setLandedSet(new Set())
+      return
+    }
+    const rolledNow = prev && st.rollsLeft < prev.rollsLeft
     if (!rolledNow) return
     const idxs = st.dice.map((_, i) => i).filter(i => !st.held[i])
     if (idxs.length === 0) return
@@ -233,10 +254,11 @@ export default function YachtView({
       }, 430 + k * 120)
       tumbleTimers.current.push(t as unknown as number)
     })
-    return () => {
-      window.clearInterval(flickerIv)
-    }
-  }, [st?.rollsLeft, st?.turn, st?.dice])
+    // No cleanup: a throw runs to its end whatever else redraws. The next
+    // throw, the turn passing on, or leaving the table is what stops it.
+    // (The state comes back from the server as a new object with the same
+    // dice in it; stopping the faces on that froze them in mid-air.)
+  }, [st?.rollsLeft, st?.turn, diceKey])
   useEffect(() => () => { for (const t of tumbleTimers.current) window.clearTimeout(t) }, [])
   const animating = tumbling.size > 0
 
@@ -315,7 +337,9 @@ export default function YachtView({
 
   // ── Bots (host drives them, one visible action per tick) ────────────────
   useEffect(() => {
-    if (!room || !isPlaying || !isHost || !st) return
+    // It waits for its dice to come to rest: acting on a clock alone, it threw
+    // again (and moved its keepers) while the last throw was still in the air.
+    if (!room || !isPlaying || !isHost || !st || animating) return
     const cur = ids[st.turn]
     if (!cur || !isComputerPlayerId(cur)) return
     const timer = window.setTimeout(() => {
@@ -339,9 +363,9 @@ export default function YachtView({
       const { st: adv, finished } = advance(withCard, ids)
       if (finished) endGame(winnerOf(withCard, ids), withCard)
       else writeState(adv)
-    }, 850)
+    }, 500)
     return () => window.clearTimeout(timer)
-  }, [room, isPlaying, isHost, st, ids, advance, winnerOf, endGame, writeState])
+  }, [room, isPlaying, isHost, st, ids, advance, winnerOf, endGame, writeState, animating])
 
   // ── Solo flow ────────────────────────────────────────────────────────────
   const startSolo = useCallback(() => {

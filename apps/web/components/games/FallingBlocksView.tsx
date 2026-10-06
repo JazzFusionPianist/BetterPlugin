@@ -34,9 +34,6 @@ import GameChat from './GameChat'
 const TICK_MS = 50
 const SYNC_THROTTLE_MS = 250
 const MAX_PLAYERS = 4
-/** On top of the per-10-lines level, the clock itself adds +1 level every
- *  minute — the slow, inevitable speed creep of classic marathon play. */
-const TIME_LEVEL_MS = 60_000
 
 /** Names for 1–3 lines cleared with a T-spin (a four cannot be one). */
 const CLEAR_NAMES: Record<number, TKey> = { 1: 'fb.single', 2: 'fb.double', 3: 'fb.triple' }
@@ -263,6 +260,7 @@ export default function FallingBlocksView({
     lines: 0,
     topOut: false,
     garbagePending: 0,
+    garbageHeld: false,
     lockTimer: null,
   }))
   const gameRef = useRef(game)
@@ -275,7 +273,6 @@ export default function FallingBlocksView({
   useEffect(() => { roomRef.current = room }, [room])
 
   // When the current round started — drives the time part of the speed curve.
-  const playStartRef = useRef<number>(Date.now())
 
   // ── Mount: try to resume an active room ──────────────────────────────────
   useEffect(() => {
@@ -366,7 +363,6 @@ export default function FallingBlocksView({
     setSolo(true)
     const fresh = initialFallingBlocksState()
     setGame(fresh)
-    playStartRef.current = Date.now()
     setClearFlash(null)
   }, [deleteCurrentRoom])
 
@@ -449,7 +445,6 @@ export default function FallingBlocksView({
       setSolo(false)
       const fresh = initialFallingBlocksState()
       setGame(fresh)
-      playStartRef.current = Date.now()
       setClearFlash(null)
       // Push initial state to server
       updateMyState({
@@ -785,11 +780,9 @@ export default function FallingBlocksView({
       lastTick = now
       gravityAccum += dt
 
-      // Speed curve: lines-based level + a slow time creep, re-read every
-      // tick so the fall keeps accelerating mid-round.
-      const elapsed = now - playStartRef.current
-      const effLevel = levelForLines(gameRef.current.lines) + Math.floor(elapsed / TIME_LEVEL_MS)
-      const gravityMs = gravityMsForLevel(effLevel)
+      // Speed follows the level, and the level follows the lines alone
+      // (guideline: one level every ten lines) — the same level that scores.
+      const gravityMs = gravityMsForLevel(levelForLines(gameRef.current.lines))
 
       setGame(prev => {
         if (prev.topOut || !prev.current) return prev
@@ -864,10 +857,8 @@ export default function FallingBlocksView({
     ? game.board
     : Array.from({ length: BOARD_ROWS }, () => Array.from({ length: BOARD_COLS }, () => null))
 
-  // ── Level readout (same curve the game loop uses, minus the ms jitter) ──
-  const displayLevel = levelForLines(game.lines) + (localActive
-    ? Math.floor((Date.now() - playStartRef.current) / TIME_LEVEL_MS)
-    : 0)
+  // ── Level readout — the level the game loop falls at and scores by ──
+  const displayLevel = levelForLines(game.lines)
 
   // ── Result: decided on points ────────────────────────────────────────────
   let resultTitle = t('fb.gameOver')

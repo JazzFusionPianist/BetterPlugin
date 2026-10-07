@@ -1,0 +1,167 @@
+// node test/hands.mjs [width height] — every control of the room, found by what it does and pressed with a real pointer; what changed is read back
+import { open, PAGE, DRAFT } from './cdp.mjs'
+const W = +(process.argv[2] || 1440), H = +(process.argv[3] || 900)
+const b = await open(PAGE, { width: W, height: H, dsf: 1 })
+await b.sleep(500)
+const out = [], bad = []
+const ok = (name, cond, extra) => { out.push(`${cond ? 'ok  ' : 'FAIL'} ${name}${extra !== undefined ? '  ' + JSON.stringify(extra) : ''}`); if (!cond) bad.push(name) }
+const ev = b.ev
+// where a control is: the middle of its hit rect, and whether the pointer would really land on it
+const at = async (sel, fx = .5, fy = .5) => ev(`const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null; const r = el.getBoundingClientRect(), x = r.left + r.width * ${fx}, y = r.top + r.height * ${fy}, top = document.elementFromPoint(x, y); return { x, y, w: r.width, h: r.height, hit: top === el, top: top ? (top.dataset && top.dataset.a) || top.tagName : null }`)
+const click = async (sel, fx, fy, mods) => { const p = await at(sel, fx, fy); if (!p) { bad.push('missing ' + sel); out.push('FAIL missing ' + sel); return null } if (!p.hit) { bad.push('covered ' + sel); out.push(`FAIL covered ${sel} by ${p.top}`) } await b.click(p.x, p.y, mods || 0); await b.sleep(40); return p }
+const dbl = async sel => { const p = await at(sel); if (!p) { bad.push('missing ' + sel); return } await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', buttons: 1, clickCount: 1 }); await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'left', clickCount: 1 }); await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', buttons: 1, clickCount: 2 }); await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'left', clickCount: 2 }); await b.sleep(40) }
+const rclick = async (sel, fx, fy) => { const p = await at(sel, fx, fy); if (!p) { bad.push('missing ' + sel); return } await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'right', buttons: 2, clickCount: 1 }); await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'right', clickCount: 1 }); await b.sleep(40) }
+const drag = async (sel, dx, dy, fx, fy) => { const p = await at(sel, fx, fy); if (!p) { bad.push('missing ' + sel); return } await b.dragTo(p.x, p.y, p.x + dx, p.y + dy, 6); await b.sleep(40) }
+const st = expr => ev(`const S = __daw.S; return (${expr})`)
+const key = async (k, code, vk, mods) => { await b.press(k, code, vk, mods || 0); await b.sleep(40) }
+const settle = () => b.sleep(260)
+const pick = async label => { const i = await st(`S.menu ? S.menu.items.findIndex(it => it.t === ${JSON.stringify(label)}) : -1`); if (i < 0) { bad.push('menu item ' + label); out.push('FAIL menu item ' + label + ' ' + JSON.stringify(await st('S.menu && S.menu.items.map(i => i.t)'))); return } await click(`[data-a="pick"][data-i="${i}"]`) }
+
+// ── the control bar ──
+await click('[data-a="patch"]'); await settle(); ok('patch key opens the panel', await st(`S.panel.on && S.panel.tab === 'patch' && __daw.VIEW.p === 1`))
+await click('[data-a="mixer"]'); await settle(); ok('mixer key turns the panel to the mixer', await st(`S.panel.on && S.panel.tab === 'mixer'`))
+await click('[data-a="mixer"]'); await settle(); ok('mixer key again closes it', await st(`!S.panel.on && __daw.VIEW.p === 0`))
+await click('[data-a="slur"]'); await settle(); ok('slur key opens slur', await st(`S.slur && __daw.VIEW.s === 1 && __daw.lay().RX === __daw.lay().W - 300`))
+await click('[data-a="slur"]'); await settle(); ok('slur key again closes it', await st(`!S.slur && __daw.VIEW.s === 0`))
+await key('b', 'KeyB', 66); await settle(); ok('b opens patch', await st(`S.panel.on && S.panel.tab === 'patch'`))
+await key('x', 'KeyX', 88); await settle(); ok('x turns to mixer', await st(`S.panel.on && S.panel.tab === 'mixer'`))
+await key('x', 'KeyX', 88); await settle(); ok('x closes', await st(`!S.panel.on`))
+await key('o', 'KeyO', 79); await settle(); ok('o opens slur', await st(`S.slur`))
+await key('o', 'KeyO', 79); await settle(); ok('o closes slur', await st(`!S.slur`))
+await click('[data-a="play"]'); await b.sleep(250); ok('play', await st(`S.playing`))
+const p1 = await ev(`return __daw.curPos()`); ok('the song moves', p1 > 0.01, p1)
+await click('[data-a="stop"]'); ok('stop', await st(`!S.playing`))
+await click('[data-a="tostart"]'); ok('to the start', await st(`S.pos === 0`))
+await click('[data-a="loop"]'); ok('cycle on', await st(`S.cycle.on`)); await click('[data-a="loop"]'); ok('cycle off', await st(`!S.cycle.on`))
+await click('[data-a="click"]'); ok('click on', await st(`S.click`)); await click('[data-a="click"]')
+await click('[data-a="rec"]'); ok('record says it is in the app', await st(`S.last && S.last.say === 'recording is in the app'`), await st('S.last'))
+// tempo and key, changed where they stand
+await click('[data-a="tempo"]')
+let box = await ev(`const r = document.getElementById('rename').getBoundingClientRect(), c = document.querySelector('[data-a="tempo"]').getBoundingClientRect(); return { hidden: document.getElementById('rename').hidden, dx: r.left - c.left, dy: r.top - c.top, w: r.width, cw: c.width }`)
+ok('tempo box lies on its cell', !box.hidden && Math.abs(box.dx) < 2 && Math.abs(box.w - box.cw) < 2, box)
+await ev(`const el = document.getElementById('rename'); el.value = '100'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
+ok('tempo is 100', await st(`S.tempo === 100`)); await ev(`__daw.S.tempo !== 92 && (function(){ })()`)
+await click('[data-a="tempo"]'); await ev(`const el = document.getElementById('rename'); el.value = '92'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
+await click('[data-a="key"]')
+box = await ev(`const r = document.getElementById('rename').getBoundingClientRect(), c = document.querySelector('[data-a="key"]').getBoundingClientRect(); return { hidden: document.getElementById('rename').hidden, dx: r.left - c.left, w: r.width, cw: c.width }`)
+ok('key box lies on its cell', !box.hidden && Math.abs(box.dx) < 2, box)
+await ev(`const el = document.getElementById('rename'); el.value = 'A min'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
+ok('key is a min', await st(`S.key === 'a min'`), await st('S.key'))
+// the way out
+const m0 = await st('S.master'); await drag('[data-a="master"]', 0, 30); ok('the out goes down when pulled down', (await st('S.master')) < m0, await st('S.master'))
+await dbl('[data-a="master"]'); ok('twice puts the out at 0', await st('S.master === 0')); await ev(`__daw.S.master = -4.2`)
+// hand off
+await click('[data-a="ho"]'); ok('hand off opens', await st('S.ho.open'))
+await click('[data-a="ho-set"][data-k="print"][data-v="dry"]'); ok('print dry', await st(`S.ho.print === 'dry'`))
+await click('[data-a="ho-set"][data-k="range"][data-v="song"]'); ok('range song', await st(`S.ho.range === 'song'`))
+await ev(`Object.assign(__daw.S.ho, { print: 'with patch', range: 'this scene' })`)
+await click('[data-a="ho-close"]', .02, .9); ok('a press outside closes hand off', await st('!S.ho.open'))
+
+// ── the tracks' own bar ──
+const n0 = await st('S.tracks.length')
+await click('[data-a="addtrack"]'); ok('the + key opens the new-track list', await st(`!!S.newT && S.newT.kind === 'audio'`)); await click('[data-a="new-make"]'); ok('create: a new audio track', await st(`S.tracks.length === ${n0 + 1} && !S.newT`))
+await key('z', 'KeyZ', 90, 4); ok('undo takes it back', await st(`S.tracks.length === ${n0}`))
+await click('[data-a="autokey"]'); ok('auto on', await st('S.auto')); await click('[data-a="flexkey"]'); ok('flex on turns auto off', await st('S.flex && !S.auto')); await click('[data-a="flexkey"]'); ok('flex off', await st('!S.flex'))
+await click('[data-a="toolmenu"]'); await pick('scissors'); ok('tool scissors', await st(`S.tool === 'scissors'`))
+await click('[data-a="toolmenu"]'); await pick('pointer')
+await click('[data-a="tool2menu"]'); await pick('pencil'); ok('cmd tool pencil', await st(`S.tool2 === 'pencil'`)); await click('[data-a="tool2menu"]'); await pick('marquee')
+await click('[data-a="modemenu"]'); await pick('slip'); ok('the mode key: slip, nothing pulls', await st(`S.mode === 'slip' && !S.snap`)); await click('[data-a="modemenu"]'); await pick('smart'); ok('and smart again', await st(`S.mode === 'smart' && S.snap`))
+// colour and outline
+await click('[data-a="sel"][data-i="0"]')
+const c0 = await st('S.tracks[0].c')
+await click('[data-a="look"]'); ok('look opens', await st('!!S.look'))
+await click('[data-a="look-col"][data-f="vox"][data-s="3"]'); ok('a colour set by hand', await st(`JSON.stringify(S.tracks[0].col) === '["vox",3]' && S.tracks[0].c !== ${JSON.stringify(c0)}`), await st('[S.tracks[0].col, S.tracks[0].c]'))
+await click('[data-a="look-shape"][data-v="vox"]'); ok('an outline set by hand', await st(`S.tracks[0].shape === 'vox' && S.tracks[0].outline === 'vox'`))
+await click('[data-a="look-col"][data-f=""]'); await click('[data-a="look-shape"][data-v=""]'); ok('given back: as read', await st(`!S.tracks[0].col && !S.tracks[0].shape && S.tracks[0].c === ${JSON.stringify(c0)} && S.tracks[0].outline === 'plain'`), await st('[S.tracks[0].col, S.tracks[0].shape, S.tracks[0].c, S.tracks[0].outline]'))
+await click('[data-a="look-close"]', .02, .9); ok('look closes', await st('!S.look'))
+// zoom
+const z0 = await ev('return __daw.lay().PXB'); await drag('[data-a="zoomx"]', 20, 0, .2); const z1 = await ev('return __daw.lay().PXB'); ok('zoom along the song', z1 > z0, [z0, z1])
+await dbl('[data-a="zoomx"]'); ok('twice: all of the song', Math.abs((await ev('return __daw.lay().PXB')) - z0) < .01)
+await drag('[data-a="zoomy"]', 20, 0, .2); ok('taller rows', (await st('S.rh')) > 25, await st('S.rh')); await dbl('[data-a="zoomy"]'); ok('twice: rows of 25', await st('S.rh === 25'))
+
+// ── markers and bars ──
+await click('[data-a="scene"][data-i="3"]'); ok('a marker pressed: the song goes there', await st('S.pos === 16'), await st('S.pos'))
+// while the song runs a marker is not gone to in the middle of a bar: it is marked, and the song goes at the next bar line
+// (presses of the same marker less than half a second apart are one double press, so these are spaced)
+await b.sleep(500); await ev(`__daw.S.pos = 0.1; __daw.play()`); await b.sleep(200)
+await click('[data-a="scene"][data-i="3"]')
+{ const q = await ev(`__daw.flush(); return [__daw.S.queued, __daw.curPos(), document.getElementById('g-scenes').innerHTML.includes('height="6"')]`); ok('pressed while the song runs: it waits, with a mark', q[0] === 3 && q[1] < 1 && q[2], q) }
+await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); ok('pressed again: let go', await st('S.queued === null'))
+await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); await b.sleep(1700)
+{ const q = await ev(`return [__daw.S.queued, __daw.curPos()]`); ok('at the bar line the song goes there', q[0] === null && q[1] >= 16 && q[1] < 17, q) }
+await click('[data-a="stop"]'); await ev(`__daw.S.pos = 16`)
+await dbl('[data-a="scene"][data-i="1"]'); ok('twice: it is the cycle', await st('S.cycle.on && S.cycle.a === 4 && S.cycle.b === 12'), await st('S.cycle'))
+await key('c', 'KeyC', 67)
+await rclick('[data-a="scene"][data-i="2"]'); ok('the other button opens its menu', await st(`!!S.menu && S.menu.items[0].t === 'rename'`)); await key('Escape', 'Escape', 27)
+await click('[data-a="seek"]', .5, .6); ok('a press on the bars moves the playhead', await st('S.pos > 10'), await st('S.pos'))
+await ev(`S.cycle = { on: false, a: 0, b: 0 }; __daw.redraw()`)
+await drag('[data-a="cycle"]', 120, 0, .1); ok('a pull along the top edge draws the cycle', await st('S.cycle.on && S.cycle.b - S.cycle.a > 2'), await st('S.cycle')); await key('c', 'KeyC', 67)
+
+// ── heads ──
+await click('[data-a="sel"][data-i="2"]'); ok('a head pressed: chosen', await st('S.sel === 2'))
+await click('[data-a="mute"][data-i="2"]'); ok('m', await st('S.tracks[2].mute')); await click('[data-a="mute"][data-i="2"]')
+await click('[data-a="solo"][data-i="2"]'); ok('s', await st('S.tracks[2].solo')); await click('[data-a="solo"][data-i="2"]')
+const v0 = await st('S.tracks[2].vol'); await drag('[data-a="vol"][data-i="2"]', -14, 0); ok('the fader pulled left', (await st('S.tracks[2].vol')) < v0, await st('S.tracks[2].vol'))
+await dbl('[data-a="vol"][data-i="2"]'); ok('twice: the fader at 0 db', await st(`S.tracks[2].vol === 0`)); await ev(`S.tracks[2].vol = ${v0}; __daw.applyAll(); __daw.redraw()`)
+await dbl('[data-a="sel"][data-i="2"]')
+box = await ev(`const r = document.getElementById('rename').getBoundingClientRect(), row = document.getElementById('hd-2').getBoundingClientRect(); return { hidden: document.getElementById('rename').hidden, left: r.left, top: r.top - row.top, h: r.height, w: r.width }`)
+ok('a name is changed where it stands', !box.hidden && box.left > 30 && box.left < 60 && box.top >= 0 && box.top + box.h <= 26, box)
+await ev(`const el = document.getElementById('rename'); el.value = 'ride'; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(80)
+ok('renamed', await st(`S.tracks[2].name === 'ride' && S.tracks[2].fam === 'drums'`)); await key('z', 'KeyZ', 90, 4)
+await rclick('[data-a="sel"][data-i="1"]'); ok('a head’s own menu', await st(`!!S.menu && S.menu.items.some(i => i.t === 'duplicate')`)); await key('Escape', 'Escape', 27)
+
+// ── lanes ──
+const reg = await ev(`const t = __daw.S.tracks[0], r = t.regs[0], L = __daw.lay(), b = document.getElementById('board').getBoundingClientRect(); const x = (292 + (r.a - 1 - L.VX) * L.PXB + (r.b - r.a) * L.PXB / 2), y = L.TY + 0 * L.rh - L.VY + L.rh / 2; return { x: b.left + x, y: b.top + y, id: r.id, a: r.a, pxb: L.PXB }`)
+await b.click(reg.x, reg.y); await b.sleep(40); ok('a region pressed: chosen', await st(`S.selR.length === 1 && S.selR[0] === ${reg.id}`))
+ok('the bar names the region', (await ev(`return document.getElementById('g-info').textContent`)).includes('region'))
+await b.dragTo(reg.x, reg.y, reg.x + reg.pxb * 2, reg.y, 6); await b.sleep(60); ok('pulled two bars on', await st(`__daw.regOf(${reg.id})[0].a === ${reg.a + 2}`), await st(`__daw.regOf(${reg.id})[0].a`))
+await key('z', 'KeyZ', 90, 4); ok('undo', await st(`__daw.regOf(${reg.id})[0].a === ${reg.a}`))
+const g0 = await st(`__daw.regOf(${reg.id})[0].gain || 0`); await drag('[data-a="rgain"]', 0, -20); ok('gain pulled up in the bar', (await st(`__daw.regOf(${reg.id})[0].gain`)) > g0, await st(`__daw.regOf(${reg.id})[0].gain`)); await dbl('[data-a="rgain"]')
+await click('[data-a="look"]'); await click('[data-a="look-col"][data-f="gtr"][data-s="5"]'); ok('a region takes a colour of its own', await st(`JSON.stringify(__daw.regOf(${reg.id})[0].col) === '["gtr",5]' && !S.tracks[0].col`)); await click('[data-a="look-col"][data-f=""]'); await click('[data-a="look-close"]', .02, .9)
+await key('Escape', 'Escape', 27)
+
+// ── the panel: patch ──
+await click('[data-a="sel"][data-i="5"]'); await key('b', 'KeyB', 66); await settle()
+// a patch begins with nothing on it; prints are put on from the list, pulled, and taken off again
+const prints = () => ev(`return [...document.querySelectorAll('#g-dock [data-a="print"]')].map(e => e.dataset.k)`)
+ok('a patch begins empty: in, a place to add, out', JSON.stringify(await prints()) === '[]' && await ev(`return !!document.querySelector('#g-dock [data-a="plugs"]')`), await prints())
+await click('[data-a="plugs"]'); await b.sleep(120); ok('the place to add opens the list, with the three prints', await ev(`return S.picker.open && JSON.stringify([...document.querySelectorAll('#pk-list .pk-row')].map(e => e.dataset.print)) === '["tape","space","delay"]'`))
+await ev(`document.querySelector('#pk-list .pk-row[data-print="tape"]').click()`); await b.sleep(80)
+ok('tape is put on, at a moderate amount', JSON.stringify(await prints()) === '["tape"]' && await st('Math.round(S.tracks[5].patch.A.tape) === 24 && !S.picker.open'), await prints())
+const tp0 = await st('Math.round(S.tracks[5].patch.A.tape)'); await drag('[data-a="print"][data-k="tape"]', 0, -30); ok('a print pulled up', (await st('Math.round(S.tracks[5].patch.A.tape)')) > tp0, [tp0, await st('Math.round(S.tracks[5].patch.A.tape)')])
+await click('[data-a="plugs"]'); await b.sleep(120); await ev(`document.querySelector('#pk-list .pk-row[data-print="space"]').click()`); await b.sleep(80)
+ok('space alone stands in the line', JSON.stringify(await prints()) === '["tape","space"]', await prints())
+await click('[data-a="plugs"]'); await b.sleep(120); await ev(`document.querySelector('#pk-list .pk-row[data-print="delay"]').click()`); await b.sleep(80)
+ok('with delay beside it, their mix comes too', JSON.stringify(await prints()) === '["tape","space","delay","mix"]', await prints())
+ok('nothing left to add in a browser: the place to add is gone', await ev(`return !document.querySelector('#g-dock [data-a="plugs"]')`))
+await drag('[data-a="print"][data-k="delay"]', 0, 80); ok('pulled down to nothing and let go: it is off the patch, and the mix with it', JSON.stringify(await prints()) === '["tape","space"]' && await st('S.tracks[5].patch.A.delay === 0'), await prints())
+await b.sleep(450); await dbl('[data-a="print"][data-k="space"]'); ok('pressed twice: off the patch', JSON.stringify(await prints()) === '["tape"]', await prints())
+await b.sleep(450); await dbl('[data-a="print"][data-k="tape"]'); ok('and the patch is empty again', JSON.stringify(await prints()) === '[]' && await st('S.tracks[5].patch.A.tape === 0'), await prints())
+const h0 = await st('S.panel.h'); await drag('[data-a="pgrip"]', 0, -60, .3); ok('the panel’s edge pulled up', (await st('S.panel.h')) === h0 + 60, [h0, await st('S.panel.h')]); await drag('[data-a="pgrip"]', 0, 60, .3)
+const sv0 = await st('S.tracks[5].vol'); await drag('[data-a="mvol"][data-i="5"]', 0, 30); ok('the strip’s fader pulled down', (await st('S.tracks[5].vol')) < sv0, await st('S.tracks[5].vol')); await dbl('[data-a="mvol"][data-i="5"]')
+await drag('[data-a="mpan"][data-i="5"]', 14, 0); ok('pan to the right', (await st('S.tracks[5].pan')) > 0, await st('S.tracks[5].pan')); await dbl('[data-a="mpan"][data-i="5"]'); ok('twice: the middle', await st('S.tracks[5].pan === 0'))
+await click('[data-a="msendadd"][data-i="5"]'); await pick('new bus'); ok('a send to a new bus', await st(`S.tracks[5].sends.length === 1 && S.tracks.some(t => t.kind === 'bus')`), await st('S.tracks.map(t => t.name)'))
+const sd0 = await st('S.tracks[5].sends[0].db'); await drag('[data-a="msend"][data-i="5"][data-k="0"]', 22, 0, .3); ok('the send fills as it is pulled', (await st('S.tracks[5].sends[0].db')) > sd0, [sd0, await st('S.tracks[5].sends[0].db')])
+await click('[data-a="mout"][data-i="5"]'); ok('out opens its list', await st(`!!S.menu && S.menu.items[0].t === 'stereo out'`)); await pick('bus 1'); ok('out to the bus', await st(`S.tracks[5].out === S.tracks.find(t => t.kind === 'bus').id`)); await key('z', 'KeyZ', 90, 4)
+await drag('[data-a="mmaster"]', 0, 24); ok('the out’s own fader pulled down', (await st('S.master')) < -4.2, await st('S.master')); await dbl('[data-a="mmaster"]'); ok('twice: the out at 0', await st('S.master === 0')); await ev(`__daw.S.master = -4.2`)
+await click('[data-a="tab-mixer"]'); ok('the tab turns the panel', await st(`S.panel.tab === 'mixer'`))
+// ── the panel: mixer ──
+await click('[data-a="msel"][data-i="1"]'); ok('a strip pressed by its name: chosen', await st('S.sel === 1'))
+const mv0 = await st('S.tracks[3].vol'); await drag('[data-a="mvol"][data-i="3"]', 0, -24); ok('a narrow strip’s fader', (await st('S.tracks[3].vol')) > mv0, await st('S.tracks[3].vol')); await dbl('[data-a="mvol"][data-i="3"]')
+await click('[data-a="mute"][data-i="4"]'); ok('m on a strip', await st('S.tracks[4].mute')); await click('[data-a="mute"][data-i="4"]')
+await click('[data-a="m-patch"][data-i="6"]'); ok('a strip’s patch row goes to its patch', await st(`S.sel === 6 && S.panel.tab === 'patch'`))
+await key('z', 'KeyZ', 90, 4); await key('z', 'KeyZ', 90, 4); await key('b', 'KeyB', 66); await settle()
+
+// ── the foot ──
+await click('[data-a="cmdline"]'); ok('the mark focuses the line', await ev(`return document.activeElement === document.getElementById('cmd')`))
+await ev(`const el = document.getElementById('cmd'); el.value = 'snare -3 db'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`); await b.sleep(120)
+ok('said and done', await st('S.tracks[1].vol === -8 && S.last && S.last.res && S.last.res.length === 1'), await st('[S.tracks[1].vol, S.last]'))
+ok('what was said stays', await ev(`return document.getElementById('cmd').value === 'snare -3 db'`))
+await click('[data-a="undo"]'); ok('undo in the foot', await st('S.tracks[1].vol === -5'))
+await ev(`document.getElementById('cmd').blur()`)
+await click('[data-a="sheet"]'); ok('keys opens the sheet', await st('!!S.sheet')); await click('[data-a="sheet-close"]', .01, .5); ok('a press closes it', await st('!S.sheet'))
+
+ok('no errors on the page', (await ev('return window.__errs')).length === 0 && b.errors.length === 0, [await ev('return window.__errs'), b.errors])
+console.log(out.join('\n')); console.log(bad.length ? `\n${bad.length} FAILED` : '\nall passed')
+await b.shot(`t1-end-${W}x${H}.png`)
+await b.close()

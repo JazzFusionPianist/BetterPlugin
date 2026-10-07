@@ -35,3 +35,10 @@ apps/web/ios/App/build
 apps/web/ios/**/xcuserdata
 DerivedData
 .env*
+
+# Slur DAW alpha build artifacts
+Daw/build/
+Daw/build.noindex/
+Daw/build-configure.log
+Daw/build.log
+Daw/test/out/

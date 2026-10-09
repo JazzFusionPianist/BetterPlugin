@@ -27,7 +27,7 @@ ok('one undo: all as it was', (await all()) === whole && same(await marks(), M0)
 // ── a part said twice ──
 await ev(`partAct(3, 'repeat')`)
 ok('the chorus repeated: a copy stands right after it, the rest eight bars later', same(await regs('kick'), [[5, 13, 4], [17, 25, 16], [25, 33, 16], [33, 41, 24], [41, 49, 32]]), await regs('kick'))
-ok('the long region is cut only where the copy was put in', same(await regs('air'), [[1, 25, 0], [25, 33, 16], [33, 51, 24]]), await regs('air'))
+ok('the long region is cut only where the copy was put in — the copy carries on into what follows it, and is one region with it', same(await regs('air'), [[1, 25, 0], [25, 51, 16]]), await regs('air'))
 ok('and the markers say chorus twice', same(await marks(), [['intro', 1], ['verse', 5], ['pre', 13], ['chorus', 17], ['chorus', 25], ['verse 2', 33], ['chorus', 41], ['out', 49]]), await marks())
 ok('the copies are regions of their own', await ev(`const ids = S.tracks.flatMap(t => t.regs.map(r => r.id)); return new Set(ids).size === ids.length`))
 ok('the song grew to hold it', await ev(`return SONG_END >= 50`), await ev('return SONG_END'))

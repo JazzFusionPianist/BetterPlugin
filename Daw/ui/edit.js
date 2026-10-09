@@ -46,12 +46,17 @@ function restoreEdit (st) {
   SONG_END = st.end; SCENES = mkScenes(st.scenes)
 }
 const EVERY = ['lanes', 'head', 'ruler', 'scenes', 'top', 'hand', 'dock', 'info', 'look']
+/* what a region remembers of an edit of the song's time (see seamLane, partAt) is lengths in bars: counted anew with the rest */
+function scaleNotes (r, k) {
+  if (r.sm) r.sm = { t: r.sm.t * k, s: r.sm.s * k, fo: r.sm.fo * k, foc: r.sm.foc, f: r.sm.f * k, fi: r.sm.fi * k, g: r.sm.g * k }
+  for (const key of ['px', 'py']) if (r[key]) r[key] = Object.assign({}, r[key], { la: r[key].la * k, lb: r[key].lb * k, aEnd: r[key].aEnd * k, bStart: r[key].bStart * k }, r[key].xo != null ? { xo: r[key].xo * k } : {})
+}
 /* a crossfade that was the thing chosen and is one no longer is not chosen */
 function liveSelX () { if (S.selX) { const A = regOf(S.selX[0])[0], B = regOf(S.selX[1])[0]; if (!(A && B && xfadeOf(A, B))) S.selX = null } }
 function afterEdit () { liveSelX(); growSong(); VY = clamp(VY, 0, maxVY()); repaint(); resync(); pushTransport(); uiDirty(...EVERY); reviveInserts() }
-function commit (before) { UNDO.push(before); if (UNDO.length > 120) UNDO.shift(); REDO.length = 0; afterEdit() }
-function undoEdit () { if (UNDO.length) { REDO.push(editState()); restoreEdit(UNDO.pop()); afterEdit(); rewarpAll() } }
-function redoEdit () { if (REDO.length) { UNDO.push(editState()); restoreEdit(REDO.pop()); afterEdit(); rewarpAll() } }
+function commit (before) { joinEnds(); UNDO.push(before); if (UNDO.length > 120) UNDO.shift(); REDO.length = 0; afterEdit() }
+function undoEdit () { if (UNDO.length && !S.rec) { REDO.push(editState()); restoreEdit(UNDO.pop()); afterEdit(); rewarpAll() } }      // (not while a take runs: a step may bring another tempo back, and the take is counted in this one)
+function redoEdit () { if (REDO.length && !S.rec) { UNDO.push(editState()); restoreEdit(REDO.pop()); afterEdit(); rewarpAll() } }
 /* the song is as long as what is in it, and a little more (the demo stays as it was written) */
 function growSong () {
   const end = Math.max(0, ...S.tracks.flatMap(t => t.regs.map(r => r.b - 1))), base = isDemo() ? 42 : 64
@@ -75,7 +80,7 @@ function setMeter (b, u) {
   const k = spb0 / SPB(), at = x => 1 + (x - 1) * k                                     // one bar of before is k bars now
   LOOPS = songLoops(S.tempo)
   for (const t of S.tracks) {
-    for (const L of lanesOf(t)) for (const r of L.regs) { r.b = at(r.b); r.a = at(r.a); r.off = (r.off || 0) * k; r.fi = (r.fi || 0) * k; r.fo = (r.fo || 0) * k; if (r.srcBars) r.srcBars *= k; if (r.xo != null) r.xo *= k; dirtyReg(r) }
+    for (const L of lanesOf(t)) for (const r of L.regs) { r.b = at(r.b); r.a = at(r.a); r.off = (r.off || 0) * k; r.fi = (r.fi || 0) * k; r.fo = (r.fo || 0) * k; if (r.srcBars) r.srcBars *= k; if (r.xo != null) r.xo *= k; scaleNotes(r, k); dirtyReg(r) }
     for (const key in t.autos || {}) for (const q of t.autos[key]) q.b *= k
   }
   const end = SONG_END * k
@@ -135,26 +140,47 @@ function snapPos (pos, e, skip) {
 /* ── what can be done to regions ── */
 /* a region cut in two at a place inside it (bars from zero): the piece after the cut is handed back */
 function splitRaw (r, t, pos) {
+  const fi0 = r.fi || 0, fo0 = r.fo || 0
   const right = cloneReg(r, { a: pos + 1, off: (r.off || 0) + (pos - (r.a - 1)), fi: 0 })
-  delete right.tc
+  delete right.tc; delete right.tcf; delete right.py; delete r.px; delete r.sm         // (what the region remembers of its end — px, sm — is the right piece's now; of its beginning, the left one's)
   r.b = pos + 1; r.fo = 0; clampFades(r); clampFades(right); dirtyReg(r)
+  const lf = Math.abs(r.fi - fi0) > 1e-12, rf = Math.abs((right.fo || 0) - fo0) > 1e-12
+  if (lf || rf) right.tcf = { fi: fi0, fo: fo0, l: r.fi, r: right.fo || 0, lf, rf }    // (a fade ran through the place and is shorter for it: should the two be one again with it untouched — see healAt — it is as long as it was)
   t.regs.splice(t.regs.indexOf(r) + 1, 0, right)
   return right
 }
 /* two that crossfade are parted at a place inside what they share, or on its edge (bars from one): the earlier ends there
    and the later begins there. Each keeps the part of its fade that lies on its own side — the earlier one still fades
    out up to the place, the later one in from it — so that neither is heard at full level where it only ever faded; on
-   the far edge that is the whole fade of the one that stays as it is. On the join itself — the place the crossfade was
-   made about — they simply meet, as they did before it was made (see uncross): that is where something put down next
-   to one of them begins, and a fade to nothing there would be a hole in front of it. Two that are one sound cut in two
-   simply meet wherever they are parted. */
+   the far edge that is the whole fade of the one that stays as it is. Two that are one sound cut in two simply meet.
+   Parted on the join itself — the place the crossfade was made about — the two ends are marked: when the edit is done,
+   one that something stands against simply meets it, as the two met before the crossfade was made (see joinEnds). */
 function partAt (A, B, at) {
-  const s0 = B.a, e0 = A.b, j = joinOf(A, B)
+  const s0 = B.a, e0 = A.b, j = joinOf(A, B), one = carriesOn(A, B)
   at = clamp(at, s0, e0)
-  const plain = carriesOn(A, B) || Math.abs(at - j) < 1e-9
+  /* (what the crossfade was, kept on both: how far each ran over the place, its curve and its join, and the place in each
+     one's sound — should these very ends meet again, it is made again as it was: see remakeMet) */
+  const n = { la: e0 - at, lb: at - s0, curve: A.foc || 0, aEnd: (A.off || 0) + (at - A.a), bStart: (B.off || 0) + (at - s0), ka: srcKey(A), kb: srcKey(B) }
+  if (A.xo != null) n.xo = A.xo
+  A.px = n; B.py = n
   B.off = (B.off || 0) + (at - B.a); B.a = at; A.b = at; delete A.xo
-  A.fo = plain ? 0 : Math.max(0, at - s0); B.fi = plain ? 0 : Math.max(0, e0 - at)
+  A.fo = one ? 0 : Math.max(0, at - s0); B.fi = one ? 0 : Math.max(0, e0 - at)
+  if (!one && Math.abs(at - j) < 1e-9) { A._pj = (A._pj || 0) | 1; B._pj = (B._pj || 0) | 2 }
   dirtyReg(A); dirtyReg(B)
+}
+/* the ends that were parted on a crossfade's join (partAt marks them: 1 an end, 2 a beginning), once the edit is done. One
+   that something stands against has no fade there — it would be a hole in front of what was put next to it, and the two
+   met plainly before their crossfade was made; one left open keeps the fade it has, and does not end bare in silence. */
+function joinEnds () {
+  for (const t of S.tracks) for (const L of lanesOf(t)) {
+    if (!L.regs.some(r => r._pj)) continue
+    for (const r of L.regs) {
+      if (!r._pj) continue
+      if ((r._pj & 1) && L.regs.some(q => q !== r && Math.abs(q.a - r.b) < 1e-6)) { r.fo = 0; dirtyReg(r) }
+      if ((r._pj & 2) && L.regs.some(q => q !== r && Math.abs(q.b - r.a) < 1e-6)) { r.fi = 0; dirtyReg(r) }
+      delete r._pj
+    }
+  }
 }
 /* a cut made by hand, or by a key, in one region: not within a sliver of its ends. Inside a crossfade there is nothing to
    cut — the two regions are two already, and a cut that is only a cut changes nothing that is heard. */
@@ -185,9 +211,9 @@ function cutLaneAt (L, at, keep, o) {
   for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) {
     const A = here[i], B = here[j], over = xfadeOf(A, B)
     if (!over || (kept(A) && kept(B)) || !(at > B.a - 1 - 1e-9 && at < A.b - 1 + 1e-9)) continue
+    if (Math.abs(over - (A.fo || 0)) > 1e-6 || Math.abs(over - (B.fi || 0)) > 1e-6) continue      // (two that only lie over each other by a hair, each with a fade of its own there, are no crossfade: each is looked at by itself, below)
     if (kept(A) && (!fresh || (fresh.get(A.id) || {}).end !== false)) continue      // (a kept one counts as half of a crossfade only at an end the act did not touch)
     if (kept(B) && (!fresh || (fresh.get(B.id) || {}).start !== false)) continue
-    if (cutLaneAt.note) cutLaneAt.note.push([L, A, B, over, A.foc || 0, A.xo])
     partAt(A, B, at + 1)
   }
   if (here.some(r => !(r.b - r.a > 1e-9))) L.regs = L.regs.filter(r => r.b - r.a > 1e-9 || kept(r))      // (one that was nothing but two crossfades, cut where they met, has nothing left of its own)
@@ -203,6 +229,9 @@ function cutLaneAt (L, at, keep, o) {
 }
 /* where a region's middle lies, in bars from zero: once a lane has been cut at a place (cutLaneAt), which side of the place a region is on */
 const midOf = r => (r.a + r.b) / 2 - 1
+/* … and the side itself: at the place or after it, a region belongs to what follows (the same answer wherever it is asked: a
+   stretch taken out and put back must find everything on the side it left it) */
+const after = (r, p) => midOf(r) > p - 1e-9
 /* a region that an edit of the song's time has carried to before the song's first bar by the hair it stuck out: the hair is given up there (there is no room for it) */
 function notBeforeOne (r) { if (r.a < 1) { const cut = 1 - r.a; r.a = 1; r.off = (r.off || 0) + cut; r.fi = Math.max(0, (r.fi || 0) - cut); clampFades(r); dirtyReg(r) } }
 function removeRegs (ids) { const s = new Set(ids); for (const t of S.tracks) t.regs = t.regs.filter(r => !s.has(r.id)); S.selR = S.selR.filter(id => !s.has(id)) }
@@ -214,6 +243,8 @@ function joinPair (t, r1, r2) {
   if (!same) return false
   const len1 = r1.b - r1.a, cont = Math.abs(((r2.off || 0) - ((r1.off || 0) + len1))), per = r1.loop ? LOOPS[r1.buf].bars : 0
   if (!(cont < 1e-6 || (per && Math.abs(cont % per) < 1e-6) || (per && Math.abs(per - cont % per) < 1e-6))) return false
+  if (r2.sm) r1.sm = r2.sm; else delete r1.sm
+  if (r2.px) r1.px = r2.px; else delete r1.px
   r1.b = r2.b; r1.fo = r2.fo || 0; r1.foc = r2.foc || 0; if (r2.xo != null) r1.xo = r2.xo; else delete r1.xo; dirtyReg(r1)
   t.regs = t.regs.filter(x => x !== r2); S.selR = S.selR.filter(id => id !== r2.id)
   return true
@@ -246,7 +277,7 @@ function cutByMarquee () {
     const was = t.regs.length, sig = t.regs.map(r => r.a + r.b).join()
     cutLaneAt(t, m.a); cutLaneAt(t, m.b)
     if (t.regs.length !== was || t.regs.map(r => r.a + r.b).join() !== sig) cutByMarquee.changed = true
-    for (const r of t.regs) { const c = midOf(r); if (c > m.a && c < m.b) inside.push(r) }      // (one that sticks out of the marquee by a hair is in it whole)
+    for (const r of t.regs) if (after(r, m.a) && !after(r, m.b)) inside.push(r)                 // (one that sticks out of the marquee by a hair is in it whole)
   }
   return inside
 }
@@ -256,10 +287,8 @@ function marqueeClip () {
   const m = S.marq, out = []
   for (const t of marqTracks()) {
     const L = { regs: t.regs.filter(r => r.a - 1 < m.b && r.b - 1 > m.a).map(r => Object.assign({}, r, r.flex ? { flex: r.flex.map(q => Object.assign({}, q)) } : {})) }
-    const note = cutLaneAt.note; cutLaneAt.note = null
     cutLaneAt(L, m.a); cutLaneAt(L, m.b)
-    cutLaneAt.note = note
-    for (const c of L.regs) { const x = midOf(c); if (x > m.a && x < m.b) { delete c.tc; out.push({ r: c, ti: S.tracks.indexOf(t), da: c.a - 1 - m.a }) } }
+    for (const c of L.regs) { if (after(c, m.a) && !after(c, m.b)) { delete c.tc; delete c.tcf; delete c._pj; delete c.sm; delete c.px; delete c.py; out.push({ r: c, ti: S.tracks.indexOf(t), da: c.a - 1 - m.a }) } }
   }
   return out
 }
@@ -330,7 +359,7 @@ function joinMates (A, B, t) {
   return groupMates(t).flatMap(m => joinsOf(m).filter(([a, b]) => Math.abs(joinOf(a, b) - at) < 1e-6))
 }
 /* ── shuffle ── everything on a track that begins at `from` or later (bars from one) goes by `by`; `skip`: ids left where they are */
-function ripple (t, from, by, skip, byMid) { if (Math.abs(by) > 1e-12) for (const r of t.regs) if (!(skip && skip.has(r.id)) && (byMid ? midOf(r) + 1 >= from : r.a >= from - 1e-6)) { r.a += by; r.b += by } }      // (byMid: by where its middle lies — after a marquee's cut, which may leave a region sticking over the place by a hair)
+function ripple (t, from, by, skip, byMid) { if (Math.abs(by) > 1e-12) for (const r of t.regs) if (!(skip && skip.has(r.id)) && (byMid ? after(r, from - 1) : r.a >= from - 1e-6)) { r.a += by; r.b += by } }      // (byMid: by where its middle lies — after a marquee's cut, which may leave a region sticking over the place by a hair)
 /* stretches of a track are gone ([[a, b]] in bars from one): what began after each goes earlier by its length */
 function closeUp (t, spans, skip, byMid) {
   const s = spans.slice().sort((x, y) => x[0] - y[0]), one = []
@@ -340,35 +369,58 @@ function closeUp (t, spans, skip, byMid) {
 /* where time was cut and put together again, two regions may overlap by a hair: one that began a moment before the place
    went whole with what followed it, one that rang a moment past it stayed whole (cutLaneAt, `leave`). There the later
    one is heard as it is — its beginning and its fade in are its own, and the first beat of what follows is under them —
-   and the earlier one gives way: it ends where the later one has risen, falling over the later one's fade in (a
-   crossfade exactly as long as that fade), or, where the later one has no fade in, or the earlier one a longer fade out
-   of its own, it ends where the later one begins, with the fade out it had. Of two hairs that begin on one place, the
-   one that lies wholly under the other is gone: nothing of it would be heard by itself. A hair is at most half of the
+   and the earlier one gives way: it ends where the later one begins, with the fade out it had (one that had none is
+   given one as long as the later one's fade in, a hair at most: it is cut in the middle of its sound). The two share nothing — a
+   crossfade there would make the later one's own fade half of something that can be taken off. What the earlier one
+   gave up is kept on it (`sm`: how much of it, and its fades), and comes back in a later edit of the song's time once
+   nothing begins on its end any more (seamBack) — unless its end or its fade out was changed by hand meanwhile. A hair that lies
+   wholly under the beginning of another is gone: nothing of it would be heard by itself. A hair is at most half of the
    longest MIN_LEN there is at any zoom, on each side: the room may have been nearer or further when the time was cut
-   than it is now. `was`: the pairs that sounded at once before the edit (overlapsOf), which are left as they are. */
+   than it is now. `was`: what each pair that sounded at once shared before the edit (sharesOf) — a pair that lies as
+   it lay then is left as it is. */
 const SEAM = 1 / 32
+function sharesOf (L) {
+  const rs = L.regs.slice().sort((x, y) => x.a - y.a || x.b - y.b), out = new Map()
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length && rs[j].a < rs[i].b - 1e-9; j++) out.set(rs[i].id + '|' + rs[j].id, rs[i].b - rs[j].a)      // (the earlier one first: the same two the other way round are another pair)
+  return out
+}
+const endIn = r => (r.off || 0) + (r.b - r.a)                                           // where a region's end lies in its sound, in bars
+/* what an earlier seam took from a region comes back, once nothing begins on its end any more */
+function seamBack (L) {
+  for (const X of L.regs) {
+    const m = X.sm
+    if (!m) continue
+    if (Math.abs(endIn(X) - m.s) > 1e-9 || Math.abs((X.fo || 0) - m.f) > 1e-9) { delete X.sm; continue }      // (its end or its fade out changed by hand since: it is as it was left)
+    if (L.regs.some(q => q !== X && Math.abs(q.a - X.b) < 1e-9)) continue                                     // (what it gave way to still begins there)
+    X.b += m.t; X.fo = m.fo; X.foc = m.foc
+    if (Math.abs((X.fi || 0) - m.g) < 1e-9) X.fi = m.fi                                                       // (its fade in, should the seam have had to shorten that too)
+    delete X.sm; dirtyReg(X)
+  }
+}
 function seamLane (L, was) {
-  const rs = L.regs.slice().sort((x, y) => x.a - y.a || x.b - y.b), own = 2 * oneSample()
+  const own = 2 * oneSample(), asWas = (X, Y) => { const w = was && was.get(X.id + '|' + Y.id); return w != null && Math.abs(w - (X.b - Y.a)) < 1e-9 }
+  const rs = L.regs.slice().sort((x, y) => x.a - y.a || x.b - y.b)
+  const gone = r => { const p = crossBefore(r, L), n = crossAfter(r, L); if (p) uncross(p, r); if (n) uncross(r, n); L.regs = L.regs.filter(q => q !== r); S.selR = S.selR.filter(id => id !== r.id); rs.splice(rs.indexOf(r), 1) }
   for (let i = 0; i + 1 < rs.length; i++) {
     const X = rs[i], Y = rs[i + 1], over = X.b - Y.a
-    if (over <= 1e-9 || over > SEAM + 1e-9 || (was && was.has(X.id + '|' + Y.id))) continue
+    if (over <= 1e-9 || asWas(X, Y)) continue
     if (xfadeOf(X, Y) && Math.abs(over - (X.fo || 0)) < 1e-6 && Math.abs(over - (Y.fi || 0)) < 1e-6) continue
+    if (Y.b <= X.b + 1e-9 && Y.b - X.a <= SEAM + 1e-9) { gone(Y); i--; continue }      // the later of the two lies wholly in the first hair of the earlier one
+    if (over > SEAM + 1e-9) continue
+    if (!(Y.a - X.a > own)) { gone(X.b <= Y.b + 1e-9 ? X : Y); i--; continue }          // they begin on one place: the one that lies under the other
     const xs = crossBefore(X, L), held = xs && xs !== Y ? xfadeOf(xs, X) : 0, yb = crossBefore(Y, L), fi = yb && yb !== X ? 0 : Y.fi || 0      // (what the earlier one shares at its other end is not to be run into; a fade in the later one shares with another is not its own)
-    if (!(Y.a - X.a > own)) {
-      const gone = X.b <= Y.b + 1e-9 ? X : Y, stays = gone === X ? Y : X, p = crossBefore(gone, L), n = crossAfter(gone, L)
-      if (p && p !== stays) uncross(p, gone); if (n && n !== stays) uncross(gone, n)      // (what it shared with a third is that one's own again; the one it lies under is not touched)
-      L.regs = L.regs.filter(r => r !== gone); S.selR = S.selR.filter(id => id !== gone.id)
-      rs.splice(rs.indexOf(gone), 1); i--
-      continue
+    if (held && Y.a - X.a - held < own) {                                               // (nothing of its own would be left between the two: its crossfade at the other end is as long as it can still be, or a plain join)
+      const y = (Y.a - X.a) - own
+      if (y > 1e-6) { xs.b = X.a + y; xs.fo = X.fi = y; if (xs.xo != null) xs.xo = Math.min(xs.xo, y); dirtyReg(xs) }
+      else { if (!(Y.a - joinOf(xs, X) > own)) continue; uncross(xs, X) }
     }
-    if (fi > 1e-6 && fi <= over + 1e-9 && (X.fo || 0) <= fi + 1e-9 && Y.a - X.a - held >= own && (Y.b - Y.a) - fi > own) {
-      X.b = Y.a + fi; X.fo = fi; X.foc = Y.fic || 0; X.xo = fi                         // (the join is where the later one begins: it gave nothing)
-      if (!held) X.fi = Math.min(X.fi || 0, fadeRoom(X, fi))
-    } else {
-      if (held && Y.a - X.a - held < own) { if (!(Y.a - joinOf(xs, X) > own)) continue; uncross(xs, X) }      // (nothing of its own would be left between the two: its crossfade at the other end is a plain join first)
-      X.b = Y.a; delete X.xo; fitFades(X, L)
-    }
-    dirtyReg(X); dirtyReg(Y)
+    const m = X.sm, before = m ? { t: m.t, fo: m.fo, foc: m.foc, fi: m.fi } : { t: 0, fo: X.fo || 0, foc: X.foc || 0, fi: X.fi || 0 }      // (given way before, and not yet back: what it was at first is what is kept)
+    before.t += X.b - Y.a
+    X.b = Y.a; delete X.xo
+    if (!(before.fo > 1e-9) && fi > 1e-9) { X.fo = Math.min(fi, SEAM / 2); X.foc = Y.fic || 0 }      // (no longer than a hair: it is only there so that the cut does not click — a take that swells in over a bar does not make what stands before it die away over a bar)
+    fitFades(X, L)
+    X.sm = Object.assign(before, { s: endIn(X), f: X.fo || 0, g: X.fi || 0 })
+    dirtyReg(X)
   }
 }
 /* of two that share a stretch, one is about to go and the other to stay: they are a plain join again first */
@@ -409,11 +461,10 @@ function settle (placed) {
 }
 /* two regions of a lane that sound at once without being a crossfade: a song from before one sound at a time was the rule
    can hold some (the same thing put down twice on one spot), and nothing takes them apart unasked — what gives way
-   gives way to something that was put there, or to a tempo that moved. As "id|id", either way round. `all`: every
-   pair that sounds at once, the crossfades too. */
-function overlapsOf (L, all) {
+   gives way to something that was put there, or to a tempo that moved. As "id|id", either way round. */
+function overlapsOf (L) {
   const rs = L.regs.slice().sort((x, y) => x.a - y.a || x.b - y.b), out = new Set()
-  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length && rs[j].a < rs[i].b - 1e-9; j++) if (all || !xfadeOf(rs[i], rs[j])) { out.add(rs[i].id + '|' + rs[j].id); out.add(rs[j].id + '|' + rs[i].id) }
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length && rs[j].a < rs[i].b - 1e-9; j++) if (!xfadeOf(rs[i], rs[j])) { out.add(rs[i].id + '|' + rs[j].id); out.add(rs[j].id + '|' + rs[i].id) }
   return out
 }
 /* the tempo is about to move under every lane: which regions already sounded at once is noted first, and afterwards each
@@ -670,7 +721,7 @@ function tidyLine (pts) {
    stretch's edge, which goes with the stretch)] */
 function lineLift (pts, a, b) {
   const [outL, inL] = lineAt(pts, a), [inR, outR] = lineAt(pts, b)
-  const held = [inL, inR, pts.filter(q => q.b > a + 1e-9 && q.b < b - 1e-9).map(q => [q.b - a, q.v]), false, false]
+  const held = [inL, inR, pts.filter(q => q.b > a + 1e-9 && q.b < b - 1e-9).map(q => [q.b - a, q.v, q.e ? 1 : 0]), false, false]
   const rest = pts.filter(q => q.b < a - 1e-9), near = (x, y) => Math.abs(x - y) <= 1e-9, onA = pts.filter(q => near(q.b, a)), onB = pts.filter(q => near(q.b, b))
   /* the first point on the stretch's beginning carries the level the line arrives with, the last on its end the level it
      leaves with; a step that stood whole on one of the two places gives the other its point where the level is the same */
@@ -695,7 +746,7 @@ function lineDrop (pts, at, len, line) {
   out.push(arr)
   if (line) {
     if (line[3]) out.push({ id: ++PID, b: at, v: line[0] }); else if (Math.abs(line[0] - vL) > 1e-9) out.push(inn = seamPt(at, line[0]))
-    for (const [d, v] of line[2]) if (d > 1e-9 && d < len - 1e-9) out.push({ id: ++PID, b: at + d, v })
+    for (const [d, v, e] of line[2]) if (d > 1e-9 && d < len - 1e-9) out.push(e ? seamPt(at + d, v) : { id: ++PID, b: at + d, v })
   }
   out.push(end)
   if (Math.abs(end.v - vR) > 1e-9) out.push(dep = seamPt(at + len, vR))
@@ -705,7 +756,7 @@ function lineDrop (pts, at, len, line) {
      point, when it needs none in that first place: a step goes later whole, a corner stands where the line turns, and
      a step into time that carries on level stays the step it was */
   const put = (q, where) => { q.b = where.b; out[out.indexOf(where)] = q }
-  const home = (first, second) => { if (!second || !out.includes(second)) return first; const needs = tidyLine(out.slice()); return !needs.includes(first) && needs.includes(second) ? second : first }
+  const home = (first, second) => { if (!second || !second.e || !out.includes(second)) return first; const needs = tidyLine(out.slice()); return !needs.includes(first) && needs.includes(second) ? second : first }      // (only onto a point the edit made: one somebody set is never written over)
   if (on.length > 1) {
     const tail = on[on.length - 1], mids = on.slice(1, -1), h = home(dep, inn && Math.abs(inn.v - vR) <= 1e-9 ? inn : null)
     if (mids.length && h === end) out.splice(out.indexOf(end), 0, seamPt(at + len, end.v))      // (more than two stood on the place: those between go with the last, and the level the new time ends with keeps a point of its own before them)
@@ -725,15 +776,10 @@ function cutAll (at) { for (const L of S.tracks.flatMap(lanesOf)) for (const rig
    is no longer chosen, and neither is a marker: markers are made anew, and the one that was pressed is known by its place. */
 function timeEdit (fn) {
   return edit(() => {
-    const lanes = S.tracks.flatMap(lanesOf), was = lanes.map(L => overlapsOf(L, true)), note = cutLaneAt.note = []
-    let r
-    try { r = fn() } finally { cutLaneAt.note = null }
+    const lanes = S.tracks.flatMap(lanesOf), was = lanes.map(sharesOf), met = lanes.map(meetsOf)
+    const r = fn()
     if (r === false) return r
-    for (const [L, A, B, len, curve, xo] of note) {
-      const as = L.regs.filter(x => x === A || x._of === A.id), bs = L.regs.filter(x => x === B || x._of === B.id)
-      for (const a of as) for (const b of bs) if (!xfadeOf(a, b) && Math.abs(a.b - b.a) < 1e-6 && !crossAfter(a, L) && !crossBefore(b, L)) remake(a, b, len, curve, xo)
-    }
-    lanes.forEach((L, i) => { seamLane(L, was[i]); for (const x of L.regs) delete x._of })
+    lanes.forEach((L, i) => { seamBack(L); remakeMet(L, met[i]); seamLane(L, was[i]); for (const x of L.regs) delete x._of })
     S.selR = S.selR.filter(id => regOf(id)[0])
     if (S.selX && !(regOf(S.selX[0])[0] && regOf(S.selX[1])[0] && xfadeOf(regOf(S.selX[0])[0], regOf(S.selX[1])[0]))) S.selX = null
     if (S.selP.length) { const live = new Set(S.tracks.flatMap(t => Object.values(t.autos || {}).flat().map(q => q.id))); S.selP = S.selP.filter(id => live.has(id)) }
@@ -741,12 +787,32 @@ function timeEdit (fn) {
     return r
   })
 }
-/* a crossfade made again as it was: as long, with the same curve, and about the same place where the two have the sound for it */
-function remake (A, B, len, curve, xo) {
+/* two that crossfaded and were parted remember it (partAt: `px` on the earlier one, of its end; `py` on the later one, of
+   its beginning). Where those very ends meet again — the regions themselves or copies of them, in the edit that parted
+   them or a later one — the crossfade is made again as it was. Not where the two already met before the edit: two that
+   somebody put end to start by hand are left as they were put. */
+const sameNote = (p, q) => !!(p && q && p.ka === q.ka && p.kb === q.kb && Math.abs(p.aEnd - q.aEnd) < 1e-6 && Math.abs(p.bStart - q.bStart) < 1e-6 && Math.abs(p.la - q.la) < 1e-9 && Math.abs(p.lb - q.lb) < 1e-9)
+const meetKey = (A, B) => A.id + '|' + B.id + '|' + ((A.off || 0) + (A.b - A.a)).toFixed(6) + '|' + (B.off || 0).toFixed(6)      // (the two, and the very ends they meet with: a piece of one of them meeting the other is another meeting)
+function meetsOf (L) { const out = new Set(); for (const [A, B] of joinsOf(L)) if (!xfadeOf(A, B)) out.add(meetKey(A, B)); return out }
+function remakeMet (L, met) {
+  for (const [a, b] of joinsOf(L)) {
+    if (xfadeOf(a, b) || !sameNote(a.px, b.py) || (met && met.has(meetKey(a, b)))) continue
+    const n = a.px
+    if (srcKey(a) !== n.ka || srcKey(b) !== n.kb || Math.abs((a.off || 0) + (a.b - a.a) - n.aEnd) > 1e-6 || Math.abs((b.off || 0) - n.bStart) > 1e-6 || crossAfter(a, L) || crossBefore(b, L)) continue
+    remake(a, b, n); delete a.px; delete b.py
+  }
+}
+/* a crossfade made again as it was (`n`, as partAt noted it when the two were parted): each runs over the place as far as
+   it did, so the crossfade lies where it lay, about the join it was made about, with the same curve */
+function remake (A, B, n) {
   A.fo = 0; B.fi = 0
-  const [ra, rb] = crossRoom(A, B), la0 = xo == null ? len / 2 : clamp(xo, 0, len)
-  if (la0 <= ra + 1e-9 && len - la0 <= rb + 1e-9) return crossBy(A, B, la0, len - la0, curve)
-  return crossfade(A, B, len, curve)
+  if (A._pj) A._pj &= ~1
+  if (B._pj) B._pj &= ~2
+  const [ra, rb] = crossRoom(A, B)
+  if (!(n.la <= ra + 1e-9 && n.lb <= rb + 1e-9)) return crossfade(A, B, n.la + n.lb, n.curve)
+  crossBy(A, B, n.la, n.lb, n.curve)
+  if (n.xo != null) A.xo = n.xo; else delete A.xo
+  return 'cross'
 }
 function liftTime (a, b) {
   const len = b - a, held = { len, regs: [], lines: [], marks: [], cycle: null }
@@ -756,9 +822,8 @@ function liftTime (a, b) {
     lanesOf(t).forEach((L, li) => {                                                    // (li: 0 the track's own regions, then its alternatives in their order)
       const keep = []
       for (const r of L.regs) {
-        const m = midOf(r)
-        if (m > a && m < b) held.regs.push([t.id, r, r.a - a, li ? L.name : (t.alt || '1')])     // in the stretch: it goes, kept by how far into the stretch it began (and by the name of the alternative it lay on)
-        else { if (m >= b) { r.a -= len; r.b -= len; notBeforeOne(r) } keep.push(r) }
+        if (after(r, a) && !after(r, b)) held.regs.push([t.id, r, r.a - a, li ? L.name : (t.alt || '1')])     // in the stretch: it goes, kept by how far into the stretch it began (and by the name of the alternative it lay on)
+        else { if (after(r, b)) { r.a -= len; r.b -= len; notBeforeOne(r) } keep.push(r) }
       }
       L.regs = keep
     })
@@ -785,7 +850,7 @@ function dropTime (at, len, held, fresh) {
   if (!(len > 1e-9)) return
   cutAll(at)
   for (const t of S.tracks) {
-    for (const L of lanesOf(t)) for (const r of L.regs) if (midOf(r) >= at) { r.a += len; r.b += len }
+    for (const L of lanesOf(t)) for (const r of L.regs) if (after(r, at)) { r.a += len; r.b += len }
     const lines = new Set(Object.keys(t.autos || {}).concat(held ? held.lines.filter(q => q[0] === t.id).map(q => q[1]) : []))
     for (const k of lines) {
       let pts = (t.autos && t.autos[k]) || []
@@ -827,7 +892,13 @@ function dropTime (at, len, held, fresh) {
 function healAt (at) {
   for (const t of S.tracks.flatMap(lanesOf)) for (const [A, B] of joinsOf(t)) {
     if (!B.tc || Math.abs(A.b - 1 - at) > 1e-6 || xfadeOf(A, B) || !carriesOn(A, B) || Math.abs((B.off || 0) - ((A.off || 0) + (B.a - A.a))) > 1e-6) continue
-    if ((A.gain || 0) === (B.gain || 0) && !!A.mute === !!B.mute && (A.tag || '') === (B.tag || '') && !A.fo && !B.fi && !A.flex && !B.flex && (A.grp || 0) === (B.grp || 0)) joinPair(t, A, B)
+    if (!((A.gain || 0) === (B.gain || 0) && !!A.mute === !!B.mute && (A.tag || '') === (B.tag || '') && !A.fo && !B.fi && !A.flex && !B.flex && (A.grp || 0) === (B.grp || 0))) continue
+    const f = B.tcf, afi = A.fi || 0, bfo = B.fo || 0, m = B.sm
+    if (!joinPair(t, A, B) || !f) continue
+    if (f.lf && Math.abs(afi - f.l) < 1e-9) A.fi = f.fi                                // (a fade the cut shortened, untouched since, is as long as it was)
+    if (f.rf && Math.abs(bfo - f.r) < 1e-9) A.fo = f.fo
+    else if (f.rf && m && Math.abs(m.fo - f.r) < 1e-9) A.sm = Object.assign({}, m, { fo: f.fo })      // (… or will be, once what a seam took from that end is back)
+    fitFades(A, t); dirtyReg(A)
   }
 }
 let TIME_CLIP = null
@@ -840,7 +911,27 @@ const timeAct = {
   /* the stretch last taken out is put in at the playhead */
   put (at) { const h = TIME_CLIP; if (!h) return; timeEdit(() => { dropTime(at, h.len, copyHeld(h), true); healAt(at); healAt(at + h.len) }) },
   /* a stretch is said twice: a copy of it is put in right after it */
-  repeat (a, b) { if (!(b - a >= MIN_LEN)) return; timeEdit(() => { const h = liftTime(a, b); dropTime(a, h.len, h, false); dropTime(b, h.len, copyHeld(h), true); healAt(a) }) },
+  /* (nothing before the stretch's end is touched: what the stretch holds is taken from copies of the lanes and the lines, cut
+     as a lift would cut them, and put in after it. Lifting it and putting it back let the hairs on either side of it meet
+     for a moment, and cut what ran through its first place) */
+  repeat (a, b) {
+    if (!(b - a >= MIN_LEN)) return
+    timeEdit(() => {
+      const len = b - a, held = { len, regs: [], lines: [], marks: [], cycle: null }
+      for (const t of S.tracks) {
+        lanesOf(t).forEach((L, li) => {
+          const C = { regs: L.regs.filter(r => r.a - 1 < b + 1e-9 && r.b - 1 > a - 1e-9).map(r => Object.assign({}, r, r.flex ? { flex: r.flex.map(q => Object.assign({}, q)) } : {})) }
+          cutLaneAt(C, a); cutLaneAt(C, b)
+          for (const c of C.regs) { if (after(c, a) && !after(c, b)) { delete c.tc; delete c.tcf; held.regs.push([t.id, c, c.a - a, li ? L.name : (t.alt || '1')]) } }      // (a beginning that was parted on a crossfade's join keeps its mark: see joinEnds)
+        })
+        for (const k in t.autos || {}) { const pts = t.autos[k]; if (!pts.length) continue; const line = lineLift(pts.map(q => Object.assign({}, q)), a, b)[1]; held.lines.push([t.id, k, line[0], line[1], line[2], line[3], line[4]]) }
+      }
+      for (const sc of SCENES) if (sc.a - 1 >= a - 1e-9 && sc.a - 1 < b - 1e-9) held.marks.push([sc.name, sc.a - 1 - a])
+      const c = S.cycle
+      if (c.a >= a - 1e-9 && c.b <= b + 1e-9 && c.b - c.a >= MIN_LEN) held.cycle = [c.a - a, c.b - a, !!c.on]
+      dropTime(b, len, held, true); healAt(b); healAt(b + len)
+    })
+  },
   /* a stretch is moved so that it begins at `to` (a place in the song as it is now) */
   move (a, b, to) {
     if (!(b - a >= MIN_LEN) || (to > a - 1e-9 && to < b + 1e-9)) return
@@ -881,7 +972,7 @@ const act = {
         const spans = new Map()
         if (shuffling() && !m) for (const id of list) { const [r, t] = regOf(id); if (r) { if (!spans.has(t)) spans.set(t, []); spans.get(t).push([r.a, r.b]) } }
         removeRegs(list); S.marq = null
-        if (shuffling() && m) { if (m.b - m.a < MIN_LEN) return false; for (const t of mts) { const was = overlapsOf(t, true); closeUp(t, [[m.a + 1, m.b + 1]], null, true); seamLane(t, was) } }      // shuffle: the stretch itself is gone, and what follows it closes up
+        if (shuffling() && m) { if (m.b - m.a < MIN_LEN) return false; for (const t of mts) { const was = sharesOf(t), met = meetsOf(t); closeUp(t, [[m.a + 1, m.b + 1]], null, true); seamBack(t); remakeMet(t, met); seamLane(t, was) } }      // shuffle: the stretch itself is gone, and what follows it closes up
         else for (const [t, sp] of spans) closeUp(t, sp)
       })
       return
@@ -1568,7 +1659,7 @@ const KEYS = {
   '⇧Enter': () => { if (S.focus === 'marker' && markerNow()) startRename('scene', markerNow().i); else if (S.focus !== 'tracks' && S.selR.length) startRename('region'); else startRename('track', S.sel) },
   '⇧⌘KeyD': () => makeStack(), '⇧⌘KeyU': () => { const t = S.tracks[S.sel], st = t.kind === 'stack' ? t : byId(t.parent); if (st) deleteTrack(S.tracks.indexOf(st)) },
   '⌃⌘ArrowRight': () => foldStack(true), '⌃⌘ArrowLeft': () => foldStack(false),
-  '⇧⌘KeyI': () => importAudio(), '⌘KeyI': () => importAudio(), '⌘KeyS': () => { if (NAT) saveNow(true).then(ok => say(ok ? 'saved' : 'could not save')) }, '⇧⌘KeyS': () => { if (NAT) startRename('saveas') }, '⌘KeyN': () => newProject(), '⌘KeyO': () => openProjectMenu(),
+  '⇧⌘KeyI': () => importAudio(), '⌘KeyI': () => importAudio(), '⌘KeyS': () => { if (NAT) saveNow(true).then(ok => say(ok ? 'saved' : 'could not save')) }, '⇧⌘KeyS': () => saveAsAsk(), '⌘KeyN': () => newProject(), '⌘KeyO': () => openProjectAsk(),
   '⌘KeyB': () => { S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand') }, '⌘KeyE': () => { S.ho.what = 'stems'; S.ho.open = true; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand') },
   '⌃KeyB': () => bounceInPlace(), '⌘Comma': () => { if (NAT) NAT.call('audioSettings') },
   '⌥Quote': () => addScene(Math.round(curPos()) + 1), '⌥Backspace': () => { const sc = sceneAt(curPos()); if (sc.i >= 0) removeScene(sc.i) },

@@ -386,7 +386,7 @@ function retimeReg (r, k) {
   delete r._p
   if (r.loop) return false
   if (r.fx) { r.rate = (r.rate || 1) * k; r.sec = (r.sec || 0) / k; for (const m of r.flex || []) m.d /= k; return true }
-  r.b = r.a + (r.b - r.a) * k; r.off = (r.off || 0) * k; if (r.srcBars) r.srcBars *= k; r.fi = (r.fi || 0) * k; r.fo = (r.fo || 0) * k; if (r.xo) r.xo *= k
+  r.b = r.a + (r.b - r.a) * k; r.off = (r.off || 0) * k; if (r.srcBars) r.srcBars *= k; r.fi = (r.fi || 0) * k; r.fo = (r.fo || 0) * k; if (r.xo) r.xo *= k; scaleNotes(r, k)
   return false
 }
 /* what is held goes with the tempo as what lies in the song does: what was copied is so many more bars, or fewer; a stretch

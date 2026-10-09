@@ -103,7 +103,9 @@
       Math.abs(rs[2].fi - ms(10)) < 1e-9 && Math.abs(rs[1].b - rs[2].a) < 1e-9 && Math.abs(rs[1].fo - ms(25)) < 1e-9, [rs[1].b, rs[2].a, rs[1].fo, rs[2].fi])
     fresh(); t.regs = []; const q1 = file('hum', 17 - ms(20), 21, 1, 20, 'file:v1'), q2 = file('hum', 21.5, 25 + ms(30), 1, 20, 'file:v2'); q1.fi = ms(10)
     partAct(SCENES.findIndex(q => q.a === 17), 'repeat'); const qs = t.regs.slice().sort((x, y) => x.a - y.a)
-    ok('the same, the one before with no fade of its own: it falls over the fade in of the one that follows, and no further', Math.abs(xfadeOf(qs[1], qs[2]) - ms(10)) < 1e-9 && Math.abs(qs[2].fi - ms(10)) < 1e-9 && Math.abs(qs[2].a - (25 - ms(20))) < 1e-9 && Math.abs(joinOf(qs[1], qs[2]) - qs[2].a) < 1e-9 && !inv().length, [qs[1].b, qs[2].a, qs[1].fo, qs[2].fi, inv()])
+    ok('the same, the one before with no fade of its own: it ends where the one that follows begins, with a fade out as long as that one\'s fade in — the two share nothing', !xfadeOf(qs[1], qs[2]) && Math.abs(qs[1].b - qs[2].a) < 1e-9 && Math.abs(qs[1].fo - ms(10)) < 1e-9 && Math.abs(qs[2].fi - ms(10)) < 1e-9 && Math.abs(qs[2].a - (25 - ms(20))) < 1e-9 && !inv().length, [qs[1].b, qs[2].a, qs[1].fo, qs[2].fi, inv()])
+    S.selR = [qs[1].id]; act.del()
+    ok('and with the one before deleted, the one that follows has the fade in it had', Math.abs(qs[2].fi - ms(10)) < 1e-9 && Math.abs(qs[2].a - (25 - ms(20))) < 1e-9, [qs[2].a, qs[2].fi])
     fresh(); t.regs = []; const X = file('hum', 9, 13 + ms(10), 1, 20, 'file:end'), Y = file('hum', 21 - ms(15), 25, 1, 20, 'file:next'); X.fo = 2
     const sc = SCENES.map(q => [q.name, q.a]); SCENES = mkScenes([['a', 1], ['b', 13], ['c', 21], ['d', 29]]); timeAct.move(20, 28, 12); SCENES = mkScenes(sc)
     ok('a region that dies away over two bars, and a part moved to follow it: it dies away over two bars still, and ends where the part begins', Math.abs(X.fo - 2) < 1e-9 && Math.abs(X.b - Y.a) < 1e-9 && !Y.fi && !inv().length, [X.a, X.b, X.fo, Y.a, Y.fi, inv()])
@@ -199,6 +201,46 @@
   { fresh(); const key = code => onKey({ code, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, repeat: false, target: null, preventDefault () {} })
     const r = reg('kick', 17), n = __commits; S.selR = [r.id]; S.pos = 18; key('BracketLeft'); const a1 = r.a; S.pos = 22; key('BracketRight')
     ok('[ and ] by themselves: what is chosen begins, then ends, at the playhead (as ⌘[ and ⌘] do), a step each', a1 === 19 && r.a === 19 && r.b === 23 && __commits === n + 2 && !inv().length, [a1, r.a, r.b, __commits - n]) }
+  /* what the fourth look found: parts of the song said twice, moved and cut where takes begin a moment early, die away, or crossfade */
+  { const hum = () => { fresh(); const t = trk('hum'); t.regs = []; return t }, parts = list => { const was = SCENES.map(q => [q.name, q.a]); SCENES = mkScenes(list); return () => { SCENES = mkScenes(was) } }
+    const part = nm => SCENES.findIndex(q => q.name === nm), lane = t => t.regs.slice().sort((x, y) => x.a - y.a), near = (x, y) => Math.abs(x - y) < 1e-9
+    { const t = hum(), A = file('hum', 9 - .004, 17, 1, 12, 'file:verse'), B = file('hum', 17, 25, 1, 12, 'file:chorus'); A.fi = .004
+      S.selR = [A.id, B.id]; act.fades(); S.selR = []; const back = parts([['intro', 1], ['verse', 9], ['chorus', 17], ['out', 25]])
+      partAct(part('verse'), 'later'); const rs = lane(t); back()
+      ok('two parts that crossfade into each other change places, the first take beginning a moment early: nothing sounds twice, and the take keeps its head and its fade in', !inv().length && rs.length === 2 && rs[0].key === 'file:chorus' && near(rs[0].b, rs[1].a) && near(rs[1].a, 17 - .004) && near(rs[1].fi, .004), [rs.map(r => [r.key, r.a, r.b, r.fi, r.fo]), inv()]) }
+    { const t = hum(), V = file('hum', 9, 17 + .004, 0, 12, 'file:verse'), P = file('hum', 17.5, 20.5, 0, 6, 'file:part'), C = file('hum', 21 - .004, 29, 1, 12, 'file:chorus'); V.fo = .5; C.fi = .25
+      const back = parts([['a', 1], ['verse', 9], ['pre', 17], ['chorus', 21]]); partAct(part('pre'), 'repeat'); back()
+      ok('a part said twice between a region that dies away and rings a moment past its line and a take that swells in from a moment before the next: neither is touched', near(V.b, 17 + .004) && near(V.fo, .5) && near(C.a, 25 - .004) && near(C.fi, .25) && t.regs.length === 4 && !inv().length, [[V.a, V.b, V.fo], [C.a, C.b, C.fi], t.regs.length, inv()]) }
+    { const t = hum(), V = file('hum', 5, 9, 1, 12, 'file:verse'), P = file('hum', 9, 13, 1, 12, 'file:pre'), C = file('hum', 13 - .008, 17, 1, 12, 'file:chorus'); C.fi = .004
+      const back = parts([['intro', 1], ['verse', 5], ['pre', 9], ['chorus', 13], ['out', 17]])
+      partAct(part('pre'), 'later'); const away = [V.b, V.fo, C.a]; partAct(part('pre'), 'earlier'); back()
+      ok('a part moved later, so that the next take with its early head follows the verse: the verse ends where the take begins, fading as the take fades in', near(away[0], away[2]) && near(away[1], .004), away)
+      ok('and moved back in a second edit: the verse is as it was — its end, no fade, and no hole before the part', near(V.b, 9) && !V.fo && !V.sm && near(P.a, 9) && near(C.a, 13 - .008) && near(C.fi, .004) && !inv().length, [[V.a, V.b, V.fo, V.sm], [P.a, P.b], [C.a, C.fi], inv()]) }
+    { const t = hum(), K = file('hum', 17 - .004, 21, 1, 12, 'file:take'), X = file('hum', 25 - .002, 25, 0, 4, 'file:tick')
+      const back = parts([['intro', 1], ['a', 17], ['b', 25]]); partAct(part('a'), 'repeat'); back()
+      ok('a part said twice, a sliver at its very end lying under the head of the take that begins its second saying: the sliver is gone, nothing sounds twice', !inv().length && t.regs.filter(r => r.key === 'file:take').length === 2 && t.regs.filter(r => r.key === 'file:tick').length === 1, [lane(t).map(r => [r.key, r.a, r.b]), inv()]) }
+    { const t = hum(), A = file('hum', 9, 16.75, 1, 14, 'file:verse'), B = file('hum', 16.75, 25, 3, 14, 'file:chorus'); edit(() => { crossfade(A, B, 1) })
+      const back = parts([['intro', 1], ['verse', 9], ['chorus', 17], ['out', 25]]), was = [A.b, B.a, B.off, joinOf(A, B)]; partAct(part('chorus'), 'repeat'); back()
+      ok('a crossfade that lies over a part\'s line, about a place before it; the part said twice: in the first saying the crossfade lies where it lay, about the same place', near(A.b, was[0]) && near(B.a, was[1]) && near(B.off, was[2]) && near(joinOf(A, B), was[3]) && near(xfadeOf(A, B), 1) && !inv().length, [[A.b, B.a, B.off, joinOf(A, B)], was, inv()]) }
+    { const t = hum(), A = file('hum', 9, 24, 0, 20, 'file:verse'), B = file('hum', 24, 33, 4, 20, 'file:chorus'); edit(() => { crossfade(A, B, 2) })
+      const back = parts([['intro', 1], ['verse', 9], ['verse 2', 17], ['chorus', 25], ['out', 33]]); partAct(part('chorus'), 'earlier'); back(); const rs = lane(t)
+      ok('a crossfade that ends on a part\'s line, the region before it running over two parts; the part moved earlier: no crossfade is made where another end of that region now meets it', rs.length === 3 && rs[1].key === 'file:chorus' && !rs[1].fi && !xfadeOf(rs[0], rs[1]) && near(rs[0].b, 17) && near(rs[1].a, 17) && !inv().length, [rs.map(r => [r.key, r.a, r.b, r.fi, r.fo]), inv()]) }
+    { const t = hum(), P = file('hum', 15, 21, 0, 12, 'file:pad'); P.fi = 4
+      const back = parts([['intro', 1], ['verse', 9], ['chorus', 17], ['out', 21]]); partAct(part('chorus'), 'repeat')
+      ok('a region that swells in across a part\'s first line, the part said twice: its swell is as long as it was', near(P.fi, 4) && near(P.a, 15) && near(P.b, 21) && !inv().length, [P.a, P.b, P.fi, inv()])
+      fresh(); const t2 = trk('hum'); t2.regs = []; const Q = file('hum', 15, 21, 0, 12, 'file:pad'); Q.fi = 4; timeAct.cut(16, 20); const cut = t2.regs.length; timeAct.put(16); back()
+      ok('and with the part cut out and put back where it was: one region again, its swell as long as it was', cut === 1 && t2.regs.length === 1 && near(t2.regs[0].fi, 4) && near(t2.regs[0].a, 15) && near(t2.regs[0].b, 21) && !inv().length, [cut, t2.regs.map(r => [r.a, r.b, r.fi]), inv()]) }
+    { const mk = () => { const t = hum(), A = file('hum', 9, 17, 1, 12, 'file:verse'), B = file('hum', 17, 25, 1, 12, 'file:chorus'); edit(() => { crossfade(A, B, X) }); return [t, A, B] }
+      let [t, A, B] = mk(); timeAct.room(16, 4)
+      ok('room made on the join of a crossfade: each of the two keeps its half of the fade — neither ends bare in the silence', near(A.b, 17) && near(A.fo, X / 2) && near(B.a, 21) && near(B.fi, X / 2) && !inv().length, [[A.b, A.fo], [B.a, B.fi], inv()])
+      ;[t, A, B] = mk(); const back = parts([['intro', 1], ['verse', 9], ['chorus', 17], ['out', 25]]); partAct(part('chorus'), 'cut'); back()
+      ok('the part after the join cut out of the song: the one before it ends with its half of the fade', t.regs.length === 1 && near(A.b, 17) && near(A.fo, X / 2), [t.regs.length, A.b, A.fo]) }
+    { fresh(); const t = trk('kick'), pts = () => t.autos.vol.map(q => [r4(q.b), r4(q.v), q.e ? 1 : 0])
+      t.autos.vol = [[0, -6], [4, -10], [8, -10], [12, -10], [12, -6], [16, -6]].map(([b, v]) => ({ id: ++PID, b, v })); timeAct.cut(8, 12); timeAct.put(8)
+      ok('a stretch cut out of a line that steps at its end, and put back: as many set points as there were, each level where it was', same(pts(), [[0, -6, 0], [4, -10, 0], [8, -10, 0], [12, -10, 0], [12, -6, 0], [16, -6, 0]]), pts())
+      fresh(); t.autos.vol = [[0, -12], [32, 0]].map(([b, v]) => ({ id: ++PID, b, v })); timeAct.room(8, 4); timeAct.move(4, 16, 20); timeAct.move(8, 20, 4); timeAct.cut(8, 12)
+      ok('room made in a ramp, the stretch around it moved away and back, the room cut out again: the two points the ramp was', same(pts(), [[0, -12, 0], [32, 0, 0]]), pts()) }
+  }
   fresh()
   console.log('cases: ' + (bad ? bad + ' FAILED' : 'all passed'))
   return bad

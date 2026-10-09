@@ -111,7 +111,7 @@ function autoMove (e, p) {
   }
   const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), S.rh), pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
   const db = clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
-  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = g.A.inv(clamp(g.A.f(o.v) + df, 0, 1)) }
+  for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = g.A.inv(clamp(g.A.f(o.v) + df, 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)
   d.moved = true
   uiDirty('lanes', 'head', 'dock')

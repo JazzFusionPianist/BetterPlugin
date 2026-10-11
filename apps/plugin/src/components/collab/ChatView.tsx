@@ -643,7 +643,8 @@ function GameInviteBubble ({
   // Map our internal game type → the user-visible game name via the
   // existing per-game translation key.
   const gameNameKey =
-    gameType === 'chess'          ? 'game.chess'
+    gameType === 'chess_3d'       ? 'game.chess3d'
+    : gameType === 'chess'        ? 'game.chess'
     : gameType === 'falling_blocks' ? 'game.fallingBlocks'
     : gameType === 'poker'        ? 'game.poker'
     : gameType === 'ear_training' ? 'game.earTraining'
@@ -674,7 +675,7 @@ function GameInviteBubble ({
     <div className="game-invite-bubble">
       <div className="game-invite-row">
         <div className={`game-invite-icon game-invite-icon-${gameType}`}>
-          {gameType === 'chess' ? '♟' : gameType === 'poker' ? '🃏' : gameType === 'falling_blocks' ? '🎮' : '🎧'}
+          {gameType === 'chess' || gameType === 'chess_3d' ? '♟' : gameType === 'poker' ? '🃏' : gameType === 'falling_blocks' ? '🎮' : '🎧'}
         </div>
         <div className="game-invite-text">{headline}</div>
       </div>

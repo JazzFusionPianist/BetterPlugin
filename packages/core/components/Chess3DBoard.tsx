@@ -147,7 +147,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
 
   useEffect(() => {
     const el = host.current
-    if (!el) return
+    if (!el || failed) return
     let renderer: THREE.WebGLRenderer
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
@@ -156,7 +156,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.3
+    renderer.toneMappingExposure = .95
     renderer.domElement.setAttribute('aria-hidden', 'true')
     renderer.domElement.dataset.chess3d = 'true'
     el.prepend(renderer.domElement)
@@ -166,6 +166,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const pmrem = new THREE.PMREMGenerator(renderer)
     const env = pmrem.fromScene(environment, .04)
     scene.environment = env.texture
+    scene.environmentIntensity = .65
     environment.dispose(); pmrem.dispose()
     const camera = new THREE.PerspectiveCamera(38, 1, .1, 100)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -176,19 +177,19 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.maxPolarAngle = Math.PI * .44
     controls.rotateSpeed = .65
     controls.zoomSpeed = .65
-    const hemi = new THREE.HemisphereLight('#edf8ff', '#647868', 2)
+    const hemi = new THREE.HemisphereLight('#edf8ff', '#647868', .8)
     scene.add(hemi)
-    const sun = new THREE.DirectionalLight('#fff4db', 4)
+    const sun = new THREE.DirectionalLight('#fff4db', 3)
     sun.position.set(-3, 9, 4)
     sun.castShadow = true
-    sun.shadow.mapSize.set(1024, 1024)
-    sun.shadow.camera.left = -7; sun.shadow.camera.right = 7
-    sun.shadow.camera.top = 7; sun.shadow.camera.bottom = -7
+    sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.camera.left = -16; sun.shadow.camera.right = 16
+    sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16
     sun.shadow.normalBias = .035
     scene.add(sun)
-    const fill = new THREE.DirectionalLight('#b4efd5', 2)
+    const fill = new THREE.DirectionalLight('#b4efd5', .9)
     fill.position.set(6, 5, -5); scene.add(fill)
-    const porcelain = new THREE.MeshStandardMaterial({ color: '#f2ece0', roughness: .23, metalness: .12 })
+    const porcelain = new THREE.MeshStandardMaterial({ color: '#e6ded0', roughness: .3, metalness: .10 })
     const graphite = new THREE.MeshStandardMaterial({ color: '#293335', roughness: .27, metalness: .48 })
     const brass = new THREE.MeshStandardMaterial({ color: '#b7a77c', roughness: .3, metalness: .8 })
     const silver = new THREE.MeshStandardMaterial({ color: '#778b8d', roughness: .25, metalness: .85 })
@@ -201,7 +202,14 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
       mesh.position.y = y; mesh.receiveShadow = true; scene.add(mesh); return mesh
     }
-    box(200, .1, 200, mat('#182521', .8), -.40)
+    box(200, .1, 200, mat('#182521', .8), -.40).receiveShadow = false
+    const shadowMaterial = new THREE.ShadowMaterial({ opacity: .28 })
+    materials.push(shadowMaterial)
+    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), shadowMaterial)
+    shadowFloor.rotation.x = -Math.PI / 2
+    shadowFloor.position.y = -.345
+    shadowFloor.receiveShadow = true
+    scene.add(shadowFloor)
     box(9, .27, 9, graphite, -.19)
     box(8.92, .025, 8.92, brass, -.045)
     box(8.86, .055, 8.86, graphite, -.012)
@@ -260,6 +268,13 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
         if (t === 1) destinations.delete(piece)
       }
       renderer.render(scene, camera)
+      // Project accessible square targets alongside the camera, not against a fixed grid.
+      const squareButtons = el.querySelectorAll<HTMLButtonElement>('[role="gridcell"]')
+      squareButtons.forEach((button, index) => {
+        const point = new THREE.Vector3(index % 8 - 3.5, .09, Math.floor(index / 8) - 3.5).project(camera)
+        button.dataset.screenX = String((point.x + 1) * el.clientWidth / 2)
+        button.dataset.screenY = String((1 - point.y) * el.clientHeight / 2)
+      })
       needsPaint = false
       if (now < movingUntil) request()
     }
@@ -268,14 +283,19 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const aspect = camera.aspect
       const distance = 6.7 / Math.sin(Math.min(THREE.MathUtils.degToRad(19), Math.atan(Math.tan(THREE.MathUtils.degToRad(19)) * aspect)))
       const sign = latest.current.myColor === 'white' ? 1 : -1
-      camera.position.copy(controls.target).add(new THREE.Vector3(top ? .01 : 4 * sign, top ? 10 : 9, top ? .01 * sign : 9 * sign).normalize().multiplyScalar(distance))
+      const portrait = aspect < .9
+      camera.position.copy(controls.target).add(new THREE.Vector3(top || portrait ? 0 : 4 * sign, top ? 10 : portrait ? 12 : 9, top ? .01 * sign : 9 * sign).normalize().multiplyScalar(distance))
       controls.minDistance = distance * .60; controls.maxDistance = distance * 1.6
       camera.lookAt(controls.target); controls.update(); request()
     }
+    let lastWidth = 0, lastHeight = 0
     const resize = () => {
       const w = el.clientWidth, h = el.clientHeight
       if (!w || !h) return
-      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fit()
+      if (w !== lastWidth || h !== lastHeight) {
+        lastWidth = w; lastHeight = h
+        renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fit()
+      } else request()
     }
     const marker = (pos: Pos | null | undefined, material: THREE.Material, shape: THREE.BufferGeometry = squareGeo) => {
       if (!pos) return
@@ -381,7 +401,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       labelsTexture.dispose(); env.dispose(); sun.shadow.dispose(); renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [])
+  }, [failed])
 
   if (failed) return <div className="chess3d-fallback"><span role="status">{props.labels.unavailable}</span>{props.fallback}</div>
   return (

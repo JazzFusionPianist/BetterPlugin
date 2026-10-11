@@ -115,7 +115,7 @@ function Harness(){
   const [hidden,setHidden]=useState(false)
   const [closed,setClosed]=useState(false)
   const [epoch,setEpoch]=useState(0)
-  Object.assign(window,{gamesQA:{...window.gamesQA,hide:setHidden,tables,
+  Object.assign(window,{gamesQA:{...window.gamesQA,hide:setHidden,tables,transport,
     failNext:(table:string,action='update')=>{failure={table,action}},
     reopen:(resume=false)=>{
       sessionStorage.removeItem('join_room_id')

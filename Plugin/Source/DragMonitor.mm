@@ -840,6 +840,28 @@ static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
     ORB_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
               info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
 
+    // TEMP QA (2026-10-12): dump Logic's private region payload per item to find
+    // per-region positions. Remove once the format is understood.
+    if (logicDrag)
+    {
+        NSInteger itemIndex = 0;
+        for (NSPasteboardItem* item in info.draggingPasteboard.pasteboardItems)
+        {
+            for (NSString* type in item.types)
+            {
+                if (! [type containsString:@"musicapps"] && ! [type containsString:@"logic"]
+                    && ! [type containsString:@"NSFilePromiseItemMetaData"] && ! [type containsString:@"promised-file-name"])
+                    continue;
+                NSData* data = [item dataForType:type];
+                NSString* b64 = [[data subdataWithRange:NSMakeRange (0, MIN (data.length, (NSUInteger) 65536))] base64EncodedStringWithOptions:0];
+                for (NSUInteger p = 0; p < b64.length; p += 800)
+                    ORB_LOG ("SLUR_PB item=%ld type=%{public}@ size=%lu part=%lu %{public}@", (long) itemIndex, type,
+                             (unsigned long) data.length, (unsigned long) (p / 800), [b64 substringWithRange:NSMakeRange (p, MIN ((NSUInteger) 800, b64.length - p))]);
+            }
+            ++itemIndex;
+        }
+    }
+
     if ((ownDrag || logicDrag) && wkv)
     {
         if (!ownDrag && [info.draggingPasteboard.types containsObject:@"com.apple.musicapps.LGRegionsPboardType"])

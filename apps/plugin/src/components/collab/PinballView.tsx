@@ -1,5 +1,7 @@
 
+import {GameButton} from '@orb/core/components/GameButton'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {useGameActive, useGamePalette} from '@orb/core/hooks/useGameSurface'
 import { holdKeyboard } from '../../lib/keyboardCapture'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
@@ -37,6 +39,7 @@ function readTheme(el: HTMLElement): PinballTheme {
 }
 
 export default function PinballView({ supabase, currentUserId, onClose }: Props) {
+  const visible = useGameActive()
   const { t } = useT()
   const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'pinball_scores')
@@ -46,7 +49,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  const themeRef = useRef<PinballTheme>({ paper: '#FBFAF7', ink: '#1A1917', blue: '#2440FF', t3: '#8A8782' })
+  const themeRef = useGamePalette(wrapRef, readTheme, { paper: '#FBFAF7', ink: '#1A1917', blue: '#2440FF', t3: '#8A8782' })
 
   // Coarse UI mirror of the engine — updated only when a value changes so
   // React renders a few times per second, not per frame.
@@ -57,6 +60,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   const [submitting, setSubmitting] = useState(false)
   const [confirmKind, setConfirmKind] = useState<null | 'reset' | 'end'>(null)
   const submittedRef = useRef(false)
+  const active = visible && confirmKind == null
 
   // Start-screen leaderboard
   useEffect(() => {
@@ -67,6 +71,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
 
   // ── Main loop ────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!active) return
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
@@ -111,19 +116,7 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [])
-
-  // Theme read on mount + when the wrap resizes (also catches theme flips
-  // that coincide with layout changes; cheap to re-read).
-  useEffect(() => {
-    const wrap = wrapRef.current
-    if (!wrap) return
-    const read = () => { themeRef.current = readTheme(wrap) }
-    read()
-    const ro = new ResizeObserver(read)
-    ro.observe(wrap)
-    return () => ro.disconnect()
-  }, [])
+  }, [active])
 
   // ── Game over → record the score, show the world ranking ────────────────
   useEffect(() => {
@@ -155,15 +148,16 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
   // ── Keyboard ─────────────────────────────────────────────────────────────
   // Flippers/plunger ride arrows + space — keep them away from the DAW
   // transport for as long as the table is on screen.
-  useEffect(() => holdKeyboard(), [])
+  useEffect(() => active ? holdKeyboard() : undefined, [active])
   useEffect(() => {
+    if (!active) return
     const g = gameRef.current!
     const isTyping = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
     }
     const down = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
+      if (isTyping(e) || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
       switch (e.key) {
         case 'ArrowLeft': case 'z': case 'Z':
           e.preventDefault(); g.setFlipper('left', true); break
@@ -179,7 +173,6 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       }
     }
     const up = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
       switch (e.key) {
         case 'ArrowLeft': case 'z': case 'Z':
           g.setFlipper('left', false); break
@@ -191,11 +184,19 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
+    const release = () => {
+      g.setFlipper('left', false)
+      g.setFlipper('right', false)
+      g.setPlungerDown(false)
+    }
+    window.addEventListener('blur', release)
     return () => {
+      release()
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', release)
     }
-  }, [handleStart])
+  }, [handleStart, active])
 
   // ── Touch: halves are flippers; while captive, drag = plunger pull ──────
   const touchesRef = useRef<Map<number, 'left' | 'right' | 'plunger'>>(new Map())
@@ -274,9 +275,9 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
           )}
         </div>
 
-        <button className="game-invite-btn pb-start-btn" onClick={handleStart}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={handleStart}>
           {isOver ? t('pb.playAgain') : t('pb.start')}
-        </button>
+        </GameButton>
         <div className="pb-hint">{arcade ? commas(t('pb.hintKeys')) : t('pb.hintKeys')}</div>
         <div className="pb-hint pb-hint-touch">{t('pb.hintTouch')}</div>
       </GameOverlayCard>
@@ -297,12 +298,12 @@ export default function PinballView({ supabase, currentUserId, onClose }: Props)
       className="pinball-shell"
       controls={(ui.phase === 'captive' || ui.phase === 'live') ? (
         <>
-          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>
+          <GameButton className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>
             {t('pb.end')}
-          </button>
-          <button className="game-btn" onClick={() => setConfirmKind('reset')}>
+          </GameButton>
+          <GameButton className="game-btn" onClick={() => setConfirmKind('reset')}>
             {t('pb.reset')}
-          </button>
+          </GameButton>
         </>
       ) : undefined}
       confirm={{

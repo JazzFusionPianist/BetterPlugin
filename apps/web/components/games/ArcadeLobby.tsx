@@ -1,5 +1,6 @@
 'use client'
 
+import {GameButton} from '@orb/core/components/GameButton'
 import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
 import { useT } from '@/lib/games/i18n'
@@ -130,17 +131,17 @@ export default function ArcadeLobby({ onSelectGame, onClose }: Props) {
     <div className="arcade">
       <div className="arcade-head">
         <span className="arcade-title">{t('game.games')}</span>
-        <button className="arcade-close" onClick={onClose}>{t('common.close')}</button>
+        <GameButton className="arcade-close" onClick={onClose}>{t('common.close')}</GameButton>
       </div>
       <div className="arcade-row">
         {ARCHES.map(a => (
-          <button key={a.id} className="arcade-arch" onClick={() => onSelectGame(a.id)}>
+          <GameButton key={a.id} className="arcade-arch" onClick={() => onSelectGame(a.id)}>
             <span className="arcade-door" style={{ background: a.wall }}>
               <svg className="arcade-object" viewBox="0 0 120 150" fill="none" aria-hidden="true">{a.object}</svg>
             </span>
             <span className="arcade-name">{t(a.nameKey)}</span>
             <span className="arcade-sub">{t(a.subKey)}</span>
-          </button>
+          </GameButton>
         ))}
       </div>
     </div>

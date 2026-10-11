@@ -1,6 +1,8 @@
 'use client'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {useEffect, useRef} from 'react'
+import {GameSurface, useGameViewport} from '@orb/core/hooks/useGameSurface'
 import { LanguageProvider } from '@/lib/games/i18n'
 import type { Profile } from '@/lib/games/types'
 import type { GameType } from '@/lib/games/gameRooms'
@@ -25,6 +27,7 @@ interface Props {
   onClose: () => void
   /** Wide screens (the desktop studio): the arcade lobby and colour rooms. */
   arcade?: boolean
+  visible?: boolean
 }
 
 /**
@@ -34,21 +37,28 @@ interface Props {
  * and realtime all ride the same Supabase tables, so a match started
  * in the plugin continues seamlessly here and vice versa.
  */
-export default function GamesPanel({ supabase, me, friends, screen, onScreenChange, onClose, arcade = false }: Props) {
+export default function GamesPanel({ supabase, me, friends, screen, onScreenChange, onClose, arcade: requestedArcade = false, visible = true }: Props) {
+  const {ref, spacious} = useGameViewport()
+  const arcade = requestedArcade && (screen === 'list' || spacious)
+  const selection = useRef(0)
+  useEffect(() => {
+    if (!visible) selection.current++
+    return () => { selection.current++ }
+  }, [visible,screen])
   const onlineIds = new Set(friends.filter((f) => f.isOnline).map((f) => f.id))
   // Pinball is solo — no room to resume. Otherwise pick up an in-flight
   // room of the chosen game if one exists.
   const selectGame = async (g: GameScreen) => {
-    if (g !== 'pinball' && g !== 'orb_merge') {
-      const { findActiveGame } = await import('@/lib/games/gameRooms')
-      const active = await findActiveGame(supabase, me.id)
-      if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
+    const request = ++selection.current
+    if (request === selection.current) {
+      sessionStorage.removeItem('join_room_id')
+      onScreenChange(g)
     }
-    onScreenChange(g)
   }
   return (
     // Each game washes the whole page its own colour (wall-*), fx-room style.
-    <div className={`games-panel${arcade ? ' arcade-skin' : ''}${screen !== 'list' ? ` wall-${screen}` : ''}`}>
+    <div ref={ref} className={`games-panel${arcade ? ' arcade-skin' : ''}${screen !== 'list' ? ` wall-${screen}` : ''}`}>
+      <GameSurface visible={visible}>
       <ArcadeContext.Provider value={arcade}>
       <LanguageProvider>
         {screen === 'list' && arcade && <ArcadeLobby onSelectGame={selectGame} onClose={onClose} />}
@@ -127,6 +137,7 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
         )}
       </LanguageProvider>
       </ArcadeContext.Provider>
+      </GameSurface>
     </div>
   )
 }

@@ -474,6 +474,7 @@ function StudioShellInner({ user, supabase }: { user: User; supabase: SupabaseCl
                 onScreenChange={setGameScreen}
                 onClose={closeGames}
                 arcade
+                visible={gameShown}
               />
             </div>
           )}

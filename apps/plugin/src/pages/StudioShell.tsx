@@ -2426,31 +2426,39 @@ function StudioShellInner({ supabase, user }: Props) {
     setGameShown(true)
   }, [])
   const closeGames = useCallback(() => { setGameShown(false); setGameInviteConv(null) }, [])
+  const gameSelection = useRef(0)
+  const gameInvitePending = useRef(false)
+  useEffect(() => () => { gameSelection.current++ }, [gameShown,gameScreen])
   const selectGame = useCallback(async (g: GameId) => {
+    if (gameInviteConv && gameInvitePending.current) return
+    const request = ++gameSelection.current
+    gameInvitePending.current = !!gameInviteConv
+    let nextRoomId: string | undefined
     // Everything async runs BEFORE the screen switch; the finally
     // guarantees the game opens no matter what.
     try {
       if (SOLO_GAMES.has(g)) return
-      if (!gameInviteConv) {
-        const { findActiveGame } = await import('../lib/gameRooms')
-        const active = await findActiveGame(supabase, user.id)
-        if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
-      } else {
+      if (gameInviteConv) {
         // Invite path — make the room, drop the ticket into the chat,
         // walk into the lobby.
         const { createGameRoom } = await import('../lib/gameRooms')
         const roomId = await createGameRoom(supabase, g as GameType, user.id)
         if (roomId) {
           await send('', { url: roomId, type: 'game_invite', name: g })
-          sessionStorage.setItem('join_room_id', roomId)
+          nextRoomId = roomId
         }
       }
     } catch (err) {
       console.error('[selectGame]', err)
     } finally {
-      setGameInviteConv(null)
-      setGameJoinNonce(n => n + 1)
-      setGameScreen(g)
+      gameInvitePending.current = false
+      if (request === gameSelection.current) {
+        sessionStorage.removeItem('join_room_id')
+        if (nextRoomId) sessionStorage.setItem('join_room_id', nextRoomId)
+        setGameInviteConv(null)
+        setGameJoinNonce(n => n + 1)
+        setGameScreen(g)
+      }
     }
   }, [gameInviteConv, supabase, user.id, send])
   const joinGameInvite = useCallback(async (gameType: string, roomId: string): Promise<JoinResult> => {

@@ -1,3 +1,4 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, PokerRoomState } from '../../types/collab'
@@ -115,7 +116,6 @@ export default function PokerView({
     leaveRoom,
     deleteCurrentRoom,
     quitGame,
-    findActiveRoom,
     toggleReady,
     inviteFriend,
     cancelInvite,
@@ -145,8 +145,6 @@ export default function PokerView({
       if (pendingRoomId) {
         sessionStorage.removeItem('join_room_id')
         await joinRoom(pendingRoomId)
-      } else {
-        await findActiveRoom()
       }
       if (!cancelled) setResolving(false)
     })()
@@ -207,6 +205,7 @@ export default function PokerView({
 
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
+    if(room?.status==='playing') {setShowForfeitConfirm(true);return}
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
       deleteCurrentRoom()
     } else {
@@ -368,9 +367,10 @@ export default function PokerView({
     setShowForfeitConfirm(true)
   }, [])
   const confirmForfeit = useCallback(async () => {
-    setShowForfeitConfirm(false)
     await quitGame()
-  }, [quitGame])
+    setShowForfeitConfirm(false)
+    onClose()
+  }, [quitGame,onClose])
 
   // ── Action handlers ──────────────────────────────────────────────────────
   const handleFold = useCallback(() => { fold() }, [fold])
@@ -463,31 +463,31 @@ export default function PokerView({
           disabled={loading || !room?.player_ids.includes(currentUserId)}
         />
         {isHost && (
-          <button
+          <GameButton
             className="game-invite-btn"
             onClick={handleOpenInvite}
             disabled={loading || (room.player_ids.length + pendingInviteCount >= MAX_PLAYERS)}
           >
             {t('game.inviteFriends')}
-          </button>
+          </GameButton>
         )}
         {isHost && (
           <>
             <div className="game-computer-picker" aria-label={t('game.computerCount')}>
               {[1, 2, 3, 4, 5].map(n => (
-                <button
+                <GameButton
                   key={n}
                   className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
                   onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
                   type="button"
                 >
                   {n + 1}p
-                </button>
+                </GameButton>
               ))}
             </div>
-            <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+            <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
               {t('game.playComputer')}
-            </button>
+            </GameButton>
           </>
         )}
         {!hasEnoughPlayers && (
@@ -501,28 +501,28 @@ export default function PokerView({
   } else if (!resolving && !isPlaying && !isFinished && !room) {
     overlay = (
       <GameOverlayCard emoji="🃏" title={t('game.poker')}>
-        <button
+        <GameButton
           className="game-invite-btn"
           onClick={handleOpenInvite}
           disabled={loading}
         >
           {t('game.inviteFriends')}
-        </button>
+        </GameButton>
         <div className="game-computer-picker" aria-label={t('game.computerCount')}>
           {[1, 2, 3, 4, 5].map(n => (
-            <button
+            <GameButton
               key={n}
               className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
               onClick={() => setComputerOpponents(n as 1 | 2 | 3 | 4 | 5)}
               type="button"
             >
               {n + 1}p
-            </button>
+            </GameButton>
           ))}
         </div>
-        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+        <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
           {t('game.playComputer')}
-        </button>
+        </GameButton>
       </GameOverlayCard>
     )
   }
@@ -533,13 +533,13 @@ export default function PokerView({
       title={t('game.poker')}
       onBack={handleBack}
       controls={isPlaying ? (
-        <button
+        <GameButton
           className="game-btn game-btn-danger"
           onClick={handleForfeit}
           title={t('poker.forfeitTip')}
         >
           {t('poker.forfeit')}
-        </button>
+        </GameButton>
       ) : undefined}
       fillBoard
       board={computerStartPending ? (
@@ -740,18 +740,18 @@ export default function PokerView({
           {isMyTurn && myState && !myState.folded && !myState.all_in && (
             <>
               <div className="poker-actions">
-                <button
+                <GameButton
                   className="poker-action-btn poker-action-btn--fold"
                   onClick={handleFold}
                 >
                   {t('poker.fold')}
-                </button>
-                <button
+                </GameButton>
+                <GameButton
                   className="poker-action-btn poker-action-btn--call"
                   onClick={handleCallOrCheck}
                 >
                   {callLabel}
-                </button>
+                </GameButton>
               </div>
               {canRaise && (
                 <div className="poker-raise-controls">
@@ -765,7 +765,7 @@ export default function PokerView({
                       step={1}
                       onChange={e => setRaiseAmount(Number(e.target.value) || 0)}
                     />
-                    <button
+                    <GameButton
                       className="poker-action-btn poker-action-btn--raise"
                       onClick={handleRaise}
                       disabled={
@@ -775,13 +775,13 @@ export default function PokerView({
                       }
                     >
                       {t('poker.raise')} {raiseAmount}
-                    </button>
+                    </GameButton>
                   </div>
                   <div className="poker-raise-quick">
-                    <button onClick={() => setRaiseQuick('min')} type="button">{t('poker.min')}</button>
-                    <button onClick={() => setRaiseQuick('half')} type="button">½ Pot</button>
-                    <button onClick={() => setRaiseQuick('pot')} type="button">{t('poker.pot')}</button>
-                    <button onClick={() => setRaiseQuick('allin')} type="button">{t('poker.allInShort')}</button>
+                    <GameButton onClick={() => setRaiseQuick('min')} type="button">{t('poker.min')}</GameButton>
+                    <GameButton onClick={() => setRaiseQuick('half')} type="button">½ Pot</GameButton>
+                    <GameButton onClick={() => setRaiseQuick('pot')} type="button">{t('poker.pot')}</GameButton>
+                    <GameButton onClick={() => setRaiseQuick('allin')} type="button">{t('poker.allInShort')}</GameButton>
                   </div>
                 </div>
               )}

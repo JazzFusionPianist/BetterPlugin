@@ -1,6 +1,7 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { EarTrainingRoom, Profile } from '../../types/collab'
+import type { Profile } from '../../types/collab'
 import { useEarTrainingRoom } from '../../hooks/useEarTrainingRoom'
 import {
   generateQuestion, playQuestion, isCorrect,
@@ -70,8 +71,8 @@ export default function EarTrainingView ({
     room, seat,
     createRoom, joinRoom, updateConfig, toggleReady, startGame,
     submitAnswer, advanceRound, forfeitGame,
-    deleteCurrentRoom, findActiveRoom,
-    inviteFriend, cancelInvite, setRoom,
+    deleteCurrentRoom,
+    inviteFriend, cancelInvite, startComputerGame, submitComputerAnswer,
   } = useEarTrainingRoom(supabase, currentUserId)
 
   const [showInvite, setShowInvite] = useState(false)
@@ -87,7 +88,7 @@ export default function EarTrainingView ({
   useEffect(() => {
     (async () => {
       if (pendingInviteRoomId) { await joinRoom(pendingInviteRoomId); return }
-      await findActiveRoom()
+      // Only an explicit invite/resume ticket can enter an existing match.
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -214,47 +215,10 @@ export default function EarTrainingView ({
   const handlePlayComputer = useCallback(async () => {
     setComputerStartPending(true)
     try {
-      let target = room
-      if (!target) {
-        target = await createRoom({ modes: ['interval', 'chord'], difficulty: 'basic' })
-      }
-      if (!target) {
-        setComputerStartPending(false)
-        return
-      }
-      const { data, error } = await supabase
-        .from('ear_training_rooms')
-        .update({
-          player2_id: computerPlayerId(0),
-          player1_ready: false,
-          player2_ready: false,
-          status: 'playing',
-          current_round: 1,
-          round_started_at: new Date().toISOString(),
-          player1_answer: null,
-          player2_answer: null,
-          player1_score: 0,
-          player2_score: 0,
-          winner_id: null,
-        })
-        .eq('id', target.id)
-        .select()
-        .single()
-      if (error || !data) {
-        console.error('[EarTrainingView.handlePlayComputer]', error)
-        setComputerStartPending(false)
-        return
-      }
-      setRoom(data as EarTrainingRoom)
-    } catch (error) {
-      console.error('[EarTrainingView.handlePlayComputer]', error)
-      setComputerStartPending(false)
-    }
-  }, [room, createRoom, supabase, setRoom])
-
-  useEffect(() => {
-    if (isPlaying) setComputerStartPending(false)
-  }, [isPlaying])
+      if(room?.status==='lobby') await deleteCurrentRoom()
+      startComputerGame({modes:['interval','chord'],difficulty:'basic'},computerPlayerId(0))
+    } finally {setComputerStartPending(false)}
+  },[room,deleteCurrentRoom,startComputerGame])
 
   const handlePlay = () => {
     if (!question || playsLeft <= 0 || myAnswer) return
@@ -268,27 +232,15 @@ export default function EarTrainingView ({
     submitAnswer(ans)
   }
 
-  const computerAnswerKeyRef = useRef('')
   useEffect(() => {
-    if (!isPlaying || !room || !question) return
-    const botSeat =
-      isComputerPlayerId(room.player1_id) ? 'player1'
-      : isComputerPlayerId(room.player2_id) ? 'player2'
-      : null
-    if (!botSeat) return
-    const field = botSeat === 'player1' ? 'player1_answer' : 'player2_answer'
-    if (room[field]) return
-    const key = `${room.id}:${room.current_round}:${field}`
-    if (computerAnswerKeyRef.current === key) return
-    computerAnswerKeyRef.current = key
-    const timer = window.setTimeout(async () => {
-      const options = question.options
-      const wrong = options.filter(o => o !== question.answer)
-      const pick = Math.random() < 0.72 ? question.answer : (wrong[Math.floor(Math.random() * wrong.length)] ?? question.answer)
-      await supabase.from('ear_training_rooms').update({ [field]: pick }).eq('id', room.id)
-    }, 900 + Math.floor(Math.random() * 1400))
+    if (!isPlaying || !room || !question || !isComputerPlayerId(room.player2_id) || room.player2_answer) return
+    const timer = window.setTimeout(() => {
+      const wrong = question.options.filter(o => o !== question.answer)
+      const pick = Math.random() < 0.72 ? question.answer : (wrong[Math.floor(Math.random()*wrong.length)] ?? question.answer)
+      submitComputerAnswer(room.id,room.current_round,pick)
+    },900 + Math.floor(Math.random()*1400))
     return () => window.clearTimeout(timer)
-  }, [isPlaying, room, question, supabase])
+  },[isPlaying,room?.id,room?.current_round,room?.player2_answer,question,submitComputerAnswer])
 
   // Open the in-app confirm modal rather than calling window.confirm —
   // JUCE's WKWebView blocks native confirm/alert dialogs, so the
@@ -299,11 +251,13 @@ export default function EarTrainingView ({
     setShowForfeitConfirm(true)
   }, [isPlaying])
   const confirmForfeit = useCallback(async () => {
-    setShowForfeitConfirm(false)
     await forfeitGame()
-  }, [forfeitGame])
+    setShowForfeitConfirm(false)
+    onClose()
+  }, [forfeitGame,onClose])
 
   const handleBack = useCallback(async () => {
+    if(room?.status==='playing') {setShowForfeitConfirm(true);return}
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
       await deleteCurrentRoom()
     }
@@ -417,26 +371,26 @@ export default function EarTrainingView ({
         <div className="et-setup">
           <div className="et-setup-label">{t('et.modes')}</div>
           <div className="et-setup-row">
-            <button
+            <GameButton
               className={`et-chip${config.modes.includes('interval') ? ' on' : ''}`}
               disabled={seat !== 'player1'}
               onClick={() => setMode('interval', !config.modes.includes('interval'))}
-            >{t('et.modeInterval')}</button>
-            <button
+            >{t('et.modeInterval')}</GameButton>
+            <GameButton
               className={`et-chip${config.modes.includes('chord') ? ' on' : ''}`}
               disabled={seat !== 'player1'}
               onClick={() => setMode('chord', !config.modes.includes('chord'))}
-            >{t('et.modeChord')}</button>
+            >{t('et.modeChord')}</GameButton>
           </div>
           <div className="et-setup-label">{t('et.difficulty')}</div>
           <div className="et-setup-row">
             {(['basic', 'intermediate', 'advanced'] as const).map(d => (
-              <button
+              <GameButton
                 key={d}
                 className={`et-chip${config.difficulty === d ? ' on' : ''}`}
                 disabled={seat !== 'player1'}
                 onClick={() => setDifficulty(d)}
-              >{t(`et.${d}`)}</button>
+              >{t(`et.${d}`)}</GameButton>
             ))}
           </div>
         </div>
@@ -451,12 +405,12 @@ export default function EarTrainingView ({
   } else if (isLobby && !hasOpponent) {
     overlay = (
       <GameOverlayCard emoji="🎧" title={t('game.earTraining')} className="et-lobby-card">
-        <button className="game-invite-btn" onClick={() => setShowInvite(true)}>
+        <GameButton className="game-invite-btn" onClick={() => setShowInvite(true)}>
           {t('chess.inviteCta')}
-        </button>
-        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer}>
+        </GameButton>
+        <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer}>
           {t('game.playComputer')}
-        </button>
+        </GameButton>
         {room && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
       </GameOverlayCard>
     )
@@ -474,13 +428,13 @@ export default function EarTrainingView ({
         </span>
       ) : undefined}
       controls={isPlaying ? (
-        <button
+        <GameButton
           className="game-btn game-btn-danger"
           onClick={handleForfeit}
           title={t('et.forfeitConfirm')}
         >
           {t('et.forfeit')}
-        </button>
+        </GameButton>
       ) : undefined}
       aboveBoard={
         <div className="game-player-row">
@@ -521,7 +475,7 @@ export default function EarTrainingView ({
               <div className="et-hero">
                 <Bulb lit={myLocked} mine />
                 <div className="et-hero-center">
-                  <button
+                  <GameButton
                     className="et-play-btn"
                     onClick={handlePlay}
                     disabled={playsLeft <= 0 || !!myAnswer}
@@ -530,7 +484,7 @@ export default function EarTrainingView ({
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8 5v14l11-7z" />
                     </svg>
-                  </button>
+                  </GameButton>
                   <div className="et-replays">{t('et.replaysLeft', { n: playsLeft })}</div>
                 </div>
                 <Bulb lit={opponentLocked} />
@@ -550,12 +504,13 @@ export default function EarTrainingView ({
                     const labels = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
                     const isMyPick = selectedAnswer === opt || myAnswer === opt
                     return (
-                      <button
+                      <GameButton
                         key={opt}
+                        preserveCase
                         className={`et-option${isMyPick ? ' picked' : ''}`}
                         onClick={() => handleAnswer(opt)}
                         disabled={!!myAnswer}
-                      >{labels[opt as keyof typeof labels]}</button>
+                      >{labels[opt as keyof typeof labels]}</GameButton>
                     )
                   })}
                 </div>
@@ -631,11 +586,11 @@ export default function EarTrainingView ({
         </div>
       }
       overlay={overlay}
-      chat={!computerStartPending ? (
+      chat={!computerStartPending && !isComputerOpponent ? (
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
-          roomId={room?.id ?? null}
+          roomId={isComputerOpponent ? null : room?.id ?? null}
           names={Object.fromEntries([[currentUserId, currentUserProfile?.display_name ?? 'me'], ...friendProfiles.map((p) => [p.id, p.display_name])])}
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}

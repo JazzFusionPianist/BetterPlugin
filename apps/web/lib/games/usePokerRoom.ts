@@ -243,6 +243,7 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
         return null
       }
       const ex = existing as PokerRoom
+      if(ex.status==='playing' && ex.player_ids.includes(currentUserId)) {setRoom(ex);return ex}
       if (ex.status !== 'lobby') return null
       if (
         ex.player_ids.length >= ex.player_count &&
@@ -315,11 +316,13 @@ export function usePokerRoom(supabase: SupabaseClient, currentUserId: string) {
         }
       }
     }
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('poker_rooms')
-      .update({ status: 'finished', winner_id: winnerId })
+      .update({ status: 'finished', winner_id: winnerId, ready_ids: [] })
       .eq('id', room.id)
-    if (error) console.warn('[usePokerRoom.quitGame]', error)
+      .select().single()
+    if (error || !data) throw error ?? new Error('The game could not be closed. Please retry.')
+    setRoom(previous=>previous?.id===room.id ? data as PokerRoom : previous)
   }, [supabase, room, currentUserId, playerStates])
 
   const findActiveRoom = useCallback(async (): Promise<PokerRoom | null> => {

@@ -28,6 +28,7 @@ import LiveViewer from '../components/collab/LiveViewer'
 import LanguagePanel from '../components/collab/LanguagePanel'
 import GameListView from '../components/collab/GameListView'
 import { ArcadeContext } from '../components/collab/ArcadeLobby'
+import {GameSurface, useGameViewport} from '@orb/core/hooks/useGameSurface'
 import ChessView from '../components/collab/ChessView'
 import HoverTooltip from '../components/collab/HoverTooltip'
 import FallingBlocksView from '../components/collab/FallingBlocksView'
@@ -131,6 +132,9 @@ function CollabPageInner({ user }: Props) {
   }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
   const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'>('list')
+  const gameSelection = useRef(0)
+  const gameInvitePending = useRef(false)
+  useEffect(() => () => { gameSelection.current++ }, [gameOpen, gameScreen])
   // True while the user is using the GameList specifically to invite
   // people in the chat they just left open. Cleared when they pick a
   // game (we create the room + send the invite bubble) or close the
@@ -751,7 +755,8 @@ function CollabPageInner({ user }: Props) {
     closeSearch()
   }
 
-  const arcadeGames = !!(hasJuceBridge || screenPreview) && screenSize === 'large'
+  const {ref:gameViewport, spacious:spaciousGame} = useGameViewport()
+  const arcadeGames = !!(hasJuceBridge || screenPreview) && screenSize === 'large' && (gameScreen === 'list' || spaciousGame)
   const pluginClass = ['plugin',
     (selectedId || selectedGroupConvId) ? 'chat-open' : '',
     chatFromConvList ? 'chat-from-conv-list' : '',
@@ -1102,12 +1107,17 @@ function CollabPageInner({ user }: Props) {
         </div>
 
         {/* Game view */}
+        <GameSurface visible={gameOpen}>
         <ArcadeContext.Provider value={arcadeGames}>
-        <div className="view gview">
+        <div ref={gameViewport} className="view gview">
           {gameScreen === 'list' && (
             <GameListView
               inviteContext={chatGameInvite}
               onSelectGame={async (g) => {
+                if (chatGameInvite && gameInvitePending.current) return
+                const request = ++gameSelection.current
+                gameInvitePending.current = !!chatGameInvite
+                let nextRoomId: string | undefined
                 // Everything async here (dynamic chunk load, room lookup,
                 // room create, invite send) runs BEFORE the screen switch,
                 // so any rejection used to leave the tap doing nothing at
@@ -1117,28 +1127,26 @@ function CollabPageInner({ user }: Props) {
                 try {
                   // Solo games — no rooms, no invites.
                   if (g === 'pinball' || g === 'orb_merge' || g === 'sudoku' || g === 'minesweeper' || g === 'solitaire') return
-                  if (!chatGameInvite) {
-                    // Normal path — user picked a game to play / browse.
-                    const { findActiveGame } = await import('../lib/gameRooms')
-                    const active = await findActiveGame(client, user.id)
-                    if (active?.gameType === g) {
-                      sessionStorage.setItem('join_room_id', active.roomId)
-                    }
-                  } else {
+                  if (chatGameInvite) {
                     // Invite path — create the room, post the invite bubble
                     // into the chat, then drop the user into the lobby.
                     const { createGameRoom } = await import('../lib/gameRooms')
                     const roomId = await createGameRoom(client, g, user.id)
                     if (roomId) {
                       await send('', { url: roomId, type: 'game_invite', name: g })
-                      sessionStorage.setItem('join_room_id', roomId)
+                      nextRoomId = roomId
                     }
                   }
                 } catch (err) {
                   console.error('[selectGame]', err)
                 } finally {
-                  setChatGameInvite(null)
-                  setGameScreen(g)
+                  gameInvitePending.current = false
+                  if (request === gameSelection.current) {
+                    sessionStorage.removeItem('join_room_id')
+                    if (nextRoomId) sessionStorage.setItem('join_room_id', nextRoomId)
+                    setChatGameInvite(null)
+                    setGameScreen(g)
+                  }
                 }
               }}
               onClose={() => { setGameOpen(false); setChatGameInvite(null) }}
@@ -1238,6 +1246,7 @@ function CollabPageInner({ user }: Props) {
           )}
         </div>
         </ArcadeContext.Provider>
+        </GameSurface>
 
         <div className="view afview">
           <AddFriendPanel

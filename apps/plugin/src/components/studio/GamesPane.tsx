@@ -10,7 +10,8 @@
  * live room never drops.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback } from 'react'
+import {GameSurface, useGameViewport} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import type { GameId } from '../collab/GameListView'
@@ -83,23 +84,14 @@ export default function GamesPane({
   supabase, userId, me, friendProfiles, onlineIds, screen, joinNonce, inviteConversationId,
   onSelectGame, onBackToList, onClose, headline, hidden,
 }: Props) {
-  const hostRef = useRef<HTMLDivElement>(null)
-
-  // The CD wall's snap-scroll measures its container on mount; a pane
-  // that resizes with the window needs a nudge so spacers re-measure.
-  const [, bump] = useState(0)
-  useEffect(() => {
-    const el = hostRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => bump(n => n + 1))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const {ref:hostRef, spacious} = useGameViewport()
+  const arcade = screen === 'list' || spacious
 
   const common = { supabase, currentUserId: userId, currentUserProfile: me, onClose: onBackToList }
   const cls = [
     // the pane is always wide: the arcade lobby and colour rooms (arcade.css)
-    'wd-games', 'plugin', 'games', 'game-open', 'screen-wide', 'arcade-skin',
+    'wd-games', 'plugin', 'games', 'game-open', 'screen-wide',
+    arcade ? 'arcade-skin' : '',
     screen !== 'list' ? `gwall-${screen} dark` : '',
   ].filter(Boolean).join(' ')
 
@@ -107,7 +99,8 @@ export default function GamesPane({
     <div ref={hostRef} className={cls} hidden={hidden}>
       {/* The studio line sits over the wall only; a game brings its own
           header (‹ back to the wall), so the bar steps out of its way. */}
-      <ArcadeContext.Provider value>
+      <GameSurface visible={!hidden}>
+      <ArcadeContext.Provider value={arcade}>
       <div className="content">
         <div className="view gview">
           {/* the arcade carries its own line: the title and a way out */}
@@ -145,6 +138,7 @@ export default function GamesPane({
         </div>
       </div>
       </ArcadeContext.Provider>
+      </GameSurface>
     </div>
   )
 }

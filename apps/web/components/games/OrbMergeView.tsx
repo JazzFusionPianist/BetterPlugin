@@ -1,6 +1,8 @@
 'use client'
 
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {useGameActive, useGamePalette} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/games/types'
 import { OrbMergeGame, drawOrbMerge, OM_W, OM_H, OM_RADII, OM_COLORS, OM_TIERS } from '@/lib/games/orbMerge'
@@ -17,7 +19,17 @@ interface Props {
   onClose: () => void
 }
 
+function readTheme(el:HTMLElement) {
+  const cs = getComputedStyle(el)
+  return {
+    paper: cs.getPropertyValue('--bg0').trim() || '#FCFBF9',
+    ink: cs.getPropertyValue('--t1').trim() || '#1A1917',
+    faint: cs.getPropertyValue('--om-line').trim() || 'rgba(127, 127, 127, 0.45)',
+  }
+}
+
 export default function OrbMergeView({ supabase, currentUserId, onClose }: Props) {
+  const visible = useGameActive()
   const { t } = useT()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'orb_merge_scores')
 
@@ -25,6 +37,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
   if (!gameRef.current) gameRef.current = new OrbMergeGame()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
+  const themeRef = useGamePalette(wrapRef, readTheme, {paper:'#FCFBF9',ink:'#1A1917',faint:'rgba(127, 127, 127, 0.45)'})
 
   const [phase, setPhase] = useState<'ready' | 'live' | 'over'>('ready')
   const [score, setScore] = useState(0)
@@ -33,6 +46,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
   const [submitting, setSubmitting] = useState(false)
   const [confirmKind, setConfirmKind] = useState<'end' | 'reset' | null>(null)
   const scoreRef = useRef(0)
+  const active = visible && confirmKind == null
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +56,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
 
   // ── rAF loop ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'live') return
+    if (phase !== 'live' || !active) return
     let raf = 0
     let last = performance.now()
     const loop = (now: number) => {
@@ -63,13 +77,8 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
           canvas.height = Math.round((w * OM_H / OM_W) * dpr)
           canvas.style.width = '100%'
         }
-        const cs = getComputedStyle(wrap)
         const ctx = canvas.getContext('2d')!
-        drawOrbMerge(ctx, g, (w * dpr) / OM_W, {
-          paper: cs.getPropertyValue('--bg0') || '#FCFBF9',
-          ink: cs.getPropertyValue('--t1').trim() || '#1A1917',
-          faint: cs.getPropertyValue('--om-line').trim() || 'rgba(127, 127, 127, 0.45)',
-        })
+        drawOrbMerge(ctx, g, (w * dpr) / OM_W, themeRef.current)
       }
       if (g.score !== scoreRef.current) { scoreRef.current = g.score; setScore(g.score) }
       setNextTier(g.nextTier)
@@ -78,7 +87,7 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [phase])
+  }, [phase, active])
 
   // ── submit on game over ──────────────────────────────────────────────────
   useEffect(() => {
@@ -156,9 +165,9 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
             </div>
           )}
         </div>
-        <button className="game-invite-btn pb-start-btn" onClick={handleStart}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={handleStart}>
           {isOver ? t('pb.playAgain') : t('pb.start')}
-        </button>
+        </GameButton>
         <div className="pb-hint">{t('om.hint')}</div>
       </GameOverlayCard>
     )
@@ -171,8 +180,8 @@ export default function OrbMergeView({ supabase, currentUserId, onClose }: Props
       className="pinball-shell om-shell"
       controls={phase === 'live' ? (
         <>
-          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>
-          <button className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</button>
+          <GameButton className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</GameButton>
+          <GameButton className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</GameButton>
         </>
       ) : undefined}
       confirm={{

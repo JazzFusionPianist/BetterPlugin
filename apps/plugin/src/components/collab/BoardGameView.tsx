@@ -1,3 +1,4 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, BoardRoom, BoardGameType, BoardSeat } from '../../types/collab'
@@ -65,6 +66,7 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
   const { rows, cols } = BOARD_DIMS[game]
 
   const handleBack = useCallback(() => {
+    if(room?.status==='playing') {setShowResignConfirm(true);return}
     if (room && (room.status === 'lobby' || (room.status === 'finished' && !room.guest_id))) deleteCurrentRoom()
     else leaveRoom()
     onClose()
@@ -81,7 +83,7 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
         const joined = await joinRoom(pending)
         if (joined || cancelled) { if (!cancelled) setResolvingRoom(false); return }
       }
-      if (!cancelled) await findActiveRoom()
+      // A fresh entry opens the lobby, not an arbitrary old room.
       if (!cancelled) setResolvingRoom(false)
     })()
     return () => { cancelled = true }
@@ -203,10 +205,11 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
   }, [room, isPlaying, isComputerOpponent, isHost, turnSeat, board, game, commitMove])
 
   const confirmResign = useCallback(async () => {
-    setShowResignConfirm(false)
     if (!room) return
     await endGame(isComputerOpponent ? computerPlayerId(0) : opponentId)
-  }, [room, isComputerOpponent, opponentId, endGame])
+    setShowResignConfirm(false)
+    onClose()
+  }, [room, isComputerOpponent, opponentId, endGame,onClose])
 
   // ── Result / readiness ─────────────────────────────────────────────────
   const myReady = room ? (isHost ? room.host_ready : room.guest_ready) : false
@@ -253,11 +256,11 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
           <div className="game-finish-readystate">{mySeat === 'h' ? k.h : k.g} – {mySeat === 'h' ? k.g : k.h}</div>
         )}
         {isComputerOpponent ? (
-          <button className="game-ready-btn" onClick={handlePlayComputer}>{t('chess.playAgain')}</button>
+          <GameButton className="game-ready-btn" onClick={handlePlayComputer}>{t('chess.playAgain')}</GameButton>
         ) : (
           <GameReadyControl ready={myReady} count={readyCountStr} onToggle={toggleReady} label={myReady ? undefined : t('chess.playAgain')} />
         )}
-        <button className="game-endgame-btn" onClick={handleBack}>{t('chess.endGame')}</button>
+        <GameButton className="game-endgame-btn" onClick={handleBack}>{t('chess.endGame')}</GameButton>
       </GameOverlayCard>
     )
   } else if (isLobby && hasGuest) {
@@ -272,8 +275,8 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
     if (!room || (isHost && !hasGuest)) {
       overlay = (
         <GameOverlayCard title={t(NAME_KEY[game])}>
-          <button className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>{t('chess.inviteCta')}</button>
-          <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>{t('game.playComputer')}</button>
+          <GameButton className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>{t('chess.inviteCta')}</GameButton>
+          <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>{t('game.playComputer')}</GameButton>
           {room && !hasGuest && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
           <div className="pb-hint">{arcade ? commas(t(HINT_KEY[game])) : t(HINT_KEY[game])}</div>
         </GameOverlayCard>
@@ -342,7 +345,7 @@ export default function BoardGameView({ game, supabase, currentUserId, currentUs
         </>
       ) : undefined}
       controls={isPlaying ? (
-        <button className="game-btn game-btn-danger" onClick={() => setShowResignConfirm(true)}>{t('chess.resign')}</button>
+        <GameButton className="game-btn game-btn-danger" onClick={() => setShowResignConfirm(true)}>{t('chess.resign')}</GameButton>
       ) : undefined}
       aboveBoard={playerRow(
         opponentProfile,

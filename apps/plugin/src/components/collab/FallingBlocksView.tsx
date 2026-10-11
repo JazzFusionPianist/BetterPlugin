@@ -1,5 +1,8 @@
 
+import {GameButton} from '@orb/core/components/GameButton'
+import {readFallingBlocksSession,writeFallingBlocksSession} from '@orb/core/lib/fallingBlocksSession.ts'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {useGameActive} from '@orb/core/hooks/useGameSurface'
 import { holdKeyboard } from '../../lib/keyboardCapture'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, FallingBlocksPlayerState } from '../../types/collab'
@@ -208,6 +211,7 @@ export default function FallingBlocksView({
   const {
     room,
     playerStates,
+    statesReady,
     loading,
     createRoom,
     joinRoom,
@@ -228,6 +232,7 @@ export default function FallingBlocksView({
 
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
+  const active = useGameActive() && !showInviteModal && !showForfeitConfirm
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
   // Callout over the board — what the last placement was (T-spin, four,
   // back-to-back, perfect clear, combo). `seq` restarts the CSS animation.
@@ -279,7 +284,7 @@ export default function FallingBlocksView({
       joinRoom(pendingRoomId)
       return
     }
-    if (!room) findActiveRoom()
+    // Existing rooms require an explicit join/resume ticket.
   }, [joinRoom, findActiveRoom, room])
 
   // Start-screen leaderboard
@@ -306,7 +311,8 @@ export default function FallingBlocksView({
   const myTopOutServer = !!myPlayerState?.top_out
 
   // The one gate that matters for input + gravity, in both modes.
-  const localActive = solo ? !game.topOut : (isPlaying && !myTopOutServer)
+  const [gameReady,setGameReady] = useState(false)
+  const localActive = solo ? !game.topOut : (isPlaying && gameReady && !myTopOutServer)
 
   const opponentIds = useMemo(() => {
     if (!room) return []
@@ -385,13 +391,14 @@ export default function FallingBlocksView({
 
   // ── Back button ──────────────────────────────────────────────────────────
   const handleBack = useCallback(() => {
+    if(room?.status==='playing' && !myTopOutServer) {setShowForfeitConfirm(true);return}
     if (room && (room.status === 'lobby' || room.status === 'finished')) {
       deleteCurrentRoom()
     } else {
       leaveRoom()
     }
     onClose()
-  }, [room, deleteCurrentRoom, leaveRoom, onClose])
+  }, [room, deleteCurrentRoom, leaveRoom, onClose,myTopOutServer])
 
   // ── Invite flow ─────────────────────────────────────────────────────────
   const handleOpenInvite = useCallback(async () => {
@@ -435,27 +442,31 @@ export default function FallingBlocksView({
   }, [room, isHost, startGame])
 
   // ── On multiplayer game start: reset local state, drop out of solo ──────
-  const prevStatusRef = useRef<string | null>(null)
+  const initializedMatch = useRef('')
+  const matchKey = room ? `${room.id}:${room.updated_at}` : ''
   useEffect(() => {
-    const prev = prevStatusRef.current
-    prevStatusRef.current = status
-    if (prev !== 'playing' && status === 'playing') {
-      setSolo(false)
-      const fresh = initialFallingBlocksState()
-      setGame(fresh)
-      playStartRef.current = Date.now()
-      setClearFlash(null)
-      // Push initial state to server
-      updateMyState({
-        board: fresh.board,
-        score: 0,
-        lines: 0,
-        top_out: false,
-        garbage_pending: 0,
-      })
+    if(status!=='playing') {initializedMatch.current='';setGameReady(false);return}
+    if(!statesReady || initializedMatch.current===matchKey) return
+    initializedMatch.current=matchKey
+    setSolo(false)
+    const saved=readFallingBlocksSession<FallingBlocksState>(currentUserId,matchKey)
+    const persisted=playerStates.get(currentUserId)
+    const fresh=saved?.state ?? {
+      ...initialFallingBlocksState(),
+      ...(persisted ? {board:persisted.board,score:persisted.score,lines:persisted.lines,topOut:persisted.top_out} : {}),
     }
-  }, [room?.player_ids, status, updateMyState])
+    setGame(fresh)
+    playStartRef.current=saved?.started ?? Date.now()
+    setClearFlash(null)
+    setGameReady(true)
+  },[status,statesReady,matchKey,currentUserId,playerStates])
 
+  useEffect(() => {
+    if(!gameReady || !isPlaying || solo) return
+    const save=()=>writeFallingBlocksSession(currentUserId,matchKey,game,playStartRef.current)
+    const timer=window.setTimeout(save,250)
+    return ()=>{window.clearTimeout(timer);save()}
+  },[game,gameReady,isPlaying,solo,currentUserId,matchKey])
   // ── Callout for placements worth naming; plain singles, doubles and
   // triples outside a combo pass without one ────────────────────────────────
   const prevActionSeqRef = useRef(0)
@@ -486,7 +497,7 @@ export default function FallingBlocksView({
   // ── Sync my local state to server, throttled ─────────────────────────────
   const lastSyncRef = useRef(0)
   useEffect(() => {
-    if (!isPlaying || solo) return
+    if (!isPlaying || solo || !gameReady) return
     const now = Date.now()
     if (now - lastSyncRef.current < SYNC_THROTTLE_MS) return
     lastSyncRef.current = now
@@ -495,7 +506,7 @@ export default function FallingBlocksView({
       score: game.score,
       lines: game.lines,
     })
-  }, [game.board, game.score, game.lines, isPlaying, solo, updateMyState])
+  }, [game.board, game.score, game.lines, isPlaying, solo, updateMyState, gameReady])
 
   // ── On local top-out: notify server ──────────────────────────────────────
   const reportedTopOutRef = useRef(false)
@@ -588,7 +599,7 @@ export default function FallingBlocksView({
     dir: 0, das: null, arr: null, soft: null,
   })
   useEffect(() => {
-    if (!localActive) return
+    if (!localActive || !active) return
     const DAS_MS = 130
     const ARR_MS = 35
     const SOFT_MS = 35
@@ -672,6 +683,8 @@ export default function FallingBlocksView({
 
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    const releaseHeld = () => { clearSide(); clearSoft() }
+    window.addEventListener('blur', releaseHeld)
     const releaseKeys = holdKeyboard()   // arrows/space/shift belong to the game while it's up
     return () => {
       releaseKeys()
@@ -679,8 +692,9 @@ export default function FallingBlocksView({
       clearSoft()
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', releaseHeld)
     }
-  }, [localActive, distributeGarbage])
+  }, [localActive, distributeGarbage, active])
 
   // ── Touch controls: drag sideways to move, drag down to soft drop,
   //    flick down to hard drop, tap to rotate, tap the hold box to hold. ────
@@ -758,7 +772,7 @@ export default function FallingBlocksView({
 
   // ── Game loop: gravity tick + lock timer ─────────────────────────────────
   useEffect(() => {
-    if (!localActive) return
+    if (!localActive || (solo && !active)) return
 
     let lastTick = Date.now()
     let gravityAccum = 0
@@ -796,7 +810,7 @@ export default function FallingBlocksView({
     }, TICK_MS)
 
     return () => window.clearInterval(interval)
-  }, [localActive, handleLockAndSpawn])
+  }, [localActive, handleLockAndSpawn, solo, active])
 
   // ── Forfeit ──────────────────────────────────────────────────────────────
   // Tops out the current player. Also explicitly ends the game when only one
@@ -808,7 +822,6 @@ export default function FallingBlocksView({
     setShowForfeitConfirm(true)
   }, [])
   const confirmForfeit = useCallback(async () => {
-    setShowForfeitConfirm(false)
     setGame(prev => ({ ...prev, topOut: true }))
     applyPlayerStates([{
       room_id: room?.id ?? '',
@@ -828,8 +841,10 @@ export default function FallingBlocksView({
     if (aliveOpponents.length <= 1) {
       await endGame(scoreWinner())
     }
+    setShowForfeitConfirm(false)
+    onClose()
     // 2+ alive opponents → let the game continue normally
-  }, [applyPlayerStates, room?.id, setPlayerTopOut, currentUserId, opponentIds, endGame, scoreWinner])
+  }, [applyPlayerStates, room?.id, setPlayerTopOut, currentUserId, opponentIds, endGame, scoreWinner,onClose])
 
   // ── Rematch helper: when finished, host auto-starts when all ready ───────
   useEffect(() => {
@@ -923,9 +938,9 @@ export default function FallingBlocksView({
           <div className="pb-final-score">{game.score.toLocaleString()}</div>
           {standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
           {leaderboardBlock}
-          <button className="game-invite-btn pb-start-btn" onClick={startSolo}>
+          <GameButton className="game-invite-btn pb-start-btn" onClick={startSolo}>
             {t('pb.playAgain')}
-          </button>
+          </GameButton>
         </GameOverlayCard>
       )
     }
@@ -964,13 +979,13 @@ export default function FallingBlocksView({
           disabled={loading}
         />
         {isHost && (
-          <button
+          <GameButton
             className="game-invite-btn"
             onClick={handleOpenInvite}
             disabled={loading || (room.player_ids.length + pendingInviteCount >= MAX_PLAYERS)}
           >
             {t('game.inviteFriends')}
-          </button>
+          </GameButton>
         )}
         {!hasEnoughPlayers && (
           <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
@@ -984,12 +999,12 @@ export default function FallingBlocksView({
     overlay = (
       <GameOverlayCard title={t('game.fallingBlocks')} className="pb-overlay-card">
         {leaderboardBlock}
-        <button className="game-invite-btn pb-start-btn" onClick={startSolo} disabled={loading}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={startSolo} disabled={loading}>
           {t('fb.playSolo')}
-        </button>
-        <button className="game-invite-btn game-computer-btn" onClick={handleOpenInvite} disabled={loading}>
+        </GameButton>
+        <GameButton className="game-invite-btn game-computer-btn" onClick={handleOpenInvite} disabled={loading}>
           {t('game.inviteFriends')}
-        </button>
+        </GameButton>
       </GameOverlayCard>
     )
   }
@@ -1002,23 +1017,23 @@ export default function FallingBlocksView({
       className={`falling-blocks-shell${solo ? ' fb-solo-shell' : ''}`}
       controls={solo && !game.topOut ? (
         <>
-          <button
+          <GameButton
             className="game-btn game-btn-danger"
             onClick={() => setGame(prev => ({ ...prev, topOut: true }))}
           >
             {t('pb.end')}
-          </button>
-          <button className="game-btn" onClick={startSolo}>
+          </GameButton>
+          <GameButton className="game-btn" onClick={startSolo}>
             {t('pb.reset')}
-          </button>
+          </GameButton>
         </>
-      ) : isPlaying && !myTopOutServer ? (
-        <button
+      ) : isPlaying ? (
+        <GameButton
           className="game-btn game-btn-danger"
-          onClick={handleForfeit}
+          onClick={myTopOutServer ? onClose : handleForfeit}
         >
-          Forfeit
-        </button>
+          {t('pb.end')}
+        </GameButton>
       ) : undefined}
       fillBoard
       board={(
@@ -1026,7 +1041,7 @@ export default function FallingBlocksView({
           <div className={`falling-blocks-playfield${solo ? ' fb-solo' : ''}`}>
             {/* Left rail: hold box + next queue */}
             <div className="falling-blocks-rail">
-              <button
+              <GameButton
                 type="button"
                 className={`fb-rail-box fb-hold${game.holdUsed ? ' used' : ''}`}
                 onClick={handleHoldTap}
@@ -1038,7 +1053,7 @@ export default function FallingBlocksView({
                     ? <PiecePreview type={game.hold} dim={game.holdUsed} />
                     : <span className="fb-hold-empty">⇧</span>}
                 </div>
-              </button>
+              </GameButton>
               <div className="fb-rail-box fb-next">
                 <span className="fb-rail-label">{t('fb.next')}</span>
                 <div className="fb-next-queue">

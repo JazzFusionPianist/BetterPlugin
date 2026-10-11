@@ -8,7 +8,10 @@
     "dev:plugin": "pnpm --filter plugin dev",
     "build:plugin": "pnpm --filter plugin build",
     "typecheck:plugin": "pnpm --filter plugin exec tsc -b",
-    "test:security": "node --experimental-strip-types --test tests/security/*.test.mjs"
+    "test:security": "node --experimental-strip-types --test tests/security/*.test.mjs",
+    "dev:games:qa": "pnpm --filter plugin exec vite --config ../../tests/games/vite.config.mjs",
+    "test:games:layout": "node tests/games/audit.browser.mjs",
+    "test:games:regression": "node tests/games/regression.browser.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14"

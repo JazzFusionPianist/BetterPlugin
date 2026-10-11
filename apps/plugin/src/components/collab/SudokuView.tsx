@@ -1,4 +1,6 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {useGameActive} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
@@ -20,11 +22,15 @@ type Phase = 'ready' | 'live' | 'won'
 
 /** Sudoku — solo, three difficulties, pencil marks, world ranking. */
 export default function SudokuView({ supabase, currentUserId, onClose }: Props) {
+  const active = useGameActive()
   const { t } = useT()
   const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'sudoku_scores')
 
-  const [difficulty, setDifficulty] = useState<SudokuDifficulty>(() => (localStorage.getItem('orb_sudoku_diff') as SudokuDifficulty) || 'easy')
+  const [difficulty, setDifficulty] = useState<SudokuDifficulty>(() => {
+    const saved = localStorage.getItem('orb_sudoku_diff') as SudokuDifficulty
+    return SUDOKU_DIFFICULTIES.includes(saved) ? saved : 'easy'
+  })
   const [puzzle, setPuzzle] = useState<SudokuPuzzle | null>(null)
   const [values, setValues] = useState<number[]>(() => Array(81).fill(0))
   const [notes, setNotes] = useState<number[]>(() => Array(81).fill(0))   // bitmask 1<<v
@@ -46,13 +52,13 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
   }, [loadStanding])
 
   // Digits and arrows belong to the board while it's up.
-  useEffect(() => holdKeyboard(), [])
+  useEffect(() => active ? holdKeyboard() : undefined, [active])
 
   useEffect(() => {
-    if (phase !== 'live') return
+    if (phase !== 'live' || !active) return
     const id = window.setInterval(() => setSeconds(s => s + 1), 1000)
     return () => window.clearInterval(id)
-  }, [phase])
+  }, [phase, active])
 
   const handleStart = useCallback((d: SudokuDifficulty = difficulty) => {
     if (generating.current) return
@@ -120,7 +126,7 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
       return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
     }
     const down = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
+      if (!active || isTyping(e) || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
       if (phase !== 'live') return
       if (e.key >= '1' && e.key <= '9') { e.preventDefault(); enter(Number(e.key)); return }
       if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); enter(0); return }
@@ -139,7 +145,7 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
     }
     window.addEventListener('keydown', down)
     return () => window.removeEventListener('keydown', down)
-  }, [phase, enter])
+  }, [phase, enter, active])
 
   // Conflicts: a value that clashes with a peer.
   const conflicts = useMemo(() => {
@@ -180,15 +186,15 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
         {won && standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         <div className="game-computer-picker" role="radiogroup" aria-label={t('diff.label')}>
           {SUDOKU_DIFFICULTIES.map(d => (
-            <button key={d} className={`game-computer-count${difficulty === d ? ' selected' : ''}`} onClick={() => setDifficulty(d)} role="radio" aria-checked={difficulty === d}>
+            <GameButton key={d} className={`game-computer-count${difficulty === d ? ' selected' : ''}`} onClick={() => setDifficulty(d)} role="radio" aria-checked={difficulty === d}>
               {t(`diff.${d}` as const)}
-            </button>
+            </GameButton>
           ))}
         </div>
         <WorldRanking standing={standing} loading={submitting} currentUserId={currentUserId} />
-        <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
           {won ? t('pb.playAgain') : t('pb.start')}
-        </button>
+        </GameButton>
         <div className="pb-hint">{arcade ? commas(t('sd.hint')) : t('sd.hint')}</div>
       </GameOverlayCard>
     )
@@ -217,8 +223,8 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
       ) : undefined}
       controls={phase === 'live' ? (
         <>
-          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>
-          <button className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</button>
+          <GameButton className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</GameButton>
+          <GameButton className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</GameButton>
         </>
       ) : undefined}
       confirm={{
@@ -260,14 +266,14 @@ export default function SudokuView({ supabase, currentUserId, onClose }: Props) 
           </div>
           <div className="sd-pad">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
-              <button key={n} className={`sd-key${remaining[n] >= 9 ? ' done' : ''}`} onClick={() => enter(n)} disabled={phase !== 'live'}>
+              <GameButton key={n} className={`sd-key${remaining[n] >= 9 ? ' done' : ''}`} onClick={() => enter(n)} disabled={phase !== 'live'}>
                 {n}<small>{Math.max(0, 9 - remaining[n])}</small>
-              </button>
+              </GameButton>
             ))}
-            <button className={`sd-key sd-key-tool${pencil ? ' on' : ''}`} onClick={() => setPencil(p => !p)} disabled={phase !== 'live'} title="N">
+            <GameButton className={`sd-key sd-key-tool${pencil ? ' on' : ''}`} onClick={() => setPencil(p => !p)} disabled={phase !== 'live'} title="N">
               {t('sd.pencil')}
-            </button>
-            <button className="sd-key sd-key-tool" onClick={() => enter(0)} disabled={phase !== 'live'}>{t('sd.erase')}</button>
+            </GameButton>
+            <GameButton className="sd-key sd-key-tool" onClick={() => enter(0)} disabled={phase !== 'live'}>{t('sd.erase')}</GameButton>
           </div>
         </div>
       }

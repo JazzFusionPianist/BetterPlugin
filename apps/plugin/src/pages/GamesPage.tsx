@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {useGameViewport} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { useProfiles } from '../hooks/useProfiles'
 import { usePresence } from '../hooks/usePresence'
@@ -38,6 +39,7 @@ type Screen = 'list' | GameId
  *  mirrors CollabPage's game block verbatim — useProfiles / usePresence /
  *  useFollows feed the same props into the same views. */
 export default function GamesPage({ supabase, user }: Props) {
+  const {ref:hostRef, spacious} = useGameViewport()
   const screenPreview = new URLSearchParams(window.location.search).get('screen') === 'large'
   const fill = hasJuceBridge || screenPreview
 
@@ -71,24 +73,20 @@ export default function GamesPage({ supabase, user }: Props) {
   // Bumped whenever a game is (re)opened so its view mounts fresh and
   // re-reads any pending join_room_id — CollabPage's gameJoinNonce.
   const [joinNonce, setJoinNonce] = useState(0)
+  const selection = useRef(0)
+  useEffect(() => () => { selection.current++ }, [])
 
   const openGame = async (g: GameId) => {
-    try {
-      // Solo games — no rooms to resume.
-      if (g === 'pinball' || g === 'orb_merge' || g === 'sudoku' || g === 'minesweeper' || g === 'solitaire') return
-      const { findActiveGame } = await import('../lib/gameRooms')
-      const active = await findActiveGame(supabase, user.id)
-      if (active?.gameType === g) sessionStorage.setItem('join_room_id', active.roomId)
-    } catch (err) {
-      console.error('[selectGame]', err)
-    } finally {
+    const request = ++selection.current
+    if (request === selection.current) {
+      sessionStorage.removeItem('join_room_id')
       setJoinNonce(n => n + 1)
       setScreen(g)
     }
   }
-  const backToList = () => setScreen('list')
+  const backToList = () => { selection.current++; setScreen('list') }
 
-  const arcade = fill && wide
+  const arcade = fill && wide && (screen === 'list' || spacious)
   const cls = [
     'plugin', 'games', 'game-open',
     // wide windows get the arcade lobby and colour rooms (arcade.css);
@@ -105,7 +103,7 @@ export default function GamesPage({ supabase, user }: Props) {
   const common = { supabase, currentUserId: user.id, currentUserProfile: me, onClose: backToList }
 
   return (
-    <div className={cls} style={style}>
+    <div ref={hostRef} className={cls} style={style}>
       <ResizeGrip />
       {/* Same height as the full plugin's toolbar so the wall sits where
           the room was composed; the wordmark takes the dimmed-glyph tone.

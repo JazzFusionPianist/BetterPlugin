@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import {finishGameRoom} from '@orb/core/lib/gameLifecycle.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { GameRoom } from '@/lib/games/types'
 
@@ -67,6 +68,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     if (!existing) return null
 
     const e = existing as GameRoom
+    if(e.status==='finished') return null
     // Existing participants can always re-enter their current room,
     // including an in-progress match they left visually to visit the lobby.
     if (e.host_id === currentUserId || e.guest_id === currentUserId) {
@@ -126,10 +128,8 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
 
   const endGame = useCallback(async (winnerId: string | null): Promise<void> => {
     if (!room) return
-    await supabase.from('game_rooms').update({
-      status: 'finished',
-      winner_id: winnerId,
-    }).eq('id', room.id)
+    const finished=await finishGameRoom<GameRoom>(supabase,'game_rooms',room.id,{winner_id:winnerId,host_ready:false,guest_ready:false})
+    setRoom(previous=>previous?.id===room.id ? finished : previous)
   }, [supabase, room])
 
   const inviteFriend = useCallback(async (friendId: string, roomId: string): Promise<void> => {

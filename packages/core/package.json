@@ -7,6 +7,9 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
+    "./hooks/useGameSurface": "./hooks/useGameSurface.tsx",
+    "./hooks/useGameChat": "./hooks/useGameChat.ts",
+    "./components/GameButton": "./components/GameButton.tsx",
     "./*": "./*"
   },
   "peerDependencies": {

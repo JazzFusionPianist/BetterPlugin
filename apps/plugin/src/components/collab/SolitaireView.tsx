@@ -1,4 +1,6 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
+import {useGameActive} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
@@ -46,6 +48,7 @@ function CardFace({ card, className, style, onClick, onDoubleClick }: {
 /** Klondike — tap a card, then tap where it goes; double-tap sends it
  *  to a foundation. Draw 1 or 3 is picked on the start card. */
 export default function SolitaireView({ supabase, currentUserId, onClose }: Props) {
+  const active = useGameActive()
   const { t } = useT()
   const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'solitaire_scores')
@@ -70,10 +73,10 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
   }, [loadStanding])
 
   useEffect(() => {
-    if (phase !== 'live') return
+    if (phase !== 'live' || !active) return
     const id = window.setInterval(() => setSeconds(s => s + 1), 1000)
     return () => window.clearInterval(id)
-  }, [phase])
+  }, [phase, active])
 
   const handleStart = useCallback((d: 1 | 3 = drawCount) => {
     localStorage.setItem('orb_sol_draw', String(d))
@@ -159,15 +162,15 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
         {over && standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         <div className="game-computer-picker" role="radiogroup">
           {([1, 3] as const).map(d => (
-            <button key={d} className={`game-computer-count${drawCount === d ? ' selected' : ''}`} onClick={() => setDrawCount(d)} role="radio" aria-checked={drawCount === d}>
+            <GameButton key={d} className={`game-computer-count${drawCount === d ? ' selected' : ''}`} onClick={() => setDrawCount(d)} role="radio" aria-checked={drawCount === d}>
               {d === 1 ? t('sol.draw1') : t('sol.draw3')}
-            </button>
+            </GameButton>
           ))}
         </div>
         <WorldRanking standing={standing} loading={submitting} currentUserId={currentUserId} />
-        <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(drawCount)}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={() => handleStart(drawCount)}>
           {over ? t('pb.playAgain') : t('pb.start')}
-        </button>
+        </GameButton>
         <div className="pb-hint">{arcade ? commas(t('sol.hint')) : t('sol.hint')}</div>
       </GameOverlayCard>
     )
@@ -196,8 +199,8 @@ export default function SolitaireView({ supabase, currentUserId, onClose }: Prop
       ) : undefined}
       controls={phase === 'live' ? (
         <>
-          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>
-          <button className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</button>
+          <GameButton className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</GameButton>
+          <GameButton className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</GameButton>
         </>
       ) : undefined}
       confirm={{

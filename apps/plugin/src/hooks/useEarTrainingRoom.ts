@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import {finishGameRoom, isLocalComputerRoom} from '@orb/core/lib/gameLifecycle.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { EarTrainingRoom } from '../types/collab'
 import type { RoomConfig } from '../lib/earTraining'
@@ -20,7 +21,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
 
   // ─── Realtime ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!room) return
+    if (!room || isLocalComputerRoom(room)) return
     const ch = supabase
       .channel(`et_room:${room.id}`)
       .on(
@@ -47,6 +48,23 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     : null
 
   // ─── Actions ───────────────────────────────────────────────────────────
+
+  const startComputerGame = useCallback((config:RoomConfig, computerId:string) => {
+    const now=new Date().toISOString()
+    setRoom({
+      id:`computer:${crypto.randomUUID()}`, player1_id:currentUserId, player2_id:computerId,
+      status:'playing', config, total_rounds:10, current_round:1,
+      player1_ready:false, player2_ready:false, player1_score:0, player2_score:0,
+      player1_answer:null, player2_answer:null, round_started_at:now,
+      winner_id:null, created_at:now, updated_at:now,
+    })
+  },[currentUserId])
+
+  const submitComputerAnswer = useCallback((roomId:string, round:number, answer:string) => {
+    setRoom(previous => previous && isLocalComputerRoom(previous) && previous.id===roomId &&
+      previous.status==='playing' && previous.current_round===round && !previous.player2_answer
+      ? {...previous,player2_answer:answer} : previous)
+  },[])
 
   const createRoom = useCallback(async (config: RoomConfig, totalRounds = 10): Promise<EarTrainingRoom | null> => {
     setLoading(true)
@@ -82,6 +100,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       .from('ear_training_rooms').select('*').eq('id', roomId).maybeSingle()
     if (fetchErr || !existing) { setLoading(false); return null }
     const r = existing as EarTrainingRoom
+    if(r.status==='finished') {setLoading(false);return null}
     if (r.player1_id === currentUserId) {
       setRoom(r); setLoading(false); return r
     }
@@ -141,6 +160,11 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     const field = seat === 'player1' ? 'player1_answer' : 'player2_answer'
     const already = seat === 'player1' ? room.player1_answer : room.player2_answer
     if (already) return     // Locked in once submitted.
+    if(isLocalComputerRoom(room)) {
+      setRoom(previous=>previous?.id===room.id && previous.current_round===room.current_round &&
+        previous.status==='playing' && !previous[field] ? {...previous,[field]:answer} : previous)
+      return
+    }
     await supabase.from('ear_training_rooms')
       .update({ [field]: answer })
       .eq('id', room.id)
@@ -155,7 +179,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     player2Correct: boolean,
   }) => {
     if (!room) return
-    if (room.current_round !== params.round) return
+    if (room.status !== 'playing' || room.current_round !== params.round) return
     const nextRound = room.current_round + 1
     const finished = nextRound > room.total_rounds
     const newP1Score = room.player1_score + (params.player1Correct ? 1 : 0)
@@ -165,8 +189,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
       : newP1Score > newP2Score ? room.player1_id
       : newP2Score > newP1Score ? room.player2_id
       : null   // tie
-    await supabase.from('ear_training_rooms')
-      .update({
+    const patch = {
         player1_score: newP1Score,
         player2_score: newP2Score,
         current_round: finished ? room.current_round : nextRound,
@@ -175,7 +198,14 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
         player1_answer: null,
         player2_answer: null,
         round_started_at: finished ? room.round_started_at : new Date().toISOString(),
-      })
+      }
+    if(isLocalComputerRoom(room)) {
+      setRoom(previous=>previous?.id===room.id && previous.status==='playing' &&
+        previous.current_round===params.round ? {...previous,...patch} as EarTrainingRoom : previous)
+      return
+    }
+    await supabase.from('ear_training_rooms')
+      .update(patch)
       .eq('id', room.id)
       .eq('current_round', params.round)   // Lost-update guard.
   }, [supabase, room])
@@ -184,6 +214,7 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
 
   const deleteCurrentRoom = useCallback(async () => {
     if (!room) return
+    if(isLocalComputerRoom(room)) {setRoom(null);return}
     await supabase.from('ear_training_rooms').delete().eq('id', room.id)
     setRoom(null)
   }, [supabase, room])
@@ -196,10 +227,12 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     if (!room || !seat) return
     if (room.status === 'finished') return
     const opponentId = seat === 'player1' ? room.player2_id : room.player1_id
-    await supabase.from('ear_training_rooms')
-      .update({ status: 'finished', winner_id: opponentId })
-      .eq('id', room.id)
-      .neq('status', 'finished')   // lost-update guard
+    if(isLocalComputerRoom(room)) {
+      setRoom(previous=>previous?.id===room.id ? {...previous,status:'finished',winner_id:opponentId} : previous)
+      return
+    }
+    const finished=await finishGameRoom<EarTrainingRoom>(supabase,'ear_training_rooms',room.id,{winner_id:opponentId})
+    setRoom(previous=>previous?.id===room.id ? finished : previous)
   }, [supabase, room, seat])
 
   /** Same idea as useGameRoom.findActiveRoom — resume on remount. */
@@ -251,6 +284,8 @@ export function useEarTrainingRoom (supabase: SupabaseClient, currentUserId: str
     loading,
     seat,
     createRoom,
+    startComputerGame,
+    submitComputerAnswer,
     joinRoom,
     updateConfig,
     toggleReady,

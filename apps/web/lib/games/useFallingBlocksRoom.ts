@@ -10,15 +10,18 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
   const [room, setRoom] = useState<FallingBlocksRoom | null>(null)
   const [playerStates, setPlayerStates] = useState<Map<string, FallingBlocksPlayerState>>(new Map())
   const [loading, setLoading] = useState(false)
+  const [statesReady,setStatesReady] = useState(false)
 
   // Initial fetch + realtime subscriptions when room is set
   useEffect(() => {
     if (!room) {
+      setStatesReady(false)
       setPlayerStates(new Map())
       return
     }
 
     let cancelled = false
+    setStatesReady(false)
 
     // Initial fetch of all player states for this room
     ;(async () => {
@@ -36,6 +39,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         next.set(row.user_id, row)
       }
       setPlayerStates(next)
+      setStatesReady(true)
     })()
 
     const roomChannel = supabase
@@ -134,6 +138,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         return null
       }
       const ex = existing as FallingBlocksRoom
+      if(ex.status==='playing' && ex.player_ids.includes(currentUserId)) {setRoom(ex);return ex}
       if (ex.status !== 'lobby') return null
       if (ex.player_ids.length >= ex.player_count && !ex.player_ids.includes(currentUserId)) {
         return null
@@ -248,33 +253,25 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
       console.error('[useFallingBlocksRoom.startGame] insert player_states:', insertErr)
     }
 
-    const { error: updateErr } = await supabase
+    const { data: startedRoom, error: updateErr } = await supabase
       .from('falling_blocks_rooms')
       .update({ status: 'playing', player_count: playerCount, player_ids: playerIds, ready_ids: [] })
       .eq('id', activeRoom.id)
-    if (updateErr) console.error('[useFallingBlocksRoom.startGame] update room:', updateErr)
-    setRoom({
-      ...activeRoom,
-      status: 'playing',
-      player_count: playerCount,
-      player_ids: playerIds,
-      ready_ids: [],
-    })
+      .select().single()
+    if (updateErr || !startedRoom) throw updateErr ?? new Error('The game could not start.')
+    setRoom(startedRoom as FallingBlocksRoom)
   }, [supabase, room, currentUserId])
 
   const endGame = useCallback(
     async (winnerId: string | null): Promise<void> => {
       if (!room) return
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('falling_blocks_rooms')
-        .update({ status: 'finished', winner_id: winnerId })
+        .update({ status: 'finished', winner_id: winnerId, ready_ids: [] })
         .eq('id', room.id)
-      if (error) console.error('[useFallingBlocksRoom.endGame]', error)
-      setRoom({
-        ...room,
-        status: 'finished',
-        winner_id: winnerId,
-      })
+        .select().single()
+      if (error || !data) throw error ?? new Error('The game could not be closed. Please retry.')
+      setRoom(previous=>previous?.id===room.id ? data as FallingBlocksRoom : previous)
     },
     [supabase, room]
   )
@@ -396,6 +393,7 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
   return {
     room,
     playerStates,
+    statesReady,
     applyPlayerStates,
     loading,
     createRoom,

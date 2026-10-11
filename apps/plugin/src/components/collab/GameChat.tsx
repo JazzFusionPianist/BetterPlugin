@@ -1,14 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {GameButton} from '@orb/core/components/GameButton'
+import {useGameChat, type GameChatMessage} from '@orb/core/hooks/useGameChat'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useT } from '../../i18n/LanguageContext'
-
-interface GameChatMessage {
-  id: string
-  room_id: string
-  sender_id: string
-  content: string
-  created_at: string
-}
 
 interface Props {
   supabase: SupabaseClient
@@ -38,60 +31,7 @@ function needsMeta(prev: GameChatMessage | undefined, m: GameChatMessage): boole
  */
 export default function GameChat({ supabase, currentUserId, roomId, names, otherName }: Props) {
   const { t } = useT()
-  const [draft, setDraft] = useState('')
-  const [messages, setMessages] = useState<GameChatMessage[]>([])
-  const [loading, setLoading] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setMessages([])
-    if (!roomId) return
-    let cancelled = false
-    setLoading(true)
-    supabase
-      .from('game_chats')
-      .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(80)
-      .then(({ data }) => {
-        if (cancelled) return
-        setMessages((data as GameChatMessage[] | null) ?? [])
-        setLoading(false)
-      })
-    const channel = supabase
-      .channel(`game_chat:${roomId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'game_chats',
-        filter: `room_id=eq.${roomId}`,
-      }, (payload) => {
-        const msg = payload.new as GameChatMessage
-        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
-      })
-      .subscribe()
-    return () => {
-      cancelled = true
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, roomId])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
-
-  const handleSend = useCallback(async () => {
-    const text = draft.trim()
-    if (!text || !roomId) return
-    setDraft('')
-    const { data, error } = await supabase
-      .from('game_chats')
-      .insert({ room_id: roomId, sender_id: currentUserId, content: text })
-      .select()
-      .single()
-    if (error) { setDraft(text); return }
-    const msg = data as GameChatMessage
-    setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
-  }, [draft, roomId, supabase, currentUserId])
+  const {draft,setDraft,messages,loading,sending,scrollRef,onScroll,handleSend} = useGameChat(supabase,currentUserId,roomId)
 
   const placeholder = otherName
     ? t('chat.messageWith', { name: otherName })
@@ -99,7 +39,7 @@ export default function GameChat({ supabase, currentUserId, roomId, names, other
 
   return (
     <div className={`game-chat${roomId ? '' : ' no-room'}`}>
-      <div className="game-chat-scroll">
+      <div className="game-chat-scroll" ref={scrollRef} onScroll={onScroll}>
         {!roomId ? (
           <div className="game-chat-empty">{t('common.waiting')}</div>
         ) : loading ? (
@@ -124,7 +64,6 @@ export default function GameChat({ supabase, currentUserId, roomId, names, other
             )
           })
         )}
-        <div ref={bottomRef} />
       </div>
       <div className="game-chat-inputrow">
         <input
@@ -143,13 +82,13 @@ export default function GameChat({ supabase, currentUserId, roomId, names, other
             }
           }}
         />
-        <button
+        <GameButton
           className="game-chat-send"
           onClick={handleSend}
-          disabled={!roomId || draft.trim().length === 0}
+          disabled={!roomId || sending || draft.trim().length === 0}
         >
           {t('common.send')}
-        </button>
+        </GameButton>
       </div>
     </div>
   )

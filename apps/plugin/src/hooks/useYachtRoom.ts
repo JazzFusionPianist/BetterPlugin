@@ -62,6 +62,7 @@ export function useYachtRoom(supabase: SupabaseClient, currentUserId: string) {
         .maybeSingle()
       if (fetchErr || !existing) return null
       const ex = existing as YachtRoom
+      if(ex.status==='playing' && ex.player_ids.includes(currentUserId)) {setRoom(ex);return ex}
       if (ex.player_ids.includes(currentUserId)) {
         setRoom(ex)
         return ex
@@ -155,11 +156,11 @@ export function useYachtRoom(supabase: SupabaseClient, currentUserId: string) {
   const endGame = useCallback(async (winnerId: string | null, state?: YachtState): Promise<void> => {
     const r = roomRef.current
     if (!r) return
-    const patch: Record<string, unknown> = { status: 'finished', winner_id: winnerId }
+    const patch: Record<string, unknown> = { status: 'finished', winner_id: winnerId, ready_ids: [] }
     if (state) patch.state = state
-    setRoom(prev => (prev ? { ...prev, ...patch } as YachtRoom : prev))
-    const { error } = await supabase.from('yacht_rooms').update(patch).eq('id', r.id)
-    if (error) console.error('[useYachtRoom.endGame]', error)
+    const {data,error} = await supabase.from('yacht_rooms').update(patch).eq('id', r.id).select().single()
+    if(error || !data) throw error ?? new Error('The game could not be closed. Please retry.')
+    setRoom(prev=>prev?.id===r.id ? data as YachtRoom : prev)
   }, [supabase])
 
   const inviteFriend = useCallback(

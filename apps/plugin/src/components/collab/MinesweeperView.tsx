@@ -1,4 +1,6 @@
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {useGameActive} from '@orb/core/hooks/useGameSurface'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
@@ -21,11 +23,15 @@ type Phase = 'ready' | 'live' | 'won' | 'lost'
 /** Minesweeper — solo, three sizes, first click always safe. Left click
  *  reveals (or chords an open number), right click / flag mode flags. */
 export default function MinesweeperView({ supabase, currentUserId, onClose }: Props) {
+  const active = useGameActive()
   const { t } = useT()
   const arcade = useArcade()
   const { submitScore, loadStanding } = useWorldScores(supabase, currentUserId, 'minesweeper_scores')
 
-  const [difficulty, setDifficulty] = useState<MsDifficulty>(() => (localStorage.getItem('orb_ms_diff') as MsDifficulty) || 'easy')
+  const [difficulty, setDifficulty] = useState<MsDifficulty>(() => {
+    const saved = localStorage.getItem('orb_ms_diff') as MsDifficulty
+    return MS_DIFFICULTIES.includes(saved) ? saved : 'easy'
+  })
   const gameRef = useRef<MinesweeperGame>(new MinesweeperGame(difficulty))
   const [, bump] = useState(0)
   const rerender = useCallback(() => bump(n => n + 1), [])
@@ -47,10 +53,10 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
 
   // Timer runs from the first reveal.
   useEffect(() => {
-    if (phase !== 'live') return
+    if (phase !== 'live' || !active) return
     const id = window.setInterval(() => { if (gameRef.current.started) setSeconds(s => s + 1) }, 1000)
     return () => window.clearInterval(id)
-  }, [phase])
+  }, [phase, active])
 
   // Cell size follows the space the board gets — the wide plugin window
   // shows 'hard' at full size, the compact tower shrinks it.
@@ -104,14 +110,16 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
 
   // 'f' toggles flag mode (trackpad users).
   useEffect(() => {
+    if (!active || phase !== 'live') return
     const down = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
+      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (e.key === 'f' || e.key === 'F') setFlagMode(f => !f)
     }
     window.addEventListener('keydown', down)
     return () => window.removeEventListener('keydown', down)
-  }, [])
+  }, [active, phase])
 
   const handleConfirm = useCallback(() => {
     const kind = confirmKind
@@ -133,16 +141,16 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
         {won && standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         <div className="game-computer-picker" role="radiogroup" aria-label={t('diff.label')}>
           {MS_DIFFICULTIES.map(d => (
-            <button key={d} className={`game-computer-count${difficulty === d ? ' selected' : ''}`} onClick={() => setDifficulty(d)} role="radio" aria-checked={difficulty === d}
+            <GameButton key={d} className={`game-computer-count${difficulty === d ? ' selected' : ''}`} onClick={() => setDifficulty(d)} role="radio" aria-checked={difficulty === d}
               title={`${MS_PRESETS[d].cols}×${MS_PRESETS[d].rows} · ${MS_PRESETS[d].mines}`}>
               {t(`diff.${d}` as const)}
-            </button>
+            </GameButton>
           ))}
         </div>
         <WorldRanking standing={standing} loading={submitting} currentUserId={currentUserId} />
-        <button className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={() => handleStart(difficulty)}>
           {won || lost ? t('pb.playAgain') : t('pb.start')}
-        </button>
+        </GameButton>
         <div className="pb-hint">{arcade ? commas(t('ms.hint')) : t('ms.hint')}</div>
       </GameOverlayCard>
     )
@@ -167,9 +175,9 @@ export default function MinesweeperView({ supabase, currentUserId, onClose }: Pr
       ) : undefined}
       controls={phase === 'live' ? (
         <>
-          <button className={`game-btn ms-flag-btn${flagMode ? ' ms-flag-on' : ''}`} onClick={() => setFlagMode(f => !f)} title="F"><span className="ar-hide">⚑ </span>{t('ms.flagMode')}</button>
-          <button className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</button>
-          <button className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</button>
+          <GameButton className={`game-btn ms-flag-btn${flagMode ? ' ms-flag-on' : ''}`} onClick={() => setFlagMode(f => !f)} title="F"><span className="ar-hide">⚑ </span>{t('ms.flagMode')}</GameButton>
+          <GameButton className="game-btn game-btn-danger" onClick={() => setConfirmKind('end')}>{t('pb.end')}</GameButton>
+          <GameButton className="game-btn" onClick={() => setConfirmKind('reset')}>{t('pb.reset')}</GameButton>
         </>
       ) : undefined}
       confirm={{

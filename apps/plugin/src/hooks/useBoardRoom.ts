@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import {finishGameRoom} from '@orb/core/lib/gameLifecycle.ts'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BoardRoom, BoardGameType } from '../types/collab'
 
@@ -51,6 +52,7 @@ export function useBoardRoom(supabase: SupabaseClient, currentUserId: string, ga
       .maybeSingle()
     if (!existing) return null
     const e = existing as BoardRoom
+    if(e.status==='finished') return null
     if (e.host_id === currentUserId || e.guest_id === currentUserId) {
       setRoom(e)
       return e
@@ -112,7 +114,8 @@ export function useBoardRoom(supabase: SupabaseClient, currentUserId: string, ga
 
   const endGame = useCallback(async (winnerId: string | null, updates: Partial<BoardRoom> = {}): Promise<void> => {
     if (!room) return
-    await supabase.from('board_rooms').update({ ...updates, status: 'finished', winner_id: winnerId }).eq('id', room.id)
+    const finished=await finishGameRoom<BoardRoom>(supabase,'board_rooms',room.id,{...updates,winner_id:winnerId,host_ready:false,guest_ready:false})
+    setRoom(previous=>previous?.id===room.id ? finished : previous)
   }, [supabase, room])
 
   const inviteFriend = useCallback(async (friendId: string, roomId: string): Promise<void> => {

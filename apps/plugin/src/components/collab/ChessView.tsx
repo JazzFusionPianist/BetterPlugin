@@ -1,3 +1,5 @@
+import {GameButton} from '@orb/core/components/GameButton'
+import {ChessBoardFrame} from '@orb/core/hooks/useGameSurface'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, GameRoom } from '../../types/collab'
@@ -391,14 +393,14 @@ function PromotionModal({ color, onChoose }: PromotionModalProps) {
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
           {choices.map(type => (
-            <button
+            <GameButton
               key={type}
               className="chess-promo-choice"
               onClick={() => onChoose(pfx + type)}
               aria-label={`Promote to ${type}`}
             >
               <span style={{ display: 'block', width: '80%', height: '80%', margin: '0 auto' }}><PieceGlyph piece={pfx + type} /></span>
-            </button>
+            </GameButton>
           ))}
         </div>
       </div>
@@ -454,6 +456,7 @@ export default function ChessView({
   // stay in the table as the head-to-head record. Playing rooms survive for
   // resume.
   const handleBack = useCallback(() => {
+    if(room?.status==='playing') {setShowResignConfirm(true);return}
     if (room && (room.status === 'lobby' || (room.status === 'finished' && !room.guest_id))) {
       deleteCurrentRoom()
     } else {
@@ -476,7 +479,7 @@ export default function ChessView({
           return
         }
       }
-      if (!cancelled) await findActiveRoom()
+      // A fresh entry opens the lobby, not an arbitrary old room.
       if (!cancelled) setResolvingRoom(false)
     }
     resumeRoom()
@@ -785,10 +788,11 @@ export default function ChessView({
     setShowResignConfirm(true)
   }, [room, opponentId, isComputerOpponent])
   const confirmResign = useCallback(async () => {
-    setShowResignConfirm(false)
     if (!room || (!opponentId && !isComputerOpponent)) return
     await endGame(isComputerOpponent ? null : opponentId)
-  }, [room, opponentId, isComputerOpponent, endGame])
+    setShowResignConfirm(false)
+    onClose()
+  }, [room, opponentId, isComputerOpponent, endGame,onClose])
 
   const handleDrawOffer = useCallback(async () => {
     if (!room) return
@@ -889,9 +893,9 @@ export default function ChessView({
     overlay = (
       <GameOverlayCard emoji={<GameResultMark result={resultMark} />} title={resultTitle}>
         {isComputerOpponent ? (
-          <button className="game-ready-btn" onClick={handlePlayComputer} disabled={computerStartPending}>
+          <GameButton className="game-ready-btn" onClick={handlePlayComputer} disabled={computerStartPending}>
             {t('chess.playAgain')}
-          </button>
+          </GameButton>
         ) : (
           <GameReadyControl
             ready={myReady}
@@ -900,7 +904,7 @@ export default function ChessView({
             label={myReady ? undefined : t('chess.playAgain')}
           />
         )}
-        <button className="game-endgame-btn" onClick={handleBack}>{t('chess.endGame')}</button>
+        <GameButton className="game-endgame-btn" onClick={handleBack}>{t('chess.endGame')}</GameButton>
       </GameOverlayCard>
     )
   } else if (isLobby && hasGuest) {
@@ -915,12 +919,12 @@ export default function ChessView({
     if (!room || (isHost && !hasGuest)) {
       overlay = (
         <GameOverlayCard emoji="♟" title={t('game.chess')}>
-          <button className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
+          <GameButton className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
             {t('chess.inviteCta')}
-          </button>
-          <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+          </GameButton>
+          <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
             {t('game.playComputer')}
-          </button>
+          </GameButton>
           {room && !hasGuest && (
             <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>
           )}
@@ -945,17 +949,17 @@ export default function ChessView({
       }
       controls={isPlaying ? (
         <span className="chess-row-controls">
-          <button className="game-btn game-btn-danger" onClick={handleResign}>
+          <GameButton className="game-btn game-btn-danger" onClick={handleResign}>
             {t('chess.resign')}
-          </button>
-          <button
+          </GameButton>
+          <GameButton
             className="game-btn"
             onClick={handleDrawOffer}
             disabled={drawOffering && !drawOfferedByOpponent}
             title={drawOfferedByOpponent ? t('chess.opponentOffered') : t('chess.offerDraw')}
           >
             {drawOfferedByOpponent ? t('chess.acceptDraw') : drawOffering ? t('chess.drawOffered') : t('chess.draw')}
-          </button>
+          </GameButton>
         </span>
       ) : undefined}
       aboveBoard={
@@ -992,7 +996,7 @@ export default function ChessView({
       board={computerStartPending ? (
         <div className="game-transition-blank" />
       ) : (
-        <div className="chess-board-wrap">
+        <ChessBoardFrame>
           <ChessBoard
             state={displayState}
             myColor={myColor}
@@ -1004,7 +1008,7 @@ export default function ChessView({
             premove={isPlaying ? premove : null}
             onPremove={setPremove}
           />
-        </div>
+        </ChessBoardFrame>
       )}
       belowBoard={
         <>

@@ -19,11 +19,13 @@
  * The chrome lives here once; adding a new game means writing its board +
  * adapter, not re-building lobby/invite/forfeit/result UI.
  */
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useMemo, type ReactNode } from 'react'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
 import { useArcade } from './ArcadeLobby'
 import ConfirmDialog from './ConfirmDialog'
+import '@orb/core/styles/games.css'
 
 // ── Shared avatar ─────────────────────────────────────────────────────────────
 export function GameAvatar ({ profile, size = 28 }: { profile: Profile; size?: number }) {
@@ -91,13 +93,13 @@ export function GameReadyControl ({ ready, count, onToggle, disabled, label }: {
   const { t } = useT()
   return (
     <>
-      <button
+      <GameButton
         className={`game-ready-btn${ready ? ' ready' : ''}`}
         onClick={onToggle}
         disabled={disabled}
       >
         {label ?? (ready ? t('common.readyCheck') : t('common.ready'))}
-      </button>
+      </GameButton>
       {count != null && <div className="game-finish-readystate">{count}</div>}
     </>
   )
@@ -139,7 +141,7 @@ function GameInviteModal ({ friends, invitedIds, onInvite, onClose, canInvite }:
       <div className="game-invite-modal" role="dialog" aria-label={t('game.inviteFriend')}>
         <div className="game-invite-modal-header">
           <span className="game-invite-modal-title">{t('game.inviteFriend')}</span>
-          <button className="game-invite-modal-close" onClick={onClose} aria-label="Close invite dialog">×</button>
+          <GameButton className="game-invite-modal-close" onClick={onClose} aria-label="Close invite dialog">×</GameButton>
         </div>
         {friends.length > 0 && (
           <div className="game-invite-search-wrap">
@@ -155,7 +157,7 @@ function GameInviteModal ({ friends, invitedIds, onInvite, onClose, canInvite }:
               autoFocus
             />
             {query && (
-              <button className="game-invite-search-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>
+              <GameButton className="game-invite-search-clear" onClick={() => setQuery('')} aria-label="Clear search">×</GameButton>
             )}
           </div>
         )}
@@ -175,14 +177,14 @@ function GameInviteModal ({ friends, invitedIds, onInvite, onClose, canInvite }:
                     {friend.isOnline && <span className="game-invite-online-dot" />}
                   </div>
                   <span className="game-invite-name">{friend.display_name}</span>
-                  <button
+                  <GameButton
                     className={`game-invite-do-btn${invited ? ' invited' : ''}`}
                     onClick={() => onInvite(friend.id)}
                     disabled={disabled}
                     title={invited ? t('game.invited') : t('game.invite')}
                   >
                     {invited ? t('game.invited') : t('game.invite')}
-                  </button>
+                  </GameButton>
                 </div>
               )
             })}
@@ -237,14 +239,14 @@ export default function GameShell ({
   return (
     <div className={`game-view${fillBoard ? ' game-view-fill' : ''}${className ? ' ' + className : ''}`}>
       <div className="game-action-row">
-        <button className="game-inline-back" onClick={onBack} aria-label={t('common.goBack')}>
+        <GameButton className="game-inline-back" onClick={onBack} aria-label={t('common.goBack')}>
           {/* the arcade's chrome is words, not icons */}
           {arcade ? t('common.back') : (
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
               <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
-        </button>
+        </GameButton>
         <span className={`game-action-status${hasActionStatus ? ' active' : ''}`}>{actionStatus ?? title}</span>
         {controls && <div className="game-row-controls">{controls}</div>}
       </div>

@@ -1,4 +1,5 @@
 
+import {GameButton} from '@orb/core/components/GameButton'
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, YachtState } from '../../types/collab'
@@ -51,7 +52,7 @@ function Die({ idx, value, held, tumbling, landed, onClick, disabled, refCb }: {
   // Every die comes to rest at its own small tilt — thrown, not typeset.
   const rest = ((idx * 37 + value * 13) % 9) - 4
   return (
-    <button
+    <GameButton
       type="button"
       ref={refCb}
       data-die-idx={idx}
@@ -75,7 +76,7 @@ function Die({ idx, value, held, tumbling, landed, onClick, disabled, refCb }: {
         </svg>
       </span>
       <span className="yacht-die-shadow" aria-hidden="true" />
-    </button>
+    </GameButton>
   )
 }
 
@@ -169,7 +170,7 @@ export default function YachtView({
       joinRoom(pendingRoomId)
       return
     }
-    if (!room) findActiveRoom()
+    // Existing rooms require an explicit join/resume ticket.
   }, [joinRoom, findActiveRoom, room])
 
   useEffect(() => {
@@ -394,10 +395,11 @@ export default function YachtView({
 
   // ── Lobby / invite plumbing (same shape as falling blocks) ──────────────
   const handleBack = useCallback(() => {
+    if(isPlaying || (solo && !soloOver)) {setShowQuitConfirm(true);return}
     if (room && (room.status === 'lobby' || room.status === 'finished')) deleteCurrentRoom()
     else leaveRoom()
     onClose()
-  }, [room, deleteCurrentRoom, leaveRoom, onClose])
+  }, [room, deleteCurrentRoom, leaveRoom, onClose,isPlaying,solo,soloOver])
 
   const handleOpenInvite = useCallback(async () => {
     setSolo(false)
@@ -507,9 +509,9 @@ export default function YachtView({
         <div className="pb-final-score">{cardTotal(soloState.cards[currentUserId] ?? []).toLocaleString()}</div>
         {standing?.isNewBest && <div className="pb-newbest">{t('pb.newBest')}</div>}
         {leaderboardBlock}
-        <button className="game-invite-btn pb-start-btn" onClick={startSolo}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={startSolo}>
           {t('pb.playAgain')}
-        </button>
+        </GameButton>
       </GameOverlayCard>
     )
   } else if (isFinished && room && st) {
@@ -552,28 +554,28 @@ export default function YachtView({
           disabled={loading}
         />
         {isHost && (
-          <button
+          <GameButton
             className="game-invite-btn"
             onClick={handleOpenInvite}
             disabled={loading || (playerIds.length + pendingInviteCount >= MAX_PLAYERS)}
           >
             {t('game.inviteFriends')}
-          </button>
+          </GameButton>
         )}
         {isHost && (
           <>
             <div className="game-computer-picker" aria-label={t('game.computerCount')}>
               {[1, 2, 3].map(n => (
-                <button key={n}
+                <GameButton key={n}
                   className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
                   onClick={() => setComputerOpponents(n as 1 | 2 | 3)} type="button">
                   {n + 1}p
-                </button>
+                </GameButton>
               ))}
             </div>
-            <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+            <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
               {t('game.playComputer')}
-            </button>
+            </GameButton>
           </>
         )}
         {!hasEnoughPlayers && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
@@ -584,24 +586,24 @@ export default function YachtView({
     overlay = (
       <GameOverlayCard title={t('game.yacht')} className="pb-overlay-card">
         {leaderboardBlock}
-        <button className="game-invite-btn pb-start-btn" onClick={startSolo} disabled={loading}>
+        <GameButton className="game-invite-btn pb-start-btn" onClick={startSolo} disabled={loading}>
           {t('fb.playSolo')}
-        </button>
-        <button className="game-invite-btn game-computer-btn" onClick={handleOpenInvite} disabled={loading}>
+        </GameButton>
+        <GameButton className="game-invite-btn game-computer-btn" onClick={handleOpenInvite} disabled={loading}>
           {t('game.inviteFriends')}
-        </button>
+        </GameButton>
         <div className="game-computer-picker" aria-label={t('game.computerCount')}>
           {[1, 2, 3].map(n => (
-            <button key={n}
+            <GameButton key={n}
               className={`game-computer-count${computerOpponents === n ? ' selected' : ''}`}
               onClick={() => setComputerOpponents(n as 1 | 2 | 3)} type="button">
               {n + 1}p
-            </button>
+            </GameButton>
           ))}
         </div>
-        <button className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
+        <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer} disabled={loading}>
           {t('game.playComputer')}
-        </button>
+        </GameButton>
       </GameOverlayCard>
     )
   }
@@ -612,6 +614,12 @@ export default function YachtView({
     : null
 
   const showBoard = (solo && soloState) || isPlaying || isFinished
+  const [showQuitConfirm,setShowQuitConfirm] = useState(false)
+  const confirmQuit = async () => {
+    if(isPlaying) await endGame(ids.find(id=>id!==currentUserId) ?? null)
+    setShowQuitConfirm(false)
+    onClose()
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -619,9 +627,13 @@ export default function YachtView({
       title={t('game.yacht')}
       onBack={handleBack}
       className={`yacht-shell${solo || isComputerMatch ? ' no-chat-shell' : ''}`}
-      controls={solo && !soloOver ? (
-        <button className="game-btn" onClick={startSolo}>{t('pb.reset')}</button>
+      controls={isPlaying || (solo && !soloOver) ? (
+        <>
+          <GameButton className="game-btn game-btn-danger" onClick={()=>setShowQuitConfirm(true)}>{t('pb.end')}</GameButton>
+          {solo && <GameButton className="game-btn" onClick={startSolo}>{t('pb.reset')}</GameButton>}
+        </>
       ) : undefined}
+      confirm={{open:showQuitConfirm,message:t('game.quitConfirm'),confirmLabel:t('pb.end'),onConfirm:confirmQuit,onCancel:()=>setShowQuitConfirm(false)}}
       fillBoard
       board={
         <div className="yacht-layout">
@@ -682,7 +694,7 @@ export default function YachtView({
                 </div>
 
                 <div className="yacht-actions">
-                  <button
+                  <GameButton
                     className="yacht-roll-btn"
                     onClick={doRoll}
                     disabled={!myTurn || st.rollsLeft <= 0 || animating || (solo && soloOver)}
@@ -693,14 +705,14 @@ export default function YachtView({
                         <span key={i} className={`yacht-roll-pip${i < st.rollsLeft ? ' on' : ''}`} />
                       ))}
                     </span>
-                  </button>
-                  <button
+                  </GameButton>
+                  <GameButton
                     className="yacht-write-btn"
                     onClick={() => setLedgerOpen(true)}
                     disabled={!myTurn || !rolled || animating}
                   >
                     {t('y.write')}
-                  </button>
+                  </GameButton>
                 </div>
               </div>
 
@@ -709,7 +721,7 @@ export default function YachtView({
               <div className={`yacht-ledger${ledgerOpen ? ' open' : ''}`} aria-hidden={!ledgerOpen}>
                 <div className="yacht-ledger-head">
                   <span className="yacht-ledger-title">{t('y.ledger')}</span>
-                  <button className="yacht-ledger-x" onClick={() => setLedgerOpen(false)} aria-label={t('common.close')}>×</button>
+                  <GameButton className="yacht-ledger-x" onClick={() => setLedgerOpen(false)} aria-label={t('common.close')}>×</GameButton>
                 </div>
                 <div className="yacht-card">
                   <div className="yacht-card-head">
@@ -740,10 +752,10 @@ export default function YachtView({
                         }
                         if (preview !== null) {
                           return (
-                            <button key={id} className={`yacht-card-cell pick${preview === 0 ? ' zero' : ''}`}
+                            <GameButton key={id} className={`yacht-card-cell pick${preview === 0 ? ' zero' : ''}`}
                               onClick={() => pickCategory(cat)}>
                               {preview}
-                            </button>
+                            </GameButton>
                           )
                         }
                         return <span key={id} className="yacht-card-cell open">·</span>

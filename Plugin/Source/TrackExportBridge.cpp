@@ -34,7 +34,7 @@ public:
                     runtime.getChildFile ("native.cjs").getFullPathName(), folder.getFullPathName()}))
                 {
                     const auto started = juce::Time::getMillisecondCounterHiRes();
-                    const auto deadline = request["operation"].toString() == "inspectTrackRange" ? 4000 : request["operation"].toString().startsWith ("export")
+                    const auto deadline = request["operation"].toString().endsWith ("TrackRange") ? 4000 : request["operation"].toString().startsWith ("export")
                         || request["operation"].toString().startsWith ("import") ? 1800000 : 240000;
                     while (child.isRunning() && ! shouldExit()
                         && juce::Time::getMillisecondCounterHiRes() - started < deadline) juce::Thread::sleep (25);
@@ -72,15 +72,24 @@ private:
     std::weak_ptr<std::atomic_bool> alive;
 };
 }
-void TrackExportBridge::invoke (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+bool TrackExportBridge::isStemOperation (const juce::String& op)
+{
+    static const juce::StringArray ops { "stemStatus", "suggestProjects", "inspectProjectRegions", "exportProjectRegions",
+        "inspectReaperTracks", "inspectReaperTrackRange", "exportReaperTracks", "inspectReaperRegions", "exportReaperRegions",
+        "inspectTapTracks", "exportTapTracks", "inspectTapRegions", "exportTapRegions" };
+    return ops.contains (op);
+}
+
+void TrackExportBridge::invoke (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done,
+                                const juce::NamedValueSet& trusted)
 {
     auto reject = [&done] (const juce::String& message) { done (juce::JSON::toString (failure (message), true)); };
     if (! args.isArray() || args.size() < 1 || args.size() > 3) { reject ("Invalid track export request."); return; }
     const auto op = args[0].toString();
     if (op != "inspectTracks" && op != "inspectTrackRange" && op != "exportTracks" && op != "inspectLunaRegions"
         && op != "exportLunaRegions" && op != "inspectLunaDestination" && op != "importLunaRegions"
-        && op != "inspectProToolsDestination" && op != "importProToolsRegions")
-        { reject ("Track export is available only for Pro Tools."); return; }
+        && op != "inspectProToolsDestination" && op != "importProToolsRegions" && ! isStemOperation (op))
+        { reject ("This DAW transfer operation is not supported."); return; }
     if (pool.getNumJobs() != 0) { reject ("Another track export is running."); return; }
     auto* input = new juce::DynamicObject();
     input->setProperty ("operation", op);
@@ -90,5 +99,7 @@ void TrackExportBridge::invoke (const juce::var& args, juce::WebBrowserComponent
         if (! options.isObject()) { delete input; reject ("Invalid track export options."); return; }
         input->setProperty ("sessionId", args[1].toString()); input->setProperty ("options", options);
     }
+    // Page-supplied fields can never override these.
+    for (const auto& field : trusted) input->setProperty (field.name, field.value);
     pool.addJob (new ExportJob (juce::var (input), std::move (done), alive), true);
 }

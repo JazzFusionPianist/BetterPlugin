@@ -1,5 +1,11 @@
 # Slur — DAW track export
 
+> **Current routing (2026-10-12): see [STEM-ROUTES.md](./STEM-ROUTES.md).** Track
+> bounce and region share are separate features; REAPER (ReaScript bridge),
+> project-file regions (Studio One, Live, REAPER, DAWproject) and the Slur Tap
+> fallback (any host) are connected. The table below describes the older
+> PTSL/LUNA-only state and is kept for history.
+
 ## Supported adapters
 
 | DAW | Track list | Offline export | Installation / limits |

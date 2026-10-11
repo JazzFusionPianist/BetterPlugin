@@ -3,20 +3,34 @@ import assert from 'node:assert/strict'
 import { prepareRegionBundle, parseRegionBundle, hasCompleteLayout, planRegionImport, uploadRegionBundle } from '../../core/lib/regionBundle.ts'
 import { createRegionArchive, prepareArchivedRegionBundle, isRegionArchive } from '../../core/lib/regionArchive.ts'
 import { supportsTrackExport, supportsTrackExportOperation } from '../../core/lib/trackExportPolicy.ts'
+import { trackRoutes, regionRoutes, projectKinds } from '../../core/lib/stemRoutes.ts'
 
 const fixture = async () => {
   const file = new File([new Uint8Array([1, 2, 3, 4])], 'Same name.wav')
   return prepareRegionBundle([file, file], async () => ({ sampleRate: 48000, channels: 1, frames: 2 }))
 }
 
-test('track export allows Pro Tools only, plus its standalone client', () => {
-  assert.equal(supportsTrackExport('Pro Tools'), true)
-  assert.equal(supportsTrackExport('Standalone'), true)
-  for (const host of ['', 'Logic Pro', 'LUNA', 'Cubase', 'Fender Studio Pro']) assert.equal(supportsTrackExport(host), false)
+test('track export renders in PTSL/REAPER hosts and falls back to Slur Tap elsewhere', () => {
+  assert.deepEqual(trackRoutes('Pro Tools'), ['ptsl', 'tap'])
+  assert.deepEqual(trackRoutes('REAPER'), ['reaper', 'tap'])
+  for (const host of ['Logic Pro', 'LUNA', 'Cubase', 'Fender Studio Pro', 'Ableton Live', 'FL Studio'])
+    assert.deepEqual(trackRoutes(host), ['tap'])
+  for (const host of ['Pro Tools', 'Standalone', 'Logic Pro']) assert.equal(supportsTrackExport(host), true)
+  // Export-dialog automation stays retired: no Logic/LUNA/Cubase render operations.
   for (const operation of ['inspectLogicTracks', 'exportLogicTracks', 'inspectLunaTracks', 'exportLunaTracks', 'unknown'])
     assert.equal(supportsTrackExportOperation(operation), false)
-  assert.equal(supportsTrackExportOperation('exportTracks'), true)
-  assert.equal(supportsTrackExportOperation('inspectTracks'), true)
+  for (const operation of ['exportTracks', 'inspectTracks', 'exportReaperTracks', 'exportTapTracks'])
+    assert.equal(supportsTrackExportOperation(operation), true)
+})
+
+test('region routes prefer host data and project files before Slur Tap', () => {
+  assert.deepEqual(regionRoutes('Logic Pro'), ['tap'])
+  assert.deepEqual(regionRoutes('Fender Studio Pro'), ['project', 'tap'])
+  assert.deepEqual(projectKinds('Studio Pro'), ['studio-one', 'dawproject'])
+  assert.deepEqual(regionRoutes('Ableton Live 12'), ['project', 'tap'])
+  assert.deepEqual(regionRoutes('REAPER'), ['reaper', 'project', 'tap'])
+  assert.deepEqual(regionRoutes('LUNA'), ['luna', 'tap'])
+  assert.deepEqual(projectKinds('Cubase'), ['dawproject'])
 })
 
 test('recording timestamps survive archive round trip, without implying placement', async () => {

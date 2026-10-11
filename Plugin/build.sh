@@ -63,8 +63,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # ── CMake configure ────────────────────────────────────────────────────────────
 # The split-out single-purpose plugins (see CMakeLists.txt) build beside
 # Slur Orb: CMake target → product name, one line each.
-SPLIT_TARGETS=(OrbChat OrbSounds OrbGames)
-SPLIT_NAMES=("Slur" "Patch on Slur" "Slur Games")
+SPLIT_TARGETS=(OrbChat OrbSounds OrbGames SlurTap)
+SPLIT_NAMES=("Slur" "Patch on Slur" "Slur Games" "Slur Tap")
 
 split_targets() { # Every enabled format for each split-out (filtered by --only)
   local i out=""
@@ -75,10 +75,12 @@ split_targets() { # Every enabled format for each split-out (filtered by --only)
       chat)    [ "$t" = OrbChat ]   || continue ;;
       sounds)  [ "$t" = OrbSounds ] || continue ;;
       games)   [ "$t" = OrbGames ]  || continue ;;
+      tap)     [ "$t" = SlurTap ]   || continue ;;
       *)       continue ;;
     esac
     out="$out ${t}_AU ${t}_VST3"
-    [ -n "$AAX_SDK_PATH" ] && out="$out ${t}_AAX"
+    # Slur Tap has no AAX: Pro Tools renders tracks through PTSL instead.
+    [ -n "$AAX_SDK_PATH" ] && [ "$t" != SlurTap ] && out="$out ${t}_AAX"
   done
   echo "$out"
 }
@@ -96,7 +98,7 @@ else
   BUILD_TARGETS="OrbPlugin_AU OrbPlugin_VST3 OrbPlugin_Standalone$(split_targets)"
   echo "  AAX    : (skipped — no SDK)"
 fi
-[ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds | games)" >&2; exit 1; }
+[ -n "$BUILD_TARGETS" ] || { echo "✗ --only=$ONLY matches no target (orb | chat | sounds | games | tap)" >&2; exit 1; }
 
 # ── The page, carried inside the plugin ───────────────────────────────────────
 # The wall is a web page. The plugin loads it from the site when it can (so
@@ -199,7 +201,9 @@ if [ "$INSTALL" = true ]; then
       chat)   [ "$SPLIT_NAME" = "Slur" ]        || continue ;;
       sounds) [ "$SPLIT_NAME" = "Patch on Slur" ] || continue ;;
       games)  [ "$SPLIT_NAME" = "Slur Games" ]  || continue ;;
+      tap)    [ "$SPLIT_NAME" = "Slur Tap" ]    || continue ;;
     esac
+    OLD_SPLIT_NAMES=()
     case "$SPLIT_NAME" in
       "Slur")          OLD_SPLIT_NAMES=("Orb Chat" "Slur Chat") ;;
       "Patch on Slur") OLD_SPLIT_NAMES=("Orb Sounds") ;;
@@ -214,13 +218,13 @@ if [ "$INSTALL" = true ]; then
     if [ -n "$SPLIT_AU_PATH" ]; then
       # Renamed bundles keep their plugin codes, so the old filename must
       # not be left beside the new one in a host's scan directory.
-      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$AU_DEST/$OLD.component"; done
+      for OLD in ${OLD_SPLIT_NAMES[@]+"${OLD_SPLIT_NAMES[@]}"}; do rm -rf "$AU_DEST/$OLD.component"; done
       rm -rf "$AU_DEST/$SPLIT_NAME.component"
       cp -R "$SPLIT_AU_PATH" "$AU_DEST/"
       echo "✓ AU   installed → $AU_DEST/$SPLIT_NAME.component"
     fi
     if [ -n "$SPLIT_VST3_PATH" ]; then
-      for OLD in "${OLD_SPLIT_NAMES[@]}"; do rm -rf "$VST3_DEST/$OLD.vst3"; done
+      for OLD in ${OLD_SPLIT_NAMES[@]+"${OLD_SPLIT_NAMES[@]}"}; do rm -rf "$VST3_DEST/$OLD.vst3"; done
       rm -rf "$VST3_DEST/$SPLIT_NAME.vst3"
       cp -R "$SPLIT_VST3_PATH" "$VST3_DEST/"
       echo "✓ VST3 installed → $VST3_DEST/$SPLIT_NAME.vst3"

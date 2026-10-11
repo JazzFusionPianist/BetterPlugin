@@ -7,11 +7,53 @@ import { supportsTrackExportOperation } from '../../core/lib/trackExportPolicy.t
 import { inspectLunaRegions, captureLunaRegions, inspectLunaDestination, importLunaRegions } from './lunaRegions.mjs'
 import { inspectProToolsDestination, importProToolsRegions } from './proToolsRegions.mjs'
 
+import { suggestProjects, inspectProjectRegions, captureProjectRegions } from './projectRegions.mjs'
+import { reaperConnected, reaperBridgeInstalled, inspectReaperTracks, inspectReaperTrackRange, exportReaperTracks, inspectReaperRegions, exportReaperRegions } from './reaperBridge.mjs'
+import { listTaps, inspectTapTracks, exportTapTracks, inspectTapRegions, exportTapRegions } from './tapCache.mjs'
+
+const STEM_OPERATIONS = {
+  // What this host can use right now; the page picks the first available route.
+  stemStatus: async c => ({
+    reaper: { installed: await reaperBridgeInstalled(), connected: await reaperConnected() },
+    taps: (await listTaps(c)).length,
+  }),
+  suggestProjects: c => suggestProjects(c),
+  inspectProjectRegions: c => inspectProjectRegions(c),
+  exportProjectRegions: c => captureProjectRegions(c),
+  inspectReaperTracks: () => inspectReaperTracks(),
+  inspectReaperTrackRange: () => inspectReaperTrackRange(),
+  exportReaperTracks: c => exportReaperTracks(c),
+  inspectReaperRegions: () => inspectReaperRegions(),
+  exportReaperRegions: c => exportReaperRegions(c),
+  inspectTapTracks: c => inspectTapTracks(c),
+  exportTapTracks: c => exportTapTracks(c),
+  inspectTapRegions: c => inspectTapRegions(c),
+  exportTapRegions: c => exportTapRegions(c),
+}
+
 const folder = resolve(process.argv[2])
 async function main() {
 let client, lock, owned = false, retainLock = false
 try {
   const request = JSON.parse(await readFile(join(folder, 'request.json'), 'utf8'))
+  // Satellite-free REAPER/project-file routes and the Slur Tap fallback.
+  // host, hostKey and projectPath are injected by the native bridge, never by the page.
+  if (Object.hasOwn(STEM_OPERATIONS, request.operation)) {
+    const context = { host: String(request.host ?? ''), hostKey: String(request.hostKey ?? ''), projectPath: request.projectPath,
+      sessionId: request.sessionId, options: request.options, directory: folder }
+    if (request.operation === 'exportReaperTracks') {
+      const cache = join(homedir(), 'Library', 'Application Support', 'Slur', 'RegionTransfers')
+      await mkdir(cache, { recursive: true, mode: 0o700 })
+      lock = join(cache, 'reaper.lock')
+      try { await writeFile(lock, JSON.stringify({ pid: process.pid, folder }), { flag: 'wx', mode: 0o600 }) }
+      catch (e) { if (e.code === 'EEXIST') throw new Error('Another REAPER render is running or was interrupted. Check REAPER before retrying.'); throw e }
+      owned = true
+    }
+    if (/ProjectRegions$/.test(request.operation) && typeof context.projectPath !== 'string') throw new Error('Link the project file first.')
+    const result = await STEM_OPERATIONS[request.operation](context)
+    await writeFile(join(folder, 'response.json'), JSON.stringify({ ok: true, ...result }), { mode: 0o600 })
+    return
+  }
   if (['inspectLunaRegions', 'exportLunaRegions', 'inspectLunaDestination', 'importLunaRegions'].includes(request.operation)) {
     let result
     if (request.operation === 'inspectLunaRegions') result = await inspectLunaRegions()

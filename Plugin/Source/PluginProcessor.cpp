@@ -2,6 +2,8 @@
 #include <cstring>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "PluginProcessor.h"
+#include "Tap/SlurHostKey.h"
+#include "Tap/SlurHostName.h"
 #include "PluginEditor.h"
 #include "DragMonitor.h"
 #include <thread>
@@ -591,42 +593,68 @@ OrbAudioProcessor::OrbAudioProcessor()
                 })
             .withNativeFunction ("trackExportHost",
                 [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
-                {
-                    done (juce::String (juce::JUCEApplicationBase::isStandaloneApp() ? "Standalone"
-                        : juce::PluginHostType().isProTools() ? "Pro Tools"
-                        : juce::PluginHostType().isLogic() ? "Logic Pro"
-                        : juce::File::getSpecialLocation (juce::File::hostApplicationPath).getFullPathName().containsIgnoreCase ("/LUNA.app/")
-                            ? "LUNA" : juce::PluginHostType().getHostDescription()));
-                })
+                { done (slurtap::canonicalHostName()); })
             .withNativeFunction ("trackExportCapabilities",
                 [] (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion done)
-                { done (juce::String ("{\"adapters\":[\"Pro Tools\"]}")); })
+                {
+                    // routes: satellite-free host renders (PTSL, ReaScript), project-file regions, Slur Tap fallback.
+                    done (juce::String ("{\"adapters\":[\"Pro Tools\",\"REAPER\",\"Slur Tap\"],"
+                                        "\"regionRoutes\":[\"luna\",\"reaper\",\"project\",\"tap\"],\"projectLink\":1}"));
+                })
             .withNativeFunction ("trackExport",
                 [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
-                    if (! juce::JUCEApplicationBase::isStandaloneApp() && ! juce::PluginHostType().isProTools())
+                    const auto host = slurtap::canonicalHostName();
+                    const bool standalone = host == "Standalone";
+                    const auto op = args.isArray() && args.size() > 0 ? args[0].toString() : juce::String();
+                    const bool ptsl = op == "inspectTracks" || op == "inspectTrackRange" || op == "exportTracks";
+                    const bool reaper = op == "inspectReaperTracks" || op == "inspectReaperTrackRange" || op == "exportReaperTracks";
+                    const bool tap = op == "inspectTapTracks" || op == "exportTapTracks" || op == "stemStatus";
+                    if (! ((ptsl && (standalone || host == "Pro Tools")) || (reaper && (standalone || host == "REAPER")) || tap))
                     {
-                        done (juce::String ("{\"ok\":false,\"error\":\"Track export is available only for Pro Tools.\"}"));
+                        auto* o = new juce::DynamicObject();
+                        o->setProperty ("ok", false);
+                        o->setProperty ("error", "This track route is not available in " + host + ".");
+                        done (juce::JSON::toString (juce::var (o), true));
                         return;
                     }
-                    if (! args.isArray() || (args[0].toString() != "inspectTracks" && args[0].toString() != "inspectTrackRange" && args[0].toString() != "exportTracks"))
-                    { done (juce::String ("{\"ok\":false,\"error\":\"Invalid track operation.\"}")); return; }
-                    trackExportBridge.invoke (args, std::move (done));
+                    trackExportBridge.invoke (args, std::move (done), stemContext());
                 })
+            .withNativeFunction ("projectLink",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                { handleProjectLink (args, std::move (done)); })
             .withNativeFunction ("regionTransfer",
                 [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
-                    const bool luna = juce::File::getSpecialLocation (juce::File::hostApplicationPath)
-                        .getFullPathName().containsIgnoreCase ("/LUNA.app/");
+                    const auto host = slurtap::canonicalHostName();
                     const auto op = args.isArray() && args.size() > 0 ? args[0].toString() : juce::String();
-                    const bool standalone = juce::JUCEApplicationBase::isStandaloneApp();
+                    const bool standalone = host == "Standalone";
                     const bool lunaOperation = op == "inspectLunaRegions" || op == "exportLunaRegions"
                         || op == "inspectLunaDestination" || op == "importLunaRegions";
                     const bool proToolsOperation = op == "inspectProToolsDestination" || op == "importProToolsRegions";
-                    if (! ((lunaOperation && (standalone || luna))
-                        || (proToolsOperation && (standalone || juce::PluginHostType().isProTools()))))
-                    { done (juce::String ("{\"ok\":false,\"error\":\"This DAW does not support automatic region placement.\"}")); return; }
-                    trackExportBridge.invoke (args, std::move (done));
+                    const bool projectOperation = op == "inspectProjectRegions" || op == "exportProjectRegions";
+                    const bool reaperOperation = op == "inspectReaperRegions" || op == "exportReaperRegions";
+                    const bool tapOperation = op == "inspectTapRegions" || op == "exportTapRegions";
+                    auto fail = [&done] (const juce::String& message)
+                    {
+                        auto* o = new juce::DynamicObject();
+                        o->setProperty ("ok", false);
+                        o->setProperty ("error", message);
+                        done (juce::JSON::toString (juce::var (o), true));
+                    };
+                    if ((lunaOperation && (standalone || host == "LUNA"))
+                        || (proToolsOperation && (standalone || host == "Pro Tools")))
+                    { trackExportBridge.invoke (args, std::move (done)); return; }
+                    if (! (projectOperation || tapOperation || (reaperOperation && (standalone || host == "REAPER"))))
+                    { fail ("This DAW does not support this region route."); return; }
+                    auto context = stemContext();
+                    if (projectOperation)
+                    {
+                        const juce::ScopedLock sl (projectLock);
+                        if (linkedProject.isEmpty()) { fail ("Link the project file first."); return; }
+                        context.set ("projectPath", linkedProject);
+                    }
+                    trackExportBridge.invoke (args, std::move (done), context);
                 }));
 
     controlBridge = std::make_unique<OrbControlBridge> (
@@ -2455,6 +2483,10 @@ void OrbAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
         xml.setAttribute ("fxDecay" + juce::String (i), (double) fxSpaceDecay[(size_t) i].load());
     xml.setAttribute ("editorW", editorW.load());
     xml.setAttribute ("editorH", editorH.load());
+    {
+        const juce::ScopedLock sl (projectLock);
+        if (linkedProject.isNotEmpty()) xml.setAttribute ("linkedProject", linkedProject);
+    }
     // The patch itself — only once a real one was drawn; the single-print
     // room keeps living in the per-effect attributes above.
     if (fxGraphMode.load())
@@ -2485,6 +2517,10 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
             (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
         editorW.store (xml->getIntAttribute ("editorW", 0));
         editorH.store (xml->getIntAttribute ("editorH", 0));
+        {
+            const juce::ScopedLock sl (projectLock);
+            linkedProject = xml->getStringAttribute ("linkedProject");
+        }
 
         bool restored = false;
         if (xml->hasAttribute ("fxGraph"))
@@ -2575,6 +2611,104 @@ void OrbAudioProcessor::handleStartHostStemExport (
     const bool editSelection = args[1].toString() == "selection";
     completion (controlBridge->requestExport (indices, editSelection) ? "started"
                                                                       : "error:background-export-unavailable");
+}
+
+juce::NamedValueSet OrbAudioProcessor::stemContext()
+{
+    juce::NamedValueSet context;
+    context.set ("host", slurtap::canonicalHostName());
+    context.set ("hostKey", slurtap::hostKey());
+    return context;
+}
+
+juce::String OrbAudioProcessor::projectLinkJson() const
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("ok", true);
+    const juce::ScopedLock sl (projectLock);
+    if (linkedProject.isNotEmpty())
+    {
+        const juce::File file (linkedProject);
+        auto* p = new juce::DynamicObject();
+        p->setProperty ("path", linkedProject);
+        p->setProperty ("name", file.getFileName());
+        p->setProperty ("kind", file.getFileExtension().trimCharactersAtStart (".").toLowerCase());
+        p->setProperty ("exists", file.existsAsFile());
+        p->setProperty ("modifiedMs", file.existsAsFile() ? (double) file.getLastModificationTime().toMilliseconds() : 0.0);
+        o->setProperty ("linked", juce::var (p));
+    }
+    return juce::JSON::toString (juce::var (o), true);
+}
+
+void OrbAudioProcessor::handleProjectLink (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+{
+    const auto action = args.isArray() && args.size() > 0 ? args[0].toString() : juce::String ("get");
+    static const juce::StringArray extensions { "song", "als", "rpp", "dawproject" };
+    auto accept = [] (const juce::File& f)
+    { return f.existsAsFile() && extensions.contains (f.getFileExtension().trimCharactersAtStart (".").toLowerCase()); };
+    if (action == "get") { done (projectLinkJson()); return; }
+    if (action == "clear")
+    {
+        { const juce::ScopedLock sl (projectLock); linkedProject.clear(); }
+        done (projectLinkJson());
+        return;
+    }
+    if (action == "use" && args.size() == 2)
+    {
+        const int index = (int) args[1];
+        const juce::ScopedLock sl (projectLock);
+        if (index >= 0 && index < projectSuggestions.size() && accept (juce::File (projectSuggestions[index])))
+            linkedProject = projectSuggestions[index];
+        else { done (juce::String ("{\"ok\":false,\"error\":\"That project is no longer available. Refresh the list.\"}")); return; }
+    }
+    if (action == "use") { done (projectLinkJson()); return; }
+    if (action == "suggest")
+    {
+        trackExportBridge.invoke (juce::var (juce::Array<juce::var> { "suggestProjects" }),
+            [this, accept, done = std::move (done)] (juce::var raw)
+            {
+                const auto result = juce::JSON::parse (raw.toString());
+                juce::StringArray paths;
+                juce::Array<juce::var> list;
+                if (const auto* projects = result["projects"].getArray())
+                    for (const auto& p : *projects)
+                    {
+                        const juce::File file (p["path"].toString());
+                        if (! accept (file)) continue;
+                        auto* item = new juce::DynamicObject();
+                        item->setProperty ("index", paths.size());
+                        item->setProperty ("name", file.getFileName());
+                        item->setProperty ("folder", file.getParentDirectory().getFileName());
+                        item->setProperty ("kind", p["kind"]);
+                        item->setProperty ("modifiedMs", p["modifiedMs"]);
+                        paths.add (file.getFullPathName());
+                        list.add (juce::var (item));
+                    }
+                { const juce::ScopedLock sl (projectLock); projectSuggestions = paths; }
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", (bool) result["ok"]);
+                if (! (bool) result["ok"]) o->setProperty ("error", result["error"]);
+                o->setProperty ("projects", list);
+                done (juce::JSON::toString (juce::var (o), true));
+            }, stemContext());
+        return;
+    }
+    if (action == "choose")
+    {
+        juce::File start;
+        { const juce::ScopedLock sl (projectLock); start = linkedProject.isNotEmpty() ? juce::File (linkedProject).getParentDirectory() : juce::File(); }
+        if (! start.isDirectory()) start = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+        projectChooser = std::make_unique<juce::FileChooser> ("Link the saved project for region sharing", start, "*.song;*.als;*.rpp;*.dawproject");
+        projectChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, done = std::move (done), accept] (const juce::FileChooser& chooser)
+            {
+                const auto file = chooser.getResult();
+                if (accept (file)) { const juce::ScopedLock sl (projectLock); linkedProject = file.getFullPathName(); }
+                done (projectLinkJson());
+            });
+        return;
+    }
+    done (juce::String ("{\"ok\":false,\"error\":\"Unknown project link action.\"}"));
 }
 
 //==============================================================================
@@ -2670,7 +2804,7 @@ void OrbAudioProcessor::askSiteForNewer()
                     || (int) v.getProperty ("regionAudioDrag", 0) < 1
                     || (int) v.getProperty ("accountChat", 0) < 1
                     || (int) v.getProperty ("logicRegionPositions", 0) < 1
-                    || v.getProperty ("trackExportPolicy", "").toString() != "pro-tools-only") return;
+                    || v.getProperty ("trackExportPolicy", "").toString() != "multi-route-v1") return;
                 siteBuild = v.getProperty ("build", "").toString();
                 siteBuiltAt = juce::Time::fromISO8601 (v.getProperty ("at", "").toString());
             }

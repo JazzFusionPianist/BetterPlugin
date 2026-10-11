@@ -43,7 +43,7 @@ export interface AttachmentTimelineMetadata {
     ppq?: number
     bar?: number
     beat?: number
-    source: 'bwf' | 'ixml' | 'daw_playhead' | 'ptsl' | 'luna' | 'logic_export'
+    source: 'bwf' | 'ixml' | 'daw_playhead' | 'ptsl' | 'luna' | 'logic_export' | 'reaper' | 'slur_tap' | 'project_file'
     confidence: 'exact' | 'estimated'
   }
   tempo_map?: TempoMapPoint[]

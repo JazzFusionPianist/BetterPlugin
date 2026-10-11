@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OrbPlugin VERSION 1.0.26)   # Trusted-device chat keys: Keychain/WebCrypto auto-unlock across sign-ins.
+project(OrbPlugin VERSION 1.0.28)   # Stem routes: REAPER bridge, project-file regions, Slur Tap fallback.
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -251,6 +251,47 @@ orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds Or
 # Slur Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.
 orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Slur Games"  games  OrbGamesAU)
+
+# Slur Tap — pass-through capture insert. The fallback for hosts where Slur can
+# neither render other tracks (PTSL/ReaScript) nor read a project file
+# (Logic, FL Studio …). No web view, no network; writes the local Tap cache
+# documented in packages/track-export/TAP-CACHE.md. No AAX: Pro Tools has PTSL.
+set(SLUR_TAP_FORMATS AU VST3)
+juce_add_plugin(SlurTap
+    COMPANY_NAME                "Slur Studio"
+    COMPANY_WEBSITE             "https://orb.app"
+    COMPANY_EMAIL               "hello@orb.app"
+    PLUGIN_MANUFACTURER_CODE    Orb1
+    PLUGIN_CODE                 OrbT
+    FORMATS                     ${SLUR_TAP_FORMATS}
+    PRODUCT_NAME                "Slur Tap"
+    BUNDLE_ID                   "com.orb.tap"
+    ICON_BIG                    "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
+    PLUGIN_AU_MAIN_TYPE         "kAudioUnitType_Effect"
+    PLUGIN_AU_EXPORT_PREFIX     SlurTapAU
+    IS_SYNTH                    FALSE
+    NEEDS_MIDI_INPUT            FALSE
+    NEEDS_MIDI_OUTPUT           FALSE
+    IS_MIDI_EFFECT              FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    VST3_CATEGORIES             "Fx" "Tools"
+    HARDENED_RUNTIME_ENABLED    TRUE
+    COPY_PLUGIN_AFTER_BUILD     FALSE
+)
+target_sources(SlurTap PRIVATE Source/Tap/TapCache.cpp Source/Tap/TapProcessor.cpp)
+target_compile_definitions(SlurTap PUBLIC
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0)
+target_link_libraries(SlurTap
+    PRIVATE juce::juce_audio_processors juce::juce_audio_utils
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
+
+# Writer/reader contract test: writes a synthetic capture that
+# packages/track-export/test/tapCache.test.mjs reads back.
+juce_add_console_app(TapCacheTest PRODUCT_NAME "TapCacheTest")
+target_sources(TapCacheTest PRIVATE Source/Tap/TapCache.cpp Tests/TapCacheTest.cpp)
+target_include_directories(TapCacheTest PRIVATE Source)
+target_compile_definitions(TapCacheTest PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
+target_link_libraries(TapCacheTest PRIVATE juce::juce_core juce::juce_events)
 
 # ── Engine self-test (console) ────────────────────────────────────────────────
 # Runs the FX graph compiler + program runner on synthetic audio and checks

@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react'
 import { prepareArchivedRegionBundle } from '@orb/core/lib/regionArchive.ts'
 import { extractAudioTimeline } from './audioTimeline'
 import type { AttachmentTimelineMetadata } from '../types/collab'
-import { TRACK_EXPORT_DAWS, supportsTrackExport } from '@orb/core/lib/trackExportPolicy.ts'
+import { trackRoutes, type TrackRoute } from '@orb/core/lib/stemRoutes.ts'
 
 export const hasTrackExport = () => hasJuceNativeFunction('trackExport')
-export type TrackExportDaw = 'Pro Tools' | 'LUNA' | 'Logic Pro'
+export type { TrackRoute }
+
+/** Host name + the track routes this native build and host support, best first. */
 export function useTrackExportHost() {
   const [host, setHost] = useState('')
-  const [adapters, setAdapters] = useState<TrackExportDaw[]>(['Pro Tools'])
+  const [native, setNative] = useState<TrackRoute[]>(['ptsl'])
   useEffect(() => {
     let active = true
     if (hasJuceNativeFunction('trackExportHost'))
@@ -17,27 +19,32 @@ export function useTrackExportHost() {
     if (hasJuceNativeFunction('trackExportCapabilities'))
       void callJuceNative('trackExportCapabilities', []).then(result => {
         try {
-          const ids = JSON.parse(result).adapters
-          if (active && Array.isArray(ids)) setAdapters(TRACK_EXPORT_DAWS.filter(id => ids.includes(id)))
+          const ids: string[] = JSON.parse(result).adapters
+          if (active && Array.isArray(ids)) setNative((['ptsl', 'reaper', 'tap'] as const).filter(r =>
+            ids.includes(r === 'ptsl' ? 'Pro Tools' : r === 'reaper' ? 'REAPER' : 'Slur Tap')))
         } catch { /* Older native builds retain Pro Tools-only support. */ }
       })
     return () => { active = false }
   }, [])
-  return { name: host, standalone: host === 'Standalone', adapters,
-    supported: supportsTrackExport(host) && adapters.includes('Pro Tools') }
+  const routes = host ? trackRoutes(host).filter(r => native.includes(r)) : []
+  return { name: host, standalone: host === 'Standalone', routes, supported: routes.length > 0 }
 }
 
+const SOURCES: Record<string, AttachmentTimelineMetadata['position']['source']> = {
+  'Pro Tools': 'ptsl', LUNA: 'luna', 'Logic Pro': 'logic_export', REAPER: 'reaper', 'Slur Tap': 'slur_tap',
+}
 export async function prepareTrackExport(file: File) {
   const { bundle, filesByAsset } = await prepareArchivedRegionBundle(file)
-  if (!['Pro Tools', 'LUNA', 'Logic Pro'].includes(bundle.source?.daw ?? '') || !bundle.tracks.length) throw new Error('Invalid exported track layout.')
+  const source = SOURCES[bundle.source?.daw ?? '']
+  if (!source || !bundle.tracks.length) throw new Error('Invalid exported track layout.')
   return Promise.all(bundle.regions.map(async region => {
     const original = filesByAsset.get(region.assetId)
     if (!original || !region.start) throw new Error('Missing track audio or source position.')
-    const audio = new File([original], region.name, { type: 'audio/wav' })
+    const audio = new File([original], region.name.endsWith('.wav') ? region.name : `${region.name}.wav`, { type: 'audio/wav' })
     const embedded = await extractAudioTimeline(audio, null)
     const metadata: AttachmentTimelineMetadata = {
       schema_version: 1, captured_at: new Date().toISOString(),
-      position: { source: bundle.source?.daw === 'Logic Pro' ? 'logic_export' : bundle.source?.daw === 'LUNA' ? 'luna' : 'ptsl', confidence: 'exact', basis: 'project',
+      position: { source, confidence: 'exact', basis: 'project',
         source_samples: region.start.samples, sample_rate: region.start.sampleRate,
         seconds: region.start.samples / region.start.sampleRate, bit_depth: embedded?.position.bit_depth },
     }
@@ -45,37 +52,68 @@ export async function prepareTrackExport(file: File) {
   }))
 }
 
+type Range = { start: number; end: number; nativeLabel?: never } | { nativeLabel: string; start?: never; end?: never }
 export interface TrackExportSnapshot {
-  daw?: TrackExportDaw
+  route: TrackRoute
+  daw?: string
   rangeNote?: string
   sessionId: string
   name: string
   sampleRate: number | null
   revision?: string
-  tracks: { id: string; name: string; type: string; selected: boolean; disabledReason: string | null }[]
-  ranges: Record<'entire' | 'selection', { start: number; end: number; nativeLabel?: never } | { nativeLabel: string; start?: never; end?: never } | null>
+  tracks: { id: string; name: string; type: string; selected: boolean; disabledReason: string | null; spans?: [number, number, number][] }[]
+  ranges: Record<'entire' | 'selection', Range | null>
   entireError: string
 }
+
+const OPS: Record<TrackRoute, { inspect: string; range: string | null; export: string }> = {
+  ptsl: { inspect: 'inspectTracks', range: 'inspectTrackRange', export: 'exportTracks' },
+  reaper: { inspect: 'inspectReaperTracks', range: 'inspectReaperTrackRange', export: 'exportReaperTracks' },
+  tap: { inspect: 'inspectTapTracks', range: null, export: 'exportTapTracks' },
+}
+
 async function request(operation: string, sessionId?: string, options?: object) {
   const raw = await callJuceNative('trackExport', [operation, ...(sessionId ? [sessionId] : []),
-    ...(options ? [JSON.stringify(options)] : [])], operation === 'inspectTrackRange' ? 6000 : operation.startsWith('export') ? 1810000 : 250000)
+    ...(options ? [JSON.stringify(options)] : [])], operation.endsWith('TrackRange') ? 6000 : operation.startsWith('export') ? 1810000 : 250000)
   if (raw.startsWith('error:')) throw new Error('The DAW bridge did not respond. Check the installed Slur version.')
   const value = JSON.parse(raw)
   if (value.ok !== true) throw new Error(value.error || 'DAW track export failed.')
   return value
 }
-export async function inspectDawTracks(daw: TrackExportDaw = 'Pro Tools'): Promise<TrackExportSnapshot> {
-  if (daw !== 'Pro Tools') throw new Error('Track export is available only for Pro Tools. Region sharing is separate.')
-  const value = await request('inspectTracks')
-  if (!value.sessionId || !Array.isArray(value.tracks) || !value.ranges || !(value.sampleRate > 0))
-    throw new Error('Invalid DAW track list. Update the local DAW bridge.')
-  return { ...value, daw }
+
+/** Route availability right now: REAPER bridge running, number of live Slur Taps. */
+export async function stemStatus(): Promise<{ reaper: { installed: boolean; connected: boolean }; taps: number }> {
+  return request('stemStatus')
 }
+
+export async function inspectDawTracks(route: TrackRoute): Promise<TrackExportSnapshot> {
+  const value = await request(OPS[route].inspect)
+  if (!value.sessionId || !Array.isArray(value.tracks) || !value.ranges)
+    throw new Error('Invalid DAW track list. Update the local DAW bridge.')
+  const snapshot: TrackExportSnapshot = { ...value, route, daw: route === 'ptsl' ? 'Pro Tools' : value.daw }
+  return route === 'tap' ? withHostLoop(snapshot) : snapshot
+}
+
+/** Slur Tap's selection is the host's loop/cycle range, read from this plug-in's play head. */
+async function withHostLoop(snapshot: TrackExportSnapshot): Promise<TrackExportSnapshot> {
+  if (!hasJuceNativeFunction('getDawTimeline') || !snapshot.sampleRate) return { ...snapshot, rangeNote: 'Turn on the DAW loop/cycle to choose a range.' }
+  try {
+    const t = JSON.parse(await callJuceNative('getDawTimeline', []))
+    const ok = t.isLooping && t.ppq != null && t.projectSamples != null && t.ppqLoopStart != null && t.ppqLoopEnd != null && t.bpm > 0
+      && t.sr === snapshot.sampleRate
+    if (!ok) return { ...snapshot, ranges: { ...snapshot.ranges, selection: null }, rangeNote: 'Turn on the DAW loop/cycle to choose a range.' }
+    // Constant tempo between the play head and the loop: one beat = 60/bpm s.
+    const toSamples = (ppq: number) => Math.round(t.projectSamples + (ppq - t.ppq) * 60 / t.bpm * t.sr)
+    const start = Math.max(0, toSamples(t.ppqLoopStart)), end = toSamples(t.ppqLoopEnd)
+    return { ...snapshot, ranges: { ...snapshot.ranges, selection: end > start ? { start, end } : null },
+      rangeNote: 'Uses the DAW loop/cycle range (assumes no tempo change inside it).' }
+  } catch { return snapshot }
+}
+
 export async function exportDawTracks(snapshot: TrackExportSnapshot, trackIds: string[], mode: 'entire' | 'selection') {
-  if (snapshot.daw !== 'Pro Tools') throw new Error('Track export is available only for Pro Tools.')
   const range = snapshot.ranges[mode]
   if (!range) throw new Error('Choose a non-empty export range.')
-  const value = await request('exportTracks', snapshot.sessionId,
+  const value = await request(OPS[snapshot.route].export, snapshot.sessionId,
     { trackIds, range: mode, ...range, sampleRate: snapshot.sampleRate, revision: snapshot.revision })
   if (typeof value.data !== 'string' || !value.data.length || value.data.length > 420 * 1024 * 1024)
     throw new Error('Exported audio is missing or exceeds the 300 MB transfer limit.')
@@ -85,11 +123,27 @@ export async function exportDawTracks(snapshot: TrackExportSnapshot, trackIds: s
 }
 
 export async function inspectDawTrackRange(snapshot: TrackExportSnapshot): Promise<TrackExportSnapshot> {
-  const value = await request('inspectTrackRange')
+  const op = OPS[snapshot.route].range
+  if (!op) return snapshot.route === 'tap' ? withHostLoop(snapshot) : snapshot
+  const value = await request(op)
   if (value.sessionId !== snapshot.sessionId || value.sampleRate !== snapshot.sampleRate)
     throw new Error('The DAW session changed. Refresh the track list.')
   if (value.selection !== null && (!Number.isSafeInteger(value.selection?.start)
     || !Number.isSafeInteger(value.selection?.end) || value.selection.end <= value.selection.start))
     throw new Error('Invalid timeline selection.')
   return { ...snapshot, ranges: { ...snapshot.ranges, selection: value.selection } }
+}
+
+/** Uncovered parts of [start, end) and the oldest capture time, for a Slur Tap row. */
+export function tapCoverage(spans: [number, number, number][] | undefined, start: number, end: number) {
+  let cursor = start, missing = 0, oldest = Infinity
+  for (const [s, e, t] of spans ?? []) {
+    if (e <= cursor) continue
+    if (s >= end) break
+    if (s > cursor) missing += s - cursor
+    oldest = Math.min(oldest, t)
+    cursor = Math.max(cursor, e)
+  }
+  if (cursor < end) missing += end - cursor
+  return { complete: missing === 0, missing, oldestMs: Number.isFinite(oldest) ? oldest : null }
 }

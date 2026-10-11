@@ -126,6 +126,15 @@ public:
 private:
     DawRegionBridge regionBridge;
     TrackExportBridge trackExportBridge;
+    // Region sharing from a saved project file. The path is owned here (native file
+    // chooser or a helper suggestion picked by index), never supplied by the page.
+    juce::CriticalSection projectLock;
+    juce::String linkedProject;
+    juce::StringArray projectSuggestions;
+    std::unique_ptr<juce::FileChooser> projectChooser;
+    void handleProjectLink (const juce::var&, juce::WebBrowserComponent::NativeFunctionCompletion);
+    juce::String projectLinkJson() const;
+    static juce::NamedValueSet stemContext();
     //── Capture ring buffer ───────────────────────────────────────────────────
     static constexpr int kCaptureBufferSize = 96000;
     juce::AbstractFifo    captureFifo { kCaptureBufferSize };

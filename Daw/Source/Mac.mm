@@ -6,6 +6,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AppKit/AppKit.h>
 #import <WebKit/WebKit.h>
+#import <objc/runtime.h>
 #include <string>
 #include <mach/mach.h>
 #include <sys/sysctl.h>
@@ -223,8 +224,8 @@ bool slurInstallMenus (void (*picked) (const char*, void*), void* context)
     if (bar.numberOfItems > 0 && [bar itemAtIndex: 0].submenu != nil)       // the app's own menu: where the device is chosen
     {
         NSMenu* app = [bar itemAtIndex: 0].submenu;
-        NSMenuItem* it = [[NSMenuItem alloc] initWithTitle: @"Audio Settings…" action: @selector (pick:) keyEquivalent: @","];
-        it.keyEquivalentModifierMask = cmd; it.target = slurMenuTarget; it.representedObject = @"audio";
+        NSMenuItem* it = [[NSMenuItem alloc] initWithTitle: @"Settings…" action: @selector (pick:) keyEquivalent: @","];       // the Mac's own word and key for it; audio is one of its parts
+        it.keyEquivalentModifierMask = cmd; it.target = slurMenuTarget; it.representedObject = @"settings";
         [app insertItem: it atIndex: 0];
         NSMenuItem* keys = [[NSMenuItem alloc] initWithTitle: @"Key Command Assignments…" action: @selector (pick:) keyEquivalent: @"k"];       // where Logic keeps it, and under Logic's key
         keys.keyEquivalentModifierMask = NSEventModifierFlagOption; keys.target = slurMenuTarget; keys.representedObject = @"keys";
@@ -235,6 +236,7 @@ bool slurInstallMenus (void (*picked) (const char*, void*), void* context)
     NSMenu* file = [[NSMenu alloc] initWithTitle: @"File"];
     slurLine (file, @"New", @"new", @"n", cmd);
     slurLine (file, @"Open…", @"open", @"o", cmd);
+    slurLine (file, @"Open Recent…", @"recent", @"", 0);
     [file addItem: [NSMenuItem separatorItem]];
     slurLine (file, @"Save", @"save", @"s", cmd);
     slurLine (file, @"Save As…", @"saveas", @"s", cmd | shift);
@@ -313,6 +315,26 @@ std::string slurMenuTitles()
     return std::string (utf8 != nullptr ? utf8 : "");
 }
 
+/** For the check: the Mac's save or open panel that is up, in words (its kind, the name it offers, the folder it stands
+    in, the kinds of file it takes), and with `cancel` it is closed as by its Cancel button. Empty when none is up. */
+std::string slurPanelUp (bool cancel)
+{
+    NSMutableArray<NSString*>* out = [NSMutableArray array];
+    for (NSWindow* w in [NSApp windows])
+    {
+        if (! [w isKindOfClass: [NSSavePanel class]] || ! w.isVisible) continue;
+        NSSavePanel* p = (NSSavePanel*) w;
+        const bool open = [w isKindOfClass: [NSOpenPanel class]];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [out addObject: [NSString stringWithFormat: @"%@ | %@ | %@ | %@ | %@", open ? @"open" : @"save", p.title ?: @"", open ? @"" : p.nameFieldStringValue, p.directoryURL.path ?: @"", [p.allowedFileTypes componentsJoinedByString: @","] ?: @""]];
+#pragma clang diagnostic pop
+        if (cancel) [p cancel: nil];
+    }
+    const char* utf8 = [[out componentsJoinedByString: @" ; "] UTF8String];
+    return std::string (utf8 != nullptr ? utf8 : "");
+}
+
 /** Another copy of the app that is already open (the same bundle id in another process): its process id, or 0.
     With `forward` it is brought to the front; the copy being opened may ask for that, the click that opened it being his.
     The check's own copies ("… self-test.app", see selftest.sh) are a set apart: the app never counts them, and the
@@ -350,6 +372,79 @@ void slurStyleWindow (void* nsView)
     w.titlebarAppearsTransparent = YES;
     w.backgroundColor = [NSColor colorWithSRGBRed: 0x1b / 255.0 green: 0x1b / 255.0 blue: 0x1a / 255.0 alpha: 1.0];
     w.titleVisibility = NSWindowTitleVisible;
+}
+
+/** Command x, c, v and a are keys of the page's, as every other key is. JUCE's web view keeps these four to itself whenever
+    the letter that was typed is the Latin one: it sends cut:, copy:, paste: or selectAll: straight to whoever has the keys
+    (its way of giving an app the Mac's clipboard in the boxes of a page), and the page never hears the key. So with the
+    keyboard set to English a marquee could not be cut or copied and nothing could be pasted; set to Korean, where the
+    letter is not the Latin one, they all could.
+    The room's own page is asked first now, WebKit's way. A key the page leaves alone (a box in it is being typed in) WebKit
+    sends to the app once more, and it comes by here again: that second time it goes JUCE's way, as it always did, and is the
+    Mac's cut, copy or paste in the box. The other pages (slur's, the settings') are as they were.
+    (Whether a box has the keys cannot be asked of the web view itself: it goes on saying so after a box is gone.) */
+static IMP slurWebKitsOwnKeys = nullptr, slurJucesKeys = nullptr;
+static __weak WKWebView* slurPageWeb = nil;
+static NSEvent* slurKeyAsked = nil;                                              // (the key the page was last asked about: known again when it comes round)
+static NSEvent* slurTestKey = nil;                                               // (for the self-test: the key it sent, and whether that one came round)
+static bool slurTestKeyCameRound = false;
+static BOOL slurKeyToPage (id self, SEL sel, NSEvent* event)
+{
+    typedef BOOL (*Way) (id, SEL, NSEvent*);
+    if (self != slurPageWeb) return ((Way) slurJucesKeys) (self, sel, event);
+    if (event == slurKeyAsked) { slurKeyAsked = nil; if (event == slurTestKey) slurTestKeyCameRound = true; return ((Way) slurJucesKeys) (self, sel, event); }
+    slurKeyAsked = event;
+    return ((Way) slurWebKitsOwnKeys) (self, sel, event);
+}
+bool slurKeysToPage (void* nsView)
+{
+    NSView* v = (__bridge NSView*) nsView;
+    if (v == nil || v.window == nil) return false;
+    WKWebView* web = findWeb (v.window.contentView != nil ? v.window.contentView : v);
+    if (web == nil) return false;
+    if (slurJucesKeys != nullptr) { slurPageWeb = web; return true; }
+    const SEL sel = @selector (performKeyEquivalent:);
+    for (Class k = object_getClass (web); k != nil && k != [WKWebView class]; k = class_getSuperclass (k))
+    {
+        unsigned int n = 0;
+        Method* own = class_copyMethodList (k, &n);                              // (what this class itself adds, not what it has from WebKit)
+        Method found = nullptr;
+        for (unsigned int i = 0; i < n; ++i) if (method_getName (own[i]) == sel) found = own[i];
+        free (own);
+        if (found == nullptr) continue;
+        slurWebKitsOwnKeys = class_getMethodImplementation ([WKWebView class], sel);
+        slurPageWeb = web;
+        slurJucesKeys = method_setImplementation (found, (IMP) slurKeyToPage);
+        return true;
+    }
+    return false;
+}
+
+/** For the self-test: a key with command held, sent the way the Mac sends one to an app — to the window first (its views:
+    the page's web view among them, which is given the keys as it has them once the page has been pressed), and to the menu
+    bar if nothing there took it. The letter is the Latin one, as it is with the keyboard set to English. Says who took it. */
+std::string slurCommandKey (void* nsView, const char* letter, unsigned short keyCode)
+{
+    NSView* v = (__bridge NSView*) nsView;
+    NSWindow* w = v.window;
+    if (w == nil) return "no window";
+    WKWebView* web = findWeb (w.contentView != nil ? w.contentView : v);
+    if (web != nil) [w makeFirstResponder: web];
+    NSString* ch = [NSString stringWithUTF8String: letter];
+    NSEvent* ev = [NSEvent keyEventWithType: NSEventTypeKeyDown location: NSZeroPoint modifierFlags: NSEventModifierFlagCommand timestamp: NSProcessInfo.processInfo.systemUptime
+                               windowNumber: w.windowNumber context: nil characters: ch charactersIgnoringModifiers: ch isARepeat: NO keyCode: keyCode];
+    slurTestKey = ev; slurTestKeyCameRound = false;
+    if ([w performKeyEquivalent: ev]) return web != nil && w.firstResponder == web ? "the window (the page has the keys)" : "the window";
+    if ([NSApp.mainMenu performKeyEquivalent: ev]) return "the menu bar";
+    return "nobody";
+}
+/** For the self-test, a moment after slurCommandKey: what the page did with that key — kept it, or left it alone, so that
+    WebKit sent it to the app once more and it came round to the Mac's own cut, copy, paste or select all. */
+std::string slurCommandKeyOn()
+{
+    const bool round = slurTestKeyCameRound;
+    slurTestKey = nil; slurTestKeyCameRound = false;
+    return round ? "left alone by the page: the Mac's" : "kept by the page";
 }
 
 /** For the self-test: how the system has the window (as JSON), and a picture of the top of its frame, where its bar is. */

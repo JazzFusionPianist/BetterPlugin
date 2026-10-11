@@ -16,7 +16,7 @@ if (NAT) {
   }
   /* a track is given its room (the patch engine) only once it could need one: a print turned up at either end of its scene hand, or a line drawn for one */
   const patched = t => ['A', 'B'].some(k => t.patch[k].tape + t.patch[k].space + t.patch[k].delay > 0) || ['tape', 'space', 'delay'].some(k => autoPts(t, k).length > 0)
-  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, mon: t.mon ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
+  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, mon: t.mon ? 1 : 0, live: liveOn(t) ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
   const regMsg = r => { const w = r.wkey && LIVEW.has(r.wkey) ? r.wkey : null; return regMsgOf(r, w) }       // a rendering that was let go: the plain file plays until it is rendered again
   const regMsgOf = (r, w) => ({ a: r.a - 1, b: r.b - 1, buf: w || (r.loop ? r.buf : r.key), loop: r.loop ? 1 : 0, rate: w ? 1 : (r.rate || 1), bars: r.loop ? LOOPS[r.buf].bars : 1, off: r.off || 0, gain: dbLin(r.gain || 0), fi: r.fi || 0, fo: r.fo || 0, fic: r.fic || 0, foc: r.foc || 0 })
   /* The engine is told the whole session, but of each track only what is new to it: a track's regions, lines and wiring are
@@ -28,7 +28,8 @@ if (NAT) {
   const sendSession = async only => {
     const mine = ++telling
     const tracks = S.tracks.map(t => {
-      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && (!only || only(r))).map(regMsg) : [] }
+      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && (!only || only(r))).map(regMsg) : [] }
+      Object.assign(wired, noteMsg(t, only))                                           // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })
       t._ver = (t._ver || 0) + 1; t._told = only ? null : text                             // (what is sent for a bounce in place is not what the track holds: it is sent again afterwards)
@@ -96,7 +97,7 @@ if (NAT) {
   decodeFile = async f => {
     const id = `put${++putId}`, CH = 3 << 20
     let r = null
-    for (let off = 0; off < Math.max(1, f.size); off += CH) r = await NAT.call('audioPut', { id, project: PROJ.name, name: f.name, data: b64(new Uint8Array(await f.slice(off, off + CH).arrayBuffer())), last: off + CH >= f.size ? 1 : 0 })
+    for (let off = 0; off < Math.max(1, f.size); off += CH) r = await NAT.call('audioPut', { id, project: projKey(), name: f.name, data: b64(new Uint8Array(await f.slice(off, off + CH).arrayBuffer())), last: off + CH >= f.size ? 1 : 0 })
     if (!r || !r.ok) throw new Error('decode')
     return { key: r.key, sec: r.sec, peaks: r.peaks, file: r.file, tone: r.tone }
   }
@@ -114,7 +115,7 @@ if (NAT) {
       folder: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, name: `${PROJ.name} ${pl.name}`, fmt: f.fmt, rate: f.rate, bits: f.bits,
     })
     ho.state = 'idle'
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur studio' } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur studio'; handOffExtras(r.dir, `${PROJ.name} ${pl.name}`, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
     resync(); applyAll()
     uiDirty('hand')
   }

@@ -12,17 +12,17 @@ async function needInput () {
 async function toggleArm (i) {
   const t = S.tracks[i]
   if (!t || t.kind !== 'audio' || t.theirs || S.rec) return
-  if (!t.arm && !(await needInput())) return
+  if (!t.arm && groupOf(i).some(x => x.kind === 'audio' && !x.theirs && !x.inst) && !(await needInput())) return      // (tracks of notes need no input opened: the keys are always listened to)
   const to = !t.arm
   for (const x of groupOf(i)) if (x.kind === 'audio' && !x.theirs) x.arm = to
   uiDirty('head', 'dock')
 }
 async function toggleMon (i) {
   const t = S.tracks[i]
-  if (!t || t.kind !== 'audio') return
+  if (!t || t.kind !== 'audio' || t.inst) return
   if (!t.mon && !(await needInput())) return
   const to = !t.mon
-  for (const x of groupOf(i)) if (x.kind === 'audio') { x.mon = to; pushTrack(x) }
+  for (const x of groupOf(i)) if (x.kind === 'audio' && !x.inst) { x.mon = to; pushTrack(x) }
   uiDirty('head', 'dock')
 }
 function toggleClick () { S.click = !S.click; pushClick(); uiDirty('top') }
@@ -38,12 +38,12 @@ async function record () {
     if (!armed.length) {
       const t = S.tracks[S.sel]
       if (!t || t.kind !== 'audio' || t.theirs) { say('arm a track first'); return }
-      if (!(await needInput())) return
+      if (!t.inst && !(await needInput())) return
       t.arm = true; armed = [t]
-    } else if (!(await needInput())) return
+    } else if (armed.some(t => !t.inst) && !(await needInput())) return
     if (S.playing) halt(false)
     const bar = S.pos >= SONG_END - 1e-6 ? 0 : S.pos, count = S.countIn ? 1 : 0
-    const r = await NAT.call('recStart', { bar, countIn: count, project: PROJ.name, tracks: armed.map(t => ({ id: t.id, name: `${t.name} take` })) })
+    const r = await NAT.call('recStart', { bar, countIn: count, project: projKey(), tracks: armed.map(t => Object.assign({ id: t.id, name: `${t.name} take` }, t.inst ? { midi: 1 } : {})) })
     if (!r || !r.ok) { say(r && r.error ? `could not record: ${r.error}` : 'could not record'); return }
     S.rec = { start: bar, ids: armed.map(t => t.id) }
     natRolling(bar - count)
@@ -58,19 +58,20 @@ async function stopRecord (keep) {
   const end = curPos(), list = await NAT.call('recStop', { keep: keep ? 1 : 0 })
   natStopped(end)
   $('g-rec').innerHTML = ''
-  if (keep && Array.isArray(list) && list.length) placeTakes(list, rec.start)
+  if (keep && Array.isArray(list) && list.length && placeTakes(list, rec.start, end).length) {}
   else if (keep) say('nothing came in')
   refreshPool()
   uiDirty('top', 'head', 'lanes', 'dock')
 }
 /* takes become regions where they were played (bars from zero), moved back by how late the input runs; what was under them
    gives way. Returns what was placed: [{ track: its name, id: the region }] */
-function placeTakes (list, start) {
+function placeTakes (list, start, end) {
   const put = []
   edit(() => {
     for (const d of list) {
       const t = byId(d.track)
       if (!t || !d.ok || t.kind !== 'audio') continue
+      if (d.midi) { const r = t.inst ? placeNoteTake(t, d, start, end) : null; if (r) put.push({ track: t.name, id: r.id }); continue }      // what was played on the keys: notes where they were played
       const lat = Math.min(d.lat || 0, d.sec / 2), len = (d.sec - lat) / SPB(), a = start
       if (!t.tone && !t.regs.length) { const tone = readTone(d); if (tone) t.tone = tone }
       carve(t, a, a + len)                                                              // a take lands on top: what was under it gives way

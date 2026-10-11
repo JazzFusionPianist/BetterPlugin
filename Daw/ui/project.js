@@ -1,6 +1,21 @@
 /* ── names, files coming in, and the project on disk ── */
-const PROJ = { name: 'night bus ep', demo: true, last: '', saved: false, savedAt: '', busy: false, hold: 0, list: null, test: false, ticks: 0 }
+const PROJ = { name: 'night bus ep', at: '', demo: true, last: '', saved: false, savedAt: '', busy: false, hold: 0, list: null, test: false, ticks: 0 }
 const isDemo = () => PROJ.demo                     // the song the app opens with the first time: its people, its scenes, its length
+/* what the app knows a project by: its bare name while it lies where the app keeps projects (music, slur studio, projects), and
+   the whole path of its .sls anywhere else on the disk (save as puts it wherever the mac's panel is pointed). It is called
+   what its .sls is called. */
+const projKey = () => PROJ.at || PROJ.name
+const projNameOf = key => key[0] === '/' ? key.replace(/\/+$/, '').split('/').pop().replace(/\.(sls|slur)$/i, '') : key
+function setProj (key) { key = String(key); PROJ.at = key[0] === '/' ? key : ''; PROJ.name = projNameOf(key) }
+/* the last place the app was left, and the projects kept somewhere else it has had open (the newest first): so it comes back
+   to one, and they stand in the list of projects to open */
+async function rememberProj () {
+  if (!NAT || PROJ.test) return
+  await NAT.call('prefSet', { key: 'lastProject', value: projKey() })
+  if (!PROJ.at) return
+  const prefs = await NAT.call('prefGet'), was = prefs && Array.isArray(prefs.elsewhere) ? prefs.elsewhere : []
+  if (was[0] !== PROJ.at) await NAT.call('prefSet', { key: 'elsewhere', value: [PROJ.at].concat(was.filter(k => k !== PROJ.at)).slice(0, 24) })
+}
 
 /* a place in the song as it is typed: a bar, or bar beat sixteenth (and ticks after that, 240 to a sixteenth); or a time —
    12.5s, 250ms, 1:02.25. In bars from zero; null when it cannot be read */
@@ -24,7 +39,7 @@ function startRename (what, i, at) {
   if (what === 'track') {
     if (!t) return
     showRow(i); flush()
-    const y = rowY(i), x0 = t.parent ? 54 : 42, cx = 214 - cellsOf(t).length * 15
+    const y = rowY(i), x0 = t.parent ? HEAD_IN : 42, cx = 214 - cellsOf(t).length * 15
     put(x0 - 5, y + rh / 2 - 9, cx - x0 - 1, 18, '500 10.5px', t.name)
   } else if (what === 'scene') {
     const sc = SCENES[i]
@@ -49,9 +64,9 @@ function startRename (what, i, at) {
     showRow(ti); flush()
     put(clamp(bx(r.a), X0, Math.max(X0, X1 - 134)) + 1, rowY(ti) + Math.max(0, (rh - 18) / 2), 132, Math.min(18, rh), '500 9px', String(r.tag || r.name || tr.name))
   } else {
-    const w = 280, x = Math.round((RX - w) / 2), y = TY + 10, label = what === 'saveas' ? 'save as' : 'name', lw = Math.ceil(tw(label, 9.5)) + 24
+    const w = 280, x = Math.round((RX - w) / 2), y = TY + 10, label = 'name', lw = Math.ceil(tw(label, 9.5)) + 24
     S.ask = { x, y, w, h: 34, label }
-    put(x + lw, y + 6, w - lw - 8, 22, '500 11px', what === 'saveas' ? `${PROJ.name} 2` : PROJ.name)
+    put(x + lw, y + 6, w - lw - 8, 22, '500 11px', PROJ.name)
   }
   uiDirty('ask'); flush()
   const first = el.value.trim().toLowerCase().slice(0, 40)                              // what the box said when it opened
@@ -77,7 +92,6 @@ function startRename (what, i, at) {
     else if (what === 'spot') { const to = parsePos(v); if (to != null && v !== first) act.spot(to) }      // (the box shows its place rounded to a sixteenth: left as it was, nothing moves)
     else if (what === 'rbpm') { const bpm = Math.round(parseFloat(v) * 100) / 100, rs = selRegs().map(x => x[0]).filter(q => !q.loop); if (isFinite(bpm) && bpm >= 30 && bpm <= 300 && rs.length) edit(() => { for (const r of rs) r.bpm = bpm }) }
     else if (what === 'region') { const rs = selRegs().map(x => x[0]); if (rs.length) edit(() => { for (const r of rs) { r.tag = v; dirtyReg(r) } }) }
-    else if (what === 'saveas') { if (v !== PROJ.name) await saveAs(v) }
     else if (v !== PROJ.name) await renameProject(v)
     uiDirty('head', 'top', 'dock', 'hand', 'scenes', 'lanes', 'ruler')
   }
@@ -88,7 +102,7 @@ function startRename (what, i, at) {
 /* ── the project's own sounds (what was brought in, recorded, bounced) ── */
 async function refreshPool () {
   if (!NAT) return
-  const list = await NAT.call('audioList', { project: PROJ.name })
+  const list = await NAT.call('audioList', { project: projKey() })
   PROJ.pool = Array.isArray(list) ? list.sort((a, b) => b.modified - a.modified) : []
 }
 async function placeFile (i) {
@@ -96,15 +110,15 @@ async function placeFile (i) {
   if (!f || placeFile.busy) return
   placeFile.busy = true
   try {
-    const d = await NAT.call('audioLoad', { project: PROJ.name, file: f.file }), cur = S.tracks[S.sel]
-    if (d && d.ok) placeDecoded([d], cur && cur.kind === 'audio' && !cur.theirs ? S.sel : null, Math.max(0, snapPos(curPos(), null)) + 1)
+    const d = await NAT.call('audioLoad', { project: projKey(), file: f.file }), cur = S.tracks[S.sel]
+    if (d && d.ok) placeDecoded([d], cur && cur.kind === 'audio' && !cur.theirs && !cur.inst ? S.sel : null, Math.max(0, snapPos(curPos(), null)) + 1)
   } finally { placeFile.busy = false }
 }
 
 /* ── files in ── */
 /* what comes in lands at one bar: the first file on the lane it was let go over (clearing what was under it), each further file on a track of its own right below */
 function placeDecoded (list, lane, bar) {
-  const before = editState(), good = list.filter(d => d && d.ok !== false && d.sec > 0), own = t => t && t.kind === 'audio' && !t.theirs
+  const before = editState(), good = list.filter(d => d && d.ok !== false && d.sec > 0), own = t => t && t.kind === 'audio' && !t.theirs && !t.inst
   let last = lane != null && own(S.tracks[lane]) ? S.tracks[lane] : null, any = false
   good.forEach((d, k) => {
     const base = String(d.name || 'audio'), nums = [...base.matchAll(/(?<![0-9a-z])(\d{2,3})(\s?bpm)?(?![0-9])/gi)].map(x => ({ v: +x[1], tag: !!x[2] })).filter(x => x.v >= 60 && x.v <= 200), bpm = (nums.find(x => x.tag) || nums[0] || { v: 0 }).v
@@ -130,16 +144,21 @@ function placeDecoded (list, lane, bar) {
   return any
 }
 async function dropFiles (files, lane, bar) {
-  const list = []
+  const list = [], onto = lane != null ? S.tracks[lane] : null
   for (const f of files) {
+    if (/\.midi?$/i.test(f.name)) { try { placeMidi(new Uint8Array(await f.arrayBuffer()), f.name, Math.max(1, Math.floor(bar + 1e-6))) } catch (err) { say(`couldn’t read ${fit(f.name, 160, 9.5)}`) } continue }      // a file of notes: its tracks, from the bar it was let go on
     if (!/^audio\//.test(f.type) && !/\.(wav|aiff?|mp3|m4a|ogg|flac|caf)$/i.test(f.name)) continue
+    if (onto && onto.inst && onto.inst.kind === 'sampler' && files.length === 1) {       // one sound let go on a sampler's track: the sampler plays from it
+      try { const d = await decodeFile(f); if (d && d.file) { setInstSample(onto, 0, { file: d.file, name: f.name.replace(/\.[^.]+$/, '') }); refreshPool(); say(`the sampler plays ${fit(f.name.replace(/\.[^.]+$/, '').toLowerCase(), 160, 9.5)}`) } } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
+      return true
+    }
     try { const d = await decodeFile(f); list.push(Object.assign({ name: f.name.replace(/\.[^.]+$/, '') }, d)) } catch (err) { say(`couldn’t open ${fit(f.name, 160, 9.5)}`) }
   }
   return placeDecoded(list, lane, bar)
 }
 async function importAudio () {
-  const cur = S.tracks[S.sel], at = Math.max(0, snapPos(curPos(), null)) + 1, lane = cur && cur.kind === 'audio' && !cur.theirs ? S.sel : null
-  if (NAT) { const list = await NAT.call('import', { project: PROJ.name }); if (Array.isArray(list)) placeDecoded(list, lane, at); return }
+  const cur = S.tracks[S.sel], at = Math.max(0, snapPos(curPos(), null)) + 1, lane = cur && cur.kind === 'audio' && !cur.theirs && !cur.inst ? S.sel : null
+  if (NAT) { const list = await NAT.call('import', { project: projKey() }); if (Array.isArray(list)) placeDecoded(list, lane, at); return }
   const inp = document.createElement('input')
   inp.type = 'file'; inp.accept = 'audio/*'; inp.multiple = true
   inp.onchange = () => dropFiles([...inp.files], lane, at)
@@ -147,19 +166,20 @@ async function importAudio () {
 }
 
 /* ── the project on disk (the app only) ── */
-const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt']
-const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py']
+const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst']
+const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep']
 function serialize () {
   return JSON.stringify({
     v: 3, name: PROJ.name, demo: PROJ.demo, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
-    cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, q: S.q,
+    cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
     tracks: S.tracks.map(t => {
       const o = {}
       for (const k of KEEP_T) if (t[k] !== undefined) o[k] = t[k]
-      const kept = list => list.filter(r => r.loop || r.file).map(r => { const q = {}; for (const k of KEEP_R) if (r[k] !== undefined && r[k] !== null) q[k] = r[k]; if (r.loop) q.buf = r.buf; return q })
+      if (o.inst) o.inst = instCopy(o.inst)
+      const kept = list => list.filter(r => r.loop || r.file || r.notes).map(r => { const q = {}; for (const k of KEEP_R) if (r[k] !== undefined && r[k] !== null) q[k] = r[k]; if (r.loop) q.buf = r.buf; return q })
       o.regs = kept(t.regs)
       if ((t.alts || []).length) o.alts = t.alts.map(a => ({ name: a.name, regs: kept(a.regs) }))
-      o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {}))
+      o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {}, i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, i.pn ? { pn: i.pn } : {}))
       return o
     }),
   })
@@ -170,11 +190,11 @@ async function saveProject (full, evenHeld) {
   if (!NAT || PROJ.busy || S.rec || (PROJ.hold && !evenHeld)) return false
   PROJ.busy = true
   try {
-    if (full) { const st = await NAT.call('pluginStates'); if (st) for (const t of S.tracks) for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid] }
+    if (full) { const st = await NAT.call('pluginStates'); if (st) for (const t of S.tracks) { for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid]; if (t.inst && t.inst.kind === 'plug' && t.inst.uid && st['u' + t.inst.uid] != null) t.inst.state = st['u' + t.inst.uid] } }
     const json = serialize()
     if (json === PROJ.last && PROJ.saved) return true
-    const r = await NAT.call('projSave', { name: PROJ.name, json })
-    if (r && r.ok) { PROJ.last = json; PROJ.saved = true; const d = new Date(), at = `${d.getHours()}:${pad2(d.getMinutes())}`; if (at !== PROJ.savedAt) { PROJ.savedAt = at; uiDirty('cmd') } if (!PROJ.test) NAT.call('prefSet', { key: 'lastProject', value: PROJ.name }) }
+    const r = await NAT.call('projSave', { name: projKey(), json })
+    if (r && r.ok) { PROJ.last = json; PROJ.saved = true; const d = new Date(), at = `${d.getHours()}:${pad2(d.getMinutes())}`; if (at !== PROJ.savedAt) { PROJ.savedAt = at; uiDirty('cmd') } if (!PROJ.test) NAT.call('prefSet', { key: 'lastProject', value: projKey() }) }
     return !!(r && r.ok)
   } finally { PROJ.busy = false }
 }
@@ -195,18 +215,18 @@ async function loadFiles (project, tracks) {
   for (const t of tracks) for (const L of [t].concat(t.alts || [])) for (const q of L.regs) if (!q.loop && q.file && !files.has(q.file)) files.set(q.file, await NAT.call('audioLoad', { project, file: q.file }))
   return files
 }
-/* json: the song as it was at another time (a copy put aside), opened in this project's place */
-async function loadProject (name, json) {
+/* key: the project, as projKey says it. json: the song as it was at another time (a copy put aside), opened in this project's place */
+async function loadProject (key, json) {
   PROJ.hold++
-  try { return await loadProjectNow(name, json) } finally { PROJ.hold-- }
+  try { return await loadProjectNow(key, json) } finally { PROJ.hold-- }
 }
 /* Plug-ins the app has learnt not to open by itself (one was playing, or being opened, when the app last went down), and what
    was left out of the song being opened. A plug-in left out keeps its place in the patch and its settings: it is drawn
    there dimmed, and a press brings it back. One that will not open (it is not on this machine) is kept the same way. */
 const DISTRUST = new Set()
 const LOAD = { bare: false, left: [] }
-async function loadProjectNow (name, json) {
-  const r = json ? { ok: true, json, saved: Date.now() } : await NAT.call('projLoad', { name })
+async function loadProjectNow (key, json) {
+  const r = json ? { ok: true, json, saved: Date.now() } : await NAT.call('projLoad', { name: key })
   if (!r || !r.ok) return false
   let d
   try { d = JSON.parse(r.json) } catch (e) { return false }
@@ -214,17 +234,17 @@ async function loadProjectNow (name, json) {
   resetSession()
   await NAT.call('session', { tempo: S.tempo, end: SONG_END, tracks: [] })                           // everything out of the engine first, plug-ins too
   dropAllAudio()
-  const files = await loadFiles(name, d.tracks)
+  const files = await loadFiles(key, d.tracks)
   const meter = Array.isArray(d.meter) && MEASURES.some(m => m[0] === d.meter[0] && m[1] === d.meter[1]) ? d.meter.slice(0, 2) : [4, 4]
   if (d.tempo !== S.tempo || meter[0] !== S.meter[0] || meter[1] !== S.meter[1]) { S.tempo = d.tempo; S.meter = meter; LOOPS = songLoops(S.tempo); await natSendLoops() }
-  PROJ.name = name; PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                 // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
+  setProj(key); PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                    // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
   SONG_END = d.end || 42
   SCENES = mkScenes(Array.isArray(d.scenes) ? d.scenes : (isDemo() ? DEMO_SCENES : []))
   S.tracks = d.tracks.map(o => {
     const t = Object.assign({ n: null, kind: 'audio', pan: 0, inp: 0, out: 0, parent: null, open: true, sends: [], autos: {}, ap: 'vol', arm: false, mon: false }, o, { inserts: [] })
     delete t.c; delete t.own                                                             // a project from before colours were read from what a track holds
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
-    const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : {}) }).filter(q => q.loop ? LOOPS[q.buf] : q.key)
+    const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : {}) }).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key)
     t.regs = back(o.regs)
     t.alts = Array.isArray(o.alts) ? o.alts.map(a => ({ name: String(a.name), regs: back(a.regs || []) })) : []
     t.patch0 = copy(t.patch)
@@ -232,7 +252,8 @@ async function loadProjectNow (name, json) {
   })
   TID = Math.max(0, ...S.tracks.map(t => t.id)); RID = Math.max(0, ...S.tracks.flatMap(lanesOf).flatMap(t => t.regs.map(q => q.id)))
   PID = Math.max(0, ...S.tracks.flatMap(t => Object.values(t.autos).flatMap(p => p.map(q => q.id))))
-  S.cycle = Object.assign({ on: false, a: 0, b: 4 }, d.cycle); S.sel = clamp(d.sel || 0, 0, Math.max(0, S.tracks.length - 1)); setMode(MODES.includes(d.mode) ? d.mode : d.snap === false ? 'slip' : 'smart'); S.nudge = NUDGES.includes(d.nudge) ? d.nudge : 'beat'; S.pos = 0
+  for (const t of S.tracks.flatMap(lanesOf)) for (const q of t.regs) if (q.notes) { for (const x of q.notes) if (x.id > NID) NID = x.id; for (const c of q.ctl || []) if (c.id > NID) NID = c.id }
+  S.cycle = Object.assign({ on: false, a: 0, b: 4 }, d.cycle); S.sel = clamp(d.sel || 0, 0, Math.max(0, S.tracks.length - 1)); setMode(MODES.includes(d.mode) ? d.mode : d.snap === false ? 'slip' : 'smart'); S.nudge = NUDGES.includes(d.nudge) ? d.nudge : 'beat'; if (typeof GRIDS !== 'undefined') S.grid = GRIDS.includes(d.grid) ? d.grid : '1/4'; S.pos = 0
   S.master = d.master == null ? 0 : d.master; S.click = !!d.click; S.countIn = d.countIn !== false; S.q = d.q || 1 / 16; S.auto = false; S.flex = false; S.key = typeof d.key === 'string' ? d.key : ''; S.look = null
   /* the view comes back as it was left; in a project from before this room (rows were twice as tall, the dock was always there) only its zoom along the song does */
   const vw = d.view || {}, now = d.v >= 3
@@ -246,22 +267,23 @@ async function loadProjectNow (name, json) {
   for (let i = 0; i < d.tracks.length; i++) for (const ins of d.tracks[i].inserts || []) {
     const t = byId(d.tracks[i].id)
     if (!t) continue
-    const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, out: true }
+    const kept = { uid: 0, name: ins.name || 'plug-in', fmt: ins.fmt || '', id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, out: true }
     if (ins.out || LOAD.bare || DISTRUST.has(ins.id)) { t.inserts.push(kept); if (!ins.out) LOAD.left.push(kept.name); continue }
     const rr = await NAT.call('insert', { track: t.id, id: ins.id, state: ins.state || '', show: 0 })
-    if (rr && rr.ok) { t.inserts.push({ uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off }); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }) }
+    if (rr && rr.ok) { const got = { uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, sc: !!rr.key }; t.inserts.push(got); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }); keyTold(t, got) }
     else { t.inserts.push(kept); LOAD.left.push(kept.name) }                              // it would not open: its place and its settings stay in the song
   }
   await rewarpAll()
   PROJ.last = json ? '' : serialize(); PROJ.saved = !json; PROJ.savedAt = ''; PROJ.savedMs = r.saved || 0
-  if (!PROJ.test) NAT.call('prefSet', { key: 'lastProject', value: PROJ.name })
+  rememberProj()
+  closeStart()
   dirtyAll()
   refreshPool(); setTitle()
   return true
 }
 /* the device moved to another rate: every sound has to come again at it */
 async function reloadAudio () {
-  const files = await loadFiles(PROJ.name, S.tracks)
+  const files = await loadFiles(projKey(), S.tracks)
   const old = new Set(NAT.keys)
   for (const f of files.values()) if (f && f.key) old.delete(f.key)
   for (const t of S.tracks.flatMap(lanesOf)) for (const r of t.regs) { if (r.loop) { r.wkey = null; r.wsig = ''; continue } const f = r.file ? files.get(r.file) : null; if (f && f.ok) { r.key = f.key; r.peaksAll = f.peaks; r.wkey = null; r.wsig = ''; r.wpeaks = null; dirtyReg(r) } }
@@ -285,46 +307,75 @@ async function newProjectNow () {
   dropAllAudio()
   const t = mkTrack('audio 1', null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]))
   t.patch0 = copy(t.patch)
-  PROJ.name = name; PROJ.demo = false; PROJ.last = ''; PROJ.saved = false
+  setProj(name); PROJ.demo = false; PROJ.last = ''; PROJ.saved = false
   SONG_END = 64; SCENES = []
   S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.look = null; S.rh = 25; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
   repaint()
   resync(); pushTransport(); pushMaster()
   await saveNow(false, true)
+  closeStart()
   dirtyAll()
   refreshPool(); setTitle()
 }
 async function renameProject (to) {
   if (!NAT) { PROJ.name = to; return }
   await saveNow(true)
-  const r = await NAT.call('projRename', { from: PROJ.name, to })
+  const r = await NAT.call('projRename', { from: projKey(), to })
   if (!r || !r.ok) { say('that name is taken'); return }
-  PROJ.name = to; PROJ.last = ''
+  setProj(r.key || to); PROJ.last = ''
   await saveNow(false)
-  setTitle()
+  setTitle(); rememberProj()
 }
-/* ⇧⌘S: the project as it is, under another name; the old one stays as it was last saved */
-async function saveAs (to) {
-  if (!NAT) return
+/* ⇧⌘S: the mac asks where and under what name; the project as it is goes there as a .sls with its sounds, and the old one
+   stays as it was last saved */
+const NO_COPY = { taken: 'that name is taken', same: 'that is this project', inside: 'not inside another project', room: 'the disk has no room for a copy', write: 'could not save there' }
+async function saveAsAsk () {
+  if (!NAT || S.rec || saveAsAsk.busy) return
+  saveAsAsk.busy = true
+  try {
+    const r = await NAT.call('projWhere', { from: projKey(), name: `${PROJ.name} 2` })
+    if (r && r.ok) await saveAs(r.key, true)
+    else if (r && r.why) say(NO_COPY[r.why] || NO_COPY.write)
+  } finally { saveAsAsk.busy = false }
+}
+/* to: a name (it is kept with the others) or the whole path of a .sls. replace: what lies there goes to the trash first —
+   only after the mac's panel has asked */
+async function saveAs (to, replace) {
+  if (!NAT) return false
   await saveNow(true)
-  const r = await NAT.call('projCopy', { from: PROJ.name, to })
-  if (!r || !r.ok) { say('that name is taken'); return }
-  PROJ.name = to; PROJ.last = ''
-  await saveNow(false)
-  setTitle(); refreshPool()
+  const r = await NAT.call('projCopy', { from: projKey(), to, replace: replace ? 1 : 0 })
+  if (!r || !r.ok) { say(NO_COPY[r && r.why] || NO_COPY.write); return false }
+  setProj(r.key || to); PROJ.last = ''
+  const ok = await saveNow(false)
+  setTitle(); refreshPool(); rememberProj()
+  if (ok) say(PROJ.at ? `saved as ${PROJ.name}, in ${PROJ.at.split('/').slice(-2, -1)[0].toLowerCase()}` : `saved as ${PROJ.name}`)
+  return ok
 }
 const setTitle = () => { if (NAT) NAT.call('title', { text: PROJ.name }) }
+/* ⌘O: the mac's own panel, for a project anywhere on the disk */
+async function openProjectAsk () {
+  if (!NAT) { say('projects are in the app'); return }
+  if (S.rec || openProjectAsk.busy) return
+  openProjectAsk.busy = true
+  try {
+    const r = await NAT.call('projPick', { from: projKey() })
+    if (r && r.ok) await openProject(r.key)
+    else if (r && r.why) say('that is not a project')
+  } finally { openProjectAsk.busy = false }
+}
+/* the projects the app keeps, and those kept somewhere else that it has had open: the last worked on first */
 async function openProjectMenu () {
   if (!NAT) { say('projects are in the app'); return }
-  PROJ.list = ((await NAT.call('projList')) || []).sort((a, b) => b.modified - a.modified)
+  const prefs = await NAT.call('prefGet'), also = prefs && Array.isArray(prefs.elsewhere) ? prefs.elsewhere : []
+  PROJ.list = ((await NAT.call('projList', { also })) || []).sort((a, b) => b.modified - a.modified)
   if (!PROJ.list.length) { say('no project to open'); return }
-  openMenu(Math.round(RX / 2 - 110), TY + 10, PROJ.list.slice(0, 24).map(p => ({ t: p.name, v: p.name, on: p.name === PROJ.name })), it => openProject(it.v), { w: 220 })
+  openMenu(Math.round(RX / 2 - 110), TY + 10, PROJ.list.slice(0, 24).map(p => Object.assign({ t: p.name, v: p.key, on: p.key === projKey() }, p.in ? { k: fit(String(p.in).toLowerCase(), 84, 9.5) } : {})), it => openProject(it.v), { w: 220 })
 }
-async function openProject (name) { if (name === PROJ.name) return; await saveNow(true); if (!(await loadProject(name))) say('that project would not open'); else await takesBack() }
+async function openProject (key) { if (key === projKey() && !START.on) return; await saveNow(true); if (!(await loadProject(key))) say('that project would not open'); else await takesBack() }      // (while the start page is up no project is open, whatever the song standing in is called)
 /* a take that was being recorded when the app last stopped: its file was made whole on disk as it went, and it is put where
    it was being played — on its track when that is still there */
 async function takesBack () {
-  const list = await NAT.call('takesLeft', { project: PROJ.name })
+  const list = await NAT.call('takesLeft', { project: projKey() })
   if (!Array.isArray(list) || !list.length) return []
   const put = placeTakes(list, list[0].bar)
   if (put.length) { say(`${put.length} take${put.length === 1 ? '' : 's'} brought back`); refreshPool() }
@@ -361,8 +412,9 @@ async function bringBack (t, k) {
   const r = await NAT.call('insert', { track: t.id, id: ins.id, state: ins.state || '', show: 0, at })
   ins.busy = false
   if (r && r.ok) {
-    ins.uid = r.uid; ins.name = r.name; ins.fmt = r.fmt; delete ins.out
+    ins.uid = r.uid; ins.name = r.name; ins.fmt = r.fmt; ins.sc = !!r.key; delete ins.out
     if (ins.off) NAT.call('bypass', { track: t.id, uid: r.uid, off: 1 })
+    keyTold(t, ins)
     if (DISTRUST.delete(ins.id)) NAT.call('distrust', { list: [...DISTRUST].map(id => ({ id })) })          // it opened and the app is still here: trusted again
     say(`${r.name.toLowerCase()} is back`)
   } else say(`${String(ins.name).toLowerCase()} would not open`)
@@ -372,7 +424,7 @@ async function bringBack (t, k) {
 const whenText = ms => { const d = new Date(ms), now = new Date(), day = 86400000, days = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / day), hm = `${d.getHours()}:${pad2(d.getMinutes())}`; return days === 0 ? `today ${hm}` : days === 1 ? `yesterday ${hm}` : `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hm}` }
 async function openRevertMenu () {
   if (!NAT) { say('projects are in the app'); return }
-  const list = await NAT.call('projBackups', { name: PROJ.name })
+  const list = await NAT.call('projBackups', { name: projKey() })
   if (!Array.isArray(list) || !list.length) { say('no earlier copy of this song yet'); return }
   openMenu(Math.round(RX / 2 - 110), TY + 10, list.slice(0, 24).map(b => ({ t: whenText(b.when), v: b.file, when: b.when })), it => revertTo(it.v, it.when), { w: 220 })
 }
@@ -380,9 +432,9 @@ async function revertTo (file, when) {
   if (S.rec) return
   await saveNow(true)
   const cur = serialize()
-  await NAT.call('projSave', { name: PROJ.name, json: cur, backup: 1 })                  // the song as it is now is put aside first: going back can itself be taken back
-  const r = await NAT.call('projBackup', { name: PROJ.name, file })
-  if (!r || !r.ok || !(await loadProject(PROJ.name, r.json))) { say('that copy would not open'); return }
+  await NAT.call('projSave', { name: projKey(), json: cur, backup: 1 })                  // the song as it is now is put aside first: going back can itself be taken back
+  const r = await NAT.call('projBackup', { name: projKey(), file })
+  if (!r || !r.ok || !(await loadProject(projKey(), r.json))) { say('that copy would not open'); return }
   await saveNow(false, true)
   say(`back to ${whenText(when)}`)
 }
@@ -393,7 +445,7 @@ async function projectBoot (hello) {
   CAP.mp3 = !!(hello && hello.mp3)
   if (hello && hello.ins) INPUTS = hello.ins
   NAT.on('dawDevice', d => { if (!d) return; if (d.ins) INPUTS = d.ins; if (d.block) STAT.buf = d.block; if (d.bits) STAT.bits = d.bits; uiDirty('cmd', 'dock') })
-  NAT.on('dawMenu', d => { const f = d && MENU_DO[d.id]; if (f) f() })
+  NAT.on('dawMenu', d => { if (START.on) { startMenu(d && d.id); return } const f = d && MENU_DO[d.id]; if (f) f() })
   NAT.on('dawOpen', d => { if (d && d.name) openProject(String(d.name)) })
   let opened = false
   /* the run before this one did not end by itself: the plug-in that was playing on the thread that failed (or was just being
@@ -413,23 +465,20 @@ async function projectBoot (hello) {
   LOAD.bare = !!(bad && bad.n >= 2)
   if (gone && gone.project) opened = await loadProject(String(gone.project))
   else if (PROJ.test) PROJ.name = 'selftest'
-  else {                                                                           // the project the app was opened with (from the Finder), else the one it was left on
-    const prefs = await NAT.call('prefGet'), last = prefs && prefs.lastProject ? String(prefs.lastProject) : ''
-    if (hello && hello.open) opened = await loadProject(String(hello.open))
-    if (!opened && last) opened = await loadProject(last)
-  }
-  if (!opened) { await natSession(); pushMaster() }                                   // nothing to come back to: the song the app is born with
+  else if (hello && hello.open) opened = await loadProject(String(hello.open))        // the project the app was opened with (from the Finder)
+  if (!opened) { await natSession(); pushMaster() }                                   // nothing is open yet: the song the app is born with stands in
+  if (!opened && (!PROJ.test || hello.selftest === 'start')) openStart(hello)         // and the start page comes up over it: a new project, or one of those the app knows (the check asks for it by name)
   const takes = opened ? await takesBack() : [], bare = LOAD.bare
   LOAD.bare = false
   if (gone) cameBack(gone, cause, opened, takes, bare)
   /* little room left on the disk: said once, since a take needs room and so does every save (under ten gigabytes the app
-     also stops keeping decoded sound ready on the disk and holds it in memory instead) */
-  if (hello && hello.diskFree > 0 && hello.diskFree < 10 * 1073741824 && !PROJ.test) say(`the disk has ${Math.round(hello.diskFree / 1073741824 * 10) / 10} gb left`)
+     also stops keeping decoded sound ready on the disk and holds it in memory instead). The start page says the room left by itself */
+  if (hello && hello.diskFree > 0 && hello.diskFree < 10 * 1073741824 && !PROJ.test && !START.on) say(`the disk has ${Math.round(hello.diskFree / 1073741824 * 10) / 10} gb left`)
   await natReady()
   PROJ.last = PROJ.last || serialize()
-  refreshPool(); setTitle()
+  if (!START.on) { refreshPool(); setTitle() }
   setInterval(() => { if (!drag) saveProject(++PROJ.ticks % 20 === 0 && !S.playing && S.tracks.some(t => (t.inserts || []).length)) }, 3000)      // plug-ins are asked for their settings about once a minute, and never while the song runs
-  NAT.on('dawQuit', () => { saveNow(true).then(() => NAT.call('quit'), () => NAT.call('quit')) })
+  NAT.on('dawQuit', () => { if (typeof quitAsked === 'function') quitAsked(); else saveNow(true).then(() => NAT.call('quit'), () => NAT.call('quit')) })      // (doors.js: it asks first when the song is not as it was last saved)
 }
 /* the menu bar's File: each line does what its key does */
 const MENU_DO = {
@@ -438,6 +487,6 @@ const MENU_DO = {
   fades: () => act.fades(), strip: () => act.strip(), groupregs: () => act.groupRegs(), ungroupregs: () => act.ungroupRegs(), tempofrom: () => act.tempoFrom(), fittempo: () => act.fitTempo(),
   grouptracks: () => groupTracks(), groupsoff: () => KEYS['⇧KeyG'](),
   newtracks: () => openNewTrack(), newaudio: () => newTrack('audio'), newbus: () => newTrack('bus'), duptrack: () => duplicateTrack(S.sel), deltrack: () => deleteTracks(chosen()), renametrack: () => startRename('track', S.sel),
-  new: () => newProject(), open: () => openProjectMenu(), save: () => KEYS['⌘KeyS'](), saveas: () => startRename('saveas'), rename: () => startRename('proj'),
+  new: () => newProject(), open: () => openProjectAsk(), recent: () => openProjectMenu(), save: () => KEYS['⌘KeyS'](), saveas: () => saveAsAsk(), rename: () => startRename('proj'),
   import: () => importAudio(), handoff: () => KEYS['⌘KeyB'](), audio: () => NAT.call('audioSettings'),
 }

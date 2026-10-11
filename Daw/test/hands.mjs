@@ -90,7 +90,14 @@ await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); ok('pressed aga
 await b.sleep(500); await click('[data-a="scene"][data-i="3"]'); await b.sleep(1700)
 { const q = await ev(`return [__daw.S.queued, __daw.curPos()]`); ok('at the bar line the song goes there', q[0] === null && q[1] >= 16 && q[1] < 17, q) }
 await click('[data-a="stop"]'); await ev(`__daw.S.pos = 16`)
-await dbl('[data-a="scene"][data-i="1"]'); ok('twice: it is the cycle', await st('S.cycle.on && S.cycle.a === 4 && S.cycle.b === 12'), await st('S.cycle'))
+await dbl('[data-a="scene"][data-i="1"]'); await b.sleep(80)
+ok('twice: its name can be typed where it stands', await ev(`const el = document.getElementById('rename'); return !el.hidden && document.activeElement === el && el.value === SCENES[1].name`), await ev(`const el = document.getElementById('rename'); return [el.hidden, el.value]`))
+await b.type('second verse'); await key('Enter', 'Enter', 13)
+ok('… and return gives it that name', await ev(`return SCENES[1].name === 'second verse' && document.getElementById('rename').hidden`), await ev('return SCENES[1].name'))
+await ev(`undoEdit(); __daw.flush()`); ok('… which one step takes back', await ev(`return SCENES[1].name === 'verse'`), await ev('return SCENES[1].name'))
+await dbl('[data-a="scene"][data-i="1"]'); await b.sleep(80); await b.type('nothing'); await key('Escape', 'Escape', 27)
+ok('escape leaves the name as it was', await ev(`return SCENES[1].name === 'verse' && document.getElementById('rename').hidden`), await ev('return SCENES[1].name'))
+await rclick('[data-a="scene"][data-i="1"]'); await pick('cycle this part'); ok('its menu makes the part the cycle', await st('S.cycle.on && S.cycle.a === 4 && S.cycle.b === 12'), await st('S.cycle'))
 await key('c', 'KeyC', 67)
 await rclick('[data-a="scene"][data-i="2"]'); ok('the other button opens its menu', await st(`!!S.menu && S.menu.items[0].t === 'rename'`)); await key('Escape', 'Escape', 27)
 await click('[data-a="seek"]', .5, .6); ok('a press on the bars moves the playhead', await st('S.pos > 10'), await st('S.pos'))
@@ -161,6 +168,76 @@ await click('[data-a="undo"]'); ok('undo in the foot', await st('S.tracks[1].vol
 await ev(`document.getElementById('cmd').blur()`)
 await click('[data-a="sheet"]'); ok('keys opens the sheet', await st('!!S.sheet')); await click('[data-a="sheet-close"]', .01, .5); ok('a press closes it', await st('!S.sheet'))
 
+
+// ── a marquee, then the pointer (t, t): pressed inside it, the stretch is cut out at its edges and chosen; command x takes just it ──
+{
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; S.marq = null; S.auto = false; S.flex = false; if (S.sheet) S.sheet = false; setView(true); VX = 0; VY = 0; PXB = fitPXB(); pickTool('marquee'); __daw.redraw()`)
+  const name = await ev(`return (S.tracks.find(t => t.kind === 'audio' && !t.parent && t.regs.some(r => r.b - r.a >= 6)) || {}).name || ''`)
+  const lane = () => ev(`const t = S.tracks.find(x => x.name === ${JSON.stringify(name)}); return t.regs.slice().sort((x, y) => x.a - y.a).map(r => [+r.a.toFixed(3), +r.b.toFixed(3), S.selR.includes(r.id) ? 1 : 0])`)
+  const g = await ev(`const i = S.tracks.findIndex(x => x.name === ${JSON.stringify(name)}), r = S.tracks[i].regs.slice().sort((x, y) => (y.b - y.a) - (x.b - x.a))[0], k = document.getElementById('board').getBoundingClientRect(), z = k.width / W, at = bar => k.left + bx(bar) * z; showRow(i); __daw.redraw(); return { y: k.top + (rowY(i) + S.rh / 2) * z, a: r.a, b: r.b, x1: at(r.a + 1), xm: at(r.a + 2), x3: at(r.a + 3), x5: at(r.a + 5) }`)
+  const was = await lane()
+  await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
+  ok('a marquee over a stretch of one region', await st(`!!S.marq && Math.abs(S.marq.a - ${g.a}) < 1e-6 && Math.abs(S.marq.b - ${g.a + 2}) < 1e-6`), await st('S.marq'))
+  await key('t', 'KeyT', 84); await key('t', 'KeyT', 84)
+  ok('t, t: the pointer, and the marquee still up', await st(`S.tool === 'pointer' && !!S.marq && !S.menu`), await st('[S.tool, !!S.marq]'))
+  await b.click(g.xm, g.y); await b.sleep(60)
+  { const now = await lane(), piece = now.find(r => r[2]); ok('pressed inside it: that stretch alone is a region of its own, and chosen', now.length === was.length + 2 && !!piece && Math.abs(piece[0] - (g.a + 1)) < 1e-6 && Math.abs(piece[1] - (g.a + 3)) < 1e-6 && now.filter(r => r[2]).length === 1 && await st('!S.marq'), now) }
+  await key('x', 'KeyX', 88, 4)
+  { const now = await lane(); ok('command x takes just that stretch', now.length === was.length + 1 && !now.some(r => Math.abs(r[0] - (g.a + 1)) < 1e-6) && await ev('return CLIP.length === 1'), now) }
+  await ev(`undoEdit(); undoEdit(); __daw.redraw()`); ok('two steps back: whole again', JSON.stringify((await lane()).map(r => r.slice(0, 2))) === JSON.stringify(was.map(r => r.slice(0, 2))), await lane())
+  await ev(`pickTool('marquee'); __daw.redraw()`); await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
+  await key('x', 'KeyX', 88, 4)
+  { const now = await lane(); ok('command x with the marquee itself: the same stretch, and nothing more', now.length === was.length + 1 && !now.some(r => r[0] > g.a + 1 - 1e-6 && r[1] < g.a + 3 + 1e-6) && await ev('return CLIP.length === 1'), now) }
+  await ev(`undoEdit(); __daw.redraw()`)
+  await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60); await ev(`pickTool('pointer'); __daw.redraw()`)
+  await b.click(g.x5, g.y); await b.sleep(60)
+  ok('pressed outside it: the marquee is put away and nothing is cut', await st('!S.marq') && (await lane()).length === was.length && await ev('return UNDO.length === 0'), await lane())
+  // copy and paste: the stretch under the marquee, put down at the playhead as often as command v is pressed
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; S.marq = null; pickTool('marquee'); __daw.redraw()`)
+  await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
+  ok('a marquee leads the track it lies on', await ev(`return S.tracks[S.sel].name === ${JSON.stringify(name)}`), await ev('return S.tracks[S.sel].name'))
+  await key('c', 'KeyC', 67, 4)
+  const far = await ev(`jumpTo(SONG_END); return __daw.curPos()`)                          // (the playhead far away, at the end of the song: it is not where the copies go)
+  for (let k = 0; k < 3; k++) await key('v', 'KeyV', 86, 4)
+  { const now = await lane(), at = k => g.a + 3 + 2 * k
+    ok('command v three times: each copy right after the stretch before it, on the track it came from', [0, 1, 2].every(k => now.some(r => Math.abs(r[0] - at(k)) < 1e-6 && Math.abs(r[1] - at(k) - 2) < 1e-6)) && !now.some(r => r[0] >= far + 1 - 1e-6), now)
+    ok('the marquee lies over the last one put down, and the playhead has not moved', await st(`!!S.marq && Math.abs(S.marq.a - ${g.a + 6}) < 1e-6 && Math.abs(S.marq.b - ${g.a + 8}) < 1e-6 && Math.abs(__daw.curPos() - ${far}) < 1e-6 && S.selR.length === 0`), await st('[S.marq, __daw.curPos()]'))
+    ok('each of them one step back', await ev('return UNDO.length === 3')) }
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; S.marq = null; pickTool('marquee'); jumpTo(0); __daw.redraw()`)
+  // a marquee drawn somewhere else says where: the copy begins where that marquee begins
+  await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60); await key('c', 'KeyC', 67, 4)
+  {
+    const dest = await ev(`const i = S.tracks.findIndex(x => x.name === ${JSON.stringify(name)}), t = S.tracks[i], free = t.regs.slice().sort((p, q) => p.a - q.a).reduce((at, r) => Math.max(at, r.b), 1); S.marq = { a: free + 1, b: free + 2, t0: i, t1: i }; __daw.redraw(); return free + 1`)      // (a marquee of one bar in the empty stretch after the track's last region)
+    await key('v', 'KeyV', 86, 4)
+    const now = await lane()
+    ok('a marquee drawn somewhere else: the copy begins where that marquee begins', now.some(r => Math.abs(r[0] - (dest + 1)) < 1e-6 && Math.abs(r[1] - r[0] - 2) < 1e-6) && await st(`!!S.marq && Math.abs(S.marq.a - ${dest}) < 1e-6 && Math.abs(S.marq.b - ${dest + 2}) < 1e-6`), [now, await st('S.marq'), dest])
+    await key('v', 'KeyV', 86, 4)
+    ok('and pressed again, the next one follows it', (await lane()).some(r => Math.abs(r[0] - (dest + 3)) < 1e-6), await lane()) }
+  // command r with a marquee: the same, without the clipboard — and what the clipboard held is still there
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; S.marq = null; pickTool('pointer'); jumpTo(0); __daw.redraw()`)
+  await b.click(g.x5, g.y); await key('c', 'KeyC', 67, 4)
+  { const held = await ev('return JSON.stringify(CLIP.map(c => [c.r.a, c.r.b]))')
+    await ev(`S.selR = []; pickTool('marquee'); __daw.redraw()`); await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
+    for (let k = 0; k < 3; k++) await key('r', 'KeyR', 82, 4)
+    const now = await lane(), at = k => g.a + 3 + 2 * k
+    ok('command r three times with a marquee: the stretch said again, each right after the last', [0, 1, 2].every(k => now.some(r => Math.abs(r[0] - at(k)) < 1e-6 && Math.abs(r[1] - at(k) - 2) < 1e-6)) && await st(`!!S.marq && Math.abs(S.marq.a - ${g.a + 6}) < 1e-6 && Math.abs(S.marq.b - ${g.a + 8}) < 1e-6`) && await ev('return UNDO.length === 3'), [now, await st('S.marq')])
+    ok('and the clipboard holds what it held', await ev('return JSON.stringify(CLIP.map(c => [c.r.a, c.r.b]))') === held && await ev('return !CLIP.rows'), await ev('return JSON.stringify(CLIP.map(c => [c.r.a, c.r.b]))')) }
+  // copied from a marquee, then command r, then command v: the paste follows what command r put down
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; S.marq = null; pickTool('marquee'); __daw.redraw()`)
+  await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60); await key('c', 'KeyC', 67, 4); await key('r', 'KeyR', 82, 4); await key('v', 'KeyV', 86, 4)
+  { const now = await lane(); ok('c, r, v: three stretches in a row', [g.a + 3, g.a + 5].every(x => now.some(r => Math.abs(r[0] - x) < 1e-6 && Math.abs(r[1] - x - 2) < 1e-6)) && await st(`!!S.marq && Math.abs(S.marq.a - ${g.a + 4}) < 1e-6`), [now, await st('S.marq')]) }
+  await ev(`while (UNDO.length) undoEdit(); S.marq = null; pickTool('pointer'); jumpTo(0); __daw.redraw()`)
+  await b.click(g.xm, g.y); await key('c', 'KeyC', 67, 4); await ev(`jumpTo(${far})`); await key('v', 'KeyV', 86, 4); await key('v', 'KeyV', 86, 4)
+  { const now = await lane(), put = now.filter(r => r[0] >= far + 1 - 1e-6), len = g.b - g.a
+    ok('a region copied as a region: put down twice, end to end, the last one chosen', put.length === 2 && Math.abs(put[1][0] - put[0][1]) < 1e-6 && Math.abs(put[0][1] - put[0][0] - len) < 1e-6 && put[1][2] === 1 && put[0][2] === 0 && await st('!S.marq'), now) }
+  await ev(`while (UNDO.length) undoEdit(); S.selR = []; jumpTo(0); __daw.redraw()`)
+  // with the lines showing, the delete key still takes the marquee's stretch
+  await ev(`pickTool('marquee'); S.auto = true; __daw.redraw()`); await b.dragTo(g.x1, g.y, g.x3, g.y, 8); await b.sleep(60)
+  await key('Backspace', 'Backspace', 8)
+  { const now = await lane(); ok('with the lines showing, a marquee and the delete key take the stretch', now.length === was.length + 1 && !now.some(r => r[0] > g.a + 1 - 1e-6 && r[1] < g.a + 3 + 1e-6), now) }
+  await ev(`while (UNDO.length) undoEdit(); S.auto = false; S.selR = []; S.marq = null; pickTool('pointer'); __daw.redraw()`)
+  await ev(`S.selR = []; __daw.redraw()`)
+}
 ok('no errors on the page', (await ev('return window.__errs')).length === 0 && b.errors.length === 0, [await ev('return window.__errs'), b.errors])
 console.log(out.join('\n')); console.log(bad.length ? `\n${bad.length} FAILED` : '\nall passed')
 await b.shot(`t1-end-${W}x${H}.png`)

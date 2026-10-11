@@ -22,6 +22,10 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 #cmd::selection, #pk-q::selection, #rename::selection { background: rgba(236, 234, 228, .26) }
 #rename { position: absolute; box-sizing: border-box; padding: 0 4px; margin: 0; border: 1px solid rgba(236, 234, 228, .5); border-radius: 2px; outline: 0; background: #0E0E0E; color: var(--ink); caret-color: var(--ink); -webkit-user-select: text; user-select: text }
 #rename[hidden] { display: none }
+#st-find { position: absolute; height: 18px; padding: 0; margin: 0; border: 0; outline: 0; border-radius: 0; background: transparent; color: var(--ink); caret-color: var(--ink); font: 400 9.5px/18px var(--f); -webkit-user-select: text; user-select: text }
+#st-type { position: absolute; box-sizing: border-box; padding: 0 4px; margin: 0; border: 1px solid rgba(236, 234, 228, .5); border-radius: 2px; outline: 0; background: #0E0E0E; color: var(--ink); caret-color: var(--ink); font: 400 11px var(--f); text-align: center; -webkit-user-select: text; user-select: text }
+#st-find[hidden], #st-type[hidden] { display: none }
+#st-find::selection, #st-type::selection { background: rgba(236, 234, 228, .26) }
 /* the list of plug-ins from outside, opened from the patch */
 #picker { position: absolute; left: 24px; top: 474px; width: 304px; height: 338px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--k2); border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px }
 #picker[hidden] { display: none }
@@ -43,7 +47,7 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 <div id="room"><div id="board">
 <svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="1440" height="900" fill="none" role="application" aria-label="slur studio">
 <defs><clipPath id="tl"><rect x="292" y="70" width="1148" height="808"/></clipPath><clipPath id="ln"><rect x="292" y="112" width="1148" height="766"/></clipPath><clipPath id="hdc"><rect x="0" y="112" width="292" height="766"/></clipPath></defs>
-<g id="g-lanes"></g><g id="g-rec" clip-path="url(#ln)"></g><g id="g-drop"></g><g id="g-head"></g><g id="g-ruler"></g><g id="g-scenes"></g><g id="g-play" clip-path="url(#tl)"></g><g id="g-info"></g><g id="g-dock"></g><g id="g-slur"></g><g id="g-top"></g><g id="g-cmd"></g><g id="g-look"></g><g id="g-hand"></g><g id="g-ask"></g><g id="g-new"></g><g id="g-back"></g><g id="g-sheet"></g><g id="g-menu"></g>
+<g id="g-lanes"></g><g id="g-rec" clip-path="url(#ln)"></g><g id="g-drop"></g><g id="g-head"></g><g id="g-ruler"></g><g id="g-scenes"></g><g id="g-play" clip-path="url(#tl)"></g><g id="g-info"></g><g id="g-dock"></g><g id="g-slur"></g><g id="g-top"></g><g id="g-cmd"></g><g id="g-look"></g><g id="g-hand"></g><g id="g-ask"></g><g id="g-new"></g><g id="g-back"></g><g id="g-sheet"></g><g id="g-start"></g><g id="g-menu"></g>
 </svg>
 <input id="cmd" type="text" value="kick -3 db" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="say what to change">
 <input id="rename" type="text" hidden autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="name">
@@ -56,6 +60,8 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 </script>
 <script src="sound.js"></script>
 <script src="kit.js"></script>
+<script src="lang.js"></script>
+<script src="lang.ko.js"></script>
 <script src="engine.js"></script>
 <script src="ui.js"></script>
 <script src="edit.js"></script>
@@ -64,7 +70,18 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="rec.js"></script>
 <script src="flex.js"></script>
 <script src="project.js"></script>
+<script src="start.js"></script>
+<script src="say.js"></script>
 <script src="native.js"></script>
+<script src="midi.js"></script>
+<script src="pics.js"></script>
+<script src="inst.js"></script>
+<script src="keys.js"></script>
+<script src="grid.js"></script>
+<script src="stretch.js"></script>
+<script src="doors.js"></script>
+<script src="folders.js"></script>
+<script src="roll.js"></script>
 <script src="selftest.js"></script>
 <script src="bench.js"></script>
 <script>boot()</script>

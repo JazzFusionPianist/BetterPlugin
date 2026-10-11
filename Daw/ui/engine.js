@@ -130,20 +130,21 @@ function swatch (fam, f) {
   if (e) { h = e[0][0] + (e[1][0] - e[0][0]) * f; L = e[0][1] + (e[1][1] - e[0][1]) * f; C = e[0][2] + (e[1][2] - e[0][2]) * f } else { L = fam === 'bus' ? .62 : .3 + .5 * f; C = .01; h = 85 }
   return { c: oklch(L, C, h), deep: oklch(clamp(L - .42, .13, .3), C * .6, h), sel: oklch(Math.min(.94, L + .17), C * .7, h), on: L < .58 ? INK : K0 }
 }
-/* every track's colour and outline, worked out again whenever tracks come, go, move or are renamed */
-function repaint () {
+/* every track's colour and outline, worked out again whenever tracks come, go, move or are renamed. (list: the tracks of
+   a project that is not the open one, painted the same way — the start page draws them) */
+function repaint (list = S.tracks) {
   const fams = new Map(), loose = []
-  for (const t of S.tracks) { t.fam = famOf(t); if (t.kind === 'audio') { if (t.fam && t.fam !== 'bus') { if (!fams.has(t.fam)) fams.set(t.fam, []); fams.get(t.fam).push(t) } else loose.push(t) } }
-  for (const t of S.tracks) {
+  for (const t of list) { t.fam = famOf(t); if (t.kind === 'audio') { if (t.fam && t.fam !== 'bus') { if (!fams.has(t.fam)) fams.set(t.fam, []); fams.get(t.fam).push(t) } else loose.push(t) } }
+  for (const t of list) {
     let fam = t.fam, f = .35
-    if (t.kind === 'stack') { const kids = S.tracks.filter(c => c.parent === t.id), count = {}; for (const c of kids) { const cf = famOf(c); if (cf) count[cf] = (count[cf] || 0) + 1 } fam = famByName(t.name) || Object.keys(count).sort((a, b) => count[b] - count[a])[0] || 'fx'; f = .3 }
+    if (t.kind === 'stack') { const kids = list.filter(c => c.parent === t.id), count = {}; for (const c of kids) { const cf = famOf(c); if (cf) count[cf] = (count[cf] || 0) + 1 } fam = famByName(t.name) || Object.keys(count).sort((a, b) => count[b] - count[a])[0] || 'fx'; f = .3 }
     else if (t.kind === 'audio') {
       if (fam && fams.has(fam)) { const m = fams.get(fam); f = m.length > 1 ? m.indexOf(t) / (m.length - 1) : .35 }
       else { const k = loose.indexOf(t); fam = PIG_ORDER[k % 5]; f = .35 + .12 * (Math.floor(k / 5) % 3) }          // a sound that was not recognised still gets a pigment of its own
     }
     const sw = t.col ? swatch(t.col[0], t.col[1] / 6) : swatch(fam, f)
     t.c = sw.c; t.deep = sw.deep; t.csel = sw.sel; t.on = sw.on
-    t.outline = t.shape || (t.midi ? 'notes' : t.kind === 'audio' && t.fam && SHAPES[t.fam] ? t.fam : 'plain')
+    t.outline = t.shape || (t.midi || t.inst ? 'notes' : t.kind === 'audio' && t.fam && SHAPES[t.fam] ? t.fam : 'plain')
   }
 }
 /* a region's own colour and outline, when it was given one by hand; else its track's */
@@ -384,7 +385,7 @@ function retime (from, to) { return retimeBy(to / from) }
    whether it follows the tempo by being stretched instead (it stays as many bars, and what plays it is rendered again). */
 function retimeReg (r, k) {
   delete r._p
-  if (r.loop) return false
+  if (r.loop || r.notes) return false                                                   // (notes keep their beats, as the song's own loops do)
   if (r.fx) { r.rate = (r.rate || 1) * k; r.sec = (r.sec || 0) / k; for (const m of r.flex || []) m.d /= k; return true }
   r.b = r.a + (r.b - r.a) * k; r.off = (r.off || 0) * k; if (r.srcBars) r.srcBars *= k; r.fi = (r.fi || 0) * k; r.fo = (r.fo || 0) * k; if (r.xo) r.xo *= k; scaleNotes(r, k)
   return false

@@ -12,6 +12,8 @@
 #                           from outside; the next start must name the plug-in and leave it out
 #   ./selftest.sh stuck     only this: the app is closed while a print is inside a plug-in that never comes back; it must go by
 #                           itself after its wait, and the next start must name the plug-in and leave it out
+#   ./selftest.sh start     only this: the app opened as a hand opens it. Its window must fill the screen; its start page must come
+#                           up by itself, write nothing while it waits, make a project from a template, list it, and open it
 #   ./selftest.sh quitprint only this: the app is closed while it prints stems. It must be gone within a few seconds, leave
 #                           no half-made file, and end as an app ends by itself
 # What runs is a throwaway copy under a name of its own ("Slur DAW self-test"), which opens no kind of file and is taken
@@ -174,6 +176,24 @@ LEFT="$(pgrep -f "Slur DAW self-test.app/Contents/MacOS" | wc -l | tr -d ' ')"
 "$LSR" -u "$A" > /dev/null 2>&1 || true
 "$LSR" -u "$S" > /dev/null 2>&1 || true
 if [ "$LEFT" = "0" ]; then rm -rf "$B/selftest"; fi
+if [ "$MODE" = "start" ]; then
+  python3 - "$LOGS" <<'PY'
+import json, os, sys
+try: r = json.load(open(os.path.join(sys.argv[1], 'selftest.json')))
+except Exception: r = {}
+s, page = r.get('start') or {}, r.get('page') or {}
+up, made, again, opened = s.get('up') or {}, s.get('made') or {}, s.get('again') or {}, s.get('opened') or {}
+listed = again.get('listed') or []
+given = up.get('written') or []                             # the projects the check was handed (test/projects): the page lists them, and makes none while it waits
+fill = up.get('fill') or {}
+good = (bool(fill.get('window')) and fill.get('window') == fill.get('screen') and up.get('on') is True and up.get('held') == 1 and up.get('list') == len(given) and 'untitled' not in given and up.get('free') is True and up.get('cmdHidden') is True and up.get('played') is False and len(up.get('templates') or []) == 5
+        and made.get('on') is False and made.get('held') == 0 and made.get('name') == 'untitled' and made.get('tempo') == 96 and len(made.get('tracks') or []) == 8 and made.get('sends') == ['lead vox', 'backing vox'] and (made.get('plate') or 0) > 0 and sorted(made.get('written') or []) == sorted(given + ['untitled']) and made.get('undo') == 0
+        and again.get('on') is True and len(listed) == len(given) + 1 and listed[0].get('name') == 'untitled' and listed[0].get('tracks') == 8 and listed[0].get('tempo') == 96 and all((p.get('tracks') or 0) > 0 and (p.get('bytes') or 0) > 0 for p in listed)
+        and opened.get('on') is False and opened.get('held') == 0 and opened.get('name') == 'untitled' and opened.get('tracks') == 8 and opened.get('tempo') == 96 and not page.get('errors'))
+print('the start page: up', up, '— made', made, '— again', again, '— opened', opened, '— page', page)
+print('the start page: as it should be' if good else 'the start page: NOT as it should be')
+PY
+fi
 if [ -n "$STUCK" ]; then echo "STUCK: nothing written for two minutes after step '$STUCK'; the check was put down"; fi
 echo "second copy: $SECOND, still open afterwards: $STAYED"
 echo "check copies still running: $LEFT"

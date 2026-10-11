@@ -20,6 +20,31 @@ async function runSelfTest (mode) {
   const keyDown = (code, mods) => window.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: code, code, bubbles: true, cancelable: true }, mods || {})))
   const pickMenu = async label => { flush(); await sleep(40); const m = S.menu; if (!m) return false; const i = m.items.findIndex(it => it.t === label); if (i < 0) { S.menu = null; uiDirty('menu'); flush(); return false } const it = m.items[i]; S.menu = null; uiDirty('menu'); m.pick(it); await sleep(80); flush(); return true }
   await sleep(600)
+  /* only this: the app opened the way a hand opens it. Its window must be as large as the screen leaves a window; the
+     start page must come up by itself, knowing the device and the room on the disk; with nothing saved yet its list is empty and nothing gets written while it waits; command n makes a
+     project from the chosen template with the tempo set there; brought up again, the page lists that project with what it
+     read from its file, and return opens it */
+  if (mode === 'start') {
+    const res = {}, names = async () => ((await NAT.call('projList')) || []).map(p => p.name)
+    for (let k = 0; k < 60 && !(START.on && START.read); k++) await sleep(100)
+    await sleep(3600)                                                                    // the quiet save comes round once meanwhile
+    flush(); await NAT.call('testSnap', { name: 'selftest-start-1-first.png' }); await sleep(250)
+    res.up = { on: START.on, held: PROJ.hold, list: START.list.length, written: await names(), dev: START.dev, free: START.free > 0, cmdHidden: getComputedStyle(document.getElementById('cmd')).display === 'none', templates: BEGIN.map(b => beginLook(b).map(t => t.kind).join(' ')) }
+    keyDown('Space'); await sleep(200); res.up.played = S.playing
+    res.up.fill = await NAT.call('testFill')                                            // the window, against what the screen leaves it: it opens as large as that
+    START.tpl = 2; START.num.tempo = 96; uiDirty('start'); flush()
+    keyDown('KeyN', { metaKey: true }); for (let k = 0; k < 80 && (START.on || START.busy); k++) await sleep(100)
+    await sleep(300)
+    res.made = { on: START.on, held: PROJ.hold, name: PROJ.name, tempo: S.tempo, tracks: S.tracks.map(t => `${t.name} ${t.kind}`), sends: S.tracks.filter(t => t.sends.length).map(t => t.name), plate: patchNow(S.tracks.find(t => t.name === 'plate')).space, written: await names(), undo: UNDO.length }
+    await snap('selftest-start-2-made.png')
+    openStart(null); for (let k = 0; k < 60 && !START.read; k++) await sleep(100)
+    flush(); await NAT.call('testSnap', { name: 'selftest-start-3-again.png' }); await sleep(250)
+    res.again = { on: START.on, listed: START.list.map(p => ({ name: p.name, tracks: p.f ? p.f.count : -1, tempo: p.f ? p.f.tempo : -1, bytes: p.f ? p.f.bytes : -1, saved: savedText(p.modified) })) }
+    keyDown('Enter'); for (let k = 0; k < 80 && START.on; k++) await sleep(100)
+    await sleep(300)
+    res.opened = { on: START.on, held: PROJ.hold, name: PROJ.name, tracks: S.tracks.length, tempo: S.tempo }
+    await note('start', res); await note('page', { errors: window.__errs || [] }); await NAT.call('testDone'); return
+  }
   if (mode === 'bench' || mode === 'benchdevice') { await runBench({ sleep, note, step, device: mode === 'benchdevice' }); await note('page', { errors: window.__errs || [] }); await NAT.call('testDone'); return }      // only this: the measure
   /* only this: a bad end, and what comes back after it. First run (--selftest=crash): a song with a plug-in on one track and a
      take running on another; then that plug-in brings the app down in the middle of a block. The check is then started
@@ -599,7 +624,7 @@ async function runSelfTest (mode) {
     return res
   })
   S.sheet = true; await snap('selftest-13-keys.png'); S.sheet = false; __daw.redraw()
-  await step('renameBoxes', async () => { const box = () => { const r = document.getElementById('rename').getBoundingClientRect(), b = document.getElementById('board').getBoundingClientRect(), k = W / b.width; return [Math.round((r.left - b.left) * k), Math.round((r.top - b.top) * k), Math.round(r.width * k), Math.round(r.height * k)] }; const out = {}; VY = 0; __daw.redraw(); startRename('track', 1); out.track = box(); await NAT.call('testSnap', { name: 'selftest-14-rename.png' }); await sleep(300); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('tempo'); out.tempo = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('scene', 2); out.scene = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('key'); out.key = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('saveas'); out.saveas = box(); out.ask = !!S.ask; document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); out.hidden = document.getElementById('rename').hidden; return out })
+  await step('renameBoxes', async () => { const box = () => { const r = document.getElementById('rename').getBoundingClientRect(), b = document.getElementById('board').getBoundingClientRect(), k = W / b.width; return [Math.round((r.left - b.left) * k), Math.round((r.top - b.top) * k), Math.round(r.width * k), Math.round(r.height * k)] }; const out = {}; VY = 0; __daw.redraw(); startRename('track', 1); out.track = box(); await NAT.call('testSnap', { name: 'selftest-14-rename.png' }); await sleep(300); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('tempo'); out.tempo = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('scene', 2); out.scene = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('key'); out.key = box(); document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); startRename('proj'); out.proj = box(); out.ask = !!S.ask; document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); out.hidden = document.getElementById('rename').hidden; return out })
   await step('look', async () => {
     const t = S.tracks[0], r = t.regs[0], c0 = t.c, o0 = t.outline
     S.sel = 0; S.selR = []; __daw.redraw()
@@ -854,14 +879,479 @@ async function runSelfTest (mode) {
     res.end = { tempo: S.tempo, sameLanes: lay() === was }
     return res
   })
+  /* save as, to a place outside the folder the app keeps projects in (the check has no hands for the mac's panel: the app
+     answers for it with a folder of the check's own). The song goes there with its sounds, is known by where it lies, is
+     renamed where it lies, stands in the list of projects to open, and opens again from there. */
+  /* the program's folders under its old name (slur daw) come to lie under its new one: on stand-ins of the check's own */
+  await step('moved', async () => NAT.call('testMoved'))
+  /* the settings window: what it reads of the device, a thing set through it (the threads: the check never moves the
+     machine's device), the window itself and a picture of its page */
+  await step('settings', async () => {
+    const d = await NAT.call('settingsRead'), res = { outs: (d.outs || []).length, ins: (d.ins || []).length, hasOut: (d.outs || []).includes(d.out), rate: d.rate, rates: (d.rates || []).length, block: d.block, blocks: (d.blocks || []).length, threads: d.threads, asked: d.asked, cores: d.cores }
+    res.two = (await NAT.call('settingsSet', { what: 'threads', value: 2 })).ok && (await NAT.call('settingsRead')).threads
+    res.all = (await NAT.call('settingsSet', { what: 'threads', value: 0 })).ok && (await NAT.call('settingsRead')).asked
+    res.device = (await NAT.call('settingsSet', { what: 'block', value: d.block })).why                         // left alone by the check
+    res.unknown = (await NAT.call('settingsSet', { what: 'nothing', value: 1 })).why
+    await NAT.call('testMenu', { id: 'settings' }); await sleep(1500)
+    res.window = await NAT.call('testSettings', { name: 'selftest-settings.png' }); await sleep(600)
+    res.inMenu = (await NAT.call('testMenus')).titles.split(' | ')[0]
+    await NAT.call('settingsClose'); await sleep(200)
+    res.closed = !(await NAT.call('testSettings', {})).open
+    return res
+  })
+  /* the language of the settings: the room writes itself again in korean and back, a name someone gave stays as it was given */
+  await step('language', async () => {
+    const texts = () => [...document.querySelectorAll('#svg text')].map(t => t.textContent), has = w => texts().includes(w), res = { was: LANG.now }
+    S.panel.on = true; S.panel.tab = 'mixer'; setView(true); __daw.redraw(); flush()
+    res.english = { mixer: has('mixer'), tracks: has('tracks'), a: has('믹서') }
+    res.set = (await NAT.call('settingsSet', { what: 'lang', value: 'ko' })).ok; await sleep(400); __daw.redraw(); flush()
+    res.korean = { now: LANG.now, mixer: has('믹서'), tracks: has('트랙'), english: has('mixer'), name: has(S.tracks[0].name), read: (await NAT.call('settingsRead')).lang }
+    await snap('selftest-language-ko.png')
+    await NAT.call('settings', { part: 'general' }); await sleep(1500); res.window = await NAT.call('testSettings', { name: 'selftest-settings-ko.png' }); await sleep(500); await NAT.call('settingsClose')
+    res.back = (await NAT.call('settingsSet', { what: 'lang', value: 'en' })).ok; await sleep(400); __daw.redraw(); flush()
+    res.again = { now: LANG.now, mixer: has('mixer'), korean: has('믹서') }
+    S.panel.on = false; setView(true); __daw.redraw()
+    return res
+  })
+  await step('elsewhere', async () => {
+    const tail = k => String(k).replace(/^.*\/Slur DAW self-test\//, ''), home = projKey(), res = { home }
+    await openProject('selftest copy'); await sleep(300); await refreshPool()
+    const from = projKey(), pool0 = (PROJ.pool || []).length, tracks0 = S.tracks.length, lanes0 = S.tracks.map(t => t.regs.length).join(' ')
+    await NAT.call('testMenu', { id: 'saveas' })
+    for (let k = 0; k < 150 && (projKey() === from || saveAsAsk.busy); k++) await sleep(100)
+    await refreshPool()
+    res.saved = { key: tail(projKey()), name: PROJ.name, outside: PROJ.at[0] === '/', pool: [pool0, (PROJ.pool || []).length], said: S.last && S.last.say }
+    const there = projKey()
+    newTrack('audio'); res.write = await saveNow(true)
+    res.onDisk = JSON.parse((await NAT.call('projLoad', { name: there })).json).tracks.length - tracks0             // the track just made is in the file that lies there
+    res.old = JSON.parse((await NAT.call('projLoad', { name: from })).json).tracks.length - tracks0                 // and not in the one it was copied from
+    await renameProject('selftest moved'); res.renamed = { key: tail(projKey()), name: PROJ.name, oldGone: !(await NAT.call('projLoad', { name: there })).ok }
+    const moved = projKey()
+    res.same = (await NAT.call('projCopy', { from: moved, to: moved })).why
+    res.inside = (await NAT.call('projCopy', { from, to: moved + '/audio/in.sls' })).why
+    res.taken = (await NAT.call('projCopy', { from, to: moved })).why
+    res.listed = ((await NAT.call('projList', { also: [moved, there, '/nowhere/x.sls'] })) || []).filter(p => p.in).map(p => [p.name, p.in])
+    await openProject(from); await sleep(300); res.away = [projKey(), S.tracks.length - tracks0]
+    await openProject(moved); await sleep(300); await refreshPool()
+    res.again = { key: tail(projKey()), name: PROJ.name, tracks: S.tracks.length - tracks0, lanes: S.tracks.slice(0, tracks0).map(t => t.regs.length).join(' ') === lanes0, pool: (PROJ.pool || []).length }
+    await playFrom(0); res.heard = await listen(1000); halt(false)
+    await openProject(home); await sleep(300); res.back = projKey()
+    return res
+  })
+  /* the mac's own panels do come up (not part of the whole check: they show on the screen for a moment — ./selftest.sh steps:panels).
+     Each is looked at and closed by its cancel: nothing is saved, nothing opened. */
+  if (wanted) await step('panels', async () => {
+    const res = { from: projKey() }
+    const up = async cancel => { const r = await NAT.call('testPanel', { cancel: cancel ? 1 : 0 }); return String(r.up).replace(/\/\S.*\/Slur DAW self-test\//, '') }
+    let ans = null
+    NAT.call('projWhere', { from: projKey(), name: `${PROJ.name} 2`, panel: 1 }).then(r => { ans = r })
+    for (let k = 0; k < 40 && !(await up()); k++) await sleep(100)
+    await sleep(600); res.save = await up(true)
+    for (let k = 0; k < 40 && !ans; k++) await sleep(100)
+    res.saveCancelled = ans; ans = null
+    NAT.call('projPick', { from: projKey(), panel: 1 }).then(r => { ans = r })
+    for (let k = 0; k < 40 && !(await up()); k++) await sleep(100)
+    await sleep(600); res.open = await up(true)
+    for (let k = 0; k < 40 && !ans; k++) await sleep(100)
+    res.openCancelled = ans; res.still = projKey()
+    return res
+  })
   await step('menuBar', async () => {
     const titles = (await NAT.call('testMenus')).titles
     S.ho.open = false; await NAT.call('testMenu', { id: 'handoff' }); await sleep(150); const handOff = S.ho.open; S.ho.open = false
-    await NAT.call('testMenu', { id: 'saveas' }); await sleep(150); const ask = !!S.ask; document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await NAT.call('testMenu', { id: 'open' }); await sleep(400); const list = S.menu ? S.menu.items.map(it => it.t) : null; S.menu = null; uiDirty('menu'); flush()
+    await NAT.call('testMenu', { id: 'rename' }); await sleep(150); const ask = !!S.ask; document.getElementById('rename').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await NAT.call('testMenu', { id: 'recent' }); await sleep(400); const list = S.menu ? S.menu.items.map(it => it.t) : null; S.menu = null; uiDirty('menu'); flush()
     if (S.sheet) toggleSheet(); await NAT.call('testMenu', { id: 'keys' }); await sleep(150); const keys = !!S.sheet; if (S.sheet) toggleSheet()      // the app menu's key command assignments: the list of keys, for now
     await NAT.call('testMenu', { id: 'newtracks' }); await sleep(150); const newTracks = !!S.newT; closeNewTrack(); flush()                            // the track menu's first line: the new-track list
     return { titles, handOff, ask, list, keys, newTracks }
+  })
+  /* ── tracks of notes ──
+     The pitch of a sound the app holds, read from a stretch of its samples (4096 of them, from `sec` seconds in). */
+  const pitchOf = async (key, sec) => {
+    const w = await NAT.call('wave', { key, from: Math.round(sec * SND_SR), to: Math.round(sec * SND_SR) + 4096, n: 4096 })
+    if (!w || !w.ok) return 0
+    const x = w.hi
+    let first = -1, last = -1, c = 0
+    for (let i = 1; i < x.length; i++) if (x[i - 1] < 0 && x[i] >= 0) { const at = i - 1 - x[i - 1] / (x[i] - x[i - 1]); if (first < 0) first = at; else c++; last = at }
+    return c > 0 ? +(w.rate * c / (last - first)).toFixed(1) : 0
+  }
+  const notesOn = (t, a, b, list) => { let r = null; edit(() => { r = mkReg({ a, b, loop: false, notes: list.map(([tt, d, n, v]) => mkNote(tt, d, n, v == null ? 110 : v)) }); t.regs.push(r) }); return r }
+  const key = (st, d1, d2) => NAT.call('key', { st, d1, d2 })
+  /* the room's own synth plays the notes on its lane: heard where they are and not before; a' is 440; silent, soloed away,
+     and transposed by its region; printed twice it is the same to the last bit, however many threads */
+  await step('notes', async () => {
+    halt(false); if (S.cycle.on) keyDown('KeyC')
+    const res = {}, n0 = S.tracks.length
+    const t = newInstTrack('synth', 'sub bass'); await natSession(); await sleep(250)
+    res.made = { tracks: S.tracks.length - n0, name: t.name, kind: t.kind, inst: t.inst.kind, sound: t.inst.sound, outline: (repaint(), t.outline), cells: cellsOf(t).map(c => c.t).join(' '), engineTracks: (await NAT.call('testInfo')).tracks }
+    const r = notesOn(t, 3, 4, [[0, 3.6, 69]]); await natSession(); await sleep(150)
+    res.before = await only(t, async () => { await playFrom(1); return listen(500) }); halt(false)
+    res.heard = await only(t, async () => { await playFrom(2); return listen(800) }); halt(false)
+    await sleep(900); res.afterStop = await only(t, () => listen(300))
+    S.selR = [r.id]; await bounceInPlace(); await sleep(200)
+    const b = S.tracks.find(x => x.name === `${t.name} bounce`), br = b && b.regs[0]
+    res.bounce = { track: !!b, onATrackOfSound: !!b && !b.inst, sourceSilent: r.mute, pitch: br ? await pitchOf(br.key, .6) : 0, sec: br ? +br.sec.toFixed(2) : 0 }
+    if (b) await deleteTracks([b]); r.mute = false
+    edit(() => { r.tr = 12 }); await natSession(); await sleep(100)
+    S.selR = [r.id]; await bounceInPlace(); await sleep(200)
+    const b2 = S.tracks.find(x => x.name === `${t.name} bounce`)
+    res.octaveUp = b2 && b2.regs[0] ? await pitchOf(b2.regs[0].key, .6) : 0
+    if (b2) await deleteTracks([b2]); r.mute = false; edit(() => { r.tr = 0 })
+    edit(() => { setNotes(r, [mkNote(0, .9, 57, 110), mkNote(1, .9, 60, 100), mkNote(2, .9, 64, 90), mkNote(3, .9, 69, 120)]) }); await natSession(); await sleep(100)
+    const m = async (fresh, n) => { if (n != null) await NAT.call('testHands', { n }); const x = await NAT.call('testMeasure', { a0: 2, a1: 3.5, fresh: 1 }); return [x.mark, +x.sum.toFixed(3)] }
+    for (const x of S.tracks) x.solo = x === t; applyAll(); await sleep(60)
+    const one = await m(1, 0), again = await m(1, 0), many = await m(1, 3)
+    await NAT.call('testHands', { n: -1 })
+    for (const x of S.tracks) x.solo = false; applyAll()
+    res.print = { sounds: one[1] > 1, sameTwice: one[0] === again[0], sameWithMoreThreads: one[0] === many[0], mark: one[0] }
+    r.mute = true; await natSession(); await sleep(100)
+    res.regionSilent = await only(t, async () => { await playFrom(2); return listen(600) }); halt(false)
+    r.mute = false; await natSession()
+    await snap('selftest-19-notes.png')
+    return res
+  })
+  /* the keys: a key played by hand sounds on the chosen track of notes, and on no other; the computer's own keys are a keyboard
+     when they are switched on, and commands again when they are off */
+  await step('keys', async () => {
+    halt(false)
+    const res = {}, t = S.tracks.find(isInst) || newInstTrack('synth', 'sub bass')
+    await natSession(); leadTrack(S.tracks.indexOf(t)); flush(); await sleep(150)
+    res.inputs = await NAT.call('keyInputs')
+    await key(0x90, 69, 110); res.down = await only(t, () => listen(500))
+    await key(0x80, 69, 0); await sleep(900); res.up = await only(t, () => listen(300))
+    leadTrack(S.tracks.indexOf(track('kick'))); flush(); await sleep(150)
+    await key(0x90, 69, 110); res.otherTrackChosen = await listen(400); await key(0x80, 69, 0)
+    t.arm = true; uiDirty('head'); flush(); await sleep(150)
+    await key(0x90, 69, 110); res.armedThoughNotChosen = await only(t, () => listen(400)); await key(0x80, 69, 0); await sleep(300)
+    t.arm = false; leadTrack(S.tracks.indexOf(t)); flush(); await sleep(150)
+    const autoWas = S.auto
+    keyDown('KeyK', { metaKey: true }); await sleep(50)
+    res.typing = { on: TYPE.on, said: S.last && S.last.say }
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); res.typed = await only(t, () => listen(450))
+    /* its sheet: up over the lanes, naming the track, the held key lit; a key of its piano pressed with the pointer is heard too */
+    { flush(); const g = document.getElementById('g-keys'); res.typing.sheet = { drawn: g.innerHTML.length > 1000, names: g.textContent.includes(t.name), lit: g.innerHTML.includes(`fill="${t.c}"`) }
+      await snap('selftest-29-keyboard.png')
+      for (const x of S.tracks) x.solo = x === t; applyAll()
+      const [mx, my] = mid('[data-a="kb"][data-k="key"][data-v="7"]', .5, .8)
+      await NAT.call('testMeter'); fire('pointerdown', mx, my); await sleep(60); const held = [...TYPE.down.keys()].includes('pointer'); await sleep(350); const m = await NAT.call('testMeter')
+      fire('pointerup', mx, my, window); await sleep(60)
+      for (const x of S.tracks) x.solo = false; applyAll()
+      res.typing.sheet.pointer = { held, letGo: ![...TYPE.down.keys()].includes('pointer'), rms: +m.rms.toFixed(4) } }
+    res.typing.letterWasNoCommand = S.auto === autoWas
+    await key(0x90, 72, 100); await sleep(80)
+    leadTrack(S.tracks.indexOf(track('kick'))); flush(); await sleep(700); res.keysLetGoWhenTheTrackIsLeft = await only(t, () => listen(300))      // (two keys were down on it: both come up)
+    document.body.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); await key(0x80, 72, 0)
+    keyDown('KeyK', { metaKey: true }); await sleep(50); res.typing.off = !TYPE.on
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); res.typing.letterIsACommandAgain = S.auto !== autoWas
+    if (S.auto !== autoWas) toggleAuto()
+    leadTrack(S.tracks.indexOf(t)); flush(); await sleep(150)
+    await key(0x90, 64, 110); await sleep(200); const ringing = await only(t, () => listen(300))
+    keyDown('Numpad0'); await sleep(700)                                              // stop, with the song standing still: every note off
+    res.stopTwiceSilences = { ringing, after: await only(t, () => listen(300)) }; await key(0x80, 64, 0)
+    return res
+  })
+  /* a take of notes: what is played while the take runs becomes notes where it was played; and what was played with nothing
+     recording is still there to be kept (shift r) */
+  await step('noteTake', async () => {
+    halt(false)
+    const res = {}, t = newInstTrack('synth', 'pluck'); await natSession(); flush(); await sleep(200)
+    S.pos = 8; S.countIn = false; const clickWas = S.click; if (S.click) toggleClick()
+    await record(); await sleep(450)
+    res.rolling = { rec: !!S.rec, armed: t.arm }
+    const at1 = curPos(); await key(0x90, 60, 100); await sleep(320); const up1 = curPos(); await key(0x80, 60, 0); await sleep(280)
+    const at2 = curPos(); await key(0x90, 67, 80); await sleep(260); await key(0x80, 67, 0); await sleep(500)
+    await stopRecord(true); await sleep(200)
+    const r = t.regs[0], sn = r ? regSound(r) : []
+    res.take = { regions: t.regs.length, from: r && r.a, to: r && r.b, notes: sn.map(x => [+x.a.toFixed(3), +x.b.toFixed(3), x.n, x.v]), sent: [+at1.toFixed(3), +up1.toFixed(3), +at2.toFixed(3)], undo: UNDO.length }
+    res.take.inPlace = sn.length === 2 && Math.abs(sn[0].a - at1) < .09 && Math.abs(sn[1].a - at2) < .09 && Math.abs((sn[0].b - sn[0].a) - (up1 - at1)) < .06
+    res.heardBack = await only(t, async () => { await playFrom(8); return listen(900) }); halt(false)
+    await playFrom(12); await sleep(200)
+    const at3 = curPos(); await key(0x90, 72, 90); await sleep(300); await key(0x80, 72, 0); await sleep(250); halt(false); await sleep(150)
+    const n1 = t.regs.length, c1 = await captureNotes(); await sleep(100)
+    res.captured = { region: !!c1, regions: t.regs.length - n1, at: c1 ? regSound(c1).map(x => [+x.a.toFixed(3), x.n]) : null, sent: +at3.toFixed(3), inPlace: !!c1 && regSound(c1).length === 1 && Math.abs(regSound(c1)[0].a - at3) < .09, said: S.last && S.last.say }
+    S.pos = 20; uiDirty('top'); await sleep(200)
+    await key(0x90, 55, 90); await sleep(250); await key(0x80, 55, 0); await sleep(250); await key(0x90, 57, 90); await sleep(250); await key(0x80, 57, 0); await sleep(200)
+    const c2 = await captureNotes(); await sleep(100)
+    res.capturedStandingStill = c2 ? { from: c2.a, notes: regSound(c2).map(x => [+x.a.toFixed(3), x.n]), firstAtThePlayhead: Math.abs(regSound(c2)[0].a - 20) < 1e-6, secondLater: regSound(c2).length === 2 && Math.abs((regSound(c2)[1].a - 20) * SPB() - .5) < .12 } : null
+    t.arm = false; if (clickWas) toggleClick()
+    return res
+  })
+  /* the kit and the sampler: every pad struck is heard; a sound let go on a sampler's track is played up the keys from its own */
+  await step('kitAndSampler', async () => {
+    halt(false)
+    const res = {}, d = newInstTrack('drums'); await natSession(); await sleep(200)
+    notesOn(d, 3, 5, DRUM_PADS.map(([, n], i) => [i * .5, .25, n, 110])); await natSession(); await sleep(100)
+    res.kit = { name: d.name, heard: await only(d, async () => { await playFrom(2); return listen(1500) }) }; halt(false)
+    const sm = newInstTrack('sampler'); await natSession(); await sleep(200)
+    notesOn(sm, 3, 4, [[0, 1.8, 60], [2, 1.8, 72]]); await natSession()
+    res.samplerEmpty = await only(sm, async () => { await playFrom(2); return listen(600) }); halt(false)
+    const sr = 48000, len = sr * 2, ab = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 1 })
+    { const x = ab.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.sin(2 * Math.PI * 330 * i / sr) * .5 }
+    const lanes0 = sm.regs.length, tracks0 = S.tracks.length
+    await dropFiles([new File([wav16(ab)], 'tone 330.wav', { type: 'audio/wav' })], S.tracks.indexOf(sm), 1); await sleep(400)
+    res.sampler = { takesTheSound: !!(sm.inst.sample && sm.inst.sample.file), noRegionMade: sm.regs.length === lanes0 && S.tracks.length === tracks0, said: S.last && S.last.say, named: instName(sm) }
+    res.sampler.heard = await only(sm, async () => { await playFrom(2); return listen(700) }); halt(false)
+    S.selR = [sm.regs[0].id]; await bounceInPlace(); await sleep(200)
+    const b = S.tracks.find(x => x.name === `${sm.name} bounce`), br = b && b.regs[0], half = SPB() / 2
+    res.sampler.pitchOnItsKey = br ? await pitchOf(br.key, half * .4) : 0
+    res.sampler.pitchAnOctaveUp = br ? await pitchOf(br.key, half * 1.4) : 0
+    if (b) await deleteTracks([b]); sm.regs[0].mute = false
+    return res
+  })
+  /* the instruments' own pages, with the real engine: the plate at the head of the patch pressed, the page stands where the
+     patch stood; what is taken hold of there is heard — a filter pulled shut is quieter, a pad pressed sounds, a pad's height
+     pulled down is quieter, a sampler told to play to its end rings on after the key */
+  await step('instrumentPage', async () => {
+    halt(false)
+    const res = {}, was = { on: S.panel.on, tab: S.panel.tab }, q = SPB() / 4
+    const heard = (t, bar, ms) => only(t, async () => { await playFrom(bar); return listen(ms) })
+    const t = newInstTrack('synth', 'saw lead'); await natSession(); await sleep(200)
+    notesOn(t, 3, 5, [[0, 7.5, 57]]); await natSession()
+    if (!S.panel.on || S.panel.tab !== 'patch') togglePanel('patch')
+    S.panel.inst = false; setView(true); uiDirty('dock', 'head'); flush(); await sleep(120)
+    res.plate = !!document.querySelector('[data-a="inst"]') && !instOpen()
+    tap('[data-a="inst"]'); flush(); await sleep(80)
+    res.opened = { open: instOpen(), sounds: document.querySelectorAll('[data-a="iv"][data-k="sound"]').length }
+    await snap('selftest-25-instrument-synth.png')
+    const open = await heard(t, 2, 600); halt(false)
+    const [fx, fy] = mid('[data-a="iv"][data-k="filter"]')
+    await pull(fx, fy, fx - 150, fy); await sleep(250)
+    const shut = await heard(t, 2, 600); halt(false)
+    res.filter = { cutoff: Math.round(t.inst.p.cutoff), open, shut, quieterShut: shut.rms < open.rms * .8 }
+    press(fx, fy, { altKey: true }); flush(); await sleep(250)
+    const again = await heard(t, 2, 600); halt(false)
+    res.filter.putBack = { asTheSoundHasIt: t.inst.p.cutoff === undefined, again, asBefore: Math.abs(again.rms - open.rms) < open.rms * .25 }
+    tap('[data-a="iv"][data-k="sound"][data-v="sub bass"]'); flush(); await sleep(300)
+    res.sound = { picked: t.inst.sound, heard: await heard(t, 2, 500) }; halt(false)
+    /* the kit: the page follows the chosen track; a pad pressed is chosen and heard; its height pulled down, its strokes are quieter */
+    const d = newInstTrack('drums'); await natSession(); await sleep(250); uiDirty('dock', 'head'); flush(); await sleep(80)
+    res.kit = { pageFollows: instOpen(), pads: document.querySelectorAll('[data-a="iv"][data-k="pad"]').length }
+    for (const x of S.tracks) x.solo = x === d; applyAll()
+    await NAT.call('testMeter'); tap('[data-a="iv"][data-k="pad"][data-v="2"]'); await sleep(450)
+    { const m = await NAT.call('testMeter'); res.kit.padPressed = { chosen: IV.pad.get(d.id), rms: +m.rms.toFixed(4), peak: +m.peak.toFixed(4) } }
+    for (const x of S.tracks) x.solo = false; applyAll()
+    notesOn(d, 3, 4, [0, 1, 2, 3].map(i => [i, .5, 38, 110])); await natSession()
+    const loud = await heard(d, 2, 900); halt(false)
+    flush(); const lm = IV.g.stroke.marks.find(m => m[2] === 'level')
+    await pull(lm[0] + 2, lm[1], lm[0] + 2, lm[1] + 50); await sleep(250)
+    const soft = await heard(d, 2, 900); halt(false)
+    res.kit.level = { db: d.inst.p['snare.level'], loud, soft, quieter: soft.peak < loud.peak * .5 }
+    await snap('selftest-26-instrument-kit.png')
+    /* the sampler: its sound's outline comes from the app; told to play to its end, a short key rings on */
+    const sm = newInstTrack('sampler'); await natSession(); await sleep(200)
+    const sr = 48000, len = sr * 2, ab = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 1 })
+    { const x = ab.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.sin(2 * Math.PI * 330 * i / sr) * .5 * (1 - .6 * i / len) }
+    await dropFiles([new File([wav16(ab)], 'tone for the page.wav', { type: 'audio/wav' })], S.tracks.indexOf(sm), 1); await sleep(400)
+    leadTrack(S.tracks.indexOf(sm)); uiDirty('dock', 'head'); flush(); await sleep(600); flush()
+    res.sampler = { page: instOpen() && !!IV.g.sm, sound: !!(sm.inst.sample && sm.inst.sample.file), outline: ((sm.inst.sample && sm.inst.sample.peaks) || []).length }
+    notesOn(sm, 3, 4, [[0, .25, 60]]); await natSession()
+    const tail = () => only(sm, async () => { await playFrom(2); await sleep(q * 250 + 500); return listen(300) })
+    const held = await tail(); halt(false)
+    tap('[data-a="iv"][data-k="oneShot"][data-v="1"]'); await sleep(250)
+    const whole = await tail(); halt(false)
+    res.sampler.toItsEnd = { p: sm.inst.p.oneShot, held, whole, ringsOn: held.rms < .002 && whole.rms > .01 }
+    { const [x0, y0] = mid('[data-a="iv"][data-k="sm"]', 0, .5), [x1] = mid('[data-a="iv"][data-k="sm"]', 1, .5)
+      await pull(x0 + 6, y0, x0 + (x1 - x0) * .2, y0); res.sampler.startPulledIn = +(sm.inst.p.start || 0).toFixed(3) }
+    await snap('selftest-27-instrument-sampler.png')
+    tap('[data-a="iv"][data-k="chain"]'); flush(); await sleep(60)
+    res.backToTheChain = !instOpen() && !!document.querySelector('[data-a="inst"]')
+    await snap('selftest-28-instrument-plate.png')
+    S.panel.inst = false
+    if (!was.on) { if (S.panel.on) togglePanel(S.panel.tab) } else if (S.panel.tab !== was.tab) togglePanel(was.tab)
+    setView(true); uiDirty('dock', 'head'); flush()
+    return res
+  })
+  /* a region stretched by its end (option, the right end pulled): a sound plays slower to fill its new length at the pitch
+     it had — the app renders it — and is as long as it says; notes are as much later and longer */
+  await step('stretchByEnd', async () => {
+    halt(false)
+    const res = {}, t = newTracks({ kind: 'audio', n: 1, out: 0 })[0]; await natSession(); await sleep(150)
+    const sr = 48000, len = sr * 2, ab = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 1 })
+    { const x = ab.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.sin(2 * Math.PI * 330 * i / sr) * .5 }
+    await dropFiles([new File([wav16(ab)], 'tone to stretch.wav', { type: 'audio/wav' })], S.tracks.indexOf(t), 30); await sleep(500)
+    const r = t.regs[0]
+    if (!r) return { error: 'the file made no region' }
+    const was = { a: r.a, b: r.b, sec: r.sec, rate: r.rate || 1, fx: !!r.fx }
+    const toolWas = S.tool, flexWas = S.flex; S.tool = 'pointer'; S.flex = false
+    leadTrack(S.tracks.indexOf(t)); showRow(S.sel); VX = Math.max(0, r.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)
+    const y = rowY(S.sel) + S.rh * .7, x0 = bx(r.b) - 2, x1 = bx(r.a + (r.b - r.a) * 1.5)
+    /* held, half way: the page has drawn the region longer already (nothing asked it to but the hand), with its sound stretched in it */
+    const lanes0 = document.getElementById('g-lanes').innerHTML, alt = { altKey: true }
+    fire('pointerdown', x0, y, null, alt); flush(); for (let k = 1; k <= 3; k++) fire('pointermove', x0 + (x1 - x0) * k / 6, y, window, alt)
+    const asked = dirty.has('lanes')                                                     // (the check's window is not in front, where a page is not given its turn to draw: that it asked to be drawn is what can be seen here; then it is drawn by hand)
+    flush(); await sleep(60)
+    res.held = { longer: r.b > was.b, asksToBeDrawn: asked, drawnLonger: document.getElementById('g-lanes').innerHTML !== lanes0, says: S.last && S.last.say }
+    await snap('selftest-31-stretch-held.png')
+    for (let k = 4; k <= 6; k++) fire('pointermove', x0 + (x1 - x0) * k / 6, y, window, alt)
+    fire('pointerup', x1, y, window, alt); flush(); await sleep(60)
+    for (let k = 0; k < 60 && !(r.wkey && r.wsig === warpSig(r)); k++) await sleep(100)
+    const g = (r.b - r.a) / (was.b - was.a)
+    res.sound = { was, grew: +g.toFixed(4), rate: +(r.rate || 1).toFixed(4), sec: +r.sec.toFixed(3), follows: !!r.fx, rendered: !!r.wkey, asLongAsItSays: Math.abs(r.sec - was.sec * g) < .01, pitch: r.wkey ? await pitchOf(r.wkey, r.sec * .4) : 0 }
+    res.sound.heard = await only(t, async () => { await playFrom(r.a - 1); return listen(500) }); halt(false)
+    keyDown('KeyZ', { metaKey: true }); await sleep(500)
+    const back = t.regs[0]
+    res.undone = back ? { b: back.b === was.b, rate: (back.rate || 1) === was.rate, follows: !!back.fx === was.fx } : null
+    /* notes */
+    const n = S.tracks.find(isInst) || newInstTrack('synth', 'e piano'); await natSession()
+    const nr = notesOn(n, 40, 41, [[0, 1, 60], [2, 1, 64]]); await natSession()
+    leadTrack(S.tracks.indexOf(n)); showRow(S.sel); VX = Math.max(0, nr.a - 4); relayout(); dirtyAll(); flush(); await sleep(80)
+    { const y2 = rowY(S.sel) + S.rh * .7; await pull(bx(nr.b) - 2, y2, bx(nr.a + (nr.b - nr.a) * 2), y2, { altKey: true }) }
+    const g2 = (nr.b - nr.a)
+    res.notes = { grew: +g2.toFixed(4), at: nr.notes.map(q => [+q.t.toFixed(3), +q.d.toFixed(3)]), sounding: regSound(nr).map(x => +x.a.toFixed(3)) }
+    res.notes.secondLater = await only(n, async () => { await playFrom(nr.a - 1 + g2 * .5 - .02); return listen(400) }); halt(false)
+    S.tool = toolWas; S.flex = flexWas; uiDirty('info')
+    return res
+  })
+  /* an instrument from outside: the list tells instruments from effects; the Mac's own one opens on a track of notes, plays its
+     notes, has a window, and comes back with the project */
+  await step('instrumentFromOutside', async () => {
+    halt(false)
+    const res = {}, list = (await NAT.call('plugins')) || []
+    const dls = list.find(p => p.inst && /dls/i.test(p.id)) || list.find(p => p.inst && p.fmt === 'au' && /apple/i.test(p.maker || ''))
+    res.list = { instruments: list.filter(p => p.inst).length, effects: list.filter(p => !p.inst).length, unsure: list.filter(p => p.unsure).length, picked: dls && dls.name }
+    if (!dls) return res
+    const t = newInstTrack('synth', 'e piano'); await natSession(); await sleep(200)
+    notesOn(t, 3, 4, [[0, 1.8, 60], [2, 1.8, 67]]); await natSession()
+    const r = await setInstPlug(t, dls, true); await sleep(600)
+    res.opened = { ok: !!(r && r.ok), kind: t.inst.kind, name: instName(t), word: instWord(t) }
+    res.heard = await only(t, async () => { await playFrom(2); return listen(900) }); halt(false)
+    res.effectRefusedAsInstrument = await NAT.call('insert', { track: t.id, id: 'AudioUnit:Effects/aufx,dely,appl', inst: 1, show: 0 }).then(x => !(x && x.ok) || 'it opened')
+    setInst(t, 'synth', 'organ'); await sleep(400)
+    res.backToOurOwn = { kind: t.inst.kind, heard: await only(t, async () => { await playFrom(2); return listen(700) }) }; halt(false)
+    await setInstPlug(t, dls, true); await sleep(500)
+    /* a track made with an instrument from outside from the start (the new-track list's instrument key): it is opened once the engine has the track */
+    const nt = newTracks({ kind: 'midi', inst: { kind: 'plug', id: dls.id, name: dls.name, fmt: dls.fmt }, n: 1, out: 0 })[0]
+    await natSession(); await sleep(600)
+    notesOn(nt, 3, 4, [[0, 1.8, 64]]); await natSession()
+    res.madeWithIt = { name: nt.name, kind: nt.inst.kind, open: !!nt.inst.uid && !nt.inst.out, heard: await only(nt, async () => { await playFrom(2); return listen(800) }) }; halt(false)
+    return res
+  })
+  /* a song with notes in it, saved, left and opened again: the instruments are there, the notes sound; undone, a track of
+     notes that was taken away comes back with its instrument */
+  await step('notesProject', async () => {
+    halt(false)
+    const res = {}, was = projKey(), mine = S.tracks.filter(isInst).map(t => [t.name, t.inst.kind, t.regs.length])
+    const t = S.tracks.find(x => isInst(x) && x.inst.kind === 'synth' && x.regs.length) || (() => { const n = newInstTrack('synth', 'saw bass'); notesOn(n, 3, 4, [[0, 3, 45]]); return n })()
+    await natSession(); await sleep(100)
+    const name = t.name
+    res.saved = await saveNow(true, true)
+    await newProject(); await sleep(300)
+    res.elsewhere = { name: PROJ.name, tracksOfNotes: S.tracks.filter(isInst).length }
+    await openProject(was); await sleep(700)
+    const back = S.tracks.filter(isInst).map(x => [x.name, x.inst.kind, x.regs.length])
+    res.back = { same: JSON.stringify(back) === JSON.stringify(mine.length ? mine : back), tracksOfNotes: back.length, plugOpen: S.tracks.filter(x => isInst(x) && x.inst.kind === 'plug').map(x => !!x.inst.uid && !x.inst.out) }
+    const t2 = S.tracks.find(x => x.name === name)
+    res.back.heard = t2 ? await only(t2, async () => { await playFrom(2); return listen(800) }) : null; halt(false)
+    if (t2) {
+      const i = S.tracks.indexOf(t2); await deleteTracks([t2]); await sleep(200)
+      const gone = !S.tracks.includes(t2); keyDown('KeyZ', { metaKey: true }); await sleep(500)
+      const t3 = S.tracks.find(x => x.name === name)
+      res.undoneDelete = { gone, back: !!t3, at: S.tracks.indexOf(t3) === i, heard: t3 ? await only(t3, async () => { await playFrom(2); return listen(800) }) : null }; halt(false)
+    }
+    /* handed off: beside the sound, the notes as a standard file and a page about the song */
+    const dir = (await NAT.call('bounce', { kind: 'mix', a0: 2, a1: 4, modes: ['wet'], tracks: [], folder: 'notes hand off', name: 'notes mix', fmt: 'wav', rate: 0, bits: 24 })) || {}
+    res.handOff = { printed: !!dir.ok, extras: dir.ok ? await handOffExtras(dir.dir, 'notes mix', 2, 4) : 0, outsideRefused: !(await NAT.call('fileWrite', { dir: '/tmp', name: 'x.txt', data: btoa('x') })).ok }
+    resync(); applyAll()
+    return res
+  })
+  /* going out: with the song changed since it was last saved the app is asked to wait and the question comes up; cancel
+     lets it stand (the app is still here a good while later); don't save puts the file back as it was last saved, and what
+     was written quietly since is kept among its earlier copies */
+  await step('quitAsk', async () => {
+    halt(false)
+    const res = {}
+    await saveNow(true); await sleep(150)
+    const kept = LEAVE.kept, n0 = S.tracks.length, copies0 = ((await NAT.call('projBackups', { name: projKey() })) || []).length
+    res.unchanged = !leaveChanged()
+    newTracks({ kind: 'audio', n: 1, out: 0 }); await natSession(); await sleep(3600)        // a change, and time for the quiet save to write it
+    const quiet = (await NAT.call('projLoad', { name: projKey() })) || {}
+    res.changed = { asks: leaveChanged(), writtenQuietly: quiet.json !== kept }
+    const hold0 = PROJ.hold
+    leaveAsk(); flush(); await sleep(120)
+    res.asked = { up: !!S.leave, says: S.leave && S.leave.since, appWaits: ((await NAT.call('quitWait')) || {}).ok === true, drawn: document.getElementById('g-leave').textContent }
+    await snap('selftest-30-quit-asks.png')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true })); await sleep(1800)      // (longer than the app would have waited by itself)
+    res.cancelled = { gone: !S.leave, writingAgain: PROJ.hold === hold0, stillHere: true }
+    leaveAsk(); flush(); await leaveAnswer('dont', true); await sleep(250)
+    const disk = (await NAT.call('projLoad', { name: projKey() })) || {}
+    res.dontSave = { fileAsLastSaved: disk.json === kept, copiesMore: ((await NAT.call('projBackups', { name: projKey() })) || []).length - copies0, gone: !S.leave }
+    await loadProject(projKey()); await sleep(700)
+    res.reopened = { tracksAsSaved: S.tracks.length === n0, nothingToAsk: !leaveChanged() }
+    return res
+  })
+  /* folders among the projects, in the app's own place: one is made (a second of the same name is not), a project is put in
+     it and is listed there by where it lies, read like any other; a folder that holds one is not taken away; taken out
+     again, the project is known by its name as before, and the empty folder goes */
+  await step('folders', async () => {
+    const res = {}, names = async () => ((await NAT.call('projFolders')) || []).map(f => f.name), where = async () => ((await NAT.call('projList', { also: [] })) || []).filter(p => p.name === 'to be moved').map(p => [p.dir || '', p.key])
+    res.made = await NAT.call('folderNew', { name: 'demos check' })
+    res.secondOfThatName = await NAT.call('folderNew', { name: 'demos check' })
+    res.noName = await NAT.call('folderNew', { name: 'x.sls' })
+    res.listed = (await names()).includes('demos check')
+    await NAT.call('projSave', { name: 'to be moved', json: JSON.stringify({ v: 3, name: 'to be moved', demo: false, tempo: 100, meter: [4, 4], key: '', end: 64, scenes: [], tracks: [] }) })
+    await saveNow(false, true)                                                         // (the app's note of which project is being worked on is the open one's again)
+    res.putIn = await NAT.call('projMove', { name: 'to be moved', to: 'demos check' })
+    const inKey = String((res.putIn || {}).key || '')
+    res.listedIn = await where()
+    res.readThere = !!((await NAT.call('projFacts', { name: inKey })) || {}).ok
+    res.notWhereItWas = !((await NAT.call('projLoad', { name: 'to be moved' })) || {}).ok
+    res.heldFolderStays = await NAT.call('folderDrop', { name: 'demos check' })
+    res.nowhere = await NAT.call('projMove', { name: inKey, to: 'no such folder' })
+    res.takenOut = await NAT.call('projMove', { name: inKey, to: '' })
+    res.listedOut = await where()
+    res.emptyFolderGoes = await NAT.call('folderDrop', { name: 'demos check' })
+    res.listedAfter = (await names()).includes('demos check')
+    await saveNow(false, true)
+    return res
+  })
+  /* the grid on the lanes: a quarter to begin with — between two bar lines three lines on the beats; a sixteenth chosen from
+     the list in the control bar, there are twelve fainter ones more; with a triplet grid what is pulled goes to thirds */
+  await step('grid', async () => {
+    const res = {}, was = { grid: S.grid, pxb: PXB, vx: VX }
+    const lines = () => { flush(); const out = {}; for (const p of document.getElementById('ln-grid').querySelectorAll('path')) { const a = p.getAttribute('stroke-opacity') || '1', k = (p.getAttribute('d').match(/M/g) || []).length; if (k) out[a] = (out[a] || 0) + k } return out }
+    S.grid = '1/4'; setZoom(240, 8); VX = 4; relayout(); dirtyAll(); flush(); await sleep(60)
+    res.quarter = { lines: lines(), bar: document.getElementById('g-top').textContent.includes('grid1/4') }
+    tap('[data-a="grid"]'); await sleep(80)
+    res.list = S.menu ? S.menu.items.map(it => it.t).join(' ') : null
+    res.picked = await pickMenu('1/16'); await sleep(80)
+    res.sixteenth = { grid: S.grid, said: S.last && S.last.say, lines: lines() }
+    await snap('selftest-32-grid.png')
+    S.grid = '1/12'; dirtyAll(); flush()
+    res.triplet = { lines: lines(), pulledTo: +(WHOLE() / gridStep()).toFixed(3) }
+    S.grid = '1/4'; res.straight = { pulledTo: +(WHOLE() / gridStep()).toFixed(3) }
+    res.kept = JSON.parse(serialize()).grid
+    S.grid = was.grid; setZoom(was.pxb, 0); VX = was.vx; relayout(); dirtyAll(); flush()
+    return res
+  })
+  /* the notes page with the real engine: p brings it up on a region of notes; a note made on its paper with two presses is
+     heard when the song plays there; pulled up the keys it sounds higher (the bounce says by how much); taken away, silence */
+  await step('notesPage', async () => {
+    halt(false)
+    const res = {}, panel = { on: S.panel.on, tab: S.panel.tab }
+    const t = newInstTrack('synth', 'sub bass'); await natSession(); await sleep(200)            // (a plain wave: its pitch can be read off the bounce)
+    const r = notesOn(t, 44, 45, []); await natSession()
+    S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); flush()
+    if (!rollOn()) keyDown('KeyP'); await sleep(80); setView(true); relayout(); dirtyAll(); flush(); await sleep(120)
+    res.up = { on: rollOn(), focus: S.focus, shows: ROLL.rid === r.id, keys: document.querySelectorAll('[data-a="np"][data-k="key"]').length > 10 }
+    const g = ROLL.g, at = (bar, key) => [g.x0 + (bar - ROLL.view.a) * g.pxb + 2, g.top + (g.hi - key + .5) * g.rowH]
+    { const [x, y] = at(43.5, 69); press(x, y); await sleep(60); press(x, y); await sleep(200) }
+    res.made = r.notes.map(q => [+q.t.toFixed(3), +q.d.toFixed(3), q.n, q.v])
+    await natSession(); await sleep(100)
+    res.heard = await only(t, async () => { await playFrom(43.4); return listen(500) }); halt(false)
+    await snap('selftest-33-notes-page.png')
+    { flush(); const el = document.querySelector('[data-a="np"][data-k="note"]'), b0 = document.getElementById('board').getBoundingClientRect(), k = b0.width / W, q = el.getBoundingClientRect(), x = (q.left + q.width / 2 - b0.left) / k, y = (q.top + q.height / 2 - b0.top) / k
+      await pull(x, y, x, y - 12 * ROLL.g.rowH) }
+    res.pulledUp = r.notes.map(q => q.n)
+    setNotes(r, r.notes.map(q => Object.assign({}, q, { d: 2 }))); await natSession()
+    S.selR = [r.id]; await bounceInPlace(); await sleep(200)
+    const bt = S.tracks.find(x => x.name === `${t.name} bounce`), br = bt && bt.regs[0]
+    res.pitchAnOctaveUp = br ? await pitchOf(br.key, SPB() * .5 + .2) : 0
+    if (bt) await deleteTracks([bt])
+    r.mute = false; S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); S.focus = 'notes'; ROLL.sel = new Set(r.notes.map(q => q.id)); flush()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true, cancelable: true })); await sleep(120); await natSession()
+    res.takenAway = { notes: r.notes.length, regionStill: !!regOf(r.id)[0], heard: await only(t, async () => { await playFrom(43.4); return listen(400) }) }; halt(false)
+    if (rollOn()) togglePanel('notes'); if (panel.on) togglePanel(panel.tab); setView(true); relayout(); dirtyAll(); flush()
+    return res
   })
   /* a project from before this room (kept as it was saved then, with its own colours and its tall rows): it opens, and takes the room's look */
   await step('oldProject', async () => {
@@ -873,6 +1363,197 @@ async function runSelfTest (mode) {
     await playFrom(16); res.heard = await listen(1200); halt(false)
     await snap('selftest-18-old-project.png')
     await openProject('selftest'); await sleep(300)
+    return res
+  })
+  /* for a print that is to be measured: nothing muted, nothing soloed, whatever the steps before left; and back as it was */
+  const allHeard = () => { const was = S.tracks.map(x => [x, x.mute, x.solo]); for (const x of S.tracks) { x.mute = false; x.solo = false } applyAll(); return () => { for (const [x, m, so] of was) { x.mute = m; x.solo = so } applyAll() } }
+  const sounding = x => x.kind === 'audio' && !x.inst && !x.parent && x.regs.some(r => (r.loop || r.file) && !r.mute)
+  const firstBar = x => Math.floor(x.regs.filter(r => (r.loop || r.file) && !r.mute).sort((p, q) => p.a - q.a)[0].a - 1)
+  /* a send into a bus whose plug-in hands its sound over late arrives together with the same sound gone its plain way:
+     one track plays into a bus with nothing on it and sends into a bus with such a plug-in; the two buses are printed
+     apart, and their sound lies on the same sample (it would lie the plug-in's lateness apart) */
+  await step('sendLatency', async () => {
+    const t = S.tracks.find(sounding), n0 = UNDO.length, tried = []
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), back = allHeard()
+    const A = newTrack('bus', 'way a', true), B = newTrack('bus', 'way b', true)
+    setOut(t, A.id); setSend(t, t.sends.length, B.id)
+    const sd = t.sends.find(x => x.to === B.id)
+    if (!sd) { while (UNDO.length > n0) undoEdit(); back(); return { skipped: 'no send left on that track' } }
+    sd.db = -6
+    await natSession()
+    let late = null
+    for (const id of ['AudioUnit:Effects/aufx,lmtr,appl', 'AudioUnit:Effects/aufx,mcmp,appl', 'AudioUnit:Effects/aufx,nptc,appl', 'AudioUnit:Effects/aufx,dcmp,appl']) {
+      const r = await natInsert(S.tracks.indexOf(B), id)
+      tried.push([id.slice(-14), r && r.ok ? r.latency : String(r && r.error)])
+      if (r && r.ok && r.latency > 0) { late = r; break }
+      if (r && r.ok) { await NAT.call('remove', { track: B.id, uid: r.uid }); B.inserts = B.inserts.filter(x => x.uid !== r.uid) }
+    }
+    const res = { tried, track: t.name }
+    if (late) {
+      await sleep(300)
+      const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: A.id, name: 'way a' }, { id: B.id, name: 'way b' }], folder: 'send latency', name: 'send latency', fmt: 'wav', rate: 0, bits: 24 })
+      res.plugin = late.name; res.samples = late.latency; res.printed = !!(b && b.ok)
+      if (res.printed) res.lag = await NAT.call('testLag', { a: `${b.dir}/way a.wav`, b: `${b.dir}/way b.wav` })
+      await NAT.call('remove', { track: B.id, uid: late.uid }); B.inserts = B.inserts.filter(x => x.uid !== late.uid)
+    } else res.skipped = 'no plug-in here reports a delay'
+    while (UNDO.length > n0) undoEdit()
+    back(); await natSession(); await sleep(200)
+    res.after = { buses: S.tracks.filter(x => x.name === 'way a' || x.name === 'way b').length, out: t.out, sends: t.sends.length }
+    return res
+  })
+  /* a plug-in that listens to another track (its key, or side chain). The check's own plug-in lets its sound through whole
+     while its second input is silent and at a quarter while anything sounds there: one track is printed with it alone,
+     then listening to a track that sounds, then to one that is silent — and a track its own sound flows into is refused */
+  await step('sideChain', async () => {
+    const audio = S.tracks.filter(sounding), n0 = UNDO.length
+    const t = audio[0], a0 = t ? firstBar(t) : 0
+    const loud = audio.slice(1).reverse().find(x => x.regs.some(r => (r.loop || r.file) && !r.mute && r.a - 1 <= a0 + 1e-6 && r.b - 1 >= a0 + 2 - 1e-6))      // one listed after it: it has to be played first all the same
+    if (!t || !loud) return { skipped: 'no two tracks sounding together' }
+    const r = await natInsert(S.tracks.indexOf(t), 'test:duck')
+    if (!r || !r.ok) return { skipped: 'the check\u2019s plug-in would not open', why: r && r.error }
+    const back = allHeard()
+    const ins = t.inserts.find(x => x.uid === r.uid), res = { track: t.name, key: loud.name, hasInput: !!ins.sc }
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'side chain', name: 'side chain', fmt: 'wav', rate: 0, bits: 24 }); return b && b.ok ? `${b.dir}/${name}.wav` : '' }
+    const alone = await print('alone')
+    res.given = await setKey(t, ins, loud.id); const keyed = await print('keyed')
+    res.kept = (JSON.parse(serialize()).tracks.find(x => x.id === t.id).inserts || []).some(x => x.id === 'test:duck' && x.key === loud.id)      // it is written into the project with the plug-in
+    const quiet = newTrack('audio', 'quiet one', true)
+    await natSession()
+    res.givenQuiet = await setKey(t, ins, quiet.id); const still = await print('still')
+    const bus = newTrack('bus', 'after it', true); setOut(t, bus.id); await natSession()
+    res.ring = await NAT.call('keyFrom', { track: t.id, uid: ins.uid, from: bus.id })
+    res.ringRefused = !res.ring.ok && res.ring.why === 'ring' && !(await setKey(t, ins, bus.id)) && ins.key === quiet.id
+    res.back = await setKey(t, ins, 0)
+    if (alone && keyed && still) {
+      const k = await NAT.call('testLag', { a: alone, b: keyed }), q = await NAT.call('testLag', { a: alone, b: still })
+      res.keyed = { level: +(k.levelB / k.levelA).toFixed(3), lag: k.lag }; res.quiet = { level: +(q.levelB / q.levelA).toFixed(3), lag: q.lag }
+    }
+    await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid)
+    while (UNDO.length > n0) undoEdit()
+    back(); await natSession(); await sleep(200)
+    res.after = { left: S.tracks.filter(x => x.name === 'quiet one' || x.name === 'after it').length, mine: t.inserts.filter(x => x.id === 'test:duck').length, out: t.out }
+    return res
+  })
+  /* a line for one of a plug-in's own controls. The check's plug-in has one (how much of its sound it lets through): moved
+     the way a hand moves it in the plug-in's window, it is the control the track's list of lines then offers; a line drawn
+     for it at half is played by the engine — the track printed with it is half as loud — and is kept with the project */
+  await step('plugLine', async () => {
+    const t = S.tracks.find(sounding), n0 = UNDO.length
+    if (!t) return { skipped: 'no track with sound on it' }
+    const r = await natInsert(S.tracks.indexOf(t), 'test:duck')
+    if (!r || !r.ok) return { skipped: 'the check’s plug-in would not open', why: r && r.error }
+    const ins = t.inserts.find(x => x.uid === r.uid), a0 = firstBar(t), back = allHeard(), ap0 = t.ap, res = {}
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'plug line', name: 'plug line', fmt: 'wav', rate: 0, bits: 24 }); return b && b.ok ? `${b.dir}/${name}.wav` : '' }
+    res.before = (await NAT.call('touched', { track: t.id, uid: ins.uid })).index
+    await NAT.call('testTouch', { track: t.id, uid: ins.uid, i: 0, v: .8 }); await sleep(120)
+    const moved = await NAT.call('touched', { track: t.id, uid: ins.uid }), list = await NAT.call('params', { track: t.id, uid: ins.uid })
+    res.moved = [moved.index, moved.name, +(+moved.value).toFixed(2)]; res.list = (list || []).map(x => [x[0], x[1]])
+    await NAT.call('testTouch', { track: t.id, uid: ins.uid, i: 0, v: 1 }); await sleep(120)
+    const whole = await print('whole')
+    await openAutoMenu(t, 100, 100)
+    const offered = S.menu ? S.menu.items.find(x => x.v === `fx${ins.n}.0`) : null                      // (its own control: another plug-in on the track may offer one of its own too)
+    res.offered = offered ? offered.t : null
+    if (offered) { const m = S.menu; S.menu = null; m.pick(offered) }
+    const k = t.ap
+    res.key = k
+    if (offered) {
+      edit(() => { t.autos[k] = [{ id: ++PID, b: a0, v: .5 }, { id: ++PID, b: a0 + 2, v: .5 }] })
+      await natSession(); await sleep(100)
+      const half = await print('half'), saved = JSON.parse(serialize()).tracks.find(x => x.id === t.id)
+      res.kept = !!(saved.autos[k] && saved.autos[k].length === 2) && (saved.inserts || []).some(x => x.id === 'test:duck' && x.n === ins.n && x.pn && x.pn[0] === 'level')
+      res.shown = [autoName(t, k), AUTO[k].fmt(shown(t, k))]
+      if (whole && half) { const q = await NAT.call('testLag', { a: whole, b: half }); res.level = +(q.levelB / q.levelA).toFixed(3); res.lag = q.lag }
+    }
+    await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid)
+    while (UNDO.length > n0) undoEdit()
+    t.ap = ap0; back(); S.menu = null; await natSession(); await sleep(200); __daw.redraw()
+    res.after = { mine: t.inserts.filter(x => x.id === 'test:duck').length, lines: Object.keys(t.autos || {}).filter(x => /^fx/.test(x) && t.autos[x].length).length }
+    return res
+  })
+  /* command x, c, v and a, pressed the way the Mac sends them — to the window (its views first: the page's web view among
+     them), then to the menu bar — with the Latin letter, as the keyboard set to English gives it. The page has to hear them
+     as keys (JUCE's web view kept these four to itself: see slurKeysToPage). With a marquee up, x cuts the stretch out
+     and holds it; c holds it and v puts it down right after the marquee, twice in a row; a chooses every region. */
+  await step('cmdKeys', async () => {
+    const t = S.tracks.find(sounding), n0 = UNDO.length
+    if (!t) return { skipped: 'no track with sound on it' }
+    const ti = S.tracks.indexOf(t), r = t.regs.filter(q => (q.loop || q.file) && !q.mute && q.b - q.a >= 3).sort((p, q) => p.a - q.a)[0]
+    if (!r) return { skipped: 'no region long enough' }
+    const lane = () => t.regs.slice().sort((p, q) => p.a - q.a).map(q => [+q.a.toFixed(3), +q.b.toFixed(3)])
+    const res = { track: t.name, was: lane() }, a = r.a, clip0 = CLIP, at = (x, y) => t.regs.some(q => Math.abs(q.a - x) < 1e-6 && Math.abs(q.b - y) < 1e-6)
+    const press = async (key, code) => { const took = (await NAT.call('testCmdKey', { key, code })).took; await sleep(300); const then = (await NAT.call('testCmdKeyOn')).took; await sleep(150); return took + ' / ' + then }
+    const el = document.activeElement
+    res.had = el && el !== document.body ? el.id || el.tagName : ''                        // (a step before this one may have left a box with the keys: then they are the box's, as they should be)
+    if (res.had) { el.blur(); await sleep(300) }
+    const mark = () => { S.auto = false; S.selR = []; S.focus = 'lanes'; S.marq = { a, b: a + 1, t0: ti, t1: ti, also: [] }; CLIP = []; __daw.redraw() }      // (a marquee over the region's second bar)
+    mark(); res.x = await press('x', 7)
+    res.cut = { gone: !t.regs.some(q => q.a < a + 2 - 1e-6 && q.b > a + 1 + 1e-6), held: CLIP.length, marq: !!S.marq, steps: UNDO.length - n0 }
+    while (UNDO.length > n0) undoEdit()
+    mark(); res.c = await press('c', 8)
+    res.copied = { held: CLIP.length, steps: UNDO.length - n0 }
+    res.v = await press('v', 9); res.v2 = await press('v', 9)
+    res.pasted = { first: at(a + 2, a + 3), second: at(a + 3, a + 4), marq: S.marq ? [S.marq.a, S.marq.b] : null, steps: UNDO.length - n0 }
+    while (UNDO.length > n0) undoEdit()
+    S.marq = null; S.selR = []; __daw.redraw()
+    res.a = await press('a', 0)
+    res.all = { chosen: S.selR.length, of: S.tracks.reduce((n, x) => n + x.regs.length, 0) }
+    S.selR = []; S.marq = null; CLIP = clip0; jumpTo(0); __daw.redraw()
+    res.after = lane()
+    /* in a box that is being typed in they are the Mac's own, as they were: the page leaves the key alone, and it goes on
+       to the Mac (command a here, which touches nothing outside the box: all of its text is chosen, and no region is) */
+    const box = document.getElementById('cmd'), had = box.value
+    box.focus(); box.value = 'abc def'; box.setSelectionRange(3, 3); await sleep(300)
+    res.boxA = await press('a', 0)
+    res.box = { focus: document.activeElement === box, from: box.selectionStart, to: box.selectionEnd, regions: S.selR.length }
+    box.value = had; box.blur(); S.selR = []; __daw.redraw(); await sleep(300)
+    mark(); res.x2 = await press('x', 7)                                                  // (and the box let go of: they are the page's again)
+    res.again = { gone: !t.regs.some(q => q.a < a + 2 - 1e-6 && q.b > a + 1 + 1e-6), steps: UNDO.length - n0 }
+    while (UNDO.length > n0) undoEdit()
+    S.selR = []; S.marq = null; CLIP = clip0; __daw.redraw()
+    res.ok = res.cut.gone && res.cut.held > 0 && res.cut.steps === 1 && res.copied.held > 0 && res.copied.steps === 0 && res.pasted.first && res.pasted.second && res.pasted.steps === 2 && !!res.pasted.marq && Math.abs(res.pasted.marq[0] - (a + 2)) < 1e-6
+      && res.all.chosen === res.all.of && res.all.of > 0 && JSON.stringify(res.after) === JSON.stringify(res.was)
+      && [res.x, res.c, res.v, res.v2, res.a, res.x2].every(w => / kept by the page$/.test(w)) && / left alone by the page/.test(res.boxA)
+      && res.box.focus && res.box.from === 0 && res.box.to === 7 && res.box.regions === 0 && res.again.gone && res.again.steps === 1 && JSON.stringify(lane()) === JSON.stringify(res.was)
+    return res
+  })
+  /* the hand-off folder holds everything: beside the sound, the patch of each track that has one as a file Patch on Slur
+     opens (the same graph the engine runs, with the prints as they stand), and the project itself, whole */
+  await step('handOffRest', async () => {
+    const t = S.tracks.find(x => x.kind === 'audio'), was = copy(t.patch)
+    setPrint(t, 'space', 40); setPrint(t, 'delay', 25); pushTrack(t)
+    const b = await NAT.call('bounce', { kind: 'mix', a0: 0, a1: 1, modes: ['wet'], tracks: [], folder: 'hand off rest', name: 'rest mix', fmt: 'wav', rate: 0, bits: 24 })
+    const res = { printed: !!(b && b.ok) }
+    if (res.printed) {
+      const r = await handOffRest(b.dir), now = patchNow(t)
+      const pj = JSON.parse((await NAT.call('patchPreset', { tape: now.tape / 100, space: now.space / 100, delay: now.delay / 100, share: now.share / 100 })).json)
+      const there = await NAT.call('projFacts', { name: `${b.dir}/${PROJ.name}.sls` })
+      res.rest = r
+      res.preset = { types: pj.nodes.map(n => n.type), amounts: pj.nodes.map(n => +n.amount.toFixed(2)), wires: pj.edges.map(e => [e.from, e.to, +e.gain.toFixed(2)]) }
+      res.project = { ok: !!(there && there.ok), tracks: there && there.tracks ? there.tracks.length : -1, mine: S.tracks.length }
+    }
+    t.patch = was; pushTrack(t)
+    return res
+  })
+  /* the start page, brought up over the check's own project the way it comes up when the app is opened: it lists what the
+     app knows with what it read from each; nothing is written while it is up (a level moved meanwhile is not on the disk
+     afterwards); the room's keys do not reach through it; and the project opened from it puts it away */
+  await step('start', async () => {
+    await saveNow(true)
+    const key = typeof projKey === 'function' ? projKey() : PROJ.name, held0 = PROJ.hold
+    openStart(null)
+    for (let k = 0; k < 60 && !START.read; k++) await sleep(100)
+    flush(); await sleep(150); await NAT.call('testSnap', { name: 'selftest-25-start.png' }); await sleep(250)
+    const res = { on: START.on, held: PROJ.hold - held0, rows: document.querySelectorAll('[data-a="st-row"]').length, cmdHidden: getComputedStyle(document.getElementById('cmd')).display === 'none' }
+    res.listed = START.list.map(p => ({ name: p.name, tracks: p.f ? p.f.count : -1, seconds: p.f ? Math.round(p.f.len) : -1, lanes: p.f ? p.f.lanes.length : -1, bytes: p.f ? p.f.bytes : -1 }))
+    const vol0 = S.tracks[0].vol
+    S.tracks[0].vol = vol0 - 3; await sleep(3600)                                        // the quiet save comes round meanwhile: it must leave the disk alone
+    res.wroteNothing = JSON.parse((await NAT.call('projLoad', { name: key })).json).tracks[0].vol === vol0
+    keyDown('Space'); await sleep(200); res.played = S.playing
+    START.sel = Math.max(0, START.list.findIndex(p => p.key === key)); START.focus = 'list'
+    keyDown('Enter'); for (let k = 0; k < 80 && START.on; k++) await sleep(100)
+    await sleep(300)
+    res.after = { on: START.on, name: PROJ.name, volBack: S.tracks[0].vol === vol0, held: PROJ.hold - held0, tracks: S.tracks.length }
     return res
   })
   await step('audioWindow', async () => { await NAT.call('audioSettings'); await sleep(1200); return { opened: true, inputs: INPUTS, windows: (await NAT.call('testMenus')).titles.split(' | ').pop() } })

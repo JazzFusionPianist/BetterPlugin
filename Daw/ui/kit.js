@@ -14,15 +14,28 @@ let UID = 0
 const cv = document.createElement('canvas').getContext('2d')
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const n = v => +(+v).toFixed(2)
-function tw (s, size = 10, w = 400, it = false) { cv.font = `${it ? 'italic ' : ''}${w} ${size}px ${FONT}`; return cv.measureText(s).width }
+/* What is written is written in the language of the settings (lang.js): the program's own words, wherever they are
+   drawn or measured. A name someone gave — a track, a marker, a song, a file — is never turned into another word:
+   asGiven(s) marks it (an unseen sign before it, taken off again here), and so does italic, which is for people. */
+const NAMED = '\u2063'
+const asGiven = s => NAMED + String(s == null ? '' : s)
+const inWords = (s, it) => { s = String(s); return s.charCodeAt(0) === 0x2063 ? s.slice(1) : !it && typeof window.LANG_WORDS === 'function' ? window.LANG_WORDS(s) : s }
+function tw (s, size = 10, w = 400, it = false) { cv.font = `${it ? 'italic ' : ''}${w} ${size}px ${FONT}`; return cv.measureText(inWords(s, it)).width }
 function T (x, y, s, o = {}) {
   const { size = 10, w = 400, c = INK, a = 1, anchor = 'start', it = false, x: extra = '' } = o
+  s = inWords(s, it)
   const wd = anchor === 'start' ? 0 : tw(s, size, w, it)
   const xx = anchor === 'middle' ? x - wd / 2 : anchor === 'end' ? x - wd : x
   return `<text x="${n(xx)}" y="${n(y)}" font-family="${FONT}" font-size="${size}" font-weight="${w}"${it ? ' font-style="italic"' : ''} fill="${c}"${a < 1 ? ` fill-opacity="${a}"` : ''}${extra}>${esc(s)}</text>`
 }
 /* a string cut to a width, with a mark that it was */
-const fit = (s, maxW, size = 10, w = 400, it = false) => { s = String(s); if (tw(s, size, w, it) <= maxW) return s; let k = s.length; while (k > 1 && tw(s.slice(0, k).trimEnd() + '…', size, w, it) > maxW) k--; return s.slice(0, k).trimEnd() + '…' }
+const fit = (s, maxW, size = 10, w = 400, it = false) => {
+  const given = String(s), said = inWords(given, it), sign = said === given ? '' : NAMED       // (in other words, or a name: what comes back is not put into words again)
+  if (tw(sign + said, size, w, it) <= maxW) return sign ? sign + said : given
+  let k = said.length
+  while (k > 1 && tw(sign + said.slice(0, k).trimEnd() + '…', size, w, it) > maxW) k--
+  return sign + said.slice(0, k).trimEnd() + '…'
+}
 function run (x, y, parts, gap = 0) {
   let out = '', cx = x
   for (const [s, o] of parts) { out += T(cx, y, s, o); cx += tw(s, o.size, o.w, o.it) + gap }

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, the command line, draft 1</title>
+<style>
+/* Slur Studio, the command line that completes itself, draft 1 (2026-10-11).
+   A command is made of things that are exactly known: what (a track, something
+   on it, one of its values), where (a stretch of the song), how much, and the
+   act. Each is picked from a list that opens as it is typed and then stands in
+   the line as a cell. What cannot be said that way is said in plain words, and
+   Claude answers with commands in the same cells. Drawn with the room's own kit
+   (../../ui/kit.js), at the room's own sizes; the sheet is shown twice as large. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url(../../ui/fonts/instrument-sans-normal-400-700-latin.woff2) }
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: italic; src: url(../../ui/fonts/instrument-sans-italic-400-700-latin.woff2) }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #2A2A29; }
+svg { display: block; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script src="../../ui/kit.js"></script>
+<script>
+const OCHRE = SOLO                      // the colour the room keeps for the cycle: a stretch of the song
+const BLUE = '#3B79B8', BLUE_DEEP = '#000326'
+const FW = 760, FH = 232, FOOT = 22, HEAD = 150, BARW = 87, BAR0 = 17      // one frame: the foot of the room and what is above it
+const bx = bar => HEAD + (bar - BAR0) * BARW
+
+/* ── what stands in the line ──
+   a thing known exactly (cells of one frame, as they follow each other), a stretch of the song (ochre, the cycle's
+   colour), the act (filled: it is what the return key will do), and what is still being typed */
+function line (x, y, parts) {
+  let s = '', cx = x, caretX = null, i = 0
+  const h = 16, cy = y + 3
+  while (i < parts.length) {
+    const p = parts[i]
+    if (p.k === 'thing') {
+      const run = []
+      while (i < parts.length && parts[i].k === 'thing') run.push({ t: parts[i++].t })
+      const [g, w] = cells(cx, cy, h, run, { size: 9.5, pad: 7, a: .9, frame: .3 }); s += g; cx += w + 6; continue
+    }
+    if (p.k === 'where') { const w = Math.round(tw(p.t, 9.5) + 14); s += R(cx + .5, cy + .5, w - 1, h - 1, { rx: 2, stroke: OCHRE, sa: .7 }) + T(cx + 7, cy + h / 2 + 3.3, p.t, { size: 9.5, c: OCHRE }); cx += w + 6 }
+    else if (p.k === 'act') { const w = Math.round(tw(p.t, 9.5, 500) + 14); s += R(cx, cy, w, h, { rx: 2, fill: INK }) + T(cx + 7, cy + h / 2 + 3.3, p.t, { size: 9.5, w: 500, c: K1 }); cx += w + 6 }
+    else if (p.k === 'typed') { s += T(cx + 1, y + 14.6, p.t, { size: 10.5, a: .94 }); cx += tw(p.t, 10.5) + 2; caretX = cx; s += R(cx, y + 5, 1, 12, { fill: INK, fa: .9 }); cx += 6 }
+    else if (p.k === 'plain') { s += T(cx + 1, y + 14.6, p.t, { size: 10.5, a: .94 }); cx += tw(p.t, 10.5) + 8 }
+    i++
+  }
+  return [s, cx, caretX]
+}
+/* the list that opens over what is being typed: the room's own menu, each row with what kind of thing it is */
+function list (x, yFoot, rows, w = 196) {
+  const rowH = 20, h = rows.length * rowH + 12, y = yFoot - h - 4
+  let s = R(x, y, w, h, { rx: 3, fill: K2 }) + R(x + .5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 }), ry = y + 6
+  for (const r of rows) {
+    if (r.on) s += R(x + 5, ry, w - 10, rowH, { rx: 2, fill: INK })
+    if (r.hi) { const a = tw(r.t.slice(0, r.hi), 10.5, r.on ? 500 : 400); s += R(x + 13, ry + 15.5, a, 1, { fill: r.on ? K1 : INK, fa: r.on ? .5 : .4 }) }      // the letters typed so far
+    s += T(x + 13, ry + 13.6, r.t, { size: 10.5, w: r.on ? 500 : 400, c: r.on ? K1 : INK, a: r.on ? 1 : .84 })
+    if (r.d) s += T(x + w - 13, ry + 13.6, r.d, { size: 9.5, c: r.on ? K1 : INK, a: r.on ? .7 : .42, anchor: 'end' })
+    ry += rowH
+  }
+  return s
+}
+/* the stretch of the room above the foot: the ruler, one track with its sound, and the line of the value under it */
+function room (o = {}) {
+  const { where, auto, ghost, say } = o
+  let s = R(0, 0, FW, FH, { fill: K0 }) + R(0, 0, FW, 24, { fill: K1 }) + hline(0, FW, 24, .1) + R(0, 24, HEAD, FH - 24 - FOOT, { fill: K1 }) + vline(HEAD, 0, FH - FOOT, .1)
+  for (let b = BAR0; b <= BAR0 + 7; b++) { s += vline(bx(b), 14, 24, .3) + T(bx(b) + 4, 20, String(b), { size: 8.5, a: .6 }); for (let q = 1; q < 4; q++) s += vline(bx(b) + q * BARW / 4, 19, 24, .16) }
+  if (where) s += R(bx(where[0]), 0, bx(where[1]) - bx(where[0]), 10, { fill: OCHRE, fa: .9 }) + R(bx(where[0]), 24, bx(where[1]) - bx(where[0]), 75, { fill: OCHRE, fa: .05 })
+  /* kick in, and the value's own lane under it */
+  s += T(12, 40.5, '02', { size: 9, a: .36 }) + T(34, 40.5, 'kick in', { size: 10.5, w: 500, a: .92 }) + hline(0, FW, 49, .08)
+  s += T(34, 66, 'pro-c 2', { size: 9.5, a: .6 }) + T(34, 79, 'threshold', { size: 9.5, a: .6 }) + hline(0, FW, 99, .08)
+  let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  for (const [a, b] of [[17, 21], [21, 24.9]]) {
+    s += R(bx(a) + 1, 26, bx(b) - bx(a) - 2, 22, { fill: BLUE })
+    for (let x = bx(a) + 4; x < bx(b) - 4; x += 2.2) { const beat = 1 - (((x - HEAD) / (BARW / 4)) % 1), v = Math.max(1.2, (rnd() * .5 + .5) * 18 * (beat * .8 + .2)); s += R(x, 37 - v / 2, 1.1, v, { fill: BLUE_DEEP }) }
+  }
+  /* the value: −18 db along the song; with the command, it goes down by three over the stretch, or at once */
+  const y0 = 66, y1 = 84
+  const dot = (x, y, a = 1) => R(x - 2, y - 2, 4, 4, { fill: K0 }) + R(x - 1.5, y - 1.5, 3, 3, { stroke: INK, sa: a })
+  if (!auto) s += P(`M${HEAD} ${y0}H${FW}`, { stroke: INK, sa: ghost ? .28 : .55, sw: 1.2 })
+  if (ghost === 'ramp') s += P(`M${bx(19)} ${y0}L${bx(21)} ${y1}H${FW}`, { stroke: INK, sa: .9, sw: 1.2, dash: '3 3' })
+  if (ghost === 'step') s += P(`M${bx(19)} ${y0}V${y1}H${bx(21)}V${y0}`, { stroke: INK, sa: .9, sw: 1.2, dash: '3 3' })
+  if (auto === 'ramp') s += P(`M${HEAD} ${y0}H${bx(19)}L${bx(21)} ${y1}H${FW}`, { stroke: INK, sa: .9, sw: 1.2 }) + dot(bx(19), y0) + dot(bx(21), y1)
+  /* the foot: the line, and at its far end what was done */
+  const fy = FH - FOOT
+  s += R(0, fy, FW, FOOT, { fill: K2 }) + hline(0, FW, fy, .1) + P(`M13 ${fy + 7.5}L17 ${fy + 11}L13 ${fy + 14.5}`, { stroke: INK, sa: .5, sw: 1.2, cap: 'round' })
+  if (say) { const [g, ] = run(FW - 14 - runW(say, 5), fy + 14.6, say, 5); s += g }
+  return s
+}
+const dimv = v => [v, { size: 9.5, a: .5 }], to = v => [v, { size: 9.5, a: .36 }], lit = v => [v, { size: 9.5, a: .92 }]
+const T_ = (k, t) => ({ k, t })
+const thing = t => T_('thing', t), where = t => T_('where', t), act = t => T_('act', t), typed = t => T_('typed', t), plain = t => T_('plain', t)
+
+/* ── the frames ── */
+const FRAMES = [
+  { n: '1', cap: 'a letter, and the things of the song that begin with it', draw () {
+    const [l, , cx] = line(26, FH - FOOT, [typed('k')])
+    return room() + l + list(cx - tw('k', 10.5) - 14, FH - FOOT, [{ t: 'kick in', d: '트랙 02', on: true, hi: 1 }, { t: 'kick out', d: '트랙 03', hi: 1 }, { t: 'keys', d: '스택 13', hi: 1 }])
+  } },
+  { n: '2', cap: 'the thing stands in the line as a cell; the list now holds only what is on it', draw () {
+    const [l, , cx] = line(26, FH - FOOT, [thing('kick in'), typed('p')])
+    return room() + l + list(cx - tw('p', 10.5) - 14, FH - FOOT, [{ t: 'pro-c 2', d: '플러그인', on: true, hi: 1 }, { t: 'pan', d: '가운데', hi: 1 }, { t: 'patch', d: 'tape space', hi: 1 }])
+  } },
+  { n: '3', cap: 'a stretch of the song: bars, a marker, or the cycle as it stands', draw () {
+    const [l, , cx] = line(26, FH - FOOT, [thing('kick in'), thing('pro-c 2'), thing('threshold'), typed('19')])
+    return room({ where: [19, 21] }) + l + list(cx - tw('19', 10.5) - 14, FH - FOOT, [{ t: '19 ~ 21', d: '지금 사이클', on: true, hi: 2 }, { t: '19', d: '19마디부터 끝까지', hi: 2 }, { t: '19 ~', d: '끝 마디를 이어서', hi: 2 }], 210)
+  } },
+  { n: '4', cap: 'the act is chosen last, and the line it would draw is shown before it is drawn', draw () {
+    const [l, , cx] = line(26, FH - FOOT, [thing('kick in'), thing('pro-c 2'), thing('threshold'), where('19 ~ 21'), thing('3 db'), typed('점')])
+    return room({ where: [19, 21], ghost: 'ramp' }) + l + list(cx - tw('점', 10.5) - 14, FH - FOOT, [{ t: '점점 줄여줘', d: '구간에 걸쳐', on: true, hi: 1 }, { t: '점점 키워줘', d: '구간에 걸쳐', hi: 1 }], 188)
+  } },
+  { n: '5', cap: 'return: done, and said at the far end of the foot as the room says what it did', draw () {
+    const [l] = line(26, FH - FOOT, [thing('kick in'), thing('pro-c 2'), thing('threshold'), where('19 ~ 21'), thing('3 db'), act('점점 줄여줘')])
+    return room({ where: [19, 21], auto: 'ramp', say: [dimv('threshold'), dimv('−18.0'), to('to'), lit('−21.0 db')] }) + l
+  } },
+  { n: '6', cap: 'the other act on the same cells: 줄여줘 alone holds it down for the stretch and lets it come back', draw () {
+    const [l] = line(26, FH - FOOT, [thing('kick in'), thing('pro-c 2'), thing('threshold'), where('19 ~ 21'), thing('3 db'), typed('줄')])
+    const cx = line(26, FH - FOOT, [thing('kick in'), thing('pro-c 2'), thing('threshold'), where('19 ~ 21'), thing('3 db'), typed('줄')])[2]
+    return room({ where: [19, 21], ghost: 'step' }) + l + list(cx - tw('줄', 10.5) - 14, FH - FOOT, [{ t: '줄여줘', d: '구간 동안만', on: true, hi: 1 }, { t: '점점 줄여줘', d: '구간에 걸쳐' }], 188)
+  } },
+  { n: '7', cap: 'said in plain words, nothing picked: claude answers in the same cells, and return does the row that is chosen', draw () {
+    const fy = FH - FOOT, x = 26, w = 372, rowH = 24, rows = [
+      [thing('lead vox'), thing('patch'), thing('tape'), thing('+12'), act('키워줘')],
+      [thing('lead vox'), thing('pro-q 3'), thing('band 2 gain'), thing('2 db'), act('줄여줘')],
+      [thing('lead vox'), thing('send'), thing('plate'), thing('−3 db'), act('맞춰줘')],
+    ], h = rows.length * rowH + 12, y = fy - h - 4
+    let s = room() + line(x, fy, [plain('보컬 좀 더 따뜻하게')])[0]
+    s += R(x - 12, y, w, h, { rx: 3, fill: K2 }) + R(x - 11.5, y + .5, w - 1, h - 1, { rx: 3, stroke: INK, sa: .28 })
+    rows.forEach((r, i) => { const ry = y + 6 + i * rowH; if (i === 0) s += R(x - 7, ry, w - 10, rowH, { rx: 2, fill: INK, fa: .1 }); s += line(x, ry + 1, r)[0] })
+    return s + T(x - 12 + w - 13, y + 6 + 15.6, 'claude', { size: 9.5, a: .42, anchor: 'end' })
+  } },
+  { n: '8', cap: 'the english build: the same cells in the order english says them, the act first', draw () {
+    const [l, , cx] = line(26, FH - FOOT, [typed('lo')])
+    return room() + l + list(cx - tw('lo', 10.5) - 14, FH - FOOT, [{ t: 'lower', d: 'for the stretch', on: true, hi: 2 }, { t: 'lower gradually', d: 'over the stretch', hi: 2 }, { t: 'loop', d: 'the cycle', hi: 2 }], 204)
+  } },
+  { n: '9', cap: 'the english build, the whole command: lower gradually, what, by how much, where', draw () {
+    const [l] = line(26, FH - FOOT, [act('lower gradually'), thing('kick in'), thing('pro-c 2'), thing('threshold'), thing('3 db'), where('19 ~ 21')])
+    return room({ where: [19, 21], auto: 'ramp', say: [dimv('threshold'), dimv('−18.0'), to('to'), lit('−21.0 db')] }) + l
+  } },
+]
+
+/* the kit measures words with the family's own widths: nothing is drawn before the family is there */
+Promise.all([document.fonts.load("400 10px 'Instrument Sans'"), document.fonts.load("500 10px 'Instrument Sans'"), document.fonts.load("600 10px 'Instrument Sans'")]).then(() => {
+const only = new URLSearchParams(location.search).get('frame')
+const frames = only ? FRAMES.filter(f => f.n === only) : FRAMES
+const COLS = only ? 1 : 2, GAP = 28, M = 32, CAP = 30
+const rows = Math.ceil(frames.length / COLS), SW = M * 2 + COLS * FW + (COLS - 1) * GAP, SH = M * 2 + rows * (FH + CAP) + (rows - 1) * GAP
+let out = R(0, 0, SW, SH, { fill: '#2A2A29' })
+frames.forEach((f, i) => {
+  const x = M + (i % COLS) * (FW + GAP), y = M + Math.floor(i / COLS) * (FH + CAP + GAP), id = 'f' + f.n
+  out += `<clipPath id="${id}"><rect x="0" y="0" width="${FW}" height="${FH}" rx="6"/></clipPath>` + G(G(f.draw(), '', ` clip-path="url(#${id})"`), `translate(${x} ${y})`)
+  out += T(x + 2, y + FH + 19, f.n, { size: 11, w: 600, a: .9 }) + T(x + 20, y + FH + 19, f.cap, { size: 11, a: .55 })
+})
+document.getElementById('host').innerHTML = `<svg id="sheet" xmlns="http://www.w3.org/2000/svg" width="${SW * 2}" height="${SH * 2}" viewBox="0 0 ${SW} ${SH}">${out}</svg>`
+document.title = `the command line, draft 1 (${SW * 2} x ${SH * 2})`
+})
+</script>
+</body>
+</html>

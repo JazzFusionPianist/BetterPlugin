@@ -1,6 +1,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <map>
 #include "Engine.h"
+#include "Settings.h"
 
 /*  Slur DAW, alpha — the window.
 
@@ -19,7 +20,11 @@ void slurFakeDrop (void* nsView, const char* path, double x, double y, void (*do
 bool slurInstallMenus (void (*picked) (const char*, void*), void* context);
 std::string slurWindowReport (void* nsView, const char* pngPath);
 std::string slurMenuTitles();
+std::string slurPanelUp (bool cancel);
 void slurStyleWindow (void* nsView);
+bool slurKeysToPage (void* nsView);
+std::string slurCommandKey (void* nsView, const char* letter, unsigned short keyCode);
+std::string slurCommandKeyOn();
 int slurRunningCopy (bool forward, bool amongChecks);
 double slurFootprintMb();
 double slurSecondsUp();
@@ -61,24 +66,43 @@ juce::String selfTestMode()
     return word.isEmpty() ? juce::String ("all") : word;
 }
 
-/*  Where things are kept. Projects live in Music/Slur Studio/Projects/<name>.sls (a folder the Finder shows as one file:
-    project.json + audio/), which macOS lets an app use without asking; settings in Application Support. A project
-    from before the name was settled (<name>.slur) is read and written where it is. (daw::musicRoot, in Engine.h.) */
+/*  Where things are kept. A project is <name>.sls (a folder the Finder shows as one file: project.json + audio/). A new
+    one is made in Music/Slur Studio/Projects, which macOS lets an app use without asking; Save As puts one wherever the
+    Mac's own panel is pointed. The page knows a project by its bare name while it lies in that first place, and by its
+    whole path anywhere else. Settings are in Application Support. A project from before the name was settled
+    (<name>.slur) is read and written where it is. (daw::musicRoot, in Engine.h.) */
 juce::File projectsRoot() { return daw::musicRoot().getChildFile ("Projects"); }
-juce::File projectDir (const juce::String& name)
+bool isProjectKind (const juce::File& f) { const auto ext = f.getFileExtension().toLowerCase(); return ext == ".sls" || ext == ".slur"; }
+juce::File projectDir (const juce::String& key)
 {
-    const auto n = juce::File::createLegalFileName (name.trim().isEmpty() ? juce::String ("untitled") : name.trim());
+    const auto k = key.trim();
+    if (juce::File::isAbsolutePath (k)) { const juce::File f (k); return isProjectKind (f) ? f : juce::File (f.getFullPathName() + ".sls"); }
+    const auto n = juce::File::createLegalFileName (k.isEmpty() ? juce::String ("untitled") : k);
     const auto now = projectsRoot().getChildFile (n + ".sls"), old = projectsRoot().getChildFile (n + ".slur");
     return ! now.exists() && old.isDirectory() ? old : now;
 }
-/** The name of the project a file handed to the app stands for, when it is one of ours and lies where projects are kept. */
+/** What the page calls the project that lies here. */
+juce::String projectKey (const juce::File& dir) { return dir.getParentDirectory() == projectsRoot() ? dir.getFileNameWithoutExtension() : dir.getFullPathName(); }
+/** The project a file handed to the app stands for, when it is one of ours — wherever on the disk it lies. */
 juce::String projectNamed (const juce::String& path)
 {
     const juce::File f (path.unquoted().trim());
-    const auto ext = f.getFileExtension().toLowerCase();
-    if ((ext != ".sls" && ext != ".slur") || ! f.isDirectory() || f.getParentDirectory() != projectsRoot()) return {};
-    return f.getFileNameWithoutExtension();
+    if (! isProjectKind (f) || ! f.isDirectory()) return {};
+    return projectKey (f);
 }
+/** A place inside a project is no place for another one. */
+bool insideAProject (const juce::File& f)
+{
+    for (auto p = f.getParentDirectory(); ! p.isRoot(); p = p.getParentDirectory()) if (isProjectKind (p)) return true;
+    return false;
+}
+juce::int64 bytesIn (const juce::File& dir)
+{
+    juce::int64 n = 0;
+    for (const auto& e : juce::RangedDirectoryIterator (dir, true, "*", juce::File::findFiles)) n += e.getFileSize();
+    return n;
+}
+juce::var whyNot (const char* why) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("why", why); return juce::var (o); }
 juce::File prefsFile() { return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support").getChildFile (daw::folderName()).getChildFile ("settings.json"); }
 /** A folder kept under the program's old name comes to lie under its new one, whole and as it is — only when nothing lies
     under the new name yet (two that are both there are left, for a person to look at). -> what was done, in a word. */
@@ -174,13 +198,17 @@ public:
             engine.start (saved.get());
         }
         if (! test) engine.devices().addChangeListener (this);
+        if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["hands"].isInt() && (int) prefs["hands"] >= 0) engine.setHands ((int) prefs["hands"]); }      // how many threads were asked for in the settings
+        if (! test) engine.openKeys();                                 // every keyboard the machine has is listened to (the check plays its own keys)
         engine.onRateChanged = [this] { auto* o = new juce::DynamicObject(); o->setProperty ("sr", engine.sr); if (web) web->emitEventIfBrowserIsVisible ("dawRate", juce::var (o)); };
         engine.onTakeStalled = [this] (bool rate) { auto* o = new juce::DynamicObject(); o->setProperty ("rate", rate); if (web) web->emitEventIfBrowserIsVisible ("dawTakeStalled", juce::var (o)); };
         engine.onSoundCut = [this] (const juce::String& name, double held, double whole, bool disk) { auto* o = new juce::DynamicObject(); o->setProperty ("name", name); o->setProperty ("held", held); o->setProperty ("whole", whole); o->setProperty ("disk", disk); if (web) web->emitEventIfBrowserIsVisible ("dawCut", juce::var (o)); };
+        if (! test && juce::JSON::parse (prefsFile())["lang"].toString() == "ko") lang = "ko";      // the language of the settings (general); the check speaks english unless it says otherwise
         web = std::make_unique<juce::WebBrowserComponent> (
             juce::WebBrowserComponent::Options{}
                 .withNativeIntegrationEnabled()
                 .withKeepPageLoadedWhenBrowserIsHidden()
+                .withUserScript ("window.__LANG = '" + lang + "';")           // known to the page before it draws a word (ui/lang.js)
                 .withResourceProvider ([] (const juce::String& path) { return serve (path); })
                 .withNativeFunction ("daw", [this] (const juce::Array<juce::var>& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {
@@ -192,7 +220,7 @@ public:
         startTimerHz (30);
     }
 
-    ~MainComponent() override { engine.devices().removeChangeListener (this); }
+    ~MainComponent() override { settings.reset(); engine.devices().removeChangeListener (this); }
     void resized() override { if (web) web->setBounds (getLocalBounds()); }
     void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff151514)); }
 
@@ -205,7 +233,20 @@ public:
         });
     }
     /** A line of the menu bar was picked: the page does what its key does. */
-    void menuPicked (const juce::String& id) { auto* o = new juce::DynamicObject(); o->setProperty ("id", id); web->emitEventIfBrowserIsVisible ("dawMenu", juce::var (o)); }
+    void menuPicked (const juce::String& id)
+    {
+        if (id == "settings") { showSettings ({}); return; }           // a window of its own, whatever the room is showing
+        auto* o = new juce::DynamicObject(); o->setProperty ("id", id); web->emitEventIfBrowserIsVisible ("dawMenu", juce::var (o));
+    }
+    /** The settings window, brought forward (made the first time); `part`: on that part, else where it was left. */
+    void showSettings (const juce::String& part)
+    {
+        if (settings == nullptr)
+            settings = std::make_unique<SettingsWindow> ([] (const juce::String& path) { return serve (path); },
+                                                         [this] (const juce::String& op, const juce::var& d, SettingsWindow::Done done) { handle (op, d, std::move (done)); },
+                                                         part.isNotEmpty() ? part : juce::String ("audio"), lang);
+        else settings->show (part);
+    }
     /** A project was handed to the app (opened from the Finder): the page opens it, now or as soon as it is up. */
     void openProject (const juce::String& name)
     {
@@ -214,7 +255,7 @@ public:
         auto* o = new juce::DynamicObject(); o->setProperty ("name", name);
         web->emitEventIfBrowserIsVisible ("dawOpen", juce::var (o));
     }
-    /** Let the page save first; quit anyway after a second and a half. */
+    /** Let the page save first; quit anyway after a second and a half — unless the page answers that it is asking (quitWait). */
     void askToQuit() { if (quitIn > 0) return; quitIn = 45; web->emitEventIfBrowserIsVisible ("dawQuit", juce::var()); }
     void snapshot (const juce::File& f, bool slursOwn = false) { if (auto* p = getPeer()) slurSnapshotWebView (p->getNativeHandle(), f.getFullPathName().toRawUTF8(), slursOwn); }
     daw::Engine engine;
@@ -257,6 +298,7 @@ private:
         if (op == "track")  { engine.setTrack (d); done (okVar()); return; }
         if (op == "hello")
         {
+            if (! keysToPage && getPeer() != nullptr) keysToPage = slurKeysToPage (getPeer()->getNativeHandle());      // (the page is up: command x, c, v and a are its keys from here on)
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", true); o->setProperty ("sr", engine.sr);
             o->setProperty ("mp3", engine.lame.existsAsFile()); o->setProperty ("mic", slurMicStatus()); o->setProperty ("ins", engine.inputCount());
@@ -286,7 +328,23 @@ private:
         if (op == "seek")    { engine.seek ((double) d["bar"]); done (okVar()); return; }
         if (op == "queue")   { engine.queued.store ((double) d["bar"]); done (okVar()); return; }
         if (op == "loop")    { engine.loopA.store ((double) d["a"]); engine.loopB.store ((double) d["b"]); engine.loop.store ((int) d["on"] != 0); done (okVar()); return; }
-        if (op == "audioSettings") { engine.showAudioSettings(); done (okVar()); return; }
+        if (op == "audioSettings") { showSettings ("audio"); done (okVar()); return; }      // (the room's own ways to the device: the same window, on its audio part)
+        if (op == "settings")      { showSettings (d["part"].toString()); done (okVar()); return; }
+        if (op == "settingsClose") { if (settings != nullptr) settings->setVisible (false); done (okVar()); return; }
+        if (op == "settingsRead")  { done (settingsNow()); return; }
+        if (op == "settingsSet")   { done (settingsSet (d)); return; }
+        if (op == "settingsTone")  { if (selfTestMode().isEmpty() && ! engine.busy()) engine.devices().playTestSound(); done (okVar()); return; }      // (the check is silent)
+        if (op == "testSettings")                                              // the check: the window as it stands, and a picture of its page
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("open", settings != nullptr && settings->isVisible());
+            if (settings != nullptr)
+            {
+                o->setProperty ("title", settings->getName()); o->setProperty ("w", settings->page().getWidth()); o->setProperty ("h", settings->page().getHeight());
+                if (auto* p = settings->getPeer()) if (d["name"].toString().isNotEmpty()) slurSnapshotWebView (p->getNativeHandle(), logDir().getChildFile (juce::File::createLegalFileName (d["name"].toString())).getFullPathName().toRawUTF8(), false);
+            }
+            done (juce::var (o)); return;
+        }
         if (op == "click")   { engine.click.store ((int) d["on"] != 0); done (okVar()); return; }
         if (op == "master")  { engine.master.store ((float) (double) d["gain"]); done (okVar()); return; }
         if (op == "inputOn")
@@ -317,7 +375,15 @@ private:
         if (op == "wave") { done (engine.wave (d["key"].toString(), (double) d["from"], (double) d["to"], (int) d["n"])); return; }      // a stretch of a sound, close up, for drawing
         if (op == "closeEditors") { engine.closeEditors(); done (okVar()); return; }
         if (op == "plugins") { done (engine.listPlugins ([] (const juce::String& id) { return auMaker (id); })); return; }
-        if (op == "insert")  { engine.insertPlugin ((int) d["track"], d["id"].toString(), d["state"].toString(), ! d.hasProperty ("show") || (int) d["show"] != 0, [done] (juce::var r) { done (r); }, d.hasProperty ("at") ? (int) d["at"] : -1); return; }
+        if (op == "insert")  { engine.insertPlugin ((int) d["track"], d["id"].toString(), d["state"].toString(), ! d.hasProperty ("show") || (int) d["show"] != 0, [done] (juce::var r) { done (r); }, d.hasProperty ("at") ? (int) d["at"] : -1, (int) d["inst"] != 0); return; }
+        // a track's instrument: one of the DAW's own ({track, kind, p}), what is turned on it ({track, p}), a sound for it to play from ({track, slot, key})
+        if (op == "inst")       { done (engine.setInstrument ((int) d["track"], d["kind"].toString(), d["p"])); return; }
+        if (op == "instSet")    { done (okVar (engine.instrumentParams ((int) d["track"], d["p"]))); return; }
+        if (op == "instSample") { done (okVar (engine.instrumentSample ((int) d["track"], (int) d["slot"], d["key"].toString()))); return; }
+        if (op == "key")        { engine.playKey ((int) d["st"], (int) d["d1"], (int) d["d2"]); done (okVar()); return; }      // a key played from the page
+        if (op == "keyInputs")  { done (engine.keyInputs()); return; }
+        if (op == "hush")       { engine.hushAll(); done (okVar()); return; }                                                      // every instrument silent at once
+        if (op == "capture")    { done (engine.capture()); return; }                                                           // what was just played, though nothing was recording
         if (op == "pluginStates") { done (engine.pluginStates()); return; }
         if (op == "prefGet") { auto v = juce::JSON::parse (prefsFile()); done (v.isObject() ? v : juce::var (new juce::DynamicObject())); return; }
         if (op == "prefSet")
@@ -338,11 +404,74 @@ private:
                     {
                         seen.add (f.getFileNameWithoutExtension());
                         auto* o = new juce::DynamicObject();
-                        o->setProperty ("name", f.getFileNameWithoutExtension());
+                        o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("key", f.getFileNameWithoutExtension());
                         o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
                         out.add (juce::var (o));
                     }
+            juce::StringArray inFolders;                                       // the ones in a folder a person made among the projects (one level deep): by their whole path, with the folder's name
+            for (auto& folder : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*"))
+                if (! isProjectKind (folder) && ! folder.getFileName().startsWithChar ('.'))
+                    for (auto* pattern : { "*.sls", "*.slur" })
+                        for (auto& f : folder.findChildFiles (juce::File::findDirectories, false, pattern))
+                            if (f.getChildFile ("project.json").existsAsFile())
+                            {
+                                auto* o = new juce::DynamicObject();
+                                o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("key", f.getFullPathName());
+                                o->setProperty ("dir", folder.getFileName());
+                                o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
+                                out.add (juce::var (o)); inFolders.add (f.getFullPathName());
+                            }
+            if (auto* also = d["also"].getArray())                             // the ones kept somewhere else that the page remembers, while they are still there
+                for (auto& k : *also)
+                {
+                    const auto f = projectDir (k.toString());
+                    if (! juce::File::isAbsolutePath (k.toString()) || projectKey (f) != k.toString() || ! f.getChildFile ("project.json").existsAsFile() || inFolders.contains (f.getFullPathName())) continue;
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("key", k.toString());
+                    o->setProperty ("in", f.getParentDirectory().getFileName());
+                    o->setProperty ("modified", f.getChildFile ("project.json").getLastModificationTime().toMilliseconds());
+                    out.add (juce::var (o));
+                }
             done (out); return;
+        }
+        /* folders among the projects: plain folders in the projects' place, one level deep (a folder holds projects, not folders) */
+        if (op == "projFolders")
+        {
+            juce::Array<juce::var> out;
+            for (auto& f : projectsRoot().findChildFiles (juce::File::findDirectories, false, "*"))
+                if (! isProjectKind (f) && ! f.getFileName().startsWithChar ('.'))
+                { auto* o = new juce::DynamicObject(); o->setProperty ("name", f.getFileName()); out.add (juce::var (o)); }
+            done (out); return;
+        }
+        if (op == "folderNew")
+        {
+            const auto name = juce::File::createLegalFileName (d["name"].toString().trim());
+            const auto f = projectsRoot().getChildFile (name);
+            if (name.isEmpty() || name.startsWithChar ('.') || isProjectKind (f)) { done (whyNot ("that is no name for a folder")); return; }
+            if (f.exists()) { done (whyNot ("there is one of that name")); return; }
+            auto* o = new juce::DynamicObject(); o->setProperty ("ok", f.createDirectory().wasOk()); o->setProperty ("name", name);
+            done (juce::var (o)); return;
+        }
+        if (op == "folderDrop")                                                // an empty folder is taken away; one that holds anything is left as it is
+        {
+            const auto f = projectsRoot().getChildFile (juce::File::createLegalFileName (d["name"].toString().trim()));
+            if (! f.isDirectory() || isProjectKind (f) || f.getParentDirectory() != projectsRoot()) { done (whyNot ("no such folder")); return; }
+            for (auto& c : f.findChildFiles (juce::File::findFilesAndDirectories, false, "*")) if (c.getFileName() != ".DS_Store") { done (whyNot ("the folder is not empty")); return; }
+            done (okVar (f.deleteRecursively())); return;
+        }
+        if (op == "projMove")                                                  // a project put into one of those folders, or taken out again: {name: its key, to: the folder — or nothing} -> {ok, key}
+        {
+            const auto from = projectDir (d["name"].toString());
+            const auto toName = d["to"].toString().trim();
+            const auto dest = toName.isEmpty() ? projectsRoot() : projectsRoot().getChildFile (juce::File::createLegalFileName (toName));
+            if (! from.isDirectory() || ! isProjectKind (from) || ! from.getChildFile ("project.json").existsAsFile()) { done (whyNot ("no such project")); return; }
+            if (! dest.isDirectory() || isProjectKind (dest)) { done (whyNot ("no such folder")); return; }
+            if (! (from.getParentDirectory() == projectsRoot() || from.getParentDirectory().getParentDirectory() == projectsRoot())) { done (whyNot ("it is kept somewhere else")); return; }      // (one a person keeps in a place of their own stays there)
+            const auto to = dest.getChildFile (from.getFileName());
+            if (to != from && to.exists()) { done (whyNot ("there is one of that name there")); return; }
+            const bool ok = to == from || from.moveFileTo (to);
+            auto* o = new juce::DynamicObject(); o->setProperty ("ok", ok); o->setProperty ("key", projectKey (ok ? to : from));
+            done (juce::var (o)); return;
         }
         if (op == "projSave")
         {
@@ -358,6 +487,39 @@ private:
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", f.existsAsFile());
             if (f.existsAsFile()) { o->setProperty ("json", f.loadFileAsString()); o->setProperty ("saved", f.getLastModificationTime().toMilliseconds()); daw::Marker::set ("project", d["name"].toString()); }
+            done (juce::var (o)); return;
+        }
+        if (op == "projFacts")                                                 // a project seen from far away, for the start page: its numbers, its weight, and where each track sounds. It is only read: nothing marks it as the open one
+        {
+            const auto dir = projectDir (d["name"].toString());
+            const auto f = dir.getChildFile ("project.json");
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", f.existsAsFile());
+            if (! f.existsAsFile())
+            {
+                const auto path = dir.getFullPathName();                       // kept on a disk that is not connected just now: said, so that the page can keep it in its list
+                const auto disk = path.startsWith ("/Volumes/") ? path.substring (9).upToFirstOccurrenceOf ("/", false, false) : juce::String();
+                if (disk.isNotEmpty() && ! juce::File ("/Volumes/" + disk).isDirectory()) o->setProperty ("gone", disk);
+                done (juce::var (o)); return;
+            }
+            const auto v = juce::JSON::parse (f);
+            juce::int64 bytes = 0;
+            for (const auto& e : juce::RangedDirectoryIterator (dir, true, "*", juce::File::findFiles)) bytes += e.getFileSize();
+            o->setProperty ("bytes", (double) bytes);
+            for (auto* k : { "tempo", "meter", "key" }) o->setProperty (k, v[k]);
+            juce::Array<juce::var> tracks;
+            if (auto* all = v["tracks"].getArray())
+                for (auto& t : *all)
+                {
+                    auto* q = new juce::DynamicObject();
+                    for (auto* k : { "id", "name", "kind", "tone", "col", "parent" }) if (! t[k].isVoid()) q->setProperty (k, t[k]);
+                    if (t["inst"].isObject()) q->setProperty ("notes", true);
+                    juce::Array<juce::var> regs;                               // where it sounds: begin, end, begin, end… in bars
+                    if (auto* rs = t["regs"].getArray()) for (auto& r : *rs) if (! (bool) r["mute"]) { regs.add (r["a"]); regs.add (r["b"]); }
+                    q->setProperty ("regs", regs);
+                    tracks.add (juce::var (q));
+                }
+            o->setProperty ("tracks", tracks);
             done (juce::var (o)); return;
         }
         if (op == "projBackups")                                               // the song as it was earlier: the copies put aside, the newest first
@@ -393,8 +555,68 @@ private:
         }
         if (op == "testCrash") { daw::crashOnUid.store ((int) d["uid"]); done (okVar()); return; }
         if (op == "testHang")  { if (selfTestMode().isNotEmpty()) { daw::hangLive.store ((int) d["live"] != 0); daw::hangOnUid.store ((int) d["uid"]); } done (okVar()); return; }      // the check: a print (live: the device) never comes back from this plug-in       // the check: this plug-in brings the app down the next time it plays
-        if (op == "projRename") { auto from = projectDir (d["from"].toString()), to = projectDir (d["to"].toString()); done (okVar (from.isDirectory() ? (! to.exists() && from.moveFileTo (to)) : ! to.exists())); return; }      // a new name is always a .sls: projectDir gives the old kind only for a folder that is there
-        if (op == "projCopy") { auto from = projectDir (d["from"].toString()), to = projectDir (d["to"].toString()); done (okVar (! to.exists() && (from.isDirectory() ? from.copyDirectoryTo (to) : to.getChildFile ("audio").createDirectory().wasOk()))); return; }
+        if (op == "projRename")                                                // a new name where the project lies; always a .sls (projectDir gives the old kind only for a folder that is there)
+        {
+            const auto from = projectDir (d["from"].toString());
+            const auto to = juce::File::isAbsolutePath (d["from"].toString().trim()) ? from.getSiblingFile (juce::File::createLegalFileName (d["to"].toString().trim()) + ".sls") : projectDir (d["to"].toString());
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", from.isDirectory() ? (! to.exists() && from.moveFileTo (to)) : ! to.exists());
+            o->setProperty ("key", projectKey (to));
+            done (juce::var (o)); return;
+        }
+        if (op == "projWhere")                                                 // Save As: the Mac asks where, and under what name (it also asks before one that is there is replaced)
+        {
+            const auto from = projectDir (d["from"].toString());
+            const auto name = juce::File::createLegalFileName (d["name"].toString().trim()) + ".sls";
+            const auto answer = [from, done] (juce::File to)
+            {
+                if (to == juce::File()) { done (okVar (false)); return; }
+                if (! isProjectKind (to)) to = juce::File (to.getFullPathName() + ".sls");
+                if (to == from) { done (whyNot ("same")); return; }
+                if (insideAProject (to)) { done (whyNot ("inside")); return; }
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("key", projectKey (to)); o->setProperty ("there", to.exists());
+                done (juce::var (o));
+            };
+            if (selfTestMode().isNotEmpty() && (int) d["panel"] == 0) { answer (daw::musicRoot().getChildFile ("Elsewhere").getNonexistentChildFile (name.upToLastOccurrenceOf (".", false, false), ".sls", false)); return; }      // the check has no hands for a panel: a place of its own, outside where projects are kept
+            const auto in = from.getParentDirectory().isDirectory() ? from.getParentDirectory() : projectsRoot();
+            if (in == projectsRoot()) in.createDirectory();
+            chooser = std::make_unique<juce::FileChooser> ("Save As", in.getChildFile (name), "*.sls");
+            chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles, [answer] (const juce::FileChooser& fc) { answer (fc.getResult()); });
+            return;
+        }
+        if (op == "projPick")                                                  // Open: the Mac's own panel, on the folder the open project lies in
+        {
+            if (selfTestMode().isNotEmpty() && (int) d["panel"] == 0) { done (okVar (false)); return; }
+            const auto from = projectDir (d["from"].toString());
+            chooser = std::make_unique<juce::FileChooser> ("Open", from.getParentDirectory().isDirectory() ? from.getParentDirectory() : projectsRoot(), "*.sls;*.slur");
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectDirectories, [done] (const juce::FileChooser& fc)      // (a .slur from before is a plain folder to the Finder)
+            {
+                const auto f = fc.getResult();
+                if (f == juce::File()) { done (okVar (false)); return; }
+                if (! isProjectKind (f) || ! f.getChildFile ("project.json").existsAsFile()) { done (whyNot ("not")); return; }
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("key", projectKey (f));
+                done (juce::var (o));
+            });
+            return;
+        }
+        if (op == "projCopy")                                                  // the project as it lies on the disk, once more in another place; `replace`: what is there goes to the Trash first
+        {
+            const auto from = projectDir (d["from"].toString()), to = projectDir (d["to"].toString());
+            if (to == from || to.isAChildOf (from)) { done (whyNot ("same")); return; }
+            if (insideAProject (to)) { done (whyNot ("inside")); return; }
+            if (to.exists() && (int) d["replace"] == 0) { done (whyNot ("taken")); return; }
+            const auto in = to.getParentDirectory();
+            if (! in.createDirectory().wasOk()) { done (whyNot ("write")); return; }
+            if (from.isDirectory() && bytesIn (from) + 64 * 1048576 > in.getBytesFreeOnVolume()) { done (whyNot ("room")); return; }
+            if (to.exists() && ! to.moveToTrash()) { done (whyNot ("write")); return; }
+            const bool ok = from.isDirectory() ? from.copyDirectoryTo (to) : to.getChildFile ("audio").createDirectory().wasOk();
+            if (! ok) { to.deleteRecursively(); done (whyNot ("write")); return; }     // half a copy is no project: only what was just laid there is taken away
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", true); o->setProperty ("key", projectKey (to));
+            done (juce::var (o)); return;
+        }
         if (op == "title")    { if (auto* w = dynamic_cast<juce::DocumentWindow*> (getTopLevelComponent())) w->setName (d["text"].toString()); done (okVar()); return; }
         if (op == "slurPanel")                                                 // where slur stands in the room, and whether it shows
         {
@@ -415,6 +637,62 @@ private:
             done (getPeer() != nullptr ? juce::JSON::parse (juce::String (juce::CharPointer_UTF8 (slurWindowReport (getPeer()->getNativeHandle(), png.getFullPathName().toRawUTF8()).c_str()))) : juce::var());
             return;
         }
+        if (op == "testLag")                                                   // the check: by how many samples the second file's sound comes later than the first's (one sound printed after going two ways)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            juce::AudioFormatManager fm; fm.registerBasicFormats();
+            auto read = [&fm] (const juce::String& path)
+            {
+                std::vector<float> v;
+                if (std::unique_ptr<juce::AudioFormatReader> r { fm.createReaderFor (juce::File (path)) })
+                {
+                    const int n = (int) juce::jmin ((juce::int64) 72000, r->lengthInSamples);
+                    juce::AudioBuffer<float> b ((int) r->numChannels, n);
+                    r->read (&b, 0, n, 0, true, true);
+                    v.resize ((size_t) n);
+                    for (int i = 0; i < n; ++i) { float sum = 0.0f; for (int c = 0; c < b.getNumChannels(); ++c) sum += b.getSample (c, i); v[(size_t) i] = sum; }
+                }
+                return v;
+            };
+            const auto a = read (d["a"].toString()), b = read (d["b"].toString());
+            const int n = (int) juce::jmin (a.size(), b.size()), reach = juce::jmin (8192, n / 2);
+            double best = 0.0, ea = 0.0, eb = 0.0; int lag = 0;
+            for (int i = 0; i < n; ++i) { ea += (double) a[(size_t) i] * a[(size_t) i]; eb += (double) b[(size_t) i] * b[(size_t) i]; }
+            for (int k = -reach; k <= reach; ++k)
+            {
+                double c = 0.0;
+                for (int i = juce::jmax (0, -k), end = juce::jmin (n, n - k); i < end; ++i) c += (double) a[(size_t) i] * b[(size_t) (i + k)];
+                if (c > best) { best = c; lag = k; }
+            }
+            o->setProperty ("frames", n); o->setProperty ("lag", lag); o->setProperty ("alike", ea > 0.0 && eb > 0.0 ? best / std::sqrt (ea * eb) : 0.0);
+            o->setProperty ("levelA", n > 0 ? std::sqrt (ea / n) : 0.0); o->setProperty ("levelB", n > 0 ? std::sqrt (eb / n) : 0.0);
+            done (juce::var (o)); return;
+        }
+        if (op == "testCmdKey")                                                // the check: a key with command held, sent as the Mac sends one (the window's views first, then the menu bar)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isNotEmpty() && getPeer() != nullptr) o->setProperty ("took", juce::String (juce::CharPointer_UTF8 (slurCommandKey (getPeer()->getNativeHandle(), d["key"].toString().toRawUTF8(), (unsigned short) (int) d["code"]).c_str())));
+            done (juce::var (o)); return;
+        }
+        if (op == "testCmdKeyOn")                                              // the check, a moment later: what the page did with that key (and, left alone, where it went then)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isNotEmpty()) o->setProperty ("took", juce::String (juce::CharPointer_UTF8 (slurCommandKeyOn().c_str())));
+            done (juce::var (o)); return;
+        }
+        if (op == "testFill")                                                  // the check: the whole window, its own bar with it, against what the screen leaves a window
+        {
+            auto* o = new juce::DynamicObject();
+            if (auto* top = getTopLevelComponent())
+                if (auto* p = top->getPeer())
+                {
+                    o->setProperty ("window", p->getFrameSize().addedTo (top->getBounds()).toString());
+                    o->setProperty ("screen", juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea.toString());
+                }
+            done (juce::var (o)); return;
+        }
+        if (op == "testPanel") { auto* o = new juce::DynamicObject(); o->setProperty ("up", juce::String (juce::CharPointer_UTF8 (slurPanelUp ((int) d["cancel"] != 0).c_str()))); done (juce::var (o)); return; }      // the check: the Mac's save or open panel that is up, and its Cancel
         if (op == "testMoved")                                                 // the check: folders under an old name taken over under a new one, on stand-ins of its own
         {
             auto* o = new juce::DynamicObject();
@@ -489,6 +767,21 @@ private:
             done (out); return;
         }
         if (op == "audioLoad") { auto file = projectDir (d["project"].toString()).getChildFile ("audio").getChildFile (d["file"].toString()); done (withFile (engine.decodeFile (file), file.getFileName(), file.getFileNameWithoutExtension())); return; }
+        if (op == "patchPreset")                                               // a track's patch as a file Patch on Slur opens (for the hand-off folder)
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("json", daw::Engine::patchPreset ((float) (double) d["tape"], (float) (double) d["space"], (float) (double) d["delay"], (float) (double) d["share"]));
+            done (juce::var (o)); return;
+        }
+        if (op == "fileWrite")                                                 // a small file of the page's own making (the notes as a standard file, a page about the song), laid in a folder the app printed into: only inside the app's own place in Music
+        {
+            const juce::File dir (d["dir"].toString());
+            const auto name = juce::File::createLegalFileName (d["name"].toString());
+            juce::MemoryOutputStream mo;
+            const bool inside = dir.isDirectory() && (dir == daw::musicRoot() || dir.isAChildOf (daw::musicRoot()));
+            if (! inside || name.isEmpty() || d["data"].toString().length() > (1 << 26) || ! juce::Base64::convertFromBase64 (mo, d["data"].toString())) { done (okVar (false)); return; }
+            done (okVar (dir.getChildFile (name).replaceWithData (mo.getData(), mo.getDataSize()))); return;
+        }
         if (op == "import")
         {
             const auto project = d["project"].toString();
@@ -508,6 +801,11 @@ private:
             return;
         }
         if (op == "quit") { done (okVar()); juce::MessageManager::callAsync ([] { juce::JUCEApplication::quit(); }); return; }
+        if (op == "quitWait") { quitIn = 0; done (okVar()); return; }          // the page is asking whether to save first: the app does not close by itself meanwhile (it closes when the page says quit)
+        if (op == "params")    { done (engine.pluginParams ((int) d["track"], (int) d["uid"])); return; }       // a plug-in's controls, for a line to be drawn for one
+        if (op == "touched")   { done (engine.pluginTouched ((int) d["track"], (int) d["uid"])); return; }      // the control last moved in its window
+        if (op == "testTouch") { if (selfTestMode().isNotEmpty()) engine.testTouch ((int) d["track"], (int) d["uid"], (int) d["i"], (float) (double) d["v"]); done (okVar()); return; }
+        if (op == "keyFrom") { done (engine.setKey ((int) d["track"], (int) d["uid"], (int) d["from"])); return; }      // a plug-in is given a track to listen to (its key, or side chain); 0: none
         if (op == "bypass")  { engine.bypassPlugin ((int) d["track"], (int) d["uid"], (int) d["off"] != 0); done (okVar()); return; }
         if (op == "editor")  { engine.openEditor ((int) d["track"], (int) d["uid"]); done (okVar()); return; }
         if (op == "remove")  { done (okVar (engine.removePlugin ((int) d["track"], (int) d["uid"]))); return; }
@@ -627,6 +925,8 @@ private:
         auto* dev = engine.devices().getCurrentAudioDevice();
         o.setProperty ("block", dev != nullptr ? dev->getCurrentBufferSizeSamples() : engine.block);
         o.setProperty ("bits", dev != nullptr ? dev->getCurrentBitDepth() : 0);
+        const auto setup = engine.devices().getAudioDeviceSetup();            // what it listens to and plays through, by name (the start page says them)
+        o.setProperty ("inName", setup.inputDeviceName); o.setProperty ("outName", setup.outputDeviceName);
     }
     /** Slur: the plug-in's own page, in a view of its own. Its top bar's fx is left out here, where the patch is the room's;
         so is the mark on its door (nothing in this room carries a logo). */
@@ -672,7 +972,98 @@ private:
         web->emitEventIfBrowserIsVisible ("dawTick", juce::var (o));
     }
 
+    /** What the settings window shows of the device and the engine, as they are now. */
+    juce::var settingsNow()
+    {
+        auto* o = new juce::DynamicObject();
+        auto& dm = engine.devices();
+        const auto setup = dm.getAudioDeviceSetup();
+        juce::Array<juce::var> outs, ins, rates, blocks;
+        auto in = setup.inputDeviceName;
+        if (auto* type = dm.getCurrentDeviceTypeObject())
+        {
+            for (auto& n : type->getDeviceNames (false)) outs.add (n);
+            const auto names = type->getDeviceNames (true);
+            for (auto& n : names) ins.add (n);
+            if (in.isEmpty()) { const int def = type->getDefaultDeviceIndex (true); if (def >= 0 && def < names.size()) in = names[def]; }      // none chosen: the one the Mac would give
+        }
+        o->setProperty ("lang", lang);
+        if (settings != nullptr) { const auto part = settings->takeAsked(); if (part.isNotEmpty()) o->setProperty ("part", part); }
+        o->setProperty ("outs", outs); o->setProperty ("ins", ins); o->setProperty ("out", setup.outputDeviceName); o->setProperty ("in", in);
+        if (auto* dev = dm.getCurrentAudioDevice())
+        {
+            for (auto r : dev->getAvailableSampleRates()) rates.add (r);
+            for (auto b : dev->getAvailableBufferSizes()) blocks.add (b);
+            o->setProperty ("rate", dev->getCurrentSampleRate()); o->setProperty ("block", dev->getCurrentBufferSizeSamples());
+            o->setProperty ("outLat", dev->getOutputLatencyInSamples()); o->setProperty ("inLat", dev->getInputLatencyInSamples());
+        }
+        else { o->setProperty ("rate", engine.sr); o->setProperty ("block", engine.block); o->setProperty ("outLat", 0); o->setProperty ("inLat", 0); }
+        o->setProperty ("rates", rates); o->setProperty ("blocks", blocks);
+        o->setProperty ("inputOn", engine.inputCount() > 0 && ! engine.testInput);      // (the check's input is a tone of its own, not the machine's)
+        o->setProperty ("level", engine.inputNow());
+        o->setProperty ("threads", engine.hands() + 1); o->setProperty ("asked", engine.handsAsked());
+        o->setProperty ("cores", juce::SystemStats::getNumPhysicalCpus());
+        o->setProperty ("busy", engine.busy());
+        return juce::var (o);
+    }
+    /** One thing set from the settings window: {what: out | in | rate | block | threads, value}. Taken at once; the device
+        says so itself when it has changed (changeListenerCallback keeps it for the next start). -> {ok, why? | error?} */
+    juce::var settingsSet (const juce::var& d)
+    {
+        const auto what = d["what"].toString();
+        if (what == "lang")                                                    // the language the program speaks: every page is told, and writes itself again
+        {
+            lang = d["value"].toString() == "ko" ? "ko" : "en";
+            if (selfTestMode().isEmpty())
+            {
+                auto v = juce::JSON::parse (prefsFile());
+                if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                v.getDynamicObject()->setProperty ("lang", lang);
+                prefsFile().getParentDirectory().createDirectory();
+                prefsFile().replaceWithText (juce::JSON::toString (v));
+            }
+            for (auto* page : { web.get(), settings != nullptr ? &settings->page() : nullptr })
+                if (page != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("lang", lang); page->emitEventIfBrowserIsVisible ("dawLang", juce::var (o)); }
+            return okVar();
+        }
+        if (engine.busy()) return whyNot ("busy");
+        if (what == "threads")                                                 // threads in all; 0: as many as the machine allows
+        {
+            const int n = (int) d["value"];
+            engine.setHands (n > 0 ? n - 1 : -1);
+            if (selfTestMode().isEmpty())
+            {
+                auto v = juce::JSON::parse (prefsFile());
+                if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                v.getDynamicObject()->setProperty ("hands", n > 0 ? n - 1 : -1);
+                prefsFile().getParentDirectory().createDirectory();
+                prefsFile().replaceWithText (juce::JSON::toString (v));
+            }
+            return okVar();
+        }
+        auto& dm = engine.devices();
+        auto setup = dm.getAudioDeviceSetup();
+        if (what == "out") setup.outputDeviceName = d["value"].toString();
+        else if (what == "in")
+        {
+            setup.inputDeviceName = d["value"].toString();
+            if (engine.inputCount() == 0) { setup.useDefaultInputChannels = false; setup.inputChannels.clear(); }      // chosen, not opened: the input opens when a track asks for it (enableInput)
+        }
+        else if (what == "rate") setup.sampleRate = (double) d["value"];
+        else if (what == "block") setup.bufferSize = (int) d["value"];
+        else return whyNot ("what");
+        if (selfTestMode().isNotEmpty()) return whyNot ("check");              // the check never moves the machine's device: every program that plays shares it
+        const auto err = dm.setAudioDeviceSetup (setup, true);
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("ok", err.isEmpty());
+        if (err.isNotEmpty()) { o->setProperty ("error", err); daw::logLine ("settings: " + what + " would not be set: " + err); }
+        return juce::var (o);
+    }
+
     std::unique_ptr<juce::WebBrowserComponent> web, slur;
+    bool keysToPage = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
+    std::unique_ptr<SettingsWindow> settings;
+    juce::String lang { "en" };
     juce::String pendingOpen;
     bool pageUp = false;
     std::unique_ptr<juce::FileChooser> chooser;
@@ -690,10 +1081,18 @@ public:
         setContentOwned (new MainComponent(), true);
         setResizable (true, false);
         setResizeLimits (1100, 640 + 28, 6000, 4000);
-        { const auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea; setSize (juce::jmin (getWidth(), area.getWidth()), juce::jmin (getHeight(), area.getHeight())); }
+        /* it opens as large as the screen lets a window be — all of it under the menu bar and beside the Dock — the way
+           Logic's does. (The app's own check keeps the size its pictures are measured at.) */
+        const auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
+        const bool whole = selfTestMode().isEmpty() || selfTestMode() == "start";      // (and the one part of the check that opens it as a hand does)
+        setSize (juce::jmin (getWidth(), area.getWidth()), juce::jmin (getHeight(), area.getHeight()));
         centreWithSize (getWidth(), getHeight());
         setVisible (true);
-        if (auto* p = getPeer()) slurStyleWindow (p->getNativeHandle());
+        if (auto* p = getPeer())
+        {
+            if (whole) setBounds (p->getFrameSize().subtractedFrom (area));       // (the window's own bar is part of what has to fit)
+            slurStyleWindow (p->getNativeHandle());
+        }
         startTimer (120);                                                      // the menu bar is the app's a moment after its first window is
     }
     ~MainWindow() override { stopTimer(); }
@@ -766,7 +1165,7 @@ public:
     void anotherInstanceStarted (const juce::String& commandLine) override
     {
         const auto name = projectNamed (commandLine);
-        daw::logLine ("handed: " + commandLine + (name.isEmpty() ? "  (not a project in music, slur daw, projects)" : juce::String()));
+        daw::logLine ("handed: " + commandLine + (name.isEmpty() ? "  (not a project)" : juce::String()));
         if (window != nullptr && window->main() != nullptr && test == nullptr) window->main()->openProject (name);
     }
 private:

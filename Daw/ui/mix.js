@@ -38,9 +38,12 @@ function chooseTrack (i, how) {
 }
 /* kind: 'audio', or 'bus' (an aux: nothing on it, other tracks play or send into it). `after`: the row an audio track goes
    under (not given: under the leading track, and into its stack) */
-function addTrack (kind, name, after) {
+/* kind 'midi' is a track of notes: a track that sounds, with an instrument (inst: { kind, sound }) at the head of its patch, named for what it plays */
+function addTrack (kind, name, after, inst) {
   const k = S.tracks.filter(t => new RegExp(`^${kind} \\d+$`).test(t.name)).length + 1, cur = S.tracks[S.sel]
-  const t = mkTrack(name || `${kind} ${k}`, null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), { kind })
+  const I = kind === 'midi' ? newInst(inst && inst.kind ? inst : { kind: 'synth' }) : null
+  if (I) kind = 'audio'
+  const t = mkTrack(name || (I ? instTrackName(I) : `${kind} ${k}`), null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), Object.assign({ kind }, I ? { inst: I } : {}))
   t.patch0 = copy(t.patch)
   if (kind === 'audio') { if (after == null && cur && cur.parent) t.parent = cur.parent; S.tracks.splice((after == null ? S.sel : after) + 1, 0, t) } else S.tracks.push(t)       // buses gather at the bottom
   return t
@@ -61,8 +64,9 @@ function newTracks (o) {
   const before = editState(), made = [], dest = byId(o.out)
   let at = S.sel
   for (let k = 0; k < n; k++) {
-    const t = addTrack(o.kind, null, at)
-    if (o.kind === 'audio') { t.inp = o.inp || 0; at = S.tracks.indexOf(t) }
+    const t = addTrack(o.kind, null, at, o.kind === 'midi' ? (typeof o.inst === 'string' ? { kind: o.inst, sound: o.sound } : o.inst) : null)
+    if (o.kind === 'audio') t.inp = o.inp || 0
+    if (o.kind !== 'bus') at = S.tracks.indexOf(t)
     if (dest && dest.kind === 'stack') t.parent = dest.id; else if (dest) t.out = dest.id
     made.push(t)
   }
@@ -131,11 +135,11 @@ async function duplicateTrack (i, full) {
   const src = S.tracks[i]
   if (!src) return
   if (S.tracks.length >= MAX_TRACKS) { say('no room for another track'); return }
-  const states = NAT && (src.inserts || []).length ? await NAT.call('pluginStates') : null
+  const states = NAT && ((src.inserts || []).length || (src.inst && src.inst.kind === 'plug')) ? await NAT.call('pluginStates') : null
   const before = editState(), m = src.name.match(/^(.*?)(?: (\d+))?$/), stem = m[1]
   let k = m[2] ? +m[2] + 1 : 2
   while (S.tracks.some(x => x.name === `${stem} ${k}`)) k++
-  const t = mkTrack(`${stem} ${k}`, null, null, null, src.buf0, src.vol, [], copy(src.patch), Object.assign({ kind: src.kind === 'stack' ? 'bus' : src.kind, pan: src.pan, out: src.out, parent: src.kind === 'stack' ? null : src.parent, sends: copy(src.sends), inp: src.inp, midi: src.midi }, src.col ? { col: src.col.slice() } : {}, src.shape ? { shape: src.shape } : {}, src.tone ? { tone: src.tone } : {}))
+  const t = mkTrack(`${stem} ${k}`, null, null, null, src.buf0, src.vol, [], copy(src.patch), Object.assign({ kind: src.kind === 'stack' ? 'bus' : src.kind, pan: src.pan, out: src.out, parent: src.kind === 'stack' ? null : src.parent, sends: copy(src.sends), inp: src.inp, midi: src.midi }, src.inst ? { inst: instCopy(src.inst, states && src.inst.uid ? states['u' + src.inst.uid] : null) } : {}, src.col ? { col: src.col.slice() } : {}, src.shape ? { shape: src.shape } : {}, src.tone ? { tone: src.tone } : {}))
   t.def = src.def; t.patch0 = copy(src.patch0 || src.patch)
   if (full && src.kind === 'audio') { t.regs = src.regs.map(r => cloneReg(r)); freshGroups(t.regs) }
   S.tracks.splice(i + 1, 0, t); normalizeOrder(); leadTrack(S.tracks.indexOf(t)); S.focus = 'tracks'; S.selR = t.regs.map(r => r.id); S.selM = null; showRow(S.sel); birth(t)
@@ -217,6 +221,26 @@ async function deleteUnused () {
   say(n ? `${n} empty track${n === 1 ? '' : 's'} deleted` : 'no empty track')
 }
 /* plug-ins of a track that came back with an undo are opened again */
+/* a plug-in's key (its side chain): the track it listens to on its second input, in place of its own sound — a compressor
+   on the bass that ducks to the kick listens to the kick. It is kept with the plug-in (ins.key, that track's id; ins.sc
+   says the plug-in has such an input at all) and told to the engine again whenever the plug-in is opened. */
+const keyTold = (t, ins) => { if (NAT && ins.key && ins.uid && byId(ins.key)) NAT.call('keyFrom', { track: t.id, uid: ins.uid, from: ins.key }) }
+async function setKey (t, ins, from) {
+  if (!NAT || !ins || !ins.uid) return false
+  const r = await NAT.call('keyFrom', { track: t.id, uid: ins.uid, from: from || 0 })
+  if (r && r.ok) { ins.key = from || 0; say(from ? `${ins.name.toLowerCase()} listens to ${byId(from).name}` : `${ins.name.toLowerCase()} listens to its own track`) }
+  else say(r && r.why === 'ring' ? 'that track is fed by this one' : r && r.why === 'no key input' ? 'this plug-in has no key input' : 'not while it prints')
+  uiDirty('dock')
+  return !!(r && r.ok)
+}
+/* the list under a plug-in that is pressed with the other button: what it listens to */
+function openKeyMenu (t, k, x, y) {
+  const ins = t && t.inserts[k]
+  if (!ins || ins.out || !ins.uid) return
+  if (!ins.sc) { openMenu(x, y, [{ t: 'no key input', dim: true }], () => {}); return }
+  const now = byId(ins.key) ? ins.key : 0
+  openMenu(x, y, [{ t: 'its own track', v: 0, on: !now }].concat(S.tracks.filter(s => s !== t).map((s, i) => ({ t: s.name, k: s.kind === 'audio' ? '' : s.kind, v: s.id, on: now === s.id, sep: i === 0 }))), it => setKey(t, ins, it.v), { w: 200 })
+}
 async function reviveInserts () {
   if (!NAT) return
   for (const t of S.tracks) for (const ins of t.inserts || []) if (ins.dead && !ins.busy) {
@@ -224,7 +248,7 @@ async function reviveInserts () {
     ins.busy = true
     const r = await NAT.call('insert', { track: t.id, id: ins.id, state: ins.state || '', show: 0 })
     ins.busy = false
-    if (r && r.ok) { ins.uid = r.uid; ins.dead = false; if (ins.off) NAT.call('bypass', { track: t.id, uid: r.uid, off: 1 }); uiDirty('dock') }
+    if (r && r.ok) { ins.uid = r.uid; ins.dead = false; ins.sc = !!r.key; if (ins.off) NAT.call('bypass', { track: t.id, uid: r.uid, off: 1 }); keyTold(t, ins); uiDirty('dock') }
   }
 }
 /* a summing stack: the tracks of the chosen regions (or the chosen track) play into one bus that sits above them */
@@ -344,6 +368,7 @@ function strip (x, y, w, h, t, i, o = {}) {
       if (t.kind === 'stack') { const k = S.tracks.filter(c => c.parent === t.id).length; full(`${k} track${k === 1 ? '' : 's'}`) }
       else if (t.kind === 'bus') { const k = feedsOf(t); full(`${k} send${k === 1 ? '' : 's'}`) }
       else if (t.theirs) full(t.theirs, true)
+      else if (t.inst) full('keyboard')
       else full(inputName(t.inp || 0), false, 'min')
     } else if (r === 'patch') {
       const p = patchNow(t), ln = (t.inserts || []).length, ls = 5, lp = wide ? 9 : 8, ly = yy + q.sh / 2 - ls / 2, l0 = sx + (wide ? 6 : 4)
@@ -380,7 +405,7 @@ function strip (x, y, w, h, t, i, o = {}) {
   if (o.master || !autoPts(t, 'vol').length) hits += hit(sx, y + h - 60.5, sw, 13.5, 'volnum', di, 'default')                 // what it reads: pressed twice, a level can be typed
   if (!o.master) { const its = cellsOf(t), cw = Math.min(wide ? 18 : 13, Math.floor(sw / its.length)); s += miniCells(sx + (sw - cw * its.length) / 2, y + h - 45, its, cw, 14, 9, i) }
   s += R(sx, y + h - 24, sw, 2, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
-  s += T(x + w / 2, y + h - 9, fit(t.name, sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
+  s += T(x + w / 2, y + h - 9, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
   if (!o.master) hits += hit(x, y + h - 27, w, 27, 'msel', di)
   return s + hits
 }
@@ -433,7 +458,7 @@ async function bounceInPlace () {
   if (S.playing) halt(false)
   say('bouncing')
   await natSession(r => only.has(r.id))                                                // for the print, only the chosen regions sound
-  const res = await NAT.call('bounce', { kind: 'place', project: PROJ.name, a0, a1, tail: 2, tracks: tracks.map(t => ({ id: t.id, name: `${t.name} bounce` })) })
+  const res = await NAT.call('bounce', { kind: 'place', project: projKey(), a0, a1, tail: 2, tracks: tracks.map(t => ({ id: t.id, name: `${t.name} bounce` })) })
   if (!res || !res.ok || !Array.isArray(res.placed)) { resync(); say('could not bounce'); return }
   edit(() => {
     const ids = []

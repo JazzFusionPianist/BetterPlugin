@@ -8,7 +8,7 @@ const WARPS = new Map()            // what was asked for -> what came back (or t
 const LIVEW = new Map()            // a rendered buffer the app still holds -> what it was asked as
 const srcKey = r => r.loop ? r.buf : r.key
 const rateOf = r => r.loop ? 1 : (r.rate || 1)
-const warped = r => !!(r.tr || (r.flex && r.flex.length) || r.rev || (r.fx && Math.abs(rateOf(r) - 1) > 1e-6))
+const warped = r => !r.notes && !!(r.tr || (r.flex && r.flex.length) || r.rev || (r.fx && Math.abs(rateOf(r) - 1) > 1e-6))
 /* a region not told to follow the tempo keeps the pitch its rate gives it, as it had before it was touched */
 const warpSemis = r => (r.tr || 0) + (r.fx || r.loop ? 0 : 12 * Math.log2(rateOf(r)))
 const warpSig = r => warped(r) ? `${srcKey(r)}|${+warpSemis(r).toFixed(4)}|${+rateOf(r).toFixed(6)}|${r.rev ? 1 : 0}|${(r.flex || []).map(m => m.s.toFixed(4) + ':' + m.d.toFixed(4)).join(',')}` : ''
@@ -155,7 +155,7 @@ function flexDbl (e, p) {                                                       
    in a song from before pieces shared theirs) plays what those say, and is not overwritten with another's. `pins`: the
    pins r had when they last agreed — r's own, unless r has just been given new ones. */
 const fileOrigin = r => (r.a - 1) - (r.off || 0)                                         // where the file's own beginning lies on the lane, in bars
-const sameTake = (x, r) => x !== r && !x.loop && !r.loop && srcKey(x) === srcKey(r) && !x.rev === !r.rev && Math.abs(rateOf(x) - rateOf(r)) < 1e-9 && Math.abs(fileOrigin(x) - fileOrigin(r)) < 1e-6 && Math.abs((x.sec || 0) - (r.sec || 0)) < .005
+const sameTake = (x, r) => x !== r && !x.loop && !r.loop && !x.notes && !r.notes && srcKey(x) === srcKey(r) && !x.rev === !r.rev && Math.abs(rateOf(x) - rateOf(r)) < 1e-9 && Math.abs(fileOrigin(x) - fileOrigin(r)) < 1e-6 && Math.abs((x.sec || 0) - (r.sec || 0)) < .005
 const samePins = (p, q) => { p = (p || []).slice().sort((a, b) => a.s - b.s); q = (q || []).slice().sort((a, b) => a.s - b.s); return p.length === q.length && p.every((m, i) => Math.abs(m.s - q[i].s) < 1e-6 && Math.abs(m.d - q[i].d) < 1e-6) }
 function flexMates (r, pins) {
   const [, t] = regOf(r.id)

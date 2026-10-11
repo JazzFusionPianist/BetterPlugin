@@ -17,7 +17,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 const sweep = () => {                                                                // what an earlier run left: a browser that outlived its test (the test died first), and its profile
   try { for (const n of readdirSync(tmpdir())) if (n.startsWith('dawtest-')) { const d = join(tmpdir(), n); try { if (Date.now() - statSync(d).mtimeMs > 20 * 60 * 1000) { try { execFileSync('pkill', ['-9', '-f', '--', `--user-data-dir=${d}`], { stdio: 'ignore' }) } catch (e) {} rmSync(d, { recursive: true, force: true }) } } catch (e) {} } } catch (e) {}
 }
-export async function open (file, { width = 1472, height = 924, dsf = 1 } = {}) {
+export async function open (file, { width = 1472, height = 924, dsf = 1, before = '' } = {}) {      // before: a script the page runs ahead of its own (a stand-in for the app, say)
   sweep()
   const profile = mkdtempSync(join(tmpdir(), 'dawtest-'))
   const chrome = spawn(CH, ['--headless=new', `--remote-debugging-port=${port}`, '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files', '--autoplay-policy=no-user-gesture-required', '--disk-cache-size=1', '--disable-background-networking', '--disable-component-update', '--no-first-run', `--window-size=${width},${height}`, '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' })
@@ -45,6 +45,7 @@ export async function open (file, { width = 1472, height = 924, dsf = 1 } = {}) 
   const send = (method, params = {}) => new Promise((res, rej) => { const i = ++id; pending.set(i, { res, rej }); ws.send(JSON.stringify({ id: i, method, params })) })
   await send('Runtime.enable'); await send('Page.enable'); await send('Log.enable')
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: dsf, mobile: false })
+  if (before) await send('Page.addScriptToEvaluateOnNewDocument', { source: before })
   await send('Page.navigate', { url: file.startsWith('/') ? 'file://' + encodeURI(file) : 'file://' + join(here, file) })
   const ev = async (expr) => {
     const r = await send('Runtime.evaluate', { expression: `(async () => { ${expr} })()`, awaitPromise: true, returnByValue: true })

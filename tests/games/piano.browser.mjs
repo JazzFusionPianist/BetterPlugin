@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
-const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
+const engine = process.env.GAMES_QA_ENGINE === 'webkit' ? webkit : chromium
+const browser = await engine.launch({ headless: true, ...(engine === chromium ? { executablePath: process.env.CHROME_PATH, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } : {}) })
 try {
   const page = await browser.newPage({ viewport: { width: 960, height: 720 } })
   const errors = []
@@ -9,6 +10,13 @@ try {
   await page.goto(`${process.env.GAMES_QA_URL || 'http://127.0.0.1:5191'}/piano.html`)
   await page.locator('[data-ready="true"]').waitFor()
   const result = await page.evaluate(() => window.pianoQA)
+  assert.equal(result.whiteKeyMaterial.color, 'c7c5be')
+  assert(result.whiteKeyMaterial.roughness >= .4 && result.whiteKeyMaterial.environment <= .2)
+  assert(result.whiteKeyMaterial.clearcoat <= .1)
+  assert.equal(result.whiteKeyMaterial.emissive, 0, 'Keys only reflect room lighting')
+  assert(result.whiteKeyMaterial.textured && result.whiteKeyMaterial.woodenEdge)
+  assert(result.whiteKeyMaterial.bump > 0 && result.whiteKeyMaterial.bump < .0001, 'Microscopic grain, not deep grooves')
+  assert.equal(result.keyToneCount, 4)
   const { initialLights, unlitLights, nearTurn, farTurn } = result.lighting
   assert(initialLights[0].position[0] < -7 && initialLights[0].position[2] < -28, 'Wall light follows the installed model, not its origin')
   assert(initialLights[1].position[0] < -17 && initialLights[1].position[2] < -21, 'Table light follows the moved table and actual bulb')

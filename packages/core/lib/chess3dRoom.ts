@@ -319,7 +319,8 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     lamp.position.copy(lampPoint).add(new THREE.Vector3(0, -.25, .1))
   }))
   if (!areaLightsReady) { RectAreaLightUniformsLib.init(); areaLightsReady = true }
-  const softbox = new THREE.RectAreaLight('#ffe4c6', 2.8, 7, 10)
+  const pianoFillIntensity = .65
+  const softbox = new THREE.RectAreaLight('#ffe4c6', pianoFillIntensity, 7, 10)
   softbox.position.set(-8, 6, -13)
   softbox.lookAt(pianoX, -1, -27.2)
   room.add(softbox)
@@ -358,7 +359,7 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     }
     lampOn = !lampOn
     lamp.intensity = lampOn ? 180 : 0
-    softbox.intensity = lampOn ? 2.8 : 0
+    softbox.intensity = lampOn ? pianoFillIntensity : 0
     wallEmitters.forEach(material => { material.emissiveIntensity = lampOn ? 2.5 : 0 })
     if (readyForReflection) updateReflection()
     changed()

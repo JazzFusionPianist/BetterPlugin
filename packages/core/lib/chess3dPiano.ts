@@ -5,18 +5,69 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 // https://www.yamaha.com/us/pianos/images/u1linenew.jpg
 export const U1_DIMENSIONS = { width: 1.53, height: 1.21, depth: .62, whiteKeys: 52, blackKeys: 36 } as const
 
+function keySurfaceTextures(textures: THREE.Texture[]) {
+  const canvases = Array.from({ length: 3 }, () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 256; canvas.height = 512
+    return canvas
+  })
+  let seed = 49371
+  const noise = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
+  const pixels = canvases.map(canvas => canvas.getContext('2d')!.createImageData(256, 512))
+  for (let y = 0; y < 512; y++) for (let x = 0; x < 256; x++) {
+    const warp = 2 * Math.sin(y * .012) + Math.sin(y * .031)
+    const grain = Math.sin((x + warp) * .46) + .5 * Math.sin((x + warp) * 1.37)
+    const micro = noise() - .5
+    const values = [244 + grain * 2 + micro * 3, 218 + grain * 12 + micro * 16, 128 + grain * 10 + micro * 18]
+    for (let layer = 0; layer < 3; layer++) {
+      const i = (y * 256 + x) * 4, value = Math.round(values[layer])
+      pixels[layer].data[i] = pixels[layer].data[i + 1] = pixels[layer].data[i + 2] = value
+      pixels[layer].data[i + 3] = 255
+    }
+  }
+  const maps = canvases.map((canvas, index) => {
+    canvas.getContext('2d')!.putImageData(pixels[index], 0, 0)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = index === 0 ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    textures.push(texture)
+    return texture
+  })
+  const sideCanvas = document.createElement('canvas')
+  sideCanvas.width = 256; sideCanvas.height = 128
+  const ctx = sideCanvas.getContext('2d')!, side = ctx.createImageData(256, 128)
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 256; x++) {
+    const edge = y >= 114, grain = Math.sin(y * 2.1 + Math.sin(x * .022)) * 4 + (noise() - .5) * 3
+    const base = edge ? [151, 143, 126] : [242, 241, 235], i = (y * 256 + x) * 4
+    for (let c = 0; c < 3; c++) side.data[i + c] = base[c] + (edge ? grain : grain * .25)
+    side.data[i + 3] = 255
+  }
+  ctx.putImageData(side, 0, 0)
+  const edge = new THREE.CanvasTexture(sideCanvas)
+  edge.colorSpace = THREE.SRGBColorSpace
+  textures.push(edge)
+  return { color: maps[0], roughness: maps[1], bump: maps[2], edge }
+}
+
 export function createU1Piano(materials: THREE.Material[], textures: THREE.Texture[]) {
   const piano = new THREE.Group()
   piano.name = 'upright-u1'
   const lacquer = new THREE.MeshPhysicalMaterial({ color: '#171715', roughness: .22, metalness: .04, clearcoat: .9, clearcoatRoughness: .12, envMapIntensity: .8 })
   const satin = new THREE.MeshStandardMaterial({ color: '#121311', roughness: .45 })
-  const ivory = new THREE.MeshPhysicalMaterial({ color: '#f1ede1', roughness: .27, clearcoat: .3, clearcoatRoughness: .2 })
+  const keyMaps = keySurfaceTextures(textures)
+  const ivory = new THREE.MeshPhysicalMaterial({ color: '#c7c5be', map: keyMaps.color, roughnessMap: keyMaps.roughness, bumpMap: keyMaps.bump, bumpScale: .000055, roughness: .58, clearcoat: .08, clearcoatRoughness: .45, envMapIntensity: .18 })
+  const keySide = ivory.clone()
+  keySide.map = keyMaps.edge; keySide.bumpMap = null; keySide.roughnessMap = null
+  const keyTones = ['#c7c5be', '#c4c2ba', '#cbc9c2', '#c6c4bd'].map(color => {
+    const material = ivory.clone()
+    material.color.set(color)
+    return material
+  })
   const ebony = new THREE.MeshPhysicalMaterial({ color: '#111211', roughness: .28, clearcoat: .5, clearcoatRoughness: .24 })
   const brass = new THREE.MeshStandardMaterial({ color: '#bd9755', metalness: .84, roughness: .25 })
   const felt = new THREE.MeshStandardMaterial({ color: '#7c2425', roughness: 1 })
   const spruce = new THREE.MeshStandardMaterial({ color: '#554235', roughness: .9 })
-  materials.push(lacquer, satin, ivory, ebony, brass, felt, spruce)
-  const add = (geometry: THREE.BufferGeometry, material: THREE.Material, at: [number, number, number], name = '') => {
+  materials.push(lacquer, satin, ivory, keySide, ...keyTones, ebony, brass, felt, spruce)
+  const add = (geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], at: [number, number, number], name = '') => {
     const node = new THREE.Mesh(geometry, material)
     node.position.set(...at)
     node.name = name
@@ -90,9 +141,16 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
       shape.lineTo(-half + (left ? .0076 : 0), -.151)
       shape.lineTo(-half, -.151); shape.closePath()
       geometry = new THREE.ExtrudeGeometry(shape, { depth: .018, bevelEnabled: true, bevelSize: .00025, bevelThickness: .00025, bevelSegments: 2 })
+      // Caps follow the key length; the thin lower edge exposes the wooden core.
+      const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal'), uv = geometry.getAttribute('uv')
+      for (let i = 0; i < positions.count; i++) {
+        const across = positions.getX(i) / (pitch - .0007) + .5, along = (positions.getY(i) + .297) / .232
+        const cap = Math.abs(normals.getZ(i)) > .5
+        uv.setXY(i, cap ? across : Math.abs(normals.getX(i)) > .5 ? along : across, cap ? along : positions.getZ(i) / .018)
+      }
       whiteShapes.set(key, geometry)
     }
-    const node = add(geometry, ivory, [-span / 2 + (whiteIndex + .5) * pitch, .687, 0], `white-key-${midi}`)
+    const node = add(geometry, [keyTones[(whiteIndex * 7 + Math.floor(whiteIndex / 3)) % keyTones.length], keySide], [-span / 2 + (whiteIndex + .5) * pitch, .687, 0], `white-key-${midi}`)
     node.rotation.x = -Math.PI / 2
     whiteIndex++
   }

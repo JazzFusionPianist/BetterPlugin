@@ -57,7 +57,11 @@ piano.traverse(node => nodes.push(node))
 const black = piano.getObjectByName('black-keys') as THREE.InstancedMesh
 black.geometry.computeBoundingBox()
 const bench = scene.getObjectByName('piano-bench')!
+const whiteKeyMaterials = (piano.getObjectByName('white-key-21') as THREE.Mesh).material as THREE.MeshPhysicalMaterial[]
+const whiteKeyMaterial = whiteKeyMaterials[0]
 Object.assign(window, { pianoQA: {
+  whiteKeyMaterial: { color: whiteKeyMaterial.color.getHexString(), roughness: whiteKeyMaterial.roughness, clearcoat: whiteKeyMaterial.clearcoat, environment: whiteKeyMaterial.envMapIntensity, emissive: whiteKeyMaterial.emissive.getHex(), textured: !!whiteKeyMaterial.map && !!whiteKeyMaterial.roughnessMap && !!whiteKeyMaterial.bumpMap, bump: whiteKeyMaterial.bumpScale, woodenEdge: !!whiteKeyMaterials[1].map },
+  keyToneCount: new Set(nodes.filter(node => node.name.startsWith('white-key-')).map(node => ((node as THREE.Mesh).material as THREE.MeshPhysicalMaterial[])[0].color.getHex())).size,
   lighting: { initialLights, unlitLights, nearTurn, farTurn },
   size: size.toArray(), whiteKeys: nodes.filter(node => node.name.startsWith('white-key-')).length,
   blackKeys: black.count, blackKeyHeight: black.geometry.boundingBox!.max.y - .705,

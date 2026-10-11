@@ -22,6 +22,8 @@ With Playwright available, run in another terminal:
 pnpm test:games:layout
 pnpm test:games:regression
 pnpm test:games:lifecycle
+pnpm test:games:chess3d:rules
+pnpm test:games:chess3d
 ```
 
 If Playwright is provided by a separate runtime, set `PLAYWRIGHT_MODULE` to its
@@ -31,7 +33,8 @@ Set `GAMES_QA_ENGINE=webkit` to run the same tests with Playwright WebKit.
 
 ## Coverage
 
-- Plugin: all 13 games; web/mobile source: all 7 available games.
+- Plugin: 14 games; web/mobile source: 8 available games. Chess(3d) has its
+  own shared-renderer test in addition to the original 13/7-game matrix.
 - Layout matrix: 300x500, 600x500, 1200x800, 390x844, and 844x390.
 - Lobby and computer/solo play, long player names, and populated leaderboards.
 - Runtime errors, ancestor clipping, document overflow, and nonblank canvases.
@@ -44,6 +47,12 @@ Set `GAMES_QA_ENGINE=webkit` to run the same tests with Playwright WebKit.
   and subscription isolation after switching rooms.
 - Quit controls in every game, failed termination and retry, fresh lobby entry,
   explicit Falling Blocks resume, and complete Ear Training computer matches.
+- Chess(3d): wood textures and nonblank scene pixels, framing, raycast moves,
+  computer replies, camera gestures, hidden-pane input, invite/resume metadata,
+  failed resign and retry, and a playable fallback without WebGL.
+
+The 3D browser test additionally requires `SHARP_MODULE` pointing to an installed
+Sharp entry point when it is not available in this workspace.
 
 Use `GAMES_QA_LANG=ko GAMES_QA_EMBEDDED=1 GAMES_QA_QUICK=1` for a compact Korean
 embedded-pane check. `GAMES_QA_GAMES=chess,poker` selects games.

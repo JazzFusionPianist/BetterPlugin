@@ -63,6 +63,7 @@ import StemGroupDisclosure from '../components/collab/StemGroupDisclosure'
 import ShareRegionsButton from '../components/collab/ShareRegionsButton'
 import { useRegionHost } from '../lib/dawRegionBridge'
 import { useLogicDropCapture } from '../lib/logicDropCapture'
+import { isLogicDragMeta } from '@orb/core/lib/logicRegionDrop.ts'
 import AudioTransferActions from '../components/collab/AudioTransferActions'
 import PlaceRegionsButton from '../components/collab/PlaceRegionsButton'
 import { selectedRegionBundle } from '../lib/regionPlacement'
@@ -2165,11 +2166,12 @@ function StudioShellInner({ supabase, user }: Props) {
         // A region over the drag limit stops here, out loud. (Older
         // plug-in builds hand it over regardless; newer ones reject it
         // natively before the base64 round trip.)
+        const logicMetas = batch.map(f => isLogicDragMeta(f.region) ? f.region : null)
         let all = batch.map(f => {
           const file = nativeToFile(f.name, f.data)
-          return f.region ? rememberRegionEvidence(file, f.region) : file
+          return f.region && !isLogicDragMeta(f.region) ? rememberRegionEvidence(file, f.region) : file
         })
-        if (logicCaptureId) all = await captureLogicDropRef.current(all, logicCaptureId)
+        if (logicCaptureId) all = await captureLogicDropRef.current(all, logicCaptureId, logicMetas)
         if (destinationAtDrop !== activeConvIdRef.current) throw new Error('Conversation changed. Regions were not sent.')
         if (logicDrop.current) {
           if (all.some(f => f.size > DAW_FILE_LIMIT)) throw new Error('A region exceeds the transfer limit. Nothing was sent.')

@@ -549,6 +549,41 @@ static BOOL isLogicRegionDrag (NSPasteboard* pb)
     return isAcceptableAudioDrag (pb);
 }
 
+// Logic region drags carry, per pasteboard item, the region's own start
+// (com.apple.musicapps.sourceInfo › startClock: Logic ticks × 2^32, bar 1 =
+// 38400 ticks, 960 per quarter) and, in LGRegionsPboardType, one entry per
+// region in the same order with its track UUID. Item i ↔ promise i, so each
+// dropped file gets its own position: no name matching, no screen reading.
+static NSString* logicRegionMetadata (NSPasteboard* pb, NSUInteger index)
+{
+    NSArray<NSPasteboardItem*>* items = pb.pasteboardItems;
+    if (index >= items.count) return @"";
+    NSData* infoData = [items[index] dataForType:@"com.apple.musicapps.sourceInfo"];
+    NSDictionary* info = infoData ? [NSPropertyListSerialization propertyListWithData:infoData options:0 format:nil error:nil] : nil;
+    NSNumber* clock = [info isKindOfClass:[NSDictionary class]] ? info[@"startClock"] : nil;
+    if (! [clock isKindOfClass:[NSNumber class]]) return @"";
+    NSString* fileName = [items[index] stringForType:@"com.apple.musicapps.file-name"] ?: @"";
+    NSString* trackId = @"";
+    NSData* lg = [pb dataForType:@"com.apple.musicapps.LGRegionsPboardType"];
+    NSArray* regions = lg ? [NSPropertyListSerialization propertyListWithData:lg options:0 format:nil error:nil] : nil;
+    if ([regions isKindOfClass:[NSArray class]] && regions.count == items.count && [regions[index] isKindOfClass:[NSDictionary class]])
+    {
+        NSData* arrange = regions[index][@"LiveLoopsLGRegionsPboardArrangeRegionInfo"];
+        NSDictionary* archive = [arrange isKindOfClass:[NSData class]]
+            ? [NSPropertyListSerialization propertyListWithData:arrange options:0 format:nil error:nil] : nil;
+        NSRegularExpression* uuid = [NSRegularExpression regularExpressionWithPattern:
+            @"^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$" options:0 error:nil];
+        for (id object in ([archive isKindOfClass:[NSDictionary class]] ? archive[@"$objects"] : nil))
+            if ([object isKindOfClass:[NSString class]]
+                && [uuid numberOfMatchesInString:object options:0 range:NSMakeRange (0, [object length])] == 1)
+            { trackId = object; break; }   // the archive's first UUID is the region's trackUUID
+    }
+    NSDictionary* meta = @{ @"kind": @"logic-region", @"startClock": clock, @"trackId": trackId,
+                            @"fileName": fileName, @"index": @(index), @"count": @(items.count) };
+    NSData* json = [NSJSONSerialization dataWithJSONObject:meta options:0 error:nil];
+    return json ? [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] : @"";
+}
+
 // ── C-level IMP replacements ──────────────────────────────────────────────────
 
 static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
@@ -696,6 +731,7 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
             NSUInteger sequenceBase = 0;
             for (NSUInteger idx = 0; idx < rcvs.count; idx++) {
                 NSFilePromiseReceiver* rcv = rcvs[idx];
+                NSString* regionMeta = logicRegionMetadata (pb, idx);
                 __block int seq = (int) sequenceBase;
                 sequenceBase += MAX((NSUInteger)1, rcv.fileTypes.count);
                 NSURL* destination = [NSURL fileURLWithPath:[NSTemporaryDirectory()
@@ -722,7 +758,7 @@ static BOOL orbPerformDragOp (id selfView, SEL _cmd, id<NSDraggingInfo> info)
                     if (!raw.length) { failFileDrop(wkv); return; }
                     NSString* b64  = [raw base64EncodedStringWithOptions:0];
                     NSString* name = fileURL.lastPathComponent;
-                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, fileSequence, @""); });
+                    dispatch_async (dispatch_get_main_queue(), ^{ cb.block (name, b64, fileSequence, regionMeta); });
                     [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
                 }];
             }
@@ -839,28 +875,6 @@ static NSDragOperation orbDraggingEntered (id selfView, SEL _cmd,
 
     ORB_LOG ("draggingEntered: pasteboard types=%{public}@ ownDrag=%d acceptable=%d",
               info.draggingPasteboard.types, (int)ownDrag, (int)logicDrag);
-
-    // TEMP QA (2026-10-12): dump Logic's private region payload per item to find
-    // per-region positions. Remove once the format is understood.
-    if (logicDrag)
-    {
-        NSInteger itemIndex = 0;
-        for (NSPasteboardItem* item in info.draggingPasteboard.pasteboardItems)
-        {
-            for (NSString* type in item.types)
-            {
-                if (! [type containsString:@"musicapps"] && ! [type containsString:@"logic"]
-                    && ! [type containsString:@"NSFilePromiseItemMetaData"] && ! [type containsString:@"promised-file-name"])
-                    continue;
-                NSData* data = [item dataForType:type];
-                NSString* b64 = [[data subdataWithRange:NSMakeRange (0, MIN (data.length, (NSUInteger) 65536))] base64EncodedStringWithOptions:0];
-                for (NSUInteger p = 0; p < b64.length; p += 800)
-                    ORB_LOG ("SLUR_PB item=%ld type=%{public}@ size=%lu part=%lu %{public}@", (long) itemIndex, type,
-                             (unsigned long) data.length, (unsigned long) (p / 800), [b64 substringWithRange:NSMakeRange (p, MIN ((NSUInteger) 800, b64.length - p))]);
-            }
-            ++itemIndex;
-        }
-    }
 
     if ((ownDrag || logicDrag) && wkv)
     {

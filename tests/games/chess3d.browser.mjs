@@ -39,6 +39,7 @@ try {
       await page.goto(`${base}/?platform=${platform}&game=chess_3d&arcade=1`)
       await page.locator('.game-computer-btn').waitFor()
       await page.locator('canvas[data-chess3d]').waitFor()
+      await page.evaluate(() => document.fonts.ready)
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-lobby.png` })
       await page.locator('.game-computer-btn').click()
       await page.getByRole('button', { name: 'Resign', exact: true }).waitFor()

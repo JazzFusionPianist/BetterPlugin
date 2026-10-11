@@ -12,7 +12,9 @@
     "dev:games:qa": "pnpm --filter plugin exec vite --config ../../tests/games/vite.config.mjs",
     "test:games:layout": "node tests/games/audit.browser.mjs",
     "test:games:regression": "node tests/games/regression.browser.mjs",
-    "test:games:lifecycle": "node tests/games/lifecycle.browser.mjs"
+    "test:games:lifecycle": "node tests/games/lifecycle.browser.mjs",
+    "test:games:chess3d": "node tests/games/chess3d.browser.mjs",
+    "test:games:chess3d:rules": "node --experimental-strip-types --test tests/games/chess3d.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14"

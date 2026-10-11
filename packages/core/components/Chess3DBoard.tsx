@@ -32,6 +32,32 @@ interface Stage {
 const equal = (a: Pos | null | undefined, b: Pos | null | undefined) => !!a && !!b && a[0] === b[0] && a[1] === b[1]
 const pieceNames: Record<string, string> = { K: 'King', Q: 'Queen', R: 'Rook', B: 'Bishop', N: 'Knight', P: 'Pawn' }
 
+/** Seeded grain stays identical across devices and needs no external asset download. */
+function woodTexture(light: boolean, seed: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 512
+  const ctx = canvas.getContext('2d')!
+  const pixels = ctx.createImageData(512, 512)
+  let random = seed
+  const noise = () => { random = (Math.imul(random, 1664525) + 1013904223) >>> 0; return random / 4294967296 }
+  const base = light ? [222, 199, 148] : [107, 55, 30]
+  for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
+    const warp = 7 * Math.sin(y * .009 + Math.sin(x * .012)) + 3 * Math.sin(y * .025)
+    const line = Math.sin((x + warp) * .30) * .5 + Math.sin((x + warp) * .97) * .25
+    const broad = Math.sin(x * .027 + .5 * Math.sin(y * .008))
+    const pore = noise() > .983 ? -25 : 0
+    const grain = broad * 9 + line * (light ? 10 : 16) + (noise() - .5) * 9 + pore
+    const i = (y * 512 + x) * 4
+    for (let c = 0; c < 3; c++) pixels.data[i + c] = base[c] + grain
+    pixels.data[i + 3] = 255
+  }
+  ctx.putImageData(pixels, 0, 0)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  return texture
+}
+
 /** Procedural Staunton pieces share geometry, with a sculpted knight profile. */
 function pieceModel(piece: string, material: THREE.Material, trim: THREE.Material) {
   const group = new THREE.Group()
@@ -55,7 +81,8 @@ function pieceModel(piece: string, material: THREE.Material, trim: THREE.Materia
     new THREE.Vector2(.12, height * .64), new THREE.Vector2(.19, height * .70),
     new THREE.Vector2(.20, height * .73), new THREE.Vector2(0, height * .73),
   ], 40))
-  cylinder(.32, .32, .025, .125, trim)
+  cylinder(.325, .325, .018, .115, trim)
+  cylinder(.247, .247, .018, .258, trim)
   if (kind === 'P') ball(.205, .68)
   if (kind === 'R') {
     cylinder(.265, .23, .24, .83)
@@ -68,23 +95,25 @@ function pieceModel(piece: string, material: THREE.Material, trim: THREE.Materia
   if (kind === 'B') {
     const head = ball(.215, 1.04)
     head.scale.y = 1.32
-    const notch = mesh(new THREE.BoxGeometry(.035, .30, .40), trim, .035, 1.16)
+    const notch = mesh(new THREE.BoxGeometry(.020, .28, .38), trim, .035, 1.16)
     notch.rotation.z = -.45
     ball(.055, 1.33)
   }
   if (kind === 'N') {
     const profile = new THREE.Shape()
     profile.moveTo(-.24, .72)
-    profile.bezierCurveTo(-.28, 1.02, -.21, 1.18, -.10, 1.22)
-    profile.lineTo(-.11, 1.43); profile.lineTo(.01, 1.35); profile.lineTo(.08, 1.42)
-    profile.lineTo(.14, 1.25); profile.lineTo(.31, 1.09); profile.lineTo(.32, .97)
-    profile.lineTo(.21, .94); profile.lineTo(.09, 1.01)
-    profile.bezierCurveTo(.02, .93, .02, .81, .20, .72)
+    profile.bezierCurveTo(-.32, .98, -.25, 1.25, -.10, 1.32)
+    profile.lineTo(-.12, 1.49); profile.lineTo(-.01, 1.40); profile.lineTo(.07, 1.47)
+    profile.quadraticCurveTo(.12, 1.39, .10, 1.31)
+    profile.bezierCurveTo(.19, 1.25, .21, 1.17, .35, 1.08)
+    profile.quadraticCurveTo(.42, 1.01, .32, .96)
+    profile.lineTo(.23, .97); profile.quadraticCurveTo(.14, 1.07, .06, 1.06)
+    profile.bezierCurveTo(.01, .94, .05, .80, .23, .72)
     profile.closePath()
-    const neck = mesh(new THREE.ExtrudeGeometry(profile, { depth: .23, bevelEnabled: true, bevelSize: .035, bevelThickness: .04, bevelSegments: 3, steps: 1 }), material, 0, 0, -.115)
-    neck.rotation.y = piece[0] === 'w' ? -Math.PI / 2 : Math.PI / 2
+    const neck = mesh(new THREE.ExtrudeGeometry(profile, { depth: .20, bevelEnabled: true, bevelSize: .055, bevelThickness: .055, bevelSegments: 5, curveSegments: 20, steps: 1 }), material, 0, 0, -.10)
+    neck.rotation.y = piece[0] === 'w' ? Math.PI / 6 : Math.PI * 7 / 6
     for (const side of [-1, 1]) {
-      const eye = mesh(new THREE.SphereGeometry(.027, 12, 8), trim, .075, 1.21, side * .16)
+      const eye = mesh(new THREE.SphereGeometry(.024, 12, 8), trim, .095, 1.25, side * .16)
       eye.rotation.y = neck.rotation.y
       eye.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), neck.rotation.y)
     }
@@ -104,6 +133,7 @@ function pieceModel(piece: string, material: THREE.Material, trim: THREE.Materia
     mesh(new THREE.BoxGeometry(.09, .31, .09), material, 0, 1.56)
     mesh(new THREE.BoxGeometry(.28, .085, .09), material, 0, 1.58)
   }
+  group.scale.y = 1.10
   return group
 }
 
@@ -156,19 +186,19 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = .95
+    renderer.toneMappingExposure = .93
     renderer.domElement.setAttribute('aria-hidden', 'true')
     renderer.domElement.dataset.chess3d = 'true'
     el.prepend(renderer.domElement)
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#101a18')
+    scene.background = new THREE.Color('#032634')
     const environment = new RoomEnvironment()
     const pmrem = new THREE.PMREMGenerator(renderer)
     const env = pmrem.fromScene(environment, .04)
     scene.environment = env.texture
     scene.environmentIntensity = .65
     environment.dispose(); pmrem.dispose()
-    const camera = new THREE.PerspectiveCamera(38, 1, .1, 100)
+    const camera = new THREE.PerspectiveCamera(34, 1, .1, 120)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, .3, 0)
     controls.enablePan = false
@@ -177,46 +207,62 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.maxPolarAngle = Math.PI * .44
     controls.rotateSpeed = .65
     controls.zoomSpeed = .65
-    const hemi = new THREE.HemisphereLight('#edf8ff', '#647868', .8)
+    const hemi = new THREE.HemisphereLight('#e7f7ff', '#334a52', 1.0)
     scene.add(hemi)
-    const sun = new THREE.DirectionalLight('#fff4db', 3)
-    sun.position.set(-3, 9, 4)
+    const sun = new THREE.DirectionalLight('#fff0d3', 2.5)
+    sun.position.set(-4, 10, 5)
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
     sun.shadow.camera.left = -16; sun.shadow.camera.right = 16
     sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16
     sun.shadow.normalBias = .035
     scene.add(sun)
-    const fill = new THREE.DirectionalLight('#b4efd5', .9)
+    const fill = new THREE.DirectionalLight('#b2d6e3', 1.2)
     fill.position.set(6, 5, -5); scene.add(fill)
-    const porcelain = new THREE.MeshStandardMaterial({ color: '#e6ded0', roughness: .3, metalness: .10 })
-    const graphite = new THREE.MeshStandardMaterial({ color: '#293335', roughness: .27, metalness: .48 })
-    const brass = new THREE.MeshStandardMaterial({ color: '#b7a77c', roughness: .3, metalness: .8 })
-    const silver = new THREE.MeshStandardMaterial({ color: '#778b8d', roughness: .25, metalness: .85 })
-    const materials: THREE.Material[] = [porcelain, graphite, brass, silver]
-    const mat = (color: string, roughness = .65) => {
-      const value = new THREE.MeshStandardMaterial({ color, roughness })
-      materials.push(value); return value
-    }
+    const maple = woodTexture(true, 173)
+    const walnut = woodTexture(false, 347)
+    const textures = [maple, walnut]
+    for (const texture of textures) texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
+    const porcelain = new THREE.MeshPhysicalMaterial({ color: '#ebc98c', map: maple, roughness: .40, clearcoat: .28, clearcoatRoughness: .28 })
+    const graphite = new THREE.MeshPhysicalMaterial({ color: '#171b1d', roughness: .28, clearcoat: .50, clearcoatRoughness: .20 })
+    const lightTrim = new THREE.MeshStandardMaterial({ color: '#aa773c', roughness: .4 })
+    const darkTrim = new THREE.MeshStandardMaterial({ color: '#514634', roughness: .38, metalness: .15 })
+    const materials: THREE.Material[] = [porcelain, graphite, lightTrim, darkTrim]
     const box = (w: number, h: number, d: number, material: THREE.Material, y: number) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
       mesh.position.y = y; mesh.receiveShadow = true; scene.add(mesh); return mesh
     }
-    box(200, .1, 200, mat('#182521', .8), -.40).receiveShadow = false
-    const shadowMaterial = new THREE.ShadowMaterial({ opacity: .28 })
+    const groundMaterial = new THREE.MeshBasicMaterial({ color: '#032634' })
+    materials.push(groundMaterial)
+    box(200, .1, 200, groundMaterial, -.40).receiveShadow = false
+    const shadowMaterial = new THREE.ShadowMaterial({ opacity: .35 })
     materials.push(shadowMaterial)
     const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), shadowMaterial)
     shadowFloor.rotation.x = -Math.PI / 2
     shadowFloor.position.y = -.345
     shadowFloor.receiveShadow = true
     scene.add(shadowFloor)
-    box(9, .27, 9, graphite, -.19)
-    box(8.92, .025, 8.92, brass, -.045)
-    box(8.86, .055, 8.86, graphite, -.012)
+    const frameMaterial = new THREE.MeshPhysicalMaterial({ map: walnut, color: '#c9a176', roughness: .32, clearcoat: .35 })
+    materials.push(frameMaterial)
+    box(8.8, .27, 8.8, frameMaterial, -.19)
+    box(8.72, .025, 8.72, lightTrim, -.045)
+    box(8.64, .055, 8.64, frameMaterial, -.012)
+    // Thin inlaid rails give the wooden frame a finished edge without metallic ornament.
+    for (const sign of [-1, 1]) {
+      const horizontal = box(8.48, .012, .025, darkTrim, .022)
+      horizontal.position.z = sign * 4.20
+      const vertical = box(.025, .012, 8.48, darkTrim, .022)
+      vertical.position.x = sign * 4.20
+    }
     const tiles: THREE.Mesh[] = []
-    const tileMaterials = [mat('#d4ded7', .38), mat('#49695f', .4)]
-    const geometry = new THREE.BoxGeometry(.995, .055, .995)
+    const tileMaterials = [maple, walnut].map(map => {
+      const material = new THREE.MeshPhysicalMaterial({ map, roughness: .40, clearcoat: .25, clearcoatRoughness: .32 })
+      materials.push(material); return material
+    })
     for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      const geometry = new THREE.BoxGeometry(1, .055, 1)
+      const uv = geometry.getAttribute('uv')
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) + col * .137 + row * .061, uv.getY(i) + row * .173)
       const tile = new THREE.Mesh(geometry, tileMaterials[(row + col) % 2])
       tile.position.set(col - 3.5, .035, row - 3.5)
       tile.userData.pos = [row, col]; tile.receiveShadow = true
@@ -225,27 +271,27 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const labelCanvas = document.createElement('canvas')
     labelCanvas.width = labelCanvas.height = 1024
     const ctx = labelCanvas.getContext('2d')!
-    ctx.font = '500 21px sans-serif'; ctx.fillStyle = '#cad5ce'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.font = '500 18px sans-serif'; ctx.fillStyle = '#e4cfa5'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     for (let i = 0; i < 8; i++) {
-      const xy = ((i - 3.5) / 9 + .5) * 1024
-      ctx.fillText('abcdefgh'[i], xy, 984)
-      ctx.fillText(String(8 - i), 37, xy)
-      ctx.save(); ctx.translate(xy, 37); ctx.rotate(Math.PI); ctx.fillText('abcdefgh'[i], 0, 0); ctx.restore()
-      ctx.save(); ctx.translate(984, xy); ctx.rotate(Math.PI); ctx.fillText(String(8 - i), 0, 0); ctx.restore()
+      const xy = ((i - 3.5) / 8.64 + .5) * 1024
+      ctx.fillText('abcdefgh'[i], xy, 992)
+      ctx.fillText(String(8 - i), 32, xy)
+      ctx.save(); ctx.translate(xy, 32); ctx.rotate(Math.PI); ctx.fillText('abcdefgh'[i], 0, 0); ctx.restore()
+      ctx.save(); ctx.translate(992, xy); ctx.rotate(Math.PI); ctx.fillText(String(8 - i), 0, 0); ctx.restore()
     }
     const labelsTexture = new THREE.CanvasTexture(labelCanvas)
     const labelMaterial = new THREE.MeshBasicMaterial({ map: labelsTexture, transparent: true, depthWrite: false })
     materials.push(labelMaterial)
-    const labelPlane = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), labelMaterial)
+    const labelPlane = new THREE.Mesh(new THREE.PlaneGeometry(8.64, 8.64), labelMaterial)
     labelPlane.rotation.x = -Math.PI / 2; labelPlane.position.y = .023; scene.add(labelPlane)
     const prototypes = new Map<string, THREE.Group>()
     for (const color of ['w', 'b']) for (const kind of ['P', 'R', 'N', 'B', 'Q', 'K']) {
-      prototypes.set(color + kind, pieceModel(color + kind, color === 'w' ? porcelain : graphite, color === 'w' ? brass : silver))
+      prototypes.set(color + kind, pieceModel(color + kind, color === 'w' ? porcelain : graphite, color === 'w' ? lightTrim : darkTrim))
     }
     const pieces = new Map<string, THREE.Group>()
     const markers = new THREE.Group(); scene.add(markers)
-    const selectedMat = new THREE.MeshBasicMaterial({ color: '#eac877', transparent: true, opacity: .48, depthWrite: false })
-    const lastMat = new THREE.MeshBasicMaterial({ color: '#f6e9a5', transparent: true, opacity: .30, depthWrite: false })
+    const selectedMat = new THREE.MeshBasicMaterial({ color: '#d8ed43', transparent: true, opacity: .62, depthWrite: false })
+    const lastMat = new THREE.MeshBasicMaterial({ color: '#d8ed43', transparent: true, opacity: .40, depthWrite: false })
     const checkMat = new THREE.MeshBasicMaterial({ color: '#ff8179', transparent: true, opacity: .70, depthWrite: false })
     const moveMat = new THREE.MeshBasicMaterial({ color: '#32e9b0', depthWrite: false })
     const preMat = new THREE.MeshBasicMaterial({ color: '#8cb5ee', transparent: true, opacity: .50, depthWrite: false })
@@ -281,10 +327,10 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const request = () => { needsPaint = true; if (visible && !frame && !disposed) frame = requestAnimationFrame(paint) }
     const fit = (top = false) => {
       const aspect = camera.aspect
-      const distance = 6.7 / Math.sin(Math.min(THREE.MathUtils.degToRad(19), Math.atan(Math.tan(THREE.MathUtils.degToRad(19)) * aspect)))
+      const halfFov = THREE.MathUtils.degToRad(17)
+      const distance = 5.2 / Math.sin(Math.min(halfFov, Math.atan(Math.tan(halfFov) * aspect)))
       const sign = latest.current.myColor === 'white' ? 1 : -1
-      const portrait = aspect < .9
-      camera.position.copy(controls.target).add(new THREE.Vector3(top || portrait ? 0 : 4 * sign, top ? 10 : portrait ? 12 : 9, top ? .01 * sign : 9 * sign).normalize().multiplyScalar(distance))
+      camera.position.copy(controls.target).add(new THREE.Vector3(0, top ? 10 : 12, top ? .01 * sign : 10 * sign).normalize().multiplyScalar(distance))
       controls.minDistance = distance * .60; controls.maxDistance = distance * 1.6
       camera.lookAt(controls.target); controls.update(); request()
     }
@@ -398,7 +444,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       for (const model of prototypes.values()) model.traverse(node => { if (node instanceof THREE.Mesh) geometries.add(node.geometry) })
       geometries.add(squareGeo); geometries.add(dotGeo); geometries.add(ringGeo)
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose())
-      labelsTexture.dispose(); env.dispose(); sun.shadow.dispose(); renderer.dispose()
+      labelsTexture.dispose(); textures.forEach(texture => texture.dispose()); env.dispose(); sun.shadow.dispose(); renderer.dispose()
       renderer.domElement.remove()
     }
   }, [failed])

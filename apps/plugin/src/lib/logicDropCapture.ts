@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { inspectLogicDropSelection } from './dawRegionBridge'
-import { readLogicSelection, matchLogicDrop, type LogicSelection } from '@orb/core/lib/logicRegionDrop.ts'
+import { readLogicSelection, matchLogicDrop, logicRegionsFromDrag, isLogicDragMeta, type LogicSelection, type LogicDragMeta, type HostTimeline } from '@orb/core/lib/logicRegionDrop.ts'
+import { callJuceNative, hasJuceNativeFunction } from './juceBridge'
 import { sha256 } from '@orb/core/lib/regionBundle.ts'
 import { rememberLogicEvidence } from './regionSharing'
 
@@ -18,9 +19,20 @@ export function useLogicDropCapture() {
     window.addEventListener('__juceLogicRegionEnter', onEnter)
     return () => { window.removeEventListener('__juceLogicRegionEnter', onEnter); captures.current.clear() }
   }, [])
-  return async (files: File[], captureId: string) => {
+  return async (files: File[], captureId: string, metas: unknown[] = []) => {
     const pending = captures.current.get(captureId)
     captures.current.delete(captureId)
+    // Newer builds: every file carries its own Logic region start from the drag payload.
+    // Positions never depend on file names, so split hits from one take stay distinct.
+    if (metas.length === files.length && metas.every(isLogicDragMeta)) {
+      let timeline: HostTimeline | null = null
+      try { if (hasJuceNativeFunction('getDawTimeline')) timeline = JSON.parse(await callJuceNative('getDawTimeline', [])) } catch { /* musical position only */ }
+      const selection = pending ? (await pending).selection ?? null : null   // track names only, optional
+      const regions = logicRegionsFromDrag(metas as LogicDragMeta[], timeline, selection)
+      const projectId = await sha256(new TextEncoder().encode(selection?.project ?? 'logic').buffer)
+      const id = crypto.randomUUID()
+      return files.map((file, i) => rememberLogicEvidence(file, { captureId: id, projectId, region: regions[i]! }))
+    }
     if (!pending) throw new Error('Logic selection was not captured. Drag the regions into Slur again.')
     const before = await pending
     if (before.error) throw before.error

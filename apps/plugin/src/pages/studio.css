@@ -1102,9 +1102,26 @@
 .wd-live .live-setup-icon { width: 44px; height: 44px; border: none; background: rgba(214,64,46,.1); color: #D6402E; box-shadow: none; }
 .wd-live .live-setup-hint { font-size: 12.5px; color: #6E6B63; }
 .wd-live .live-field-label { font-size: 10.5px; letter-spacing: 0; color: #A5A199; text-transform: none; }
-.wd-live .live-title-input, .wd-live .live-select, .wd-live .live-field { height: 44px; border: none !important; border-radius: 22px; background: #F1EEE6 !important;
+.wd-live .live-title-input, .wd-live .live-select { height: 44px; border: none !important; border-radius: 22px; background: #F1EEE6 !important;
   padding: 0 16px; font-size: 13.5px; box-shadow: none !important; }
 .wd-live .live-title-input:focus, .wd-live .live-select:focus { background: #fff !important; box-shadow: 0 0 0 1.5px #1A1917 !important; }
+/* a field is a plain column that grows with what it holds: the label, the
+   select's pill, and for an invited audience the notes and the checklist
+   under it, all set on the pill's text line */
+.wd-live .live-field { gap: 6px; }
+.wd-live .live-field-label, .wd-live .live-field-hint { padding: 0 16px; }
+.wd-live .live-field-hint { margin: 0; font-size: 11px; line-height: 1.45; color: #A5A199; }
+.wd-live .live-invite { margin-top: 6px; }
+.wd-live .live-invite-list { scrollbar-width: thin; }
+.wd-live .live-invite-row { gap: 10px; padding: 6px 16px; font-size: 13px; line-height: 18px; color: #1A1917; }
+.wd-live .live-invite-row input { appearance: none; -webkit-appearance: none; width: 15px; height: 15px; margin: 1.5px 0 0;
+  border: 1px solid rgba(26,25,23,.3); border-radius: 50%; background: #fff; }
+.wd-live .live-invite-row:hover input:not(:checked):not(:disabled) { border-color: #1A1917; }
+.wd-live .live-invite-row input:checked { border-color: #3FB872;
+  background: #3FB872 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><path d='M2.6 5.2l1.6 1.6 3.2-3.5' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / 10px no-repeat; }
+.wd-live .live-invite-row input:focus-visible { outline: 1.5px solid #1A1917; outline-offset: 2px; }
+.wd-live .live-invite-row input:disabled { border-color: rgba(26,25,23,.12); background: transparent; }
+.wd-live .live-invite-row input:disabled + span { color: #C0BCB3; }
 .wd-live .live-go-btn { height: 44px; border-radius: 22px; background: #1A1917 !important; color: #FBFAF7 !important; border: none !important; box-shadow: none !important; font-size: 14px; font-weight: 500; }
 .wd-live .live-go-btn::before { background: #D6402E; }
 .wd-live .live-go-btn:hover:not(:disabled) { background: #000 !important; }

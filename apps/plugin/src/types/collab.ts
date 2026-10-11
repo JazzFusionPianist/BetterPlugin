@@ -292,7 +292,7 @@ export interface EarTrainingRoom {
   player2_answer: string | null
   round_started_at: string | null
   config: {
-    modes: ('interval' | 'chord')[]
+    modes: ('interval' | 'chord' | 'frequency')[]
     difficulty: 'basic' | 'intermediate' | 'advanced'
   }
   winner_id: string | null

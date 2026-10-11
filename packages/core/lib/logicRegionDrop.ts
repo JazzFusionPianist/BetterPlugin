@@ -106,14 +106,17 @@ export function logicRegionsFromDrag(metas: LogicDragMeta[], timeline: HostTimel
     || new Set(metas.map(m => m.index)).size !== metas.length) fail()
   const tnum = timeline?.tnum && timeline.tnum > 0 ? timeline.tnum : 4, tden = timeline?.tden && timeline.tden > 0 ? timeline.tden : 4
   const order = new Map<string, number>()
+  // Each selected Logic region names at most one dropped file (same take on two tracks).
+  const unused = [...(selection?.regions ?? [])]
   return metas.map(m => {
     const ppq = logicClockToPpq(m.startClock)
     const start = ppqToMusical(ppq, tnum, tden)
     const key = m.trackId || `track-${m.index}`
     if (!order.has(key)) order.set(key, order.size)
-    const ax = selection?.regions.find(r => audioName(r.name) === audioName(m.fileName)
+    const at = unused.findIndex(r => audioName(r.name) === audioName(m.fileName)
       && r.start.bar === start.bar && r.start.beat === start.beat && r.start.division === start.division
       && Math.abs(r.start.tick - start.tick) <= 1)
+    const ax = at >= 0 ? unused.splice(at, 1)[0] : undefined
     const region: LogicRegion = { name: audioName(m.fileName) || `Region ${m.index + 1}`, trackId: key,
       trackName: ax?.trackName ?? `Track ${order.get(key)! + 1}`, trackOrder: ax?.trackOrder ?? order.get(key)!, start }
     // Samples: constant tempo between the play head anchor and the region.

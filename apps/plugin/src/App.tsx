@@ -69,9 +69,10 @@ export default function App() {
     )
   }
 
-  // Orb Chat surface (?surface=chat) gets the Studio workspace.
-  if (supabase && new URLSearchParams(window.location.search).get('surface') === 'chat') {
-    return <ChatSession client={supabase} userId={user.id}><StudioShell supabase={supabase} user={user} /></ChatSession>
+  // Orb Chat surface (?surface=chat) gets the Studio workspace; ?surface=panel is the same studio
+  // stood on end for Slur DAW's side panel (about 300 wide).
+  if (supabase && (SURFACE === 'chat' || SURFACE === 'panel')) {
+    return <ChatSession client={supabase} userId={user.id}><StudioShell supabase={supabase} user={user} panel={SURFACE === 'panel'} /></ChatSession>
   }
   // Orb Games surface (?surface=games) — the CD wall, nothing else.
   if (supabase && SURFACE === 'games') {

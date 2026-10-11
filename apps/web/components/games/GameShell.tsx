@@ -26,7 +26,6 @@ import { useState, useMemo, type ReactNode } from 'react'
 import type { Profile } from '@/lib/games/types'
 import { useT } from '@/lib/games/i18n'
 import ConfirmDialog from './ConfirmDialog'
-import '@orb/core/styles/games.css'
 import { useArcade } from './ArcadeLobby'
 
 // ── Shared avatar ─────────────────────────────────────────────────────────────

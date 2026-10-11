@@ -37,3 +37,10 @@ apps/web/ios/**/xcuserdata
 DerivedData
 artifacts/games-audit/
 .env*
+
+# Slur DAW alpha build artifacts
+Daw/build/
+Daw/build.noindex/
+Daw/build-configure.log
+Daw/build.log
+Daw/test/out/

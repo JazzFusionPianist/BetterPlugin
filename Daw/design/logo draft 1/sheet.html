@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, logo draft 1</title>
+<style>
+/* Slur Studio (the DAW), logo draft 1. The name written two ways, and four
+   icons, each at the sizes the Mac shows it. Open ?part=name | icons for one
+   half alone. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url(../../ui/fonts/instrument-sans-normal-400-700-latin.woff2) }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #E9E7E1; font-family: 'Instrument Sans', sans-serif; }
+svg { display: block; }
+</style>
+</head>
+<body>
+<svg id="sheet" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+const NS = 'http://www.w3.org/2000/svg'
+const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); parent && parent.appendChild(n); return n }
+const C = { blue: '#5C80FF', green: '#3FB872', orange: '#F89C38', ink: '#1A1917', paper: '#F3F0E8', white: '#FBFAF7', k0: '#0E0E0E', k1: '#151514', dawInk: '#ECEAE4', mint: '#BFE6CB', sky: '#C9D5FF', night: '#14120F' }
+
+/* ── the hand: a broad nib held at 32 degrees ── */
+function nib (g, d, color, width = 7.5, angle = 32, steps = 14, hair = 1.3) {
+  const a = angle * Math.PI / 180, vx = Math.cos(a) * width, vy = -Math.sin(a) * width
+  const grp = el('g', { fill: 'none', stroke: color, 'stroke-width': hair, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g)
+  for (let i = 0; i <= steps; i++) { const t = i / steps - .5; el('path', { d, transform: `translate(${(t * vx).toFixed(2)} ${(t * vy).toFixed(2)})` }, grp) }
+}
+/* "slur", as the house writes it (apps/web/components/slur/marks.ts): a 210 x 150 box from 16,14; baseline 150, x-height 98 */
+const WORD = 'M 64 102 C 60 94, 44 92, 40 104 C 36 116, 52 119, 60 124 C 70 130, 70 146, 56 150 C 46 153, 38 149, 38 143 C 38 138, 46 138, 52 146 C 58 153, 74 150, 82 128 C 90 106, 96 66, 97 48 C 98 34, 90 30, 86 40 C 82 52, 84 100, 86 134 C 87 146, 92 151, 100 150 C 106 149, 110 140, 112 98 C 112 124, 113 151, 126 151 C 138 151, 141 132, 142 98 C 142 126, 142 144, 148 149 C 154 153, 162 152, 166 146 C 166 130, 166 112, 166 99 C 170 92, 180 90, 188 95'
+const ARM = 'M 188 95 C 204 94, 222 70, 216 44 C 210 20, 172 13, 130 16 C 84 19, 48 32, 30 66'
+/* "studio" in the same hand, new in this draft: the s, t and u in one line; the d and i in a second; the o; the t's bar; the i's dot */
+const STUDIO = [
+  'M 64 102 C 60 94, 44 92, 40 104 C 36 116, 52 119, 60 124 C 70 130, 70 146, 56 150 C 46 153, 38 149, 38 143 C 38 138, 46 138, 52 146 ' +
+  'C 58 153, 74 150, 82 130 C 88 112, 92 84, 93 68 C 91 92, 91 120, 92 136 C 93 147, 98 151, 106 150 C 112 149, 116 140, 118 98 ' +
+  'C 118 124, 119 151, 132 151 C 144 151, 147 132, 148 98 C 148 126, 148 144, 154 149 C 160 153, 170 150, 176 138',
+  'M 203 106 C 198 95, 180 96, 177 120 C 175 142, 188 154, 198 142 C 204 132, 206 80, 206 44 C 206 80, 205 120, 206 136 C 207 147, 212 151, 219 150 C 225 149, 229 140, 231 98 C 231 120, 231 140, 235 148 C 239 153, 249 150, 256 134',
+  'M 276 101 C 263 95, 255 112, 257 130 C 259 148, 277 154, 287 140 C 295 128, 291 104, 276 101 C 284 107, 296 105, 303 97',
+  'M 79 99 L 108 96',
+  'M 232 73 L 232 80',
+]
+function slurWord (g, { ink = C.ink, arm = C.blue, width = 7.5 } = {}) { nib(g, WORD, ink, width); nib(g, ARM, arm, width) }
+function studioWord (g, { ink = C.ink, width = 7.5 } = {}) { for (const d of STUDIO) nib(g, d, ink, width) }
+
+/* ── shapes ── */
+function ellipsePath (cx, cy, rx, ry, deg) {
+  const t = deg * Math.PI / 180, dx = rx * Math.cos(t), dy = rx * Math.sin(t)
+  return `M ${cx - dx} ${cy - dy} A ${rx} ${ry} ${deg} 1 0 ${cx + dx} ${cy + dy} A ${rx} ${ry} ${deg} 1 0 ${cx - dx} ${cy - dy} Z`
+}
+const wholeNote = (cx, cy, s, hollow = true) => ellipsePath(cx, cy, s, .7 * s, -22) + (hollow ? ' ' + ellipsePath(cx, cy, .42 * s, .52 * s, 38) : '')
+/* the Mac's icon shape: a square with its corners drawn as one curve */
+function squircle (x, y, s, n = 5) {
+  const r = s / 2, cx = x + r, cy = y + r, pts = []
+  for (let i = 0; i < 96; i++) { const t = i / 96 * Math.PI * 2, c = Math.cos(t), q = Math.sin(t); pts.push(`${(cx + r * Math.sign(c) * Math.abs(c) ** (2 / n)).toFixed(2)} ${(cy + r * Math.sign(q) * Math.abs(q) ** (2 / n)).toFixed(2)}`) }
+  return 'M ' + pts.join(' L ') + ' Z'
+}
+/* a region as the program cuts it, by what plays in it */
+const REGION = {
+  plain: (x, y, w, h) => `M${x} ${y}h${w}v${h}h${-w}Z`,
+  bass: (x, y, w, h, r) => `M${x} ${y}h${w}v${h - r}a${r} ${r} 0 0 1 ${-r} ${r}h${-(w - 2 * r)}a${r} ${r} 0 0 1 ${-r} ${-r}Z`,
+  keys: (x, y, w, h, r) => `M${x} ${y}h${w - r}v${r}h${r}v${h - r}h${-w}Z`,
+  gtr: (x, y, w, h, r) => `M${x} ${y}h${w - r * 1.3}l${r * 1.3} ${r * 1.3}v${h - r * 1.3}h${-w}Z`,
+  vox: (x, y, w, h, r) => `M${x} ${y + r}a${r} ${r} 0 0 1 ${r} ${-r}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - r}h${-w}Z`,
+}
+const PIG = { drums: '#3B79B8', drums2: '#2C62AC', bass: '#744898', keys: '#2B8767', gtr: '#BD7929', vox: '#DD6C63' }
+
+/* ── the four icons, each drawn in a square of side s ── */
+const ICONS = {
+  /* a, the hand: the house lettering, white ink on black paper, the arm in the program's blue */
+  a (g, s, { arm = C.blue, small = false } = {}) {
+    el('path', { d: squircle(0, 0, s), fill: C.k0 }, g)
+    const k = s * .0041, w = small ? 12 : 8.6
+    slurWord(el('g', { transform: `translate(${s / 2 - 123 * k} ${s / 2 - 86 * k}) scale(${k})` }, g), { ink: C.dawInk, arm, width: w })
+  },
+  /* b, the lanes: a song as the program draws one, regions cut by instrument, and the playhead */
+  b (g, s, { small = false } = {}) {
+    el('path', { d: squircle(0, 0, s), fill: C.k0 }, g)
+    const u = s / 256, rows = small ? 4 : 5, h = (small ? 30 : 23) * u, gap = (small ? 12 : 9.5) * u, y0 = (s - rows * h - (rows - 1) * gap) / 2, r = (small ? 7 : 6) * u
+    const R = (row, kind, a, b, c) => el('path', { d: REGION[kind]((44 + a) * u, y0 + row * (h + gap), (b - a) * u, h, r), fill: c }, g)
+    if (small) { R(0, 'plain', 0, 96, PIG.drums); R(0, 'plain', 106, 168, PIG.drums); R(1, 'bass', 30, 150, PIG.bass); R(2, 'gtr', 62, 168, PIG.gtr); R(3, 'vox', 0, 58, PIG.vox); R(3, 'vox', 68, 126, PIG.vox) }
+    else {
+      R(0, 'plain', 0, 102, PIG.drums); R(0, 'plain', 110, 168, PIG.drums)
+      R(1, 'bass', 34, 152, PIG.bass)
+      R(2, 'keys', 0, 62, PIG.keys); R(2, 'keys', 70, 132, PIG.keys)
+      R(3, 'gtr', 76, 168, PIG.gtr)
+      R(4, 'vox', 18, 58, PIG.vox); R(4, 'vox', 66, 106, PIG.vox); R(4, 'vox', 114, 154, PIG.vox)
+    }
+    el('rect', { x: (small ? 122 : 124) * u, y: y0 - 16 * u, width: (small ? 5 : 2.6) * u, height: rows * h + (rows - 1) * gap + 32 * u, fill: C.dawInk }, g)
+  },
+  /* c, the note: the staff and one whole note, as each program stands on the downloads shelf */
+  c (g, s, { note = C.blue, ground = C.k0, line = 'rgba(236,234,228,.2)', hollow = true, small = false } = {}) {
+    el('path', { d: squircle(0, 0, s), fill: ground }, g)
+    const clip = 'c' + Math.random().toString(36).slice(2)
+    el('path', { d: squircle(0, 0, s) }, el('clipPath', { id: clip }, g))
+    const lines = el('g', { 'clip-path': `url(#${clip})` }, g), gap = s * .092, y0 = s / 2 - 2 * gap
+    if (!small) for (let k = 0; k < 5; k++) el('rect', { x: 0, y: y0 + k * gap - s * .004, width: s, height: s * .008, fill: line }, lines)
+    el('path', { d: wholeNote(s / 2, small ? s / 2 : y0 + 2.5 * gap, small ? s * .3 : s * .215, hollow), fill: note, 'fill-rule': 'evenodd' }, g)
+  },
+  /* d, the arch: the program's own arch from the shelf, set in black */
+  d (g, s, { note = C.blue, ground = C.sky, line = 'rgba(26,25,23,.16)', hollow = true, small = false, bed = C.k0 } = {}) {
+    el('path', { d: squircle(0, 0, s), fill: bed }, g)
+    const w = s * .56, h = s * .7, x = (s - w) / 2, y = (s - h) / 2, rr = s * .045
+    const arch = `M${x} ${y + w / 2}a${w / 2} ${w / 2} 0 0 1 ${w} 0v${h - w / 2 - rr}a${rr} ${rr} 0 0 1 ${-rr} ${rr}h${-(w - 2 * rr)}a${rr} ${rr} 0 0 1 ${-rr} ${-rr}Z`
+    el('path', { d: arch, fill: ground }, g)
+    const clip = 'd' + Math.random().toString(36).slice(2)
+    el('path', { d: arch }, el('clipPath', { id: clip }, g))
+    const lines = el('g', { 'clip-path': `url(#${clip})` }, g), gap = s * .052, y0 = y + h * .36
+    if (!small) for (let k = 0; k < 5; k++) el('rect', { x, y: y0 + k * gap - s * .003, width: w, height: s * .006, fill: line }, lines)
+    el('path', { d: wholeNote(s / 2, y0 + 2.5 * gap, small ? s * .15 : s * .118, hollow), fill: note, 'fill-rule': 'evenodd' }, g)
+  },
+}
+
+/* ── the sheet ── */
+const part = new URLSearchParams(location.search).get('part')
+const sheet = document.getElementById('sheet')
+const text = (g, x, y, t, { size = 13, fill = C.ink, op = 1, weight = 400 } = {}) => { const n = el('text', { x, y, fill, 'fill-opacity': op, 'font-family': 'Instrument Sans', 'font-size': size, 'font-weight': weight, 'letter-spacing': -size * .01 }, g); n.textContent = t; return n }
+const label = (g, x, y, k, t) => { text(g, x, y, k, { size: 13, op: .8, weight: 600 }); text(g, x + 18, y, t, { size: 13, op: .5 }) }
+const tile = (g, x, y, w, h, fill) => el('rect', { x, y, width: w, height: h, rx: 28, fill }, g)
+const M = 36, W = 1800
+let y = M
+
+/* what was chosen (2026-10-11: the name both words in the hand, the icon c), drawn alone to be kept as files:
+   ?part=appicon, the icon as the Mac takes it, 1024 with the shape at 824; ?part=wordmark&ink=… the name by itself */
+if (part === 'appicon') {
+  document.body.style.background = 'transparent'
+  const g = el('g', { transform: 'translate(100 100)' }, sheet)
+  ICONS.c(g, 824)
+  el('path', { d: squircle(1, 1, 822), fill: 'none', stroke: C.dawInk, 'stroke-opacity': .1, 'stroke-width': 2 }, g)      // a hair of ink at the edge: the black holds its shape on a dark Dock
+  sheet.setAttribute('width', 1024); sheet.setAttribute('height', 1024); sheet.setAttribute('viewBox', '0 0 1024 1024')
+} else if (part === 'wordmark') {
+  document.body.style.background = 'transparent'
+  const ink = '#' + (new URLSearchParams(location.search).get('ink') || '1A1917')
+  slurWord(sheet, { ink }); studioWord(el('g', { transform: 'translate(200 0)' }, sheet), { ink })
+  sheet.setAttribute('width', 1012); sheet.setAttribute('height', 300); sheet.setAttribute('viewBox', '16 14 506 150')
+} else {
+/* the name, written two ways, on paper and on the program's black */
+if (part !== 'icons') {
+  const TW = (W - 2 * M - 16) / 2, TH = 300
+  const ways = [
+    ['1', 'slur in the house hand, studio set in instrument sans (as the site writes it today)', (g, ink) => { slurWord(g, { ink }); const t = text(g, 230, 150, 'studio', { size: 46, fill: ink, weight: 500 }); t.setAttribute('letter-spacing', -1.4) }, 350],
+    ['2', 'both words in the hand', (g, ink) => { slurWord(g, { ink }); studioWord(el('g', { transform: 'translate(200 0)' }, g), { ink }) }, 516],
+  ]
+  ways.forEach(([key, words, draw, span], r) => {
+    ;[[C.paper, C.ink], [C.k0, C.dawInk]].forEach(([bg, ink], c) => {
+      const x = M + c * (TW + 16)
+      tile(sheet, x, y, TW, TH, bg)
+      const k = 1.5, g = el('g', { transform: `translate(${x + TW / 2 - (16 + span / 2) * k} ${y + TH / 2 - 89 * k}) scale(${k})` }, sheet)
+      draw(g, ink)
+      if (c === 0) label(sheet, x + 26, y + TH - 22, key, words)
+    })
+    y += TH + 16
+  })
+  y += 20
+}
+
+/* the icons: large, then as the Dock, a list and a title bar show them, then the three programs side by side where the idea is a family */
+if (part !== 'name') {
+  const names = { a: 'the hand', b: 'the lanes', c: 'the note', d: 'the arch' }
+  const fam = {
+    a: [{ arm: C.green }, { arm: C.orange }, { arm: C.blue }],
+    c: [{ note: C.green, ground: C.mint, line: 'rgba(26,25,23,.16)' }, { note: C.orange, ground: C.night, line: 'rgba(251,250,247,.16)', hollow: false }, {}],
+    d: [{ note: C.green, ground: C.mint }, { note: C.orange, ground: '#2A2019', line: 'rgba(251,250,247,.16)', hollow: false }, {}],
+  }
+  const CW = (W - 2 * M - 3 * 16) / 4, CH = 640
+  Object.keys(ICONS).forEach((k, i) => {
+    const x = M + i * (CW + 16)
+    tile(sheet, x, y, CW, CH, C.paper)
+    const put = (ix, iy, s, opts) => ICONS[k](el('g', { transform: `translate(${ix} ${iy})` }, sheet), s, opts)
+    put(x + (CW - 256) / 2, y + 44, 256)
+    /* small, on a light ground and on a dark one */
+    ;[['#DAD7CF', 0], ['#232322', 1]].forEach(([bg, r]) => {
+      const sy = y + 336 + r * 84
+      el('rect', { x: x + 26, y: sy, width: CW - 52, height: 72, rx: 18, fill: bg }, sheet)
+      let sx = x + 26 + (CW - 52 - (64 + 32 + 16 + 2 * 28)) / 2
+      for (const s of [64, 32, 16]) { put(sx, sy + 36 - s / 2, s, { small: s <= 32 }); sx += s + 28 }
+    })
+    if (fam[k]) {
+      let sx = x + (CW - (3 * 72 + 2 * 18)) / 2
+      fam[k].forEach(o => { put(sx, y + 520, 72, o); sx += 72 + 18 })
+      label(sheet, x + 26, y + CH - 22, k, names[k] + ', and the three programs')
+    } else label(sheet, x + 26, y + CH - 22, k, names[k])
+  })
+  y += CH
+}
+y += M
+sheet.setAttribute('width', W); sheet.setAttribute('height', y); sheet.setAttribute('viewBox', `0 0 ${W} ${y}`)
+document.title = `slur studio, logo draft 1 (${W} x ${y})`
+}
+</script>
+</body>
+</html>

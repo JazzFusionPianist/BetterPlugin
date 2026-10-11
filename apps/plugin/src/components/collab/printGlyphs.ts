@@ -69,9 +69,13 @@ export interface GlyphNode { type: number; amount: number; variant: number; aux:
 // ── the pictures, in paper, one per sound print (the plate spans −1..1) ──
 const pictures: Record<number, (n: GlyphNode) => string> = {
   0: () => [-.6, -.45, -.3, -.15, 0, .15, .3, .45, .6].map(y => P(`M -.62 ${y} H .62`, .07)).join(''),   // tone
-  7: (n) => n.variant === 0   // cut: high pass climbs, low pass falls
-    ? P('M -.7 .75 C -.5 .7 -.4 .5 -.35 .3 C -.3 .1 -.25 -.1 -.05 -.1 H .7', .1)
-    : P('M -.7 -.1 H .05 C .25 -.1 .3 .1 .35 .3 C .4 .5 .5 .7 .7 .75', .1),
+  7: (n) => {   // cut: a low pass falls, a high pass climbs — as steeply as its slope (12..48 dB/oct)
+    const sl = Math.max(1, Math.min(4, n.aux[0] || 2)), xe = Math.min(.7, .78 - (sl - 1) * .15)   // where the drop reaches the floor
+    const c1 = .05 + (xe - .05) * .6, c2 = .05 + (xe - .05) * .4
+    return n.variant === 0
+      ? P(`M -.7 .75 H ${f3(-xe)} C ${f3(-c2)} .75 ${f3(-c1)} -.1 -.05 -.1 H .7`, .1)
+      : P(`M -.7 -.1 H .05 C ${f3(c1)} -.1 ${f3(c2)} .75 ${f3(xe)} .75 H .7`, .1)
+  },
   8: () => P(poly([[-.7, .45], [-.45, .45], [-.35, -.45], [-.05, -.45], [.05, .45], [.35, .45], [.45, -.45], [.7, -.45]]), .1),   // amp
   1: () => C(-.35, -.05, .3, false) + C(.35, -.05, .3, false) + C(-.35, -.05, .07) + C(.35, -.05, .07) + P('M -.62 .45 Q 0 .62 .62 .45', .08),   // tape
   4: () => P(wave(-.7, .7, 0, .55, 2, 0, t => 1 - .55 * t)) + P('M .2 -.3 H .72 M .2 .3 H .72', .06, .55),   // glue

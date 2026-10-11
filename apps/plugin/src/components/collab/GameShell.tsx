@@ -25,7 +25,6 @@ import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
 import { useArcade } from './ArcadeLobby'
 import ConfirmDialog from './ConfirmDialog'
-import '@orb/core/styles/games.css'
 
 // ── Shared avatar ─────────────────────────────────────────────────────────────
 export function GameAvatar ({ profile, size = 28 }: { profile: Profile; size?: number }) {

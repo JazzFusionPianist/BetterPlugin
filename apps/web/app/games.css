@@ -1001,6 +1001,12 @@
   background: var(--bg2); border: 1px solid var(--border);
   padding: 3px 10px; border-radius: 8px;
 }
+/* solo practice: one score in the header; the best and the misses are
+   written in the two name rows */
+.et-scorebar.et-solo .et-score-sep, .et-scorebar.et-solo .et-score-theirs { display: none; }
+.et-solo-misses { display: inline-flex; align-items: center; gap: 5px; }
+.et-miss { width: 7px; height: 7px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.55; }
+.et-miss.on { background: #D6402E; border-color: #D6402E; opacity: 1; }
 .et-score-mine { color: var(--blue); }
 .et-score-theirs { color: var(--t2); }
 .et-score-sep { color: var(--t3); margin: 0 2px; }
@@ -1096,6 +1102,8 @@
   cursor: pointer;
   transition: background .1s, transform .08s, border-color .1s;
 }
+/* the label is fitted to the button by the view (FitLabel): one line, never cut */
+.et-fit { display: inline-block; white-space: nowrap; }
 .et-option:hover:not(:disabled) { background: var(--border); }
 .et-option:active:not(:disabled) { transform: scale(0.96); }
 .et-option:disabled { cursor: default; }
@@ -2855,6 +2863,9 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   font-family: var(--f-serif); letter-spacing: -0.01em; font-weight: 500; font-style: italic;
   font-size: 13px; color: var(--blue);
 }
+/* the room's side notes belong to the arcade's wide room; the small table
+   tells its story on the plate itself */
+.pinball-ballline, .pinball-mission, .pinball-side, .pinball-nudge { display: none; }
 .pinball-canvas-wrap {
   flex: 1; min-height: 0;
   width: auto; max-width: 100%;

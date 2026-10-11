@@ -85,7 +85,7 @@ export function StudioHomePrompt({ targets, onSubmit, onOpenCalendar }: {
 /** The week — seven arches, one per day, today's in mint. */
 export interface WeekTask { id: string; title: string; due_on: string; conversation_id: string | null; who: string }
 
-export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpenCalendar, onOpenEvent, onOpenTask }: {
+export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpenCalendar, onOpenEvent, onOpenTask, dots = false }: {
   events: CalendarEvent[]
   /** Open tasks with a day — hollow notes under the events. */
   tasks?: WeekTask[]
@@ -94,6 +94,9 @@ export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpen
   onOpenCalendar: () => void
   onOpenEvent?: (id: string) => void
   onOpenTask?: (t: WeekTask) => void
+  /** The side panel's week: an arch is too slim for a title, so a day shows a dot per event in its
+   *  colour (a ring for a task) and the whole arch opens the calendar. */
+  dots?: boolean
 }) {
   const today = new Date(nowTick); today.setHours(0, 0, 0, 0)
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d })
@@ -122,6 +125,34 @@ export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpen
 
   // today, what is over is dimmed — and leaves first when the arch is too short for the day
   const over = (e: CalendarEvent) => !e.all_day && (e.ends_at ? new Date(e.ends_at).getTime() : new Date(e.starts_at).getTime() + 3600_000) < nowTick
+
+  if (dots) {
+    const MOST = 4   // an arch holds four marks under its date
+    return (
+      <div className="wd-week dots">
+        {days.map((d, i) => {
+          const k = keyOf(d)
+          const marks = [
+            ...(byDay.get(k) ?? []).map(e => ({ id: e.id, color: e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : C.ink), past: i === 0 && over(e), task: false })),
+            ...tasks.filter(t => t.due_on === k).map(t => ({ id: t.id, color: t.conversation_id ? houseColor(t.conversation_id) : C.ink, past: false, task: true })),
+          ]
+          const what = marks.length === 0 ? 'nothing' : marks.length === 1 ? '1 thing' : `${marks.length} things`
+          return (
+            <button key={k} className={`wd-arch${i === 0 ? ' today' : ''}`} onClick={onOpenCalendar}
+              aria-label={`${WD[d.getDay()]} ${d.getDate()}, ${what}`} title={what}>
+              <header>
+                <span>{WD[d.getDay()]}</span>
+                <b>{d.getDate()}</b>
+              </header>
+              {marks.slice(0, MOST).map(m => (
+                <i key={m.id} className={`wd-arch-dot${m.task ? ' task' : ''}${m.past ? ' past' : ''}`} style={{ color: m.color }} />
+              ))}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="wd-week" ref={box}>

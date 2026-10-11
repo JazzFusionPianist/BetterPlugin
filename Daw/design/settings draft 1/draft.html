@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur studio, settings, draft 1</title>
+<style>
+/* Slur Studio, the settings window, draft 1 (2026-10-11). The app menu's
+   "Audio Settings…" gives way to "Settings…" (command comma): one window of
+   its own, its parts named down the left, the chosen part on the right; audio
+   is one of them. A change is taken at once, as the Mac does it: nothing to
+   confirm. Drawn with the room's own kit (../../ui/kit.js) at the room's own
+   sizes; the sheet is shown twice as large. */
+@font-face { font-family: 'Instrument Sans'; font-weight: 400 700; font-style: normal; src: url(../../ui/fonts/instrument-sans-normal-400-700-latin.woff2) }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0E0E0E; }
+svg { display: block; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script src="../../ui/kit.js"></script>
+<script>
+const WW = 700, WH = 468, BAR = 28, SIDE = 164
+const SYS = "-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif"
+const PARTS = ['general', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
+
+/* a window of the Mac's: its bar the room's (dark, the title in the Mac's own face and case), the parts down the left */
+function win (chosen, body) {
+  let s = R(0, 0, WW, WH, { rx: 9, fill: K1 }) + `<clipPath id="w${chosen}"><rect width="${WW}" height="${WH}" rx="9"/></clipPath>`
+  let g = R(0, 0, WW, BAR, { fill: K2 }) + hline(0, WW, BAR, .1)
+  g += Cc(18, 14, 5.4, { fill: '#FF5F57' }) + Cc(37, 14, 5.4, { fill: '#FEBC2E' }) + Cc(56, 14, 5.4, { fill: '#28C840' })
+  g += `<text x="${WW / 2}" y="18.2" text-anchor="middle" font-family="${SYS}" font-size="12" font-weight="600" fill="${INK}" fill-opacity=".9">Settings</text>`
+  g += vline(SIDE, BAR, WH, .1)
+  PARTS.forEach((p, i) => {
+    const y = BAR + 14 + i * 26, on = p === chosen
+    if (on) g += R(10, y, SIDE - 20, 22, { rx: 2, fill: INK })
+    g += T(22, y + 14.8, p, { size: 10.5, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : .78 })
+  })
+  g += G(body, `translate(${SIDE} ${BAR})`)
+  return s + G(g, '', ` clip-path="url(#w${chosen})"`) + R(.5, .5, WW - 1, WH - 1, { rx: 9, stroke: INK, sa: .16 })
+}
+/* the chosen part: its name, then rows — what it is on the left, the thing itself at the right edge */
+const PW = WW - SIDE, PX = 28, PR = PW - 28
+function part (name, groups) {
+  let s = T(PX, 34, name, { size: 13, w: 500, a: .94 }), y = 54
+  for (const [head, rows] of groups) {
+    s += hline(PX, PR, y, .1); y += 1
+    if (head) { s += T(PX, y + 19, head, { size: 9.5, a: .4 }); y += 26 } else y += 8
+    for (const [label, draw] of rows) { s += T(PX + (head ? 0 : 0), y + 17.5, label, { size: 10.5, a: .62 }) + draw(PR, y + 4); y += 30 }
+    y += 6
+  }
+  return s
+}
+/* the things themselves, each set against the right edge (x) */
+const pick = (t, w) => (x, y) => { const kw = w || Math.round(tw(t, 10) + 34); return R(x - kw + .5, y + .5, kw - 1, 19, { rx: 2, stroke: INK, sa: .24 }) + T(x - kw + 9, y + 13.6, t, { size: 10, a: .88 }) + caret(x - 12, y + 10, .5) }
+const choice = (items, on, more) => (x, y) => { const its = items.map(t => ({ t, on: t === on })), w = cells(0, 0, 20, its, { size: 10, pad: 10 })[1]; const mw = more ? Math.ceil(tw(more, 9.5) * 1.12) + 9 : 0; return cells(x - w - mw, y, 20, its, { size: 10, pad: 10 })[0] + (more ? endText(x, y + 13.6, more, 9.5, .42) : '') }
+/* words set against the right edge by the page itself (the kit's measure is a hair short of what is drawn) */
+const endText = (x, y, inner, size, a) => `<text x="${x}" y="${y}" text-anchor="end" font-family="${FONT}" font-size="${size}" fill="${INK}" fill-opacity="${a}">${inner}</text>`
+const words = (...ts) => (x, y) => endText(x, y + 13.6, ts.map((t, i) => `<tspan${i ? ' dx="14"' : ''}>${t}</tspan>`).join(''), 10, .5)
+const level = v => (x, y) => { const w = 150; return R(x - w, y + 8, w, 3, { fill: INK, fa: .12 }) + R(x - w, y + 8, w * Math.min(v, .78), 3, { fill: INK, fa: .86 }) + (v > .78 ? R(x - w + w * .78, y + 8, w * (v - .78), 3, { fill: SOLO }) : '') + vline(x - w + w * .78, y + 5, y + 14, .3) }
+const place = (t, k) => (x, y) => { const kw = keyW(k, { size: 10, pad: 9 }); return key(x - kw, y, k, { h: 20, size: 10, pad: 9 })[0] + endText(x - kw - 12, y + 13.6, t, 10, .88) }
+
+const AUDIO = part('audio', [
+  ['device', [
+    ['output', pick('macbook pro speakers', 208)],
+    ['input', pick('scarlett 2i2 usb', 208)],
+    ['what comes in', level(.52)],
+  ]],
+  ['time', [
+    ['rate', choice(['44.1', '48', '88.2', '96'], '48', 'khz')],
+    ['buffer', choice(['32', '64', '128', '256', '512', '1024'], '128', 'samples')],
+    ['delay', words('in 3.1 ms', 'out 3.6 ms', 'there and back 6.7 ms')],
+  ]],
+  ['work', [
+    ['threads', choice(['all', '2', '4', '6', '8'], 'all')],
+    ['test tone', (x, y) => key(x - keyW('play', { size: 10, pad: 10 }), y, 'play', { h: 20, size: 10, pad: 10 })[0]],
+  ]],
+])
+const GENERAL = part('general', [
+  ['', [
+    ['language', choice(['english', '한국어'], 'english')],
+    ['new songs are kept in', place('music, slur studio, projects', 'choose')],
+  ]],
+  ['copies of a song', [
+    ['one is put aside every', choice(['5', '10', '30'], '10', 'minutes')],
+    ['how many are kept', choice(['12', '24', '48'], '24')],
+  ]],
+  ['the room', [
+    ['a region is cut by its instrument', choice(['on', 'off'], 'on')],
+    ['rows open at', choice(['small', 'middle', 'tall'], 'small')],
+  ]],
+])
+
+/* the app's own menu in the Mac's bar, with the line that opens the window */
+function menu () {
+  const w = 236, rows = [['About Slur Studio'], null, ['Settings…', '⌘,', true], ['Key Command Assignments…', '⌥K'], null, ['Services', '›'], null, ['Hide Slur Studio', '⌘H'], ['Hide Others', '⌥⌘H'], null, ['Quit Slur Studio', '⌘Q']]
+  let y = 6, s = ''
+  const body = []
+  for (const r of rows) {
+    if (!r) { body.push(R(12, y + 4.5, w - 24, 1, { fill: INK, fa: .12 })); y += 10; continue }
+    if (r[2]) body.push(R(5, y, w - 10, 22, { rx: 5, fill: '#2F6BE0' }))
+    body.push(`<text x="14" y="${y + 15}" font-family="${SYS}" font-size="12.5" fill="${INK}" fill-opacity="${r[2] ? 1 : .9}">${r[0]}</text>`)
+    if (r[1]) body.push(`<text x="${w - 14}" y="${y + 15}" text-anchor="end" font-family="${SYS}" font-size="12.5" fill="${INK}" fill-opacity="${r[2] ? .9 : .45}">${r[1]}</text>`)
+    y += 22
+  }
+  return [R(0, 0, w, y + 6, { rx: 8, fill: '#262625' }) + R(.5, .5, w - 1, y + 5, { rx: 8, stroke: INK, sa: .16 }) + body.join(''), w, y + 6]
+}
+
+Promise.all([document.fonts.load("400 10px 'Instrument Sans'"), document.fonts.load("500 10px 'Instrument Sans'"), document.fonts.load("600 10px 'Instrument Sans'")]).then(() => {
+  const M = 40, GAP = 36, CAP = 46
+  const [mg, mw, mh] = menu()
+  const SW = M * 2 + mw + GAP + WW * 2 + GAP, SH = M * 2 + CAP + WH
+  const cap = (x, a, b) => T(x, M + 12, a, { size: 12, a: .92 }) + T(x, M + 29, b, { size: 10.5, a: .5 })
+  let out = R(0, 0, SW, SH, { fill: K0 })
+  out += cap(M, 'in the app’s menu', 'where audio settings stood; the same key') + G(mg, `translate(${M} ${M + CAP})`)
+  const x1 = M + mw + GAP, x2 = x1 + WW + GAP
+  out += cap(x1, 'audio, one part of many', 'what the audio window held, in the room’s own things; a change is taken at once') + G(win('audio', AUDIO), `translate(${x1} ${M + CAP})`)
+  out += cap(x2, 'another part, to show how the rest would stand', 'the same rows: a name on the left, the thing itself at the right edge') + G(win('general', GENERAL), `translate(${x2} ${M + CAP})`)
+  document.getElementById('host').innerHTML = `<svg id="sheet" xmlns="http://www.w3.org/2000/svg" width="${SW * 2}" height="${SH * 2}" viewBox="0 0 ${SW} ${SH}">${out}</svg>`
+  document.title = `settings, draft 1 (${SW * 2} x ${SH * 2})`
+})
+</script>
+</body>
+</html>

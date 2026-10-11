@@ -1,13 +1,13 @@
 'use client'
 
-import { C } from './marks'
+import { C, wholeNotePath } from './marks'
 
 /* The pictogram nav — a small drawing, a word and two quiet lines per cell —
    the same on every page before you log in, so the pictures stay with the
    words wherever you go. `here` marks the page you are on; `onLogIn` opens
    the door in place when the page has one, otherwise the link carries it. */
 
-type Here = 'slur' | 'patch' | 'downloads'
+type Here = 'slur' | 'patch' | 'studio' | 'downloads'
 
 export default function PictoNav ({ here, onLogIn, showDownloads = true }: {
   here?: Here
@@ -33,6 +33,9 @@ export default function PictoNav ({ here, onLogIn, showDownloads = true }: {
       {cell('patch', '/downloads#patch-on-slur',
         <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#8C5A3A" /><g fill="none" stroke={C.white} strokeWidth="1.1"><circle cx="15" cy="15" r="9" /><circle cx="15" cy="15" r="5.5" /><circle cx="15" cy="15" r="2.2" /></g></svg>,
         'patch on slur', 'the wall', 'no account')}
+      {cell('studio', '/downloads#slur-studio',
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="2" width="26" height="26" fill="#0E0E0E" /><g fill="rgba(236,234,228,.26)">{[9.6, 12.3, 15, 17.7, 20.4].map(y => <rect key={y} x="2" y={y - .25} width="26" height=".5" />)}</g><path d={wholeNotePath(15, 15, 6.6)} fill={C.blue} fillRule="evenodd" /></svg>,
+        'slur studio', 'the song', 'tracks patch slur')}
       {showDownloads && cell('downloads', '/downloads',
         <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M 4 29 V 13 A 11 11 0 0 1 26 13 V 29 Z" fill="none" stroke={C.ink} strokeWidth="1.6" /><path d="M 15 11 V 22 M 10.5 17.5 L 15 22 L 19.5 17.5" fill="none" stroke={C.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>,
         'downloads', 'mac', 'au vst3 aax')}

@@ -398,7 +398,11 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
 class Chain
 {
 public:
-    void prepare (double sampleRate, int blockSize);
+    /** `slots`: how many of the node slots are given their memory (every slot holds every line any effect could
+     *  need, a few megabytes each). The plug-in takes them all, as a patch there can grow to any shape; a host that
+     *  only ever compiles a fixed, smaller patch (the DAW: four nodes on every track) asks for just those, and must
+     *  never publish a Program that names a slot beyond them. */
+    void prepare (double sampleRate, int blockSize, int slots = kMaxNodes);
 
     /** Message thread: hand the audio thread a new Program (adopted at
      *  the next block boundary; never blocks audio). */

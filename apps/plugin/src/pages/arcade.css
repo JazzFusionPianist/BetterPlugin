@@ -879,6 +879,13 @@
 .plugin.arcade-skin.gwall-ear_training .et-scorebar .et-score-sep { display: none; }
 .plugin.arcade-skin.gwall-ear_training .et-score-mine { color: var(--ink); }
 .plugin.arcade-skin.gwall-ear_training .et-score-theirs { color: rgba(251, 250, 247, 0.32); }
+/* solo practice: the faint numeral is my own best; three lamps count the misses */
+.plugin.arcade-skin.gwall-ear_training .et-scorebar.et-solo .et-score-theirs { display: inline; }
+.plugin.arcade-skin.gwall-ear_training .et-solo-bestnum { display: none; }
+.plugin.arcade-skin.gwall-ear_training .et-solo-misses { gap: 6px; }
+.plugin.arcade-skin.gwall-ear_training .et-miss { width: 10px; height: 10px; border: 1.5px solid rgba(251, 250, 247, 0.55); opacity: 1; }
+.plugin.arcade-skin.gwall-ear_training .et-miss:first-of-type { margin-left: 6px; }
+.plugin.arcade-skin.gwall-ear_training .et-miss.on { background: var(--ar-accent); border-color: var(--ar-accent); }
 .plugin.arcade-skin.gwall-ear_training .game-view .game-area {
   grid-column: 1; grid-row: 1 / -1;
   display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 520px) minmax(130px, 1fr);
@@ -904,7 +911,7 @@
 }
 .plugin.arcade-skin.gwall-ear_training .game-view:has(.game-board-wrap.has-overlay) :is(.game-above, .game-below) { display: none; }
 .plugin.arcade-skin.gwall-ear_training .et-arena { max-width: none; margin: 0; padding: 60px 0 0; }
-.plugin.arcade-skin.gwall-ear_training .et-round { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; }
+.plugin.arcade-skin.gwall-ear_training .et-round { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; max-width: none; }   /* the small panel's 260px cap is not this room's */
 .plugin.arcade-skin.gwall-ear_training .et-round-label {
   order: 0; align-self: center; margin-bottom: 18px;
   font: 400 15px var(--f-sans); letter-spacing: 0; color: var(--t2); text-transform: lowercase;
@@ -930,13 +937,26 @@
   order: 3; margin: 22px 0 16px; text-align: left;
   font: 500 17px var(--f-sans); letter-spacing: 0; color: var(--ink); text-transform: lowercase;
 }
+/* as many answers to a row as fit at a readable width: four across in a
+   wide room, two by two (or one by one) as it narrows */
 .plugin.arcade-skin.gwall-ear_training .et-options {
-  order: 4; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: none; width: 100%;
+  order: 4; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 112px), 1fr)); gap: 12px; max-width: none; width: 100%;
+}
+.plugin.arcade-skin.gwall-ear_training .et-option { min-width: 0; overflow: hidden; }
+/* a narrow room gives the middle more of itself */
+@container (max-width: 820px) {
+  .plugin.arcade-skin.gwall-ear_training .game-view .game-area {
+    grid-template-columns: minmax(72px, 1fr) minmax(0, 520px) minmax(72px, 1fr); column-gap: 16px;
+  }
+  /* the lamps drop under their word rather than run into the middle */
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses { flex-wrap: wrap; row-gap: 5px; }
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses .et-miss:first-of-type { margin-left: 0; }
+  .plugin.arcade-skin.gwall-ear_training .et-solo-misses .et-miss:last-of-type { margin-right: 40px; }
 }
 .plugin.arcade-skin.gwall-ear_training .et-option {
   height: 52px; padding: 0 10px; border-radius: 999px;
   background: none; border: 1.5px solid rgba(251, 250, 247, 0.45); color: var(--ink);
-  font: 500 15px var(--f-sans); text-transform: lowercase;
+  font: 500 15px var(--f-sans); text-transform: none;   /* an answer keeps its case: m2 is not M2 */
 }
 .plugin.arcade-skin.gwall-ear_training .et-option:hover:not(:disabled) { background: none; border-color: var(--ink); }
 .plugin.arcade-skin.gwall-ear_training .et-option.picked { background: var(--ink); border-color: var(--ink); color: #1A1917; }
@@ -946,7 +966,7 @@
   order: 5; align-items: stretch; gap: 10px; margin-top: 6px; padding: 0; background: none; border: none; border-radius: 0; box-shadow: none;
 }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-answer {
-  font: 500 28px/1.1 var(--f-sans); letter-spacing: -0.02em; color: var(--ar-accent); text-align: left; text-transform: lowercase;
+  font: 500 28px/1.1 var(--f-sans); letter-spacing: -0.02em; color: var(--ar-accent); text-align: left; text-transform: none;
 }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-rows { gap: 2px; }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row {
@@ -954,6 +974,7 @@
 }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row.ok,
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row.bad { background: none; border: none; }
+.plugin.arcade-skin.gwall-ear_training .et-reveal-row-pick { text-transform: none; }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row-label { font-weight: 500; color: var(--ink); text-transform: lowercase; }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row.mine .et-reveal-row-label { color: var(--ink); }
 .plugin.arcade-skin.gwall-ear_training .et-reveal-row.ok .et-reveal-row-mark { color: var(--ar-accent); }
@@ -1014,6 +1035,60 @@
   height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 999px;
   background: var(--ink); color: var(--ar-on); border: none; font: 500 15px var(--f-sans); text-transform: lowercase;
 }
+/* ── pinball: the notes either side of the table ───────────────────────── */
+.plugin.arcade-skin.gwall-pinball { --pb-flat: 1; }
+.plugin.arcade-skin.gwall-pinball .pinball-canvas-wrap { background: none; }
+.plugin.arcade-skin.gwall-pinball .pinball-head { container-type: inline-size; gap: 0; }
+.plugin.arcade-skin.gwall-pinball .pinball-ballline { display: block; font: 400 15px var(--f-sans); color: var(--t2); text-transform: lowercase; margin-bottom: 10px; }
+.plugin.arcade-skin.gwall-pinball .pinball-balls { display: none; }
+/* the numeral gives way as the score grows a digit, so it never runs under the table */
+.plugin.arcade-skin.gwall-pinball .pinball-score { font-size: min(clamp(56px, 7.4vw, 96px), calc(100cqw / (var(--pb-score-chars, 1) * 0.54))); }
+.plugin.arcade-skin.gwall-pinball .pinball-mult { margin-top: 18px; }
+.plugin.arcade-skin.gwall-pinball .pinball-mult-word { display: none; }
+.plugin.arcade-skin.gwall-pinball .pinball-mission { display: flex; flex-direction: column; gap: 4px; margin-top: 30px; text-transform: lowercase; }
+.plugin.arcade-skin.gwall-pinball .pinball-mission-name { font: 500 17px var(--f-sans); color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-mission-time { font: 400 15px var(--f-sans); color: var(--t2); font-variant-numeric: tabular-nums; }
+
+.plugin.arcade-skin.gwall-pinball .pinball-side {
+  grid-column: 3; grid-row: 1 / -1; align-self: start; justify-self: end;
+  display: flex; flex-direction: column; width: 100%; max-width: 292px; min-width: 0;
+  padding-top: 76px; font: 400 15px var(--f-sans); color: var(--ink); text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-side-title { font: 500 17px var(--f-sans); color: var(--ink); margin-bottom: 10px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-title:not(:first-child) { margin-top: 30px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row { display: flex; align-items: center; gap: 12px; min-height: 36px; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-name { color: var(--t2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row.now .pinball-side-name { color: var(--ink); font-weight: 500; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-row.done .pinball-side-name { color: var(--t3); }
+.plugin.arcade-skin.gwall-pinball .pinball-side-val { margin-left: auto; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plugin.arcade-skin.gwall-pinball .pinball-side-lamps { display: inline-flex; gap: 6px; }
+.plugin.arcade-skin.gwall-pinball .pb-lamp {
+  flex: none; width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%;
+  border: 1.5px solid var(--t3);
+}
+.plugin.arcade-skin.gwall-pinball .pb-lamp.on { background: var(--ink); border-color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pb-lamp.now { background: #F5B82E; border-color: #F5B82E; }
+.plugin.arcade-skin.gwall-pinball .pinball-orb { gap: 14px; font-weight: 500; color: var(--t3); }
+.plugin.arcade-skin.gwall-pinball .pinball-orb .on { color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-kickback { display: flex; align-items: center; justify-content: space-between; }
+.plugin.arcade-skin.gwall-pinball .pinball-kickback.off { color: var(--t3); }
+
+.plugin.arcade-skin.gwall-pinball .pinball-nudge {
+  grid-column: 1; grid-row: 3; align-self: end; justify-self: start;
+  display: flex; align-items: center; gap: 20px; text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn {
+  height: 44px; padding: 0 24px; border-radius: 999px; background: none; cursor: pointer;
+  border: 1.5px solid var(--t3); color: var(--ink); font: 500 15px var(--f-sans); text-transform: lowercase;
+}
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn:hover:not(:disabled) { border-color: var(--ink); }
+.plugin.arcade-skin.gwall-pinball .pinball-nudge-btn:disabled { opacity: .4; cursor: default; }
+.plugin.arcade-skin.gwall-pinball .pinball-tilt { display: inline-flex; align-items: center; gap: 8px; font: 400 15px var(--f-sans); color: var(--t2); }
+/* a narrow room keeps the table and drops the right-hand notes */
+@container (max-width: 860px) {
+  .plugin.arcade-skin.gwall-pinball .pinball-side { display: none; }
+}
+
 /* the jar: an outline, open at the top */
 .plugin.arcade-skin.gwall-orb_merge .om-canvas-wrap { border: none; border-radius: 0; box-shadow: none; }
 .plugin.arcade-skin.gwall-orb_merge .om-next { width: 48px; height: 48px; border: 1.5px solid var(--ink); }
@@ -1282,6 +1357,7 @@
 .plugin.arcade-skin.gwall-solitaire .sol-rank-suit { font-size: 19cqw; }
 .plugin.arcade-skin.gwall-solitaire .sol-suit { right: 10%; bottom: 7%; font-size: 34cqw; }
 .plugin.arcade-skin.gwall-solitaire .sol-card.selected { outline: 3px solid #F5B82E; outline-offset: -1px; }
+.plugin.arcade-skin.gwall-solitaire .sol-card.dragging { box-shadow: 0 10px 0 rgba(26, 25, 23, 0.18); }
 .plugin.arcade-skin.gwall-solitaire .sol-waste .sol-fan { box-shadow: -2.5px 0 0 var(--gwall); }
 .plugin.arcade-skin.gwall-solitaire .sol-count { bottom: auto; top: calc(100% + 8px); font: 400 13px var(--f-sans); color: var(--t2); }
 

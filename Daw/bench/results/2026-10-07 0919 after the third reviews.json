@@ -1,0 +1,609 @@
+{
+  "up": {
+    "toThePage": 0.57,
+    "thenToReady": 0.28,
+    "memory": 48.899999999999999,
+    "cores": 8,
+    "sr": 44100,
+    "block": 512
+  },
+  "source": {
+    "made": true,
+    "megabytes": 7.6,
+    "decoded": true,
+    "sec": 30,
+    "decodeMs": 22,
+    "memoryAdded": 0.3
+  },
+  "8 tracks": {
+    "tracks": 8,
+    "regions": 64,
+    "patched": 2,
+    "buses": 1,
+    "plugins": 0,
+    "build": 9,
+    "memory": 88.5,
+    "memoryAdded": 39.200000000000003,
+    "page": {
+      "drawAll": 10.33,
+      "drawLanes": 0.8,
+      "drawHeads": 1.2,
+      "nodes": 781,
+      "undoCopy": 0,
+      "save": 0,
+      "saveBytes": 13337,
+      "snap": 0,
+      "tellEngine": 2,
+      "editJs": 5,
+      "editDone": 6,
+      "chooseAll": 0,
+      "drawAllChosen": 7,
+      "pullFrame": 0.83,
+      "scrollFrame": 1.5,
+      "drawZoomed": 2,
+      "drawMixer": 2.6
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.0051,
+        "meanMs": 0.0583,
+        "p99Ms": 0.1745,
+        "worstMs": 0.4413,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "ea29b370f943f2e1",
+        "threads": 8,
+        "shared": 122
+      },
+      "block 64": {
+        "load": 0.004,
+        "meanMs": 0.0058,
+        "p99Ms": 0.0089,
+        "worstMs": 0.1795,
+        "blockLastsMs": 1.451,
+        "mark": "efc05aec4cb443c4",
+        "threads": 8,
+        "shared": 0
+      },
+      "block 32": {
+        "load": 0.0043,
+        "meanMs": 0.0031,
+        "p99Ms": 0.0036,
+        "worstMs": 0.1781,
+        "blockLastsMs": 0.726,
+        "mark": "7b4f015c0099420f",
+        "threads": 8,
+        "shared": 0
+      },
+      "sameAgain": true
+    },
+    "alone": {
+      "load": 0.0048,
+      "load32": 0.0043,
+      "sameSound": true,
+      "sameSound32": true,
+      "playing": {
+        "load": 0.0272,
+        "worst": 0.041,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 259,
+      "load": 0.0169,
+      "worst": 0.0408,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 256
+    },
+    "playingWhileEditing": {
+      "blocks": 338,
+      "load": 0.0156,
+      "worst": 0.026,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "32 tracks": {
+    "tracks": 32,
+    "regions": 1024,
+    "patched": 8,
+    "buses": 2,
+    "plugins": 0,
+    "build": 31,
+    "memory": 279,
+    "memoryAdded": 188.400000000000006,
+    "page": {
+      "drawAll": 39,
+      "drawLanes": 6.6,
+      "drawHeads": 2.6,
+      "nodes": 5978,
+      "undoCopy": 0.2,
+      "save": 0.33,
+      "saveBytes": 172849,
+      "snap": 0.05,
+      "tellEngine": 9,
+      "editJs": 14,
+      "editDone": 15,
+      "chooseAll": 0,
+      "drawAllChosen": 36,
+      "pullFrame": 6.25,
+      "scrollFrame": 9.5,
+      "drawZoomed": 6.6,
+      "drawMixer": 4.4
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.007,
+        "meanMs": 0.0793,
+        "p99Ms": 0.1698,
+        "worstMs": 0.7788,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "6016c632403868f3",
+        "threads": 8,
+        "shared": 1798
+      },
+      "block 64": {
+        "load": 0.017,
+        "meanMs": 0.0246,
+        "p99Ms": 0.0338,
+        "worstMs": 0.378,
+        "blockLastsMs": 1.451,
+        "mark": "5661e390da0b47fd",
+        "threads": 8,
+        "shared": 11
+      },
+      "block 32": {
+        "load": 0.0201,
+        "meanMs": 0.0145,
+        "p99Ms": 0.0182,
+        "worstMs": 0.8558,
+        "blockLastsMs": 0.726,
+        "mark": "1b023ff9c6cd7e8f",
+        "threads": 8,
+        "shared": 4
+      },
+      "sameAgain": true
+    },
+    "alone": {
+      "load": 0.0181,
+      "load32": 0.02,
+      "sameSound": true,
+      "sameSound32": true,
+      "playing": {
+        "load": 0.0845,
+        "worst": 0.1343,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 258,
+      "load": 0.0303,
+      "worst": 0.0429,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 258
+    },
+    "playingWhileEditing": {
+      "blocks": 348,
+      "load": 0.0318,
+      "worst": 0.0497,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "100 tracks": {
+    "tracks": 100,
+    "regions": 4000,
+    "patched": 16,
+    "buses": 4,
+    "plugins": 0,
+    "build": 71,
+    "memory": 494.600000000000023,
+    "memoryAdded": 214.400000000000006,
+    "page": {
+      "drawAll": 41.670000000000002,
+      "drawLanes": 5.6,
+      "drawHeads": 2.8,
+      "nodes": 4738,
+      "undoCopy": 0.6,
+      "save": 2.33,
+      "saveBytes": 723063,
+      "snap": 0.05,
+      "tellEngine": 5,
+      "editJs": 13,
+      "editDone": 15,
+      "chooseAll": 0,
+      "drawAllChosen": 31,
+      "pullFrame": 5.42,
+      "scrollFrame": 23.899999999999999,
+      "drawZoomed": 7.4,
+      "drawMixer": 4.4
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.0135,
+        "meanMs": 0.1557,
+        "p99Ms": 0.2776,
+        "worstMs": 1.5853,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "9c9670684a66eddb",
+        "threads": 8,
+        "shared": 1798
+      },
+      "block 64": {
+        "load": 0.0418,
+        "meanMs": 0.0606,
+        "p99Ms": 0.0729,
+        "worstMs": 0.8282,
+        "blockLastsMs": 1.451,
+        "mark": "d9a9ef377af3e014",
+        "threads": 8,
+        "shared": 18
+      },
+      "block 32": {
+        "load": 0.0521,
+        "meanMs": 0.0378,
+        "p99Ms": 0.0476,
+        "worstMs": 1.756,
+        "blockLastsMs": 0.726,
+        "mark": "4f772800f36e9566",
+        "threads": 8,
+        "shared": 33
+      },
+      "sameAgain": true
+    },
+    "alone": {
+      "load": 0.0397,
+      "load32": 0.0522,
+      "sameSound": true,
+      "sameSound32": true,
+      "playing": {
+        "load": 0.1662,
+        "worst": 0.2536,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 259,
+      "load": 0.0556,
+      "worst": 0.0748,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 259
+    },
+    "playingWhileEditing": {
+      "blocks": 363,
+      "load": 0.0588,
+      "worst": 0.1066,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "200 tracks": {
+    "tracks": 200,
+    "regions": 10000,
+    "patched": 0,
+    "buses": 4,
+    "plugins": 0,
+    "build": 67,
+    "memory": 84.799999999999997,
+    "memoryAdded": -414.600000000000023,
+    "page": {
+      "drawAll": 28.670000000000002,
+      "drawLanes": 6.6,
+      "drawHeads": 3,
+      "nodes": 5668,
+      "undoCopy": 1.4,
+      "save": 5,
+      "saveBytes": 1732392,
+      "snap": 0.35,
+      "tellEngine": 9,
+      "editJs": 17,
+      "editDone": 20,
+      "chooseAll": 0.5,
+      "drawAllChosen": 38,
+      "pullFrame": 7.29,
+      "scrollFrame": 13.1,
+      "drawZoomed": 8.199999999999999,
+      "drawMixer": 4.8
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.0139,
+        "meanMs": 0.1594,
+        "p99Ms": 0.2197,
+        "worstMs": 0.2636,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "4cec4b5a00fefac4",
+        "threads": 8,
+        "shared": 1798
+      },
+      "block 64": {
+        "load": 0.0424,
+        "meanMs": 0.0614,
+        "p99Ms": 0.0736,
+        "worstMs": 0.1584,
+        "blockLastsMs": 1.451,
+        "mark": "71e7a222cac2bbe0",
+        "threads": 8,
+        "shared": 7
+      },
+      "block 32": {
+        "load": 0.064,
+        "meanMs": 0.0463,
+        "p99Ms": 0.0581,
+        "worstMs": 0.1622,
+        "blockLastsMs": 0.726,
+        "mark": "98b21ee59842bfb4",
+        "threads": 8,
+        "shared": 0
+      },
+      "sameAgain": true
+    },
+    "alone": {
+      "load": 0.0255,
+      "load32": 0.0639,
+      "sameSound": true,
+      "sameSound32": true,
+      "playing": {
+        "load": 0.0985,
+        "worst": 0.1641,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 259,
+      "load": 0.0493,
+      "worst": 0.0829,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 259
+    },
+    "playingWhileEditing": {
+      "blocks": 357,
+      "load": 0.0507,
+      "worst": 0.079,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "24 with plug-ins": {
+    "tracks": 24,
+    "regions": 192,
+    "patched": 0,
+    "buses": 2,
+    "plugins": 72,
+    "build": 1282,
+    "memory": 520.799999999999955,
+    "memoryAdded": 443.899999999999977,
+    "page": {
+      "drawAll": 14,
+      "drawLanes": 2.2,
+      "drawHeads": 2.2,
+      "nodes": 1846,
+      "undoCopy": 0,
+      "save": 0.33,
+      "saveBytes": 45822,
+      "snap": 0,
+      "tellEngine": 6,
+      "editJs": 8,
+      "editDone": 10,
+      "chooseAll": 0,
+      "drawAllChosen": 14,
+      "pullFrame": 2.33,
+      "scrollFrame": 4.6,
+      "drawZoomed": 4.4,
+      "drawMixer": 4.6
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.007,
+        "meanMs": 0.0796,
+        "p99Ms": 0.1304,
+        "worstMs": 0.1904,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "d46f5cd38cfa68fa",
+        "threads": 8,
+        "shared": 1798
+      },
+      "block 64": {
+        "load": 0.0251,
+        "meanMs": 0.0363,
+        "p99Ms": 0.047,
+        "worstMs": 0.1232,
+        "blockLastsMs": 1.451,
+        "mark": "6ae205cd4e921a6c",
+        "threads": 8,
+        "shared": 6
+      },
+      "block 32": {
+        "load": 0.0327,
+        "meanMs": 0.0237,
+        "p99Ms": 0.0306,
+        "worstMs": 0.0805,
+        "blockLastsMs": 0.726,
+        "mark": "dd91c5e922332184",
+        "threads": 8,
+        "shared": 0
+      },
+      "sameAgain": false
+    },
+    "alone": {
+      "load": 0.0195,
+      "load32": 0.0328,
+      "sameSound": false,
+      "sameSound32": false,
+      "playing": {
+        "load": 0.0677,
+        "worst": 0.0876,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 258,
+      "load": 0.0231,
+      "worst": 0.0405,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 258
+    },
+    "playingWhileEditing": {
+      "blocks": 381,
+      "load": 0.0241,
+      "worst": 0.0401,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "16 with heavy plug-ins": {
+    "tracks": 16,
+    "regions": 128,
+    "patched": 0,
+    "buses": 2,
+    "plugins": 16,
+    "build": 795,
+    "memory": 310.199999999999989,
+    "memoryAdded": -271.100000000000023,
+    "page": {
+      "drawAll": 10.67,
+      "drawLanes": 1.4,
+      "drawHeads": 1.6,
+      "nodes": 1326,
+      "undoCopy": 0,
+      "save": 0.33,
+      "saveBytes": 28103,
+      "snap": 0,
+      "tellEngine": 3,
+      "editJs": 7,
+      "editDone": 9,
+      "chooseAll": 0,
+      "drawAllChosen": 11,
+      "pullFrame": 1.58,
+      "scrollFrame": 3,
+      "drawZoomed": 3,
+      "drawMixer": 3.4
+    },
+    "engine": {
+      "block 512": {
+        "load": 0.0098,
+        "meanMs": 0.1125,
+        "p99Ms": 0.3022,
+        "worstMs": 0.4969,
+        "blockLastsMs": 11.609999999999999,
+        "mark": "af1cba3346c930f4",
+        "threads": 8,
+        "shared": 1798
+      },
+      "block 64": {
+        "load": 0.0395,
+        "meanMs": 0.0572,
+        "p99Ms": 0.0705,
+        "worstMs": 0.136,
+        "blockLastsMs": 1.451,
+        "mark": "78e6eec2d495c7af",
+        "threads": 8,
+        "shared": 9
+      },
+      "block 32": {
+        "load": 0.0421,
+        "meanMs": 0.0305,
+        "p99Ms": 0.0402,
+        "worstMs": 0.1172,
+        "blockLastsMs": 0.726,
+        "mark": "4d7d962bcc189178",
+        "threads": 8,
+        "shared": 0
+      },
+      "sameAgain": false
+    },
+    "alone": {
+      "load": 0.0372,
+      "load32": 0.0424,
+      "sameSound": false,
+      "sameSound32": false,
+      "playing": {
+        "load": 0.2152,
+        "worst": 0.2831,
+        "over": 0
+      }
+    },
+    "playing": {
+      "blocks": 259,
+      "load": 0.0618,
+      "worst": 0.0967,
+      "over": 0,
+      "held": 0,
+      "block": 512,
+      "threads": 8,
+      "shared": 259
+    },
+    "playingWhileEditing": {
+      "blocks": 328,
+      "load": 0.0666,
+      "worst": 0.0999,
+      "over": 0,
+      "held": 0
+    }
+  },
+  "sound on disk": {
+    "same rate": {
+      "frames": 926100,
+      "same": true,
+      "worst": 0,
+      "fromDisk": true,
+      "sameOutline": true
+    },
+    "another rate": {
+      "frames": 926099,
+      "same": true,
+      "worst": 0,
+      "fromDisk": true,
+      "sameOutline": true
+    },
+    "one channel, 96k": {
+      "frames": 926099,
+      "same": true,
+      "worst": 0,
+      "fromDisk": true,
+      "sameOutline": true
+    }
+  },
+  "long files": {
+    "files": 12,
+    "minutesEach": 3,
+    "wroteMs": 613,
+    "firstLoadMs": 1177,
+    "memoryBefore": 281.5,
+    "memoryHeld": -79.599999999999994,
+    "saved": true,
+    "opened": true,
+    "openAgainMs": 115,
+    "memoryAfterOpen": 201.900000000000006,
+    "memoryAfterPlaying": 134.300000000000011,
+    "playing": {
+      "load": 0.0082,
+      "worst": 0.0121,
+      "over": 0,
+      "held": 0
+    },
+    "playingFromBar41": {
+      "load": 0.0086,
+      "worst": 0.0123,
+      "over": 0
+    }
+  },
+  "page": {
+    "errors": []
+  },
+  "finished": true
+}

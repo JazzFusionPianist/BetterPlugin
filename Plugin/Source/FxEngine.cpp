@@ -2482,14 +2482,14 @@ bool compile (const Graph& g, Program& out, juce::String& error, LatencyFn laten
 }
 
 //==============================================================================
-void Chain::prepare (double sampleRate, int blockSize)
+void Chain::prepare (double sampleRate, int blockSize, int slots)
 {
     srHz = sampleRate;
     const int n = juce::jmax (64, blockSize);
     scratch.setSize (2, n, false, false, true);
     pool.resize ((size_t) (kMaxBuffers - 1));
     for (auto& b : pool) b.setSize (2, n, false, false, true);
-    for (auto& node : nodes) node.prepare (sampleRate);
+    for (int i = 0; i < (int) nodes.size() && i < juce::jmax (1, slots); ++i) nodes[(size_t) i].prepare (sampleRate);
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
     active = Program {};
     // what the shifters cost in latency, at this rate

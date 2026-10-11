@@ -1,5 +1,6 @@
 /**
- * Ear Training Duel — pure domain logic + audio.
+ * Ear Training — pure domain logic + audio (intervals, chords, and pure
+ * tones to place by frequency).
  *
  * Two responsibilities, kept in one file because they share music
  * vocabulary (intervals, chord shapes, MIDI math):
@@ -12,7 +13,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Mode = 'interval' | 'chord'
+export type Mode = 'interval' | 'chord' | 'frequency'
 
 export type Difficulty = 'basic' | 'intermediate' | 'advanced'
 
@@ -44,7 +45,17 @@ export interface ChordQuestion {
   answer: ChordQuality
 }
 
-export type Question = IntervalQuestion | ChordQuestion
+/** A pure tone to place on the spectrum (an engineer's ear, not a
+ *  player's). Answers are the frequency in Hz, written as a string. */
+export interface FrequencyQuestion {
+  type: 'frequency'
+  hz: number
+  /** Choices in rising order — neighbours on the scale, not a shuffle. */
+  options: string[]
+  answer: string
+}
+
+export type Question = IntervalQuestion | ChordQuestion | FrequencyQuestion
 
 export type IntervalAnswer =
   | 'm2' | 'M2' | 'm3' | 'M3' | 'P4' | 'tt' | 'P5'
@@ -54,6 +65,15 @@ export type ChordQuality =
   | 'maj' | 'min' | 'dim' | 'aug'
   | 'sus2' | 'sus4'
   | 'maj7' | 'min7' | 'dom7' | 'm7b5'
+  | 'dim7' | 'mMaj7'
+  // with one tension…
+  | 'maj9' | 'maj7s11'
+  | 'min9' | 'min11'
+  | 'dom9' | 'dom13' | '7b9' | '7s9' | '7s11' | '7b13'
+  // …or several
+  | 'maj69' | 'maj9s11' | 'maj13'
+  | 'min69' | 'mMaj9' | 'min13'
+  | 'dom9s11' | 'dom13s11' | '13b9' | '7b9s11' | '7s9s11' | '7b9b13' | '7s9b13'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -73,7 +93,46 @@ const CHORD_SHAPES: Record<ChordQuality, number[]> = {
   min7: [0, 3, 7, 10],
   dom7: [0, 4, 7, 10],
   m7b5: [0, 3, 6, 10],
+  dim7: [0, 3, 6, 9],
+  mMaj7: [0, 3, 7, 11],
+  // Tensions sit on top of the seventh chord, in the octave above — root
+  // position always, and only the notes the name spells (a 7♯11 has no 9
+  // in it; an 11 and a 13 carry the 9, as written chords do).
+  maj9:    [0, 4, 7, 11, 14],
+  maj7s11: [0, 4, 7, 11, 18],
+  min9:    [0, 3, 7, 10, 14],
+  min11:   [0, 3, 7, 10, 14, 17],
+  dom9:    [0, 4, 7, 10, 14],
+  dom13:   [0, 4, 7, 10, 14, 21],
+  '7b9':   [0, 4, 7, 10, 13],
+  '7s9':   [0, 4, 7, 10, 15],
+  '7s11':  [0, 4, 7, 10, 18],
+  '7b13':  [0, 4, 7, 10, 20],
+  // Several tensions at once.
+  maj69:    [0, 4, 7, 9, 14],
+  maj9s11:  [0, 4, 7, 11, 14, 18],
+  maj13:    [0, 4, 7, 11, 14, 21],
+  min69:    [0, 3, 7, 9, 14],
+  mMaj9:    [0, 3, 7, 11, 14],
+  min13:    [0, 3, 7, 10, 14, 21],
+  dom9s11:  [0, 4, 7, 10, 14, 18],
+  dom13s11: [0, 4, 10, 14, 18, 21],      // the fifth gives way, as it does on the page
+  '13b9':   [0, 4, 7, 10, 13, 21],
+  '7b9s11': [0, 4, 7, 10, 13, 18],
+  '7s9s11': [0, 4, 7, 10, 15, 18],
+  '7b9b13': [0, 4, 7, 10, 13, 20],
+  '7s9b13': [0, 4, 7, 10, 15, 20],
 }
+
+/** Chords that are easily mistaken for one another. On advanced the wrong
+ *  choices come from the answer's own family first — telling a 7♯9 from a
+ *  maj9 is no test; telling it from a 7♭9 is. */
+const CHORD_FAMILIES: ChordQuality[][] = [
+  ['maj7', 'maj9', 'maj7s11', 'maj69', 'maj9s11', 'maj13'],
+  ['min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7', 'min69', 'mMaj9', 'min13'],
+  ['dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13',
+   'dom9s11', 'dom13s11', '13b9', '7b9s11', '7s9s11', '7b9b13', '7s9b13'],
+]
 
 const DIFFICULTY_INTERVALS: Record<Difficulty, IntervalAnswer[]> = {
   basic:        ['m3', 'M3', 'P4', 'P5', 'P8'],
@@ -82,9 +141,22 @@ const DIFFICULTY_INTERVALS: Record<Difficulty, IntervalAnswer[]> = {
 }
 
 const DIFFICULTY_CHORDS: Record<Difficulty, ChordQuality[]> = {
-  basic:        ['maj', 'min'],
-  intermediate: ['maj', 'min', 'dim', 'aug'],
-  advanced:     ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
+  basic:        ['maj', 'min', 'dim', 'aug'],
+  intermediate: ['maj', 'min', 'dim', 'aug', 'maj7', 'min7', 'dom7', 'm7b5'],
+  // sevenths and their tensions — the plain triads are left to the levels below
+  advanced:     ['maj7', 'maj9', 'maj7s11', 'maj69', 'maj9s11', 'maj13',
+                 'min7', 'min9', 'min11', 'mMaj7', 'm7b5', 'dim7', 'min69', 'mMaj9', 'min13',
+                 'dom7', 'dom9', 'dom13', '7b9', '7s9', '7s11', '7b13',
+                 'dom9s11', 'dom13s11', '13b9', '7b9s11', '7s9s11', '7b9b13', '7s9b13'],
+}
+
+// Tones stay between 100 Hz and 8 kHz: lower and small speakers have nothing
+// to say, higher and a pure tone is only unpleasant.
+const DIFFICULTY_FREQS: Record<Difficulty, number[]> = {
+  basic:        [125, 500, 2000, 8000],                                    // two octaves apart
+  intermediate: [125, 250, 500, 1000, 2000, 4000, 8000],                   // octaves
+  advanced:     [100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000,   // third-octaves
+                 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000],
 }
 
 /** MIDI 48 = C3, 84 = C6. We stay within this for consistent register. */
@@ -155,10 +227,23 @@ function buildIntervalOptions (rng: () => number, answer: IntervalAnswer, pool: 
   return shuffle(rng, [answer, ...shuffled])
 }
 
-function buildChordOptions (rng: () => number, answer: ChordQuality, pool: ChordQuality[]): ChordQuality[] {
-  const distractors = pool.filter(q => q !== answer)
-  const shuffled = shuffle(rng, distractors).slice(0, 3)
-  return shuffle(rng, [answer, ...shuffled])
+function buildChordOptions (rng: () => number, answer: ChordQuality, pool: ChordQuality[], sameFamily = false): ChordQuality[] {
+  const others = pool.filter(q => q !== answer)
+  if (!sameFamily) return shuffle(rng, [answer, ...shuffle(rng, others).slice(0, 3)])
+  const family = CHORD_FAMILIES.find(f => f.includes(answer)) ?? []
+  const near = shuffle(rng, others.filter(q => family.includes(q)))
+  const far = shuffle(rng, others.filter(q => !family.includes(q)))
+  return shuffle(rng, [answer, ...[...near, ...far].slice(0, 3)])
+}
+
+/** Four neighbouring steps of the scale with the answer somewhere among
+ *  them — telling 1 kHz from 8 kHz is no question at all. */
+function buildFrequencyOptions (rng: () => number, answer: number, pool: number[]): string[] {
+  const at = pool.indexOf(answer)
+  const size = Math.min(4, pool.length)
+  const lo = Math.max(0, at - (size - 1)), hi = Math.min(at, pool.length - size)
+  const start = lo + Math.floor(rng() * (hi - lo + 1))
+  return pool.slice(start, start + size).map(String)
 }
 
 export function generateQuestion (roomId: string, round: number, config: RoomConfig): Question {
@@ -166,6 +251,12 @@ export function generateQuestion (roomId: string, round: number, config: RoomCon
   const modes = config.modes.length > 0 ? config.modes : ['interval' as Mode, 'chord' as Mode]
   const mode  = pick(rng, modes)
   const rootMidi = Math.floor(rng() * (MAX_ROOT - MIN_ROOT + 1)) + MIN_ROOT
+
+  if (mode === 'frequency') {
+    const pool = DIFFICULTY_FREQS[config.difficulty]
+    const hz = pick(rng, pool)
+    return { type: 'frequency', hz, options: buildFrequencyOptions(rng, hz, pool), answer: String(hz) }
+  }
 
   if (mode === 'interval') {
     const pool = DIFFICULTY_INTERVALS[config.difficulty]
@@ -184,11 +275,14 @@ export function generateQuestion (roomId: string, round: number, config: RoomCon
   // chord
   const pool = DIFFICULTY_CHORDS[config.difficulty]
   const answer = pick(rng, pool)
+  // On advanced every chord is rooted between C3 and C4, tensions or not:
+  // low enough that the top notes stay apart, and the same for all of them
+  // so the register gives nothing away.
   return {
     type: 'chord',
-    rootMidi,
+    rootMidi: config.difficulty === 'advanced' ? 48 + ((rootMidi - MIN_ROOT) % 13) : rootMidi,
     quality: answer,
-    options: buildChordOptions(rng, answer, pool),
+    options: buildChordOptions(rng, answer, pool, config.difficulty === 'advanced'),
     answer,
   }
 }
@@ -216,15 +310,33 @@ function midiToHz (midi: number): number {
 
 /** Play one note with a soft piano-like envelope.
  *  Two oscillators (sine + triangle) detuned slightly for warmth. */
-function playNote (ac: AudioContext, midi: number, when: number, durSec: number, gain = 0.16) {
+function playNote (ac: AudioContext, midi: number, when: number, durSec: number, gain = 0.16, bass = false) {
   const freq = midiToHz(midi)
   const g = ac.createGain()
   // Quick attack, exponential decay, sustain near zero for plucky feel.
+  // A bass note (a chord's root) holds on instead of dying away under the
+  // notes above it.
   g.gain.setValueAtTime(0.0001, when)
   g.gain.exponentialRampToValueAtTime(gain, when + 0.015)
-  g.gain.exponentialRampToValueAtTime(gain * 0.45, when + 0.2)
+  g.gain.exponentialRampToValueAtTime(gain * (bass ? 0.8 : 0.45), when + (bass ? 0.5 : 0.2))
   g.gain.exponentialRampToValueAtTime(0.0001, when + durSec)
   g.connect(ac.destination)
+
+  if (bass) {
+    // Overtones, so the root still reads on small speakers that cannot
+    // carry its fundamental.
+    for (const [mult, level] of [[2, 0.4], [3, 0.18]] as const) {
+      const o = ac.createOscillator()
+      o.type = 'sine'
+      o.frequency.value = freq * mult
+      const og = ac.createGain()
+      og.gain.value = level
+      o.connect(og)
+      og.connect(g)
+      o.start(when)
+      o.stop(when + durSec + 0.05)
+    }
+  }
 
   const o1 = ac.createOscillator()
   o1.type = 'sine'
@@ -245,6 +357,25 @@ function playNote (ac: AudioContext, midi: number, when: number, durSec: number,
   o2.stop(when + durSec + 0.05)
 }
 
+/** One pure tone, eased in and out so it neither clicks nor startles.
+ *  The ear is far keener around 2–5 kHz than at the ends, so the level
+ *  leans the other way. */
+function playTone (ac: AudioContext, hz: number, when: number, durSec: number) {
+  const level = hz <= 160 ? 0.2 : hz <= 400 ? 0.15 : hz <= 1000 ? 0.1 : hz <= 2000 ? 0.07 : hz <= 5000 ? 0.05 : 0.065
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.0001, when)
+  g.gain.exponentialRampToValueAtTime(level, when + 0.04)
+  g.gain.setValueAtTime(level, when + durSec - 0.12)
+  g.gain.exponentialRampToValueAtTime(0.0001, when + durSec)
+  g.connect(ac.destination)
+  const o = ac.createOscillator()
+  o.type = 'sine'
+  o.frequency.value = hz
+  o.connect(g)
+  o.start(when)
+  o.stop(when + durSec + 0.05)
+}
+
 /** Play a question. Returns approximate total duration in ms so the
  *  caller can decrement replays / disable the play button correctly. */
 export function unlockEarTrainingAudio():void {
@@ -257,6 +388,11 @@ export function playQuestion (q: Question): number {
   if (!ac) return 0
   if (ac.state === 'suspended') ac.resume().catch(() => {})
   const now = ac.currentTime + 0.04
+
+  if (q.type === 'frequency') {
+    playTone(ac, q.hz, now, 1.3)
+    return 1300
+  }
 
   if (q.type === 'interval') {
     const a = q.rootMidi
@@ -272,10 +408,15 @@ export function playQuestion (q: Question): number {
     return 1550
   }
 
-  // chord
-  const shape = CHORD_SHAPES[q.quality]
-  for (const off of shape) playNote(ac, q.rootMidi + off, now, 1.6)
-  return 1600
+  // chord — the root speaks first, louder and held, so the ear has its
+  // footing; the rest comes in over it, rolled low to high. Every chord is
+  // played this way (so the manner of playing tells nothing), and the more
+  // notes there are the quieter each one is.
+  const [, ...upper] = CHORD_SHAPES[q.quality]
+  playNote(ac, q.rootMidi, now, 2.2, 0.2, true)
+  const gain = Math.min(0.13, 0.46 / upper.length)
+  upper.forEach((off, i) => playNote(ac, q.rootMidi + off, now + 0.26 + i * 0.03, 1.9 - i * 0.03, gain))
+  return 2200
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
@@ -285,10 +426,33 @@ export const INTERVAL_LABELS: Record<IntervalAnswer, string> = {
   m6: 'm6', M6: 'M6', m7: 'm7', M7: 'M7', P8: 'P8',
 }
 
+// Written as chord symbols are, less the root: a dominant chord is a bare
+// 7, 9 or 13 (never "dom"); maj and min are always spelled out.
 export const CHORD_LABELS: Record<ChordQuality, string> = {
   maj: 'maj', min: 'min', dim: 'dim', aug: 'aug',
   sus2: 'sus2', sus4: 'sus4',
-  maj7: 'maj7', min7: 'min7', dom7: 'dom7', m7b5: 'm7♭5',
+  maj7: 'maj7', min7: 'min7', dom7: '7', m7b5: 'min7♭5',
+  dim7: 'dim7', mMaj7: 'min(maj7)',
+  maj9: 'maj9', maj7s11: 'maj7♯11',
+  min9: 'min9', min11: 'min11',
+  dom9: '9', dom13: '13', '7b9': '7♭9', '7s9': '7♯9', '7s11': '7♯11', '7b13': '7♭13',
+  maj69: '6/9', maj9s11: 'maj9♯11', maj13: 'maj13',
+  min69: 'min6/9', mMaj9: 'min9(maj7)', min13: 'min13',
+  dom9s11: '9♯11', dom13s11: '13♯11', '13b9': '13♭9',
+  '7b9s11': '7♭9♯11', '7s9s11': '7♯9♯11', '7b9b13': '7♭9♭13', '7s9b13': '7♯9♭13',
+}
+
+/** 250 → "250 Hz", 1250 → "1.25 kHz". */
+export function frequencyLabel (hz: number): string {
+  return hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`
+}
+
+/** How an answer code reads on a button or in the reveal. Case matters
+ *  here (m2 is not M2), so whatever shows this must not change its case. */
+export function answerLabel (q: Question, raw: string): string {
+  if (q.type === 'frequency') return frequencyLabel(Number(raw))
+  const table: Record<string, string> = q.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
+  return table[raw] ?? raw
 }
 
 export function isCorrect (q: Question, answer: string): boolean {

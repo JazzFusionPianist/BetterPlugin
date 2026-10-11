@@ -1,0 +1,3053 @@
+#pragma once
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <set>
+#include <thread>
+#include "FxEngine.h"
+#include "Stretch.h"
+#include "Pool.h"
+#include "Recover.h"
+#include "Instruments.h"
+#include <sys/sysctl.h>
+#include <AudioToolbox/AudioToolbox.h>
+#include <mach/mach_time.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+/*  The Slur DAW's engine, alpha.
+
+    A sample clock, tracks that play regions of buffers along it, and on
+    every track: the Patch engine (the same orbfx::Chain the plug-in runs),
+    then any plug-ins from outside, then the fader. A track's sound goes to
+    the stereo out or into a bus (an aux, or the sum of a stack), and may be
+    sent on the side to other buses. The page (the web view) owns the
+    session and tells the engine what it is; the engine owns time.
+
+    Threads: the audio callback try-locks `lock` and plays silence for a
+    block when the message thread is rearranging things. Levels and the
+    hands of the patch are atomics and never need the lock. A print (an
+    export, a bounce) runs on its own thread with the callback standing by.
+
+    A block is worked rank by rank: the tracks that nothing flows into, then
+    the buses they play into, and so on to the out. Within a rank no track
+    needs another, so when a rank is heavy its tracks are shared out among
+    the pool's threads (Pool.h); the sums into buses and the out are then
+    made by one thread, in the tracks' own order — so the sound is the same
+    to the last bit however many threads worked on it.                      */
+
+// Mac.mm
+void* slurAacOpen (const char* path, double sampleRate, int channels, int kbps);
+bool  slurAacWrite (void* handle, const float* interleaved, int frames);
+void  slurAacClose (void* handle);
+
+namespace daw
+{
+using juce::String;
+
+inline void logLine (const String& s)
+{
+    static juce::CriticalSection cs;
+    static juce::File file = []
+    {
+        auto dir = juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Logs/Slur");
+        dir.createDirectory();
+        auto f = dir.getChildFile ("daw.log");
+        f.deleteFile();
+        return f;
+    }();
+    const juce::ScopedLock sl (cs);
+    file.appendText (juce::Time::getCurrentTime().toString (false, true, true, true) + "  " + s + "\n");
+}
+
+/** The program's name, as the folders it keeps things in are called (in Music, in Application Support, in Caches). It was
+    Slur DAW until 2026-10-11: what lies under that name is taken over once, at a start (moveToNewName, in Main.cpp). */
+inline const char* folderName()    { return "Slur Studio"; }
+inline const char* oldFolderName() { return "Slur DAW"; }
+
+/** Where projects and what is bounced are kept: Music/Slur Studio, which macOS lets an app use without asking. The check
+    (--selftest) keeps all it makes in a place of its own, so it can neither see a real project nor leave one of its
+    own lying among them. */
+inline juce::File musicRoot()
+{
+    if (juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest"))
+        return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches/Slur DAW self-test");
+    return juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile (folderName());
+}
+
+/** Where the sound of files is kept ready: every file is decoded once, at the engine's rate, into bare samples that the
+    engine then reads straight off the disk (Engine::decodeFile). It is a cache: any of it may be thrown away, by the
+    system or by hand, and is made again the next time its file is opened. */
+inline juce::File soundRoot()
+{
+    if (juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest")) return musicRoot().getChildFile ("Sound");
+    return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches").getChildFile (folderName()).getChildFile ("Sound");
+}
+/** The room the disk must still have after a sound is laid in the cache: ten gigabytes — a twentieth of the disk where the
+    disk is small, and never less than one. With less room than that nothing new is kept ready on the disk (the sound is
+    held in memory instead, as it used to be), and what is there is given back, longest unused first. */
+inline juce::int64 soundKeepFree (const juce::File& dir)
+{
+    const juce::int64 gb = (juce::int64) 1 << 30, total = dir.getVolumeTotalSize();
+    if (juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest")) return 2 * gb;      // (the check's own sounds are small and are taken away again: it may try the cache on a fuller disk)
+    return juce::jmax (gb, juce::jmin (10 * gb, total > 0 ? total / 20 : 10 * gb));
+}
+
+/** What a hosted plug-in is told about time. */
+struct PlayHead final : juce::AudioPlayHead
+{
+    std::atomic<double> bpm { 92.0 }, ppq { 0.0 };
+    std::atomic<bool> playing { false };
+    std::atomic<juce::int64> samples { 0 };
+    std::atomic<int> beats { 4 }, unit { 4 };          // the measure: so many beats to a bar, each a 1/unit note
+
+    juce::Optional<PositionInfo> getPosition() const override
+    {
+        PositionInfo p;
+        const double q = ppq.load(), bar = (double) beats.load() * 4.0 / (double) unit.load();      // a bar, in quarter notes
+        p.setBpm (bpm.load());
+        p.setPpqPosition (q);
+        p.setPpqPositionOfLastBarStart (std::floor (q / bar) * bar);
+        p.setTimeSignature (TimeSignature { beats.load(), unit.load() });
+        p.setTimeInSamples ((int64_t) samples.load());
+        p.setIsPlaying (playing.load());
+        return p;
+    }
+};
+
+struct PluginWindow final : juce::DocumentWindow
+{
+    PluginWindow (const String& title, juce::Component* editor, bool resizable, std::function<void()> onCloseIn)
+        : DocumentWindow (title, juce::Colour (0xff151514), DocumentWindow::closeButton), onClose (std::move (onCloseIn))
+    {
+        setUsingNativeTitleBar (true);
+        setContentOwned (editor, true);
+        setResizable (resizable, false);
+        centreWithSize (getWidth(), getHeight());
+        setVisible (true);
+        toFront (true);
+    }
+    void closeButtonPressed() override { if (onClose) onClose(); }
+    std::function<void()> onClose;
+};
+
+/** A plug-in from outside, sitting on a track after its patch. */
+/** Sound held back on its way from a track into a bus (or to the stereo out), so that it gets there together with what
+    took a longer way: a send into a bus whose plug-ins are late, beside the same track's plain way out, say. Where
+    one way is as long as the other nothing is held, and no memory kept. */
+struct Hold
+{
+    juce::AudioBuffer<float> ring;
+    int len = 0, at = 0;
+    /** How long it holds back, in samples. Never while a block is being worked. */
+    void set (int samples)
+    {
+        samples = juce::jlimit (0, 1 << 20, samples);
+        if (samples == len) return;
+        len = samples; at = 0;
+        ring.setSize (len > 0 ? 2 : 0, len, false, true, false);
+    }
+    void clear() { if (len > 0) { ring.clear(); at = 0; } }
+    /** n samples go in, at a level that goes from g0 to g1 over them; what went in `len` samples ago is added to dL, dR. */
+    void add (const float* L, const float* R, float* dL, float* dR, int n, float g0, float g1)
+    {
+        const float step = (g1 - g0) / (float) n;
+        float g = g0;
+        if (len <= 0) { for (int i = 0; i < n; ++i) { g += step; dL[i] += L[i] * g; dR[i] += R[i] * g; } return; }
+        float* hl = ring.getWritePointer (0); float* hr = ring.getWritePointer (1);
+        for (int i = 0; i < n; ++i) { g += step; const float l = hl[at], r = hr[at]; hl[at] = L[i] * g; hr[at] = R[i] * g; dL[i] += l; dR[i] += r; if (++at >= len) at = 0; }
+    }
+};
+
+struct Track;
+
+struct Insert
+{
+    int uid = 0;
+    String name, fmt;
+    std::unique_ptr<juce::AudioPluginInstance> inst;   // declared before the window: the window (and the editor in it) dies first
+    juce::AudioBuffer<float> buf;
+    juce::MidiBuffer midi;
+    int ins = 2, outs = 2;
+    std::atomic<bool> off { false };                   // stepped past: the sound goes by untouched
+    int keyFrom = 0;                                   // the track it listens to on its second input (a compressor that ducks to a kick listens to the kick), 0: none
+    Track* key = nullptr;                              // … found again whenever the tracks are wired; nullptr while that track is not there
+    int keyCh = 0;                                     // how many channels that second input has, while it is open
+    Hold keyHold;                                      // what it listens to, held back until this track's own sound is as late
+    /** Which of its controls was last moved in its own window (-1: none yet) — the one a line is asked for by moving
+        the thing itself, in place of looking through a list of hundreds. */
+    struct Heard final : juce::AudioProcessorListener
+    {
+        std::atomic<int> index { -1 };
+        void audioProcessorParameterChanged (juce::AudioProcessor*, int i, float) override { index.store (i); }
+        void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails&) override {}
+    } heard;
+    ~Insert() { if (inst != nullptr) inst->removeListener (&heard); }
+    /** A line sets one of its controls (0..1). The thread that plays it, before it plays the block. */
+    void setParam (int index, float v, float& told)
+    {
+        if (inst == nullptr || std::abs (v - told) < 1.0e-5f) return;
+        const auto& ps = inst->getParameters();
+        if (index >= 0 && index < ps.size()) { ps.getUnchecked (index)->setValue (juce::jlimit (0.0f, 1.0f, v)); told = v; }
+    }
+    std::unique_ptr<PluginWindow> win;
+
+    void prepare (double sr, int block, juce::AudioPlayHead* ph)
+    {
+        const auto stereo = juce::AudioChannelSet::stereo();
+        auto l = inst->getBusesLayout();
+        if (l.inputBuses.size() > 0)  l.inputBuses.getReference (0) = stereo;
+        if (l.outputBuses.size() > 0) l.outputBuses.getReference (0) = stereo;
+        for (int i = 1; i < l.inputBuses.size(); ++i)  l.inputBuses.getReference (i) = juce::AudioChannelSet::disabled();
+        for (int i = 1; i < l.outputBuses.size(); ++i) l.outputBuses.getReference (i) = juce::AudioChannelSet::disabled();
+        /* its second input — the key, what a compressor or a gate listens to in place of its own sound — is opened only
+           while a track is given to it: in stereo if the plug-in takes that, else as one channel */
+        if (keyFrom != 0 && l.inputBuses.size() > 1)
+            for (const auto& set : { stereo, juce::AudioChannelSet::mono() })
+            {
+                auto k = l; k.inputBuses.getReference (1) = set;
+                if (inst->checkBusesLayoutSupported (k)) { l = k; break; }
+            }
+        if (inst->checkBusesLayoutSupported (l)) inst->setBusesLayout (l);
+        inst->setPlayHead (ph);
+        inst->setRateAndBufferSizeDetails (sr, block);
+        inst->prepareToPlay (sr, block);
+        keyCh = keyFrom != 0 && inst->getBusCount (true) > 1 ? inst->getChannelCountOfBus (true, 1) : 0;
+        ins = inst->getTotalNumInputChannels();
+        outs = inst->getTotalNumOutputChannels();
+        buf.setSize (juce::jmax (2, ins, outs), block);
+        buf.clear();
+    }
+
+    /** A print is about to play it, or has played it: the plug-in is told that nothing waits on the clock — one that
+        fetches its sound as it goes (a sampler, a reverb's room) then waits for it instead of playing nothing — and is
+        told again when the song is back on the device. An audio unit has a property of its own for that, which the
+        library does not set. */
+    void offline (bool on)
+    {
+        if (inst == nullptr) return;
+        const Inside inside (uid);
+        inst->setNonRealtime (on);
+        struct Unit final : juce::ExtensionsVisitor { AudioUnit au = nullptr; void visitAudioUnitClient (const AudioUnitClient& c) override { au = c.getAudioUnitHandle(); } } unit;
+        inst->getExtensions (unit);
+        if (unit.au != nullptr) { const UInt32 v = on ? 1 : 0; AudioUnitSetProperty (unit.au, kAudioUnitProperty_OfflineRender, kAudioUnitScope_Global, 0, &v, sizeof (v)); }
+    }
+
+    /** How late it hands sound over, as it is now. An audio unit is asked itself: the library only hears of a change on
+        the main thread's own time, and one told it is offline (see above) may answer otherwise from that moment on. */
+    int latencyNow() const
+    {
+        if (inst == nullptr) return 0;
+        struct Unit final : juce::ExtensionsVisitor { AudioUnit au = nullptr; void visitAudioUnitClient (const AudioUnitClient& c) override { au = c.getAudioUnitHandle(); } } unit;
+        inst->getExtensions (unit);
+        if (unit.au != nullptr)
+        {
+            Float64 sec = 0.0; UInt32 size = sizeof (sec);
+            if (AudioUnitGetProperty (unit.au, kAudioUnitProperty_Latency, kAudioUnitScope_Global, 0, &sec, &size) == noErr && sec >= 0.0 && sec < 60.0)
+                return juce::roundToInt (sec * inst->getSampleRate());
+        }
+        return juce::jmax (0, inst->getLatencySamples());
+    }
+
+    /** kL, kR: what it listens to on its second input, when a track is given to it. */
+    void process (float* L, float* R, int n, const float* kL = nullptr, const float* kR = nullptr)
+    {
+        if (inst == nullptr || outs < 1 || ins < 1 || off.load()) return;
+        const int ch = buf.getNumChannels(), own = ins - keyCh;                       // own: the channels of its first input
+        if (own < 1) return;
+        if (own == 1) { auto* d = buf.getWritePointer (0); for (int i = 0; i < n; ++i) d[i] = 0.5f * (L[i] + R[i]); }
+        else { juce::FloatVectorOperations::copy (buf.getWritePointer (0), L, n); juce::FloatVectorOperations::copy (buf.getWritePointer (1), R, n); }
+        for (int c = (own == 1 ? 1 : 2); c < ch; ++c) buf.clear (c, 0, n);
+        if (keyCh > 0 && kL != nullptr && own + keyCh <= ch)
+        {
+            const float g = keyCh > 1 ? 1.0f : 0.5f;                                  // (one channel: left and right together, at half)
+            keyHold.add (kL, kR, buf.getWritePointer (own), buf.getWritePointer (keyCh > 1 ? own + 1 : own), n, g, g);
+        }
+        juce::AudioBuffer<float> view (buf.getArrayOfWritePointers(), ch, n);
+        midi.clear();
+        const Inside inside (uid);                                     // should it bring the app down, the next start can say which plug-in it was in
+        if (uid == crashOnUid.load (std::memory_order_relaxed)) { volatile int* nowhere = nullptr; *nowhere = 1; }       // (the check asks for exactly this)
+        if (uid == hangOnUid.load (std::memory_order_relaxed) && (inst->isNonRealtime() || hangLive.load (std::memory_order_relaxed))) for (;;) juce::Thread::sleep (50);     // (and for this: a print — or, asked so, the device — that never comes back from it)
+        inst->processBlock (view, midi);
+        juce::FloatVectorOperations::copy (L, buf.getReadPointer (0), n);
+        juce::FloatVectorOperations::copy (R, buf.getReadPointer (outs >= 2 ? 1 : 0), n);
+    }
+
+    /** As an instrument: what is played goes in, and its sound is added to L/R (stepped past, it is still played — so
+        that it is where it should be when it is heard again — and nothing of it is added). */
+    void play (float* L, float* R, int n, juce::MidiBuffer& played)
+    {
+        if (inst == nullptr || outs < 1) return;
+        const int ch = buf.getNumChannels();
+        for (int c = 0; c < ch; ++c) buf.clear (c, 0, n);
+        juce::AudioBuffer<float> view (buf.getArrayOfWritePointers(), ch, n);
+        const Inside inside (uid);
+        inst->processBlock (view, played);
+        if (off.load()) return;
+        juce::FloatVectorOperations::add (L, buf.getReadPointer (0), n);
+        juce::FloatVectorOperations::add (R, buf.getReadPointer (outs >= 2 ? 1 : 0), n);
+    }
+};
+
+struct Region
+{
+    double a = 0.0, b = 0.0;      // bars, counted from zero; b is where it ends
+    int    buf = -1;
+    bool   loop = true;
+    double rate = 1.0;
+    double loopBars = 1.0;
+    double off = 0.0;             // where in its source it starts, bars
+    float  gain = 1.0f;
+    double fi = 0.0, fo = 0.0;    // fades, bars
+    int    fic = 0, foc = 0;      // the curve each fade takes: 0 straight (equal gain), 1 equal power, 2 an s
+};
+/** How far a fade has come (0 at silence, 1 at full), bent to its curve. Two regions that share a stretch — one falling,
+    one rising — add up to the same level all the way with the straight curve when they are the same sound, and with the
+    equal-power curve when they are different sounds. */
+inline float fadeShape (int curve, double x)
+{
+    x = juce::jlimit (0.0, 1.0, x);
+    if (curve == 1) return (float) std::sin (x * juce::MathConstants<double>::halfPi);
+    if (curve == 2) return (float) (x * x * (3.0 - 2.0 * x));
+    return (float) x;
+}
+
+/** A line drawn along the song for one thing on a track: bars against a value. Volumes and sends in dB, pan −1..1, the prints 0..1. */
+enum { kAutoVol = 0, kAutoPan, kAutoTape, kAutoSpace, kAutoDelay, kAutoSend0, kAutoCount = kAutoSend0 + 3, kAutoPlug = 100 };      // kAutoPlug: a line for one of a plug-in's own controls
+/** A line along the song. One for a plug-in's control says which plug-in (uid) and which of its controls (index), and
+    counts from 0 to 1 as the plug-in does; `told` is what the control was last set to, so that it is set only when the
+    line has moved on. */
+struct Auto { int param = 0; std::vector<std::pair<double, float>> pts; int uid = 0, index = 0; float told = -1.0f; };
+
+inline float dbGain (float db) { return db <= -47.5f ? 0.0f : std::pow (10.0f, db * 0.05f); }
+
+/** A thing a track of notes plays at a place along the song (bars from zero): the three bytes as they travel. Where two
+    fall on one place, a key coming up goes first, then what is turned, then a key going down (`order`). */
+struct NoteEv { double bar = 0.0; juce::uint8 st = 0, d1 = 0, d2 = 0, order = 0; };
+
+/** A key that was played by hand, and when: where the song stood for whoever played it (`songS`, in samples; only meant
+    while the song ran), and where the device's own count of samples stood (`runS`, which never stops). `seg` counts the
+    times the song was started or stopped: what was played in one go has one number. */
+struct Played { juce::int64 songS = 0, runS = 0; int seg = 0; juce::uint8 st = 0, d1 = 0, d2 = 0, rolling = 0; };
+
+struct Track
+{
+    int id = 0, kind = 0;                        // kind 0 plays regions; 1 is a bus: an aux, or the sum of a stack
+    int outId = 0;
+    Track* out = nullptr;                        // nullptr: the stereo out
+    struct SendSlot { int to = 0; Track* dst = nullptr; std::atomic<float> gain { 0.0f }; float sm = 0.0f; Hold hold; } sends[3];
+    Hold outHold;                                // what goes its plain way out, held back when a send of its takes longer to arrive
+    std::vector<Region> regs;
+    std::vector<Auto> autos;
+    std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f };
+    std::atomic<bool> mon { false };
+    std::atomic<int> ahead { 0 };                // how late its plug-ins hand sound over, and those of the buses on its longest way to the stereo out: its regions are read that much early
+    std::atomic<int> input { 0 };                // 0..15: that input alone; 100 + p: inputs 2p+1 and 2p+2 as a pair
+    float share = 0.62f, gainSm = 0.0f, panSm = 0.0f;
+    std::unique_ptr<orbfx::Chain> chain;         // made the first time the patch is asked for anything (it is a big room)
+    orbfx::NodeParams prm[orbfx::kMaxNodes];
+    std::vector<std::unique_ptr<Insert>> inserts;
+    juce::AudioBuffer<float> work;
+    float cost = 0.0f;                           // how long its own part of a block has been taking, in seconds (smoothed): what says whether a rank is worth sharing out
+    int ver = -1;                                // which telling of its regions, lines and wiring it holds (the page numbers them, and sends only what has changed)
+
+    //── a track of notes: what it plays along the song, and what plays it ──
+    bool notes = false;
+    std::vector<NoteEv> evs;                     // in the order they fall
+    std::unique_ptr<slurinst::Instrument> built; // one of the DAW's own instruments,
+    std::unique_ptr<Insert> plug;                // or one from outside
+    std::vector<slurinst::Ev> now;               // what falls in the stretch being played
+    juce::MidiBuffer plugMidi;
+    juce::uint8 heldSong[128] {}, heldLive[128] {};      // the keys that are down: by the song, by hand
+    int liveDown = 0;
+    juce::int64 nextS = -1;                      // where the song's notes have been read up to
+    bool rolled = false;
+    std::atomic<bool> live { false };            // it hears what is played by hand
+    std::atomic<bool> stale { false };           // what it plays, or what plays it, has changed under keys that were down
+    std::atomic<bool> hush { false };            // everything it sounds is to stop at once (a note that hangs: see Engine::hushAll)
+
+    template <typename F> void eachPlug (F&& f) { if (plug != nullptr) f (*plug); for (auto& i : inserts) f (*i); }
+    void keysUp() { std::memset (heldSong, 0, sizeof (heldSong)); std::memset (heldLive, 0, sizeof (heldLive)); liveDown = 0; }
+};
+
+/** A sound the engine can play: `data` is all of it. It lies in memory of its own (what the page made, what was
+    stretched), or in a file on disk that `map` holds open and `data` only looks into — then the system brings in the
+    parts that are played and may let go of the rest, so a long file does not have to fit in memory. */
+struct Buf
+{
+    std::unique_ptr<juce::MemoryMappedFile> map;        // declared first: it must outlive the buffer that looks into it
+    juce::AudioBuffer<float> data;
+};
+
+/** A take being written: the track it is for, and a writer the audio thread can hand samples to. */
+struct Rec
+{
+    int trackId = 0, input = 0;
+    juce::File file;
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> tw;
+    juce::int64 got = 0;
+};
+
+/** Where a print goes: a file of some kind, at some rate and depth. */
+class Sink
+{
+public:
+    ~Sink() { close(); }
+    const std::atomic<bool>* stop = nullptr;      // looked at while an encoder outside the app runs: set, the encoder is put down
+
+    /** Given up before its end (the app is going): nothing is encoded, and nothing of it stays on the disk. */
+    void abandon()
+    {
+        if (aac != nullptr) { slurAacClose (aac); aac = nullptr; }
+        writer.reset();
+        file.deleteFile();
+        if (tmp != juce::File()) tmp.deleteFile();
+        ok = false;
+    }
+
+    /** Empty when it opened; otherwise why not. */
+    String open (const juce::File& fileIn, const String& fmtIn, double fromRate, double toRate, int bitsIn, const juce::File& lameIn)
+    {
+        file = fileIn; fmt = fmtIn; bits = bitsIn; lame = lameIn;
+        rate = toRate;
+        if (fmt == "m4a" || fmt == "mp3") { rate = juce::jmin (48000.0, rate); bits = 16; }
+        if (fmt == "aiff" || fmt == "flac") bits = juce::jmin (24, bits);
+        ratio = fromRate / rate;
+        resample = std::abs (ratio - 1.0) > 1.0e-9;
+        dropLeft = resample ? (int) std::llround ((double) juce::WindowedSincInterpolator::getBaseLatency() / ratio) : 0;
+        file.deleteFile();
+        if (fmt == "m4a")
+        {
+            aac = slurAacOpen (file.getFullPathName().toRawUTF8(), rate, 2, 256);
+            return aac != nullptr ? String() : String ("the m4a would not open");
+        }
+        auto target = file;
+        if (fmt == "mp3")
+        {
+            if (! lame.existsAsFile()) return "mp3 needs lame";
+            target = tmp = file.getSiblingFile (file.getFileNameWithoutExtension() + ".tmp.wav");
+            tmp.deleteFile();
+        }
+        std::unique_ptr<juce::OutputStream> os = target.createOutputStream();
+        if (os == nullptr) return "the file would not open";
+        auto o = juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (2).withBitsPerSample (bits);
+        if (bits == 32) o = o.withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint);
+        if (fmt == "aiff")      { juce::AiffAudioFormat f; writer = f.createWriterFor (os, o); }
+        else if (fmt == "flac") { juce::FlacAudioFormat f; writer = f.createWriterFor (os, o); }
+        else                    { juce::WavAudioFormat f;  writer = f.createWriterFor (os, o); }
+        return writer != nullptr ? String() : String ("that kind of file would not open");
+    }
+
+    void write (const juce::AudioBuffer<float>& b, int n)
+    {
+        if (n <= 0 || (writer == nullptr && aac == nullptr)) return;
+        totalIn += n;
+        if (! resample) { push (b, 0, n); return; }
+        for (int c = 0; c < 2; ++c) pend[c].insert (pend[c].end(), b.getReadPointer (c), b.getReadPointer (c) + n);
+        drain();
+    }
+
+    bool close()
+    {
+        if (writer == nullptr && aac == nullptr) return ok;
+        if (resample)
+        {
+            for (int c = 0; c < 2; ++c) pend[c].insert (pend[c].end(), 1024, 0.0f);      // what the interpolator is still holding
+            closing = true;
+            drain();
+        }
+        if (aac != nullptr) { slurAacClose (aac); aac = nullptr; }
+        writer.reset();
+        if (fmt == "mp3" && ok)
+        {
+            juce::ChildProcess cp;
+            ok = cp.start (juce::StringArray { lame.getFullPathName(), "--silent", "-b", "320", tmp.getFullPathName(), file.getFullPathName() });
+            for (int i = 0; ok && cp.isRunning(); ++i)                       // ten minutes at most; and not a moment longer than the app itself stays
+            {
+                if (i >= 30000 || (stop != nullptr && stop->load())) { cp.kill(); ok = false; break; }
+                juce::Thread::sleep (20);
+            }
+            ok = ok && file.existsAsFile();
+            tmp.deleteFile();
+            if (! ok) file.deleteFile();
+        }
+        return ok;
+    }
+
+private:
+    void drain()
+    {
+        const int avail = (int) pend[0].size(), nOut = (int) std::floor ((double) (avail - 4) / ratio);
+        if (nOut <= 0) return;
+        rsBuf.setSize (2, nOut, false, false, true);
+        int used = 0;
+        for (int c = 0; c < 2; ++c) used = rs[c].process (ratio, pend[c].data(), rsBuf.getWritePointer (c), nOut);
+        for (int c = 0; c < 2; ++c) pend[c].erase (pend[c].begin(), pend[c].begin() + juce::jmin (used, (int) pend[c].size()));
+        const int skip = juce::jmin (nOut, dropLeft);
+        dropLeft -= skip;
+        int n = nOut - skip;
+        if (closing) n = (int) juce::jmin ((juce::int64) n, (juce::int64) std::llround ((double) totalIn / ratio) - wrote);
+        if (n > 0) push (rsBuf, skip, n);
+    }
+    void push (const juce::AudioBuffer<float>& b, int start, int n)
+    {
+        wrote += n;
+        const bool dither = bits == 16;
+        if (aac != nullptr)
+        {
+            inter.resize ((size_t) n * 2);
+            const float* l = b.getReadPointer (0) + start; const float* r = b.getReadPointer (1) + start;
+            for (int i = 0; i < n; ++i) { inter[(size_t) i * 2] = l[i]; inter[(size_t) i * 2 + 1] = r[i]; }
+            ok = slurAacWrite (aac, inter.data(), n) && ok;
+            return;
+        }
+        if (! dither) { ok = writer->writeFromAudioSampleBuffer (b, start, n) && ok; return; }
+        dBuf.setSize (2, n, false, false, true);
+        for (int c = 0; c < 2; ++c)
+        {
+            const float* s = b.getReadPointer (c) + start; float* d = dBuf.getWritePointer (c);
+            for (int i = 0; i < n; ++i) d[i] = s[i] + (rng.nextFloat() - rng.nextFloat()) / 32768.0f;       // a triangle of noise, one step wide
+        }
+        ok = writer->writeFromAudioSampleBuffer (dBuf, 0, n) && ok;
+    }
+
+    juce::File file, tmp, lame;
+    String fmt;
+    int bits = 24, dropLeft = 0;
+    double rate = 48000.0, ratio = 1.0;
+    bool resample = false, closing = false, ok = true;
+    juce::int64 totalIn = 0, wrote = 0;
+    std::unique_ptr<juce::AudioFormatWriter> writer;
+    void* aac = nullptr;
+    juce::WindowedSincInterpolator rs[2];
+    std::vector<float> pend[2], inter;
+    juce::AudioBuffer<float> rsBuf, dBuf;
+    juce::Random rng { 20261006 };
+};
+
+//==============================================================================
+/** For the app's own check: a plug-in with a second input and one control, as plain as one can be. Its sound goes through
+    whole while that input is silent and at a quarter while anything sounds there; the control (level) scales it. */
+struct DuckTest final : juce::AudioPluginInstance
+{
+    DuckTest() : AudioPluginInstance (BusesProperties().withInput ("in", juce::AudioChannelSet::stereo()).withOutput ("out", juce::AudioChannelSet::stereo()).withInput ("key", juce::AudioChannelSet::stereo(), false))
+    {
+        auto p = std::make_unique<Level>();
+        level = p.get();
+        addHostedParameter (std::move (p));
+    }
+    /** Its one control: how much of its sound it lets through. */
+    struct Level final : HostedParameter
+    {
+        std::atomic<float> v { 1.0f };
+        float getValue() const override { return v.load(); }
+        void setValue (float x) override { v.store (x); }
+        float getDefaultValue() const override { return 1.0f; }
+        String getName (int) const override { return "level"; }
+        String getLabel() const override { return {}; }
+        float getValueForText (const String& text) const override { return text.getFloatValue(); }
+        String getParameterID() const override { return "level"; }
+    };
+    Level* level = nullptr;
+    const String getName() const override { return "duck test"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& l) const override
+    {
+        const auto stereo = juce::AudioChannelSet::stereo();
+        return l.getMainInputChannelSet() == stereo && l.getMainOutputChannelSet() == stereo && (l.inputBuses.size() < 2 || l.inputBuses[1].isDisabled() || l.inputBuses[1] == stereo);
+    }
+    void processBlock (juce::AudioBuffer<float>& b, juce::MidiBuffer&) override
+    {
+        const int n = b.getNumSamples();
+        float heard = 0.0f;
+        for (int c = 2; c < getTotalNumInputChannels() && c < b.getNumChannels(); ++c) heard = juce::jmax (heard, b.getMagnitude (c, 0, n));
+        const float g = (heard > 0.001f ? 0.25f : 1.0f) * level->v.load();
+        for (int c = 0; c < 2 && c < b.getNumChannels(); ++c) b.applyGain (c, 0, n, g);
+    }
+    double getTailLengthSeconds() const override { return 0.0; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool hasEditor() const override { return false; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+    void fillInPluginDescription (juce::PluginDescription& d) const override { d.name = "duck test"; d.pluginFormatName = "test"; }
+};
+
+class Engine final : public juce::AudioIODeviceCallback, public juce::MidiInputCallback
+{
+public:
+    Engine()
+    {
+        fm.addDefaultFormats();
+        afm.registerBasicFormats();
+        for (auto* p : { "/opt/homebrew/bin/lame", "/usr/local/bin/lame" }) if (juce::File (p).existsAsFile()) { lame = juce::File (p); break; }
+        if (! juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest")) tidySound();
+    }
+    ~Engine() override
+    {
+        leaving.store (true);                                          // a print that is under way gives up at its next block, takes away the file it was writing, and is waited for: nothing is taken from under it
+        if (printThread.joinable())
+        {
+            /*  One that has not come back after twenty seconds, with a thread inside one and the same call of a plug-in all
+                that time, is in a plug-in that will not return. Nothing can be taken from under it, and the app is not
+                left hanging open for it: the same note a crash leaves says which plug-in it is in (the next start names
+                it and leaves it out), the half-made file goes, and the app goes as it stands.                          */
+            while (printing.load())
+            {
+                juce::uint32 calls0[32]; int uid0[32];
+                for (int i = 0; i < 32; ++i) { calls0[i] = nowPlaying[i].calls.load(); uid0[i] = nowPlaying[i].uid.load(); }
+                for (int i = 0; i < 2000 && printing.load(); ++i) juce::Thread::sleep (10);
+                if (! printing.load()) break;
+                bool inside = false;                                   // somebody has been in one and the same call of a plug-in all that time
+                for (int i = 0; i < 32; ++i) if (uid0[i] != 0 && nowPlaying[i].uid.load() == uid0[i] && nowPlaying[i].calls.load() == calls0[i]) inside = true;
+                if (! inside) continue;                                // (nobody: the print is only long at something that cannot be broken off — a great sound being written out — and is waited for)
+                logLine ("quit: the print did not come back; the app goes without it");
+                {
+                    const juce::ScopedLock sl (printFileLock);         // what it was writing is half a file: no file
+                    if (printFile != juce::File()) { printFile.deleteFile(); if (printTmp != juce::File()) printTmp.deleteFile(); printFile.getParentDirectory().deleteFile(); }      // (the folder too, if that leaves it empty: an empty one is all that call takes away)
+                }
+                stuckNote ((juce::uint64) (size_t) printThread.native_handle());
+                ::_exit (1);
+            }
+            printThread.join();
+        }
+        keysWatch.reset();
+        dm.removeMidiInputDeviceCallback ({}, this);
+        dm.removeAudioCallback (this);
+        dm.closeAudioDevice();
+        recThread.stopThread (2000);
+        const juce::ScopedLock sl (lock);
+        recs.clear();
+        for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.win.reset(); if (i.inst) i.inst->releaseResources(); });
+        tracks.clear();
+    }
+
+    /** `saved`: the device setup as it was left last time (see deviceState). */
+    String start (const juce::XmlElement* saved = nullptr)
+    {
+        const auto err = dm.initialise (0, 2, saved, true);
+        if (auto* d = dm.getCurrentAudioDevice())
+        {
+            if (const double r = d->getCurrentSampleRate(); r >= 8000.0) sr = r;      // (one that cannot say its rate: the engine keeps its own until the device says one)
+            if (const int b = d->getCurrentBufferSizeSamples(); b > 0) block = b;
+        }
+        maxBlock = juce::jmax (1024, block);
+        mix.setSize (2, maxBlock);
+        clk.setSize (1, maxBlock);
+        testBuf.assign (16384, 0.0f);
+        silence.assign (16384, 0.0f);
+        limRel = 1.0f - std::exp (-1.0f / (0.12f * (float) sr));
+        recThread.startThread();
+        liveLog.assign ((size_t) 1 << 15, Played());
+        liveBlock.ensureSize (16384);
+        keys.reset (sr);
+        dm.addMidiInputDeviceCallback ({}, this);
+        pool.start (handsWanted >= 0 ? handsWanted : autoHands(), dm.getCurrentAudioDevice() != nullptr ? dm.getCurrentAudioDevice()->getWorkgroup() : juce::AudioWorkgroup(), block, sr);
+        dm.addAudioCallback (this);
+        if (auto* d = dm.getCurrentAudioDevice()) inputOn.store (d->getActiveInputChannels().countNumberOfSetBits() > 0);
+        logLine ("engine: sr " + String (sr) + " block " + String (block) + ", " + String (pool.size() + 1) + " threads" + (err.isNotEmpty() ? "  device error: " + err : String()));
+        return err;
+    }
+
+    /** How many threads share a block's work: the device's own and `n` more (-1: as many as the machine's fast cores allow). Message thread. */
+    void setHands (int n)
+    {
+        if (bouncing.load()) return;
+        handsWanted = n;
+        const juce::ScopedLock sl (lock);                              // no block is being worked while the hands change
+        pool.start (n >= 0 ? juce::jmin (n, 15) : autoHands(), dm.getCurrentAudioDevice() != nullptr ? dm.getCurrentAudioDevice()->getWorkgroup() : juce::AudioWorkgroup(), block, sr);
+        logLine ("engine: " + String (pool.size() + 1) + " threads");
+    }
+    int hands() const { return pool.size(); }
+    /** One hand for every fast core but the one the device's own thread is on (a Mac with fast and slow cores says how many are fast). */
+    static int autoHands()
+    {
+        int fast = 0; size_t len = sizeof (fast);
+        if (sysctlbyname ("hw.perflevel0.physicalcpu", &fast, &len, nullptr, 0) != 0 || fast <= 0) fast = juce::SystemStats::getNumPhysicalCpus();
+        return juce::jlimit (0, 7, fast - 1);
+    }
+
+    //── the session, as the page tells it ─────────────────────────────────────
+    String setBuffer (const String& key, juce::AudioBuffer<float>&& data)
+    {
+        auto nb = std::make_shared<Buf>();
+        nb->data = std::move (data);
+        std::shared_ptr<Buf> gone;                                     // (what the key held before is let go of once the lock is: freeing a long sound takes a moment)
+        {
+            const juce::ScopedLock sl (lock);
+            if (auto it = bufIndex.find (key); it != bufIndex.end()) { gone = std::move (bufs[(size_t) it->second]); bufs[(size_t) it->second] = nb; }
+            else { bufIndex[key] = (int) bufs.size(); bufs.push_back (nb); }
+        }
+        return key;
+    }
+    /** Let go of the sound a key holds (the key stays, empty, so nothing that points at it breaks). */
+    void dropBuffer (const String& key)
+    {
+        auto empty = std::make_shared<Buf>();
+        std::shared_ptr<Buf> gone;
+        {
+            const juce::ScopedLock sl (lock);
+            if (auto it = bufIndex.find (key); it != bufIndex.end()) { gone = std::move (bufs[(size_t) it->second]); bufs[(size_t) it->second] = std::move (empty); }
+        }
+    }
+    std::shared_ptr<Buf> buffer (const String& key)
+    {
+        const juce::ScopedLock sl (lock);
+        if (auto it = bufIndex.find (key); it != bufIndex.end()) return bufs[(size_t) it->second];
+        return {};
+    }
+
+    /** The session, as the page tells it. A track the page marks `same` keeps the regions, lines and wiring it was last
+        told (they are numbered: `ver`); one the engine does not hold in that telling is asked for again (the answer says
+        so). Everything is read out of the message before the lock is taken: under it only pointers change hands, so a
+        block is hardly ever played as silence because the song was being edited while it ran.
+        -> {ok, again}: ok false = nothing was taken (a print is under way); again = send everything once more */
+    juce::var setSession (const juce::var& v)
+    {
+        auto* res = new juce::DynamicObject();
+        juce::var result (res);
+        res->setProperty ("ok", false);
+        if (bouncing.load()) return result;
+        struct Told { int id = 0, ver = -1, kind = 0, outId = 0, sendTo[3] { 0, 0, 0 }; float sendGain[3] { 0.0f, 0.0f, 0.0f }; bool same = false, notes = false; std::vector<Region> regs; std::vector<Auto> autos; std::vector<NoteEv> evs; };
+        std::vector<Told> told;
+        std::map<int, std::unique_ptr<Track>> fresh;
+        bool again = false;
+        if (auto* arr = v["tracks"].getArray())
+        {
+            told.reserve ((size_t) arr->size());
+            for (auto& tv : *arr)
+            {
+                Told t;
+                t.id = (int) tv["id"]; t.ver = tv.hasProperty ("ver") ? (int) tv["ver"] : -1; t.same = (int) tv["same"] != 0;
+                auto* have = find (t.id);
+                if (t.same && (have == nullptr || have->ver != t.ver)) { again = true; if (have == nullptr) continue; }     // it is not held in that telling: kept as it is for now, and asked for again
+                if (have == nullptr && fresh.count (t.id) == 0)
+                {
+                    auto nt = std::make_unique<Track>();                     // tracks that are new are made before anything is locked
+                    nt->id = t.id; nt->work.setSize (2, maxBlock); nt->share = -1.0f;
+                    nt->now.reserve (2048); nt->plugMidi.ensureSize (16384);
+                    fresh[t.id] = std::move (nt);
+                }
+                if (! t.same)
+                {
+                    t.kind = (int) tv["kind"]; t.outId = (int) tv["out"];
+                    if (auto* sd = tv["sends"].getArray())
+                        for (int k = 0; k < juce::jmin (3, sd->size()); ++k) { t.sendTo[k] = (int) (*sd)[k]["to"]; t.sendGain[k] = (float) (double) (*sd)[k]["gain"]; }
+                    if (auto* rg = tv["regs"].getArray())
+                    {
+                        t.regs.reserve ((size_t) rg->size());
+                        for (auto& rv : *rg)
+                        {
+                            Region r;
+                            r.a = (double) rv["a"]; r.b = (double) rv["b"];
+                            r.loop = (int) rv["loop"] != 0;
+                            r.rate = juce::jlimit (0.25, 4.0, (double) rv["rate"]);
+                            r.loopBars = juce::jmax (1.0, (double) rv["bars"]);
+                            r.off = (double) rv["off"];
+                            r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
+                            r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
+                            r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]);
+                            if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;      // (only this thread ever adds a key while no print runs)
+                            if (r.buf >= 0 && r.b > r.a) t.regs.push_back (r);
+                        }
+                    }
+                    if (auto* au = tv["autos"].getArray())
+                        for (auto& av : *au)
+                        {
+                            Auto a;
+                            a.param = (int) av["p"];
+                            if (a.param == kAutoPlug) { a.uid = (int) av["uid"]; a.index = (int) av["i"]; }
+                            if (auto* pts = av["pts"].getArray()) for (auto& p : *pts) a.pts.push_back ({ (double) p[0], (float) (double) p[1] });
+                            if (((a.param >= 0 && a.param < kAutoCount) || (a.param == kAutoPlug && a.uid != 0 && a.index >= 0)) && ! a.pts.empty()) t.autos.push_back (std::move (a));
+                        }
+                    /*  A track of notes: every note as [where it begins, where it ends, its key, how hard] and every
+                        other thing played as [where, status, first byte, second byte] — both lists flat, places in bars
+                        from zero, already as they sound (the page has worked out regions, repeats and timing).       */
+                    t.notes = (int) tv["inst"] != 0;
+                    if (auto* nv = tv["notes"].getArray())
+                    {
+                        t.evs.reserve ((size_t) nv->size() / 2 + 8);
+                        for (int k = 0; k + 3 < nv->size(); k += 4)
+                        {
+                            const double a = (double) (*nv)[k], b = (double) (*nv)[k + 1];
+                            if (! (b > a) || b <= 0.0) continue;
+                            const auto key = (juce::uint8) juce::jlimit (0, 127, (int) (*nv)[k + 2]), vel = (juce::uint8) juce::jlimit (1, 127, (int) (*nv)[k + 3]);
+                            t.evs.push_back ({ juce::jmax (0.0, a), 0x90, key, vel, 2 });
+                            t.evs.push_back ({ b, 0x80, key, 0, 0 });
+                        }
+                    }
+                    if (auto* cv = tv["ctl"].getArray())
+                        for (int k = 0; k + 3 < cv->size(); k += 4)
+                            t.evs.push_back ({ juce::jmax (0.0, (double) (*cv)[k]), (juce::uint8) ((int) (*cv)[k + 1] & 255), (juce::uint8) ((int) (*cv)[k + 2] & 127), (juce::uint8) ((int) (*cv)[k + 3] & 127), 1 });
+                    std::stable_sort (t.evs.begin(), t.evs.end(), [] (const NoteEv& x, const NoteEv& y) { return x.bar < y.bar || (x.bar == y.bar && x.order < y.order); });
+                }
+                told.push_back (std::move (t));
+            }
+        }
+        std::vector<std::unique_ptr<Track>> next, old;
+        next.reserve (told.size());
+        {
+            const juce::ScopedLock sl (lock);
+            tempo.store (juce::jlimit (40.0, 240.0, (double) v["tempo"]));
+            if (v["meter"].isArray() && v["meter"].size() == 2)
+            {
+                const int b = juce::jlimit (1, 32, (int) v["meter"][0]), u = (int) v["meter"][1];
+                beats.store (b); unit.store (u == 2 || u == 4 || u == 8 || u == 16 ? u : 4);
+                playHead.beats.store (beats.load()); playHead.unit.store (unit.load());
+            }
+            songEnd = (double) v["end"];
+            for (auto& in : told)
+            {
+                std::unique_ptr<Track> t;
+                for (auto& have : tracks) if (have != nullptr && have->id == in.id) { t = std::move (have); break; }
+                if (t == nullptr) { if (auto it = fresh.find (in.id); it != fresh.end()) t = std::move (it->second); }
+                if (t == nullptr) continue;
+                if (! in.same)
+                {
+                    t->kind = in.kind; t->outId = in.outId; t->ver = in.ver;
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        if (in.sendTo[k] != t->sends[k].to) t->sends[k].sm = 0.0f;
+                        t->sends[k].to = in.sendTo[k]; t->sends[k].dst = nullptr;
+                        if (in.sendTo[k] != 0) t->sends[k].gain.store (in.sendGain[k]);
+                    }
+                    t->regs.swap (in.regs); t->autos.swap (in.autos);       // what it held goes back with the message, and is let go of once the lock is
+                    t->notes = in.notes; t->evs.swap (in.evs); t->stale.store (true);
+                }
+                next.push_back (std::move (t));
+            }
+            old.swap (tracks);
+            tracks.swap (next);
+            wire();
+        }
+        if (auto* arr = v["tracks"].getArray()) for (auto& tv : *arr) setTrack (tv);
+        if (v.hasProperty ("master")) master.store ((float) (double) v["master"]);
+        measureLatency();
+        for (auto& t : old) if (t != nullptr) t->eachPlug ([] (Insert& i) { i.win.reset(); if (i.inst) i.inst->releaseResources(); });
+        res->setProperty ("ok", true); res->setProperty ("again", again);
+        return result;
+    }
+
+    void setTrack (const juce::var& tv)
+    {
+        auto* t = find ((int) tv["id"]);
+        if (t == nullptr) return;
+        t->vol.store ((float) (double) tv["vol"]);
+        t->gate.store ((int) tv["on"] != 0 ? 1.0f : 0.0f);
+        t->pan.store (juce::jlimit (-1.0f, 1.0f, (float) (double) tv["pan"]));
+        t->tape.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["tape"]));
+        t->space.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["space"]));
+        t->delay.store (juce::jlimit (0.0f, 1.0f, (float) (double) tv["delay"]));
+        t->mon.store ((int) tv["mon"] != 0);
+        t->input.store ((int) tv["input"]);
+        t->live.store ((int) tv["live"] != 0);
+        if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (3, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
+        const float sh = juce::jlimit (0.0f, 1.0f, (float) (double) tv["share"]);
+        const bool wanted = (bool) tv["patched"] || t->tape.load() + t->space.load() + t->delay.load() > 0.0005f;
+        if (t->chain == nullptr && wanted && ! bouncing.load())
+        {
+            auto c = std::make_unique<orbfx::Chain>();
+            c->prepare (sr, maxBlock, kPatchSlots);
+            t->share = sh;
+            compilePatch (*c, sh);
+            const juce::ScopedLock sl (lock);
+            t->chain = std::move (c);
+        }
+        else if (t->chain != nullptr && std::abs (sh - t->share) > 0.004f) { t->share = sh; compilePatch (*t->chain, sh); }
+    }
+
+    //── time ──────────────────────────────────────────────────────────────────
+    void play (double bar) { if (! bouncing.load()) warmFrom (bar, 0.6, true); seekTo.store (bar); queued.store (-1.0); seg.fetch_add (1); playing.store (true); }
+    void stop()            { playing.store (false); queued.store (-1.0); seg.fetch_add (1); }
+    void seek (double bar) { if (playing.load() && ! bouncing.load()) warmFrom (bar, 0.6, true); seekTo.store (bar); if (! playing.load()) posBars.store (bar); }
+
+    std::atomic<bool>   playing { false }, loop { false }, mute { false }, click { false }, recording { false };
+    std::atomic<double> posBars { 0.0 }, queued { -1.0 }, tempo { 92.0 }, loopA { 0.0 }, loopB { 0.0 };
+    std::atomic<int> beats { 4 }, unit { 4 };          // the measure (see PlayHead)
+    std::atomic<float>  master { 1.0f };
+    std::atomic<int>    jumps { 0 };
+    std::atomic<bool>   bouncing { false }, inputOn { false };
+    bool quiet = false;                       // the self-test: no folders popping open
+    bool testInput = false;                   // the self-test: a tone stands in for the microphone
+    double sr = 48000.0;
+    int    block = 512, maxBlock = 1024;
+    juce::File lame;                          // an mp3 needs this to be on the machine
+    std::function<void()> onRateChanged;      // the device moved to another rate and the engine followed: every buffer has to come again
+    std::function<void (bool)> onTakeStalled; // nothing more is recorded of the take that is running: the device moved to another rate (true), or stopped under it
+    std::function<void (const String&, double, double, bool)> onSoundCut;      // a file was too long to hold in memory and the disk had no room to keep it ready: its name, the seconds held, the seconds it has
+
+    /** Peaks since the last call: the out (left, right), the input, and each track after its fader. */
+    juce::var takeMeters()
+    {
+        auto* o = new juce::DynamicObject();
+        juce::Array<juce::var> m, t;
+        m.add (meterL.exchange (0.0f)); m.add (meterR.exchange (0.0f));
+        if (++latencyTick % 20 == 0 && ! bouncing.load()) measureLatency();
+        for (auto& tp : tracks) { t.add (tp->id); t.add (juce::roundToInt (tp->peak.exchange (0.0f) * 1000.0f) / 1000.0); }
+        o->setProperty ("m", m); o->setProperty ("i", inPeak.exchange (0.0f)); o->setProperty ("t", t);
+        return juce::var (o);
+    }
+    /** What the engine cost since the last call: how many blocks the device asked for, how much of each block's time the
+        work took (mean and worst), how many took longer than the block lasts (the sound broke up), and how many were
+        played as silence because the message thread had the session in its hands. */
+    juce::var takePerf()
+    {
+        auto* o = new juce::DynamicObject();
+        const int n = perfCalls.exchange (0);
+        o->setProperty ("blocks", n);
+        o->setProperty ("load", n > 0 ? perfSum.exchange (0.0) / (double) n : 0.0);
+        o->setProperty ("worst", (double) perfMax.exchange (0.0f));
+        o->setProperty ("over", perfOver.exchange (0));
+        o->setProperty ("held", perfHeld.exchange (0));
+        o->setProperty ("clicks", clicksBegun.exchange (0)); o->setProperty ("accents", accentsBegun.exchange (0));      // the click's beats begun since the last asking, and how many of them were a bar's first
+        if (auto* d = dm.getCurrentAudioDevice()) { const int x = d->getXRunCount(); o->setProperty ("xruns", x < 0 ? -1 : juce::jmax (0, x - lastXruns)); lastXruns = juce::jmax (0, x); }      // what the device itself says it could not keep up with (-1: it does not say)
+        o->setProperty ("block", block); o->setProperty ("sr", sr);
+        o->setProperty ("threads", pool.size() + 1); o->setProperty ("shared", shared.exchange (0));
+        if (n == 0) perfSum.store (0.0);
+        return juce::var (o);
+    }
+    /** The check: the device is asked for another block (0: only say what it has). -> {ok, block, sizes: […], name, error?} */
+    juce::var testBlock (int n)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var result (o);
+        auto* d = dm.getCurrentAudioDevice();
+        if (d == nullptr) { o->setProperty ("ok", false); return result; }
+        juce::Array<juce::var> sizes;
+        for (auto s : d->getAvailableBufferSizes()) sizes.add (s);
+        o->setProperty ("sizes", sizes);
+        if (n > 0)
+        {
+            auto setup = dm.getAudioDeviceSetup();
+            setup.bufferSize = n;
+            const auto err = dm.setAudioDeviceSetup (setup, true);
+            if (err.isNotEmpty()) o->setProperty ("error", err);
+        }
+        if (auto* now = dm.getCurrentAudioDevice())
+        {
+            block = now->getCurrentBufferSizeSamples();
+            o->setProperty ("block", block); o->setProperty ("name", now->getName()); o->setProperty ("outLatency", now->getOutputLatencyInSamples()); o->setProperty ("inLatency", now->getInputLatencyInSamples());
+        }
+        o->setProperty ("ok", true);
+        return result;
+    }
+    /** RMS and peak of what went to the speakers since the last call (the self-test's ear). */
+    std::pair<float, float> takeMeter()
+    {
+        const double sq = meterSq.exchange (0.0); const int n = meterN.exchange (0); const float pk = meterPk.exchange (0.0f);
+        return { n > 0 ? (float) std::sqrt (sq / (double) n) : 0.0f, pk };
+    }
+
+    //── the way in ────────────────────────────────────────────────────────────
+    std::unique_ptr<juce::XmlElement> deviceState() { return dm.createStateXml(); }
+    /** For the settings window: what comes in just now (the room's own meter empties it thirty times a second), how many
+        hands were asked for (-1: as many as the machine allows), and whether a take or a print is under way. */
+    float inputNow() const { return inPeak.load(); }
+    int handsAsked() const { return handsWanted; }
+    bool busy() const { return bouncing.load() || recording.load(); }
+    juce::AudioDeviceManager& devices() { return dm; }
+    int inputCount() { if (testInput) return 2; if (auto* d = dm.getCurrentAudioDevice()) return d->getActiveInputChannels().countNumberOfSetBits(); return 0; }
+
+    /** Open the input the first time a track asks to hear or record it. Empty when it is open. */
+    String enableInput()
+    {
+        if (testInput || inputOn.load()) return {};
+        auto setup = dm.getAudioDeviceSetup();
+        if (setup.inputDeviceName.isEmpty())
+            if (auto* type = dm.getCurrentDeviceTypeObject())
+            {
+                const auto names = type->getDeviceNames (true);
+                const int def = type->getDefaultDeviceIndex (true);
+                if (def >= 0 && def < names.size()) setup.inputDeviceName = names[def];
+            }
+        if (setup.inputDeviceName.isEmpty()) return "no input device";
+        setup.useDefaultInputChannels = false;
+        setup.inputChannels.clear();
+        setup.inputChannels.setRange (0, kMaxIn, true);
+        setup.sampleRate = sr;
+        const auto err = dm.setAudioDeviceSetup (setup, true);
+        if (err.isNotEmpty()) { logLine ("input would not open: " + err); return err; }
+        int ins = 0;
+        if (auto* d = dm.getCurrentAudioDevice()) ins = d->getActiveInputChannels().countNumberOfSetBits();
+        inputOn.store (ins > 0);
+        logLine ("input: " + setup.inputDeviceName + ", " + String (ins) + " channels");
+        return ins > 0 ? String() : String ("the input has no channels");
+    }
+
+    /** Begin a take: `bar` is where the recording starts; the clock starts `countIn` bars earlier, with the click. */
+    juce::var recStart (const juce::var& o)
+    {
+        auto* res = new juce::DynamicObject();
+        juce::var result (res);
+        res->setProperty ("ok", false);
+        if (bouncing.load() || recording.load()) return result;
+        const double bar = (double) o["bar"], count = juce::jmax (0.0, (double) o["countIn"]);
+        const juce::File dir (o["dir"].toString());
+        dir.createDirectory();
+        bool sound = false;                                            // is anything to be written: a take of notes alone needs no room on the disk
+        if (auto* list = o["tracks"].getArray()) for (auto& tv : *list) sound = sound || (int) tv["midi"] == 0;
+        if (sound && dir.getBytesFreeOnVolume() < (juce::int64) 300 * 1024 * 1024) { res->setProperty ("error", "the disk is full"); return result; }      // (a take that cannot be written is a take lost: better not begun)
+        std::vector<std::unique_ptr<Rec>> fresh;
+        std::vector<int> noteTracks;                                   // the tracks of notes among them: nothing is written for those — what is played is kept as it comes (liveLog)
+        juce::WavAudioFormat wav;
+        if (auto* list = o["tracks"].getArray())
+            for (auto& tv : *list)
+            {
+                auto* t = find ((int) tv["id"]);
+                if (t == nullptr || t->kind != 0) continue;
+                if ((int) tv["midi"] != 0) { noteTracks.push_back (t->id); continue; }
+                auto r = std::make_unique<Rec>();
+                r->trackId = t->id; r->input = t->input.load();
+                r->file = dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ".wav", false);
+                std::unique_ptr<juce::OutputStream> os = r->file.createOutputStream();
+                if (os == nullptr) continue;
+                auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (r->input >= 100 ? 2 : 1).withBitsPerSample (24));
+                if (w == nullptr) continue;
+                r->tw = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (w.release(), recThread, 1 << 17);
+                r->tw->setFlushInterval (juce::jmax (4096, (int) sr));           // every second the file on disk is whole up to there: a take is not lost with the app
+                fresh.push_back (std::move (r));
+            }
+        if (fresh.empty() && noteTracks.empty()) return result;
+        if (! fresh.empty())
+        {
+            auto* j = new juce::DynamicObject();
+            juce::Array<juce::var> files;
+            for (auto& r : fresh) { auto* f = new juce::DynamicObject(); f->setProperty ("track", r->trackId); f->setProperty ("file", r->file.getFileName()); files.add (juce::var (f)); }
+            j->setProperty ("bar", bar); j->setProperty ("files", files); j->setProperty ("lat", (double) (inLat + outLat) / sr);
+            takeNote = dir.getChildFile (".take.json");
+            takeNote.replaceWithText (juce::JSON::toString (juce::var (j), true));      // what is being recorded, and where it belongs: for the next start, should this one not get to the end of the take
+        }
+        {
+            const juce::ScopedLock sl (lock);
+            recs.swap (fresh);
+            recStartS = (juce::int64) std::llround (bar * barSamples());
+            recNotes.swap (noteTracks); recLogFrom = logN;
+        }
+        takeBroken.store (false); takeWriting.store (false); lastBlockTick.store (0);      // (the hole that ends a take is one in the middle of it: whatever the device did before the take does not count)
+        recording.store (true);
+        play (bar - count);
+        res->setProperty ("ok", true);
+        logLine ("record: " + String ((int) recs.size()) + " tracks of sound, " + String ((int) recNotes.size()) + " of notes, from bar " + String (bar + 1.0));
+        return result;
+    }
+
+    /** End the take (or throw it away). Every file comes back decoded, with where it belongs and how late the input runs. */
+    juce::var recStop (bool keep)
+    {
+        juce::Array<juce::var> out;
+        if (! recording.exchange (false)) return out;
+        takeWriting.store (false);
+        playing.store (false);
+        takeNote.deleteFile();
+        std::vector<std::unique_ptr<Rec>> done;
+        std::vector<int> noteTracks;
+        std::vector<Played> played;
+        juce::int64 startS = 0;
+        {
+            const juce::ScopedLock sl (lock);
+            done.swap (recs);
+            startS = recStartS;
+            noteTracks.swap (recNotes);
+            if (! noteTracks.empty()) played = playedSince (recLogFrom);
+        }
+        const double barS = barSamples();
+        if (keep)
+            for (const int id : noteTracks)
+            {
+                /* what was played on the keys while the take ran, each thing at the place the player heard the song at
+                   (a key struck a moment before the take's first bar is its first note) */
+                auto* d = new juce::DynamicObject();
+                juce::Array<juce::var> ev;
+                const juce::int64 early = (juce::int64) (barS / 8.0);
+                for (auto& p : played) if (p.rolling != 0 && p.songS >= startS - early) { ev.add ((double) juce::jmax (startS, p.songS) / barS); ev.add ((int) p.st); ev.add ((int) p.d1); ev.add ((int) p.d2); }
+                d->setProperty ("ok", true); d->setProperty ("midi", true); d->setProperty ("track", id); d->setProperty ("bar", (double) startS / barS); d->setProperty ("ev", ev);
+                out.add (juce::var (d));
+            }
+        for (auto& r : done)
+        {
+            r->tw.reset();                                           // writes what is still waiting, and closes the file
+            if (! keep || r->got < (juce::int64) (sr * 0.05)) { r->file.deleteFile(); continue; }
+            auto v = decodeFile (r->file);
+            if (auto* d = v.getDynamicObject())
+            {
+                d->setProperty ("track", r->trackId);
+                d->setProperty ("file", r->file.getFileName());
+                d->setProperty ("name", r->file.getFileNameWithoutExtension());
+                d->setProperty ("bar", (double) startS / barS);
+                d->setProperty ("lat", (double) (inLat + outLat) / sr);
+            }
+            out.add (v);
+        }
+        logLine ("record: " + String (out.size()) + " takes kept");
+        if (rateOff.load()) juce::MessageManager::callAsync ([this] { followDevice(); });      // the device moved to another rate during the take: it is followed now that the take is in
+        return out;
+    }
+
+    /** What a run that ended badly was recording into this folder: each file made whole and decoded, with where it belongs
+        — as recStop hands takes back. Empty when nothing was left. */
+    juce::var takesLeft (const juce::File& dir)
+    {
+        juce::Array<juce::var> out;
+        const auto note = dir.getChildFile (".take.json");
+        if (! note.existsAsFile() || recording.load()) return out;
+        const auto j = juce::JSON::parse (note);
+        note.deleteFile();
+        if (auto* files = j["files"].getArray())
+            for (auto& fv : *files)
+            {
+                const auto file = dir.getChildFile (juce::File::createLegalFileName (fv["file"].toString()));       // (a name, never a way to somewhere else: what is not a take in this folder is not touched)
+                if (! file.existsAsFile() || file.getParentDirectory() != dir) continue;
+                mendWav (file);
+                if (fileSeconds (file) < 0.05) { file.deleteFile(); continue; }
+                auto v = decodeFile (file);
+                if (auto* d = v.getDynamicObject())
+                {
+                    d->setProperty ("track", fv["track"]); d->setProperty ("file", file.getFileName()); d->setProperty ("name", file.getFileNameWithoutExtension());
+                    d->setProperty ("bar", j["bar"]); d->setProperty ("lat", j["lat"]);
+                }
+                out.add (v);
+            }
+        logLine ("record: " + String (out.size()) + " takes brought back from a run that did not end");
+        return out;
+    }
+    /** A wav whose writer never closed it: its head says the length it had when it was last made whole (or none at all).
+        The lengths are written in from the size of the file itself. */
+    static void mendWav (const juce::File& f)
+    {
+        juce::int64 size = 0, dataAt = -1; juce::uint32 dataLen = 0;
+        {
+            juce::FileInputStream in (f);
+            if (! in.openedOk() || in.getTotalLength() < 44) return;
+            size = in.getTotalLength();
+            char id[4];
+            if (in.read (id, 4) != 4 || std::memcmp (id, "RIFF", 4) != 0 || size > 0xfffffff0ll) return;
+            in.setPosition (12);
+            while (in.getPosition() + 8 <= size)
+            {
+                if (in.read (id, 4) != 4) break;
+                const auto len = (juce::uint32) in.readInt();
+                if (std::memcmp (id, "data", 4) == 0) { dataAt = in.getPosition(); dataLen = len; break; }
+                in.setPosition (in.getPosition() + (juce::int64) len + (len & 1));
+            }
+        }
+        if (dataAt < 0 || dataLen == (juce::uint32) (size - dataAt)) return;
+        juce::FileOutputStream os (f);
+        if (! os.openedOk()) return;
+        if (os.setPosition (4)) os.writeInt ((int) (juce::uint32) (size - 8));
+        if (os.setPosition (dataAt - 4)) os.writeInt ((int) (juce::uint32) (size - dataAt));
+        os.flush();
+    }
+
+    //── plug-ins from outside ─────────────────────────────────────────────────
+    juce::var listPlugins (std::function<String (const String&)> auMaker)
+    {
+        juce::Array<juce::var> out;
+        juce::StringArray auNames;
+        for (auto* f : fm.getFormats())
+        {
+            if (f->getName() == "AudioUnit")
+            {
+                for (auto& id : f->searchPathsForPlugins ({}, true, true))
+                {
+                    const auto type = id.fromFirstOccurrenceOf ("/", false, false).substring (0, 4);
+                    if (type != "aufx" && type != "aumf" && type != "aumu") continue;
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("inst", type == "aumu");
+                    String name = f->getNameOfPluginFromIdentifier (id), maker = auMaker ? auMaker (id) : String();
+                    if (maker.isEmpty() && name.contains (": ")) { maker = name.upToFirstOccurrenceOf (": ", false, false); name = name.fromFirstOccurrenceOf (": ", false, false); }
+                    o->setProperty ("id", id); o->setProperty ("name", name); o->setProperty ("maker", maker); o->setProperty ("fmt", "au");
+                    auNames.add (name.toLowerCase());
+                    out.add (juce::var (o));
+                }
+            }
+        }
+        for (auto* f : fm.getFormats())
+        {
+            if (f->getName() != "VST3") continue;
+            for (auto& path : f->searchPathsForPlugins (f->getDefaultLocationsToSearch(), true, false))
+            {
+                const auto name = juce::File (path).getFileNameWithoutExtension();
+                if (auNames.contains (name.toLowerCase())) continue;      // the same plug-in is already listed as an AU
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("id", path); o->setProperty ("name", name); o->setProperty ("maker", ""); o->setProperty ("fmt", "vst3");
+                {
+                    /* whether it is an instrument is read from the note of its contents that newer ones carry with them
+                       (the plug-in itself is not opened for the list); one without such a note is listed as an effect */
+                    juce::File info (juce::File (path).getChildFile ("Contents/Resources/moduleinfo.json"));
+                    if (! info.existsAsFile()) info = juce::File (path).getChildFile ("Contents/moduleinfo.json");
+                    o->setProperty ("inst", info.existsAsFile() && info.getSize() < (1 << 20) && info.loadFileAsString().contains ("\"Instrument\""));
+                    o->setProperty ("unsure", ! info.existsAsFile());      // (it carries no such note: what it is, is only known once it is opened — the page lets it be looked for by name in either list)
+                }
+                out.add (juce::var (o));
+            }
+        }
+        return out;
+    }
+
+    /** `at`: where among the track's plug-ins it goes (-1: after the last). */
+    void insertPlugin (int trackId, const String& ident, const String& state, bool show, std::function<void (juce::var)> done, int at = -1, bool asInst = false)
+    {
+        auto fail = [done] (const String& why) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", why); logLine ("insert failed: " + why); done (juce::var (o)); };
+        if (bouncing.load()) { fail ("busy"); return; }
+        if (ident == "test:duck")                                      // the check's own plug-in (it has a second input); nothing outside the check may ask for it
+        {
+            if (! testInput) { fail ("not here"); return; }
+            placeInsert (trackId, done, fail, state, false, ident, at, std::make_unique<DuckTest>(), {}, false);
+            return;
+        }
+        {
+            auto* doing = new juce::DynamicObject();                   // should opening it bring the app down, the next start knows what was being opened — from before its file is so much as read: a VST3 is loaded to see what is in it, and that alone can do it
+            doing->setProperty ("what", "opening"); doing->setProperty ("id", ident); doing->setProperty ("name", ident.startsWith ("AudioUnit:") ? String() : juce::File (ident).getFileNameWithoutExtension());
+            Marker::set ("doing", juce::var (doing));
+        }
+        juce::PluginDescription d;
+        if (ident.startsWith ("AudioUnit:"))
+        {
+            const bool instrument = ident.fromFirstOccurrenceOf ("/", false, false).substring (0, 4) == "aumu";      // (an audio unit says what it is in its name)
+            if (instrument != asInst) { Marker::clear ("doing"); fail (asInst ? "an effect, not an instrument" : "an instrument, not an effect"); return; }
+            d.pluginFormatName = "AudioUnit"; d.fileOrIdentifier = ident;
+        }
+        else
+        {
+            juce::OwnedArray<juce::PluginDescription> found;
+            for (auto* f : fm.getFormats()) if (f->getName() == "VST3") f->findAllTypesForFile (found, ident);
+            const juce::PluginDescription* pick = nullptr;
+            for (auto* p : found) if (p->isInstrument == asInst) { pick = p; break; }
+            if (pick == nullptr) { Marker::clear ("doing"); fail (found.isEmpty() ? "could not be read" : asInst ? "an effect, not an instrument" : "an instrument, not an effect"); return; }
+            d = *pick;
+        }
+        logLine ("insert: " + ident + " on track " + String (trackId));
+        fm.createPluginInstanceAsync (d, sr, maxBlock, [this, trackId, done, fail, state, show, ident, at, asInst] (std::unique_ptr<juce::AudioPluginInstance> inst, const String& err)
+        {
+            /*  For some kinds of plug-in (audio units of the newer kind) the answer comes on a thread of the system's own.
+                All of what follows — the mark of what is running, the page's answer, the plug-in's window — belongs on
+                the message thread: the plug-in is handed over to it.                                                   */
+            auto* mm = juce::MessageManager::getInstanceWithoutCreating();
+            if (mm == nullptr) return;                                 // (the app has gone meanwhile: there is no one to hand it to)
+            if (! mm->isThisTheMessageThread())
+            {
+                auto held = std::make_shared<std::unique_ptr<juce::AudioPluginInstance>> (std::move (inst));
+                juce::MessageManager::callAsync ([this, trackId, done, fail, state, show, ident, at, asInst, held, err] { placeInsert (trackId, done, fail, state, show, ident, at, std::move (*held), err, asInst); });
+                return;
+            }
+            placeInsert (trackId, done, fail, state, show, ident, at, std::move (inst), err, asInst);
+        });
+    }
+    /** Message thread: a plug-in that has been opened takes its place on its track. */
+    void placeInsert (int trackId, std::function<void (juce::var)> done, std::function<void (const String&)> fail, const String& state, bool show, const String& ident, int at,
+                      std::unique_ptr<juce::AudioPluginInstance> inst, const String& err, bool asInst = false)
+    {
+        {
+            if (inst == nullptr) { Marker::clear ("doing"); fail (err.isNotEmpty() ? err : "would not open"); return; }
+            if (bouncing.load()) { Marker::clear ("doing"); fail ("busy"); return; }
+            auto ins = std::make_unique<Insert>();
+            ins->uid = ++nextUid;
+            ins->name = inst->getName();
+            ins->fmt = inst->getPluginDescription().pluginFormatName == "AudioUnit" ? "au" : "vst3";
+            ins->inst = std::move (inst);
+            ins->inst->addListener (&ins->heard);
+            Marker::plugin (ins->uid, ident, ins->name);
+            const Inside inside (ins->uid);
+            ins->prepare (sr, maxBlock, &playHead);
+            if (state.isNotEmpty()) { juce::MemoryOutputStream mo; if (juce::Base64::convertFromBase64 (mo, state) && mo.getDataSize() > 0) ins->inst->setStateInformation (mo.getData(), (int) mo.getDataSize()); }
+            Marker::clear ("doing");                                   // (only now: one that hangs while it is made ready, and is put down by hand, is still known as what was being opened)
+            if (asInst ? ins->outs < 1 : (ins->ins < 1 || ins->outs < 1)) { ins->inst->releaseResources(); fail (asInst ? "has no audio output" : "has no audio input"); return; }
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", true); o->setProperty ("uid", ins->uid); o->setProperty ("name", ins->name); o->setProperty ("fmt", ins->fmt);
+            o->setProperty ("latency", ins->inst->getLatencySamples());
+            o->setProperty ("key", ins->inst->getBusCount (true) > 1);     // it has a second input: a track can be given to it to listen to
+            const int uid = ins->uid;
+            bool placed = false;
+            std::unique_ptr<Insert> gone; std::unique_ptr<slurinst::Instrument> goneOwn;      // (the instrument the track had, if this is its new one: let go of once the lock is)
+            {
+                const juce::ScopedLock sl (lock);
+                if (auto* t = find (trackId))
+                {
+                    if (asInst) { gone = std::move (t->plug); goneOwn = std::move (t->built); t->plug = std::move (ins); t->keysUp(); t->stale.store (true); }
+                    else t->inserts.insert (at >= 0 && at < (int) t->inserts.size() ? t->inserts.begin() + at : t->inserts.end(), std::move (ins));
+                    placed = true;
+                }
+            }
+            if (gone != nullptr) { gone->win.reset(); if (gone->inst) gone->inst->releaseResources(); }
+            if (! placed) { fail ("no such track"); return; }
+            measureLatency();
+            logLine ("inserted: " + o->getProperty ("name").toString() + " uid " + String (uid));
+            done (juce::var (o));
+            if (show) openEditor (trackId, uid);
+        }
+    }
+
+    void openEditor (int trackId, int uid)
+    {
+        auto* t = find (trackId);
+        if (t == nullptr) return;
+        Insert* i = t->plug != nullptr && t->plug->uid == uid ? t->plug.get() : nullptr;
+        for (auto& x : t->inserts) if (x->uid == uid) i = x.get();
+        if (i == nullptr) return;
+        {
+            if (i->win != nullptr) { i->win->toFront (true); return; }
+            const Inside inside (i->uid);
+            juce::Component* ed = i->inst->hasEditor() ? static_cast<juce::Component*> (i->inst->createEditorIfNeeded()) : nullptr;
+            bool resizable = false;
+            if (auto* ape = dynamic_cast<juce::AudioProcessorEditor*> (ed)) resizable = ape->isResizable();
+            if (ed == nullptr) ed = new juce::GenericAudioProcessorEditor (*i->inst);
+            Insert* raw = i;
+            i->win = std::make_unique<PluginWindow> (i->name, ed, resizable, [raw] { juce::MessageManager::callAsync ([raw] { raw->win.reset(); }); });
+            return;
+        }
+    }
+
+    /** What every plug-in would need to come back as it is: uid -> its state, base64. Message thread. */
+    juce::var pluginStates()
+    {
+        if (bouncing.load()) return printStates;                       // (a print is playing them on its own thread: they are not asked in the middle of it, and what they were when it began is what a save, or the app going, writes down)
+        return statesNow();
+    }
+    juce::var statesNow()
+    {
+        auto* o = new juce::DynamicObject();
+        for (auto& t : tracks) t->eachPlug ([o] (Insert& i) { juce::MemoryBlock mb; const Inside inside (i.uid); i.inst->getStateInformation (mb); o->setProperty (juce::Identifier ("u" + String (i.uid)), juce::Base64::toBase64 (mb.getData(), mb.getSize())); });
+        return juce::var (o);
+    }
+
+    /** The controls of a plug-in that a line can be drawn for: [index, name, where it stands (0..1), how that reads], the first
+        few hundred. Message thread. */
+    juce::var pluginParams (int trackId, int uid)
+    {
+        juce::Array<juce::var> out;
+        if (auto* t = find (trackId)) t->eachPlug ([&out, uid] (Insert& i)
+        {
+            if (i.uid != uid || i.inst == nullptr) return;
+            const auto& ps = i.inst->getParameters();
+            for (int k = 0; k < ps.size() && out.size() < 400; ++k)
+            {
+                auto* p = ps.getUnchecked (k);
+                if (! p->isAutomatable()) continue;
+                juce::Array<juce::var> row; row.add (k); row.add (p->getName (48)); row.add ((double) p->getValue()); row.add (p->getCurrentValueAsText());
+                out.add (juce::var (row));
+            }
+        });
+        return out;
+    }
+    /** The control last moved in the plug-in's own window: its index (-1: none yet), name, where it stands, how that reads. */
+    juce::var pluginTouched (int trackId, int uid)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("index", -1);
+        if (auto* t = find (trackId)) t->eachPlug ([o, uid] (Insert& i)
+        {
+            if (i.uid != uid || i.inst == nullptr) return;
+            const int k = i.heard.index.load();
+            const auto& ps = i.inst->getParameters();
+            if (k < 0 || k >= ps.size() || ! ps.getUnchecked (k)->isAutomatable()) return;
+            auto* p = ps.getUnchecked (k);
+            o->setProperty ("index", k); o->setProperty ("name", p->getName (48)); o->setProperty ("value", (double) p->getValue()); o->setProperty ("text", p->getCurrentValueAsText());
+        });
+        return juce::var (o);
+    }
+    /** The check: a control moved the way a hand moves it in the plug-in's window. */
+    void testTouch (int trackId, int uid, int index, float v)
+    {
+        if (auto* t = find (trackId)) t->eachPlug ([uid, index, v] (Insert& i) { if (i.uid == uid && i.inst != nullptr && index >= 0 && index < i.inst->getParameters().size()) i.inst->getParameters().getUnchecked (index)->setValueNotifyingHost (v); });
+    }
+    /** A plug-in is given a track to listen to on its second input (0: none any more). Message thread. */
+    juce::var setKey (int trackId, int uid, int fromId)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        o->setProperty ("ok", false);
+        if (bouncing.load()) { o->setProperty ("why", "busy"); return res; }
+        const juce::ScopedLock sl (lock);                              // no block is worked while the plug-in is made ready anew with its second input open, or shut
+        auto* t = find (trackId);
+        Insert* ins = nullptr;
+        if (t != nullptr) for (auto& i : t->inserts) if (i->uid == uid) ins = i.get();
+        if (ins == nullptr || ins->inst == nullptr) { o->setProperty ("why", "gone"); return res; }
+        auto ready = [this, ins] (int from) { ins->keyFrom = from; const Inside inside (ins->uid); ins->inst->releaseResources(); ins->prepare (sr, maxBlock, &playHead); wire(); };
+        const int was = ins->keyFrom;
+        ready (fromId);
+        if (fromId != 0 && (ins->key == nullptr || ins->keyCh == 0))
+        {
+            o->setProperty ("why", ins->keyCh == 0 ? "no key input" : "ring");
+            ready (was);
+        }
+        else { o->setProperty ("ok", true); o->setProperty ("from", fromId); }
+        measureLatency();
+        return res;
+    }
+    void bypassPlugin (int trackId, int uid, bool off) { if (auto* t = find (trackId)) t->eachPlug ([uid, off] (Insert& i) { if (i.uid == uid) i.off.store (off); }); }
+
+    void closeEditors() { for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.win.reset(); }); }
+
+    bool removePlugin (int trackId, int uid)
+    {
+        if (bouncing.load()) return false;
+        std::unique_ptr<Insert> gone;
+        {
+            const juce::ScopedLock sl (lock);
+            if (auto* t = find (trackId))
+            {
+                if (t->plug != nullptr && t->plug->uid == uid) { gone = std::move (t->plug); t->keysUp(); }
+                else for (auto it = t->inserts.begin(); it != t->inserts.end(); ++it)
+                    if ((*it)->uid == uid) { gone = std::move (*it); t->inserts.erase (it); break; }
+            }
+        }
+        if (gone == nullptr) return false;
+        measureLatency();
+        gone->win.reset();
+        gone->inst->releaseResources();
+        return true;
+    }
+
+    //── instruments, and the keys ─────────────────────────────────────────────
+    static void applyParams (slurinst::Instrument& i, const juce::var& params)
+    {
+        if (auto* obj = params.getDynamicObject()) for (auto& nv : obj->getProperties()) i.set (nv.name.toString().toRawUTF8(), (float) (double) nv.value);
+    }
+    /** Give a track one of the DAW's own instruments (`kind`: synth, drums or sampler; any other word takes away whatever
+        instrument it has), set to the numbers in `params`. Message thread. -> {ok, kind} */
+    juce::var setInstrument (int trackId, const String& kind, const juce::var& params)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        o->setProperty ("ok", false);
+        if (bouncing.load()) { o->setProperty ("error", "busy"); return res; }
+        auto made = slurinst::make (kind.toRawUTF8());
+        if (made != nullptr) { made->prepare (sr); applyParams (*made, params); }
+        const bool any = made != nullptr;
+        std::unique_ptr<slurinst::Instrument> gone; std::unique_ptr<Insert> gonePlug;
+        {
+            const juce::ScopedLock sl (lock);
+            auto* t = find (trackId);
+            if (t == nullptr) { o->setProperty ("error", "no such track"); return res; }
+            gone = std::move (t->built); gonePlug = std::move (t->plug);
+            t->built = std::move (made);
+            t->keysUp(); t->stale.store (true);
+        }
+        if (gonePlug != nullptr) { gonePlug->win.reset(); if (gonePlug->inst) gonePlug->inst->releaseResources(); measureLatency(); }
+        o->setProperty ("ok", true); o->setProperty ("kind", any ? kind : String ("none"));
+        return res;
+    }
+    /** Turn what can be turned on a track's own instrument: {name: value, ...}. The numbers are read by the device's thread as they are. */
+    bool instrumentParams (int trackId, const juce::var& params)
+    {
+        auto* t = find (trackId);
+        if (t == nullptr || t->built == nullptr) return false;
+        applyParams (*t->built, params);
+        return true;
+    }
+    /** A sound for a track's own instrument to play from: the sampler's (slot 0), or one pad's of the drum kit. An empty key takes it away. */
+    bool instrumentSample (int trackId, int slot, const String& key)
+    {
+        if (bouncing.load()) return false;
+        auto b = key.isEmpty() ? std::shared_ptr<Buf>() : buffer (key);
+        slurinst::Sample s;
+        if (b != nullptr && b->data.getNumSamples() > 1 && b->data.getNumChannels() > 0)
+        {
+            s.L = b->data.getReadPointer (0); s.R = b->data.getReadPointer (b->data.getNumChannels() > 1 ? 1 : 0);
+            s.n = b->data.getNumSamples(); s.keep = b;
+        }
+        else if (key.isNotEmpty()) return false;
+        const juce::ScopedLock sl (lock);                              // (no block is being played while the sound changes hands)
+        auto* t = find (trackId);
+        return t != nullptr && t->built != nullptr && t->built->setSample (slot, std::move (s));
+    }
+
+    /** Every keyboard and controller the machine has is listened to (the check listens to none: it plays its own keys). Message thread. */
+    void openKeys()
+    {
+        if (testInput) return;
+        for (auto& d : juce::MidiInput::getAvailableDevices()) if (! dm.isMidiInputDeviceEnabled (d.identifier)) dm.setMidiInputDeviceEnabled (d.identifier, true);
+        if (keysWatch.get() == nullptr) keysWatch = std::make_unique<juce::MidiDeviceListConnection> (juce::MidiDeviceListConnection::make ([this] { openKeys(); }));      // one that is plugged in later is listened to as well
+    }
+    juce::var keyInputs()
+    {
+        auto* o = new juce::DynamicObject();
+        juce::Array<juce::var> names;
+        if (! testInput) for (auto& d : juce::MidiInput::getAvailableDevices()) names.add (d.name);
+        o->setProperty ("names", names); o->setProperty ("seen", keysSeen.load());
+        return juce::var (o);
+    }
+    void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m) override
+    {
+        if (m.isSysEx() || m.getRawDataSize() > 3 || m.getRawData()[0] >= 0xF0) return;      // (clocks, sensing and long messages are not for the tracks)
+        keys.addMessageToQueue (m);
+        keysSeen.fetch_add (1, std::memory_order_relaxed);
+    }
+    /** A key played from the page (the computer's own keys, a note pressed in an editor): it comes in with what the keyboards send. */
+    void playKey (int st, int d1, int d2)
+    {
+        juce::MidiMessage m (juce::jlimit (0x80, 0xEF, st), d1 & 127, d2 & 127);
+        m.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);
+        keys.addMessageToQueue (m);
+        keysSeen.fetch_add (1, std::memory_order_relaxed);
+    }
+    /** A note that hangs: every track of notes lets go of every key and is told to be silent. */
+    void hushAll() { for (auto& t : tracks) if (t->notes || t->built != nullptr || t->plug != nullptr) t->hush.store (true); }
+    /** What has been played by hand since the `from`th thing (the newest the engine still holds, at most). Call with the lock held. */
+    std::vector<Played> playedSince (size_t from) const
+    {
+        std::vector<Played> got;
+        const size_t size = liveLog.size();
+        if (size == 0) return got;
+        const size_t first = juce::jmax (from, logN > size ? logN - size : (size_t) 0);
+        got.reserve (logN - first);
+        for (size_t k = first; k < logN; ++k) got.push_back (liveLog[k % size]);
+        return got;
+    }
+    /** What was just played, though nothing was recording: everything of the go the last key belongs to — played while the
+        song ran, each thing at its place in the song (`rolling`, places in bars); played with the song standing still,
+        each thing by the seconds since the first. -> {ok, rolling, ev: [when, status, byte, byte, ...]} */
+    juce::var capture()
+    {
+        std::vector<Played> got;
+        { const juce::ScopedLock sl (lock); got = playedSince (0); }
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        int segOf = -1; bool rolling = false;
+        for (auto it = got.rbegin(); it != got.rend(); ++it) if ((it->st & 0xF0) == 0x90 && it->d2 > 0) { segOf = it->seg; rolling = it->rolling != 0; break; }
+        o->setProperty ("ok", segOf >= 0); o->setProperty ("rolling", rolling);
+        juce::Array<juce::var> ev;
+        const double barS = barSamples();
+        juce::int64 run0 = -1;
+        for (auto& p : got)
+        {
+            if (p.seg != segOf || (p.rolling != 0) != rolling) continue;
+            if (run0 < 0) run0 = p.runS;
+            ev.add (rolling ? (double) juce::jmax ((juce::int64) 0, p.songS) / barS : (double) (p.runS - run0) / sr);
+            ev.add ((int) p.st); ev.add ((int) p.d1); ev.add ((int) p.d2);
+        }
+        o->setProperty ("ev", ev);
+        return res;
+    }
+
+    //── files ─────────────────────────────────────────────────────────────────
+    /** Decode a file into a buffer at the engine's rate. Returns {ok, key, sec, peaks}. */
+    juce::var decode (const juce::MemoryBlock& bytes) { return decodeFrom (std::unique_ptr<juce::AudioFormatReader> (afm.createReaderFor (std::make_unique<juce::MemoryInputStream> (bytes, true)))); }
+    juce::var decodeFile (const juce::File& f)
+    {
+        auto v = mapped (f);
+        const bool onDisk = v.isObject();
+        if (! onDisk) v = decodeFrom (std::unique_ptr<juce::AudioFormatReader> (afm.createReaderFor (f)));        // (no room for it on the disk, say: held in memory, as it used to be)
+        if ((bool) v["cut"] && onSoundCut)                                                             // not all of it is held (memory holds twenty minutes of a file, the disk two hours): said, not kept quiet
+        {
+            const String name = f.getFileName(); const double held = (double) v["sec"], whole = (double) v["whole"];
+            juce::MessageManager::callAsync ([this, name, held, whole, onDisk] { if (onSoundCut) onSoundCut (name, held, whole, ! onDisk); });
+        }
+        return v;
+    }
+
+    /** A file's sound, kept ready on the disk and looked at where it lies. The first time, the file is decoded a piece at
+        a time (and brought to the engine's rate) into the cache; after that, opening it is opening the cache: nothing is
+        decoded and nothing is read until it is played. -> {ok, key, sec, peaks, tone}, or nothing when it cannot be done. */
+    juce::var mapped (const juce::File& f)
+    {
+        if (! f.existsAsFile()) return {};
+        const auto name = String::toHexString ((f.getFullPathName() + "|" + String (f.getSize()) + "|" + String (f.getLastModificationTime().toMilliseconds()) + "|" + String (juce::roundToInt (sr)) + "|1").hashCode64());
+        const auto dir = soundRoot();
+        if (! dir.createDirectory().wasOk()) return {};
+        const auto snd = dir.getChildFile (name + ".snd"), about = dir.getChildFile (name + ".json");
+        juce::var meta;
+        if (snd.existsAsFile() && about.existsAsFile()) meta = juce::JSON::parse (about);
+        auto fits = [&] { return meta.isObject() && juce::roundToInt ((double) meta["rate"]) == juce::roundToInt (sr) && (int) meta["frames"] > 1 && snd.getSize() == kSoundHead + (juce::int64) (int) meta["channels"] * (juce::int64) (int) meta["frames"] * 4; };
+        if (fits()) about.setLastModificationTime (juce::Time::getCurrentTime());      // (what was last used when: for tidying up)
+        else
+        {
+            std::unique_ptr<juce::AudioFormatReader> rd (afm.createReaderFor (f));
+            if (rd == nullptr || rd->lengthInSamples < 2) return {};
+            {
+                // is there room for it? (as long as the file at the engine's rate, four bytes to a sample)
+                const juce::int64 need = (juce::int64) ((double) rd->lengthInSamples * sr / juce::jmax (1.0, rd->sampleRate)) * (juce::int64) juce::jmin (2u, rd->numChannels) * 4 + kSoundHead;
+                // a file longer than memory is given (twenty minutes) can only be whole on the disk: for such a one a single gigabyte left over is enough
+                const bool tooLongForMemory = (double) rd->lengthInSamples > rd->sampleRate * 60.0 * 20.0;
+                const juce::int64 keep = tooLongForMemory ? ((juce::int64) 1 << 30) : soundKeepFree (dir);
+                if (dir.getBytesFreeOnVolume() - need < keep) { logLine ("sound: no room on the disk to keep " + f.getFileName() + " ready (held in memory)"); return {}; }
+            }
+            meta = renderSound (*rd, snd, about);
+            if (! fits()) { snd.deleteFile(); about.deleteFile(); return {}; }
+        }
+        auto nb = std::make_shared<Buf>();
+        nb->map = std::make_unique<juce::MemoryMappedFile> (snd, juce::MemoryMappedFile::readOnly);
+        const int ch = juce::jlimit (1, 2, (int) meta["channels"]), frames = (int) meta["frames"];
+        if (nb->map->getData() == nullptr || (juce::int64) nb->map->getSize() < kSoundHead + (juce::int64) ch * frames * 4) return {};
+        auto* base = reinterpret_cast<float*> (static_cast<char*> (nb->map->getData()) + kSoundHead);
+        float* chans[2] = { base, ch > 1 ? base + frames : base };
+        nb->data.setDataToReferTo (chans, ch, frames);
+        const String key = "file:" + String (++nextFile);
+        {
+            const juce::ScopedLock sl (lock);
+            bufIndex[key] = (int) bufs.size(); bufs.push_back (nb);
+        }
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("ok", true); o->setProperty ("key", key); o->setProperty ("sec", (double) frames / sr);
+        o->setProperty ("peaks", meta["peaks"]); o->setProperty ("tone", meta["tone"]);
+        if ((bool) meta["cut"]) { o->setProperty ("cut", true); o->setProperty ("whole", meta["whole"]); }
+        return juce::var (o);
+    }
+
+    /** Decode a file into the cache, a piece at a time: `snd` gets the bare samples (one channel after the other, after a
+        short head), `about` what the page wants to know of them. Never more than a piece of it is in memory. */
+    juce::var renderSound (juce::AudioFormatReader& rd, const juce::File& snd, const juce::File& about)
+    {
+        const int ch = (int) juce::jmin (2u, rd.numChannels);
+        const juce::int64 srcLen = juce::jmin ((juce::int64) (rd.sampleRate * 3600.0 * 2.0), rd.lengthInSamples);        // two hours of one file is where this stops
+        const bool same = std::abs (rd.sampleRate - sr) < 1.0;
+        const double ratio = rd.sampleRate / sr;
+        const juce::int64 frames64 = same ? srcLen : (juce::int64) ((double) srcLen / ratio);
+        if (ch < 1 || frames64 < 2 || frames64 > 0x7ffffff0) return {};
+        const int frames = (int) frames64;
+        const auto part = snd.getSiblingFile (snd.getFileNameWithoutExtension() + ".part");
+        part.deleteFile();
+        const juce::int64 bytes = kSoundHead + (juce::int64) ch * frames * 4;
+        {
+            // the room is taken for real before a sample is written: a file that is only promised its length would bring
+            // the app down (a fault in the middle of writing through the map) on a disk that fills meanwhile
+            const int fd = ::open (part.getFullPathName().toRawUTF8(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+            if (fd < 0) return {};
+            fstore_t room = { F_ALLOCATEALL, F_PEOFPOSMODE, 0, (off_t) bytes, 0 };
+            const bool ok = ::fcntl (fd, F_PREALLOCATE, &room) != -1 && ::ftruncate (fd, (off_t) bytes) == 0;
+            ::close (fd);
+            if (! ok) { part.deleteFile(); logLine ("sound: the disk would not give " + String (bytes / 1048576) + " MB"); return {}; }
+        }
+        auto* o = new juce::DynamicObject();
+        juce::var out (o);
+        {
+            juce::MemoryMappedFile mm (part, juce::MemoryMappedFile::readWrite);
+            if (mm.getData() == nullptr || (juce::int64) mm.getSize() < bytes) { part.deleteFile(); return {}; }
+            auto* base = reinterpret_cast<float*> (static_cast<char*> (mm.getData()) + kSoundHead);
+            float* dst[2] = { base, ch > 1 ? base + frames : base };
+            const int piece = 1 << 16;
+            juce::AudioBuffer<float> in (ch, piece);
+            if (same)
+            {
+                for (juce::int64 p = 0; p < srcLen; p += piece)
+                {
+                    const int n = (int) juce::jmin ((juce::int64) piece, srcLen - p);
+                    rd.read (&in, 0, n, p, true, true);
+                    for (int c = 0; c < ch; ++c) std::memcpy (dst[c] + p, in.getReadPointer (c), (size_t) n * sizeof (float));
+                }
+            }
+            else
+            {
+                const int late = (int) std::llround ((double) juce::WindowedSincInterpolator::getBaseLatency() / ratio);     // the interpolator hands its sound over a little late
+                juce::WindowedSincInterpolator si[2];
+                std::vector<float> pend[2], made;
+                juce::int64 at[2] = { -(juce::int64) late, -(juce::int64) late };      // where the next sample made lands in the file (before 0: the lateness, dropped)
+                auto drain = [&] (bool last)
+                {
+                    for (int c = 0; c < ch; ++c)
+                    {
+                        const int avail = (int) pend[c].size();
+                        int nOut = (int) std::floor ((double) (avail - 8) / ratio);
+                        nOut = (int) juce::jmin ((juce::int64) nOut, (juce::int64) frames - at[c]);
+                        juce::ignoreUnused (last);
+                        if (nOut <= 0) continue;
+                        made.resize ((size_t) nOut);
+                        const int used = si[c].process (ratio, pend[c].data(), made.data(), nOut);
+                        pend[c].erase (pend[c].begin(), pend[c].begin() + juce::jmin (used, avail));
+                        for (int i = 0; i < nOut; ++i, ++at[c]) if (at[c] >= 0 && at[c] < frames) dst[c][at[c]] = made[(size_t) i];
+                    }
+                };
+                for (juce::int64 p = 0; p < srcLen; p += piece)
+                {
+                    const int n = (int) juce::jmin ((juce::int64) piece, srcLen - p);
+                    rd.read (&in, 0, n, p, true, true);
+                    for (int c = 0; c < ch; ++c) pend[c].insert (pend[c].end(), in.getReadPointer (c), in.getReadPointer (c) + n);
+                    drain (false);
+                }
+                for (int c = 0; c < ch; ++c) pend[c].insert (pend[c].end(), (size_t) (64 + (int) std::ceil ((double) (late + 16) * ratio)), 0.0f);        // what the interpolator is still holding
+                drain (true);
+            }
+            const juce::AudioBuffer<float> view (dst, ch, frames);
+            describe (view, *o, true);                                  // how it looks and how it sounds, read back from where it now lies
+            o->setProperty ("channels", ch); o->setProperty ("frames", frames); o->setProperty ("rate", sr);
+            if (rd.lengthInSamples > srcLen) { o->setProperty ("cut", true); o->setProperty ("whole", (double) rd.lengthInSamples / rd.sampleRate); }
+            const char head[16] = { 's', 'l', 'u', 'r', ' ', 's', 'o', 'u', 'n', 'd', ' ', '1', 0, 0, 0, 0 };
+            std::memcpy (mm.getData(), head, sizeof (head));
+            ::msync (mm.getData(), mm.getSize(), MS_SYNC);              // on the disk for real before it is given its name: after a power cut a file of the right length with holes in it would pass for whole
+        }
+        snd.deleteFile();
+        if (! part.moveFileTo (snd)) { part.deleteFile(); return {}; }
+        if (! about.replaceWithText (juce::JSON::toString (out, true))) { snd.deleteFile(); return {}; }
+        return out;
+    }
+    juce::var decodeFrom (std::unique_ptr<juce::AudioFormatReader> rd)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var result (o);
+        o->setProperty ("ok", false);
+        if (rd == nullptr || rd->lengthInSamples < 2) return result;
+        const int srcLen = (int) juce::jmin ((juce::int64) (rd->sampleRate * 60.0 * 20.0), rd->lengthInSamples);
+        if (rd->lengthInSamples > (juce::int64) srcLen) { o->setProperty ("cut", true); o->setProperty ("whole", (double) rd->lengthInSamples / rd->sampleRate); logLine ("sound: only the first twenty minutes are held in memory"); }
+        juce::AudioBuffer<float> src ((int) juce::jmin (2u, rd->numChannels), srcLen);
+        rd->read (&src, 0, srcLen, 0, true, true);
+        juce::AudioBuffer<float> dst;
+        if (std::abs (rd->sampleRate - sr) < 1.0) dst = std::move (src);
+        else
+        {
+            const double ratio = rd->sampleRate / sr;
+            const int n = (int) ((double) srcLen / ratio), late = (int) std::llround ((double) juce::WindowedSincInterpolator::getBaseLatency() / ratio);   // the interpolator hands its sound over a little late
+            juce::AudioBuffer<float> tmp (1, n + late);
+            dst.setSize (src.getNumChannels(), n);
+            for (int c = 0; c < src.getNumChannels(); ++c)
+            {
+                juce::WindowedSincInterpolator si;
+                si.process (ratio, src.getReadPointer (c), tmp.getWritePointer (0), n + late, srcLen, 0);
+                dst.copyFrom (c, 0, tmp, 0, late, n);
+            }
+        }
+        return store ("file:" + String (++nextFile), std::move (dst), o);
+    }
+    /** How long a file is, without decoding it (0 when it cannot be read). */
+    double fileSeconds (const juce::File& f)
+    {
+        std::unique_ptr<juce::AudioFormatReader> rd (afm.createReaderFor (f));
+        return rd != nullptr && rd->sampleRate > 0.0 ? (double) rd->lengthInSamples / rd->sampleRate : 0.0;
+    }
+    /** Keep a buffer under a key and describe it: {ok, key, sec, peaks}. */
+    juce::var store (const String& key, juce::AudioBuffer<float>&& dst, juce::DynamicObject* o = nullptr)
+    {
+        if (o == nullptr) o = new juce::DynamicObject();
+        juce::var result (o);
+        describe (dst, *o, key.startsWith ("file:"));
+        o->setProperty ("key", key);
+        o->setProperty ("ok", true);
+        setBuffer (key, std::move (dst));
+        return result;
+    }
+    /** What the page wants to know of a sound: how long it is, its outline (about a hundred points to the second, so a zoom
+        still has something to show), and for a file two rough numbers about how it sounds. */
+    void describe (const juce::AudioBuffer<float>& dst, juce::DynamicObject& o, bool withTone) const
+    {
+        juce::Array<juce::var> peaks;
+        const int len = dst.getNumSamples(), bins = juce::jlimit (1200, 24000, len / 480);
+        for (int k = 0; k < bins; ++k)
+        {
+            const int i0 = (int) ((juce::int64) k * len / bins), i1 = juce::jmax (i0 + 1, (int) ((juce::int64) (k + 1) * len / bins));
+            float m = 0.0f;
+            for (int c = 0; c < dst.getNumChannels(); ++c) m = juce::jmax (m, dst.getMagnitude (c, i0, juce::jmin (i1, len) - i0));
+            peaks.add (juce::roundToInt (m * 1000.0f) / 1000.0);
+        }
+        o.setProperty ("sec", (double) len / sr);
+        o.setProperty ("peaks", peaks);
+        if (withTone) o.setProperty ("tone", toneOf (dst));
+    }
+
+    /** Message thread, a few times a second while the song runs: the sound the playhead is coming to is asked for ahead of
+        time, so that the device's thread finds it in memory. (Sound that lies in a file is only in memory once it has
+        been read; the system reads on along a file by itself, but knows nothing of a jump: the start of the cycle and a
+        marker that is waiting are asked for too.) */
+    void warm()
+    {
+        if (bouncing.load() || ! playing.load()) return;
+        warmFrom (posBars.load(), 4.0, false);
+        if (loop.load()) warmFrom (loopA.load(), 2.0, false);
+        if (const double q = queued.load(); q >= 0.0) warmFrom (q, 2.0, false);
+    }
+    /** `now`: read it in before going on (a moment's wait where the song is about to start), not just ask for it. */
+    void warmFrom (double bar, double seconds, bool now)
+    {
+        const double barS = barSamples();
+        const juce::int64 p0 = (juce::int64) (bar * barS), p1 = p0 + (juce::int64) (seconds * sr);
+        for (auto& tp : tracks)
+            for (auto& r : tp->regs)
+            {
+                if (r.buf < 0 || r.buf >= (int) bufs.size() || r.loop) continue;
+                const auto& b = *bufs[(size_t) r.buf];
+                if (b.map == nullptr) continue;
+                const juce::int64 from = juce::jmax (p0, (juce::int64) std::llround (r.a * barS)), to = juce::jmin (p1, (juce::int64) std::llround (r.b * barS));
+                if (to <= from) continue;
+                const juce::int64 origin = (juce::int64) std::llround ((r.a - r.off) * barS), len = b.data.getNumSamples();
+                const juce::int64 i0 = juce::jlimit ((juce::int64) 0, len, (juce::int64) ((double) (from - origin) * r.rate)), i1 = juce::jlimit ((juce::int64) 0, len, (juce::int64) ((double) (to - origin) * r.rate) + 2);
+                if (i1 <= i0) continue;
+                for (int c = 0; c < b.data.getNumChannels(); ++c)
+                {
+                    const auto page = (size_t) ::getpagesize();
+                    auto a = (size_t) (b.data.getReadPointer (c) + i0) & ~(page - 1);
+                    const auto e = (size_t) (b.data.getReadPointer (c) + i1);
+                    if (! now) { ::madvise ((void*) a, e - a, MADV_WILLNEED); continue; }
+                    unsigned int seen = 0;
+                    for (; a < e; a += page) seen += *reinterpret_cast<const volatile unsigned char*> (a);
+                    juce::ignoreUnused (seen);
+                }
+            }
+    }
+
+    /** The cache of decoded sound, kept from growing without end: what has not been opened for six weeks goes; beyond
+        thirty gigabytes (a tenth of the disk, where that is less) the longest unused goes first; and when the disk has
+        less room left than the cache must leave it (soundKeepFree), the cache gives its own back, longest unused first.
+        On a thread of its own, once, a while after the app is up. */
+    static void tidySound()
+    {
+        juce::Thread::launch ([]
+        {
+            juce::Thread::sleep (20000);
+            auto list = soundRoot().findChildFiles (juce::File::findFiles, false, "*.json");
+            struct Item { juce::File about, snd; juce::Time used; juce::int64 size; };
+            std::vector<Item> items;
+            for (auto& a : list) { const auto snd = a.withFileExtension (".snd"); items.push_back ({ a, snd, a.getLastModificationTime(), snd.getSize() }); }
+            for (auto& orphan : soundRoot().findChildFiles (juce::File::findFiles, false, "*.part")) if (juce::Time::getCurrentTime() - orphan.getLastModificationTime() > juce::RelativeTime::hours (2)) orphan.deleteFile();
+            std::sort (items.begin(), items.end(), [] (const Item& x, const Item& y) { return x.used > y.used; });
+            const auto root = soundRoot();
+            const juce::int64 gb = (juce::int64) 1 << 30, disk = root.getVolumeTotalSize(), most = juce::jmin (30 * gb, disk > 0 ? disk / 10 : 30 * gb);
+            juce::int64 total = 0;
+            std::vector<Item*> kept;
+            for (auto& it : items)
+            {
+                total += it.size;
+                if (juce::Time::getCurrentTime() - it.used > juce::RelativeTime::days (42) || total > most) { it.snd.deleteFile(); it.about.deleteFile(); }
+                else kept.push_back (&it);
+            }
+            // (the room a deleted file gives back does not always show at once — and never while this very app has it open — so what was given is counted here, not asked for again)
+            const juce::int64 free = root.getBytesFreeOnVolume(), keep = soundKeepFree (root);
+            juce::int64 given = 0;
+            auto longer = [] (const Item& it) { const auto m = juce::JSON::parse (it.about); const double rate = (double) m["rate"]; return rate > 0.0 && (double) m["frames"] / rate > 60.0 * 20.0; };
+            for (auto k = kept.rbegin(); k != kept.rend() && free + given < keep; ++k)
+            {
+                if (free + given >= gb && longer (**k)) continue;      // a file longer than memory is given can only be whole on the disk: it was let in with a single gigabyte to spare (see mapped), and goes only below that
+                given += (*k)->size; (*k)->snd.deleteFile(); (*k)->about.deleteFile();
+            }
+        });
+    }
+    /** Two rough numbers about how a file sounds, for the page to guess what was played (it has the outline already):
+        how much of its energy lies below about 150 Hz, and how often it crosses zero (about its pitch, when it has one). */
+    juce::var toneOf (const juce::AudioBuffer<float>& b) const
+    {
+        const int n = juce::jmin (b.getNumSamples(), (int) (sr * 60.0)), ch = b.getNumChannels();
+        const float a = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * 150.0f / (float) sr);
+        double all = 0.0, low = 0.0;
+        float l1 = 0.0f, l2 = 0.0f, prev = 0.0f;
+        int crossings = 0;
+        for (int i = 0; i < n; ++i)
+        {
+            float x = 0.0f;
+            for (int c = 0; c < ch; ++c) x += b.getSample (c, i);
+            x /= (float) juce::jmax (1, ch);
+            l1 += a * (x - l1); l2 += a * (l1 - l2);
+            all += (double) x * x; low += (double) l2 * l2;
+            if ((x >= 0.0f) != (prev >= 0.0f)) ++crossings;
+            prev = x;
+        }
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("low", all > 1e-9 ? juce::roundToInt (low / all * 1000.0) / 1000.0 : 0.0);
+        o->setProperty ("zc", n > 0 ? juce::roundToInt ((double) crossings / ((double) n / sr) / 2.0) : 0);
+        return juce::var (o);
+    }
+
+    /** A new buffer from an old one: transposed, and warped along a time map. Runs on its own thread.
+        {src, semis, rate, marks: [[sourceSec, outSec]…], loop, reverse} -> {ok, key, sec, peaks} */
+    void stretch (const juce::var& o, std::function<void (juce::var)> done)
+    {
+        auto src = buffer (o["src"].toString());
+        if (src == nullptr || src->data.getNumSamples() < 64) { auto* r = new juce::DynamicObject(); r->setProperty ("ok", false); done (juce::var (r)); return; }
+        const String key = "warp:" + String (++nextFile);
+        juce::Thread::launch ([this, sr0 = sr, o, src, key, done]         // (the engine's rate as it is now: the thread reads nothing of the engine while it works)
+        {
+            const double semis = (double) o["semis"], rate = juce::jlimit (0.25, 4.0, o.hasProperty ("rate") ? (double) o["rate"] : 1.0);
+            std::vector<WarpPoint> map;
+            if (auto* m = o["marks"].getArray()) for (auto& p : *m) map.push_back ({ (double) p[0], (double) p[1] });
+            const double outSec = (double) src->data.getNumSamples() / sr0 / rate;
+            const auto t0 = juce::Time::getMillisecondCounterHiRes();
+            auto out = warp (src->data, sr0, semis, map, outSec, (int) o["loop"] != 0, (int) o["reverse"] != 0);
+            logLine ("warp: " + String (outSec, 2) + " s, " + String (semis) + " st, " + String ((int) map.size()) + " pins, in " + String (juce::Time::getMillisecondCounterHiRes() - t0, 0) + " ms");
+            auto* shared = new juce::AudioBuffer<float> (std::move (out));
+            juce::MessageManager::callAsync ([this, shared, key, done]
+            {
+                std::unique_ptr<juce::AudioBuffer<float>> b (shared);
+                auto* r = new juce::DynamicObject();
+                if (b->getNumSamples() < 64) { r->setProperty ("ok", false); done (juce::var (r)); return; }
+                done (store (key, std::move (*b), r));
+            });
+        });
+    }
+
+    /** Where things begin in a buffer, in seconds. Runs on its own thread. */
+    void findOnsets (const String& key, std::function<void (juce::var)> done)
+    {
+        auto src = buffer (key);
+        if (src == nullptr) { done (juce::Array<juce::var>()); return; }
+        juce::Thread::launch ([sr0 = sr, src, done]
+        {
+            const auto found = onsets (src->data, sr0);
+            juce::Array<juce::var> out;
+            for (auto t : found) out.add (juce::roundToInt (t * 10000.0) / 10000.0);
+            juce::MessageManager::callAsync ([done, out] { done (out); });
+        });
+    }
+
+    /** A stretch of a buffer for the eye, closer than its outline goes: from sample `from` up to `to`, in `n` steps — the
+        lowest and the highest sample of each step on any channel (as the outline is the loudest on any). Where there are
+        no more samples than steps, each step is one sample: lo is hi for one channel, and for two they are the two
+        channels' samples, lower and higher. -> {ok, from, to, n, rate, lo: […], hi: […]} */
+    juce::var wave (const String& key, double from, double to, int n)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var result (o);
+        const auto src = buffer (key);
+        if (src == nullptr || src->data.getNumSamples() < 1) { o->setProperty ("ok", false); return result; }
+        const auto& b = src->data;
+        const int len = b.getNumSamples(), ch = b.getNumChannels();
+        const juce::int64 i0 = juce::jlimit ((juce::int64) 0, (juce::int64) len, (juce::int64) std::floor (from)), i1 = juce::jlimit (i0, (juce::int64) len, (juce::int64) std::ceil (to));
+        const int count = (int) (i1 - i0), steps = juce::jlimit (1, 4096, juce::jmin (n, juce::jmax (1, count)));
+        juce::Array<juce::var> lo, hi;
+        lo.ensureStorageAllocated (steps); hi.ensureStorageAllocated (steps);
+        for (int k = 0; k < steps && count > 0; ++k)
+        {
+            const int a = (int) (i0 + (juce::int64) k * count / steps), e = juce::jmax (a + 1, (int) (i0 + (juce::int64) (k + 1) * count / steps));
+            const int stride = juce::jmax (1, (e - a) / 2048);                 // (a very long step is read in passing: this is for the eye)
+            float mn = 1.0e9f, mx = -1.0e9f;
+            for (int c = 0; c < ch; ++c)
+            {
+                const float* p = b.getReadPointer (c);
+                for (int i = a; i < e && i < len; i += stride) { mn = juce::jmin (mn, p[i]); mx = juce::jmax (mx, p[i]); }
+            }
+            if (mn > mx) mn = mx = 0.0f;
+            lo.add (juce::roundToInt (mn * 10000.0f) / 10000.0); hi.add (juce::roundToInt (mx * 10000.0f) / 10000.0);
+        }
+        o->setProperty ("ok", true); o->setProperty ("from", (double) i0); o->setProperty ("to", (double) i1); o->setProperty ("n", lo.size()); o->setProperty ("rate", sr);
+        o->setProperty ("lo", lo); o->setProperty ("hi", hi);
+        return result;
+    }
+
+    /** How fast a buffer goes, heard from its sound: {bpm, sure, first, loop} (see tempoOf). Runs on its own thread. */
+    void findTempo (const String& key, std::function<void (juce::var)> done)
+    {
+        auto src = buffer (key);
+        if (src == nullptr) { done (juce::var()); return; }
+        juce::Thread::launch ([sr0 = sr, src, done]
+        {
+            const auto t = tempoOf (src->data, sr0);
+            juce::MessageManager::callAsync ([done, t]
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("bpm", juce::roundToInt (t.bpm * 100.0) / 100.0); o->setProperty ("sure", juce::roundToInt (t.sure * 1000.0) / 1000.0);
+                o->setProperty ("first", juce::roundToInt (t.first * 10000.0) / 10000.0); o->setProperty ("loop", juce::roundToInt (t.loop * 1000.0) / 1000.0);
+                done (juce::var (o));
+            });
+        });
+    }
+
+    /** The stretches of a buffer in which there is sound: [[from, to] …] in seconds (see soundParts). Runs on its own thread. */
+    void findSound (const String& key, double floorDb, double gap, double pre, double post, std::function<void (juce::var)> done)
+    {
+        auto src = buffer (key);
+        if (src == nullptr) { done (juce::var()); return; }
+        juce::Thread::launch ([sr0 = sr, src, floorDb, gap, pre, post, done]
+        {
+            const auto parts = soundParts (src->data, sr0, floorDb, gap, pre, post);
+            juce::MessageManager::callAsync ([done, parts]
+            {
+                juce::Array<juce::var> out;
+                for (const auto& p : parts) { juce::Array<juce::var> one; one.add (juce::roundToInt (p.first * 100000.0) / 100000.0); one.add (juce::roundToInt (p.second * 100000.0) / 100000.0); out.add (one); }
+                done (out);
+            });
+        });
+    }
+
+    /** Print to disk, on its own thread, with the speakers standing by.
+        kind "stems": each asked-for track after its fader, through its patch and plug-ins ("wet") or bare ("dry").
+        kind "mix":   everything, as it goes to the speakers.
+        kind "place": each asked-for track before its fader, into the project, decoded and handed back.
+        {kind, a0, a1, tracks: [{id, name}], modes, folder | dir, name, fmt, rate, bits} */
+    void exportAudio (const juce::var& opts, std::function<void (int, int)> progress, std::function<void (juce::var)> done)
+    {
+        if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); done (juce::var (o)); return; }
+        playing.store (false);
+        startPrint (done, [this, opts, progress] (PrintEnd& end)
+        {
+            juce::ScopedNoDenormals noDenormals;                       // (as the device's thread and the hands have it: whoever plays a track, its dying tail comes out the same)
+            { const juce::ScopedLock sl (lock); printBufs = bufs; }    // let a callback that is mid-block finish (after this it sees `bouncing`), and take the sounds as they are now
+            const String kind = opts["kind"].toString();
+            const bool place = kind == "place", mixdown = kind == "mix";
+            const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
+            String fmt = place ? String ("wav") : opts["fmt"].toString();
+            if (fmt.isEmpty()) fmt = "wav";
+            const double rate = place || (double) opts["rate"] < 8000.0 ? sr : (double) opts["rate"];
+            const int bits = place ? 24 : ((int) opts["bits"] > 0 ? (int) opts["bits"] : 24);
+            auto dir = opts.hasProperty ("dir") ? juce::File (opts["dir"].toString())
+                                                : musicRoot().getChildFile (opts["folder"].toString() + " " + juce::Time::getCurrentTime().formatted ("%H%M%S"));
+            dir.createDirectory();
+            juce::StringArray modes; if (auto* m = opts["modes"].getArray()) for (auto& x : *m) modes.add (x.toString());
+            if (modes.isEmpty() || mixdown || place) { modes.clear(); modes.add ("wet"); }
+            const auto* list = opts["tracks"].getArray();
+            const int total = mixdown ? 1 : (list != nullptr ? list->size() * modes.size() : 0);
+            int doneN = 0; bool ok = total > 0; String why;
+            juce::Array<juce::var> placed;
+            const juce::int64 s0 = (juce::int64) std::llround (a0 * barS), s1 = (juce::int64) std::llround (a1 * barS);
+            const float keepLim = limG;
+            for (auto& tp : tracks) tp->eachPlug ([] (Insert& i) { i.offline (true); });
+            measureLatency();
+
+            // one pass over the range: the whole graph runs; `tap` says which sound is kept
+            auto pass = [&] (Tap* tap, const juce::File& file, double tailSec)
+            {
+                Sink sink;
+                sink.stop = &leaving;
+                const auto err = sink.open (file, fmt, sr, rate, bits, lame);
+                if (err.isNotEmpty()) { ok = false; why = err; return; }
+                struct Making { Engine& e; Making (Engine& en, const juce::File& f, bool mp3) : e (en) { const juce::ScopedLock sl (e.printFileLock); e.printFile = f; e.printTmp = mp3 ? f.getSiblingFile (f.getFileNameWithoutExtension() + ".tmp.wav") : juce::File(); }
+                                ~Making() { const juce::ScopedLock sl (e.printFileLock); e.printFile = juce::File(); e.printTmp = juce::File(); } } making { *this, file, fmt == "mp3" };
+                const juce::int64 tail = (juce::int64) (sr * tailSec);
+                for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); quietNotes (*tp); }
+                for (juce::int64 k = 0; k < (juce::int64) (sr * 1.5) && ! leaving.load(); k += maxBlock) renderGraph (s0, maxBlock, false, true, nullptr, a1, tap);   // let old tails die away
+                measureLatency();                                      // (some only say how late they are offline once they have played a block that way)
+                limG = 1.0f; float mSm = master.load();
+                juce::AudioBuffer<float> outBuf (2, maxBlock);
+                int lead = 0; for (auto& tp : tracks) lead = juce::jmax (lead, tp->ahead.load());
+                for (juce::int64 p = s0 - lead; p < s0 && ! leaving.load(); )
+                {
+                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s0 - p);
+                    renderGraph (p, n, true, true, nullptr, a1, tap);
+                    p += n;
+                }
+                for (juce::int64 p = s0; p < s1 + tail && ! leaving.load(); p += maxBlock)
+                {
+                    const int n = (int) juce::jmin ((juce::int64) maxBlock, s1 + tail - p);
+                    renderGraph (p, n, true, true, nullptr, a1, tap);
+                    if (tap != nullptr) sink.write (tap->buf, n);
+                    else
+                    {
+                        const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1);
+                        float* oL = outBuf.getWritePointer (0); float* oR = outBuf.getWritePointer (1);
+                        const float mT = master.load(), ms = (mT - mSm) / (float) n;
+                        for (int i = 0; i < n; ++i) { mSm += ms; float l = mL[i] * mSm, r = mR[i] * mSm; limit (l, r); oL[i] = l; oR[i] = r; }
+                        sink.write (outBuf, n);
+                    }
+                }
+                if (leaving.load()) { sink.abandon(); ok = false; if (why.isEmpty()) why = "the app was closed"; return; }      // the app is going: half a file is no file
+                if (! sink.close()) { ok = false; if (why.isEmpty()) why = "the file would not close"; }
+            };
+
+            const String ext = "." + fmt;
+            if (mixdown)
+            {
+                pass (nullptr, dir.getChildFile (juce::File::createLegalFileName (opts["name"].toString()) + ext), 2.5);
+                ++doneN;
+                juce::MessageManager::callAsync ([progress, doneN, total] { progress (doneN, total); });
+            }
+            else if (list != nullptr)
+                for (auto& tv : *list)
+                {
+                    if (leaving.load()) break;
+                    auto* t = find ((int) tv["id"]);
+                    for (auto& mode : modes)
+                    {
+                        if (leaving.load()) break;
+                        if (t != nullptr)
+                        {
+                            Tap tap;
+                            tap.t = t; tap.pre = place; tap.dry = mode == "dry";
+                            tap.buf.setSize (2, maxBlock);
+                            tap.buf.clear();
+                            tap.only = upstream (t);
+                            const bool wet = ! tap.dry;
+                            auto file = place ? dir.getNonexistentChildFile (juce::File::createLegalFileName (tv["name"].toString()), ext, false)
+                                              : dir.getChildFile (juce::File::createLegalFileName (tv["name"].toString() + (modes.size() > 1 ? (wet ? " patch" : " dry") : String())) + ext);
+                            pass (&tap, file, place ? (double) opts["tail"] : (wet ? 2.5 : 0.05));
+                            if (place && ok)
+                            {
+                                auto v = decodeFile (file);
+                                if (auto* d = v.getDynamicObject()) { d->setProperty ("track", t->id); d->setProperty ("file", file.getFileName()); d->setProperty ("name", file.getFileNameWithoutExtension()); }
+                                placed.add (v);
+                            }
+                        }
+                        ++doneN;
+                        juce::MessageManager::callAsync ([progress, doneN, total] { progress (doneN, total); });
+                    }
+                }
+            limG = keepLim;
+            if (! ok && ! place && dir.getNumberOfChildFiles (juce::File::findFilesAndDirectories) == 0) dir.deleteFile();
+            end.finish();
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", ok); o->setProperty ("dir", dir.getFullPathName()); o->setProperty ("count", doneN);
+            if (why.isNotEmpty()) o->setProperty ("error", why);
+            if (place) o->setProperty ("placed", placed);
+            logLine ("print: " + kind + ", " + String (doneN) + " files in " + dir.getFullPathName() + (why.isNotEmpty() ? "  (" + why + ")" : String()));
+            const bool show = ok && ! quiet && ! place;
+            end.answer (juce::var (o), show ? std::function<void()> ([dir] { dir.revealToUser(); }) : std::function<void()>());
+        });
+    }
+
+    /*  A print's thread. One at a time (`bouncing`), and the engine does not go while one runs: it is told to give up
+        (`leaving`) and waited for. However the thread ends — by its last line, by something thrown on the way — the
+        engine comes back from the print (PrintEnd), and whoever asked gets an answer.                                  */
+    struct PrintEnd
+    {
+        Engine& e;
+        std::function<void (juce::var)> done;
+        bool over = false, answered = false;
+        void finish() noexcept
+        {
+            if (over) return;
+            over = true;
+            for (auto& tp : e.tracks) { tp->eachPlug ([] (Insert& i) { i.offline (false); }); tp->stale.store (true); }
+            e.measureLatency();                                        // (back on the device: as late as they are there)
+            {
+                std::vector<std::shared_ptr<Buf>> gone;                                // what the print kept alive is let go of outside the lock (a sound dropped meanwhile is freed, or unmapped, here)
+                { const juce::ScopedLock sl (e.lock); gone.swap (e.printBufs); }
+            }
+            e.bouncing.store (false);
+            e.printOver();
+        }
+        void answer (const juce::var& res, std::function<void()> then = {})
+        {
+            finish();
+            answered = true;
+            juce::MessageManager::callAsync ([d = done, res, then] { d (res); if (then) then(); });
+        }
+        ~PrintEnd()
+        {
+            finish();
+            if (! answered) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "the print did not finish"); juce::var res (o); juce::MessageManager::callAsync ([d = done, res] { d (res); }); }
+        }
+    };
+    /** Message thread, `bouncing` already taken. The print's end is made here, before its thread: whatever the work does
+        or fails to do, and whether or not there is a thread to be had at all, the engine comes back and `done` is answered. */
+    void startPrint (std::function<void (juce::var)> done, std::function<void (PrintEnd&)> work)
+    {
+        if (printThread.joinable()) printThread.join();                // the one before has ended (or `bouncing` could not have been taken): this only lets go of it
+        std::shared_ptr<PrintEnd> end (new PrintEnd { *this, std::move (done) });
+        printStates = juce::var (new juce::DynamicObject());           // (should asking the plug-ins fail: nothing, rather than what they were at some earlier print)
+        printing.store (true);
+        try
+        {
+            printStates = statesNow();
+            printThread = std::thread ([this, work, end] () mutable { try { work (*end); } catch (...) { logLine ("print: something was thrown"); } end.reset(); printing.store (false); });
+        }
+        catch (...)
+        {
+            printing.store (false);                                    // no thread to be had
+            auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); o->setProperty ("error", "the print could not start"); end->answer (juce::var (o));
+        }
+    }
+
+    /** The measure: the session as it stands, played from a0 to a1 as fast as the machine will go, in blocks of `block`
+        samples, with nothing written anywhere. Says how long the sound lasts and how long the work took (so: how much of
+        one core it would take to play), the mean, the 99th-in-a-hundred and the worst block, and a mark of what came out
+        (the same session must give the same mark however the work is shared out). Runs on its own thread, like a print.
+        {a0, a1, block, fresh} -> {ok, sec, took, load, blocks, mean, p99, worst, mark, sum} */
+    void measure (const juce::var& opts, std::function<void (juce::var)> done)
+    {
+        if (recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); done (juce::var (o)); return; }
+        playing.store (false);
+        startPrint (done, [this, opts] (PrintEnd& end)
+        {
+            juce::ScopedNoDenormals noDenormals;
+            { const juce::ScopedLock sl (lock); printBufs = bufs; }
+            const double a0 = (double) opts["a0"], a1 = (double) opts["a1"], barS = barSamples();
+            const int blk = juce::jlimit (16, maxBlock, opts.hasProperty ("block") ? (int) opts["block"] : block);
+            const juce::int64 s0 = (juce::int64) std::llround (a0 * barS), s1 = (juce::int64) std::llround (a1 * barS);
+            if ((int) opts["fresh"] != 0) freshen();
+            shared.store (0);
+            for (auto& tp : tracks) tp->eachPlug ([] (Insert& i) { i.offline (true); });
+            measureLatency();
+            for (auto& tp : tracks) { tp->gainSm = dbGainOf (*tp, a0); tp->panSm = tp->pan.load(); for (auto& sd : tp->sends) sd.sm = sd.gain.load(); quietNotes (*tp); }
+            std::vector<float> times;
+            times.reserve ((size_t) juce::jmax ((juce::int64) 0, (s1 - s0) / blk + 2));
+            juce::uint64 mark = 1469598103934665603ull; double sum = 0.0;
+            const auto w0 = juce::Time::getHighResolutionTicks();
+            for (juce::int64 p = s0; p < s1 && ! leaving.load(); p += blk)
+            {
+                const int n = (int) juce::jmin ((juce::int64) blk, s1 - p);
+                const auto b0 = juce::Time::getHighResolutionTicks();
+                renderGraph (p, n, true, true, nullptr, a1, nullptr);
+                times.push_back ((float) (juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - b0) * 1000.0));
+                for (int c = 0; c < 2; ++c)
+                {
+                    const float* m = mix.getReadPointer (c);
+                    for (int i = 0; i < n; ++i) { juce::uint32 bits; std::memcpy (&bits, m + i, 4); mark = (mark ^ bits) * 1099511628211ull; sum += std::abs ((double) m[i]); }
+                }
+            }
+            const double took = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - w0), sec = (double) (s1 - s0) / sr;
+            std::sort (times.begin(), times.end());
+            double mean = 0.0; for (auto t : times) mean += t;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", ! times.empty());
+            o->setProperty ("sec", sec); o->setProperty ("took", took); o->setProperty ("load", sec > 0.0 ? took / sec : 0.0);
+            o->setProperty ("blocks", (int) times.size()); o->setProperty ("block", blk); o->setProperty ("lasts", (double) blk / sr * 1000.0);
+            if (! times.empty())
+            {
+                o->setProperty ("mean", mean / (double) times.size());
+                o->setProperty ("p99", (double) times[(size_t) juce::jmin ((int) times.size() - 1, (int) ((double) times.size() * 0.99))]);
+                o->setProperty ("worst", (double) times.back());
+            }
+            o->setProperty ("mark", String::toHexString ((juce::int64) mark)); o->setProperty ("sum", sum);
+            o->setProperty ("threads", pool.size() + 1); o->setProperty ("shared", shared.exchange (0));
+            end.answer (juce::var (o));
+        });
+    }
+    /** Every patch and plug-in as it is when first switched on, with nothing ringing in it: so that two runs of the same
+        stretch begin alike. With the callback standing by (a print or a measure is under way). */
+    void freshen()
+    {
+        for (auto& tp : tracks)
+        {
+            if (tp->chain != nullptr) { tp->chain->prepare (sr, maxBlock, kPatchSlots); compilePatch (*tp->chain, tp->share); }
+            tp->eachPlug ([] (Insert& i) { if (i.inst != nullptr) i.inst->reset(); });
+            if (tp->built != nullptr) tp->built->prepare (sr);
+            tp->work.clear();
+        }
+        limG = 1.0f;
+    }
+
+    /** For the check: a file decoded the old way (all of it in memory) and the new (through the cache on disk, twice: made,
+        then found), compared sample for sample. -> {ok, frames, same, worst, mapped} */
+    juce::var testSound (const juce::File& f)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var result (o);
+        const auto inMemory = decodeFrom (std::unique_ptr<juce::AudioFormatReader> (afm.createReaderFor (f)));
+        const auto first = mapped (f), second = mapped (f);
+        o->setProperty ("ok", (bool) inMemory["ok"] && first.isObject() && second.isObject());
+        if (! (bool) o->getProperty ("ok")) return result;
+        const auto a = buffer (inMemory["key"].toString()), b = buffer (first["key"].toString()), c = buffer (second["key"].toString());
+        const int n = juce::jmin (a->data.getNumSamples(), b->data.getNumSamples(), c->data.getNumSamples()), ch = juce::jmin (a->data.getNumChannels(), b->data.getNumChannels());
+        float worst = 0.0f; bool same = a->data.getNumSamples() == b->data.getNumSamples() && b->data.getNumSamples() == c->data.getNumSamples() && a->data.getNumChannels() == b->data.getNumChannels();
+        for (int k = 0; k < ch; ++k)
+        {
+            const float* x = a->data.getReadPointer (k); const float* y = b->data.getReadPointer (k); const float* z = c->data.getReadPointer (k);
+            for (int i = 0; i < n; ++i) { const float d = juce::jmax (std::abs (x[i] - y[i]), std::abs (y[i] - z[i])); if (d > worst) worst = d; if (std::memcmp (x + i, y + i, 4) != 0 || std::memcmp (y + i, z + i, 4) != 0) same = false; }
+        }
+        o->setProperty ("frames", n); o->setProperty ("channels", ch); o->setProperty ("same", same); o->setProperty ("worst", worst);
+        o->setProperty ("mapped", b->map != nullptr && c->map != nullptr && a->map == nullptr);
+        o->setProperty ("samePeaks", juce::JSON::toString (inMemory["peaks"], true) == juce::JSON::toString (first["peaks"], true) && juce::JSON::toString (first["peaks"], true) == juce::JSON::toString (second["peaks"], true));
+        for (auto* key : { &inMemory, &first, &second }) dropBuffer ((*key)["key"].toString());
+        return result;
+    }
+
+    /** The self-test's way to see the engine follow a device to another rate. */
+    void testAdoptRate (double r) { if (testInput) adoptRate (r); }
+    void testHole() { if (testInput) lastBlockTick.store ((juce::int64) mach_continuous_time() - (juce::int64) (2.0 / tickSeconds)); }      // the check: as if the device had given no block for two seconds
+
+    Track* find (int id) { for (auto& t : tracks) if (t != nullptr && t->id == id) return t.get(); return nullptr; }
+    int trackCount() const { return (int) tracks.size(); }
+    int chainCount() const { int n = 0; for (auto& t : tracks) if (t->chain != nullptr) ++n; return n; }
+
+private:
+    /** What an offline pass keeps: one track's sound (before or after its fader), with only what feeds it sounding. */
+    struct Tap
+    {
+        Track* t = nullptr;
+        bool pre = false, dry = false;
+        std::set<const Track*> only;
+        juce::AudioBuffer<float> buf;
+    };
+
+    /** A bar in samples: its beats, each a 1/unit note, at so many quarter notes a minute. */
+    double barSamples() const { return 240.0 / tempo.load() * sr * (double) beats.load() / (double) unit.load(); }
+    /** A bar in quarter notes (what a plug-in counts in). */
+    double barQuarters() const { return (double) beats.load() * 4.0 / (double) unit.load(); }
+
+    static constexpr int kPatchSlots = 4;      // the nodes of a track's patch (tape, space, delay, their mix): only these slots of the Patch engine are given memory
+    /** A track's patch as the Patch engine draws one: tape, then space and delay side by side, the two mixed by `share`. */
+    static orbfx::Graph patchGraph (float share)
+    {
+        using namespace orbfx;
+        auto node = [] (int id, int type) { Graph::Node n; n.id = id; n.type = type; n.amount = 0.0f; return n; };
+        Graph g;
+        g.nodes.push_back (node (0, kTape)); g.nodes.push_back (node (1, kSpace)); g.nodes.push_back (node (2, kDelay)); g.nodes.push_back (node (3, kMixType));
+        g.edges.push_back ({ kPortIn, 0, 1.0f }); g.edges.push_back ({ 0, 1, 1.0f }); g.edges.push_back ({ 0, 2, 1.0f });
+        g.edges.push_back ({ 1, 3, share }); g.edges.push_back ({ 2, 3, 1.0f - share }); g.edges.push_back ({ 3, kPortOut, 1.0f });
+        return g;
+    }
+    void compilePatch (orbfx::Chain& chain, float share)
+    {
+        using namespace orbfx;
+        Program p; String err;
+        if (compile (patchGraph (share), p, err, &Chain::latencyThunk, &chain)) chain.publish (p);
+        else logLine ("patch would not compile: " + err);
+    }
+public:
+    /** The same patch with its prints set, written the way Patch on Slur keeps one (an .orbpatch file): handed over with
+        the stems, the plug-in opens it on that track and goes on from where the room left off. (Where each print stands
+        on the plug-in's wall is given too, so that it opens laid out and not in a heap.) */
+    static juce::String patchPreset (float tape, float space, float delay, float share)
+    {
+        auto g = patchGraph (juce::jlimit (0.0f, 1.0f, share));
+        const float amount[] = { tape, space, delay, 0.0f }, x[] = { 180.0f, 380.0f, 380.0f, 560.0f }, y[] = { 280.0f, 156.0f, 404.0f, 280.0f };
+        juce::Array<juce::var> nodes, edges;
+        for (size_t i = 0; i < g.nodes.size(); ++i)
+        {
+            const auto& nd = g.nodes[i];
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("id", nd.id); o->setProperty ("type", nd.type); o->setProperty ("amount", (double) juce::jlimit (0.0f, 1.0f, amount[i])); o->setProperty ("variant", nd.variant);
+            juce::Array<juce::var> dec; for (float d : nd.decay) dec.add ((double) d);
+            o->setProperty ("decay", dec); o->setProperty ("delayDiv", nd.delayDiv); o->setProperty ("delayFb", (double) nd.delayFb);
+            o->setProperty ("x", (double) x[i]); o->setProperty ("y", (double) y[i]);
+            nodes.add (juce::var (o));
+        }
+        for (const auto& e : g.edges) { auto* o = new juce::DynamicObject(); o->setProperty ("from", e.from); o->setProperty ("to", e.to); o->setProperty ("gain", (double) e.gain); edges.add (juce::var (o)); }
+        auto* root = new juce::DynamicObject();
+        root->setProperty ("nodes", nodes); root->setProperty ("edges", edges);
+        return juce::JSON::toString (juce::var (root), true);
+    }
+private:
+
+    /** Work out who feeds whom, and an order in which every track is played after all that flows into it. Call with the lock held. */
+    void wire()
+    {
+        for (auto& tp : tracks)
+        {
+            auto& t = *tp;
+            t.out = nullptr;
+            if (t.outId != 0) if (auto* d = find (t.outId)) if (d != &t && d->kind == 1) t.out = d;
+            for (auto& s : t.sends) { s.dst = nullptr; if (s.to != 0) if (auto* d = find (s.to)) if (d != &t && d->kind == 1) s.dst = d; }
+        }
+        /*  A plug-in that listens to another track makes its own track come after that one. It is given the track only if
+            nothing of its own track's sound, by any way, gets to that track (that would be a ring: each waiting for the
+            other's block).                                                                                             */
+        std::map<Track*, std::vector<Track*>> heard;                   // a track, and the tracks with a plug-in that listens to it
+        auto reaches = [&] (Track* from, Track* to)
+        {
+            std::vector<Track*> todo { from }; std::set<Track*> seen;
+            while (! todo.empty())
+            {
+                auto* x = todo.back(); todo.pop_back();
+                if (x == to) return true;
+                if (! seen.insert (x).second) continue;
+                if (x->out != nullptr) todo.push_back (x->out);
+                for (auto& s : x->sends) if (s.dst != nullptr) todo.push_back (s.dst);
+                if (const auto f = heard.find (x); f != heard.end()) for (auto* d : f->second) todo.push_back (d);
+            }
+            return false;
+        };
+        for (auto& tp : tracks)
+            for (auto& i : tp->inserts)
+            {
+                i->key = nullptr;
+                if (i->keyFrom == 0) continue;
+                if (auto* s = find (i->keyFrom)) if (s != tp.get() && ! reaches (tp.get(), s)) { i->key = s; heard[s].push_back (tp.get()); }
+            }
+        order.clear(); rankEnds.clear();
+        std::map<Track*, int> waiting, rank;
+        for (auto& tp : tracks) { waiting[tp.get()] = 0; rank[tp.get()] = 0; }
+        for (auto& tp : tracks) { if (tp->out != nullptr) ++waiting[tp->out]; for (auto& s : tp->sends) if (s.dst != nullptr) ++waiting[s.dst]; }
+        for (auto& h : heard) for (auto* d : h.second) ++waiting[d];
+        std::vector<Track*> ready;
+        for (auto& tp : tracks) if (waiting[tp.get()] == 0) ready.push_back (tp.get());
+        /*  Taken from the front of one list and added at its back, tracks come out rank by rank: first those nothing
+            flows into, then those fed only by them, and so on (a track is added when the last thing that feeds it is
+            taken, and by then every track of the rank before it is already on the list).                          */
+        for (size_t k = 0; k < ready.size(); ++k)
+        {
+            auto* t = ready[k];
+            if (! order.empty() && rank[t] != rank[order.back()]) rankEnds.push_back (order.size());
+            order.push_back (t);
+            auto feed = [&] (Track* d) { rank[d] = juce::jmax (rank[d], rank[t] + 1); if (--waiting[d] == 0) ready.push_back (d); };
+            if (t->out != nullptr) feed (t->out);
+            for (auto& s : t->sends) if (s.dst != nullptr) feed (s.dst);
+            if (const auto f = heard.find (t); f != heard.end()) for (auto* d : f->second) feed (d);
+        }
+        if (! order.empty()) rankEnds.push_back (order.size());
+        if (order.size() < tracks.size())                              // a ring of buses: the page does not allow one, but nothing here may feed itself
+        {
+            for (auto& tp : tracks)
+                if (std::find (order.begin(), order.end(), tp.get()) == order.end())
+                {
+                    tp->out = nullptr; for (auto& s : tp->sends) s.dst = nullptr; for (auto& i : tp->inserts) i->key = nullptr;
+                    order.push_back (tp.get());
+                }
+            rankEnds.push_back (order.size());                         // cut loose, they are a last rank of their own
+        }
+    }
+
+    /** How late each track's sound comes out of its plug-ins and the buses after it. Message thread — or a print's own
+        thread while it runs (nothing else plays the plug-ins then, and none comes or goes): a plug-in told it is
+        offline may be later, or earlier, than it was on the device. */
+    void measureLatency()
+    {
+        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; for (auto& i : t.inserts) n += i->latencyNow(); return n; };
+        /*  How far it still is from where a track's sound leaves it to the stereo out, counted in the lateness of the
+            buses on the way — by its longest way, when it has several (its own way out, and each bus it sends into).
+            A track's regions are read that much early, and by its own plug-ins' lateness, so what goes the longest way
+            arrives on time; what goes a shorter way is held back by the difference where it sets out (Hold).        */
+        std::map<const Track*, int> far;
+        std::function<int (const Track*, int)> longest = [&] (const Track* t, int depth) -> int
+        {
+            if (const auto f = far.find (t); f != far.end()) return f->second;
+            int m = 0;
+            if (depth < 16)
+            {
+                if (t->out != nullptr) m = juce::jmax (m, own (*t->out) + longest (t->out, depth + 1));
+                for (auto& s : t->sends) if (s.dst != nullptr) m = juce::jmax (m, own (*s.dst) + longest (s.dst, depth + 1));
+            }
+            return far[t] = m;
+        };
+        struct Want { Hold* hold; int n; };
+        std::vector<Want> wants;
+        bool changed = false;
+        for (auto& tp : tracks)
+        {
+            auto& t = *tp;
+            const int all = longest (&t, 0);
+            t.ahead.store (t.kind == 0 ? own (t) + all : 0);
+            wants.push_back ({ &t.outHold, all - (t.out != nullptr ? own (*t.out) + longest (t.out, 1) : 0) });
+            for (auto& s : t.sends) wants.push_back ({ &s.hold, s.dst != nullptr ? all - (own (*s.dst) + longest (s.dst, 1)) : 0 });
+            /* what a plug-in listens to left its track as early as that track's longest way is long; this track's own sound
+               is, at that plug-in, earlier by its own lateness and its longest way, less what stands before the plug-in.
+               The key waits for the difference (when it is the later one, it stays that much late: nothing here is moved for it) */
+            int before = t.plug != nullptr ? t.plug->latencyNow() : 0;
+            for (auto& i : t.inserts)
+            {
+                wants.push_back ({ &i->keyHold, i->key != nullptr && i->keyCh > 0 ? juce::jmax (0, longest (i->key, 1) - own (t) - all + before) : 0 });
+                before += i->latencyNow();
+            }
+        }
+        for (auto& w : wants) if (w.hold->len != juce::jlimit (0, 1 << 20, w.n)) changed = true;
+        if (! changed) return;
+        const bool alone = bouncing.load();                            // (a print plays the graph by itself; otherwise no block may be worked while a hold changes its length)
+        if (! alone) lock.enter();
+        for (auto& w : wants) w.hold->set (w.n);
+        if (! alone) lock.exit();
+    }
+
+    /** A track and everything that flows into it — and whatever a plug-in on one of those listens to, with all that
+        flows into that: it has to sound for the plug-in to hear it (a print of one track plays these, and no others). */
+    std::set<const Track*> upstream (const Track* t) const
+    {
+        std::set<const Track*> s { t };
+        for (bool grew = true; grew;)
+        {
+            grew = false;
+            for (auto& tp : tracks)
+            {
+                if (s.count (tp.get())) continue;
+                bool feeds = tp->out != nullptr && s.count (tp->out) > 0;
+                for (auto& sd : tp->sends) if (sd.dst != nullptr && s.count (sd.dst) > 0) feeds = true;
+                for (auto& other : tracks) if (! feeds && s.count (other.get()) > 0) for (auto& i : other->inserts) if (i->key == tp.get()) feeds = true;
+                if (feeds) { s.insert (tp.get()); grew = true; }
+            }
+        }
+        return s;
+    }
+
+    /** A line's value at a place in the song. */
+    static float lineAt (const Auto& a, double bar)
+    {
+        const auto& p = a.pts;
+        if (bar <= p.front().first) return p.front().second;
+        if (bar >= p.back().first)  return p.back().second;
+        size_t lo = 0, hi = p.size() - 1;
+        while (hi - lo > 1) { const size_t mid = (lo + hi) / 2; if (p[mid].first <= bar) lo = mid; else hi = mid; }
+        const double span = p[hi].first - p[lo].first;
+        return span > 1.0e-9 ? p[lo].second + (p[hi].second - p[lo].second) * (float) ((bar - p[lo].first) / span) : p[hi].second;
+    }
+    static bool evalAuto (const Track& t, int param, double bar, float& v)
+    {
+        for (auto& a : t.autos) if (a.param == param) { v = lineAt (a, bar); return true; }
+        return false;
+    }
+
+    float dbGainOf (const Track& t, double bar) const { float v; return (evalAuto (t, kAutoVol, bar, v) ? dbGain (v) : t.vol.load()) * t.gate.load(); }
+
+    /** Add what a region sounds like over [pos, pos + n) into L/R. `endBar` cuts it off. */
+    void addRegion (const std::vector<std::shared_ptr<Buf>>& held, const Region& r, juce::int64 pos, int n, double barS, float* L, float* R, double endBar) const
+    {
+        if (n <= 0 || r.buf < 0 || r.buf >= (int) held.size() || held[(size_t) r.buf] == nullptr) return;
+        const auto& b = held[(size_t) r.buf]->data;
+        const int len = b.getNumSamples();
+        if (len < 2) return;
+        const juce::int64 rs = (juce::int64) std::llround (r.a * barS), reTrue = (juce::int64) std::llround (r.b * barS);
+        const juce::int64 re = juce::jmin (reTrue, (juce::int64) std::llround (endBar * barS));
+        const juce::int64 from = juce::jmax (pos, rs), to = juce::jmin (pos + n, re);
+        if (to <= from) return;
+        const int off = (int) (from - pos), cnt = (int) (to - from);
+        const float* s0 = b.getReadPointer (0);
+        const float* s1 = b.getReadPointer (b.getNumChannels() > 1 ? 1 : 0);
+        const double fiS = r.fi * barS, foS = r.fo * barS;
+        const bool flat = fiS <= 0.0 && foS <= 0.0;
+        auto level = [&] (int i) -> float          // the region's own gain, shaped by its fades
+        {
+            float g = r.gain;
+            if (fiS > 0.0) { const double t = (double) (from - rs + i); if (t < fiS) g *= fadeShape (r.fic, t / fiS); }
+            if (foS > 0.0) { const double t = (double) (reTrue - from - i); if (t < foS) g *= fadeShape (r.foc, t / foS); }
+            return g;
+        };
+        /*  Where the sound's own beginning lies along the song, to the sample. Every piece cut from one region has the
+            same one (its start and its place in the source move together), so pieces stay in step exactly: a plain cut
+            changes nothing, and two pieces sharing a stretch — a crossfade — add up to the sound they were cut from.   */
+        const juce::int64 origin = (juce::int64) std::llround ((r.a - r.off) * barS);
+        if (r.loop)
+        {
+            int idx = (int) ((((from - origin) % (juce::int64) len) + (juce::int64) len) % (juce::int64) len);
+            for (int i = 0; i < cnt; ++i) { const float g = flat ? r.gain : level (i); L[off + i] += s0[idx] * g; R[off + i] += s1[idx] * g; if (++idx >= len) idx = 0; }
+        }
+        else
+        {
+            double x = (double) (from - origin) * r.rate;
+            for (int i = 0; i < cnt; ++i, x += r.rate)
+            {
+                if (x < 0.0) continue;
+                const int i0 = (int) x;
+                if (i0 >= len - 1) break;
+                const float f = (float) (x - (double) i0), g = flat ? r.gain : level (i);
+                L[off + i] += (s0[i0] + (s0[i0 + 1] - s0[i0]) * f) * g;
+                R[off + i] += (s1[i0] + (s1[i0 + 1] - s1[i0]) * f) * g;
+            }
+        }
+    }
+
+    /** The patch and the plug-ins of one track, in place on its first n samples. */
+    void renderTrack (Track& t, juce::int64 pos, int n, bool rolling, double barS, double bar)
+    {
+        if (t.chain != nullptr)
+        {
+            const float bpm = (float) tempo.load(); const double ppq = (double) pos / barS * barQuarters();
+            float v;
+            t.prm[0].amount = evalAuto (t, kAutoTape, bar, v) ? juce::jlimit (0.0f, 1.0f, v) : t.tape.load();
+            t.prm[1].amount = evalAuto (t, kAutoSpace, bar, v) ? juce::jlimit (0.0f, 1.0f, v) : t.space.load(); t.prm[1].variant = 0; t.prm[1].decay = 0.5f;
+            t.prm[2].amount = evalAuto (t, kAutoDelay, bar, v) ? juce::jlimit (0.0f, 1.0f, v) : t.delay.load(); t.prm[2].delayDiv = 2; t.prm[2].delayFb = 0.35f;
+            for (int i = 0; i < 4; ++i) { t.prm[i].bpm = bpm; t.prm[i].ppq = ppq; t.prm[i].playing = rolling; }
+            juce::AudioBuffer<float> view (t.work.getArrayOfWritePointers(), 2, n);
+            float gr = 0.0f;
+            t.chain->process (view, (float) sr, t.prm, gr);
+        }
+        for (auto& i : t.inserts)
+        {
+            for (auto& a : t.autos) if (a.param == kAutoPlug && a.uid == i->uid) i->setParam (a.index, lineAt (a, bar), a.told);      // a line drawn for one of its controls
+            const Track* k = i->key;                                               // (a track of an earlier rank: its sound of this block is whole by now)
+            i->process (t.work.getWritePointer (0), t.work.getWritePointer (1), n, k != nullptr ? k->work.getReadPointer (0) : nullptr, k != nullptr ? k->work.getReadPointer (1) : nullptr);
+        }
+    }
+
+    /** What one stretch of the song is, for every track of it. */
+    struct Stretch
+    {
+        Engine* e; juce::int64 pos; int n; bool rolling; double barS, bar0, bar1, endBar;
+        const float* const* in; Tap* tap; Track* const* list;
+        const std::vector<std::shared_ptr<Buf>>* bufs;         // the sounds this stretch reads: the engine's own under its lock, or a print's copy of them
+        const juce::MidiBuffer* live; int liveFrom; bool offline;      // what is played by hand in the device's block this stretch is a part of, and where in that block the stretch begins
+    };
+    static void playThunk (void* context, int index) { auto& st = *static_cast<Stretch*> (context); st.e->playTrack (*st.list[index], st); }
+
+    /** One track's own part of a stretch, in its own buffer: its regions and the input it listens to (on top of whatever
+        has already flowed into it), its patch and plug-ins, its fader and balance. It touches nothing of any other
+        track, so the tracks of one rank can be played at the same time. */
+    void playTrack (Track& t, const Stretch& st)
+    {
+        Tap* tap = st.tap;
+        if (tap != nullptr && tap->only.count (&t) == 0) return;                // a print of one track: what does not flow into it stays out
+        const auto t0 = juce::Time::getHighResolutionTicks();
+        const int n = st.n;
+        float* L = t.work.getWritePointer (0); float* R = t.work.getWritePointer (1);
+        const bool kept = tap != nullptr && tap->t == &t;
+        if (t.kind == 0)
+        {
+            if (st.rolling) { const juce::int64 early = t.ahead.load(); for (auto& r : t.regs) addRegion (*st.bufs, r, st.pos + early, n, st.barS, L, R, st.endBar); }
+            if (st.in != nullptr && t.mon.load())
+            {
+                const float* a; const float* b;
+                pickInput (st.in, t.input.load(), a, b);
+                for (int i = 0; i < n; ++i) { L[i] += a[i]; R[i] += b[i]; }
+            }
+            if (t.notes || t.built != nullptr || t.plug != nullptr) playNotes (t, st, L, R);
+        }
+        if (! (kept && tap->dry)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.bar0);
+        if (kept && tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
+
+        // the fader and the balance, moving to where they should be by the end of the stretch
+        float v;
+        const float target = dbGainOf (t, st.bar1), gs = (target - t.gainSm) / (float) n;
+        const float pn0 = t.panSm, pn1 = evalAuto (t, kAutoPan, st.bar1, v) ? juce::jlimit (-1.0f, 1.0f, v) : t.pan.load();
+        float pl = pn0 <= 0.0f ? 1.0f : 1.0f - pn0, pr = pn0 >= 0.0f ? 1.0f : 1.0f + pn0;
+        const float pls = ((pn1 <= 0.0f ? 1.0f : 1.0f - pn1) - pl) / (float) n, prs = ((pn1 >= 0.0f ? 1.0f : 1.0f + pn1) - pr) / (float) n;
+        float g = t.gainSm, pk = 0.0f;
+        for (int i = 0; i < n; ++i)
+        {
+            g += gs; pl += pls; pr += prs;
+            const float l = L[i] * g * pl, r = R[i] * g * pr;
+            L[i] = l; R[i] = r;
+            const float a = std::abs (l) > std::abs (r) ? std::abs (l) : std::abs (r);
+            if (a > pk) pk = a;
+        }
+        t.gainSm = target; t.panSm = pn1;
+        if (pk > t.peak.load()) t.peak.store (pk);
+        if (kept && ! tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
+        const float took = (float) juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
+        t.cost += (took - t.cost) * 0.2f;
+    }
+
+    /** A print or a measure is about to play the song from somewhere: no key is down, and the DAW's own instruments are
+        silent at once (one from outside is sent its keys up when the pass begins — see playNotes — and dies away). */
+    static void quietNotes (Track& t)
+    {
+        if (t.built != nullptr) { t.built->allOff (true); t.keysUp(); }
+        t.rolled = false; t.nextS = -1;
+    }
+
+    /** What a track of notes plays over a stretch: the song's notes that fall in it, and whatever is played by hand; then
+        the instrument's own sound, added to the track's. Touches nothing of any other track. */
+    void playNotes (Track& t, const Stretch& st, float* L, float* R)
+    {
+        auto& now = t.now;
+        now.clear();
+        const int n = st.n;
+        auto put = [&now] (int at, juce::uint8 s, juce::uint8 d1, juce::uint8 d2) { if (now.size() < now.capacity()) now.push_back ({ at, s, d1, d2 }); };
+        auto letGo = [&put] (juce::uint8* held, int at) { for (int k = 0; k < 128; ++k) for (; held[k] > 0; --held[k]) put (at, 0x80, (juce::uint8) k, 0); };
+        const juce::int64 from = st.pos + t.ahead.load(), to = from + n;
+        const bool moved = st.rolling && (! t.rolled || from != t.nextS), changed = t.stale.exchange (false);
+        /*  The song is somewhere else than its last notes were read up to, or stands still, or is not what it was: the
+            keys it held come up, the pedal with them, and what was bent goes back.                                     */
+        if (moved || changed || (! st.rolling && t.rolled)) { letGo (t.heldSong, 0); put (0, 0xB0, 64, 0); put (0, 0xE0, 0, 64); }
+        if (t.hush.exchange (false)) { letGo (t.heldSong, 0); letGo (t.heldLive, 0); t.liveDown = 0; put (0, 0xB0, 64, 0); put (0, 0xB0, 123, 0); put (0, 0xB0, 120, 0); }      // every key up, every sound off
+        if (st.rolling && t.notes)
+        {
+            const double barS = st.barS;
+            const juce::int64 endS = (juce::int64) std::llround (st.endBar * barS), stop = juce::jmin (to, endS);
+            auto it = std::lower_bound (t.evs.cbegin(), t.evs.cend(), ((double) from - 0.5) / barS, [] (const NoteEv& e, double b) { return e.bar < b; });
+            if (moved || changed)
+            {
+                /* what was turned before this place still holds here: the last bend, and the last setting of every controller */
+                bool bent = false, seen[128] {};
+                int looked = 0;
+                for (auto back = it; back != t.evs.cbegin() && looked < 8192; ++looked)
+                {
+                    --back;
+                    const int type = back->st & 0xF0;
+                    if (type == 0xE0 && ! bent) { bent = true; put (0, back->st, back->d1, back->d2); }
+                    else if (type == 0xB0 && ! seen[back->d1]) { seen[back->d1] = true; put (0, back->st, back->d1, back->d2); }
+                }
+            }
+            for (; it != t.evs.cend(); ++it)
+            {
+                const juce::int64 s = (juce::int64) std::llround (it->bar * barS);
+                if (s < from) continue;
+                if (s >= stop) break;
+                const int type = it->st & 0xF0;
+                if (type == 0x90) { if (t.heldSong[it->d1] < 255) ++t.heldSong[it->d1]; }
+                else if (type == 0x80) { if (t.heldSong[it->d1] == 0) continue; --t.heldSong[it->d1]; }      // (a key that is not down — its note began before the place the song was started from — is not lifted)
+                put ((int) (s - from), it->st, it->d1, it->d2);
+            }
+            if (endS >= from && endS < to) letGo (t.heldSong, (int) (endS - from));      // where the song ends (or what is being printed), every key comes up
+        }
+        if (st.rolling) t.nextS = to;
+        t.rolled = st.rolling;
+
+        // what is played by hand
+        if (t.live.load() && ! st.offline)
+        {
+            if (st.live != nullptr)
+                for (const auto meta : *st.live)
+                {
+                    const int at = meta.samplePosition - st.liveFrom;
+                    if (at < 0 || at >= n || meta.numBytes < 2 || meta.numBytes > 3) continue;
+                    const juce::uint8 s = meta.data[0], d1 = meta.data[1] & 127, d2 = meta.numBytes > 2 ? (juce::uint8) (meta.data[2] & 127) : (juce::uint8) 0;
+                    const int type = s & 0xF0;
+                    if (type == 0x90 && d2 > 0) { if (t.heldLive[d1] < 255) { ++t.heldLive[d1]; ++t.liveDown; } }
+                    else if (type == 0x80 || type == 0x90) { if (t.heldLive[d1] == 0) continue; --t.heldLive[d1]; --t.liveDown; }
+                    put (at, s, d1, d2);
+                }
+        }
+        else if (t.liveDown > 0) { letGo (t.heldLive, 0); t.liveDown = 0; }      // it no longer listens: the keys that were down on it come up
+
+        for (size_t i = 1; i < now.size(); ++i)                        // in the order they fall (they are few, and nearly in order)
+        {
+            const auto e = now[i]; size_t k = i;
+            while (k > 0 && now[k - 1].at > e.at) { now[k] = now[k - 1]; --k; }
+            now[k] = e;
+        }
+        if (t.built != nullptr) { if (! now.empty() || t.built->sounding()) t.built->render (L, R, n, now.data(), (int) now.size()); }
+        else if (t.plug != nullptr)
+        {
+            t.plugMidi.clear();
+            for (auto& e : now) { const juce::uint8 b[3] = { e.st, e.d1, e.d2 }; const int type = e.st & 0xF0; t.plugMidi.addEvent (b, type == 0xC0 || type == 0xD0 ? 2 : 3, e.at); }
+            t.plug->play (L, R, n, t.plugMidi);
+        }
+    }
+
+    /** A track's sound, once it is made, on to the bus it plays into or the stereo out; and to the side, whatever it sends. */
+    void passOn (Track& t, int n, double bar1, Tap* tap, float* mL, float* mR)
+    {
+        if (tap != nullptr && tap->only.count (&t) == 0) return;
+        const float* L = t.work.getReadPointer (0); const float* R = t.work.getReadPointer (1);
+        float* dL = t.out != nullptr ? t.out->work.getWritePointer (0) : mL;
+        float* dR = t.out != nullptr ? t.out->work.getWritePointer (1) : mR;
+        if (t.outHold.len == 0) { juce::FloatVectorOperations::add (dL, L, n); juce::FloatVectorOperations::add (dR, R, n); }
+        else t.outHold.add (L, R, dL, dR, n, 1.0f, 1.0f);
+        float v;
+        for (int k = 0; k < 3; ++k)
+        {
+            auto& s = t.sends[k];
+            if (s.dst == nullptr) continue;
+            const float st = evalAuto (t, kAutoSend0 + k, bar1, v) ? dbGain (v) : s.gain.load();
+            s.hold.add (L, R, s.dst->work.getWritePointer (0), s.dst->work.getWritePointer (1), n, s.sm, st);
+            s.sm = st;
+        }
+    }
+
+    /** One stretch of every track. Rank by rank: each rank's tracks are played (shared out among the threads when the rank
+        is heavy enough to be worth waking them), then their sound is passed on in the tracks' own order by this thread
+        alone, so the sums come out the same whoever played what. */
+    void renderGraph (juce::int64 pos, int n, bool rolling, bool offline, const float* const* in, double endBar, Tap* tap, const juce::MidiBuffer* live = nullptr, int liveFrom = 0)
+    {
+        const double barS = barSamples(), bar0 = juce::jmax (0.0, (double) pos / barS), bar1 = rolling ? juce::jmax (0.0, (double) (pos + n) / barS) : bar0;
+        if (offline) { playHead.bpm.store (tempo.load()); playHead.ppq.store ((double) pos / barS * barQuarters()); playHead.playing.store (rolling); playHead.samples.store (pos); }
+        mix.clear (0, n);
+        if (offline && leaving.load (std::memory_order_relaxed)) { if (tap != nullptr) tap->buf.clear (0, juce::jmin (n, tap->buf.getNumSamples())); return; }      // (the app is going: nothing more is played; the print gives up at its next step)
+        for (auto& tp : tracks) tp->work.clear (0, n);
+        float* mL = mix.getWritePointer (0); float* mR = mix.getWritePointer (1);
+        /*  A print does not hold the engine's lock while it runs (it would hold up the page for minutes), so the sounds it
+            reads must not be the engine's own list: a sound let go meanwhile, or a new one that makes the list grow,
+            would pull the ground from under it. It reads the copy made when it began (printBufs), which keeps every one
+            of them alive until it is done.                                                                             */
+        Stretch st { this, pos, n, rolling, barS, bar0, bar1, endBar, in, tap, nullptr, offline ? &printBufs : &bufs, live, liveFrom, offline };
+        size_t from = 0;
+        for (const size_t end : rankEnds)
+        {
+            const int count = (int) (end - from);
+            st.list = order.data() + from;
+            float heavy = 0.0f;
+            if (pool.size() > 0 && count > 1) for (size_t k = from; k < end; ++k) heavy += order[k]->cost;
+            if (heavy > kWorthSharing) { pool.run (&playThunk, &st, count); shared.fetch_add (1, std::memory_order_relaxed); }
+            else for (int i = 0; i < count; ++i) playTrack (*st.list[i], st);
+            for (size_t k = from; k < end; ++k) passOn (*order[k], n, bar1, tap, mL, mR);
+            from = end;
+        }
+    }
+
+    /** The last guard before the speakers (and before a mixdown's file): fast down, slow back up. */
+    void limit (float& l, float& r)
+    {
+        const float a = juce::jmax (std::abs (l), std::abs (r)), want = a > 0.98f ? 0.98f / a : 1.0f;
+        limG = want < limG ? want : limG + (want - limG) * limRel;
+        l *= limG; r *= limG;
+    }
+
+    /** A print has ended (called on its thread): a device rate that could not be followed while it ran is followed now. */
+    void printOver() { juce::MessageManager::callAsync ([this] { followDevice(); }); }
+    /** Message thread: the rate the device has now is the one to follow. It is asked of the device at the moment of acting,
+        never carried over from an earlier start — the device may have moved on, or back again, since. */
+    void followDevice()
+    {
+        if (auto* d = dm.getCurrentAudioDevice()) adoptRate (d->getCurrentSampleRate());
+    }
+    /** The rate under the engine has moved: follow it, and ask for every buffer again. Message thread. */
+    void adoptRate (double newRate)
+    {
+        if (newRate < 8000.0) return;                                  // (a device that cannot say its rate)
+        if (std::abs (newRate - sr) < 1.0) { rateOff.store (false); return; }
+        if (bouncing.load() || recording.load())                       // in the middle of a take or a print it cannot be followed: when that is over the device is asked again (printOver, recStop)
+        {
+            rateOff.store (true);
+            if (recording.load() && onTakeStalled) onTakeStalled (true);      // (a take cannot go on at another rate: nothing more comes in, and the page is told, so that it ends the take with what it has)
+            return;
+        }
+        {
+            const juce::ScopedLock sl (lock);
+            sr = newRate;
+            limRel = 1.0f - std::exp (-1.0f / (0.12f * (float) sr));
+            for (auto& tp : tracks)
+            {
+                if (tp->chain != nullptr) { tp->chain->prepare (sr, maxBlock, kPatchSlots); compilePatch (*tp->chain, tp->share); }
+                tp->eachPlug ([this] (Insert& i) { const Inside inside (i.uid); i.inst->releaseResources(); i.prepare (sr, maxBlock, &playHead); });
+                if (tp->built != nullptr) tp->built->prepare (sr);      // (the sounds it plays from are at the old rate: the page hands them over again)
+                tp->keysUp();
+            }
+            keys.reset (sr);
+            playing.store (false);
+        }
+        rateOff.store (false);
+        logLine ("engine follows the device to " + String (sr));
+        if (onRateChanged) onRateChanged();
+    }
+
+    void audioDeviceAboutToStart (juce::AudioIODevice* d) override
+    {
+        if (d == nullptr) return;
+        const double r = d->getCurrentSampleRate();
+        inLat = d->getInputLatencyInSamples(); outLat = d->getOutputLatencyInSamples();
+        inputOn.store (d->getActiveInputChannels().countNumberOfSetBits() > 0);
+        pool.setGroup (d->getWorkgroup());
+        if (r < 8000.0) return;                                        // (it cannot say its rate: nothing to follow, and nothing is played at a rate of none)
+        const bool off = std::abs (r - sr) > 1.0;
+        rateOff.store (off);
+        if (off) logLine ("device rate is now " + String (r));
+        juce::MessageManager::callAsync ([this] { followDevice(); });  // (also when the rate is the engine's own again: whatever was waiting to be followed is settled against the device as it is)
+    }
+    void audioDeviceStopped() override
+    {
+        if (recording.load() && takeWriting.load() && ! leaving.load() && ! takeBroken.exchange (true))      // the device stopped under a take that was being written (see the hole in its blocks, in the callback): the take ends with what came in
+            juce::MessageManager::callAsync ([this] { if (recording.load() && onTakeStalled) onTakeStalled (false); });
+    }
+
+    void audioDeviceIOCallbackWithContext (const float* const* in, int numIn, float* const* out, int numOut, int n, const juce::AudioIODeviceCallbackContext&) override
+    {
+        juce::ScopedNoDenormals noDenormals;
+        const auto t0 = juce::Time::getHighResolutionTicks();
+        const int asked = n;
+        /*  A take cannot go on across a hole in the device's blocks (the machine slept, the device was taken away and came
+            back): what came in before the hole is the take — what came after would lie too early in its file by as long as
+            the hole lasted. Half a second without a block is a hole (a block that is merely late is not): nothing more is
+            written, and the page is told, so that it ends the take with what it has. (Only once the take is being written:
+            before its first sample — in the count-in — nothing can lie too early, and the song does not move in a hole.)  */
+        {
+            const auto now = (juce::int64) mach_continuous_time();     // (a clock that runs on while the machine sleeps: the one the blocks are timed with stands still then, and a night with the lid shut would be no hole at all)
+            const auto was = lastBlockTick.exchange (now, std::memory_order_relaxed);
+            if (was != 0 && takeWriting.load (std::memory_order_relaxed) && (double) (now - was) * tickSeconds > juce::jmax (0.5, 3.0 * (double) n / juce::jmax (8000.0, sr)) && ! takeBroken.exchange (true))
+                juce::MessageManager::callAsync ([this] { if (recording.load() && onTakeStalled) onTakeStalled (false); });
+        }
+        struct Timed { Engine& e; juce::int64 t0; int n; ~Timed() { e.timed (t0, n); } } timedBlock { *this, t0, asked };
+        for (int c = 0; c < numOut; ++c) if (out[c] != nullptr) juce::FloatVectorOperations::clear (out[c], n);
+        /*  The message thread holds the lock for a moment whenever the song changes hands (a few hundredths of a
+            thousandth of a second: pointers only). A block that arrives in that moment waits for it — up to a sixth of
+            its own length — and only then is given up and played as silence.                                        */
+        struct Held
+        {
+            Held (juce::CriticalSection& c, double waitSeconds) : cs (c)
+            {
+                got = cs.tryEnter();
+                if (got) return;
+                const auto until = juce::Time::getHighResolutionTicks() + juce::Time::secondsToHighResolutionTicks (waitSeconds);
+                while (! got && juce::Time::getHighResolutionTicks() < until) { for (int k = 0; k < 64; ++k) spin(); got = cs.tryEnter(); }
+            }
+            ~Held() { if (got) cs.exit(); }
+            static void spin() noexcept
+            {
+               #if defined (__aarch64__)
+                __asm__ __volatile__ ("yield");
+               #elif defined (__x86_64__)
+                __builtin_ia32_pause();
+               #endif
+            }
+            juce::CriticalSection& cs; bool got = false;
+        } held (lock, (double) n / sr / 6.0);
+        if (! held.got) { if (! bouncing.load()) perfHeld.fetch_add (1); return; }
+        if (bouncing.load() || rateOff.load() || numOut < 1 || out[0] == nullptr) return;
+        // the inputs of this block: every one the device has open (a tone on all of them in the self-test); a missing one reads as silence
+        if ((int) silence.size() < n) return;
+        const float* ins[kMaxIn];
+        bool any = false;
+        if (testInput)
+        {
+            n = juce::jmin (n, (int) testBuf.size());
+            const float w = juce::MathConstants<float>::twoPi * 220.0f / (float) sr;
+            for (int i = 0; i < n; ++i) { testBuf[(size_t) i] = 0.25f * std::sin (testPhase); testPhase += w; if (testPhase > juce::MathConstants<float>::twoPi) testPhase -= juce::MathConstants<float>::twoPi; }
+            for (auto& p : ins) p = testBuf.data();
+            any = true;
+        }
+        else
+        {
+            for (int c = 0; c < kMaxIn; ++c) { ins[c] = c < numIn && in[c] != nullptr ? in[c] : silence.data(); any = any || (c < numIn && in[c] != nullptr); }
+        }
+        if (any)
+        {
+            float pk = 0.0f;
+            for (int c = 0; c < juce::jmin (kMaxIn, testInput ? 1 : numIn); ++c) for (int i = 0; i < n; ++i) { const float a = std::abs (ins[c][i]); if (a > pk) pk = a; }
+            if (pk > inPeak.load()) inPeak.store (pk);
+        }
+        const bool silent = mute.load();
+        liveBlock.clear();
+        keys.removeNextBlockOfMessages (liveBlock, n);                 // what the keys have sent since the last block, each thing at its sample
+        blockLive = liveBlock.isEmpty() ? nullptr : &liveBlock; blockN = n;
+        int done = 0;
+        while (done < n)
+        {
+            const float* now[kMaxIn];
+            for (int c = 0; c < kMaxIn; ++c) now[c] = ins[c] == silence.data() ? ins[c] : ins[c] + done;
+            blockDone = done;
+            const int got = renderSome (juce::jmin (n - done, maxBlock), any ? now : nullptr);
+            if (got <= 0) break;
+            const float* mL = mix.getReadPointer (0); const float* mR = mix.getReadPointer (1); const float* ck = clk.getReadPointer (0);
+            const float mT = master.load(), ms = (mT - masterSm) / (float) got;
+            double sq = 0.0; float pk = 0.0f, pL = 0.0f, pR = 0.0f;
+            for (int i = 0; i < got; ++i)
+            {
+                masterSm += ms;
+                float l = mL[i] * masterSm, r = mR[i] * masterSm;
+                limit (l, r);
+                const float al = std::abs (l), ar = std::abs (r);
+                sq += (double) (l * l + r * r) * 0.5; if (al > pL) pL = al; if (ar > pR) pR = ar;
+                if (! silent) { out[0][done + i] = l + ck[i]; if (numOut > 1 && out[1] != nullptr) out[1][done + i] = r + ck[i]; }
+            }
+            masterSm = mT;
+            pk = juce::jmax (pL, pR);
+            meterSq.store (meterSq.load() + sq); meterN.store (meterN.load() + got); if (pk > meterPk.load()) meterPk.store (pk);
+            if (pL > meterL.load()) meterL.store (pL);
+            if (pR > meterR.load()) meterR.store (pR);
+            done += got;
+        }
+    }
+
+    /** One block is done: how long it took, against how long it lasts. */
+    void timed (juce::int64 t0, int n)
+    {
+        const double took = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0), lasts = (double) n / sr;
+        if (lasts <= 0.0) return;
+        const double load = took / lasts;
+        perfCalls.fetch_add (1); perfSum.store (perfSum.load() + load);
+        if ((float) load > perfMax.load()) perfMax.store ((float) load);
+        if (load > 1.0) perfOver.fetch_add (1);
+    }
+
+    /** Render up to `want` samples of every track into `mix`, stopping at the next thing on the line (a queued scene, the loop's end, the song's end, where a take begins). */
+    int renderSome (int want, const float* const* in)
+    {
+        const double barS = barSamples();
+        bool play = playing.load();
+        const bool rec = recording.load();
+        const double sk = seekTo.exchange (kNoSeek);
+        if (sk > kNoSeek * 0.5) { posS = (juce::int64) std::llround (sk * barS); for (auto& tp : tracks) { tp->outHold.clear(); for (auto& sd : tp->sends) sd.hold.clear(); for (auto& i : tp->inserts) i->keyHold.clear(); } }      // (and nothing held back from before the jump comes out after it)
+        if (play)
+        {
+            for (int guard = 0; guard < 3; ++guard)
+            {
+                const double posBar = (double) posS / barS, q = queued.load();
+                juce::int64 edge = rec ? std::numeric_limits<juce::int64>::max() / 4 : (juce::int64) std::llround (songEnd * barS);
+                int kind = 0; double to = 0.0;
+                if (q < 0.0) lastQ = -1.0;
+                if (rec) { if (posS < recStartS) edge = recStartS; kind = 3; }
+                else if (q >= 0.0)
+                {
+                    if (q != lastQ) { lastQ = q; qEdge = (juce::int64) std::llround ((std::floor (posBar + 1.0e-6) + 1.0) * barS); }     // the bar line it was asked before, once
+                    if (qEdge <= edge) { edge = qEdge; kind = 1; to = q; }
+                }
+                else if (loop.load())
+                {
+                    const double a = loopA.load(), b = loopB.load();
+                    const juce::int64 bS = (juce::int64) std::llround (b * barS);
+                    if (b - a > 1.0e-3 && posS <= bS) { edge = juce::jmin (edge, bS); kind = 2; to = a; }
+                }
+                if (posS < edge) { want = (int) juce::jmin ((juce::int64) want, edge - posS); break; }
+                if (kind == 1)      { posS = (juce::int64) std::llround (to * barS); queued.store (-1.0); lastQ = -1.0; jumps.fetch_add (1); }
+                else if (kind == 2) { posS = (juce::int64) std::llround (to * barS); jumps.fetch_add (1); }
+                else if (kind == 3) { break; }
+                else                { playing.store (false); play = false; posS = 0; jumps.fetch_add (1); break; }
+            }
+        }
+        if (want <= 0) return 0;
+        playHead.bpm.store (tempo.load()); playHead.ppq.store ((double) posS / barS * barQuarters()); playHead.playing.store (play); playHead.samples.store (posS);
+        /*  What is played by hand in this stretch is written down as it comes, whether or not a take is running (a take of
+            notes is read back from here, and so is what was played with nothing recording). The player pressed each key
+            to the song as it was heard — a block and the way out to the speakers before the sample now being made.     */
+        if (blockLive != nullptr && ! liveLog.empty())
+            for (const auto meta : *blockLive)
+            {
+                const int at = meta.samplePosition - blockDone;
+                if (at < 0 || at >= want || meta.numBytes < 2 || meta.numBytes > 3) continue;
+                auto& p = liveLog[logN % liveLog.size()];
+                p.songS = posS + at - blockN - outLat; p.runS = runS + at; p.seg = seg.load (std::memory_order_relaxed); p.rolling = play ? 1 : 0;
+                p.st = meta.data[0]; p.d1 = meta.data[1] & 127; p.d2 = meta.numBytes > 2 ? (juce::uint8) (meta.data[2] & 127) : (juce::uint8) 0;
+                ++logN;
+            }
+        runS += want;
+        renderGraph (posS, want, play, false, in, rec ? 1.0e9 : songEnd, nullptr, blockLive, blockDone);
+
+        // the click: on every beat while it is on, and through a count-in whether it is on or not
+        float* ck = clk.getWritePointer (0);
+        juce::FloatVectorOperations::clear (ck, want);
+        if (play && (click.load() || (rec && posS < recStartS)))
+        {
+            const int perBar = juce::jmax (1, beats.load());
+            const double beatS = barS / perBar;
+            // (begun a beat early: a beat's place is a rounded sample, and one that was rounded up onto the first sample of
+            //  this block — the first beat of a count-in at most tempos — lies a hair before posS when counted in beats)
+            for (juce::int64 k = (juce::int64) std::floor ((double) posS / beatS) - 1;; ++k)
+            {
+                const juce::int64 at = (juce::int64) std::llround ((double) k * beatS);
+                if (at >= posS + want) break;
+                if (at >= posS) { clkAt = 0; clkAccent = ((k % perBar) + perBar) % perBar == 0; clkFrom = (int) (at - posS); clicksBegun.fetch_add (1); if (clkAccent) accentsBegun.fetch_add (1); }
+            }
+        }
+        if (clkAt >= 0)
+        {
+            const float f = clkAccent ? 1760.0f : 1320.0f, w = juce::MathConstants<float>::twoPi * f / (float) sr, len = 0.045f * (float) sr;
+            for (int i = juce::jmax (0, clkFrom); i < want; ++i)
+            {
+                if ((float) clkAt > len) { clkAt = -1; break; }
+                const float e = 1.0f - (float) clkAt / len;
+                ck[i] = std::sin (w * (float) clkAt) * e * e * (clkAccent ? 0.36f : 0.24f);
+                ++clkAt;
+            }
+            clkFrom = 0;
+        }
+
+        // a take: what comes in goes to each armed track's file, from the bar the recording starts on
+        if (play && rec && posS >= recStartS && ! takeBroken.load (std::memory_order_relaxed))
+        {
+            takeWriting.store (true, std::memory_order_relaxed);
+            for (auto& r : recs)
+            {
+                const float* ch[2] = { silence.data(), silence.data() };
+                if (in != nullptr) pickInput (in, r->input, ch[0], ch[1]);
+                if (r->tw != nullptr && r->tw->write (ch, want)) r->got += want;
+            }
+        }
+
+        if (play) posS += want;
+        posBars.store ((double) posS / barS);
+        return want;
+    }
+    /** The one or two inputs a track listens to. */
+    static void pickInput (const float* const* in, int which, const float*& a, const float*& b)
+    {
+        if (which >= 100) { const int p = juce::jlimit (0, kMaxIn / 2 - 1, which - 100); a = in[2 * p]; b = in[2 * p + 1]; }
+        else { a = b = in[juce::jlimit (0, kMaxIn - 1, which)]; }
+    }
+
+    static constexpr double kNoSeek = -1.0e9;
+    static constexpr juce::int64 kSoundHead = 4096;       // a cached sound's samples begin this far into its file
+    static constexpr int kMaxIn = 16;
+    juce::AudioDeviceManager dm;
+    juce::AudioPluginFormatManager fm;
+    juce::AudioFormatManager afm;
+    juce::TimeSliceThread recThread { "takes" };
+    juce::CriticalSection lock;
+    std::vector<std::unique_ptr<Track>> tracks;
+    std::vector<Track*> order;                 // every track after all that flows into it, rank by rank
+    std::vector<size_t> rankEnds;              // where each rank ends in `order`
+    Pool pool;
+    int handsWanted = -1;
+    std::atomic<int> shared { 0 };             // how many ranks were shared out among the threads (for the measure)
+    static constexpr float kWorthSharing = 0.00012f;      // a rank is shared out when it has been taking longer than this alone (waking the others costs a few hundredths of a thousandth of a second)
+    std::vector<std::shared_ptr<Buf>> bufs;
+    std::map<String, int> bufIndex;
+    std::vector<std::unique_ptr<Rec>> recs;
+    double songEnd = 42.0;
+    PlayHead playHead;
+    juce::AudioBuffer<float> mix, clk;
+    std::vector<float> testBuf, silence;
+    float testPhase = 0.0f;
+    juce::int64 posS = 0, recStartS = 0, qEdge = 0;
+    juce::File takeNote;
+    double lastQ = -1.0;
+    int clkAt = -1, clkFrom = 0; bool clkAccent = false;
+    int inLat = 0, outLat = 0;
+    std::atomic<double> seekTo { kNoSeek };
+    std::atomic<bool> rateOff { false };
+    float limG = 1.0f, limRel = 0.0002f, masterSm = 1.0f;
+    std::atomic<double> meterSq { 0.0 }; std::atomic<int> meterN { 0 }; std::atomic<float> meterPk { 0.0f }, meterL { 0.0f }, meterR { 0.0f }, inPeak { 0.0f };
+    int nextUid = 0, latencyTick = 0, lastXruns = 0;
+    std::atomic<int> nextFile { 0 };                           // (a print that lays its sound in the project numbers it from its own thread)
+    std::vector<std::shared_ptr<Buf>> printBufs;               // the sounds as they were when the print that is running began (see renderGraph)
+    std::atomic<bool> leaving { false };                       // the app is going
+    std::thread printThread;                                   // the print under way, or the last one (message thread: startPrint, ~Engine)
+    std::atomic<bool> printing { false };                      // its thread has not come to its end yet
+    std::atomic<juce::int64> lastBlockTick { 0 };              // when the device last asked for a block (0: not looked at since a take began)
+    std::atomic<bool> takeBroken { false };                    // the take that is running had a hole in it: nothing more of it is written
+    std::atomic<bool> takeWriting { false };                   // the take that is running has had its first samples written (the count-in is over)
+    const double tickSeconds = [] { mach_timebase_info_data_t tb {}; mach_timebase_info (&tb); return tb.denom != 0 ? (double) tb.numer / (double) tb.denom * 1.0e-9 : 1.0e-9; }();      // one tick of the clock that runs through sleep
+    juce::CriticalSection printFileLock;                       // what a print is writing at this moment (its file, and the file an mp3 is made from): half-made, and taken away should the app have to go without the print
+    juce::File printFile, printTmp;
+    juce::var printStates;                                     // every plug-in's state as it was when the print began (message thread)
+    std::atomic<int> perfCalls { 0 }, perfOver { 0 }, perfHeld { 0 }, clicksBegun { 0 }, accentsBegun { 0 };
+    //── the keys ──
+    juce::MidiMessageCollector keys;                           // what keyboards (and the page) send, until the next block takes it
+    std::unique_ptr<juce::MidiDeviceListConnection> keysWatch;
+    juce::MidiBuffer liveBlock;                                // what was played by hand in the block now being made
+    const juce::MidiBuffer* blockLive = nullptr;               // (that, or nothing when nothing was)
+    int blockDone = 0, blockN = 0;                             // where in the device's block the stretch being made begins, and how long the block is
+    std::vector<Played> liveLog;                               // what has been played by hand, the newest 32768 things; written by the device's thread, read under the lock
+    size_t logN = 0, recLogFrom = 0;                           // how many things have been written in all; where the take that is running began
+    juce::int64 runS = 0;                                      // every sample the device has asked for since the engine started
+    std::vector<int> recNotes;                                 // the tracks of notes the take that is running is for
+    std::atomic<int> seg { 0 }, keysSeen { 0 };
+    std::atomic<double> perfSum { 0.0 };
+    std::atomic<float> perfMax { 0.0f };
+};
+
+} // namespace daw

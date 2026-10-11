@@ -6,16 +6,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/games/types'
 import { useEarTrainingRoom } from '@/lib/games/useEarTrainingRoom'
 import {
-  generateQuestion, playQuestion, isCorrect, unlockEarTrainingAudio,
-  INTERVAL_LABELS, CHORD_LABELS,
+  generateQuestion, playQuestion, isCorrect, unlockEarTrainingAudio, answerLabel as answerText,
   ROUND_DURATION_MS, REVEAL_DURATION_MS, MAX_PLAYS,
   type Question, type RoomConfig, type Mode, type Difficulty,
 } from '@/lib/games/earTraining'
 import { useT } from '@/lib/games/i18n'
-import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
+import { computerPlayerName, isComputerPlayerId } from '@/lib/games/computerPlayers'
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import { sfx } from '@/lib/games/sfx'
 import GameChat from './GameChat'
+import EarTrainingSolo, { FitLabel, SoloSetup, SOLO_DIFFICULTIES, SOLO_MODES } from './EarTrainingSolo'
 
 interface Props {
   supabase: SupabaseClient
@@ -75,7 +75,7 @@ export default function EarTrainingView ({
     createRoom, joinRoom, updateConfig, toggleReady, startGame,
     submitAnswer, advanceRound, forfeitGame,
     deleteCurrentRoom,
-    inviteFriend, cancelInvite, startComputerGame, submitComputerAnswer,
+    inviteFriend, cancelInvite, submitComputerAnswer,
   } = useEarTrainingRoom(supabase, currentUserId)
 
   const [showInvite, setShowInvite] = useState(false)
@@ -84,7 +84,28 @@ export default function EarTrainingView ({
   const [playsLeft, setPlaysLeft] = useState(MAX_PLAYS)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [computerStartPending, setComputerStartPending] = useState(false)
+  // Solo practice: no room, no opponent — its own screen (EarTrainingSolo).
+  const [solo, setSolo] = useState(false)
+  const [soloDifficulty, setSoloDifficulty] = useState<Difficulty>(() => {
+    try {
+      const d = localStorage.getItem('orb_et_solo_diff') as Difficulty | null
+      return d && SOLO_DIFFICULTIES.includes(d) ? d : 'basic'
+    } catch { return 'basic' }
+  })
+  const pickSoloDifficulty = useCallback((d: Difficulty) => {
+    setSoloDifficulty(d)
+    try { localStorage.setItem('orb_et_solo_diff', d) } catch { /* not kept */ }
+  }, [])
+  const [soloModes, setSoloModes] = useState<Mode[]>(() => {
+    try {
+      const kept = (localStorage.getItem('orb_et_solo_modes') ?? '').split(',').filter((m): m is Mode => SOLO_MODES.includes(m as Mode))
+      return kept.length ? kept : ['interval', 'chord']
+    } catch { return ['interval', 'chord'] }
+  })
+  const pickSoloModes = useCallback((m: Mode[]) => {
+    setSoloModes(m)
+    try { localStorage.setItem('orb_et_solo_modes', m.join(',')) } catch { /* not kept */ }
+  }, [])
 
   // Auto-resume any in-progress game on mount, or auto-accept a pending
   // invite that landed us on this screen.
@@ -232,15 +253,6 @@ export default function EarTrainingView ({
     setInvitedIds(s => new Set([...s, friendId]))
   }, [room, invitedIds, createRoom, inviteFriend, cancelInvite])
 
-  const handlePlayComputer = useCallback(async () => {
-    unlockEarTrainingAudio()
-    setComputerStartPending(true)
-    try {
-      if(room?.status==='lobby') await deleteCurrentRoom()
-      startComputerGame({modes:['interval','chord'],difficulty:'basic'},computerPlayerId(0))
-    } finally {setComputerStartPending(false)}
-  },[room,deleteCurrentRoom,startComputerGame])
-
   const handlePlay = () => {
     if (!question || playsLeft <= 0 || myAnswer) return
     playQuestion(question)
@@ -353,20 +365,13 @@ export default function EarTrainingView ({
   // Pretty-print an answer code (e.g. 'M3' → 'M3') via the right label
   // table. Returns null for missing / timeout picks so the caller can
   // render a "no pick" badge instead.
-  const answerLabel = (raw: string | null | undefined): string | null => {
-    if (!raw || raw === '__timeout__' || !question) return null
-    const table = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
-    return table[raw as keyof typeof table] ?? raw
-  }
-  const correctAnswerLabel = question
-    ? (question.type === 'interval' ? INTERVAL_LABELS[question.answer] : CHORD_LABELS[question.answer])
-    : ''
+  const answerLabel = (raw: string | null | undefined): string | null =>
+    !raw || raw === '__timeout__' || !question ? null : answerText(question, raw)
+  const correctAnswerLabel = question ? answerText(question, question.answer) : ''
 
   // ─── Overlay (lobby → ready → finished); null while a round is active ──────
   let overlay: React.ReactNode = null
-  if (computerStartPending) {
-    overlay = null
-  } else if (isFinished && room) {
+  if (isFinished && room) {
     // NO REMATCH — show the final score and exit chrome only.
     const resultMark = room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw'
     overlay = (
@@ -402,6 +407,11 @@ export default function EarTrainingView ({
               disabled={seat !== 'player1'}
               onClick={() => setMode('chord', !config.modes.includes('chord'))}
             >{t('et.modeChord')}</GameButton>
+            <GameButton
+              className={`et-chip${config.modes.includes('frequency') ? ' on' : ''}`}
+              disabled={seat !== 'player1'}
+              onClick={() => setMode('frequency', !config.modes.includes('frequency'))}
+            >{t('et.modeFrequency')}</GameButton>
           </div>
           <div className="et-setup-label">{t('et.difficulty')}</div>
           <div className="et-setup-row">
@@ -426,14 +436,30 @@ export default function EarTrainingView ({
   } else if (isLobby && !hasOpponent) {
     overlay = (
       <GameOverlayCard emoji="🎧" title={t('game.earTraining')} className="et-lobby-card">
-        <GameButton className="game-invite-btn" onClick={() => setShowInvite(true)}>
+        {/* solo first: most ears train alone */}
+        {!room && (
+          <>
+            <button className="game-invite-btn" onClick={() => setSolo(true)}>
+              {t('fb.playSolo')}
+            </button>
+            <SoloSetup modes={soloModes} onModes={pickSoloModes} difficulty={soloDifficulty} onDifficulty={pickSoloDifficulty} />
+          </>
+        )}
+        <button className={`game-invite-btn${room ? '' : ' game-computer-btn'}`} onClick={() => setShowInvite(true)}>
           {t('chess.inviteCta')}
-        </GameButton>
-        <GameButton className="game-invite-btn game-computer-btn" onClick={handlePlayComputer}>
-          {t('game.playComputer')}
-        </GameButton>
+        </button>
         {room && <div className="game-finish-readystate">{t('chess.waitingForFriend')}</div>}
       </GameOverlayCard>
+    )
+  }
+
+  if (solo && !room) {
+    return (
+      <EarTrainingSolo
+        modes={soloModes} onModes={pickSoloModes}
+        difficulty={soloDifficulty} onDifficulty={pickSoloDifficulty}
+        onExit={() => setSolo(false)}
+      />
     )
   }
 
@@ -479,9 +505,7 @@ export default function EarTrainingView ({
         </div>
       }
       fillBoard
-      board={computerStartPending ? (
-        <div className="game-transition-blank" />
-      ) : (
+      board={
         <div className="et-arena">
           {isPlaying && question && (
             <div className="et-round">
@@ -512,7 +536,7 @@ export default function EarTrainingView ({
               </div>
 
               <div className="et-prompt">
-                {question.type === 'interval' ? t('et.whatInterval') : t('et.whatChord')}
+                {t(question.type === 'interval' ? 'et.whatInterval' : question.type === 'chord' ? 'et.whatChord' : 'et.whatFrequency')}
               </div>
 
               {/* Options grid — hidden once both answer (reveal) so the
@@ -522,7 +546,6 @@ export default function EarTrainingView ({
               {!reveal && (
                 <div className="et-options">
                   {question.options.map(opt => {
-                    const labels = question.type === 'interval' ? INTERVAL_LABELS : CHORD_LABELS
                     const isMyPick = selectedAnswer === opt || myAnswer === opt
                     return (
                       <GameButton
@@ -531,7 +554,7 @@ export default function EarTrainingView ({
                         className={`et-option${isMyPick ? ' picked' : ''}`}
                         onClick={() => handleAnswer(opt)}
                         disabled={!!myAnswer}
-                      >{labels[opt as keyof typeof labels]}</GameButton>
+                      ><FitLabel>{answerText(question, opt)}</FitLabel></GameButton>
                     )
                   })}
                 </div>
@@ -590,7 +613,7 @@ export default function EarTrainingView ({
             </div>
           )}
         </div>
-      )}
+      }
       belowBoard={
         <div className="game-player-row">
           {currentUserProfile
@@ -607,7 +630,7 @@ export default function EarTrainingView ({
         </div>
       }
       overlay={overlay}
-      chat={!computerStartPending && !isComputerOpponent ? (
+      chat={
         <GameChat
           supabase={supabase}
           currentUserId={currentUserId}
@@ -616,7 +639,7 @@ export default function EarTrainingView ({
           otherUserId={isComputerOpponent ? null : opponentId}
           otherName={isComputerOpponent ? computerPlayerName(opponentId) : opponentProfile?.display_name}
         />
-      ) : undefined}
+      }
       invite={{
         open: showInvite,
         onClose: () => setShowInvite(false),

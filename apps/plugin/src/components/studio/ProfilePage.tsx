@@ -13,7 +13,7 @@
  * two taps for anything destructive.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { getInitials } from '../../types/collab'
@@ -44,6 +44,8 @@ interface Props {
   onUpdated: () => void
   /** Optimistic local patch for my own profile. */
   updateMe?: (patch: Partial<Profile>) => void
+  /** The side panel's way back, set at the masthead's top left. */
+  back?: ReactNode
 }
 
 const cleanUsername = (v: string) => v.toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 20)
@@ -202,7 +204,7 @@ function CreditForm({ draft, onChange, onSubmit, onCancel, submitWord, busy }: {
 
 export default function ProfilePage({
   supabase, user, profile, isMine, following, follower, onFollow, onUnfollow, onMessage, onUpdated, updateMe,
-  myFollowingIds, myFollowerIds, onFollowId, onUnfollowId, profileOf, onOpenProfile,
+  myFollowingIds, myFollowerIds, onFollowId, onUnfollowId, profileOf, onOpenProfile, back,
 }: Props) {
   const { credits, loaded: creditsLoaded, add, update, remove } = useCredits(supabase, profile.id)
   const releases = useReleases(supabase, profile.id)
@@ -377,6 +379,7 @@ export default function ProfilePage({
 
         {/* ── masthead ─────────────────────────────────────────── */}
         <div className="wd-prof-mast" style={{ ["--prof-tint" as string]: tintOf(houseColor(profile.id)) }}>
+          {back}
           <div
             className={`wd-prof-av${isMine ? ' mine' : ''}${uploading ? ' busy' : ''}`}
             style={{ background: houseColor(profile.id) }}

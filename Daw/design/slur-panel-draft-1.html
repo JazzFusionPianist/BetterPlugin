@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slur panel, portrait, draft 1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* The slur panel inside the daw, drawn at its real size: 300 wide, as tall as the room between the bar and the foot
+   (834 on a 1440 x 900 screen, 602 in the smallest window). Every colour, size and radius is read from the running
+   landscape studio (apps/plugin, ?surface=chat) on 2026-10-06; only the arrangement is new. */
+@font-face { font-family: 'Instrument Sans'; src: url('../ui/fonts/instrument-sans-normal-400-700-latin.woff2') format('woff2'); font-weight: 400 700; font-style: normal; }
+@font-face { font-family: 'Instrument Sans'; src: url('../ui/fonts/instrument-sans-italic-400-700-latin.woff2') format('woff2'); font-weight: 400 700; font-style: italic; }
+
+html, body { margin: 0; background: #0E0E0E; }
+body { padding: 36px 40px 60px; font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif; color: #ECEAE4; width: max-content; }
+.sheet { display: flex; gap: 36px; align-items: flex-start; }
+.col > h2, .room-title { font-size: 11px; font-weight: 500; margin: 0 0 10px; color: rgba(236,234,228,.6); }
+.col > h2 i { font-style: normal; color: rgba(236,234,228,.32); margin-left: 8px; }
+.room-title { margin-top: 44px; }
+.inroom { position: relative; width: 1440px; height: 900px; background: url('app after draft 7/3 slur.png') 0 0 / 1440px 900px no-repeat; }
+.inroom .sp { position: absolute; left: 1140px; top: 44px; }
+
+/* ── the panel ─────────────────────────────────────────────────────── */
+.sp { width: 300px; background: #FBFAF7; color: #1A1917; font-size: 13px; line-height: 1.3; overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
+  --ink: #1A1917; --t2: #6E6B63; --t3: #A5A199; --t4: #C0BCB3; --soft: #F1EEE6; --rail: #F4F2EC; --acc: #3FB872; }
+.sp * { box-sizing: border-box; margin: 0; }
+.sp svg { flex: none; }
+.sp button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+.tile { width: 28px; height: 28px; border-radius: 9px; background: rgba(26,25,23,.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.av { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11.5px; font-weight: 500; position: relative; }
+.av.grp { border-radius: 9px; }
+.dot { position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--acc); border: 2px solid var(--rail); }
+
+/* home: the picture and the week on paper, the rail as a sheet under them */
+.home-top { flex: none; }
+.bar { position: relative; height: 104px; overflow: hidden; }
+.bar svg { display: block; }
+.bar-name { position: absolute; top: 74px; transform: translateX(-50%); max-width: 56px; text-align: center; font-size: 10px; font-weight: 400; letter-spacing: -0.01em; color: var(--t3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-name.on { color: var(--ink); font-weight: 500; }
+.bar-name small { display: block; font-size: 8.5px; font-style: italic; color: var(--acc); font-weight: 400; }
+.bar-fade { position: absolute; right: 0; top: 0; bottom: 0; width: 46px; background: linear-gradient(90deg, rgba(251,250,247,0), #FBFAF7 70%); }
+.bar-go { position: absolute; right: 8px; top: 76px; font-size: 9.5px; color: var(--t2); }
+.greet { padding: 8px 14px 0; }
+.greet h1 { font-size: 19px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.15; }
+.greet-row { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; }
+.greet-row span { font-size: 10.5px; color: var(--t3); }
+.sp .pill-dark { background: var(--ink); color: #FBFAF7; font-size: 10.5px; font-weight: 500; border-radius: 999px; padding: 4px 10px; }
+.week { display: flex; gap: 5px; padding: 12px 14px 14px; }
+.arch { flex: 1; height: 86px; border-radius: 999px 999px 8px 8px; background: #EFECE4; display: flex; flex-direction: column; align-items: center; padding-top: 13px; }
+.arch.today { background: #BFE6CB; }
+.arch small { font-size: 9px; color: var(--t2); line-height: 1; }
+.arch b { font-size: 14px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; margin-top: 4px; }
+.arch i { width: 5px; height: 5px; border-radius: 50%; margin-top: 4px; flex: none; }
+.arch i:first-of-type { margin-top: 9px; }
+.arch i.past { opacity: .4; }
+
+.railsheet { flex: 1; min-height: 0; background: var(--rail); border-radius: 18px 18px 0 0; padding: 8px 8px 0; display: flex; flex-direction: column; }
+.rail-scroll { flex: 1; min-height: 0; overflow: hidden; }
+.duo { display: flex; gap: 4px; }
+.row { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 12px; height: 42px; flex: 1; min-width: 0; }
+.row.on { background: #fff; }
+.rname { flex: 1; min-width: 0; }
+.rname b { display: block; font-weight: 600; font-size: 12.5px; letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rname span { display: block; font-size: 10.5px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rname span.studio { color: var(--acc); font-style: italic; }
+.badge { background: var(--acc); color: #fff; font-size: 9.5px; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+.sec { font-size: 10.5px; font-weight: 500; color: var(--t3); padding: 12px 8px 5px; display: flex; justify-content: space-between; align-items: center; }
+.rail-foot { flex: none; display: flex; align-items: center; padding: 4px 0 8px; }
+.rail-foot .row b { font-weight: 400; font-size: 11px; color: var(--t2); }
+.gear { padding: 0 9px; color: var(--t3); display: flex; }
+
+/* a room */
+.head { flex: none; padding: 12px 14px 0; }
+.head-row { display: flex; align-items: center; gap: 9px; }
+.hav { width: 30px; height: 30px; }
+.hcol { min-width: 0; flex: 1; }
+.htitle { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.hsub { font-size: 10.5px; color: var(--t3); white-space: nowrap; }
+.hsub em { font-style: normal; color: var(--acc); }
+.tabs { display: flex; gap: 2px; padding: 10px 0 8px; margin: 0 -2px; }
+.tab { font-size: 11.5px; color: var(--t2); border-radius: 999px; padding: 5px 10px; line-height: 1.3; white-space: nowrap; }
+.tab.on { background: var(--ink); color: #FBFAF7; }
+.tab sup { font-size: 9px; color: var(--acc); margin-left: 2px; line-height: 0; }
+.chat { flex: 1; min-height: 0; overflow: hidden; padding: 4px 14px 8px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.day { font-size: 10.5px; color: var(--t3); padding: 8px 0 4px; }
+.who { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--t3); padding: 6px 0 1px; }
+.who .av { width: 18px; height: 18px; font-size: 9px; }
+.line { display: flex; align-items: flex-end; gap: 6px; }
+.line.mine { justify-content: flex-end; }
+.bub { background: var(--soft); border-radius: 16px; padding: 8px 12px; font-size: 13px; max-width: 214px; }
+.line.mine .bub { background: var(--ink); color: #FBFAF7; }
+.line.mine .bub.tail { border-radius: 16px 16px 5px 16px; }
+.time { font-size: 9.5px; color: var(--t4); padding-bottom: 2px; }
+.chip { display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 10px; color: var(--acc); }
+.plate { background: var(--soft); border-radius: 16px; }
+.plate-art { padding: 12px 14px 6px; }
+.plate-cap { padding: 6px 14px 10px; }
+.plate-row { display: flex; align-items: center; gap: 8px; }
+.plate-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate-time { font-size: 10px; color: rgba(26,25,23,.55); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plate-acts { display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 10.5px; }
+.plate-acts .grow { flex: 1; }
+.plate-acts .acc { color: var(--acc); }
+.stems { padding: 10px 14px 10px; }
+.stems-row { display: flex; align-items: center; gap: 7px; }
+.stems-row b { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.stems-row span { font-size: 12px; white-space: nowrap; }
+.ticket { background: var(--soft); border-radius: 16px; padding: 9px 14px 9px 12px; display: flex; align-items: center; gap: 12px; width: max-content; }
+.ticket b { font-size: 14px; font-weight: 500; padding-right: 12px; border-right: 1px dashed rgba(26,25,23,.28); line-height: 20px; }
+.ticket span { font-size: 11px; color: var(--t2); }
+.ticket u { text-decoration: none; font-size: 12.5px; font-weight: 500; color: var(--acc); }
+.input { flex: none; margin: 0 14px 12px; height: 44px; border-radius: 22px; background: var(--soft); padding: 6px 6px 6px 8px; display: flex; align-items: center; gap: 6px; }
+.input .rnd { width: 28px; height: 30px; border-radius: 15px; background: rgba(26,25,23,.06); display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 14px; flex: none; }
+.input .ph { flex: 1; color: var(--t3); font-size: 13px; padding: 0 4px; white-space: nowrap; overflow: hidden; }
+.input .send { background: rgba(26,25,23,.12); color: #fff; font-size: 12px; }
+
+/* profile */
+.prof-mast { background: #DEDCF8; border-radius: 0 0 50% 50% / 0 0 26px 26px; padding: 12px 14px 30px; }
+.prof-row { display: flex; gap: 14px; align-items: flex-start; margin-top: 16px; padding: 0 4px; }
+.prof-av { width: 62px; height: 62px; border-radius: 50%; background: #1A1917; flex: none; display: flex; align-items: center; justify-content: center; color: #FBFAF7; font-size: 22px; font-weight: 500; }
+.prof-name { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.prof-handle { font-size: 10.5px; color: var(--t2); margin-top: 5px; display: flex; gap: 10px; }
+.prof-follows { font-size: 11.5px; color: var(--t2); margin-top: 9px; display: flex; gap: 12px; }
+.prof-follows b { color: var(--ink); font-weight: 600; margin-right: 3px; }
+.prof-bio { font-size: 12px; margin-top: 9px; }
+.word { font-size: 11px; color: var(--t2); }
+.word.acc { color: var(--acc); }
+.prof-sec { padding: 20px 18px 0; }
+.prof-sec-head { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 500; color: var(--t3); padding-bottom: 8px; border-bottom: 1px solid rgba(26,25,23,.14); }
+.cred { display: flex; gap: 12px; padding: 11px 0 12px; border-bottom: 1px solid rgba(26,25,23,.14); }
+.cred-no { font-size: 10.5px; color: var(--t3); width: 14px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.cred-main { flex: 1; min-width: 0; }
+.cred-work { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+.cred-work span { color: var(--t2); }
+.cred-work svg { display: inline-block; vertical-align: -2px; margin-left: 3px; }
+.cred-sub { font-size: 10.5px; color: var(--t2); margin-top: 3px; }
+.cred-sub i { font-style: normal; color: var(--t3); margin-left: 8px; }
+.cred-acts { display: flex; gap: 12px; margin-top: 6px; }
+
+/* games */
+.g-head { flex: none; display: flex; justify-content: space-between; align-items: baseline; padding: 16px 16px 14px; font-size: 13px; }
+.g-head b { font-weight: 500; }
+.g-head span { color: var(--t2); }
+.g-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 10px; padding: 0 14px; }
+.door { height: 172px; border-radius: 999px 999px 10px 10px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; }
+.door svg { width: 58%; height: auto; display: block; }
+.g-name { font-size: 13px; font-weight: 500; margin-top: 8px !important; padding: 0 2px; line-height: 1.22; }
+.g-sub { font-size: 10.5px; color: var(--t2); padding: 0 2px; margin-top: 1px !important; line-height: 1.22; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="col"><h2>1 home<i>300 x 834</i></h2><div class="sp" id="f-home" style="height:834px"></div></div>
+  <div class="col"><h2>2 a room<i>300 x 834</i></h2><div class="sp" id="f-room" style="height:834px"></div></div>
+  <div class="col"><h2>3 profile<i>300 x 834</i></h2><div class="sp" id="f-prof" style="height:834px"></div></div>
+  <div class="col"><h2>4 games<i>300 x 834</i></h2><div class="sp" id="f-games" style="height:834px"></div></div>
+  <div class="col"><h2>5 home in the smallest window<i>300 x 602</i></h2><div class="sp" id="f-home-min" style="height:602px"></div></div>
+</div>
+<div class="room-title">6 in the room, 1440 x 900</div>
+<div class="inroom" id="inroom"></div>
+
+<script>
+const C = { blue: '#5C80FF', green: '#3FB872', orange: '#F89C38', lilac: '#B79CFF', rose: '#F27BA6', yellow: '#E9C46A', ink: '#1A1917', paper: '#FBFAF7' }
+
+/* the drawing kit, as in apps/plugin/src/slur/marks.ts */
+const ellipsePath = (cx, cy, rx, ry, deg) => { const t = deg * Math.PI / 180, dx = rx * Math.cos(t), dy = rx * Math.sin(t); return `M ${cx - dx} ${cy - dy} A ${rx} ${ry} ${deg} 1 0 ${cx + dx} ${cy + dy} A ${rx} ${ry} ${deg} 1 0 ${cx - dx} ${cy - dy} Z` }
+const wholeNotePath = (cx, cy, s, hollow = true) => ellipsePath(cx, cy, s, .7 * s, -22) + (hollow ? ' ' + ellipsePath(cx, cy, .42 * s, .52 * s, 38) : '')
+const slurPath = (x0, y0, x1, y1, lift, thick) => { const c1 = x0 + (x1 - x0) * .22, c2 = x0 + (x1 - x0) * .78, top = Math.min(y0, y1) - lift; return `M ${x0} ${y0} C ${c1} ${top}, ${c2} ${top}, ${x1} ${y1} C ${c2} ${top + thick * 1.35}, ${c1} ${top + thick * 1.35}, ${x0} ${y0} Z` }
+
+const PEOPLE = [
+  { n: 'jun', c: C.orange, state: 'studio', sub: 'in the studio', last: '♪ 6 Tracks' },
+  { n: 'minseo', c: C.rose, state: 'on', last: '♪ hum_verse2_take3.wav', unread: 2 },
+  { n: 'haneul', c: C.green, state: 'off', last: 'you: 내일 보내줄게' },
+  { n: 'dae-ho', c: C.yellow, state: 'off', last: '♪ MR #2 (no click).wav' },
+  { n: 'sora kim', c: C.blue, state: 'off', last: 'offline' },
+  { n: 'theo', c: C.lilac, state: 'off', last: 'offline' },
+  { n: 'yuna', c: C.orange, state: 'off', last: 'offline' },
+]
+
+/* the home's picture at the panel's size: staff gap 9, a note 9 wide each way, 60 between notes */
+function bar () {
+  const H = 104, Y0 = 22, GAP = 9, S = 9, PITCH = 60, PAD = 30, TIE = 2.6, W = 300
+  const STEPS = [1, 4, 7, 2, 6, 3, 5, 4]
+  const pts = PEOPLE.map((p, i) => ({ p, x: PAD + i * PITCH, y: Y0 + 4 * GAP - STEPS[i % 8] * GAP / 2 }))
+  const full = PAD * 2 + (pts.length - 1) * PITCH
+  const first = pts[0], last = pts[pts.length - 1]
+  const x0 = first.x - S * .2, x1 = last.x + S * .2, ya = first.y - S * 1.15, yb = last.y - S * 1.15
+  const top = 5
+  const lines = [0, 1, 2, 3, 4].map(i => `<line x1="0" x2="${full}" y1="${Y0 + i * GAP + .5}" y2="${Y0 + i * GAP + .5}" stroke="rgba(26,25,23,.18)"/>`).join('')
+  const notes = pts.map(q => `<path d="${wholeNotePath(q.x, q.y, S, q.p.state === 'off')}" fill="${q.p.c}" fill-rule="evenodd"/>`).join('')
+  const names = pts.filter(q => q.x < W - 60).map(q => `<div class="bar-name ${q.p.state === 'off' ? '' : 'on'}" style="left:${q.x}px">${q.p.n}${q.p.state === 'studio' ? '<small>in the studio</small>' : ''}</div>`).join('')
+  return `<div class="bar"><svg width="${full}" height="${H}" viewBox="0 0 ${full} ${H}">${lines}<path d="${slurPath(x0, ya, x1, yb, Math.min(ya, yb) - top, TIE)}" fill="${C.ink}"/>${notes}</svg>${names}<div class="bar-fade"></div><div class="bar-go">3 more ›</div></div>`
+}
+
+const G = {
+  games: '<svg width="12" height="12" viewBox="0 0 12 12" fill="#1A1917"><circle cx="3.5" cy="3.5" r="1.5"/><circle cx="8.5" cy="3.5" r="1.5"/><circle cx="3.5" cy="8.5" r="1.5"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>',
+  live: '<svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="#1A1917" stroke-width="1.1" stroke-linecap="round"><circle cx="7" cy="6" r="1.3" fill="#1A1917" stroke="none"/><path d="M4.4 3.6a3.4 3.4 0 0 0 0 4.8M9.6 3.6a3.4 3.4 0 0 1 0 4.8"/></svg>',
+  search: '<svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#A5A199" stroke-width="1.2" stroke-linecap="round"><circle cx="4.6" cy="4.6" r="3.1"/><path d="M7 7l2.8 2.8"/></svg>',
+  gear: '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="2"/><path d="M6.5 1v1.6M6.5 10.4V12M1 6.5h1.6M10.4 6.5H12M2.6 2.6l1.1 1.1M9.3 9.3l1.1 1.1M2.6 10.4l1.1-1.1M9.3 3.7l1.1-1.1"/></svg>',
+  back: '<svg width="8" height="12" viewBox="0 0 8 12" fill="none" stroke="#1A1917" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 1.5L1.8 6 6 10.5"/></svg>',
+  play: '<svg width="9" height="10" viewBox="0 0 9 10" fill="#1A1917"><path d="M1 .8v8.4L8.2 5z"/></svg>',
+  dl: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#1A1917" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.8v7M4.2 6.2L7 9l2.8-2.8M2 9.6v2.2h10V9.6"/></svg>',
+  chev: '<svg width="6" height="9" viewBox="0 0 6 9" fill="none" stroke="#1A1917" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.2 1l3.3 3.5L1.2 8"/></svg>',
+  check: '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6" fill="#3FB872"/><path d="M3.4 6.2l1.8 1.8 3.4-3.6" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cal: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#3FB872" stroke-width="1"><rect x="1" y="2" width="8" height="7" rx="1.5"/><path d="M1 4.2h8M3.2 1v2M6.8 1v2" stroke-linecap="round"/></svg>',
+  dice: '<svg width="12" height="12" viewBox="0 0 12 12" fill="#6E6B63"><circle cx="3.5" cy="3.5" r="1.4"/><circle cx="8.5" cy="3.5" r="1.4"/><circle cx="3.5" cy="8.5" r="1.4"/><circle cx="8.5" cy="8.5" r="1.4"/></svg>',
+}
+
+const person = (p, on) => `<div class="row${on ? ' on' : ''}"><div class="av" style="background:${p.c}">${p.n[0].toUpperCase()}${p.state !== 'off' ? '<i class="dot"></i>' : ''}</div><div class="rname"><b>${p.n}</b><span${p.state === 'studio' ? ' class="studio"' : ''}>${p.state === 'studio' ? 'in the studio, 2h' : p.last}</span></div>${p.unread ? `<i class="badge" style="font-style:normal">${p.unread}</i>` : ''}</div>`
+
+function home () {
+  const days = [['tue', 6, [[C.yellow, 1], [C.blue, 0]]], ['wed', 7, [[C.lilac, 0]]], ['thu', 8, [[C.rose, 0]]], ['fri', 9, []], ['sat', 10, [[C.orange, 0], [C.orange, 0], [C.blue, 0]]], ['sun', 11, [[C.orange, 0], [C.lilac, 0]]], ['mon', 12, [[C.orange, 0]]]]
+  return `<div class="home-top">${bar()}
+    <div class="greet"><h1>good evening, steven</h1><div class="greet-row"><span>tuesday 6 october</span><button class="pill-dark">my calendar</button></div></div>
+    <div class="week">${days.map(([d, n, ev], i) => `<div class="arch${i === 0 ? ' today' : ''}"><small>${d}</small><b>${n}</b>${ev.map(([c, past]) => `<i style="background:${c}"${past ? ' class="past"' : ''}></i>`).join('')}</div>`).join('')}</div>
+  </div>
+  <div class="railsheet"><div class="rail-scroll">
+    <div class="duo"><div class="row"><div class="tile">${G.games}</div><div class="rname"><b>games</b></div></div><div class="row"><div class="tile">${G.live}</div><div class="rname"><b>live</b></div></div></div>
+    <div class="sec">projects</div>
+    <div class="row"><div class="av grp" style="background:${C.lilac}">N</div><div class="rname"><b>night bus ep</b><span>jun: ♪ 6 Tracks</span></div><i class="badge" style="font-style:normal">1</i></div>
+    <div class="row"><div class="av grp" style="background:${C.blue}">토</div><div class="rname"><b>토요일 밴드</b><span>minseo: 금요일 8시 합주 가능?</span></div></div>
+    <div class="sec">people ${G.search}</div>
+    ${PEOPLE.map(p => person(p)).join('')}
+  </div>
+  <div class="rail-foot"><div class="row"><div class="av" style="background:${C.ink}">S<i class="dot"></i></div><div class="rname"><b>steven</b></div></div><div class="gear">${G.gear}</div></div></div>`
+}
+
+/* a waveform as the plate draws it: thin bars, the played part in ink */
+function wave (seed, w, h, played) {
+  let s = seed, out = ''
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647
+  const n = Math.floor(w / 3)
+  for (let i = 0; i < n; i++) {
+    const env = .25 + .75 * Math.abs(Math.sin(i / n * Math.PI * 3.2 + seed)) * (.55 + .45 * Math.sin(i / 7))
+    const a = Math.max(2, Math.round((.2 + .8 * rnd()) * env * h))
+    out += `<rect x="${i * 3}" y="${(h - a) / 2}" width="1.5" height="${a}" rx=".75" fill="#1A1917" fill-opacity="${i / n < played ? 1 : .26}"/>`
+  }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block">${out}</svg>`
+}
+const plate = (name, time, bar, seed, played) => `<div class="plate"><div class="plate-art">${wave(seed, 244, 40, played)}</div><div class="plate-cap"><div class="plate-row">${G.play}<div class="plate-name">${name}</div><div class="plate-time">${time}</div></div><div class="plate-acts"><span class="plate-time">${bar}</span><span class="grow"></span>${G.dl}<span>Drag to DAW</span><span class="acc">copy link</span></div></div></div>`
+const stems = n => `<div class="plate stems"><div class="stems-row">${G.chev}<b>Shared stems</b><span>/ ${n} tracks</span></div><div class="plate-acts"><span class="grow"></span>${G.dl}<span>Drag all to DAW</span></div></div>`
+
+function room () {
+  return `<div class="head"><div class="head-row"><button class="tile">${G.back}</button><div class="av grp hav" style="background:${C.lilac};font-size:13px">N</div><div class="hcol"><div class="htitle">night bus ep</div><div class="hsub">3 members <em>1 in the studio now</em></div></div></div>
+    <div class="tabs"><span class="tab on">chat</span><span class="tab">files</span><span class="tab">calendar</span><span class="tab">notes<sup>1</sup></span><span class="tab">tasks</span></div></div>
+  <div class="chat">
+    <div class="who"><div class="av" style="background:${C.orange}">J</div>jun</div>
+    <div class="line"><div class="bub">드럼 버스는 그대로 두자</div><span class="time">18:40</span></div>
+    <div class="line mine"><span class="time">18:44</span><div class="bub tail">ㅇㅇ 킥만 -3 내릴게</div></div>
+    <div class="day">sat 3 oct</div>
+    <div class="who"><div class="av" style="background:${C.rose}">M</div>minseo</div>
+    <div class="line"><div class="bub">2절 훅 다시 불러봤어</div></div>
+    ${plate('hum_verse2_take3.wav', '0:42 / 3:18', 'bar 25.1.1', 7, .22)}
+    <div class="line"><span class="grow" style="flex:1"></span><span class="time">21:06</span></div>
+    <div class="line mine"><span class="time">21:14</span><div class="bub tail">오 좋다 이걸로 가자</div></div>
+    <div class="line mine"><div class="bub tail">금요일 8시에 합주 어때</div></div>
+    <div class="chip">${G.cal}add to calendar</div>
+    <div class="day">today</div>
+    <div class="who"><div class="av" style="background:${C.orange}">J</div>jun</div>
+    <div class="line"><div class="bub">베이스 다시 쳤어, 스템으로 올림</div></div>
+    ${stems(6)}
+    ${plate('bass_DI_v3.wav', '0:00 / 3:18', 'bar 5.1.1', 23, 0)}
+    <div class="line"><div class="ticket"><b>chess</b><span>jun invited you</span><u>join</u></div><span class="time">19:52</span></div>
+    <div class="line mine"><span class="time">19:55</span><div class="bub tail">ㅇㅋ 지금 얹어볼게</div></div>
+  </div>
+  <div class="input"><span class="rnd">+</span><span class="rnd">${G.dice}</span><span class="ph">message night bus ep…</span><span class="rnd send">→</span></div>`
+}
+
+function prof () {
+  const cred = (no, work, artist, parts, year) => `<div class="cred"><div class="cred-no">${no}</div><div class="cred-main"><div class="cred-work">${work} <span>${artist}</span>${G.check}</div><div class="cred-sub">${parts}<i>${year}</i></div><div class="cred-acts"><span class="word">edit</span><span class="word">remove</span></div></div></div>`
+  return `<div class="prof-mast"><button class="tile">${G.back}</button>
+    <div class="prof-row"><div class="prof-av">S</div><div><div class="prof-name">steven</div><div class="prof-handle"><span>@steven</span><span>#000002</span></div><div class="prof-follows"><span><b>6</b>following</span><span><b>5</b>followers</span></div><div class="prof-bio">서울, 건반과 편곡</div><div style="margin-top:9px"><span class="word">edit</span></div></div></div></div>
+  <div class="prof-sec"><div class="prof-sec-head"><span>discography</span><span class="word acc">+ add credit</span></div>
+    ${cred('01', 'PAPER MOON', 'HANEUL', 'Composition, Orchestration, Piano, Synth', '2025')}
+    ${cred('02', 'SODIUM LIGHT', 'SATURDAY BAND', 'Composition, Synth, Bass', '2026')}
+    ${cred('03', 'LAST TRAIN HOME (LIVE)', 'MINSEO', 'Arrangement, Keys', '2026')}
+    ${cred('04', 'NIGHT BUS', 'JUN', 'Composition, Synth', '2026')}
+  </div>`
+}
+
+/* the arcade's own objects (ArcadeLobby.tsx), each standing in a 120 x 150 box */
+const P = C.paper, K = C.ink
+const DOORS = [
+  ['chess', 'with a friend', '#1E9E63', `<circle cx="60" cy="40" r="23" fill="${P}"/><rect x="36" y="62" width="48" height="10" rx="5" fill="${P}"/><path d="M45 72 C45 104 33 116 28 134 H92 C87 116 75 104 75 72 Z" fill="${P}"/><rect x="18" y="132" width="84" height="18" rx="9" fill="${P}"/>`],
+  ['falling blocks', '2 to 4 players', '#7B5CFF', [0, 30, 60, 90].map(x => `<rect x="${x + 1}" y="121" width="28" height="28" rx="6" fill="${P}"/>`).join('') + `<rect x="1" y="91" width="28" height="28" rx="6" fill="${P}"/><rect x="31" y="91" width="28" height="28" rx="6" fill="${P}"/><rect x="91" y="61" width="28" height="28" rx="6" fill="${K}"/><rect x="91" y="31" width="28" height="28" rx="6" fill="${K}"/><rect x="61" y="31" width="28" height="28" rx="6" fill="${K}"/>`],
+  ['poker', "texas hold'em", '#D6402E', `<rect x="12" y="56" width="62" height="88" rx="9" fill="${K}" transform="rotate(-11 43 100)"/><g transform="rotate(7 81 100)"><rect x="50" y="54" width="62" height="90" rx="9" fill="${P}"/><path transform="translate(81 102) scale(1.15)" fill="#D6402E" d="M0 9 C-16 -3 -13 -15 -6 -15 C-2.5 -15 0 -12.5 0 -9.5 C0 -12.5 2.5 -15 6 -15 C13 -15 16 -3 0 9 Z"/></g>`],
+  ['pinball', 'solo, world ranking', '#2440FF', `<path d="M20 48 A40 40 0 0 1 100 48" stroke="${P}" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="60" cy="66" r="17" fill="${P}"/><path d="M12 116 L50 136" stroke="${K}" stroke-width="16" stroke-linecap="round"/><path d="M108 116 L70 136" stroke="${K}" stroke-width="16" stroke-linecap="round"/>`],
+  ['yacht dice', 'roll, hold, score', '#F5B82E', `<rect x="4" y="88" width="62" height="62" rx="14" fill="${P}"/>` + [[20, 104], [50, 104], [35, 119], [20, 134], [50, 134]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="${K}"/>`).join('') + `<g transform="rotate(12 87 53)"><rect x="56" y="22" width="62" height="62" rx="14" fill="${P}"/>` + [[72, 38], [87, 53], [102, 68]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="${K}"/>`).join('') + '</g>'],
+  ['orb merge', 'drop, merge, grow', '#F3A3C0', `<circle cx="40" cy="114" r="36" fill="${P}"/><circle cx="98" cy="128" r="22" fill="${K}"/><circle cx="86" cy="82" r="12" stroke="${P}" stroke-width="5" fill="none"/><circle cx="52" cy="34" r="9" fill="${P}"/>`],
+  ['ear training', 'solo or a duel', '#1A1917', `<ellipse cx="32" cy="128" rx="18" ry="12" transform="rotate(-20 32 128)" stroke="${P}" stroke-width="9" fill="none"/><ellipse cx="88" cy="104" rx="18" ry="12" transform="rotate(-20 88 104)" stroke="${P}" stroke-width="9" fill="none"/><path d="M14 98 C28 58 70 44 104 70" stroke="#F5B82E" stroke-width="6" stroke-linecap="round" fill="none"/>`],
+  ['sudoku', 'solo', '#9CC3FF', [0, 1, 2].flatMap(r => [0, 1, 2].map(c => `<rect x="${9 + c * 35}" y="${45 + r * 35}" width="32" height="32" rx="7" fill="${(r === 0 && c === 1) || (r === 2 && c === 0) ? K : P}"/>`)).join('')],
+]
+function games () {
+  return `<div class="g-head"><b>games</b><span>close</span></div><div class="g-grid">${DOORS.map(([n, s, wall, obj]) => `<div><div class="door" style="background:${wall}"><svg viewBox="0 0 120 150">${obj}</svg></div><div class="g-name">${n}</div><div class="g-sub">${s}</div></div>`).join('')}</div>`
+}
+
+document.getElementById('f-home').innerHTML = home()
+document.getElementById('f-home-min').innerHTML = home()
+document.getElementById('f-room').innerHTML = room()
+document.getElementById('f-prof').innerHTML = prof()
+document.getElementById('f-games').innerHTML = games()
+const inroom = document.createElement('div'); inroom.className = 'sp'; inroom.style.height = '834px'; inroom.innerHTML = room()
+document.getElementById('inroom').appendChild(inroom)
+const only = new URLSearchParams(location.search).get('only')
+if (only === 'inroom') { const r = document.getElementById('inroom'); document.body.style.padding = '0'; document.body.innerHTML = ''; document.body.appendChild(r) }
+else if (only) { document.body.style.padding = '0'; document.body.innerHTML = ''; const d = document.createElement('div'); d.className = 'sp'; d.style.height = (only === 'home-min' ? 602 : 834) + 'px'; d.innerHTML = ({ home, 'home-min': home, room, prof, games })[only](); document.body.appendChild(d) }
+</script>
+</body>
+</html>

@@ -11,6 +11,8 @@
 //     combo +50 × (consecutive clears − 1); perfect clear 800 / 1200 / 1800 /
 //     2000 (3200 back-to-back); soft drop +1/cell, hard drop +2/cell
 //   - Level rises every 10 lines; gravity follows the guideline curve
+//   - Battle: an attack cancels incoming garbage before any is sent, and a
+//     placement that clears lines holds the rest off for one piece
 
 export type Cell = string | null
 export type Board = Cell[][]
@@ -50,13 +52,14 @@ export interface FallingBlocksState {
   lines: number
   topOut: boolean // true if game over
   garbagePending: number // incoming garbage to apply on next spawn
+  garbageHeld: boolean // the last placement cleared lines: what is still incoming waits a turn
   lockTimer: number | null // ms remaining before piece locks; null when not on ground
 }
 
 export interface LockResult {
   state: FallingBlocksState
   linesCleared: number // 0–4
-  garbageToSend: number // guideline attack: lines, T-spin, back-to-back, combo, perfect clear
+  garbageToSend: number // guideline attack (lines, T-spin, back-to-back, combo, perfect clear) left over after cancelling what was incoming
 }
 
 // ---------------------------------------------------------------------------
@@ -511,13 +514,15 @@ export function getGhostPiece(state: FallingBlocksState): Piece | null {
 // ---------------------------------------------------------------------------
 
 export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
-  // Apply any pending garbage before spawning.
+  // Apply any pending garbage before spawning — unless the placement just
+  // made cleared lines, which holds it off for one piece (guideline).
   let board = state.board
   let topOut = state.topOut
-  if (state.garbagePending > 0) {
+  const garbageIn = state.garbageHeld ? 0 : state.garbagePending
+  if (garbageIn > 0) {
     // If non-empty cells exist in the top `garbagePending` rows, those cells
     // would be pushed off the top — that is a top-out for the receiver.
-    for (let r = 0; r < state.garbagePending; r++) {
+    for (let r = 0; r < garbageIn; r++) {
       for (let c = 0; c < BOARD_COLS; c++) {
         if (board[r][c] !== null) {
           topOut = true
@@ -527,7 +532,7 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
       if (topOut) break
     }
     const holeCol = Math.floor(Math.random() * BOARD_COLS)
-    board = addGarbageLines(board, state.garbagePending, holeCol)
+    board = addGarbageLines(board, garbageIn, holeCol)
   }
 
   if (topOut) {
@@ -535,7 +540,8 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
       ...state,
       board,
       current: null,
-      garbagePending: 0,
+      garbagePending: state.garbagePending - garbageIn,
+      garbageHeld: false,
       topOut: true,
       lockTimer: null,
     }
@@ -551,7 +557,8 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
       current: null,
       next: queue,
       bag,
-      garbagePending: 0,
+      garbagePending: state.garbagePending - garbageIn,
+      garbageHeld: false,
       topOut: true,
       lockTimer: null,
     }
@@ -565,7 +572,8 @@ export function spawnPiece(state: FallingBlocksState): FallingBlocksState {
     bag,
     holdUsed: false,
     lastKick: null,
-    garbagePending: 0,
+    garbagePending: state.garbagePending - garbageIn,
+    garbageHeld: false,
     topOut: false,
     lockTimer: null,
   }
@@ -589,6 +597,7 @@ export function initialFallingBlocksState(): FallingBlocksState {
     lines: 0,
     topOut: false,
     garbagePending: 0,
+    garbageHeld: false,
     lockTimer: null,
   }
   return spawnPiece(base)
@@ -702,6 +711,10 @@ export function lockPiece(state: FallingBlocksState): LockResult {
       (perfect ? PERFECT_CLEAR_ATTACK : 0)
   }
 
+  // An attack first eats what was coming at this board; only the rest is sent.
+  const cancelled = Math.min(garbageToSend, state.garbagePending)
+  garbageToSend -= cancelled
+
   const scored = linesCleared > 0 || spin !== 'none'
   const next: FallingBlocksState = {
     ...state,
@@ -716,6 +729,8 @@ export function lockPiece(state: FallingBlocksState): LockResult {
     actionSeq: scored ? state.actionSeq + 1 : state.actionSeq,
     score: state.score + gained,
     lines: state.lines + linesCleared,
+    garbagePending: state.garbagePending - cancelled,
+    garbageHeld: linesCleared > 0,
     lockTimer: null,
   }
   return { state: next, linesCleared, garbageToSend }

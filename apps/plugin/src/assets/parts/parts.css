@@ -108,7 +108,7 @@
 .plugin.sounds .sg-study-print { margin-top: auto; }
 
 /* ── the shelf: the family tabs at the left, one family's prints ── */
-.plugin.sounds .sg-shelf-fam { flex: none; margin-right: 4px; align-self: center; position: relative; top: -13px; }
+.plugin.sounds .sg-shelf-fam { flex: none; margin: 0; align-self: center; position: static; }
 .plugin.sounds .sg-shelf-item span { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0; }
 
 /* ── inside a print, close in: its hands, like a nucleus; a control wire lands on a word ── */

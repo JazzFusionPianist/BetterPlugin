@@ -15,21 +15,24 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { C, houseColor, hz, play, slurPath, wholeNotePath } from '../../slur/marks'
 import type { Profile } from '../../types/collab'
 
-const H = 206          // the bar's height
-const Y0 = 62          // the staff's top line
-const GAP = 20         // between staff lines
-const S = 17           // a note's half-width
-const MIN = 96         // notes are never closer than this
-const TIE = 4.2        // the slur's thickness
+/** The picture's measures: the wide studio's, and the side panel's (Slur DAW, about 300 wide), where the
+ *  staff is smaller and the notes keep one distance instead of spreading over the pane. */
+const WIDE = { H: 206, Y0: 62, GAP: 20, S: 17, MIN: 96, TIE: 4.2, TOP: 7, CLEAR: 26, AIR: 8, NAME: 20 }
+const SMALL = { H: 104, Y0: 22, GAP: 9, S: 9, MIN: 60, TIE: 2.6, TOP: 5, CLEAR: 12, AIR: 4, NAME: 16 }
 const STEPS = [1, 4, 7, 2, 6, 3, 5, 4]
-const yOf = (step: number) => Y0 + 4 * GAP - (step * GAP) / 2
 
-export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }: {
+export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen, compact = false }: {
   friends: Profile[]
   onlineIds: Set<string>
   studioIds?: Set<string>
   onOpen: (userId: string) => void
+  /** The side panel's picture. */
+  compact?: boolean
 }) {
+  // H the bar's height, Y0 the staff's top line, GAP between staff lines, S a note's half-width,
+  // MIN notes are never closer than this, TIE the slur's thickness, AIR between the slur and a note under it
+  const { H, Y0, GAP, S, MIN, TIE, TOP, CLEAR, AIR, NAME } = compact ? SMALL : WIDE
+  const yOf = (step: number) => Y0 + 4 * GAP - (step * GAP) / 2
   // the pane's width, live
   const box = useRef<HTMLDivElement>(null)
   const strip = useRef<HTMLDivElement>(null)
@@ -51,8 +54,8 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
   // a quiet bar when there is no one yet — three house notes
   const quiet = list.length === 0
   const n = quiet ? 3 : list.length
-  const pad = Math.min(160, Math.max(64, w * 0.09))
-  const gap = n === 1 ? 0 : Math.max(MIN, (w - 2 * pad) / (n - 1))
+  const pad = compact ? 30 : Math.min(160, Math.max(64, w * 0.09))
+  const gap = n === 1 ? 0 : compact ? MIN : Math.max(MIN, (w - 2 * pad) / (n - 1))
   const full = Math.max(w, n === 1 ? w : 2 * pad + (n - 1) * gap)      // the strip's whole length
   const pts = Array.from({ length: n }, (_, i) => ({ x: n === 1 ? w / 2 : pad + i * gap, step: quiet ? [2, 5, 4][i]! : STEPS[i % STEPS.length]! }))
     .map(q => ({ ...q, y: yOf(q.step) }))
@@ -60,7 +63,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
   // the slur starts over the first note and lands over the last, and is lifted — its crown first, then
   // its ends — until its underside clears every note in between
   const x0 = first.x - S * 0.2, x1 = last.x + S * 0.2
-  let top = Math.max(7, Math.min(...pts.map(q => q.y)) - S * 1.15 - 26)
+  let top = Math.max(TOP, Math.min(...pts.map(q => q.y)) - S * 1.15 - CLEAR)
   let ya = first.y - S * 1.15, yb = last.y - S * 1.15
   const under = (x: number) => {
     const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0 || 1)))
@@ -73,11 +76,11 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
     let worst = -1, by = 0
     pts.forEach((q, i) => {
       if (i === 0 || i === n - 1) return
-      const over = Math.max(under(q.x - S), under(q.x), under(q.x + S)) - (q.y - S * 0.7 - 8)
+      const over = Math.max(under(q.x - S), under(q.x), under(q.x + S)) - (q.y - S * 0.7 - AIR)
       if (over > by) { by = over; worst = i }
     })
     if (worst < 0) break
-    if (top > 7) top = Math.max(7, top - 4)
+    if (top > TOP) top = Math.max(TOP, top - 4)
     else if (pts[worst]!.x - x0 < x1 - pts[worst]!.x) { if (ya <= top + 10) break; ya -= 4 }
     else { if (yb <= top + 10) break; yb -= 4 }
   }
@@ -88,7 +91,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
   const max = Math.max(0, full - w)
   useEffect(() => { if (strip.current && strip.current.scrollLeft > max) strip.current.scrollLeft = max }, [max])
   const slide = (dir: 1 | -1) => strip.current?.scrollBy({ left: dir * Math.max(MIN * 2, w * 0.6), behavior: 'smooth' })
-  const beyond = pts.filter(q => q.x > left + w - 60).length
+  const beyond = pts.filter(q => q.x > left + w - (compact ? 40 : 60)).length
 
   const [rung, setRung] = useState<Record<number, number>>({})
   const touch = (i: number) => {
@@ -99,12 +102,12 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
   const quietColors = [C.ink, C.orange, C.blue]
 
   return (
-    <div className="wd-bar" ref={box}>
+    <div className={`wd-bar${compact ? ' compact' : ''}`} ref={box} style={compact ? { height: H } : undefined}>
       <div className="wd-bar-strip" ref={strip} onScroll={e => setLeft((e.target as HTMLDivElement).scrollLeft)}>
         {w > 0 && (
-          <div className="wd-bar-sheet" style={{ width: full }}>
+          <div className="wd-bar-sheet" style={compact ? { width: full, height: H } : { width: full }}>
             <svg width={full} height={H} viewBox={`0 0 ${full} ${H}`} aria-hidden="true">
-              {[0, 1, 2, 3, 4].map(i => <line key={i} x1={0} x2={full} y1={Y0 + i * GAP} y2={Y0 + i * GAP} stroke="rgba(26,25,23,.18)" strokeWidth={1} />)}
+              {[0, 1, 2, 3, 4].map(i => <line key={i} x1={0} x2={full} y1={Y0 + i * GAP + (compact ? .5 : 0)} y2={Y0 + i * GAP + (compact ? .5 : 0)} stroke="rgba(26,25,23,.18)" strokeWidth={1} />)}
               {n > 1 && <path className="sl-tie" d={tie} fill={C.ink} onClick={() => pts.forEach((q, i) => play(hz(q.step), i * 0.14, 1.4))} />}
               {pts.map((q, i) => {
                 const who = list[i]
@@ -117,7 +120,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
               })}
             </svg>
             {list.map((who, i) => (
-              <button key={who.p.id} className={`wd-bar-name ${who.state}`} style={{ left: pts[i]!.x, top: Y0 + 4 * GAP + 20 }} onClick={() => onOpen(who.p.id)} title={who.p.display_name}>
+              <button key={who.p.id} className={`wd-bar-name ${who.state}`} style={{ left: pts[i]!.x, top: Y0 + 4 * GAP + NAME }} onClick={() => onOpen(who.p.id)} title={who.p.display_name}>
                 <span>{who.p.display_name}</span>
                 {who.state === 'studio' && <small>in the studio</small>}
               </button>
@@ -134,7 +137,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen }:
       {left < max - 4 && (
         <>
           <div className="wd-bar-fade" />
-          <button className="wd-bar-go" onClick={() => slide(1)} aria-label={`${beyond} more people`}><i>›</i>{beyond > 0 && <span>{beyond} more</span>}</button>
+          <button className="wd-bar-go" onClick={() => slide(1)} aria-label={`${beyond} more people`}><i>›</i>{beyond > 0 && <span>{beyond} more</span>}{compact && beyond > 0 && <b aria-hidden="true"> ›</b>}</button>
         </>
       )}
     </div>

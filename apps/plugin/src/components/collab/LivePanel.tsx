@@ -399,18 +399,18 @@ export default function LivePanel({
             />
 
             <div className="live-field">
-              <label className="live-field-label" htmlFor="live-audience">Who can watch?</label>
+              <label className="live-field-label" htmlFor="live-audience">who can watch?</label>
               <select id="live-audience" className="live-select" value={audience} onChange={e=>setAudience(e.target.value as LiveSession['audience'])}>
-                <option value="invited">Only invited people</option>
-                <option value="authenticated">Any signed-in user</option>
+                <option value="invited">only invited people</option>
+                <option value="authenticated">any signed-in user</option>
               </select>
-              <p>Up to 8 viewers. Viewers can record what they receive.</p>
-              {audience==='invited' && <fieldset><legend>Invite viewers ({invited.length}/8)</legend>
-                <div style={{maxHeight:140,overflowY:'auto'}}>{profiles.filter(p=>p.id!==currentUserId).map(p=><label key={p.id} style={{display:'block'}}>
+              <p className="live-field-hint">up to 8 viewers. viewers can record what they receive.</p>
+              {audience==='invited' && <fieldset className="live-invite"><legend className="live-field-label">invite viewers ({invited.length}/8)</legend>
+                <div className="live-invite-list">{profiles.filter(p=>p.id!==currentUserId).map(p=><label key={p.id} className="live-invite-row">
                   <input type="checkbox" checked={invited.includes(p.id)} disabled={invited.length>=8 && !invited.includes(p.id)}
-                    onChange={e=>setInvited(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>{p.display_name || p.id}
+                    onChange={e=>setInvited(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/><span>{p.display_name || p.id}</span>
                 </label>)}</div>
-                {invited.length===0 && <p>No one else can join until you select a viewer.</p>}
+                {invited.length===0 && <p className="live-field-hint">no one else can join until you select a viewer.</p>}
               </fieldset>}
             </div>
             <div className="live-field">

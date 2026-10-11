@@ -36,14 +36,16 @@ if (new URLSearchParams(location.search).get('view') === 'room') {
 const room = createChessRoom(scene, renderer, [], [], () => {}, () => false)
 await room.ready
 room.setOpponentLabel('@opponent')
-const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light'].map(name => {
+const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light', 'floor-lamp-light'].map(name => {
   const light = scene.getObjectByName(name) as THREE.PointLight
   return { name, position: light.position.toArray(), intensity: light.intensity }
 })
 const initialLights = lighting()
-room.toggleLamp('wall'); room.toggleLamp('table')
+room.toggleLamp('wall'); room.toggleLamp('table'); room.toggleLamp('floor')
 const unlitLights = lighting()
-room.toggleLamp('wall'); room.toggleLamp('table')
+const floorEmissions = () => room.floorLampTargets.flatMap(node => (Array.isArray(node.material) ? node.material : [node.material]) as THREE.MeshStandardMaterial[]).filter(material => material.emissive.getHex() !== 0).map(material => material.emissiveIntensity)
+const unlitFloorEmissions = floorEmissions()
+room.toggleLamp('wall'); room.toggleLamp('table'); room.toggleLamp('floor')
 room.setTurn('near'); room.animateCandles(1000, false)
 const nearTurn = lighting()
 room.setTurn('far'); room.animateCandles(1000, false)
@@ -65,7 +67,10 @@ const pedalFoot = new THREE.Box3()
 for (let i = 0; i < pedalVertices.count; i++) {
   if (pedalVertices.getZ(i) > .16 && pedalVertices.getZ(i) < .18) pedalFoot.expandByPoint(new THREE.Vector3().fromBufferAttribute(pedalVertices, i))
 }
+const floorLampBounds = new THREE.Box3().setFromObject(scene.getObjectByName('beacon-floor-lamp')!)
+const shadeMaterial = room.floorLampTargets.flatMap(node => Array.isArray(node.material) ? node.material : [node.material]).find(material => material.name === 'Woven neutral fabric') as THREE.MeshStandardMaterial
 Object.assign(window, { pianoQA: {
+  floorLamp: { size: floorLampBounds.getSize(new THREE.Vector3()).divideScalar(10).toArray(), min: floorLampBounds.min.toArray(), max: floorLampBounds.max.toArray(), overlapsPiano: floorLampBounds.intersectsBox(new THREE.Box3().setFromObject(piano)), overlapsBench: floorLampBounds.intersectsBox(new THREE.Box3().setFromObject(bench)), shadeTextured: !!shadeMaterial.map && !!shadeMaterial.normalMap && !!shadeMaterial.roughnessMap, shader: shadeMaterial.customProgramCacheKey(), unlitEmissions: unlitFloorEmissions, litEmissions: floorEmissions() },
   pedalFoot: { size: pedalFoot.getSize(new THREE.Vector3()).toArray(), color: pedal.material.color.getHexString(), roughness: pedal.material.roughness, environment: pedal.material.envMapIntensity, emissive: pedal.material.emissive.getHex() },
   whiteKeyMaterial: { color: whiteKeyMaterial.color.getHexString(), roughness: whiteKeyMaterial.roughness, clearcoat: whiteKeyMaterial.clearcoat, environment: whiteKeyMaterial.envMapIntensity, emissive: whiteKeyMaterial.emissive.getHex(), textured: !!whiteKeyMaterial.map && !!whiteKeyMaterial.roughnessMap && !!whiteKeyMaterial.bumpMap, bump: whiteKeyMaterial.bumpScale, woodenEdge: !!whiteKeyMaterials[1].map },
   keyToneCount: new Set(nodes.filter(node => node.name.startsWith('white-key-')).map(node => ((node as THREE.Mesh).material as THREE.MeshPhysicalMaterial[])[0].color.getHex())).size,
@@ -77,7 +82,7 @@ Object.assign(window, { pianoQA: {
   externalPiano: !!scene.getObjectByName('tall3-upright-piano'),
   benchSize: new THREE.Box3().setFromObject(bench).getSize(new THREE.Vector3()).divideScalar(10).toArray(),
   chairX: scene.getObjectByName('opponent-chair')!.position.x,
-  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp'].map(name => {
+  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp', 'beacon-floor-lamp'].map(name => {
     const model = scene.getObjectByName(name)!
     const bounds = new THREE.Box3().setFromObject(model)
     return { name, min: bounds.min.toArray(), max: bounds.max.toArray() }

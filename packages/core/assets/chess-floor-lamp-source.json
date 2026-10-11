@@ -1,0 +1,13 @@
+{
+  "asset": "https://www.innerscene.com/tools/library/3d-parts/beacon-tripod-floor-lamp-81bd9790",
+  "author": "Innerscene",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "modifications": "Original self-contained GLB; neutral linen tint, darker teak, placement and switchable lighting supplied by Slur. No in-app attribution required.",
+  "sources": [
+    {
+      "url": "https://www.innerscene.com/api/library/beacon-tripod-floor-lamp-81bd9790/download",
+      "sha256": "abb0bf68665605875ed0c690082e455394a5f3297684f39eeda4b8ae314aed5a"
+    }
+  ]
+}

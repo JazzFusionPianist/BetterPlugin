@@ -46,6 +46,16 @@ try {
       const page = await browser.newPage({ viewport: size })
       const errors = []
       page.on('pageerror', e => errors.push(e.message))
+      await page.addInitScript(() => {
+        window.chessFogPrograms = 0
+        for (const context of [WebGLRenderingContext, WebGL2RenderingContext]) {
+          const shaderSource = context.prototype.shaderSource
+          context.prototype.shaderSource = function(shader, source) {
+            if (/^\s*#define USE_FOG\b/m.test(source)) window.chessFogPrograms++
+            return shaderSource.call(this, shader, source)
+          }
+        }
+      })
       await page.goto(`${base}/?platform=${platform}&game=chess_3d&arcade=1`)
       await page.locator('.game-computer-btn').waitFor()
       await page.locator('canvas[data-chess3d]').waitFor()
@@ -79,6 +89,7 @@ try {
       assert.equal(buttons[1].border, 2)
       await page.evaluate(() => { window.initialChessCanvas = document.querySelector('canvas[data-chess3d]') })
       const lobbyPixels = await canvasPixels(page)
+      assert.equal(await page.evaluate(() => window.chessFogPrograms), 0, 'Indoor darkness comes from lighting, not camera-distance fog')
       const lobbyCanvas = await page.locator('canvas[data-chess3d]').boundingBox()
       await page.mouse.move(lobbyCanvas.x + lobbyCanvas.width * .25, lobbyCanvas.y + lobbyCanvas.height * .7)
       await page.mouse.down()

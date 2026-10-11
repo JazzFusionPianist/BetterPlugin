@@ -203,7 +203,6 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     el.prepend(renderer.domElement)
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#211d19')
-    scene.fog = new THREE.Fog('#211d19', 35, 90)
     const environment = new RoomEnvironment()
     const pmrem = new THREE.PMREMGenerator(renderer)
     const env = pmrem.fromScene(environment, .04)

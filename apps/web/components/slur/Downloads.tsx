@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import SlurMark from './SlurMark'
-import { C, FAMILIES, ellipsePath, hz, play, wholeNotePath } from './marks'
+import { C, FAMILIES, OUTLINES, ellipsePath, hz, play, wholeNotePath } from './marks'
 import RoomPicture from './RoomPicture'
 import PictoNav from './PictoNav'
 import WallPicture from './WallPicture'
 import '@/app/slur.css'
 
-/* The catalogue. A new plug-in is one more entry: its name, its ground,
+/* The catalogue. A new program is one more entry: its name, its ground,
    its note (colour and pitch), what it runs as, and where its installers
    are published (GitHub release tags beginning with `tag`). */
 interface Plugin {
@@ -23,7 +23,9 @@ interface Plugin {
   fallback?: { url: string; version: string }   // the last known installer, used until the API answers
   web?: boolean           // also runs in the browser
   glow?: boolean
+  lettered?: boolean      // the whole name is in the hand (slur studio), not "slur" beside set words
 }
+const STUDIO_GROUND = '#C9D5FF'
 const PLUGINS: Plugin[] = [
   { name: 'slur', ground: '#BFE6CB', note: C.green, ink: C.ink, step: 3, hollow: true, formats: 'au vst3 aax', web: true },
   {
@@ -31,6 +33,7 @@ const PLUGINS: Plugin[] = [
     tag: 'patch-on-slur-',
     fallback: { url: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.9/Patch-on-Slur-1.0.9.pkg', version: '1.0.9' },
   },
+  { name: 'slur studio', ground: STUDIO_GROUND, note: C.blue, ink: C.ink, step: 1, hollow: true, formats: 'mac app', lettered: true },
 ]
 const REPO = 'JazzFusionPianist/BetterPlugin'
 
@@ -80,8 +83,8 @@ function Tile ({ p }: { p: Plugin }) {
       </svg>
       <div className="nm" style={{ color: p.ink }}>
         {pre && <span>{pre}</span>}
-        <SlurMark height={52} ink={p.ink} arm={p.note} title={p.name} />
-        {post && <span>{post}</span>}
+        <SlurMark height={52} ink={p.ink} arm={p.note} title={p.name} studio={p.lettered} />
+        {post && !p.lettered && <span>{post}</span>}
       </div>
     </div>
   )
@@ -133,6 +136,10 @@ export default function Downloads () {
         rows={PATCH_ROWS} extra={<Families />}
         acts={(() => { const r = found['patch on slur'] ?? PLUGINS[1].fallback!; return <><a className="sl-pill paper" href={r.url}>mac</a><span className="soon">{r.version} au vst3</span></> })()} />
 
+      <About id="slur-studio" ground={STUDIO_GROUND} ink={C.ink} picture={<div className="sl-shot"><img src="/slur/daw-arrange.jpg" alt="" /></div>}
+        lede={<SlurMark className="sl-two" height={150} arm={C.blue} studio />}
+        rows={STUDIO_ROWS} extra={<Outlines />} acts={<span className="soon">mac soon</span>} />
+
       <div className="sl-foot-row plain">
         <a href="/terms">terms</a><a href="/privacy">privacy</a>
         <a href="mailto:wtsteven123@gmail.com?subject=copyright%20report">copyright</a>
@@ -160,6 +167,16 @@ const PATCH_ROWS: [string, string][] = [
   ['wires', 'draw a wire to chain prints, split l/r, m/s or into bands, sum them back'],
   ['hands', 'turn a print by hand, or give it to an lfo, a macro or a follower'],
   ['no account', 'open it and play'],
+]
+
+const STUDIO_ROWS: [string, string][] = [
+  ['patch', 'patch on slur sits on every track. au and vst3 plug-ins go in the same patch'],
+  ['slur', 'the room is a panel beside the song'],
+  ['outlines', 'a region is cut by what plays in it. drums, bass and voice are told apart before a name is read'],
+  ['say it', 'type kick -3 db and the fader moves'],
+  ['editing', 'one tool for ranges, trims and fades. crossfades. slip, shuffle, spot or grid'],
+  ['hand off', 'stems or a mix as wav, aiff, flac or m4a, for the daw the song is finished in'],
+  ['runs on', 'mac'],
 ]
 
 function About ({ id, ground, ink, dark, picture, lede, rows, extra, acts }: {
@@ -193,6 +210,33 @@ function Families () {
           <svg viewBox="-24 -24 48 48" width="48" height="48" aria-hidden="true"><path d={f.shape} fill={f.c} fillRule="evenodd" /></svg>
           <b>{f.name}</b>
           <span>{f.members}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* Slur Studio's regions, each by its outline — the way the program cuts them:
+   the pigment, and the sound in the same hue near black. */
+const SOUND = OUTLINES.map((_, k) => {
+  let seed = 11 + k * 97
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  return Array.from({ length: 53 }, (_, i) => {
+    const beat = 1 - ((i * (k % 2 ? 3 : 2)) % 13) / 13
+    return Math.max(1.5, (rnd() * .55 + .45) * 30 * (k === 0 ? beat * .8 + .2 : Math.sin(Math.PI * (i + 3) / 59) * .6 + .4))
+  })
+})
+function Outlines () {
+  return (
+    <div className="sl-families six">
+      {OUTLINES.map((o, k) => (
+        <div key={o.name}>
+          <svg viewBox="0 0 120 44" width="120" height="44" aria-hidden="true">
+            <path d={o.shape} fill={o.c} />
+            {SOUND[k].map((h, i) => <rect key={i} x={7 + i * 2} y={22 - h / 2} width={1.2} height={h} fill={o.deep} />)}
+          </svg>
+          <b>{o.name}</b>
+          <span>{o.members}</span>
         </div>
       ))}
     </div>

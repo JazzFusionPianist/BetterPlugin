@@ -8,7 +8,7 @@ import { FAMILIES } from './marks'
 
 /* The first screen: one landscape print on an empty ground, turning its
    pages with hard cuts — Patch on Slur drawn as a diagram, the room, the
-   families, the shelf. It leans toward the pointer; a click turns the
+   song in Slur Studio, the families, the shelf. It leans toward the pointer; a click turns the
    page. The caption rides the top left, the name travels along the floor. */
 
 interface Page { name: string; what: string; tone: string; body: React.ReactNode }
@@ -16,6 +16,7 @@ interface Page { name: string; what: string; tone: string; body: React.ReactNode
 const PAGES: Page[] = [
   { name: 'patch on slur', what: 'night drive, fourteen prints wired', tone: 'night', body: <PatchDiagram /> },
   { name: 'slur', what: 'the room: chat, stems, dates, who is in', tone: 'mint', body: <RoomPicture /> },
+  { name: 'slur studio', what: 'the song: thirty tracks, the chorus in the cycle', tone: 'black', body: <img src="/slur/daw-arrange.jpg" alt="Slur Studio with a song open" /> },
   {
     name: 'patch on slur', what: 'eight families, told apart by shape', tone: 'night',
     body: (
@@ -32,7 +33,7 @@ const PAGES: Page[] = [
       </svg>
     ),
   },
-  { name: 'downloads', what: 'one arch per plug-in', tone: 'paper', body: <img src="/slur/shelf.jpg" alt="The downloads shelf" /> },
+  { name: 'downloads', what: 'one arch per program', tone: 'paper', body: <img src="/slur/shelf.jpg" alt="The downloads shelf" /> },
 ]
 const DWELL = 3200
 const pad = (n: number) => String(n).padStart(2, '0')

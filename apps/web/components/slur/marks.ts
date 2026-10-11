@@ -49,6 +49,20 @@ export const BREATH_WORD =
   'C 166 130, 166 112, 166 99 C 170 92, 180 90, 188 95'
 export const BREATH_ARM = 'M 188 95 C 204 94, 222 70, 216 44 C 210 20, 172 13, 130 16 C 84 19, 48 32, 30 66'
 export const BREATH_VIEWBOX = '16 14 210 150'
+/* "studio" in the same hand, for Slur Studio (the daw): the s, t and u in one
+   line, the d and i in a second, the o, the t's bar and the i's dot. Drawn in
+   the word's own box; set 200 to the right of "slur" the two make one name
+   (viewBox 16 14 506 150). Draft: Daw/design/logo draft 1. */
+export const BREATH_STUDIO = [
+  'M 64 102 C 60 94, 44 92, 40 104 C 36 116, 52 119, 60 124 C 70 130, 70 146, 56 150 C 46 153, 38 149, 38 143 C 38 138, 46 138, 52 146 ' +
+  'C 58 153, 74 150, 82 130 C 88 112, 92 84, 93 68 C 91 92, 91 120, 92 136 C 93 147, 98 151, 106 150 C 112 149, 116 140, 118 98 ' +
+  'C 118 124, 119 151, 132 151 C 144 151, 147 132, 148 98 C 148 126, 148 144, 154 149 C 160 153, 170 150, 176 138',
+  'M 203 106 C 198 95, 180 96, 177 120 C 175 142, 188 154, 198 142 C 204 132, 206 80, 206 44 C 206 80, 205 120, 206 136 C 207 147, 212 151, 219 150 C 225 149, 229 140, 231 98 C 231 120, 231 140, 235 148 C 239 153, 249 150, 256 134',
+  'M 276 101 C 263 95, 255 112, 257 130 C 259 148, 277 154, 287 140 C 295 128, 291 104, 276 101 C 284 107, 296 105, 303 97',
+  'M 79 99 L 108 96',
+  'M 232 73 L 232 80',
+]
+export const BREATH_STUDIO_VIEWBOX = '16 14 506 150'
 
 /** A broad nib held at 32°: the stroke is the path drawn again at every
     point along the nib's edge, so downstrokes swell and joins go to a hair. */
@@ -88,4 +102,16 @@ export const FAMILIES: { name: string; members: string; c: string; shape: string
   { name: 'utility', members: 'gain mix l/r m/s bands side', c: '#FBFAF7', shape: 'M -18 -2 H 18 V 2 H -18 Z M -2 -18 H 2 V 18 H -2 Z' },
   { name: 'control', members: 'lfo macro follow', c: '#F89C38', shape: 'M -18 0 A 18 18 0 1 0 18 0 A 18 18 0 1 0 -18 0 Z M -9 0 A 9 9 0 1 1 9 0 A 9 9 0 1 1 -9 0 Z' },
   { name: 'spectral', members: 'carve match vocode', c: '#B79CFF', shape: 'M -18 -18 H -12 V 18 H -18 Z M -7 -10 H -1 V 18 H -7 Z M 4 -18 H 10 V 18 H 4 Z M 14 -4 H 20 V 18 H 14 Z' },
+]
+
+/* Slur Studio's regions, each cut by what plays in it (drawn in a 120 x 44
+   box) and in its instrument's pigment, as the program draws them; the
+   words are some of the track names it reads the instrument from. */
+export const OUTLINES: { name: string; members: string; c: string; deep: string; shape: string }[] = [
+  { name: 'drums', members: 'kick snare hat tom room', c: '#2C62AC', deep: '#000326', shape: 'M0 0H120V44H0Z' },
+  { name: 'bass', members: 'bass sub 808', c: '#744898', deep: '#10001E', shape: 'M0 0H120V37A7 7 0 0 1 113 44H7A7 7 0 0 1 0 37Z' },
+  { name: 'keys', members: 'piano rhodes synth pad', c: '#2B8767', deep: '#001004', shape: 'M0 0H114V7H120V44H0Z' },
+  { name: 'guitar', members: 'gtr acoustic strat', c: '#BD7929', deep: '#2F0F00', shape: 'M0 0H111L120 9V44H0Z' },
+  { name: 'voice', members: 'vox bgv ad libs', c: '#DD6C63', deep: '#400707', shape: 'M0 7A7 7 0 0 1 7 0H113A7 7 0 0 1 120 7V44H0Z' },
+  { name: 'effects', members: 'riser impact air', c: '#D2C8B1', deep: '#322D22', shape: 'M0 5A5 5 0 0 0 5 0H115A5 5 0 0 0 120 5V39A5 5 0 0 0 115 44H5A5 5 0 0 0 0 39Z' },
 ]

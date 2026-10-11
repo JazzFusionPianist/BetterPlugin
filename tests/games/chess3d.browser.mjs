@@ -56,20 +56,17 @@ try {
       assert(framing.height > 130 && framing.width > 150, `${platform}: scene must retain usable space`)
       assert.equal(framing.outside, 0, `${platform}: all squares must be framed`)
       assert.equal(framing.overflow, 0)
-      await page.getByRole('button', { name: 'Top view', exact: true }).click()
-      await page.waitForTimeout(80)
-      assert.notEqual((await canvasPixels(page)).hash, first.hash, 'Camera action must change pixels')
+      assert.equal(await page.locator('.chess3d-camera').count(), 0, 'Photographic room has a fixed viewpoint')
       await clickSquare(page, 'e2')
       assert.equal(await page.locator('.chess3d-stage').getAttribute('data-selected'), 'e2', 'Raycasting selects the clicked pawn')
       await clickSquare(page, 'e4')
       await page.waitForFunction(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length >= 2)
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].board[4][4]), 'wP')
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].captured.presentation), '3d', 'Moves must preserve the variant')
-      await page.getByRole('button', { name: 'Reset camera', exact: true }).click()
       await page.waitForTimeout(300)
       const after = await canvasPixels(page)
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-playing.png` })
-      // Camera gestures must not turn into a chess move.
+      // Gestures must neither change the photographic perspective nor make a move.
       const beforeMoves = await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length)
       const canvas = await page.locator('canvas[data-chess3d]').boundingBox()
       await page.mouse.move(canvas.x + canvas.width * .5, canvas.y + canvas.height * .5)
@@ -77,7 +74,25 @@ try {
       await page.mouse.move(canvas.x + canvas.width * .65, canvas.y + canvas.height * .5, { steps: 8 })
       await page.mouse.up()
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length), beforeMoves)
-      assert.notEqual((await canvasPixels(page)).hash, after.hash, 'Orbit drag must update the scene')
+      assert.equal((await canvasPixels(page)).hash, after.hash, 'Dragging must leave the fixed scene unchanged')
+      await page.mouse.wheel(0, 300)
+      assert.equal((await canvasPixels(page)).hash, after.hash, 'Wheel gestures must not zoom the fixed scene')
+      if (size.width === 600) {
+        const projection = () => page.locator('[role="gridcell"]').evaluateAll(buttons => buttons.map(b => [b.dataset.screenX, b.dataset.screenY]))
+        const whiteView = await projection()
+        await page.evaluate(async () => {
+          const room = window.gamesQA.tables.get('game_rooms')[0]
+          await window.gamesQA.update('game_rooms', room.id, { host_color: 'black', guest_id: 'opponent' })
+        })
+        await page.waitForTimeout(100)
+        assert.deepEqual(await projection(), whiteView, 'Changing sides must not rotate the board against the photograph')
+        await page.evaluate(() => window.gamesQA.reopen(true))
+        await page.locator('canvas[data-chess3d]').waitFor()
+        await page.getByRole('gridcell', { name: 'e4 White Pawn', exact: true }).waitFor()
+        await page.waitForFunction(() => document.querySelector('[role="gridcell"]')?.dataset.screenX)
+        await page.waitForTimeout(100)
+        assert.deepEqual(await projection(), whiteView, 'Resuming as Black retains the same fixed perspective')
+      }
       await page.evaluate(() => window.gamesQA.hide(true))
       await page.locator('#outside-input').fill('outside')
       await page.keyboard.press('ArrowLeft')
@@ -97,7 +112,7 @@ try {
       }
       assert.deepEqual(errors, [])
       records.push({ platform, size, framing, pixels: first, moved: after })
-      console.log(`${platform} ${size.width}x${size.height}: render, framing, raycast, move/AI, camera, visibility passed`)
+      console.log(`${platform} ${size.width}x${size.height}: render, framing, raycast, move/AI, fixed perspective, visibility passed`)
       await page.close()
     }
     const page = await browser.newPage({ viewport: { width: 600, height: 500 } })

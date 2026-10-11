@@ -9,30 +9,6 @@
   background: #211d19;
 }
 .chess3d-stage > canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.chess3d-camera {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  gap: 4px;
-}
-.chess3d-camera > button {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 6px;
-  border: 1px solid #665646;
-  background: #302a23;
-  color: #f0f4ef;
-  cursor: pointer;
-}
-.chess3d-camera > button:hover { background: #45382c; }
-.chess3d-camera > button:focus-visible { outline: 2px solid #dcc39a; outline-offset: 2px; }
-@media (pointer: coarse) {
-  .chess3d-camera > button { width: 44px; height: 44px; }
-}
 .chess3d-keyboard { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .chess3d-keyboard:focus-within {
   inset: auto 12px 12px;

@@ -35,6 +35,24 @@ try {
       await page.waitForTimeout(200)
       assert(await page.locator('[data-closed],.game-finish-card').count(),`${platform}/${game}: quit must finish or close`)
     }
+    // Yacht's solo start and computer match are distinct paths.
+    await page.goto(`${base}/?platform=${platform}&game=yacht`)
+    await page.getByRole('button',{name:'Play the computer',exact:true}).click()
+    await page.getByRole('button',{name:'Quit',exact:true}).waitFor()
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('yacht_rooms')[0].status),'playing')
+    assert(await page.locator('.yacht-status-line.mine').evaluate(el=>{
+      const c=getComputedStyle(el)
+      const lum=color=>{
+        const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4)
+        return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722
+      }
+      const a=lum(c.color),b=lum(c.backgroundColor)
+      return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5
+    }),`${platform}: Yacht turn indicator must be readable`)
+    await page.getByRole('button',{name:'Quit',exact:true}).click()
+    await page.locator('.et-confirm-danger').click()
+    await page.locator('[data-closed]').waitFor()
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('yacht_rooms')[0].status),'finished')
     // Computer Ear Training must not write fake user IDs to foreign-key columns.
     await page.goto(`${base}/?platform=${platform}&game=ear_training`)
     await page.locator('.game-computer-btn').click()
@@ -46,6 +64,34 @@ try {
     await page.getByRole('button',{name:'Forfeit',exact:true}).click()
     await page.locator('.et-confirm-danger').click()
     await page.locator('[data-closed]').waitFor()
+    // A full computer match must reach its result, not stall after one round.
+    await page.goto(`${base}/?platform=${platform}&game=ear_training`)
+    await page.locator('.game-computer-btn').click()
+    for(let round=1;round<=10;round++) {
+      await page.waitForFunction(n=>new RegExp(`\\b${n}\\b`).test(document.querySelector('.et-round-label')?.textContent??''),round,{timeout:7000})
+      await page.locator('.et-option').first().click()
+      await page.locator('.et-reveal').waitFor({timeout:6000})
+    }
+    await page.locator('.et-final-score').waitFor({timeout:7000})
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('ear_training_rooms')?.length??0),0)
+    await page.evaluate(()=>window.gamesQA.reopen(false))
+    await page.locator('.game-computer-btn').waitFor()
+    // Failed player/room writes must retain a retryable quit confirmation.
+    await page.goto(`${base}/?platform=${platform}&game=falling_blocks&players=2`)
+    await page.waitForFunction(()=>document.querySelectorAll('.falling-blocks-board').length===2)
+    await page.evaluate(()=>window.gamesQA.failNext('falling_blocks_player_states'))
+    await page.getByRole('button',{name:'Quit',exact:true}).click()
+    await page.locator('.et-confirm-danger').click()
+    await page.getByRole('alert').waitFor()
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('falling_blocks_player_states')[0].top_out),false)
+    assert.equal(await page.locator('[data-closed]').count(),0)
+    await page.evaluate(()=>window.gamesQA.failNext('falling_blocks_rooms'))
+    await page.locator('.et-confirm-danger').click()
+    await page.getByRole('alert').waitFor()
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('falling_blocks_rooms')[0].status),'playing')
+    await page.locator('.et-confirm-danger').click()
+    await page.locator('[data-closed]').waitFor()
+    assert.equal(await page.evaluate(()=>window.gamesQA.tables.get('falling_blocks_rooms')[0].status),'finished')
     // A remount may restore only the exact running match, never overwrite its board.
     await page.goto(`${base}/?platform=${platform}&game=falling_blocks&players=4`)
     await page.waitForFunction(()=>document.querySelectorAll('.falling-blocks-board').length===4)
@@ -67,5 +113,5 @@ try {
     assert.deepEqual(errors,[],`${platform}: runtime errors`)
     await page.close()
   }
-  console.log('PASS: explicit resume, rejected/acknowledged quit, quit controls, local Ear Training answers/rounds, Falling Blocks snapshot preservation')
+  console.log('PASS: explicit resume, rejected/acknowledged quit, quit controls, complete local Ear Training matches, Falling Blocks retry and snapshot preservation')
 } finally {await browser.close()}

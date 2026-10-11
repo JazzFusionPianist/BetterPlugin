@@ -4,6 +4,10 @@ This harness renders the real plugin and web game components with isolated CSS
 and an in-memory transport. It never connects to the production database or sends
 real chat messages, invites, or leaderboard submissions.
 
+Audio output is disconnected in this test harness by default, including hidden
+browser runs. Production game audio and system sound settings are unchanged.
+Append `&audio=1` to a visible fixture URL only when intentionally checking sound.
+
 ## Run
 
 From the repository root, start the harness in one terminal:
@@ -17,6 +21,7 @@ With Playwright available, run in another terminal:
 ```sh
 pnpm test:games:layout
 pnpm test:games:regression
+pnpm test:games:lifecycle
 ```
 
 If Playwright is provided by a separate runtime, set `PLAYWRIGHT_MODULE` to its
@@ -37,6 +42,8 @@ Set `GAMES_QA_ENGINE=webkit` to run the same tests with Playwright WebKit.
 - Reachable first column of hard Minesweeper and invalid stored difficulty.
 - Latest 80 game-chat messages, bounded realtime history, local scrolling,
   and subscription isolation after switching rooms.
+- Quit controls in every game, failed termination and retry, fresh lobby entry,
+  explicit Falling Blocks resume, and complete Ear Training computer matches.
 
 Use `GAMES_QA_LANG=ko GAMES_QA_EMBEDDED=1 GAMES_QA_QUICK=1` for a compact Korean
 embedded-pane check. `GAMES_QA_GAMES=chess,poker` selects games.

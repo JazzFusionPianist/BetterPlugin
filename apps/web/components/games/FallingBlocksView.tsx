@@ -225,7 +225,6 @@ export default function FallingBlocksView({
     inviteFriend,
     cancelInvite,
     updateMyState,
-    applyPlayerStates,
     sendGarbage,
     setPlayerTopOut,
   } = useFallingBlocksRoom(supabase, currentUserId)
@@ -838,17 +837,6 @@ export default function FallingBlocksView({
     setShowForfeitConfirm(true)
   }, [])
   const confirmForfeit = useCallback(async () => {
-    setGame(prev => ({ ...prev, topOut: true }))
-    applyPlayerStates([{
-      room_id: room?.id ?? '',
-      user_id: currentUserId,
-      board: gameRef.current.board,
-      score: gameRef.current.score,
-      lines: gameRef.current.lines,
-      top_out: true,
-      garbage_pending: 0,
-      updated_at: new Date().toISOString(),
-    }])
     await setPlayerTopOut(currentUserId, true)
     const aliveOpponents = opponentIds.filter(id => {
       const ps = playerStatesRef.current.get(id)
@@ -857,10 +845,13 @@ export default function FallingBlocksView({
     if (aliveOpponents.length <= 1) {
       await endGame(scoreWinner())
     }
+    localTopOutEndedRef.current = true
+    reportedTopOutRef.current = true
+    setGame(prev => ({ ...prev, topOut: true }))
     setShowForfeitConfirm(false)
     onClose()
     // 2+ alive opponents → let the game continue normally
-  }, [applyPlayerStates, room?.id, setPlayerTopOut, currentUserId, opponentIds, endGame, scoreWinner,onClose])
+  }, [setPlayerTopOut, currentUserId, opponentIds, endGame, scoreWinner,onClose])
 
   // ── Rematch helper: when finished, host auto-starts when all ready ───────
   useEffect(() => {

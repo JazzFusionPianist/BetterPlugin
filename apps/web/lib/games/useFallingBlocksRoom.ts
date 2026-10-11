@@ -361,23 +361,8 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
 
   const setPlayerTopOut = useCallback(
     async (userId: string, topOut: boolean): Promise<void> => {
-      if (!room) return
-      setPlayerStates(prev => {
-        const next = new Map(prev)
-        const existing = next.get(userId)
-        next.set(userId, {
-          room_id: room.id,
-          user_id: userId,
-          board: existing?.board ?? EMPTY_BOARD,
-          score: existing?.score ?? 0,
-          lines: existing?.lines ?? 0,
-          top_out: topOut,
-          garbage_pending: existing?.garbage_pending ?? 0,
-          updated_at: new Date().toISOString(),
-        })
-        return next
-      })
-      const { error } = await supabase
+      if (!room) throw new Error('No active game.')
+      const { data, error } = await supabase
         .from('falling_blocks_player_states')
         .update({
           top_out: topOut,
@@ -385,9 +370,13 @@ export function useFallingBlocksRoom(supabase: SupabaseClient, currentUserId: st
         })
         .eq('room_id', room.id)
         .eq('user_id', userId)
-      if (error) console.error('[useFallingBlocksRoom.setPlayerTopOut]', error)
+        .select()
+        .single()
+      if (error) throw error
+      if (!data) throw new Error('The game could not be closed. Please retry.')
+      applyPlayerStates([data as FallingBlocksPlayerState])
     },
-    [supabase, room]
+    [supabase, room, applyPlayerStates]
   )
 
   return {

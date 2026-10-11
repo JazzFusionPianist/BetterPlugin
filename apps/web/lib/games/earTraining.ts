@@ -247,6 +247,11 @@ function playNote (ac: AudioContext, midi: number, when: number, durSec: number,
 
 /** Play a question. Returns approximate total duration in ms so the
  *  caller can decrement replays / disable the play button correctly. */
+export function unlockEarTrainingAudio():void {
+  const ac=ctx()
+  if(ac?.state==='suspended') void ac.resume().catch(()=>{})
+}
+
 export function playQuestion (q: Question): number {
   const ac = ctx()
   if (!ac) return 0

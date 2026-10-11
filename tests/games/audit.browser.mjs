@@ -25,11 +25,17 @@ try{
         await page.waitForTimeout(450)
       }
       const metrics=await page.evaluate(()=>{
-        const selectors=['.game-action-row','.game-finish-card','.game-board-wrap','.chess-board','.falling-blocks-board.is-self','.falling-blocks-board.is-opponent','.poker-actions','.pb-canvas-wrap','.om-canvas-wrap','.ms-board','.sd-board','.sol-board','.game-chat-inputrow','.arcade-row']
+        const selectors=['.game-action-row','.game-finish-card','.game-board-wrap','.chess-board','.falling-blocks-board.is-self','.falling-blocks-board.is-opponent','.poker-game-layout','.poker-actions','.pb-canvas-wrap','.om-canvas-wrap','.ms-board','.sd-board','.sol-board','.game-chat-inputrow','.arcade-row']
         const visible=el=>el.checkVisibility({visibilityProperty:true,opacityProperty:true})
         const rects=selectors.flatMap(selector=>Array.from(document.querySelectorAll(selector)).filter(visible).map(el=>{
           const r=el.getBoundingClientRect();let clip=null
-          for(let p=el.parentElement;p;p=p.parentElement){const cs=getComputedStyle(p);if(cs.display==='contents')continue;if(['hidden','clip'].includes(cs.overflowY)||['hidden','clip'].includes(cs.overflowX)){
+          for(let p=el.parentElement;p;p=p.parentElement){const cs=getComputedStyle(p);if(cs.display==='contents')continue;
+            // Content inside a bounded scroller is reachable, not ancestor-clipped.
+            if(['auto','scroll'].includes(cs.overflowY)&&p.scrollHeight>p.clientHeight+1){
+              const b=p.getBoundingClientRect()
+              if(r.top>=b.top-p.scrollTop-1&&r.bottom<=b.top+p.scrollHeight-p.scrollTop+1)break
+            }
+            if(['hidden','clip'].includes(cs.overflowY)||['hidden','clip'].includes(cs.overflowX)){
             const b=p.getBoundingClientRect();if(r.top<b.top-1||r.bottom>b.bottom+1||r.left<b.left-1||r.right>b.right+1){clip=p.className;break}
           }}
           return {selector,x:r.x,y:r.y,w:r.width,h:r.height,clip,scroll:el.scrollHeight-el.clientHeight}

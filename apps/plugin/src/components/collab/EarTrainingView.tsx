@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from '../../types/collab'
 import { useEarTrainingRoom } from '../../hooks/useEarTrainingRoom'
 import {
-  generateQuestion, playQuestion, isCorrect,
+  generateQuestion, playQuestion, isCorrect, unlockEarTrainingAudio,
   INTERVAL_LABELS, CHORD_LABELS,
   ROUND_DURATION_MS, REVEAL_DURATION_MS, MAX_PLAYS,
   type Question, type RoomConfig, type Mode, type Difficulty,
@@ -213,6 +213,7 @@ export default function EarTrainingView ({
   }, [room, invitedIds, createRoom, inviteFriend, cancelInvite])
 
   const handlePlayComputer = useCallback(async () => {
+    unlockEarTrainingAudio()
     setComputerStartPending(true)
     try {
       if(room?.status==='lobby') await deleteCurrentRoom()
@@ -398,7 +399,7 @@ export default function EarTrainingView ({
         <GameReadyControl
           ready={myReady}
           count={`${(room!.player1_ready ? 1 : 0) + (room!.player2_ready ? 1 : 0)} / 2`}
-          onToggle={toggleReady}
+          onToggle={()=>{unlockEarTrainingAudio();void toggleReady()}}
         />
       </GameOverlayCard>
     )

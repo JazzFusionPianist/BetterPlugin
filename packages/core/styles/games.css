@@ -95,6 +95,13 @@
   font-weight: 600;
 }
 .game-action-error { color: #FFB4AB; font: 400 13px/1.4 var(--f-sans, sans-serif); }
+:is(.plugin[class*='gwall-'], .games-panel[class*='wall-']) .game-view :is(.et-score-mine,.et-reveal-row.mine .et-reveal-row-label,.yacht-die.held,.yacht-card-cell.pick,.yacht-card-cell.bonus-hit) {color:var(--t1);font-style:normal;}
+:is(.plugin[class*='gwall-'], .games-panel[class*='wall-']) .game-view .et-option.picked {
+  background:var(--t1);
+  color:var(--gwall, #1A1917);
+  border-color:var(--t1);
+}
+:is(.plugin[class*='gwall-'], .games-panel[class*='wall-']) .game-view .et-bulb.mine.lit { color:var(--t1); }
 :is(.plugin[class*='gwall-'], .games-panel[class*='wall-']) .game-view .pb-lb-rows {
   max-height: 140px;
   overflow-y: auto;
@@ -105,7 +112,7 @@
 }
 :is(.plugin[class*='gwall-'], .games-panel[class*='wall-']) .game-view .yacht-status-line.mine {
   background: var(--t1);
-  color: var(--gwall);
+  color: var(--gwall, #1A1917);
   border-radius: 4px;
   padding: 5px 8px;
   font: 600 13px/1.35 var(--f-sans, sans-serif);

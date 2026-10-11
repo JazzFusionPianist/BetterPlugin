@@ -19,7 +19,7 @@
  * The chrome lives here once; adding a new game means writing its board +
  * adapter, not re-building lobby/invite/forfeit/result UI.
  */
-import {GameButton} from '@orb/core/components/GameButton'
+import {GameButton,gameButtonLabel} from '@orb/core/components/GameButton'
 import { useState, useMemo, type ReactNode } from 'react'
 import type { Profile } from '../../types/collab'
 import { useT } from '../../i18n/LanguageContext'
@@ -64,7 +64,7 @@ export function GameOverlayCard ({ title, children, className }: {
   return (
     <div className={`game-finish-card${className ? ' ' + className : ''}`}>
 
-      {title != null && <div className="game-finish-title">{title}</div>}
+      {title != null && <div className="game-finish-title">{gameButtonLabel(title)}</div>}
       {children}
     </div>
   )

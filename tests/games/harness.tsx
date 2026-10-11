@@ -12,6 +12,15 @@ import PluginList from '../../apps/plugin/src/components/collab/GameListView'
 import WebList from '../../apps/web/components/games/GameListView'
 import {useGameChat} from '../../packages/core/hooks/useGameChat'
 
+// Exercise audio scheduling without sending hidden QA playback to the speakers.
+if (new URLSearchParams(location.search).get('audio') !== '1') {
+  const connect = AudioNode.prototype.connect
+  AudioNode.prototype.connect = function (...args: Parameters<AudioNode['connect']>) {
+    if (args[0] instanceof AudioDestinationNode) return args[0]
+    return Reflect.apply(connect, this, args)
+  } as AudioNode['connect']
+}
+
 // Local in-memory transport: no credentials, external requests or production writes.
 const tables=new Map<string,Record<string,any>[]>()
 const listeners=new Set<any>()

@@ -1,0 +1,37 @@
+{
+  "asset": "https://polyhaven.com/a/brass_candleholders",
+  "author": "Tina",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Selected brass_candleholder_01 with its 1K materials; removed other candleholder nodes and unused textures. Packaged in a self-contained GLB; placement and turn-driven lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/brass_candleholders/brass_candleholders_1k.gltf",
+      "md5": "c813a8f9856bcab38f87da3ca8aef74d"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/brass_candleholders/brass_candleholders.bin",
+      "md5": "ea4f625bd0ef542c0026bbcf61370b71"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_candleholders/brass_candleholders_01_nor_gl_1k.jpg",
+      "md5": "8631362fee28487f801c851b7a9254dc"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_candleholders/brass_candleholders_01_diff_1k.jpg",
+      "md5": "27a666093ce421d4200c1dab13356436"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_candleholders/brass_candleholders_01_arm_1k.jpg",
+      "md5": "8c97455ce6143e39d8185d7096f8b17b"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_candleholders/brass_candleholders_flame_diff_1k.jpg",
+      "md5": "e03f12b1e6cb00ebbcf72dbe68370d34"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_candleholders/brass_candleholders_flame_diff_1k.jpg",
+      "md5": "e03f12b1e6cb00ebbcf72dbe68370d34"
+    }
+  ]
+}

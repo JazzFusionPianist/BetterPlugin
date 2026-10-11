@@ -563,7 +563,7 @@ export default function ChessView({
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'
   // Chime when it becomes my turn. Honors the Notifications toggle.
-  useTurnSound(isMyTurn, 'chess', room?.status === 'playing')
+  useTurnSound(isMyTurn, 'chess', !threeD && room?.status === 'playing')
 
   // Captured pieces
   const myCaptured: string[] = room
@@ -923,7 +923,7 @@ export default function ChessView({
   } else if (!isPlaying) {
     if (!room || (isHost && !hasGuest)) {
       overlay = (
-        <GameOverlayCard emoji="♟" title={t(threeD ? 'game.chess3d' : 'game.chess')}>
+        <GameOverlayCard emoji="♟" title={threeD ? undefined : t('game.chess')}>
           <GameButton className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
             {t('chess.inviteCta')}
           </GameButton>
@@ -999,13 +999,15 @@ export default function ChessView({
           </div>
         </>
       }
-      board={computerStartPending ? (
+      board={computerStartPending && !threeD ? (
         <div className="game-transition-blank" />
       ) : (
         threeD ? (
           <Suspense fallback={<div className="chess3d-loading" />}>
             <Chess3DBoard
+              opponentLabel={opponentProfile ? (opponentProfile.username ? `@${opponentProfile.username}` : opponentProfile.display_name) : isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : ''}
               state={displayState}
+              playing={isPlaying}
               myColor={myColor}
               onMove={handleMove}
               lastFrom={isPlaying || isFinished ? lastFrom : null}
@@ -1014,7 +1016,7 @@ export default function ChessView({
               canPremove={isPlaying}
               premove={isPlaying ? premove : null}
               onPremove={setPremove}
-              labels={{ reset: t('chess3d.reset'), top: t('chess3d.top'), zoomIn: t('chess3d.zoomIn'), zoomOut: t('chess3d.zoomOut'), unavailable: t('chess3d.unavailable'), board: t('game.chess3d') }}
+              labels={{ reset: t('chess3d.reset'), top: t('chess3d.top'), zoomIn: t('chess3d.zoomIn'), zoomOut: t('chess3d.zoomOut'), unavailable: t('chess3d.unavailable'), board: t('game.chess3d'), lamp: t('chess3d.lamp'), soundOn: t('chess3d.soundOn'), soundOff: t('chess3d.soundOff') }}
               fallback={<ChessBoardFrame>
           <ChessBoard
             state={displayState}

@@ -1,0 +1,33 @@
+{
+  "asset": "https://polyhaven.com/a/industrial_pipe_lamp",
+  "author": "Mateusz Sadek",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Original 1K geometry/materials packaged in a self-contained GLB; placement and lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/industrial_pipe_lamp/industrial_pipe_lamp_1k.gltf",
+      "md5": "d8bbade589e987381efdab60b09edfa8"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/industrial_pipe_lamp/industrial_pipe_lamp.bin",
+      "md5": "57b3afbb3332f86cfb3a693f3759c4f4"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_pipe_lamp/industrial_pipe_lamp_emission_1k.jpg",
+      "md5": "2e2f1069b18bee34dba2bf9999f3d46d"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_pipe_lamp/industrial_pipe_lamp_nor_gl_1k.jpg",
+      "md5": "0c32b4fc551b8fc15f2439905707398a"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_pipe_lamp/industrial_pipe_lamp_diff_1k.jpg",
+      "md5": "59d8793b0be49c50a7dcf239b5978386"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_pipe_lamp/industrial_pipe_lamp_arm_1k.jpg",
+      "md5": "f8b38078596d89f70e3dc6e4320f03c0"
+    }
+  ]
+}

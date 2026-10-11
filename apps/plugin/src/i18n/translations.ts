@@ -20,10 +20,13 @@ type TranslationRecord = { en: string } & Partial<Record<Lang, string>>
 export const T = {
   'game.chess3d': { en: 'Chess(3d)', ko: 'Chess(3d)', ja: 'Chess(3d)', zh: 'Chess(3d)', es: 'Chess(3d)', de: 'Chess(3d)', fr: 'Chess(3d)', hi: 'Chess(3d)' },
   'game.chess3dDesc': { en: 'Chess in three dimensions', ko: '입체적인 체스', ja: '立体的なチェス', zh: '立体国际象棋', es: 'Ajedrez en tres dimensiones', de: 'Schach in drei Dimensionen', fr: 'Échecs en trois dimensions', hi: 'तीन आयामों में शतरंज' },
+  'chess3d.soundOn': { en: 'Unmute', ko: '소리 켜기', ja: '音声をオン', zh: '取消静音', es: 'Activar sonido', de: 'Ton einschalten', fr: 'Activer le son', hi: 'ध्वनि चालू करें' },
+  'chess3d.soundOff': { en: 'Mute', ko: '음소거', ja: 'ミュート', zh: '静音', es: 'Silenciar', de: 'Stummschalten', fr: 'Couper le son', hi: 'म्यूट करें' },
   'chess3d.reset': { en: 'Reset camera', ko: '시점 초기화', ja: '視点をリセット', zh: '重置视角', es: 'Restablecer cámara', de: 'Kamera zurücksetzen', fr: 'Réinitialiser la caméra', hi: 'कैमरा रीसेट करें' },
   'chess3d.top': { en: 'Top view', ko: '위에서 보기', ja: '上から見る', zh: '俯视', es: 'Vista superior', de: 'Draufsicht', fr: 'Vue de dessus', hi: 'ऊपर से देखें' },
   'chess3d.zoomIn': { en: 'Zoom in', ko: '확대', ja: '拡大', zh: '放大', es: 'Acercar', de: 'Vergrößern', fr: 'Zoom avant', hi: 'ज़ूम इन' },
   'chess3d.zoomOut': { en: 'Zoom out', ko: '축소', ja: '縮小', zh: '缩小', es: 'Alejar', de: 'Verkleinern', fr: 'Zoom arrière', hi: 'ज़ूम आउट' },
+  'chess3d.lamp': { en: 'Toggle lamp', ko: '조명 켜기/끄기', ja: '照明の切り替え', zh: '切换灯光', es: 'Encender/apagar lámpara', de: 'Lampe umschalten', fr: 'Allumer/éteindre la lampe', hi: 'लैंप चालू/बंद करें' },
   'chess3d.unavailable': { en: '3D is unavailable on this device. Playing in 2D.', ko: '이 기기는 3D를 지원하지 않아 2D로 표시해요.', ja: 'この端末では3Dを利用できないため、2Dで表示します。', zh: '此设备不支持3D，正在使用2D。', es: '3D no disponible en este dispositivo. Mostrando 2D.', de: '3D ist auf diesem Gerät nicht verfügbar. Anzeige in 2D.', fr: '3D indisponible sur cet appareil. Affichage en 2D.', hi: 'इस उपकरण पर 3D उपलब्ध नहीं है। 2D में दिखाया जा रहा है।' },
   'trackExport.title': { en: 'Export tracks', ko: '트랙 내보내기' },
   'trackExport.choose': { en: 'Choose tracks', ko: '트랙 선택' },

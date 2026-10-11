@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { RotateCcw, Scan, Plus, Minus } from 'lucide-react'
+import { RotateCcw, Scan, Plus, Minus, Volume2, VolumeX } from 'lucide-react'
 import { createChessRoom } from '../lib/chess3dRoom'
+import { loadChessPieces } from '../lib/chess3dPieces'
 import { useGameActive } from '../hooks/useGameSurface'
+import { useChessAudio } from '../hooks/useChessAudio'
 import { checkedKing, legalTargets, squareName, type BoardPosition as Pos, type ChessPosition } from '../lib/chess3d'
 import '../styles/chess3d.css'
 
@@ -17,11 +19,13 @@ export interface Chess3DBoardProps {
   lastFrom: Pos | null
   lastTo: Pos | null
   isMyTurn: boolean
+  playing: boolean
   canPremove?: boolean
   premove?: { from: Pos; to: Pos } | null
   onPremove?: (move: { from: Pos; to: Pos } | null) => void
-  labels: { reset: string; top: string; zoomIn: string; zoomOut: string; unavailable: string; board: string }
+  labels: { reset: string; top: string; zoomIn: string; zoomOut: string; unavailable: string; board: string; lamp: string; soundOn: string; soundOff: string }
   fallback: React.ReactNode
+  opponentLabel?: string
 }
 
 interface Stage {
@@ -41,13 +45,13 @@ function woodTexture(light: boolean, seed: number) {
   const pixels = ctx.createImageData(512, 512)
   let random = seed
   const noise = () => { random = (Math.imul(random, 1664525) + 1013904223) >>> 0; return random / 4294967296 }
-  const base = light ? [222, 199, 148] : [107, 55, 30]
+  const base = light ? [173, 159, 132] : [76, 57, 43]
   for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
     const warp = 7 * Math.sin(y * .009 + Math.sin(x * .012)) + 3 * Math.sin(y * .025)
     const line = Math.sin((x + warp) * .30) * .5 + Math.sin((x + warp) * .97) * .25
     const broad = Math.sin(x * .027 + .5 * Math.sin(y * .008))
     const pore = noise() > .983 ? -25 : 0
-    const grain = broad * 9 + line * (light ? 10 : 16) + (noise() - .5) * 9 + pore
+    const grain = broad * 6 + line * (light ? 7 : 9) + (noise() - .5) * 6 + pore * .65
     const i = (y * 512 + x) * 4
     for (let c = 0; c < 3; c++) pixels.data[i + c] = base[c] + grain
     pixels.data[i + 3] = 255
@@ -147,6 +151,9 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
   const [selected, setSelected] = useState<Pos | null>(null)
   const [failed, setFailed] = useState(false)
   const active = useGameActive()
+  const audio = useChessAudio()
+  const playSound = useRef(audio.play)
+  playSound.current = audio.play
   const activeRef = useRef(active)
   activeRef.current = active
 
@@ -173,8 +180,9 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     setSelected(null)
     stage.current?.sync()
   }, [props.state.board, props.state.turn, props.myColor])
-  useEffect(() => { stage.current?.sync() }, [props.lastFrom, props.lastTo, props.premove])
+  useEffect(() => { stage.current?.sync() }, [props.lastFrom, props.lastTo, props.premove, props.opponentLabel, props.playing])
   useEffect(() => { stage.current?.active(active) }, [active])
+  useEffect(() => { if (!active) audio.stop() }, [active, audio.stop])
 
   useEffect(() => {
     const el = host.current
@@ -200,11 +208,13 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const pmrem = new THREE.PMREMGenerator(renderer)
     const env = pmrem.fromScene(environment, .04)
     scene.environment = env.texture
-    scene.environmentIntensity = .40
+    scene.environmentIntensity = .25
     environment.dispose(); pmrem.dispose()
     const camera = new THREE.PerspectiveCamera(38, 1, .1, 120)
-    const target = new THREE.Vector3(0, 3.2, -.6)
-    camera.position.copy(target).add(new THREE.Vector3(0, 13, 15).normalize().multiplyScalar(26))
+    const target = new THREE.Vector3(0, .0625, 0)
+    const defaultOffset = (playing: boolean) => playing ? new THREE.Vector3(0, 17, 15).normalize().multiplyScalar(23.5) : new THREE.Vector3(3, 16, 30).normalize().multiplyScalar(34)
+    let playing = latest.current.playing
+    camera.position.copy(target).add(defaultOffset(playing))
     camera.lookAt(target)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.copy(target)
@@ -219,34 +229,36 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.zoomSpeed = .65
     controls.enabled = activeRef.current
     controls.update()
-    const hemi = new THREE.HemisphereLight('#ffead1', '#30241e', .55)
+    const hemi = new THREE.HemisphereLight('#ffead1', '#30241e', .28)
     scene.add(hemi)
-    const sun = new THREE.DirectionalLight('#fff0d3', 2.2)
-    sun.position.set(-4, 10, 5)
+    const sun = new THREE.SpotLight('#fff0d3', 748, 70, .55, .70, 2)
+    sun.position.set(-3, 18, 5)
+    sun.target.position.copy(target)
+    scene.add(sun.target)
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
-    sun.shadow.camera.left = -16; sun.shadow.camera.right = 16
-    sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16
+    sun.shadow.camera.near = .5
+    sun.shadow.camera.far = 70
     sun.shadow.normalBias = .035
     sun.shadow.bias = -.0001
     sun.shadow.radius = 3
     scene.add(sun)
-    const fill = new THREE.DirectionalLight('#ffdfb2', .55)
+    const fill = new THREE.DirectionalLight('#ffdfb2', .20)
     fill.position.set(6, 5, -5); scene.add(fill)
     const maple = woodTexture(true, 173)
     const walnut = woodTexture(false, 347)
     const textures = [maple, walnut]
     for (const texture of textures) texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
-    const porcelain = new THREE.MeshPhysicalMaterial({ color: '#ebc98c', map: maple, roughness: .40, clearcoat: .28, clearcoatRoughness: .28 })
-    const graphite = new THREE.MeshPhysicalMaterial({ color: '#171b1d', roughness: .28, clearcoat: .50, clearcoatRoughness: .20 })
-    const lightTrim = new THREE.MeshStandardMaterial({ color: '#aa773c', roughness: .4 })
+    const porcelain = new THREE.MeshPhysicalMaterial({ color: '#f1e8d6', map: maple, roughness: .55, clearcoat: .18, clearcoatRoughness: .4 })
+    const graphite = new THREE.MeshPhysicalMaterial({ color: '#28211c', roughness: .43, clearcoat: .24, clearcoatRoughness: .35 })
+    const lightTrim = new THREE.MeshStandardMaterial({ color: '#8f795a', roughness: .55 })
     const darkTrim = new THREE.MeshStandardMaterial({ color: '#514634', roughness: .38, metalness: .15 })
     const materials: THREE.Material[] = [porcelain, graphite, lightTrim, darkTrim]
     const box = (w: number, h: number, d: number, material: THREE.Material, y: number) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
       mesh.position.y = y; mesh.receiveShadow = mesh.castShadow = true; scene.add(mesh); return mesh
     }
-    const frameMaterial = new THREE.MeshPhysicalMaterial({ map: walnut, color: '#c9a176', roughness: .32, clearcoat: .35 })
+    const frameMaterial = new THREE.MeshPhysicalMaterial({ map: walnut, color: '#b9ac98', roughness: .58, clearcoat: .18 })
     materials.push(frameMaterial)
     box(8.8, .27, 8.8, frameMaterial, -.19)
     box(8.72, .025, 8.72, lightTrim, -.045)
@@ -260,7 +272,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     }
     const tiles: THREE.Mesh[] = []
     const tileMaterials = [maple, walnut].map(map => {
-      const material = new THREE.MeshPhysicalMaterial({ map, roughness: .40, clearcoat: .25, clearcoatRoughness: .32 })
+      const material = new THREE.MeshPhysicalMaterial({ map, roughness: .58, clearcoat: .16, clearcoatRoughness: .45 })
       materials.push(material); return material
     })
     for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
@@ -288,28 +300,36 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     materials.push(labelMaterial)
     const labelPlane = new THREE.Mesh(new THREE.PlaneGeometry(8.64, 8.64), labelMaterial)
     labelPlane.rotation.x = -Math.PI / 2; labelPlane.position.y = .023; scene.add(labelPlane)
-    const prototypes = new Map<string, THREE.Group>()
-    for (const color of ['w', 'b']) for (const kind of ['P', 'R', 'N', 'B', 'Q', 'K']) {
-      prototypes.set(color + kind, pieceModel(color + kind, color === 'w' ? porcelain : graphite, color === 'w' ? lightTrim : darkTrim))
-    }
+    let prototypes = new Map<string, THREE.Group>()
+    const modelsReady = loadChessPieces(porcelain, graphite).then(models => {
+      prototypes = models
+      if (disposed) for (const model of models.values()) model.traverse(node => { if (node instanceof THREE.Mesh) node.geometry.dispose() })
+    }).catch(() => {
+      if (disposed) return
+      // Keep a playable local set if a host rejects the binary asset.
+      for (const color of ['w', 'b']) for (const kind of ['P', 'R', 'N', 'B', 'Q', 'K']) {
+        prototypes.set(color + kind, pieceModel(color + kind, color === 'w' ? porcelain : graphite, color === 'w' ? lightTrim : darkTrim))
+      }
+    })
     const pieces = new Map<string, THREE.Group>()
     const markers = new THREE.Group(); scene.add(markers)
-    const selectedMat = new THREE.MeshBasicMaterial({ color: '#d8ed43', transparent: true, opacity: .62, depthWrite: false })
-    const lastMat = new THREE.MeshBasicMaterial({ color: '#d8ed43', transparent: true, opacity: .40, depthWrite: false })
+    const selectedMat = new THREE.MeshBasicMaterial({ color: '#d0b478', transparent: true, opacity: .62, depthWrite: false })
+    const lastMat = new THREE.MeshBasicMaterial({ color: '#d0b478', transparent: true, opacity: .40, depthWrite: false })
     const checkMat = new THREE.MeshBasicMaterial({ color: '#ff8179', transparent: true, opacity: .70, depthWrite: false })
-    const moveMat = new THREE.MeshBasicMaterial({ color: '#32e9b0', depthWrite: false })
+    const moveMat = new THREE.MeshBasicMaterial({ color: '#bdc6a4', depthWrite: false })
     const preMat = new THREE.MeshBasicMaterial({ color: '#8cb5ee', transparent: true, opacity: .50, depthWrite: false })
     materials.push(selectedMat, lastMat, checkMat, moveMat, preMat)
     const squareGeo = new THREE.PlaneGeometry(.98, .98)
     const dotGeo = new THREE.CircleGeometry(.105, 28)
     const ringGeo = new THREE.RingGeometry(.39, .445, 40)
-    let frame = 0, disposed = false, visible = activeRef.current, movingUntil = 0, needsPaint = false
+    let frame = 0, disposed = false, roomReady = false, visible = activeRef.current, movingUntil = 0, needsPaint = false
+    let pulseTimer = 0, soundTimer = 0
     let boardKey = ''
     const destinations = new Map<THREE.Group, { from: THREE.Vector3; to: THREE.Vector3; start: number }>()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const paint = () => {
       frame = 0
-      if (disposed || !visible) return
+      if (disposed || !visible || !roomReady) return
       const now = performance.now()
       if (destinations.size) renderer.shadowMap.needsUpdate = true
       for (const [piece, animation] of destinations) {
@@ -318,12 +338,24 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
         piece.position.y += Math.sin(t * Math.PI) * .16
         if (t === 1) destinations.delete(piece)
       }
+      const pulsing = room.animateCandles(now, reducedMotion)
       renderer.render(scene, camera)
+      el.dataset.cameraMode = playing ? 'playing' : 'lobby'
+      el.dataset.cameraDistance = String(camera.position.distanceTo(controls.target))
+      const boardCenter = target.clone().project(camera)
+      el.dataset.boardCenterX = String((boardCenter.x + 1) * el.clientWidth / 2)
+      el.dataset.boardCenterY = String((1 - boardCenter.y) * el.clientHeight / 2)
+      const lampPoint = room.lampPoint.clone().project(camera)
+      el.dataset.lampX = String((lampPoint.x + 1) * el.clientWidth / 2)
+      el.dataset.lampY = String((1 - lampPoint.y) * el.clientHeight / 2)
+      const tableLampPoint = room.tableLampPoint.clone().project(camera)
+      el.dataset.tableLampX = String((tableLampPoint.x + 1) * el.clientWidth / 2)
+      el.dataset.tableLampY = String((1 - tableLampPoint.y) * el.clientHeight / 2)
       // Project accessible square targets alongside the camera, not against a fixed grid.
       const squareButtons = el.querySelectorAll<HTMLButtonElement>('[role="gridcell"]')
       squareButtons.forEach((button, index) => {
         const piece = latest.current.state.board[Math.floor(index / 8)][index % 8]
-        const head = piece ? ({ P: .76, R: .92, N: 1.2, B: 1.15, Q: 1.4, K: 1.45 }[piece[1]] ?? .76) * 1.1 : .09
+        const head = piece ? prototypes.get(piece)?.userData.aimY ?? ({ P: .76, R: .92, N: 1.2, B: 1.15, Q: 1.4, K: 1.45 }[piece[1]] ?? .76) * 1.1 : .09
         // Aim at a piece's visible head, not a tile hidden behind the nearer rank.
         const point = new THREE.Vector3(index % 8 - 3.5, head, Math.floor(index / 8) - 3.5).project(camera)
         button.dataset.screenX = String((point.x + 1) * el.clientWidth / 2)
@@ -331,12 +363,13 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       })
       needsPaint = false
       if (now < movingUntil) request()
+      else if (pulsing) pulseTimer = window.setTimeout(request, 80)
     }
-    const request = () => { needsPaint = true; if (visible && !frame && !disposed) frame = requestAnimationFrame(paint) }
+    const request = () => { clearTimeout(pulseTimer); needsPaint = true; if (visible && !frame && !disposed) frame = requestAnimationFrame(paint) }
     controls.addEventListener('change', request)
     const room = createChessRoom(scene, renderer, materials, textures, request, () => disposed)
-    room.ready.then(() => {
-      if (!disposed) { el.dataset.roomReady = 'true'; request() }
+    Promise.all([room.ready, modelsReady]).then(() => {
+      if (!disposed) { roomReady = true; el.dataset.roomReady = 'true'; el.dataset.pieceSource = prototypes.get('wP')?.userData.aimY ? 'poly-haven' : 'fallback'; sync(); request() }
     }).catch(() => { if (!disposed) setFailed(true) })
     let lastWidth = 0, lastHeight = 0
     const resize = () => {
@@ -358,9 +391,24 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       markers.add(mesh)
     }
     const sync = () => {
+      room.setOpponentLabel(latest.current.opponentLabel ?? '')
+      el.dataset.opponentLabel = latest.current.opponentLabel ?? ''
+      if (!roomReady) return
       const p = latest.current
+      if (playing !== p.playing) {
+        playing = p.playing
+        camera.position.copy(controls.target).add(defaultOffset(playing))
+        controls.update()
+      }
+      const turn = playing ? p.state.turn === p.myColor ? 'near' : 'far' : null
+      room.setTurn(turn)
+      el.dataset.candleTurn = turn ?? ''
       const nextKey = JSON.stringify(p.state.board)
       if (nextKey !== boardKey) {
+        if (boardKey && visible && p.lastFrom && p.lastTo) {
+          clearTimeout(soundTimer)
+          soundTimer = window.setTimeout(() => { if (!disposed && visible) playSound.current() }, reducedMotion ? 0 : 260)
+        }
         renderer.shadowMap.needsUpdate = true
         const previous = new Map(pieces)
         pieces.clear()
@@ -415,7 +463,9 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const rect = renderer.domElement.getBoundingClientRect()
       pointer.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1)
       raycaster.setFromCamera(pointer, camera)
-      const hit = raycaster.intersectObjects([...tiles, ...pieces.values()], true)[0]
+      const hit = raycaster.intersectObjects([...tiles, ...pieces.values(), ...room.lampTargets, ...room.tableLampTargets], true)[0]
+      if (hit && room.lampTargets.some(node => node === hit.object)) { toggleLamp('wall'); return }
+      if (hit && room.tableLampTargets.some(node => node === hit.object)) { toggleLamp('table'); return }
       const pos = hit?.object.userData.pos as Pos | undefined
       if (pos) select.current(pos)
     }
@@ -426,12 +476,20 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     renderer.domElement.addEventListener('pointercancel', pointerCancel)
     renderer.domElement.addEventListener('webglcontextlost', contextLost)
     const observer = new ResizeObserver(resize); observer.observe(el)
+    const toggleLamp = (id: 'wall' | 'table') => {
+      if (!visible || !roomReady) return
+      const enabled = room.toggleLamp(id)
+      el.dataset[id === 'wall' ? 'lampOn' : 'tableLampOn'] = String(enabled)
+      request()
+    }
+    el.dataset.lampOn = 'true'
+    el.dataset.tableLampOn = 'true'
     stage.current = {
       sync,
       camera(action) {
         if (!visible) return
         const offset = camera.position.clone().sub(controls.target)
-        if (action === 'reset') offset.set(0, 13, 15).normalize().multiplyScalar(26)
+        if (action === 'reset') offset.copy(defaultOffset(playing))
         else if (action === 'top') offset.set(0, 26, 4)
         else offset.setLength(THREE.MathUtils.clamp(offset.length() * (action === 'in' ? .85 : 1 / .85), controls.minDistance, controls.maxDistance))
         camera.position.copy(controls.target).add(offset)
@@ -440,13 +498,13 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       active(value) {
         visible = value
         controls.enabled = value
-        if (!value) { cancelAnimationFrame(frame); frame = 0; down.clear(); multiTouch = false }
+        if (!value) { clearTimeout(pulseTimer); clearTimeout(soundTimer); cancelAnimationFrame(frame); frame = 0; down.clear(); multiTouch = false }
         else { if (needsPaint || destinations.size) request(); resize() }
       },
     }
     resize(); sync()
     return () => {
-      disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose()
+      disposed = true; clearTimeout(pulseTimer); clearTimeout(soundTimer); cancelAnimationFrame(frame); observer.disconnect(); controls.dispose()
       delete el.dataset.roomReady
       stage.current = null
       const geometries = new Set<THREE.BufferGeometry>()
@@ -466,6 +524,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
         {([{ action: 'reset', label: props.labels.reset, Icon: RotateCcw }, { action: 'top', label: props.labels.top, Icon: Scan }, { action: 'in', label: props.labels.zoomIn, Icon: Plus }, { action: 'out', label: props.labels.zoomOut, Icon: Minus }] as const).map(({ action, label, Icon }) => (
           <button type="button" key={action} aria-label={label} title={label} onClick={() => stage.current?.camera(action)}><Icon size={16} /></button>
         ))}
+        <button type="button" aria-label={audio.enabled ? props.labels.soundOff : props.labels.soundOn} title={audio.enabled ? props.labels.soundOff : props.labels.soundOn} aria-pressed={audio.enabled} onClick={audio.toggle}>{audio.enabled ? <Volume2 size={16} /> : <VolumeX size={16} />}</button>
       </div>
       <div className="chess3d-keyboard" role="grid" aria-label={props.labels.board}>
         {props.state.board.map((row, r) => <div role="row" key={r}>{row.map((piece, c) => (

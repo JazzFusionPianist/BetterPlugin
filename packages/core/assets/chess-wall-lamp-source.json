@@ -1,0 +1,37 @@
+{
+  "asset": "https://polyhaven.com/a/industrial_wall_sconce",
+  "author": "Ulan Cabanilla",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Original 1K geometry/materials packaged in a self-contained GLB; placement and lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/industrial_wall_sconce/industrial_wall_sconce_1k.gltf",
+      "md5": "39c1dd9ad11422e3a55673989c150270"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/industrial_wall_sconce/industrial_wall_sconce.bin",
+      "md5": "0a3eac103bc90f9eb2d9151e487c1e79"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_wall_sconce/industrial_wall_sconce_nor_gl_1k.jpg",
+      "md5": "7f50c6c2ad0b75cc3b55c6cdf3b4d9b1"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_wall_sconce/industrial_wall_sconce_diff_1k.jpg",
+      "md5": "00a9741f896c002be1fb4307a16c834d"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_wall_sconce/industrial_wall_sconce_arm_1k.jpg",
+      "md5": "c877d7c8b3199e6c9cbeaa6c86a18d8f"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_wall_sconce/industrial_wall_sconce_bulb_diff_1k.jpg",
+      "md5": "0ffbe4a8ccece6a89f820ed128827e66"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/industrial_wall_sconce/industrial_wall_sconce_arm_1k.jpg",
+      "md5": "c877d7c8b3199e6c9cbeaa6c86a18d8f"
+    }
+  ]
+}

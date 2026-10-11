@@ -1,0 +1,33 @@
+{
+  "asset": "https://polyhaven.com/a/sofa_03",
+  "author": "Fran Calvente",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Original 1K geometry/materials packaged in a self-contained GLB; placement and lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/sofa_03/sofa_03_1k.gltf",
+      "md5": "27f31e0500c2dd83a21fd3339ade7821"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/sofa_03/sofa_03.bin",
+      "md5": "aeebfb9aed3b40300b0fb73f0e27830e"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/sofa_03/sofa_03_nor_gl_1k.jpg",
+      "md5": "dec3ec9d5d1ad2abf260e58b67e5cd0e"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/sofa_03/sofa_03_diff_1k.jpg",
+      "md5": "1f33a1431d98e1560a04b661e786b45b"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/sofa_03/sofa_03_rough_1k.jpg",
+      "md5": "c3fe733eb2cef0424d5530e067518d60"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/sofa_03/sofa_03_diff_1k.jpg",
+      "md5": "1f33a1431d98e1560a04b661e786b45b"
+    }
+  ]
+}

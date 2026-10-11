@@ -9,9 +9,12 @@
   background: #211d19;
 }
 .chess3d-stage > canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.chess3d-camera { position: absolute; right: 10px; top: 10px; display: flex; gap: 4px; }
+.chess3d-stage:not([data-room-ready="true"]) > canvas { visibility: hidden; }
+.chess3d-camera { position: absolute; z-index: 4; right: 10px; top: 10px; display: flex; gap: 4px; }
 .chess3d-camera button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; color: #efe4d2; background: #211d19e8; border: 1px solid #75634e; border-radius: 4px; cursor: pointer; }
 .chess3d-camera button:hover { background: #45392d; }
+:is(.plugin, .games-panel)[class*="chess_3d"] .chess3d-shell .game-finish-overlay { pointer-events: none; }
+:is(.plugin, .games-panel)[class*="chess_3d"] .chess3d-shell .game-finish-overlay :is(button, input) { pointer-events: auto; }
 .chess3d-camera button:focus-visible { outline: 2px solid #eac877; outline-offset: 2px; }
 .chess3d-keyboard { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .chess3d-keyboard:focus-within {
@@ -98,6 +101,36 @@
 :is(.plugin, .games-panel) .chess3d-shell .chess-dock { color: #f0f4ef; border-color: #4b4036; }
 :is(.plugin, .games-panel) .chess3d-shell .game-chat { --t1: #f0f4ef; --t2: #d1c5b5; --t3: #afa392; }
 .gwall-chess_3d, .wall-chess_3d { --gwall: #211d19; background: #211d19; }
+
+/* Opaque room controls remain legible over furniture and board textures. */
+:is(.plugin, .games-panel)[class*="chess_3d"] .game-view.chess3d-shell .game-invite-btn {
+  height: 48px;
+  min-height: 48px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 2px solid #f0e4cd;
+  background: #f0e4cd;
+  color: #211d19;
+  font: 600 15px/1.4 var(--f-sans, sans-serif);
+  text-transform: none;
+  box-shadow: 0 3px 12px #00000038;
+  transition: transform .12s ease;
+}
+:is(.plugin, .games-panel)[class*="chess_3d"] .game-view.chess3d-shell .game-invite-btn:hover {
+  background: #fff4df;
+  color: #211d19;
+  opacity: 1;
+}
+:is(.plugin, .games-panel)[class*="chess_3d"] .game-view.chess3d-shell .game-invite-btn.game-computer-btn {
+  background: #302a23;
+  color: #f0e4cd;
+  border-color: #a18b70;
+}
+:is(.plugin, .games-panel)[class*="chess_3d"] .game-view.chess3d-shell .game-invite-btn.game-computer-btn:hover {
+  background: #493e31;
+  color: #fff4df;
+  border-color: #cfb594;
+}
 
 /* Override only the new room, including the arcade's generic room grid. */
 :is(.plugin, .games-panel)[class*="chess_3d"] .game-view.chess3d-shell {

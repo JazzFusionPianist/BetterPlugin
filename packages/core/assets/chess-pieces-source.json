@@ -1,0 +1,11 @@
+{
+  "asset": "https://polyhaven.com/a/chess_set",
+  "author": "Riley Queen",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "gltfUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/chess_set/chess_set_1k.gltf",
+  "gltfMd5": "ceac1016348f797f3db112e3e70a96a4",
+  "binaryUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/chess_set/chess_set.bin",
+  "binaryMd5": "815ae6d5becbcdd836b29b0d644bba95",
+  "modifications": "Six unique white-piece meshes extracted into a self-contained GLB. Original board, duplicate pieces, textures and materials omitted. Slur supplies wood materials and game positions."
+}

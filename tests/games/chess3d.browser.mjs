@@ -17,7 +17,9 @@ const sizes = [{ width: 300, height: 500 }, { width: 600, height: 500 }, { width
 const hash = buffer => createHash('sha256').update(buffer).digest('hex')
 async function canvasPixels(page) {
   const canvas = page.locator('canvas[data-chess3d]')
-  const screenshot = await canvas.screenshot()
+  const bounds = await canvas.boundingBox()
+  assert(bounds && bounds.width > 0 && bounds.height > 0, 'Canvas is framed before capture')
+  const screenshot = await page.screenshot({ clip: bounds, animations: 'disabled', timeout: 60000 })
   const { data, info } = await sharp(screenshot).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const colors = new Set()
   for (let i = 0; i < data.length; i += info.channels * 17) colors.add(`${data[i] >> 3},${data[i + 1] >> 3},${data[i + 2] >> 3}`)
@@ -31,6 +33,13 @@ async function clickSquare(page, square) {
   await page.mouse.click(canvas.x + point.x, canvas.y + point.y)
 }
 const projection = page => page.locator('[role="gridcell"]').evaluateAll(buttons => buttons.map(b => [Number(Number(b.dataset.screenX).toFixed(4)), Number(Number(b.dataset.screenY).toFixed(4))]))
+async function assertBoardCentered(page) {
+  const error = await page.locator('.chess3d-stage').evaluate(el => [
+    Math.abs(Number(el.dataset.boardCenterX) - el.clientWidth / 2),
+    Math.abs(Number(el.dataset.boardCenterY) - el.clientHeight / 2),
+  ])
+  assert(error.every(value => Number.isFinite(value) && value < .01), `Board/zoom pivot must be centered: ${error}`)
+}
 try {
   for (const platform of ['plugin', 'web']) {
     for (const size of sizes) {
@@ -41,11 +50,54 @@ try {
       await page.locator('.game-computer-btn').waitFor()
       await page.locator('canvas[data-chess3d]').waitFor()
       await page.locator('[data-room-ready="true"]').waitFor()
+      assert.equal(await page.locator('.chess3d-stage').getAttribute('data-camera-mode'), 'lobby')
+      assert(Math.abs(Number(await page.locator('.chess3d-stage').getAttribute('data-camera-distance')) - 34) < .001)
+      assert.equal(await page.locator('.chess3d-stage').getAttribute('data-candle-turn'), '')
+      await page.addInitScript(() => {
+        window.chessSoundStarts = 0
+        const start = AudioBufferSourceNode.prototype.start
+        AudioBufferSourceNode.prototype.start = function(...args) { if (this.buffer?.duration > .01) window.chessSoundStarts++; return start.apply(this, args) }
+      })
+      await page.evaluate(() => {
+        window.chessSoundStarts = 0
+        const start = AudioBufferSourceNode.prototype.start
+        AudioBufferSourceNode.prototype.start = function(...args) { if (this.buffer?.duration > .01) window.chessSoundStarts++; return start.apply(this, args) }
+      })
+      assert.equal(await page.locator('.game-finish-title').count(), 0, 'No oversized Chess(3d) title obstructs the lobby')
       await page.evaluate(() => document.fonts.ready)
+      const buttons = await page.locator('.game-invite-btn').evaluateAll(nodes => nodes.map(node => {
+        const style = getComputedStyle(node)
+        return { color: style.color, background: style.backgroundColor, border: parseFloat(style.borderTopWidth) }
+      }))
+      const rgb = value => value.match(/[\d.]+/g).map(Number)
+      const luminance = value => rgb(value).slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0)
+      for (const button of buttons) {
+        const fg = luminance(button.color), bg = luminance(button.background)
+        assert((Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05) >= 4.5, 'Lobby labels meet AA contrast')
+        assert(rgb(button.background).length === 3 || rgb(button.background)[3] === 1, `Lobby buttons are opaque over furniture: ${JSON.stringify(button)}`)
+      }
+      assert.equal(buttons[1].border, 2)
+      await page.evaluate(() => { window.initialChessCanvas = document.querySelector('canvas[data-chess3d]') })
+      const lobbyPixels = await canvasPixels(page)
+      const lobbyCanvas = await page.locator('canvas[data-chess3d]').boundingBox()
+      await page.mouse.move(lobbyCanvas.x + lobbyCanvas.width * .25, lobbyCanvas.y + lobbyCanvas.height * .7)
+      await page.mouse.down()
+      await page.mouse.move(lobbyCanvas.x + lobbyCanvas.width * .4, lobbyCanvas.y + lobbyCanvas.height * .8, { steps: 8 })
+      await page.mouse.up()
+      assert.notEqual((await canvasPixels(page)).hash, lobbyPixels.hash, 'Lobby supports orbit before starting a match')
+      const lobbyRotated = await canvasPixels(page)
+      await page.mouse.wheel(0, 250)
+      await page.waitForTimeout(120)
+      assert.notEqual((await canvasPixels(page)).hash, lobbyRotated.hash, 'Lobby supports wheel zoom')
+      await page.locator('.chess3d-camera button').first().click()
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-lobby.png` })
       await page.locator('.game-computer-btn').click()
       await page.getByRole('button', { name: 'Resign', exact: true }).waitFor()
+      assert(await page.evaluate(() => window.initialChessCanvas === document.querySelector('canvas[data-chess3d]')), 'Starting a match preserves the loaded room instead of remounting it')
       await page.waitForTimeout(250)
+      assert.equal(await page.locator('.chess3d-stage').getAttribute('data-camera-mode'), 'playing')
+      assert(Math.abs(Number(await page.locator('.chess3d-stage').getAttribute('data-camera-distance')) - 23.5) < .001)
+      assert.equal(await page.locator('.chess3d-stage').getAttribute('data-candle-turn'), 'near')
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].captured.presentation), '3d')
       const first = await canvasPixels(page)
       const framing = await page.locator('.chess3d-stage').evaluate(el => {
@@ -58,7 +110,13 @@ try {
       assert(framing.height > 130 && framing.width > 150, `${platform}: scene must retain usable space`)
       assert.equal(framing.outside, 0, `${platform}: all squares must be framed`)
       assert.equal(framing.overflow, 0)
-      assert.equal(await page.locator('.chess3d-camera button').count(), 4, 'Real 3D room exposes camera tools')
+      assert.equal(await page.locator('.chess3d-camera button').count(), 5, 'Camera tools and the mute control appear in the toolbar')
+      await page.getByRole('button', { name: 'Unmute', exact: true }).click()
+      await page.waitForTimeout(300)
+      assert.equal(await page.evaluate(() => window.chessSoundStarts), 0, 'No sound plays on entry or enabling audio')
+      assert.equal(await page.locator('.chess3d-stage').getAttribute('data-piece-source'), 'poly-haven', 'Detailed CC0 meshes load successfully')
+      assert(await page.locator('.chess3d-stage').getAttribute('data-opponent-label'), 'Computer name is shown on the chair')
+      await assertBoardCentered(page)
       await clickSquare(page, 'e2')
       assert.equal(await page.locator('.chess3d-stage').getAttribute('data-selected'), 'e2', 'Raycasting selects the clicked pawn')
       await clickSquare(page, 'e4')
@@ -66,9 +124,17 @@ try {
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].board[4][4]), 'wP')
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].captured.presentation), '3d', 'Moves must preserve the variant')
       await page.waitForTimeout(300)
+      assert.equal(await page.evaluate(() => window.chessSoundStarts), 2, 'One sampled placement for each actual player/computer move')
+      await page.getByRole('button', { name: 'Mute', exact: true }).click()
+      assert.equal(await page.evaluate(() => localStorage.getItem('slur.chess3d.sound')), 'off')
       const after = await canvasPixels(page)
-      const defaultProjection = await projection(page)
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-playing.png` })
+      await clickSquare(page, 'b1')
+      await clickSquare(page, 'c3')
+      await page.waitForFunction(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length >= 4)
+      await page.waitForTimeout(300)
+      assert.equal(await page.evaluate(() => window.chessSoundStarts), 2, 'Muted moves remain silent for both players')
+      const defaultProjection = await projection(page)
       // Orbit and zoom change the whole room without making a chess move.
       const beforeMoves = await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length)
       const canvas = await page.locator('canvas[data-chess3d]').boundingBox()
@@ -80,28 +146,65 @@ try {
       await page.waitForTimeout(120)
       const rotated = await canvasPixels(page)
       assert.notEqual(rotated.hash, after.hash, 'Dragging rotates the real room')
+      await assertBoardCentered(page)
       await page.mouse.wheel(0, 300)
       await page.waitForTimeout(120)
       assert.notEqual((await canvasPixels(page)).hash, rotated.hash, 'Wheel zooms the real room')
+      await assertBoardCentered(page)
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length), beforeMoves)
       await page.locator('.chess3d-camera button').first().click()
-      await page.waitForTimeout(120)
+      await page.waitForFunction(expected => JSON.stringify([...document.querySelectorAll('[role="gridcell"]')].map(b => [Number(Number(b.dataset.screenX).toFixed(4)), Number(Number(b.dataset.screenY).toFixed(4))])) === JSON.stringify(expected), defaultProjection)
       assert.deepEqual(await projection(page), defaultProjection, 'Reset restores the room perspective')
+      for (const index of [2, 3, 1, 0]) {
+        await page.locator('.chess3d-camera button').nth(index).click()
+        await page.waitForTimeout(80)
+        await assertBoardCentered(page)
+      }
+      assert.equal(await page.getByRole('button', { name: 'Toggle lamp', exact: true }).count(), 0, 'Lamp is toggled directly in the room, not from the toolbar')
+      if (size.width === 1200) {
+        const scene = await page.locator('canvas[data-chess3d]').boundingBox()
+        await page.mouse.move(scene.x + scene.width * .5, scene.y + scene.height * .75)
+        await page.mouse.down()
+        await page.mouse.move(scene.x + scene.width * .5, scene.y + scene.height * .2, { steps: 10 })
+        await page.mouse.up()
+        await page.mouse.wheel(0, 1600)
+        await page.waitForTimeout(150)
+        const lamp = await page.locator('.chess3d-stage').evaluate(el => ({ x: Number(el.dataset.lampX), y: Number(el.dataset.lampY) }))
+        assert(lamp.x > 0 && lamp.x < scene.width && lamp.y > 0 && lamp.y < scene.height, 'Wall lamp is reachable by orbit/zoom')
+        const lit = await canvasPixels(page)
+        await page.mouse.click(scene.x + lamp.x, scene.y + lamp.y)
+        assert.equal(await page.locator('.chess3d-stage').getAttribute('data-lamp-on'), 'false', 'Clicking the actual shade toggles the lamp')
+        assert.notEqual((await canvasPixels(page)).hash, lit.hash, 'Physical lamp changes lighting/reflections')
+        await page.mouse.click(scene.x + lamp.x, scene.y + lamp.y)
+        assert.equal(await page.locator('.chess3d-stage').getAttribute('data-lamp-on'), 'true')
+        const tableLamp = await page.locator('.chess3d-stage').evaluate(el => ({ x: Number(el.dataset.tableLampX), y: Number(el.dataset.tableLampY) }))
+        assert(tableLamp.x > 0 && tableLamp.x < scene.width && tableLamp.y > 0 && tableLamp.y < scene.height)
+        await page.mouse.click(scene.x + tableLamp.x, scene.y + tableLamp.y)
+        assert.equal(await page.locator('.chess3d-stage').getAttribute('data-table-lamp-on'), 'false')
+        assert.equal(await page.locator('.chess3d-stage').getAttribute('data-lamp-on'), 'true', 'Lamps toggle independently')
+        await page.mouse.click(scene.x + tableLamp.x, scene.y + tableLamp.y)
+        assert.equal(await page.locator('.chess3d-stage').getAttribute('data-table-lamp-on'), 'true')
+        await page.locator('.chess3d-camera button').first().click()
+      }
+      assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length), beforeMoves)
       if (size.width === 600) {
-        const whiteView = await projection(page)
+        const resumedBoard = await page.locator('[role="gridcell"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
+        const cameraDistance = Number(await page.locator('.chess3d-stage').getAttribute('data-camera-distance'))
         await page.evaluate(async () => {
           const room = window.gamesQA.tables.get('game_rooms')[0]
           await window.gamesQA.update('game_rooms', room.id, { host_color: 'black', guest_id: 'opponent' })
         })
         await page.waitForTimeout(100)
-        assert.deepEqual(await projection(page), whiteView, 'Changing sides preserves the camera')
+        assert(Math.abs(Number(await page.locator('.chess3d-stage').getAttribute('data-camera-distance')) - cameraDistance) < .001, 'Changing sides preserves the camera distance despite player-header resizing')
+        await assertBoardCentered(page)
         await page.evaluate(() => window.gamesQA.reopen(true))
         await page.locator('canvas[data-chess3d]').waitFor()
         await page.locator('[data-room-ready="true"]').waitFor()
-        await page.getByRole('gridcell', { name: 'e4 White Pawn', exact: true }).waitFor()
+        await page.waitForFunction(expected => JSON.stringify([...document.querySelectorAll('[role="gridcell"]')].map(node => node.getAttribute('aria-label'))) === JSON.stringify(expected), resumedBoard)
         await page.waitForFunction(() => document.querySelector('[role="gridcell"]')?.dataset.screenX)
         await page.waitForTimeout(100)
-        assert.deepEqual(await projection(page), whiteView, 'Resuming retains the default camera')
+        assert(Math.abs(Number(await page.locator('.chess3d-stage').getAttribute('data-camera-distance')) - cameraDistance) < .001, 'Resuming retains the default camera')
+        await assertBoardCentered(page)
       }
       await page.evaluate(() => window.gamesQA.hide(true))
       await page.locator('#outside-input').fill('outside')
@@ -126,7 +229,17 @@ try {
       await page.close()
     }
     const page = await browser.newPage({ viewport: { width: 600, height: 500 } })
-    await page.goto(`${base}/?platform=${platform}&game=chess_3d`)
+    const heldTextures = []
+    let releaseTextures = false
+    await page.route(/chess-room3d\/.*\.webp/, route => releaseTextures ? route.continue() : heldTextures.push(route))
+    await page.goto(`${base}/?platform=${platform}&game=chess_3d`, { waitUntil: 'domcontentloaded' })
+    await page.locator('canvas[data-chess3d]').waitFor({ state: 'attached' })
+    assert.equal(await page.locator('canvas[data-chess3d]').evaluate(el => getComputedStyle(el).visibility), 'hidden', 'No untextured room is exposed while maps load')
+    releaseTextures = true
+    await Promise.all(heldTextures.map(route => route.continue()))
+    await page.locator('[data-room-ready="true"]').waitFor()
+    assert.equal(await page.locator('canvas[data-chess3d]').evaluate(el => getComputedStyle(el).visibility), 'visible')
+    await page.unroute(/chess-room3d\/.*\.webp/)
     await page.getByRole('button', { name: 'Invite a friend', exact: true }).click()
     await page.locator('.game-invite-do-btn').first().click()
     await page.waitForFunction(() => window.gamesQA.tables.get('notifications')?.length)

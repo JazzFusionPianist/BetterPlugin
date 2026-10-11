@@ -1,0 +1,29 @@
+{
+  "asset": "https://polyhaven.com/a/round_wooden_table_02",
+  "author": "Ulan Cabanilla",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Original 1K geometry/materials packaged in a self-contained GLB; placement and lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/round_wooden_table_02/round_wooden_table_02_1k.gltf",
+      "md5": "d0d30c21d878a5f1f36a96b33458aba0"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/round_wooden_table_02/round_wooden_table_02.bin",
+      "md5": "026ad1fd824b6eb38a4a260565471243"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/round_wooden_table_02/round_wooden_table_02_nor_gl_1k.jpg",
+      "md5": "0f04a60c2f59f09808b26eb594732eed"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/round_wooden_table_02/round_wooden_table_02_diff_1k.jpg",
+      "md5": "2f16277bfd0ff661de3245c11d0b556e"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/round_wooden_table_02/round_wooden_table_02_arm_1k.jpg",
+      "md5": "bd5ba146734d7aa0acdfcae0c66b727f"
+    }
+  ]
+}

@@ -566,7 +566,7 @@ export default function ChessView({
   const isMyTurn =
     chessState.turn === myColor && room?.status === 'playing'
   // Chime when it becomes my turn. Honors the Notifications toggle.
-  useTurnSound(isMyTurn, 'chess', room?.status === 'playing')
+  useTurnSound(isMyTurn, 'chess', !threeD && room?.status === 'playing')
 
   // Captured pieces
   const myCaptured: string[] = room
@@ -866,21 +866,21 @@ export default function ChessView({
   const moveCountRef = useRef(0)
   useEffect(() => {
     const hist = room?.move_history ?? []
-    if (hist.length > moveCountRef.current && moveCountRef.current > 0) {
+    if (!threeD && hist.length > moveCountRef.current && moveCountRef.current > 0) {
       const last = hist[hist.length - 1] ?? ''
       sfx(last.includes('x') ? 'chessCapture' : 'chessMove')
       if (last.includes('+') || last.includes('#')) sfx('chessCheck')
     }
     moveCountRef.current = hist.length
-  }, [room?.move_history])
+  }, [room?.move_history, threeD])
 
   const finishSfxRef = useRef(false)
   useEffect(() => {
     if (room?.status !== 'finished') { finishSfxRef.current = false; return }
     if (finishSfxRef.current) return
     finishSfxRef.current = true
-    sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
-  }, [room?.status, room?.winner_id, currentUserId])
+    if (!threeD) sfx(room.winner_id === currentUserId ? 'win' : room.winner_id ? 'loss' : 'draw')
+  }, [room?.status, room?.winner_id, currentUserId, threeD])
 
   const readyCountStr = room
     ? t('chess.readyCount', { n: (room.host_ready ? 1 : 0) + (room.guest_ready ? 1 : 0) })
@@ -947,7 +947,7 @@ export default function ChessView({
   } else if (!isPlaying) {
     if (!room || (isHost && !hasGuest)) {
       overlay = (
-        <GameOverlayCard emoji="♟" title={t(threeD ? 'game.chess3d' : 'game.chess')}>
+        <GameOverlayCard emoji="♟" title={threeD ? undefined : t('game.chess')}>
           <GameButton className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
             {t('chess.inviteCta')}
           </GameButton>
@@ -1023,13 +1023,15 @@ export default function ChessView({
           </div>
         </>
       }
-      board={computerStartPending ? (
+      board={computerStartPending && !threeD ? (
         <div className="game-transition-blank" />
       ) : (
         threeD ? (
           <Suspense fallback={<div className="chess3d-loading" />}>
             <Chess3DBoard
+              opponentLabel={opponentProfile ? (opponentProfile.username ? `@${opponentProfile.username}` : opponentProfile.display_name) : isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : ''}
               state={displayState}
+              playing={isPlaying}
               myColor={myColor}
               onMove={handleMove}
               lastFrom={isPlaying || isFinished ? lastFrom : null}
@@ -1038,7 +1040,7 @@ export default function ChessView({
               canPremove={isPlaying}
               premove={isPlaying ? premove : null}
               onPremove={setPremove}
-              labels={{ reset: t('chess3d.reset'), top: t('chess3d.top'), zoomIn: t('chess3d.zoomIn'), zoomOut: t('chess3d.zoomOut'), unavailable: t('chess3d.unavailable'), board: t('game.chess3d') }}
+              labels={{ reset: t('chess3d.reset'), top: t('chess3d.top'), zoomIn: t('chess3d.zoomIn'), zoomOut: t('chess3d.zoomOut'), unavailable: t('chess3d.unavailable'), board: t('game.chess3d'), lamp: t('chess3d.lamp'), soundOn: t('chess3d.soundOn'), soundOff: t('chess3d.soundOff') }}
               fallback={<ChessBoardFrame>
           <ChessBoard
             state={displayState}

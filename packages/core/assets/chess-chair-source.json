@@ -1,0 +1,29 @@
+{
+  "asset": "https://polyhaven.com/a/GreenChair_01",
+  "author": "Kirill Sannikov",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "modifications": "Original 1K geometry/materials packaged in a self-contained GLB; placement and lighting supplied by Slur.",
+  "sources": [
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/GreenChair_01/GreenChair_01_1k.gltf",
+      "md5": "a891e84c1aa77d8f163609b347c1b421"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/GreenChair_01/GreenChair_01.bin",
+      "md5": "9c84856d32c4d61b87fb5eba1f8339a3"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/GreenChair_01/GreenChair_01_nor_gl_1k.jpg",
+      "md5": "19a8e67d3bf9153e9f68a28f1507aaee"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/GreenChair_01/GreenChair_01_diff_1k.jpg",
+      "md5": "7304f991bdcd2c534243bc7e86c62c43"
+    },
+    {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/GreenChair_01/GreenChair_01_arm_1k.jpg",
+      "md5": "b986c428c4db443ed08f7925a08531f1"
+    }
+  ]
+}

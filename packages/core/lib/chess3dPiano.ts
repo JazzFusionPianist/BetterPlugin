@@ -5,13 +5,13 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 // https://www.yamaha.com/us/pianos/images/u1linenew.jpg
 export const U1_DIMENSIONS = { width: 1.53, height: 1.21, depth: .62, whiteKeys: 52, blackKeys: 36 } as const
 
-export function createU1Piano(materials: THREE.Material[], textures: THREE.Texture[], normalMap: THREE.Texture | null) {
+export function createU1Piano(materials: THREE.Material[], textures: THREE.Texture[]) {
   const piano = new THREE.Group()
   piano.name = 'upright-u1'
-  const lacquer = new THREE.MeshPhysicalMaterial({ color: '#171715', roughness: .24, metalness: .04, clearcoat: .85, clearcoatRoughness: .13, normalMap, normalScale: new THREE.Vector2(.012, .012), envMapIntensity: .8 })
+  const lacquer = new THREE.MeshPhysicalMaterial({ color: '#171715', roughness: .22, metalness: .04, clearcoat: .9, clearcoatRoughness: .12, envMapIntensity: .8 })
   const satin = new THREE.MeshStandardMaterial({ color: '#121311', roughness: .45 })
   const ivory = new THREE.MeshPhysicalMaterial({ color: '#f1ede1', roughness: .27, clearcoat: .3, clearcoatRoughness: .2 })
-  const ebony = new THREE.MeshPhysicalMaterial({ color: '#111211', roughness: .32, clearcoat: .35 })
+  const ebony = new THREE.MeshPhysicalMaterial({ color: '#111211', roughness: .28, clearcoat: .5, clearcoatRoughness: .24 })
   const brass = new THREE.MeshStandardMaterial({ color: '#bd9755', metalness: .84, roughness: .25 })
   const felt = new THREE.MeshStandardMaterial({ color: '#7c2425', roughness: 1 })
   const spruce = new THREE.MeshStandardMaterial({ color: '#554235', roughness: .9 })
@@ -32,6 +32,7 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   for (const x of [-.739, .739]) box([.048, 1.15, .355], [x, .605, -.1325])
   box([1.53, .025, .375], [0, 1.1975, -.1225], lacquer, .003, 'top-lid')
   box([1.48, .012, .35], [0, 1.179, -.135], satin)
+  box([1.485, .003, .016], [0, 1.176, .038], lacquer, .0008, 'lid-front-lip')
   box([1.412, .328, .018], [0, 1.001, .034], lacquer, .002, 'upper-panel')
   for (const x of [-.715, .715]) box([.013, .331, .014], [x, 1.001, .044])
   box([1.45, .018, .035], [0, .828, .043])
@@ -73,7 +74,7 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   let whiteIndex = 0
   for (let midi = 21; midi <= 108; midi++) {
     if (!isWhite(midi)) {
-      blackMatrices.push(new THREE.Matrix4().makeTranslation(-span / 2 + whiteIndex * pitch, .721, .121))
+      blackMatrices.push(new THREE.Matrix4().makeTranslation(-span / 2 + whiteIndex * pitch, 0, 0))
       continue
     }
     const left = midi > 21 && !isWhite(midi - 1), right = midi < 108 && !isWhite(midi + 1)
@@ -95,7 +96,24 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
     node.rotation.x = -Math.PI / 2
     whiteIndex++
   }
-  const black = new THREE.InstancedMesh(new RoundedBoxGeometry(.0136, .029, .107, 3, .0012), ebony, blackMatrices.length)
+  // Low, flat playing surfaces with a sloping nose, not tall rectangular teeth.
+  const blackProfile = new THREE.Shape()
+  blackProfile.moveTo(-.065, .706)
+  blackProfile.lineTo(-.171, .706)
+  blackProfile.lineTo(-.171, .709)
+  blackProfile.lineTo(-.160, .720)
+  blackProfile.lineTo(-.065, .720)
+  blackProfile.closePath()
+  const blackGeometry = new THREE.ExtrudeGeometry(blackProfile, { depth: .013, bevelEnabled: true, bevelSize: .0004, bevelThickness: .0004, bevelSegments: 4 })
+  blackGeometry.rotateY(Math.PI / 2)
+  blackGeometry.translate(-.0065, 0, 0)
+  const blackPositions = blackGeometry.getAttribute('position')
+  for (let i = 0; i < blackPositions.count; i++) {
+    const taper = THREE.MathUtils.clamp((blackPositions.getY(i) - .706) / .014, 0, 1)
+    blackPositions.setX(i, blackPositions.getX(i) * (1 - .12 * taper))
+  }
+  blackGeometry.computeVertexNormals()
+  const black = new THREE.InstancedMesh(blackGeometry, ebony, blackMatrices.length)
   black.name = 'black-keys'
   blackMatrices.forEach((matrix, index) => black.setMatrixAt(index, matrix))
   black.castShadow = black.receiveShadow = true
@@ -115,15 +133,36 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   }
   const lock = add(new THREE.CylinderGeometry(.0035, .0035, .002, 20), brass, [0, .652, .311])
   lock.rotation.x = Math.PI / 2
-  const pedal = new THREE.Shape()
-  pedal.moveTo(-.054, .055); pedal.lineTo(-.11, .058)
-  pedal.bezierCurveTo(-.15, .056, -.158, .031, -.20, .029)
-  pedal.lineTo(-.20, .020); pedal.bezierCurveTo(-.149, .020, -.117, .024, -.094, .035)
-  pedal.lineTo(-.054, .036); pedal.closePath()
-  const pedalGeo = new THREE.ExtrudeGeometry(pedal, { depth: .022, bevelEnabled: true, bevelSize: .002, bevelThickness: .002, bevelSegments: 4, curveSegments: 16 })
+  // Elliptical cross-sections blend the bent shank into a rounded foot plate.
+  const sections = [
+    [.042, .066, .006, .006], [.063, .066, .007, .006],
+    [.088, .052, .007, .005], [.117, .039, .008, .004],
+    [.143, .037, .012, .004], [.171, .037, .014, .004],
+    [.195, .036, .012, .004], [.210, .034, .005, .003], [.213, .033, .001, .001],
+  ]
+  const positions: number[] = [], indices: number[] = [], sides = 32, rings = 49
+  const pedalPath = new THREE.CatmullRomCurve3(sections.map(([z, y]) => new THREE.Vector3(0, y, z)))
+  const pedalSection = new THREE.CatmullRomCurve3(sections.map(([, , width, height]) => new THREE.Vector3(width, height, 0)))
+  for (let ring = 0; ring < rings; ring++) {
+    const t = ring / (rings - 1), center = pedalPath.getPoint(t), profile = pedalSection.getPoint(t)
+    for (let side = 0; side < sides; side++) {
+      const angle = side * Math.PI * 2 / sides
+      positions.push(Math.cos(angle) * Math.max(.0005, profile.x), center.y + Math.sin(angle) * Math.max(.0005, profile.y), center.z)
+    }
+  }
+  for (let ring = 0; ring < rings - 1; ring++) for (let side = 0; side < sides; side++) {
+    const a = ring * sides + side, b = ring * sides + (side + 1) % sides
+    indices.push(a, b, b + sides, a, b + sides, a + sides)
+  }
+  const end = (rings - 1) * sides
+  for (let side = 1; side < sides - 1; side++) indices.push(0, side + 1, side, end, end + side, end + side + 1)
+  const pedalGeo = new THREE.BufferGeometry()
+  pedalGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  pedalGeo.setIndex(indices)
+  pedalGeo.computeVertexNormals()
   for (const x of [-.050, 0, .050]) {
-    const node = add(pedalGeo, brass, [x - .011, 0, 0], 'pedal')
-    node.rotation.y = Math.PI / 2
+    box([.021, .038, .006], [x, .064, .040], satin, .003, 'pedal-socket')
+    add(pedalGeo, brass, [x, 0, 0], 'pedal')
   }
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas')
@@ -134,7 +173,7 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
     const texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace
     textures.push(texture)
-    const wordmark = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
+    const wordmark = new THREE.MeshStandardMaterial({ map: texture, transparent: true, depthWrite: false, metalness: .5, roughness: .3 })
     materials.push(wordmark)
     const label = add(new THREE.PlaneGeometry(.155, .026), wordmark, [0, .75, .09])
     label.rotation.x = -.40

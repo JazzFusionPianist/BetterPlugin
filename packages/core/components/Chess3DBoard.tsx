@@ -58,84 +58,34 @@ function woodTexture(light: boolean, seed: number) {
   return texture
 }
 
-function furnishedRoom(scene: THREE.Scene, materials: THREE.Material[], textures: THREE.Texture[]) {
+function furnishedRoom(scene: THREE.Scene, materials: THREE.Material[], textures: THREE.Texture[], loaded: (texture: THREE.Texture) => void) {
   const room = new THREE.Group()
   scene.add(room)
-  const finish = (options: THREE.MeshStandardMaterialParameters) => {
-    const material = new THREE.MeshStandardMaterial(options)
-    materials.push(material)
-    return material
-  }
-  const deskGrain = woodTexture(false, 719)
-  deskGrain.repeat.set(3, 2)
-  const floorGrain = woodTexture(false, 991)
-  floorGrain.repeat.set(12, 12)
-  textures.push(deskGrain, floorGrain)
-  const desk = finish({ map: deskGrain, color: '#bb997d', roughness: .48 })
-  const floor = finish({ map: floorGrain, color: '#302720', roughness: .85 })
-  const wall = finish({ color: '#171411', roughness: .95 })
-  const trim = finish({ color: '#4a3829', roughness: .65 })
-  const ebony = finish({ color: '#161714', roughness: .5, metalness: .08, envMapIntensity: .2 })
-  const ivory = finish({ color: '#e7ddc1', roughness: .38 })
-  const brass = finish({ color: '#b28b4b', roughness: .32, metalness: .7 })
-  const box = (parent: THREE.Group, size: [number, number, number], at: [number, number, number], mat: THREE.Material) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), mat)
+  const loader = new THREE.TextureLoader()
+  const deskGrain = loader.load(new URL('../assets/chess-walnut.webp', import.meta.url).href, loaded)
+  deskGrain.colorSpace = THREE.SRGBColorSpace
+  deskGrain.wrapS = deskGrain.wrapT = THREE.RepeatWrapping
+  deskGrain.repeat.set(1.4, 1.3)
+  const roomPhoto = loader.load(new URL('../assets/chess-room.webp', import.meta.url).href, texture => {
+    scene.background = texture
+    loaded(texture)
+  })
+  roomPhoto.colorSpace = THREE.SRGBColorSpace
+  textures.push(deskGrain, roomPhoto)
+  const desk = new THREE.MeshStandardMaterial({ map: deskGrain, color: '#766d60', roughness: .83, envMapIntensity: .25 })
+  const legs = new THREE.MeshStandardMaterial({ color: '#29231d', roughness: .78 })
+  // The photographic room stays behind the interactive board and its actual 3D table.
+  materials.push(desk, legs)
+  const box = (size: [number, number, number], at: [number, number, number], material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
     mesh.position.set(...at)
     mesh.castShadow = mesh.receiveShadow = true
-    parent.add(mesh)
-    return mesh
+    room.add(mesh)
   }
-  // The board base rests directly on the tabletop, rather than floating above a flat backdrop.
-  box(room, [12.6, .32, 12.6], [0, -.485, 0], desk)
-  for (const x of [-5.4, 5.4]) for (const z of [-5.4, 5.4]) {
-    box(room, [.45, 2.7, .45], [x, -1.98, z], trim)
-  }
-  box(room, [80, .12, 80], [0, -3.4, 0], floor)
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(48, 22), wall)
-  back.position.set(0, 7.5, -16)
-  back.receiveShadow = true
-  room.add(back)
-  box(room, [48, .24, .18], [0, -3.15, -15.9], trim)
-  // Shallow wall mouldings and an amber wall lamp make the background read as a room.
-  for (const x of [-16, -8, 0, 8, 16]) box(room, [.09, 7.2, .07], [x, .5, -15.85], trim)
-  box(room, [48, .09, .07], [0, 4.1, -15.85], trim)
-  const glow = finish({ color: '#ffe3a7', emissive: '#ffc777', emissiveIntensity: 1.8, roughness: .8 })
-  box(room, [.72, 1.2, .45], [-8.4, 2.8, -15.5], glow)
-  const lamp = new THREE.PointLight('#ffc383', 95, 30, 2)
-  lamp.position.set(-8.4, 2.8, -14.8)
-  room.add(lamp)
-
-  const piano = new THREE.Group()
-  piano.name = 'upright-piano'
-  piano.position.set(6.8, -3.33, -10.8)
-  piano.rotation.y = -.16
-  room.add(piano)
-  box(piano, [6.2, 4.5, 1.3], [0, 2.25, 0], ebony)
-  box(piano, [6.45, .18, 1.5], [0, 4.6, -.04], ebony)
-  box(piano, [5.9, 1.9, .08], [0, 3.32, .69], trim)
-  box(piano, [5.8, 1.78, .12], [0, 3.32, .75], ebony)
-  box(piano, [6.3, .24, 1.4], [0, 2.18, 1], ebony)
-  box(piano, [5.55, .15, .75], [0, 2.39, 1.06], ivory)
-  for (let key = 0; key < 52; key++) {
-    const x = (key - 25.5) * .105
-    box(piano, [.101, .13, .70], [x, 2.47, 1.10], ivory)
-    if ([0, 1, 3, 4, 5].includes(key % 7) && key < 51) {
-      box(piano, [.058, .15, .42], [x + .0525, 2.60, .98], ebony)
-    }
-  }
-  for (const x of [-2.9, 2.9]) box(piano, [.28, 2.25, .40], [x, 1.1, 1.32], ebony)
-  for (const x of [-.36, 0, .36]) box(piano, [.16, .10, .58], [x, .18, 1.03], brass)
-  box(piano, [1.65, .04, .46], [0, 2.72, .71], ebony)
-  box(piano, [.6, .07, .04], [0, 2.85, .80], brass)
-  const bench = new THREE.Group()
-  bench.position.set(6.8, -3.33, -7.8)
-  room.add(bench)
-  box(bench, [3.4, .25, 1.5], [0, 1.45, 0], ebony)
-  for (const x of [-1.45, 1.45]) for (const z of [-.55, .55]) box(bench, [.16, 1.3, .16], [x, .68, z], trim)
-  const pianoLight = new THREE.PointLight('#ffd39a', 65, 24, 2)
-  pianoLight.position.set(6, 6, -6)
-  room.add(pianoLight)
-  return room
+  // The taller, generous tabletop remains a real 3D surface under the board.
+  box([18.5, .42, 17.6], [0, -.535, .6], desk)
+  for (const x of [-8.1, 8.1]) for (const z of [-6.9, 8.1]) box([.52, 4.8, .52], [x, -3.13, z], legs)
+  return { room, background: roomPhoto }
 }
 
 /** Procedural Staunton pieces share geometry, with a sculpted knight profile. */
@@ -313,7 +263,10 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
       mesh.position.y = y; mesh.receiveShadow = true; scene.add(mesh); return mesh
     }
-    const room = furnishedRoom(scene, materials, textures)
+    const { room, background } = furnishedRoom(scene, materials, textures, texture => {
+      if (disposed) texture.dispose()
+      else request()
+    })
     const frameMaterial = new THREE.MeshPhysicalMaterial({ map: walnut, color: '#c9a176', roughness: .32, clearcoat: .35 })
     materials.push(frameMaterial)
     box(8.8, .27, 8.8, frameMaterial, -.19)
@@ -414,6 +367,13 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       if (w !== lastWidth || h !== lastHeight) {
         lastWidth = w; lastHeight = h
         renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fit()
+        const imageAspect = 16 / 9
+        // Keep the piano in the room above the tabletop, including portrait screens.
+        const roomBand = .48
+        const visibleY = Math.min(1, imageAspect * roomBand / camera.aspect)
+        background.repeat.set(Math.min(1, camera.aspect / (imageAspect * roomBand)), visibleY / roomBand)
+        background.offset.set((1 - background.repeat.x) * .85, (visibleY < .6 ? .8 : 1) - background.repeat.y)
+        background.updateMatrix()
       } else request()
     }
     const marker = (pos: Pos | null | undefined, material: THREE.Material, shape: THREE.BufferGeometry = squareGeo) => {

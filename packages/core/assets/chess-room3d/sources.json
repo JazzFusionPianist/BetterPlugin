@@ -1,0 +1,74 @@
+[
+  {
+    "file": "walnut-color.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smoked_walnut_veneer/smoked_walnut_veneer_diff_1k.jpg",
+    "asset": "https://polyhaven.com/a/smoked_walnut_veneer",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "walnut-normal.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smoked_walnut_veneer/smoked_walnut_veneer_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/smoked_walnut_veneer",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "walnut-roughness.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/smoked_walnut_veneer/smoked_walnut_veneer_rough_1k.jpg",
+    "asset": "https://polyhaven.com/a/smoked_walnut_veneer",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "leather-color.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_albedo_1k.jpg",
+    "asset": "https://polyhaven.com/a/brown_leather",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "leather-normal.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/brown_leather",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "leather-roughness.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_rough_1k.jpg",
+    "asset": "https://polyhaven.com/a/brown_leather",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "plaster-color.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_diff_1k.jpg",
+    "asset": "https://polyhaven.com/a/plastered_wall_03",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "plaster-normal.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/plastered_wall_03",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "plaster-roughness.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_rough_1k.jpg",
+    "asset": "https://polyhaven.com/a/plastered_wall_03",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "parquet-color.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/herringbone_parquet/herringbone_parquet_diff_1k.jpg",
+    "asset": "https://polyhaven.com/a/herringbone_parquet",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "parquet-normal.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/herringbone_parquet/herringbone_parquet_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/herringbone_parquet",
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "parquet-roughness.webp",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/herringbone_parquet/herringbone_parquet_rough_1k.jpg",
+    "asset": "https://polyhaven.com/a/herringbone_parquet",
+    "license": "CC0-1.0"
+  }
+]

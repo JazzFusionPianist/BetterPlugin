@@ -30,6 +30,7 @@ async function clickSquare(page, square) {
   const canvas = await page.locator('canvas[data-chess3d]').boundingBox()
   await page.mouse.click(canvas.x + point.x, canvas.y + point.y)
 }
+const projection = page => page.locator('[role="gridcell"]').evaluateAll(buttons => buttons.map(b => [Number(Number(b.dataset.screenX).toFixed(4)), Number(Number(b.dataset.screenY).toFixed(4))]))
 try {
   for (const platform of ['plugin', 'web']) {
     for (const size of sizes) {
@@ -39,6 +40,7 @@ try {
       await page.goto(`${base}/?platform=${platform}&game=chess_3d&arcade=1`)
       await page.locator('.game-computer-btn').waitFor()
       await page.locator('canvas[data-chess3d]').waitFor()
+      await page.locator('[data-room-ready="true"]').waitFor()
       await page.evaluate(() => document.fonts.ready)
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-lobby.png` })
       await page.locator('.game-computer-btn').click()
@@ -56,7 +58,7 @@ try {
       assert(framing.height > 130 && framing.width > 150, `${platform}: scene must retain usable space`)
       assert.equal(framing.outside, 0, `${platform}: all squares must be framed`)
       assert.equal(framing.overflow, 0)
-      assert.equal(await page.locator('.chess3d-camera').count(), 0, 'Photographic room has a fixed viewpoint')
+      assert.equal(await page.locator('.chess3d-camera button').count(), 4, 'Real 3D room exposes camera tools')
       await clickSquare(page, 'e2')
       assert.equal(await page.locator('.chess3d-stage').getAttribute('data-selected'), 'e2', 'Raycasting selects the clicked pawn')
       await clickSquare(page, 'e4')
@@ -65,8 +67,9 @@ try {
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].captured.presentation), '3d', 'Moves must preserve the variant')
       await page.waitForTimeout(300)
       const after = await canvasPixels(page)
+      const defaultProjection = await projection(page)
       await page.screenshot({ path: `${out}${platform}-${size.width}x${size.height}-playing.png` })
-      // Gestures must neither change the photographic perspective nor make a move.
+      // Orbit and zoom change the whole room without making a chess move.
       const beforeMoves = await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length)
       const canvas = await page.locator('canvas[data-chess3d]').boundingBox()
       await page.mouse.move(canvas.x + canvas.width * .5, canvas.y + canvas.height * .5)
@@ -74,24 +77,31 @@ try {
       await page.mouse.move(canvas.x + canvas.width * .65, canvas.y + canvas.height * .5, { steps: 8 })
       await page.mouse.up()
       assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length), beforeMoves)
-      assert.equal((await canvasPixels(page)).hash, after.hash, 'Dragging must leave the fixed scene unchanged')
+      await page.waitForTimeout(120)
+      const rotated = await canvasPixels(page)
+      assert.notEqual(rotated.hash, after.hash, 'Dragging rotates the real room')
       await page.mouse.wheel(0, 300)
-      assert.equal((await canvasPixels(page)).hash, after.hash, 'Wheel gestures must not zoom the fixed scene')
+      await page.waitForTimeout(120)
+      assert.notEqual((await canvasPixels(page)).hash, rotated.hash, 'Wheel zooms the real room')
+      assert.equal(await page.evaluate(() => window.gamesQA.tables.get('game_rooms')[0].move_history.length), beforeMoves)
+      await page.locator('.chess3d-camera button').first().click()
+      await page.waitForTimeout(120)
+      assert.deepEqual(await projection(page), defaultProjection, 'Reset restores the room perspective')
       if (size.width === 600) {
-        const projection = () => page.locator('[role="gridcell"]').evaluateAll(buttons => buttons.map(b => [b.dataset.screenX, b.dataset.screenY]))
-        const whiteView = await projection()
+        const whiteView = await projection(page)
         await page.evaluate(async () => {
           const room = window.gamesQA.tables.get('game_rooms')[0]
           await window.gamesQA.update('game_rooms', room.id, { host_color: 'black', guest_id: 'opponent' })
         })
         await page.waitForTimeout(100)
-        assert.deepEqual(await projection(), whiteView, 'Changing sides must not rotate the board against the photograph')
+        assert.deepEqual(await projection(page), whiteView, 'Changing sides preserves the camera')
         await page.evaluate(() => window.gamesQA.reopen(true))
         await page.locator('canvas[data-chess3d]').waitFor()
+        await page.locator('[data-room-ready="true"]').waitFor()
         await page.getByRole('gridcell', { name: 'e4 White Pawn', exact: true }).waitFor()
         await page.waitForFunction(() => document.querySelector('[role="gridcell"]')?.dataset.screenX)
         await page.waitForTimeout(100)
-        assert.deepEqual(await projection(), whiteView, 'Resuming as Black retains the same fixed perspective')
+        assert.deepEqual(await projection(page), whiteView, 'Resuming retains the default camera')
       }
       await page.evaluate(() => window.gamesQA.hide(true))
       await page.locator('#outside-input').fill('outside')
@@ -112,7 +122,7 @@ try {
       }
       assert.deepEqual(errors, [])
       records.push({ platform, size, framing, pixels: first, moved: after })
-      console.log(`${platform} ${size.width}x${size.height}: render, framing, raycast, move/AI, fixed perspective, visibility passed`)
+      console.log(`${platform} ${size.width}x${size.height}: render/assets, framing, raycast, move/AI, orbit/zoom/reset, visibility passed`)
       await page.close()
     }
     const page = await browser.newPage({ viewport: { width: 600, height: 500 } })

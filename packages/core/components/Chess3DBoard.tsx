@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { RotateCcw, Scan, Plus, Minus } from 'lucide-react'
+import { createChessRoom } from '../lib/chess3dRoom'
 import { useGameActive } from '../hooks/useGameSurface'
 import { checkedKing, legalTargets, squareName, type BoardPosition as Pos, type ChessPosition } from '../lib/chess3d'
 import '../styles/chess3d.css'
@@ -24,6 +27,7 @@ export interface Chess3DBoardProps {
 interface Stage {
   sync: () => void
   active: (value: boolean) => void
+  camera: (action: 'reset' | 'top' | 'in' | 'out') => void
 }
 
 const equal = (a: Pos | null | undefined, b: Pos | null | undefined) => !!a && !!b && a[0] === b[0] && a[1] === b[1]
@@ -53,28 +57,6 @@ function woodTexture(light: boolean, seed: number) {
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
   return texture
-}
-
-function furnishedRoom(scene: THREE.Scene, camera: THREE.PerspectiveCamera, materials: THREE.Material[], textures: THREE.Texture[], loaded: (texture: THREE.Texture) => void) {
-  const photo = new THREE.TextureLoader().load(new URL('../assets/chess-table-room.webp', import.meta.url).href, loaded)
-  photo.colorSpace = THREE.SRGBColorSpace
-  textures.push(photo)
-  const photograph = new THREE.MeshBasicMaterial({ map: photo, toneMapped: false, fog: false, depthTest: false, depthWrite: false })
-  const shadow = new THREE.ShadowMaterial({ opacity: .30, depthWrite: false, fog: false })
-  materials.push(photograph, shadow)
-  // The photograph and board share one fixed projection, including responsive fitting.
-  const distance = 70
-  const height = 2 * distance * Math.tan(THREE.MathUtils.degToRad(17))
-  const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(height * 1.5, height), photograph)
-  backdrop.position.copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(distance))
-  backdrop.quaternion.copy(camera.quaternion)
-  backdrop.renderOrder = -1
-  scene.add(backdrop)
-  const contact = new THREE.Mesh(new THREE.PlaneGeometry(18.5, 12.4), shadow)
-  contact.rotation.x = -Math.PI / 2
-  contact.position.y = -.327
-  contact.receiveShadow = true
-  scene.add(contact)
 }
 
 /** Procedural Staunton pieces share geometry, with a sculpted knight profile. */
@@ -204,6 +186,8 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.autoUpdate = false
+    renderer.shadowMap.needsUpdate = true
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = .93
     renderer.domElement.setAttribute('aria-hidden', 'true')
@@ -216,23 +200,38 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const pmrem = new THREE.PMREMGenerator(renderer)
     const env = pmrem.fromScene(environment, .04)
     scene.environment = env.texture
-    scene.environmentIntensity = .65
+    scene.environmentIntensity = .40
     environment.dispose(); pmrem.dispose()
-    const camera = new THREE.PerspectiveCamera(34, 1, .1, 120)
-    const target = new THREE.Vector3(0, 1.4, -1)
-    camera.position.copy(target).add(new THREE.Vector3(0, 12, 11).normalize().multiplyScalar(26))
+    const camera = new THREE.PerspectiveCamera(38, 1, .1, 120)
+    const target = new THREE.Vector3(0, 3.2, -.6)
+    camera.position.copy(target).add(new THREE.Vector3(0, 13, 15).normalize().multiplyScalar(26))
     camera.lookAt(target)
-    const hemi = new THREE.HemisphereLight('#ffead1', '#30241e', .85)
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.target.copy(target)
+    controls.enablePan = false
+    controls.minDistance = 17
+    controls.maxDistance = 37
+    controls.minPolarAngle = .15
+    controls.maxPolarAngle = 1.08
+    controls.minAzimuthAngle = -.75
+    controls.maxAzimuthAngle = .75
+    controls.rotateSpeed = .45
+    controls.zoomSpeed = .65
+    controls.enabled = activeRef.current
+    controls.update()
+    const hemi = new THREE.HemisphereLight('#ffead1', '#30241e', .55)
     scene.add(hemi)
-    const sun = new THREE.DirectionalLight('#fff0d3', 2.5)
+    const sun = new THREE.DirectionalLight('#fff0d3', 2.2)
     sun.position.set(-4, 10, 5)
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
     sun.shadow.camera.left = -16; sun.shadow.camera.right = 16
     sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16
     sun.shadow.normalBias = .035
+    sun.shadow.bias = -.0001
+    sun.shadow.radius = 3
     scene.add(sun)
-    const fill = new THREE.DirectionalLight('#ffdfb2', .9)
+    const fill = new THREE.DirectionalLight('#ffdfb2', .55)
     fill.position.set(6, 5, -5); scene.add(fill)
     const maple = woodTexture(true, 173)
     const walnut = woodTexture(false, 347)
@@ -247,10 +246,6 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
       mesh.position.y = y; mesh.receiveShadow = mesh.castShadow = true; scene.add(mesh); return mesh
     }
-    furnishedRoom(scene, camera, materials, textures, texture => {
-      if (disposed) texture.dispose()
-      else request()
-    })
     const frameMaterial = new THREE.MeshPhysicalMaterial({ map: walnut, color: '#c9a176', roughness: .32, clearcoat: .35 })
     materials.push(frameMaterial)
     box(8.8, .27, 8.8, frameMaterial, -.19)
@@ -316,6 +311,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       frame = 0
       if (disposed || !visible) return
       const now = performance.now()
+      if (destinations.size) renderer.shadowMap.needsUpdate = true
       for (const [piece, animation] of destinations) {
         const t = Math.min(1, (now - animation.start) / 260)
         piece.position.lerpVectors(animation.from, animation.to, t * t * (3 - 2 * t))
@@ -337,6 +333,11 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       if (now < movingUntil) request()
     }
     const request = () => { needsPaint = true; if (visible && !frame && !disposed) frame = requestAnimationFrame(paint) }
+    controls.addEventListener('change', request)
+    const room = createChessRoom(scene, renderer, materials, textures, request, () => disposed)
+    room.ready.then(() => {
+      if (!disposed) { el.dataset.roomReady = 'true'; request() }
+    }).catch(() => { if (!disposed) setFailed(true) })
     let lastWidth = 0, lastHeight = 0
     const resize = () => {
       const w = el.clientWidth, h = el.clientHeight
@@ -345,7 +346,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
         lastWidth = w; lastHeight = h
         renderer.setSize(w, h, false)
         camera.aspect = w / h
-        camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(17)) * Math.max(1, .75 / camera.aspect)))
+        camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(19)) * Math.max(1, .75 / camera.aspect)))
         camera.updateProjectionMatrix()
         request()
       } else request()
@@ -360,6 +361,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const p = latest.current
       const nextKey = JSON.stringify(p.state.board)
       if (nextKey !== boardKey) {
+        renderer.shadowMap.needsUpdate = true
         const previous = new Map(pieces)
         pieces.clear()
         const movedFrom = p.lastFrom?.join(','), movedTo = p.lastTo?.join(',')
@@ -426,22 +428,33 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     const observer = new ResizeObserver(resize); observer.observe(el)
     stage.current = {
       sync,
+      camera(action) {
+        if (!visible) return
+        const offset = camera.position.clone().sub(controls.target)
+        if (action === 'reset') offset.set(0, 13, 15).normalize().multiplyScalar(26)
+        else if (action === 'top') offset.set(0, 26, 4)
+        else offset.setLength(THREE.MathUtils.clamp(offset.length() * (action === 'in' ? .85 : 1 / .85), controls.minDistance, controls.maxDistance))
+        camera.position.copy(controls.target).add(offset)
+        controls.update(); request()
+      },
       active(value) {
         visible = value
-        if (!value) { cancelAnimationFrame(frame); frame = 0 }
+        controls.enabled = value
+        if (!value) { cancelAnimationFrame(frame); frame = 0; down.clear(); multiTouch = false }
         else { if (needsPaint || destinations.size) request(); resize() }
       },
     }
     resize(); sync()
     return () => {
-      disposed = true; cancelAnimationFrame(frame); observer.disconnect()
+      disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose()
+      delete el.dataset.roomReady
       stage.current = null
       const geometries = new Set<THREE.BufferGeometry>()
       scene.traverse(node => { if (node instanceof THREE.Mesh) geometries.add(node.geometry) })
       for (const model of prototypes.values()) model.traverse(node => { if (node instanceof THREE.Mesh) geometries.add(node.geometry) })
       geometries.add(squareGeo); geometries.add(dotGeo); geometries.add(ringGeo)
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose())
-      labelsTexture.dispose(); textures.forEach(texture => texture.dispose()); env.dispose(); sun.shadow.dispose(); renderer.dispose()
+      labelsTexture.dispose(); textures.forEach(texture => texture.dispose()); room.dispose(); env.dispose(); sun.shadow.dispose(); renderer.dispose()
       renderer.domElement.remove()
     }
   }, [failed])
@@ -449,6 +462,11 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
   if (failed) return <div className="chess3d-fallback"><span role="status">{props.labels.unavailable}</span>{props.fallback}</div>
   return (
     <div className="chess3d-stage" ref={host} data-selected={selected ? squareName(selected) : ''}>
+      <div className="chess3d-camera">
+        {([{ action: 'reset', label: props.labels.reset, Icon: RotateCcw }, { action: 'top', label: props.labels.top, Icon: Scan }, { action: 'in', label: props.labels.zoomIn, Icon: Plus }, { action: 'out', label: props.labels.zoomOut, Icon: Minus }] as const).map(({ action, label, Icon }) => (
+          <button type="button" key={action} aria-label={label} title={label} onClick={() => stage.current?.camera(action)}><Icon size={16} /></button>
+        ))}
+      </div>
       <div className="chess3d-keyboard" role="grid" aria-label={props.labels.board}>
         {props.state.board.map((row, r) => <div role="row" key={r}>{row.map((piece, c) => (
           <button role="gridcell" type="button" key={c} aria-label={`${squareName([r, c])}${piece ? ` ${piece[0] === 'w' ? 'White' : 'Black'} ${pieceNames[piece[1]]}` : ''}`} aria-selected={equal(selected, [r, c])} onClick={() => select.current([r, c])} onKeyDown={e => {

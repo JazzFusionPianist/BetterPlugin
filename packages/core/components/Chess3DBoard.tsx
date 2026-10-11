@@ -74,8 +74,9 @@ function furnishedRoom(scene: THREE.Scene, materials: THREE.Material[], textures
   textures.push(deskGrain, roomPhoto)
   const desk = new THREE.MeshStandardMaterial({ map: deskGrain, color: '#766d60', roughness: .83, envMapIntensity: .25 })
   const legs = new THREE.MeshStandardMaterial({ color: '#29231d', roughness: .78 })
+  const floor = new THREE.MeshStandardMaterial({ color: '#15120f', roughness: .96 })
   // The photographic room stays behind the interactive board and its actual 3D table.
-  materials.push(desk, legs)
+  materials.push(desk, legs, floor)
   const box = (size: [number, number, number], at: [number, number, number], material: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
     mesh.position.set(...at)
@@ -85,6 +86,7 @@ function furnishedRoom(scene: THREE.Scene, materials: THREE.Material[], textures
   // The taller, generous tabletop remains a real 3D surface under the board.
   box([18.5, .42, 17.6], [0, -.535, .6], desk)
   for (const x of [-8.1, 8.1]) for (const z of [-6.9, 8.1]) box([.52, 4.8, .52], [x, -3.13, z], legs)
+  box([38, .12, 30], [0, -5.6, -.6], floor)
   return { room, background: roomPhoto }
 }
 

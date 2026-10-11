@@ -1,0 +1,71 @@
+.chess3d-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: #101a18;
+}
+.chess3d-stage > canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.chess3d-camera {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+}
+.chess3d-camera > button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #52645c;
+  background: #202f29;
+  color: #f0f4ef;
+  cursor: pointer;
+}
+.chess3d-camera > button:hover { background: #3e554a; }
+.chess3d-camera > button:focus-visible { outline: 2px solid #80e6bb; outline-offset: 2px; }
+.chess3d-keyboard { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.chess3d-keyboard:focus-within {
+  inset: auto 12px 12px;
+  width: auto;
+  height: auto;
+  clip-path: none;
+  display: grid;
+  background: #202f29;
+  border: 1px solid #80e6bb;
+  padding: 6px;
+}
+.chess3d-keyboard [role="row"] { display: grid; grid-template-columns: repeat(8, 1fr); }
+.chess3d-keyboard button { color: #f0f4ef; background: none; padding: 4px; border: 0; font: 12px/1.4 sans-serif; }
+.chess3d-keyboard button[aria-selected="true"] { background: #49695f; }
+.chess3d-keyboard button:focus { outline: 2px solid #eac877; }
+.chess3d-fallback { display: flex; flex-direction: column; flex: 1; min-height: 0; align-items: center; }
+.chess3d-fallback > [role="status"] { font: 12px/1.4 sans-serif; color: #e6d5aa; padding: 6px 12px; }
+.chess3d-loading { flex: 1; background: #101a18; }
+:is(.plugin, .games-panel) .game-view.chess3d-shell {
+  --t1: #f0f4ef;
+  --t2: #b9c9bf;
+  --t3: #a5b9ae;
+  --blue: #80e6bb;
+  --gwall: #101a18;
+  background: #101a18;
+  color: #f0f4ef;
+  min-width: 0;
+}
+:is(.plugin, .games-panel) .chess3d-shell .game-area { padding: 0; gap: 0; min-width: 0; }
+:is(.plugin, .games-panel) .chess3d-shell .game-board-wrap { padding: 0; width: 100%; min-height: 0; flex: 1; }
+:is(.plugin, .games-panel) .chess3d-shell :is(.game-above, .game-below) { padding: 6px 16px; background: #101a18; }
+:is(.plugin, .games-panel) .chess3d-shell .game-action-row { border-color: #34493e; }
+:is(.plugin, .games-panel) .chess3d-shell .chess-player-captured-row { min-height: 24px; }
+:is(.plugin, .games-panel) .chess3d-shell :is(.game-player-name, .game-action-status, .game-inline-back, .game-row-controls .game-btn) { color: #f0f4ef; }
+:is(.plugin, .games-panel) .chess3d-shell .game-action-status.active { color: #80e6bb; }
+:is(.plugin, .games-panel) .chess3d-shell .game-row-controls .game-btn-danger { color: #ffb4ab; }
+:is(.plugin, .games-panel) .chess3d-shell .chess-dock { color: #f0f4ef; border-color: #34493e; }
+:is(.plugin, .games-panel) .chess3d-shell .game-chat { --t1: #f0f4ef; --t2: #b9c9bf; --t3: #a5b9ae; }
+.gwall-chess_3d, .wall-chess_3d { --gwall: #101a18; background: #101a18; }

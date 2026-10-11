@@ -96,7 +96,7 @@ if(platform==='plugin'){
   await import('../../apps/web/app/arcade.css')
 }
 localStorage.setItem('orb_lang',params.get('lang')??'en')
-const paths={chess:'ChessView',falling_blocks:'FallingBlocksView',poker:'PokerView',pinball:'PinballView',yacht:'YachtView',orb_merge:'OrbMergeView',ear_training:'EarTrainingView',sudoku:'SudokuView',minesweeper:'MinesweeperView',solitaire:'SolitaireView',connect4:'BoardGameView',gomoku:'BoardGameView',reversi:'BoardGameView'}
+const paths={chess:'ChessView',chess_3d:'Chess3DView',falling_blocks:'FallingBlocksView',poker:'PokerView',pinball:'PinballView',yacht:'YachtView',orb_merge:'OrbMergeView',ear_training:'EarTrainingView',sudoku:'SudokuView',minesweeper:'MinesweeperView',solitaire:'SolitaireView',connect4:'BoardGameView',gomoku:'BoardGameView',reversi:'BoardGameView'}
 const pluginModules=import.meta.glob('../../apps/plugin/src/components/collab/*View.tsx')
 const webModules=import.meta.glob('../../apps/web/components/games/*View.tsx')
 const prefix=platform==='plugin'?'../../apps/plugin/src/components/collab/':'../../apps/web/components/games/'
@@ -119,7 +119,7 @@ function Harness(){
     failNext:(table:string,action='update')=>{failure={table,action}},
     reopen:(resume=false)=>{
       sessionStorage.removeItem('join_room_id')
-      const table=game==='chess'?'game_rooms':game==='connect4'||game==='gomoku'||game==='reversi'?'board_rooms':`${game}_rooms`
+      const table=(game==='chess'||game==='chess_3d')?'game_rooms':game==='connect4'||game==='gomoku'||game==='reversi'?'board_rooms':`${game}_rooms`
       const room=tables.get(table)?.find(r=>r.status==='playing')
       if(resume && room)sessionStorage.setItem('join_room_id',room.id)
       setClosed(false);setEpoch(n=>n+1)

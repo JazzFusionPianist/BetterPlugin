@@ -1,3 +1,4 @@
+import Chess3DIcon from '@orb/core/components/Chess3DIcon'
 import {GameButton} from '@orb/core/components/GameButton'
 import type { ReactNode } from 'react'
 import { createContext, useContext, useEffect, useRef } from 'react'
@@ -50,6 +51,10 @@ const ARCHES: Arch[] = [
         <rect x="18" y="132" width="84" height="18" rx="9" fill={PAPER} />
       </>
     ),
+  },
+  {
+    id: 'chess_3d', nameKey: 'game.chess3d', subKey: 'game.chess3dDesc', wall: '#315c48',
+    object: <Chess3DIcon size={120} />,
   },
   {
     id: 'falling_blocks', nameKey: 'game.fallingBlocks', subKey: 'arcade.fallingBlocks', wall: '#7B5CFF',

@@ -14,7 +14,7 @@ function isResumableRoom(room: GameRoom, currentUserId: string): boolean {
   return room.host_id === currentUserId && isComputerRoom(room)
 }
 
-export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
+export function useGameRoom(supabase: SupabaseClient, currentUserId: string, threeD = false) {
   const [room, setRoom] = useState<GameRoom | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -44,7 +44,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
         status: 'lobby',
         turn: 'white',
         host_color: 'white',
-        captured: { white: [], black: [] },
+        captured: { white: [], black: [], ...(threeD ? { presentation: '3d' } : {}) },
         move_history: [],
         castling: { wK: true, wQ: true, bK: true, bQ: true },
         en_passant: null,
@@ -56,7 +56,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
     if (error || !data) return null
     setRoom(data as GameRoom)
     return data as GameRoom
-  }, [supabase, currentUserId])
+  }, [supabase, currentUserId, threeD])
 
   const joinRoom = useCallback(async (roomId: string): Promise<GameRoom | null> => {
     // Fetch the room first
@@ -96,7 +96,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       status: 'playing',
       board: initialBoard,
       turn: 'white',
-      captured: { white: [], black: [] },
+      captured: { white: [], black: [], ...(threeD || room?.captured?.presentation === '3d' ? { presentation: '3d' } : {}) },
       move_history: [],
       castling: { wK: true, wQ: true, bK: true, bQ: true },
       en_passant: null,
@@ -108,7 +108,7 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       last_from: null,
       last_to: null,
     }).eq('id', room.id)
-  }, [supabase, room])
+  }, [supabase, room, threeD])
 
   const toggleReady = useCallback(async (): Promise<void> => {
     if (!room) return
@@ -141,14 +141,14 @@ export function useGameRoom(supabase: SupabaseClient, currentUserId: string) {
       actor_id: currentUserId,
       type: 'game_invite',
       read: false,
-      metadata: { room_id: roomId, game_type: 'chess' },
+      metadata: { room_id: roomId, game_type: threeD ? 'chess_3d' : 'chess' },
     })
     if (error) console.error('[inviteFriend] insert error:', error)
     // Mirror the invite into the DM as a chat bubble so the friend
     // can join from the conversation view too, not just the bell.
     const { sendGameInviteMessage } = await import('./gameRooms')
-    sendGameInviteMessage(supabase, currentUserId, friendId, roomId, 'chess')
-  }, [supabase, currentUserId])
+    sendGameInviteMessage(supabase, currentUserId, friendId, roomId, threeD ? 'chess_3d' : 'chess')
+  }, [supabase, currentUserId, threeD])
 
   // Counterpart to inviteFriend. Removes the pending game_invite
   // notification we previously inserted so the recipient stops seeing

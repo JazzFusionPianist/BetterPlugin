@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import Chess3DIcon from '@orb/core/components/Chess3DIcon'
 import FloatingOrbs from '../FloatingOrbs'
 import { useT } from '../../i18n/LanguageContext'
 import type { TKey } from '../../i18n/translations'
 import ArcadeLobby, { useArcade } from './ArcadeLobby'
 
-export type GameId = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'
+export type GameId = 'chess' | 'chess_3d' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge'
   | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'
 
 interface Props {
@@ -44,6 +45,13 @@ const GAMES: GameCard[] = [
     ),
     nameKey: 'game.chess',
     descKey: 'game.chessDesc',
+  },
+  {
+    id: 'chess_3d',
+    coverBg: '#233b31',
+    icon: <Chess3DIcon size={64} />,
+    nameKey: 'game.chess3d',
+    descKey: 'game.chess3dDesc',
   },
   {
     id: 'falling_blocks',

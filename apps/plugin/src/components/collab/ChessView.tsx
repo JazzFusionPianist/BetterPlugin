@@ -1,6 +1,6 @@
 import {GameButton} from '@orb/core/components/GameButton'
 import {ChessBoardFrame} from '@orb/core/hooks/useGameSurface'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile, GameRoom } from '../../types/collab'
 import { useGameRoom } from '../../hooks/useGameRoom'
@@ -18,6 +18,8 @@ import { computerPlayerId, computerPlayerName, isComputerPlayerId } from '../../
 import GameShell, { GameOverlayCard, GameReadyControl, GameResultMark } from './GameShell'
 import GameChat from './GameChat'
 import { PieceGlyph, pieceDragImage } from './ChessPieces'
+
+const Chess3DBoard = lazy(() => import('@orb/core/components/Chess3DBoard'))
 
 const PIECE_NAMES: Record<string, string> = {
   wK: 'white king', wQ: 'white queen', wR: 'white rook',
@@ -429,6 +431,7 @@ function getOppositeColor(color: 'white' | 'black'): 'white' | 'black' {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
+  variant?: '2d' | '3d'
   supabase: SupabaseClient
   currentUserId: string
   currentUserProfile: Profile | null
@@ -439,6 +442,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ChessView({
+  variant = '2d',
   supabase,
   currentUserId,
   currentUserProfile,
@@ -447,7 +451,8 @@ export default function ChessView({
 }: Props) {
   const { t } = useT()
   const { room, loading, createRoom, startGame, makeMove, endGame, inviteFriend, cancelInvite, joinRoom, leaveRoom, deleteCurrentRoom, toggleReady, findActiveRoom, setRoom } =
-    useGameRoom(supabase, currentUserId)
+    useGameRoom(supabase, currentUserId, variant === '3d')
+  const threeD = variant === '3d' || room?.captured?.presentation === '3d'
   const [resolvingRoom, setResolvingRoom] = useState(true)
   const [computerStartPending, setComputerStartPending] = useState(false)
 
@@ -615,7 +620,7 @@ export default function ChessView({
           status: 'playing',
           board: initialState.board as (string | null)[][],
           turn: 'white',
-          captured: { white: [], black: [], computer: true },
+          captured: { white: [], black: [], computer: true, ...(threeD ? { presentation: '3d' } : {}) },
           move_history: [],
           castling: { wK: true, wQ: true, bK: true, bQ: true },
           en_passant: null,
@@ -918,7 +923,7 @@ export default function ChessView({
   } else if (!isPlaying) {
     if (!room || (isHost && !hasGuest)) {
       overlay = (
-        <GameOverlayCard emoji="♟" title={t('game.chess')}>
+        <GameOverlayCard emoji="♟" title={t(threeD ? 'game.chess3d' : 'game.chess')}>
           <GameButton className="game-invite-btn" onClick={() => setShowInviteModal(true)} disabled={loading}>
             {t('chess.inviteCta')}
           </GameButton>
@@ -937,8 +942,9 @@ export default function ChessView({
 
   return (
     <GameShell
-      className="chess-shell"
-      title={t('game.chess')}
+      className={threeD ? 'chess3d-shell' : 'chess-shell'}
+      fillBoard={threeD}
+      title={t(threeD ? 'game.chess3d' : 'game.chess')}
       onBack={handleBack}
       actionStatus={
         isPlaying
@@ -996,6 +1002,35 @@ export default function ChessView({
       board={computerStartPending ? (
         <div className="game-transition-blank" />
       ) : (
+        threeD ? (
+          <Suspense fallback={<div className="chess3d-loading" />}>
+            <Chess3DBoard
+              state={displayState}
+              myColor={myColor}
+              onMove={handleMove}
+              lastFrom={isPlaying || isFinished ? lastFrom : null}
+              lastTo={isPlaying || isFinished ? lastTo : null}
+              isMyTurn={isMyTurn && isPlaying}
+              canPremove={isPlaying}
+              premove={isPlaying ? premove : null}
+              onPremove={setPremove}
+              labels={{ reset: t('chess3d.reset'), top: t('chess3d.top'), zoomIn: t('chess3d.zoomIn'), zoomOut: t('chess3d.zoomOut'), unavailable: t('chess3d.unavailable'), board: t('game.chess3d') }}
+              fallback={<ChessBoardFrame>
+          <ChessBoard
+            state={displayState}
+            myColor={myColor}
+            onMove={handleMove}
+            lastFrom={isPlaying || isFinished ? lastFrom : null}
+            lastTo={isPlaying || isFinished ? lastTo : null}
+            isMyTurn={isMyTurn && isPlaying}
+            canPremove={isPlaying}
+            premove={isPlaying ? premove : null}
+            onPremove={setPremove}
+          />
+        </ChessBoardFrame>}
+            />
+          </Suspense>
+        ) : (
         <ChessBoardFrame>
           <ChessBoard
             state={displayState}
@@ -1009,6 +1044,7 @@ export default function ChessView({
             onPremove={setPremove}
           />
         </ChessBoardFrame>
+        )
       )}
       belowBoard={
         <>

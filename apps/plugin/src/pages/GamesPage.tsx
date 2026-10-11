@@ -123,8 +123,8 @@ export default function GamesPage({ supabase, user }: Props) {
             ? <ArcadeLobby onSelectGame={(g) => { void openGame(g) }} />
             : <GameListView onSelectGame={(g) => { void openGame(g) }} onClose={() => {}} />
           )}
-          {screen === 'chess' && (
-            <ChessView key={joinNonce} {...common} friendProfiles={friendProfiles} />
+          {(screen === 'chess' || screen === 'chess_3d') && (
+            <ChessView variant={screen === 'chess_3d' ? '3d' : '2d'} key={joinNonce} {...common} friendProfiles={friendProfiles} />
           )}
           {screen === 'falling_blocks' && (
             <FallingBlocksView key={joinNonce} {...common} friendProfiles={friendProfiles} onlineIds={onlineIds} />

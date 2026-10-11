@@ -70,8 +70,8 @@ export default function GamesPanel({ supabase, me, friends, screen, onScreenChan
         {screen === 'list' && !arcade && (
           <GameListView inviteContext={null} onSelectGame={selectGame} onClose={onClose} />
         )}
-        {screen === 'chess' && (
-          <ChessView
+        {(screen === 'chess' || screen === 'chess_3d') && (
+          <ChessView variant={screen === 'chess_3d' ? '3d' : '2d'}
             supabase={supabase}
             currentUserId={me.id}
             currentUserProfile={me}

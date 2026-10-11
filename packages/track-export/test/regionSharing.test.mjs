@@ -24,7 +24,7 @@ test('track export renders in PTSL/REAPER hosts and falls back to Slur Tap elsew
 })
 
 test('region routes prefer host data and project files before Slur Tap', () => {
-  assert.deepEqual(regionRoutes('Logic Pro'), ['tap'])
+  assert.deepEqual(regionRoutes('Logic Pro'), [], 'Logic regions travel by drag-and-drop only')
   assert.deepEqual(regionRoutes('Fender Studio Pro'), ['project', 'tap'])
   assert.deepEqual(projectKinds('Studio Pro'), ['studio-one', 'dawproject'])
   assert.deepEqual(regionRoutes('Ableton Live 12'), ['project', 'tap'])

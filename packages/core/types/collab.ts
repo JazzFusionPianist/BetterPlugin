@@ -232,7 +232,7 @@ export interface GameRoom {
   host_color: 'white' | 'black'
   winner_id: string | null
   draw_offered_by: string | null
-  captured: { white: string[]; black: string[] }
+  captured: { white: string[]; black: string[]; presentation?: '3d'; computer?: boolean }
   move_history: string[]   // algebraic notation
   castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean }
   en_passant: [number, number] | null

@@ -36,6 +36,7 @@ export type GameScreen = 'list' | GameId
 /** Game id → the per-game translation key (the CD wall's own labels). */
 export const GAME_NAME_KEY = {
   chess: 'game.chess',
+  chess_3d: 'game.chess3d',
   falling_blocks: 'game.fallingBlocks',
   poker: 'game.poker',
   ear_training: 'game.earTraining',
@@ -111,8 +112,8 @@ export default function GamesPane({
               onClose={onClose}
             />
           )}
-          {screen === 'chess' && (
-            <ChessView key={joinNonce} {...common} friendProfiles={friendProfiles} />
+          {(screen === 'chess' || screen === 'chess_3d') && (
+            <ChessView variant={screen === 'chess_3d' ? '3d' : '2d'} key={joinNonce} {...common} friendProfiles={friendProfiles} />
           )}
           {screen === 'falling_blocks' && (
             <FallingBlocksView key={joinNonce} {...common} friendProfiles={friendProfiles} onlineIds={onlineIds} />

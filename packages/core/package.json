@@ -10,6 +10,8 @@
     "./hooks/useGameSurface": "./hooks/useGameSurface.tsx",
     "./hooks/useGameChat": "./hooks/useGameChat.ts",
     "./components/GameButton": "./components/GameButton.tsx",
+    "./components/Chess3DBoard": "./components/Chess3DBoard.tsx",
+    "./components/Chess3DIcon": "./components/Chess3DIcon.tsx",
     "./*": "./*"
   },
   "peerDependencies": {

@@ -21,7 +21,8 @@ Policy: `packages/core/lib/stemRoutes.ts` (`trackRoutes`, `regionRoutes`).
 | Studio One / Fender Studio Pro | Slur Tap | Saved `.song` (read directly, no export) → DAWproject → Slur Tap |
 | Ableton Live | Slur Tap | Saved `.als` (read directly) → Slur Tap |
 | Cubase / Nuendo / Bitwig | Slur Tap | DAWproject export (File › Export › DAWproject, linked once) → Slur Tap |
-| Logic Pro, FL Studio, others | Slur Tap | Slur Tap (regions found from captured audio, effects included) |
+| Logic Pro | Slur Tap | Drag regions into Slur only: each dropped file carries its own position (user decision 2026-10-12) |
+| FL Studio, others | Slur Tap | Slur Tap (regions found from captured audio, effects included) |
 
 Logic and FL Studio project files are proprietary binaries; Logic has no
 scripting API for track rendering (see BACKGROUND-EXPORT.md) and blocks drops

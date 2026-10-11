@@ -311,7 +311,7 @@ export interface GameRoom {
   host_color: 'white' | 'black'
   winner_id: string | null
   draw_offered_by: string | null
-  captured: { white: string[]; black: string[] }
+  captured: { white: string[]; black: string[]; presentation?: '3d'; computer?: boolean }
   move_history: string[]   // algebraic notation
   /** Last move's squares ([row, col]) — synced so BOTH players see the highlight. */
   last_from?: [number, number] | null

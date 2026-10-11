@@ -131,7 +131,7 @@ function CollabPageInner({ user }: Props) {
     return () => clearTimeout(t)
   }, [fxOpen])
   const [gameOpen, setGameOpen]                 = useState(false)
-  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'>('list')
+  const [gameScreen, setGameScreen]             = useState<'list' | 'chess' | 'chess_3d' | 'falling_blocks' | 'poker' | 'ear_training' | 'pinball' | 'yacht' | 'orb_merge' | 'sudoku' | 'minesweeper' | 'solitaire' | 'connect4' | 'gomoku' | 'reversi'>('list')
   const gameSelection = useRef(0)
   const gameInvitePending = useRef(false)
   useEffect(() => () => { gameSelection.current++ }, [gameOpen, gameScreen])
@@ -1152,8 +1152,8 @@ function CollabPageInner({ user }: Props) {
               onClose={() => { setGameOpen(false); setChatGameInvite(null) }}
             />
           )}
-          {gameScreen === 'chess' && (
-            <ChessView
+          {(gameScreen === 'chess' || gameScreen === 'chess_3d') && (
+            <ChessView variant={gameScreen === 'chess_3d' ? '3d' : '2d'}
               key={gameJoinNonce}
               supabase={client}
               currentUserId={user.id}

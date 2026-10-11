@@ -14,7 +14,7 @@ import { isComputerPlayerId } from './computerPlayers'
  * we don't need at the chat layer.
  */
 
-export type GameType = 'chess' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht'
+export type GameType = 'chess' | 'chess_3d' | 'falling_blocks' | 'poker' | 'ear_training' | 'yacht'
 
 function hasMultiplePlayers(playerIds: unknown): boolean {
   return Array.isArray(playerIds) && playerIds.filter(Boolean).length > 1
@@ -39,6 +39,7 @@ function isResumableEarTrainingRoom(room: { player2_id?: string | null }): boole
 
 export const GAME_TABLE: Record<GameType, string> = {
   chess:          'game_rooms',
+  chess_3d:       'game_rooms',
   falling_blocks: 'falling_blocks_rooms',
   poker:          'poker_rooms',
   ear_training:   'ear_training_rooms',
@@ -58,7 +59,7 @@ interface RoomCapacity {
 // When everyone currently in the lobby readies up, the game start path
 // locks `player_count` down to the actual joined player count.
 const DEFAULT_PLAYER_COUNT: Record<GameType, number> = {
-  chess: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4,
+  chess: 2, chess_3d: 2, ear_training: 2, falling_blocks: 4, poker: 6, yacht: 4,
 }
 
 /** Maximum seats currently configured for a room. Reads the row, then
@@ -73,7 +74,7 @@ export async function getRoomCapacity (
   const { data, error } = await supabase.from(table).select('*').eq('id', roomId).maybeSingle()
   if (error || !data) return null
 
-  if (gameType === 'chess') {
+  if ((gameType === 'chess' || gameType === 'chess_3d')) {
     const r = data as { host_id: string; guest_id: string | null; status: string }
     return {
       capacity: 2,
@@ -126,7 +127,7 @@ export async function createGameRoom (
   userId: string,
 ): Promise<string | null> {
   const playerCount = DEFAULT_PLAYER_COUNT[gameType]
-  if (gameType === 'chess') {
+  if ((gameType === 'chess' || gameType === 'chess_3d')) {
     const { data, error } = await supabase
       .from('game_rooms')
       .insert({
@@ -135,7 +136,7 @@ export async function createGameRoom (
         status: 'lobby',
         turn: 'white',
         host_color: 'white',
-        captured: { white: [], black: [] },
+        captured: { white: [], black: [], ...(gameType === 'chess_3d' ? { presentation: '3d' } : {}) },
         move_history: [],
         castling: { wK: true, wQ: true, bK: true, bQ: true },
         en_passant: null,
@@ -276,7 +277,7 @@ export async function findActiveGame (
   const pokerRoom = poker.data?.find(isResumableMultiPlayerRoom)
   const etRoom = et.data?.find(isResumableEarTrainingRoom)
   const yachtRoom = yacht.data?.find(isResumableMultiPlayerRoom)
-  if (chessRoom) candidates.push({ gameType: 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
+  if (chessRoom) candidates.push({ gameType: chessRoom.captured?.presentation === '3d' ? 'chess_3d' : 'chess', roomId: chessRoom.id, updatedAt: chessRoom.updated_at })
   if (fbRoom)    candidates.push({ gameType: 'falling_blocks', roomId: fbRoom.id, updatedAt: fbRoom.updated_at })
   if (pokerRoom) candidates.push({ gameType: 'poker', roomId: pokerRoom.id, updatedAt: pokerRoom.updated_at })
   if (etRoom)    candidates.push({ gameType: 'ear_training', roomId: etRoom.id, updatedAt: etRoom.updated_at })
@@ -361,7 +362,7 @@ export async function joinGameRoom (
   if (cap.status !== 'lobby') return 'missing'
   if (cap.occupied >= cap.capacity) return 'full'
 
-  if (gameType === 'chess') {
+  if ((gameType === 'chess' || gameType === 'chess_3d')) {
     const { data, error } = await supabase
       .from('game_rooms')
       .update({ guest_id: userId })

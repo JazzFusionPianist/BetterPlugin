@@ -108,7 +108,7 @@ function snippet(m: Message | null | undefined, senderName?: string): string {
 }
 
 const GAME_NAME_KEY = {
-  chess: 'game.chess', falling_blocks: 'game.fallingBlocks', poker: 'game.poker',
+  chess: 'game.chess', chess_3d: 'game.chess3d', falling_blocks: 'game.fallingBlocks', poker: 'game.poker',
   ear_training: 'game.earTraining', yacht: 'game.yacht', pinball: 'game.pinball', orb_merge: 'game.orbMerge',
 } as const
 function useGameName(): (id: string) => string {

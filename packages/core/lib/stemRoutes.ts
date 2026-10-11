@@ -51,6 +51,9 @@ export function projectKinds(host: string): ProjectKind[] {
 
 export function regionRoutes(host: string): RegionRoute[] {
   const h = canonicalHost(host)
+  // Logic: regions are shared by dragging them into Slur (each file keeps its
+  // own position via the drag-time selection capture), never via a dialog.
+  if (h === 'Logic Pro') return []
   const routes: RegionRoute[] = []
   if (h === 'LUNA' || h === 'Standalone') routes.push('luna')
   if (h === 'REAPER' || h === 'Standalone') routes.push('reaper')

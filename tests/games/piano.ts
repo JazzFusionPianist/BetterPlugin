@@ -59,7 +59,14 @@ black.geometry.computeBoundingBox()
 const bench = scene.getObjectByName('piano-bench')!
 const whiteKeyMaterials = (piano.getObjectByName('white-key-21') as THREE.Mesh).material as THREE.MeshPhysicalMaterial[]
 const whiteKeyMaterial = whiteKeyMaterials[0]
+const pedal = piano.getObjectByName('pedal') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
+const pedalVertices = pedal.geometry.getAttribute('position')
+const pedalFoot = new THREE.Box3()
+for (let i = 0; i < pedalVertices.count; i++) {
+  if (pedalVertices.getZ(i) > .16 && pedalVertices.getZ(i) < .18) pedalFoot.expandByPoint(new THREE.Vector3().fromBufferAttribute(pedalVertices, i))
+}
 Object.assign(window, { pianoQA: {
+  pedalFoot: { size: pedalFoot.getSize(new THREE.Vector3()).toArray(), color: pedal.material.color.getHexString(), roughness: pedal.material.roughness, environment: pedal.material.envMapIntensity, emissive: pedal.material.emissive.getHex() },
   whiteKeyMaterial: { color: whiteKeyMaterial.color.getHexString(), roughness: whiteKeyMaterial.roughness, clearcoat: whiteKeyMaterial.clearcoat, environment: whiteKeyMaterial.envMapIntensity, emissive: whiteKeyMaterial.emissive.getHex(), textured: !!whiteKeyMaterial.map && !!whiteKeyMaterial.roughnessMap && !!whiteKeyMaterial.bumpMap, bump: whiteKeyMaterial.bumpScale, woodenEdge: !!whiteKeyMaterials[1].map },
   keyToneCount: new Set(nodes.filter(node => node.name.startsWith('white-key-')).map(node => ((node as THREE.Mesh).material as THREE.MeshPhysicalMaterial[])[0].color.getHex())).size,
   lighting: { initialLights, unlitLights, nearTurn, farTurn },

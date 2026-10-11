@@ -64,9 +64,10 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   })
   const ebony = new THREE.MeshPhysicalMaterial({ color: '#111211', roughness: .28, clearcoat: .5, clearcoatRoughness: .24 })
   const brass = new THREE.MeshStandardMaterial({ color: '#bd9755', metalness: .84, roughness: .25 })
+  const pedalMetal = new THREE.MeshStandardMaterial({ color: '#806440', metalness: .72, roughness: .48, envMapIntensity: .12 })
   const felt = new THREE.MeshStandardMaterial({ color: '#7c2425', roughness: 1 })
   const spruce = new THREE.MeshStandardMaterial({ color: '#554235', roughness: .9 })
-  materials.push(lacquer, satin, ivory, keySide, ...keyTones, ebony, brass, felt, spruce)
+  materials.push(lacquer, satin, ivory, keySide, ...keyTones, ebony, brass, pedalMetal, felt, spruce)
   const add = (geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], at: [number, number, number], name = '') => {
     const node = new THREE.Mesh(geometry, material)
     node.position.set(...at)
@@ -193,10 +194,10 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   lock.rotation.x = Math.PI / 2
   // Elliptical cross-sections blend the bent shank into a rounded foot plate.
   const sections = [
-    [.042, .066, .006, .006], [.063, .066, .007, .006],
-    [.088, .052, .007, .005], [.117, .039, .008, .004],
-    [.143, .037, .012, .004], [.171, .037, .014, .004],
-    [.195, .036, .012, .004], [.210, .034, .005, .003], [.213, .033, .001, .001],
+    [.042, .066, .007, .007], [.063, .066, .008, .007],
+    [.088, .052, .008, .006], [.117, .039, .010, .0055],
+    [.143, .037, .016, .006], [.171, .037, .020, .0065],
+    [.195, .036, .017, .006], [.210, .034, .007, .004], [.213, .033, .001, .001],
   ]
   const positions: number[] = [], indices: number[] = [], sides = 32, rings = 49
   const pedalPath = new THREE.CatmullRomCurve3(sections.map(([z, y]) => new THREE.Vector3(0, y, z)))
@@ -220,7 +221,7 @@ export function createU1Piano(materials: THREE.Material[], textures: THREE.Textu
   pedalGeo.computeVertexNormals()
   for (const x of [-.050, 0, .050]) {
     box([.021, .038, .006], [x, .064, .040], satin, .003, 'pedal-socket')
-    add(pedalGeo, brass, [x, 0, 0], 'pedal')
+    add(pedalGeo, pedalMetal, [x, 0, 0], 'pedal')
   }
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas')

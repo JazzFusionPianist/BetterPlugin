@@ -342,7 +342,10 @@ void TapCache::removeStaleCaches()
     {
         const auto v = juce::JSON::parse (file.loadFileAsString());
         const auto beat = v.isObject() ? (juce::int64) v["heartbeatMs"] : file.getLastModificationTime().toMilliseconds();
-        if (now - beat > staleCacheMs)
+        // Plug-in scanners (auval, host scans) load a tap briefly and never capture: drop those after a day.
+        const bool empty = cache.getChildFile (file.getFileNameWithoutExtension())
+            .findChildFiles (juce::File::findFiles, true, "page-*.f32").isEmpty();
+        if (now - beat > staleCacheMs || (empty && now - beat > 24LL * 3600 * 1000))
         {
             cache.getChildFile (file.getFileNameWithoutExtension()).deleteRecursively();
             file.deleteFile();

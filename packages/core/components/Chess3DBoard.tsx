@@ -277,7 +277,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       if (!w || !h) return
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fit()
     }
-    const marker = (pos: Pos | null | undefined, material: THREE.Material, shape = squareGeo) => {
+    const marker = (pos: Pos | null | undefined, material: THREE.Material, shape: THREE.BufferGeometry = squareGeo) => {
       if (!pos) return
       const mesh = new THREE.Mesh(shape, material)
       mesh.position.set(pos[1] - 3.5, .069, pos[0] - 3.5); mesh.rotation.x = -Math.PI / 2

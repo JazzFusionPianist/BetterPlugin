@@ -649,7 +649,7 @@ export default function ChessView({
       console.error('[ChessView.handlePlayComputer]', error)
       setComputerStartPending(false)
     }
-  }, [room, createRoom, supabase, setRoom])
+  }, [room, createRoom, supabase, setRoom, threeD])
 
   useEffect(() => {
     if (room?.status === 'playing') setComputerStartPending(false)

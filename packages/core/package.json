@@ -19,10 +19,14 @@
   "devDependencies": {
     "@supabase/supabase-js": "^2.101.1",
     "@types/react": "^19.0.7",
+    "@types/three": "0.186.0",
     "react": "^19.2.0"
   },
   "dependencies": {
+    "chess.js": "1.4.0",
     "fflate": "0.8.3",
-    "libsodium-wrappers": "0.8.4"
+    "libsodium-wrappers": "0.8.4",
+    "lucide-react": "^1.47.0",
+    "three": "0.186.1"
   }
 }

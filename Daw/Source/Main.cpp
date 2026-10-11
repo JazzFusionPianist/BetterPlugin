@@ -61,7 +61,7 @@ juce::String selfTestMode()
     return word.isEmpty() ? juce::String ("all") : word;
 }
 
-/*  Where things are kept. Projects live in Music/Slur DAW/Projects/<name>.sls (a folder the Finder shows as one file:
+/*  Where things are kept. Projects live in Music/Slur Studio/Projects/<name>.sls (a folder the Finder shows as one file:
     project.json + audio/), which macOS lets an app use without asking; settings in Application Support. A project
     from before the name was settled (<name>.slur) is read and written where it is. (daw::musicRoot, in Engine.h.) */
 juce::File projectsRoot() { return daw::musicRoot().getChildFile ("Projects"); }
@@ -79,7 +79,52 @@ juce::String projectNamed (const juce::String& path)
     if ((ext != ".sls" && ext != ".slur") || ! f.isDirectory() || f.getParentDirectory() != projectsRoot()) return {};
     return f.getFileNameWithoutExtension();
 }
-juce::File prefsFile() { return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support/Slur DAW/settings.json"); }
+juce::File prefsFile() { return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support").getChildFile (daw::folderName()).getChildFile ("settings.json"); }
+/** A folder kept under the program's old name comes to lie under its new one, whole and as it is — only when nothing lies
+    under the new name yet (two that are both there are left, for a person to look at). -> what was done, in a word. */
+juce::String takeOver (const juce::File& old, const juce::File& now)
+{
+    if (! old.isDirectory()) return "nothing";
+    if (now.exists()) return "both";
+    return now.getParentDirectory().createDirectory().wasOk() && old.moveFileTo (now) ? "moved" : "failed";
+}
+/** The settings name the last project, and the projects kept elsewhere, by where they lie: one that lay under the old
+    folder is named under the new. -> whether anything was changed. */
+bool placesRenamed (const juce::File& settings, const juce::String& oldRoot, const juce::String& newRoot)
+{
+    auto v = juce::JSON::parse (settings);
+    auto* o = v.getDynamicObject();
+    if (o == nullptr) return false;
+    bool changed = false;
+    const auto fix = [&] (const juce::var& x) -> juce::var
+    {
+        const auto s = x.toString();
+        if (! x.isString() || ! s.startsWith (oldRoot + "/")) return x;
+        changed = true;
+        return newRoot + s.substring (oldRoot.length());
+    };
+    if (o->hasProperty ("lastProject")) o->setProperty ("lastProject", fix (o->getProperty ("lastProject")));
+    if (auto* list = o->getProperty ("elsewhere").getArray()) for (auto& e : *list) e = fix (e);
+    return changed && settings.replaceWithText (juce::JSON::toString (v));
+}
+/** The program was called Slur DAW until 2026-10-11. At a start, with no other copy of it open: the songs (Music), the
+    settings and what a run leaves for the next (Application Support) come to lie under the new name; the sound kept
+    ready under the old one is thrown away (it is found by where its file lies, and every file has just moved; it is
+    made again); and the app itself under its old name goes to the Trash, so that it is never opened on an empty folder. */
+void moveToNewName()
+{
+    const auto music = juce::File::getSpecialLocation (juce::File::userMusicDirectory);
+    const auto support = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Application Support");
+    const auto oldMusic = music.getChildFile (daw::oldFolderName()), newMusic = music.getChildFile (daw::folderName());
+    const auto songs = takeOver (oldMusic, newMusic);
+    const auto kept = takeOver (support.getChildFile (daw::oldFolderName()), support.getChildFile (daw::folderName()));
+    const bool places = songs == "moved" && placesRenamed (prefsFile(), oldMusic.getFullPathName(), newMusic.getFullPathName());
+    juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches").getChildFile (daw::oldFolderName()).deleteRecursively();
+    const juce::File oldApp ("/Applications/Slur DAW.app"), self = juce::File::getSpecialLocation (juce::File::currentApplicationFile);
+    const bool app = oldApp.isDirectory() && oldApp != self && oldApp.getChildFile ("Contents/Info.plist").loadFileAsString().contains ("com.slurstudio.daw.alpha") && oldApp.moveToTrash();
+    if (songs != "nothing" || kept != "nothing" || app)
+        daw::logLine ("the old name (slur daw): songs " + songs + ", settings " + kept + (places ? ", places in the settings named anew" : "") + (app ? ", the app under its old name put in the trash" : ""));
+}
 /** Where the app keeps what it must find again at its next start (the mark that it is running, the plug-ins it has learnt
     not to trust). The check keeps its own, away from his. */
 juce::File stateDir() { return selfTestMode().isNotEmpty() ? daw::musicRoot().getChildFile ("State") : prefsFile().getParentDirectory(); }
@@ -370,6 +415,33 @@ private:
             done (getPeer() != nullptr ? juce::JSON::parse (juce::String (juce::CharPointer_UTF8 (slurWindowReport (getPeer()->getNativeHandle(), png.getFullPathName().toRawUTF8()).c_str()))) : juce::var());
             return;
         }
+        if (op == "testMoved")                                                 // the check: folders under an old name taken over under a new one, on stand-ins of its own
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            const auto base = daw::musicRoot().getChildFile ("Moved");
+            base.deleteRecursively();
+            const auto old = base.getChildFile ("Old Name"), now = base.getChildFile ("New Name");
+            old.getChildFile ("Projects/a song.sls/audio").createDirectory(); old.getChildFile ("Projects/a song.sls/project.json").replaceWithText ("{\"v\":3}");
+            o->setProperty ("moved", takeOver (old, now));
+            o->setProperty ("there", now.getChildFile ("Projects/a song.sls/project.json").loadFileAsString() == "{\"v\":3}" && now.getChildFile ("Projects/a song.sls/audio").isDirectory() && ! old.exists());
+            old.createDirectory();
+            o->setProperty ("both", takeOver (old, now));
+            o->setProperty ("bothLeft", old.isDirectory() && now.getChildFile ("Projects/a song.sls/project.json").existsAsFile());
+            o->setProperty ("nothing", takeOver (base.getChildFile ("Never"), base.getChildFile ("Nowhere")));
+            const auto settings = base.getChildFile ("settings.json");
+            settings.replaceWithText ("{\"lastProject\":\"" + old.getFullPathName() + "/Other/x.sls\",\"elsewhere\":[\"" + old.getFullPathName() + "/Other/x.sls\",\"/Users/someone/Desktop/y.sls\"],\"audio\":\"kept\"}");
+            o->setProperty ("places", placesRenamed (settings, old.getFullPathName(), now.getFullPathName()));
+            const auto v = juce::JSON::parse (settings);
+            o->setProperty ("last", v["lastProject"].toString().fromFirstOccurrenceOf ("/Moved/", false, false));
+            o->setProperty ("elsewhere", v["elsewhere"].size() == 2 ? v["elsewhere"][0].toString().fromFirstOccurrenceOf ("/Moved/", false, false) + " | " + v["elsewhere"][1].toString() : juce::String ("?"));
+            o->setProperty ("audio", v["audio"].toString());
+            o->setProperty ("again", placesRenamed (settings, old.getFullPathName(), now.getFullPathName()));
+            const auto bare = base.getChildFile ("bare.json"); bare.replaceWithText ("{\"lastProject\":\"untitled 2\"}");
+            o->setProperty ("bare", placesRenamed (bare, old.getFullPathName(), now.getFullPathName()) ? juce::String ("changed") : bare.loadFileAsString());
+            base.deleteRecursively();
+            done (juce::var (o)); return;
+        }
         if (op == "testMenu")  { menuPicked (d["id"].toString()); done (okVar()); return; }
         if (op == "audioAdd")
         {
@@ -612,7 +684,7 @@ private:
 class MainWindow final : public juce::DocumentWindow, private juce::Timer
 {
 public:
-    MainWindow() : DocumentWindow ("Slur DAW", juce::Colour (0xff1b1b1a), DocumentWindow::allButtons)
+    MainWindow() : DocumentWindow ("Slur Studio", juce::Colour (0xff1b1b1a), DocumentWindow::allButtons)
     {
         setUsingNativeTitleBar (true);
         setContentOwned (new MainComponent(), true);
@@ -664,7 +736,7 @@ private:
 class SlurDawApp final : public juce::JUCEApplication
 {
 public:
-    const juce::String getApplicationName() override    { return "Slur DAW"; }
+    const juce::String getApplicationName() override    { return "Slur Studio"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override          { return true; }
     void initialise (const juce::String& args) override
@@ -682,6 +754,7 @@ public:
                 if (mode == "second" || other != 0) { quit(); return; }
             }
         }
+        if (selfTestMode().isEmpty()) moveToNewName();                         // (before anything is read: the mark of the last run lies in one of the folders)
         lastRun() = daw::Marker::begin (stateDir(), selfTestMode().isNotEmpty());
         daw::logLine ("start  " + juce::File::getSpecialLocation (juce::File::currentApplicationFile).getFullPathName() + (lastRun().isObject() ? "  (the run before this one did not end by itself)" : ""));
         window = std::make_unique<MainWindow>();

@@ -8,19 +8,20 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
 
 add_subdirectory(/Applications/JUCE JUCE)
 
-# "Slur DAW" is a working title, not a decided name.
+# The program is called Slur Studio (decided 2026-10-11). "Slur DAW" was its working title, and is still what its target
+# and its bundle id say: macOS remembers what an app may reach by that id.
 juce_add_gui_app(SlurDaw
     COMPANY_NAME                  "Slur Studio"
-    PRODUCT_NAME                  "Slur DAW"
+    PRODUCT_NAME                  "Slur Studio"
     BUNDLE_ID                     "com.slurstudio.daw.alpha"
-    ICON_BIG                      "${CMAKE_CURRENT_SOURCE_DIR}/../Plugin/Resources/icon.png"
+    ICON_BIG                      "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"      # the staff and one whole note in the program's blue (design/logo)
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT    "Slur DAW records what you play."
+    MICROPHONE_PERMISSION_TEXT    "Slur Studio records what you play."
     HARDENED_RUNTIME_ENABLED      FALSE     # an unhardened local build may load anyone's plug-ins
     # a project is a folder named <song>.sls that the Finder shows as one file and opens here
     PLIST_TO_MERGE [[<plist version="1.0"><dict>
         <key>CFBundleDocumentTypes</key><array><dict>
-            <key>CFBundleTypeName</key><string>Slur DAW Project</string>
+            <key>CFBundleTypeName</key><string>Slur Studio Project</string>
             <key>CFBundleTypeRole</key><string>Editor</string>
             <key>LSHandlerRank</key><string>Owner</string>
             <key>LSTypeIsPackage</key><true/>
@@ -28,7 +29,7 @@ juce_add_gui_app(SlurDaw
         </dict></array>
         <key>UTExportedTypeDeclarations</key><array><dict>
             <key>UTTypeIdentifier</key><string>com.slurstudio.daw.project</string>
-            <key>UTTypeDescription</key><string>Slur DAW Project</string>
+            <key>UTTypeDescription</key><string>Slur Studio Project</string>
             <key>UTTypeConformsTo</key><array><string>com.apple.package</string><string>public.composite-content</string></array>
             <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>sls</string></array></dict>
         </dict></array>

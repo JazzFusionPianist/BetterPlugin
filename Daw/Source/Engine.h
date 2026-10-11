@@ -58,14 +58,19 @@ inline void logLine (const String& s)
     file.appendText (juce::Time::getCurrentTime().toString (false, true, true, true) + "  " + s + "\n");
 }
 
-/** Where projects and what is bounced are kept: Music/Slur DAW, which macOS lets an app use without asking. The check
+/** The program's name, as the folders it keeps things in are called (in Music, in Application Support, in Caches). It was
+    Slur DAW until 2026-10-11: what lies under that name is taken over once, at a start (moveToNewName, in Main.cpp). */
+inline const char* folderName()    { return "Slur Studio"; }
+inline const char* oldFolderName() { return "Slur DAW"; }
+
+/** Where projects and what is bounced are kept: Music/Slur Studio, which macOS lets an app use without asking. The check
     (--selftest) keeps all it makes in a place of its own, so it can neither see a real project nor leave one of its
     own lying among them. */
 inline juce::File musicRoot()
 {
     if (juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest"))
         return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches/Slur DAW self-test");
-    return juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("Slur DAW");
+    return juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile (folderName());
 }
 
 /** Where the sound of files is kept ready: every file is decoded once, at the engine's rate, into bare samples that the
@@ -74,7 +79,7 @@ inline juce::File musicRoot()
 inline juce::File soundRoot()
 {
     if (juce::JUCEApplicationBase::getCommandLineParameters().contains ("--selftest")) return musicRoot().getChildFile ("Sound");
-    return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches/Slur DAW/Sound");
+    return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile ("Library/Caches").getChildFile (folderName()).getChildFile ("Sound");
 }
 /** The room the disk must still have after a sound is laid in the cache: ten gigabytes — a twentieth of the disk where the
     disk is small, and never less than one. With less room than that nothing new is kept ready on the disk (the sound is

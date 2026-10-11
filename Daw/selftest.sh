@@ -37,7 +37,7 @@ rm -rf "$B/selftest"
 copy () {                                                   # a copy of the build under the check's own name and identity
   mkdir -p "$B/selftest/$1"
   local T="$B/selftest/$1/Slur DAW self-test.app"
-  ditto "$B/SlurDaw_artefacts/Release/Slur DAW.app" "$T"
+  ditto "$B/SlurDaw_artefacts/Release/Slur Studio.app" "$T"
   /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" "$T/Contents/Info.plist" 2> /dev/null || true
   /usr/libexec/PlistBuddy -c "Delete :UTExportedTypeDeclarations" "$T/Contents/Info.plist" 2> /dev/null || true
   codesign --force --deep --sign - "$T" > /dev/null 2>&1

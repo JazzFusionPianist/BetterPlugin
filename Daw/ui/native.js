@@ -114,7 +114,7 @@ if (NAT) {
       folder: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, name: `${PROJ.name} ${pl.name}`, fmt: f.fmt, rate: f.rate, bits: f.bits,
     })
     ho.state = 'idle'
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur daw' } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur studio' } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
     resync(); applyAll()
     uiDirty('hand')
   }

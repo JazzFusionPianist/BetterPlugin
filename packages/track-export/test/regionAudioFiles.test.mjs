@@ -95,3 +95,19 @@ test('corrupt media, missing occurrences and mismatched assets fail instead of d
   assert.throws(() => audioFileTransfers([{ ...tracks[0], regionId: 'missing' }]), /Missing/)
   assert.throws(() => audioFileTransfers([{ ...tracks[0], regionId: b.regions[2].id }]), /match/)
 })
+
+test('drag-out WAV carries the region start as BWF time reference at the receiver offset', async () => {
+  const { withBroadcastTimeReference } = await import('../../core/lib/regionAudioFiles.ts')
+  const wav = new Uint8Array(44 + 8); const v = new DataView(wav.buffer)
+  wav.set(new TextEncoder().encode('RIFF'), 0); v.setUint32(4, wav.length - 8, true); wav.set(new TextEncoder().encode('WAVEfmt '), 8)
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 48000, true); v.setUint32(28, 96000, true)
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); wav.set(new TextEncoder().encode('data'), 36); v.setUint32(40, 8, true)
+  const ref = 3600 * 48000 + 96274
+  const out = withBroadcastTimeReference(wav, ref), ov = new DataView(out.buffer)
+  assert.equal(String.fromCharCode(...out.subarray(36, 40)), 'bext')
+  assert.equal(ov.getUint32(36 + 8 + 338, true) + ov.getUint32(36 + 8 + 342, true) * 2 ** 32, ref)
+  assert.equal(ov.getUint32(4, true), out.length - 8)
+  assert.deepEqual(out.subarray(out.length - 8), wav.subarray(44), 'samples unchanged')
+  // Re-stamping replaces, never duplicates.
+  assert.equal(withBroadcastTimeReference(out, 1).length, out.length)
+})

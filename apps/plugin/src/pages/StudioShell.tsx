@@ -140,9 +140,11 @@ function fmtTime(iso: string): string {
 }
 
 /** "1:04" — elapsed/total readout for the now-playing bar. */
-function fmtDur(sec: number): string {
+function fmtDur(sec: number, fine = false): string {
   if (!Number.isFinite(sec) || sec < 0) sec = 0
   const m = Math.floor(sec / 60)
+  // Short regions (a split kick is a fraction of a second) would all read "0:00".
+  if (fine) return `${m}:${(sec % 60).toFixed(2).padStart(5, '0')}`
   const s = Math.floor(sec % 60)
   return `${m}:${String(s).padStart(2, '0')}`
 }
@@ -576,7 +578,7 @@ function StudioAudioPlate({ track }: { track: StudioTrack }) {
         <span className="wd-plate-name">{track.name}</span>
         <span className="wd-plate-right">
           <span className="wd-plate-time" title={position?.tooltip}>
-            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
+            {fmtDur(cur, total > 0 && total < 10)} / {fmtDur(total, total > 0 && total < 10)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
             {track.regionBundle ? <AudioTransferActions tracks={[track]} groupKey={`region:${track.regionId}`} />
@@ -603,7 +605,7 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
         <span className="wd-plate-secname" title={track.name}>{track.name}</span>
         <span className="wd-plate-right">
           <span className="wd-plate-time" title={position?.tooltip}>
-            {fmtDur(cur)} / {fmtDur(total)}{position != null ? ` / ${position.text}` : ''}
+            {fmtDur(cur, total > 0 && total < 10)} / {fmtDur(total, total > 0 && total < 10)}{position != null ? ` / ${position.text}` : ''}
           </span>
           <span className="wd-ac-import">
             {track.regionBundle ? <AudioTransferActions tracks={[track]} groupKey={`region:${track.regionId}`} />
@@ -2221,7 +2223,9 @@ function StudioShellInner({ supabase, user }: Props) {
       })().catch(error => notifyRef.current(error instanceof Error ? error.message : String(error)))
     }
     const onFile = (e: Event) => {
-      if (outDragActive.current || dropFailed.current) return
+      // A drag carrying Logic's own region payload was started in Logic by the user;
+      // only plain file drops can be our drag-out bouncing back.
+      if ((outDragActive.current && !dropLogicCapture.current) || dropFailed.current) return
       const { name, data, seq, region } = (e as CustomEvent).detail
       if ((region?.captureId ?? null) !== dropCapture.current) return
       dropBuffer.current.push({ name, data, seq, region })
@@ -2259,8 +2263,17 @@ function StudioShellInner({ supabase, user }: Props) {
     const onArmed = (e: Event) => {
       outDragActive.current = true
       outDragArmedUrl.current = (e as CustomEvent<{ url: string }>).detail?.url ?? null
+      // Arming happens on mouse-down; a click with no drag never sends __juceOutDragEnd.
+      // Expire like AudioTransferActions does, or every later drop would be ignored.
+      if (outDragCooldownTimer.current) clearTimeout(outDragCooldownTimer.current)
+      outDragCooldownTimer.current = setTimeout(() => {
+        outDragActive.current = false
+        outDragArmedUrl.current = null
+        outDragCooldownTimer.current = null
+      }, 15_000)
     }
-    const onStart = () => { outDragActive.current = true }
+    const onStartTimerClear = () => { if (outDragCooldownTimer.current) { clearTimeout(outDragCooldownTimer.current); outDragCooldownTimer.current = null } }
+    const onStart = () => { onStartTimerClear(); outDragActive.current = true }
     const onEnd = (e: Event) => {
       const op = (e as CustomEvent<{ op: string }>).detail?.op ?? 'none'
       const armedUrl = outDragArmedUrl.current

@@ -966,12 +966,18 @@ export default function ChatView({ supabase, currentUserId, otherProfile, groupH
   // (which fires via evaluateJavaScript: during a drag run-loop mode and may
   // be deferred).  Sets outDragActive immediately in JS context.
   useEffect(() => {
+    let expiry: ReturnType<typeof setTimeout> | null = null
     const handler = (e: Event) => {
       outDragActive.current = true
       outDragArmedUrl.current = (e as CustomEvent<{ url: string }>).detail?.url ?? null
+      // A click that never becomes a drag sends no end event: expire the arm.
+      if (expiry) clearTimeout(expiry)
+      expiry = setTimeout(() => {
+        if (outDragArmedUrl.current === (e as CustomEvent<{ url: string }>).detail?.url) { outDragActive.current = false; outDragArmedUrl.current = null }
+      }, 15_000)
     }
     window.addEventListener('__localDragArmed', handler)
-    return () => window.removeEventListener('__localDragArmed', handler)
+    return () => { if (expiry) clearTimeout(expiry); window.removeEventListener('__localDragArmed', handler) }
   }, [])
 
   // __juceDragEnterCancel: C++ fires this when our OWN audio drag-out re-enters

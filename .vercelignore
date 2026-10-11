@@ -1,5 +1,8 @@
 Plugin/build
 apps/web/ios
+apps/web/android
+artifacts
+Daw
 .git
 
 .vercel

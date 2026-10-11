@@ -64,6 +64,7 @@ import ShareRegionsButton from '../components/collab/ShareRegionsButton'
 import { useRegionHost } from '../lib/dawRegionBridge'
 import { useLogicDropCapture } from '../lib/logicDropCapture'
 import { isLogicDragMeta } from '@orb/core/lib/logicRegionDrop.ts'
+import { buildRegionAaf, saveInterchangeFile } from '../lib/regionInterchange'
 import AudioTransferActions from '../components/collab/AudioTransferActions'
 import PlaceRegionsButton from '../components/collab/PlaceRegionsButton'
 import { selectedRegionBundle } from '../lib/regionPlacement'
@@ -73,7 +74,7 @@ import { callJuceNative, hasJuceNativeFunction } from '../lib/juceBridge'
 import { prepareSharedRegions, uploadSharedRegions, rememberRegionEvidence } from '../lib/regionSharing'
 import { planVstRegionDrag } from '@orb/core/lib/regionVstXml.ts'
 import { isRegionArchive, prepareArchivedRegionBundle, createRegionArchive } from '@orb/core/lib/regionArchive.ts'
-import { hasCompleteLayout, hasMusicalLayout, musicalPositionLabel, parseRegionBundle, readBundleAttachment, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
+import { hasCompleteLayout, hasMusicalLayout, musicalPositionLabel, parseRegionBundle, readBundleAttachment, readRegionInterchange, type RegionBundle } from '@orb/core/lib/regionBundle.ts'
 import { createRegionDawproject } from '@orb/core/lib/regionDawproject.ts'
 import { houseColor } from '../slur/marks'
 import { BackTile, PanelContext, usePanel } from '../components/studio/panel'
@@ -571,7 +572,8 @@ function useStudioTrack(url: string, name: string) {
 function PlateTime({ cur, total, position }: { cur: number; total: number; position: { text: string; tooltip?: string } | null | undefined }) {
   return (
     <span className="wd-plate-time" title={position?.tooltip}>
-      <span className="wd-plate-clock">{fmtDur(cur)} / {fmtDur(total)}</span>
+      {/* Short regions (a split kick is a fraction of a second) show hundredths, not 0:00. */}
+      <span className="wd-plate-clock">{fmtDur(cur, total > 0 && total < 10)} / {fmtDur(total, total > 0 && total < 10)}</span>
       {position != null && <span className="wd-plate-pos"><i> / </i>{position.text}</span>}
     </span>
   )
@@ -740,9 +742,27 @@ function StudioPlateActions({ tracks }: { tracks: StudioTrack[] }) {
   return (
     <>
       <ImportAllWord tracks={tracks} groupKey={`import-all:${key}`} />
+      <DownloadAafButton tracks={tracks} />
       <SaveRegionsButton tracks={tracks} />
     </>
   )
+}
+
+/** The AAF the sender attached: tracks and region positions in one file. Saved where
+ * the user chooses; importing it (File › Import › AAF in Logic) is up to them. */
+function DownloadAafButton({ tracks }: { tracks: StudioTrack[] }) {
+  const aaf = readRegionInterchange(tracks)?.aaf
+  const [state, setState] = useState<'idle' | 'busy' | 'saved' | 'error'>('idle'), [error, setError] = useState('')
+  if (!aaf) return null
+  const save = async () => {
+    if (state === 'busy') return
+    setState('busy'); setError('')
+    try { setState(await saveInterchangeFile(aaf) === 'saved' ? 'saved' : 'idle') }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); setState('error') }
+  }
+  return <button className="wd-word" type="button" disabled={state === 'busy'} onClick={e => { e.stopPropagation(); void save() }}
+    title={error || `${aaf.name} · ${(aaf.bytes / 1048576).toFixed(1)} MB — all tracks and region positions. Import it in your DAW (Logic: File › Import › AAF).`}>
+    {state === 'busy' ? 'saving AAF…' : state === 'saved' ? 'AAF saved' : state === 'error' ? 'retry AAF' : 'Download AAF'}</button>
 }
 
 /** Each shared stem batch starts closed, including a one-track export. */
@@ -1864,6 +1884,21 @@ function StudioShellInner({ supabase, user, panel = false }: Props) {
     }
   }, [uploadFile, send, MAX_SIZE, notify])
 
+  // Beside the stems: one AAF with every track and region position, for DAWs that
+  // import AAF through their own menu. A failed AAF never blocks the stems.
+  const attachRegionAaf = useCallback(async (prepared: { bundle: RegionBundle; filesByAsset: Map<string, File> },
+    uploaded: object[], isCurrent: () => boolean) => {
+    try {
+      const day = new Date().toISOString().slice(0, 10)
+      const aaf = await buildRegionAaf(prepared, `${prepared.bundle.source?.daw ?? 'Slur'} regions ${day}`)
+      if (!aaf || !isCurrent() || !uploaded.length) return
+      const up = await uploadFile(aaf, 'file')
+      if (up) (uploaded[0] as { interchange?: unknown }).interchange = { aaf: { url: up.url, name: aaf.name, bytes: aaf.size } }
+    } catch (error) {
+      notify(`AAF was not attached: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }, [uploadFile, notify])
+
   const sendCapturedRegions = async (archive: File) => {
     const destination = activeConvId, selection = sel
     const current = () => trackExportContext.current.mounted && activeConvIdRef.current === destination && trackExportContext.current.selection === selection
@@ -1873,6 +1908,7 @@ function StudioShellInner({ supabase, user, panel = false }: Props) {
       const audio = await uploadFile(file, 'audio')
       return audio ? { url: audio.url, name: file.name } : null
     })
+    await attachRegionAaf(prepared, uploaded, current)
     if (!current()) throw new Error('Conversation changed. Regions were not sent.')
     if (!await send('', { type: 'multi-audio', url: JSON.stringify(uploaded), name: `${prepared.bundle.regions.length} Regions` }))
       throw new Error('Regions could not be sent. Please retry.')
@@ -1889,11 +1925,12 @@ function StudioShellInner({ supabase, user, panel = false }: Props) {
         if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
         return uploadFile(file, 'audio')
       })
+      await attachRegionAaf(prepared, uploaded, () => activeConvIdRef.current === destination)
       if (activeConvIdRef.current !== destination) throw new Error('Conversation changed. Regions were not sent.')
       if (!await send('', { url: JSON.stringify(uploaded), type: 'multi-audio', name: `${list.length} Regions` }))
         throw new Error('Regions were not sent. Please retry.')
     } catch (error) { notify(error instanceof Error ? error.message : String(error)) }
-  }, [uploadFile, send, MAX_SIZE, notify])
+  }, [uploadFile, send, MAX_SIZE, notify, attachRegionAaf])
 
   // Keep region occurrences separate. Only explicit native region evidence
   // establishes placement; file recording timestamps never establish it.

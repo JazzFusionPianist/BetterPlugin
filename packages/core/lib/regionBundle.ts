@@ -45,7 +45,13 @@ export interface BundleAudioEntry {
   assetId: string
   // The first entry carries the layout. Older clients still see an audio array.
   regionBundle?: RegionBundle
+  /** Optional interchange files beside the stems (first entry only). */
+  interchange?: RegionInterchange
 }
+export interface InterchangeFile { url: string; name: string; bytes: number }
+/** AAF: tracks + region positions in one file for DAWs that import it (Logic, Pro Tools,
+ * Nuendo/Cubase Pro, Studio One). Imported by the receiver through the DAW's own menu. */
+export interface RegionInterchange { aaf?: InterchangeFile }
 export interface AssetProbe { sampleRate?: number; channels?: number; frames?: number }
 export const BUNDLE_MAX_REGIONS = 512
 export const BUNDLE_MAX_BYTES = 500 * 1024 * 1024
@@ -87,6 +93,15 @@ function supportedAudioReference(value: string): boolean {
       && host.includes('.') && !host.endsWith('.localhost') && !host.endsWith('.local')
       && !host.endsWith('.internal') && !host.includes(':') && !/^\d+(\.\d+){3}$/.test(host)
   } catch { return false }
+}
+
+/** Read the AAF (or other interchange file) attached to a multi-audio message; null when absent or unsafe. */
+export function readRegionInterchange(value: unknown): RegionInterchange | null {
+  const raw = Array.isArray(value) ? (value[0] as Record<string, unknown> | undefined)?.interchange : undefined
+  const aaf = record(raw) ? raw.aaf : undefined
+  if (!record(aaf) || !text(aaf.url, 8192) || !supportedAudioReference(aaf.url) || !text(aaf.name)
+    || !/\.aaf$/i.test(aaf.name) || !int(aaf.bytes, 1) || aaf.bytes > BUNDLE_MAX_BYTES) return null
+  return { aaf: { url: aaf.url, name: aaf.name.replace(/[/\\]/g, '_'), bytes: aaf.bytes } }
 }
 
 /** Validate remote JSON before rendering, downloading or requesting host edits. */

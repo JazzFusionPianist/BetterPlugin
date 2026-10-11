@@ -1,6 +1,7 @@
 'use client'
 import { SecureImage, SecureVideo, SecureLink } from '@/components/SecureMedia'
 import { resolveUrl } from '@/lib/fileAccess'
+import { readRegionInterchange } from '@orb/core/lib/regionBundle.ts'
 
 /**
  * The studio's chat pane on the web — the Orb Chat plug-in's messenger
@@ -326,8 +327,12 @@ function StudioPlateSection({ track }: { track: StudioTrack }) {
 
 function StudioAudioCard({ tracks }: { tracks: StudioTrack[] }) {
   if (tracks.length === 0) return null
-  if (tracks.length === 1) return <StudioAudioPlate track={tracks[0]!} />
-  return <div className="wd-plate">{tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}</div>
+  // The sender may attach an AAF (all tracks + region positions) beside the stems.
+  const aaf = readRegionInterchange(tracks)?.aaf
+  const link = aaf && <SecureLink className="wd-plate-dl" href={aaf.url} download={aaf.name} target="_blank" rel="noopener noreferrer"
+    title="All tracks and region positions in one file. Import it in your DAW (Logic: File › Import › AAF).">Download AAF</SecureLink>
+  if (tracks.length === 1) return <>{<StudioAudioPlate track={tracks[0]!} />}{link}</>
+  return <div className="wd-plate">{link}{tracks.map(t => <StudioPlateSection key={t.url} track={t} />)}</div>
 }
 
 function StudioNowBar({ url, name, playing, cur, dur, onToggle, onSeek, onClose }: {

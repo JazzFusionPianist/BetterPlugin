@@ -21,7 +21,7 @@ let client, lock, lockOwned = false
 try {
   const request = JSON.parse(await readFile(join(folder, 'request.json'), 'utf8'))
   assertRegionOperationEnabled(request.operation)
-  if (!['inspect', 'inspectTracks', 'exportTracks', 'capture', 'import', 'exportLogic', 'captureLogic', 'inspectLogic'].includes(request.operation)) throw new Error('Unknown region operation.')
+  if (!['inspect', 'inspectTracks', 'exportTracks', 'capture', 'import', 'exportLogic', 'captureLogic', 'inspectLogic', 'buildAaf'].includes(request.operation)) throw new Error('Unknown region operation.')
   if (request.operation === 'inspectLogic') {
     const result = await callLogicHelper('inspect', undefined, { timeout: 8000 })
     await writeFile(join(folder, 'response.json'), JSON.stringify({ ok: true, snapshot: result.snapshot }), { mode: 0o600 })
@@ -34,7 +34,7 @@ try {
     await writeFile(join(folder, 'response.json'), JSON.stringify({ ok: true, ...result }), { mode: 0o600 })
     return
   }
-  if (request.operation === 'exportLogic') {
+  if (request.operation === 'exportLogic' || request.operation === 'buildAaf') {
     const result = await exportLogicAAF({ archive: join(folder, 'input.orb-regions.zip'), directory: folder,
       python: settings.python, script: join(scriptDirectory, 'logicAAF.py') })
     await writeFile(join(folder, 'response.json'), JSON.stringify({ ok: true, ...result }), { mode: 0o600 })

@@ -41,7 +41,7 @@ public:
 #endif
             bool valid = true;
             if (input["operation"].toString() == "import" || input["operation"].toString() == "exportLogic"
-                || input["operation"].toString() == "prepareLogic")
+                || input["operation"].toString() == "prepareLogic" || input["operation"].toString() == "buildAaf")
             {
                 juce::MemoryOutputStream decoded;
                 valid = base64.length() <= 420 * 1024 * 1024 && juce::Base64::convertFromBase64 (decoded, base64)
@@ -85,6 +85,19 @@ public:
                                     value = juce::JSON::parse (errorResult ("Captured regions exceed the native transfer limit."));
                                 else value.getDynamicObject()->setProperty ("data", juce::Base64::toBase64 (bytes.getData(), bytes.getSize()));
                             }
+                            // buildAaf: the sender attaches the interchange file to the chat message.
+                            if (operation == "buildAaf" && (bool) value["ok"])
+                            {
+                                const auto aaf = folder.getChildFile ("Orb-regions.aaf");
+                                juce::MemoryBlock bytes;
+                                if (aaf.getSize() <= 0 || aaf.getSize() > 300LL * 1024 * 1024 || ! aaf.loadFileAsData (bytes))
+                                    value = juce::JSON::parse (errorResult ("The AAF is missing or exceeds the transfer limit."));
+                                else
+                                {
+                                    value.getDynamicObject()->removeProperty ("path");
+                                    value.getDynamicObject()->setProperty ("data", juce::Base64::toBase64 (bytes.getData(), bytes.getSize()));
+                                }
+                            }
                             if (operation == "exportLogic" && (bool) value["ok"])
                             {
                                 const auto archive = folder.getChildFile ("Orb-regions.aaf");
@@ -126,7 +139,7 @@ void DawRegionBridge::invoke (const juce::var& args, juce::WebBrowserComponent::
     if (operation == "prepareLogic" || operation == "dropLogic")
     { done (juce::var (errorResult ("Dialog-driven Logic restoration is disabled. Native timeline restoration is not supported."))); return; }
     if (operation != "inspect" && operation != "inspectTracks" && operation != "exportTracks"
-        && operation != "capture" && operation != "import" && operation != "exportLogic"
+        && operation != "capture" && operation != "import" && operation != "exportLogic" && operation != "buildAaf"
         && operation != "captureLogic" && operation != "inspectLogic")
     { done (juce::var (errorResult ("Unknown region request."))); return; }
     if (pool.getNumJobs() != 0)

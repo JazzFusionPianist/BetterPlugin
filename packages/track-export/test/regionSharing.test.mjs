@@ -91,3 +91,13 @@ test('old Orb archive names remain readable', async () => {
   const legacy = new File([archive], 'test.orb-regions.zip')
   assert.equal((await prepareArchivedRegionBundle(legacy)).bundle.regions.length, 2)
 })
+
+test('AAF interchange travels on the first entry and rejects unsafe references', async () => {
+  const { readRegionInterchange } = await import('../../core/lib/regionBundle.ts')
+  const ok = [{ url: 'orb-file:u/1/a.wav', name: 'a.wav', interchange: { aaf: { url: 'orb-file:u/1/r.aaf', name: 'Logic Pro regions.aaf', bytes: 2048 } } }]
+  assert.deepEqual(readRegionInterchange(ok), { aaf: { url: 'orb-file:u/1/r.aaf', name: 'Logic Pro regions.aaf', bytes: 2048 } })
+  for (const aaf of [{ url: 'file:///etc/passwd', name: 'x.aaf', bytes: 1 }, { url: 'https://localhost/x.aaf', name: 'x.aaf', bytes: 1 },
+    { url: 'orb-file:u/1/r.aaf', name: 'x.exe', bytes: 1 }, { url: 'orb-file:u/1/r.aaf', name: 'x.aaf', bytes: 0 }])
+    assert.equal(readRegionInterchange([{ interchange: { aaf } }]), null)
+  assert.equal(readRegionInterchange([{ url: 'orb-file:u/1/a.wav' }]), null)
+})

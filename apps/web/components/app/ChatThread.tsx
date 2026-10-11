@@ -1,5 +1,6 @@
 'use client'
 import { SecureImage, SecureVideo, SecureAudio, SecureLink } from '@/components/SecureMedia'
+import { readRegionInterchange } from '@orb/core/lib/regionBundle.ts'
 import { resolveUrl } from '@/lib/fileAccess'
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -276,6 +277,11 @@ function Attachment({ m, mine, from, onJoinGame }: { m: Message; mine: boolean; 
       return (
         <div className="msg-audio-multi">
           {tracks.map((t, i) => <AudioPlayer key={i} url={t.url} name={t.name || `track ${i + 1}`} from={from} metadata={t.metadata} />)}
+          {(() => {
+            // The sender may attach an AAF (all tracks + region positions) beside the stems.
+            const aaf = readRegionInterchange(tracks)?.aaf
+            return aaf && <SecureLink className="msg-file" href={aaf.url} download={aaf.name} target="_blank" rel="noreferrer">Download AAF</SecureLink>
+          })()}
         </div>
       )
     }

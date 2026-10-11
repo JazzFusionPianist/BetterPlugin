@@ -252,6 +252,36 @@ OrbAudioProcessor::OrbAudioProcessor()
                     file.revealToUser();
                     done ("saved");
                 })
+            .withNativeFunction ("saveInterchangeFile",
+                [this] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
+                {
+                    // Received AAF → wherever the user chooses. Only real AAF (Compound File) bytes.
+                    if (! args.isArray() || args.size() != 2 || args[0].toString().length() > 700000000)
+                    { done ("error:invalid-file"); return; }
+                    auto bytes = std::make_shared<juce::MemoryBlock>();
+                    static const unsigned char cfb[] = { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 };
+                    if (! decodeBase64 (args[0].toString(), *bytes) || bytes->getSize() < 512
+                        || bytes->getSize() > 502ULL * 1024 * 1024 || std::memcmp (bytes->getData(), cfb, sizeof (cfb)) != 0)
+                    { done ("error:invalid-file"); return; }
+                    auto name = juce::File::createLegalFileName (args[1].toString()).substring (0, 120);
+                    if (! name.endsWithIgnoreCase (".aaf")) name << ".aaf";
+                    projectChooser = std::make_unique<juce::FileChooser> ("Save AAF",
+                        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile (name), "*.aaf");
+                    projectChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                                 | juce::FileBrowserComponent::warnAboutOverwriting,
+                        [bytes, done = std::move (done)] (const juce::FileChooser& chooser)
+                        {
+                            auto target = chooser.getResult();
+                            if (target == juce::File()) { done ("cancelled"); return; }
+                            if (! target.hasFileExtension ("aaf")) target = target.withFileExtension ("aaf");
+                            juce::TemporaryFile temporary (target);
+                            if (! temporary.getFile().replaceWithData (bytes->getData(), bytes->getSize())
+                                || ! temporary.overwriteTargetFileWithTemporary())
+                            { done ("error:save-failed"); return; }
+                            target.revealToUser();
+                            done ("saved");
+                        });
+                })
             .withNativeFunction ("cacheRegionProject",
                 [] (const juce::var& args, juce::WebBrowserComponent::NativeFunctionCompletion done)
                 {

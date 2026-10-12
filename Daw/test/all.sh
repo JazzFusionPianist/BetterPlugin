@@ -12,8 +12,9 @@ run () {                                                    # one browser check:
   local OUT; OUT="$(node "test/$1.mjs" ${2:+"$2"} ${3:+"$3"} 2>&1 | tail -1)"
   case "$OUT" in *"all passed"*) echo "$1${2:+ $2 x $3}: all passed";; *) echo "$1${2:+ $2 x $3}: $OUT"; BAD=1;; esac
 }
-for T in edit edit2 basics group time alt deep meter mixed mixed2 small hands start say inst keys stretch doors folders grid roll; do run "$T"; done
+for T in edit edit2 basics group time alt deep meter mixed mixed2 small hands start say chords inst keys stretch doors folders grid roll autonudge rowh busrow hint wavez picker; do run "$T"; done
 run hands 1100 640
+run picker 1100 640
 run start 1100 640
 run keys 1100 640
 run grid 1100 640

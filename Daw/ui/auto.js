@@ -75,21 +75,34 @@ async function openAutoMenu (t, x, y) {
   openMenu(x, y, items, it => { t.ap = it.v; S.selP = []; uiDirty('lanes', 'head') })
 }
 
+/* a bus and a stack hold no regions of their own, and their line is their lane: it is always up, in their own colour, and
+   it can be taken hold of without the lines being shown. Then it is their volume (what the head beside it shows); with
+   the lines shown it is the one asked for, as on any track. */
+const lineOwn = t => !!t && (t.kind === 'bus' || t.kind === 'stack')
+const shownKey = t => S.auto ? apOf(t) : 'vol'
 /* one track's line, over its lane */
-const autoGeom = (t, y, rh) => { const k = apOf(t), A = AUTO[k], m = Math.min(6, Math.max(3, rh * .16)), ly = y + m, lh = rh - 2 * m; return { k, A, ly, lh, yOf: v => ly + lh - A.f(v) * lh, vOf: yy => A.inv(clamp((ly + lh - yy) / lh, 0, 1)) } }
-function autoLane (t, y, rh) {
-  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k)
-  if (!pts.length) return P(`M${X0} ${n(yOf(A.now(t)))}H${X1}`, { stroke: INK, sa: .5, dash: '5 4' })
+const autoGeom = (t, y, rh) => { const k = shownKey(t), A = AUTO[k], m = Math.min(6, Math.max(3, rh * .16)), ly = y + m, lh = rh - 2 * m; return { k, A, ly, lh, yOf: v => ly + lh - A.f(v) * lh, vOf: yy => A.inv(clamp((ly + lh - yy) / lh, 0, 1)) } }
+function autoLane (t, y, rh, xEnd = X1) {
+  const { k, A, yOf } = autoGeom(t, y, rh), pts = autoPts(t, k), own = lineOwn(t), ink = own ? t.c : INK, pale = own && !heard(t) ? .45 : 1, xe = Math.min(xEnd, X1)
+  if (!pts.length) return own ? (xe > X0 ? P(`M${X0} ${n(yOf(A.now(t))) + .5}H${n(xe)}`, { stroke: ink, sa: OWN_LINE * pale }) : '') : P(`M${X0} ${n(yOf(A.now(t)))}H${X1}`, { stroke: INK, sa: .5, dash: '5 4' })
   let d = `M${X0 - 2} ${n(yOf(pts[0].v))}`, dots = ''
   for (const q of pts) d += `L${n(bx(q.b + 1))} ${n(yOf(q.v))}`
-  d += `L${n(Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
+  d += `L${n(own ? Math.max(xe, bx(pts[pts.length - 1].b + 1)) : Math.max(X1, bx(pts[pts.length - 1].b + 1)) + 2)} ${n(yOf(pts[pts.length - 1].v))}`
   for (const q of pts) {
     const x = bx(q.b + 1)
     if (x < X0 - 5 || x > X1 + 5) continue
     const on = S.selP.includes(q.id)
-    dots += Cc(x, yOf(q.v), on ? 3.6 : 2.8, { fill: on ? INK : K0, stroke: INK, sw: 1.3 })
+    dots += Cc(x, yOf(q.v), on ? 3.6 : 2.8, { fill: on ? ink : K0, stroke: ink, sw: 1.3 })
   }
-  return P(d, { stroke: K0, sa: .55, sw: 3 }) + P(d, { stroke: INK, sw: 1.2 }) + dots
+  return P(d, { stroke: K0, sa: .55, sw: 3 }) + P(d, { stroke: ink, sa: pale, sw: 1.2 }) + dots
+}
+const OWN_LINE = .75
+/* is the pointer on such a row's own line, or on one of its points (the lines not shown) */
+function onOwnLine (ti, p) {
+  const t = S.tracks[ti]
+  if (!lineOwn(t)) return false
+  const g = autoGeom(t, rowY(ti), rowH(ti)), pts = autoPts(t, g.k)
+  return !!autoHit(t, g, p) || Math.abs(p.y - g.yOf(pts.length ? autoAt(t, g.k, clamp(barAt(p.x), 0, SONG_END)) : g.A.now(t))) <= 7
 }
 const sortPts = pts => pts.sort((a, b) => a.b - b.b)
 function autoHit (t, g, p) { let best = null, bd = 7; for (const q of autoPts(t, g.k)) { const d = Math.hypot(bx(q.b + 1) - p.x, g.yOf(q.v) - p.y); if (d < bd) { bd = d; best = q } } return best }
@@ -102,9 +115,9 @@ function addPoint (t, k, b, v) {
   return q
 }
 function autoDown (e, p, tool) {
-  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), S.rh), before = editState(), q = autoHit(t, g, p)
+  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), rowH(ti)), before = editState(), q = autoHit(t, g, p)
   if (!isChosen(ti)) leadTrack(ti); else S.sel = ti
-  t.ap = g.k
+  if (S.auto) t.ap = g.k
   if (tool === 'eraser') { if (q) { t.autos[g.k] = autoPts(t, g.k).filter(x => x !== q); S.selP = S.selP.filter(id => id !== q.id); commit(before) } uiDirty('head', 'dock'); return }
   const startDrag = lead => { drag = { a: 'apt', ti, k: g.k, x0: p.x, y0: p.y, lead: lead.id, before, orig: new Map(autoPts(t, g.k).filter(x => S.selP.includes(x.id)).map(x => [x.id, { b: x.b, v: x.v }])) } }
   if (q) {
@@ -125,16 +138,16 @@ function autoMove (e, p) {
     const x0 = Math.min(d.x0, p.x), x1 = Math.max(d.x0, p.x), y0 = Math.min(d.y0, p.y), y1 = Math.max(d.y0, p.y), vis = rows(), got = []
     S.band = { x0, x1, y0, y1 }
     vis.forEach((i, k) => {
-      const t = S.tracks[i], y = TY + k * S.rh - VY
-      if (y + S.rh < y0 || y > y1) return
-      const g = autoGeom(t, y, S.rh)
+      const t = S.tracks[i], y = rowY(i), rh = rowH(i)
+      if (y + rh < y0 || y > y1) return
+      const g = autoGeom(t, y, rh)
       for (const q of autoPts(t, g.k)) { const x = bx(q.b + 1), yy = g.yOf(q.v); if (x >= x0 && x <= x1 && yy >= y0 - 3 && yy <= y1 + 3) got.push(q.id) }
     })
     S.selP = [...new Set(d.base.concat(got))]
     uiDirty('lanes')
     return
   }
-  const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), S.rh), pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
+  const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti)), pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
   const db = clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
   for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = g.A.inv(clamp(g.A.f(o.v) + df, 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)
@@ -142,9 +155,10 @@ function autoMove (e, p) {
   uiDirty('lanes', 'head', 'dock')
 }
 function autoDbl (e, p) {                                                                // twice anywhere on a lane: a point there
-  if ((p.y - TY + VY) >= rows().length * S.rh) return
-  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), S.rh)
+  if ((p.y - TY + VY) >= rowTops().all) return
+  const ti = laneAt(p.y), t = S.tracks[ti], g = autoGeom(t, rowY(ti), rowH(ti))
   if (autoHit(t, g, p)) return
+  if (!S.auto) { S.selR = []; S.selX = null }
   edit(() => { const q = addPoint(t, g.k, clamp(snapPos(barAt(p.x), e), 0, SONG_END), g.vOf(p.y)); S.selP = [q.id] })
 }
 /* delete: the chosen points, or every shown point under the marquee */
@@ -158,3 +172,31 @@ function autoNudge (dir) {
   const s = new Set(S.selP)
   for (const t of S.tracks) for (const k in t.autos) { const A = AUTO[k]; if (!A) continue; for (const q of t.autos[k]) if (s.has(q.id)) q.v = A.inv(clamp(A.f(q.v + dir * A.step * (Math.abs(dir) > 1 ? 10 / 12 : 1)), 0, 1)) }
 }
+
+/* ── chosen points nudged (option and the left or right arrow) ──
+   The points go one nudge earlier or later — they alone: a region that is chosen besides stays where it is. Each line keeps
+   its order: chosen points stop at the next point of their line that is not chosen (and at the song's two ends). */
+function nudgePoints (dir) {
+  const d0 = nudgeBars() * dir, ids = new Set(S.selP)
+  let any = false
+  edit(() => {
+    for (const t of S.tracks) for (const k of Object.keys(t.autos || {})) {
+      const pts = t.autos[k]
+      if (!Array.isArray(pts) || !pts.some(q => ids.has(q.id))) continue
+      let d = d0
+      pts.forEach((q, i) => {
+        if (!ids.has(q.id)) return
+        if (d > 0) { let j = i + 1; while (j < pts.length && ids.has(pts[j].id)) j++; d = Math.min(d, (j < pts.length ? pts[j].b : SONG_END) - q.b) }
+        else { let j = i - 1; while (j >= 0 && ids.has(pts[j].id)) j--; d = Math.max(d, (j >= 0 ? pts[j].b : 0) - q.b) }
+      })
+      if (Math.abs(d) < 1e-9) continue
+      t.autos[k] = pts.map(q => ids.has(q.id) ? Object.assign({}, q, { b: q.b + d }) : q)
+      any = true
+    }
+    return any
+  })
+  uiDirty('lanes', 'head', 'dock')
+  return any
+}
+{ const nudge0 = act.nudge
+  act.nudge = function (dir) { if (S.selP.length && !S.marq) { nudgePoints(dir); return } return nudge0.call(act, dir) } }      // (as up and down already are the points' while any is chosen)

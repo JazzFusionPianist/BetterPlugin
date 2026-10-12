@@ -60,7 +60,8 @@ LANG.lists.ko = {
   'the first, the last': '처음, 마지막', 'the last, the next': '이전, 다음', 'the next, the last': '다음, 이전', 'against the last, the next': '이전 것, 다음 것에 붙이기',
   'all that follow': '뒤따르는 모두', 'the others': '나머지', 'the muted ones': '뮤트된 것', 'one more': '하나 더', 'choose several': '여러 개 선택', 'and choose the next': '그리고 다음 것 선택',
   'for what is chosen': '선택한 것에', 'play what is chosen': '선택한 것 재생', 'find the playhead': '플레이헤드 찾기', 'find what is chosen': '선택한 것 찾기',
-  'fit, or what is chosen': '전체 보기, 또는 선택한 것', 'taller, shorter rows': '줄 높게, 낮게', 'a page left, right': '한 화면 왼쪽, 오른쪽', 'a page up, down': '한 화면 위, 아래',
+  'fit, or what is chosen': '전체 보기, 또는 선택한 것', 'taller, shorter rows': '줄 높게, 낮게', 'taller, lower waveforms': '파형 크게, 작게',
+  'eq': 'EQ', 'dynamics': '다이내믹', 'reverb': '리버브', 'modulation': '모듈레이션', 'saturation': '새츄레이션', 'amp': '앰프', 'pitch': '피치', 'stereo': '스테레오', 'channel': '채널 스트립', 'repair': '복원', 'other': '기타', 'a page left, right': '한 화면 왼쪽, 오른쪽', 'a page up, down': '한 화면 위, 아래',
   'to the playhead': '플레이헤드로', 'to its end': '끝까지', 'to its start, its end': '시작으로, 끝으로', 'to the end of the sound': '소리 끝까지', 'back to where it starts': '시작 지점으로',
   'begin, end at the playhead': '플레이헤드에서 시작, 끝', 'in, up to the playhead': '페이드 인, 플레이헤드까지', 'out, from the playhead': '페이드 아웃, 플레이헤드부터',
   'fill': '채우기', 'fill to the next': '다음 것까지 채우기', 'follow the tempo': '템포 따라가기', 'fit to the tempo': '템포에 맞추기', 'tempo from the file': '파일의 템포로',
@@ -77,6 +78,11 @@ LANG.lists.ko = {
   /* the question asked when the app is closed with the song changed */
   'save before closing?': '닫기 전에 저장할까요?', 'don’t save': '저장 안 함', 'cancel': '취소',
   'last saved #': '마지막 저장 #', 'not saved since it was made': '만든 뒤로 저장한 적 없음', 'not saved since it was opened #': '# 에 연 뒤로 저장 안 함', 'could not be written': '저장하지 못함',
+
+  /* the list over the command line: what kind of thing a row is */
+  'plug-in': '플러그인', 'marker': '마커',
+  'the cycle': '지금 사이클', 'from bar # on': '#마디부터 끝까지', 'then the last bar': '끝 마디를 이어서', 'how much': '값',
+  'over the stretch': '구간에 걸쳐', 'for the stretch': '구간 동안만',
 
   /* the settings window */
   'general': '일반', 'recording': '녹음', 'editing': '편집', 'plug-ins': '플러그인', 'command line': '명령줄', 'storage': '저장 공간',

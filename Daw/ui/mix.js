@@ -156,7 +156,8 @@ function reorderMove (p) {
   const d = drag
   if (!d.moved && Math.abs(p.y - d.y0) < 7) return
   d.moved = true
-  const k = clamp(Math.round((p.y - TY + VY) / S.rh), 0, rows().length)
+  const L = rowTops(), v = p.y - TY + VY, ends = L.tops.concat(L.all)                    // the gap between two rows the hand is nearest to
+  const k = ends.reduce((best, y, j) => Math.abs(y - v) < Math.abs(ends[best] - v) ? j : best, 0)
   if (S.reorder !== k) { S.reorder = k; uiDirty('head') }
 }
 function reorderUp () {
@@ -381,9 +382,9 @@ function strip (x, y, w, h, t, i, o = {}) {
   }
   const fx = x + (wide ? 34 : o.master ? 28 : 23), vol = o.master ? S.master : shown(t, 'vol'), muted = !o.master && !heard(t)
   if (!o.master) {
-    const pan = shown(t, 'pan'), px = sx + (wide ? 4 : 2), pw = sw - (wide ? 34 : 4)
+    const pan = shown(t, 'pan'), px = sx + (wide ? 4 : 2), pw = sw - (wide ? 34 : 24)
     s += panBar(px, q.panY, pw, pan)
-    if (wide) s += T(sx + sw - 2, q.panY + 3.6, panText(pan), { size: 9.5, a: autoPts(t, 'pan').length ? 1 : .66, anchor: 'end' })
+    s += T(sx + sw - 2, q.panY + (wide ? 3.6 : 3.2), panText(pan), { size: wide ? 9.5 : 8.5, a: autoPts(t, 'pan').length ? 1 : .66, anchor: 'end' })      // (every strip says where its pan stands, the narrow ones too)
     hits += hit(px - 3, q.panY - 7, pw + 6, 16, 'mpan', `${di} data-x="${n(px)}" data-pw="${n(pw)}"`, 'ew-resize')
   }
   /* the fader on its scale, the meter beside it */

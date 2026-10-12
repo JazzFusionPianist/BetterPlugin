@@ -17,7 +17,7 @@ function leaveCore (json) {
   try {
     const o = JSON.parse(json)
     for (const k of ['sel', 'view', 'cycle', 'snap', 'mode', 'nudge', 'grid', 'click']) delete o[k]
-    for (const t of o.tracks || []) { delete t.open; delete t.ap }
+    for (const t of o.tracks || []) { delete t.open; delete t.ap; delete t.h }
     return JSON.stringify(o)
   } catch (e) { return json }
 }

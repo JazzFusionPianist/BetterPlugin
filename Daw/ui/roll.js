@@ -13,8 +13,64 @@
    its transposing and its repeats are in what is drawn. A note made or moved past the region's end makes the region
    longer, as far as the next one on the lane.
    (Read after the room's own hands are made, before they are put to work: see the end.) */
-const ROLL = { rid: null, view: { a: 0, b: 8, hi: 84 }, rowH: 13, grid: '1/16', sel: new Set(), drag: null, pad: -1, vel: 100, g: null, clip: null, h: 460, hOther: 316, shown: false, last: { id: 0, at: 0 }, band: null }
-const RL_RU = 16, RL_VH = 62, RL_GRIDS = ['1/4', '1/8', '1/16', '1/32', '1/6', '1/12', '1/24']
+const ROLL = { lane: false, param: 'velocity', cp: new Set(), qv: '1/16', qs: 1, sw: 0, scale: 'major', root: 0, on: 'paper', rid: null, view: { a: 0, b: 8, hi: 84 }, rowH: 13, grid: '1/16', sel: new Set(), drag: null, pad: -1, vel: 100, g: null, clip: null, h: 460, hOther: 316, shown: false, last: { id: 0, at: 0 }, band: null }
+const RL_RU = 16, RL_LP = 196, RL_AH = 136, RL_GRIDS = ['1/4', '1/8', '1/16', '1/32', '1/6', '1/12', '1/24']
+/* what the lane under the notes can show (a: the key a pulls it up with): how hard each note is, or something turned along the region — [name, controller (128 the bend, 129 the pressure), where it rests] */
+const RL_PARAMS = [['velocity', -1, 0], ['pitch bend', 128, 8192], ['modulation', 1, 0], ['sustain pedal', 64, 0], ['expression', 11, 127], ['volume', 7, 100], ['pan', 10, 64], ['breath', 2, 0], ['brightness', 74, 64], ['pressure', 129, 0]]
+const RL_SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], 'harmonic minor': [0, 2, 3, 5, 7, 8, 11], dorian: [0, 2, 3, 5, 7, 9, 10], mixolydian: [0, 2, 4, 5, 7, 9, 10], 'major pentatonic': [0, 2, 4, 7, 9], 'minor pentatonic': [0, 3, 5, 7, 10], blues: [0, 3, 5, 6, 7, 10] }
+const RL_ROOTS = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b']
+const RL_CC = { 0: 'bank', 4: 'foot', 5: 'glide time', 6: 'data', 8: 'balance', 65: 'glide', 66: 'sostenuto', 67: 'soft pedal', 68: 'legato', 71: 'resonance', 72: 'release', 73: 'attack', 91: 'reverb', 93: 'chorus' }      // (names some of the other controllers go by)
+const rollParam = () => { const m = /^cc (\d+)/.exec(ROLL.param); return m ? [ROLL.param, +m[1], 0] : RL_PARAMS.find(q => q[0] === ROLL.param) || RL_PARAMS[0] }
+const rollSwitch = c => c >= 64 && c <= 69                                                // the pedals and switches: down or up, nothing between
+/* the list of what the lane can show: the named ones, then every other controller by its number, sixteen to a list */
+function rollParamMenu (x, y) {
+  const pick = v => { ROLL.param = v; ROLL.cp = new Set(); uiDirty('dock') }
+  openMenu(x, y - 14 - (RL_PARAMS.length + 1) * 20, RL_PARAMS.map(q => ({ t: q[0], v: q[0], on: q[0] === ROLL.param, sep: q[0] === 'pitch bend' })).concat([{ t: /^cc /.test(ROLL.param) ? ROLL.param : 'another controller', v: null, on: /^cc /.test(ROLL.param), sep: true }]), it => {
+    if (it.v) { pick(it.v); return }
+    setTimeout(() => openMenu(x, y - 14 - 8 * 20, [0, 16, 32, 48, 64, 80, 96, 112].map(a => ({ t: `${a} to ${a + 15}`, v: a })), it2 => {
+      setTimeout(() => openMenu(x, y - 14 - 16 * 20, Array.from({ length: 16 }, (_, i) => it2.v + i).map(c => { const named = RL_PARAMS.find(q => q[1] === c); return { t: named ? `${c}  ${named[0]}` : RL_CC[c] ? `${c}  ${RL_CC[c]}` : String(c), v: named ? named[0] : `cc ${c}${RL_CC[c] ? ' ' + RL_CC[c] : ''}`, on: (named ? named[0] : `cc ${c}${RL_CC[c] ? ' ' + RL_CC[c] : ''}`) === ROLL.param } }), it3 => pick(it3.v), { w: 150 }), 0)
+    }, { w: 150 }), 0)
+  }, { w: 150 })
+}
+/* the panel's time quantize: the chosen notes (all of the region's when none is chosen) pulled to the grid — so far of the
+   way, the off-beats so late — each keeping where it was played (o), so that it can be let go again. -> [the new list, how many] */
+function rollQuant (r, ids, off) {
+  const g = 4 / (+ROLL.qv.slice(2) || 16), qb = QB(), orgQ = ((r.a - 1) - (r.off || 0)) * qb, lo = (r.off || 0) * qb
+  let k = 0
+  const list = r.notes.map(x => {
+    if (ids.size && !ids.has(x.id)) return x
+    if (off) { if (x.o == null) return x; k++; const y = Object.assign({}, x, { t: x.o }); delete y.o; return y }
+    const o = x.o == null ? x.t : x.o
+    k++
+    return Object.assign({}, x, { t: Math.max(lo, quantPlace(orgQ + o, g, ROLL.qs, ROLL.sw) - orgQ), o })
+  })
+  return [list, k]
+}
+/* a note cut in two at a place (bars from zero): on the page's grid where a line of it runs through the note, else just where the hand is. With others chosen besides, every chosen note the place runs through is cut there */
+function rollCut (r, id, bar, e) {
+  const { qb, org } = rollQ(r), snapped = rollSnap(bar, e), ids = ROLL.sel.has(id) ? new Set(ROLL.sel) : new Set([id]), lead = r.notes.find(x => x.id === id)
+  if (!lead) return
+  const inside = (x, q) => q > x.t + 1e-6 && q < x.t + x.d - 1e-6
+  const at = inside(lead, (snapped - org) * qb) ? (snapped - org) * qb : (bar - org) * qb, made = []
+  if (!inside(lead, at)) return
+  const list = []
+  for (const x of r.notes) { if (ids.has(x.id) && inside(x, at)) { list.push(Object.assign({}, x, { d: at - x.t })); const y = mkNote(at, x.t + x.d - at, x.n, x.v); list.push(y); made.push(y.id) } else list.push(x) }
+  edit(() => { setNotes(r, list) })
+  ROLL.sel = new Set(made); say(`${made.length} ${made.length === 1 ? 'note' : 'notes'} cut`); uiDirty('dock', 'lanes')
+}
+/* force legato: each chosen note (every note of the region when none is chosen) lasts until the next of them begins — longer
+   or shorter, as that asks; notes that begin together last equally long; the last is left as it is */
+function rollLegato (r) {
+  const pick = r.notes.filter(x => !ROLL.sel.size || ROLL.sel.has(x.id)), starts = [...new Set(pick.map(x => +x.t.toFixed(6)))].sort((a, b) => a - b)
+  let k = 0
+  const ids = new Set(pick.map(x => x.id)), list = r.notes.map(x => { if (!ids.has(x.id)) return x; const nx = starts.find(t => t > x.t + 1e-6); if (nx == null || Math.abs(nx - x.t - x.d) < 1e-6) return x; k++; return Object.assign({}, x, { d: nx - x.t }) })
+  if (k) edit(() => { setNotes(r, list) })
+  say(k ? `${k} ${k === 1 ? 'note' : 'notes'} to the next` : pick.length < 2 ? 'choose two notes or more' : 'they already reach the next'); uiDirty('dock', 'lanes')
+}
+/* the same as a thing done (the panel's q, the q key while the page has the keys): the chosen notes to the panel's grid, or back to where they were played */
+function rollQuantDo (r, off) { const [list, n] = rollQuant(r, ROLL.sel, off); if (n) edit(() => { setNotes(r, list) }); say(!n ? 'nothing to quantize' : off ? `${n} ${n === 1 ? 'note' : 'notes'} as played` : `${n} ${n === 1 ? 'note' : 'notes'} to ${ROLL.qv}`); uiDirty('dock', 'lanes') }
+const rollQuanted = (r, ids) => { const pick = r ? r.notes.filter(x => !ids.size || ids.has(x.id)) : []; return pick.length > 0 && pick.every(x => x.o != null) }
+const rollTop = c => c === 128 ? 16383 : 127                                             // the most a controller can say
 const rollOn = () => S.panel.on && S.panel.tab === 'notes'
 const rollBlack = p => [1, 3, 6, 8, 10].includes(((p % 12) + 12) % 12)
 const rollStep = () => WHOLE() / (+ROLL.grid.slice(2) || 16)                             // the page's grid, in bars
@@ -42,7 +98,7 @@ function rollFit (r, t) {
   const span = clamp(len + .5, 2.5, 8.5)
   V.a = a - .25; V.b = V.a + span
   if (r && r.notes.length && !rollKit(t)) { const ns = regSound(r).map(x => x.n); if (ns.length) { const lo = Math.min(...ns), hi = Math.max(...ns); V.hi = clamp(Math.round((lo + hi) / 2) + 12, 24, 127) } }
-  ROLL.sel = new Set(); ROLL.rid = r ? r.id : null
+  ROLL.sel = new Set(); ROLL.cp = new Set(); ROLL.rid = r ? r.id : null
 }
 /* how loud a note of this instrument is from the moment its key goes down (seconds): rise, fall, held level, ring */
 function rollEnv (I) {
@@ -91,15 +147,16 @@ function rollHead (y) {
 function pRoll (y, h) {
   const [r, t] = rollReg(), inst = !!t && isInst(t), kit = rollKit(t)
   if ((r ? r.id : null) !== ROLL.rid || ROLL.tid !== (t ? t.id : 0)) { rollFit(r, t); ROLL.tid = t ? t.id : 0 }
-  const KW = kit ? 128 : 54, x0 = KW, x1 = RX, top = y + RL_RU, bot = y + h - RL_VH, gh = bot - top, V = ROLL.view
+  const LP = RL_LP, KW = kit ? 128 : 54, x0 = LP + KW, x1 = RX, top = y + RL_RU, laneH = ROLL.lane ? Math.min(RL_AH, Math.floor((h - RL_RU) * .42)) : 0, bot = y + h - laneH, gh = bot - top, V = ROLL.view
   const pxb = (x1 - x0) / (V.b - V.a), X = bar => x0 + (bar - V.a) * pxb, pps = pxb / SPB()
   const rowH = kit ? clamp(Math.floor(gh / DRUM_PADS.length), 12, 26) : ROLL.rowH, count = kit ? DRUM_PADS.length : Math.max(1, Math.floor(gh / rowH))
   if (!kit) V.hi = clamp(Math.round(V.hi), count - 1, 127)
   const hi = kit ? 0 : V.hi, lo = hi - count + 1
   const rowOfKey = p => kit ? (() => { const i = DRUM_PADS.findIndex(q => q[1] === p); return i < 0 ? -1 : DRUM_PADS.length - 1 - i })() : hi - p
   const Y = p => top + rowOfKey(p) * rowH, gb = top + count * rowH
+  const noteCur = S.tool === 'scissors' && !kit ? 'col-resize' : S.tool === 'eraser' ? 'cell' : S.tool === 'velocity' ? 'ns-resize' : 'grab'
   const cid = 'rl' + (++UID), L = r ? regLook(r, t) : { c: t ? t.c : INK, deep: t ? t.deep : K0, sel: t ? t.csel : INK }, env = rollEnv(inst ? t.inst : null), step = rollStep()
-  ROLL.g = { y, h, x0, x1, top, bot, gb, rowH, count, hi, pxb, kit, KW, base: y + h - 7, room: RL_VH - 20 }
+  ROLL.g = { y, h, x0, x1, top, bot, gb, rowH, count, hi, pxb, kit, KW, LP, laneH, base: y + h - 9, room: Math.max(10, laneH - 24) }
   let s = R(0, y, RX, h, { fill: K0 }) + `<clipPath id="${cid}"><rect x="${x0}" y="${n(y)}" width="${n(x1 - x0)}" height="${n(h)}"/></clipPath>`
   let g = '', hits = rlHit(x0, top, x1 - x0, gb - top, 'paper'), out = ''                // (hits: on the paper, cut with it; out: the ruler's and the keys')
   /* the paper: the rows of the white keys a breath lighter, a hairline under every c; for a kit a hairline under every pad */
@@ -125,14 +182,14 @@ function pRoll (y, h) {
         for (let j = k + 1; j < list.length; j++) if (list[j].n === x.n) { stop = X(list[j].a) - 1.5; break }
         out += rollHit(xa + .5, cy, (rowH / 2 - 2.5) * (.4 + .6 * f), pad[0], dec, pps, col, stop, fa)
         if (on) ring += R(xa - 1, yy + 1.5, Math.min(cellW, stop - xa) + 1, rowH - 3, { stroke: INK })
-        if (own) hits += rlHit(xa, yy, Math.max(6, Math.min(cellW, stop - xa + 1.5)), rowH, 'note', ` data-i="${x.id}"`, 'grab')
+        if (own) hits += rlHit(xa, yy, Math.max(6, Math.min(cellW, stop - xa + 1.5)), rowH, 'note', ` data-i="${x.id}"`, noteCur)
         continue
       }
       const xb = X(x.b), w = Math.max(2.5, xb - xa - 1)
       if (xa + w + 240 < x0 || xa > x1) continue
       out += rollStroke(xa + .5, xa + .5 + w, cy, (rowH / 2 - .5) * (.66 + .34 * f), env, pps, col, fa)
       if (on) ring += R(xa - 1, yy - .5, w + 3, rowH + 1, { stroke: INK })
-      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, 'grab'); if (w >= 10) hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'ew-resize') }
+      if (own) { hits += rlHit(xa, yy, Math.max(4, w + 1), rowH, 'note', ` data-i="${x.id}"`, noteCur); if (w >= 10 && noteCur === 'grab') hits += rlHit(xa + w - 4, yy, 6, rowH, 'len', ` data-i="${x.id}"`, 'ew-resize') }
     }
     return out + ring
   }
@@ -145,11 +202,7 @@ function pRoll (y, h) {
     g += P(`M${n(xa) + .5} ${top}V${y + h}M${n(xb) + .5} ${top}V${y + h}`, { stroke: INK, sa: .3 })
   }
   if (ROLL.band) { const b = ROLL.band; g += R(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0), { fill: INK, fa: .06, stroke: INK, sa: .5 }) }
-  /* how hard each note is played: a bar under it, in the note's own colour — the lane is the key to the colours */
-  { const vy = bot, base = y + h - 7, room = RL_VH - 20
-    g += R(x0, vy, x1 - x0, RL_VH, { fill: K0 }) + hline(x0, x1, vy, .14) + hline(x0, x1, base - room, .045) + hline(x0, x1, base - room / 2, .03) + hline(x0, x1, base, .08)
-    if (r) for (const x of regSound(r)) { const xa = X(x.a), hg = Math.max(2, room * x.v / 127), on = ROLL.sel.has(x.id), col = rollColor(x.v); if (xa < x0 - 4 || xa > x1) continue; g += R(xa + .5, base - hg, 3, hg, { fill: col }) + R(xa + .5, base - hg, 7, 2, { fill: col }) + (on ? R(xa - 1.5, base - hg - 2, 11, hg + 3, { stroke: INK, sa: .8 }) : '') }
-    hits += rlHit(x0, vy + 2, x1 - x0, RL_VH - 4, 'vel', '', 'ns-resize') }
+  if (laneH) { const o = rollLane(r, t, X, x0, x1, bot, laneH); g += o[0]; hits += o[1] }
   { const px = X(curPos()); g += `<g id="np-ph" transform="translate(${n(px)} 0)"${px >= x0 && px <= x1 ? '' : ' visibility="hidden"'}>` + P(`M.5 ${y}V${y + h}`, { stroke: INK }) + '</g>' }
   const paper = G(g, '', ` clip-path="url(#${cid})"`)
   s += paper
@@ -160,14 +213,14 @@ function pRoll (y, h) {
   if (r) s += R(Math.max(x0, X(r.a - 1)), y + RL_RU - 3, Math.max(0, Math.min(x1, X(r.b - 1)) - Math.max(x0, X(r.a - 1))), 2, { fill: L.c })
   out += rlHit(x0, y, x1 - x0, RL_RU, 'ruler', '', 'pointer')
   /* down the left: the keys, as the instrument's own (its pigment, dark keys cut in) — or the kit's pads, each the drum it is */
-  s += R(0, y, KW, h, { fill: K1 })
+  let kc = R(0, y, KW, h, { fill: K1 }), kh = ''
   if (kit) {
     DRUM_PADS.forEach(([name, key], i) => {
       const ry = top + (DRUM_PADS.length - 1 - i) * rowH, on = i === ROLL.pad, pw = 38, ph = rowH - 4
-      if (on) s += R(0, ry, KW, rowH, { fill: INK, fa: .07 })
-      s += R(8, ry + 2, pw, ph, { rx: 1.5, fill: on ? L.sel : L.c }) + PIC.pic(name, 8, ry + 2, pw, ph, L.deep, on ? L.sel : L.c, 1.5)
-      s += T(8 + pw + 9, ry + rowH / 2 + 3.2, name, { size: 9, a: on ? 1 : .7, w: on ? 500 : 400 }) + hline(0, KW, ry + rowH - .5, .045)
-      out += rlHit(0, ry, KW, rowH, 'key', ` data-v="${key}"`, 'pointer')
+      if (on) kc += R(0, ry, KW, rowH, { fill: INK, fa: .07 })
+      kc += R(8, ry + 2, pw, ph, { rx: 1.5, fill: on ? L.sel : L.c }) + PIC.pic(name, 8, ry + 2, pw, ph, L.deep, on ? L.sel : L.c, 1.5)
+      kc += T(8 + pw + 9, ry + rowH / 2 + 3.2, name, { size: 9, a: on ? 1 : .7, w: on ? 500 : 400 }) + hline(0, KW, ry + rowH - .5, .045)
+      kh += rlHit(0, ry, KW, rowH, 'key', ` data-v="${key}"`, 'pointer')
     })
   } else if (inst) {
     const bwid = Math.round(KW * .6), held = typeof TYPE !== 'undefined' ? new Set(TYPE.down.values()) : new Set()
@@ -178,17 +231,85 @@ function pRoll (y, h) {
       else if (pc === 4 || pc === 11) seams += `M0 ${ry}H${KW}`                          // (e and b have no black key above them: their upper edge is a seam all the way across)
       if (held.has(p) || ROLL.key === p) whites += R(rollBlack(p) ? 0 : bwid, ry, rollBlack(p) ? bwid : KW - bwid, rowH, { fill: L.sel })
       if (pc === 0) blacks += T(KW - 5, ry + rowH - 2.4, keyName(p), { size: 7.5, w: 500, c: L.deep, anchor: 'end' })
-      out += rlHit(0, ry, KW, rowH, 'key', ` data-v="${p}"`, 'pointer')
+      kh += rlHit(0, ry, KW, rowH, 'key', ` data-v="${p}"`, 'pointer')
     }
-    s += whites + P(seams, { stroke: L.deep, sa: .55 }) + blacks
+    kc += whites + P(seams, { stroke: L.deep, sa: .55 }) + blacks
   }
-  /* the key to the colours, beside the lane of how hard: soft at the foot, hard at the head */
-  { const base = y + h - 7, room = RL_VH - 20, kx = KW - 12
-    s += R(0, bot, KW, RL_VH, { fill: K1 }) + T(kit ? 8 : 6, bot + 15, 'velocity', { size: 8.5, a: .4 }) + hline(0, KW, bot, .14)
-    for (let k = 0; k < room; k++) s += R(kx, base - k - 1, 5, 1.2, { fill: rollColor(1 + 126 * k / (room - 1)) }) }
-  s += vline(KW - .5, y, y + h, .12)
+  kc += vline(KW - .5, y, y + h, .12)
+  const side = rollSide(y, h, r, t, bot, laneH, kit)
+  s += G(kc, `translate(${LP} 0)`) + side[0]
+  out += G(kh, `translate(${LP} 0)`) + side[1]
   return s + G(hits, '', ` clip-path="url(#${cid})"`) + out
 }
+
+/* the lane under the notes: how hard each note is played (a bar under it, in the note's own colour), or something turned
+   along the region — its points, the line between them, the stretch under the line; a pedal is down or up. -> [drawing, hands] */
+function rollLane (r, t, X, x0, x1, ly, lh) {
+  const [, c, rest] = rollParam(), base = ly + lh - 9, room = Math.max(10, lh - 24), topV = rollTop(c), Yv = v => base - room * clamp(v / topV, 0, 1)
+  let g = R(x0, ly, x1 - x0, lh, { fill: K0 }) + hline(x0, x1, ly, .14) + hline(x0, x1, base - room, .045) + hline(x0, x1, base - room / 2, c === 128 || c === 10 ? .1 : .03) + hline(x0, x1, base, .08), hits = ''
+  if (c < 0) {
+    if (r) for (const x of regSound(r)) { const xa = X(x.a), hg = Math.max(2, room * x.v / 127), on = ROLL.sel.has(x.id), col = rollColor(x.v); if (xa < x0 - 4 || xa > x1) continue; g += R(xa + .5, base - hg, 3, hg, { fill: col }) + R(xa + .5, base - hg, 7, 2, { fill: col }) + (on ? R(xa - 1.5, base - hg - 2, 11, hg + 3, { stroke: INK, sa: .8 }) : '') }
+    return [g, rlHit(x0, ly + 2, x1 - x0, lh - 4, 'vel', '', 'ns-resize')]
+  }
+  hits = rlHit(x0, ly + 2, x1 - x0, lh - 4, 'clane', '', 'crosshair')
+  if (!r) return [g, hits]
+  const qb = QB(), org = (r.a - 1) - (r.off || 0), xa = X(r.a - 1), xb = X(r.b - 1), pts = (r.ctl || []).filter(q => q.c === c).slice().sort((a, b) => a.t - b.t), step = rollSwitch(c), L = regLook(r, t)
+  if (pts.length) {
+    let d = '', lastY = Yv(pts[0].v)
+    pts.forEach((q, i) => { const x = X(org + q.t / qb), yy = Yv(step ? (q.v >= 64 ? topV : 0) : q.v); d += i ? (step ? `H${n(x)}V${n(yy)}` : `L${n(x)} ${n(yy)}`) : `M${n(x)} ${n(yy)}`; lastY = yy })
+    const x1p = X(org + pts[0].t / qb), end = Math.max(xb, X(org + pts[pts.length - 1].t / qb))
+    g += P(d + `H${n(end)}V${n(base)}H${n(x1p)}Z`, { fill: L.c, fa: .16 }) + P(d + `H${n(end)}`, { stroke: L.c, sw: 1.5 })
+    for (const q of pts) { const x = X(org + q.t / qb), yy = Yv(step ? (q.v >= 64 ? topV : 0) : q.v), on = ROLL.cp.has(q.id); if (x < x0 - 6 || x > x1 + 6) continue; g += R(x - (on ? 4 : 3), yy - (on ? 4 : 3), on ? 8 : 6, on ? 8 : 6, { fill: K0 }) + R(x - (on ? 3 : 2), yy - (on ? 3 : 2), on ? 6 : 4, on ? 6 : 4, { fill: on ? INK : L.sel }); hits += rlHit(x - 6, yy - 6, 12, 12, 'cpt', ` data-i="${q.id}"`, 'grab') }
+  } else g += P(`M${n(Math.max(x0, xa))} ${n(Yv(rest)) + .5}H${n(Math.min(x1, xb))}`, { stroke: INK, sa: .22, dash: '2 3' })      // nothing turned yet: where it rests
+  return [g, hits]
+}
+/* the panel at the left: the region's quantize (its grid, how far, how late the off-beats), the keys of a scale, how hard
+   the chosen notes are; at its foot the lane's own key and what the lane shows. -> [drawing, hands] */
+function rollSide (y, h, r, t, bot, laneH, kit) {
+  const W0 = RL_LP, x = 14, w = W0 - 28, inst = !!t && isInst(t)
+  let s = R(0, y, W0, h, { fill: K1 }) + vline(W0 - .5, y, y + h, .12) + rlHit(0, y, W0, h, 'none'), hits = ''      // (the panel takes the presses that land on none of its keys)
+  const word = (yy, text) => T(x, yy, text, { size: 9, a: .34 })
+  const line = (yy, name, f, val, k) => T(x, yy + 3.4, name, { size: 9.5, a: .46 }) + R(x + 58, yy - 1, w - 58 - 30, 2, { fill: INK, fa: .12 }) + R(x + 58, yy - 1, (w - 58 - 30) * clamp(f, 0, 1), 2, { fill: INK, fa: .5 }) + R(x + 58 + (w - 58 - 30) * clamp(f, 0, 1) - 1, yy - 5, 2, 10, { fill: INK }) + T(x + w, yy + 3.4, val, { size: 9.5, a: .9, anchor: 'end' }) + rlHit(x + 52, yy - 9, w - 58 - 30 + 12, 18, k, '', 'ew-resize')
+  ROLL.side = { x: x + 58, w: w - 58 - 30 }
+  let cy = y + RL_RU + 14
+  if (inst) {
+    const on = rollQuanted(r, ROLL.sel), qs = ROLL.qs, sw = ROLL.sw, dim = !r
+    s += word(cy, 'time quantize'); cy += 8
+    s += menuKey(x, cy, ROLL.qv, { a: 'np', more: ' data-k="qgrid"', dim })[0] + key(x + w - 24, cy, 'q', { armed: on, pad: 8, a: 'np', more: ' data-k="qon"', dim })[0]; cy += 32
+    s += line(cy, 'strength', qs, String(Math.round(qs * 100)), 'qs'); cy += 22
+    s += line(cy, 'swing', sw, String(Math.round(sw * 100)), 'sw'); cy += 30
+    if (!kit) {
+      s += word(cy, 'scale quantize'); cy += 8
+      const rk = menuKey(x, cy, RL_ROOTS[ROLL.root], { a: 'np', more: ' data-k="root"' }), sk = menuKey(x + rk[1] + 6, cy, fit(ROLL.scale, w - rk[1] - 6 - 30 - 26, 9.5), { a: 'np', more: ' data-k="scale"' })
+      s += rk[0] + sk[0] + key(x + w - 24, cy, 'q', { pad: 8, a: 'np', more: ' data-k="sq"', dim })[0]; cy += 40
+    }
+    const lead = r && r.notes.find(q => ROLL.sel.has(q.id)), v = lead ? lead.v : ROLL.vel
+    s += word(cy, 'velocity'); cy += 14
+    s += line(cy, ROLL.sel.size ? 'chosen' : 'new notes', v / 127, String(v), 'nvel'); cy += 24
+  }
+  /* at its foot: the lane's key, and — while the lane is up — what it shows */
+  const fy = laneH ? bot + 10 : y + h - 30
+  s += hline(0, W0, fy - 10, laneH ? .14 : .08)
+  s += cells(x, fy, 18, [{ t: 'automation', k: 'a', on: ROLL.lane, a: 'np', more: ' data-k="lane"' }], { size: 9.5 })[0]
+  if (laneH) {
+    s += menuKey(x, fy + 28, fit(ROLL.param, w - 30, 9.5), { a: 'np', more: ' data-k="param"' })[0]
+    const c = rollParam()[1], n0 = r ? (r.ctl || []).filter(q => q.c === c).length : 0
+    if (c < 0) { const room = Math.max(10, laneH - 24), base = y + h - 9; for (let k = 0; k < room; k++) s += R(W0 - 12, base - k - 1, 5, 1.2, { fill: rollColor(1 + 126 * k / (room - 1)) }) }
+    else if (fy + 66 < y + h) s += T(x, fy + 62, n0 ? `${n0} ${n0 === 1 ? 'point' : 'points'}` : 'nothing turned yet', { size: 9, a: .34 })
+  }
+  return [s, hits]
+}
+/* the notes of a region pulled onto the keys of a scale: each to the nearest key of it (of two as near, the lower) */
+function rollToScale (r, ids) {
+  const set = RL_SCALES[ROLL.scale] || RL_SCALES.major, ok = k => set.includes((((k - ROLL.root) % 12) + 12) % 12), tr = r.tr || 0
+  const near = k => { for (let d = 0; d < 7; d++) { if (ok(k - d) && k - d >= 0) return k - d; if (ok(k + d) && k + d <= 127) return k + d } return k }
+  let moved = 0
+  const list = r.notes.map(x => { if (ids.size && !ids.has(x.id)) return x; const to = near(x.n + tr) - tr; if (to === x.n) return x; moved++; return Object.assign({}, x, { n: to }) })
+  if (moved) edit(() => { setNotes(r, list) })
+  say(moved ? `${moved} ${moved === 1 ? 'note' : 'notes'} to ${RL_ROOTS[ROLL.root]} ${ROLL.scale}` : `all in ${RL_ROOTS[ROLL.root]} ${ROLL.scale}`)
+  uiDirty('dock', 'lanes')
+}
+const rollSetCtl = (r, list) => { r.ctl = list.slice().sort((a, b) => a.t - b.t); dirtyReg(r) }
 
 /* ── what is done to the notes ── */
 const rollQ = r => { const qb = QB(), org = (r.a - 1) - (r.off || 0); return { qb, org, toQ: bar => (bar - org) * qb, limit: rollLimit(r) } }
@@ -245,7 +366,7 @@ function rollMoved (r, from, ids, dq, dn, kit) {
   const padI = k => DRUM_PADS.findIndex(q => q[1] === k)
   if (kit) { const is = sel.map(x => padI(x.n)).filter(i => i >= 0); if (is.length) dn = clamp(dn, -Math.min(...is), DRUM_PADS.length - 1 - Math.max(...is)) }
   else dn = clamp(dn, -Math.min(...sel.map(x => x.n)), 127 - Math.max(...sel.map(x => x.n)))
-  return from.map(x => !ids.has(x.id) ? x : Object.assign({}, x, { t: x.t + dq, n: kit ? (padI(x.n) < 0 ? x.n : DRUM_PADS[padI(x.n) + dn][1]) : x.n + dn }))
+  return from.map(x => { if (!ids.has(x.id)) return x; const y = Object.assign({}, x, { t: x.t + dq, n: kit ? (padI(x.n) < 0 ? x.n : DRUM_PADS[padI(x.n) + dn][1]) : x.n + dn }); if (Math.abs(dq) > 1e-9) delete y.o; return y })
 }
 
 /* ── hands ── */
@@ -257,6 +378,38 @@ function rollDown (e) {
   S.focus = 'notes'
   const k = el.dataset.k, p = pt(e), g = ROLL.g, [r, t] = rollReg(), now = performance.now()
   const hold = d => { ROLL.drag = Object.assign({ x0: p.x, y0: p.y, moved: false }, d); try { svg.setPointerCapture(e.pointerId) } catch (err) {} }
+  ROLL.on = k === 'clane' || k === 'cpt' || k === 'vel' ? 'lane' : k === 'paper' || k === 'note' || k === 'len' ? 'paper' : ROLL.on
+  if (k === 'none') return true
+  if (k === 'lane') { ROLL.lane = !ROLL.lane; uiDirty('dock'); return true }
+  if (k === 'param') { rollParamMenu(p.x - 20, p.y); return true }
+  if (k === 'root') { openMenu(p.x - 10, p.y + 12, RL_ROOTS.map((v, i) => ({ t: v, v: i, on: i === ROLL.root })), it => { ROLL.root = it.v; uiDirty('dock') }, { w: 70 }); return true }
+  if (k === 'scale') { openMenu(p.x - 10, p.y + 12, Object.keys(RL_SCALES).map(v => ({ t: v, v, on: v === ROLL.scale })), it => { ROLL.scale = it.v; uiDirty('dock') }, { w: 150 }); return true }
+  if (k === 'qgrid' || k === 'qon' || k === 'qs' || k === 'sw' || k === 'sq' || k === 'nvel') {
+    if (!r || !t || t.theirs) return true
+    const quant = off => rollQuantDo(r, off)
+    if (k === 'qgrid') openMenu(p.x - 10, p.y + 12, ['off'].concat(RL_GRIDS).map(v => ({ t: v, v, on: v === ROLL.qv, sep: v === '1/4' || v === '1/6' })), it => { if (it.v === 'off') quant(true); else { ROLL.qv = it.v; quant(false) } }, { w: 84 })
+    else if (k === 'qon') quant(rollQuanted(r, ROLL.sel))
+    else if (k === 'sq') rollToScale(r, ROLL.sel)
+    else { hold({ k: 'line', what: k, before: editState(), from: r.notes, ids: new Set(ROLL.sel) }); rollMove(e) }
+    return true
+  }
+  if (k === 'clane' || k === 'cpt') {
+    if (!r || !t || t.theirs) return true
+    const c = rollParam()[1], { qb, org, toQ } = rollQ(r), topV = rollTop(c), valAt = yy => clamp(Math.round((g.base - yy) / g.room * topV), 0, topV)
+    if (k === 'cpt') {
+      const id = +el.dataset.i, twice = ROLL.last.id === -id - 10 && now - ROLL.last.at < 420
+      ROLL.last = { id: -id - 10, at: now }
+      if (twice) { edit(() => rollSetCtl(r, (r.ctl || []).filter(q => q.id !== id))); ROLL.cp.delete(id); uiDirty('dock'); return true }      // a point pressed twice goes
+      if (e.shiftKey) { if (ROLL.cp.has(id)) ROLL.cp.delete(id); else ROLL.cp.add(id) } else if (!ROLL.cp.has(id)) ROLL.cp = new Set([id])
+      const q = (r.ctl || []).find(z => z.id === id)
+      if (q && ROLL.cp.has(id)) hold({ k: 'cpt', id, from: r.ctl || [], before: editState(), ids: new Set(ROLL.cp), bar0: ROLL.view.a + (p.x - g.x0) / g.pxb, v0: q.v, t0: q.t, c })
+      uiDirty('dock'); return true
+    }
+    const at = clamp(rollSnap(ROLL.view.a + (p.x - g.x0) / g.pxb, e), r.a - 1, r.b - 1 - 1e-6), made = { id: ++NID, t: toQ(at), c, v: rollSwitch(c) ? (valAt(p.y) >= 64 ? 127 : 0) : valAt(p.y) }, before = editState(), from = (r.ctl || []).filter(q => !(q.c === c && Math.abs(q.t - made.t) < 1e-6)).concat([made])      // (one point to a place: a new one there takes the old one's)
+    rollSetCtl(r, from); ROLL.cp = new Set([made.id])
+    hold({ k: 'cpt', id: made.id, from, before, ids: new Set([made.id]), bar0: ROLL.view.a + (p.x - g.x0) / g.pxb, v0: made.v, t0: made.t, c, fresh: true, moved: true })
+    uiDirty('dock', 'lanes'); return true
+  }
   if (k === 'grid') { openMenu(p.x - 70, g.y - 4, RL_GRIDS.map(v => ({ t: v, v, on: v === ROLL.grid, sep: v === '1/6' })), it => { ROLL.grid = it.v; uiDirty('dock') }, { w: 96 }); return true }
   if (k === 'ruler') { const at = Math.max(0, rollSnap(ROLL.view.a + (p.x - g.x0) / g.pxb, e)); jumpTo(at); uiDirty('dock', 'scenes', 'top'); return true }
   if (k === 'key') { const key = +el.dataset.v; if (g.kit) ROLL.pad = DRUM_PADS.findIndex(q => q[1] === key); ROLL.key = key; syncLive(); playKey(0x90, key, ROLL.vel); hold({ k: 'key', key }); uiDirty('dock'); return true }
@@ -265,6 +418,8 @@ function rollDown (e) {
   if (k === 'note' || k === 'len') {
     const id = +el.dataset.i, x = r && r.notes.find(q => q.id === id)
     if (!x) return true
+    if (mine && S.tool === 'eraser') { rollDelete(new Set(ROLL.sel.has(id) ? ROLL.sel : [id])); return true }      // the eraser: the note pressed goes (the chosen ones with it, when it is one of them)
+    if (mine && S.tool === 'scissors' && !g.kit) { rollCut(r, id, ROLL.view.a + (p.x - g.x0) / g.pxb, e); return true }      // the scissors: it is cut where it was pressed, on the grid
     const twice = ROLL.last.id === id && now - ROLL.last.at < 420
     ROLL.last = { id, at: now }
     if (g.kit && twice && !e.shiftKey && mine) { rollDelete(new Set([id])); return true }        // a stroke pressed twice goes
@@ -272,6 +427,7 @@ function rollDown (e) {
     ROLL.vel = clamp(x.v, 1, 127)
     const snd = regSound(r).find(q => q.id === id), at = rollAt(p)
     if (snd) rollHear(snd.n, snd.v)
+    if (ROLL.sel.has(id) && mine && S.tool === 'velocity') { hold({ k: 'nv', id, from: r.notes, before: editState(), ids: new Set(ROLL.sel), v0: x.v }); uiDirty('dock'); return true }      // the velocity tool: pulled up or down, the chosen notes are played harder or softer
     if (ROLL.sel.has(id) && mine) hold({ k: k === 'len' && !g.kit ? 'len' : 'move', id, from: r.notes, before: editState(), bar0: at.bar, row0: at.row, a0: snd ? snd.a : at.bar, b0: snd ? snd.b : at.bar, copy: e.altKey && k !== 'len', ids: new Set(ROLL.sel) })
     uiDirty('dock'); return true
   }
@@ -297,6 +453,32 @@ function rollMove (e) {
   if (!d) return
   const p = pt(e), g = ROLL.g, [r, t] = rollReg()
   if (d.k === 'key') return
+  if (d.k === 'line') {                                                                  // a line of the panel at the left: how far along it the hand is
+    if (!r) return
+    const f = clamp((p.x - ROLL.side.x) / ROLL.side.w, 0, 1)
+    if (d.what === 'qs' || d.what === 'sw') {                                            // how far, how late: the chosen notes that are quantized follow the line as it is pulled
+      ROLL[d.what] = Math.round(f * 100) / 100
+      const was = r.notes; r.notes = d.from; const list = d.from.map(x => (d.ids.size && !d.ids.has(x.id)) || x.o == null ? x : rollQuant({ a: r.a, off: r.off, notes: [x] }, new Set(), false)[0][0]); r.notes = was
+      if (list.some((x, i) => x !== d.from[i])) setNotes(r, list)
+    }
+    else { const v = clamp(Math.round(f * 127), 1, 127); ROLL.vel = v; if (d.ids.size) setNotes(r, d.from.map(x => !d.ids.has(x.id) ? x : Object.assign({}, x, { v }))); say(`velocity ${v}`) }
+    d.moved = true; uiDirty('dock', 'lanes'); return
+  }
+  if (d.k === 'nv') {                                                                    // so many steps of how hard for every two units the hand has gone up or down; with shift, a quarter of that
+    if (!r || (!d.moved && Math.abs(p.y - d.y0) < 2)) return
+    const dv = Math.round((d.y0 - p.y) * (e.shiftKey ? .25 : .8)), lead = clamp(d.v0 + dv, 1, 127)
+    setNotes(r, d.from.map(x => !d.ids.has(x.id) ? x : Object.assign({}, x, { v: clamp(x.v + dv, 1, 127) })))
+    ROLL.vel = lead; say(`velocity ${lead}`); d.moved = true; uiDirty('dock', 'lanes'); return
+  }
+  if (d.k === 'cpt') {
+    if (!r) return
+    if (!d.fresh && !d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return
+    const { qb, toQ } = rollQ(r), topV = rollTop(d.c), bar = ROLL.view.a + (p.x - g.x0) / g.pxb, lead0 = (r.a - 1 - (r.off || 0)) + d.t0 / qb
+    const to = clamp(rollSnap(lead0 + (bar - d.bar0), e), r.a - 1, r.b - 1 - 1e-6), dq = toQ(to) - d.t0, v = clamp(Math.round((g.base - p.y) / g.room * topV), 0, topV), dv = v - d.v0, lo = toQ(r.a - 1), hiQ = toQ(r.b - 1) - 1e-6
+    rollSetCtl(r, d.from.map(q => !d.ids.has(q.id) ? q : Object.assign({}, q, { t: clamp(q.t + dq, lo, hiQ), v: rollSwitch(d.c) ? ((q.id === d.id ? v : q.v + dv) >= 64 ? 127 : 0) : clamp(q.id === d.id ? v : q.v + dv, 0, topV) })))
+    say(`${ROLL.param} ${d.c === 128 ? v - 8192 : v}`)
+    d.moved = true; uiDirty('dock', 'lanes'); return
+  }
   if (!d.moved && d.k !== 'vel' && Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return
   if (d.k === 'band') {
     d.moved = true
@@ -331,10 +513,11 @@ function rollUp () {
   const d = ROLL.drag
   ROLL.drag = null
   if (!d) return
+  if (d.k === 'nv' && d.moved) { const [r] = rollReg(), x = r && regSound(r).find(q => q.id === d.id); if (x) rollHear(x.n, x.v) }      // let go: heard as hard as it is now
   if (d.moved) ROLL.last = { id: 0, at: 0 }                                              // (a pull is not the first of two presses)
   if (d.k === 'key') { playKey(0x80, d.key, 0); ROLL.key = null; uiDirty('dock'); return }
   if (d.k === 'band') { ROLL.band = null; uiDirty('dock'); return }
-  if (d.moved && d.before) { const [r] = rollReg(); if (r && r.notes !== d.from) commit(d.before); else uiDirty('dock') }
+  if (d.moved && d.before) { const [r] = rollReg(); if (r && (d.k === 'line' || d.k === 'cpt' || d.k === 'nv' || r.notes !== d.from)) commit(d.before); else uiDirty('dock') }
 }
 /* the wheel over the page: up and down the keys, along the song; a pinch (or command) draws the time nearer about the pointer */
 function rollWheel (e) {
@@ -357,8 +540,24 @@ function rollKey (e) {
   if (!rollOn() || S.focus !== 'notes' || S.menu || S.leave || (typeof START !== 'undefined' && START.on)) return
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return
   const [r] = rollReg(), cmd = e.metaKey && !e.ctrlKey && !e.altKey, plain = !e.metaKey && !e.ctrlKey && !e.altKey, c = e.code, take = () => { e.preventDefault(); e.stopImmediatePropagation() }
-  if ((c === 'Backspace' || c === 'Delete') && plain) { take(); if (!e.repeat) rollDelete(new Set(ROLL.sel)); return }
-  if (c === 'Escape' && plain && ROLL.sel.size) { take(); ROLL.sel = new Set(); uiDirty('dock'); return }
+  if (cmd && !e.shiftKey && /^Arrow/.test(c)) {                                          // command and an arrow: the page's own view — nearer, further; taller, shorter rows
+    take()
+    const V = ROLL.view, g = ROLL.g
+    if (c === 'ArrowRight' || c === 'ArrowLeft') { const span = clamp((V.b - V.a) * (c === 'ArrowRight' ? 1 / 1.5 : 1.5), .5, 64), pos = curPos(), at = pos >= V.a && pos <= V.b ? pos : (V.a + V.b) / 2; V.a = at - (at - V.a) * span / (V.b - V.a); V.b = V.a + span }
+    else if (g && !g.kit) { const mid = g.hi - g.count / 2; ROLL.rowH = clamp(Math.round(ROLL.rowH * (c === 'ArrowDown' ? 1.25 : 1 / 1.25)), 7, 30); const count = Math.max(1, Math.floor((g.bot - g.top) / ROLL.rowH)); V.hi = clamp(Math.round(mid + count / 2), count - 1, 127) }
+    uiDirty('dock'); return
+  }
+  if (c === 'KeyQ' && r && ((plain && !e.shiftKey) || (e.metaKey && e.altKey && !e.ctrlKey))) { take(); if (!e.repeat) rollQuantDo(r, !plain); return }      // q: the chosen notes to the panel's own grid (not the region to the room's); option command q: back as played
+  if (c === 'KeyL' && plain && !e.shiftKey && r) { take(); if (!e.repeat) rollLegato(r); return }      // l: force legato (on the lanes l fills a region to the next; here, each chosen note)
+  if (c === 'KeyA' && plain && !e.shiftKey) { take(); if (!e.repeat) { ROLL.lane = !ROLL.lane; uiDirty('dock') } return }      // a: the lane under the notes, up or away
+  if ((c === 'Backspace' || c === 'Delete') && plain) {
+    take()
+    if (e.repeat) return
+    if (ROLL.on === 'lane' && ROLL.cp.size && r) { const ids = new Set(ROLL.cp); edit(() => rollSetCtl(r, (r.ctl || []).filter(q => !ids.has(q.id)))); ROLL.cp = new Set(); uiDirty('dock', 'lanes') }
+    else rollDelete(new Set(ROLL.sel))
+    return
+  }
+  if (c === 'Escape' && plain && (ROLL.sel.size || ROLL.cp.size)) { take(); ROLL.sel = new Set(); ROLL.cp = new Set(); uiDirty('dock'); return }
   if (!r) return
   if (cmd && c === 'KeyA' && !e.shiftKey) { take(); ROLL.sel = new Set(r.notes.map(x => x.id)); uiDirty('dock'); return }
   if (cmd && (c === 'KeyC' || c === 'KeyX') && !e.shiftKey) {
@@ -377,6 +576,15 @@ function rollKey (e) {
     edit(() => { setNotes(r, r.notes.concat(made)); rollGrow(r) })
     ROLL.sel = new Set(made.map(x => x.id)); uiDirty('dock', 'lanes'); return
   }
+  if (e.altKey && !e.metaKey && !e.ctrlKey && /^Arrow/.test(c) && ROLL.on === 'lane' && ROLL.cp.size && r) {      // the lane's chosen points: a step earlier or later, a little higher or lower — they alone
+    take()
+    const cc = rollParam()[1], topV = rollTop(cc), along = c === 'ArrowRight' ? 1 : c === 'ArrowLeft' ? -1 : 0, up = c === 'ArrowUp' ? 1 : c === 'ArrowDown' ? -1 : 0, { toQ } = rollQ(r), lo = toQ(r.a - 1), hiQ = toQ(r.b - 1) - 1e-6
+    const sel = (r.ctl || []).filter(q => ROLL.cp.has(q.id))
+    if (!sel.length) return
+    const dq = clamp(along * rollStep() * QB(), lo - Math.min(...sel.map(q => q.t)), hiQ - Math.max(...sel.map(q => q.t))), dv = up * (cc === 128 ? 128 : 1) * (e.shiftKey ? 10 : 1)
+    edit(() => rollSetCtl(r, (r.ctl || []).map(q => !ROLL.cp.has(q.id) ? q : Object.assign({}, q, { t: q.t + dq, v: rollSwitch(cc) ? (up > 0 ? 127 : up < 0 ? 0 : q.v) : clamp(q.v + dv, 0, topV) }))))
+    uiDirty('dock', 'lanes'); return
+  }
   if (e.altKey && !e.metaKey && !e.ctrlKey && /^Arrow/.test(c) && ROLL.sel.size) {
     take()
     const up = c === 'ArrowUp' ? 1 : c === 'ArrowDown' ? -1 : 0, along = c === 'ArrowRight' ? 1 : c === 'ArrowLeft' ? -1 : 0, kit = ROLL.g && ROLL.g.kit
@@ -390,14 +598,42 @@ function rollSync () {
   const on = rollOn()
   if (on === ROLL.shown) return
   ROLL.shown = on
+  if (on) rollRecall()
   if (on) { ROLL.hOther = S.panel.h; S.panel.h = ROLL.h } else { ROLL.h = S.panel.h; S.panel.h = ROLL.hOther; if (S.focus === 'notes') S.focus = 'lanes' }
   relayout(); dirtyAll()
 }
+/* how the page was left — its grids, how far and how late, the scale, the lane and what it shows, the height of its rows —
+   is kept with the app's settings and comes back when the app is opened again */
+const RL_KEPT = ['qv', 'qs', 'sw', 'grid', 'scale', 'root', 'lane', 'param', 'rowH']
+const rollKeptSig = () => JSON.stringify(RL_KEPT.map(k => ROLL[k]))
+function rollRecall () {
+  if (ROLL.recalled || !NAT) return
+  ROLL.recalled = true
+  NAT.call('prefGet').then(pr => {
+    const o = pr && pr.notesPage
+    if (o && typeof o === 'object') {
+      if (['1/4', '1/8', '1/16', '1/32', '1/6', '1/12', '1/24'].includes(o.qv)) ROLL.qv = o.qv
+      if (RL_GRIDS.includes(o.grid)) ROLL.grid = o.grid
+      if (o.qs >= 0 && o.qs <= 1) ROLL.qs = +o.qs
+      if (o.sw >= 0 && o.sw <= 1) ROLL.sw = +o.sw
+      if (RL_SCALES[o.scale]) ROLL.scale = o.scale
+      if (o.root >= 0 && o.root < 12) ROLL.root = o.root | 0
+      if (typeof o.lane === 'boolean') ROLL.lane = o.lane
+      if (typeof o.param === 'string' && (RL_PARAMS.some(q => q[0] === o.param) || /^cc \d+/.test(o.param))) ROLL.param = o.param
+      if (o.rowH >= 7 && o.rowH <= 30) ROLL.rowH = Math.round(o.rowH)
+    }
+    ROLL.keptSig = rollKeptSig(); uiDirty('dock')
+  })
+}
+function rollKeep () { if (!NAT || !ROLL.recalled || ROLL.keptSig == null) return; const sig = rollKeptSig(); if (sig === ROLL.keptSig) return; ROLL.keptSig = sig; const o = {}; for (const k of RL_KEPT) o[k] = ROLL[k]; NAT.call('prefSet', { key: 'notesPage', value: o }) }
 function rollOpen () { if (!rollOn()) { S.panel.on = true; S.panel.tab = 'notes'; closePicker(); setView() } rollSync(); S.focus = 'notes'; uiDirty('dock', 'top') }
 
 /* ── joined to the room ── */
 {
-  const down0 = onDown, move0 = onMove, up0 = onUp, wheel0 = onWheel, dock0 = PARTS.dock, toggle0 = togglePanel, flush0 = flush
+  const down0 = onDown, move0 = onMove, up0 = onUp, wheel0 = onWheel, dock0 = PARTS.dock, toggle0 = togglePanel, flush0 = flush, lanePress0 = lanesPress, laneHover0 = lanesHover
+  /* on the lanes the velocity tool is the gain tool (how hard a region of notes is played is its gain) */
+  const asGain = fn => function (...a) { if (S.tool !== 'velocity') return fn(...a); S.tool = 'gain'; try { return fn(...a) } finally { S.tool = 'velocity' } }
+  lanesPress = asGain(lanePress0); lanesHover = asGain(laneHover0)
   PARTS.dock = function () {
     if (!rollOn() || VIEW.p <= .001) return dock0()
     const y = BY, h = S.panel.h
@@ -412,7 +648,7 @@ function rollOpen () { if (!rollOn()) { S.panel.on = true; S.panel.tab = 'notes'
     down0(e)
     if (a === 'tab-patch' || a === 'tab-mixer' || a === 'tab-notes' || a === 'patch' || a === 'mixer') rollSync()
     else if (a === 'lanes' && !e.button) {                                               // a region of notes pressed twice: its notes
-      const p = pt(e), ti = laneAt(p.y), r = (p.y - TY + VY) < rows().length * S.rh ? hitRegion(ti, barAt(p.x)) : null, now = performance.now()
+      const p = pt(e), ti = laneAt(p.y), r = (p.y - TY + VY) < rowTops().all ? hitRegion(ti, barAt(p.x)) : null, now = performance.now()
       if (r && r.notes && ROLL.lastReg && ROLL.lastReg.id === r.id && now - ROLL.lastReg.at < 420) { ROLL.lastReg = null; if (!rollOn()) rollOpen(); else { S.focus = 'notes'; uiDirty('dock') } }
       else ROLL.lastReg = r && r.notes ? { id: r.id, at: now } : null
     }
@@ -423,6 +659,7 @@ function rollOpen () { if (!rollOn()) { S.panel.on = true; S.panel.tab = 'notes'
   addEventListener('keydown', rollKey, true)
   KEYS.KeyP = () => { if (rollOn()) togglePanel('notes'); else rollOpen() }
   /* held keys of the keyboard are shown on the page's own keys; while the song runs its playhead is carried along */
-  flush = function () { if (rollOn() && dirty.has('keys')) dirty.add('dock'); flush0() }
+  flush = function () { if (rollOn() && (dirty.has('keys') || ROLL.toolWas !== S.tool)) dirty.add('dock'); ROLL.toolWas = S.tool; flush0() }      // (another tool: the pointer over a note says so)
+  setInterval(rollKeep, 1500)
   setInterval(() => { if (!rollOn() || !S.playing || !ROLL.g) return; const el = document.getElementById('np-ph'), g = ROLL.g; if (!el) return; const x = g.x0 + (curPos() - ROLL.view.a) * g.pxb; el.setAttribute('transform', `translate(${n(x)} 0)`); el.setAttribute('visibility', x >= g.x0 && x <= g.x1 ? 'visible' : 'hidden') }, 33)
 }

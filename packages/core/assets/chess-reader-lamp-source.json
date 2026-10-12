@@ -1,0 +1,13 @@
+{
+  "asset": "https://www.innerscene.com/tools/library/3d-parts/reader-reading-floor-lamp-3d915761",
+  "author": "Innerscene",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "modifications": "Original self-contained GLB. Telescoping stem raised 20 cm; reading head tilted toward the piano lid. Placement, shadowed task lighting and switch supplied by Slur. No in-app attribution required.",
+  "sources": [
+    {
+      "url": "https://www.innerscene.com/api/library/reader-reading-floor-lamp-3d915761/download",
+      "sha256": "b2aeb80d5096ed5423fb993061a5a4dfdf12836f572b82d7e496e316b0affb53"
+    }
+  ]
+}

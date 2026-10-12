@@ -350,6 +350,9 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const tableLampPoint = room.tableLampPoint.clone().project(camera)
       el.dataset.tableLampX = String((tableLampPoint.x + 1) * el.clientWidth / 2)
       el.dataset.tableLampY = String((1 - tableLampPoint.y) * el.clientHeight / 2)
+      const readerLampPoint = room.readerLampPoint.clone().project(camera)
+      el.dataset.readerLampX = String((readerLampPoint.x + 1) * el.clientWidth / 2)
+      el.dataset.readerLampY = String((1 - readerLampPoint.y) * el.clientHeight / 2)
       // Project accessible square targets alongside the camera, not against a fixed grid.
       const squareButtons = el.querySelectorAll<HTMLButtonElement>('[role="gridcell"]')
       squareButtons.forEach((button, index) => {
@@ -462,9 +465,10 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       const rect = renderer.domElement.getBoundingClientRect()
       pointer.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1)
       raycaster.setFromCamera(pointer, camera)
-      const hit = raycaster.intersectObjects([...tiles, ...pieces.values(), ...room.lampTargets, ...room.tableLampTargets], true)[0]
+      const hit = raycaster.intersectObjects([...tiles, ...pieces.values(), ...room.lampTargets, ...room.tableLampTargets, ...room.readerLampTargets], true)[0]
       if (hit && room.lampTargets.some(node => node === hit.object)) { toggleLamp('wall'); return }
       if (hit && room.tableLampTargets.some(node => node === hit.object)) { toggleLamp('table'); return }
+      if (hit && room.readerLampTargets.some(node => node === hit.object)) { toggleLamp('reader'); return }
       const pos = hit?.object.userData.pos as Pos | undefined
       if (pos) select.current(pos)
     }
@@ -475,13 +479,14 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     renderer.domElement.addEventListener('pointercancel', pointerCancel)
     renderer.domElement.addEventListener('webglcontextlost', contextLost)
     const observer = new ResizeObserver(resize); observer.observe(el)
-    const toggleLamp = (id: 'wall' | 'table') => {
+    const toggleLamp = (id: 'wall' | 'table' | 'reader') => {
       if (!visible || !roomReady) return
       const enabled = room.toggleLamp(id)
-      el.dataset[id === 'wall' ? 'lampOn' : 'tableLampOn'] = String(enabled)
+      el.dataset[id === 'wall' ? 'lampOn' : id === 'table' ? 'tableLampOn' : 'readerLampOn'] = String(enabled)
       request()
     }
     el.dataset.lampOn = 'true'
+    el.dataset.readerLampOn = 'true'
     el.dataset.tableLampOn = 'true'
     stage.current = {
       sync,

@@ -32,18 +32,23 @@ camera.lookAt(12.5, -2, -27.2)
 if (new URLSearchParams(location.search).get('view') === 'room') {
   camera.position.set(23, 15, 23)
   camera.lookAt(-4, -2, -12)
+} else if (new URLSearchParams(location.search).get('view') === 'reader') {
+  camera.position.set(27, 9, -10)
+  camera.lookAt(16, 1, -27)
 }
 const room = createChessRoom(scene, renderer, [], [], () => {}, () => false)
 await room.ready
 room.setOpponentLabel('@opponent')
-const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light'].map(name => {
+const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light', 'reader-lamp-light'].map(name => {
   const light = scene.getObjectByName(name) as THREE.PointLight
   return { name, position: light.position.toArray(), intensity: light.intensity }
 })
 const initialLights = lighting()
-room.toggleLamp('wall'); room.toggleLamp('table')
+room.toggleLamp('wall'); room.toggleLamp('table'); room.toggleLamp('reader')
 const unlitLights = lighting()
-room.toggleLamp('wall'); room.toggleLamp('table')
+const readerEmissions = () => room.readerLampTargets.flatMap(node => (Array.isArray(node.material) ? node.material : [node.material]) as THREE.MeshStandardMaterial[]).filter(material => material.emissive.getHex() !== 0).map(material => material.emissiveIntensity)
+const unlitReaderEmissions = readerEmissions()
+room.toggleLamp('wall'); room.toggleLamp('table'); room.toggleLamp('reader')
 room.setTurn('near'); room.animateCandles(1000, false)
 const nearTurn = lighting()
 room.setTurn('far'); room.animateCandles(1000, false)
@@ -57,6 +62,11 @@ piano.traverse(node => nodes.push(node))
 const black = piano.getObjectByName('black-keys') as THREE.InstancedMesh
 black.geometry.computeBoundingBox()
 const bench = scene.getObjectByName('piano-bench')!
+const pianoBounds = new THREE.Box3().setFromObject(piano)
+const readerBounds = room.readerLampTargets.map(node => new THREE.Box3().setFromObject(node))
+const readerBase = room.readerLampTargets.find(node => node.name.includes('weighted_circular_base'))!
+const readerBaseBounds = new THREE.Box3().setFromObject(readerBase)
+const readerLight = scene.getObjectByName('reader-lamp-light') as THREE.SpotLight
 const whiteKeyMaterials = (piano.getObjectByName('white-key-21') as THREE.Mesh).material as THREE.MeshPhysicalMaterial[]
 const whiteKeyMaterial = whiteKeyMaterials[0]
 const pedal = piano.getObjectByName('pedal') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
@@ -66,6 +76,8 @@ for (let i = 0; i < pedalVertices.count; i++) {
   if (pedalVertices.getZ(i) > .16 && pedalVertices.getZ(i) < .18) pedalFoot.expandByPoint(new THREE.Vector3().fromBufferAttribute(pedalVertices, i))
 }
 Object.assign(window, { pianoQA: {
+  readerLamp: { baseMin: readerBaseBounds.min.toArray(), baseMax: readerBaseBounds.max.toArray(), pianoMin: pianoBounds.min.toArray(), pianoMax: pianoBounds.max.toArray(), overlapsPiano: readerBounds.some(bounds => bounds.intersectsBox(pianoBounds)), beam: readerLight.position.toArray(), target: readerLight.target.position.toArray(), angle: readerLight.angle, shadows: readerLight.castShadow, unlitEmissions: unlitReaderEmissions, litEmissions: readerEmissions() },
+  toggleReader: () => { room.toggleLamp('reader'); renderer.render(scene, camera) },
   pedalFoot: { size: pedalFoot.getSize(new THREE.Vector3()).toArray(), color: pedal.material.color.getHexString(), roughness: pedal.material.roughness, environment: pedal.material.envMapIntensity, emissive: pedal.material.emissive.getHex() },
   whiteKeyMaterial: { color: whiteKeyMaterial.color.getHexString(), roughness: whiteKeyMaterial.roughness, clearcoat: whiteKeyMaterial.clearcoat, environment: whiteKeyMaterial.envMapIntensity, emissive: whiteKeyMaterial.emissive.getHex(), textured: !!whiteKeyMaterial.map && !!whiteKeyMaterial.roughnessMap && !!whiteKeyMaterial.bumpMap, bump: whiteKeyMaterial.bumpScale, woodenEdge: !!whiteKeyMaterials[1].map },
   keyToneCount: new Set(nodes.filter(node => node.name.startsWith('white-key-')).map(node => ((node as THREE.Mesh).material as THREE.MeshPhysicalMaterial[])[0].color.getHex())).size,
@@ -77,7 +89,7 @@ Object.assign(window, { pianoQA: {
   externalPiano: !!scene.getObjectByName('tall3-upright-piano'),
   benchSize: new THREE.Box3().setFromObject(bench).getSize(new THREE.Vector3()).divideScalar(10).toArray(),
   chairX: scene.getObjectByName('opponent-chair')!.position.x,
-  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp'].map(name => {
+  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp', 'reader-floor-lamp'].map(name => {
     const model = scene.getObjectByName(name)!
     const bounds = new THREE.Box3().setFromObject(model)
     return { name, min: bounds.min.toArray(), max: bounds.max.toArray() }

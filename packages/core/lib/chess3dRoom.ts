@@ -66,10 +66,6 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
   const tableLampPoint = new THREE.Vector3()
   const tableEmitters: THREE.MeshStandardMaterial[] = []
   let tableGlow: THREE.PointLight | undefined, tableLampOn = true
-  const floorLampTargets: THREE.Mesh[] = []
-  const floorLampPoint = new THREE.Vector3()
-  const floorEmitters: THREE.MeshStandardMaterial[] = []
-  let floorGlow: THREE.PointLight | undefined, floorLampOn = true
   const ground = mesh(new THREE.PlaneGeometry(60, 80), floor, [0, floorY, 8])
   ground.rotation.x = -Math.PI / 2
   ground.castShadow = false
@@ -217,44 +213,6 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     room.add(tableGlow)
   }))
 
-  pending.push(loadFurniture(new URL('../assets/chess-floor-lamp.glb', import.meta.url), 'beacon-floor-lamp').then(model => {
-    if (!model) return
-    model.scale.setScalar(10)
-    floorModel(model, 21.3, -19.6)
-    model.updateWorldMatrix(true, true)
-    model.traverse(node => {
-      if (!(node instanceof THREE.Mesh)) return
-      floorLampTargets.push(node)
-      for (const material of (Array.isArray(node.material) ? node.material : [node.material]) as THREE.MeshStandardMaterial[]) {
-        material.envMapIntensity = .12
-        if (material.name === 'Woven neutral fabric') {
-          // Keep the woven PBR detail while removing the original teal dye.
-          material.onBeforeCompile = shader => {
-            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-              #include <map_fragment>
-              float weaveLight = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-              diffuseColor.rgb = vec3(1.3, 1.22, 1.08) * weaveLight;
-            `)
-          }
-          material.customProgramCacheKey = () => 'slur-floor-lamp-linen-v1'
-          material.emissiveIntensity = 0
-          material.roughness = .9
-        } else if (material.name.startsWith('Satin teak')) {
-          material.color.set('#857363')
-        } else if (material.name === 'Warm opal luminous diffuser') {
-          material.emissive.set('#ffd6a3'); material.emissiveIntensity = 2
-          floorEmitters.push(material)
-          new THREE.Box3().setFromObject(node).getCenter(floorLampPoint)
-          node.castShadow = false
-        }
-      }
-    })
-    floorGlow = new THREE.PointLight('#ffd6a3', 48, 18, 2)
-    floorGlow.name = 'floor-lamp-light'
-    floorGlow.position.copy(floorLampPoint)
-    room.add(floorGlow)
-  }))
-
   const candles: { flame: THREE.Mesh; material: THREE.MeshStandardMaterial; light: THREE.PointLight }[] = []
   let candleTurn: 'near' | 'far' | null = null
   pending.push(loadFurniture(new URL('../assets/chess-candles.glb', import.meta.url), 'candle-source').then(model => {
@@ -388,15 +346,7 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     renderer.shadowMap.needsUpdate = true
     changed()
   }
-  const toggleLamp = (id: 'wall' | 'table' | 'floor' = 'wall') => {
-    if (id === 'floor') {
-      floorLampOn = !floorLampOn
-      if (floorGlow) floorGlow.intensity = floorLampOn ? 48 : 0
-      floorEmitters.forEach(material => { material.emissiveIntensity = floorLampOn ? 2 : 0 })
-      if (readyForReflection) updateReflection()
-      changed()
-      return floorLampOn
-    }
+  const toggleLamp = (id: 'wall' | 'table' = 'wall') => {
     if (id === 'table') {
       tableLampOn = !tableLampOn
       if (tableGlow) tableGlow.intensity = tableLampOn ? 60 : 0
@@ -419,5 +369,5 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     readyForReflection = true
     updateReflection()
   })
-  return { ready, setOpponentLabel, setTurn, animateCandles, toggleLamp, floorLampTargets, floorLampPoint, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => reflection?.dispose() }
+  return { ready, setOpponentLabel, setTurn, animateCandles, toggleLamp, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => reflection?.dispose() }
 }

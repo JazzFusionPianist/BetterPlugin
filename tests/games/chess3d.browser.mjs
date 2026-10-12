@@ -48,10 +48,12 @@ try {
       page.on('pageerror', e => errors.push(e.message))
       await page.addInitScript(() => {
         window.chessFogPrograms = 0
+        window.chessPortableShadowPrograms = 0
         for (const context of [WebGLRenderingContext, WebGL2RenderingContext]) {
           const shaderSource = context.prototype.shaderSource
           context.prototype.shaderSource = function(shader, source) {
             if (/^\s*#define USE_FOG\b/m.test(source)) window.chessFogPrograms++
+            if (/^\s*#define SHADOWMAP_TYPE_BASIC\b/m.test(source) && source.includes('shadow /= 9.0;')) window.chessPortableShadowPrograms++
             return shaderSource.call(this, shader, source)
           }
         }
@@ -90,6 +92,7 @@ try {
       await page.evaluate(() => { window.initialChessCanvas = document.querySelector('canvas[data-chess3d]') })
       const lobbyPixels = await canvasPixels(page)
       assert.equal(await page.evaluate(() => window.chessFogPrograms), 0, 'Indoor darkness comes from lighting, not camera-distance fog')
+      assert(await page.evaluate(() => window.chessPortableShadowPrograms > 0), 'Soft shadows use the portable depth comparison, not hardware shadow samplers')
       const lobbyCanvas = await page.locator('canvas[data-chess3d]').boundingBox()
       await page.mouse.move(lobbyCanvas.x + lobbyCanvas.width * .25, lobbyCanvas.y + lobbyCanvas.height * .7)
       await page.mouse.down()

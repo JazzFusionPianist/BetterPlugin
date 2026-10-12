@@ -6,6 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RotateCcw, Scan, Plus, Minus, Volume2, VolumeX } from 'lucide-react'
 import { createChessRoom } from '../lib/chess3dRoom'
+import { configureChessShadows } from '../lib/chess3dShadows'
 import { loadChessPieces } from '../lib/chess3dPieces'
 import { useGameActive } from '../hooks/useGameSurface'
 import { useChessAudio } from '../hooks/useChessAudio'
@@ -194,7 +195,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     } catch { setFailed(true); return }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75))
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.type = THREE.BasicShadowMap
     renderer.shadowMap.autoUpdate = false
     renderer.shadowMap.needsUpdate = true
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -372,6 +373,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.addEventListener('change', request)
     const room = createChessRoom(scene, renderer, materials, textures, request, () => disposed)
     Promise.all([room.ready, modelsReady]).then(() => {
+      if (!disposed) configureChessShadows(renderer, materials)
       if (!disposed) { roomReady = true; el.dataset.roomReady = 'true'; el.dataset.pieceSource = prototypes.get('wP')?.userData.aimY ? 'poly-haven' : 'fallback'; sync(); request() }
     }).catch(() => { if (!disposed) setFailed(true) })
     let lastWidth = 0, lastHeight = 0

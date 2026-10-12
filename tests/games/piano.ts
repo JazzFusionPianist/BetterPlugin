@@ -1,13 +1,14 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { createChessRoom } from '../../packages/core/lib/chess3dRoom'
+import { configureChessShadows } from '../../packages/core/lib/chess3dShadows'
 
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setSize(innerWidth, innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = .93
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.shadowMap.type = THREE.BasicShadowMap
 document.body.append(renderer.domElement)
 const scene = new THREE.Scene()
 scene.background = new THREE.Color('#211d19')
@@ -36,8 +37,10 @@ if (new URLSearchParams(location.search).get('view') === 'room') {
   camera.position.set(27, 9, -10)
   camera.lookAt(16, 1, -27)
 }
-const room = createChessRoom(scene, renderer, [], [], () => {}, () => false)
+const materials: THREE.Material[] = []
+const room = createChessRoom(scene, renderer, materials, [], () => {}, () => false)
 await room.ready
+configureChessShadows(renderer, materials)
 room.setOpponentLabel('@opponent')
 const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light', 'torch-uplight', 'torch-ceiling-bounce'].map(name => {
   const light = scene.getObjectByName(name) as THREE.PointLight

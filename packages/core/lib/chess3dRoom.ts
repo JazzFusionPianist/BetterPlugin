@@ -70,9 +70,16 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
   const readerLampPoint = new THREE.Vector3()
   const readerEmitters: THREE.MeshStandardMaterial[] = []
   let readerGlow: THREE.SpotLight | undefined, readerLampOn = true
+  let floorLampBounce: THREE.RectAreaLight | undefined
+  const uplightIntensity = 850
+  const bounceIntensity = 6
   const ground = mesh(new THREE.PlaneGeometry(60, 80), floor, [0, floorY, 8])
   ground.rotation.x = -Math.PI / 2
   ground.castShadow = false
+  const ceiling = mesh(new THREE.PlaneGeometry(50, 80), plaster, [0, floorY + 26, 8])
+  ceiling.name = 'room-ceiling'
+  ceiling.rotation.x = Math.PI / 2
+  ceiling.castShadow = false
   mesh(new THREE.PlaneGeometry(50, 26), plaster, [0, floorY + 13, -32])
   for (const sign of [-1, 1]) {
     const wall = mesh(new THREE.PlaneGeometry(80, 26), plaster, [sign * 25, floorY + 13, 8])
@@ -110,6 +117,10 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
   chairLabel.name = 'opponent-nameplate'
   chairLabel.castShadow = chairLabel.receiveShadow = false
   chairLabel.visible = false
+  const setOpponentLabelScale = (scale: number) => {
+    chairLabel.scale.set(scale, scale, 1)
+    changed()
+  }
   let opponentLabel = ''
   const setOpponentLabel = (text: string) => {
     if (text === opponentLabel) return
@@ -262,28 +273,9 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
   piano.scale.setScalar(10)
   piano.position.set(pianoX, floorY, -27.2)
   room.add(piano)
-  pending.push(loadFurniture(new URL('../assets/chess-reader-lamp.glb', import.meta.url), 'reader-floor-lamp').then(model => {
+  pending.push(loadFurniture(new URL('../assets/chess-torch-lamp.glb', import.meta.url), 'torch-floor-lamp').then(model => {
     if (!model) return
-    const nodes: THREE.Object3D[] = []
-    model.traverse(node => nodes.push(node))
-    const stem = nodes.find(node => node.name.includes('telescoping'))!
-    const assembly = stem.parent!
-    const headParts = assembly.children.filter(node => /downward_opal|suspended_socket|open_metal_shade|top_cap/.test(node.name))
-    const arm = assembly.children.find(node => node.name.includes('offset_arm'))!
-    const extension = .2
-    stem.scale.y = (.222 + extension) / .222
-    stem.position.y += extension / 2
-    arm.position.y += extension
-    headParts.forEach(node => { node.position.y += extension })
-    const head = new THREE.Group()
-    head.name = 'reader-aimed-head'
-    head.position.set(-.292, 1.324 + extension, .037)
-    assembly.add(head)
-    model.updateWorldMatrix(true, true)
-    headParts.forEach(node => head.attach(node))
-    head.rotation.z = -.4
     model.scale.setScalar(10)
-    // The stem/base fit the side gap; only the raised reading head overhangs the lid.
     model.position.set(22.45, floorY, -27.2)
     room.add(model)
     model.updateWorldMatrix(true, true)
@@ -296,26 +288,34 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
           material.emissive.set('#ffd3a1'); material.emissiveIntensity = 2
           readerEmitters.push(material)
         }
+        if (material.name === 'Warm ivory satin cabinet enamel') {
+          material.color.set('#aaa297')
+          material.roughness = .65
+          material.envMapIntensity = .05
+        }
       }
     })
-    readerLampPoint.copy(head.localToWorld(new THREE.Vector3(0, -.10, .075)))
-    // Emit through the tilted opening instead of placing a light behind the metal shade.
-    const aperture = head.localToWorld(new THREE.Vector3(0, -.153, 0))
-    const direction = new THREE.Vector3(0, -1, 0).transformDirection(head.matrixWorld)
-    const lidY = floorY + 12.1
-    readerGlow = new THREE.SpotLight('#ffd3a1', 70, 14, .65, .75, 2)
-    readerGlow.name = 'reader-lamp-light'
-    readerGlow.position.copy(aperture)
-    readerGlow.target.position.copy(aperture).addScaledVector(direction, (lidY - aperture.y) / direction.y)
-    readerGlow.target.name = 'reader-lamp-lid-target'
+    readerLampPoint.set(22.45, floorY + 15.15, -25.15)
+    // The bowl emits upward. A diffuse ceiling bounce approximates indirect light
+    // without casting a task-light cone down onto the keyboard or piano corner.
+    readerGlow = new THREE.SpotLight('#ffd3a1', uplightIntensity, 26, 1.05, 1, 2)
+    readerGlow.name = 'torch-uplight'
+    readerGlow.position.set(22.45, floorY + 15.85, -27.2)
+    readerGlow.target.position.set(20, floorY + 26, -31)
+    readerGlow.target.name = 'torch-ceiling-target'
     readerGlow.castShadow = true
     readerGlow.shadow.mapSize.set(512, 512)
     readerGlow.shadow.camera.near = .05
-    readerGlow.shadow.camera.far = 14
+    readerGlow.shadow.camera.far = 26
     readerGlow.shadow.normalBias = .01
     readerGlow.shadow.bias = -.0001
     readerGlow.shadow.radius = 2
     room.add(readerGlow, readerGlow.target)
+    floorLampBounce = new THREE.RectAreaLight('#ffe0b8', bounceIntensity, 12, 9)
+    floorLampBounce.name = 'torch-ceiling-bounce'
+    floorLampBounce.position.set(19, floorY + 25.8, -26)
+    floorLampBounce.lookAt(12.5, 1, -25)
+    room.add(floorLampBounce)
   }))
   const bench = new THREE.Group()
   bench.name = 'piano-bench'
@@ -408,7 +408,8 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
   const toggleLamp = (id: 'wall' | 'table' | 'reader' = 'wall') => {
     if (id === 'reader') {
       readerLampOn = !readerLampOn
-      if (readerGlow) readerGlow.intensity = readerLampOn ? 70 : 0
+      if (readerGlow) readerGlow.intensity = readerLampOn ? uplightIntensity : 0
+      if (floorLampBounce) floorLampBounce.intensity = readerLampOn ? bounceIntensity : 0
       readerEmitters.forEach(material => { material.emissiveIntensity = readerLampOn ? 2 : 0 })
       if (readyForReflection) updateReflection()
       changed()
@@ -436,5 +437,5 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     readyForReflection = true
     updateReflection()
   })
-  return { ready, setOpponentLabel, setTurn, animateCandles, toggleLamp, readerLampTargets, readerLampPoint, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => { reflection?.dispose(); readerGlow?.shadow.dispose() } }
+  return { ready, setOpponentLabel, setOpponentLabelScale, setTurn, animateCandles, toggleLamp, readerLampTargets, readerLampPoint, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => { reflection?.dispose(); readerGlow?.shadow.dispose() } }
 }

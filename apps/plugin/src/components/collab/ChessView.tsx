@@ -1005,6 +1005,7 @@ export default function ChessView({
         threeD ? (
           <Suspense fallback={<div className="chess3d-loading" />}>
             <Chess3DBoard
+              largeOpponentLabel
               opponentLabel={opponentProfile ? (opponentProfile.username ? `@${opponentProfile.username}` : opponentProfile.display_name) : isComputerOpponent ? computerPlayerName(computerPlayerId(0)) : ''}
               state={displayState}
               playing={isPlaying}

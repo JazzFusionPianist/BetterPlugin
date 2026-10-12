@@ -26,6 +26,7 @@ export interface Chess3DBoardProps {
   labels: { reset: string; top: string; zoomIn: string; zoomOut: string; unavailable: string; board: string; lamp: string; soundOn: string; soundOff: string }
   fallback: React.ReactNode
   opponentLabel?: string
+  largeOpponentLabel?: boolean
 }
 
 interface Stage {
@@ -221,7 +222,7 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.minDistance = 17
     controls.maxDistance = 37
     controls.minPolarAngle = .15
-    controls.maxPolarAngle = 1.08
+    controls.maxPolarAngle = 1.08 * 1.2
     controls.minAzimuthAngle = -.75
     controls.maxAzimuthAngle = .75
     controls.rotateSpeed = .45
@@ -380,6 +381,9 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
       if (w !== lastWidth || h !== lastHeight) {
         lastWidth = w; lastHeight = h
         renderer.setSize(w, h, false)
+        const labelScale = w <= 600 ? 1.6 : latest.current.largeOpponentLabel ? 1.5 : 1
+        room.setOpponentLabelScale(labelScale)
+        el.dataset.opponentLabelScale = String(labelScale)
         camera.aspect = w / h
         camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(19)) * Math.max(1, .75 / camera.aspect)))
         camera.updateProjectionMatrix()

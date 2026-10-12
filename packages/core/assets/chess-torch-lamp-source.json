@@ -1,0 +1,11 @@
+{
+  "asset": "https://www.innerscene.com/tools/library/3d-parts/torch-torchiere-floor-lamp-00b46340",
+  "author": "Innerscene",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "modifications": "Original self-contained GLB at real-world scale. Upward lighting, diffuse ceiling-bounce approximation and click-to-toggle switch supplied by Slur. No in-app attribution required.",
+  "sources": [{
+    "url": "https://www.innerscene.com/api/library/torch-torchiere-floor-lamp-00b46340/download",
+    "sha256": "7a671d52dc8327a0dea3355e4724796d430d9f0567a89dce97e4d1cd48d107e9"
+  }]
+}

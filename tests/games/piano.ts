@@ -39,7 +39,7 @@ if (new URLSearchParams(location.search).get('view') === 'room') {
 const room = createChessRoom(scene, renderer, [], [], () => {}, () => false)
 await room.ready
 room.setOpponentLabel('@opponent')
-const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light', 'reader-lamp-light'].map(name => {
+const lighting = () => ['wall-lamp-light', 'table-lamp-light', 'near-candle-light', 'far-candle-light', 'torch-uplight', 'torch-ceiling-bounce'].map(name => {
   const light = scene.getObjectByName(name) as THREE.PointLight
   return { name, position: light.position.toArray(), intensity: light.intensity }
 })
@@ -66,7 +66,7 @@ const pianoBounds = new THREE.Box3().setFromObject(piano)
 const readerBounds = room.readerLampTargets.map(node => new THREE.Box3().setFromObject(node))
 const readerBase = room.readerLampTargets.find(node => node.name.includes('weighted_circular_base'))!
 const readerBaseBounds = new THREE.Box3().setFromObject(readerBase)
-const readerLight = scene.getObjectByName('reader-lamp-light') as THREE.SpotLight
+const readerLight = scene.getObjectByName('torch-uplight') as THREE.SpotLight
 const whiteKeyMaterials = (piano.getObjectByName('white-key-21') as THREE.Mesh).material as THREE.MeshPhysicalMaterial[]
 const whiteKeyMaterial = whiteKeyMaterials[0]
 const pedal = piano.getObjectByName('pedal') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
@@ -87,9 +87,10 @@ Object.assign(window, { pianoQA: {
   pedals: nodes.filter(node => node.name === 'pedal').length, casters: nodes.filter(node => node.name === 'caster').length,
   pianoX: piano.position.x, benchX: bench.position.x,
   externalPiano: !!scene.getObjectByName('tall3-upright-piano'),
+  pianoTopLamp: !!scene.getObjectByName('piano-mushroom-lamp'),
   benchSize: new THREE.Box3().setFromObject(bench).getSize(new THREE.Vector3()).divideScalar(10).toArray(),
   chairX: scene.getObjectByName('opponent-chair')!.position.x,
-  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp', 'reader-floor-lamp'].map(name => {
+  furniture: ['sofa-03', 'green-chair-01', 'round-side-table', 'table-lamp', 'torch-floor-lamp'].map(name => {
     const model = scene.getObjectByName(name)!
     const bounds = new THREE.Box3().setFromObject(model)
     return { name, min: bounds.min.toArray(), max: bounds.max.toArray() }

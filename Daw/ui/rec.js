@@ -91,8 +91,8 @@ function drawRec (p) {
   for (const id of rec.ids) {
     const i = S.tracks.findIndex(t => t.id === id), k = vis.indexOf(i)
     if (k < 0 || p <= rec.start) continue
-    const y = TY + k * S.rh - VY, xa = bx(rec.start + 1), xb = bx(p + 1)
-    s += R(xa + .5, y + 1.5, Math.max(1, xb - xa - 1), S.rh - 3, { fill: REC, fa: .3 }) + R(xa + 1, y + 2, Math.max(1, xb - xa - 2), S.rh - 4, { stroke: REC, sa: .9 })
+    const y = rowY(i), rh = rowH(i), xa = bx(rec.start + 1), xb = bx(p + 1)
+    s += R(xa + .5, y + 1.5, Math.max(1, xb - xa - 1), rh - 3, { fill: REC, fa: .3 }) + R(xa + 1, y + 2, Math.max(1, xb - xa - 2), rh - 4, { stroke: REC, sa: .9 })
   }
   $('g-rec').innerHTML = s
 }

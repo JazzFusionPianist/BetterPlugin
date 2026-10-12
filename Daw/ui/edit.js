@@ -1,6 +1,6 @@
 /* ── editing: regions, tools, snap, the cycle, undo, and the keys (Steven's Logic set) ──
    Positions here are bars counted from zero; a region keeps a and b counted from one (b is where it ends). */
-const TOOLS = [['pointer', 'KeyT', 't'], ['smart', 'KeyS', 's'], ['pencil', 'KeyP', 'p'], ['eraser', 'KeyE', 'e'], ['scissors', 'KeyI', 'i'], ['join', 'KeyJ', 'j'], ['mute', 'KeyM', 'm'], ['gain', 'KeyG', 'g'], ['fade', 'KeyA', 'a'], ['marquee', 'KeyR', 'r'], ['flex', 'KeyX', 'x'], ['zoom', 'KeyY', 'y']]
+const TOOLS = [['pointer', 'KeyT', 't'], ['smart', 'KeyS', 's'], ['pencil', 'KeyP', 'p'], ['eraser', 'KeyE', 'e'], ['scissors', 'KeyI', 'i'], ['join', 'KeyJ', 'j'], ['mute', 'KeyM', 'm'], ['gain', 'KeyG', 'g'], ['fade', 'KeyA', 'a'], ['marquee', 'KeyR', 'r'], ['flex', 'KeyX', 'x'], ['zoom', 'KeyY', 'y'], ['velocity', 'KeyV', 'v']]      // (velocity: on the notes page a note is pulled up or down to be played harder or softer — roll.js; on the lanes it is the gain tool, which is the same thing said of a region)
 /* how far one nudge goes. A tick is a 960th of a beat; the last three are lengths of time, whatever the tempo */
 const NUDGES = ['bar', 'beat', '1/16', '10 ticks', 'tick', '10 ms', '1 ms', 'sample']
 const NUDGE_KEY = { bar: '⌥⇧m', beat: '⌥⇧b', '1/16': '⌥⇧s', '10 ticks': '⌥⇧t', tick: '⌥⇧q', '10 ms': '⌃⌥0', '1 ms': '⌃⌥1', sample: '⌃⌥s' }
@@ -612,7 +612,7 @@ const SMART = { flip: false }
 function smartZone (ti, p) {
   const t = S.tracks[ti]
   if (!t || t.kind !== 'audio') return { z: 'range' }
-  const y = p.y - rowY(ti) - 1.5, lh = S.rh - 3, corner = Math.min(8, lh * .36)
+  const y = p.y - rowY(ti) - 1.5, lh = rowH(ti) - 3, corner = Math.min(8, lh * .36)
   if (y > lh - corner && !t.inst) for (const [A, B] of joinsOf(t)) { const x0 = bx(B.a), x1 = bx(A.b); if (p.x >= Math.min(x0, x1) - 10 && p.x <= Math.max(x0, x1) + 10) return { z: 'x', A, B } }
   const pos = barAt(p.x), r = hitRegion(ti, pos)
   if (!r) return { z: 'range' }
@@ -970,7 +970,7 @@ const act = {
   del () {
     if (S.focus === 'marker') { const sc = SCENES.find(x => x.a === S.selM); if (sc) { removeScene(sc.i); return } S.focus = 'lanes'; S.selM = null }      // (the marker that was pressed is no longer there)
     if (S.selX && S.focus === 'lanes' && !S.selR.length && !S.marq) { const [A, t] = regOf(S.selX[0]), B = regOf(S.selX[1])[0]; S.selX = null; if (A && B) edit(() => { let any = false; for (const [a, b] of [[A, B]].concat(joinMates(A, B, t))) any = uncross(a, b) || any; return any }); uiDirty('lanes', 'dock'); return }
-    if (S.auto && S.focus !== 'tracks' && !S.marq) { edit(() => autoDelete()); return }      // (with a marquee up it is the marquee's stretch that goes, lines showing or not)
+    if ((S.auto || S.selP.length) && S.focus !== 'tracks' && !S.marq) { edit(() => autoDelete()); return }      // (with a marquee up it is the marquee's stretch that goes, lines showing or not)
     if (S.marq || S.selR.length) {
       edit(() => {
         const m = S.marq, mts = m ? marqTracks().filter(t => t.kind === 'audio') : null
@@ -1278,7 +1278,7 @@ const act = {
   },
   /* up or down: a line's chosen points when the lines show, else the pitch of the chosen regions */
   transpose (d) {
-    if (S.auto && S.selP.length) { edit(() => autoNudge(d)); return }
+    if (S.selP.length) { edit(() => autoNudge(d)); return }
     const rs = selRegs().map(x => x[0])
     if (!rs.length) return
     edit(() => { for (const r of rs) r.tr = clamp((r.tr || 0) + d, -24, 24) })
@@ -1403,10 +1403,18 @@ function setZoom (pxb, aroundBar) {
 function scrollBy (bars) { VX = clamp(VX + bars, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') }
 /* taller or shorter rows, keeping the chosen track where it is */
 function setRowH (h) {
-  const k = rowOf(S.sel), y = k * S.rh - VY
-  S.rh = clamp(Math.round(h), 20, 120)
-  VY = clamp(k < 0 ? VY : k * S.rh - y, 0, maxVY())
+  const k = rowOf(S.sel), y = rowY(S.sel)
+  S.rh = clamp(Math.round(h), 20, 120)                                                  // (a row with a height of its own keeps it)
+  VY = clamp(k < 0 ? VY : VY + rowY(S.sel) - y, 0, maxVY())
   uiDirty('lanes', 'head', 'info')
+}
+/* the sound in every region drawn taller or lower, the rows as they are (Logic's ⌘+ and ⌘−): what is quiet can be read
+   without making the rows tall; what is loud runs flat against the region's edge. Only how it is drawn: nothing is heard of it */
+const WZ_MAX = 1024
+function setWaveZoom (k) {
+  S.wz = clamp(k, 1, WZ_MAX); if (S.wz < 1.01) S.wz = 1
+  say(S.wz === 1 ? 'waveform as it is' : `waveform ×${S.wz < 10 ? +S.wz.toFixed(1) : Math.round(S.wz)}`)
+  uiDirty('lanes')
 }
 /* up and down the rows; with shift, the rows passed over are chosen too */
 function stepTrack (dir, more) { const vis = rows(), k = vis.indexOf(S.sel); chooseTrack(vis[clamp((k < 0 ? 0 : k) + dir, 0, vis.length - 1)], more ? 'range' : '') }
@@ -1421,10 +1429,13 @@ function lanesDown (e, p) {
 }
 function lanesPress (e, p) {
   if (S.focus !== 'lanes') { S.focus = 'lanes'; S.selM = null; uiDirty('scenes') }
-  if ((p.y - TY + VY) >= rows().length * S.rh) { S.selR = []; S.selP = []; S.marq = null; uiDirty('lanes', 'dock'); return }       // below the last row
+  if ((p.y - TY + VY) >= rowTops().all) { S.selR = []; S.selP = []; S.marq = null; uiDirty('lanes', 'dock'); return }       // below the last row
   const tool = e.metaKey ? S.tool2 : S.tool
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') { autoDown(e, p, tool); return }
   const ti = laneAt(p.y), t = S.tracks[ti], pos = barAt(p.x)
+  /* a bus's or a stack's own line is taken where it is, the lines shown or not (auto.js: lineOwn) */
+  if (tool !== 'zoom' && tool !== 'marquee' && lineOwn(t) && (tool === 'pencil' || tool === 'eraser' || onOwnLine(ti, p))) { if (S.selR.length || S.selX) { S.selR = []; S.selX = null; uiDirty('dock') } autoDown(e, p, tool); return }
+  if (!S.auto && S.selP.length && !e.shiftKey) { S.selP = []; uiDirty('lanes') }                // (a press elsewhere lets go of such a line's points)
   let r = hitRegion(ti, pos), before = editState()
   /* a press with the pointer inside a marquee, as in Logic: the stretch becomes regions of its own — cut at both its edges,
      on every track it covers — and they are what is chosen and taken hold of (pulled, they move; command x takes just
@@ -1653,6 +1664,7 @@ function lanesHover (e, p, el) {
   const tool = e.metaKey ? S.tool2 : S.tool
   let c = { pencil: 'crosshair', eraser: 'cell', scissors: 'col-resize', join: 'copy', mute: 'not-allowed', gain: 'ns-resize', fade: 'ew-resize', marquee: 'crosshair', zoom: 'zoom-in', flex: 'col-resize' }[tool] || 'default'
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = tool === 'eraser' ? 'cell' : 'crosshair'
+  else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = tool === 'eraser' ? 'cell' : 'crosshair'
   else if (tool === 'smart') { const ti = laneAt(p.y), r = S.flex ? hitRegion(ti, barAt(p.x)) : null; c = r && !r.loop && !r.notes && flexNear(r, p.x) ? 'col-resize' : SMART_CURSOR[smartZone(ti, p).z] || 'default' }
   else if (tool === 'pointer') { const ti = laneAt(p.y), r = hitRegion(ti, barAt(p.x)); if (r) c = endAt(ti, p) ? 'ew-resize' : S.flex && !r.loop && !r.notes && flexNear(r, p.x) ? 'col-resize' : 'grab' }
   if (el.style.cursor !== c) el.style.cursor = c
@@ -1691,6 +1703,7 @@ const KEYS = {
   '⌥ArrowUp': () => act.transpose(1), '⌥ArrowDown': () => act.transpose(-1), '⌥⇧ArrowUp': () => act.transpose(12), '⌥⇧ArrowDown': () => act.transpose(-12),
   '⌘KeyG': () => setMode(S.mode === 'slip' ? S.mode0 || 'smart' : 'slip'), F1: () => setMode('shuffle'), F2: () => setMode('slip'), F3: () => setMode('spot'), F4: () => setMode('grid'),
   '⌘ArrowRight': () => setZoom(PXB * 1.5), '⌘ArrowLeft': () => setZoom(PXB / 1.5), '⌘ArrowDown': () => setRowH(S.rh * 1.25), '⌘ArrowUp': () => setRowH(S.rh / 1.25),
+  '⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⇧⌘Equal': () => setWaveZoom((S.wz || 1) * 1.5), '⌘NumpadAdd': () => setWaveZoom((S.wz || 1) * 1.5), '⌘Minus': () => setWaveZoom((S.wz || 1) / 1.5), '⌘NumpadSubtract': () => setWaveZoom((S.wz || 1) / 1.5),
   Home: () => scrollBy(-(X1 - X0) / PXB * .9), End: () => scrollBy((X1 - X0) / PXB * .9), PageUp: () => pageV(-1), PageDown: () => pageV(1), Backquote: () => showPlayhead(), '⇧Backquote': () => showChosen(),
   '⌃⇧KeyZ': () => { const c = S.cycle; if (c.b - c.a >= MIN_LEN) setZoom((X1 - X0) / ((c.b - c.a) * 1.1), (c.a + c.b) / 2) },
   KeyZ: () => { if (PXB > fitPXB() + .01) setZoom(0); else { const rs = selRegs(); if (rs.length) { const a = Math.min(...rs.map(x => x[0].a)) - 1, b = Math.max(...rs.map(x => x[0].b)) - 1; setZoom((X1 - X0) / Math.max(1, (b - a) * 1.2), (a + b) / 2) } } },
@@ -1736,7 +1749,7 @@ function onKey (e) {
     const t = TOOLS.find(x => x[1] === e.code)
     if (t) { e.preventDefault(); pickTool(t[0]); return }
   }
-  if (e.repeat && !/^(Arrow|Comma|Period|Tab)/.test(e.code)) { e.preventDefault(); return }  // a key held down acts once (arrows, the bar keys and tab go on)
+  if (e.repeat && !/^(Arrow|Comma|Period|Tab|Equal|Minus|NumpadAdd|NumpadSubtract)/.test(e.code)) { e.preventDefault(); return }  // a key held down acts once (arrows, the bar keys and tab go on)
   if (S.rec && (e.code === 'Space' || e.code === 'KeyR')) { e.preventDefault(); stopRecord(true); return }
   const f = KEYS[combo(e)]
   if (f) { e.preventDefault(); f() }

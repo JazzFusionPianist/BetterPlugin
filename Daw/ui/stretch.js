@@ -8,7 +8,7 @@ const STRETCH_SLOW = .25, STRETCH_FAST = 4                                      
 const canStretch = r => !!r && (r.notes ? true : !r.loop && !!r.key && (r.sec || 0) > 0)
 /* the end a press with option would take hold of: [region, track, row] — or nothing */
 function stretchAt (e, p) {
-  if (!e.altKey || e.shiftKey || (p.y - TY + VY) >= rows().length * S.rh) return null
+  if (!e.altKey || e.shiftKey || (p.y - TY + VY) >= rowTops().all) return null
   const tool = e.metaKey ? S.tool2 : S.tool
   if (!(tool === 'pointer' || tool === 'smart' || tool === 'flex') || S.auto) return null
   const ti = laneAt(p.y), t = S.tracks[ti]
@@ -48,7 +48,7 @@ function stretchMove (e, p) {
     if (!x) continue
     x.b = w.a + (w.b - w.a) * g; x.off = w.off * g; x.fi = w.fi * g; x.fo = w.fo * g
     if (w.notes) {
-      x.notes = same ? w.notes : w.notes.map(q => Object.assign({}, q, { t: q.t * g, d: q.d * g })); delete x._ns
+      x.notes = same ? w.notes : w.notes.map(q => Object.assign({}, q, { t: q.t * g, d: q.d * g }, q.o == null ? {} : { o: q.o * g })); delete x._ns
       if (w.ctl) x.ctl = same ? w.ctl : w.ctl.map(c => Object.assign({}, c, { t: c.t * g }))
       if (w.rep) x.rep = w.rep * g
     } else {

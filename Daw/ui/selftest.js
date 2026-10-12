@@ -274,6 +274,22 @@ async function runSelfTest (mode) {
     return Object.assign(r, { ptsAfterUndo: autoPts(t, 'vol').length })
   })
 
+  /* a chosen point nudged: the snare's fall, its last point nudged a bar later with the keys' own hand — the fall is heard to end a bar later, and no region has moved */
+  await step('pointNudge', async () => {
+    const t = track('snare'), was = S.nudge, selR = S.selR.slice(), regs = JSON.stringify(S.tracks.map(x => x.regs.map(r => [r.a, r.b])))
+    let last
+    edit(() => { addPoint(t, 'vol', 16, t.vol); last = addPoint(t, 'vol', 17, -48) })
+    S.auto = true; t.ap = 'vol'; S.selP = [last.id]; S.nudge = 'bar'; if (t.regs[0]) S.selR = [t.regs[0].id]
+    const before = await only(t, async () => { await playFrom(17.3); return listen(900) })
+    halt(false); act.nudge(1)
+    const at = autoPts(t, 'vol').map(q => q.b), drawn = (uiDirty('lanes'), flush(), [...document.querySelectorAll('#g-lanes circle')].filter(c => +c.getAttribute('r') > 3.2).length)
+    const after = await only(t, async () => { await playFrom(17.3); return listen(900) })
+    await snap('selftest-5b-point-nudged.png')
+    const same = JSON.stringify(S.tracks.map(x => x.regs.map(r => [r.a, r.b]))) === regs
+    halt(false); undoEdit(); undoEdit(); S.auto = false; S.selP = []; S.selR = selR; S.nudge = was; uiDirty('lanes', 'head'); flush()
+    return { at, before, after, drawn, regionsStayed: same, ptsAfterUndo: autoPts(t, 'vol').length }
+  })
+
   /* a take: the tone that stands in for the microphone, three seconds of it from bar 5, with a bar of count-in */
   await step('record', async () => {
     halt(false)
@@ -913,6 +929,39 @@ async function runSelfTest (mode) {
     S.panel.on = false; setView(true); __daw.redraw()
     return res
   })
+  /* the command line in cells (ui/hint.js), in the app's own web view and on a real plug-in: a track, its plug-in, one of
+     its controls (read from the plug-in, with how it reads along its travel), a stretch, how much in the control's own
+     unit, the act — the line that would be drawn, then drawn; and a plain act on a track */
+  await step('hint', async () => {
+    const cmd = document.getElementById('cmd'), key = k => cmd.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
+    const typed = v => { cmd.focus(); cmd.value = v; cmd.setSelectionRange(v.length, v.length); cmd.dispatchEvent(new Event('input')); flush() }
+    const take = async (v, find) => { if (v) typed(v); const i = S.hint ? (find ? S.hint.items.findIndex(x => x.t.includes(find)) : 0) : -1; if (i < 0) return null; const t = S.hint.items[i].t; await hintTake(i); flush(); return t }
+    const t = S.tracks.find(x => x.kind === 'audio' && !x.theirs), ti = S.tracks.indexOf(t), was = t.name, mute0 = t.mute, auto0 = S.auto, ap0 = t.ap, n0 = UNDO.length, res = {}
+    t.name = 'serum 2'; S.line = { parts: [], done: false }; S.cycle = { on: true, a: 4, b: 6 }; dirtyAll(); flush()
+    typed('s'); res.listed = S.hint ? S.hint.items.map(x => x.t) : null
+    const r = await natInsert(ti, 'AudioUnit:Effects/aufx,dely,appl')
+    if (r && r.ok) {
+      const ins = t.inserts.find(x => x.uid === r.uid)
+      res.who = await take('ser'); res.onIt = S.hint ? S.hint.items.map(x => x.t).slice(0, 4) : null
+      res.plug = await take(String(ins.name).toLowerCase().slice(0, 3)); res.controls = S.hint ? S.hint.items.map(x => [x.t, x.d.replace(/^\u2063/, '')]) : null
+      res.control = await take('', 'mix') || await take('')
+      const k = lineKey(), sc = k ? scaleOf(t, k) : null
+      if (!k) { res.noControl = S.line.parts.map(p => p.t); await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid); S.line = { parts: [], done: false }; t.name = was; t.ap = ap0; S.auto = auto0; cmd.blur(); dirtyAll(); flush(); return res }
+      res.scale = sc ? { numbers: !!sc.nums, unit: sc.unit, ends: [sc.texts[0], sc.texts[100]] } : null
+      res.stretch = await take('5'); res.much = await take('10'); res.acts = S.hint ? S.hint.items.map(x => x.t) : null
+      res.act = await take('lower g'); __daw.redraw(); res.would = !!document.getElementById('line-would'); res.cells = S.line.parts.map(p => p.t)
+      await snap('selftest-hint.png')
+      const before = lineSays(t, k, shown(t, k))
+      key('Enter'); await sleep(400)
+      res.drawn = { pts: autoPts(t, k).map(q => [q.b, +q.v.toFixed(3)]), said: S.last && S.last.say, before, undo: UNDO.length - n0 }
+      undoEdit(); await sleep(150); res.undone = autoPts(t, k).length
+      await NAT.call('remove', { track: t.id, uid: r.uid }); t.inserts = t.inserts.filter(x => x.uid !== r.uid)
+    } else res.plugin = 'would not open'
+    S.line = { parts: [], done: false }
+    res.word = [await take('ser'), await take('mu', 'mute')]; key('Enter'); await sleep(400); res.muted = t.mute
+    t.mute = mute0; t.name = was; t.ap = ap0; S.auto = auto0; S.line = { parts: [], done: false }; S.cycle.on = false; cmd.value = ''; cmd.dispatchEvent(new Event('input')); cmd.blur(); applyAll(); await natSession(); dirtyAll(); flush()
+    return res
+  })
   await step('elsewhere', async () => {
     const tail = k => String(k).replace(/^.*\/Slur DAW self-test\//, ''), home = projKey(), res = { home }
     await openProject('selftest copy'); await sleep(300); await refreshPool()
@@ -1347,7 +1396,19 @@ async function runSelfTest (mode) {
     const bt = S.tracks.find(x => x.name === `${t.name} bounce`), br = bt && bt.regs[0]
     res.pitchAnOctaveUp = br ? await pitchOf(br.key, SPB() * .5 + .2) : 0
     if (bt) await deleteTracks([bt])
-    r.mute = false; S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); S.focus = 'notes'; ROLL.sel = new Set(r.notes.map(q => q.id)); flush()
+    /* its lane: a brings it up (the lanes above keep out of their own automation); the bend put at its top where the region begins, the note sounds two keys higher */
+    r.mute = false; S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); S.focus = 'notes'; flush()
+    const autoWas = S.auto, laneWas = ROLL.lane
+    if (!ROLL.lane) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); flush(); await sleep(60)
+    res.lane = { up: ROLL.lane, lanesAboveAsTheyWere: S.auto === autoWas, panel: document.getElementById('g-dock').textContent.includes('time quantize') }
+    ROLL.param = 'pitch bend'; uiDirty('dock'); flush(); await sleep(40)
+    { const g2 = ROLL.g; press(g2.x0 + (r.a - 1 - ROLL.view.a) * g2.pxb + 1, g2.base - g2.room + .5); await sleep(150) }
+    res.lane.point = (r.ctl || []).map(q => [+q.t.toFixed(2), q.c, q.v])
+    await snap('selftest-34-notes-lane.png')
+    await natSession(); S.selR = [r.id]; await bounceInPlace(); await sleep(200)
+    { const b2 = S.tracks.find(x => x.name === `${t.name} bounce`), r2 = b2 && b2.regs[0]; res.lane.pitchBentUp = r2 ? await pitchOf(r2.key, SPB() * .5 + .2) : 0; if (b2) await deleteTracks([b2]) }
+    ROLL.param = 'velocity'; ROLL.lane = laneWas
+    r.mute = false; S.selR = [r.id]; leadTrack(S.tracks.indexOf(t)); S.focus = 'notes'; ROLL.on = 'paper'; ROLL.sel = new Set(r.notes.map(q => q.id)); flush()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true, cancelable: true })); await sleep(120); await natSession()
     res.takenAway = { notes: r.notes.length, regionStill: !!regOf(r.id)[0], heard: await only(t, async () => { await playFrom(43.4); return listen(400) }) }; halt(false)
     if (rollOn()) togglePanel('notes'); if (panel.on) togglePanel(panel.tab); setView(true); relayout(); dirtyAll(); flush()
@@ -1471,6 +1532,35 @@ async function runSelfTest (mode) {
     res.after = { mine: t.inserts.filter(x => x.id === 'test:duck').length, lines: Object.keys(t.autos || {}).filter(x => /^fx/.test(x) && t.autos[x].length).length }
     return res
   })
+  /* chords made by the line (chords.js): a track of notes of its own with the progression on it, heard through the room's
+     own synth where it lies and not before it; asked again, other notes in the same region, heard too; and all of it one
+     step back each */
+  await step('chords', async () => {
+    if (typeof chordDo !== 'function') return { skipped: 'the page has no chords.js' }
+    halt(false); if (S.cycle.on) keyDown('KeyC')
+    const n0 = S.tracks.length, u0 = UNDO.length, key0 = S.key, tab0 = S.panel.on ? S.panel.tab : '', res = {}
+    const told = () => (S.last && S.last.res ? S.last.res.map(a => String(a.text || a.k).replace(NAMED, '')).join(' | ') : (S.last || {}).say) || ''
+    const end = Math.ceil(songEnd()), a = Math.min(Math.floor(SONG_END) - 4, end + 2)        // (a stretch past everything on the song: nothing else sounds there)
+    S.marq = null; S.selR = []; jumpTo(a)
+    await runCommand('4마디 코드 만들어줘'); await natSession(); await sleep(300)
+    const t = byId(CHORD.track), r = t && CHORD.last ? t.regs.find(x => x.id === CHORD.last.reg) : null
+    if (!t || !r) return { error: 'nothing was made: ' + told() }
+    res.made = { said: told(), tracks: S.tracks.length - n0, name: t.name, sound: t.inst && t.inst.sound, at: [r.a, r.b], notes: r.notes.length, chords: (r.chords || []).length, engineTracks: (await NAT.call('testInfo')).tracks, page: S.panel.on && S.panel.tab }
+    res.before = await only(t, async () => { await playFrom(a - 2); return listen(500) }); halt(false)
+    res.heard = await only(t, async () => { await playFrom(a); return listen(900) }); halt(false)
+    const was = JSON.stringify(r.notes.map(x => [x.t, x.n]))
+    await runCommand('다시'); await natSession(); await sleep(300)
+    res.again = { said: told(), sameRegion: t.regs.length === 1 && t.regs[0].id === r.id, otherNotes: JSON.stringify(t.regs[0].notes.map(x => [x.t, x.n])) !== was, steps: UNDO.length - u0 }
+    res.heardAgain = await only(t, async () => { await playFrom(a); return listen(900) }); halt(false)
+    while (UNDO.length > u0) undoEdit()
+    await natSession(); await sleep(200)
+    S.key = key0; CHORD.last = null; CHORD.track = null; S.last = null
+    if (S.panel.on && S.panel.tab === 'notes') { if (tab0 && tab0 !== 'notes') { S.panel.tab = tab0; setView() } else if (!tab0) togglePanel('notes') }
+    jumpTo(0); __daw.redraw()
+    res.after = { tracks: S.tracks.length - n0, engineTracks: (await NAT.call('testInfo')).tracks }
+    res.ok = res.made.tracks === 1 && res.made.name === 'chords' && res.made.notes >= 4 && res.made.chords >= 1 && res.made.page === 'notes' && res.before.peak < .001 && res.heard.peak > .01 && res.again.sameRegion && res.again.otherNotes && res.again.steps === 2 && res.heardAgain.peak > .01 && res.after.tracks === 0 && res.after.engineTracks === res.made.engineTracks - 1
+    return res
+  })
   /* command x, c, v and a, pressed the way the Mac sends them — to the window (its views first: the page's web view among
      them), then to the menu bar — with the Latin letter, as the keyboard set to English gives it. The page has to hear them
      as keys (JUCE's web view kept these four to itself: see slurKeysToPage). With a marquee up, x cuts the stretch out
@@ -1515,6 +1605,42 @@ async function runSelfTest (mode) {
       && res.all.chosen === res.all.of && res.all.of > 0 && JSON.stringify(res.after) === JSON.stringify(res.was)
       && [res.x, res.c, res.v, res.v2, res.a, res.x2].every(w => / kept by the page$/.test(w)) && / left alone by the page/.test(res.boxA)
       && res.box.focus && res.box.from === 0 && res.box.to === 7 && res.box.regions === 0 && res.again.gone && res.again.steps === 1 && JSON.stringify(lane()) === JSON.stringify(res.was)
+    return res
+  })
+  /* command + and command −, pressed the way the Mac sends them: the page has to hear these two as well (a web view takes
+     them for making its page larger and smaller): the sound on the lanes is drawn taller, then lower, and nothing else moves */
+  await step('waveKeys', async () => {
+    const el = document.activeElement
+    if (el && el !== document.body) { el.blur(); await sleep(300) }
+    const press = async (key, code) => { const took = (await NAT.call('testCmdKey', { key, code })).took; await sleep(300); const then = (await NAT.call('testCmdKeyOn')).took; await sleep(150); return took + ' / ' + then }
+    const z0 = S.wz || 1, look = () => [S.wz, +PXB.toFixed(4), S.rh, +(window.visualViewport ? window.visualViewport.scale : 1).toFixed(3), window.innerWidth]
+    S.wz = 1; __daw.redraw()
+    const res = { was: look() }
+    res.plus = await press('=', 24); res.up = look()
+    res.plus2 = await press('=', 24); res.up2 = look()
+    res.minus = await press('-', 27); res.down = look()
+    S.wz = z0; __daw.redraw()
+    const same = (a, b) => JSON.stringify(a.slice(1)) === JSON.stringify(b.slice(1))
+    res.ok = res.up[0] === 1.5 && res.up2[0] === 2.25 && res.down[0] === 1.5 && same(res.was, res.up2) && same(res.was, res.down) && [res.plus, res.plus2, res.minus].every(w => / kept by the page$/.test(w))
+    return res
+  })
+  /* the list of plug-ins, opened on a patch: it stands inside the patch's panel, the kinds of plug-in down its left; every
+     effect this Mac has is filed under a kind, and few of them under `other` (the kinds are read from the names: cats.js) */
+  await step('pickerKinds', async () => {
+    const was = { on: S.panel.on, tab: S.panel.tab, sel: S.sel, cat: S.picker.cat }, ti = S.tracks.findIndex(t => t.kind === 'audio' && !t.midi && !isInst(t))
+    if (ti < 0) return { skipped: 'no track of sound' }
+    S.sel = ti; S.panel.on = true; S.panel.tab = 'patch'; S.picker.cat = 'all'; setView(true); __daw.redraw(); await sleep(300)
+    await openPicker(); await sleep(600)
+    const el = $('picker'), r = el.getBoundingClientRect(), k = board.getBoundingClientRect().width / W
+    const cats = [...document.querySelectorAll('.pk-cat')].map(c => [c.dataset.cat, +c.querySelector('span').textContent])
+    const res = { in: el.classList.contains('in'), box: [r.left / k, r.top / k, r.width / k, r.height / k].map(Math.round), panel: [Math.round(BY + PH), Math.round(S.panel.h - PH), RX - SIDE], cats, rows: document.querySelectorAll('.pk-row').length }
+    await snap('selftest-picker-all.png')
+    const rev = document.querySelector('.pk-cat[data-cat="reverb"]')
+    if (rev) { rev.click(); await sleep(250); res.reverbs = [...document.querySelectorAll('.pk-row b')].map(x => x.textContent).slice(0, 40); await snap('selftest-picker-reverb.png') }
+    res.others = (S.picker.list || []).filter(p => !p.inst && plugCat(p) === 'other').map(p => p.name).slice(0, 60)
+    closePicker(); S.picker.cat = was.cat; S.panel.on = was.on; S.panel.tab = was.tab; S.sel = was.sel; setView(true); __daw.redraw()
+    const all = (cats.find(c => c[0] === 'all') || [0, 0])[1], other = (cats.find(c => c[0] === 'other') || [0, 0])[1]
+    res.ok = res.in && res.box[1] === res.panel[0] && res.box[3] === res.panel[1] && res.box[0] + res.box[2] === res.panel[2] && cats.length > 6 && cats.slice(1).reduce((n, c) => n + c[1], 0) === all && all > 0 && other <= all * .15
     return res
   })
   /* the hand-off folder holds everything: beside the sound, the patch of each track that has one as a file Patch on Slur

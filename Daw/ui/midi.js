@@ -111,7 +111,14 @@ function trackCtl (t, only) {
   for (const r of t.regs) {
     if (!r.notes || !r.ctl || !r.ctl.length || r.mute || (only && !only(r))) continue
     const ra = r.a - 1, rb = r.b - 1, org = ra - (r.off || 0)
-    for (const c of r.ctl) { const at = org + c.t / qb; if (at < ra - 1e-9 || at >= rb - 1e-9) continue; if (c.c === 128) out.push(+at.toFixed(7), 0xE0, c.v & 127, (c.v >> 7) & 127); else if (c.c === 129) out.push(+at.toFixed(7), 0xD0, c.v & 127, 0); else out.push(+at.toFixed(7), 0xB0, c.c & 127, c.v & 127) }
+    const put = (at, c, v) => { if (at < ra - 1e-9 || at >= rb - 1e-9) return; if (c === 128) out.push(+at.toFixed(7), 0xE0, v & 127, (v >> 7) & 127); else if (c === 129) out.push(+at.toFixed(7), 0xD0, v & 127, 0); else out.push(+at.toFixed(7), 0xB0, c & 127, v & 127) }
+    /* between two points of one controller the value goes evenly from the one to the other (a pedal does not: it is down or up): as many steps as the value takes, no nearer each other than a ninety-sixth note */
+    const last = new Map(), list = r.ctl.slice().sort((x, y) => x.t - y.t)
+    for (const c of list) {
+      const p = last.get(c.c)
+      if (p && !(c.c >= 64 && c.c <= 69) && c.t - p.t > .125 + 1e-9 && c.v !== p.v) { const k = Math.min(Math.floor((c.t - p.t) / (1 / 24)), Math.abs(c.v - p.v) >> (c.c === 128 ? 6 : 0), 96); for (let i = 1; i < k; i++) put(org + (p.t + (c.t - p.t) * i / k) / qb, c.c, Math.round(p.v + (c.v - p.v) * i / k)) }
+      put(org + c.t / qb, c.c, c.v); last.set(c.c, c)
+    }
   }
   return out
 }

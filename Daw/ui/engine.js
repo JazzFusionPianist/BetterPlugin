@@ -54,7 +54,7 @@ const mkReg = o => Object.assign({ id: ++RID, off: 0, gain: 0, mute: false, fi: 
    out: the id of the bus it plays into (0 = the stereo out); parent: the stack it sits in; sends: [{to, db}]; autos: lines along the song, by parameter */
 const mkTrack = (name, c, own, theirs, buf, vol, regs, patch, extra) => Object.assign({ id: ++TID, name, theirs, kind: 'audio', vol, def: vol, pan: 0, mute: false, solo: false, arm: false, mon: false, inp: 0, out: 0, parent: null, open: true, sends: [], autos: {}, ap: 'vol', buf0: buf, regs: regs.map(([a, b, tag]) => mkReg({ a, b, buf, loop: true, off: a - 1, tag })), patch, n: null, inserts: [] }, extra || {})
 const S = {
-  tempo: 92, meter: [4, 4], key: '', playing: false, pos: 0, sel: 4, queued: null, master: -4.2, click: false, countIn: true, rec: null, auto: false, flex: false, q: 1 / 16, rh: 25, selP: [],
+  tempo: 92, meter: [4, 4], key: '', playing: false, pos: 0, sel: 4, queued: null, master: -4.2, click: false, countIn: true, rec: null, auto: false, flex: false, q: 1 / 16, rh: 25, wz: 1, selP: [],
   panel: { on: false, tab: 'patch', h: 316, mx: 0 }, slur: false, look: null,
   cycle: { on: false, a: 16, b: 24 }, tool: 'pointer', tool2: 'marquee', snap: true, mode: 'smart', mode0: 'smart', nudge: 'beat', selR: [], selX: null, marq: null, band: null, menu: null,
   /* what is chosen besides regions: the tracks chosen along with the leading one (S.sel), by id; the track a shift press reaches from;
@@ -154,10 +154,16 @@ const RH = () => S.rh
 const byId = id => S.tracks.find(t => t.id === id) || null
 const rows = () => { const closed = new Set(S.tracks.filter(t => t.kind === 'stack' && !t.open).map(t => t.id)), out = []; S.tracks.forEach((t, i) => { if (!(t.parent && closed.has(t.parent))) out.push(i) }); return out }
 const rowOf = i => rows().indexOf(i)
-const rowY = i => TY + rowOf(i) * S.rh - VY
-const laneAt = y => { const r = rows(); return r[clamp(Math.floor((y - TY + VY) / S.rh), 0, r.length - 1)] }
-const maxVY = () => Math.max(0, rows().length * S.rh - LANES_H)
-function showRow (i) { const k = rowOf(i); if (k < 0) return; const y = k * S.rh; if (y < VY) VY = y; else if (y + S.rh > VY + LANES_H) VY = y + S.rh - LANES_H; VY = clamp(VY, 0, maxVY()) }
+/* A row is as tall as the room's rows are (S.rh) unless it was pulled to a height of its own (t.h: the line under it,
+   dragged). So where a row stands is the sum of those above it: rowTops gives the rows on show, each one's top counted
+   from the first row's, and the height of them all. */
+const ROW_MIN = 20, ROW_MAX = 240
+const rowH = i => { const t = S.tracks[i]; return (t && (t.hNow || t.h)) || S.rh }      // (hNow: taller for a moment, while the command line is about its line — hint.js; never kept)
+const rowTops = () => { const r = rows(), tops = new Array(r.length); let y = 0; r.forEach((i, k) => { tops[k] = y; y += rowH(i) }); return { r, tops, all: y } }
+const rowY = i => { const L = rowTops(), k = L.r.indexOf(i); return TY + (k < 0 ? -S.rh : L.tops[k]) - VY }
+const laneAt = y => { const L = rowTops(), v = y - TY + VY; let k = 0; while (k < L.r.length - 1 && v >= L.tops[k + 1]) k++; return L.r[k] }
+const maxVY = () => Math.max(0, rowTops().all - LANES_H)
+function showRow (i) { const L = rowTops(), k = L.r.indexOf(i); if (k < 0) return; const y = L.tops[k], h = rowH(i); if (y < VY) VY = y; else if (y + h > VY + LANES_H) VY = y + h - LANES_H; VY = clamp(VY, 0, maxVY()) }
 /* a fader: −∞ at the bottom, +6 at the top, most of its travel given to the last 30 dB */
 const volF = db => db <= -47.5 ? 0 : db <= -24 ? (db + 48) / 24 * .25 : .25 + (db + 24) / 30 * .75
 const fVol = f => { const v = f <= .25 ? -48 + f / .25 * 24 : -24 + (f - .25) / .75 * 30; return v <= -47.5 ? -48 : Math.abs(v) < .35 ? 0 : Math.round(v * 10) / 10 }

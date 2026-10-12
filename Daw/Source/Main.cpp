@@ -802,6 +802,7 @@ private:
         }
         if (op == "quit") { done (okVar()); juce::MessageManager::callAsync ([] { juce::JUCEApplication::quit(); }); return; }
         if (op == "quitWait") { quitIn = 0; done (okVar()); return; }          // the page is asking whether to save first: the app does not close by itself meanwhile (it closes when the page says quit)
+        if (op == "paramScale") { done (engine.pluginScale ((int) d["track"], (int) d["uid"], (int) d["index"])); return; }      // how one control reads along its travel
         if (op == "params")    { done (engine.pluginParams ((int) d["track"], (int) d["uid"])); return; }       // a plug-in's controls, for a line to be drawn for one
         if (op == "touched")   { done (engine.pluginTouched ((int) d["track"], (int) d["uid"])); return; }      // the control last moved in its window
         if (op == "testTouch") { if (selfTestMode().isNotEmpty()) engine.testTouch ((int) d["track"], (int) d["uid"], (int) d["i"], (float) (double) d["v"]); done (okVar()); return; }

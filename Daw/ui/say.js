@@ -253,6 +253,7 @@ function sayClause (toks, who0, s, made0) {
 /* the whole line: its clauses one after the other; a clause that names nothing takes what the one before it named.
    Null: not understood here. */
 function sayRead (s) {
+  if (typeof chordRead === 'function') { const c = chordRead(s); if (c) return c }      // a line about chords has words of its own (chords.js): a chord's name, darker, another one
   const toks = sayLex(s)
   if (!toks.length || toks.some(t => t.k === 'raw')) return null
   const clauses = [[]]
@@ -304,6 +305,7 @@ function sayPut (clip, at) {                                                    
 function sayDo (a, out) {
   const word = (text, more) => out.push(Object.assign({ k: 'word', text, step: 1 }, more || {})), none = () => out.push({ k: 'word', text: sayWho(a) ? 'nothing there' : 'choose a region first' })
   if (a.do === 'note') { out.push({ k: 'word', text: String(a.text).slice(0, 90), quiet: 1 }); return true }
+  if (a.do === 'chords') return typeof chordDo === 'function' ? chordDo(a, out) : false
   if (a.do === 'jump' && isFinite(+a.pos)) { const p = clamp(+a.pos, 0, SONG_END); jumpTo(p); out.push({ k: 'word', text: `at ${readout(p)}` }); return true }
   if (a.do === 'cyclespan' && a.span) { setCycle(a.span[0], a.span[1], true); out.push({ k: 'word', text: `cycle ${readout(a.span[0])} to ${readout(a.span[1])}` }); return true }
   if (a.do === 'cut') {

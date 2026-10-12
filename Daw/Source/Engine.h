@@ -1181,7 +1181,11 @@ public:
                        (the plug-in itself is not opened for the list); one without such a note is listed as an effect */
                     juce::File info (juce::File (path).getChildFile ("Contents/Resources/moduleinfo.json"));
                     if (! info.existsAsFile()) info = juce::File (path).getChildFile ("Contents/moduleinfo.json");
-                    o->setProperty ("inst", info.existsAsFile() && info.getSize() < (1 << 20) && info.loadFileAsString().contains ("\"Instrument\""));
+                    const auto note = info.existsAsFile() && info.getSize() < (1 << 20) ? info.loadFileAsString() : String();
+                    o->setProperty ("inst", note.contains ("\"Instrument\""));
+                    /* what it says it is ("Fx", "Reverb"), where the note says: the page lays the list out by kind (ui/cats.js) */
+                    const auto said = note.fromFirstOccurrenceOf ("\"Sub Categories\"", false, false).upToFirstOccurrenceOf ("]", false, false).fromFirstOccurrenceOf ("[", false, false).removeCharacters ("\"\r\n\t").trim();
+                    if (said.isNotEmpty()) o->setProperty ("sub", said);
                     o->setProperty ("unsure", ! info.existsAsFile());      // (it carries no such note: what it is, is only known once it is opened — the page lets it be looked for by name in either list)
                 }
                 out.add (juce::var (o));
@@ -1334,6 +1338,24 @@ public:
             }
         });
         return out;
+    }
+    /** How one of a plug-in's controls reads along its travel: its words at a hundred and one places from 0 to 1, and its
+        unit — so that an amount typed in the control's own unit ("3 db") can be found on it (ui/hint.js). */
+    juce::var pluginScale (int trackId, int uid, int index)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::Array<juce::var> texts;
+        if (auto* t = find (trackId)) t->eachPlug ([o, &texts, uid, index] (Insert& i)
+        {
+            if (i.uid != uid || i.inst == nullptr) return;
+            const auto& ps = i.inst->getParameters();
+            if (index < 0 || index >= ps.size()) return;
+            auto* p = ps.getUnchecked (index);
+            for (int k = 0; k <= 100; ++k) texts.add (p->getText ((float) k / 100.0f, 24));
+            o->setProperty ("unit", p->getLabel()); o->setProperty ("value", (double) p->getValue());
+        });
+        o->setProperty ("texts", texts);
+        return juce::var (o);
     }
     /** The control last moved in the plug-in's own window: its index (-1: none yet), name, where it stands, how that reads. */
     juce::var pluginTouched (int trackId, int uid)

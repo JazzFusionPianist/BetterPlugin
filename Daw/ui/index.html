@@ -29,11 +29,25 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 /* the list of plug-ins from outside, opened from the patch */
 #picker { position: absolute; left: 24px; top: 474px; width: 304px; height: 338px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--k2); border: 1px solid rgba(236, 234, 228, .28); border-radius: 3px }
 #picker[hidden] { display: none }
+/* …on a patch it stands inside the panel, at the right of the chain: a column of the panel, not a card laid over the lanes */
+#picker.in { border: 0; border-left: 1px solid rgba(236, 234, 228, .1); border-radius: 0; background: #181817 }
+#pk-body { flex: 1; min-height: 0; display: flex }
+#pk-cats { flex: 0 0 104px; overflow-y: auto; padding: 0 0 6px 6px; border-right: 1px solid rgba(236, 234, 228, .08) }
+#pk-cats[hidden] { display: none }
+#pk-cats::-webkit-scrollbar { width: 0 }
+.pk-cat { display: flex; align-items: baseline; gap: 6px; width: 100%; box-sizing: border-box; padding: 4px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer }
+.pk-cat b { font-weight: 400; font-size: 10.5px; opacity: .62; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.pk-cat span { font-size: 9px; opacity: .34 }
+.pk-cat:hover b, .pk-cat:focus-visible b { opacity: 1 }
+.pk-cat:focus-visible { outline: 0 }
+.pk-cat.on { background: rgba(236, 234, 228, .1) }
+.pk-cat.on b { opacity: 1; font-weight: 500 }
+.pk-cat.on span { opacity: .6 }
 #pk-head { display: flex; gap: 7px; align-items: baseline; padding: 13px 14px 7px; font-size: 11.5px; white-space: nowrap; overflow: hidden }
 #pk-head b { font-weight: 500 }
 #pk-head span { opacity: .45; overflow: hidden; text-overflow: ellipsis }
 #pk-q { margin: 0 14px 8px; height: 22px; padding: 0; border: 0; border-bottom: 1px solid rgba(236, 234, 228, .24); border-radius: 0; outline: 0; background: transparent; color: var(--ink); caret-color: var(--ink); font: 400 10.5px var(--f); -webkit-user-select: text; user-select: text }
-#pk-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 6px }
+#pk-list { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 0 6px 6px }
 #pk-list::-webkit-scrollbar { width: 6px }
 #pk-list::-webkit-scrollbar-thumb { background: rgba(236, 234, 228, .18); border-radius: 3px }
 .pk-row { display: flex; align-items: baseline; gap: 8px; width: 100%; box-sizing: border-box; padding: 4px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer }
@@ -51,7 +65,7 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 </svg>
 <input id="cmd" type="text" value="kick -3 db" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="say what to change">
 <input id="rename" type="text" hidden autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="name">
-<div id="picker" hidden><div id="pk-head"></div><input id="pk-q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="find a plug-in"><div id="pk-list"></div></div>
+<div id="picker" hidden><div id="pk-head"></div><input id="pk-q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="find a plug-in"><div id="pk-body"><div id="pk-cats" hidden></div><div id="pk-list"></div></div></div>
 </div></div>
 <script>
 window.__errs = []
@@ -63,6 +77,7 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="lang.js"></script>
 <script src="lang.ko.js"></script>
 <script src="engine.js"></script>
+<script src="cats.js"></script>
 <script src="ui.js"></script>
 <script src="edit.js"></script>
 <script src="mix.js"></script>
@@ -82,6 +97,8 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="doors.js"></script>
 <script src="folders.js"></script>
 <script src="roll.js"></script>
+<script src="chords.js"></script>
+<script src="hint.js"></script>
 <script src="selftest.js"></script>
 <script src="bench.js"></script>
 <script>boot()</script>

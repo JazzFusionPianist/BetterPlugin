@@ -33,7 +33,8 @@ function parsePos (v) {
 /* a name (or the tempo, or the key) is changed where it stands: an input laid over the words. A project's name has no
    place of its own on the board (the window's title says it), so it is asked for in a small box under the bar. */
 function startRename (what, i, at) {
-  const el = $('rename'), t = what === 'track' ? S.tracks[i] : null, rh = S.rh
+  const el = $('rename'), t = what === 'track' ? S.tracks[i] : null
+  let rh = what === 'track' ? rowH(i) : S.rh
   const put = (x, y, w, h, font, v, centre) => { el.style.cssText = `left:${n(x)}px;top:${n(y)}px;width:${n(w)}px;height:${h}px;font:${font} var(--f);text-align:${centre ? 'center' : 'left'}`; el.value = v }
   S.ask = null
   if (what === 'track') {
@@ -53,7 +54,7 @@ function startRename (what, i, at) {
     const rs = selRegs()
     if (!rs.length) return
     const [r, tr] = rs.reduce((p, q) => q[0].a < p[0].a ? q : p), ti = S.tracks.indexOf(tr)
-    showRow(ti); flush()
+    showRow(ti); flush(); rh = rowH(ti)
     put(clamp(bx(r.a), X0, Math.max(X0, X1 - 80)) + 1, rowY(ti) + Math.max(0, (rh - 18) / 2), 78, Math.min(18, rh), '500 10px', readout(r.a - 1))
   }
   else if (what === 'vol') { const tr = S.tracks[i], v = i < 0 ? S.master : tr ? tr.vol : null; if (v == null || !at) return; put(at.x + at.w / 2 - 22, at.y + at.h / 2 - 9, 44, 18, '400 9.5px', v <= -47.5 ? '-inf' : String(v), true) }      // a level, typed where it is read
@@ -61,7 +62,7 @@ function startRename (what, i, at) {
     const [r, tr] = selRegs()[0] || []
     if (!r) return
     const ti = S.tracks.indexOf(tr)
-    showRow(ti); flush()
+    showRow(ti); flush(); rh = rowH(ti)
     put(clamp(bx(r.a), X0, Math.max(X0, X1 - 134)) + 1, rowY(ti) + Math.max(0, (rh - 18) / 2), 132, Math.min(18, rh), '500 9px', String(r.tag || r.name || tr.name))
   } else {
     const w = 280, x = Math.round((RX - w) / 2), y = TY + 10, label = 'name', lw = Math.ceil(tw(label, 9.5)) + 24
@@ -166,12 +167,12 @@ async function importAudio () {
 }
 
 /* ── the project on disk (the app only) ── */
-const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst']
-const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep']
+const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', 'def', 'pan', 'mute', 'solo', 'inp', 'out', 'parent', 'open', 'h', 'sends', 'autos', 'ap', 'patch', 'midi', 'buf0', 'grp', 'alt', 'inst']
+const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
 function serialize () {
   return JSON.stringify({
     v: 3, name: PROJ.name, demo: PROJ.demo, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
-    cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
+    cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, wz: S.wz || 1, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
     tracks: S.tracks.map(t => {
       const o = {}
       for (const k of KEEP_T) if (t[k] !== undefined) o[k] = t[k]
@@ -242,6 +243,7 @@ async function loadProjectNow (key, json) {
   SCENES = mkScenes(Array.isArray(d.scenes) ? d.scenes : (isDemo() ? DEMO_SCENES : []))
   S.tracks = d.tracks.map(o => {
     const t = Object.assign({ n: null, kind: 'audio', pan: 0, inp: 0, out: 0, parent: null, open: true, sends: [], autos: {}, ap: 'vol', arm: false, mon: false }, o, { inserts: [] })
+    if (!(t.h >= ROW_MIN && t.h <= ROW_MAX)) delete t.h                                    // (a row's own height, when it was pulled to one)
     delete t.c; delete t.own                                                             // a project from before colours were read from what a track holds
     if (d.demo && MOCK_PATCH[t.name] && JSON.stringify(t.patch) === JSON.stringify(MOCK_PATCH[t.name])) t.patch = NO_PATCH()          // the first song's mock-up patch, exactly as it was put there and never touched: taken off
     const back = list => list.map(q => { const f = q.file ? files.get(q.file) : null; return Object.assign({ off: 0, gain: 0, mute: false, fi: 0, fo: 0 }, q, f && f.ok ? { key: f.key, peaksAll: f.peaks, buf: null } : {}) }).filter(q => q.notes ? Array.isArray(q.notes) : q.loop ? LOOPS[q.buf] : q.key)
@@ -260,7 +262,7 @@ async function loadProjectNow (key, json) {
   if (now && vw.panel) { S.panel.on = !!vw.panel.on; S.panel.tab = vw.panel.tab === 'mixer' ? 'mixer' : 'patch'; S.panel.h = vw.panel.h || 316 }
   if (now && !PROJ.test) S.slur = !!vw.slur
   setView(true)
-  PXB = clamp(vw.pxb || fitPXB(), fitPXB(), maxPXB()); VX = clamp(vw.vx || 0, 0, maxVX()); S.rh = now ? clamp(vw.rh || 25, 20, 120) : 25; VY = clamp(now ? vw.vy || 0 : 0, 0, maxVY())
+  PXB = clamp(vw.pxb || fitPXB(), fitPXB(), maxPXB()); VX = clamp(vw.vx || 0, 0, maxVX()); S.rh = now ? clamp(vw.rh || 25, 20, 120) : 25; S.wz = now ? clamp(vw.wz || 1, 1, 1024) : 1; VY = clamp(now ? vw.vy || 0 : 0, 0, maxVY())
   normalizeOrder(); repaint()
   resync(); pushTransport(); pushMaster(); pushClick(); applyAll()
   LOAD.left = []
@@ -309,7 +311,7 @@ async function newProjectNow () {
   t.patch0 = copy(t.patch)
   setProj(name); PROJ.demo = false; PROJ.last = ''; PROJ.saved = false
   SONG_END = 64; SCENES = []
-  S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.look = null; S.rh = 25; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
+  S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.look = null; S.rh = 25; S.wz = 1; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
   repaint()
   resync(); pushTransport(); pushMaster()
   await saveNow(false, true)

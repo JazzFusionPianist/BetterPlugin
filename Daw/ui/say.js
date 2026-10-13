@@ -253,7 +253,6 @@ function sayClause (toks, who0, s, made0) {
 /* the whole line: its clauses one after the other; a clause that names nothing takes what the one before it named.
    Null: not understood here. */
 function sayRead (s) {
-  if (typeof chordRead === 'function') { const c = chordRead(s); if (c) return c }      // a line about chords has words of its own (chords.js): a chord's name, darker, another one
   const toks = sayLex(s)
   if (!toks.length || toks.some(t => t.k === 'raw')) return null
   const clauses = [[]]
@@ -390,7 +389,7 @@ function sayDo (a, out) {
     return true
   }
   if (a.do === 'stack' || a.do === 'bus') {
-    const ts = (a.tracks || []).map(n => S.tracks.find(t => t.name.toLowerCase() === String(n).toLowerCase())).filter(t => t && !(a.do === 'stack' && (t.parent || t.kind === 'stack')))
+    const ts = (a.tracks || []).map(n => S.tracks.find(t => t.name.toLowerCase() === String(n).toLowerCase())).filter(t => !!t)
     if (!ts.length) { out.push({ k: 'word', text: 'nothing to put together' }); return true }
     if (S.tracks.length >= MAX_TRACKS) { out.push({ k: 'word', text: 'no room for another track' }); return true }
     let made = null

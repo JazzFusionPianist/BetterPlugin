@@ -38,9 +38,10 @@ const where = () => ev(`flush(); const el = document.getElementById('picker'), r
   ok('…at the right of the chain, up against the strip', s.box[0] + s.box[2] === s.panel[2] && s.box[0] > 200, [s.box, s.panel])
   ok('the chain keeps clear of it', s.chainW === s.box[0] && p.clip === s.panel[2], [p.clip, s.chainW, s.box[0]])
   ok('the search field has the keys', s.focus === 'pk-q', s.focus)
-  ok('the kinds stand down its left, all of them first', s.catsShown && s.cats[0][0] === 'all' && s.cats[0][3] && s.cats.length > 8, s.cats.map(c => c[0] + ' ' + c[2]))
-  ok('all: the prints, then every effect (no instrument)', s.cats[0][2] === 3 + LIST.length - 1 && s.rows.length === s.cats[0][2] && s.rows.slice(0, 3).every(r => r[1] === 'print') && !s.rows.some(r => r[0] === 'serum 2'), [s.cats[0][2], s.rows.length])
-  ok('the numbers of the kinds add up to all', s.cats.slice(1).reduce((n, c) => n + c[2], 0) === s.cats[0][2], s.cats.map(c => c[2]))
+  ok('the kinds stand down its left, all of them first, then slur’s own prints', s.catsShown && s.cats[0][0] === 'all' && s.cats[0][3] && s.cats[1][0] === 'slur' && s.cats.length > 8, s.cats.map(c => c[0] + ' ' + c[2]))
+  const NP = s.cats[1][2]
+  ok('all: the prints, then every effect (no instrument)', NP > 30 && s.cats[0][2] === NP + LIST.length - 1 && s.rows.length === s.cats[0][2] && s.rows.slice(0, NP).every(r => r[1] === 'print') && !s.rows.some(r => r[0] === 'serum 2'), [s.cats[0][2], s.rows.length])
+  ok('the numbers of the kinds add up to all', s.cats.slice(2).reduce((n, c) => n + c[2], 0) === s.cats[0][2], s.cats.map(c => c[2]))
   const kinds = await ev(`return Object.fromEntries(S.picker.list.filter(p => !p.inst).map(p => [p.name.toLowerCase(), plugCat(p)]))`)
   const wrong = Object.entries(WANT).filter(([k, v]) => kinds[k] !== v).map(([k, v]) => k + ': ' + kinds[k] + ' not ' + v)
   ok('each is filed under what it is (an 1176 a compressor, a Pultec an equalizer, a plate a reverb)', !wrong.length, wrong) }
@@ -49,11 +50,11 @@ const where = () => ev(`flush(); const el = document.getElementById('picker'), r
 const pressCat = async c => { const p = await ev(`const el = document.querySelector('.pk-cat[data-cat="${c}"]'), r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }`); await b.click(p.x, p.y); await b.sleep(120) }
 { await pressCat('reverb')
   const s = await where()
-  ok('reverb pressed: only the reverbs, the room’s own space among them', s.open && s.cats.find(c => c[0] === 'reverb')[3] && s.rows.length === 6 && s.rows[0][0] === 'space' && s.rows.every(r => /space|verb|plate|pro-r|emt|lexicon/.test(r[0])), s.rows.map(r => r[0]))
+  ok('reverb pressed: only the reverbs, slur’s own first', s.open && s.cats.find(c => c[0] === 'reverb')[3] && s.rows.filter(r => r[1] !== 'print').length === 5 && s.rows[0][1] === 'print' && s.rows.some(r => r[0] === 'space') && s.rows.every(r => /space|shimmer|freeze|smear|verb|plate|pro-r|emt|lexicon/.test(r[0])), s.rows.map(r => r[0]))
   ok('…the list is still open, and the keys are the search field’s again', s.open && s.focus === 'pk-q', s.focus)
   await pressCat('dynamics')
   const d = await where()
-  ok('dynamics: the compressors and limiters', d.rows.length === 4 && d.rows.every(r => /pro-c|pro-l|fairchild|la-2a/.test(r[0])), d.rows.map(r => r[0])) }
+  ok('dynamics: the compressors and limiters', d.rows.filter(r => r[1] !== 'print').length === 4 && d.rows.every(r => /comp|glue|gate|swell|pro-c|pro-l|fairchild|la-2a/.test(r[0])), d.rows.map(r => r[0])) }
 
 /* typed: looked for among all the kinds */
 { await b.type('valh'); await b.sleep(150)

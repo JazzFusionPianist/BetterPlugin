@@ -8,6 +8,7 @@
 #include "Pool.h"
 #include "Recover.h"
 #include "Instruments.h"
+#include "host/Plug.h"
 #include <sys/sysctl.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>
@@ -165,6 +166,12 @@ struct Insert
     int uid = 0;
     String name, fmt;
     std::unique_ptr<juce::AudioPluginInstance> inst;   // declared before the window: the window (and the editor in it) dies first
+    /*  … or, where the app opens audio units itself (Engine::ownAu, host/Au.mm) and not through the library, this in
+        its place: then `inst` is empty. Whatever is asked of a plug-in below is asked of whichever of the two is there. */
+    std::unique_ptr<slur::Plug> own;
+    const PlayHead* head = nullptr;                    // where the song is, for `own`
+    bool printing = false;                             // `own` has been told that a print plays it
+    slur::Note notes[256];                             // what is played to `own` within one block
     juce::AudioBuffer<float> buf;
     juce::MidiBuffer midi;
     int ins = 2, outs = 2;
@@ -181,18 +188,59 @@ struct Insert
         void audioProcessorParameterChanged (juce::AudioProcessor*, int i, float) override { index.store (i); }
         void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails&) override {}
     } heard;
-    ~Insert() { if (inst != nullptr) inst->removeListener (&heard); }
+    ~Insert() { if (inst != nullptr) inst->removeListener (&heard); if (own != nullptr) own->touched = nullptr; }
     /** A line sets one of its controls (0..1). The thread that plays it, before it plays the block. */
     void setParam (int index, float v, float& told)
     {
+        if (own != nullptr)
+        {
+            if (std::abs (v - told) < 1.0e-5f) return;
+            if (index >= 0 && index < own->controls()) { own->setControl (index, juce::jlimit (0.0f, 1.0f, v)); told = v; }
+            return;
+        }
         if (inst == nullptr || std::abs (v - told) < 1.0e-5f) return;
         const auto& ps = inst->getParameters();
         if (index >= 0 && index < ps.size()) { ps.getUnchecked (index)->setValue (juce::jlimit (0.0f, 1.0f, v)); told = v; }
     }
     std::unique_ptr<PluginWindow> win;
+    std::unique_ptr<slur::PlugWindow> ownWin;          // the window of `own` (after it, so that it goes first)
+
+    bool there() const { return inst != nullptr || own != nullptr; }
+    /** Its window, if one is open, is closed. */
+    void shut() { win.reset(); ownWin.reset(); }
+    /** It is no longer ready to play, and gives back what it held for that. */
+    void letGo() { if (inst != nullptr) inst->releaseResources(); if (own != nullptr) own->release(); }
+    /** All of its settings, as a song keeps them. */
+    void stateTo (juce::MemoryBlock& mb)
+    {
+        if (own != nullptr) { const auto bytes = own->state(); mb.append (bytes.data(), bytes.size()); }
+        else if (inst != nullptr) inst->getStateInformation (mb);
+    }
+    /** Where the song is, in the words `own` is told it in. */
+    slur::Clock clock() const
+    {
+        slur::Clock c;
+        if (head == nullptr) return c;
+        const double q = head->ppq.load(), bar = (double) head->beats.load() * 4.0 / (double) head->unit.load();
+        c.bpm = head->bpm.load(); c.beat = q; c.barBeat = std::floor (q / bar) * bar;
+        c.num = head->beats.load(); c.den = head->unit.load();
+        c.playing = head->playing.load(); c.sample = (int64_t) head->samples.load();
+        return c;
+    }
 
     void prepare (double sr, int block, juce::AudioPlayHead* ph)
     {
+        if (own != nullptr)
+        {
+            head = static_cast<const PlayHead*> (ph);
+            const bool ok = own->prepare (sr, block, keyFrom != 0 ? 2 : 0);      // its second input only while a track is given to it: stereo if it takes that, else one channel
+            keyCh = ok ? own->keyChannels() : 0;
+            ins = ok ? own->inputs() + keyCh : 0;
+            outs = ok ? own->outputs() : 0;
+            buf.setSize (2, block);
+            buf.clear();
+            return;
+        }
         const auto stereo = juce::AudioChannelSet::stereo();
         auto l = inst->getBusesLayout();
         if (l.inputBuses.size() > 0)  l.inputBuses.getReference (0) = stereo;
@@ -224,6 +272,7 @@ struct Insert
         library does not set. */
     void offline (bool on)
     {
+        if (own != nullptr) { const Inside inside (uid); own->offline (on); printing = on; return; }
         if (inst == nullptr) return;
         const Inside inside (uid);
         inst->setNonRealtime (on);
@@ -236,6 +285,7 @@ struct Insert
         the main thread's own time, and one told it is offline (see above) may answer otherwise from that moment on. */
     int latencyNow() const
     {
+        if (own != nullptr) return juce::jmax (0, own->latency());
         if (inst == nullptr) return 0;
         struct Unit final : juce::ExtensionsVisitor { AudioUnit au = nullptr; void visitAudioUnitClient (const AudioUnitClient& c) override { au = c.getAudioUnitHandle(); } } unit;
         inst->getExtensions (unit);
@@ -251,6 +301,24 @@ struct Insert
     /** kL, kR: what it listens to on its second input, when a track is given to it. */
     void process (float* L, float* R, int n, const float* kL = nullptr, const float* kR = nullptr)
     {
+        if (own != nullptr)
+        {
+            if (outs < 1 || ins < 1 || off.load()) return;
+            if (ins - keyCh == 1) for (int i = 0; i < n; ++i) L[i] = 0.5f * (L[i] + R[i]);      // one channel in: left and right together, at half
+            const float* k0 = nullptr; const float* k1 = nullptr;
+            if (keyCh > 0 && kL != nullptr)
+            {
+                const float g = keyCh > 1 ? 1.0f : 0.5f;
+                buf.clear (0, 0, n); buf.clear (1, 0, n);
+                keyHold.add (kL, kR, buf.getWritePointer (0), buf.getWritePointer (keyCh > 1 ? 1 : 0), n, g, g);
+                k0 = buf.getReadPointer (0); k1 = buf.getReadPointer (keyCh > 1 ? 1 : 0);
+            }
+            const Inside inside (uid);
+            if (uid == crashOnUid.load (std::memory_order_relaxed)) { volatile int* nowhere = nullptr; *nowhere = 1; }
+            if (uid == hangOnUid.load (std::memory_order_relaxed) && (printing || hangLive.load (std::memory_order_relaxed))) for (;;) juce::Thread::sleep (50);
+            own->process (L, R, n, k0, k1, nullptr, 0, clock());
+            return;
+        }
         if (inst == nullptr || outs < 1 || ins < 1 || off.load()) return;
         const int ch = buf.getNumChannels(), own = ins - keyCh;                       // own: the channels of its first input
         if (own < 1) return;
@@ -276,6 +344,24 @@ struct Insert
         that it is where it should be when it is heard again — and nothing of it is added). */
     void play (float* L, float* R, int n, juce::MidiBuffer& played)
     {
+        if (own != nullptr)
+        {
+            if (outs < 1) return;
+            buf.clear (0, 0, n); buf.clear (1, 0, n);
+            int count = 0;
+            for (const auto m : played)
+                if (m.numBytes >= 1 && m.numBytes <= 3 && count < (int) (sizeof (notes) / sizeof (notes[0])))
+                {
+                    auto& note = notes[count++];
+                    note.at = m.samplePosition; note.bytes[0] = m.data[0]; note.bytes[1] = m.numBytes > 1 ? m.data[1] : 0; note.bytes[2] = m.numBytes > 2 ? m.data[2] : 0;
+                }
+            const Inside inside (uid);
+            own->process (buf.getWritePointer (0), buf.getWritePointer (1), n, nullptr, nullptr, notes, count, clock());
+            if (off.load()) return;
+            juce::FloatVectorOperations::add (L, buf.getReadPointer (0), n);
+            juce::FloatVectorOperations::add (R, buf.getReadPointer (1), n);
+            return;
+        }
         if (inst == nullptr || outs < 1) return;
         const int ch = buf.getNumChannels();
         for (int c = 0; c < ch; ++c) buf.clear (c, 0, n);
@@ -349,6 +435,16 @@ struct Track
     juce::AudioBuffer<float> work;
     float cost = 0.0f;                           // how long its own part of a block has been taking, in seconds (smoothed): what says whether a rank is worth sharing out
     int ver = -1;                                // which telling of its regions, lines and wiring it holds (the page numbers them, and sends only what has changed)
+
+    //── its patch as a wall (Patch on Slur's way): prints and plug-ins in one graph, wired as the page drew them ──
+    bool wall = false;                           // the page has given it a wall: the patch and the plug-ins are played from the graph, not in a row
+    orbfx::Graph wallGraph;                      // as the page drew it (message thread; kept to be compiled again when a plug-in's lateness changes)
+    std::array<std::atomic<float>, orbfx::kMaxNodes> amt {};      // each node's amount, as the hand has it
+    Insert* slotIns[orbfx::kMaxNodes] {};        // the plug-in that stands at a node (changed under the lock, with the program that names it)
+    int slotSrc[orbfx::kMaxNodes] {};            // whose amount a node takes: 0 its own; 1, 2, 3 the track's tape, space, delay (their lines and command words go on working)
+    int slotLat[orbfx::kMaxNodes] {};            // how late each plug-in was when the wall was last compiled
+    int wallLat = 0;                             // how late the whole wall hands sound over, from in to out
+    double barNow = 0.0;                         // where in the song the block being played begins (for a plug-in's lines, asked for from inside the graph)
 
     //── a track of notes: what it plays along the song, and what plays it ──
     bool notes = false;
@@ -591,6 +687,7 @@ public:
     }
     ~Engine() override
     {
+        here->store (false);
         leaving.store (true);                                          // a print that is under way gives up at its next block, takes away the file it was writing, and is waited for: nothing is taken from under it
         if (printThread.joinable())
         {
@@ -624,7 +721,7 @@ public:
         recThread.stopThread (2000);
         const juce::ScopedLock sl (lock);
         recs.clear();
-        for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.win.reset(); if (i.inst) i.inst->releaseResources(); });
+        for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.shut(); i.letGo(); });
         tracks.clear();
     }
 
@@ -829,7 +926,7 @@ public:
         if (auto* arr = v["tracks"].getArray()) for (auto& tv : *arr) setTrack (tv);
         if (v.hasProperty ("master")) master.store ((float) (double) v["master"]);
         measureLatency();
-        for (auto& t : old) if (t != nullptr) t->eachPlug ([] (Insert& i) { i.win.reset(); if (i.inst) i.inst->releaseResources(); });
+        for (auto& t : old) if (t != nullptr) t->eachPlug ([] (Insert& i) { i.shut(); i.letGo(); });
         res->setProperty ("ok", true); res->setProperty ("again", again);
         return result;
     }
@@ -850,7 +947,8 @@ public:
         if (auto* sd = tv["sends"].getArray()) for (int k = 0; k < juce::jmin (3, sd->size()); ++k) t->sends[k].gain.store ((float) (double) (*sd)[k]["gain"]);
         const float sh = juce::jlimit (0.0f, 1.0f, (float) (double) tv["share"]);
         const bool wanted = (bool) tv["patched"] || t->tape.load() + t->space.load() + t->delay.load() > 0.0005f;
-        if (t->chain == nullptr && wanted && ! bouncing.load())
+        if (t->wall || (bool) tv["wall"]) {}                           // (its patch is a wall: setWall makes and compiles its chain)
+        else if (t->chain == nullptr && wanted && ! bouncing.load())
         {
             auto c = std::make_unique<orbfx::Chain>();
             c->prepare (sr, maxBlock, kPatchSlots);
@@ -875,6 +973,9 @@ public:
     std::atomic<bool>   bouncing { false }, inputOn { false };
     bool quiet = false;                       // the self-test: no folders popping open
     bool testInput = false;                   // the self-test: a tone stands in for the microphone
+    /*  Audio units opened by the app itself (host/Au.mm) and not through the library: off unless asked for (the setting
+        `ownAu`, or --own-au), and then `auApart` (--au-apart) opens each in a process of its own. */
+    bool ownAu = false, auApart = false;
     double sr = 48000.0;
     int    block = 512, maxBlock = 1024;
     juce::File lame;                          // an mp3 needs this to be on the machine
@@ -1215,6 +1316,20 @@ public:
         {
             const bool instrument = ident.fromFirstOccurrenceOf ("/", false, false).substring (0, 4) == "aumu";      // (an audio unit says what it is in its name)
             if (instrument != asInst) { Marker::clear ("doing"); fail (asInst ? "an effect, not an instrument" : "an instrument, not an effect"); return; }
+            const auto codes = juce::StringArray::fromTokens (ident.fromFirstOccurrenceOf ("/", false, false), ",", "");
+            if (ownAu && codes.size() >= 3)                            // the app opens it itself, with the Mac's own calls (host/Au.mm), and not through the library
+            {
+                auto four = [] (const String& s) { uint32_t v = 0; for (int i = 0; i < 4; ++i) v = (v << 8) | (uint32_t) (i < s.length() ? (s[i] & 0xff) : ' '); return v; };
+                logLine ("insert: " + ident + " on track " + String (trackId) + (auApart ? " (the app's own host, in a process of its own)" : " (the app's own host)"));
+                auto alive = here;
+                slur::openAudioUnit (four (codes[0]), four (codes[1]), four (codes[2]), auApart,
+                                     [this, alive, trackId, done, fail, state, show, ident, at, asInst] (std::unique_ptr<slur::Plug> plug, std::string why)
+                {
+                    if (! alive->load()) return;                       // (the app has gone meanwhile)
+                    placeOwn (trackId, done, fail, state, show, ident, at, std::move (plug), String (juce::CharPointer_UTF8 (why.c_str())), asInst);
+                });
+                return;
+            }
             d.pluginFormatName = "AudioUnit"; d.fileOrIdentifier = ident;
         }
         else
@@ -1266,6 +1381,37 @@ public:
             o->setProperty ("ok", true); o->setProperty ("uid", ins->uid); o->setProperty ("name", ins->name); o->setProperty ("fmt", ins->fmt);
             o->setProperty ("latency", ins->inst->getLatencySamples());
             o->setProperty ("key", ins->inst->getBusCount (true) > 1);     // it has a second input: a track can be given to it to listen to
+            seat (trackId, done, fail, show, at, asInst, std::move (ins), o);
+        }
+    }
+    /** Message thread: the same, for an audio unit the app opened itself (host/Au.mm). */
+    void placeOwn (int trackId, std::function<void (juce::var)> done, std::function<void (const String&)> fail, const String& state, bool show, const String& ident, int at,
+                   std::unique_ptr<slur::Plug> plug, const String& err, bool asInst)
+    {
+        if (plug == nullptr) { Marker::clear ("doing"); fail (err.isNotEmpty() ? err : "would not open"); return; }
+        if (bouncing.load()) { Marker::clear ("doing"); fail ("busy"); return; }
+        auto ins = std::make_unique<Insert>();
+        ins->uid = ++nextUid;
+        ins->name = String (juce::CharPointer_UTF8 (plug->name().c_str()));
+        ins->fmt = "au";
+        ins->own = std::move (plug);
+        { Insert* raw = ins.get(); ins->own->touched = [raw] (int index) { raw->heard.index.store (index); }; }      // (the plug-in belongs to this very insert, and goes with it)
+        Marker::plugin (ins->uid, ident, ins->name);
+        const Inside inside (ins->uid);
+        ins->prepare (sr, maxBlock, &playHead);
+        if (state.isNotEmpty()) { juce::MemoryOutputStream mo; if (juce::Base64::convertFromBase64 (mo, state) && mo.getDataSize() > 0) ins->own->setState (mo.getData(), mo.getDataSize()); }
+        Marker::clear ("doing");
+        if (asInst ? ins->outs < 1 : (ins->ins < 1 || ins->outs < 1)) { ins->letGo(); fail (asInst ? "has no audio output" : "has no audio input"); return; }
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("ok", true); o->setProperty ("uid", ins->uid); o->setProperty ("name", ins->name); o->setProperty ("fmt", ins->fmt);
+        o->setProperty ("latency", ins->own->latency());
+        o->setProperty ("key", ins->own->hasKey());
+        seat (trackId, done, fail, show, at, asInst, std::move (ins), o);
+    }
+    /** Message thread: a plug-in that is ready takes its place on its track, and the page is answered. */
+    void seat (int trackId, std::function<void (juce::var)> done, std::function<void (const String&)> fail, bool show, int at, bool asInst, std::unique_ptr<Insert> ins, juce::DynamicObject* o)
+    {
+        {
             const int uid = ins->uid;
             bool placed = false;
             std::unique_ptr<Insert> gone; std::unique_ptr<slurinst::Instrument> goneOwn;      // (the instrument the track had, if this is its new one: let go of once the lock is)
@@ -1278,7 +1424,7 @@ public:
                     placed = true;
                 }
             }
-            if (gone != nullptr) { gone->win.reset(); if (gone->inst) gone->inst->releaseResources(); }
+            if (gone != nullptr) { gone->shut(); gone->letGo(); }
             if (! placed) { fail ("no such track"); return; }
             measureLatency();
             logLine ("inserted: " + o->getProperty ("name").toString() + " uid " + String (uid));
@@ -1295,6 +1441,22 @@ public:
         for (auto& x : t->inserts) if (x->uid == uid) i = x.get();
         if (i == nullptr) return;
         {
+            if (i->own != nullptr)
+            {
+                if (i->ownWin != nullptr) { i->ownWin->front(); return; }
+                Insert* raw = i; const int id = i->uid; auto alive = here;
+                const Inside inside (i->uid);
+                i->own->view ([this, alive, raw, id, trackId] (void* view, int, int, bool sizes)
+                {
+                    if (! alive->load() || view == nullptr) return;
+                    /* a unit of the newer kind answers in its own time: its plug-in may have been taken off meanwhile */
+                    Insert* now = nullptr;
+                    if (auto* tr = find (trackId)) tr->eachPlug ([&now, id] (Insert& x) { if (x.uid == id) now = &x; });
+                    if (now != raw || now->ownWin != nullptr) return;
+                    now->ownWin = slur::PlugWindow::open (now->name.toStdString(), view, sizes, [raw] { juce::MessageManager::callAsync ([raw] { raw->ownWin.reset(); }); });
+                });
+                return;
+            }
             if (i->win != nullptr) { i->win->toFront (true); return; }
             const Inside inside (i->uid);
             juce::Component* ed = i->inst->hasEditor() ? static_cast<juce::Component*> (i->inst->createEditorIfNeeded()) : nullptr;
@@ -1316,8 +1478,23 @@ public:
     juce::var statesNow()
     {
         auto* o = new juce::DynamicObject();
-        for (auto& t : tracks) t->eachPlug ([o] (Insert& i) { juce::MemoryBlock mb; const Inside inside (i.uid); i.inst->getStateInformation (mb); o->setProperty (juce::Identifier ("u" + String (i.uid)), juce::Base64::toBase64 (mb.getData(), mb.getSize())); });
+        for (auto& t : tracks) t->eachPlug ([o] (Insert& i) { juce::MemoryBlock mb; const Inside inside (i.uid); i.stateTo (mb); o->setProperty (juce::Identifier ("u" + String (i.uid)), juce::Base64::toBase64 (mb.getData(), mb.getSize())); });
         return juce::var (o);
+    }
+
+    /*  A control of an audio unit the app opened itself, in the words the library had for it — so that a line, the list
+        of controls and an amount typed in the control's own unit read as they always did: a control that moves in steps
+        reads as its nearest step; the unit's own words where it has them; "Off" / "On" for a switch; else the number. */
+    static String ownName (const slur::Plug& p, int k) { return String (juce::CharPointer_UTF8 (p.controlName (k).c_str())); }
+    static String ownText (const slur::Plug& p, int k, float v, int maxLength)
+    {
+        const int steps = p.controlSteps (k);
+        if (steps > 1) { v = (float) juce::roundToInt (juce::jlimit (0.0f, 1.0f, v) * (float) (steps - 1)) / (float) (steps - 1); maxLength = 1024; }
+        std::string words;
+        if (p.controlWords (k, v, words)) return String (juce::CharPointer_UTF8 (words.c_str())).substring (0, maxLength);
+        const float scaled = p.controlScaled (k, v);
+        if (p.controlSwitch (k)) return scaled < 0.5f ? TRANS ("Off") : TRANS ("On");
+        return String (scaled).substring (0, maxLength);
     }
 
     /** The controls of a plug-in that a line can be drawn for: [index, name, where it stands (0..1), how that reads], the first
@@ -1327,6 +1504,17 @@ public:
         juce::Array<juce::var> out;
         if (auto* t = find (trackId)) t->eachPlug ([&out, uid] (Insert& i)
         {
+            if (i.uid == uid && i.own != nullptr)
+            {
+                for (int k = 0; k < i.own->controls() && out.size() < 400; ++k)
+                {
+                    if (! i.own->controlLine (k)) continue;
+                    const float v = i.own->control (k);
+                    juce::Array<juce::var> row; row.add (k); row.add (ownName (*i.own, k)); row.add ((double) v); row.add (ownText (*i.own, k, v, 1024));
+                    out.add (juce::var (row));
+                }
+                return;
+            }
             if (i.uid != uid || i.inst == nullptr) return;
             const auto& ps = i.inst->getParameters();
             for (int k = 0; k < ps.size() && out.size() < 400; ++k)
@@ -1347,6 +1535,13 @@ public:
         juce::Array<juce::var> texts;
         if (auto* t = find (trackId)) t->eachPlug ([o, &texts, uid, index] (Insert& i)
         {
+            if (i.uid == uid && i.own != nullptr)
+            {
+                if (index < 0 || index >= i.own->controls()) return;
+                for (int k = 0; k <= 100; ++k) texts.add (ownText (*i.own, index, (float) k / 100.0f, 24));
+                o->setProperty ("unit", String (juce::CharPointer_UTF8 (i.own->controlUnit (index).c_str()))); o->setProperty ("value", (double) i.own->control (index));
+                return;
+            }
             if (i.uid != uid || i.inst == nullptr) return;
             const auto& ps = i.inst->getParameters();
             if (index < 0 || index >= ps.size()) return;
@@ -1364,6 +1559,14 @@ public:
         o->setProperty ("index", -1);
         if (auto* t = find (trackId)) t->eachPlug ([o, uid] (Insert& i)
         {
+            if (i.uid == uid && i.own != nullptr)
+            {
+                const int k = i.heard.index.load();
+                if (k < 0 || k >= i.own->controls() || ! i.own->controlLine (k)) return;
+                const float v = i.own->control (k);
+                o->setProperty ("index", k); o->setProperty ("name", ownName (*i.own, k)); o->setProperty ("value", (double) v); o->setProperty ("text", ownText (*i.own, k, v, 1024));
+                return;
+            }
             if (i.uid != uid || i.inst == nullptr) return;
             const int k = i.heard.index.load();
             const auto& ps = i.inst->getParameters();
@@ -1376,8 +1579,181 @@ public:
     /** The check: a control moved the way a hand moves it in the plug-in's window. */
     void testTouch (int trackId, int uid, int index, float v)
     {
+        if (auto* t = find (trackId)) t->eachPlug ([uid, index, v] (Insert& i) { if (i.uid == uid && i.own != nullptr && index >= 0 && index < i.own->controls()) { i.own->touch (index, v); i.heard.index.store (index); } });
         if (auto* t = find (trackId)) t->eachPlug ([uid, index, v] (Insert& i) { if (i.uid == uid && i.inst != nullptr && index >= 0 && index < i.inst->getParameters().size()) i.inst->getParameters().getUnchecked (index)->setValueNotifyingHost (v); });
     }
+    /** The check: audio units opened both ways at once — through the library, and by the app itself (host/Au.mm) — and laid
+        side by side, one after another: what a song made the one way needs in order to open the other way. For each:
+        channels, lateness, whether it has a second input; every control's name, whether it takes a line, where it stands,
+        its unit and how it reads at five places; the same sound played through both, sample against sample; and settings
+        moved on the one and given to the other, both ways round. Nothing outside the check asks for it. */
+    struct HostsCheck { juce::StringArray ids; int at = 0; juce::Array<juce::var> out; std::function<void (juce::var)> done; };
+    void compareHosts (const juce::StringArray& ids, std::function<void (juce::var)> done)
+    {
+        auto st = std::make_shared<HostsCheck>();
+        st->ids = ids; st->done = std::move (done);
+        compareNext (st);
+    }
+    void compareNext (std::shared_ptr<HostsCheck> st)
+    {
+        if (st->at >= st->ids.size()) { st->done (juce::var (st->out)); return; }
+        const String ident = st->ids[st->at++];
+        const auto codes = juce::StringArray::fromTokens (ident.fromFirstOccurrenceOf ("/", false, false), ",", "");
+        auto four = [] (const String& s) { uint32_t v = 0; for (int i = 0; i < 4; ++i) v = (v << 8) | (uint32_t) (i < s.length() ? (s[i] & 0xff) : ' '); return v; };
+        auto alive = here;
+        auto then = [this, alive, st, ident] (std::unique_ptr<slur::Plug> plug, std::string why)
+        {
+            if (! alive->load()) return;
+            compareOne (ident, std::move (plug), String (juce::CharPointer_UTF8 (why.c_str())), [this, alive, st] (juce::var one)
+            {
+                st->out.add (one);
+                juce::MessageManager::callAsync ([this, alive, st] { if (alive->load()) compareNext (st); });
+            });
+        };
+        if (codes.size() < 3) { then (nullptr, "not an audio unit's name"); return; }
+        slur::openAudioUnit (four (codes[0]), four (codes[1]), four (codes[2]), false, then);
+    }
+    struct HostsPair { Insert a, b; };                             // a: the library's; b: the app's own
+    void compareOne (const String& ident, std::unique_ptr<slur::Plug> plug, const String& why, std::function<void (juce::var)> finished)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        o->setProperty ("id", ident);
+        juce::PluginDescription d; d.pluginFormatName = "AudioUnit"; d.fileOrIdentifier = ident;
+        String err;
+        auto lib = fm.createPluginInstance (d, sr, maxBlock, err);
+        o->setProperty ("library", lib != nullptr); o->setProperty ("own", plug != nullptr);
+        if (lib == nullptr || plug == nullptr) { o->setProperty ("why", lib == nullptr ? err : why); finished (res); return; }
+        o->setProperty ("name", lib->getName());
+        const bool asInst = ident.fromFirstOccurrenceOf ("/", false, false).startsWith ("aumu");
+        auto pair = std::make_shared<HostsPair>();
+        auto& a = pair->a; auto& b = pair->b;
+        a.uid = -1; b.uid = -2;
+        a.inst = std::move (lib); b.own = std::move (plug);
+        a.prepare (sr, maxBlock, &playHead); b.prepare (sr, maxBlock, &playHead);
+        auto first = std::make_shared<String>();                       // the first thing found to differ, in words
+        auto differ = [first] (const String& what) { if (first->isEmpty()) *first = what; };
+        if (a.outs != b.outs || (a.ins > 0) != (b.ins > 0)) differ ("channels " + String (a.ins) + "/" + String (a.outs) + " and " + String (b.ins) + "/" + String (b.outs));
+        if (a.latencyNow() != b.latencyNow()) differ ("late by " + String (a.latencyNow()) + " and " + String (b.latencyNow()));
+        if ((a.inst->getBusCount (true) > 1) != b.own->hasKey()) differ ("second input");
+        o->setProperty ("latency", a.latencyNow());
+        const auto& ps = a.inst->getParameters();
+        const int count = ps.size();
+        o->setProperty ("controls", count);
+        if (count != b.own->controls()) differ ("controls " + String (count) + " and " + String (b.own->controls()));
+        const int both = juce::jmin (count, b.own->controls());
+        int texts = 0;
+        for (int k = 0; k < both; ++k)
+        {
+            auto* p = ps.getUnchecked (k);
+            const String name = p->getName (48);
+            if (name != ownName (*b.own, k)) differ ("control " + String (k) + " is '" + name + "' and '" + ownName (*b.own, k) + "'");
+            if (p->isAutomatable() != b.own->controlLine (k)) differ (name + ": takes a line");
+            if (std::abs (p->getValue() - b.own->control (k)) > 1.0e-6f) differ (name + ": stands at " + String (p->getValue()) + " and " + String (b.own->control (k)));
+            if (p->getLabel() != String (juce::CharPointer_UTF8 (b.own->controlUnit (k).c_str()))) differ (name + ": unit '" + p->getLabel() + "' and '" + String (juce::CharPointer_UTF8 (b.own->controlUnit (k).c_str())) + "'");
+            for (const float v : { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f })
+            {
+                const String one = p->getText (v, 24), two = ownText (*b.own, k, v, 24);
+                ++texts;
+                if (one != two) differ (name + " at " + String (v) + " reads '" + one + "' and '" + two + "'");
+            }
+            if (p->getCurrentValueAsText() != ownText (*b.own, k, b.own->control (k), 1024)) differ (name + ": reads '" + p->getCurrentValueAsText() + "' and '" + ownText (*b.own, k, b.own->control (k), 1024) + "'");
+        }
+        o->setProperty ("texts", texts);
+        {
+            /* the same second of sound through both (an instrument: the same key held) */
+            const int total = (int) sr;
+            juce::AudioBuffer<float> x (2, total), y;
+            x.clear();
+            if (! asInst)
+            {
+                juce::Random r (7);
+                for (int i = 0; i < total / 2; ++i) { const float v = (r.nextFloat() - 0.5f) * 0.5f; x.setSample (0, i, v); x.setSample (1, i, -v * 0.7f); }
+                x.setSample (0, total / 2 + 100, 1.0f); x.setSample (1, total / 2 + 100, 1.0f);
+            }
+            y.makeCopyOf (x);
+            for (int at = 0; at < total; at += maxBlock)
+            {
+                const int n = juce::jmin (maxBlock, total - at);
+                if (asInst)
+                {
+                    juce::MidiBuffer ma, mb;
+                    if (at == 0) { ma.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0); mb.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0); }
+                    a.play (x.getWritePointer (0) + at, x.getWritePointer (1) + at, n, ma);
+                    b.play (y.getWritePointer (0) + at, y.getWritePointer (1) + at, n, mb);
+                }
+                else
+                {
+                    a.process (x.getWritePointer (0) + at, x.getWritePointer (1) + at, n);
+                    b.process (y.getWritePointer (0) + at, y.getWritePointer (1) + at, n);
+                }
+            }
+            double worst = 0.0;
+            for (int c = 0; c < 2; ++c) for (int i = 0; i < total; ++i) worst = juce::jmax (worst, (double) std::abs (x.getSample (c, i) - y.getSample (c, i)));
+            o->setProperty ("level", (double) x.getRMSLevel (0, 0, total)); o->setProperty ("apart", worst);
+        }
+        if (! asInst && a.inst->getBusCount (true) > 1 && b.own->hasKey())
+        {
+            /* … and once more with something to listen to on the second input: both are made ready anew with it open */
+            a.keyFrom = b.keyFrom = 1;
+            a.letGo(); b.letGo();
+            a.prepare (sr, maxBlock, &playHead); b.prepare (sr, maxBlock, &playHead);
+            o->setProperty ("keyChannels", a.keyCh);
+            if (a.keyCh != b.keyCh) differ ("the second input has " + String (a.keyCh) + " and " + String (b.keyCh) + " channels");
+            const int total = (int) sr / 2;
+            juce::AudioBuffer<float> x (2, total), y, key (2, total);
+            juce::Random r (11);
+            for (int i = 0; i < total; ++i)
+            {
+                const float v = (r.nextFloat() - 0.5f) * 0.5f, k = 0.8f * (float) std::sin (juce::MathConstants<double>::twoPi * 80.0 * (double) i / sr);
+                x.setSample (0, i, v); x.setSample (1, i, v * 0.6f); key.setSample (0, i, k); key.setSample (1, i, k * 0.5f);
+            }
+            y.makeCopyOf (x);
+            for (int at = 0; at < total; at += maxBlock)
+            {
+                const int n = juce::jmin (maxBlock, total - at);
+                a.process (x.getWritePointer (0) + at, x.getWritePointer (1) + at, n, key.getReadPointer (0) + at, key.getReadPointer (1) + at);
+                b.process (y.getWritePointer (0) + at, y.getWritePointer (1) + at, n, key.getReadPointer (0) + at, key.getReadPointer (1) + at);
+            }
+            double worst = 0.0;
+            for (int c = 0; c < 2; ++c) for (int i = 0; i < total; ++i) worst = juce::jmax (worst, (double) std::abs (x.getSample (c, i) - y.getSample (c, i)));
+            o->setProperty ("keyedApart", worst); o->setProperty ("keyedLevel", (double) x.getRMSLevel (0, 0, total));
+        }
+        /*  Settings moved on the one and given to the other, both ways round. A plug-in may take a moment to show what it
+            was given (one that passes its settings on to its controls on the message thread): each way is looked at a
+            third of a second after the giving. */
+        auto moved = std::make_shared<std::vector<int>>();
+        for (int k = 0; k < both && moved->size() < 3; ++k) if (ps.getUnchecked (k)->isAutomatable() && ! ps.getUnchecked (k)->isDiscrete()) moved->push_back (k);
+        auto apart = [pair, both] { float w = 0.0f; const auto& q = pair->a.inst->getParameters(); for (int k = 0; k < both; ++k) w = juce::jmax (w, std::abs (q.getUnchecked (k)->getValue() - pair->b.own->control (k))); return (double) w; };
+        juce::MemoryBlock untouched; a.stateTo (untouched);
+        for (size_t i = 0; i < moved->size(); ++i) ps.getUnchecked ((*moved)[i])->setValue (0.3f + 0.2f * (float) i);
+        juce::MemoryBlock fromLib; a.stateTo (fromLib);
+        o->setProperty ("holds", untouched != fromLib);                // (a plug-in whose settings do not hold these controls at all cannot carry them across, whoever opens it)
+        const bool took = b.own->setState (fromLib.getData(), fromLib.getSize());
+        o->setProperty ("moved", (int) moved->size());
+        auto alive = here;
+        juce::Timer::callAfterDelay (330, [this, alive, pair, moved, apart, took, res, first, finished]
+        {
+            if (! alive->load()) return;
+            auto* o2 = res.getDynamicObject();
+            o2->setProperty ("libraryToOwn", took ? apart() : -1.0);
+            for (size_t i = 0; i < moved->size(); ++i) pair->b.own->setControl ((*moved)[i], 0.8f - 0.2f * (float) i);
+            juce::MemoryBlock fromOwn; pair->b.stateTo (fromOwn);
+            pair->a.inst->setStateInformation (fromOwn.getData(), (int) fromOwn.getSize());
+            juce::Timer::callAfterDelay (330, [this, alive, pair, apart, res, first, finished]
+            {
+                if (! alive->load()) return;
+                auto* o3 = res.getDynamicObject();
+                o3->setProperty ("ownToLibrary", apart());
+                juce::MemoryBlock one, two; pair->a.stateTo (one); pair->b.stateTo (two);
+                o3->setProperty ("sameBytes", one == two); o3->setProperty ("bytes", (int) one.getSize());
+                if (first->isNotEmpty()) o3->setProperty ("differs", *first);
+                pair->a.letGo(); pair->b.letGo();
+                finished (res);
+            });
+        });
+    }
+
     /** A plug-in is given a track to listen to on its second input (0: none any more). Message thread. */
     juce::var setKey (int trackId, int uid, int fromId)
     {
@@ -1389,8 +1765,8 @@ public:
         auto* t = find (trackId);
         Insert* ins = nullptr;
         if (t != nullptr) for (auto& i : t->inserts) if (i->uid == uid) ins = i.get();
-        if (ins == nullptr || ins->inst == nullptr) { o->setProperty ("why", "gone"); return res; }
-        auto ready = [this, ins] (int from) { ins->keyFrom = from; const Inside inside (ins->uid); ins->inst->releaseResources(); ins->prepare (sr, maxBlock, &playHead); wire(); };
+        if (ins == nullptr || ! ins->there()) { o->setProperty ("why", "gone"); return res; }
+        auto ready = [this, ins] (int from) { ins->keyFrom = from; const Inside inside (ins->uid); ins->letGo(); ins->prepare (sr, maxBlock, &playHead); wire(); };
         const int was = ins->keyFrom;
         ready (fromId);
         if (fromId != 0 && (ins->key == nullptr || ins->keyCh == 0))
@@ -1404,7 +1780,7 @@ public:
     }
     void bypassPlugin (int trackId, int uid, bool off) { if (auto* t = find (trackId)) t->eachPlug ([uid, off] (Insert& i) { if (i.uid == uid) i.off.store (off); }); }
 
-    void closeEditors() { for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.win.reset(); }); }
+    void closeEditors() { for (auto& t : tracks) t->eachPlug ([] (Insert& i) { i.shut(); }); }
 
     bool removePlugin (int trackId, int uid)
     {
@@ -1417,12 +1793,13 @@ public:
                 if (t->plug != nullptr && t->plug->uid == uid) { gone = std::move (t->plug); t->keysUp(); }
                 else for (auto it = t->inserts.begin(); it != t->inserts.end(); ++it)
                     if ((*it)->uid == uid) { gone = std::move (*it); t->inserts.erase (it); break; }
+                for (auto& at : t->slotIns) if (gone != nullptr && at == gone.get()) at = nullptr;      // (on a wall: its place passes the sound by until the page sends the wall without it)
             }
         }
         if (gone == nullptr) return false;
         measureLatency();
-        gone->win.reset();
-        gone->inst->releaseResources();
+        gone->shut();
+        gone->letGo();
         return true;
     }
 
@@ -1451,7 +1828,7 @@ public:
             t->built = std::move (made);
             t->keysUp(); t->stale.store (true);
         }
-        if (gonePlug != nullptr) { gonePlug->win.reset(); if (gonePlug->inst) gonePlug->inst->releaseResources(); measureLatency(); }
+        if (gonePlug != nullptr) { gonePlug->shut(); gonePlug->letGo(); measureLatency(); }
         o->setProperty ("ok", true); o->setProperty ("kind", any ? kind : String ("none"));
         return res;
     }
@@ -2095,6 +2472,93 @@ public:
         });
     }
 
+    /** Regions made one sound. For each stretch asked for — a track's id, a name for the file, bars a0 to a1, and the
+        regions that lie in it, written as a session writes them — what those regions sound like is written to a file of
+        its own in `dir`: the regions alone, as they lie (their gains, their fades, the stretches two of them share),
+        nothing the track does to its sound afterwards, and silence where no region lies. One channel where every sound
+        in the stretch has one; 32-bit floating point, so that what was louder than full scale still is.
+        {dir, tracks: [{id, name, a0, a1, regs}]} -> {ok, placed: [{track, key, file, name, peaks, sec, …}], error} */
+    void joinRegions (const juce::var& opts, std::function<void (juce::var)> done)
+    {
+        struct Job { int track; String name; double a0, a1; std::vector<Region> regs; };
+        auto jobs = std::make_shared<std::vector<Job>>();
+        if (const auto* list = opts["tracks"].getArray())
+            for (auto& tv : *list)
+            {
+                Job j { (int) tv["id"], tv["name"].toString(), (double) tv["a0"], (double) tv["a1"], {} };
+                if (const auto* rg = tv["regs"].getArray())
+                    for (auto& rv : *rg)
+                    {
+                        Region r;
+                        r.a = (double) rv["a"]; r.b = (double) rv["b"];
+                        r.loop = (int) rv["loop"] != 0;
+                        r.rate = juce::jlimit (0.25, 4.0, (double) rv["rate"]);
+                        r.loopBars = juce::jmax (1.0, (double) rv["bars"]);
+                        r.off = (double) rv["off"];
+                        r.gain = rv.hasProperty ("gain") ? (float) (double) rv["gain"] : 1.0f;
+                        r.fi = juce::jmax (0.0, (double) rv["fi"]); r.fo = juce::jmax (0.0, (double) rv["fo"]);
+                        r.fic = juce::jlimit (0, 2, (int) rv["fic"]); r.foc = juce::jlimit (0, 2, (int) rv["foc"]);
+                        if (auto it = bufIndex.find (rv["buf"].toString()); it != bufIndex.end()) r.buf = it->second;
+                        if (r.buf >= 0 && r.b > r.a) j.regs.push_back (r);
+                    }
+                if (j.a1 > j.a0) jobs->push_back (std::move (j));
+            }
+        if (jobs->empty() || recording.load() || bouncing.exchange (true)) { auto* o = new juce::DynamicObject(); o->setProperty ("ok", false); done (juce::var (o)); return; }
+        playing.store (false);
+        const juce::File dir (opts["dir"].toString());
+        startPrint (done, [this, jobs, dir] (PrintEnd& end)
+        {
+            { const juce::ScopedLock sl (lock); printBufs = bufs; }    // (the sounds as they are now, kept alive for as long as this takes)
+            const double barS = barSamples();
+            const int block = 16384;
+            juce::Array<juce::var> placed;
+            bool ok = true; String why;
+            dir.createDirectory();
+            /* is there room for what is to be written — the file, and the copy of it the engine keeps ready to play? (a
+               gigabyte is left alone: the song still has to be saved) */
+            juce::int64 need = 0;
+            for (auto& j : *jobs) need += (juce::int64) ((j.a1 - j.a0) * barS) * 16;
+            if (dir.getBytesFreeOnVolume() < need + (juce::int64) 1073741824) { ok = false; why = "not enough room on the disk"; }
+            for (auto& j : *jobs)
+            {
+                if (! ok || leaving.load()) break;
+                /* (one sample more than the stretch, a silent one: a sound is played up to the sample before its last, so
+                   that the last sample of the stretch is heard, as it was while it lay in its own region) */
+                const juce::int64 s0 = (juce::int64) std::llround (j.a0 * barS), s1 = (juce::int64) std::llround (j.a1 * barS) + 1;
+                int ch = 1;
+                for (auto& r : j.regs) if (r.buf < (int) printBufs.size() && printBufs[(size_t) r.buf] != nullptr && printBufs[(size_t) r.buf]->data.getNumChannels() > 1) ch = 2;
+                auto file = dir.getNonexistentChildFile (juce::File::createLegalFileName (j.name), ".wav", false);
+                bool wrote = false;
+                if (std::unique_ptr<juce::OutputStream> os = file.createOutputStream())
+                {
+                    juce::WavAudioFormat wav;
+                    if (auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (ch).withBitsPerSample (32)))
+                    {
+                        juce::AudioBuffer<float> b (2, block);
+                        wrote = true;
+                        for (juce::int64 p = s0; p < s1 && wrote && ! leaving.load(); p += block)
+                        {
+                            const int n = (int) juce::jmin ((juce::int64) block, s1 - p);
+                            b.clear();
+                            for (auto& r : j.regs) addRegion (printBufs, r, p, n, barS, b.getWritePointer (0), b.getWritePointer (1), j.a1);
+                            wrote = w->writeFromAudioSampleBuffer (b, 0, n);
+                        }
+                    }
+                }
+                if (leaving.load() || ! wrote) { file.deleteFile(); ok = false; why = leaving.load() ? "the app was closed" : "the file could not be written"; break; }
+                auto v = decodeFile (file);
+                if (auto* d = v.getDynamicObject()) { d->setProperty ("track", j.track); d->setProperty ("file", file.getFileName()); d->setProperty ("name", file.getFileNameWithoutExtension()); }
+                placed.add (v);
+            }
+            end.finish();
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("ok", ok); o->setProperty ("placed", placed);
+            if (why.isNotEmpty()) o->setProperty ("error", why);
+            logLine ("join: " + String (placed.size()) + " of " + String ((int) jobs->size()) + " in " + dir.getFullPathName() + (why.isNotEmpty() ? "  (" + why + ")" : String()));
+            end.answer (juce::var (o));
+        });
+    }
+
     /*  A print's thread. One at a time (`bouncing`), and the engine does not go while one runs: it is told to give up
         (`leaving`) and waited for. However the thread ends — by its last line, by something thrown on the way — the
         engine comes back from the print (PrintEnd), and whoever asked gets an answer.                                  */
@@ -2209,8 +2673,8 @@ public:
     {
         for (auto& tp : tracks)
         {
-            if (tp->chain != nullptr) { tp->chain->prepare (sr, maxBlock, kPatchSlots); compilePatch (*tp->chain, tp->share); }
-            tp->eachPlug ([] (Insert& i) { if (i.inst != nullptr) i.inst->reset(); });
+            readyPatch (*tp);
+            tp->eachPlug ([] (Insert& i) { if (i.inst != nullptr) i.inst->reset(); if (i.own != nullptr) i.own->reset(); });
             if (tp->built != nullptr) tp->built->prepare (sr);
             tp->work.clear();
         }
@@ -2308,6 +2772,148 @@ public:
         root->setProperty ("nodes", nodes); root->setProperty ("edges", edges);
         return juce::JSON::toString (juce::var (root), true);
     }
+
+    //── a track's patch as a wall ─────────────────────────────────────────────
+    /** What the compiler is told about a wall: who plays each node that is a plug-in (for how late it is). */
+    struct WallCtx { const orbfx::Chain* chain; Insert* at[orbfx::kMaxNodes]; };
+    static int wallLatency (const orbfx::Graph::Node& n, const void* ctx)
+    {
+        const auto& c = *static_cast<const WallCtx*> (ctx);
+        if (n.type == orbfx::kOutside) { auto* i = n.id >= 0 && n.id < orbfx::kMaxNodes ? c.at[n.id] : nullptr; return i != nullptr ? juce::jmax (0, i->latencyNow()) : 0; }
+        return c.chain->nodeLatency (n);
+    }
+    /** The audio thread, from inside the graph: the plug-in that stands at this node plays its part, in place. */
+    static void wallOutside (void* ctx, int slot, float* L, float* R, int n)
+    {
+        auto& t = *static_cast<Track*> (ctx);
+        Insert* i = slot >= 0 && slot < orbfx::kMaxNodes ? t.slotIns[slot] : nullptr;
+        if (i == nullptr) return;                                              // (taken off since: the sound goes by)
+        for (auto& a : t.autos) if (a.param == kAutoPlug && a.uid == i->uid) i->setParam (a.index, lineAt (a, t.barNow), a.told);
+        const Track* k = i->key;
+        i->process (L, R, n, k != nullptr ? k->work.getReadPointer (0) : nullptr, k != nullptr ? k->work.getReadPointer (1) : nullptr);
+    }
+    static bool wallSlotHasState (int type) { return (orbfx::isEffect (type) && type != orbfx::kOutside) || type == orbfx::kSplitBands; }
+    /** Compile a track's wall as it stands and hand it to the audio thread, with everything the program names. */
+    bool compileWall (Track& t, orbfx::Chain& chain, const orbfx::Graph& g, Insert* const* at, const orbfx::NodeParams* prm, const float* amt, const int* src, String& err, std::unique_ptr<orbfx::Chain> made = nullptr)
+    {
+        using namespace orbfx;
+        WallCtx ctx { &chain, {} };
+        for (int i = 0; i < kMaxNodes; ++i) ctx.at[i] = at[i];
+        Program p;
+        if (! compile (g, p, err, &wallLatency, &ctx)) return false;
+        const bool alone = bouncing.load();                                   // (a print plays the graph by itself and holds no lock)
+        if (! alone) lock.enter();
+        if (made != nullptr) t.chain = std::move (made);
+        t.wall = true; t.wallLat = p.bypass ? 0 : p.latency;
+        for (int i = 0; i < kMaxNodes; ++i)
+        {
+            t.slotIns[i] = at[i]; t.slotLat[i] = at[i] != nullptr ? at[i]->latencyNow() : 0;
+            if (prm != nullptr) { t.prm[i] = prm[i]; t.slotSrc[i] = src[i]; t.amt[(size_t) i].store (amt[i]); }
+        }
+        t.chain->publish (p);                                                 // (under the same lock: no block is played with the new places and the old program)
+        if (! alone) lock.exit();
+        return true;
+    }
+    /** The page draws a track's patch as a wall and sends it whole: the nodes (a print by its type, or a plug-in by the
+        uid it was opened under) and the wires. From then on the track's patch and plug-ins are played from this graph.
+        A wall that cannot be played (a ring of wires) changes nothing and says why. Message thread. -> {ok, latency | error} */
+    juce::var setWall (const juce::var& d)
+    {
+        using namespace orbfx;
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        o->setProperty ("ok", false);
+        auto* t = find ((int) d["track"]);
+        if (t == nullptr) { o->setProperty ("error", "no such track"); return res; }
+        if (bouncing.load()) { o->setProperty ("error", "busy"); return res; }
+        Graph g;
+        Insert* at[kMaxNodes] {}; int src[kMaxNodes] {}; float amt[kMaxNodes] {}; NodeParams prm[kMaxNodes];
+        if (auto* ns = d["nodes"].getArray()) for (auto& nv : *ns)
+        {
+            Graph::Node nd;
+            nd.id = (int) nv["id"]; nd.type = (int) nv["type"];
+            if (nd.id < 0 || nd.id >= kMaxNodes) { o->setProperty ("error", "bad node id"); return res; }
+            if (const int uid = (int) nv["uid"]; uid != 0) { nd.type = kOutside; for (auto& i : t->inserts) if (i->uid == uid) at[nd.id] = i.get(); }
+            nd.amount = juce::jlimit (0.0f, 1.0f, (float) (double) nv["amount"]);
+            nd.variant = juce::jlimit (0, 7, (int) nv["variant"]);
+            if (auto* dc = nv["decay"].getArray()) { for (int k = 0; k < juce::jmin (3, dc->size()); ++k) nd.decay[k] = juce::jlimit (0.0f, 1.0f, (float) (double) (*dc)[k]); }
+            else if (nv.hasProperty ("decay")) for (auto& dv : nd.decay) dv = juce::jlimit (0.0f, 1.0f, (float) (double) nv["decay"]);
+            if (nv.hasProperty ("delayDiv")) nd.delayDiv = juce::jlimit (0, 6, (int) nv["delayDiv"]);
+            if (nv.hasProperty ("delayFb"))  nd.delayFb = juce::jlimit (0.0f, 1.0f, (float) (double) nv["delayFb"]);
+            nd.wet = (bool) nv["wet"]; nd.bypass = (bool) nv["bypass"];
+            if (auto* ax = nv["aux"].getArray()) for (int k = 0; k < juce::jmin (kAuxCount, ax->size()); ++k) nd.aux[k] = (int) (*ax)[k];
+            if (auto* cv = nv["curve"].getArray(); cv != nullptr && cv->size() == kCurveLen) { nd.hasCurve = true; for (int k = 0; k < kCurveLen; ++k) nd.curve[k] = juce::jlimit (0.0f, 1.0f, (float) (double) (*cv)[k]); }
+            auto& p = prm[nd.id];
+            p.amount = nd.amount; p.variant = nd.variant; p.decay = nd.decay[juce::jlimit (0, 2, nd.variant)]; p.delayDiv = nd.delayDiv; p.delayFb = nd.delayFb; p.wet = nd.wet;
+            for (int k = 0; k < kAuxCount; ++k) p.aux[k] = nd.aux[k];
+            p.hasCurve = nd.hasCurve; for (int k = 0; k < kCurveLen; ++k) p.curve[k] = nd.curve[k];
+            amt[nd.id] = nd.amount;
+            src[nd.id] = juce::jlimit (0, 3, (int) nv["line"]);
+            g.nodes.push_back (nd);
+        }
+        if (auto* es = d["edges"].getArray()) for (auto& ev : *es)
+        {
+            Graph::Edge e;
+            e.from = (int) ev["from"]; e.to = (int) ev["to"]; e.gain = ev.hasProperty ("gain") ? juce::jlimit (0.0f, 2.0f, (float) (double) ev["gain"]) : 1.0f;
+            e.port = (int) ev["port"]; e.in = (int) ev["in"];
+            g.edges.push_back (e);
+        }
+        std::unique_ptr<Chain> made;
+        Chain* c = t->chain.get();
+        if (c == nullptr) { made = std::make_unique<Chain>(); made->prepare (sr, maxBlock, 1); c = made.get(); }
+        c->setOutside (&wallOutside, t);
+        for (auto& nd : g.nodes) if (wallSlotHasState (nd.type)) c->prepareSlot (nd.id);     // (a print's memory: a few megabytes, taken when it first stands on the wall)
+        String err;
+        if (! compileWall (*t, *c, g, at, prm, amt, src, err, std::move (made))) { o->setProperty ("error", err); return res; }
+        t->wallGraph = g;
+        measureLatency();
+        o->setProperty ("ok", true); o->setProperty ("latency", t->wallLat);
+        return res;
+    }
+    /** A node's amount, while it is being pulled (the whole wall is not sent again for that). */
+    void setWallAmount (int trackId, int id, float v) { if (auto* t = find (trackId)) if (id >= 0 && id < orbfx::kMaxNodes) t->amt[(size_t) id].store (juce::jlimit (0.0f, 1.0f, v)); }
+    /** What stands on a track's wall, as the engine holds it (for the check). */
+    juce::var wallFacts (int trackId)
+    {
+        auto* o = new juce::DynamicObject();
+        juce::var res (o);
+        auto* t = find (trackId);
+        o->setProperty ("wall", t != nullptr && t->wall);
+        if (t == nullptr) return res;
+        o->setProperty ("latency", t->wallLat); o->setProperty ("nodes", (int) t->wallGraph.nodes.size()); o->setProperty ("edges", (int) t->wallGraph.edges.size());
+        int plugs = 0; for (auto* i : t->slotIns) if (i != nullptr) ++plugs;
+        o->setProperty ("plugs", plugs); o->setProperty ("ahead", t->ahead.load());
+        return res;
+    }
+private:
+    /** A wall is compiled again when one of its plug-ins has become later or earlier than it was (the ways side by side are
+        lined up by how late each is). */
+    void checkWalls()
+    {
+        for (auto& tp : tracks)
+        {
+            auto& t = *tp;
+            if (! t.wall || t.chain == nullptr) continue;
+            bool moved = false;
+            for (int i = 0; i < orbfx::kMaxNodes; ++i) if (t.slotIns[i] != nullptr && t.slotIns[i]->latencyNow() != t.slotLat[i]) moved = true;
+            if (! moved) continue;
+            Insert* at[orbfx::kMaxNodes]; for (int i = 0; i < orbfx::kMaxNodes; ++i) at[i] = t.slotIns[i];
+            String err;
+            compileWall (t, *t.chain, t.wallGraph, at, nullptr, nullptr, nullptr, err);
+        }
+    }
+    /** A track's chain made ready for the device as it is now (its rate, its block), and its patch compiled again. */
+    void readyPatch (Track& t)
+    {
+        if (t.chain == nullptr) return;
+        if (! t.wall) { t.chain->prepare (sr, maxBlock, kPatchSlots); compilePatch (*t.chain, t.share); return; }
+        t.chain->prepare (sr, maxBlock, 1);
+        for (auto& nd : t.wallGraph.nodes) if (wallSlotHasState (nd.type)) t.chain->prepareSlot (nd.id);
+        Insert* at[orbfx::kMaxNodes]; for (int i = 0; i < orbfx::kMaxNodes; ++i) at[i] = t.slotIns[i];
+        String err;
+        compileWall (t, *t.chain, t.wallGraph, at, nullptr, nullptr, nullptr, err);
+    }
+public:
 private:
 
     /** Work out who feeds whom, and an order in which every track is played after all that flows into it. Call with the lock held. */
@@ -2383,7 +2989,8 @@ private:
         offline may be later, or earlier, than it was on the device. */
     void measureLatency()
     {
-        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; for (auto& i : t.inserts) n += i->latencyNow(); return n; };
+        checkWalls();
+        auto own = [] (const Track& t) { int n = t.plug != nullptr ? t.plug->latencyNow() : 0; if (t.wall) return n + t.wallLat; for (auto& i : t.inserts) n += i->latencyNow(); return n; };
         /*  How far it still is from where a track's sound leaves it to the stereo out, counted in the lateness of the
             buses on the way — by its longest way, when it has several (its own way out, and each bus it sends into).
             A track's regions are read that much early, and by its own plug-ins' lateness, so what goes the longest way
@@ -2417,7 +3024,7 @@ private:
             for (auto& i : t.inserts)
             {
                 wants.push_back ({ &i->keyHold, i->key != nullptr && i->keyCh > 0 ? juce::jmax (0, longest (i->key, 1) - own (t) - all + before) : 0 });
-                before += i->latencyNow();
+                if (! t.wall) before += i->latencyNow();               // (on a wall the plug-ins are not in a row: what stands before one is not counted — its key is lined up with the wall's way in)
             }
         }
         for (auto& w : wants) if (w.hold->len != juce::jlimit (0, 1 << 20, w.n)) changed = true;
@@ -2517,6 +3124,28 @@ private:
     /** The patch and the plug-ins of one track, in place on its first n samples. */
     void renderTrack (Track& t, juce::int64 pos, int n, bool rolling, double barS, double bar)
     {
+        if (t.wall)
+        {
+            /* a wall: one graph of prints and plug-ins. The Patch engine runs it — the fan-outs, the mixes, the ways side by
+               side lined up by their lateness — and calls back (wallOutside) where a plug-in stands. */
+            if (t.chain == nullptr) return;
+            const float bpm = (float) tempo.load(); const double ppq = (double) pos / barS * barQuarters();
+            for (int i = 0; i < orbfx::kMaxNodes; ++i)
+            {
+                auto& p = t.prm[i];
+                const int src = t.slotSrc[i];
+                float v;
+                p.amount = src == 0 ? t.amt[(size_t) i].load()
+                         : evalAuto (t, src == 1 ? kAutoTape : src == 2 ? kAutoSpace : kAutoDelay, bar, v) ? juce::jlimit (0.0f, 1.0f, v)
+                         : (src == 1 ? t.tape : src == 2 ? t.space : t.delay).load();
+                p.bpm = bpm; p.ppq = ppq; p.playing = rolling;
+            }
+            t.barNow = bar;
+            juce::AudioBuffer<float> view (t.work.getArrayOfWritePointers(), 2, n);
+            float gr = 0.0f;
+            t.chain->process (view, (float) sr, t.prm, gr);
+            return;
+        }
         if (t.chain != nullptr)
         {
             const float bpm = (float) tempo.load(); const double ppq = (double) pos / barS * barQuarters();
@@ -2765,8 +3394,8 @@ private:
             limRel = 1.0f - std::exp (-1.0f / (0.12f * (float) sr));
             for (auto& tp : tracks)
             {
-                if (tp->chain != nullptr) { tp->chain->prepare (sr, maxBlock, kPatchSlots); compilePatch (*tp->chain, tp->share); }
-                tp->eachPlug ([this] (Insert& i) { const Inside inside (i.uid); i.inst->releaseResources(); i.prepare (sr, maxBlock, &playHead); });
+                readyPatch (*tp);
+                tp->eachPlug ([this] (Insert& i) { const Inside inside (i.uid); i.letGo(); i.prepare (sr, maxBlock, &playHead); });
                 if (tp->built != nullptr) tp->built->prepare (sr);      // (the sounds it plays from are at the old rate: the page hands them over again)
                 tp->keysUp();
             }
@@ -3016,6 +3645,7 @@ private:
     static constexpr int kMaxIn = 16;
     juce::AudioDeviceManager dm;
     juce::AudioPluginFormatManager fm;
+    std::shared_ptr<std::atomic<bool>> here = std::make_shared<std::atomic<bool>> (true);      // false once the engine goes: an answer that comes late finds no one
     juce::AudioFormatManager afm;
     juce::TimeSliceThread recThread { "takes" };
     juce::CriticalSection lock;

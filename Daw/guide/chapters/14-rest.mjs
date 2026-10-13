@@ -1,0 +1,104 @@
+import { t, p, lead, h, note, steps, list, legend, table, cols, fig, draw, D, page, chapter } from '../lib.mjs'
+
+export default () => chapter('rest', t('slur, settings, and when things go wrong', 'slur, 설정, 그리고 문제가 생겼을 때'),
+  t('The Slur panel beside the song, the Settings window, what the app does after a crash or a plug-in that hangs, and what this version does not do yet.', '곡 옆의 Slur 패널, 설정 창, 충돌이나 멈춘 플러그인 뒤에 앱이 하는 일, 그리고 이 버전에 아직 없는 것.'), [
+
+  page(t('the slur panel', 'slur 패널'), { kind: 'split', tw: 104, mid: true, txt:
+    lead('Slur itself, in a column down the right side of the window: your rooms, chats and shared files beside the song you are working on.', '창 오른쪽에 세로로 서는 Slur 자체입니다. 작업 중인 곡 옆에 방, 채팅, 공유 파일이 놓입니다.') +
+    table(null,
+      [['open, close', '열기, 닫기'], ['[[O]], or {{slur}} at the right end of the control bar', '[[O]], 또는 컨트롤 바 오른쪽 끝의 {{slur}}']],
+      [['what it shows', '보여 주는 것'], ['Slur’s own page, loaded from the net. With no connection the column has nothing to show', 'Slur의 자체 페이지. 인터넷에서 불러옵니다. 연결이 없으면 보여 줄 것이 없습니다']],
+      [['signing in', '로그인'], ['in the panel itself, with your Slur account', '패널 안에서 Slur 계정으로']],
+      [['links', '링크'], ['a link the page wants opened elsewhere opens in the Mac’s browser', '다른 곳에서 열어야 하는 링크는 Mac의 브라우저에서 열립니다']]) +
+    p('The panel is 300 wide. When it opens, the tracks’ bar, the markers, the lanes and the panel under them end at its left edge; the control bar and the foot keep the whole width. Whether it was open is saved with the project.', '패널 폭은 300입니다. 열리면 트랙 바, 마커, 레인, 아래 패널이 그 왼쪽 가장자리에서 끝나고, 컨트롤 바와 맨 아래 줄은 전체 폭을 유지합니다. 열려 있었는지는 프로젝트에 저장됩니다.') +
+    note('The effects button of the Slur page is hidden here: in Slur Studio the patch is the app’s own.', 'Slur 페이지의 이펙트 버튼은 여기서 숨겨집니다. Slur Studio에서는 패치가 앱 자체의 것이기 때문입니다.'),
+    art: draw(150, 92,
+      D.box(0, 4, 150, 84, 'k') +
+      `<rect x="0" y="4" width="150" height="7" class="db k2"/>` + D.txt(4, 9, 'control bar', '컨트롤 바', 'xs wh2') +
+      `<rect x="0" y="84" width="150" height="4" class="db k2"/>` + D.txt(4, 87.2, 'foot', '맨 아래 줄', 'xs wh2') +
+      `<rect x="0" y="11" width="37" height="45" class="db k2"/>` + D.txt(4, 20, 'track heads', '트랙 헤드', 'xs wh2') +
+      D.txt(42, 20, 'lanes', '레인', 'xs wh2') +
+      `<rect x="0" y="56" width="112" height="28" class="db k3"/>` + D.txt(4, 64, 'patch or mixer', 'patch 또는 mixer', 'xs wh2') +
+      `<rect x="112" y="11" width="38" height="73" fill="#FBFAF7"/>` + D.txt(131, 22, 'slur', 'slur', 'b m') + D.txt(131, 28, 'rooms, chat, files', '방, 채팅, 파일', 'xs m') +
+      `<rect x="138" y="5.2" width="10" height="4.6" rx=".6" fill="#ECEAE4"/>` + D.txt(143, 8.6, 'slur', 'slur', 'xs m')) }),
+
+  page(t('settings', '설정'), { kind: 'split', tw: 112, txt:
+    p('((Slur Studio > Settings…)) [[⌘,]] opens a window of its own. A change is taken at once; there is no OK or Cancel. [[esc]] or [[⌘W]] closes it.', '((Slur Studio > Settings…)) [[⌘,]]는 별도의 창을 엽니다. 바꾸면 바로 적용되고, OK나 Cancel은 없습니다. [[esc]]나 [[⌘W]]로 닫습니다.') +
+    h('general', 'general') +
+    table(null,
+      ['{{language}}', ['{{english}} or {{한국어}}. The app is written again in that language at once, without a restart. Names you gave, the Mac’s menus and its panels never change. The command line reads both languages either way', '{{english}} 또는 {{한국어}}. 재시작 없이 바로 그 언어로 다시 그려집니다. 직접 붙인 이름, Mac의 메뉴와 패널은 바뀌지 않습니다. 커맨드 라인은 어느 쪽이든 두 언어를 읽습니다']]) +
+    h('audio', 'audio') +
+    legend(
+      [1, '{{output}} and {{input}}: the device. Choosing an input does not open it; it opens when a track asks for it', '{{output}}과 {{input}}: 장치. 입력을 골라도 열리지는 않습니다. 트랙이 요청할 때 열립니다'],
+      [2, '{{what comes in}} a level meter while the input is open; else a {{listen}} key that opens it', '{{what comes in}} 입력이 열려 있으면 레벨 미터, 아니면 입력을 여는 {{listen}} 키'],
+      [3, '{{rate}} in kHz and {{buffer}} in samples: those the device offers', '{{rate}}(kHz)와 {{buffer}}(샘플): 장치가 제공하는 값'],
+      [4, '{{latency}} a readout: in, out, there and back', '{{latency}} 읽기 전용: 입력, 출력, 왕복'],
+      [5, '{{threads}} how many of the Mac’s cores work on the sound. {{all}} at first', '{{threads}} 소리 처리에 쓰는 Mac 코어 수. 처음엔 {{all}}'],
+      [6, '{{test tone}} {{play}}', '{{test tone}} {{play}}']) +
+    p('The device, rate, buffer and threads cannot be changed while a take or a print is under way. When the device moves to another rate, the app follows and says so at the foot: “now at 48k”.', '녹음이나 바운스가 진행 중일 때는 장치, 레이트, 버퍼, 스레드를 바꿀 수 없습니다. 장치의 레이트가 바뀌면 앱이 따라가고 아래에 알려 줍니다. “now at 48k”.') +
+    note('The other parts named down the left (recording, editing, notes, plug-ins, command line, slur, hand off, storage) are not made yet.', '왼쪽에 이름만 있는 나머지 항목(recording, editing, notes, plug-ins, command line, slur, hand off, storage)은 아직 만들어지지 않았습니다.'),
+    art: fig('settings', { w: 140, calls: [[1, [690, 107], 'r'], [2, [690, 153], 'r'], [3, [690, 230], 'r'], [4, [690, 275], 'r'], [5, [690, 338], 'r'], [6, [657, 376], 'b']] }) }),
+
+  page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
+    h('what protects the work', '작업을 지키는 것') +
+    list(
+      ['The song is written every 3 seconds when something changed.', '바뀐 것이 있으면 3초마다 곡을 저장합니다.'],
+      ['A take being recorded is made whole on the disk every second.', '녹음 중인 테이크는 1초마다 디스크에 온전한 파일로 정리됩니다.'],
+      ['Earlier copies of the song are kept for ((File > Revert To…)).', '곡의 이전 사본이 ((File > Revert To…))를 위해 보관됩니다.'],
+      ['The app notes which plug-in it is inside at every moment, so it can say which one it was.', '앱은 매 순간 어느 플러그인 안에 있는지 적어 두므로, 문제가 된 것이 무엇인지 말해 줄 수 있습니다.']) +
+    h('at the next start', '다음에 시작할 때') +
+    p('The project that was open comes back by itself, as it was last saved, and a notice says once what happened. Its title is one of:', '열려 있던 프로젝트가 마지막으로 저장된 상태로 저절로 돌아오고, 무슨 일이 있었는지 안내가 한 번 뜹니다. 제목은 다음 중 하나입니다.') +
+    list(
+      ['{{the app stopped by itself last time}}: a crash', '{{the app stopped by itself last time}}: 충돌'],
+      ['{{the app was not closed last time}}: a forced quit, or the power going', '{{the app was not closed last time}}: 강제 종료 또는 전원 차단'],
+      ['{{a print did not come back when the app was closed}}: you quit while a hand off or bounce was stuck inside a plug-in', '{{a print did not come back when the app was closed}}: 내보내기나 바운스가 플러그인 안에서 멈춘 채로 종료함']) +
+    p('Its lines name what came back and what is left out, for example a plug-in that “was playing when the app stopped, and is left out”, or “a take that was being recorded is back on” its track. Press {{ok}}, or anywhere, to put it away.', '안내의 각 줄은 돌아온 것과 빠진 것을 알려 줍니다. 예를 들어 플러그인이 “was playing when the app stopped, and is left out”, 또는 녹음 중이던 테이크가 트랙에 돌아왔다는 줄. {{ok}}나 아무 곳이나 누르면 닫힙니다.') +
+    h('plug-ins left out', '빠진 플러그인') +
+    p('A plug-in that is left out keeps its place in the patch and all its settings. Click it to open it again; [[⌥]] click one to bring back every one of the song.', '빠진 플러그인은 패치에서의 자리와 모든 설정을 유지합니다. 클릭하면 다시 열고, 하나를 [[⌥]] 클릭하면 곡의 모든 것이 돌아옵니다.') +
+    p('The plug-in that was playing or being opened when the app went down is not trusted from then on: the app will not open it by itself in any project. It comes back only by a click of its own, and is trusted again once it opens and the app is still standing.', '앱이 꺼질 때 재생 중이었거나 열리던 플러그인은 그때부터 믿지 않습니다. 어떤 프로젝트에서도 앱이 스스로 열지 않습니다. 직접 클릭해야만 돌아오고, 열린 뒤 앱이 멀쩡하면 다시 믿습니다.') +
+    p('If the app ends badly twice running on the same song and no plug-in could be named, the song comes back without any of its plug-ins; each keeps its place and is brought back by hand.', '같은 곡에서 연달아 두 번 비정상 종료했는데 탓할 플러그인을 가려내지 못하면, 곡은 플러그인 없이 돌아옵니다. 자리는 그대로이며 손으로 되살립니다.') +
+    h('takes', '테이크') +
+    p('A take that was being recorded is mended on the disk and put back where it was being played. The foot says “1 take brought back”.', '녹음 중이던 테이크는 디스크에서 복구되어 연주하던 자리에 돌아옵니다. 아래에 “1 take brought back”이라고 나옵니다.') +
+    h('going further back', '더 이전으로') +
+    p('((File > Revert To…)) lists the song as it was at up to 24 earlier moments.', '((File > Revert To…))는 최대 24개의 이전 시점을 보여 줍니다.') }),
+
+  page(t('not in this version', '이 버전에 없는 것'), { kind: 'text', cc: 3, txt:
+    p('Slur Studio 0.1.0 is an alpha and a sketch tool. Knowing what is not there yet saves looking for it.', 'Slur Studio 0.1.0은 알파이자 스케치 도구입니다. 아직 없는 것을 알아 두면 찾느라 헤매지 않습니다.') +
+    h('time', '시간') +
+    list(
+      ['tempo changes or measure changes along the song: one tempo, one measure', '곡 중간의 템포, 박자 변경: 템포 하나, 박자 하나'],
+      ['dotted grids', '점음표 그리드']) +
+    h('editing', '편집') +
+    list(
+      ['comping and take folders', '컴핑과 테이크 폴더'],
+      ['a gain line inside a region', '리전 안의 게인 라인'],
+      ['quantize strength and swing', '퀀타이즈 강도와 스윙'],
+      ['settings for strip silence', '무음 제거 설정'],
+      ['slipping the sound inside a region', '리전 안에서 소리만 밀기']) +
+    h('notes', '노트') +
+    list(
+      ['a choice of MIDI input or channel for a track; MIDI out', '트랙별 MIDI 입력이나 채널 선택. MIDI 출력'],
+      ['undo for what is done on an instrument’s page', '악기 페이지에서 한 일의 실행 취소']) +
+    h('recording', '녹음') +
+    list(
+      ['loop recording, punch in and out', '루프 녹음, 펀치 인/아웃'],
+      ['a count-in other than one bar, a click level or sound', '한 마디 이외의 카운트인, 클릭 레벨이나 소리 선택'],
+      ['input monitoring that switches by itself', '저절로 켜지는 입력 모니터링']) +
+    h('mixing', '믹싱') +
+    list(
+      ['pre-fader sends; more than one output', '프리 페이더 센드. 둘 이상의 출력'],
+      ['reordering prints or plug-ins in a patch; plug-in presets', '패치 안에서 프린트나 플러그인 순서 바꾸기. 플러그인 프리셋'],
+      ['other kinds of the prints: the hall, the eighth-note echo and the tape are fixed', '프린트의 다른 종류: 홀, 8분음표 에코, 테이프는 고정'],
+      ['writing automation by moving a control', '컨트롤을 움직여 오토메이션 쓰기'],
+      ['undo for mixer moves made by hand', '손으로 한 믹서 조작의 실행 취소'],
+      ['loudness meters, clip lights', '라우드니스 미터, 클립 표시등']) +
+    h('the app', '앱') +
+    list(
+      ['changing key commands: the sheet only lists them', '단축키 바꾸기: 표는 보여 주기만 합니다'],
+      ['a way back to the start page without quitting; more than one project open', '종료 없이 시작 화면으로 돌아가기. 프로젝트 여러 개 동시에 열기'],
+      ['templates of your own', '직접 만든 템플릿'],
+      ['choosing which tracks hand off prints, or its folder', '내보낼 트랙이나 폴더 고르기'],
+      ['mp3 without the lame program installed', 'lame 프로그램 없이 mp3'],
+      ['settings other than general and audio', 'general과 audio 외의 설정'],
+      ['a Windows version', 'Windows 버전']) }),
+])

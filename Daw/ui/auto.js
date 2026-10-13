@@ -125,9 +125,13 @@ function autoDown (e, p, tool) {
     if (S.selP.includes(q.id)) startDrag(q)
   } else {
     const pts = autoPts(t, g.k), pos = clamp(barAt(p.x), 0, SONG_END), lineV = pts.length ? autoAt(t, g.k, pos) : g.A.now(t)
-    if (tool === 'pencil' || Math.abs(p.y - g.yOf(lineV)) <= 7) {                        // on the line: a new point, already in the hand
-      const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), tool === 'pencil' ? g.vOf(p.y) : lineV)
+    if (tool === 'pencil') {                                                             // the pencil: a new point, already in the hand
+      const nq = addPoint(t, g.k, clamp(snapPos(pos, e), 0, SONG_END), g.vOf(p.y))
       S.selP = [nq.id]; startDrag(nq); drag.moved = true
+    } else if (Math.abs(p.y - g.yOf(lineV)) <= 7) {
+      /* on the line, away from its points. Let go where it was pressed: a point there. Pulled: that stretch of the line
+         goes up or down whole (autoSeg says which stretch), and nothing of it moves along the song. */
+      drag = { a: 'apt', seg: true, ti, k: g.k, x0: p.x, y0: p.y, pos, at: clamp(snapPos(pos, e), 0, SONG_END), lineV, before, lead: null, orig: new Map() }
     } else { if (!e.shiftKey) S.selP = []; drag = { a: 'aband', x0: p.x, y0: p.y, base: S.selP.slice() }; S.band = null }
   }
   uiDirty('lanes', 'head', 'dock')
@@ -147,12 +151,42 @@ function autoMove (e, p) {
     uiDirty('lanes')
     return
   }
-  const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti)), pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
-  const db = clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
+  const t = S.tracks[d.ti], g = autoGeom(t, rowY(d.ti), rowH(d.ti))
+  if (d.seg && d.lead == null) { if (Math.hypot(p.x - d.x0, p.y - d.y0) < 3) return; autoSeg(d, t) }      // a stretch of the line taken hold of: it is pulled only once the hand has moved
+  const pts = autoPts(t, d.k), lead = d.orig.get(d.lead)
+  const db = d.seg ? 0 : clamp(snapPos(lead.b + (barAt(p.x) - barAt(d.x0)), e), 0, SONG_END) - lead.b, df = -(p.y - d.y0) / g.lh
   for (const q of pts) { const o = d.orig.get(q.id); if (!o) continue; q.b = clamp(o.b + db, 0, SONG_END); q.v = g.A.inv(clamp(g.A.f(o.v) + df, 0, 1)); delete q.e }      // (a point an edit of the song's time made is whoever moves it's from then on)
   sortPts(pts)
   d.moved = true
   uiDirty('lanes', 'head', 'dock')
+}
+/* The stretch of a line that is pulled when the line itself is taken hold of.
+   Inside a marquee that lies on that track: the stretch under the marquee — a point is set at each of its two ends to hold
+   the line where it was outside, and one just inside each end that goes with the pull (so the line steps at the marquee's
+   edges, as in Logic), and every point between them goes too.
+   Otherwise: from the point before the press to the point after it — those two move (one alone, where the press is before
+   the first point or after the last). A line with no point yet is level along the whole song: it gets one point, at the
+   beginning, and the whole of it moves. */
+function autoSeg (d, t) {
+  const k = d.k, m = S.marq, E = 1 / 512
+  const under = !!m && m.b - m.a >= 4 * E && marqTracks().includes(t) && d.pos >= m.a - 1e-9 && d.pos <= m.b + 1e-9
+  const at = pos => { const v = autoAt(t, k, pos); return v == null ? d.lineV : v }
+  let got = []
+  if (under) {
+    const a = clamp(m.a, 0, SONG_END), b = clamp(m.b, 0, SONG_END), va = at(a), vb = at(b)
+    const inside = autoPts(t, k).filter(q => q.b > a + E && q.b < b - E)
+    if (a > 0) addPoint(t, k, a, va)
+    const qa = addPoint(t, k, a > 0 ? a + E : 0, va)
+    if (b < SONG_END) addPoint(t, k, b, vb)
+    const qb = addPoint(t, k, b < SONG_END ? b - E : SONG_END, vb)
+    got = [qa].concat(inside, [qb])
+  } else {
+    const pts = autoPts(t, k)
+    if (!pts.length) got = [addPoint(t, k, 0, d.lineV)]
+    else { const before = pts.filter(q => q.b <= d.pos).pop(), after = pts.find(q => q.b > d.pos); got = [before, after].filter(Boolean) }
+  }
+  d.orig = new Map(got.map(q => [q.id, { b: q.b, v: q.v }])); d.lead = got[0].id
+  S.selP = got.map(q => q.id)
 }
 function autoDbl (e, p) {                                                                // twice anywhere on a lane: a point there
   if ((p.y - TY + VY) >= rowTops().all) return
@@ -198,5 +232,12 @@ function nudgePoints (dir) {
   uiDirty('lanes', 'head', 'dock')
   return any
 }
+/* the line pressed and let go where it was pressed: a point there, chosen */
+{ const up0 = lanesUp
+  lanesUp = function () {
+    const d = drag
+    if (d && d.a === 'apt' && d.seg && d.lead == null) { const t = S.tracks[d.ti], q = addPoint(t, d.k, d.at, d.lineV); S.selP = [q.id]; d.moved = true; uiDirty('lanes', 'head', 'dock') }
+    return up0()
+  } }
 { const nudge0 = act.nudge
   act.nudge = function (dir) { if (S.selP.length && !S.marq) { nudgePoints(dir); return } return nudge0.call(act, dir) } }      // (as up and down already are the points' while any is chosen)

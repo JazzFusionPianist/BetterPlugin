@@ -57,7 +57,7 @@ ok('and sideways along the song', (await b.ev('return VX')) > 0, await b.ev('ret
 // patch page in the small window with slur: the chain is drawn smaller, inside its room
 await b.ev(`S.panel.tab = 'patch'; VX = 0; VY = 0; setView(true); __daw.redraw()`); await b.sleep(150)
 c = await clash(); ok('small window, patch and slur: no words outside or over each other', !c.outside.length && !c.over.length, c)
-const chain = await b.ev(`const out = [...document.querySelectorAll('#g-dock [data-a="print"]')].map(e => e.getBoundingClientRect()); const side = __daw.lay().RX - 222; return { right: Math.max(...out.map(r => r.right)), left: Math.min(...out.map(r => r.left)), side, bottom: Math.max(...out.map(r => r.bottom)), foot: H - 22 }`)
+const chain = await b.ev(`const out = [...document.querySelectorAll('#g-dock [data-a="wall"][data-k="node"]')].map(e => e.getBoundingClientRect()); const side = __daw.lay().RX - 222; return { right: Math.max(...out.map(r => r.right)), left: Math.min(...out.map(r => r.left)), side, bottom: Math.max(...out.map(r => r.bottom)), foot: H - 22 }`)
 ok('the chain keeps inside its room', chain.right < chain.side && chain.left > 0 && chain.bottom < chain.foot, chain)
 await b.shot('e3 small patch slur.png')
 await b.ev(`S.slur = false; S.panel.on = false; setView(true); __daw.redraw()`); await b.sleep(150)

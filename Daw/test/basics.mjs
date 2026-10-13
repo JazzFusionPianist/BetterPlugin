@@ -167,7 +167,7 @@ await click('[data-a="msend"][data-i="5"][data-k="0"]', ALT); ok('a send: 0 db, 
 await ev(`S.master = -7; pushMaster(); __daw.redraw()`); await click('[data-a="mmaster"]', ALT); ok('the out’s fader: 0 db', await ev('return S.master === 0'))
 await ev(`S.master = -7; pushMaster(); __daw.redraw()`); await click('[data-a="master"]', ALT); ok('the out in the control bar: 0 db', await ev('return S.master === 0')); await ev(`S.master = -4.2; pushMaster()`)
 await ev(`const t = S.tracks[5]; setPrint(t, 'tape', 70); touchPatch(t); __daw.redraw()`)
-await click('[data-a="print"][data-k="tape"]', ALT); ok('a print: the amount it comes on with', await ev('return Math.round(S.tracks[5].patch.A.tape) === 24'), await ev('return S.tracks[5].patch.A.tape'))
+await click('#g-dock [data-a="wall"][data-k="node"]', ALT); ok('a print: the amount it comes on with', await ev('return Math.round(S.tracks[5].patch.A.tape) === 24'), await ev('return S.tracks[5].patch.A.tape'))
 await ev(`const t = S.tracks[5]; setPrint(t, 'tape', 0); touchPatch(t); S.tracks[5].vol = -5`); await undo(); await undo(); await key('b', 'KeyB', 66); await b.sleep(260)
 await ev(`const r = S.tracks[0].regs[0]; r.gain = -6; r.tr = 3; S.selR = [r.id]; S.focus = 'lanes'; __daw.redraw()`)
 await click('[data-a="rgain"]', ALT); ok('a region’s gain: none', await ev('return (S.tracks[0].regs[0].gain || 0) === 0'), await ev('return S.tracks[0].regs[0].gain'))

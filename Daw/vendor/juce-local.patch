@@ -1,0 +1,19 @@
+diff --git a/modules/juce_gui_extra/native/juce_WebBrowserComponent_mac.mm b/modules/juce_gui_extra/native/juce_WebBrowserComponent_mac.mm
+index 31684c6865..75d0fc70b8 100644
+--- a/modules/juce_gui_extra/native/juce_WebBrowserComponent_mac.mm
++++ b/modules/juce_gui_extra/native/juce_WebBrowserComponent_mac.mm
+@@ -896,6 +896,14 @@ void evaluateJavascript (const String&, WebBrowserComponent::EvaluationCallback)
+         if (const auto userAgent = browserOptions.getUserAgent(); userAgent.isNotEmpty())
+             webView.get().customUserAgent = juceStringToNS (userAgent);
+ 
++       #if JUCE_DEBUG
++        // macOS 13.3+ requires `isInspectable = YES` for Web Inspector to
++        // attach. JUCE's `developerExtrasEnabled` preference alone isn't
++        // enough on newer systems. Local patch.
++        if (@available (macOS 13.3, *))
++            webView.get().inspectable = YES;
++       #endif
++
+         [webView.get() setNavigationDelegate: webViewDelegate.get()];
+         [webView.get() setUIDelegate:         webViewDelegate.get()];
+ 

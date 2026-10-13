@@ -200,6 +200,14 @@ public:
         if (! test) engine.devices().addChangeListener (this);
         if (! test) { const auto prefs = juce::JSON::parse (prefsFile()); if (prefs["hands"].isInt() && (int) prefs["hands"] >= 0) engine.setHands ((int) prefs["hands"]); }      // how many threads were asked for in the settings
         if (! test) engine.openKeys();                                 // every keyboard the machine has is listened to (the check plays its own keys)
+        {
+            /* audio units opened by the app itself, not through the library: only where asked for (see Engine::ownAu) */
+            const auto args = juce::JUCEApplicationBase::getCommandLineParameters();
+            const auto prefs = test ? juce::var() : juce::JSON::parse (prefsFile());
+            engine.ownAu   = args.contains ("--own-au")   || (prefs["ownAu"].isBool()   && (bool) prefs["ownAu"]);
+            engine.auApart = args.contains ("--au-apart") || (prefs["auApart"].isBool() && (bool) prefs["auApart"]);
+            if (engine.ownAu) daw::logLine (juce::String ("audio units: the app's own host") + (engine.auApart ? ", each in a process of its own" : ""));
+        }
         engine.onRateChanged = [this] { auto* o = new juce::DynamicObject(); o->setProperty ("sr", engine.sr); if (web) web->emitEventIfBrowserIsVisible ("dawRate", juce::var (o)); };
         engine.onTakeStalled = [this] (bool rate) { auto* o = new juce::DynamicObject(); o->setProperty ("rate", rate); if (web) web->emitEventIfBrowserIsVisible ("dawTakeStalled", juce::var (o)); };
         engine.onSoundCut = [this] (const juce::String& name, double held, double whole, bool disk) { auto* o = new juce::DynamicObject(); o->setProperty ("name", name); o->setProperty ("held", held); o->setProperty ("whole", whole); o->setProperty ("disk", disk); if (web) web->emitEventIfBrowserIsVisible ("dawCut", juce::var (o)); };
@@ -296,6 +304,9 @@ private:
     void handle (const juce::String& op, const juce::var& d, juce::WebBrowserComponent::NativeFunctionCompletion done)
     {
         if (op == "track")  { engine.setTrack (d); done (okVar()); return; }
+        if (op == "wall")    { done (engine.setWall (d)); return; }                                   // a track's patch as a wall: prints and plug-ins in one graph
+        if (op == "wallAmt") { engine.setWallAmount ((int) d["track"], (int) d["id"], (float) (double) d["v"]); done (okVar()); return; }
+        if (op == "wallFacts") { done (engine.wallFacts ((int) d["track"])); return; }
         if (op == "hello")
         {
             if (! keysToPage && getPeer() != nullptr) keysToPage = slurKeysToPage (getPeer()->getNativeHandle());      // (the page is up: command x, c, v and a are its keys from here on)
@@ -613,9 +624,70 @@ private:
             if (to.exists() && ! to.moveToTrash()) { done (whyNot ("write")); return; }
             const bool ok = from.isDirectory() ? from.copyDirectoryTo (to) : to.getChildFile ("audio").createDirectory().wasOk();
             if (! ok) { to.deleteRecursively(); done (whyNot ("write")); return; }     // half a copy is no project: only what was just laid there is taken away
+            /* `move`: the project is from now on the one just laid there, and what it was kept as goes (a song that was never
+               given a name, saved for the first time: "untitled" does not stay behind beside it). To the Trash, not away. */
+            if ((int) d["move"] != 0 && from.isDirectory()) { if (selfTestMode().isNotEmpty()) from.deleteRecursively(); else from.moveToTrash(); }
             auto* o = new juce::DynamicObject();
             o->setProperty ("ok", true); o->setProperty ("key", projectKey (to));
             done (juce::var (o)); return;
+        }
+        /* a patch kept as a preset: the files Patch on Slur keeps (<name>.orbpatch, in its own folder), so a patch kept in one
+           is there in the other. The check keeps them in a place of its own, and has no hands for a panel. */
+        if (op.startsWith ("preset") && op != "patchPreset")
+        {
+            const bool test = selfTestMode().isNotEmpty();
+            const auto dir = test ? daw::musicRoot().getChildFile ("Presets")
+                                  : juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Orb").getChildFile ("Sounds").getChildFile ("Presets");
+            const auto name = juce::File::createLegalFileName (d["name"].toString().trim());
+            const auto file = dir.getChildFile (name + ".orbpatch");
+            const auto named = [] (const juce::File& f, bool withText)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("name", f.getFileNameWithoutExtension());
+                if (withText) o->setProperty ("json", f.loadFileAsString());
+                return juce::var (o);
+            };
+            if (op == "presetList")
+            {
+                juce::Array<juce::var> names; juce::Array<juce::File> files;
+                if (dir.isDirectory()) dir.findChildFiles (files, juce::File::findFiles, false, "*.orbpatch");
+                files.sort();
+                for (auto& f : files) names.add (f.getFileNameWithoutExtension());
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("names", names);
+                done (juce::var (o)); return;
+            }
+            if (op == "presetSave")   { if (name.isEmpty() || ! dir.createDirectory().wasOk() || ! file.replaceWithText (d["json"].toString())) { done (okVar (false)); return; } done (named (file, false)); return; }
+            if (op == "presetLoad")   { if (name.isEmpty() || ! file.existsAsFile()) { done (okVar (false)); return; } done (named (file, true)); return; }
+            if (op == "presetDelete") { done (okVar (name.isNotEmpty() && file.existsAsFile() && (test ? file.deleteFile() : file.moveToTrash()))); return; }      // (to the Trash, not away)
+            if (op == "presetSaveAs")
+            {
+                const auto json = d["json"].toString();
+                const auto start = dir.getChildFile ((name.isEmpty() ? juce::String ("untitled") : name) + ".orbpatch");
+                dir.createDirectory();
+                if (test && (int) d["panel"] == 0) { const bool ok = start.replaceWithText (json); done (ok ? named (start, false) : okVar (false)); return; }
+                chooser = std::make_unique<juce::FileChooser> ("save preset as", start, "*.orbpatch");
+                chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [done, json, named] (const juce::FileChooser& fc)
+                {
+                    auto f = fc.getResult();
+                    if (f == juce::File()) { done (okVar (false)); return; }
+                    if (! f.hasFileExtension ("orbpatch")) f = f.withFileExtension ("orbpatch");
+                    done (f.replaceWithText (json) ? named (f, false) : okVar (false));
+                });
+                return;
+            }
+            if (op == "presetOpen")
+            {
+                if (test && (int) d["panel"] == 0) { done (name.isNotEmpty() && file.existsAsFile() ? named (file, true) : okVar (false)); return; }
+                dir.createDirectory();
+                chooser = std::make_unique<juce::FileChooser> ("open preset", dir, "*.orbpatch");
+                chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [done, named] (const juce::FileChooser& fc)
+                {
+                    const auto f = fc.getResult();
+                    done (f != juce::File() && f.existsAsFile() ? named (f, true) : okVar (false));
+                });
+                return;
+            }
         }
         if (op == "title")    { if (auto* w = dynamic_cast<juce::DocumentWindow*> (getTopLevelComponent())) w->setName (d["text"].toString()); done (okVar()); return; }
         if (op == "slurPanel")                                                 // where slur stands in the room, and whether it shows
@@ -805,6 +877,13 @@ private:
         if (op == "paramScale") { done (engine.pluginScale ((int) d["track"], (int) d["uid"], (int) d["index"])); return; }      // how one control reads along its travel
         if (op == "params")    { done (engine.pluginParams ((int) d["track"], (int) d["uid"])); return; }       // a plug-in's controls, for a line to be drawn for one
         if (op == "touched")   { done (engine.pluginTouched ((int) d["track"], (int) d["uid"])); return; }      // the control last moved in its window
+        if (op == "testHosts")                                                 // the check: audio units opened through the library and by the app itself, laid side by side
+        {
+            juce::StringArray ids;
+            if (auto* list = d["ids"].getArray()) for (auto& v : *list) ids.add (v.toString());
+            if (selfTestMode().isNotEmpty()) engine.compareHosts (ids, [done] (juce::var r) { done (r); }); else done (okVar (false));
+            return;
+        }
         if (op == "testTouch") { if (selfTestMode().isNotEmpty()) engine.testTouch ((int) d["track"], (int) d["uid"], (int) d["i"], (float) (double) d["v"]); done (okVar()); return; }
         if (op == "keyFrom") { done (engine.setKey ((int) d["track"], (int) d["uid"], (int) d["from"])); return; }      // a plug-in is given a track to listen to (its key, or side chain); 0: none
         if (op == "bypass")  { engine.bypassPlugin ((int) d["track"], (int) d["uid"], (int) d["off"] != 0); done (okVar()); return; }
@@ -828,6 +907,13 @@ private:
                 auto* o = new juce::DynamicObject(); o->setProperty ("done", n); o->setProperty ("total", total);
                 self->web->emitEventIfBrowserIsVisible ("dawBounce", juce::var (o));
             }, [done] (juce::var r) { done (r); });
+            return;
+        }
+        if (op == "join")                                                      // regions made one sound: a file of its own in the project's folder for each stretch (see Engine::joinRegions)
+        {
+            juce::var opts = d;
+            if (auto* o = d.getDynamicObject()) { auto c = o->clone(); c->setProperty ("dir", projectDir (d["project"].toString()).getChildFile ("audio").getFullPathName()); opts = juce::var (c.release()); }
+            engine.joinRegions (opts, [done] (juce::var r) { done (r); });
             return;
         }
         if (op == "log") { daw::logLine ("page: " + d["text"].toString()); done (okVar()); return; }

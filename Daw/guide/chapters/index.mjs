@@ -1,0 +1,17 @@
+// the chapters, in the order they are bound. A new feature: add a page to its chapter (or a chapter here).
+import welcome from './01-welcome.mjs'
+import start from './02-start.mjs'
+import window_ from './03-window.mjs'
+import tracks from './04-tracks.mjs'
+import recording from './05-recording.mjs'
+import editing from './06-editing.mjs'
+import time from './07-time.mjs'
+import notes from './08-notes.mjs'
+import mixing from './09-mixing.mjs'
+import patch from './10-patch.mjs'
+import automation from './11-automation.mjs'
+import say from './12-say.mjs'
+import handoff from './13-handoff.mjs'
+import rest from './14-rest.mjs'
+import keys from './90-keys.mjs'
+export default [welcome, start, window_, tracks, recording, editing, time, notes, mixing, patch, automation, say, handoff, rest, keys]

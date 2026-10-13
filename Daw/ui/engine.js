@@ -152,7 +152,11 @@ const regLook = (r, t) => { const sw = r.col ? swatch(r.col[0], r.col[1] / 6) : 
 const RH = () => S.rh
 /* rows: the tracks that show (the ones inside a closed stack do not), as indexes into S.tracks */
 const byId = id => S.tracks.find(t => t.id === id) || null
-const rows = () => { const closed = new Set(S.tracks.filter(t => t.kind === 'stack' && !t.open).map(t => t.id)), out = []; S.tracks.forEach((t, i) => { if (!(t.parent && closed.has(t.parent))) out.push(i) }); return out }
+const rows = () => {
+  const by = new Map(S.tracks.map(t => [t.id, t])), out = []
+  S.tracks.forEach((t, i) => { let x = t.parent ? by.get(t.parent) : null, k = 0, shut = false; while (x && k++ < 16) { if (x.kind === 'stack' && !x.open) { shut = true; break } x = x.parent ? by.get(x.parent) : null } if (!shut) out.push(i) })      // (a stack may stand in a stack: shut at any depth hides what is in it)
+  return out
+}
 const rowOf = i => rows().indexOf(i)
 /* A row is as tall as the room's rows are (S.rh) unless it was pulled to a height of its own (t.h: the line under it,
    dragged). So where a row stands is the sum of those above it: rowTops gives the rows on show, each one's top counted
@@ -180,6 +184,10 @@ function setPrint (t, k, v) {
 const anySolo = () => S.tracks.some(t => t.solo)
 /* where a track's sound goes next: its stack, else the bus it is routed to, else the stereo out (0) */
 const destId = t => t.parent || t.out || 0
+/* stacks stand in stacks: how deep a track stands (0: in none), and whether it stands inside a given stack at any depth */
+const depthOf = t => { let d = 0, x = t; while (x && x.parent && d < 16) { x = byId(x.parent); d++ } return d }
+const insideOf = (t, st) => { let x = t, k = 0; while (x && x.parent && k++ < 16) { if (x.parent === st.id) return true; x = byId(x.parent) } return false }
+const STACK_DEEP = 4                                                                    // how many stacks deep a track may stand (the head has room for that many steps in)
 function reaches (a, b, depth = 0) {
   if (!a || !b || depth > 8) return false
   for (const id of [destId(a)].concat((a.sends || []).map(s => s.to))) { if (!id) continue; if (id === b.id) return true; if (reaches(byId(id), b, depth + 1)) return true }
@@ -365,6 +373,7 @@ function halt (rewind) {
   } else if (rewind) S.pos = restBar()
 }
 function jumpTo (bar, T) {
+  if (T == null) { S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9 }      // (the playhead is sent somewhere by hand — not the cycle coming round: the window goes with it again (ui.js, frame), and the bar keys count from here)
   if (!S.playing) { S.pos = clamp(bar, 0, SONG_END); return }
   T = T || E.ctx.currentTime + .05
   cutGen(E.gen, T); startGen(bar, T); E.jumpAt = T

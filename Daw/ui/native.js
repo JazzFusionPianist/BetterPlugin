@@ -104,21 +104,27 @@ if (NAT) {
     if (!r || !r.ok) throw new Error('decode')
     return { key: r.key, sec: r.sec, peaks: r.peaks, file: r.file, tone: r.tone }
   }
-  /* hand off: the app prints the stems (each track through its patch and its plug-ins) or the mix, and shows the folder */
+  /* hand off: the app prints the stems (each track through its patch and its plug-ins) or the mix, and shows the folder.
+     Where it goes and what it is called is asked first, in the Mac's own panel (on the folder the last one went to;
+     the name it offers is the song's and the range's). The panel put away: nothing is printed. */
   sendStems = async () => {
     const ho = S.ho
-    if (ho.state === 'busy' || S.rec) return
+    if (ho.state === 'busy' || ho.asking || S.rec) return
     const pl = hoPlan(), f = hoFmt()
     if (!pl.mix && !pl.list.length) { ho.note = 'nothing sounds in this range'; uiDirty('hand'); return }
+    ho.asking = true
+    const at = await NAT.call('bouncePick', { name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0 })
+    ho.asking = false
+    if (!at || !at.ok) { ho.note = at && at.why === 'file' ? 'a file of that name is there' : ''; uiDirty('hand'); return }
     if (S.playing) { halt(false); uiDirty('top') }
     ho.state = 'busy'; ho.done = 0; ho.total = pl.mix ? 1 : pl.list.length * pl.modes.length; ho.note = ''; uiDirty('hand')
     const r = await NAT.call('bounce', {
       kind: pl.mix ? 'mix' : 'stems', a0: pl.a0, a1: pl.a1, modes: pl.modes.map(m => m === 'dry' ? 'dry' : 'wet'),
       tracks: pl.list.map(t => ({ id: t.id, name: `${String(S.tracks.indexOf(t) + 1).padStart(2, '0')} ${t.name}` })),
-      folder: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, name: `${PROJ.name} ${pl.name}`, fmt: f.fmt, rate: f.rate, bits: f.bits,
+      dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits,
     })
     ho.state = 'idle'
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur studio'; handOffExtras(r.dir, `${PROJ.name} ${pl.name}`, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.name; handOffExtras(r.dir, at.name, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
     resync(); applyAll()
     uiDirty('hand')
   }

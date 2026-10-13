@@ -94,6 +94,7 @@ LANG.lists.ko = {
   'not while a take or a print is under way': '녹음이나 바운스 중에는 바꿀 수 없음', 'that could not be set': '설정하지 못함', 'the input would not open': '입력을 열지 못함',
   'the check leaves the machine’s device as it is': '점검 중에는 장치를 그대로 둠',
   /* a patch kept as a preset (preset.js) */
+  'saved as': '저장됨:', 'a file of that name is there': '같은 이름의 파일이 있음',
   'untitled': '이름 없음', 'initial': '초기 상태', 'no presets yet': '아직 프리셋 없음', 'save as…': '다른 이름으로 저장…', 'open…': '열기…',
   'that is not a patch': '패치 파일이 아님', 'that preset is not there any more': '그 프리셋은 이제 없음', 'the preset could not be written': '프리셋을 쓰지 못함',
   'one thing this wall has no print for was left out': '이 패치에 없는 프린트 하나는 빠짐', '# things this wall has no print for were left out': '이 패치에 없는 프린트 #개는 빠짐',

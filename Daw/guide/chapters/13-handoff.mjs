@@ -9,7 +9,7 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
       [1, 'what will be sent, its length, rate and depth', '보낼 것과 그 길이, 레이트, 뎁스'],
       [2, 'for stems, one line for each track that sounds in the range, with the size of its file. A square fills when that track is done', '스템이면 범위 안에서 소리가 나는 트랙마다 한 줄, 파일 크기와 함께. 그 트랙이 끝나면 네모가 채워집니다'],
       [3, 'the choices', '선택 항목'],
-      [4, '{{send}} starts it. The line beside it reads “rendering 3 of 12”, then “saved in music, slur studio”, and the Finder shows the folder', '{{send}}로 시작합니다. 옆에 “rendering 3 of 12”가 나오고, 끝나면 “saved in music, slur studio”와 함께 Finder가 폴더를 보여 줍니다']) +
+      [4, '{{send}} first asks where it goes and what it is called, in the Mac’s save panel. Then the line beside it reads “rendering 3 of 12”, then “saved as” and the name, and the Finder shows the folder', '{{send}}를 누르면 먼저 Mac 저장 창에서 위치와 이름을 묻습니다. 이어서 옆에 “rendering 3 of 12”가 나오고, 끝나면 “saved as”와 이름이 나오며 Finder가 폴더를 보여 줍니다']) +
     table([['row', '줄'], ['choices', '선택'], ['notes', '참고']],
       ['{{what}}', '{{stems}}  {{mix}}', ['the mix is everything, as it goes to the speakers', 'mix는 스피커로 나가는 그대로의 전체']],
       ['{{print}}', '{{with patch}}  {{dry}}  {{both}}', ['stems only. Dry steps past the track’s own prints and plug-ins; both writes two files a track', '스템 전용. dry는 그 트랙의 프린트와 플러그인을 건너뜁니다. both는 트랙마다 파일 둘']],
@@ -37,7 +37,7 @@ export default () => chapter('handoff', t('hand off and bounce', '내보내기�
     art: draw(150, 98,
       D.txt(0, 4, '~/Music/Slur Studio', '~/Music/Slur Studio', 'b') +
       D.line(2, 6, 2, 14, 'soft') + D.line(2, 14, 8, 14, 'soft') +
-      D.cell(10, 9.5, 70, 9, 'low tide ep chorus stems 142233', 'low tide ep chorus stems 142233', 'on') + D.txt(83, 15, 'project, range, what, time of day', '프로젝트, 범위, 종류, 시각', 'xs') +
+      D.cell(10, 9.5, 70, 9, 'low tide ep chorus stems', 'low tide ep chorus stems', 'on') + D.txt(83, 15, 'the name and the place you gave', '직접 정한 이름과 위치', 'xs') +
       D.line(14, 18.5, 14, 90, 'soft') +
       [['01 kick.wav', 'one file for each track; with both: “01 kick patch.wav” and “01 kick dry.wav”', '트랙마다 파일 하나. both면 “01 kick patch.wav”와 “01 kick dry.wav”'],
         ['02 snare.wav …', 'numbered as the tracks stand in the song', '곡의 트랙 순서대로 번호'],

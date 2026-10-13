@@ -56,7 +56,7 @@ export default () => chapter('welcome', t('before you begin', '시작하기 전�
       [['new projects', '새 프로젝트'], ['~/Music/Slur Studio/Projects, as __name.sls__. Save As can put one anywhere', '~/Music/Slur Studio/Projects 안에 __이름.sls__로. Save As로 어디에나 둘 수 있습니다']],
       [['sounds', '소리'], ['every file brought in, every take and every bounce is copied into the project’s own audio folder. A project never points at files elsewhere', '가져온 파일, 테이크, 바운스는 모두 프로젝트 안의 audio 폴더로 복사됩니다. 프로젝트가 바깥 파일을 가리키는 일은 없습니다']],
       [['earlier copies', '이전 사본'], ['at most one every ten minutes of work, the newest 24 kept. ((File > Revert To…)) goes back to one', '작업 10분에 하나까지, 최근 24개를 보관합니다. ((File > Revert To…))로 되돌아갑니다']],
-      [['hand-off folders', '내보내기 폴더'], ['~/Music/Slur Studio, one new folder each time', '~/Music/Slur Studio 안에 매번 새 폴더 하나']]) +
+      [['hand-off folders', '내보내기 폴더'], ['wherever you say, under the name you give; the panel opens on the last place used, ~/Music/Slur Studio to begin with', '정한 위치에 정한 이름으로. 저장 창은 마지막에 쓴 위치에서 열리고, 처음에는 ~/Music/Slur Studio']]) +
     h('good to know', '알아 둘 것') +
     list(
       ['The app saves the song every 3 seconds when something changed.', '바뀐 것이 있으면 3초마다 곡을 저장합니다.'],

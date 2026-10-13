@@ -895,6 +895,43 @@ private:
             { juce::MemoryOutputStream os (mb, false); juce::Base64::convertFromBase64 (os, d["data"].toString()); }
             done (engine.decode (mb)); return;
         }
+        if (op == "bouncePick")                                                // where a bounce goes and what it is called: the Mac's own panel, on the folder the last one went to
+        {
+            const auto typed = juce::File::createLegalFileName (d["name"].toString().trim());
+            const auto name = typed.isEmpty() ? juce::String ("bounce") : typed;
+            const bool test = selfTestMode().isNotEmpty();
+            const auto answer = [done] (const juce::File& f)
+            {
+                if (f == juce::File()) { done (okVar (false)); return; }
+                if (f.existsAsFile()) { done (whyNot ("file")); return; }                   // (what is made is a folder: a file of that name is not written over)
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("dir", f.getFullPathName()); o->setProperty ("name", f.getFileName());
+                done (juce::var (o));
+            };
+            if (test && (int) d["panel"] == 0) { answer (daw::musicRoot().getNonexistentChildFile (name, "", false)); return; }      // the check has no hands for a panel
+            auto in = daw::musicRoot();
+            if (! test)
+            {
+                const auto last = juce::JSON::parse (prefsFile())["bounceDir"].toString();
+                if (last.isNotEmpty() && juce::File::isAbsolutePath (last) && juce::File (last).isDirectory()) in = juce::File (last);
+            }
+            in.createDirectory();
+            chooser = std::make_unique<juce::FileChooser> ("Bounce", in.getNonexistentChildFile (name, "", false), "");
+            chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [answer, test] (const juce::FileChooser& fc)
+            {
+                const auto f = fc.getResult();
+                if (f != juce::File() && ! test)                                            // the next one is asked for in the same place
+                {
+                    auto v = juce::JSON::parse (prefsFile());
+                    if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                    v.getDynamicObject()->setProperty ("bounceDir", f.getParentDirectory().getFullPathName());
+                    prefsFile().getParentDirectory().createDirectory();
+                    prefsFile().replaceWithText (juce::JSON::toString (v));
+                }
+                answer (f);
+            });
+            return;
+        }
         if (op == "bounce")
         {
             juce::Component::SafePointer<MainComponent> self (this);

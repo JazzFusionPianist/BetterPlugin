@@ -1005,6 +1005,7 @@ function pHand () {
   s += hline(x + 1, x + w - 1, fy - 14, .08)
   const note = busy ? `rendering ${Math.min(ho.done + 1, ho.total)} of ${ho.total}` : ho.note
   if (note) s += T(L, fy + 6, note, { size: 9.5, a: .6 })
+  if (!busy && note === 'saved as' && ho.at) s += T(L + tw(note, 9.5) + 5, fy + 6, fit(asGiven(ho.at), Math.max(40, w - 36 - tw(note, 9.5) - 5 - 62), 9.5), { size: 9.5, a: .88 })      // (the name it was given in the panel)
   const so = { armed: !busy, dim: busy, h: 20, size: 10, a: busy ? null : 'ho-send' }
   return s + key(Rr - keyW('send', so), fy - 8, 'send', so)[0]
 }

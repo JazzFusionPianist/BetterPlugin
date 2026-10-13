@@ -748,6 +748,10 @@ const mateIds = (A, B, t) => joinMates(A, B, t).map(([a, b]) => [a.id, b.id])
 const pairsOf = d => [[d.A, d.B]].concat(d.mates || []).map(([a, b]) => [regOf(a)[0], regOf(b)[0]]).filter(q => q[0] && q[1])
 /* fades are pulled freely — a fade heals a cut, and a cut is not on the grid — except where the grid is all there is (the grid mode) */
 const fadeSnap = (pos, e) => { if (S.mode !== 'grid' || (e && e.ctrlKey && e.shiftKey)) return pos; const g = gridStep(true); return Math.round(pos / g) * g }
+/* control and shift held over a region of sound: the pointer (and the smart tool) is the fade tool there, as in Logic —
+   pulled in its first half a fade in, in its second a fade out, across a join a crossfade. (Not over notes, which have no
+   fades, nor with the lines up.) */
+const fadeHeld = (e, p) => { if (!e.ctrlKey || !e.shiftKey || e.metaKey || e.altKey || S.auto || (S.tool !== 'pointer' && S.tool !== 'smart') || (p.y - TY + VY) >= rowTops().all) return false; const r = hitRegion(laneAt(p.y), barAt(p.x)); return !!r && !r.notes }
 /* a fade taken hold of: where it is part of a crossfade, the crossfade is what is pulled. `pos`: where it was taken hold
    of, when the pull is to be counted from there (the smart tool: the fade grows by as much as the hand moves); without
    it the fade reaches to wherever the pointer is (the fade tool) */
@@ -1535,7 +1539,7 @@ function lanesDown (e, p) {
 function lanesPress (e, p) {
   if (S.focus !== 'lanes') { S.focus = 'lanes'; S.selM = null; uiDirty('scenes') }
   if ((p.y - TY + VY) >= rowTops().all) { S.selR = []; S.selP = []; S.marq = null; uiDirty('lanes', 'dock'); return }       // below the last row
-  const tool = e.metaKey ? S.tool2 : S.tool
+  const tool = fadeHeld(e, p) ? 'fade' : e.metaKey ? S.tool2 : S.tool
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') { autoDown(e, p, tool); return }
   const ti = laneAt(p.y), t = S.tracks[ti], pos = barAt(p.x)
   /* a bus's or a stack's own line is taken where it is, the lines shown or not (auto.js: lineOwn) */
@@ -1775,7 +1779,7 @@ async function stopsOf (tracks) {
 const nextStop = (stops, from, dir) => { if (dir > 0) return stops.find(v => v > from + 1e-4); for (let i = stops.length - 1; i >= 0; i--) if (stops[i] < from - 1e-4) return stops[i]; return undefined }
 /* the cursor says what a press would do */
 function lanesHover (e, p, el) {
-  const tool = e.metaKey ? S.tool2 : S.tool
+  const tool = fadeHeld(e, p) ? 'fade' : e.metaKey ? S.tool2 : S.tool
   let c = { pencil: 'crosshair', eraser: 'cell', scissors: 'col-resize', join: 'copy', mute: 'not-allowed', gain: 'ns-resize', fade: 'ew-resize', marquee: 'crosshair', zoom: 'zoom-in', flex: 'col-resize' }[tool] || 'default'
   if (S.auto && tool !== 'zoom' && tool !== 'marquee') c = tool === 'eraser' ? 'cell' : 'crosshair'
   else if (tool !== 'zoom' && tool !== 'marquee' && (p.y - TY + VY) < rowTops().all && onOwnLine(laneAt(p.y), p)) c = tool === 'eraser' ? 'cell' : 'crosshair'

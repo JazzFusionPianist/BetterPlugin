@@ -124,10 +124,24 @@ struct PluginWindow final : juce::DocumentWindow
         setContentOwned (editor, true);
         setResizable (resizable, false);
         centreWithSize (getWidth(), getHeight());
+        setAlwaysOnTop (true);                                     // over the room: a press on the room does not put the plug-in out of sight …
         setVisible (true);
+        if (auto* p = getPeer()) slur::PlugWindow::keepOver (p->getNativeHandle());      // … and away with the app when another app is in front
         toFront (true);
     }
     void closeButtonPressed() override { if (onClose) onClose(); }
+    /* the space bar, return and v, when nothing of the plug-in's wanted them, are the room's: play and stop, to the beginning, the plug-ins' windows away */
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        const auto m = k.getModifiers();
+        if (! m.isCommandDown() && ! m.isCtrlDown() && ! m.isAltDown() && slur::PlugWindow::key)
+        {
+            const int c = k.getKeyCode();
+            const bool space = c == juce::KeyPress::spaceKey, ret = c == juce::KeyPress::returnKey, v = ! space && ! ret && ! m.isShiftDown() && (c == 'v' || c == 'V' || slur::PlugWindow::keyCodeNow() == 9);
+            if (space || ret || v) return slur::PlugWindow::keyRepeats() || slur::PlugWindow::key (space ? "Space" : ret ? "Enter" : "KeyV", m.isShiftDown());
+        }
+        return DocumentWindow::keyPressed (k);
+    }
     std::function<void()> onClose;
 };
 

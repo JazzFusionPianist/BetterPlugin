@@ -312,6 +312,25 @@ async function runSelfTest (mode) {
     return { at, before, after, drawn, regionsStayed: same, ptsAfterUndo: autoPts(t, 'vol').length }
   })
 
+  /* a plug-in's window: it stands over the room (a press on the room does not put it out of sight) and goes with the app
+     when another app is in front; and the space bar pressed in it — the Mac's way, to that window — plays and stops the song */
+  await step('plugWindow', async () => {
+    halt(false)
+    const t = track('kick'), r = await NAT.call('insert', { track: t.id, id: 'AudioUnit:Effects/aufx,dely,appl', show: 1 })
+    if (!(r && r.ok)) return { insert: r }
+    await sleep(900)
+    const up = await NAT.call('testPlugWindows', { space: 0 }), was = S.playing
+    await NAT.call('testPlugWindows', { space: 1 }); await sleep(450)
+    const played = S.playing, pos = +curPos().toFixed(3)
+    await NAT.call('testPlugWindows', { space: 1 }); await sleep(350)
+    const stopped = !S.playing
+    await NAT.call('closeEditors'); await sleep(200)
+    const closed = await NAT.call('testPlugWindows', { space: 1 }); await sleep(250)
+    const stillStopped = !S.playing
+    await NAT.call('remove', { track: t.id, uid: r.uid }); halt(true)
+    return { windows: up.windows, was, played, pos, stopped, afterClosing: (closed.windows || []).length, stillStopped }
+  })
+
   /* a take: the tone that stands in for the microphone, three seconds of it from bar 5, with a bar of count-in */
   await step('record', async () => {
     halt(false)

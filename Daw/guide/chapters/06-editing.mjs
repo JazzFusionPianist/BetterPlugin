@@ -150,7 +150,7 @@ export default () => chapter('editing', t('editing regions', '리전 편집'),
 
   page(t('fades and crossfades', '페이드와 크로스페이드'), { kind: 'split', tw: 122, txt:
     table(null,
-      [['fade tool, smart tool', '페이드 도구, 스마트 도구'], ['drag from a region’s end inwards; across a join for a crossfade', '리전 끝에서 안쪽으로 드래그. 이음매를 가로지르면 크로스페이드']],
+      [['fade tool, smart tool', '페이드 도구, 스마트 도구'], ['drag from a region’s end inwards; across a join for a crossfade. With [[⌃⇧]] held the pointer does the same', '리전 끝에서 안쪽으로 드래그. 이음매를 가로지르면 크로스페이드. [[⌃⇧]]를 누르면 포인터로도 됩니다']],
       ['[[F]]', ['fades for what is chosen: every join between chosen regions gets a 20 ms crossfade, every open end a 10 ms fade. With a marquee up, the marquee says how long', '선택한 것에 페이드: 선택한 리전 사이 이음매마다 20 ms 크로스페이드, 열린 끝마다 10 ms 페이드. 마키가 있으면 그 길이대로']],
       ['[[D]]', ['a fade in from the region’s start up to the playhead', '리전 시작에서 플레이헤드까지 페이드 인']],
       ['[[G]]', ['a fade out from the playhead to its end', '플레이헤드에서 리전 끝까지 페이드 아웃']],

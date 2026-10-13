@@ -117,6 +117,20 @@ public:
     virtual ~PlugWindow() = default;
     virtual void front() = 0;
     static std::unique_ptr<PlugWindow> open (const std::string& title, void* nsView, bool sizes, std::function<void()> closed);
+
+    /** The space bar, return or v, pressed while a plug-in's window has the keys and wanted by nothing in it: the app's
+        (play and stop, to the beginning, the plug-ins' windows away). code: "Space", "Enter" or "KeyV". Answers whether
+        it was taken. The main thread. */
+    static inline std::function<bool (const std::string& code, bool shift)> key;
+    /** A plug-in's window (this kind, or the one JUCE makes: a view in it) stays over the app's own windows — a press on
+        the room behind it does not put it out of sight — and goes away with the app when another app is in front. */
+    static void keepOver (void* nsView);
+    /** Is the key being handled now one that repeats because it is held down. */
+    static bool keyRepeats();
+    /** Where on the keyboard the key being handled now sits (the Mac's number for it: 9 is v, whatever the keyboard is set to), or -1. */
+    static int keyCodeNow();
+    /** For the self-test: how the plug-ins' windows stand, as JSON; pressSpace: the space bar is sent to the first, the Mac's way. */
+    static std::string check (bool pressSpace);
 };
 
 } // namespace slur

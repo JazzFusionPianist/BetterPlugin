@@ -61,6 +61,8 @@ LANG.lists.ko = {
   'all that follow': '뒤따르는 모두', 'the others': '나머지', 'the muted ones': '뮤트된 것', 'one more': '하나 더', 'choose several': '여러 개 선택', 'and choose the next': '그리고 다음 것 선택',
   'for what is chosen': '선택한 것에', 'play what is chosen': '선택한 것 재생', 'find the playhead': '플레이헤드 찾기', 'find what is chosen': '선택한 것 찾기',
   'fit, or what is chosen': '전체 보기, 또는 선택한 것', 'taller, shorter rows': '줄 높게, 낮게', 'taller, lower waveforms': '파형 크게, 작게',
+  'add': '추가', 'remove': '제거', 'sure?': '정말?', 'bypass': '바이패스', 'wet only': '웨트만', 'off': '끔', 'blends': '섞음', 'adds': '더함', 'amount': '양', 'nothing on this patch yet': '이 패치에는 아직 아무것도 없습니다', 'the wall is full': '벽이 가득 찼습니다', 'left out': '빠짐', 'threshold': '스레숄드', 'depth': '깊이', 'drive': '드라이브', 'hold': '홀드', 'keep': '남김', 'pass': '패스', 'slope': '기울기', 'moves': '움직임', 'decay': '길이', 'feedback': '피드백', 'step': '스텝', 'scale': '스케일', 'interval': '음정', 'cents': '센트', 'engine': '엔진', 'size': '크기', 'spray': '퍼짐', 'scatter': '흩음', 'freeze': '프리즈', 'ratio': '비율', 'attack': '어택', 'release': '릴리즈', 'knee': '니', 'makeup': '메이크업', 'from': '부터', 'learn': '학습', 'smooth': '부드럽게', 'bands': '밴드', 'blur': '번짐', 'clock': '클럭', 'feel': '느낌', 'detector': '디텍터', 'phase': '위상', 'slur': 'slur',
+  'before its fader': '페이더 앞', 'stacks do not go deeper than that': '스택은 그보다 깊이 들어가지 않습니다',
   'eq': 'EQ', 'dynamics': '다이내믹', 'reverb': '리버브', 'modulation': '모듈레이션', 'saturation': '새츄레이션', 'amp': '앰프', 'pitch': '피치', 'stereo': '스테레오', 'channel': '채널 스트립', 'repair': '복원', 'other': '기타', 'a page left, right': '한 화면 왼쪽, 오른쪽', 'a page up, down': '한 화면 위, 아래',
   'to the playhead': '플레이헤드로', 'to its end': '끝까지', 'to its start, its end': '시작으로, 끝으로', 'to the end of the sound': '소리 끝까지', 'back to where it starts': '시작 지점으로',
   'begin, end at the playhead': '플레이헤드에서 시작, 끝', 'in, up to the playhead': '페이드 인, 플레이헤드까지', 'out, from the playhead': '페이드 아웃, 플레이헤드부터',
@@ -91,4 +93,9 @@ LANG.lists.ko = {
   'work': '처리', 'threads': '스레드', 'test tone': '테스트 톤', 'play': '재생',
   'not while a take or a print is under way': '녹음이나 바운스 중에는 바꿀 수 없음', 'that could not be set': '설정하지 못함', 'the input would not open': '입력을 열지 못함',
   'the check leaves the machine’s device as it is': '점검 중에는 장치를 그대로 둠',
+  /* a patch kept as a preset (preset.js) */
+  'saved as': '저장됨:', 'a file of that name is there': '같은 이름의 파일이 있음',
+  'untitled': '이름 없음', 'initial': '초기 상태', 'no presets yet': '아직 프리셋 없음', 'save as…': '다른 이름으로 저장…', 'open…': '열기…',
+  'that is not a patch': '패치 파일이 아님', 'that preset is not there any more': '그 프리셋은 이제 없음', 'the preset could not be written': '프리셋을 쓰지 못함',
+  'one thing this wall has no print for was left out': '이 패치에 없는 프린트 하나는 빠짐', '# things this wall has no print for were left out': '이 패치에 없는 프린트 #개는 빠짐',
 }

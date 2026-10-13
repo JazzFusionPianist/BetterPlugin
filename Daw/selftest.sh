@@ -1,6 +1,8 @@
 #!/bin/bash
 # Runs the app's own check (ui/selftest.js) on what is in this folder now. Nothing is installed.
 #   ./selftest.sh           the whole check (about five minutes), with the speakers silent
+#   SLUR_OWN_AU=1 ./selftest.sh    the whole check with audio units opened by the app's own host (Source/host) and not
+#                           through the library; SLUR_AU_APART=1 as well: each in a process of its own
 #   ./selftest.sh slur      only slur's own page in its place (needs the net)
 #   SLUR_URL=http://localhost:5173 ./selftest.sh slur     the same, with the panel reading another copy of the page
 #   ./selftest.sh bench     only the measure (ui/bench.js; ./bench.sh runs it and keeps what it found)
@@ -50,7 +52,7 @@ rm -f "$LOGS/selftest.json" "$LOGS/selftest-second.json" "$LOGS"/selftest-twice-
 ROOT="$HOME/Library/Caches/Slur DAW self-test"
 rm -rf "$ROOT" && mkdir -p "$ROOT/Projects"
 if [ -d test/projects ]; then for p in test/projects/*.sls test/projects/*.slur; do [ -d "$p" ] && ditto "$p" "$ROOT/Projects/$(basename "$p")"; done; fi
-open -g -n "$A" --args "--selftest${MODE:+=$MODE}" ${SLUR_URL:+"--slur-url=$SLUR_URL"}
+open -g -n "$A" --args "--selftest${MODE:+=$MODE}" ${SLUR_URL:+"--slur-url=$SLUR_URL"} ${SLUR_OWN_AU:+"--own-au"} ${SLUR_AU_APART:+"--au-apart"}
 # while it runs: a second copy, opened from somewhere else, must see the first and go without doing anything
 SECOND="{}"; STAYED=0; S="$A"
 if [ "$MODE" != "crash" ] && [ "$MODE" != "quitprint" ] && [ "$MODE" != "twice" ] && [ "$MODE" != "stuck" ] && [ "$MODE" != "hung" ]; then

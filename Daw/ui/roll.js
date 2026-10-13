@@ -588,7 +588,7 @@ function rollKey (e) {
   if (e.altKey && !e.metaKey && !e.ctrlKey && /^Arrow/.test(c) && ROLL.sel.size) {
     take()
     const up = c === 'ArrowUp' ? 1 : c === 'ArrowDown' ? -1 : 0, along = c === 'ArrowRight' ? 1 : c === 'ArrowLeft' ? -1 : 0, kit = ROLL.g && ROLL.g.kit
-    edit(() => { setNotes(r, rollMoved(r, r.notes, ROLL.sel, along * rollStep() * QB(), up * (e.shiftKey && !kit ? 12 : 1), kit)); rollGrow(r) })
+    edit(() => { setNotes(r, rollMoved(r, r.notes, ROLL.sel, along * nudgeBars() * QB(), up * (e.shiftKey && !kit ? 12 : 1), kit)); rollGrow(r) })      // (along the song: by the nudge the room is set to, as a region goes — not by the page's grid)
     if (up) { const lead = regSound(r).find(x => ROLL.sel.has(x.id)); if (lead) rollHear(lead.n, lead.v) }
     uiDirty('dock', 'lanes')
   }

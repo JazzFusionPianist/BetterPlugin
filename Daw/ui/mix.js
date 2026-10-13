@@ -4,8 +4,9 @@ const outName = t => { const d = byId(destId(t)); return d ? d.name : 'stereo ou
 /* a stack's tracks sit right under it, in the order they were in */
 function normalizeOrder () {
   const sel = S.tracks[S.sel], out = []
-  for (const t of S.tracks) if (t.parent && (!byId(t.parent) || byId(t.parent).kind !== 'stack')) t.parent = null
-  for (const t of S.tracks) { if (t.parent) continue; out.push(t); if (t.kind === 'stack') for (const c of S.tracks) if (c.parent === t.id) out.push(c) }
+  for (const t of S.tracks) if (t.parent && (!byId(t.parent) || byId(t.parent).kind !== 'stack' || t.parent === t.id || insideOf(byId(t.parent), t))) t.parent = null      // (its stack is gone, or it would stand inside itself)
+  const put = t => { out.push(t); if (t.kind === 'stack') for (const c of S.tracks) if (c.parent === t.id) put(c) }      // a stack, then what is in it — a stack in it with what is in that, and so on down
+  for (const t of S.tracks) if (!t.parent) put(t)
   S.tracks = out; S.sel = Math.max(0, S.tracks.indexOf(sel))
 }
 /* ── which tracks are chosen: the leading one (S.sel — its strip stands beside the patch) and any chosen along with it ── */
@@ -141,6 +142,7 @@ async function duplicateTrack (i, full) {
   while (S.tracks.some(x => x.name === `${stem} ${k}`)) k++
   const t = mkTrack(`${stem} ${k}`, null, null, null, src.buf0, src.vol, [], copy(src.patch), Object.assign({ kind: src.kind === 'stack' ? 'bus' : src.kind, pan: src.pan, out: src.out, parent: src.kind === 'stack' ? null : src.parent, sends: copy(src.sends), inp: src.inp, midi: src.midi }, src.inst ? { inst: instCopy(src.inst, states && src.inst.uid ? states['u' + src.inst.uid] : null) } : {}, src.col ? { col: src.col.slice() } : {}, src.shape ? { shape: src.shape } : {}, src.tone ? { tone: src.tone } : {}))
   t.def = src.def; t.patch0 = copy(src.patch0 || src.patch)
+  if (src.wall && typeof wallSaved === 'function') t.wall = wallSaved(src)                 // (its patch wired as the other's is: the plug-ins find their places again as they are opened)
   if (full && src.kind === 'audio') { t.regs = src.regs.map(r => cloneReg(r)); freshGroups(t.regs) }
   S.tracks.splice(i + 1, 0, t); normalizeOrder(); leadTrack(S.tracks.indexOf(t)); S.focus = 'tracks'; S.selR = t.regs.map(r => r.id); S.selM = null; showRow(S.sel); birth(t)
   commit(before)
@@ -172,14 +174,14 @@ function reorderUp () {
 function moveTracks (list, k) {
   const vis = rows(), picked = new Set(list.filter(Boolean))
   if (!picked.size) return
-  const inBlock = t => picked.has(t) || (!!t.parent && picked.has(byId(t.parent))), block = S.tracks.filter(inBlock), lead = S.tracks[S.sel]
+  const under = t => [...picked].some(p => p.kind === 'stack' && insideOf(t, p)), inBlock = t => picked.has(t) || under(t), block = S.tracks.filter(inBlock), lead = S.tracks[S.sel]      // (what stands in a picked stack, at any depth, goes with it)
   let before = k < vis.length ? S.tracks[vis[k]] : null                                // the track they are let go in front of
   if (before && block.includes(before)) { if (block.length === 1 || picked.size === 1) return; let j = S.tracks.indexOf(before); while (j < S.tracks.length && block.includes(S.tracks[j])) j++; before = j < S.tracks.length ? S.tracks[j] : null }
-  if (block.some(t => t.kind === 'stack') && before && before.parent) before = byId(before.parent)       // a stack does not go inside another
+  { const deep = Math.max(...block.filter(t => !under(t)).map(t => t.kind === 'stack' ? Math.max(0, ...block.filter(c => insideOf(c, t)).map(c => depthOf(c) - depthOf(t))) : 0)); while (before && before.parent && depthOf(before) + deep > STACK_DEEP) before = byId(before.parent) }      // a stack may be set down inside another, as far as stacks go deep: past that it lands beside the stack it was aimed into
   edit(() => {
     const rest = S.tracks.filter(x => !block.includes(x)), parent = before && before.parent ? before.parent : null, was = block.map(t => t.parent)
     rest.splice(before ? rest.indexOf(before) : rest.length, 0, ...block)
-    for (const t of block) { if (t.kind === 'stack' || (t.parent && picked.has(byId(t.parent)))) continue; if (parent && !t.parent) t.out = 0; t.parent = parent }
+    for (const t of block) { if (under(t)) continue; if (parent && !t.parent) t.out = 0; t.parent = parent }
     if (block.every((t, j) => t.parent === was[j]) && rest.every((x, j) => x === S.tracks[j])) return false
     S.tracks = rest; normalizeOrder(); S.sel = Math.max(0, S.tracks.indexOf(lead))
   })
@@ -204,7 +206,7 @@ async function deleteTracks (list) {
     const first = Math.min(...list.map(t => S.tracks.indexOf(t))), lead = S.tracks[S.sel]
     for (const t of list) {
       for (const ins of t.inserts || []) { if (st && st['u' + ins.uid] != null) ins.state = st['u' + ins.uid]; ins.dead = true }
-      if (t.kind === 'stack') for (const c of S.tracks) if (c.parent === t.id) { c.parent = null; c.out = t.out }
+      if (t.kind === 'stack') for (const c of S.tracks) if (c.parent === t.id) { c.parent = t.parent || null; if (!c.parent) c.out = t.out }      // (in the stack its stack stood in, when it stood in one)
       for (const x of S.tracks) { if (x.out === t.id) x.out = 0; for (let k = x.sends.length - 1; k >= 0; k--) if (x.sends[k].to === t.id) removeSend(x, k) }
       S.tracks.splice(S.tracks.indexOf(t), 1)
       S.selR = S.selR.filter(id => !t.regs.some(r => r.id === id))
@@ -254,14 +256,20 @@ async function reviveInserts () {
 }
 /* a summing stack: the tracks of the chosen regions (or the chosen track) play into one bus that sits above them */
 function makeStack () {
-  const ok = t => t && !t.parent && t.kind !== 'stack', picked = (S.focus === 'tracks' ? chosen() : [...new Set(selRegs().map(x => x[1]))]).filter(ok), members = picked.length ? picked : chosen().filter(ok)
+  /* of what is chosen: tracks, stacks, tracks inside a stack. One stack is made, where the first of them stands (inside the
+     stack that one is in, if it is in one); what stands inside a chosen stack goes along with that stack as it is. */
+  const pool = (S.focus === 'tracks' ? chosen() : [...new Set(selRegs().map(x => x[1]))]).filter(Boolean), all = pool.length ? pool : chosen()
+  const top = all.filter(t => !all.some(p => p !== t && p.kind === 'stack' && insideOf(t, p))), par = top.length ? top[0].parent || null : null
+  const members = top.filter(t => (t.parent || null) === par)
   if (!members.length) return
+  { const deep = 1 + Math.max(...members.map(t => t.kind === 'stack' ? Math.max(0, ...S.tracks.filter(c => insideOf(c, t)).map(c => depthOf(c) - depthOf(t))) : 0)); if ((par ? depthOf(byId(par)) + 1 : 0) + deep > STACK_DEEP) { say('stacks do not go deeper than that'); return } }
   if (S.tracks.length >= MAX_TRACKS) { say('no room for another track'); return }
   edit(() => {
     const k = S.tracks.filter(t => t.kind === 'stack').length + 1
     const st = mkTrack(`stack ${k}`, null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]), { kind: 'stack' })
     st.patch0 = copy(st.patch)
     const at = Math.min(...members.map(t => S.tracks.indexOf(t)))
+    st.parent = par
     for (const t of members) { t.parent = st.id; t.out = 0 }
     S.tracks.splice(at, 0, st)
     normalizeOrder(); leadTrack(S.tracks.indexOf(st)); birth(st)
@@ -273,7 +281,7 @@ function foldStack (open) { const t = S.tracks[S.sel], st = t && (t.kind === 'st
 function setOut (t, id) {
   edit(() => {
     const d = byId(id)
-    if (d && d.kind === 'stack' && t.kind !== 'stack') { t.parent = d.id; t.out = 0 } else { t.parent = null; t.out = d ? d.id : 0 }
+    if (d && d.kind === 'stack' && d !== t && !insideOf(d, t)) { t.parent = d.id; t.out = 0 } else { t.parent = null; t.out = d ? d.id : 0 }
     const cur = S.tracks[S.sel]
     normalizeOrder(); S.sel = Math.max(0, S.tracks.indexOf(cur))
   })
@@ -281,7 +289,7 @@ function setOut (t, id) {
 function setSend (t, k, id) { edit(() => { if (!id) { if (!t.sends[k]) return false; removeSend(t, k) } else if (t.sends[k]) t.sends[k].to = id; else if (t.sends.length < 3) t.sends.push({ to: id, db: -12 }); else return false }) }
 const canFeed = (t, b) => b !== t && b.kind !== 'audio' && !reaches(b, t)                          // nothing may come back round to itself
 function openOutMenu (t, x, y) {
-  const items = [{ t: 'stereo out', v: 0, on: !destId(t) }].concat(S.tracks.filter(b => canFeed(t, b) && !(b.kind === 'stack' && t.kind === 'stack')).map(b => ({ t: b.name, k: b.kind, v: b.id, on: destId(t) === b.id })))
+  const items = [{ t: 'stereo out', v: 0, on: !destId(t) }].concat(S.tracks.filter(b => canFeed(t, b)).map(b => ({ t: b.name, k: b.kind, v: b.id, on: destId(t) === b.id })))
   items.push({ t: 'new bus', v: 'new', sep: true })
   openMenu(x, y, items, it => { if (it.v === 'new') { const b = newTrack('bus', null, true); if (b) setOut(t, b.id) } else if (it.v !== destId(t)) setOut(t, it.v) })
 }
@@ -295,7 +303,7 @@ function openTrackMenu (i, x, y) {
   const t = S.tracks[i], st = t.kind === 'stack' ? t : byId(t.parent)
   const many = groupOf(i).length > 1
   const items = [{ t: 'rename', k: '⇧⏎', v: 'rename' }, { t: 'duplicate', k: '⌘d', v: 'dup' }, { t: 'duplicate with what is on it', k: '⌥⇧⌘d', v: 'dupfull' }, { t: 'new track', k: '⌥⌘n', v: 'new', sep: true }, { t: 'new audio track', k: '⌥⌘a', v: 'audio' }, { t: 'new bus', k: '⌃n', v: 'bus' }]
-  if (groupOf(i).some(x => !x.parent && x.kind !== 'stack')) items.push({ t: 'put in a stack', k: '⇧⌘d', v: 'stack' })
+  items.push({ t: 'put in a stack', k: '⇧⌘d', v: 'stack' })
   if (st) items.push({ t: 'take the stack apart', k: '⇧⌘u', v: 'flat' })
   const ga = groupOf(i).filter(x => x.kind === 'audio'), g0 = ga.length ? ga[0].grp : null, whole = ga.length >= 2 && !!g0 && ga.every(x => x.grp === g0) && S.tracks.filter(x => x.grp === g0).length === ga.length
   const n0 = items.length
@@ -408,6 +416,7 @@ function strip (x, y, w, h, t, i, o = {}) {
   s += R(sx, y + h - 24, sw, 2, { fill: t.c, fa: !o.master && t.mute ? .4 : 1 })
   s += T(x + w / 2, y + h - 9, fit(asGiven(t.name), sw, ns, sel ? 500 : 400), { size: ns, w: sel ? 500 : 400, a: !o.master && t.mute ? .42 : sel ? 1 : .84, anchor: 'middle' })
   if (!o.master) hits += hit(x, y + h - 27, w, 27, 'msel', di)
+  else hits += hit(x, y + h - 27, w, 27, 'wall-out')                                      // (wall.js: the stereo out's own patch)
   return s + hits
 }
 

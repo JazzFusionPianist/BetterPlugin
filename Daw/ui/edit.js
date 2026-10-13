@@ -260,6 +260,97 @@ function joinFrom (r, t) {
   const sorted = t.regs.slice().sort((x, y) => x.a - y.a), i = sorted.indexOf(r)
   return i >= 0 && i < sorted.length - 1 && joinPair(t, r, sorted[i + 1])
 }
+/* ── regions made one (j; the join tool) ──
+   Pieces of one sound that lie end to end are one region again, and nothing is written. Anything else — different
+   sounds, a gap between them, a stretch two of them share — is consolidated: what the regions sound like from the first
+   one's beginning to the last one's end is written to a file of its own (the regions alone, as they lie: their gains,
+   their fades; nothing the track does to its sound afterwards), with silence where no region lies, and one region that
+   plays that file takes their place. With a marquee it is the marquee's stretch on each of its tracks, silence and all.
+   Regions of notes are made one region that holds what each of them sounded.
+   Whatever lies in the stretch goes into it — a region that reaches in from outside is cut at the edge, a muted one is
+   left out as the silence it is — so the song sounds as it did. It is one step: undo brings the regions back (the file
+   that was written stays in the song's folder). */
+let JOINING = false
+const laneSig = t => t.regs.map(r => [r.id, r.a, r.b, r.off || 0, r.gain || 0, r.mute ? 1 : 0, r.fi || 0, r.fo || 0, r.wkey || ''].join()).join('|')
+/* what lies in a stretch of a lane, the lane cut at both its ends (bars from zero) */
+function laneIn (L, a, b) { cutLaneAt(L, a); cutLaneAt(L, b); return L.regs.filter(r => after(r, a) && !after(r, b)).sort((x, y) => x.a - y.a) }
+/* pieces of one that lie end to end, made one again: what is left of them */
+function mendAll (L, rs) { for (let i = rs.length - 2; i >= 0; i--) joinPair(L, rs[i], rs[i + 1]); return rs.filter(r => L.regs.includes(r)) }
+const fillsSpan = (r, a, b) => Math.abs(r.a - 1 - a) < 1e-6 && Math.abs(r.b - 1 - b) < 1e-6
+/* regions of notes in a stretch made one region that is the stretch, holding what each of them sounded there */
+function joinNotesIn (t, rs, a, b) {
+  const first = rs[0], gone = new Set(rs.slice(1)), notes = [], ctl = []
+  for (const r of rs) { for (const x of bakedNotes(r, a)) notes.push(x); for (const c of bakedCtl(r, a)) ctl.push(c) }
+  notes.sort((x, y) => x.t - y.t)
+  for (const k of ['q', 'qs', 'sw', 'tr', 'vel', 'rep', 'chords']) delete first[k]
+  first.a = a + 1; first.b = b + 1; first.off = 0; first.fi = 0; first.fo = 0; first.ctl = ctl.length ? ctl : undefined
+  setNotes(first, notes)
+  t.regs = t.regs.filter(r => !gone.has(r))
+  return first
+}
+async function joinNow () {
+  if (JOINING) return false
+  const m = S.marq && S.marq.b - S.marq.a >= MIN_LEN ? S.marq : null, spans = []
+  if (m) { for (const t of marqTracks()) if (t.kind === 'audio' && !t.theirs) spans.push({ t, a: m.a, b: m.b, ids: null }) }
+  else {
+    const by = new Map()
+    for (const [r, t] of selRegs()) { if (t.kind !== 'audio' || t.theirs) continue; if (!by.has(t)) by.set(t, []); by.get(t).push(r) }
+    for (const [t, rs] of by) if (rs.length > 1) spans.push({ t, a: Math.min(...rs.map(r => r.a)) - 1, b: Math.max(...rs.map(r => r.b)) - 1, ids: new Set(rs.map(r => r.id)) })
+  }
+  if (!spans.length) return false
+  JOINING = true
+  try {
+    /* a region whose sound is a rendering (stretched, transposed, turned round) is joined as that rendering */
+    const sounding = spans.filter(s => !s.t.inst).flatMap(s => s.t.regs.filter(r => !r.notes && r.a - 1 < s.b && r.b - 1 > s.a))
+    if (NAT && sounding.some(r => warpSig(r) !== (r.wsig || '') || (r.wkey && !LIVEW.has(r.wkey)))) await rewarp(sounding)
+    /* what each stretch needs, found out on a copy of its lane: nothing, a mending, a joining of notes, or a file */
+    for (const s of spans) {
+      const t = s.t, lane = () => ({ regs: t.regs.map(r => cloneReg(r)) })
+      if (t.inst) { const rs = s.ids ? [] : laneIn(lane(), s.a, s.b).filter(r => !r.mute); s.how = s.ids ? 'chosen' : rs.length && !(rs.length === 1 && fillsSpan(rs[0], s.a, s.b) && t.regs.some(r => fillsSpan(r, s.a, s.b))) ? 'notes' : ''; continue }      // (a stretch that is one region of notes already is left alone)
+      if (s.ids) { const L = lane(), own = L.regs.filter((c, i) => s.ids.has(t.regs[i].id)).sort((x, y) => x.a - y.a); if (mendAll(L, own).length === 1) { s.how = 'chosen'; continue } }
+      const L = lane(), rs = laneIn(L, s.a, s.b).filter(r => !r.mute), left = mendAll(L, rs.slice()), now = t.regs.filter(r => r.a - 1 < s.b - 1e-9 && r.b - 1 > s.a + 1e-9)
+      if (!rs.length) s.how = ''
+      else if (left.length === 1 && fillsSpan(left[0], s.a, s.b)) s.how = now.length === 1 && fillsSpan(now[0], s.a, s.b) ? '' : 'mend'
+      else { s.how = 'file'; s.regs = left; s.sig = laneSig(t) }
+    }
+    const files = spans.filter(s => s.how === 'file')
+    if (files.length && !NAT) { say('joining different sounds into one is in the app'); for (const s of files) s.how = '' }
+    else if (files.length) {
+      if (S.playing) halt(false)
+      say('joining')
+      const res = await NAT.call('join', { project: projKey(), tracks: files.map(s => ({ id: s.t.id, name: `${s.t.name} joined`, a0: s.a, a1: s.b, regs: s.regs.map(window.__nat.regMsg) })) })
+      const placed = res && Array.isArray(res.placed) ? res.placed : []
+      files.forEach((s, i) => { const d = placed[i]; if (d && d.ok !== false && d.key && S.tracks.includes(s.t) && laneSig(s.t) === s.sig) s.got = d; else s.how = '' })      // (a lane that was changed while its file was being written is left as it is now)
+      if (!files.some(s => s.got)) { say(res && res.error ? String(res.error) : 'could not join'); if (!spans.some(s => s.how)) return false }
+    }
+    if (!spans.some(s => s.how)) return false
+    const ids = []
+    let any = false
+    edit(() => {
+      for (const s of spans) {
+        const t = s.t
+        if (s.how === 'chosen') {                                                         // the chosen regions themselves: notes into one list, pieces of one mended
+          const rs = t.regs.filter(r => s.ids.has(r.id)).sort((x, y) => x.a - y.a)
+          if (t.inst && joinNotes(t, rs)) any = true
+          else for (let i = rs.length - 2; i >= 0; i--) any = joinPair(t, rs[i], rs[i + 1]) || any
+          for (const r of rs) if (t.regs.includes(r)) ids.push(r.id)
+        } else if (s.how === 'mend') { for (const r of mendAll(t, laneIn(t, s.a, s.b).filter(r => !r.mute))) ids.push(r.id); any = true }
+        else if (s.how === 'notes') { const rs = laneIn(t, s.a, s.b), keep = rs.filter(r => !r.mute); t.regs = t.regs.filter(r => !rs.includes(r) || keep.includes(r)); ids.push(joinNotesIn(t, keep, s.a, s.b).id); any = true }
+        else if (s.how === 'file') {
+          const rs = laneIn(t, s.a, s.b), d = s.got, grp = rs.length && rs.every(r => r.grp && r.grp === rs[0].grp) ? rs[0].grp : null
+          t.regs = t.regs.filter(r => !rs.includes(r))
+          const n = mkReg(Object.assign({ a: s.a + 1, b: s.b + 1, key: d.key, file: d.file, peaksAll: d.peaks, loop: false, rate: 1, sec: d.sec, srcBars: d.sec / SPB(), name: String(d.name).toLowerCase() }, grp ? { grp } : {}))
+          t.regs.push(n); ids.push(n.id); any = true
+        }
+      }
+      if (!any) return false
+      S.selR = ids; S.selX = null; S.marq = null; S.focus = 'lanes'
+    })
+    if (any && files.some(s => s.got)) { say(`joined ${files.filter(s => s.got).length === 1 ? 'into one region' : 'into ' + files.filter(s => s.got).length + ' regions'}`); if (typeof refreshPool === 'function') refreshPool() }
+    uiDirty('lanes', 'dock')
+    return any
+  } finally { JOINING = false }
+}
 /* the tracks a marquee lies over: the rows that show between its two ends */
 function marqTracks () {
   const m = S.marq, vis = rows()
@@ -991,7 +1082,7 @@ const act = {
     if (ids.length) edit(() => { removeRegs(ids) }); else deleteTracks(ts)
   },
   splitAtPlayhead () { edit(() => { const p = curPos(); let any = false; if (S.marq) { any = cutByMarquee().length > 0 || cutByMarquee.changed; S.marq = null } else for (const [r, t] of selRegs()) any = !!splitReg(r, t, p) || any; return any }) },
-  join () { edit(() => { let any = false; for (const t of S.tracks) { const rs = t.regs.filter(r => S.selR.includes(r.id)).sort((x, y) => x.a - y.a); if (t.inst && joinNotes(t, rs)) { any = true; continue } for (let i = rs.length - 2; i >= 0; i--) any = joinPair(t, rs[i], rs[i + 1]) || any } return any }) },
+  join () { return joinNow() },
   /* command r: what is chosen is said again right after itself — the regions, or the stretch under the marquee (and the
      marquee goes over what was put down, so the next press follows that one). the clipboard stays what it was; if it holds
      this very stretch, it goes along, so a command v after it follows on too */
@@ -1378,8 +1469,22 @@ const songEnd = () => Math.min(SONG_END, Math.max(0, ...S.tracks.flatMap(t => t.
 /* the cycle moved on or back by its own length; made twice as long, or half */
 function moveCycle (dir) { const c = S.cycle, len = c.b - c.a; if (!(len >= MIN_LEN)) return; const a = clamp(c.a + dir * len, 0, Math.max(0, SONG_END - len)); setCycle(a, a + len) }
 function scaleCycle (k) { const c = S.cycle, len = (c.b - c.a) * k; if (c.b - c.a >= MIN_LEN && len >= MIN_LEN) setCycle(c.a, Math.min(SONG_END, c.a + len)) }
+/* The bar keys: a bar back or on, or eight. Pressed again soon after (or held), the next step is counted from where the
+   last one went, not from where the playhead has got to since — while the song plays the playhead has moved on by the
+   time the key comes again, and (in the app) is a moment behind being told. Back, while the song plays: to the start of
+   the bar that is playing, or, within the first moments of it, to the bar before (so that it can be gone back past). */
+const JUMP = { to: 0, at: -1e9 }
+function barStep (d) {
+  const now = performance.now(), soon = now - JUMP.at < 700 && (S.playing || Math.abs(curPos() - JUMP.to) < 1e-6), base = soon ? JUMP.to : curPos()      // (stopped, the playhead is where it is: what counts is whether it is still where the last step put it)
+  let to = base + d
+  if (d === 1) to = Math.floor(base + 1e-6) + 1
+  else if (d === -1) { to = Math.ceil(base - 1e-6) - 1; if (S.playing && !soon && (base - Math.floor(base)) * (240 / S.tempo) * S.meter[0] / S.meter[1] < .6) to = Math.floor(base) - 1 }
+  to = clamp(to, 0, SONG_END)
+  jumpTo(to); uiDirty('scenes')
+  JUMP.to = to; JUMP.at = now                                                           // (after the jump: any other sending of the playhead forgets it)
+}
 /* the window brought to the playhead, or to what is chosen */
-function showPlayhead () { const p = curPos(), span = (X1 - X0) / PXB; if (p < VX || p > VX + span) { VX = clamp(p - span / 4, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') } }
+function showPlayhead () { S.away = false; const p = curPos(), span = (X1 - X0) / PXB; if (p < VX || p > VX + span) { VX = clamp(p - span / 4, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes') } }
 function showChosen () {
   const sp = selSpan(), span = (X1 - X0) / PXB, first = selRegs()[0]
   if (!sp) return
@@ -1446,6 +1551,7 @@ function lanesPress (e, p) {
     S.marq = null; S.selR = withTheirs(ids)
     r = hitRegion(ti, pos); before = editState()
   }
+  if (tool === 'join' && S.marq && S.marq.b - S.marq.a >= MIN_LEN && pos >= S.marq.a - 1e-9 && pos <= S.marq.b + 1e-9 && marqTracks().includes(t)) { joinNow(); return }      // (the join tool pressed inside a marquee: its stretch is made one)
   if (tool !== 'marquee' && tool !== 'smart' && S.marq) S.marq = null
   S.selX = null
   if (S.flex && r && !r.loop && !r.notes && (tool === 'flex' || tool === 'pointer' || tool === 'smart') && flexDown(e, p, r, t, tool, before)) { uiDirty('lanes', 'head', 'dock'); return }
@@ -1481,7 +1587,15 @@ function lanesPress (e, p) {
     const at = r ? snapPos(pos, e, new Set([r.id])) : 0
     if (r && [t].concat(groupMates(t)).map(tr => tr.regs.slice().map(x => splitReg(x, tr, at)).some(Boolean)).some(Boolean)) commit(before)
   }
-  else if (tool === 'join') { if (r && [[r, t]].concat(companions(r, t)).map(([x, tr]) => joinFrom(x, tr)).some(Boolean)) commit(before) }      // (on a track of an edit group: mended on the group's other tracks too, as the scissors cut them)
+  else if (tool === 'join') {
+    /* the join tool: pressed on one of several chosen regions, they are made one; else the region and the one that follows
+       it on its lane are — mended if they are pieces of one (on a track of an edit group: on the group's other tracks
+       too, as the scissors cut them), joined if they are not */
+    if (!r) { /* nothing under the hand */ }
+    else if (S.selR.includes(r.id) && selRegs().filter(x => x[1] === t).length > 1) joinNow()
+    else if ([[r, t]].concat(companions(r, t)).map(([x, tr]) => joinFrom(x, tr)).some(Boolean)) commit(before)
+    else { const sorted = t.regs.slice().sort((x, y) => x.a - y.a), nx = sorted[sorted.indexOf(r) + 1]; if (nx) { S.selR = withTheirs([r.id, nx.id]); S.selX = null; S.focus = 'lanes'; joinNow() } }
+  }
   else if (tool === 'mute') { const ids = pick(); if (ids.length) { const to = !r.mute; for (const id of ids) regOf(id)[0].mute = to; commit(before) } }
   else if (tool === 'gain') { if (r) { if (e.altKey) { r.gain = 0; dirtyReg(r); commit(before) } else { S.selR = pick(); drag = { a: 'gain', y0: p.y, before, orig: new Map(S.selR.map(id => [id, regOf(id)[0].gain || 0])) } } } }
   else if (tool === 'fade') {
@@ -1708,7 +1822,7 @@ const KEYS = {
   '⌃⇧KeyZ': () => { const c = S.cycle; if (c.b - c.a >= MIN_LEN) setZoom((X1 - X0) / ((c.b - c.a) * 1.1), (c.a + c.b) / 2) },
   KeyZ: () => { if (PXB > fitPXB() + .01) setZoom(0); else { const rs = selRegs(); if (rs.length) { const a = Math.min(...rs.map(x => x[0].a)) - 1, b = Math.max(...rs.map(x => x[0].b)) - 1; setZoom((X1 - X0) / Math.max(1, (b - a) * 1.2), (a + b) / 2) } } },
   '⌘KeyZ': undoEdit, '⇧⌘KeyZ': redoEdit,
-  '⌘KeyA': act.selectAll, '⌘KeyC': act.copy, '⌘KeyX': act.cut, '⌘KeyV': act.paste, '⌘KeyR': act.repeat, '⌘KeyT': act.splitAtPlayhead, '⌘KeyJ': act.join,
+  '⌘KeyA': act.selectAll, '⌘KeyC': act.copy, '⌘KeyX': act.cut, '⌘KeyV': act.paste, '⌘KeyR': act.repeat, '⌘KeyT': act.splitAtPlayhead, '⌘KeyJ': act.join, KeyJ: act.join,
   Backspace: act.del, Delete: act.del,
   ArrowLeft: () => S.marq ? act.marqStop(-1) : act.step(-1), ArrowRight: () => S.marq ? act.marqStop(1) : act.step(1),
   '⇧ArrowLeft': () => S.marq ? act.marqStop(-1, true) : act.more(-1), '⇧ArrowRight': () => S.marq ? act.marqStop(1, true) : act.more(1),
@@ -1721,8 +1835,7 @@ const KEYS = {
   '⌥⇧KeyQ': () => setNudge('tick'), '⌥⇧KeyT': () => setNudge('10 ticks'), '⌥⇧KeyS': () => setNudge('1/16'), '⌥⇧KeyB': () => setNudge('beat'), '⌥⇧KeyM': () => setNudge('bar'),
   '⌃⌥KeyS': () => setNudge('sample'), '⌃⌥Digit1': () => setNudge('1 ms'), '⌃⌥Digit0': () => setNudge('10 ms'),
   '⌃⇧ArrowUp': () => act.gain(1), '⌃⇧ArrowDown': () => act.gain(-1), '⌃⌥⇧ArrowUp': () => act.gain(.1), '⌃⌥⇧ArrowDown': () => act.gain(-.1),
-  Comma: () => { jumpTo(Math.max(0, Math.ceil(curPos() - 1e-6) - 1)); uiDirty('scenes') }, Period: () => { jumpTo(Math.min(SONG_END, Math.floor(curPos() + 1e-6) + 1)); uiDirty('scenes') },
-  '⇧Comma': () => { jumpTo(Math.max(0, curPos() - 8)); uiDirty('scenes') }, '⇧Period': () => { jumpTo(Math.min(SONG_END, curPos() + 8)); uiDirty('scenes') },
+  Comma: () => barStep(-1), Period: () => barStep(1), '⇧Comma': () => barStep(-8), '⇧Period': () => barStep(8),
   '⌃⇧Comma': () => { jumpTo(S.cycle.a); uiDirty('scenes') }, '⌃⇧Period': () => { jumpTo(S.cycle.b); uiDirty('scenes') },
   '⇧⌘Period': () => moveCycle(1), '⇧⌘Comma': () => moveCycle(-1), '⌥⇧⌘Period': () => scaleCycle(2), '⌥⇧⌘Comma': () => scaleCycle(.5),
   '⌥Period': () => stepMarker(1), '⌥Comma': () => stepMarker(-1), '⌃⌥KeyC': () => cycleMarker(),
@@ -1732,7 +1845,7 @@ const KEYS = {
   '⇧Enter': () => { if (S.focus === 'marker' && markerNow()) startRename('scene', markerNow().i); else if (S.focus !== 'tracks' && S.selR.length) startRename('region'); else startRename('track', S.sel) },
   '⇧⌘KeyD': () => makeStack(), '⇧⌘KeyU': () => { const t = S.tracks[S.sel], st = t.kind === 'stack' ? t : byId(t.parent); if (st) deleteTrack(S.tracks.indexOf(st)) },
   '⌃⌘ArrowRight': () => foldStack(true), '⌃⌘ArrowLeft': () => foldStack(false),
-  '⇧⌘KeyI': () => importAudio(), '⌘KeyI': () => importAudio(), '⌘KeyS': () => { if (NAT) saveNow(true).then(ok => say(ok ? 'saved' : 'could not save')) }, '⇧⌘KeyS': () => saveAsAsk(), '⌘KeyN': () => newProject(), '⌘KeyO': () => openProjectAsk(),
+  '⇧⌘KeyI': () => importAudio(), '⌘KeyI': () => importAudio(), '⌘KeyS': () => { if (!NAT) return; if (PROJ.fresh && typeof saveFirst === 'function') saveFirst(); else saveNow(true).then(ok => say(ok ? 'saved' : 'could not save')) },      // (a song never given a name: the first save asks for one) '⇧⌘KeyS': () => saveAsAsk(), '⌘KeyN': () => newProject(), '⌘KeyO': () => openProjectAsk(),
   '⌘KeyB': () => { S.ho.open = !S.ho.open; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand') }, '⌘KeyE': () => { S.ho.what = 'stems'; S.ho.open = true; S.ho.note = ''; S.ho.done = 0; uiDirty('top', 'hand') },
   '⌃KeyB': () => bounceInPlace(), '⌘Comma': () => { if (NAT) NAT.call('audioSettings') },
   '⌥Quote': () => addScene(Math.round(curPos()) + 1), '⌥Backspace': () => { const sc = sceneAt(curPos()); if (sc.i >= 0) removeScene(sc.i) },

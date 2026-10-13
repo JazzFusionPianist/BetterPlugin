@@ -41,6 +41,8 @@ artifacts/games-audit/
 # Slur DAW alpha build artifacts
 Daw/build/
 Daw/build.noindex/
+Daw/vendor/JUCE/
+Daw/vendor/JUCE.new/
 Daw/build-configure.log
 Daw/build.log
 Daw/test/out/

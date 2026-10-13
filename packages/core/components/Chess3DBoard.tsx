@@ -373,8 +373,12 @@ export default function Chess3DBoard(props: Chess3DBoardProps) {
     controls.addEventListener('change', request)
     const room = createChessRoom(scene, renderer, materials, textures, request, () => disposed)
     Promise.all([room.ready, modelsReady]).then(() => {
-      if (!disposed) configureChessShadows(renderer, materials)
-      if (!disposed) { roomReady = true; el.dataset.roomReady = 'true'; el.dataset.pieceSource = prototypes.get('wP')?.userData.aimY ? 'poly-haven' : 'fallback'; sync(); request() }
+      if (disposed) return
+      // Final shadow shader first: the reflection capture and the first frame then
+      // share one compile instead of compiling every room material twice.
+      configureChessShadows(renderer, materials)
+      room.captureReflection()
+      roomReady = true; el.dataset.roomReady = 'true'; el.dataset.pieceSource = prototypes.get('wP')?.userData.aimY ? 'poly-haven' : 'fallback'; sync(); request()
     }).catch(() => { if (!disposed) setFailed(true) })
     let lastWidth = 0, lastHeight = 0
     const resize = () => {

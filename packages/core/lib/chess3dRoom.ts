@@ -433,9 +433,9 @@ export function createChessRoom(scene: THREE.Scene, renderer: THREE.WebGLRendere
     changed()
     return lampOn
   }
-  const ready = Promise.all(pending).then(() => {
-    readyForReflection = true
-    updateReflection()
-  })
-  return { ready, setOpponentLabel, setOpponentLabelScale, setTurn, animateCandles, toggleLamp, readerLampTargets, readerLampPoint, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => { reflection?.dispose(); readerGlow?.shadow.dispose() } }
+  // Assets only. The board configures shadows and compiles shaders first, then calls
+  // captureReflection(): capturing earlier compiled every room shader twice.
+  const ready = Promise.all(pending)
+  const captureReflection = () => { readyForReflection = true; updateReflection() }
+  return { ready, captureReflection, setOpponentLabel, setOpponentLabelScale, setTurn, animateCandles, toggleLamp, readerLampTargets, readerLampPoint, tableLampTargets, tableLampPoint, lampTargets, lampPoint, dispose: () => { reflection?.dispose(); readerGlow?.shadow.dispose() } }
 }

@@ -717,6 +717,30 @@ private:
             done (getPeer() != nullptr ? juce::JSON::parse (juce::String (juce::CharPointer_UTF8 (slurWindowReport (getPeer()->getNativeHandle(), png.getFullPathName().toRawUTF8()).c_str()))) : juce::var());
             return;
         }
+        if (op == "testGate")                                                  // the check: where a printed file first sounds, and where another first sounds from a given frame on (a line that opens a track, against the same print with no line)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            juce::AudioFormatManager fm; fm.registerBasicFormats();
+            const float thr = d.hasProperty ("thr") ? (float) (double) d["thr"] : 0.003f;
+            double rate = 0.0;
+            auto first = [&fm, thr, &rate] (const juce::String& path, juce::int64 from) -> juce::int64
+            {
+                if (std::unique_ptr<juce::AudioFormatReader> r { fm.createReaderFor (juce::File (path)) })
+                {
+                    rate = r->sampleRate;
+                    const int n = (int) juce::jmin ((juce::int64) 1440000, r->lengthInSamples);
+                    juce::AudioBuffer<float> b ((int) r->numChannels, n);
+                    r->read (&b, 0, n, 0, true, true);
+                    for (int i = (int) juce::jlimit ((juce::int64) 0, (juce::int64) n, from); i < n; ++i) for (int c = 0; c < b.getNumChannels(); ++c) if (std::abs (b.getSample (c, i)) > thr) return i;
+                }
+                return -1;
+            };
+            o->setProperty ("ref", (double) first (d["a"].toString(), (juce::int64) (double) d["from"]));
+            o->setProperty ("got", (double) first (d["b"].toString(), 0));
+            o->setProperty ("rate", rate);
+            done (juce::var (o)); return;
+        }
         if (op == "testLag")                                                   // the check: by how many samples the second file's sound comes later than the first's (one sound printed after going two ways)
         {
             auto* o = new juce::DynamicObject();

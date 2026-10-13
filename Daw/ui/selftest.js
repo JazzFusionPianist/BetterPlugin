@@ -1566,6 +1566,48 @@ async function runSelfTest (mode) {
     res.after = { buses: S.tracks.filter(x => x.name === 'way a' || x.name === 'way b').length, out: t.out, sends: t.sends.length }
     return res
   })
+  /* a line opens a track at a bar, and what stands after the track is late: the track plays into a bus that holds plug-ins
+     which hand the sound over late, so the track's sound is read early by as much — and its line must be read as early.
+     The bus is printed twice, once with no line and once with the track shut until a bar in and open from there: the
+     second must begin to sound where the first sounds from that bar on, not later by the bus's lateness. The same with
+     the track opened by its send's line into a second bus. */
+  await step('autoOnTime', async () => {
+    const t = S.tracks.find(sounding), n0 = UNDO.length
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), back = allHeard(), res = { track: t.name, tried: [] }, autos0 = copy(t.autos || {})
+    const A = newTrack('bus', 'late way', true)
+    setOut(t, A.id); await natSession()
+    let late = 0
+    for (const id of ['AudioUnit:Effects/aufx,lmtr,appl', 'AudioUnit:Effects/aufx,mcmp,appl', 'AudioUnit:Effects/aufx,dcmp,appl', 'AudioUnit:Effects/aufx,lmtr,appl']) {
+      const r = await natInsert(S.tracks.indexOf(A), id)
+      res.tried.push([id.slice(-14), r && r.ok ? r.latency : String(r && r.error)])
+      if (r && r.ok && r.latency > 0) late += r.latency
+      else if (r && r.ok) { await NAT.call('remove', { track: A.id, uid: r.uid }); A.inserts = A.inserts.filter(x => x.uid !== r.uid) }
+    }
+    res.late = late
+    if (late > 0) {
+      wallOf(A); wallPush(A); await sleep(400)
+      res.ahead = ((await NAT.call('wallFacts', { track: t.id })) || {}).ahead
+      const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: A.id, name }], folder: 'auto on time', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+      const ref = await print('no line')
+      const E = 1 / 512
+      t.autos = Object.assign({}, autos0, { vol: [{ id: ++PID, b: 0, v: -48 }, { id: ++PID, b: a0 + 1 - E, v: -48 }, { id: ++PID, b: a0 + 1, v: t.vol }] })
+      await natSession(); await sleep(150)
+      const shut = await print('opened by its line')
+      res.printed = !!(ref && shut)
+      if (res.printed) {
+        const probe = await NAT.call('testGate', { a: ref, b: shut, from: 0 }), bar = Math.round(SPB() * probe.rate)
+        const g = await NAT.call('testGate', { a: ref, b: shut, from: bar })
+        res.bar = bar; res.ref = g.ref; res.got = g.got; res.off = g.got - g.ref; res.offMs = +((g.got - g.ref) / g.rate * 1000).toFixed(2)
+        res.onTime = g.got >= 0 && g.ref >= 0 && res.off <= 96 && res.off >= -Math.round(bar / 512) - 256      // (never later than the bar; earlier by no more than the step itself, a 512th of a bar, is long — read at the playhead it came 438 late behind 704 of lateness)
+      }
+      t.autos = autos0
+    } else res.skipped = 'no plug-in here reports a delay'
+    while (UNDO.length > n0) undoEdit()
+    t.autos = autos0
+    back(); await natSession(); await sleep(200)
+    return res
+  })
   /* a patch as a wall (wall.js), played by the engine: a wire from in to out with a print on it; a mix that halves; two
      ways side by side that add up to the sound again; a print that changes the sound; a plug-in on the wall, as late as it
      says and made up for; and a plug-in on one of two ways, where the other way must be held back by as much inside the

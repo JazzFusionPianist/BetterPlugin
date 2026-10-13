@@ -333,16 +333,23 @@ const triMark = (x, y, open, a = .6) => P(open ? `M${x - 3} ${y - 1.5}H${x + 3}L
    on ground a step darker than the rest. (Draft: design/stack nesting draft 1, a.) */
 const HEAD_IN = 58                                            // where the name of a track in a stack begins (a track by itself: 42)
 function headRow (i) {
-  const t = S.tracks[i], rh = rowH(i), y = rowY(i), sel = isChosen(i), stack = t.kind === 'stack', par = t.parent ? byId(t.parent) : null, x0 = par ? HEAD_IN : 42, by = y + rh / 2 + 3.9
-  const nx = S.tracks[i + 1], on = par ? !!nx && nx.parent === t.parent : stack && t.open && !!nx && nx.parent === t.id      // the line goes on into the next row
+  const t = S.tracks[i], rh = rowH(i), y = rowY(i), sel = isChosen(i), stack = t.kind === 'stack', par = t.parent ? byId(t.parent) : null, by = y + rh / 2 + 3.9
+  const ups = []                                                                          // the stacks it stands in, the outermost first
+  for (let x = par, k = 0; x && k < 16; x = x.parent ? byId(x.parent) : null, k++) ups.unshift(x)
+  const deep = ups.length, x0 = 42 + deep * (HEAD_IN - 42)                                // a step in for each stack it stands in
+  const nx = S.tracks[i + 1], on = par ? !!nx && (nx === ups[0] ? false : insideOf(nx, ups[0])) : stack && t.open && !!nx && nx.parent === t.id      // the line goes on into the next row
   let s = ''
   if (par) s += R(3, y, HEAD_W - 3, rh, { fill: K0, fa: .55 })
   if (t.kind === 'bus') s += R(3, y, HEAD_W - 3, rh - 1, { fill: t.c, fa: busWash(t) })
   if (sel) s += R(0, y, HEAD_W, rh, { fill: INK, fa: .075 })
-  if (par) s += R(0, y, 3, on ? rh : rh - 1, { fill: par.c, fa: par.mute ? .4 : 1 }) + R(44, y + 5, 3, Math.max(4, rh - 10), { fill: t.c, fa: t.mute ? .4 : 1 })
+  if (par) {
+    s += R(0, y, 3, on ? rh : rh - 1, { fill: ups[0].c, fa: ups[0].mute ? .4 : 1 })                                      // the outermost stack's colour down the edge,
+    for (let k = 1; k < deep; k++) { const more = !!nx && insideOf(nx, ups[k]); s += R(44 + (k - 1) * (HEAD_IN - 42), y, 3, more ? rh : rh - 1, { fill: ups[k].c, fa: ups[k].mute ? .4 : 1 }) }      // each stack inside it down its own line,
+    s += R(44 + (deep - 1) * (HEAD_IN - 42), y + 5, 3, Math.max(4, rh - 10), { fill: t.c, fa: t.mute ? .4 : 1 })      // and its own mark
+  }
   else s += R(0, y, 3, on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
   s += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
-  if (stack) s += triMark(34, by - 4, t.open, .62)
+  if (stack) s += triMark(deep ? x0 - 7 : 34, by - 4, t.open, .62)
   const its = cellsOf(t), cw = 15, cx = 214 - its.length * cw
   const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? tw(grp, 9, 500) + 7 : 0                 // the edit group it is in: a letter after its name
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
@@ -351,7 +358,7 @@ function headRow (i) {
   s += T(x0, by, nm, { size: 10.5, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
   if (tag) s += T(x0 + tw(nm, 10.5, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
   if (grp) s += T(x0 + tw(nm, 10.5, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })
-  s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
+  s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
   s += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
   if (S.auto) {
@@ -554,7 +561,7 @@ function midiPath (r, ly, lh, v0, v1) {
 }
 /* a stack's own lane: a block wherever any of its tracks sounds, a line inside for each of them */
 function stackOverview (st, ly, lh, xEnd) {
-  const kids = S.tracks.filter(c => c.parent === st.id), spans = []
+  const kids = S.tracks.filter(c => c.kind !== 'stack' && insideOf(c, st)), spans = []      // (every track in it, those of the stacks inside it too)
   for (const r of kids.flatMap(c => c.regs).map(r => [r.a, r.b]).sort((p, q) => p[0] - q[0])) { const last = spans[spans.length - 1]; if (last && r[0] <= last[1] + .01) last[1] = Math.max(last[1], r[1]); else spans.push(r) }
   let s = ''
   for (const r of spans) { const xa = bx(r[0]), xb = Math.min(bx(r[1]), xEnd); if (xb > X0 - 2 && xa < X1 + 2 && xb - xa > 1.5) s += R(xa + .5, ly, xb - xa - 1, lh, { fill: K3, fa: .7 }) }
@@ -919,9 +926,9 @@ async function handOffRest (dir) {
   const b64 = str => { const u8 = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s) }
   let patches = 0
   for (const t of S.tracks) {
-    const p = patchNow(t)
-    if (!(p.tape + p.space + p.delay > 0)) continue
-    const r = await NAT.call('patchPreset', { tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100 })
+    const p = patchNow(t), own = typeof wallPreset === 'function' ? wallPreset(t) : null      // (wall.js: the wall as it is wired, whatever stands on it)
+    if (!own && !(p.tape + p.space + p.delay > 0)) continue
+    const r = own ? { json: own } : await NAT.call('patchPreset', { tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100 })
     if (r && r.json && ((await NAT.call('fileWrite', { dir, name: `${pad2(S.tracks.indexOf(t) + 1)} ${t.name} patch.orbpatch`, data: b64(r.json) })) || {}).ok) patches++
   }
   await saveNow(true)
@@ -998,6 +1005,7 @@ function pHand () {
   s += hline(x + 1, x + w - 1, fy - 14, .08)
   const note = busy ? `rendering ${Math.min(ho.done + 1, ho.total)} of ${ho.total}` : ho.note
   if (note) s += T(L, fy + 6, note, { size: 9.5, a: .6 })
+  if (!busy && note === 'saved as' && ho.at) s += T(L + tw(note, 9.5) + 5, fy + 6, fit(asGiven(ho.at), Math.max(40, w - 36 - tw(note, 9.5) - 5 - 62), 9.5), { size: 9.5, a: .88 })      // (the name it was given in the panel)
   const so = { armed: !busy, dim: busy, h: 20, size: 10, a: busy ? null : 'ho-send' }
   return s + key(Rr - keyW('send', so), fy - 8, 'send', so)[0]
 }
@@ -1015,7 +1023,7 @@ const SHEET = [
    ['the notes page', [['quantize what is chosen', 'q'], ['as it was played', '⌥⌘q'], ['force legato', 'l'], ['cut a note', 't, i'], ['its lane', 'a'], ['its own zoom', '⌘←→↑↓']]],
    ['the hand', [['back to where it starts', '⌥ click'], ['finely', '⇧ drag']]]],
   [['tools', [['tool menu, then a letter', 't'], ['the other tool, while held', '⌘'], ['shuffle, slip, spot, grid', 'f1 f2 f3 f4'], ['slip, and back', '⌘g'], ['a finer grid, in a drag', '⌃'], ['no grid', '⌃⇧']]],
-   ['regions', [['split at the playhead', '⌘t'], ['at the cycle’s ends', '⌥⌘t'], ['join', '⌘j'], ['mute', 'n'], ['repeat', '⌘r'], ['fill to the next', 'l'], ['to the playhead', ';'], ['and choose the next', '⇧;'], ['begin, end at the playhead', '[ ]'], ['against the last, the next', '⌥[ ⌥]'], ['gain', '⌃⇧↑↓'], ['transpose', '⌥↑↓'], ['an octave', '⌥⇧↑↓'], ['reverse', '⌃⇧r'], ['follow the tempo', '⌃f'], ['fit to the tempo', '⌃⌥f'], ['tempo from the file', '⌃⌥t'], ['strip silence', '⌃x'], ['group, ungroup', '⌥⌘g ⌥⌘u'], ['bounce in place', '⌃b'], ['rename', '⇧↩']]]],
+   ['regions', [['split at the playhead', '⌘t'], ['at the cycle’s ends', '⌥⌘t'], ['join', 'j'], ['mute', 'n'], ['repeat', '⌘r'], ['fill to the next', 'l'], ['to the playhead', ';'], ['and choose the next', '⇧;'], ['begin, end at the playhead', '[ ]'], ['against the last, the next', '⌥[ ⌥]'], ['gain', '⌃⇧↑↓'], ['transpose', '⌥↑↓'], ['an octave', '⌥⇧↑↓'], ['reverse', '⌃⇧r'], ['follow the tempo', '⌃f'], ['fit to the tempo', '⌃⌥f'], ['tempo from the file', '⌃⌥t'], ['strip silence', '⌃x'], ['group, ungroup', '⌥⌘g ⌥⌘u'], ['bounce in place', '⌃b'], ['rename', '⇧↩']]]],
   [['choosing', [['all', '⌘a'], ['none', '⇧d'], ['the others', '⇧i'], ['all that follow', '⇧f'], ['on the same track', '⌃⇧f'], ['inside the cycle', '⇧l'], ['the muted ones', '⇧m'], ['the last, the next', '← →'], ['one more', '⇧← ⇧→'], ['the first, the last', '⇧home ⇧end']]],
    ['nudge', [['earlier, later', '⌥← ⌥→'], ['shorter, longer', '⌥⇧← ⌥⇧→'], ['by a bar', '⌥⇧m'], ['by a beat', '⌥⇧b'], ['by a sixteenth', '⌥⇧s'], ['by ten ticks', '⌥⇧t'], ['by a tick', '⌥⇧q'], ['by 10 ms', '⌃⌥0'], ['by 1 ms', '⌃⌥1'], ['by a sample', '⌃⌥s']]],
    ['fades', [['for what is chosen', 'f'], ['in, up to the playhead', 'd'], ['out, from the playhead', 'g']]]],
@@ -1475,6 +1483,7 @@ function findTrack (s) {
 const PRINT_WORDS = { tape: 'tape', '테이프': 'tape', space: 'space', reverb: 'space', '스페이스': 'space', '리버브': 'space', delay: 'delay', echo: 'delay', '딜레이': 'delay', '에코': 'delay', mix: 'mix', '믹스': 'mix' }
 /* the plain cases are read here, at once; then the longer reading (say.js); anything else goes to Claude. null = not understood */
 function parseLocal (raw) {
+  if (typeof chordLine === 'function') { const c = chordLine(raw); if (c) return c }      // a line of chord names, read with its capitals (chords.js): CM7 is not Cm7
   const s = raw.toLowerCase().replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim()
   if (!s) return []
   if (/^(play|start|재생|플레이)$/.test(s)) return [{ do: 'play' }]
@@ -1710,7 +1719,15 @@ function frame () {
   }
   const p = curPos(), rd = $('rd'), rt = $('rt'), txt = readout(p), si = sceneAt(p).i, room = (X1 - X0) / PXB, play = $('ph')
   let x = bx(p + 1)
-  if (S.playing && !drag && (x > X1 - 1 || x < X0 - 1)) { VX = clamp(x < X0 - 1 ? p - room / 2 : p, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes'); x = bx(p + 1) }   // the page turns with the playhead
+  /* The page turns with the playhead — until the window is taken somewhere else while the song plays (scrolled, or made
+     nearer, so that the playhead is no longer in it): then it stays where it was put, and the song plays on out of sight.
+     It goes with the playhead again when the song is next started, when the playhead is sent somewhere (a bar key, a
+     press on the bars), and when it is asked for (`: find the playhead). */
+  const off = x > X1 - 1 || x < X0 - 1
+  if (!S.playing) S.away = false
+  else if (off && frame.vx != null && (VX !== frame.vx || PXB !== frame.pxb) && !drag) S.away = true   // (the window was moved off it by hand)
+  if (S.playing && !drag && off && !S.away) { VX = clamp(x < X0 - 1 ? p - room / 2 : p, 0, maxVX()); uiDirty('lanes', 'ruler', 'scenes'); x = bx(p + 1) }
+  frame.vx = VX; frame.pxb = PXB
   if (play) play.setAttribute('transform', `translate(${Math.round(x)} 0)`)
   if (rd && rd.textContent !== txt) { rd.textContent = txt; rd.setAttribute('x', n(DISP_X + 39 - tw(txt, 12.5, 500) / 2)) }
   if (rt) { const ct = clock(p); if (rt.textContent !== ct) { rt.textContent = ct; rt.setAttribute('x', n(DISP_X + 78 + 33 - tw(ct, 11.5) / 2)) } }

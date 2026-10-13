@@ -61,7 +61,11 @@ enum Type { kTone = 0, kTape, kSpace, kStereoize, kGlue, kGain, kMod,
             kDrift = 47,            // a control print: a random that wanders smoothly (the LFO's random, but between the steps a curve)
             kPulse = 48,            // a control print: a gate that fires on a euclidean pattern, one step per clock
             kScene = 49,            // a control print: two snapshots of the wall's hands (A, B) and a knob that slides between them
-            kSieve = 50 };          // keeps only the loudest partials: the knob says how few (all → one)
+            kSieve = 50,            // keeps only the loudest partials: the knob says how few (all → one)
+            // not a print: something the host keeps and plays itself (a DAW's plug-in standing on a wall). The engine gives it a
+            // place in the graph like a print's — wires in and out, its lateness lined up beside the other ways — and calls the
+            // host for its sound (Chain::setOutside). It has no state here: its slot needs no memory.
+            kOutside = 51 };
 constexpr int kAuxCount = 8;
 constexpr int kSceneHands = 14, kSceneStride = 15;   // a scene snapshot: 14 hands per print, led by the print's id
 constexpr int kSpecBands = 40, kSpecN = kSpecBands * 3;   // a spectral print's meter: the sound, the key and the gain, in dB, over 40 bands 30 Hz..16 kHz
@@ -69,7 +73,7 @@ constexpr int kSpecBands = 40, kSpecN = kSpecBands * 3;   // a spectral print's 
 constexpr int kMixType = kMixSlot;
 constexpr int kCurveLen = 32;       // a drawn tremolo cycle
 inline bool isSpectral (int t) noexcept { return t == kCarve || t == kMatch || t == kVocode || t == kFreeze || t == kShift || t == kSmear || t == kSieve; }
-inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold; }
+inline bool isEffect (int t) noexcept { return (t >= 0 && t < kNumFx && t != kMixSlot) || t == kComp || isSpectral (t) || t == kPan || t == kRepeat || t == kFold || t == kOutside; }
 constexpr int kFft = 2048, kHop = kFft / 4, kBins = kFft / 2 + 1;   // the spectral prints' frame: 2048 samples, a quarter apart, so their latency is one frame
 inline bool isSplitter (int t) noexcept { return t == kSplitLR || t == kSplitMS || t == kSplitBands; }
 constexpr int kMaxCross = 5;   // crossovers a bands print can have (so six bands)
@@ -404,6 +408,16 @@ public:
      *  never publish a Program that names a slot beyond them. */
     void prepare (double sampleRate, int blockSize, int slots = kMaxNodes);
 
+    /** One more slot given its memory, the others left as they are (and as they sound). For a host whose patch grows by
+     *  a print at a time: call it for a slot before publishing a Program that names it. Message thread; a slot that
+     *  already has its memory is left alone. */
+    void prepareSlot (int slot);
+
+    /** A node of type kOutside is played by the host: `fn` is called on the audio thread, in the node's place in the
+     *  graph, with the node's slot and its sound to be worked in place. Set before the first Program is published. */
+    using OutsideFn = void (*) (void* ctx, int slot, float* L, float* R, int n);
+    void setOutside (OutsideFn fn, void* ctx) noexcept { outsideFn = fn; outsideCtx = ctx; }
+
     /** Message thread: hand the audio thread a new Program (adopted at
      *  the next block boundary; never blocks audio). */
     void publish (const Program& p);
@@ -449,6 +463,8 @@ private:
     float* chan (int buf, int ch, int n);
 
     std::array<NodeState, kMaxNodes> nodes;
+    bool slotReady[kMaxNodes] {};                  // which slots have their memory (message thread)
+    OutsideFn outsideFn = nullptr; void* outsideCtx = nullptr;
     std::array<std::atomic<float>, kMaxNodes> peaks {};
     std::array<std::atomic<float>, kMaxNodes> follows {};
     std::array<std::atomic<float>, kMaxNodes> compIn {}, compGr {};

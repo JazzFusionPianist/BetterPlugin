@@ -40,7 +40,7 @@ function startRename (what, i, at) {
   if (what === 'track') {
     if (!t) return
     showRow(i); flush()
-    const y = rowY(i), x0 = t.parent ? HEAD_IN : 42, cx = 214 - cellsOf(t).length * 15
+    const y = rowY(i), x0 = 42 + depthOf(t) * (HEAD_IN - 42), cx = 214 - cellsOf(t).length * 15
     put(x0 - 5, y + rh / 2 - 9, cx - x0 - 1, 18, '500 10.5px', t.name)
   } else if (what === 'scene') {
     const sc = SCENES[i]
@@ -171,8 +171,9 @@ const KEEP_T = ['id', 'name', 'col', 'shape', 'tone', 'theirs', 'kind', 'vol', '
 const KEEP_R = ['id', 'a', 'b', 'off', 'gain', 'mute', 'fi', 'fo', 'loop', 'rate', 'sec', 'srcBars', 'tag', 'name', 'file', 'tr', 'flex', 'rev', 'fx', 'col', 'shape', 'fic', 'foc', 'grp', 'bpm', 'xo', 'sm', 'px', 'py', 'notes', 'ctl', 'q', 'qs', 'sw', 'vel', 'rep', 'chords']
 function serialize () {
   return JSON.stringify({
-    v: 3, name: PROJ.name, demo: PROJ.demo, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
+    v: 3, name: PROJ.name, demo: PROJ.demo, fresh: PROJ.fresh ? true : undefined, tempo: S.tempo, meter: S.meter, key: S.key, end: SONG_END, scenes: SCENES.map(s => [s.name, s.a]), master: S.master, click: S.click, countIn: S.countIn,
     cycle: S.cycle, sel: S.sel, view: { pxb: PXB, vx: VX, vy: VY, rh: S.rh, wz: S.wz || 1, panel: { on: S.panel.on, tab: S.panel.tab, h: S.panel.h }, slur: S.slur }, snap: S.snap, mode: S.mode, nudge: S.nudge, grid: S.grid, q: S.q,
+    out: typeof wallOutSaved === 'function' ? wallOutSaved() : undefined,              // (wall.js: what stands on the stereo out's wall)
     tracks: S.tracks.map(t => {
       const o = {}
       for (const k of KEEP_T) if (t[k] !== undefined) o[k] = t[k]
@@ -180,6 +181,7 @@ function serialize () {
       const kept = list => list.filter(r => r.loop || r.file || r.notes).map(r => { const q = {}; for (const k of KEEP_R) if (r[k] !== undefined && r[k] !== null) q[k] = r[k]; if (r.loop) q.buf = r.buf; return q })
       o.regs = kept(t.regs)
       if ((t.alts || []).length) o.alts = t.alts.map(a => ({ name: a.name, regs: kept(a.regs) }))
+      if (t.wall && typeof wallSaved === 'function') o.wall = wallSaved(t)                 // (wall.js: how its patch is wired)
       o.inserts = (t.inserts || []).filter(i => i.id).map(i => Object.assign({ id: i.id, name: i.name, fmt: i.fmt, state: i.state || '' }, i.off ? { off: true } : {}, i.out ? { out: true } : {}, i.key ? { key: i.key } : {}, i.n ? { n: i.n } : {}, i.pn ? { pn: i.pn } : {}))
       return o
     }),
@@ -191,7 +193,7 @@ async function saveProject (full, evenHeld) {
   if (!NAT || PROJ.busy || S.rec || (PROJ.hold && !evenHeld)) return false
   PROJ.busy = true
   try {
-    if (full) { const st = await NAT.call('pluginStates'); if (st) for (const t of S.tracks) { for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid]; if (t.inst && t.inst.kind === 'plug' && t.inst.uid && st['u' + t.inst.uid] != null) t.inst.state = st['u' + t.inst.uid] } }
+    if (full) { const st = await NAT.call('pluginStates'); if (st) for (const t of S.tracks) { for (const i of t.inserts || []) if (st['u' + i.uid] != null) i.state = st['u' + i.uid]; if (t.inst && t.inst.kind === 'plug' && t.inst.uid && st['u' + t.inst.uid] != null) t.inst.state = st['u' + t.inst.uid] } if (st && typeof OUT !== 'undefined') for (const i of OUT.inserts) if (st['u' + i.uid] != null) i.state = st['u' + i.uid] }
     const json = serialize()
     if (json === PROJ.last && PROJ.saved) return true
     const r = await NAT.call('projSave', { name: projKey(), json })
@@ -238,7 +240,7 @@ async function loadProjectNow (key, json) {
   const files = await loadFiles(key, d.tracks)
   const meter = Array.isArray(d.meter) && MEASURES.some(m => m[0] === d.meter[0] && m[1] === d.meter[1]) ? d.meter.slice(0, 2) : [4, 4]
   if (d.tempo !== S.tempo || meter[0] !== S.meter[0] || meter[1] !== S.meter[1]) { S.tempo = d.tempo; S.meter = meter; LOOPS = songLoops(S.tempo); await natSendLoops() }
-  setProj(key); PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                    // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
+  PROJ.fresh = !!d.fresh; setProj(key); PROJ.demo = d.demo == null ? !(d.v >= 2) : !!d.demo                    // it is called what its folder is called: a copy made in the Finder must not write into the one it was copied from
   SONG_END = d.end || 42
   SCENES = mkScenes(Array.isArray(d.scenes) ? d.scenes : (isDemo() ? DEMO_SCENES : []))
   S.tracks = d.tracks.map(o => {
@@ -275,6 +277,7 @@ async function loadProjectNow (key, json) {
     if (rr && rr.ok) { const got = { uid: rr.uid, name: rr.name, fmt: rr.fmt, id: ins.id, state: ins.state || '', off: !!ins.off, key: ins.key || 0, n: ins.n || 0, pn: ins.pn || null, sc: !!rr.key }; t.inserts.push(got); if (ins.off) NAT.call('bypass', { track: t.id, uid: rr.uid, off: 1 }); keyTold(t, got) }
     else { t.inserts.push(kept); LOAD.left.push(kept.name) }                              // it would not open: its place and its settings stay in the song
   }
+  if (typeof wallOutLoad === 'function') await wallOutLoad(d.out)                         // (wall.js: the stereo out's own wall and plug-ins)
   await rewarpAll()
   PROJ.last = json ? '' : serialize(); PROJ.saved = !json; PROJ.savedAt = ''; PROJ.savedMs = r.saved || 0
   rememberProj()
@@ -309,8 +312,9 @@ async function newProjectNow () {
   dropAllAudio()
   const t = mkTrack('audio 1', null, null, null, null, 0, [], mkPatch(0, 0, 0, [0, 0, 0]))
   t.patch0 = copy(t.patch)
-  setProj(name); PROJ.demo = false; PROJ.last = ''; PROJ.saved = false
+  setProj(name); PROJ.demo = false; PROJ.last = ''; PROJ.saved = false; PROJ.fresh = true      // (fresh: it has never been given a name — the first ⌘S asks for one)
   SONG_END = 64; SCENES = []
+  if (typeof wallOutLoad === 'function') wallOutLoad(null)                               // (a new song: nothing on the stereo out's wall)
   S.tracks = [t]; S.sel = 0; S.cycle = { on: false, a: 0, b: 4 }; S.pos = 0; S.master = 0; S.auto = false; S.flex = false; S.key = ''; S.look = null; S.rh = 25; S.wz = 1; PXB = (X1 - X0) / 24; VX = 0; VY = 0          // a new song opens on its first twenty-four bars
   repaint()
   resync(); pushTransport(); pushMaster()
@@ -324,7 +328,7 @@ async function renameProject (to) {
   await saveNow(true)
   const r = await NAT.call('projRename', { from: projKey(), to })
   if (!r || !r.ok) { say('that name is taken'); return }
-  setProj(r.key || to); PROJ.last = ''
+  setProj(r.key || to); PROJ.last = ''; PROJ.fresh = false
   await saveNow(false)
   setTitle(); rememberProj()
 }
@@ -342,12 +346,26 @@ async function saveAsAsk () {
 }
 /* to: a name (it is kept with the others) or the whole path of a .sls. replace: what lies there goes to the trash first —
    only after the mac's panel has asked */
-async function saveAs (to, replace) {
+/* ⌘S on a song that has never been given a name (a new one is kept as "untitled" from the moment it is made, so that
+   nothing is lost): the Mac asks where and under what name, as it does for any new document, and the song is that file
+   from then on — the nameless one it was kept as goes to the Trash. Answered with the name it has, where it lies: it keeps
+   it, and is not asked again. Cancelled: nothing is saved by hand (it is still kept as it was). */
+async function saveFirst () {
+  if (!NAT || S.rec || saveAsAsk.busy) return
+  saveAsAsk.busy = true
+  try {
+    const r = await NAT.call('projWhere', { from: projKey(), name: PROJ.name })
+    if (r && r.ok) await saveAs(r.key, true, true)
+    else if (r && r.why === 'same') { PROJ.fresh = false; PROJ.last = ''; const ok = await saveNow(true); say(ok ? 'saved' : 'could not save') }
+    else if (r && r.why) say(NO_COPY[r.why] || NO_COPY.write)
+  } finally { saveAsAsk.busy = false }
+}
+async function saveAs (to, replace, move) {
   if (!NAT) return false
   await saveNow(true)
-  const r = await NAT.call('projCopy', { from: projKey(), to, replace: replace ? 1 : 0 })
+  const r = await NAT.call('projCopy', { from: projKey(), to, replace: replace ? 1 : 0, move: move ? 1 : 0 })
   if (!r || !r.ok) { say(NO_COPY[r && r.why] || NO_COPY.write); return false }
-  setProj(r.key || to); PROJ.last = ''
+  setProj(r.key || to); PROJ.last = ''; PROJ.fresh = false
   const ok = await saveNow(false)
   setTitle(); refreshPool(); rememberProj()
   if (ok) say(PROJ.at ? `saved as ${PROJ.name}, in ${PROJ.at.split('/').slice(-2, -1)[0].toLowerCase()}` : `saved as ${PROJ.name}`)

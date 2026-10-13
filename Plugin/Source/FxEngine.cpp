@@ -2489,7 +2489,7 @@ void Chain::prepare (double sampleRate, int blockSize, int slots)
     scratch.setSize (2, n, false, false, true);
     pool.resize ((size_t) (kMaxBuffers - 1));
     for (auto& b : pool) b.setSize (2, n, false, false, true);
-    for (int i = 0; i < (int) nodes.size() && i < juce::jmax (1, slots); ++i) nodes[(size_t) i].prepare (sampleRate);
+    for (int i = 0; i < (int) nodes.size(); ++i) { slotReady[i] = i < juce::jmax (1, slots); if (slotReady[i]) nodes[(size_t) i].prepare (sampleRate); }
     for (auto& pk : peaks) pk.store (0.0f, std::memory_order_relaxed);
     active = Program {};
     // what the shifters cost in latency, at this rate
@@ -2506,6 +2506,13 @@ void Chain::prepare (double sampleRate, int blockSize, int slots)
         delayLines[i][1].assign ((size_t) kMaxDelaySamples, 0.0f);
         delayWrite[i] = 0;
     }
+}
+
+void Chain::prepareSlot (int slot)
+{
+    if (slot < 0 || slot >= kMaxNodes || slotReady[slot]) return;
+    nodes[(size_t) slot].prepare (srHz);
+    slotReady[slot] = true;
 }
 
 int Chain::nodeLatency (const Graph::Node& n) const noexcept
@@ -2579,7 +2586,7 @@ void Chain::adoptPending()
     for (int i = 0; i < pending.numOps; ++i)
     {
         const Op& op = pending.ops[i];
-        if (op.kind != Op::kProcess) continue;
+        if (op.kind != Op::kProcess || op.type == kOutside) continue;   // (what the host plays has nothing here to make clean)
         bool wasRunning = false;
         for (int j = 0; j < active.numOps; ++j)
             if (active.ops[j].kind == Op::kProcess && active.ops[j].slot == op.slot && active.ops[j].type == op.type)
@@ -2900,6 +2907,15 @@ void Chain::runOp (const Op& op, int opIndex, float sampleRate, int n, int nc, c
             auto& node = nodes[(size_t) op.slot];
             float* L = chan (op.dst, 0, n);
             float* R = nc > 1 ? chan (op.dst, 1, n) : nullptr;
+            if (op.type == kOutside)
+            {
+                // the host's own: it plays in this place (no host to call, or one channel only: the sound goes by)
+                if (outsideFn != nullptr && R != nullptr) outsideFn (outsideCtx, op.slot, L, R, n);
+                float pk = 0.0f;
+                for (int i = 0; i < n; ++i) pk = juce::jmax (pk, std::abs (L[i]));
+                peaks[(size_t) op.slot].store (pk, std::memory_order_relaxed);
+                break;
+            }
             node.keyL = op.src2 >= 0 && op.src2 < kMaxBuffers ? chan (op.src2, 0, n) : nullptr;   // the key may be the host buffer itself (in's first wire)
             node.keyR = node.keyL != nullptr && nc > 1 ? chan (op.src2, 1, n) : nullptr;
             node.spec = isSpectral (op.type) ? specOut[op.slot] : nullptr;

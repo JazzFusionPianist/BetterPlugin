@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
 
-add_subdirectory(/Applications/JUCE JUCE)
+include(cmake/Juce.cmake)   # one exact copy of the library, named there
 
 # The program is called Slur Studio (decided 2026-10-11). "Slur DAW" was its working title, and is still what its target
 # and its bundle id say: macOS remembers what an app may reach by that id.
@@ -39,10 +39,12 @@ juce_add_gui_app(SlurDaw
 target_sources(SlurDaw PRIVATE
     Source/Main.cpp
     Source/Mac.mm
+    Source/host/Au.mm                       # audio units opened with the Mac's own calls (used only where asked: Engine::ownAu)
+    Source/host/Window.mm                   # … and the window such a plug-in's view is shown in
     Source/Stretch.cpp
     ../Plugin/Source/FxEngine.cpp           # the Patch engine, the very file the plug-in builds
 )
-set_source_files_properties(Source/Mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+set_source_files_properties(Source/Mac.mm Source/host/Au.mm Source/host/Window.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 
 target_include_directories(SlurDaw PRIVATE Source ../Plugin/Source ../Plugin/Source/ThirdParty)
 target_compile_definitions(SlurDaw PRIVATE
@@ -64,6 +66,7 @@ target_link_libraries(SlurDaw
         "-framework AudioToolbox"
         "-framework AVFoundation"
         "-framework WebKit"
+        "-framework CoreAudioKit"
     PUBLIC
         juce::juce_recommended_config_flags
 )

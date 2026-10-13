@@ -16,8 +16,9 @@ if (NAT) {
   }
   /* a track is given its room (the patch engine) only once it could need one: a print turned up at either end of its scene hand, or a line drawn for one */
   const patched = t => ['A', 'B'].some(k => t.patch[k].tape + t.patch[k].space + t.patch[k].delay > 0) || ['tape', 'space', 'delay'].some(k => autoPts(t, k).length > 0)
-  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, mon: t.mon ? 1 : 0, live: liveOn(t) ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
+  const trackMsg = t => { const p = patchNow(t); return { id: t.id, vol: dbLin(t.vol), on: t.isOut || audible(t) ? 1 : 0, pan: t.pan || 0, tape: p.tape / 100, space: p.space / 100, delay: p.delay / 100, share: p.share / 100, patched: patched(t) ? 1 : 0, wall: typeof wallOf === 'function' ? 1 : 0, mon: t.mon ? 1 : 0, live: liveOn(t) ? 1 : 0, input: t.inp || 0, sends: (t.sends || []).map(s => ({ to: s.to, gain: dbLin(s.db) })) } }
   const regMsg = r => { const w = r.wkey && LIVEW.has(r.wkey) ? r.wkey : null; return regMsgOf(r, w) }       // a rendering that was let go: the plain file plays until it is rendered again
+  N.regMsg = regMsg                                                                    // (for whoever has regions rendered outside a session: a join)
   const regMsgOf = (r, w) => ({ a: r.a - 1, b: r.b - 1, buf: w || (r.loop ? r.buf : r.key), loop: r.loop ? 1 : 0, rate: w ? 1 : (r.rate || 1), bars: r.loop ? LOOPS[r.buf].bars : 1, off: r.off || 0, gain: dbLin(r.gain || 0), fi: r.fi || 0, fo: r.fo || 0, fic: r.fic || 0, foc: r.foc || 0 })
   /* The engine is told the whole session, but of each track only what is new to it: a track's regions, lines and wiring are
      written down as they were last sent (`_told`), numbered (`_ver`), and a track whose writing has not changed goes as
@@ -27,8 +28,9 @@ if (NAT) {
   let telling = 0
   const sendSession = async only => {
     const mine = ++telling
-    const tracks = S.tracks.map(t => {
-      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && (!only || only(r))).map(regMsg) : [] }
+    const outT = typeof wallOutTrack === 'function' ? wallOutTrack() : null               // (wall.js: the stereo out, while something stands on its wall — a bus of the engine's that all the others play into)
+    const tracks = S.tracks.concat(outT ? [outT] : []).map(t => {
+      const wired = { kind: t.kind === 'audio' ? 0 : 1, out: destId(t) || (outT && t !== outT ? outT.id : 0), autos: autoMsg(t), regs: t.kind === 'audio' ? t.regs.filter(r => !r.mute && !r.notes && (!only || only(r))).map(regMsg) : [] }
       Object.assign(wired, noteMsg(t, only))                                           // a track of notes: what it plays, as it sounds
       const text = JSON.stringify(wired) + '|' + (t.sends || []).map(s => s.to).join()
       if (!only && t._told === text) return Object.assign(trackMsg(t), { same: 1, ver: t._ver })
@@ -36,7 +38,7 @@ if (NAT) {
       return Object.assign(trackMsg(t), wired, { ver: t._ver })
     })
     const r = await NAT.call('session', { tempo: S.tempo, meter: S.meter, end: SONG_END, master: dbLin(S.master), tracks })
-    if (!r || !r.ok || r.again) { for (const t of S.tracks) t._told = null; if (r && r.again && mine === telling && !only) return sendSession() }      // not taken, or not held as thought: nothing counts as told
+    if (!r || !r.ok || r.again) { for (const t of S.tracks) t._told = null; if (outT) outT._told = null; if (r && r.again && mine === telling && !only) return sendSession() }      // not taken, or not held as thought: nothing counts as told
     return r
   }
 
@@ -63,6 +65,7 @@ if (NAT) {
     else if (rewind) S.pos = restBar()
   }
   jumpTo = bar => {
+    S.away = false; if (typeof JUMP !== 'undefined') JUMP.at = -1e9                     // (as in the browser's: the window goes with the playhead again, and the bar keys count from here)
     bar = clamp(bar, 0, SONG_END)
     if (!S.playing) { S.pos = bar; return }
     if (S.rec) return
@@ -101,21 +104,27 @@ if (NAT) {
     if (!r || !r.ok) throw new Error('decode')
     return { key: r.key, sec: r.sec, peaks: r.peaks, file: r.file, tone: r.tone }
   }
-  /* hand off: the app prints the stems (each track through its patch and its plug-ins) or the mix, and shows the folder */
+  /* hand off: the app prints the stems (each track through its patch and its plug-ins) or the mix, and shows the folder.
+     Where it goes and what it is called is asked first, in the Mac's own panel (on the folder the last one went to;
+     the name it offers is the song's and the range's). The panel put away: nothing is printed. */
   sendStems = async () => {
     const ho = S.ho
-    if (ho.state === 'busy' || S.rec) return
+    if (ho.state === 'busy' || ho.asking || S.rec) return
     const pl = hoPlan(), f = hoFmt()
     if (!pl.mix && !pl.list.length) { ho.note = 'nothing sounds in this range'; uiDirty('hand'); return }
+    ho.asking = true
+    const at = await NAT.call('bouncePick', { name: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, panel: ho.panel ? 1 : 0 })
+    ho.asking = false
+    if (!at || !at.ok) { ho.note = at && at.why === 'file' ? 'a file of that name is there' : ''; uiDirty('hand'); return }
     if (S.playing) { halt(false); uiDirty('top') }
     ho.state = 'busy'; ho.done = 0; ho.total = pl.mix ? 1 : pl.list.length * pl.modes.length; ho.note = ''; uiDirty('hand')
     const r = await NAT.call('bounce', {
       kind: pl.mix ? 'mix' : 'stems', a0: pl.a0, a1: pl.a1, modes: pl.modes.map(m => m === 'dry' ? 'dry' : 'wet'),
       tracks: pl.list.map(t => ({ id: t.id, name: `${String(S.tracks.indexOf(t) + 1).padStart(2, '0')} ${t.name}` })),
-      folder: `${PROJ.name} ${pl.name} ${pl.mix ? 'mix' : 'stems'}`, name: `${PROJ.name} ${pl.name}`, fmt: f.fmt, rate: f.rate, bits: f.bits,
+      dir: at.dir, name: at.name, fmt: f.fmt, rate: f.rate, bits: f.bits,
     })
     ho.state = 'idle'
-    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved in music, slur studio'; handOffExtras(r.dir, `${PROJ.name} ${pl.name}`, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
+    if (r && r.ok) { ho.done = ho.total; ho.note = 'saved as'; ho.at = at.name; handOffExtras(r.dir, at.name, pl.a0, pl.a1); handOffRest(r.dir) } else { ho.done = 0; ho.note = r && r.error ? String(r.error) : 'could not render' }
     resync(); applyAll()
     uiDirty('hand')
   }

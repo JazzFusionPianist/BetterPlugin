@@ -10119,8 +10119,19 @@ button.fb-rail-box.used { opacity: 0.55; cursor: default; }
   overflow: hidden;
 }
 /* the prints' row: centred while it fits (the auto margins on its ends), scrolling sideways when it does not */
+/* the family words: the chosen one in full paper with its family's colour underlined, the rest dim; the shelf's rule warms toward
+   the colour over its middle half */
+.sg-shelf { position: relative; }
+.sg-shelf-glow { position: absolute; left: 25%; right: 25%; top: 0; height: 1px; pointer-events: none; opacity: .55;
+  background: linear-gradient(to right, transparent, var(--fam) 50%, transparent); }
+.sg-shelf-fam { display: flex; gap: 28px; align-items: baseline; height: 22px; }
+.sg-fam-word { position: relative; font-family: var(--f-sans); font-size: 11.5px; line-height: 14px; font-weight: 400; color: rgba(246, 243, 234, 0.4);
+  cursor: pointer; padding-bottom: 6px; user-select: none; -webkit-user-select: none; transition: color .15s; }
+.sg-fam-word:hover { color: rgba(246, 243, 234, 0.85); }
+.sg-fam-word.on { color: #F6F3EA; font-weight: 500; }
+.sg-fam-word.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 1px; background: var(--fam); }
 .sg-shelf-row {
-  display: flex; align-items: flex-start; gap: 14px; margin-top: 14px;
+  display: flex; align-items: flex-start; gap: 14px; margin-top: 16px;
   max-width: 100%; box-sizing: border-box; padding: 0 24px;
   overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
 }

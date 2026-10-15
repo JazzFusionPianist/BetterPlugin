@@ -31,7 +31,7 @@ const comp = await node('comp')
   await mouse('mouseMoved', p.x, p.y, { buttons: 0 }); await mouse('mousePressed', p.x, p.y)
   for (let k = 1; k <= 6; k++) await mouse('mouseMoved', p.x, p.y - k * 9.5)
   await b.sleep(50)
-  const mid = await ev(`flush(); return { a: +wallAmount(S.tracks[S.sel], studyNode()).toFixed(3), shown: [...document.querySelectorAll('#g-dock text')].some(t => t.textContent === String(Math.round(wallAmount(S.tracks[S.sel], studyNode()) * 100))) }`)
+  const mid = await ev(`flush(); return { a: +wallAmount(S.tracks[S.sel], studyNode()).toFixed(3), shown: [...document.querySelectorAll('#g-dock text')].some(t => t.textContent === studyAmountText(S.tracks[S.sel], studyNode())) }`)
   await mouse('mouseReleased', p.x, p.y - 57); await b.sleep(60)
   ok('the big print pulled up: the amount rises with the hand, and its number says so as it goes', Math.abs(mid.a - .8) < .02 && mid.shown, mid)
   await mouse('mouseMoved', p.x, p.y, { buttons: 0 }); await mouse('mousePressed', p.x, p.y, { modifiers: 1 }); await mouse('mouseReleased', p.x, p.y, { modifiers: 1 }); await b.sleep(60)
@@ -41,8 +41,9 @@ const comp = await node('comp')
 { const v = await el('#g-dock [data-a="study"][data-k="amt"]')
   await b.click(v.x, v.y); await b.sleep(80)
   ok('the number pressed: a box to type into', await ev(`return !STUDY_IN.hidden && document.activeElement === STUDY_IN`))
-  await b.press('a', 'KeyA', 65, 4); await b.type('35'); await b.press('Enter', 'Enter', 13); await b.sleep(80)
-  ok('…35 typed: the amount is 35', (await node('comp')).a === .35 && await ev(`return STUDY_IN.hidden`), await node('comp')) }
+  const said = await ev(`return studyAmountText(S.tracks[S.sel], Object.assign({}, studyNode(), { amount: .35 })).replace(/^[−]/, '-')`)      // (the amount of .35, said in its own units)
+  await b.press('a', 'KeyA', 65, 4); await b.type(said); await b.press('Enter', 'Enter', 13); await b.sleep(80)
+  ok('…typed as it is said: the amount is that', Math.abs((await node('comp')).a - .35) < .02 && await ev(`return STUDY_IN.hidden`), [said, await node('comp')]) }
 
 /* a number row pulled, and typed into */
 { const i = await ev(`return STUDY.g.rows.findIndex(r => r.h && r.h.label === 'release')`), r = await el(`#g-dock [data-a="study"][data-k="row"][data-i="${i}"]`), a0 = (await node('comp')).aux[2]

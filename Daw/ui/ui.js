@@ -689,14 +689,14 @@ function pPanelHead (y, tab) {
   const t = S.tracks[S.sel], by = y + 16.6
   let s = R(0, y, RX, PH, { fill: K2 }) + hline(0, RX, y, .14) + hline(0, RX, y + PH - .5, .08)
   s += R(RX / 2 - 12, y + 2, 24, 2, { rx: 1, fill: INK, fa: .2 }) + hit(0, y - 3, RX, 8, 'pgrip', '', 'ns-resize')       // the edge that is dragged to give the panel more of the window
-  const roll = typeof pRoll === 'function', nx = roll ? 168 : 120                           // (roll.js: a third page, the notes)
-  s += cells(10, y + 4, 18, [{ t: 'patch', on: tab === 'patch', a: 'tab-patch' }, { t: 'mixer', on: tab === 'mixer', a: 'tab-mixer' }].concat(roll ? [{ t: 'notes', a: 'tab-notes' }] : []), { size: 9.5, widths: roll ? [48, 48, 48] : [48, 48] })[0]
+  const roll = typeof pRoll === 'function', said = typeof pPrompt === 'function', nx = (roll ? 168 : 120) + (said ? 52 : 0)      // (roll.js: a third page, the notes; prompt.js: a fourth, the prompt)
+  s += cells(10, y + 4, 18, [{ t: 'patch', on: tab === 'patch', a: 'tab-patch' }, { t: 'mixer', on: tab === 'mixer', a: 'tab-mixer' }].concat(roll ? [{ t: 'notes', a: 'tab-notes' }] : [], said ? [{ t: 'prompt', on: tab === 'prompt', a: 'tab-prompt' }] : []), { size: 9.5, widths: [48, 48].concat(roll ? [48] : [], said ? [52] : []) })[0]
   if (tab === 'patch') {
     s += R(nx, y + 10, 6, 6, { fill: t.c }) + T(nx + 12, by, fit(asGiven(t.name), 160, 10.5, 500), { size: 10.5, w: 500 }) + T(nx + 12 + tw(fit(asGiven(t.name), 160, 10.5, 500), 10.5, 500) + 7, by, `track ${S.sel + 1}`, { size: 9.5, a: .4 })
     const rx = RX - SIDE
     if (NAT) { const full = (t.inserts || []).length >= MAX_INS && PRINTS3.every(k => printOn(t, k)), o = { armed: S.picker.open, dim: full, a: full ? null : 'plugs' }; s += key(rx - 12 - keyW('plug-ins', o), y + 4, 'plug-ins', o)[0] }
     s += vline(rx - .5, y, y + PH, .08) + T(rx + 12, by, 'strip', { size: 9.5, a: .4 })
-  } else s += field(nx, by, 'strips', String(rows().length))[0]
+  } else if (tab === 'mixer') s += field(nx, by, 'strips', String(rows().length))[0]
   return s
 }
 /* a plug-in from outside stands in the same chain: a frame of the same size as a print, its name set inside */
@@ -881,7 +881,8 @@ async function natInsert (trackIndex, id) {
 const STAT = { cpu: 0, buf: 0, bits: 0 }
 function pCmd () {
   const y = H - FOOT_H, by = y + 14.6
-  let s = R(0, y, W, FOOT_H, { fill: K2 }) + hline(0, W, y, .1) + P(`M13 ${y + 7.5}L17 ${y + 11}L13 ${y + 14.5}`, { stroke: INK, sa: .5, sw: 1.2, cap: 'round' }) + hit(6, y, 20, FOOT_H, 'cmdline')
+  const paged = typeof promptOn === 'function' && promptOn()                            // (prompt.js: the prompt has a page of its own, and is up)
+  let s = R(0, y, W, FOOT_H, { fill: K2 }) + hline(0, W, y, .1) + (paged ? '' : P(`M13 ${y + 7.5}L17 ${y + 11}L13 ${y + 14.5}`, { stroke: INK, sa: .5, sw: 1.2, cap: 'round' }) + hit(6, y, 20, FOOT_H, 'cmdline'))
   let x = W - 10
   const ko = { h: 16, size: 9, pad: 8, armed: !!S.sheet, a: 'sheet' }, kw = keyW('keys', ko); x -= kw; s += key(x, y + 3, 'keys', ko)[0]
   const cell = (label, v, bar) => { x -= 12; s += vline(x, y + 6, y + FOOT_H - 6, .1); x -= 12; if (v) { x -= tw(v, 9.5); s += T(x, by, v, { size: 9.5, a: .8 }); x -= 5 } if (bar != null) { x -= 36; s += R(x, y + 10, 30, 2, { fill: INK, fa: .14 }) + R(x, y + 10, 30 * clamp(bar, 0, 1), 2, { fill: bar > .85 ? REC : INK, fa: .8, x: ' id="cpu-bar"' }); x -= 6 } x -= tw(label, 9.5); s += T(x, by, label, { size: 9.5, a: .4 }) }
@@ -892,6 +893,7 @@ function pCmd () {
     cell('rate', `${+(SND_SR / 1000).toFixed(1)}k${STAT.bits ? ` ${STAT.bits} bit` : ''}`)
     cell('cpu', `${Math.round(STAT.cpu * 100)}%`, STAT.cpu)
   }
+  if (paged) return s
   const cmd = $('cmd'), typed = cmd.value, cw = clamp(Math.ceil(tw(asGiven(typed), 10.5)) + 10, 64, 268), sx = (S.lineX || 26) + (typed ? cw - 10 + 22 : 14), lim = x - 16      // (S.lineX: where the typing begins, after the cells of the line — hint.js)
   if (cmd.style.width !== cw + 'px') cmd.style.width = cw + 'px'
   if (S.think) return s + T(sx, by, 'thinking', { size: 9.5, a: .5 })

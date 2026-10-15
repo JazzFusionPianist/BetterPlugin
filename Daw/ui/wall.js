@@ -548,7 +548,7 @@ async function wallPick (p) {
     pPanelHead = function (y, tab) {
       let s = head0(y, tab)
       if (tab !== 'patch' || !WALL.out) return s
-      const nx = typeof pRoll === 'function' ? 168 : 120
+      const nx = (typeof pRoll === 'function' ? 168 : 120) + (typeof pPrompt === 'function' ? 52 : 0)
       return s + R(nx - 4, y + 1, 300, PH - 2, { fill: K2 }) + R(nx, y + 10, 6, 6, { fill: MASTER().c }) + T(nx + 12, y + 16.6, 'stereo out', { size: 10.5, w: 500 }) + T(nx + 12 + tw('stereo out', 10.5, 500) + 7, y + 16.6, 'before its fader', { size: 9.5, a: .4 })
     } }
   onMove = function (e) { if (WALL.drag) { wallMove(e); return } move0(e) }

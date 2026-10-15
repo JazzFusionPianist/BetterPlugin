@@ -1612,6 +1612,22 @@ async function runSelfTest (mode) {
      ways side by side that add up to the sound again; a print that changes the sound; a plug-in on the wall, as late as it
      says and made up for; and a plug-in on one of two ways, where the other way must be held back by as much inside the
      wall — each printed and laid against the track printed with nothing on its wall. */
+  /* the prompt's own page, in the app's own web view: / opens it with the keys in its field; a thing said is listed with what came of it */
+  await step('promptPage', async () => {
+    if (typeof promptOpen !== 'function') return { skipped: 'this page has no prompt page' }
+    const t = S.tracks.find(x => x.kind === 'audio'), was = t && t.vol
+    KEYS.Slash(); await sleep(500)
+    const res = { open: S.panel.tab === 'prompt' && S.panel.on, keys: document.activeElement === $('cmd') }
+    if (t) { await runCommand(`${t.name} -2`); await sleep(200) }
+    res.said = PROMPT.said.slice(0, 1).map(q => [q.words, q.res])
+    relayout(); flush()
+    res.inField = (() => { const c = $('cmd').getBoundingClientRect(), f = document.querySelector('#g-dock [data-a="prompt"][data-k="field"]'); if (!f) return false; const r = f.getBoundingClientRect(); return c.top >= r.top - 1 && c.bottom <= r.bottom + 1 })()
+    dirtyAll(); flush(); await sleep(150); await snap('selftest-prompt-page.png')
+    if (t) { t.vol = was; pushTrack(t) }
+    $('cmd').value = ''; $('cmd').blur(); S.panel.tab = 'patch'; S.panel.on = false; setView(true); dirtyAll(); flush()
+    return res
+  })
+
   /* a print's study, in the app's own web view: a gain print on a track's wall, pressed open; 25 typed into its amount —
      the track is printed quieter by as much as the print says, and the study is drawn (a picture) */
   await step('study', async () => {
@@ -1628,7 +1644,7 @@ async function runSelfTest (mode) {
     const full = await print('study full')
     studyOpen(t, g.id); dirtyAll(); flush(); await sleep(150)
     res.open = !!studyNode() && !!document.querySelector('#g-dock [data-a="study"][data-k="print"]')
-    studyType({ k: 'amt' }); STUDY_IN.value = '25'; studyTyped(true); await sleep(250)
+    studyType({ k: 'amt' }); STUDY_IN.value = studyAmountText(t, Object.assign({}, g, { amount: .25 })).replace(/^[−]/, '-'); res.typed = STUDY_IN.value; studyTyped(true); await sleep(250)      // (a quarter of its travel, said in its own units)
     res.amount = +g.amount.toFixed(3)
     const less = await print('study 25')
     const m = full && less ? await NAT.call('testLag', { a: full, b: less }) : null

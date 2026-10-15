@@ -209,18 +209,18 @@ async function lineDo () {
 
 /* ── drawn: the cells in the foot, the list over them, and on the lanes the stretch and the line that would be drawn ── */
 function lineCells () {
-  const P = S.line.parts, fy = H - FOOT_H, cy = fy + 3, h = 16
-  let s = '', x = 26, i = 0
+  const P = S.line.parts, at = (typeof promptAt === 'function' && promptAt()) || { x: 26, y: H - FOOT_H + 3, h: 16, size: 9.5 }, cy = at.y, h = at.h, sz = at.size, pad = Math.round(sz * .74)      // (prompt.js: in the prompt's own page, larger)
+  let s = '', x = at.x, i = 0
   while (i < P.length) {
     const p = P[i]
-    if (p.k === 'who' || p.k === 'what' || p.k === 'param') { const run = []; while (i < P.length && ['who', 'what', 'param'].includes(P[i].k)) run.push({ t: asGiven(P[i++].t) }); const [g, w] = cells(x, cy, h, run, { size: 9.5, pad: 7, a: .9, frame: .3 }); s += g; x += w + 6; continue }
-    const w = Math.round(tw(asGiven(p.t), 9.5, p.k === 'act' ? 500 : 400) + 14)
-    if (p.k === 'where') s += R(x + .5, cy + .5, w - 1, h - 1, { rx: 2, stroke: SOLO, sa: .7 }) + T(x + 7, cy + h / 2 + 3.3, asGiven(p.t), { size: 9.5, c: SOLO })
-    else if (p.k === 'act') s += R(x, cy, w, h, { rx: 2, fill: INK }) + T(x + 7, cy + h / 2 + 3.3, asGiven(p.t), { size: 9.5, w: 500, c: K1 })
-    else s += R(x + .5, cy + .5, w - 1, h - 1, { rx: 2, stroke: INK, sa: .3 }) + T(x + 7, cy + h / 2 + 3.3, asGiven(p.t), { size: 9.5, a: .9 })
+    if (p.k === 'who' || p.k === 'what' || p.k === 'param') { const run = []; while (i < P.length && ['who', 'what', 'param'].includes(P[i].k)) run.push({ t: asGiven(P[i++].t) }); const [g, w] = cells(x, cy, h, run, { size: sz, pad, a: .9, frame: .3 }); s += g; x += w + 6; continue }
+    const w = Math.round(tw(asGiven(p.t), sz, p.k === 'act' ? 500 : 400) + pad * 2), ty = cy + h / 2 + sz * .35
+    if (p.k === 'where') s += R(x + .5, cy + .5, w - 1, h - 1, { rx: 2, stroke: SOLO, sa: .7 }) + T(x + pad, ty, asGiven(p.t), { size: sz, c: SOLO })
+    else if (p.k === 'act') s += R(x, cy, w, h, { rx: 2, fill: INK }) + T(x + pad, ty, asGiven(p.t), { size: sz, w: 500, c: K1 })
+    else s += R(x + .5, cy + .5, w - 1, h - 1, { rx: 2, stroke: INK, sa: .3 }) + T(x + pad, ty, asGiven(p.t), { size: sz, a: .9 })
     x += w + 6; i++
   }
-  return [s, P.length ? x : 26]
+  return [s, P.length ? x : at.x]
 }
 function pHint () {
   const cmd = $('cmd'), h = S.hint, [cellsSvg, x0] = lineCells()
@@ -243,7 +243,7 @@ function pHint () {
     }
     s += G(lanes, '', LN)
   }
-  if (!h) return s
+  if (!h || (typeof promptOn === 'function' && promptOn())) return s                     // (with the prompt's page up, the list is drawn in it: prompt.js)
   const rowH_ = 20, wide = Math.max(...h.items.map(it => tw(asGiven(it.t), 10.5, 500) + (it.d ? tw(it.d, 9.5) + 26 : 0)))
   const w = clamp(Math.ceil(wide) + 30, 150, 360), hh = h.items.length * rowH_ + 12
   const x = clamp(x0 - 13, 8, RX - w - 8), y = H - FOOT_H - hh - 4, typed = cmd.value.trim().toLowerCase()

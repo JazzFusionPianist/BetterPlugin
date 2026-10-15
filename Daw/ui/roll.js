@@ -132,9 +132,10 @@ function rollHead (y) {
   const t = S.tracks[S.sel], by = y + 16.6, [r] = rollReg()
   let s = R(0, y, RX, PH, { fill: K2 }) + hline(0, RX, y, .14) + hline(0, RX, y + PH - .5, .08)
   s += R(RX / 2 - 12, y + 2, 24, 2, { rx: 1, fill: INK, fa: .2 }) + hit(0, y - 3, RX, 8, 'pgrip', '', 'ns-resize')
-  s += cells(10, y + 4, 18, [{ t: 'patch', a: 'tab-patch' }, { t: 'mixer', a: 'tab-mixer' }, { t: 'notes', on: true, a: 'tab-notes' }], { size: 9.5, widths: [48, 48, 48] })[0]
+  const said = typeof pPrompt === 'function'                                           // (prompt.js: a fourth page, the prompt)
+  s += cells(10, y + 4, 18, [{ t: 'patch', a: 'tab-patch' }, { t: 'mixer', a: 'tab-mixer' }, { t: 'notes', on: true, a: 'tab-notes' }].concat(said ? [{ t: 'prompt', a: 'tab-prompt' }] : []), { size: 9.5, widths: said ? [48, 48, 48, 52] : [48, 48, 48] })[0]
   if (!t) return s
-  const nx = 168, nm = fit(asGiven(t.name), 160, 10.5, 500)
+  const nx = said ? 220 : 168, nm = fit(asGiven(t.name), 160, 10.5, 500)
   s += R(nx, y + 10, 6, 6, { fill: t.c }) + T(nx + 12, by, nm, { size: 10.5, w: 500 })
   let ax = nx + 12 + tw(nm, 10.5, 500) + 7
   if (r) { const nmR = asGiven(r.tag || r.name || 'region'); s += T(ax, by, fit(nmR, 160, 9.5), { size: 9.5, a: .7 }); ax += tw(fit(nmR, 160, 9.5), 9.5) + 8; s += T(ax, by, `bars ${+r.a.toFixed(2)} to ${+r.b.toFixed(2)}`, { size: 9.5, a: .4 }) }

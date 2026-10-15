@@ -243,7 +243,7 @@ function presetBar (y) {
   const t = wallTrack()
   PRE.geo = null
   if (!t) return ''
-  const nx = typeof pRoll === 'function' ? 168 : 120, by = y + 16.6, cw = RX - SIDE
+  const nx = (typeof pRoll === 'function' ? 168 : 120) + (typeof pPrompt === 'function' ? 52 : 0), by = y + 16.6, cw = RX - SIDE
   const nameW = WALL.out ? tw('stereo out', 10.5, 500) + 7 + tw('before its fader', 9.5) : tw(fit(asGiven(t.name), 160, 10.5, 500), 10.5, 500) + 7 + tw(`track ${S.sel + 1}`, 9.5)
   const left = nx + 12 + nameW + 18 + 22, right = cw - (NAT ? 12 + keyW('plug-ins') + 16 : 6) - 22, bw = Math.min(196, right - left)
   if (bw < 90) return ''

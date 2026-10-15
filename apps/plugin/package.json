@@ -7,7 +7,10 @@
     "dev": "vite",
     "test:native": "node --experimental-strip-types --test tests/juceBridge.test.mjs",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:sounds": "tsc -b && VITE_PRODUCT=sounds vite build",
+    "build:chat": "tsc -b && VITE_PRODUCT=chat vite build",
+    "build:games": "tsc -b && VITE_PRODUCT=games vite build"
   },
   "keywords": [],
   "author": "",

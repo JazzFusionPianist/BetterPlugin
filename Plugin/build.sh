@@ -102,17 +102,38 @@ fi
 # The wall is a web page. The plugin loads it from the site when it can (so
 # every push reaches everyone), but it also carries a copy, built here and
 # zipped into the binary, so it opens with no network — and instantly.
+# Each product carries its OWN page, built from its own entry (apps/plugin/<product>.html), so a release of one holds
+# only what that product is made of: Slur Orb carries the site's full page (build/webui), the split-outs carry theirs
+# (build/webui-<product>). A product page's <product>.html is renamed index.html in its zip: the plugin always opens index.html.
 WEB_DIR="$(cd "$SCRIPT_DIR/../apps/plugin" && pwd)"
 WEB_ZIP_DIR="$BUILD_DIR/webui"
+web_products() {   # which pages this run needs, from the targets it builds
+  local out=""
+  case " $BUILD_TARGETS " in *OrbPlugin_*) out="$out orb" ;; esac
+  case " $BUILD_TARGETS " in *OrbChat_*)   out="$out chat" ;; esac
+  case " $BUILD_TARGETS " in *OrbSounds_*) out="$out sounds" ;; esac
+  case " $BUILD_TARGETS " in *OrbGames_*)  out="$out games" ;; esac
+  echo "$out"
+}
+build_page() {   # build_page <orb|chat|sounds|games>: the page, zipped where CMake picks it up
+  local p="$1" dist zipdir
+  if [ "$p" = orb ]; then dist="$WEB_DIR/dist"; zipdir="$WEB_ZIP_DIR"; else dist="$WEB_DIR/dist-$p"; zipdir="$BUILD_DIR/webui-$p"; fi
+  echo "→ building the page ($p) …"
+  if [ "$p" = orb ]; then ( cd "$WEB_DIR" && pnpm build > "$SCRIPT_DIR/build/web-build.log" 2>&1 ) || { echo "✗ the page did not build — see Plugin/build/web-build.log" >&2; exit 1; }
+  else ( cd "$WEB_DIR" && pnpm run "build:$p" > "$SCRIPT_DIR/build/web-build-$p.log" 2>&1 ) || { echo "✗ the $p page did not build — see Plugin/build/web-build-$p.log" >&2; exit 1; }; fi
+  mkdir -p "$zipdir"; rm -f "$zipdir/webui.zip"
+  if [ "$p" = orb ]; then ( cd "$dist" && zip -q -r -X "$zipdir/webui.zip" . )
+  else ( cd "$dist" && rm -f index.html && cp "$p.html" index.html && zip -q -r -X "$zipdir/webui.zip" . -x "$p.html" )
+  fi
+  echo "  ✓ $p page zipped → $(du -h "$zipdir/webui.zip" | cut -f1)"
+}
 if [ "${SKIP_WEB:-0}" != 1 ]; then
-  echo "→ building the page (apps/plugin) …"
-  ( cd "$WEB_DIR" && pnpm build > "$SCRIPT_DIR/build/web-build.log" 2>&1 ) || { echo "✗ the page did not build — see Plugin/build/web-build.log" >&2; exit 1; }
-  mkdir -p "$WEB_ZIP_DIR"
-  rm -f "$WEB_ZIP_DIR/webui.zip"
-  ( cd "$WEB_DIR/dist" && zip -q -r -X "$WEB_ZIP_DIR/webui.zip" . )
-  echo "  ✓ page zipped → $(du -h "$WEB_ZIP_DIR/webui.zip" | cut -f1)"
+  for p in $(web_products); do build_page "$p"; done
 fi
-[ -f "$WEB_ZIP_DIR/webui.zip" ] || { echo "✗ no carried page (Plugin/build/webui/webui.zip): run without SKIP_WEB" >&2; exit 1; }
+for p in $(web_products); do
+  z="$WEB_ZIP_DIR/webui.zip"; [ "$p" = orb ] || z="$BUILD_DIR/webui-$p/webui.zip"
+  [ -f "$z" ] || { echo "✗ no carried page for $p ($z): run without SKIP_WEB" >&2; exit 1; }
+done
 
 cmake -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \

@@ -66,12 +66,42 @@ juce_add_plugin(OrbPlugin
 # ── The page, carried inside every plugin ─────────────────────────────────────
 # build.sh builds apps/plugin and zips its dist here; the zip goes into the
 # binary and a resource provider serves it to the WebView (see PluginProcessor).
+# Each product carries its own page (build.sh builds one per product): Slur Orb the site's full page, the split-outs
+# their own (webui-<product>/webui.zip, made from apps/plugin/<product>.html). A product whose page has not been built
+# falls back to the full page, so a partial build still links.
 set(ORB_WEBUI_ZIP "${CMAKE_BINARY_DIR}/webui/webui.zip")
-if(NOT EXISTS "${ORB_WEBUI_ZIP}")
-    message(FATAL_ERROR "The carried page is missing: ${ORB_WEBUI_ZIP} — run Plugin/build.sh (it builds apps/plugin and zips it here)")
+function(orb_webui_library _lib _zip)
+    juce_add_binary_data(${_lib} SOURCES "${_zip}")
+    set_target_properties(${_lib} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+endfunction()
+set(ORB_HAVE_WEBUI FALSE)
+if(EXISTS "${ORB_WEBUI_ZIP}")
+    orb_webui_library(OrbWebUI "${ORB_WEBUI_ZIP}")
+    set(ORB_HAVE_WEBUI TRUE)
 endif()
-juce_add_binary_data(OrbWebUI SOURCES "${ORB_WEBUI_ZIP}")
-set_target_properties(OrbWebUI PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+# orb_webui_for(<out var> <product>): the page library a product links — its own if built, else the full page
+function(orb_webui_for _out _product)
+    set(_zip "${CMAKE_BINARY_DIR}/webui-${_product}/webui.zip")
+    if(EXISTS "${_zip}")
+        if(NOT TARGET OrbWebUI_${_product})
+            orb_webui_library(OrbWebUI_${_product} "${_zip}")
+        endif()
+        set(${_out} OrbWebUI_${_product} PARENT_SCOPE)
+    elseif(ORB_HAVE_WEBUI)
+        message(STATUS "${_product}: no page of its own yet (${_zip}) — carrying the full page")
+        set(${_out} OrbWebUI PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "The carried page is missing for ${_product}: run Plugin/build.sh (it builds apps/plugin and zips it here)")
+    endif()
+endfunction()
+if(NOT ORB_HAVE_WEBUI)
+    message(STATUS "Slur Orb: no full page (${ORB_WEBUI_ZIP}) — its targets will not link until build.sh builds it")
+endif()
+
+# Each product's own version: hosts cache a plugin's buses and names by version, so every release counts its own up.
+set(ORB_VERSION_CHAT   1.0.4)    # Slur
+set(ORB_VERSION_SOUNDS 1.0.28)   # Patch on Slur
+set(ORB_VERSION_GAMES  1.0.28)   # Slur Games
 
 target_sources(OrbPlugin PRIVATE
     Source/TrackExportBridge.cpp
@@ -146,9 +176,11 @@ endforeach()
 # processor appends &surface=<name> to the app URL so the UI boots that
 # one room. DAWs list them beside the full Orb.
 #
-#   orb_add_surface_plugin(<target> <plugin code> <bundle id> "<product name>" <surface> <AU export prefix>)
-function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
+#   orb_add_surface_plugin(<target> <plugin code> <bundle id> "<product name>" <surface> <AU export prefix> <version>)
+function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix _version)
+    orb_webui_for(_webui ${_surface})
     juce_add_plugin(${_target}
+        VERSION                     ${_version}
         COMPANY_NAME                "Slur Studio"
         COMPANY_WEBSITE             "https://orb.app"
         COMPANY_EMAIL               "hello@orb.app"
@@ -198,7 +230,7 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
 
     target_link_libraries(${_target}
         PRIVATE
-            OrbWebUI
+            ${_webui}
             juce::juce_audio_processors
             juce::juce_audio_utils
             juce::juce_gui_extra
@@ -233,16 +265,16 @@ function(orb_add_surface_plugin _target _code _bundle _name _surface _au_prefix)
 endfunction()
 
 # Slur — messages only (first split-out, 2026-09-11; was Orb Chat, then Slur Chat).
-orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur"        chat   OrbChatAU)
+orb_add_surface_plugin(OrbChat   OrbC "com.orb.chat"   "Slur"        chat   OrbChatAU   ${ORB_VERSION_CHAT})
 
 # Patch on Slur (was Orb Sounds) — the one-knob fx chain, no account needed:
 # the plugin boots straight into the darkened room. The codes and bundle id
 # stay so hosts keep finding it in old sessions; only the name shown changed.
-orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds OrbSoundsAU)
+orb_add_surface_plugin(OrbSounds OrbS "com.orb.sounds" "Patch on Slur" sounds OrbSoundsAU ${ORB_VERSION_SOUNDS})
 
 # Slur Games — the mini-games CD wall. Keeps the account (rooms, invites,
 # world scores), drops every other room.
-orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Slur Games"  games  OrbGamesAU)
+orb_add_surface_plugin(OrbGames  OrbG "com.orb.games"  "Slur Games"  games  OrbGamesAU  ${ORB_VERSION_GAMES})
 
 # ── Engine self-test (console) ────────────────────────────────────────────────
 # Runs the FX graph compiler + program runner on synthetic audio and checks

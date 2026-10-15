@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { resolve, relative } from 'node:path'
 
 // Short commit hash baked into the bundle so the running UI can say which
 // build it is (settings panel footer). Vercel exposes the sha as an env
@@ -30,8 +31,32 @@ function buildStamp () {
   }
 }
 
+/** Which product's page this build is: unset = the site (index.html, every surface behind ?surface=); sounds | chat | games
+ *  = that product's own page (sounds.html …), written to dist-<product>, which the plugin carries. */
+const PRODUCT = process.env.VITE_PRODUCT ?? ''
+if (PRODUCT && !['sounds', 'chat', 'games'].includes(PRODUCT)) throw new Error(`VITE_PRODUCT must be sounds, chat or games (got ${PRODUCT})`)
+
+/** dist/modules.json — every source file this page is made of (relative to the repo root), sorted. A product's release
+ *  refuses to go out while one of THESE is uncommitted, and ignores the rest of the tree. */
+function modulesList () {
+  const root = resolve(process.cwd(), '../..')
+  return {
+    name: 'modules-list',
+    generateBundle (this: { emitFile: (f: { type: 'asset'; fileName: string; source: string }) => void }, _o: unknown, bundle: Record<string, { type: string; modules?: Record<string, unknown> }>) {
+      const files = new Set<string>()
+      for (const chunk of Object.values(bundle)) if (chunk.type === 'chunk' && chunk.modules) for (const id of Object.keys(chunk.modules)) {
+        const p = id.split('?')[0]
+        if (p.startsWith('\0') || p.includes('/node_modules/') || !p.startsWith('/')) continue
+        files.add(relative(root, p))
+      }
+      this.emitFile({ type: 'asset', fileName: 'modules.json', source: JSON.stringify([...files].sort(), null, 1) })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), buildStamp(), {
+  build: PRODUCT ? { outDir: `dist-${PRODUCT}`, rollupOptions: { input: resolve(process.cwd(), `${PRODUCT}.html`) } } : undefined,
+  plugins: [react(), tailwindcss(), buildStamp(), modulesList(), {
     name: 'require-auth-configuration',
     apply: 'build',
     configResolved(config) {

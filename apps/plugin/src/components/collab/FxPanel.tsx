@@ -504,7 +504,8 @@ function DoublerArt ({ a }: { a: number }) {
       the feedback. Both hands live in the print: the division reads at the
       top (drag east-west, snaps per step), the feedback ladder sits under
       the plate like space's decay ────────────────────────────────────────── */
-const DIV_LABELS = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2']
+const DIV_LABELS = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2', '1/32']   // 1/32 came later and sits last, so old patches keep their index; DIV_ORDER lists them as music does
+export const DIV_ORDER = [7, 0, 1, 2, 3, 4, 5, 6]
 const DIV_BEATS = [0.25, 1 / 3, 0.5, 0.75, 1, 1.5, 2]
 function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
   a: number
@@ -554,11 +555,11 @@ function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
         onPointerMove={(e) => {
           if (!dragDiv.current) return
           const steps = Math.round((e.clientX - dragDiv.current.x) / 34)
-          onDiv?.(Math.min(6, Math.max(0, dragDiv.current.d + steps)))
+          onDiv?.(Math.min(7, Math.max(0, dragDiv.current.d + steps)))
         }}
         onPointerUp={() => { dragDiv.current = null }}
         onDoubleClick={(e) => { e.stopPropagation(); onDiv?.(2) }}
-        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDiv?.(Math.min(6, Math.max(0, div + Math.sign(e.deltaY)))) }}
+        onWheel={(e) => { e.stopPropagation(); e.preventDefault(); onDiv?.(Math.min(7, Math.max(0, div + Math.sign(e.deltaY)))) }}
       >
         <rect x={C - 44} y={4} width={88} height={28} fill="transparent" stroke="none" />
         <text x={C} y={23} textAnchor="middle" fontSize="13" letterSpacing="1"

@@ -142,10 +142,10 @@ OrbAudioProcessor::OrbAudioProcessor()
         auto mode   = std::make_unique<SlotIntParam>   (pid + "mode",   pname + "mode", 0, 7, 0);
         auto decay  = std::make_unique<SlotFloatParam> (pid + "decay",  pname + "decay", 0.5f);
         auto fb     = std::make_unique<SlotFloatParam> (pid + "fb",     pname + "feedback", 0.35f);
-        auto div    = std::make_unique<SlotIntParam>   (pid + "div",    pname + "time", 0, 6, 2);
+        auto div    = std::make_unique<SlotIntParam>   (pid + "div",    pname + "time", 0, 7, 2);
         auto wet    = std::make_unique<SlotBoolParam>  (pid + "wet",    pname + "wet only");
         mode->text = [this, i] (int v) { const char* n = variantName (slotTypes[(size_t) i].load(), v); return n != nullptr ? juce::String (n) : juce::String (v); };
-        div->text  = [] (int v) { static const char* const d[] = { "1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2" }; return v >= 0 && v < 7 ? juce::String (d[v]) : juce::String (v); };
+        div->text  = [] (int v) { static const char* const d[] = { "1/16", "1/8t", "1/8", "1/8.", "1/4", "1/4.", "1/2", "1/32" }; return v >= 0 && v < 8 ? juce::String (d[v]) : juce::String (v); };
         h.amount = amount.get(); h.mode = mode.get(); h.decay = decay.get(); h.fb = fb.get(); h.div = div.get(); h.wet = wet.get();
         group->addChild (std::move (amount)); group->addChild (std::move (mode)); group->addChild (std::move (decay));
         group->addChild (std::move (fb)); group->addChild (std::move (div)); group->addChild (std::move (wet));
@@ -1375,7 +1375,7 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     setI (h.mode, juce::jlimit (0, 7, nd.variant));
     setF (h.decay, nd.decay[juce::jlimit (0, 2, nd.variant)]);
     setF (h.fb, nd.delayFb);
-    setI (h.div, juce::jlimit (0, 6, nd.delayDiv));
+    setI (h.div, juce::jlimit (0, 7, nd.delayDiv));
     if (h.wet != nullptr && h.wet->get() != nd.wet) h.wet->setValueNotifyingHost (nd.wet ? 1.0f : 0.0f);
     for (int k = 0; k < 6; ++k)
     {
@@ -1389,7 +1389,7 @@ void OrbAudioProcessor::writeSlot (const orbfx::Graph::Node& nd)
     s.variant.store (juce::jlimit (0, 7, nd.variant), std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i)
         s.decay[(size_t) i].store (juce::jlimit (0.0f, 1.0f, nd.decay[i]), std::memory_order_relaxed);
-    s.delayDiv.store (juce::jlimit (0, 6, nd.delayDiv), std::memory_order_relaxed);
+    s.delayDiv.store (juce::jlimit (0, 7, nd.delayDiv), std::memory_order_relaxed);
     s.delayFb.store (juce::jlimit (0.0f, 1.0f, nd.delayFb), std::memory_order_relaxed);
     s.wet.store (nd.wet, std::memory_order_relaxed);
     for (int i = 0; i < orbfx::kAuxCount; ++i) s.aux[(size_t) i].store (nd.aux[i], std::memory_order_relaxed);
@@ -2229,7 +2229,7 @@ void OrbAudioProcessor::handleSetFx (const juce::var& args,
             fxSpaceDecay[(size_t) juce::jlimit (0, 2, fxVariant[kSpace].load())]
                 .store (juce::jlimit (0.0f, 1.0f, (float) (double) v["decay"]));
         if (v.hasProperty ("delayDiv"))
-            fxDelayDiv.store (juce::jlimit (0, 6, (int) v["delayDiv"]));
+            fxDelayDiv.store (juce::jlimit (0, 7, (int) v["delayDiv"]));
         if (v.hasProperty ("delayFb"))
             fxDelayFb.store (juce::jlimit (0.0f, 1.0f, (float) (double) v["delayFb"]));
 
@@ -2424,7 +2424,7 @@ void OrbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         for (int i = 0; i < 3; ++i)
             fxSpaceDecay[(size_t) i].store (juce::jlimit (0.0f, 1.0f,
                 (float) xml->getDoubleAttribute ("fxDecay" + juce::String (i), 0.5)));
-        fxDelayDiv.store (juce::jlimit (0, 6, xml->getIntAttribute ("fxDelayDiv", 2)));
+        fxDelayDiv.store (juce::jlimit (0, 7, xml->getIntAttribute ("fxDelayDiv", 2)));
         fxDelayFb.store (juce::jlimit (0.0f, 1.0f,
             (float) xml->getDoubleAttribute ("fxDelayFb", 0.35)));
         editorW.store (xml->getIntAttribute ("editorW", 0));

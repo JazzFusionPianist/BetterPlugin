@@ -1,6 +1,6 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { MODES, VARIANTS, BLUE as BLUE_INK, fmtDecay, DIV_LABELS, KEY_NAMES, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
+import { MODES, VARIANTS, BLUE as BLUE_INK, fmtDecay, DIV_LABELS, DIV_ORDER, KEY_NAMES, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
 import { printInner, PLATE_TINT, hexToRgb, REACH, type Family } from './printGlyphs'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
@@ -849,7 +849,7 @@ export default function FxWall ({ size: frame }: Props) {
       if (!handGestureRef.current) { handGestureRef.current = `${drag.id}:${drag.hand}`; gesture(drag.id, drag.hand, true) }
       if (drag.hand === 'decay') { const d = [...n.decay]; d[n.variant] = Math.min(1, Math.max(0, drag.v0 + dy / 160)); updateNode(drag.id, { decay: d }) }
       else if (drag.hand === 'fb') updateNode(drag.id, { delayFb: Math.min(1, Math.max(0, drag.v0 + dy / 160)) })
-      else if (drag.hand === 'div') updateNode(drag.id, { delayDiv: Math.min(6, Math.max(0, Math.round(drag.v0 + dy / 18))) }, true)
+      else if (drag.hand === 'div') updateNode(drag.id, { delayDiv: DIV_ORDER[Math.min(7, Math.max(0, Math.round(DIV_ORDER.indexOf(drag.v0) + dy / 18)))] }, true)   // stepped as music goes, 1/32 up to 1/2
       else {
         // aux hands: arp interval 1..12 · harmony key (wraps) / degrees
         const k = drag.hand === 'aux0' ? 0 : drag.hand === 'aux1' ? 1 : drag.hand === 'aux3' ? 3 : drag.hand === 'aux5' ? 5 : 2
@@ -1195,7 +1195,7 @@ export default function FxWall ({ size: frame }: Props) {
       rows.push(<ChoiceRow key="shape" label="shape" options={TREM_PRESETS.map(p => p.name)} value={cur}
         onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
       rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
-      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
     } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && n.type !== FX_ENV && flavours.length > 0) {
       rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
     }
@@ -1205,12 +1205,12 @@ export default function FxWall ({ size: frame }: Props) {
         onChange={(v, final) => { const d = [...n.decay]; d[n.variant] = v; updateNode(n.id, { decay: d }, final) }} />)
     }
     if (n.type === 10) {
-      rows.push(<ChoiceRow key="time" label="time" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<ChoiceRow key="time" label="time" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
       rows.push(<GaugeRow key="fb" label="feedback" value={Math.round(n.delayFb * 100)} min={0} max={100} unit="%" defaultValue={35} liveMap={(v) => v * 100}
         onChange={(v, final) => updateNode(n.id, { delayFb: v / 100 }, final)} />)
     }
     if (n.type === 13) {
-      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
       rows.push(<GaugeRow key="step" label="step" value={n.aux[0] || 12} min={1} max={12} unit="st" defaultValue={12} fine={120} onChange={(v) => setAux(0, v)} />)
     }
     if (n.type === 15) {
@@ -1236,7 +1236,7 @@ export default function FxWall ({ size: frame }: Props) {
         rows.push(<ChoiceRow key="key" label="key" options={KEY_NAMES} value={(((n.aux[3] || 0) % 12) + 12) % 12} fill onPick={(k) => setAux(3, k)} />)
         rows.push(<ChoiceRow key="scale" label="scale" options={['major', 'minor']} value={(n.aux[4] || 0) === 1 ? 1 : 0} onPick={(k) => setAux(4, k)} />)
       }
-      if (n.variant === 1) rows.push(<ChoiceRow key="rate" label="rate" options={DIV_LABELS} value={n.delayDiv} fill onPick={(v) => updateNode(n.id, { delayDiv: v }, true)} />)
+      if (n.variant === 1) rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
       rows.push(<GaugeRow key="pan" label="pan" value={n.aux[5] ?? 50} min={0} max={100} unit="%" defaultValue={50} onChange={(v) => setAux(5, v)} />)
     }
     if (n.type === 22) {
@@ -1267,7 +1267,7 @@ export default function FxWall ({ size: frame }: Props) {
           setting = span > 0 ? (pr.value - pr.min) / span : 0
           read = (f) => { const v = pr.min + f * span; return pr.format ? pr.format(v) : `${Math.round(v / (pr.step ?? 1)) * (pr.step ?? 1)}${pr.unit ? ' ' + pr.unit : ''}` }
         } else if (hand === 'amount') { setting = n.amount; read = (f) => fmtValue(n.type, f, n.variant) }
-        else if (hand === 'div') { setting = n.delayDiv / 6; read = (f) => DIV_LABELS[Math.round(f * 6)] ?? '' }
+        else if (hand === 'div') { setting = DIV_ORDER.indexOf(n.delayDiv) / 7; read = (f) => DIV_LABELS[DIV_ORDER[Math.round(f * 7)]] ?? '' }
         const made = group.map(({ e, i }) => {
           const src = nodeById(e.from)
           const who = src?.type === FX_MACRO ? `macro ${(src.aux[0] || 0) + 1}` : src?.type === FX_FOLLOW ? 'follow' : src?.type === FX_ENV ? 'env' : src?.type === FX_SCENE ? 'scene' : src?.type === FX_DRIFT ? `drift ${rateText(src)}` : src?.type === FX_PULSE ? `pulse ${rateText(src)}` : src?.type === FX_LFO ? `LFO ${lfoOwnClock() ? rateText(src) : ''}`.trim() : src ? `rate ${rateText(src)}` : 'rate'

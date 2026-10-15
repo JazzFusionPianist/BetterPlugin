@@ -94,7 +94,7 @@ static void bakeCutFilter (bool hp, float freq, float sr, float q,
 //==============================================================================
 // Shared machinery for the pitched effects.
 
-static constexpr float kDivBeats[7] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
+static constexpr float kDivBeats[8] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 0.125f };   // 1/16 1/8t 1/8 1/8. 1/4 1/4. 1/2, and 1/32 last (added later: the old indices keep their meaning)
 
 /** Two grains on a ring, half a cycle apart, each faded by a raised sine
  *  so one hands over to the other as it wraps. The read heads drift at
@@ -977,8 +977,8 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // set the beat division and the feedback. The read head GLIDES
             // to a new length (tape-style repitch) so tempo and division
             // changes bend instead of clicking.
-            static constexpr float divBeats[7] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f };
-            const int   di   = juce::jlimit (0, 6, p.delayDiv);
+            static constexpr float divBeats[8] = { 0.25f, 1.0f / 3.0f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 0.125f };
+            const int   di   = juce::jlimit (0, 7, p.delayDiv);
             const float bpm  = (float) juce::jlimit (30.0, 300.0, (double) p.bpm);
             const int   len  = (int) dlyBuf[0].size();
             const float secs = juce::jlimit (0.03f, 2.8f, (60.0f / bpm) * divBeats[di]);
@@ -1279,7 +1279,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // Volume (or pan) chased by a tempo-locked cycle. Shapes: sine,
             // triangle, square, pulse, saw — or whatever was drawn on the
             // print. Depth is the knob; the cycle is one beat division.
-            const int   di    = juce::jlimit (0, 6, p.delayDiv);
+            const int   di    = juce::jlimit (0, 7, p.delayDiv);
             const float cycle = kDivBeats[di];
             const bool  pan   = p.aux[0] == 1 && R != nullptr;
             const float depth = a;
@@ -1348,7 +1348,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             // The audio climbs a ladder: every beat division the pitch
             // jumps by `interval` semitones, up to `range` (the knob, 0..24
             // st), in the pattern's order, then wraps. Whole signal shifted.
-            const int   di       = juce::jlimit (0, 6, p.delayDiv);
+            const int   di       = juce::jlimit (0, 7, p.delayDiv);
             const float stepBeat = kDivBeats[di];
             const int   interval = juce::jlimit (1, 12, p.aux[0] == 0 ? 12 : p.aux[0]);
             // the ladder's height is a discrete choice — read the hand itself,
@@ -1568,7 +1568,7 @@ void NodeState::process (const NodeParams& p, float sr, int n, float* L, float* 
             const float overlap = 3.0f;
             const float perSample = overlap / lenS;
             const bool  stutter = variant == 1, reverse = variant == 2;
-            const int   di = juce::jlimit (0, 6, p.delayDiv);
+            const int   di = juce::jlimit (0, 7, p.delayDiv);
             const float stepBeat = kDivBeats[di];
             const float wet = a, dry = p.wet ? 0.0f : 1.0f - a * 0.85f;
             auto rnd = [&] () { grainRng = grainRng * 1664525u + 1013904223u; return (float) (grainRng >> 8) / 16777216.0f; };

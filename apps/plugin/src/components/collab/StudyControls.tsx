@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bar, Cells, Chevron, Drawer, Keyboard, Lamp, Polarity, Range, Steps, type Hue, type Tone } from '../../assets/parts/parts'
 import { useLiveHand } from '../../lib/liveHands'
+import { clamp, parseLead } from './printCatalog'
 
 /*  The study's hands — the rows under the big print.
 
@@ -11,7 +12,7 @@ import { useLiveHand } from '../../lib/liveHands'
     Drag a number (up or right = more), double-click it to type, ⌥-click
     it to rest.                                                          */
 
-export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+export { clamp, parseLead }   // they live with the prints' data now (printCatalog), where a typed value is read
 const COL = 236
 
 const quant = (v: number, step: number) => {
@@ -49,17 +50,6 @@ export function useTypeIn (opts: { text: string; parse: (s: string) => number | 
       onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />
   ) : null
   return { editing, begin, input }
-}
-
-/** Leading number out of what was typed — "120ms", "+3 st", "−12", "1.5k". */
-export function parseLead (s: string): number | null {
-  const m = /^\s*([+\-−]?\s*\d*\.?\d+)\s*([a-zA-Z%]*)/.exec(s.replace(/,/g, '.'))
-  if (!m) return null
-  let v = Number(m[1].replace('−', '-').replace(/\s+/g, ''))
-  if (!Number.isFinite(v)) return null
-  const unit = m[2].toLowerCase()
-  if (unit === 'k' || unit === 'khz') v *= 1000
-  return v
 }
 
 /** "35 %" → the number in the mono, the unit small after it. */

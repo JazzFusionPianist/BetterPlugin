@@ -1,11 +1,15 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { MODES, VARIANTS, BLUE as BLUE_INK, fmtDecay, DIV_LABELS, DIV_ORDER, KEY_NAMES, TREM_PRESETS, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate } from './FxPanel'
+import { BLUE as BLUE_INK } from './FxPanel'
+import {
+  MODES, FAMILIES, WET_TYPES, MAIN_HAND, RATE_DIVS, DIV_LABELS, DIV_ORDER, KEY_NAMES, TREM_PRESETS,
+  fmtDecay, fmtValue, parseAmount, neutralOf, nameOf, auxOf, variantOf, flavoursOf, studyHandsOf, valueOf, CLOCK_HANDS, type Hand,
+} from './printCatalog'
 import { printInner, PLATE_TINT, hexToRgb, REACH, type Family } from './printGlyphs'
 import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
-import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn, parseLead, clamp } from './StudyControls'
+import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn } from './StudyControls'
 import { LfoEditor, SINE_PTS, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, stepsToPts, ptsToSteps } from './LfoEditor'
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
@@ -38,17 +42,6 @@ const SHELF_PRINT = 48
 const SHELF_H = 126   // the family tabs at the top (12 down), the prints' row under them
 /** One row of prints that scrolls sideways (the wheel's up and down
  *  walks it); the page needs its height to size the wall. */
-/** The shelf's families: one row of prints at a time. */
-const FAMILIES: Array<[string, string[]]> = [
-  ['tone', ['cut', 'amp', 'tone', 'tape', 'glue', 'comp', 'air']],
-  ['grit', ['crush', 'radio', 'ring', 'fold']],
-  ['space', ['delay', 'space', 'shimmer', 'doubler', 'stereo']],
-  ['motion', ['mod', 'tremolo', 'swell', 'stutter', 'gate', 'wow', 'repeat']],
-  ['pitch', ['pitch', 'formant', 'harmony', 'arp', 'grain']],
-  ['utility', ['gain', 'mix', 'L/R', 'M/S', 'pan', 'bands', 'side']],
-  ['control', ['LFO', 'macro', 'follow', 'env', 'drift', 'pulse', 'scene']],
-  ['spectral', ['carve', 'match', 'vocode', 'freeze', 'shift', 'smear', 'sieve']],
-]
 /** A print's plate takes its family's shape — told apart by silhouette from across the wall, not by edge detail.
  *  tone: a square, sharp; grit: a square with two opposite corners struck off; space: the circle; motion: a square leaning over;
  *  pitch: a diamond. Each holds the print's circle; `plateReach` says how far left and right it goes (where the ports sit). */
@@ -78,7 +71,6 @@ export function shelfLayout (): { print: number; gap: number; height: number } {
 }
 const PORT_INSET = 64          // in/out ports sit this far from the wall's edges
 const SNAP_WIRE = 44           // drop a print this close to a wire to splice it in
-const WET_TYPES = new Set<number>([2, 10, 9, 6, 15, 18, 21])   // space, delay, doubler, mod, harmony, grain, shimmer
 
 type Pt = { x: number; y: number }
 type Drag =
@@ -117,20 +109,14 @@ const HANDS: Record<number, Array<{ key: string; label: string }>> = {
   22: [{ key: 'aux0', label: 'depth' }],
 }
 const AURORA = false   // the wall's light is the round lamp under each print, as bright and wide as its knob; the aurora is gone
-/** What a print's big knob is, where "amount" would be vague. */
-const MAIN_HAND: Record<number, string> = { 7: 'cutoff', [FX_COMP]: 'threshold', [FX_CARVE]: 'depth', [FX_PAN]: 'pan', [FX_FOLD]: 'drive', [FX_FREEZE]: 'hold', [FX_SIEVE]: 'keep', [FX_SHIFT]: 'mix', [FX_SMEAR]: 'mix', [FX_REPEAT]: 'mix' }
 const RATE_HANDS = [{ key: 'aux0', label: 'clock' }, { key: 'aux1', label: 'rate' }, { key: 'aux2', label: 'feel' }, { key: 'aux3', label: 'hz' }]
 const FOLLOW_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'release' }, { key: 'aux2', label: 'sense' }, { key: 'aux3', label: 'threshold' }]
 const ENV_HANDS = [{ key: 'aux0', label: 'attack' }, { key: 'aux1', label: 'decay' }, { key: 'aux2', label: 'sustain' }, { key: 'aux3', label: 'release' }, { key: 'aux4', label: 'threshold' }, { key: 'aux5', label: 'gate' }]   // gate: what lands here opens the envelope while it is up (wire mode)
 const LFO_HANDS = [...RATE_HANDS, { key: 'aux5', label: 'depth' }, { key: 'aux6', label: 'reset' }, { key: 'decay', label: 'morph' }]
 const DRIFT_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'smooth' }, { key: 'aux5', label: 'depth' }]
 const PULSE_HANDS = [...RATE_HANDS, { key: 'aux4', label: 'steps' }, { key: 'aux5', label: 'hits' }, { key: 'aux6', label: 'rotate' }, { key: 'aux7', label: 'length' }]   // reset: what lands here restarts the LFO when it rises (a follow's hit)
-const NEW_VARIANTS: Record<number, string[]> = { [FX_ENV]: ['level', 'wire'], [FX_FOLD]: ['sine', 'triangle'] }
-const LFO_AUX = [0, 3, 0, 200, 0, 100, 0, 0]   // sync, 1/4, straight, 2 hz, not random, full depth
 const handsOfType = (type: number) => (type === FX_RATE ? RATE_HANDS : type === FX_LFO ? LFO_HANDS : type === FX_FOLLOW ? FOLLOW_HANDS : type === FX_ENV ? ENV_HANDS : type === FX_DRIFT ? DRIFT_HANDS : type === FX_PULSE ? PULSE_HANDS : type === FX_SCENE ? [{ key: 'amount', label: 'scene' }] : isUtilityType(type) ? [] : [{ key: 'amount', label: MAIN_HAND[type] ?? 'amount' }, ...(HANDS[type] ?? [])])
 const HANDS_ZOOM = 1.45   // this far in, a print shows its hands instead of its picture
-const RATE_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
-const RATE_FEEL = ['straight', 'dotted', 'triplet']
 /** rate: aux = [mode (0 sync, 1 hz), division, feel, hz × 100] */
 const rateText = (n: { aux: number[] }) => (n.aux[0] === 1 ? `${((n.aux[3] || 200) / 100).toFixed(2)} hz` : `${RATE_DIVS[n.aux[1] ?? 3] ?? '1/4'}${n.aux[2] === 1 ? '.' : n.aux[2] === 2 ? 't' : ''}`)
 const isControlEdge = (e: { hand?: string }) => e.hand !== undefined
@@ -142,67 +128,6 @@ function tintOf (type: number, variant = 0): [number, number, number] {
 const TINT_RGB: Record<number, [number, number, number]> = Object.fromEntries(Object.entries(PLATE_TINT).map(([k, v]) => [Number(k), hexToRgb(v)]))
 /** Wheel → amount: proportional to the delta, capped so one mouse notch is 0.02 (half a semitone on pitch) and a trackpad brush is a hair. */
 const wheelStep = (dy: number) => Math.max(-0.02, Math.min(0.02, dy * 0.0004))
-const neutralOf = (type: number) => (type === 0 || type === 3 || type === 16 || type === 17 || type === FX_PAN ? 0.5 : type === 5 ? 0.75 : 0)   // tone, stereo, pitch, formant rest in the middle
-const nameOf = (type: number) => (type === FX_MIX_TYPE ? 'mix' : type === FX_SPLIT_LR ? 'L/R' : type === FX_SPLIT_MS ? 'M/S' : type === FX_LFO ? 'LFO' : type === FX_RATE ? 'rate' : type === FX_MACRO ? 'macro' : type === FX_SIDE ? 'side' : type === FX_FOLLOW ? 'follow' : type === FX_COMP ? 'comp' : type === FX_BANDS ? 'bands' : type === FX_CARVE ? 'carve' : type === FX_MATCH ? 'match' : type === FX_VOCODE ? 'vocode' : type === FX_FREEZE ? 'freeze' : type === FX_SHIFT ? 'shift' : type === FX_SMEAR ? 'smear' : type === FX_PAN ? 'pan' : type === FX_REPEAT ? 'repeat' : type === FX_ENV ? 'env' : type === FX_FOLD ? 'fold' : type === FX_DRIFT ? 'drift' : type === FX_PULSE ? 'pulse' : type === FX_SCENE ? 'scene' : type === FX_SIEVE ? 'sieve' : MODES.find(m => m.id === type)?.name ?? '')   // the splitters are the one word in capitals: they name the channels
-
-function fmtValue (type: number, a: number, variant = 0): string {
-  if (type === FX_MACRO) return `${Math.round(a * 100)}`
-  if (type === 13) return `${Math.round(a * 24)}st`
-  if (type === 16 || type === 17) { const st = Math.round((a - 0.5) * 24); return `${st > 0 ? '+' : ''}${st} st` }
-  if (type === 0 || type === 3) { const t = Math.round((a - 0.5) * 200); return t === 0 ? '0' : t > 0 ? `+${t}` : `${t}` }
-  if (type === 22) return fmtSwell(a)
-  if (type === 23) return STUTTER_LABELS[Math.min(4, Math.floor(a * 5))]
-  if (type === 25) return fmtRing(a)
-  if (type === 26) return fmtGate(a)
-  if (type === 5) { const db = a < 0.75 ? (a / 0.75 - 1) * 60 : (a - 0.75) * 48; return `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)}` }
-  if (type === FX_COMP) return `${Math.round(-60 * a)} dB`
-  if (type === FX_CARVE) return `${Math.round(-24 * a)} dB`
-  if (type === FX_PAN) { const p = Math.round((a - 0.5) * 200); return p === 0 ? 'centre' : p < 0 ? `L ${-p}` : `R ${p}` }
-  if (type === FX_FREEZE) return a > 0.5 ? 'held' : 'open'
-  if (type === FX_SCENE) return a <= 0.005 ? 'A' : a >= 0.995 ? 'B' : `${Math.round(a * 100)} %`
-  if (type === FX_SIEVE) { const keep = Math.max(1, Math.round(Math.pow(2, (1 - a) * 10))); return a < 0.004 ? 'all' : `${keep}` }
-  if (type === 7) {
-    if (variant === 2) return `${(0.3 + (1 - a) * 9).toFixed(1)}oct`
-    const hz = variant === 0 ? 20 * Math.pow(1000, a) : 20000 * Math.pow(1000, -a)   // the engine's sweep: 20 Hz ↔ 20 kHz, more knob is more cut
-    return hz >= 1000 ? `${(hz / 1000).toFixed(hz >= 10000 ? 1 : 2)}k hz` : `${Math.round(hz)} hz`
-  }
-  return `${Math.round(a * 100)}`
-}
-
-/** What was typed for the main hand, back to 0..1 — fmtValue's mirror. */
-function parseAmount (type: number, s: string, variant = 0): number | null {
-  const t = s.trim().toLowerCase()
-  if (type === 23) { const i = STUTTER_LABELS.indexOf(t); if (i >= 0) return i / 5 + 0.1 }
-  const v = parseLead(t); if (v === null) return null
-  if (type === 13) return clamp(v / 24, 0, 1)
-  if (type === 16 || type === 17) return clamp(v / 24 + 0.5, 0, 1)
-  if (type === 0 || type === 3) return clamp(v / 200 + 0.5, 0, 1)
-  if (type === 22) { const T = /s\s*$/.test(t) && !/ms\s*$/.test(t) ? v : v / 1000; return clamp(Math.log(Math.max(1e-6, T) / 0.02) / Math.log(75), 0, 1) }
-  if (type === 23) return clamp(v, 0, 1)
-  if (type === 25) return clamp(Math.log2(Math.max(1, v) / 20) / 8, 0, 1)
-  if (type === 26) return clamp((v + 60) / 60, 0, 1)
-  if (type === 5) return clamp(v < 0 ? (v / 60 + 1) * 0.75 : v / 48 + 0.75, 0, 1)
-  if (type === FX_COMP) return clamp(-v / 60, 0, 1)
-  if (type === FX_CARVE) return clamp(-v / 24, 0, 1)
-  if (type === FX_FREEZE) return /^(held|hold|on|1)/.test(t) ? 1 : 0
-  if (type === FX_SCENE) { if (t === 'a') return 0; if (t === 'b') return 1 }
-  if (type === FX_SIEVE) { if (t === 'all') return 0; return clamp(1 - Math.log2(Math.max(1, v)) / 10, 0, 1) }
-  if (type === FX_PAN) { if (t === 'c' || t === 'centre' || t === 'center') return 0.5; const side = /^l/.test(t) ? -1 : /^r/.test(t) ? 1 : Math.sign(v) || 1; return clamp(side * Math.abs(v) / 200 + 0.5, 0, 1) }
-  if (type === 7) {
-    if (variant === 2) return clamp(1 - (v - 0.3) / 9, 0, 1)
-    const hz = Math.max(1, /k/i.test(s) ? v * 1000 : v)   // "2.5k" is 2500
-    return clamp(variant === 0 ? Math.log(hz / 20) / Math.log(1000) : -Math.log(hz / 20000) / Math.log(1000), 0, 1)
-  }
-  return clamp(v / 100, 0, 1)
-}
-/** A decay in seconds (as fmtDecay prints it), back to the 0..1 hand. */
-function parseDecay (variant: number, s: string): number | null {
-  const t = parseLead(s); if (t === null || t <= 0) return null
-  const g = Math.pow(10, -0.096 / t)
-  const rs = (g - 0.7) / 0.28
-  const d = variant === 0 ? (rs - 0.769) / 0.191 : variant === 1 ? (rs - 0.16) / 0.44 + 0.5 : (rs - 0.5) / 0.7 + 0.5
-  return clamp(d, 0, 1)
-}
 
 /** A demo patch for the plain browser (no engine) and for an empty wall. */
 function demoGraph (w: number, h: number): FxGraph {
@@ -730,8 +655,8 @@ export default function FxWall ({ size: frame }: Props) {
     const gp = toGraph(at)
     const used = new Set(graph.nodes.filter(n => n.type === FX_MACRO).map(n => n.aux[0] || 0))
     let macroNo = 0; while (used.has(macroNo) && macroNo < FX_MACROS - 1) macroNo++
-    const aux = type === 7 ? [2, 0, 0] : type === 13 ? [12, 0, 0] : type === 15 ? [0, 0, 2] : type === 18 ? [120, 300, 7, 0, 0, 50, 0, 0] : type === FX_RATE ? [0, 3, 0, 200] : type === FX_MACRO ? [macroNo, 0, 0] : type === FX_FOLLOW ? [10, 200, 50, -40] : type === FX_COMP ? [40, 100, 150, 6, 0] : type === FX_BANDS ? [250, 0, 0, 0, 0, 1, 0, 0] : type === FX_CARVE ? [20, 200, 20, 20000] : type === FX_MATCH ? [1, 12, 0] : type === FX_VOCODE ? [24, 10, 80] : type === FX_SHIFT ? [200, 0, 0] : type === FX_SMEAR ? [800, 0, 0] : type === FX_SIEVE ? [5, 80, 100] : type === FX_REPEAT ? [0, 3, 0, 200, -30, 0] : type === FX_ENV ? [10, 200, 70, 300, -30, 0] : type === FX_DRIFT ? [0, 3, 0, 200, 60, 100, 0, 0] : type === FX_PULSE ? [0, 1, 0, 200, 8, 3, 0, 50] : [0, 0, 0]   // follow: 10 ms up, 200 ms down, sense in the middle, hears from -40 dB; arp: octave steps; harmony: C major, a third; grain: 120 ms, 300 ms spray, 7 st in C major, pan 50; rate: sync, 1/4, straight, 2 hz
-    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: type === 7 ? 1 : 0 /* a cut begins as a low pass, open */, decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS], aux: [...LFO_AUX] } : {}) }
+    const aux = auxOf(type, macroNo)
+    const node: FxGraphNode = { id, type, amount: neutralOf(type), variant: variantOf(type), decay: [0.5, 0.5, 0.5], delayDiv: 2, delayFb: 0.35, wet: false, aux, x: gp.x, y: gp.y, ...(type === FX_LFO ? { pts: [...SINE_PTS] } : {}) }
     let edges = graph.edges
     // dropped onto a wire? splice in (a control print never joins the audio)
     let best = -1, bestD = isControlType(type) ? -1 : SNAP_WIRE
@@ -1073,7 +998,6 @@ export default function FxWall ({ size: frame }: Props) {
   }
   // ── the study's rows: every hand and word of the chosen print, one
   //    per line, as the controls in StudyControls ────────────────────
-  const VARIANT_LABEL: Record<number, string> = { 1: 'drive', 2: 'room', 6: 'kind', 7: 'pass', 8: 'stage', 9: 'spread', 10: 'type', 13: 'order', 14: 'band', 15: 'mode', 16: 'mode', 18: 'mode', 20: 'target', 21: 'interval', 22: 'floor', 23: 'grid', 24: 'mode', 25: 'mode', 26: 'release', 27: 'motion' }
   const studyRows = (n: FxGraphNode) => {
     const isMix = n.type === FX_MIX_TYPE
     const setAux = (k: number, v: number, extra?: (aux: number[]) => void) => {
@@ -1081,7 +1005,12 @@ export default function FxWall ({ size: frame }: Props) {
       updateNode(n.id, { aux }, true)
     }
     const rows: React.ReactNode[] = []
-    const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? NEW_VARIANTS[n.type] ?? []
+    // a hand from the catalog (printCatalog: Slur Studio's wall draws its prints' hands from the same)
+    const handRow = (h: Hand) => h.kind === 'gauge'
+      ? <GaugeRow key={h.key} label={valueOf(h.label, n)} value={h.get(n)} min={valueOf(h.min, n)} max={valueOf(h.max, n)} step={h.step} unit={h.unit} bipolar={h.bipolar} defaultValue={valueOf(h.def, n)} fine={h.fine} liveMap={h.live}
+          format={h.format ? (v) => h.format!(v, n) : undefined} parse={h.parse ? (s) => h.parse!(s, n) : undefined} onChange={(v, final) => updateNode(n.id, h.set(v, n), h.liveDrag ? final : true)} />
+      : h.kind === 'choice' ? <ChoiceRow key={h.key} label={valueOf(h.label, n)} options={valueOf(h.options, n)} value={h.get(n)} fill={h.fill} onPick={(k) => updateNode(n.id, h.set(k, n), true)} />
+      : null
     if (n.type === FX_LFO && lfoOwnClock()) {
       const isRandom = (n.aux[4] || 0) > 0, isSteps = !isRandom && n.variant === LFO_STEPS
       rows.push(<ChoiceRow key="shape" label="shape" list none="drawn" options={LFO_SHAPES.map(sh => sh.name)} value={isRandom ? LFO_RANDOM : n.variant}
@@ -1105,15 +1034,8 @@ export default function FxWall ({ size: frame }: Props) {
       if (isSteps) rows.push(<GaugeRow key="nsteps" label="steps" value={n.aux[6] || 8} min={2} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`}
         onChange={(v) => { const c = Math.max(2, Math.round(v)); const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[6] = c; updateNode(n.id, { aux, pts: stepsToPts(ptsToSteps(n.pts ?? SINE_PTS, c)) }, true) }} />)
     }
-    if (n.type === FX_RATE || n.type === FX_REPEAT || n.type === FX_DRIFT || n.type === FX_PULSE || (n.type === FX_LFO && lfoOwnClock())) {
-      rows.push(<ChoiceRow key="mode" label="clock" options={['sync', 'hz']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
-      if ((n.aux[0] || 0) === 0) {
-        rows.push(<ChoiceRow key="div" label="rate" options={RATE_DIVS} value={n.aux[1] ?? 3} fill onPick={(k) => setAux(1, k)} />)
-        rows.push(<ChoiceRow key="feel" label="feel" options={RATE_FEEL} value={n.aux[2] || 0} onPick={(k) => setAux(2, k)} />)
-      } else {
-        rows.push(<GaugeRow key="hz" label="hz" value={(n.aux[3] || 200) / 100} min={0.01} max={20} step={0.01} defaultValue={2} fine={260} liveMap={(v) => v / 100}
-          format={(v) => `${v.toFixed(2)} hz`} onChange={(v) => setAux(3, Math.round(v * 100))} />)
-      }
+    if (n.type === FX_RATE || n.type === FX_DRIFT || n.type === FX_PULSE || (n.type === FX_LFO && lfoOwnClock())) {
+      for (const h of CLOCK_HANDS) if (!h.when || h.when(n)) rows.push(handRow(h))
       if (n.type === FX_DRIFT) rows.push(<GaugeRow key="dsmooth" label="smooth" value={n.aux[4] ?? 60} min={0} max={100} step={1} unit="%" defaultValue={60} onChange={(v) => setAux(4, Math.round(v))} />)
       if (n.type === FX_PULSE) {
         rows.push(<GaugeRow key="psteps" label="steps" value={n.aux[4] || 8} min={1} max={32} step={1} defaultValue={8} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(4, Math.max(1, Math.round(v)))} />)
@@ -1130,20 +1052,6 @@ export default function FxWall ({ size: frame }: Props) {
       const held = [...sceneHeld.values()].reduce((s, set) => s + set.size, 0)
       rows.push(<ChoiceRow key="held" label="holds" options={[n.sceneA?.length && n.sceneB?.length ? `${held} hand${held === 1 ? '' : 's'}` : n.sceneA?.length ? 'A only' : n.sceneB?.length ? 'B only' : 'nothing yet']} value={-1} onPick={() => {}} />)
     }
-    if (n.type === FX_REPEAT) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
-    if (n.type === FX_SHIFT) {
-      rows.push(<GaugeRow key="shz" label="hz" value={n.aux[0] || 0} min={-2000} max={2000} step={1} bipolar defaultValue={0} fine={400} format={(v) => `${v > 0 ? '+' : ''}${Math.round(v)} hz`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="sfb" label="feedback" value={n.aux[1] || 0} min={0} max={95} step={1} unit="%" defaultValue={0} onChange={(v) => setAux(1, Math.round(v))} />)
-    }
-    if (n.type === FX_SIEVE) {
-      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 5} min={1} max={200} step={1} defaultValue={5} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[1] || 80} min={20} max={2000} step={1} defaultValue={80} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      rows.push(<GaugeRow key="smix" label="mix" value={n.aux[2] ?? 100} min={0} max={100} step={1} unit="%" defaultValue={100} onChange={(v) => setAux(2, Math.round(v))} />)
-    }
-    if (n.type === FX_SMEAR) {
-      rows.push(<GaugeRow key="stime" label="time" value={n.aux[0] || 800} min={50} max={5000} step={10} defaultValue={800} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="blur" label="blur" value={n.aux[1] || 0} min={0} max={100} step={1} unit="%" defaultValue={0} onChange={(v) => setAux(1, Math.round(v))} />)
-    }
     if (n.type === FX_ENV) {
       // level: the envelope opens when the sound it hears is over the threshold; wire: when what lands on `gate` is up
       rows.push(<ChoiceRow key="variant" label="opened by" options={['level', 'wire']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
@@ -1153,30 +1061,6 @@ export default function FxWall ({ size: frame }: Props) {
       rows.push(<GaugeRow key="release" label="release" value={n.aux[3] || 300} min={1} max={10000} step={1} defaultValue={300} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(3, Math.round(v))} />)
       if (n.variant === 0) rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[4] || -30} min={-60} max={-1} step={1} defaultValue={-30} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
     }
-    if (n.type === FX_CARVE) {
-      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[0] || 20} min={1} max={200} step={1} defaultValue={20} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[1] || 200} min={20} max={2000} step={1} defaultValue={200} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      // from / to: the range that is carved, on a log track (the gauge's unit is 0..100 along it)
-      const toPos = (hz: number) => 100 * Math.log(Math.max(20, Math.min(20000, hz)) / 20) / Math.log(1000), toHz = (pos: number) => Math.round(20 * Math.pow(1000, Math.max(0, Math.min(100, pos)) / 100))
-      rows.push(<GaugeRow key="from" label="from" value={toPos(n.aux[2] || 20)} min={0} max={100} step={0.5} defaultValue={0} fine={400} liveMap={toPos} format={(v) => `${fmtHz(toHz(v))} hz`} onChange={(v) => setAux(2, toHz(v))} />)
-      rows.push(<GaugeRow key="to" label="to" value={toPos(n.aux[3] || 20000)} min={0} max={100} step={0.5} defaultValue={100} fine={400} liveMap={toPos} format={(v) => `${fmtHz(toHz(v))} hz`} onChange={(v) => setAux(3, toHz(v))} />)
-    }
-    if (n.type === FX_MATCH) {
-      rows.push(<GaugeRow key="smooth" label="smooth" value={n.aux[1] || 12} min={1} max={48} step={1} defaultValue={12} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(1, Math.round(v))} />)
-    }
-    if (n.type === FX_VOCODE) {
-      rows.push(<GaugeRow key="bands" label="bands" value={n.aux[0] || 24} min={8} max={64} step={1} defaultValue={24} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(0, Math.round(v))} />)
-      rows.push(<GaugeRow key="attack" label="attack" value={n.aux[1] || 10} min={1} max={200} step={1} defaultValue={10} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[2] || 80} min={10} max={2000} step={1} defaultValue={80} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(2, Math.round(v))} />)
-    }
-    if (n.type === FX_COMP) {
-      rows.push(<ChoiceRow key="variant" label="detector" options={['peak', 'rms']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
-      rows.push(<GaugeRow key="ratio" label="ratio" value={(n.aux[0] || 40) / 10} min={1} max={20} step={0.1} defaultValue={4} liveMap={(v) => v / 10} format={(v) => `${v.toFixed(1)}:1`} onChange={(v) => setAux(0, Math.round(v * 10))} />)
-      rows.push(<GaugeRow key="attack" label="attack" value={(n.aux[1] || 100) / 10} min={0.1} max={100} step={0.1} defaultValue={10} fine={260} liveMap={(v) => v / 10} format={(v) => `${v < 10 ? v.toFixed(1) : Math.round(v)} ms`} onChange={(v) => setAux(1, Math.round(v * 10))} />)
-      rows.push(<GaugeRow key="release" label="release" value={n.aux[2] || 150} min={10} max={2000} step={1} defaultValue={150} fine={320} format={(v) => `${Math.round(v)} ms`} onChange={(v) => setAux(2, Math.round(v))} />)
-      rows.push(<GaugeRow key="knee" label="knee" value={n.aux[3] ?? 6} min={0} max={24} step={0.5} defaultValue={6} format={(v) => `${v.toFixed(1)} dB`} onChange={(v) => setAux(3, Math.round(v))} />)
-      rows.push(<GaugeRow key="makeup" label="makeup" value={n.aux[4] || 0} min={0} max={24} step={0.5} defaultValue={0} format={(v) => `+${v.toFixed(1)} dB`} onChange={(v) => setAux(4, Math.round(v))} />)
-    }
     if (n.type === FX_FOLLOW) {
       // envelope: the level, through attack and release. transient: a hit — the value leaps to full and falls at the release
       rows.push(<ChoiceRow key="variant" label="mode" options={['envelope', 'transient']} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
@@ -1185,64 +1069,7 @@ export default function FxWall ({ size: frame }: Props) {
       rows.push(<GaugeRow key="sense" label="sense" value={n.aux[2] ?? 50} min={0} max={100} step={1} defaultValue={50} format={(v) => `${Math.round(v)}`} onChange={(v) => setAux(2, Math.round(v))} />)
       rows.push(<GaugeRow key="threshold" label="threshold" value={n.aux[3] || -40} min={-60} max={-1} step={1} defaultValue={-40} format={(v) => `${Math.round(v)} dB`} onChange={(v) => setAux(3, Math.round(v))} />)
     }
-    if (n.type === 7) {
-      // the engine's words are low (cut) and high (cut): a low cut is a high pass. Said here as passes, low first.
-      rows.push(<ChoiceRow key="variant" label="pass" options={['low pass', 'high pass']} value={n.variant === 1 ? 0 : 1} onPick={(k) => updateNode(n.id, { variant: k === 0 ? 1 : 0 }, true)} />)
-      rows.push(<ChoiceRow key="slope" label="slope" options={['12', '24', '36', '48']} value={(n.aux[0] >= 1 && n.aux[0] <= 4 ? n.aux[0] : 2) - 1} fill onPick={(k) => setAux(0, k + 1)} />)
-    }
-    if (n.type === 12) {
-      const cur = Math.min(TREM_PRESETS.length - 1, n.aux[2] || 0)
-      rows.push(<ChoiceRow key="shape" label="shape" options={TREM_PRESETS.map(p => p.name)} value={cur}
-        onPick={(pi) => { const aux = [...n.aux]; while (aux.length < 8) aux.push(0); aux[2] = pi; updateNode(n.id, { aux, curve: TREM_PRESETS[pi].curve(), variant: Math.min(4, pi) }, true) }} />)
-      rows.push(<ChoiceRow key="target" label="moves" options={['volume', 'pan']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
-      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
-    } else if (n.type !== 5 && n.type !== 7 && n.type !== FX_COMP && n.type !== FX_FOLLOW && n.type !== FX_ENV && flavours.length > 0) {
-      rows.push(<ChoiceRow key="variant" label={isMix ? 'mode' : (VARIANT_LABEL[n.type] ?? 'mode')} options={flavours} value={n.variant} onPick={(vi) => updateNode(n.id, { variant: vi }, true)} />)
-    }
-    if (n.type === 2) {
-      rows.push(<GaugeRow key="decay" label="decay" value={n.decay[n.variant] ?? 0.5} min={0} max={1} step={0.005} defaultValue={0.5}
-        format={(d) => fmtDecay(n.variant, d)} parse={(s) => parseDecay(n.variant, s)}
-        onChange={(v, final) => { const d = [...n.decay]; d[n.variant] = v; updateNode(n.id, { decay: d }, final) }} />)
-    }
-    if (n.type === 10) {
-      rows.push(<ChoiceRow key="time" label="time" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
-      rows.push(<GaugeRow key="fb" label="feedback" value={Math.round(n.delayFb * 100)} min={0} max={100} unit="%" defaultValue={35} liveMap={(v) => v * 100}
-        onChange={(v, final) => updateNode(n.id, { delayFb: v / 100 }, final)} />)
-    }
-    if (n.type === 13) {
-      rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
-      rows.push(<GaugeRow key="step" label="step" value={n.aux[0] || 12} min={1} max={12} unit="st" defaultValue={12} fine={120} onChange={(v) => setAux(0, v)} />)
-    }
-    if (n.type === 15) {
-      if (n.variant !== 1) {
-        rows.push(<ChoiceRow key="key" label="key" options={KEY_NAMES} value={((n.aux[0] % 12) + 12) % 12} fill onPick={(k) => setAux(0, k)} />)
-        rows.push(<ChoiceRow key="scale" label="scale" options={['major', 'minor']} value={n.aux[1] === 1 ? 1 : 0} onPick={(k) => setAux(1, k)} />)
-      }
-      const chroma = n.variant === 1
-      rows.push(<GaugeRow key="int" label={chroma ? 'interval' : 'degrees'} value={n.aux[2] || 0} min={chroma ? -12 : -7} max={chroma ? 12 : 7} bipolar defaultValue={chroma ? 7 : 2} fine={140}
-        format={(v) => `${v > 0 ? '+' : ''}${v}${chroma ? ' st' : v === 0 ? ' unison' : ''}`} onChange={(v) => setAux(2, v)} />)
-    }
-    if (n.type === 16) {
-      rows.push(<GaugeRow key="cents" label="cents" value={n.aux[0] || 0} min={-100} max={100} bipolar defaultValue={0} format={(v) => `${v > 0 ? '+' : ''}${v} c`} onChange={(v) => setAux(0, v)} />)
-      rows.push(<ChoiceRow key="engine" label="engine" options={['fine', 'live']} value={n.aux[1] || 0} onPick={(k) => setAux(1, k)} />)
-    }
-    if (n.type === 17) rows.push(<ChoiceRow key="engine" label="engine" options={['fine', 'live']} value={n.aux[0] || 0} onPick={(k) => setAux(0, k)} />)
-    if (n.type === 18) {
-      rows.push(<GaugeRow key="size" label="size" value={n.aux[0] || 120} min={10} max={600} unit="ms" defaultValue={120} onChange={(v) => setAux(0, v)} />)
-      rows.push(<GaugeRow key="spray" label="spray" value={n.aux[1] || 0} min={0} max={1500} unit="ms" defaultValue={300} onChange={(v) => setAux(1, v)} />)
-      rows.push(<GaugeRow key="scatter" label="scatter" value={n.aux[2] || 0} min={0} max={24} unit="st" defaultValue={0} fine={140} onChange={(v) => setAux(2, v)} />)
-      rows.push(<ChoiceRow key="pmode" label="pitch" options={['key', 'intervals', 'cents', 'free']} value={n.aux[6] || 0} onPick={(k) => setAux(6, k)} />)
-      if ((n.aux[6] || 0) === 0) {
-        rows.push(<ChoiceRow key="key" label="key" options={KEY_NAMES} value={(((n.aux[3] || 0) % 12) + 12) % 12} fill onPick={(k) => setAux(3, k)} />)
-        rows.push(<ChoiceRow key="scale" label="scale" options={['major', 'minor']} value={(n.aux[4] || 0) === 1 ? 1 : 0} onPick={(k) => setAux(4, k)} />)
-      }
-      if (n.variant === 1) rows.push(<ChoiceRow key="rate" label="rate" options={DIV_ORDER.map(i => DIV_LABELS[i])} value={DIV_ORDER.indexOf(n.delayDiv)} fill onPick={(v) => updateNode(n.id, { delayDiv: DIV_ORDER[v] }, true)} />)
-      rows.push(<GaugeRow key="pan" label="pan" value={n.aux[5] ?? 50} min={0} max={100} unit="%" defaultValue={50} onChange={(v) => setAux(5, v)} />)
-    }
-    if (n.type === 22) {
-      rows.push(<GaugeRow key="depth" label="depth" value={n.aux[1] === 1 ? n.aux[0] : 100} min={0} max={100} unit="%" defaultValue={100}
-        onChange={(v) => setAux(0, v, (aux) => { aux[1] = 1 })} />)
-    }
+    for (const h of studyHandsOf(n)) if (h.kind !== 'switch') rows.push(handRow(h))
     if (isMix) {
       const ins = inputsOf(n.id)
       ins.forEach(x => rows.push(
@@ -1296,13 +1123,7 @@ export default function FxWall ({ size: frame }: Props) {
       }
     }
     const switches: Array<{ label: string; on: boolean; set: (on: boolean) => void; quiet?: boolean; onGesture?: (on: boolean) => void }> = []
-    if (n.type === 5) {
-      switches.push({ label: 'ø left', on: (n.variant & 1) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 1 }, true) })
-      switches.push({ label: 'ø right', on: (n.variant & 2) !== 0, set: () => updateNode(n.id, { variant: n.variant ^ 2 }, true) })
-    }
-    if (n.type === 18) switches.push({ label: 'freeze', on: !!n.aux[7], set: (on) => setAux(7, on ? 1 : 0) })
-    if (n.type === FX_FREEZE) switches.push({ label: 'hold', on: n.amount > 0.5, set: (on) => updateNode(n.id, { amount: on ? 1 : 0 }, true), onGesture: (on) => gesture(n.id, 'amount', on) })   // the knob is this switch: a wire on it (an lfo's square, a follow) throws it
-    if (n.type === FX_MATCH) switches.push({ label: 'learn', on: !!n.aux[0], set: (on) => setAux(0, on ? 1 : 0) })   // on: the curve follows the key and the sound; off: it is kept
+    for (const h of studyHandsOf(n)) if (h.kind === 'switch') switches.push({ label: h.label, on: h.get(n), set: (on) => updateNode(n.id, h.set(on, n), true), onGesture: h.at === 'amount' ? (on) => gesture(n.id, 'amount', on) : undefined })
     if (WET_TYPES.has(n.type)) switches.push({ label: 'wet only', on: !!n.wet, set: (on) => updateNode(n.id, { wet: on }, true), onGesture: (on) => gesture(n.id, 'wet', on) })
     if (!isUtilityType(n.type)) switches.push({ label: 'bypass', on: !!n.bypass, set: (on) => updateNode(n.id, { bypass: on }, true), quiet: true })
     rows.push(<SwitchRow key="sw" items={switches} />)
@@ -1863,7 +1684,7 @@ export default function FxWall ({ size: frame }: Props) {
           const isSel = sel?.node === n.id
           const isMix = n.type === FX_MIX_TYPE
           const isUtil = !hasAmountType(n.type)   // no knob of its own
-          const flavours = isMix ? ['blend', 'sum'] : VARIANTS[n.type] ?? NEW_VARIANTS[n.type] ?? []
+          const flavours = flavoursOf(n.type)
           const ins = inputsOf(n.id)
           const c = toScreen(n)
           return (

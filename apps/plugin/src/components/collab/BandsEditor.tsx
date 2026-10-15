@@ -1,5 +1,6 @@
 import { useContext, useRef, useState } from 'react'
 import { StrokeLevel, strokeFor } from './FxPanel'
+import { fmtHz } from './printCatalog'
 
 /*  The bands' editor — a ruler of frequency, 20 Hz to 20 kHz, cut into
     bands. Double-click a band to split it there; drag a cut to move it;
@@ -14,7 +15,7 @@ const F0 = 20, F1 = 20000
 export const fx = (hz: number) => Math.log(Math.max(F0, Math.min(F1, hz)) / F0) / Math.log(F1 / F0)   // 0..1 along the ruler
 export const xf = (t: number) => F0 * Math.pow(F1 / F0, Math.max(0, Math.min(1, t)))
 export const crossovers = (aux: number[]) => { const n = Math.max(1, Math.min(MAX_CROSS, aux[5] || 1)); return Array.from({ length: n }, (_, k) => aux[k] || 250).sort((a, b) => a - b) }
-export const fmtHz = (hz: number) => (hz >= 1000 ? `${(hz / 1000).toFixed(hz >= 10000 ? 1 : 2)}k` : `${Math.round(hz)}`)
+export { fmtHz }
 
 /** The picture alone (the wall's print, the shelf): bands as blocks of colour along the ruler. */
 export function BandsArt ({ aux }: { aux: number[] }) {

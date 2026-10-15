@@ -1,73 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { getFx, setFx, hasFxBridge, FX_DEFAULTS, type FxMode } from '../../lib/fxBridge'
-
-/** The eleven one-knob effects. Each is drawn as a print on a darkened
- *  room wall — the print itself is the control, and the wall warms toward
- *  each effect's own colour as you turn it. Any subset can be IN THE
- *  CHAIN at once; display order here = the processor's chain order, so
- *  paging left-to-right reads like the signal path. */
-const MODES: Array<{ id: FxMode; name: string }> = [
-  { id: 7, name: 'cut' },
-  { id: 8, name: 'amp' },
-  { id: 0, name: 'tone' },
-  { id: 1, name: 'tape' },
-  { id: 6, name: 'mod' },
-  { id: 9, name: 'doubler' },
-  { id: 10, name: 'delay' },
-  { id: 2, name: 'space' },
-  { id: 3, name: 'stereo' },
-  { id: 4, name: 'glue' },
-  { id: 5, name: 'gain' },
-  { id: 12, name: 'tremolo' },
-  { id: 13, name: 'arp' },
-  { id: 14, name: 'radio' },
-  { id: 15, name: 'harmony' },
-  { id: 16, name: 'pitch' },
-  { id: 17, name: 'formant' },
-  { id: 18, name: 'grain' },
-  { id: 20, name: 'crush' },
-  { id: 21, name: 'shimmer' },
-  { id: 22, name: 'swell' },
-  { id: 23, name: 'stutter' },
-  { id: 24, name: 'air' },
-  { id: 25, name: 'ring' },
-  { id: 26, name: 'gate' },
-  { id: 27, name: 'wow' },
-]
-
-/** Sub-flavours, shown under the mode slot (indexed by FxMode id). Gain's
- *  row is special-cased in the render: two polarity toggles, not a radio. */
-const VARIANTS: string[][] = [
-  [],                              // tone
-  ['hard', 'clean'],               // tape
-  ['hall', 'room', 'plate'],       // space
-  [],                              // stereo
-  [],                              // glue
-  [],                              // gain
-  ['chorus', 'flanger', 'phaser'], // mod
-  ['low', 'high', 'band'],         // cut
-  ['clean', 'crunch', 'lead', 'fuzz'], // amp
-  ['tight', 'wide'],               // doubler
-  ['clean', 'tape', 'pingpong'],   // delay
-  [],                              // (mix slot)
-  ['sine', 'triangle', 'square', 'pulse', 'saw'], // tremolo
-  ['up', 'down', 'up-down', 'random'],            // arp
-  ['am', 'phone'],                 // radio
-  ['key', 'chromatic'],            // harmony
-  ['raw', 'natural'],              // pitch
-  [],                              // formant
-  ['cloud', 'stutter', 'reverse'], // grain
-  ['female', 'male', 'child', 'giant'], // voice
-  ['both', 'bits', 'rate'],        // crush
-  ['octave', 'fifth', 'down'],     // shimmer
-  ['soft', 'hard'],                // swell
-  ['beat', 'bar'],                 // stutter
-  ['silk', 'bright'],              // air
-  ['ring', 'am'],                  // ring
-  ['tight', 'loose'],              // gate
-  ['wow', 'flutter', 'both'],      // wow
-]
+import { MODES, VARIANTS, fmtDecay, DIV_LABELS, DIV_ORDER, CURVE_LEN, baseShape, TREM_PRESETS, KEY_NAMES, STUTTER_LABELS, fmtSwell, fmtGate, fmtRing } from './printCatalog'   // the prints as data, shared with the wall and Slur Studio
 
 /* strokes read as paper on the dark wall; blue stays the second ink */
 const PAPER = '#F6F3EA'
@@ -229,18 +163,6 @@ function TapeArt ({ a }: { a: number }) {
   return <g>{rings}</g>
 }
 
-/** The reverb's real ring time, mirrored from the processor: the decay
- *  hand trims roomSize around each flavour's centre, roomSize sets the
- *  Freeverb comb feedback (0.7 + 0.28·rs), and −60 dB through the
- *  ~32 ms comb loop gives the seconds. Display only. */
-function fmtDecay (variant: number, d: number): string {
-  const rs = variant === 0 ? Math.min(1, Math.max(0, 0.769 + d * 0.191))
-    : variant === 1 ? Math.min(1, Math.max(0.02, 0.16 + (d - 0.5) * 0.44))
-    : Math.min(1, Math.max(0, 0.50 + (d - 0.5) * 0.70))
-  const g = 0.7 + 0.28 * rs
-  const t = 0.096 / -Math.log10(g)
-  return `${t >= 10 ? t.toFixed(1) : t.toFixed(2)}s`
-}
 
 /* ── space: echoes ringing out from a blue source; an echo ladder under
       the plate is the decay control — drag it east-west ────────────────── */
@@ -504,8 +426,6 @@ function DoublerArt ({ a }: { a: number }) {
       the feedback. Both hands live in the print: the division reads at the
       top (drag east-west, snaps per step), the feedback ladder sits under
       the plate like space's decay ────────────────────────────────────────── */
-const DIV_LABELS = ['1/16', '1/8t', '1/8', '1/8.', '1/4', '1/4.', '1/2', '1/32']   // 1/32 came later and sits last, so old patches keep their index; DIV_ORDER lists them as music does
-export const DIV_ORDER = [7, 0, 1, 2, 3, 4, 5, 6]
 const DIV_BEATS = [0.25, 1 / 3, 0.5, 0.75, 1, 1.5, 2]
 function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
   a: number
@@ -597,39 +517,6 @@ function DelayArt ({ a, div = 2, fb = 0.35, onDiv, onFb }: {
 
 
 /* ── tremolo: the cycle itself, drawn across the plate ─────────────── */
-export const CURVE_LEN = 32
-function baseShape (variant: number, ph: number): number {
-  switch (variant) {
-    case 1: return 1 - 2 * Math.abs(ph - 0.5)
-    case 2: return ph < 0.5 ? 0 : 1        // square: the dip comes first
-    case 3: return ph < 0.25 ? 0 : 1       // pulse: a short dip
-    case 4: return ph                      // saw: rises, drops
-    default: return 0.5 + 0.5 * Math.cos(2 * Math.PI * ph)
-  }
-}
-/** Shape presets (after Tremolator's rhythm library): each is one cycle
- *  as 32 points, 1 = loud. A preset writes the node's curve. */
-export const TREM_PRESETS: Array<{ name: string; curve: () => number[] }> = (() => {
-  const pts = (f: (ph: number) => number) => Array.from({ length: CURVE_LEN }, (_, i) => Math.min(1, Math.max(0, f(i / CURVE_LEN))))
-  const steps = (pattern: number[]) => pts(ph => pattern[Math.floor(ph * pattern.length)] ?? 0)
-  const gate = (pattern: number[], width = 0.6) => pts(ph => { const k = ph * pattern.length; const i = Math.floor(k); return pattern[i] && (k - i) < width ? 1 : 0 })
-  return [
-    { name: 'sine', curve: () => pts(ph => baseShape(0, ph)) },
-    { name: 'triangle', curve: () => pts(ph => baseShape(1, ph)) },
-    { name: 'square', curve: () => pts(ph => baseShape(2, ph)) },
-    { name: 'pulse', curve: () => pts(ph => baseShape(3, ph)) },
-    { name: 'saw', curve: () => pts(ph => baseShape(4, ph)) },
-    { name: 'eighths', curve: () => gate([1, 1, 1, 1, 1, 1, 1, 1], 0.55) },
-    { name: 'sixteenths', curve: () => gate(new Array(16).fill(1), 0.5) },
-    { name: '3-3-2', curve: () => gate([1, 0, 0, 1, 0, 0, 1, 0], 0.9) },
-    { name: 'gallop', curve: () => gate([1, 0, 1, 1, 1, 0, 1, 1], 0.7) },
-    { name: 'swing', curve: () => pts(ph => { const k = ph * 4; const i = Math.floor(k); const f = k - i; return f < (i % 2 ? 0.45 : 0.65) ? 1 : 0.15 }) },
-    { name: 'offbeat', curve: () => gate([0, 1, 0, 1, 0, 1, 0, 1], 0.6) },
-    { name: 'breath', curve: () => pts(ph => Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph), 2.2)) },
-    { name: 'stairs', curve: () => steps([1, 0.75, 0.5, 0.25, 1, 0.75, 0.5, 0.25]) },
-    { name: 'random', curve: () => { let s = 7; return steps(Array.from({ length: 8 }, () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return 0.2 + (s % 1000) / 1250 })) } },
-  ]
-})()
 function TremoloArt ({ a, variant = 0, curve }: { a: number; variant?: number; curve?: number[] }) {
   const s = strokeFor(a), acc = accentFor(a)
   const X0 = C - 72, W = 144, Y0 = C - 52, H = 104
@@ -711,7 +598,6 @@ function RadioArt ({ a }: { a: number }) {
 }
 
 /* ── harmony: the voice and its shadow a few steps away ────────────── */
-export const KEY_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 function HarmonyArt ({ a, degrees = 2, keyRoot = 0, scale = 0, chromatic = false }: {
   a: number; degrees?: number; keyRoot?: number; scale?: number; chromatic?: boolean
 }) {
@@ -839,10 +725,6 @@ function CrushArt ({ a }: { a: number }) {
   )
 }
 
-const STUTTER_LABELS = ['1/4', '1/8', '1/16', '1/32', '1/64']
-function fmtSwell (a: number): string { const T = 0.02 * Math.pow(75, a); return T < 1 ? `${Math.round(T * 1000)}ms` : `${T.toFixed(2)}s` }
-function fmtGate (a: number): string { const t = Math.round(-60 + a * 60); return t === 0 ? '0 dB' : `−${-t} dB` }
-function fmtRing (a: number): string { const hz = 20 * Math.pow(2, a * 8); return hz >= 1000 ? `${(hz / 1000).toFixed(2)}k` : `${Math.round(hz)}` }
 
 /* ── shimmer: echoes that climb — each ring a little higher, a little smaller ── */
 function ShimmerArt ({ a, variant = 0 }: { a: number; variant?: number }) {
@@ -1323,4 +1205,4 @@ export default function FxPanel ({ isOpen }: Props) {
 }
 
 /* The prints and their inks, for the graph mockup (SoundsGraphDemo). */
-export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, wallColorOf, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate }
+export { ARTS, MODES, VARIANTS, WALL_TINTS, VARIANT_TINTS, wallColor, wallColorOf, strokeFor, PAPER, BLUE, fmtDecay, DIV_LABELS, DIV_ORDER, CURVE_LEN, TREM_PRESETS, KEY_NAMES, fmtValue, baseShape, StrokeLevel, STUTTER_LABELS, fmtSwell, fmtRing, fmtGate }

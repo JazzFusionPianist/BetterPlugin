@@ -58,7 +58,7 @@ export default () => chapter('patch', t('the patch', '패치'),
     p('The list opens inside the patch’s panel, at the right of the wall, with the kinds down its left ({{eq}}, {{dynamics}}, {{reverb}} and so on). Click a kind to list only that kind; typing searches all of them. The kind is read from the plug-in’s name: an unusual name may stand under {{other}}.', '목록은 패치 패널 안, 벽 오른쪽에 열리고 왼쪽에 종류({{eq}}, {{dynamics}}, {{reverb}} 등)가 있습니다. 종류를 클릭하면 그 종류만 나오고, 입력하면 전체에서 찾습니다. 종류는 플러그인 이름으로 판단하므로 이름이 특이하면 {{other}}에 들어갈 수 있습니다.') +
     table(null,
       [['add', '추가'], ['pick it from the list. Its window comes up at once and it stands on the wall, to be wired', '목록에서 고릅니다. 창이 바로 뜨고 벽에 놓입니다. 선으로 이어야 합니다']],
-      [['its window', '창'], ['click its frame. [[V]] closes all plug-in windows', '테두리를 클릭. [[V]]는 모든 플러그인 창을 닫습니다']],
+      [['its window', '창'], ['click its frame. [[space]] still plays; [[V]] closes all', '테두리를 클릭. [[space]]는 그대로 재생, [[V]]는 창을 전부 닫습니다']],
       [['off, on', '끄기, 켜기'], ['[[⌥]] click the frame, or {{off}} at the foot of the wall. It is drawn dim; the sound goes by untouched', '테두리를 [[⌥]] 클릭, 또는 벽 아래의 {{off}}. 흐리게 그려지고 소리는 그대로 지나갑니다']],
       [['remove', '제거'], ['choose it and click {{remove}}; it turns to {{sure?}}; click again. The wire closes over its place', '선택하고 {{remove}}를 클릭하면 {{sure?}}로 바뀝니다. 다시 클릭. 그 자리는 선이 이어집니다']],
       [['what it listens to', '무엇을 듣는가'], ['right-click the frame: {{its own track}}, or another track, heard on the plug-in’s second input. A compressor on the bass that ducks to the kick listens to the kick', '테두리를 오른쪽 클릭: {{its own track}}, 또는 다른 트랙. 플러그인의 두 번째 입력으로 들어갑니다. 킥에 맞춰 눌리는 베이스 컴프레서는 킥을 듣습니다']]) +

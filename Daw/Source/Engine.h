@@ -124,10 +124,24 @@ struct PluginWindow final : juce::DocumentWindow
         setContentOwned (editor, true);
         setResizable (resizable, false);
         centreWithSize (getWidth(), getHeight());
+        setAlwaysOnTop (true);                                     // over the room: a press on the room does not put the plug-in out of sight …
         setVisible (true);
+        if (auto* p = getPeer()) slur::PlugWindow::keepOver (p->getNativeHandle());      // … and away with the app when another app is in front
         toFront (true);
     }
     void closeButtonPressed() override { if (onClose) onClose(); }
+    /* the space bar, return and v, when nothing of the plug-in's wanted them, are the room's: play and stop, to the beginning, the plug-ins' windows away */
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        const auto m = k.getModifiers();
+        if (! m.isCommandDown() && ! m.isCtrlDown() && ! m.isAltDown() && slur::PlugWindow::key)
+        {
+            const int c = k.getKeyCode();
+            const bool space = c == juce::KeyPress::spaceKey, ret = c == juce::KeyPress::returnKey, v = ! space && ! ret && ! m.isShiftDown() && (c == 'v' || c == 'V' || slur::PlugWindow::keyCodeNow() == 9);
+            if (space || ret || v) return slur::PlugWindow::keyRepeats() || slur::PlugWindow::key (space ? "Space" : ret ? "Enter" : "KeyV", m.isShiftDown());
+        }
+        return DocumentWindow::keyPressed (k);
+    }
     std::function<void()> onClose;
 };
 
@@ -427,6 +441,7 @@ struct Track
     std::atomic<float> vol { 1.0f }, gate { 1.0f }, pan { 0.0f }, tape { 0.0f }, space { 0.0f }, delay { 0.0f }, peak { 0.0f };
     std::atomic<bool> mon { false };
     std::atomic<int> ahead { 0 };                // how late its plug-ins hand sound over, and those of the buses on its longest way to the stereo out: its regions are read that much early
+    std::atomic<int> early { 0 }, earlyIn { 0 }; // how much earlier than the playhead the sound is where it leaves the track (the lateness of the buses still to come), and where it goes into the track's patch (that, and its own): its lines are read as early, so that a line changes the sound at the bar it is drawn at
     std::atomic<int> input { 0 };                // 0..15: that input alone; 100 + p: inputs 2p+1 and 2p+2 as a pair
     float share = 0.62f, gainSm = 0.0f, panSm = 0.0f;
     std::unique_ptr<orbfx::Chain> chain;         // made the first time the patch is asked for anything (it is a big room)
@@ -3015,6 +3030,7 @@ private:
             auto& t = *tp;
             const int all = longest (&t, 0);
             t.ahead.store (t.kind == 0 ? own (t) + all : 0);
+            t.early.store (all); t.earlyIn.store (own (t) + all);
             wants.push_back ({ &t.outHold, all - (t.out != nullptr ? own (*t.out) + longest (t.out, 1) : 0) });
             for (auto& s : t.sends) wants.push_back ({ &s.hold, s.dst != nullptr ? all - (own (*s.dst) + longest (s.dst, 1)) : 0 });
             /* what a plug-in listens to left its track as early as that track's longest way is long; this track's own sound
@@ -3198,13 +3214,14 @@ private:
             }
             if (t.notes || t.built != nullptr || t.plug != nullptr) playNotes (t, st, L, R);
         }
-        if (! (kept && tap->dry)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.bar0);
+        if (! (kept && tap->dry)) renderTrack (t, st.pos, n, st.rolling, st.barS, st.rolling ? st.bar0 + (double) t.earlyIn.load() / st.barS : st.bar0);
         if (kept && tap->pre) { tap->buf.copyFrom (0, 0, L, n); tap->buf.copyFrom (1, 0, R, n); }
 
         // the fader and the balance, moving to where they should be by the end of the stretch
         float v;
-        const float target = dbGainOf (t, st.bar1), gs = (target - t.gainSm) / (float) n;
-        const float pn0 = t.panSm, pn1 = evalAuto (t, kAutoPan, st.bar1, v) ? juce::jlimit (-1.0f, 1.0f, v) : t.pan.load();
+        const double barOut = st.rolling ? st.bar1 + (double) t.early.load() / st.barS : st.bar1;      // (the sound here is early by what is still to come: see Track::early)
+        const float target = dbGainOf (t, barOut), gs = (target - t.gainSm) / (float) n;
+        const float pn0 = t.panSm, pn1 = evalAuto (t, kAutoPan, barOut, v) ? juce::jlimit (-1.0f, 1.0f, v) : t.pan.load();
         float pl = pn0 <= 0.0f ? 1.0f : 1.0f - pn0, pr = pn0 >= 0.0f ? 1.0f : 1.0f + pn0;
         const float pls = ((pn1 <= 0.0f ? 1.0f : 1.0f - pn1) - pl) / (float) n, prs = ((pn1 >= 0.0f ? 1.0f : 1.0f + pn1) - pr) / (float) n;
         float g = t.gainSm, pk = 0.0f;
@@ -3312,7 +3329,7 @@ private:
     }
 
     /** A track's sound, once it is made, on to the bus it plays into or the stereo out; and to the side, whatever it sends. */
-    void passOn (Track& t, int n, double bar1, Tap* tap, float* mL, float* mR)
+    void passOn (Track& t, int n, double bar1, bool rolling, double barS, Tap* tap, float* mL, float* mR)
     {
         if (tap != nullptr && tap->only.count (&t) == 0) return;
         const float* L = t.work.getReadPointer (0); const float* R = t.work.getReadPointer (1);
@@ -3325,7 +3342,7 @@ private:
         {
             auto& s = t.sends[k];
             if (s.dst == nullptr) continue;
-            const float st = evalAuto (t, kAutoSend0 + k, bar1, v) ? dbGain (v) : s.gain.load();
+            const float st = evalAuto (t, kAutoSend0 + k, rolling ? bar1 + (double) t.early.load() / barS : bar1, v) ? dbGain (v) : s.gain.load();      // (read as early as the sound is here, like the fader)
             s.hold.add (L, R, s.dst->work.getWritePointer (0), s.dst->work.getWritePointer (1), n, s.sm, st);
             s.sm = st;
         }
@@ -3356,7 +3373,7 @@ private:
             if (pool.size() > 0 && count > 1) for (size_t k = from; k < end; ++k) heavy += order[k]->cost;
             if (heavy > kWorthSharing) { pool.run (&playThunk, &st, count); shared.fetch_add (1, std::memory_order_relaxed); }
             else for (int i = 0; i < count; ++i) playTrack (*st.list[i], st);
-            for (size_t k = from; k < end; ++k) passOn (*order[k], n, bar1, tap, mL, mR);
+            for (size_t k = from; k < end; ++k) passOn (*order[k], n, bar1, rolling, barS, tap, mL, mR);
             from = end;
         }
     }

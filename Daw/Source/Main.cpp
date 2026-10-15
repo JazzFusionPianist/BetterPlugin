@@ -208,6 +208,13 @@ public:
             engine.auApart = args.contains ("--au-apart") || (prefs["auApart"].isBool() && (bool) prefs["auApart"]);
             if (engine.ownAu) daw::logLine (juce::String ("audio units: the app's own host") + (engine.auApart ? ", each in a process of its own" : ""));
         }
+        slur::PlugWindow::key = [this] (const std::string& code, bool shift)
+        {
+            if (web == nullptr) return false;
+            auto* o = new juce::DynamicObject(); o->setProperty ("code", juce::String (code)); o->setProperty ("shift", shift);
+            web->emitEventIfBrowserIsVisible ("dawPlugKey", juce::var (o));
+            return true;
+        };
         engine.onRateChanged = [this] { auto* o = new juce::DynamicObject(); o->setProperty ("sr", engine.sr); if (web) web->emitEventIfBrowserIsVisible ("dawRate", juce::var (o)); };
         engine.onTakeStalled = [this] (bool rate) { auto* o = new juce::DynamicObject(); o->setProperty ("rate", rate); if (web) web->emitEventIfBrowserIsVisible ("dawTakeStalled", juce::var (o)); };
         engine.onSoundCut = [this] (const juce::String& name, double held, double whole, bool disk) { auto* o = new juce::DynamicObject(); o->setProperty ("name", name); o->setProperty ("held", held); o->setProperty ("whole", whole); o->setProperty ("disk", disk); if (web) web->emitEventIfBrowserIsVisible ("dawCut", juce::var (o)); };
@@ -228,7 +235,7 @@ public:
         startTimerHz (30);
     }
 
-    ~MainComponent() override { settings.reset(); engine.devices().removeChangeListener (this); }
+    ~MainComponent() override { slur::PlugWindow::key = nullptr; settings.reset(); engine.devices().removeChangeListener (this); }
     void resized() override { if (web) web->setBounds (getLocalBounds()); }
     void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff151514)); }
 
@@ -385,6 +392,7 @@ private:
         if (op == "dropBuffer") { engine.dropBuffer (d["key"].toString()); done (okVar()); return; }
         if (op == "wave") { done (engine.wave (d["key"].toString(), (double) d["from"], (double) d["to"], (int) d["n"])); return; }      // a stretch of a sound, close up, for drawing
         if (op == "closeEditors") { engine.closeEditors(); done (okVar()); return; }
+        if (op == "testPlugWindows") { done (juce::JSON::parse (juce::String (slur::PlugWindow::check ((bool) d["space"])))); return; }      // (for the self-test)
         if (op == "plugins") { done (engine.listPlugins ([] (const juce::String& id) { return auMaker (id); })); return; }
         if (op == "insert")  { engine.insertPlugin ((int) d["track"], d["id"].toString(), d["state"].toString(), ! d.hasProperty ("show") || (int) d["show"] != 0, [done] (juce::var r) { done (r); }, d.hasProperty ("at") ? (int) d["at"] : -1, (int) d["inst"] != 0); return; }
         // a track's instrument: one of the DAW's own ({track, kind, p}), what is turned on it ({track, p}), a sound for it to play from ({track, slot, key})
@@ -708,6 +716,30 @@ private:
             const auto png = logDir().getChildFile (juce::File::createLegalFileName (d["name"].toString()));
             done (getPeer() != nullptr ? juce::JSON::parse (juce::String (juce::CharPointer_UTF8 (slurWindowReport (getPeer()->getNativeHandle(), png.getFullPathName().toRawUTF8()).c_str()))) : juce::var());
             return;
+        }
+        if (op == "testGate")                                                  // the check: where a printed file first sounds, and where another first sounds from a given frame on (a line that opens a track, against the same print with no line)
+        {
+            auto* o = new juce::DynamicObject();
+            if (selfTestMode().isEmpty()) { done (juce::var (o)); return; }
+            juce::AudioFormatManager fm; fm.registerBasicFormats();
+            const float thr = d.hasProperty ("thr") ? (float) (double) d["thr"] : 0.003f;
+            double rate = 0.0;
+            auto first = [&fm, thr, &rate] (const juce::String& path, juce::int64 from) -> juce::int64
+            {
+                if (std::unique_ptr<juce::AudioFormatReader> r { fm.createReaderFor (juce::File (path)) })
+                {
+                    rate = r->sampleRate;
+                    const int n = (int) juce::jmin ((juce::int64) 1440000, r->lengthInSamples);
+                    juce::AudioBuffer<float> b ((int) r->numChannels, n);
+                    r->read (&b, 0, n, 0, true, true);
+                    for (int i = (int) juce::jlimit ((juce::int64) 0, (juce::int64) n, from); i < n; ++i) for (int c = 0; c < b.getNumChannels(); ++c) if (std::abs (b.getSample (c, i)) > thr) return i;
+                }
+                return -1;
+            };
+            o->setProperty ("ref", (double) first (d["a"].toString(), (juce::int64) (double) d["from"]));
+            o->setProperty ("got", (double) first (d["b"].toString(), 0));
+            o->setProperty ("rate", rate);
+            done (juce::var (o)); return;
         }
         if (op == "testLag")                                                   // the check: by how many samples the second file's sound comes later than the first's (one sound printed after going two ways)
         {

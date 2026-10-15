@@ -6,7 +6,6 @@ import { hasJuceBridge, hasJuceNativeFunction } from '../../lib/juceBridge'
 import { LIVE_INDEX, useLiveHand, getLiveHand } from '../../lib/liveHands'
 import FxScope from './FxScope'
 import { GaugeRow, ChoiceRow, SwitchRow, RangeRow, useTypeIn, parseLead, clamp } from './StudyControls'
-import { Cells } from '../../assets/parts/parts'
 import { LfoEditor, SINE_PTS, LFO_SHAPES, LFO_RANDOM, LFO_STEPS, stepsToPts, ptsToSteps } from './LfoEditor'
 import FollowMeter from './FollowMeter'
 import CompMeter from './CompMeter'
@@ -72,7 +71,8 @@ function platePath (ctx: CanvasRenderingContext2D, type: number, cx: number, cy:
   else if (fam === 'pitch') poly([[-DIAMOND, 0], [0, -DIAMOND], [DIAMOND, 0], [0, DIAMOND]])
   else ctx.arc(cx, cy, R, 0, Math.PI * 2)
 }
-const FAM_W = 46 * FAMILIES.length   // seven tabs; the longest family (six prints) fits the 760px window
+/** Each family's colour: the shelf wears it while that family is out (the rule, the chosen word's underline). */
+const FAM_COL: Record<string, string> = { tone: '#F0B450', grit: '#B38F62', space: '#5C80FF', motion: '#A7B04A', pitch: '#B79CFF', utility: '#ECE2C8', control: '#F27B5A', spectral: '#E0607E' }
 export function shelfLayout (): { print: number; gap: number; height: number } {
   return { print: SHELF_PRINT, gap: 14, height: SHELF_H }
 }
@@ -409,7 +409,6 @@ export default function FxWall ({ size: frame }: Props) {
   const [reveal, setReveal] = useState<number | null>(null)   // the print under a control wire being dragged: it shows its hands
   // the shelf shows one family at a time
   const [shelfFam, setShelfFam] = useState(() => { try { return Math.min(FAMILIES.length - 1, Math.max(0, Number(localStorage.getItem('orb_wall_fam') ?? 0))) } catch { return 0 } })
-  const [famHover, setFamHover] = useState(-1)
   const pickFam = (i: number) => { setShelfFam(i); try { localStorage.setItem('orb_wall_fam', String(i)) } catch { /* fine */ } }
   const shelfTypes = useMemo(() => {
     const byName = new Map<string, number>([...MODES.map(m => [m.name, m.id as number] as [string, number]), ['mix', FX_MIX_TYPE], ['L/R', FX_SPLIT_LR], ['M/S', FX_SPLIT_MS], ['LFO', FX_LFO], ['rate', FX_RATE], ['macro', FX_MACRO], ['side', FX_SIDE], ['follow', FX_FOLLOW], ['comp', FX_COMP], ['bands', FX_BANDS], ['carve', FX_CARVE], ['match', FX_MATCH], ['vocode', FX_VOCODE], ['freeze', FX_FREEZE], ['shift', FX_SHIFT], ['smear', FX_SMEAR], ['pan', FX_PAN], ['repeat', FX_REPEAT], ['env', FX_ENV], ['fold', FX_FOLD], ['drift', FX_DRIFT], ['pulse', FX_PULSE], ['scene', FX_SCENE], ['sieve', FX_SIEVE]])
@@ -2025,9 +2024,12 @@ export default function FxWall ({ size: frame }: Props) {
       </button>
       <div className={`sg-shelf${full ? ' full' : ''}${shelfOpen ? '' : ' closed'}${shelfMore ? ' more' : ''}`} style={{ height: shelfOpen ? shelf.height : 0 }}>
         {/* the family tabs, centred at the top of the shelf; the prints of the family in a row under them, centred while they fit */}
-        <span className="sg-shelf-fam" onPointerDown={(e) => e.stopPropagation()} onPointerLeave={() => setFamHover(-1)}
-          onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setFamHover(Math.min(FAMILIES.length - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * FAMILIES.length)))) }}>
-          <Cells options={FAMILIES.map(f => f[0])} value={shelfFam} hue={3} hover={famHover} width={FAM_W} onCell={(i, e) => { e.stopPropagation(); pickFam(i) }} />
+        {/* the family's colour runs along the shelf's rule, and underlines the chosen word */}
+        <span className="sg-shelf-glow" style={{ '--fam': FAM_COL[FAMILIES[shelfFam][0]] } as React.CSSProperties} />
+        <span className="sg-shelf-fam" onPointerDown={(e) => e.stopPropagation()}>
+          {FAMILIES.map(([fam], i) => (
+            <span key={fam} className={`sg-fam-word${i === shelfFam ? ' on' : ''}`} style={{ '--fam': FAM_COL[fam] } as React.CSSProperties} onPointerDown={(e) => { e.stopPropagation(); pickFam(i) }}>{fam}</span>
+          ))}
         </span>
         <div ref={shelfRef} className="sg-shelf-row" style={{ gap: shelf.gap }}>
         {shelfTypes.map(type => (

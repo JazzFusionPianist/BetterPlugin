@@ -73,6 +73,11 @@ async function fresh (o) {
 }
 const PANEL = [0, H - 22 - 316, W, 316]
 const SHOTS = {
+  /* settings > display: the room wearing a look of its own (light ground, dark ink, round corners, the sound standing on the region's foot) */
+  'display-room': async b => {
+    await b.ev(`applyLook({ 'win.k1': { c: '#E9E4D8', a: 100 }, 'win.k2': { c: '#DCD6C8', a: 100 }, 'win.k3': { c: '#CFC8B8', a: 100 }, 'win.k4': { c: '#C2BAA8', a: 100 }, 'lanes.k0': { c: '#F4F0E6', a: 100 }, 'win.ink': { c: '#1E1C18', a: 100 }, 'reg.corners': 4, 'reg.line': { c: '#1E1C18', a: 35 }, 'snd.drawn': 'half', 'fam.drums.0': { c: '#C2412D', a: 100 }, 'fam.drums.1': { c: '#F2B33D', a: 100 } }); return 1`)
+    await b.sleep(300); await b.pic('display-room')
+  },
   async window (b) {
     await b.click(await b.X(14), await b.Y(5))
     await b.ev(`const S = __daw.S; S.cycle = { on: true, a: 16, b: 24 }; S.pos = 19; __daw.redraw()`)
@@ -218,9 +223,14 @@ async function others () {
   await s.sleep(500); await s.pic('settings', [0, 0, 700, 440], 1.5)
   console.log('settings', await s.ev(`return [...new Set([...document.querySelectorAll('[data-a]')].map(e => e.dataset.a + (e.dataset.k ? ':' + e.dataset.k : '')))].join(' ')`))
   await s.close()
+  if (!want.length || want.includes('display')) {                                    // settings > display, with a few qualities set so the dots and the count show
+    const d = await room({ file: join(dirname(UI), 'settings.html') + '?part=display', w: 1100, h: 692 })
+    await d.sleep(400); await d.ev(`LOOK = { 'reg.corners': 4, 'reg.line': { c: null, a: 35 }, 'reg.shape': 'off' }; draw(); return 1`)
+    await d.pic('display', [0, 0, 1100, 692], 1.2); await d.close()
+  }
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders')) await others()
+  if (!want.length || want.includes('start') || want.includes('settings') || want.includes('folders') || want.includes('display')) await others()
   if (!want.length || want.includes('keys')) { const b = await room(); writeFileSync(join(here, 'keys.json'), JSON.stringify(await b.ev(`return SHEET`), null, 1)); await b.close(); console.log('took keys.json') }       // the app's own sheet of keys: the guide's last chapter is set from it
   for (const [name, fn] of Object.entries(SHOTS)) {
     const b = await fresh()

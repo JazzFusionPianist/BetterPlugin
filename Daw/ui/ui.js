@@ -260,24 +260,24 @@ function deepLines (D) {
 }
 function pRuler () {
   const y = RU_Y, span = (X1 - X0) / PXB, lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab, minor = PXB >= 6
-  let s = R(0, y, RX, RU_H, { fill: K1 }) + T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' })
+  let s = R(0, y, RX, RU_H, { fill: lkC('bars.ground', K1) }) + T(12, y + 15.3, 'bars', { size: 9, a: .38 }) + T(HEAD_W - 10, y + 15.3, meterName(), { size: 9, a: .38, anchor: 'end' })
   let g = '', t1 = '', t4 = ''
   const D = deepSteps()
   if (D) for (const [x, named, p] of deepLines(D)) {                                   // close up: beats, sixteenths, ticks, samples
-    if (named) { t4 += `M${n(x) + .5} ${y + 5}V${y + RU_H}`; if (x < X1 - 14) g += T(x + 3.5, y + 12.8, D.say(p), { size: 8.5, a: p < SONG_END ? .58 : .24 }) } else t1 += `M${n(x) + .5} ${y + 19}V${y + RU_H}`
+    if (named) { t4 += `M${n(x) + .5} ${y + 5}V${y + RU_H}`; if (x < X1 - 14) g += T(x + 3.5, y + 12.8, D.say(p), { size: lkN('bars.size'), a: p < SONG_END ? .58 : .24 }) } else t1 += `M${n(x) + .5} ${y + 19}V${y + RU_H}`
   }
   else for (let b = Math.floor(VX); b <= Math.ceil(VX + span) + 1; b++) {              // b: bars counted from zero
     const x = bx(b + 1)
     if (x < X0 - .5 || x > X1 + .5) continue
     if (b % major === 0) t4 += `M${n(x) + .5} ${y + (b % lab === 0 ? 5 : 15)}V${y + RU_H}`; else if (minor) t1 += `M${n(x) + .5} ${y + 19}V${y + RU_H}`
-    if (b % lab === 0 && x < X1 - 14) g += T(x + 3.5, y + 12.8, String(b + 1), { size: 8.5, a: b < SONG_END ? .58 : .24 })
+    if (b % lab === 0 && x < X1 - 14) g += T(x + 3.5, y + 12.8, String(b + 1), { size: lkN('bars.size'), a: b < SONG_END ? .58 : .24 })
     if (PXB >= 14 * BEATS()) for (let q = 1; q < BEATS(); q++) { const xq = x + q * PXB / BEATS(); if (xq < X1) t1 += `M${n(xq) + .5} ${y + 20}V${y + RU_H}` }
   }
   g += P(t1, { stroke: INK, sa: .14 }) + P(t4, { stroke: INK, sa: .26 })
   const c = S.cycle, has = c.b - c.a >= 1 / 32
   let hits = hit(X0, y, X1 - X0, RU_CY, 'cycle', ' data-m="new"', 'default') + hit(X0, y + RU_CY, X1 - X0, RU_H - RU_CY, 'seek')
   if (has) {
-    const ca = bx(c.a + 1), cb = bx(c.b + 1), col = c.on ? SOLO : INK, a = c.on ? 1 : .26, e = Math.min(5, (cb - ca) / 3)
+    const ca = bx(c.a + 1), cb = bx(c.b + 1), col = c.on ? lkC('cycle.c', SOLO) : INK, a = c.on ? 1 : .26, e = Math.min(5, (cb - ca) / 3)
     g += R(ca, y, cb - ca, 3, { fill: col, fa: a }) + R(ca, y, 1.5, 8, { fill: col, fa: a }) + R(cb - 1.5, y, 1.5, 8, { fill: col, fa: a })
     const part = (x0, x1, m, cur) => { const l = Math.max(X0, x0), r = Math.min(X1, x1); return r - l > .5 ? hit(l, y, r - l, RU_CY, 'cycle', ` data-m="${m}"`, cur) : '' }
     hits += part(ca + e, cb - e, 'move', 'grab') + part(ca - 5, ca + e, 'a', 'ew-resize') + part(cb - e, cb + 5, 'b', 'ew-resize')
@@ -341,23 +341,23 @@ function headRow (i) {
   let s = ''
   if (par) s += R(3, y, HEAD_W - 3, rh, { fill: K0, fa: .55 })
   if (t.kind === 'bus') s += R(3, y, HEAD_W - 3, rh - 1, { fill: t.c, fa: busWash(t) })
-  if (sel) s += R(0, y, HEAD_W, rh, { fill: INK, fa: .075 })
+  if (sel) s += R(0, y, HEAD_W, rh, { fill: lkC('heads.chosen'), fa: lkA('heads.chosen') })
   if (par) {
     s += R(0, y, 3, on ? rh : rh - 1, { fill: ups[0].c, fa: ups[0].mute ? .4 : 1 })                                      // the outermost stack's colour down the edge,
     for (let k = 1; k < deep; k++) { const more = !!nx && insideOf(nx, ups[k]); s += R(44 + (k - 1) * (HEAD_IN - 42), y, 3, more ? rh : rh - 1, { fill: ups[k].c, fa: ups[k].mute ? .4 : 1 }) }      // each stack inside it down its own line,
     s += R(44 + (deep - 1) * (HEAD_IN - 42), y + 5, 3, Math.max(4, rh - 10), { fill: t.c, fa: t.mute ? .4 : 1 })      // and its own mark
   }
-  else s += R(0, y, 3, on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
-  s += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
+  else s += R(0, y, lkN('heads.mark'), on ? rh : rh - 1, { fill: t.c, fa: t.mute ? .4 : 1 })
+  if (lk('heads.num') === 'on') s += T(25, by - .4, pad2(i + 1), { size: 8.5, a: sel ? .8 : .32, anchor: 'end' })
   if (stack) s += triMark(deep ? x0 - 7 : 34, by - 4, t.open, .62)
   const its = cellsOf(t), cw = 15, cx = 214 - its.length * cw
   const grp = t.kind === 'audio' && t.grp ? t.grp : '', grpW = grp ? tw(grp, 9, 500) + 7 : 0                 // the edit group it is in: a letter after its name
   const alt = t.kind === 'audio' && (t.alts || []).length ? `alt ${altName(t)}` : ''                      // which of its alternatives is on the lane, once it has more than one
   const tag = t.theirs || (t.kind === 'bus' ? 'bus' : alt), tagW = tag ? tw(tag, 9, 400, !!t.theirs) + 6 : 0, wt = stack || sel ? 500 : 400
-  const nm = fit(asGiven(t.name), cx - 8 - x0 - tagW - grpW, 10.5, wt)
-  s += T(x0, by, nm, { size: 10.5, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
-  if (tag) s += T(x0 + tw(nm, 10.5, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
-  if (grp) s += T(x0 + tw(nm, 10.5, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })
+  const hs = lkN('heads.size'), nm = fit(asGiven(t.name), cx - 8 - x0 - tagW - grpW, hs, wt)      // (as large as the look says)
+  s += T(x0, by, nm, { size: hs, w: wt, a: t.mute ? .42 : sel ? 1 : .88 })
+  if (tag) s += T(x0 + tw(nm, hs, wt) + 6, by, tag, { size: 9, it: !!t.theirs, a: .4 })
+  if (grp) s += T(x0 + tw(nm, hs, wt) + 6 + tagW, by, grp, { size: 9, w: 500, a: S.grpOff ? .22 : .62 })
   s += hit(0, y, cx - 4, rh, 'sel', ` data-i="${i}"`) + (stack ? hit(deep ? x0 - 13 : 27, y, 14, rh, 'fold', ` data-i="${i}"`) : '')      // from its number to its cells, a press chooses it
   s += miniCells(cx, y + rh / 2 - 7, its, cw, 14, 8.5, i)
   const vol = shown(t, 'vol'), led = autoPts(t, 'vol').length > 0
@@ -384,7 +384,7 @@ function pHead () {
   if (S.rowPull != null) { const k = L.r.indexOf(S.rowPull); if (k >= 0) s += R(0, TY + L.tops[k] + rowH(S.rowPull) - VY - 1, HEAD_W, 1, { fill: INK, fa: .7 }) }
   s += grab
   if (S.reorder != null) s += R(0, TY + (S.reorder < L.r.length ? L.tops[S.reorder] : L.all) - VY - 1, HEAD_W, 2, { fill: INK })
-  return R(0, TY, HEAD_W, LANES_H, { fill: K1 }) + G(s, '', ' clip-path="url(#hdc)"') + vline(HEAD_W - .5, TY, BY, .1)
+  return R(0, TY, HEAD_W, LANES_H, { fill: lkC('heads.ground', K1) }) + G(s, '', ' clip-path="url(#hdc)"') + vline(HEAD_W - .5, TY, BY, .1)
 }
 
 function peakOf (chs) { let m = 0; for (const a of chs) for (let i = 0; i < a.length; i += 3) { const v = Math.abs(a[i]); if (v > m) m = v } return m || 1 }
@@ -453,9 +453,9 @@ function fineFor (r, slot, v0, v1) {
 function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
   const fiP = DRAFT.fades && r.fi > 0 ? r.fi * PXB : 0, foP = DRAFT.fades && r.fo > 0 ? r.fo * PXB : 0                      // under a fade the outline tapers as the sound does
   const fine = fineFor(r, slot, v0, v1)
-  const len = r.b - r.a, k = `${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}`
+  const len = r.b - r.a, k = `${S.tempo}|${n(w)}|${n(hmax)}|${n(yc)}|${n(len * 1000)}|${n((r.off || 0) * 1000)}|${r.gain || 0}|${r.wsig || ''}|${outline}|${v0}|${v1}|${n(fiP)}|${n(foP)}|${r.fic || 0}|${r.foc || 0}|${fine ? fine.stamp + ':' + n(PXB) : ''}|${S.wz || 1}|${LOOK_STAMP}`
   if (r['_p' + slot] && r['_k' + slot] === k) return r['_p' + slot]
-  const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh)
+  const steps = Math.max(1, v1 - v0), gk = dbLin(r.gain || 0) * (S.wz || 1), room = roomOf(SHAPES[outline], w, lh), half = lk('snd.drawn') === 'half'      // (half: the sound stands on the region's foot, as tall as the region; yc is then its foot)
   const taper = x => (fiP && x < fiP ? fadeShape(r.fic || 0, x / fiP) : 1) * (foP && w - x < foP ? fadeShape(r.foc || 0, (w - x) / foP) : 1)
   let pk, norm, d = ''
   if (r.loop) { const lp = LOOPS[r.buf]; norm = lp.peak || (lp.peak = peakOf(lp.ch)) } else norm = r.peak || 1
@@ -478,13 +478,14 @@ function wavePath (r, w, yc, hmax, outline, lh, v0, v1, slot = '') {
       let top, bot
       if (signed) { top = clamp(hi * g, -1, 1) * Math.min(hmax, lim); bot = clamp(lo * g, -1, 1) * Math.min(hmax, lim); if (top - bot < .8) { const m = (top + bot) / 2; top = m + .4; bot = m - .4 } }
       else { const h = Math.max(.4, Math.min(Math.min(1, Math.max(Math.abs(lo), Math.abs(hi)) * g) * hmax, lim)); top = h; bot = -h }
+      if (half) { top = Math.max(Math.abs(top), Math.abs(bot)); bot = 0 }
       up += `${i ? 'L' : 'M'}${n(x - v0)} ${n(yc - top)}`; dn = `L${n(x - v0)} ${n(yc - bot)}` + dn
     }
     d = up + dn + 'Z'
   } else {
     if (r.loop) { const lp = LOOPS[r.buf], o = r.off || 0; pk = loopPeaks(lp, o + len * v0 / w, o + len * v1 / w, steps) } else pk = bufPeaks(r, steps, v0 / w, v1 / w)
     let up = '', dn = ''
-    for (let i = 0; i < steps; i++) { const x = v0 + i + .5, h = Math.max(.4, Math.min(Math.min(1, pk[i] / norm * gk) * hmax * taper(x), hmax - room(x))); up += `${i ? 'L' : 'M'}${n(x - v0)} ${n(yc - h)}`; dn = `L${n(x - v0)} ${n(yc + h)}` + dn }
+    for (let i = 0; i < steps; i++) { const x = v0 + i + .5, h = Math.max(.4, Math.min(Math.min(1, pk[i] / norm * gk) * hmax * taper(x), hmax - room(x))); up += `${i ? 'L' : 'M'}${n(x - v0)} ${n(yc - h)}`; dn = `L${n(x - v0)} ${n(half ? yc : yc + h)}` + dn }
     d = up + dn + 'Z'
   }
   r['_p' + slot] = d; r['_k' + slot] = k
@@ -577,7 +578,7 @@ function stackOverview (st, ly, lh, xEnd) {
    all of it does not fit, the name gives way first; a region too short for the rest says nothing */
 function regTag (r, t, room) {
   const nm = r.tag || r.name, done = [r.tr ? (r.tr > 0 ? '+' : '−') + Math.abs(r.tr) + ' st' : null, r.rev ? 'rev' : null, r.gain ? (r.gain > 0 ? '+' : '−') + Math.abs(r.gain).toFixed(1) : null].filter(Boolean)
-  for (const parts of [(nm && nm !== t.name ? [nm] : []).concat(done), done]) { const tg = parts.join('  '); if (tg && tw(tg, 7.5, 500) <= room) return parts.length > done.length ? asGiven(tg) : tg }      // (with its name in it: never put into other words)
+  for (const parts of [(nm && nm !== t.name ? [nm] : []).concat(done), done]) { const tg = parts.join('  '); if (tg && tw(tg, lkN('name.size'), +lk('name.w')) <= room) return parts.length > done.length ? asGiven(tg) : tg }      // (with its name in it: never put into other words)
   return ''
 }
 /* One track's lane, drawn from its own top edge (the lanes set it where it belongs): its regions, its line when lines show.
@@ -590,10 +591,10 @@ function regTag (r, t, room) {
 const BUS_WASH = .1
 const busWash = t => BUS_WASH * (heard(t) ? 1 : .45)
 function laneRow (i, sel, xEnd) {
-  const t = S.tracks[i], rh = rowH(i), ly = 1.5, lh = rh - 3
+  const t = S.tracks[i], rh = rowH(i), gap = Math.min(lkN('reg.gap'), rh / 2 - 4), ly = gap, lh = rh - 2 * gap      // (how far a region stands from its lane's edges: the look's)
   let s = '', g = '', tags = ''
   if (t.kind === 'bus') s += R(X0, 0, X1 - X0, rh - 1, { fill: t.c, fa: busWash(t) })
-  if (isChosen(i)) s += R(X0, 0, X1 - X0, rh, { fill: INK, fa: .035 })
+  if (isChosen(i)) s += R(X0, 0, X1 - X0, rh, { fill: lkC('lanes.chosen'), fa: lkA('lanes.chosen') })
   if (t.kind === 'stack') g += stackOverview(t, ly, lh, xEnd)
   const [cross, entered] = DRAFT.fades ? crossMarks(t, ly, lh, xEnd, sel) : ['', null]
   for (const r of t.regs) {
@@ -603,20 +604,24 @@ function laneRow (i, sel, xEnd) {
     if (w < 1.5) continue
     const L = regLook(r, t), sh = SHAPES[L.outline], body = on ? L.sel : L.c
     const cx = Math.max(x, X0 - 256), cw = n(Math.min(x + w, X1 + 256) - cx)             // as much of it as the window can show (close up a region is millions of pixels long, and numbers that large are not drawn truly)
-    let q = P(shapePath(cx, ly, cw, lh, sh), { fill: body })
+    const how = lk('snd.drawn'), half = how === 'half'
+    let q = P(shapePath(cx, ly, cw, lh, sh), { fill: body, fa: on ? 1 : lkA('reg.fill') })
     if (w > 4) {
       const v0 = Math.max(1, Math.floor(X0 - 4 - x)), v1 = Math.min(Math.floor(w - 1), Math.ceil(X1 + 4 - x))
-      if (v1 > v0) q += G(r.notes ? P(notesPath(r, ly, lh, v0, v1), { stroke: L.deep, sw: n(clamp(lh / 13, 1.4, 3)) }) : t.midi && r.loop ? P(midiPath(r, ly, lh, v0, v1), { stroke: L.deep, sw: 1.4 }) : P(wavePath(r, w, ly + lh / 2, lh / 2 - 1.5, L.outline, lh, v0, v1), { fill: L.deep }), `translate(${n(x + v0)} 0)`)
+      if (v1 > v0) q += G(r.notes ? P(notesPath(r, ly, lh, v0, v1), { stroke: L.deep, sw: n(clamp(lh / 13, 1.4, 3)) }) : t.midi && r.loop ? P(midiPath(r, ly, lh, v0, v1), { stroke: L.deep, sw: 1.4 }) : P(wavePath(r, w, half ? ly + lh - 1.5 : ly + lh / 2, half ? lh - 3 : lh / 2 - 1.5, L.outline, lh, v0, v1), how === 'line' ? { stroke: L.deep, sa: lkA('snd.c'), sw: lkN('snd.w'), cap: 'round' } : { fill: L.deep, fa: lkA('snd.c') }), `translate(${n(x + v0)} 0)`)
     }
     if (r.notes) {} else if (DRAFT.fades) q += fadeMarks(r, x, w, ly, lh, L)
     else {
-      if (r.fi > 0) { const fw = Math.min(w, r.fi * PXB); q += P(`M${x} ${ly}H${n(x + fw)}L${x} ${ly + lh}Z`, { fill: K0, fa: .5 }) + P(`M${x} ${ly + lh}L${n(x + fw)} ${ly}`, { stroke: L.on, sa: .9 }) }
-      if (r.fo > 0) { const fw = Math.min(w, r.fo * PXB), xe = n(x + w); q += P(`M${n(xe - fw)} ${ly}H${xe}V${ly + lh}Z`, { fill: K0, fa: .5 }) + P(`M${n(xe - fw)} ${ly}L${xe} ${ly + lh}`, { stroke: L.on, sa: .9 }) }
+      if (r.fi > 0) { const fw = Math.min(w, r.fi * PXB); q += P(`M${x} ${ly}H${n(x + fw)}L${x} ${ly + lh}Z`, { fill: K0, fa: lkN('fade.shade') / 100 }) + P(`M${x} ${ly + lh}L${n(x + fw)} ${ly}`, { stroke: L.on, sa: .9 * lkA('fade.c') }) }
+      if (r.fo > 0) { const fw = Math.min(w, r.fo * PXB), xe = n(x + w); q += P(`M${n(xe - fw)} ${ly}H${xe}V${ly + lh}Z`, { fill: K0, fa: lkN('fade.shade') / 100 }) + P(`M${n(xe - fw)} ${ly}L${xe} ${ly + lh}`, { stroke: L.on, sa: .9 * lkA('fade.c') }) }
     }
     if (S.flex && !S.auto) q += flexLines(r, xa, xb, ly, lh, L)
     let tagQ = ''                                                                    // its name stands clear of a crossfade it is entered by, and over everything
-    if (lh >= 16 && x > X0 - 400) { const lead = fitShape(sh, w, lh)[0], lx = Math.max(lead[0] === 'sq' ? 0 : lead[1] * (lead[0] === 'round' ? .45 : 1), entered && entered.get(r.id) || 0), tg = regTag(r, t, w - 9 - lx); if (tg) tagQ = R(x + 1 + lx, ly + 1, tw(tg, 7.5, 500) + 6, 9.5, { fill: body }) + T(x + 4 + lx, ly + 8, tg, { size: 7.5, w: 500, c: L.deep }) }
-    if (on) q += P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { stroke: INK, sw: 1 })
+    const ns = lkN('name.size'), nw = +lk('name.w')                                    // (its name: as large, as heavy and in the colour the look says — or not there)
+    if (lh >= ns * 2 + 1 && x > X0 - 400 && lk('name.where') !== 'none') { const lead = fitShape(sh, w, lh)[0], lx = Math.max(lead[0] === 'sq' ? 0 : lead[1] * (lead[0] === 'round' ? .45 : 1), entered && entered.get(r.id) || 0), tg = regTag(r, t, w - 9 - lx); if (tg) tagQ = R(x + 1 + lx, ly + 1, tw(tg, ns, nw) + 6, ns + 2, { fill: body }) + T(x + 4 + lx, ly + .5 + ns, tg, { size: ns, w: nw, c: L.name, a: lkA('name.c') }) }
+    const ol = lk('reg.line')
+    if (!on && ol.a > 0) q += P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { stroke: ol.c, sa: ol.a / 100, sw: lkN('reg.lineW') })      // an outline round every region, when the look gives it one
+    if (on) q += P(shapePath(cx + .5, ly + .5, cw - 1, lh - 1, sh), { stroke: lkC('chosen.line'), sa: lkA('chosen.line'), sw: Math.max(1, ol.a > 0 ? lkN('reg.lineW') : 1) })
     g += r.mute ? G(q, '', ' opacity=".34"') : q
     tags += r.mute ? G(tagQ, '', ' opacity=".34"') : tagQ
   }
@@ -634,13 +639,16 @@ function pLanes () {
   if (!$('ln-rows')) { root.innerHTML = `<g id="ln-back"></g><g id="ln-clip"${LN}><g id="ln-grid"></g><g id="ln-rows"></g><g id="ln-over"></g></g><g id="ln-edge"></g>`; LANES.rows.clear() }
   const L = rowTops(), sel = new Set(S.selR), xEnd = bx(SONG_END + 1), vis = L.r, span = (X1 - X0) / PXB
   const put = (id, html) => { if (LANES[id] !== html) { LANES[id] = html; $(id).innerHTML = html } }
-  put('ln-back', R(X0, TY, X1 - X0, LANES_H, { fill: K0 }))
+  let alt = ''
+  const al = lk('lanes.alt')
+  if (al.a > 0) vis.forEach((i, k) => { const y = TY + L.tops[k] - VY; if (k % 2 && y + rowH(i) > TY && y < BY) alt += R(X0, Math.max(TY, y), X1 - X0, Math.min(BY, y + rowH(i)) - Math.max(TY, y), { fill: al.c, fa: al.a / 100 }) })      // every other lane, washed when the look says so
+  put('ln-back', R(X0, TY, X1 - X0, LANES_H, { fill: K0 }) + alt)
   let grid = '', g2 = ''
   const lab = [1, 2, 4, 8, 16, 32, 64].find(k => k * PXB >= 56) || 64, major = lab > 1 && lab / 2 * PXB >= 14 ? lab / 2 : lab
   const D = deepSteps()
   if (D) { for (const [x, named, p] of deepLines(D)) if (p <= SONG_END + 1e-9) { if (named) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` } }
   else for (let b = Math.floor(VX / major) * major; b <= VX + span + 1 && b <= SONG_END; b += major) { const x = bx(b + 1); if (x < X0 || x > X1) continue; if (b % lab === 0) g2 += `M${n(x) + .5} ${TY}V${BY}`; else grid += `M${n(x) + .5} ${TY}V${BY}` }
-  put('ln-grid', (typeof gridLanes === 'function' ? gridLanes(D) : P(grid, { stroke: INK, sa: .03 }) + P(g2, { stroke: INK, sa: .06 })) + (xEnd >= X0 - 1 && xEnd <= X1 + 1 ? P(`M${n(xEnd) + .5} ${TY}V${BY}`, { stroke: INK, sa: .2 }) : ''))
+  put('ln-grid', (typeof gridLanes === 'function' ? gridLanes(D) : P(grid, { stroke: INK, sa: .03 * lkN('lanes.grid') / 100 }) + P(g2, { stroke: INK, sa: .06 * lkN('lanes.grid') / 100 })) + (xEnd >= X0 - 1 && xEnd <= X1 + 1 ? P(`M${n(xEnd) + .5} ${TY}V${BY}`, { stroke: INK, sa: Math.min(1, .2 * lkN('lanes.end') / 100) }) : ''))
   const box = $('ln-rows'), seen = new Set()
   vis.forEach((i, k) => {
     const y = TY + L.tops[k] - VY
@@ -681,7 +689,7 @@ function pDrop () {
 }
 /* the playhead: its line down the lanes; its head in the lower part of the bars, clear of the cycle's strip; and round the
    head a place to take it by, wider than the head (pressed there, it is held where it is and goes with the hand) */
-const pPlay = () => { const y = RU_Y + RU_CY; return G(P(`M.5 ${y + 6}V${BY}`, { stroke: INK }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: INK }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
+const pPlay = () => { const y = RU_Y + RU_CY, c = lkC('play.c', INK); return G(P(`M.5 ${y + 6}V${BY}`, { stroke: c, sw: lkN('play.w') }) + P(`M-4.5 ${y + 1}H5.5V${y + 7}L.5 ${y + 12}L-4.5 ${y + 7}Z`, { fill: c }) + hit(-10.5, y, 22, RU_H - RU_CY, 'playhead', '', 'ew-resize'), `translate(${Math.round(bx(curPos() + 1))} 0)`, ' id="ph"') }
 
 /* ── the bottom panel: the chosen track's patch, with its strip beside it; or the mixer ── */
 const SIDE = 222, GUT = 34, WSTRIP = 86, NSTRIP = 56, NGUT = 36, MSTRIP = 64, MAX_INS = 4

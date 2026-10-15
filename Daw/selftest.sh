@@ -5,6 +5,7 @@
 #                           through the library; SLUR_AU_APART=1 as well: each in a process of its own
 #   ./selftest.sh slur      only slur's own page in its place (needs the net)
 #   SLUR_URL=http://localhost:5173 ./selftest.sh slur     the same, with the panel reading another copy of the page
+#   ./selftest.sh display   only settings > display: the room wearing a look, and slur turning light with its ground (needs the net)
 #   ./selftest.sh bench     only the measure (ui/bench.js; ./bench.sh runs it and keeps what it found)
 #   ./selftest.sh crash     only a bad end and what comes back after it: the app is brought down by a plug-in in the middle
 #                           of a take, then started again (the first run's notes are kept as selftest-crash.json)

@@ -48,6 +48,17 @@ public:
     }
     /** The part that was asked for and not yet shown, once. */
     juce::String takeAsked() { return std::exchange (asked, {}); }
+    /** The page asks for a size of its own (display is larger than the other parts): the window grows or shrinks about
+        its middle, and stays on the screen. */
+    void sizeTo (int w, int h)
+    {
+        w = juce::jlimit (400, 1800, w); h = juce::jlimit (300, 1200, h);
+        if (web->getWidth() == w && web->getHeight() == h) return;
+        const auto mid = getBounds().getCentre();
+        web->setSize (w, h);
+        setCentrePosition (mid);
+        if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getBounds())) setBounds (getBounds().constrainedWithin (d->userArea));
+    }
     void closeButtonPressed() override { setVisible (false); }
     juce::WebBrowserComponent& page() { return *web; }
 

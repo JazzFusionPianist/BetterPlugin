@@ -1,11 +1,22 @@
 /* ── the settings window ──
    A window of the Mac's (Source/Settings.h) with this page in it: the parts of the settings named down the left, the
    chosen part on the right — a name on the left of each row, the thing itself against the right edge. A change is
-   taken at once; nothing is confirmed. Audio is the first part that is there: the others are named and cannot be
-   picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1). */
-const PAGE_W = 700, PAGE_H = 440, SIDE = 164, PX = 28, PR = PAGE_W - SIDE - 28
-const PARTS = ['general', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
-const THERE = new Set(['general', 'audio'])                   // the parts that are made
+   taken at once; nothing is confirmed. General, display and audio are there: the others are named and cannot be
+   picked yet. Drawn with the room's kit, at the sizes of the draft (design/settings draft 1); display is larger, and
+   the window grows for it (display.js, design/display draft 2). */
+let PAGE_W = 700, PAGE_H = 440
+const SIDE = 164, PX = 28, PR = 700 - SIDE - 28
+const PARTS = ['general', 'display', 'audio', 'recording', 'editing', 'notes', 'plug-ins', 'command line', 'slur', 'hand off', 'storage']
+const THERE = new Set(['general', 'display', 'audio'])        // the parts that are made
+/* the page's size for a part: display has the room's every part in it, and is larger */
+function setPage () {
+  const [w, h] = V.part === 'display' ? [DISP_W, DISP_H] : [700, 440]
+  if (w === PAGE_W && h === PAGE_H) return
+  PAGE_W = w; PAGE_H = h
+  const svg = document.getElementById('svg')
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('width', w); svg.setAttribute('height', h)
+  if (NAT) NAT.call('settingsSize', { w, h })
+}
 
 /* the way to the app: the room's one function (see engine.js); in a browser there is none, and the page shows a stand-in */
 const NAT = (() => {
@@ -102,6 +113,7 @@ function draw () {
     s += T(22, y + 14.8, p, { size: 10.5, w: on ? 500 : 400, c: on ? K1 : INK, a: on ? 1 : there ? .78 : .26 })
     if (there && !on) s += hit(10, y, SIDE - 20, 22, 'part', ` data-v="${p}"`)
   })
+  if (V.part === 'display') { document.getElementById('svg').innerHTML = s + G(displayBody(), `translate(${SIDE} 0)`) + displayMenu(); return }
   let b = T(PX, 34, V.part, { size: 13, w: 500, a: .94 }), y = 54
   V.at = {}
   if (d && BODY[V.part]) for (const [head, rows] of BODY[V.part](d)) {
@@ -121,7 +133,7 @@ async function read () {
   const d = NAT ? await NAT.call('settingsRead') : STAND_IN
   if (!d || !d.outs) return
   if (d.lang && d.lang !== LANG.now) setLang(d.lang)           // the language was changed while this window was away
-  if (d.part && THERE.has(d.part) && d.part !== V.part) { V.part = d.part; V.menu = null; V.key = '' }
+  if (d.part && THERE.has(d.part) && d.part !== V.part) { V.part = d.part; V.menu = null; V.key = ''; setPage(); if (V.part === 'display') displayRead() }
   const k = JSON.stringify([d.lang, d.outs, d.ins, d.out, d.in, d.rates, d.rate, d.blocks, d.block, d.outLat, d.inLat, d.inputOn, Math.round(meterOf(d.level) * 150), d.threads, d.asked, d.busy])
   V.now = d
   if (k !== V.key) { V.key = k; draw() }
@@ -140,20 +152,27 @@ document.getElementById('svg').addEventListener('pointerdown', async e => {
   const el = e.target.closest('[data-a]')
   if (!el) return
   const a = el.dataset.a, v = el.dataset.v, d = V.now
-  if (a === 'part') { V.part = v; V.menu = null; V.said = ''; draw() }
+  if (a.startsWith('d-')) { e.preventDefault(); return displayPress(el, e) }      // (so the press does not take the focus from a field it opens)
+  if (a === 'part') { V.part = v; V.menu = null; V.said = ''; setPage(); if (v === 'display') displayRead(); draw() }
   else if (a === 'open') { V.menu = V.menu && V.menu.id === v ? null : { id: v, y: V.at[v === 'out' ? 'output' : 'input'] + 26, items: (v === 'out' ? d.outs : d.ins).map(t => ({ t, on: t === (v === 'out' ? d.out : d.in) })) }; draw() }
   else if (a === 'close') { V.menu = null; draw() }
   else if (a === 'set') { const what = el.dataset.what; await set(what, what === 'out' || what === 'in' || what === 'lang' ? v : +v) }
   else if (a === 'listen') { if (NAT) { const r = await NAT.call('inputOn'); V.said = r && r.ok ? '' : low((r && r.error) || 'the input would not open') } V.key = ''; await read() }
   else if (a === 'tone') { if (NAT) NAT.call('settingsTone') }
 })
+addEventListener('pointermove', e => { displayMove(e) })
+addEventListener('pointerup', () => { displayUp() })
 addEventListener('keydown', e => {
+  if (V.part === 'display' && e.metaKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); dUndo(); return }
+  if (e.key === 'Escape' && V.part === 'display' && D.menu) { D.menu = null; draw(); return }
   if (e.key === 'Escape') { if (V.menu) { V.menu = null; draw() } else if (NAT) NAT.call('settingsClose') }
   else if (e.metaKey && (e.key === 'w' || e.key === ',')) { e.preventDefault(); if (NAT && e.key === 'w') NAT.call('settingsClose') }
 })
 LANG.heard.push(() => { V.key = ''; draw() })                 // another language: the page is written again
 
 Promise.all([400, 500, 600].map(w => document.fonts.load(`${w} 10px 'Instrument Sans'`))).then(async () => {
+  setPage()
+  if (V.part === 'display') await displayRead()
   draw()
   await read()
   setInterval(() => { if (!document.hidden) read() }, 120)

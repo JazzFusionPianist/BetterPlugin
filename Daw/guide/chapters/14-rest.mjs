@@ -39,6 +39,33 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
     note('The other parts named down the left (recording, editing, notes, plug-ins, command line, slur, hand off, storage) are not made yet.', '왼쪽에 이름만 있는 나머지 항목(recording, editing, notes, plug-ins, command line, slur, hand off, storage)은 아직 만들어지지 않았습니다.'),
     art: fig('settings', { w: 140, calls: [[1, [690, 107], 'r'], [2, [690, 153], 'r'], [3, [690, 230], 'r'], [4, [690, 275], 'r'], [5, [690, 338], 'r'], [6, [657, 376], 'b']] }) }),
 
+  page(t('display: every part, every quality', 'display: 모든 부분, 모든 속성'), { kind: 'split', tw: 104, txt:
+    lead('Settings › {{display}} lists every part of the room and every quality of it as plain values. Nothing is chosen for you: the room as it comes is the one starting point, and a look is only what you changed.', '설정 › {{display}}는 방의 모든 부분과 그 모든 속성을 값 그대로 보여 줍니다. 미리 정해 둔 것은 없습니다. 처음 그대로의 방이 유일한 출발점이고, 모습(look)은 바꾼 것만으로 이루어집니다.') +
+    legend(
+      [1, '{{look}} the look in use: {{as it comes}} or one you kept, and how many changes since. Click it to wear another', '{{look}} 지금 쓰는 모습. {{as it comes}} 또는 간직한 모습과, 그 뒤로 바뀐 곳의 수. 클릭해서 다른 모습을 입힙니다'],
+      [2, '{{find a part}} by its name, or by the name of one of its qualities', '{{find a part}} 부분의 이름이나 그 속성의 이름으로 찾습니다'],
+      [3, 'the parts of the room. One with a caret opens into smaller parts', '방의 부분들. 꺾쇠가 있는 것은 더 작은 부분으로 열립니다'],
+      [4, 'a colour: its well opens the Mac’s colour panel, its value can be typed as #rrggbb, and the % is how much of it', '색. 색 칸은 Mac의 색상 패널을 열고, 값은 #rrggbb로 직접 칠 수 있으며, %는 그 색의 세기입니다'],
+      [5, 'a number: drag it up or down ([[⇧]] for finer steps), or click it and type', '숫자. 위아래로 드래그하거나([[⇧]]를 누르면 더 잘게) 클릭해서 칩니다'],
+      [6, 'a dot before a quality: it is not as the room comes. Click the dot to put it back', '속성 앞의 점: 처음 그대로가 아니라는 뜻입니다. 점을 클릭하면 되돌아갑니다'],
+      [7, '{{keep as…}} keeps the look by a name. {{open…}} and {{share…}} read and write a .slurlook file, to hand a look to someone', '{{keep as…}}는 모습을 이름 붙여 간직합니다. {{open…}}과 {{share…}}는 .slurlook 파일을 읽고 써서 모습을 다른 사람에게 건넵니다']) +
+    p('The room wears every change at once. [[⌘Z]] in the window takes the last one back. The Settings window itself always stays as the room comes, so whatever a look does, it can be undone from there.', '방은 바뀐 것을 바로 입습니다. 창에서 [[⌘Z]]를 누르면 마지막 변경이 되돌아갑니다. 설정 창 자체는 언제나 처음 그대로라서, 모습이 무엇을 하든 거기서 되돌릴 수 있습니다.'),
+    art: fig('display', { w: 150, calls: [[1, 'd-looks', 't'], [7, 'd-keep', 't'], [2, 'd-find', 'l'], [3, 'd-group', 'l'], [6, 'd-reset:reg.corners', 'l'], [4, 'd-well:reg.fill', 'r', 0, { fx: .5 }], [5, 'd-num:reg.corners', 'r']] }) }),
+
+  page(t('what a look reaches', '모습이 닿는 곳'), { kind: 'split', tw: 112, mid: true, txt:
+    table([['part', '부분'], ['its qualities', '속성']],
+      ['{{the window}}', ['the tones: ground, raised (the top bar, the foot, menus), a control at rest and under the hand, the deepest (the lanes). The ink of every word and mark; the lines between, and their strength', '톤: 바탕, 올라온 면(위 막대, 아래 줄, 메뉴), 가만히 있거나 손이 닿은 컨트롤, 가장 깊은 면(레인). 모든 글자와 표시의 잉크, 사이의 선과 그 세기']],
+      ['{{the bars and the playhead}}', ['the bars’ ground and numbers; the playhead’s colour and width; the cycle’s colour', '마디 줄의 바탕과 숫자, 플레이헤드의 색과 굵기, 사이클의 색']],
+      ['{{tracks’ heads}}', ['ground, the track’s colour down the edge, its number, the size of its name; the wash of the chosen one', '바탕, 가장자리의 트랙 색, 번호, 이름 크기, 고른 헤드의 물들임']],
+      ['{{the lanes}}', ['every other lane, the chosen lane; how strong the grid and the song’s end are', '한 줄 걸러 레인, 고른 레인, 그리드와 곡 끝 선의 세기']],
+      ['{{regions}}', ['fill (its family’s, or one colour for all), edge and its width, corners, shape by instrument, gap; the sound’s colour, drawn filled, as a line or as a half standing on the foot; the name’s colour, size, weight and place; the fades’ line and shade; when chosen, fill and edge', '채움(가족 색, 또는 모두 한 색), 테두리와 굵기, 모서리, 악기별 모양, 간격. 소리의 색과 그리는 법(채움, 선, 바닥에 선 반쪽). 이름의 색, 크기, 두께, 위치. 페이드의 선과 그늘. 골랐을 때의 채움과 테두리']],
+      ['{{the families}}', ['drums, bass, keys, guitar, voice, effects: a deep end and a light end each, between which the family’s tracks are laid; buses one colour', '드럼, 베이스, 키, 기타, 보컬, 효과: 각각 짙은 끝과 밝은 끝이 있고 가족의 트랙들이 그 사이에 놓입니다. 버스는 한 색']],
+      ['{{meanings}}', ['recording, solo, listening to the input, a level', '녹음, 솔로, 입력 듣기, 레벨']],
+      ['{{slur}}', ['the panel’s look: by the ground, always dark or always light', '패널의 모습: 바탕에 따라, 늘 어둡게, 늘 밝게']]) +
+    note('By the ground, the Slur panel turns light by itself when the window’s ground grows lighter than the mark ({{light when the ground is lighter than}}, 60% at first), and dark again below it.', '바탕에 따라로 두면, 창의 바탕이 기준({{light when the ground is lighter than}}, 처음엔 60%)보다 밝아질 때 Slur 패널이 저절로 밝아지고, 그 아래로 내려가면 다시 어두워집니다.'),
+    art: fig('display-room', { w: 150, cap: ['the room in a look of its own: a light ground, dark ink, round corners, the sound standing on each region’s foot, drums from red to amber', '직접 만든 모습을 입은 방: 밝은 바탕, 짙은 잉크, 둥근 모서리, 리전 바닥에 선 소리, 빨강에서 호박색으로 가는 드럼'] }) }),
+
+
   page(t('after a bad end', '비정상 종료 뒤에'), { kind: 'text', cc: 3, txt:
     h('what protects the work', '작업을 지키는 것') +
     list(
@@ -99,6 +126,6 @@ export default () => chapter('rest', t('slur, settings, and when things go wrong
       ['templates of your own', '직접 만든 템플릿'],
       ['choosing which tracks hand off prints, or its folder', '내보낼 트랙이나 폴더 고르기'],
       ['mp3 without the lame program installed', 'lame 프로그램 없이 mp3'],
-      ['settings other than general and audio', 'general과 audio 외의 설정'],
+      ['settings other than general, display and audio', 'general, display, audio 외의 설정'],
       ['a Windows version', 'Windows 버전']) }),
 ])

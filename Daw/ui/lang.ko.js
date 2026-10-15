@@ -99,3 +99,28 @@ LANG.lists.ko = {
   'that is not a patch': '패치 파일이 아님', 'that preset is not there any more': '그 프리셋은 이제 없음', 'the preset could not be written': '프리셋을 쓰지 못함',
   'one thing this wall has no print for was left out': '이 패치에 없는 프린트 하나는 빠짐', '# things this wall has no print for were left out': '이 패치에 없는 프린트 #개는 빠짐',
 }
+/* settings > display (look.js, display.js): every part of the room and every quality of it */
+Object.assign(LANG.lists.ko, {
+  'display': '디스플레이', 'find a part': '부분 찾기', 'keep as…': '이름 붙여 간직…', 'open…': '열기…', 'share…': '공유…',
+  'look': '모습', 'as it comes': '처음 그대로', 'one change': '1곳 바뀜', '# changes': '#곳 바뀜', 'kept as': '간직함:', 'written': '파일로 씀',
+  'that file holds no look': '모습이 담긴 파일이 아님', 'a colour is written #rrggbb': '색은 #rrggbb로 씀',
+  'the window': '창', 'its tones': '바탕 톤', 'every page of the room': '방의 모든 페이지', 'ground': '바탕', 'the walls, the heads, the bars': '벽, 트랙 헤드, 마디 줄',
+  'raised': '올라온 면', 'the top bar, the foot, menus': '위 막대, 아래 줄, 메뉴', 'a control at rest': '가만히 있는 컨트롤', 'a control under the hand': '손이 닿은 컨트롤',
+  'deepest': '가장 깊은 면', 'the lanes, the patch': '레인, 패치', 'ink': '잉크', 'every word and mark': '모든 글자와 표시', 'words and marks': '글자와 표시',
+  'lines between': '사이의 선', 'the ink': '잉크대로', 'their strength': '선의 세기',
+  'the bars and the playhead': '마디 줄과 플레이헤드', 'the bars': '마디 줄', 'the bars over the lanes': '레인 위의 마디 줄', 'the window’s ground': '창 바탕대로', 'numbers': '숫자',
+  'the playhead': '플레이헤드', 'in every song': '모든 곡에서', 'width': '굵기', 'the cycle': '사이클', 'while it is on': '켜져 있을 때', 'solo’s': '솔로 색대로',
+  'tracks’ heads': '트랙 헤드', 'a head': '헤드', 'every track': '모든 트랙', 'its colour, down the edge': '가장자리의 트랙 색', 'number': '번호', 'name': '이름',
+  'the chosen head': '고른 헤드', 'the track that is chosen': '고른 트랙', 'wash': '물들임',
+  'the lanes': '레인', 'under every track': '모든 트랙 아래', 'every other lane': '한 줄 걸러 레인', 'the chosen lane': '고른 레인', 'the grid': '그리드',
+  'bars and beats down the lanes': '레인을 따라 내려오는 마디와 박', 'strength': '세기', 'where the song ends': '곡이 끝나는 곳',
+  'a region': '리전 하나', 'every region in every song': '모든 곡의 모든 리전', 'body': '몸', 'fill': '채움', 'its family’s': '가족 색대로', 'or one colour for all': '또는 모두 한 색',
+  'edge': '테두리', 'edge width': '테두리 굵기', 'corners': '모서리', 'shape by instrument': '악기별 모양', 'gap from the lane’s edge': '레인 가장자리와의 간격',
+  'its sound': '소리', 'the sound drawn on a region': '리전에 그려진 소리', 'deep of its fill': '채움의 짙은 색대로', 'drawn': '그리는 법', 'filled': '채움', 'line': '선', 'half': '반쪽',
+  'its name': '이름', 'the name on a region': '리전 위의 이름', 'weight': '두께', 'where': '위치', 'inside': '안쪽',
+  'a region’s fades': '리전의 페이드', 'ink or dark, by its fill': '채움에 따라 잉크나 어둠', 'shade': '그늘', 'when chosen': '골랐을 때', 'a region that is chosen': '고른 리전',
+  'its fill, lighter': '더 밝은 채움', 'the families': '가족', 'its tracks, deep to light': '트랙들, 짙은 쪽에서 밝은 쪽으로', 'deep end': '짙은 끝', 'light end': '밝은 끝', 'every bus': '모든 버스',
+  'meanings': '뜻', 'what a colour means': '색의 뜻', 'wherever it is shown': '보이는 모든 곳', 'listening to the input': '입력 듣기', 'a level': '레벨',
+  'the panel': '패널', 'slur, beside the lanes': '레인 옆의 slur', 'its look': '모습', 'by the ground': '바탕에 따라', 'dark': '어둡게', 'light': '밝게',
+  'light when the ground is lighter than': '바탕이 이보다 밝으면 밝게', 'on': '켬',
+})

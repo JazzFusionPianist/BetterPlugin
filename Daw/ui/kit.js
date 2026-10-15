@@ -3,9 +3,12 @@
    Colour is kept for what plays (a track's own pigment), for what a state means, and for the prints. */
 let W = 1440, H = 900                                      // the room, in its own units; it takes the size of the window (see fit)
 /* the darks, from the deepest (the lanes) up to a thing under the hand; the ink */
-const K0 = '#0E0E0E', K1 = '#151514', K2 = '#1B1B1A', K3 = '#262625', K4 = '#32322F', INK = '#ECEAE4'
+let K0 = '#0E0E0E', K1 = '#151514', K2 = '#1B1B1A', K3 = '#262625', K4 = '#32322F', INK = '#ECEAE4'      // (let: a look may set them again — look.js)
 /* what a colour means: recording, solo and the cycle, listening to the input */
-const REC = '#DE4F3C', SOLO = '#D8B24A', MON = '#D68A3E', LEVEL = INK, PAPER = '#FBFAF7'
+let REC = '#DE4F3C', SOLO = '#D8B24A', MON = '#D68A3E', LEVEL = INK
+const PAPER = '#FBFAF7'
+/* the hairlines between things: in ink unless a look gives them a colour of their own, and as strong as drawn times LINE_K */
+let LINE = null, LINE_K = 1
 /* the prints' own colours (never changed) */
 const CREAM = '#ECE2C8', SPACE = '#7896FF', MINT = '#5CE0A8', AMBER = '#FFA848'
 const FONT = "'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', system-ui, sans-serif"
@@ -57,8 +60,8 @@ const Cc = (cx, cy, r, o = {}) => {
 const G = (inner, tr, extra = '') => `<g${tr ? ` transform="${tr}"` : ''}${extra}>${inner}</g>`
 /* an unseen rectangle that takes the pointer */
 const hit = (x, y, w, h, a, more = '', cur = 'pointer') => `<rect x="${n(x)}" y="${n(y)}" width="${n(Math.max(0, w))}" height="${n(Math.max(0, h))}" fill="#000" fill-opacity="0" data-a="${a}"${more} style="cursor:${cur}"/>`
-const hline = (x0, x1, y, a = .08) => P(`M${n(x0)} ${n(y) + .5}H${n(x1)}`, { stroke: INK, sa: a })
-const vline = (x, y0, y1, a = .08) => P(`M${n(x) + .5} ${n(y0)}V${n(y1)}`, { stroke: INK, sa: a })
+const hline = (x0, x1, y, a = .08) => P(`M${n(x0)} ${n(y) + .5}H${n(x1)}`, { stroke: LINE || INK, sa: Math.min(1, a * LINE_K) })
+const vline = (x, y0, y1, a = .08) => P(`M${n(x) + .5} ${n(y0)}V${n(y1)}`, { stroke: LINE || INK, sa: Math.min(1, a * LINE_K) })
 const caret = (x, y, a = .5) => P(`M${n(x - 2.5)} ${n(y - 1.2)}L${n(x)} ${n(y + 1.6)}L${n(x + 2.5)} ${n(y - 1.2)}`, { stroke: INK, sa: a, sw: 1, cap: 'round' })
 
 /* colour by lightness, strength and hue (oklch), so that the colours of one family weigh alike */

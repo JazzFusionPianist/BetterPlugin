@@ -351,6 +351,41 @@ private:
         if (op == "settingsClose") { if (settings != nullptr) settings->setVisible (false); done (okVar()); return; }
         if (op == "settingsRead")  { done (settingsNow()); return; }
         if (op == "settingsSet")   { done (settingsSet (d)); return; }
+        if (op == "settingsSize")  { if (settings != nullptr) settings->sizeTo ((int) d["w"], (int) d["h"]); done (okVar()); return; }      // (display asks for a larger window than the other parts)
+        if (op == "slurLook")                                                  // slur's panel turns light when the room's ground has grown light (ui/look.js), and dark again
+        {
+            slurLight = (int) d["light"] != 0;
+            if (slur != nullptr) slur->evaluateJavascript (juce::String ("window.__slurLook && window.__slurLook('") + (slurLight ? "light" : "dark") + "')");
+            done (okVar()); return;
+        }
+        if (op == "lookShare")                                                 // a look written to a file of its own, to be handed to someone (ui/settings.js)
+        {
+            const auto json = d["json"].toString(), name = juce::File::createLegalFileName (d["name"].toString().isNotEmpty() ? d["name"].toString() : juce::String ("a look"));
+            if (selfTestMode().isNotEmpty()) { done (okVar (false)); return; }
+            chooser = std::make_unique<juce::FileChooser> ("Share Look", juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile (name + ".slurlook"), "*.slurlook");
+            chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [done, json] (const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File()) { done (okVar (false)); return; }
+                if (! f.hasFileExtension ("slurlook")) f = f.withFileExtension ("slurlook");
+                done (okVar (f.replaceWithText (json)));
+            });
+            return;
+        }
+        if (op == "lookOpen")                                                  // a look someone handed over: its name and what is in it
+        {
+            if (selfTestMode().isNotEmpty()) { done (okVar (false)); return; }
+            chooser = std::make_unique<juce::FileChooser> ("Open Look", juce::File::getSpecialLocation (juce::File::userDocumentsDirectory), "*.slurlook");
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [done] (const juce::FileChooser& fc)
+            {
+                const auto f = fc.getResult();
+                if (f == juce::File() || ! f.existsAsFile()) { done (okVar (false)); return; }
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("ok", true); o->setProperty ("name", f.getFileNameWithoutExtension()); o->setProperty ("json", f.loadFileAsString());
+                done (juce::var (o));
+            });
+            return;
+        }
         if (op == "settingsTone")  { if (selfTestMode().isEmpty() && ! engine.busy()) engine.devices().playTestSound(); done (okVar()); return; }      // (the check is silent)
         if (op == "testSettings")                                              // the check: the window as it stands, and a picture of its page
         {
@@ -1111,7 +1146,7 @@ private:
             const auto args = juce::JUCEApplicationBase::getCommandLineParameters();
             if (args.contains ("--slur-url=")) base = args.fromFirstOccurrenceOf ("--slur-url=", false, false).upToFirstOccurrenceOf (" ", false, false).unquoted();
         }
-        slur->goToURL (base + "/?surface=panel&plugin=1&v=" + juce::String (juce::Time::currentTimeMillis()));
+        slur->goToURL (base + "/?surface=panel&plugin=1" + (slurLight ? "&look=light" : "") + "&v=" + juce::String (juce::Time::currentTimeMillis()));      // (light: the room's ground has grown light — slurLook)
         daw::logLine ("slur: the studio's panel is opening from " + base);
     }
 
@@ -1183,6 +1218,19 @@ private:
                 if (page != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("lang", lang); page->emitEventIfBrowserIsVisible ("dawLang", juce::var (o)); }
             return okVar();
         }
+        if (what == "look")                                                    // settings > display: the look the room wears (ui/look.js) — kept, and the room told at once
+        {
+            if (selfTestMode().isEmpty())
+            {
+                auto v = juce::JSON::parse (prefsFile());
+                if (! v.isObject()) v = juce::var (new juce::DynamicObject());
+                v.getDynamicObject()->setProperty ("look", d["value"]);
+                prefsFile().getParentDirectory().createDirectory();
+                prefsFile().replaceWithText (juce::JSON::toString (v));
+            }
+            if (web != nullptr) { auto* o = new juce::DynamicObject(); o->setProperty ("look", d["value"]); web->emitEventIfBrowserIsVisible ("dawLook", juce::var (o)); }
+            return okVar();
+        }
         if (engine.busy()) return whyNot ("busy");
         if (what == "threads")                                                 // threads in all; 0: as many as the machine allows
         {
@@ -1218,6 +1266,7 @@ private:
     }
 
     std::unique_ptr<juce::WebBrowserComponent> web, slur;
+    bool slurLight = false;                                                    // slur's panel is light: the room's look asked for it (slurLook)
     bool keysToPage = false;                                                   // (command x, c, v and a go to the page as keys: see slurKeysToPage)
     std::unique_ptr<SettingsWindow> settings;
     juce::String lang { "en" };

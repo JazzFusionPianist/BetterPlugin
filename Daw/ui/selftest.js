@@ -178,6 +178,28 @@ async function runSelfTest (mode) {
     await note('page', { errors: window.__errs || [] })
     await NAT.call('testDone'); return
   }
+  if (mode === 'display') {                                                        // only this: settings > display, the room wearing what is set there, and slur following its ground (needs the net)
+    await step('display', async () => {
+      const res = {}, slurDark = async () => { const r = await NAT.call('testSlur', { js: `JSON.stringify({ dark: document.documentElement.classList.contains('slur-dark') })` }); return r ? r.dark : null }
+      toggleSlur(); await sleep(400)
+      for (let k = 0; k < 40; k++) { await sleep(500); const p = await NAT.call('testSlur'); if (p && p.ready && p.text) break }
+      await sleep(1200); res.slurAtFirst = await slurDark()
+      await NAT.call('settings', { part: 'display' }); await sleep(1500)
+      res.window = await NAT.call('testSettings', { name: 'selftest-display.png' }); await sleep(600)
+      const look = { 'win.k1': { c: '#E9E4D8', a: 100 }, 'win.k2': { c: '#DCD6C8', a: 100 }, 'win.k3': { c: '#CFC8B8', a: 100 }, 'win.k4': { c: '#C2BAA8', a: 100 }, 'lanes.k0': { c: '#F4F0E6', a: 100 }, 'win.ink': { c: '#1E1C18', a: 100 }, 'reg.corners': 4, 'snd.drawn': 'half' }
+      res.set = (await NAT.call('settingsSet', { what: 'look', value: look })).ok; await sleep(1500); flush()
+      res.worn = { k1: K1, ink: INK, corner: SHAPES.plain[0], changed: looksChanged() }
+      res.slurLight = (await slurDark()) === false
+      await NAT.call('testSnap', { name: 'selftest-display-slur.png', which: 'slur' }); await sleep(600)
+      await snap('selftest-display-room.png')
+      res.back = (await NAT.call('settingsSet', { what: 'look', value: {} })).ok; await sleep(1500); flush()
+      res.asItComes = { k1: K1, ink: INK, changed: looksChanged(), slurDark: await slurDark() }
+      await NAT.call('settingsClose'); toggleSlur(); await sleep(300)
+      return res
+    })
+    await note('page', { errors: window.__errs || [] })
+    await NAT.call('testDone'); return
+  }
 
   await step('chorus', async () => { await playFrom(16); return listen(1500) })
   await step('insertAppleDelay', () => natInsert(0, 'AudioUnit:Effects/aufx,dely,appl'))

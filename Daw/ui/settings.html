@@ -9,13 +9,23 @@
 /* the settings window: one page of the room's, in the room's own paper and ink (see settings.js) */
 html, body { height: 100%; margin: 0; background: #151514; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default }
 svg { display: block }
+/* typing over the page (display.js: a colour's value, a number, a name, the find field); the Mac's colour panel */
+#ed { position: absolute; box-sizing: border-box; padding: 0 6px; margin: 0; border: 1px solid rgba(236, 234, 228, .5); border-radius: 2px; outline: 0; background: #0E0E0E; color: #ECEAE4; caret-color: #ECEAE4; font: 400 10px 'Instrument Sans', system-ui, sans-serif; -webkit-user-select: text; user-select: text }
+#ed[hidden] { display: none }
+#ed::selection { background: rgba(236, 234, 228, .26) }
+#cw { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none }
 </style>
 </head>
 <body>
 <svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" width="700" height="440" fill="none" role="application" aria-label="settings"></svg>
+<script>window.LOOK_PLAIN = 1</script>
 <script src="kit.js"></script>
+<script src="look.js"></script>
 <script src="lang.js"></script>
 <script src="lang.ko.js"></script>
+<input id="ed" hidden spellcheck="false" autocomplete="off">
+<input id="cw" type="color" tabindex="-1">
 <script src="settings.js"></script>
+<script src="display.js"></script>
 </body>
 </html>

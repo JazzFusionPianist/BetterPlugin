@@ -121,13 +121,12 @@ function readTone (d) {
 const famByName = name => { const s = String(name || '').toLowerCase(); for (const [f, re] of FAM_WORDS) if (re.test(s)) return f; return null }
 const famOf = t => t.kind === 'bus' ? 'bus' : famByName(t.name) || t.tone || null
 /* a family takes one pigment and lays it out from deep to light across its tracks, the way a colour is drawn down on a
-   chart; each end is [hue, lightness, strength]. Buses are grey. A colour set by hand is [family, step 0..6]. */
-const PIGMENT = { drums: [[266, .40, .150], [236, .73, .085]], bass: [[302, .44, .135], [322, .60, .120]], keys: [[174, .48, .105], [146, .75, .090]], gtr: [[54, .56, .125], [92, .81, .125]], vox: [[36, .60, .175], [4, .81, .070]], fx: [[88, .86, .035], [88, .78, .030]] }
-const PIG_ORDER = ['drums', 'bass', 'keys', 'gtr', 'vox', 'fx']
+   chart; each end is [hue, lightness, strength] (PIGMENT, in look.js: a look may set the ends). Buses are grey
+   (BUS_GREY). A colour set by hand is [family, step 0..6]. */
 function swatch (fam, f) {
   const e = PIGMENT[fam]
   let L, C, h
-  if (e) { h = e[0][0] + (e[1][0] - e[0][0]) * f; L = e[0][1] + (e[1][1] - e[0][1]) * f; C = e[0][2] + (e[1][2] - e[0][2]) * f } else { L = fam === 'bus' ? .62 : .3 + .5 * f; C = .01; h = 85 }
+  if (e) { h = e[0][0] + (((e[1][0] - e[0][0]) % 360 + 540) % 360 - 180) * f; L = e[0][1] + (e[1][1] - e[0][1]) * f; C = e[0][2] + (e[1][2] - e[0][2]) * f } else if (fam === 'bus') { h = BUS_GREY[0]; L = BUS_GREY[1]; C = BUS_GREY[2] } else { L = .3 + .5 * f; C = .01; h = 85 }
   return { c: oklch(L, C, h), deep: oklch(clamp(L - .42, .13, .3), C * .6, h), sel: oklch(Math.min(.94, L + .17), C * .7, h), on: L < .58 ? INK : K0 }
 }
 /* every track's colour and outline, worked out again whenever tracks come, go, move or are renamed. (list: the tracks of
@@ -148,7 +147,10 @@ function repaint (list = S.tracks) {
   }
 }
 /* a region's own colour and outline, when it was given one by hand; else its track's */
-const regLook = (r, t) => { const sw = r.col ? swatch(r.col[0], r.col[1] / 6) : null; return { c: sw ? sw.c : t.c, deep: sw ? sw.deep : t.deep, sel: sw ? sw.sel : t.csel, on: sw ? sw.on : t.on, outline: r.shape || t.outline } }
+const regLook = (r, t) => {
+  const sw = r.col ? swatch(r.col[0], r.col[1] / 6) : null, by = { c: sw ? sw.c : t.c, deep: sw ? sw.deep : t.deep, sel: sw ? sw.sel : t.csel, on: sw ? sw.on : t.on }
+  return { c: lkC('reg.fill', by.c), deep: lkC('snd.c', by.deep), name: lkC('name.c', by.deep), sel: lkC('chosen.fill', by.sel), on: lkC('fade.c', by.on), outline: r.shape || t.outline }      // (what a look sets for every region: look.js)
+}
 const RH = () => S.rh
 /* rows: the tracks that show (the ones inside a closed stack do not), as indexes into S.tracks */
 const byId = id => S.tracks.find(t => t.id === id) || null

@@ -20,7 +20,7 @@ globalThis.document = { createElement: () => mkEl(), createElementNS: () => mkEl
 globalThis.requestAnimationFrame = () => 0
 globalThis.addEventListener = () => {}
 globalThis.Path2D = function () {}
-for (const f of ['sound.js', 'kit.js', 'engine.js', 'ui.js', 'edit.js', 'mix.js', 'auto.js', 'rec.js', 'flex.js', 'project.js', 'native.js', 'midi.js']) vm.runInThisContext(fs.readFileSync(path.join(UI, f), 'utf8'), { filename: f })
+for (const f of ['sound.js', 'kit.js', 'look.js', 'engine.js', 'ui.js', 'edit.js', 'mix.js', 'auto.js', 'rec.js', 'flex.js', 'project.js', 'native.js', 'midi.js']) vm.runInThisContext(fs.readFileSync(path.join(UI, f), 'utf8'), { filename: f })
 vm.runInThisContext(`
   svg = $('svg'); board = $('board')
   LOOPS = songLoops(S.tempo)

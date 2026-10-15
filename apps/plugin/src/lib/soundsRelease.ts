@@ -10,7 +10,7 @@
     LATEST is written by Plugin/release.sh when a release is published —
     do not edit it by hand.                                            */
 
-export const LATEST: { version: string; url: string } = { version: '1.0.30', url: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.30/Patch-on-Slur-1.0.30.pkg' }
+export const LATEST: { version: string; url: string } = { version: '1.0.31', url: 'https://github.com/JazzFusionPianist/BetterPlugin/releases/download/patch-on-slur-1.0.31/Patch-on-Slur-1.0.31.pkg' }
 
 /** The engine version a print first appeared in (a print not listed has always been there). */
 export const PRINT_SINCE: Record<number, string> = {

@@ -65,7 +65,7 @@ export function StudioHomePrompt({ targets, onSubmit, onOpenCalendar }: {
             onChange={e => { setText(e.target.value); setNote(null) }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void go() } }} />
           <button className="wd-noteline-send" onClick={() => void go()} disabled={!text.trim() || busy} aria-label="add">
-            <NoteGlyph size={30} color={text.trim() ? C.green : '#C0BCB3'} />
+            <NoteGlyph size={30} color={text.trim() ? C.green : 'var(--k-c0bcb3)'} />
           </button>
         </div>
         {onOpenCalendar && <button className="wd-noteline-cal" onClick={onOpenCalendar}>my calendar</button>}
@@ -133,8 +133,8 @@ export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpen
         {days.map((d, i) => {
           const k = keyOf(d)
           const marks = [
-            ...(byDay.get(k) ?? []).map(e => ({ id: e.id, color: e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : C.ink), past: i === 0 && over(e), task: false })),
-            ...tasks.filter(t => t.due_on === k).map(t => ({ id: t.id, color: t.conversation_id ? houseColor(t.conversation_id) : C.ink, past: false, task: true })),
+            ...(byDay.get(k) ?? []).map(e => ({ id: e.id, color: e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : 'var(--k-1a1917)'), past: i === 0 && over(e), task: false })),
+            ...tasks.filter(t => t.due_on === k).map(t => ({ id: t.id, color: t.conversation_id ? houseColor(t.conversation_id) : 'var(--k-1a1917)', past: false, task: true })),
           ]
           const what = marks.length === 0 ? 'nothing' : marks.length === 1 ? '1 thing' : `${marks.length} things`
           return (
@@ -175,7 +175,7 @@ export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpen
               <b>{d.getDate()}</b>
             </header>
             {shown.map(e => {
-              const color = e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : C.ink)
+              const color = e.category_color || (e.conversation_id ? houseColor(e.conversation_id) : 'var(--k-1a1917)')
               const room = e.conversation_id ? groupTitleById.get(e.conversation_id) : null
               return (
                 <button key={e.id} className={`wd-arch-ev${i === 0 && over(e) ? ' past' : ''}`} onClick={() => onOpenEvent ? onOpenEvent(e.id) : onOpenCalendar()} title={e.title}>
@@ -189,7 +189,7 @@ export function StudioWeek({ events, tasks = [], groupTitleById, nowTick, onOpen
             })}
             {shownTasks.map(t => (
               <button key={t.id} className="wd-arch-ev task" onClick={() => onOpenTask?.(t)} title={t.title}>
-                <NoteGlyph size={12} color={t.conversation_id ? houseColor(t.conversation_id) : C.ink} hollow />
+                <NoteGlyph size={12} color={t.conversation_id ? houseColor(t.conversation_id) : 'var(--k-1a1917)'} hollow />
                 <span>
                   <b>{t.title}</b>
                   <small>task  {t.who}</small>

@@ -7,8 +7,8 @@
 ━━━━━━━━━━━━━━━━━━━━━━━ */
 
 .sl {
-  --sl-paper: #F3F0E8; --sl-white: #FBFAF7; --sl-ink: #1A1917; --sl-t2: #6E6B63; --sl-t3: #A5A199;
-  --sl-blue: #5C80FF; --sl-green: #3FB872; --sl-orange: #F89C38; --sl-lilac: #B79CFF; --sl-rose: #F27BA6; --sl-mint: #BFE6CB;
+  --sl-paper: var(--k-f3f0e8); --sl-white: var(--k-fbfaf7); --sl-ink: var(--k-1a1917); --sl-t2: var(--k-6e6b63); --sl-t3: var(--k-a5a199);
+  --sl-blue: #5C80FF; --sl-green: #3FB872; --sl-orange: #F89C38; --sl-lilac: #B79CFF; --sl-rose: #F27BA6; --sl-mint: var(--k-bfe6cb);
   position: relative; width: 100%; height: 100%; background: var(--sl-paper); color: var(--sl-ink);
   font-family: 'Instrument Sans', 'Pretendard Variable', 'Apple SD Gothic Neo', sans-serif;
   font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; overflow: hidden;
@@ -47,16 +47,16 @@
 .sl-form { width: 100%; max-width: 320px; margin: auto; display: flex; flex-direction: column; gap: 10px; }
 .sl-form h2 { font-size: 52px; font-weight: 500; letter-spacing: -0.045em; line-height: 1; margin-bottom: 18px; }
 .sl-fld-wrap { position: relative; }
-.sl-fld { width: 100%; height: 46px; border: 0; border-radius: 23px; background: rgba(26,25,23,.055); padding: 0 18px;
+.sl-fld { width: 100%; height: 46px; border: 0; border-radius: 23px; background: rgba(var(--k-1a1917-rgb),.055); padding: 0 18px;
   font: inherit; font-size: 15px; color: var(--sl-ink); outline: none; transition: background .15s, box-shadow .15s; }
 .sl-fld::placeholder { color: var(--sl-t3); }
 .sl-fld:focus { background: var(--sl-white); box-shadow: 0 0 0 1.5px var(--sl-ink); }
-.sl-fld:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px #ECE9E1 inset; -webkit-text-fill-color: var(--sl-ink); }
+.sl-fld:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px var(--k-ece9e1) inset; -webkit-text-fill-color: var(--sl-ink); }
 .sl-show { position: absolute; right: 16px; top: 14px; font-size: 12.5px; color: var(--sl-t3); }
 .sl-lamps { display: flex; flex-direction: column; gap: 9px; margin: 4px 0 2px 6px; font-size: 12.5px; color: var(--sl-t2); }
 .sl-lamp { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
 .sl-lamp input { appearance: none; -webkit-appearance: none; width: 10px; height: 10px; margin: 0; border-radius: 50%;
-  box-shadow: inset 0 0 0 1.2px rgba(26,25,23,.4); flex: none; cursor: pointer; transition: background .15s; }
+  box-shadow: inset 0 0 0 1.2px rgba(var(--k-1a1917-rgb),.4); flex: none; cursor: pointer; transition: background .15s; }
 .sl-lamp input:checked { background: var(--sl-green); box-shadow: none; }
 .sl-lamp a { color: var(--sl-ink); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .sl-lamp em { font-style: normal; color: var(--sl-t3); }

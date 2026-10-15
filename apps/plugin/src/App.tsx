@@ -9,12 +9,21 @@ import SoundsPage from './pages/SoundsPage'
 import SoundsGraphDemo from './pages/SoundsGraphDemo'
 import GamesPage from './pages/GamesPage'
 import type { User } from '@supabase/supabase-js'
+import './pages/studio-tones.css'
 
 /** Split-out single-purpose builds load the page with ?surface=<name>.
  *  Orb Sounds needs no account — it boots straight into the fx room,
  *  before auth. Orb Chat and Orb Games keep the auth flow and branch
  *  below it (StudioShell / GamesPage). */
 const SURFACE = new URLSearchParams(window.location.search).get('surface')
+
+/* The panel inside Slur Studio is dark, as the room it sits in (?look=light asks for the light studio). The room can
+   turn it over while it is open — when its own ground grows light, the panel follows — by calling __slurLook. */
+const setLook = (look: string | null) => document.documentElement.classList.toggle('slur-dark', look !== 'light')
+if (SURFACE === 'panel') {
+  setLook(new URLSearchParams(window.location.search).get('look'))
+  ;(window as unknown as { __slurLook?: (look: string) => void }).__slurLook = setLook
+}
 
 export default function App() {
   if (window.location.pathname === '/admin') {

@@ -684,24 +684,24 @@ function DropDiagnosticsOverlay({ onClose }: { onClose: () => void }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{ width: 'min(760px, calc(100vw - 64px))', height: 'min(560px, calc(100vh - 64px))',
-          background: '#fbfaf7', color: '#1c1c1c', border: '1px solid #d8d4cc',
+          background: 'var(--k-fbfaf7)', color: 'var(--k-1c1c1c)', border: '1px solid var(--k-d8d4cc)',
           boxShadow: '0 12px 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}
       >
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12,
-          padding: '10px 14px', borderBottom: '1px solid #e4e0d8' }}>
+          padding: '10px 14px', borderBottom: '1px solid var(--k-e4e0d8)' }}>
           <span style={{ fontSize: 12, letterSpacing: '0.04em' }}>drop diagnostics — last {reports.length} ingestion{reports.length === 1 ? '' : 's'}</span>
           <span style={{ flex: 1 }} />
           <button
             onClick={() => void copyAll()}
             style={{ font: 'inherit', fontSize: 12, background: 'none', border: 'none',
-              cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, color: '#1c1c1c', padding: 0 }}
+              cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, color: 'var(--k-1c1c1c)', padding: 0 }}
           >
             {copied ? 'copied' : 'copy all'}
           </button>
           <button
             onClick={onClose}
             style={{ font: 'inherit', fontSize: 12, background: 'none', border: 'none',
-              cursor: 'pointer', color: '#1c1c1c', padding: 0 }}
+              cursor: 'pointer', color: 'var(--k-1c1c1c)', padding: 0 }}
             aria-label="close"
           >
             ✕
@@ -2616,7 +2616,7 @@ function StudioShellInner({ supabase, user, panel = false }: Props) {
           {!isMine && (
             <div className="wd-mav">
               {first && (
-                <span style={{ background: (senderP ? houseColor(senderP.id) : '#C0BCB3') }}>
+                <span style={{ background: (senderP ? houseColor(senderP.id) : 'var(--k-c0bcb3)') }}>
                   {senderP?.avatar_url
                     ? <img src={senderP.avatar_url} alt="" />
                     : (senderP?.initials ?? '').slice(0, 1)}
@@ -2831,7 +2831,7 @@ function StudioShellInner({ supabase, user, panel = false }: Props) {
           <div className={`wd-rail-foot${sel?.kind === 'profile' && sel.userId === user.id ? ' on' : ''}`}>
             <span className="wd-foot-me" onClick={() => openSel({ kind: 'profile', userId: user.id })} role="button" tabIndex={0}
               onKeyDown={e => { if (e.key === 'Enter') openSel({ kind: 'profile', userId: user.id }) }}>
-              <Avatar color={(me ? houseColor(me.id) : '#1A1917')} label={(me?.initials ?? myName).slice(0, 1)}
+              <Avatar color={(me ? houseColor(me.id) : 'var(--k-1a1917)')} label={(me?.initials ?? myName).slice(0, 1)}
                 avatarUrl={me?.avatar_url} dot="studio" />
               <span>{myName}</span>
             </span>

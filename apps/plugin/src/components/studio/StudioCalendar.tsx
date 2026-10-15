@@ -243,7 +243,7 @@ export default function StudioCalendar({
         {categories.length > 0 && (
           <div className="sc-filters">
             <button className={`sc-filter${filter === null ? ' on' : ''}`} onClick={() => setFilter(null)}>
-              <NoteGlyph size={12} color="#1A1917" hollow={filter !== null} />all
+              <NoteGlyph size={12} color="var(--k-1a1917)" hollow={filter !== null} />all
             </button>
             {categories.map(c => (
               <button key={c.id} className={`sc-filter${filter === c.name ? ' on' : ''}`}
@@ -417,7 +417,7 @@ export default function StudioCalendar({
                     onChange={e => { setDraft(e.target.value); setAddErr(null) }}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
                   <button disabled={!draft.trim() || adding} onClick={() => void submit()} aria-label="add">
-                    <NoteGlyph size={28} color={draft.trim() && !adding ? '#3FB872' : '#C0BCB3'} />
+                    <NoteGlyph size={28} color={draft.trim() && !adding ? '#3FB872' : 'var(--k-c0bcb3)'} />
                   </button>
                 </div>
               </div>

@@ -1,0 +1,49 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━
+   the studio's tones — every grey, paper and ink the studio's sheets use, by name
+   (--k-<what it is in the light>). As written they are exactly the light studio. Dark
+   (html.slur-dark: the panel inside Slur Studio, which is a dark room) turns each one
+   over by one rule: a near-grey's lightness is turned over into the room's darks
+   (paper becomes the room's wall, ink its ink); a pale, nearly grey ground sinks into a
+   deep tint of itself; a colour is not touched. Worked out once, by a script, from the
+   values themselves — change a light value and its dark one must be worked out again.
+━━━━━━━━━━━━━━━━━━━━━━━ */
+:root {
+  --k-1c1c1c: #1C1C1C; --k-1c1c1c-rgb: 28, 28, 28;
+  --k-d8d4cc: #D8D4CC; --k-d8d4cc-rgb: 216, 212, 204;
+  --k-e4e0d8: #E4E0D8; --k-e4e0d8-rgb: 228, 224, 216;
+  --k-191817: #191817; --k-191817-rgb: 25, 24, 23;
+  --k-1a1917: #1A1917; --k-1a1917-rgb: 26, 25, 23;
+  --k-6e6b63: #6E6B63; --k-6e6b63-rgb: 110, 107, 99;
+  --k-a5a199: #A5A199; --k-a5a199-rgb: 165, 161, 153;
+  --k-b2dec0: #B2DEC0; --k-b2dec0-rgb: 178, 222, 192;
+  --k-bfe6cb: #BFE6CB; --k-bfe6cb-rgb: 191, 230, 203;
+  --k-c0bcb3: #C0BCB3; --k-c0bcb3-rgb: 192, 188, 179;
+  --k-e8e4da: #E8E4DA; --k-e8e4da-rgb: 232, 228, 218;
+  --k-ece9e1: #ECE9E1; --k-ece9e1-rgb: 236, 233, 225;
+  --k-efece4: #EFECE4; --k-efece4-rgb: 239, 236, 228;
+  --k-f1eee6: #F1EEE6; --k-f1eee6-rgb: 241, 238, 230;
+  --k-f3f0e8: #F3F0E8; --k-f3f0e8-rgb: 243, 240, 232;
+  --k-f4f2ec: #F4F2EC; --k-f4f2ec-rgb: 244, 242, 236;
+  --k-fbfaf7: #FBFAF7; --k-fbfaf7-rgb: 251, 250, 247;
+  --k-ffffff: #FFFFFF; --k-ffffff-rgb: 255, 255, 255;
+}
+:root.slur-dark {
+  --k-1c1c1c: #E4E3E0; --k-1c1c1c-rgb: 228, 227, 224;
+  --k-d8d4cc: #302D28; --k-d8d4cc-rgb: 48, 45, 40;
+  --k-e4e0d8: #272520; --k-e4e0d8-rgb: 39, 37, 32;
+  --k-191817: #E9E8E4; --k-191817-rgb: 233, 232, 228;
+  --k-1a1917: #E8E6E2; --k-1a1917-rgb: 232, 230, 226;
+  --k-6e6b63: #8A8881; --k-6e6b63-rgb: 138, 136, 129;
+  --k-a5a199: #585650; --k-a5a199-rgb: 88, 86, 80;
+  --k-b2dec0: #1F3F2B; --k-b2dec0-rgb: 31, 63, 43;
+  --k-bfe6cb: #274331; --k-bfe6cb-rgb: 39, 67, 49;
+  --k-c0bcb3: #42403A; --k-c0bcb3-rgb: 66, 64, 58;
+  --k-e8e4da: #24221C; --k-e8e4da-rgb: 36, 34, 28;
+  --k-ece9e1: #211F1A; --k-ece9e1-rgb: 33, 31, 26;
+  --k-efece4: #1F1D18; --k-efece4-rgb: 31, 29, 24;
+  --k-f1eee6: #1D1B17; --k-f1eee6-rgb: 29, 27, 23;
+  --k-f3f0e8: #1C1A15; --k-f3f0e8-rgb: 28, 26, 21;
+  --k-f4f2ec: #1A1915; --k-f4f2ec-rgb: 26, 25, 21;
+  --k-fbfaf7: #151411; --k-fbfaf7-rgb: 21, 20, 17;
+  --k-ffffff: #141412; --k-ffffff-rgb: 20, 20, 18;
+}

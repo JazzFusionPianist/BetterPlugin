@@ -21,14 +21,14 @@
 .wd-duo { display: contents; }
 .wd-plate-pos i { font-style: normal; }
 
-.wd-stage.panel { padding: 0; background: #FBFAF7; }
+.wd-stage.panel { padding: 0; background: var(--k-fbfaf7); }
 .wd-stage.panel .wd { flex-direction: column; border-radius: 0; box-shadow: none; font-size: 13px; line-height: 1.3; }
 .wd-stage.panel .wd-brand { display: none; }
 
 /* the way back: a soft tile, the rail's own */
 .wd-back { flex: none; width: 28px; height: 28px; border-radius: 9px; border: none; padding: 0; cursor: pointer;
-  background: rgba(26,25,23,.06); color: #1A1917; display: flex; align-items: center; justify-content: center; }
-.wd-back:hover { background: rgba(26,25,23,.1); }
+  background: rgba(var(--k-1a1917-rgb),.06); color: var(--k-1a1917); display: flex; align-items: center; justify-content: center; }
+.wd-back:hover { background: rgba(var(--k-1a1917-rgb),.1); }
 .wd-back svg { display: block; }
 
 /* ── home: paper above, the rail as a sheet below ───────────────────── */
@@ -40,33 +40,33 @@
 .wd-stage.panel .wd .wd-home { flex: none; overflow: visible; }
 .wd-stage.panel .wd .wd-home > .wd-bar { height: 104px; max-height: none; }
 .wd-stage.panel .wd-bar-sheet { height: 104px; }
-.wd-stage.panel .wd .wd-bar-name { max-width: 56px; padding: 0; font-size: 10px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; color: #1A1917; }
-.wd-stage.panel .wd .wd-bar-name.off { font-weight: 400; color: #A5A199; }
+.wd-stage.panel .wd .wd-bar-name { max-width: 56px; padding: 0; font-size: 10px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; color: var(--k-1a1917); }
+.wd-stage.panel .wd .wd-bar-name.off { font-weight: 400; color: var(--k-a5a199); }
 .wd-stage.panel .wd-bar-name small { font-size: 8.5px; font-style: italic; font-weight: 400; color: var(--acc); }
-.wd-stage.panel .wd-bar-fade { width: 46px; background: linear-gradient(90deg, rgba(251,250,247,0), #FBFAF7 70%); }
-.wd-stage.panel .wd-bar-fade.back { width: 34px; background: linear-gradient(270deg, rgba(251,250,247,0), #FBFAF7 70%); }
-.wd-stage.panel .wd-bar-go { right: 8px; top: 76px; width: auto; flex-direction: row; gap: 0; font-size: 9.5px; line-height: 1.3; color: #6E6B63; }
+.wd-stage.panel .wd-bar-fade { width: 46px; background: linear-gradient(90deg, rgba(var(--k-fbfaf7-rgb),0), var(--k-fbfaf7) 70%); }
+.wd-stage.panel .wd-bar-fade.back { width: 34px; background: linear-gradient(270deg, rgba(var(--k-fbfaf7-rgb),0), var(--k-fbfaf7) 70%); }
+.wd-stage.panel .wd-bar-go { right: 8px; top: 76px; width: auto; flex-direction: row; gap: 0; font-size: 9.5px; line-height: 1.3; color: var(--k-6e6b63); }
 .wd-stage.panel .wd-bar-go.back { right: auto; left: 0; top: 70px; padding: 4px 10px 6px 8px; }
 .wd-stage.panel .wd-bar-go i { display: none; }
-.wd-stage.panel .wd-bar-go.back i { display: block; width: auto; height: auto; border-radius: 0; box-shadow: none; background: none; font-size: 12px; line-height: 1.3; color: #6E6B63; }
+.wd-stage.panel .wd-bar-go.back i { display: block; width: auto; height: auto; border-radius: 0; box-shadow: none; background: none; font-size: 12px; line-height: 1.3; color: var(--k-6e6b63); }
 .wd-stage.panel .wd-bar-go b { font-weight: 400; white-space: pre; }
-.wd-stage.panel .wd-bar-go:hover, .wd-stage.panel .wd-bar-go:hover i { color: #1A1917; background: none; }
+.wd-stage.panel .wd-bar-go:hover, .wd-stage.panel .wd-bar-go:hover i { color: var(--k-1a1917); background: none; }
 
 /* (whole-pixel line heights here: WebKit rounds a line's height and Chrome does not, and the week below would sit a pixel or two apart) */
 .wd-stage.panel .wd .wd-home > .wd-home-greet { margin: 8px 14px 0; font-size: 19px; font-weight: 500; letter-spacing: -0.03em; line-height: 22px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wd-stage.panel .wd .wd-home > .wd-home-date { margin: 3px 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 10.5px; line-height: 14px; color: #A5A199; }
+  font-size: 10.5px; line-height: 14px; color: var(--k-a5a199); }
 .wd-stage.panel .wd .wd-home-date > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wd-stage.panel .wd .wd-noteline-cal { margin-left: 0; font-size: 10.5px; font-weight: 500; line-height: 14px; padding: 4px 10px; }
 
 .wd-stage.panel .wd .wd-week { flex: none; gap: 5px; margin: 12px 14px 14px; }
 .wd-stage.panel .wd .wd-arch { height: 86px; gap: 0; align-items: center; padding: 13px 0 0; border: none; cursor: pointer; font-family: inherit;
   border-radius: 999px 999px 8px 8px; }
-.wd-stage.panel .wd .wd-arch:hover { background: #E8E4DA; }
-.wd-stage.panel .wd .wd-arch.today:hover { background: #B2DEC0; }
+.wd-stage.panel .wd .wd-arch:hover { background: var(--k-e8e4da); }
+.wd-stage.panel .wd .wd-arch.today:hover { background: var(--k-b2dec0); }
 .wd-stage.panel .wd .wd-arch header { margin: 0; }
-.wd-stage.panel .wd .wd-arch header span { font-size: 9px; font-weight: 400; line-height: 1; color: #6E6B63; }
+.wd-stage.panel .wd .wd-arch header span { font-size: 9px; font-weight: 400; line-height: 1; color: var(--k-6e6b63); }
 .wd-stage.panel .wd .wd-arch header b { margin-top: 4px; font-size: 14px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
 .wd-stage.panel .wd-arch-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; margin-top: 4px; background: currentColor; }
 .wd-stage.panel header + .wd-arch-dot { margin-top: 9px; }
@@ -80,7 +80,7 @@
 .wd-stage.panel .wd .wd-badge { min-width: 16px; height: 16px; border-radius: 8px; }
 .wd-stage.panel .wd .wd-rail-foot { margin-top: 0; padding: 4px 0 8px; gap: 0; }
 .wd-stage.panel .wd .wd-foot-me { height: 42px; gap: 9px; }
-.wd-stage.panel .wd .wd-foot-me > span:last-child { font-size: 11px; font-weight: 400; color: #6E6B63; }
+.wd-stage.panel .wd .wd-foot-me > span:last-child { font-size: 11px; font-weight: 400; color: var(--k-6e6b63); }
 .wd-stage.panel .wd .wd-foot-gear { margin: 0; padding: 0 9px; }
 .wd-stage.panel .wd .wd-search { padding: 6px 0 4px; }
 
@@ -109,7 +109,7 @@
 .wd-stage.panel .wd-mav { display: none; }
 .wd-stage.panel .wd-mrow.named .wd-mav { display: block; position: absolute; left: 0; top: 0; width: 18px; margin: 0; }
 .wd-stage.panel .wd .wd-mrow.named .wd-mav > span { width: 18px; height: 18px; font-size: 9px; }
-.wd-stage.panel .wd .wd-mname { margin: 0 0 1px; padding-left: 24px; font-size: 10.5px; line-height: 18px; color: #A5A199; }
+.wd-stage.panel .wd .wd-mname { margin: 0 0 1px; padding-left: 24px; font-size: 10.5px; line-height: 18px; color: var(--k-a5a199); }
 .wd-stage.panel .wd-mcol { max-width: 100%; }
 .wd-stage.panel .wd-mcol.wide { max-width: 100%; width: 100%; }
 .wd-stage.panel .wd-mline, .wd-stage.panel .wd-mname + .wd-mline { margin-top: 4px; }
@@ -146,8 +146,8 @@
 .wd-stage.panel .wd-plate-cap .wd-ac-play, .wd-stage.panel .wd-plate-secrow .wd-ac-play { order: 0; }
 .wd-stage.panel .wd .wd-plate-name, .wd-stage.panel .wd .wd-plate-secname { order: 1; flex: 1 1 0; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.3;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal; }
-.wd-stage.panel .wd-plate-clock { order: 2; flex: none; font-size: 10px; color: rgba(26,25,23,.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wd-stage.panel .wd-plate-pos { order: 6; flex: 1 1 auto; min-width: 0; font-size: 10px; color: rgba(26,25,23,.55); font-variant-numeric: tabular-nums;
+.wd-stage.panel .wd-plate-clock { order: 2; flex: none; font-size: 10px; color: rgba(var(--k-1a1917-rgb),.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wd-stage.panel .wd-plate-pos { order: 6; flex: 1 1 auto; min-width: 0; font-size: 10px; color: rgba(var(--k-1a1917-rgb),.55); font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; }
 .wd-stage.panel .wd-plate-pos i { display: none; }
 .wd-stage.panel .wd-plate-cap .wd-ac-import, .wd-stage.panel .wd-plate-secrow .wd-ac-import { order: 7; margin-left: auto; gap: 10px; }
@@ -206,7 +206,7 @@
 .wd-stage.panel .sc-title-row > .sc-title:first-child { flex-basis: 100%; }
 .wd-stage.panel .sc-views { gap: 2px; margin: 0 auto 0 -2px; }
 .wd-stage.panel .sc-view { padding: 5px 10px; border-radius: 999px; font-size: 11.5px; line-height: 1.3; }
-.wd-stage.panel .sc-view:not(.on) { color: #6E6B63; }
+.wd-stage.panel .sc-view:not(.on) { color: var(--k-6e6b63); }
 .wd-stage.panel .wd .sc-view.on { padding: 5px 10px; font-weight: 400; }
 .wd-stage.panel .sc-nav { gap: 12px; align-items: center; }
 .wd-stage.panel .sc-navw { font-size: 11.5px; }
@@ -289,9 +289,9 @@
 .wd-stage.panel .wd-prof-handle-in { width: 110px; }
 .wd-stage.panel .wd-prof-handle-state { margin-left: 0; flex-basis: 100%; }
 .wd-stage.panel .wd .wd-prof-sec { margin: 20px 18px 0; max-width: none; }
-.wd-stage.panel .wd .wd-prof-sec-head { padding-bottom: 8px; border-bottom-color: rgba(26,25,23,.14); }
+.wd-stage.panel .wd .wd-prof-sec-head { padding-bottom: 8px; border-bottom-color: rgba(var(--k-1a1917-rgb),.14); }
 .wd-stage.panel .wd-prof-sec-head .wd-word { font-size: 11px; }
-.wd-stage.panel .wd .wd-cred { grid-template-columns: 14px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; padding: 11px 0 12px; border-bottom-color: rgba(26,25,23,.14); }
+.wd-stage.panel .wd .wd-cred { grid-template-columns: 14px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; padding: 11px 0 12px; border-bottom-color: rgba(var(--k-1a1917-rgb),.14); }
 .wd-stage.panel .wd-cred-no { padding-top: 2px; }
 .wd-stage.panel .wd .wd-cred-work { font-size: 12.5px; letter-spacing: 0; overflow-wrap: anywhere; }
 .wd-stage.panel .wd-cred-mark { margin-left: 3px; vertical-align: -2px; }
@@ -339,10 +339,21 @@
 .wd-stage.panel .wd-main .wd-live.plugin .top-bar.wd-games-bar { height: 52px; gap: 9px; padding: 0 14px; }
 /* its way back is the panel's tile (the words "‹ studio" belong to the wide studio, where the rail is in sight) */
 .wd-stage.panel .wd-live .wd-games-back { flex: none; width: 28px; height: 28px; border-radius: 9px; font-size: 0; color: transparent;
-  background: rgba(26,25,23,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%231A1917' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 1.5L1.8 6 6 10.5'/%3E%3C/svg%3E") center / 8px 12px no-repeat; }
-.wd-stage.panel .wd-live .wd-games-back:hover { background-color: rgba(26,25,23,.1); }
+  background: rgba(var(--k-1a1917-rgb),.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%231A1917' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 1.5L1.8 6 6 10.5'/%3E%3C/svg%3E") center / 8px 12px no-repeat; }
+.wd-stage.panel .wd-live .wd-games-back:hover { background-color: rgba(var(--k-1a1917-rgb),.1); }
 .wd-stage.panel .wd-main .wd-live.plugin .wd-games-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .wd-stage.panel .wd-live-count { font-size: 10.5px; }
 .wd-stage.panel .wd-live .live-body { padding: 8px 14px 14px; }
 .wd-stage.panel .wd-live .live-setup > * { max-width: none; }
 .wd-stage.panel .wd-live .live-setup { padding: 12px 0 20px; }
+
+/* ── dark: the panel inside Slur Studio (html.slur-dark) ──
+   The studio's own sheets turn over through their tones (studio-tones.css); the games
+   lobby is drawn by the arcade's sheet, so its words are given the same tones here, and
+   the ear-training arch (ink) keeps a hairline so it still stands on the dark. */
+:root.slur-dark .wd-stage.panel .arcade-title,
+:root.slur-dark .wd-stage.panel .arcade .arcade-name,
+:root.slur-dark .wd-stage.panel .arcade-close:hover { color: var(--k-1a1917); }
+:root.slur-dark .wd-stage.panel .arcade-close,
+:root.slur-dark .wd-stage.panel .arcade .arcade-sub { color: var(--k-6e6b63); }
+:root.slur-dark .wd-stage.panel .arcade-door[style*="26, 25, 23"] { box-shadow: inset 0 0 0 1px rgba(var(--k-1a1917-rgb), .18); }

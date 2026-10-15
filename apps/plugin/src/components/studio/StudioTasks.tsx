@@ -89,7 +89,7 @@ export default function StudioTasks({ tasks, loaded, userId, members, nameOf, on
     return (
       <div key={t.id} className={`wd-task${isDone ? ' done' : ''}`}>
         <button className="wd-task-check" onClick={() => void onDone(t, !isDone)} aria-label={isDone ? 'reopen' : 'done'}>
-          <NoteGlyph size={18} color={isDone ? '#3FB872' : '#1A1917'} hollow={!isDone} />
+          <NoteGlyph size={18} color={isDone ? '#3FB872' : 'var(--k-1a1917)'} hollow={!isDone} />
         </button>
         <span className="wd-task-main">
           <b>{t.title}</b>
@@ -122,7 +122,7 @@ export default function StudioTasks({ tasks, loaded, userId, members, nameOf, on
             onChange={e => { setText(e.target.value); setNote(null) }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void go() } }} />
           <button className="wd-noteline-send" onClick={() => void go()} disabled={!text.trim() || busy} aria-label="add">
-            <NoteGlyph size={30} color={text.trim() ? '#3FB872' : '#C0BCB3'} />
+            <NoteGlyph size={30} color={text.trim() ? '#3FB872' : 'var(--k-c0bcb3)'} />
           </button>
         </div>
         <div className="wd-tasks-hint">{note ?? '“하로 2절 보컬 다시 금요일까지” — the name and the day are read from the line'}</div>

@@ -54,7 +54,7 @@ const USERNAME_RE = /^[a-z0-9_.]{3,20}$/
 /** The person's colour, washed for the arch behind their masthead. */
 function tintOf(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '')
-  if (!m) return '#F1EEE6'
+  if (!m) return 'var(--k-f1eee6)'
   const v = parseInt(m[1]!, 16)
   return `rgba(${(v >> 16) & 255}, ${(v >> 8) & 255}, ${v & 255}, 0.22)`
 }
@@ -143,7 +143,7 @@ function ApprovedMark() {
     <svg className="wd-cred-mark" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-label="approved by orb">
       <title>approved by orb</title>
       <circle cx="12" cy="12" r="12" fill="var(--acc)" />
-      <path d="M6.8 12.6l3.4 3.4 7-7.2" stroke="#FBFAF7" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6.8 12.6l3.4 3.4 7-7.2" stroke="var(--k-fbfaf7)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

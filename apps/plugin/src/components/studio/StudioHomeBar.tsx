@@ -99,7 +99,7 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen, c
     setRung(r => ({ ...r, [i]: (r[i] ?? 0) + 1 }))
     const who = list[i]; if (who) onOpen(who.p.id)
   }
-  const quietColors = [C.ink, C.orange, C.blue]
+  const quietColors = ['var(--k-1a1917)', C.orange, C.blue]   // ink: the studio's tone, so it turns over in the dark
 
   return (
     <div className={`wd-bar${compact ? ' compact' : ''}`} ref={box} style={compact ? { height: H } : undefined}>
@@ -107,8 +107,8 @@ export default function StudioHomeBar({ friends, onlineIds, studioIds, onOpen, c
         {w > 0 && (
           <div className="wd-bar-sheet" style={compact ? { width: full, height: H } : { width: full }}>
             <svg width={full} height={H} viewBox={`0 0 ${full} ${H}`} aria-hidden="true">
-              {[0, 1, 2, 3, 4].map(i => <line key={i} x1={0} x2={full} y1={Y0 + i * GAP + (compact ? .5 : 0)} y2={Y0 + i * GAP + (compact ? .5 : 0)} stroke="rgba(26,25,23,.18)" strokeWidth={1} />)}
-              {n > 1 && <path className="sl-tie" d={tie} fill={C.ink} onClick={() => pts.forEach((q, i) => play(hz(q.step), i * 0.14, 1.4))} />}
+              {[0, 1, 2, 3, 4].map(i => <line key={i} x1={0} x2={full} y1={Y0 + i * GAP + (compact ? .5 : 0)} y2={Y0 + i * GAP + (compact ? .5 : 0)} stroke="rgba(var(--k-1a1917-rgb), .18)" strokeWidth={1} />)}
+              {n > 1 && <path className="sl-tie" d={tie} fill="var(--k-1a1917)" onClick={() => pts.forEach((q, i) => play(hz(q.step), i * 0.14, 1.4))} />}
               {pts.map((q, i) => {
                 const who = list[i]
                 return (

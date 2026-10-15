@@ -1,7 +1,7 @@
 // node test/wall.mjs — the patch as a wall (Patch on Slur's way): a patch begins with in and out and nothing between; a print
 // picked from the list stands on the wall unwired; wires are drawn by hand from a port to a thing (the real pointer), never
 // round in a ring; one output feeds several things; a mix takes several wires and shares a hundred among them; a print's
-// amount is pulled on its plate, its other hands on the wall's foot; scrolling makes the wall nearer and further about the
+// pulled is moved and pressed opens its study (test/study.mjs); scrolling makes the wall nearer and further about the
 // pointer and its ground is pulled about; a thing set down on a wire joins it; one taken off heals the wire; a patch
 // from before walls comes out wired as it sounded; the wall is written with the project; what the engine would be
 // told is the graph as drawn. (No app here: what is checked is the page. WALL_PAGE: another copy of the page.)
@@ -54,16 +54,19 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   await pull(o.x, o.y, a.x, a.y)
   ok('a wire cannot be pulled back into in', (await wall()).wires.length === 2) }
 
-/* the amount, on the plate */
-{ const id = (await wall()).nodes[0][0], c = await at(id), v0 = (await wall()).nodes[0][2]
+/* a print pulled is moved, not turned; pressed and let go where it stands, its study opens (Patch on Slur's way) */
+{ const id = (await wall()).nodes[0][0], c = await at(id), v0 = (await wall()).nodes[0][2], x0 = (await wall()).nodes[0][3]
   await mouse('mouseMoved', c.x, c.y, { buttons: 0 }); await mouse('mousePressed', c.x, c.y)
-  for (let k = 1; k <= 8; k++) await mouse('mouseMoved', c.x, c.y - k * 10)
+  for (let k = 1; k <= 8; k++) await mouse('mouseMoved', c.x + k * 5, c.y - k * 10)
   await b.sleep(60)
-  const mid = await ev(`flush(); const w = wallOf(S.tracks[S.sel]); return { a: w.nodes[0].amount, x: w.nodes[0].x, text: [...document.querySelectorAll('#g-dock text')].map(t => t.textContent).join('|') }`)
-  await mouse('mouseReleased', c.x, c.y - 80); await b.sleep(60)
+  const mid = await ev(`flush(); const w = wallOf(S.tracks[S.sel]); return { a: w.nodes[0].amount, x: w.nodes[0].x, y: w.nodes[0].y }`)
+  await mouse('mouseReleased', c.x + 40, c.y - 80); await b.sleep(60)
   const s = await wall()
-  ok('pulled up on its plate, a print’s amount rises under the hand (and it does not move)', mid.a > v0 + .3 && s.nodes[0][2] === +mid.a.toFixed(3) && s.nodes[0][3] === mid.x, [v0, mid.a])
-  ok('…and the wall’s foot names its hands', /threshold/.test(mid.text) && /ratio/.test(mid.text) && /attack/.test(mid.text), mid.text.slice(-200)) }
+  ok('pulled on the wall, a print moves with the hand — its amount stays as it was', mid.x !== x0 && Math.abs(s.nodes[0][2] - v0) < 1e-6 && s.nodes[0][3] === mid.x, [v0, s.nodes[0]])
+  const c2 = await at(id); await b.click(c2.x, c2.y); await b.sleep(80)
+  const st = await ev(`flush(); return { open: !!studyNode(), text: [...document.querySelectorAll('#g-dock text')].map(t => t.textContent).join('|') }`)
+  ok('…pressed and let go, its study opens, and names its hands', st.open && /threshold|ratio/.test(st.text) && /attack/.test(st.text) && /release/.test(st.text), st.text.slice(-200))
+  await b.press('Escape', 'Escape', 27); await b.sleep(60) }
 
 /* two more, side by side into a mix */
 { await ev(`const t = S.tracks[S.sel]; wallAdd(t, 'space'); wallAdd(t, 'delay'); wallAdd(t, 'mix'); const w = wallOf(t); const P = { comp: [200, 0], space: [380, -90], delay: [380, 90], mix: [560, 0] }; for (const n of w.nodes) { n.x = P[n.k][0]; n.y = P[n.k][1] } w.in = { x: 40, y: 0 }; w.out = { x: 720, y: 0 }; w.z = 0; WALL.sel = null; dirtyAll(); flush()`)
@@ -104,7 +107,7 @@ const wall = () => ev(`flush(); const t = S.tracks[S.sel], w = wallOf(t); return
   ok('…about where the pointer is', Math.abs(under1.x - under0.x) < 1 && Math.abs(under1.y - under0.y) < 1, [under0, under1])
   await b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: g.x, y: g.y, deltaX: 0, deltaY: 400 }); await b.sleep(80)
   ok('scrolled down, further away', (await wall()).z < s0.z, (await wall()).z)
-  const e0 = await ev(`const k = board.getBoundingClientRect().width / W; return { x: 30 * k, y: (WALL.g.y + 30) * k }`), o0 = (await wall()).o
+  const e0 = await ev(`const k = board.getBoundingClientRect().width / W, x0 = (typeof MAC_W !== 'undefined' && macTrack() ? MAC_W : 0) + 30; return { x: x0 * k, y: (WALL.g.y + 30) * k }`), o0 = (await wall()).o      // (past the macros' column, where the wall begins)
   await pull(e0.x, e0.y, e0.x + 60, e0.y + 20)
   const o1 = (await wall()).o
   ok('the empty ground pulled: the wall goes with the hand', o1[0] < o0[0] - 20 && o1[1] < o0[1], [o0, o1])

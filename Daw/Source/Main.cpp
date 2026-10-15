@@ -579,7 +579,8 @@ private:
             const auto from = projectDir (d["from"].toString());
             const auto to = juce::File::isAbsolutePath (d["from"].toString().trim()) ? from.getSiblingFile (juce::File::createLegalFileName (d["to"].toString().trim()) + ".sls") : projectDir (d["to"].toString());
             auto* o = new juce::DynamicObject();
-            o->setProperty ("ok", from.isDirectory() ? (! to.exists() && from.moveFileTo (to)) : ! to.exists());
+            const bool capsOnly = to.getFullPathName() != from.getFullPathName() && to.getFullPathName().equalsIgnoreCase (from.getFullPathName());      // ("song" to "Song": the disk takes them for one name)
+            o->setProperty ("ok", from.isDirectory() ? (capsOnly ? std::rename (from.getFullPathName().toRawUTF8(), to.getFullPathName().toRawUTF8()) == 0 : (! to.exists() && from.moveFileTo (to))) : capsOnly || ! to.exists());
             o->setProperty ("key", projectKey (to));
             done (juce::var (o)); return;
         }

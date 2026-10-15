@@ -32,6 +32,8 @@ function parsePos (v) {
 }
 /* a name (or the tempo, or the key) is changed where it stands: an input laid over the words. A project's name has no
    place of its own on the board (the window's title says it), so it is asked for in a small box under the bar. */
+/* what is a name, typed as its owner likes it: kept with its capitals. Everything else (a tempo, a key, a level, a place) is read in lowercase */
+const NAME_KINDS = new Set(['track', 'scene', 'region', 'proj'])
 function startRename (what, i, at) {
   const el = $('rename'), t = what === 'track' ? S.tracks[i] : null
   let rh = what === 'track' ? rowH(i) : S.rh
@@ -79,7 +81,7 @@ function startRename (what, i, at) {
   const done = async keep => {
     el.onblur = el.onkeydown = null; el.hidden = true
     if (S.ask) { S.ask = null; uiDirty('ask') }
-    const v = el.value.trim().toLowerCase().slice(0, 40)
+    const typed = el.value.trim().slice(0, 40), v = NAME_KINDS.has(what) ? typed : typed.toLowerCase()      // (a name is kept as it was typed, capitals and all)
     if (!keep || (!v && what !== 'key')) return
     if (what === 'track') { if (v !== t.name) edit(() => { t.name = v }) }
     else if (what === 'scene') { if (SCENES[i] && v !== SCENES[i].name) edit(() => { SCENES = mkScenes(SCENES.map((s, k) => [k === i ? v : s.name, s.a])) }) }

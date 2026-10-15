@@ -63,7 +63,7 @@ body { margin: 0; background: var(--k1); color: var(--ink); font-family: var(--f
 <defs><clipPath id="tl"><rect x="292" y="70" width="1148" height="808"/></clipPath><clipPath id="ln"><rect x="292" y="112" width="1148" height="766"/></clipPath><clipPath id="hdc"><rect x="0" y="112" width="292" height="766"/></clipPath></defs>
 <g id="g-lanes"></g><g id="g-rec" clip-path="url(#ln)"></g><g id="g-drop"></g><g id="g-head"></g><g id="g-ruler"></g><g id="g-scenes"></g><g id="g-play" clip-path="url(#tl)"></g><g id="g-info"></g><g id="g-dock"></g><g id="g-slur"></g><g id="g-top"></g><g id="g-cmd"></g><g id="g-look"></g><g id="g-hand"></g><g id="g-ask"></g><g id="g-new"></g><g id="g-back"></g><g id="g-sheet"></g><g id="g-start"></g><g id="g-menu"></g>
 </svg>
-<input id="cmd" type="text" value="kick -3 db" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="say what to change">
+<input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="say what to change">
 <input id="rename" type="text" hidden autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="name">
 <div id="picker" hidden><div id="pk-head"></div><input id="pk-q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="find a plug-in"><div id="pk-body"><div id="pk-cats" hidden></div><div id="pk-list"></div></div></div>
 </div></div>
@@ -102,6 +102,7 @@ addEventListener('unhandledrejection', e => { __errs.push('rejection: ' + String
 <script src="prints.js"></script>
 <script src="wall.js"></script>
 <script src="preset.js"></script>
+<script src="study.js"></script>
 <script src="selftest.js"></script>
 <script src="bench.js"></script>
 <script>boot()</script>

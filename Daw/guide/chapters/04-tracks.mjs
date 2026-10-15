@@ -73,7 +73,7 @@ export default () => chapter('tracks', t('tracks', '트랙'),
       ['[[⇧⌘⌫]]', ['delete every empty audio track that is not armed', '녹음 대기가 아닌 빈 오디오 트랙 모두 삭제']]) +
     p('Deleting a track can be undone: its plug-ins come back as they were set. Deleting a bus removes every send into it and puts tracks that played into it back on the stereo out.', '트랙 삭제는 실행 취소할 수 있고, 플러그인도 설정 그대로 돌아옵니다. 버스를 지우면 그리로 가던 센드가 모두 없어지고, 그리로 나가던 트랙은 스테레오 아웃으로 돌아갑니다.') +
     h('names', '이름') +
-    p('Names are lowercase and at most 40 characters. A track is read by its name: a track called kick or snare is painted as drums, 808 as bass, vox as voice. The words work in Korean too.', '이름은 소문자, 최대 40자입니다. 트랙은 이름으로 읽힙니다. kick이나 snare는 드럼 색으로, 808은 베이스로, vox는 보컬로 칠해집니다. 한글 이름도 읽습니다.'),
+    p('Names keep their capitals as typed, and are at most 40 characters. A track is read by its name: a track called kick or snare is painted as drums, 808 as bass, vox as voice. The words work in Korean too.', '이름은 입력한 대로 대문자도 그대로이고, 최대 40자입니다. 트랙은 이름으로 읽힙니다. kick이나 snare는 드럼 색으로, 808은 베이스로, vox는 보컬로 칠해집니다. 한글 이름도 읽습니다.'),
     art: fig('trackmenu', { w: 112 }) }),
 
   page(t('colour and outline', '색과 모양'), { kind: 'split', tw: 106, txt:

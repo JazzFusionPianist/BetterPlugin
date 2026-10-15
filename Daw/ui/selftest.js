@@ -1612,6 +1612,33 @@ async function runSelfTest (mode) {
      ways side by side that add up to the sound again; a print that changes the sound; a plug-in on the wall, as late as it
      says and made up for; and a plug-in on one of two ways, where the other way must be held back by as much inside the
      wall — each printed and laid against the track printed with nothing on its wall. */
+  /* a print's study, in the app's own web view: a gain print on a track's wall, pressed open; 25 typed into its amount —
+     the track is printed quieter by as much as the print says, and the study is drawn (a picture) */
+  await step('study', async () => {
+    if (typeof studyOpen !== 'function') return { skipped: 'this page has no study' }
+    const t = S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), was = { wall: t.wall ? wallSaved(t) : null, patch: copy(t.patch) }, res = { track: t.name }
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'study', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    for (const k of PRINTS3) setPrint(t, k, 0)
+    pushTrack(t)
+    S.sel = S.tracks.indexOf(t); S.panel.on = true; S.panel.tab = 'patch'; S.panel.h = Math.max(S.panel.h, 360); setView(true)
+    const w = wallOf(t), g = Object.assign(wallNew('gain', 200, 0), { id: wallFree(w) })
+    w.nodes = [g]; w.wires = [{ from: -1, to: g.id, gain: 1, port: 0 }, { from: g.id, to: -2, gain: 1, port: 0 }]; w.z = 0; WALL.sent.delete(t.id); await NAT.call('wall', wallMsg(t)); await sleep(150)
+    const full = await print('study full')
+    studyOpen(t, g.id); dirtyAll(); flush(); await sleep(150)
+    res.open = !!studyNode() && !!document.querySelector('#g-dock [data-a="study"][data-k="print"]')
+    studyType({ k: 'amt' }); STUDY_IN.value = '25'; studyTyped(true); await sleep(250)
+    res.amount = +g.amount.toFixed(3)
+    const less = await print('study 25')
+    const m = full && less ? await NAT.call('testLag', { a: full, b: less }) : null
+    res.level = m && m.levelA > 0 ? +(m.levelB / m.levelA).toFixed(3) : null
+    dirtyAll(); flush(); await sleep(150); await snap('selftest-wall-study.png')
+    studyClose()
+    t.wall = was.wall; t.patch = was.patch; if (!was.wall) delete t.wall; WALL.sent.delete(t.id); pushTrack(t); await NAT.call('wall', wallMsg(t)); await sleep(100)
+    return res
+  })
+
   await step('wallWays', async () => {
     if (typeof wallOf !== 'function') return { skipped: 'this page has no wall' }
     const t = S.tracks.find(sounding)

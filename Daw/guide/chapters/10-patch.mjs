@@ -6,7 +6,7 @@ export default () => chapter('patch', t('the patch', '패치'),
   page(t('the wall', '벽'), { kind: 'wide', cc: 3, txt:
     legend(
       [1, '{{in}} where the sound enters. On a track of notes the instrument stands here', '{{in}} 소리가 들어오는 곳. 노트 트랙에서는 악기가 여기 섭니다'],
-      [2, 'a print, one of Patch on Slur’s own effects. Drag it up or down for its amount', '프린트. Patch on Slur의 자체 이펙트입니다. 위아래로 드래그하면 양이 바뀝니다'],
+      [2, 'a print, one of Patch on Slur’s own effects. Click it for its study; drag it to move it', '프린트. Patch on Slur의 자체 이펙트입니다. 클릭하면 판화가 열리고, 드래그하면 옮겨집니다'],
       [3, 'two ways side by side: one output wired to two things', '나란한 두 갈래: 출력 하나를 두 곳에 이었습니다'],
       [4, '{{mix}} takes any number of wires. The number on a wire is its level. {{blends}}: a hundred in all. {{adds}}: each set freely', '{{mix}}는 선을 몇 개든 받습니다. 선 위의 숫자가 그 선의 레벨. {{blends}}: 합쳐서 100. {{adds}}: 각각 자유롭게'],
       [5, 'a plug-in from outside. Click it for its window', '외부 플러그인. 클릭하면 창이 열립니다'],
@@ -20,11 +20,11 @@ export default () => chapter('patch', t('the patch', '패치'),
     table(null,
       [['drag from the dot at a thing’s right to another thing', '오른쪽 점에서 다른 것으로 드래그'], ['a wire. One output can feed several things; a wire that would make a ring is not drawn', '선이 생깁니다. 출력 하나를 여러 곳에 이을 수 있고, 고리가 되는 선은 그려지지 않습니다']],
       [['click a wire, then [[⌫]]', '선을 클릭하고 [[⌫]]'], ['the wire is taken away', '선이 사라집니다']],
-      [['drag a print up or down', '프린트 위아래 드래그'], ['its amount; [[⇧]] is finer. Double-click or [[⌥]] click: back to where it rests', '양. [[⇧]]는 미세하게. 더블 클릭이나 [[⌥]] 클릭: 기본값으로']],
+      [['click a print', '프린트 클릭'], ['its study opens at the right of the wall: the print drawn big and every hand of it', '벽 오른쪽에 판화가 열립니다. 크게 그린 프린트와 모든 조절값']],
       [['drag the words under a thing', '아래 글자를 드래그'], ['moves it. Set down on a wire, a thing with no wires joins that wire', '옮깁니다. 선이 없는 것을 선 위에 놓으면 그 선에 끼어듭니다']],
       [['drag the number on a wire', '선 위의 숫자 드래그'], ['its level into the mix', 'mix로 들어가는 레벨']],
       [['scroll', '스크롤'], ['nearer and further, about the pointer. Drag the empty wall to move it; double-click it to see all', '포인터 중심으로 확대, 축소. 빈 벽을 드래그하면 이동, 더블 클릭하면 전체 보기']],
-      [['click a thing', '클릭'], ['it is chosen: its other hands stand along the foot of the wall, with {{bypass}}, {{wet only}} and {{remove}}', '선택됩니다. 벽 아래에 나머지 조절값과 {{bypass}}, {{wet only}}, {{remove}}가 나옵니다']]) +
+      [['drag a thing', '드래그'], ['moves it, a print as a plug-in; it is chosen, its hands along the foot of the wall', '옮깁니다. 프린트도 플러그인도. 선택되고, 조절값이 벽 아래에 나옵니다']]) +
     p('The stereo out has a wall of its own: click the name under its strip. What stands there is heard on the whole song, before the stereo out’s fader, and goes into a print of the mix; a print of single tracks does not pass it.', '스테레오 아웃에도 벽이 있습니다. 스트립 아래의 이름을 클릭합니다. 거기 놓인 것은 곡 전체에, 스테레오 아웃 페이더 앞에서 걸리고 믹스 프린트에 들어갑니다. 트랙별 프린트는 지나지 않습니다.') +
     note('Ways side by side are lined up: when a plug-in on one way is late, the others are held back by as much. Changes to the wiring are not steps of undo.', '나란한 갈래는 시간이 맞춰집니다. 한 갈래의 플러그인이 늦으면 다른 갈래를 그만큼 늦춥니다. 배선을 바꾸는 것은 실행 취소 단계가 아닙니다.') }),
 
@@ -50,7 +50,7 @@ export default () => chapter('patch', t('the patch', '패치'),
       [['pitch', 'pitch'], ['{{pitch}} {{formant}} {{harmony}} {{arp}} {{grain}}', '{{pitch}} {{formant}} {{harmony}} {{arp}} {{grain}}']],
       [['utility', 'utility'], ['{{gain}} {{mix}} {{l/r}} {{m/s}} {{pan}}', '{{gain}} {{mix}} {{l/r}} {{m/s}} {{pan}}']],
       [['spectral', 'spectral'], ['{{carve}} {{match}} {{vocode}} {{freeze}} {{shift}} {{smear}} {{sieve}}', '{{carve}} {{match}} {{vocode}} {{freeze}} {{shift}} {{smear}} {{sieve}}']]) +
-    p('A print has one big hand, its amount, pulled on its picture. Its other hands (a delay’s time and feedback, a compressor’s ratio, attack and release, a reverb’s decay) stand along the foot of the wall when it is chosen: drag a number, or click a word for its list. {{l/r}} and {{m/s}} have two outputs, one for each half.', '프린트에는 큰 조절값 하나, 양이 있고 그림 위에서 드래그합니다. 나머지 조절값(딜레이의 시간과 피드백, 컴프레서의 비율·어택·릴리즈, 리버브의 길이)은 프린트를 선택하면 벽 아래에 나옵니다. 숫자는 드래그하고, 단어는 클릭해서 목록에서 고릅니다. {{l/r}}과 {{m/s}}는 출력이 둘입니다.') +
+    p('A print’s study is drawn in its own colour, as in Patch on Slur, and lit as the track plays. Drag the big print, or the number under it, up or down for its amount ([[⇧]] finer, [[⌥]] click back to where it rests); click the number to type it. Each other hand is a row: drag a number or click it to type, click a cell to choose. {{bypass}}, {{wet only}} and {{remove}} are at the bottom. The close mark, [[esc]] or a click on the empty wall puts it away. {{l/r}} and {{m/s}} have two outputs, one for each half.', '판화는 Patch on Slur처럼 프린트의 색으로 그려지고, 트랙이 재생되면 빛납니다. 큰 프린트나 그 아래 숫자를 위아래로 드래그하면 양이 바뀝니다([[⇧]]는 미세하게, [[⌥]] 클릭은 기본값으로). 숫자를 클릭하면 직접 입력합니다. 나머지 조절값은 한 줄씩: 숫자는 드래그하거나 클릭해서 입력하고, 칸은 클릭해서 고릅니다. 아래에 {{bypass}}, {{wet only}}, {{remove}}. 닫기 표시, [[esc]], 빈 벽 클릭으로 닫힙니다. {{l/r}}과 {{m/s}}는 출력이 둘입니다.') +
     note('One each of tape, space and delay stands on a wall: these three have automation lines and words on the command line. Not in this version: Patch on Slur’s control prints (LFO, rate, macro, follow, env, drift, pulse, scene), side, bands, and the drawn editors of the study.', 'tape, space, delay는 벽마다 하나씩입니다. 이 셋에는 오토메이션 라인과 명령줄 단어가 있습니다. 이 버전에 없는 것: Patch on Slur의 컨트롤 프린트(LFO, rate, macro, follow, env, drift, pulse, scene), side, bands, 그리고 스터디의 그리는 편집기.') }),
 
   page(t('plug-ins', '플러그인'), { kind: 'split', tw: 116, mid: true, txt:

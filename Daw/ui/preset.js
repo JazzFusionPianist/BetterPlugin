@@ -22,7 +22,7 @@ if (typeof KEEP_T !== 'undefined' && !KEEP_T.includes('pre')) KEEP_T.push('pre')
 /* ── the files (in a browser, with no app behind the page: the browser's own store, as Patch on Slur does there) ── */
 const preStore = () => { try { return JSON.parse(localStorage.getItem(PRE_LS) || '{}') || {} } catch (e) { return {} } }
 const preStoreSet = all => { try { localStorage.setItem(PRE_LS, JSON.stringify(all)); return true } catch (e) { return false } }
-const preClean = name => String(name || '').trim().toLowerCase().replace(/[\\/:*?"<>|]/g, '').slice(0, 48)
+const preClean = name => String(name || '').trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 48)
 async function presetRefresh () {
   if (NAT) { const r = await NAT.call('presetList'); PRE.list = r && Array.isArray(r.names) ? r.names.map(String) : [] } else PRE.list = Object.keys(preStore()).sort()
   PRE.list = PRE.list.filter(n => n !== PRE_FIRST)

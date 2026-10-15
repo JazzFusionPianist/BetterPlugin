@@ -203,7 +203,7 @@ function startOverview (x0, y, f, pxm) {
   return out
 }
 function startRow (L, p, i, y) {
-  const h = ST_ROW, by = y + h / 2 + 3.9, on = i === START.sel, wt = on ? 500 : 400, f = p.f, ind = p.dir && !START.find.trim() ? 16 : 0, where = p.in ? String(p.in).toLowerCase() : p.dir && !ind ? String(p.dir).toLowerCase() : ''      // (ind: under its folder it is set in; found by name, it says which folder instead)
+  const h = ST_ROW, by = y + h / 2 + 3.9, on = i === START.sel, wt = on ? 500 : 400, f = p.f, ind = p.dir && !START.find.trim() ? 16 : 0, where = p.in ? asGiven(p.in) : p.dir && !ind ? asGiven(p.dir) : ''      // (ind: under its folder it is set in; found by name, it says which folder instead)
   let s = R(0, y, L.lx, h, { fill: on ? K3 : K1 }) + R(L.lx, y, W - L.lx, h, { fill: on ? K1 : K0 })
   const saved = savedText(p.modified), nm = fit(asGiven(p.name), HEAD_W - 28 - ind - tw(saved, 9.5) - 12 - (where ? Math.min(90, tw(where, 9.5)) + 9 : 0), 11.5, wt)
   s += T(14 + ind, by, nm, { size: 11.5, w: wt, a: p.gone ? .34 : on ? 1 : .9 })

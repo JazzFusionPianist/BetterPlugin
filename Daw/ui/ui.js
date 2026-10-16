@@ -218,6 +218,7 @@ function setLook (what, v) {
    at the markers; the part that plays is the filled cell — the same grammar as every other row of cells here, laid
    along time. A press goes there (while the song runs: at the next bar line); twice makes it the cycle. ── */
 function pScenes () {
+  if (typeof RTB !== 'undefined' && RTB.on) return ''                                 // (a realtime print writes the markers along its own top: realtime.js)
   const y = MK_Y, cur = sceneAt(curPos()).i, xe = bx(SONG_END + 1)
   let s = R(0, y, RX, MK_H, { fill: K1 }) + (X0 > 70 ? T(12, y + 14.2, 'markers', { size: 9, a: .38 }) : '')      // (no word when the heads are folded away: realtime.js)
   let g = R(bx(1) + .5, y + 4.5, xe - bx(1) - 1, 13, { rx: 2, stroke: INK, sa: .22 }), hits = hit(X0, y, X1 - X0, MK_H, 'scenebar', '', 'default')

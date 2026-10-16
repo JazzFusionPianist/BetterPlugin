@@ -1,14 +1,17 @@
 /* ── a realtime print: the song played through as it is printed, and the room made into a picture of it ──
    His ask (2026-10-16): beside "offline" (printed ahead of the song, as fast as the machine goes) a "realtime" bounce
-   (Logic's word), played as it is printed — and while it plays the room is something an artist can film: (a) no grid,
-   (b) no regions — each track's sound as it goes in, a hairline outline in its colour, (c) the sound as it comes out,
-   drawn in behind the place the song has reached and glowing where it is being drawn, (d) no playhead; the buttons of
+   (Logic's word), played as it is printed — and while it plays the room is something an artist can film. His pick of
+   five (design/realtime bounce draft 2, way 1, "one ink"): no grid, no regions, no playhead; one ink and no colour but a
+   dot for each track; each track's sound ahead of the place being printed faint (what goes in), behind it bright (what
+   comes out, as the engine measures it two hundred times a second), lit where it is being drawn, a soft seam of light
+   behind that place; the markers as words along the top. The buttons of
    the tracks' heads go away (his word: "트랙 헤드가 없어지는 애니메이션"), row by row; then the heads themselves, the tool
    row, the bars and the foot fold away — "진짜 메인 화면에 transport bar, marker랑 파형만 보이게" — and the panels close
    for as long as it plays. Draft: design/realtime bounce
    draft 1, his OK. For the hand-off (the mix, the stems) and for a bounce in place (mix.js).
-   The app plays and writes (Engine::liveStart); the sound coming out of each track is what the engine measures of it,
-   thirty times a second (dawTick). Esc (or the space bar) stops it, and nothing of it is kept. */
+   The app plays and writes (Engine::liveStart); the sound coming out of each track is what the engine measures of it
+   (dawTick: m.f, two hundred peaks a second for each track, with their places). Esc (or the space bar) stops it, and
+   nothing of it is kept. */
 const RTB = { on: false, k: 0, kFrom: 0, kTo: 0, kAt: 0, kind: '', a0: 0, a1: 0, only: null, out: new Map(), view: null, raf: 0, promise: null }
 const RTB_GLOW = 110                                                                   // how far behind the place being drawn the glow reaches
 const RTB_AT = .55                                                                     // where in the window the place being drawn stays, once the window goes with it
@@ -21,16 +24,13 @@ const rtbFold = () => { const x = clamp((RTB.k - .3) / .7, 0, 1); return x < .5 
    — the rest of the song is silent then. -> the app's answer, once it has ended */
 async function rtbRun (opts, only) {
   if (!NAT || RTB.on) return null
-  RTB.on = true; RTB.kind = opts.kind; RTB.a0 = opts.a0; RTB.a1 = opts.a1; RTB.only = only || null; RTB.out = new Map()
+  RTB.on = true; RTB.kind = opts.kind; RTB.a0 = opts.a0; RTB.a1 = opts.a1; RTB.only = only || null; RTB.out = new Map(); RTB.fine = false
   RTB.view = { pxb: PXB, vx: VX, vy: VY, sel: S.selR.slice(), rh: S.rh, hs: S.tracks.map(t => [t, t.h]), panel: S.panel.on, slur: !!S.slur }
   S.selR = []
   if (S.panel.on || S.slur) { S.panel.on = false; S.slur = false; setView(true) }     // the panels close for as long as it plays
-  const shown = rows().length
-  for (const t of S.tracks) delete t.h
-  S.rh = clamp(Math.floor((H - BAR_H - MK_H) / Math.max(1, shown)), S.rh, 180); VY = 0      // the tracks fill the window's height once the rest has folded away, for as long as it plays (a picture to film)
   relayout()
-  const span = clamp(opts.a1 - opts.a0, 2, 8)                                           // eight bars in the window (fewer for a shorter range); the window goes with the song (rtbLoop)
-  if (typeof setZoom === 'function') setZoom((X1 - X0) / span)
+  const span = clamp(opts.a1 - opts.a0, 2, 8)                                           // eight bars across the window once the heads have folded away (fewer for a shorter range); the window goes with the song (rtbLoop)
+  if (typeof setZoom === 'function') setZoom(X1 / span)
   VX = clamp(opts.a0 - span * .04, 0, maxVX())
   rtbAnimate(1)
   const veil = document.createElement('div'); veil.id = 'rtb-veil'
@@ -76,79 +76,116 @@ function rtbLoop () {
     uiDirty('lanes', 'info'); flush()
   }, 33)
 }
-/* what each track gives out, as the app measures it: [bar, peak] pairs as the song goes */
+/* what each track gives out, as the app measures it: [bar, peak] pairs as the song goes — two hundred a second (m.f),
+   or thirty (m.t) from an app that does not yet keep them finely */
 if (NAT) NAT.on('dawTick', d => {
   if (!RTB.on || !d || !d.m || !d.on) return
-  const bar = d.p, t = d.m.t
-  if (!(bar >= RTB.a0 - .01)) return
-  for (let k = 0; k + 1 < t.length; k += 2) {
-    let a = RTB.out.get(t[k])
-    if (!a) { a = []; RTB.out.set(t[k], a) }
-    a.push(bar, t[k + 1])
-  }
+  const add = (id, bar, pk) => { if (!(bar >= RTB.a0 - .01)) return; let a = RTB.out.get(id); if (!a) { a = []; RTB.out.set(id, a) } a.push(bar, pk) }
+  if (Array.isArray(d.m.f)) { for (const one of d.m.f) for (let k = 1; k + 1 < one.length; k += 2) add(one[0], one[k], one[k + 1]); RTB.fine = true }
+  else if (!RTB.fine) { const t = d.m.t; for (let k = 0; k + 1 < t.length; k += 2) add(t[k], d.p, t[k + 1]) }
 })
 
-/* ── the lanes while it plays (pLanes hands them over): bare ground, the sound going in, the sound coming out ── */
+/* ── the picture while it plays (pLanes hands the lanes over): one ink on the dark ──
+   Drawn in the song's own place (x: bars from the song's start times the zoom), and moved along as a whole as the window
+   goes with the song; only what comes out is drawn anew, about thirty times a second. */
+const RTB_TOP = 64, RTB_FOOT = 40                                                       // room above the first track (the markers) and under the last
+const rtbTracks = () => rows().map(i => S.tracks[i]).filter(t => t.kind !== 'bus')
+/* a region's sound in the song's place, a point to a pixel, nothing where it is silent */
+function rtbWave (r, yc, hmax) {
+  const xa = (r.a - 1) * PXB, w = (r.b - r.a) * PXB, steps = Math.max(1, Math.floor(w)), len = r.b - r.a, gk = dbLin(r.gain || 0)
+  let pk, norm
+  if (r.loop) { const lp = LOOPS && LOOPS[r.buf]; if (!lp) return ''; const o = r.off || 0; norm = lp.peak || (lp.peak = peakOf(lp.ch)); pk = loopPeaks(lp, o, o + len, steps) } else { pk = bufPeaks(r, steps, 0, 1); norm = r.peak || 1 }
+  let d = '', up = '', dn = '', run = 0
+  const end = () => { if (run > 1) d += up + dn + 'Z'; up = ''; dn = ''; run = 0 }
+  for (let i = 0; i < steps; i++) {
+    const h = Math.min(1, pk[i] / norm * gk) * hmax
+    if (h < .7) { end(); continue }
+    const x = n(xa + i + .5)
+    up += `${run ? 'L' : 'M'}${x} ${n(yc - h)}`; dn = `L${x} ${n(yc + h)}` + dn; run++
+  }
+  end()
+  return d
+}
+/* what comes out of a track, from its measured peaks, between bars b0 and b1 (song's place) */
+function rtbOut (a, yc, hmax, b0, b1) {
+  let d = '', up = '', dn = '', run = 0, lastX = -1e9, lastH = 0
+  const end = () => { if (run > 1) d += up + dn + 'Z'; up = ''; dn = ''; run = 0 }
+  for (let j = 0; j + 1 < a.length; j += 2) {
+    const bar = a[j]
+    if (bar < b0 || bar > b1) continue
+    const x = bar * PXB, h = Math.min(1, Math.pow(a[j + 1], .6)) * hmax
+    if (Math.abs(x - lastX) < .5) { if (h > lastH) lastH = h; continue }      // (several to a pixel: the highest)
+    lastX = x; lastH = h
+    if (h < .7) { end(); continue }
+    up += `${run ? 'L' : 'M'}${n(x)} ${n(yc - h)}`; dn = `L${n(x)} ${n(yc + h)}` + dn; run++
+  }
+  end()
+  return d
+}
 function rtbLanes () {
   const root = $('g-lanes')
   let g = $('ln-rtb')
-  if (!g) { g = document.createElementNS(SVG_NS, 'g'); g.id = 'ln-rtb'; $('ln-clip').appendChild(g) }
-  for (const id of ['ln-grid', 'ln-rows', 'ln-over']) { const el = $(id); if (el) el.style.display = 'none' }
-  const head = curPos(), hx = bx(head + 1), L = rowTops(), uid = 'rtb'
-  let s = `<defs>
-    <clipPath id="${uid}-done"><rect x="${X0}" y="${TY}" width="${Math.max(0, hx - X0)}" height="${LANES_H}"/></clipPath>
-    <linearGradient id="${uid}-fade" x1="${hx - RTB_GLOW}" x2="${hx}" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".75" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
-    <mask id="${uid}-mask"><rect x="${hx - RTB_GLOW}" y="${TY}" width="${RTB_GLOW}" height="${LANES_H}" fill="url(#${uid}-fade)"/></mask>
-    <filter id="${uid}-blur" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="4.5"/><feComponentTransfer><feFuncR type="linear" slope="1.9"/><feFuncG type="linear" slope="1.9"/><feFuncB type="linear" slope="1.9"/></feComponentTransfer></filter>
-    <mask id="${uid}-mid" maskUnits="userSpaceOnUse"><rect x="${X0}" y="${TY}" width="${X1 - X0}" height="${LANES_H}" fill="#fff"/>${L.r.map((i, k) => { const y = TY + L.tops[k] - VY, rh = rowH(i); return y + rh <= TY || y >= BY ? '' : `<rect x="${X0}" y="${n(y + rh / 2 - 1.3)}" width="${X1 - X0}" height="2.6" fill="#000"/>` }).join('')}</mask>
-    <filter id="${uid}-lift"><feComponentTransfer><feFuncR type="linear" slope="1.5" intercept=".12"/><feFuncG type="linear" slope="1.5" intercept=".12"/><feFuncB type="linear" slope="1.5" intercept=".12"/></feComponentTransfer></filter>
-  </defs>`
-  let ins = '', outs = ''
-  L.r.forEach((i, k) => {
-    const t = S.tracks[i], y = TY + L.tops[k] - VY, rh = rowH(i)
-    if (y + rh <= TY || y >= BY) return
-    const ly = y + 3, lh = rh - 6, yc = ly + lh / 2
-    // in: its regions' sound, as an outline (a bounce in place: only the regions that are printed)
-    if (t.kind !== 'bus') for (const r of t.regs) {
-      if (r.mute || (RTB.only && !RTB.only.has(r.id))) continue
-      const xa = bx(r.a), xb = bx(r.b), w = xb - xa
-      if (xb < X0 || xa > X1 || w < 3) continue
-      const v0 = Math.max(1, Math.floor(X0 - xa)), v1 = Math.min(Math.floor(w - 1), Math.ceil(X1 - xa))
-      if (v1 <= v0) continue
-      const at = `translate(${n(xa + v0)} 0)`
-      if (r.notes || (t.midi && r.loop)) ins += G(P(r.notes ? notesPath(r, ly, lh, v0, v1) : midiPath(r, ly, lh, v0, v1), { stroke: t.c, sa: .38, sw: 1 }), at)
-      else ins += G(P(wavePath(r, w, yc, lh / 2 - 1, 'plain', lh, v0, v1, 'rtb'), { stroke: t.c, sa: .42, sw: .7 }), at)
-    }
-    // out: what the engine measured of it, a column a point, mirrored about the lane's middle
-    const a = RTB.out.get(t.id)
-    if (a && a.length) {
-      const cols = new Map()
-      for (let j = 0; j + 1 < a.length; j += 2) { const x = Math.round(bx(a[j] + 1)); if (x < X0 - 2 || x > X1 + 2) continue; const v = a[j + 1]; if (!(cols.get(x) >= v)) cols.set(x, v) }
-      const xs = [...cols.keys()].sort((p, q) => p - q)
-      if (xs.length > 1) {
-        const hOf = v => v < .0015 ? 0 : Math.min(1, Math.pow(v, .7)) * (lh / 2 - 1)            // (silence draws nothing: no line along the middle)
-        let up = '', dn = '', len = 0
-        const close = () => { if (len > 1) outs += P(up + dn + 'Z', { fill: t.c }); up = ''; dn = ''; len = 0 }
-        for (const x of xs) {
-          const h = hOf(cols.get(x))
-          if (h <= .3) { close(); continue }                                                    // (only silence breaks it: the points may lie far apart, close up)
-          up += `${len ? 'L' : 'M'}${x} ${n(yc - h)}`; dn = `L${x} ${n(yc + h)}` + dn; len++
-        }
-        close()
+  if (!g) { g = document.createElementNS(SVG_NS, 'g'); g.id = 'ln-rtb'; root.appendChild(g); RTB.built = '' }
+  for (const id of ['ln-back', 'ln-clip', 'ln-edge']) { const el = $(id); if (el) el.style.display = 'none' }
+  const list = rtbTracks(), top = BAR_H, y0 = top + RTB_TOP, y1 = H - RTB_FOOT, rh = (y1 - y0) / Math.max(1, list.length), hmax = rh * .32
+  const head = curPos(), wx = X0 - VX * PXB, hw = (head) * PXB, hx = wx + hw              // the world's shift, the place being drawn (world), and on screen
+  const key = [PXB, H, W, list.map(t => t.id + ':' + t.regs.length).join(','), RTB.only ? [...RTB.only].join(',') : ''].join('|')
+  if (RTB.built !== key) {                                                              // the sound ahead, and the markers, drawn once for this zoom
+    RTB.built = key
+    const ink = INK
+    let ahead = '', marks = ''
+    list.forEach((t, k) => {
+      const yc = y0 + k * rh + rh / 2
+      for (const r of t.regs) {
+        if (r.mute || (RTB.only && !RTB.only.has(r.id))) continue
+        if (r.notes || t.midi) { ahead += P(r.notes ? notesPath(r, yc - rh * .32, rh * .64, 0, (r.b - r.a) * PXB) : midiPath(r, yc - rh * .32, rh * .64, 0, (r.b - r.a) * PXB), { stroke: ink, sw: n(clamp(rh / 12, 1.6, 3.4)), cap: 'round', x: ` transform="translate(${n((r.a - 1) * PXB)} 0)"` }); continue }
+        ahead += P(rtbWave(r, yc, hmax), { fill: ink })
       }
-    }
+    })
+    for (const sc of SCENES) { const x = (sc.a - 1) * PXB; marks += `<g data-sc="${sc.i}">` + P(`M${n(x) + .5} ${top + 16}V${top + 40}`, { stroke: ink, sa: .18 }) + T(x + 10, top + 30, asGiven(sc.name || ''), { size: 11, w: 500 }) + '</g>' }
+    g.innerHTML = `<defs>
+        <clipPath id="rtb-ahead"><rect id="rtb-ahead-r" x="0" y="0" width="60000" height="${H}"/></clipPath>
+        <clipPath id="rtb-done"><rect id="rtb-done-r" x="0" y="0" width="0" height="${H}"/></clipPath>
+        <linearGradient id="rtb-fadeg" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
+        <mask id="rtb-fade" maskUnits="userSpaceOnUse" x="-1000" y="0" width="60000" height="${H}"><rect id="rtb-fade-r" x="0" y="0" width="170" height="${H}" fill="url(#rtb-fadeg)"/></mask>
+        <linearGradient id="rtb-seamg" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".9" stop-color="#fff" stop-opacity=".07"/><stop offset=".985" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <filter id="rtb-soft" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="5"/><feComponentTransfer><feFuncR type="linear" slope="1.6"/><feFuncG type="linear" slope="1.6"/><feFuncB type="linear" slope="1.6"/></feComponentTransfer></filter>
+        <filter id="rtb-lift"><feComponentTransfer><feFuncR type="linear" slope="1.6"/><feFuncG type="linear" slope="1.6"/><feFuncB type="linear" slope="1.6"/><feFuncA type="linear" slope="1.15"/></feComponentTransfer></filter>
+      </defs>
+      <rect x="0" y="${top}" width="${W}" height="${H - top}" fill="${K0}"/>
+      <rect id="rtb-seam" x="0" y="${top}" width="160" height="${H - top}" fill="url(#rtb-seamg)"/>
+      <g id="rtb-world">
+        <g id="rtb-marks">${marks}</g>
+        <g clip-path="url(#rtb-ahead)" opacity=".11">${ahead}</g>
+        <g clip-path="url(#rtb-done)"><g id="rtb-out"></g></g>
+        <g clip-path="url(#rtb-done)" style="mix-blend-mode:screen"><g mask="url(#rtb-fade)"><use href="#rtb-out" filter="url(#rtb-soft)" opacity=".75"/><use href="#rtb-out" filter="url(#rtb-lift)"/></g></g>
+      </g>
+      <g id="rtb-dots"></g>`
+  }
+  // each frame: the world moved along; where it has been drawn; the sound that came out
+  const set = (id, a, v) => { const el = $(id); if (el && el.getAttribute(a) !== String(v)) el.setAttribute(a, v) }
+  set('rtb-world', 'transform', `translate(${n(wx)} 0)`)
+  set('rtb-ahead-r', 'x', n(hw)); set('rtb-done-r', 'x', n(Math.max(0, VX - 1) * PXB)); set('rtb-done-r', 'width', n(Math.max(0, hw - Math.max(0, VX - 1) * PXB)))
+  set('rtb-fade-r', 'x', n(hw - 150)); const fg = $('rtb-fadeg'); if (fg) { fg.setAttribute('x1', n(hw - 150)); fg.setAttribute('x2', n(hw)) }
+  set('rtb-seam', 'x', n(hx - 160))
+  const now = sceneAt(head).i
+  for (const el of $('rtb-marks').children) { const on = +el.dataset.sc === now; el.style.opacity = on ? '1' : '.34' }
+  const b0 = VX - .5, b1 = head + .05
+  let out = '', dots = ''
+  list.forEach((t, k) => {
+    const yc = y0 + k * rh + rh / 2, a = RTB.out.get(t.id)
+    if (a && a.length) out += P(rtbOut(a, yc, hmax, b0, b1), { fill: INK, fa: .9 })
+    dots += Cc(X0 + 18, yc, 3, { fill: t.c })
   })
-  s += G(ins, '', ` mask="url(#${uid}-mid)"`) + G(outs, '', ` clip-path="url(#${uid}-done)"`)
-  // where it is being drawn: the same sound, lit and blurred, fading out behind the place the song has reached
-  s += G(G(outs, '', ` filter="url(#${uid}-blur)"`) + G(outs, '', ` filter="url(#${uid}-lift)"`), '', ` mask="url(#${uid}-mask)" style="mix-blend-mode:screen"`)
-  g.innerHTML = s
+  $('rtb-out').innerHTML = out
+  $('rtb-dots').innerHTML = dots
   return null
 }
 /* the lanes as they were: what pLanes does when no realtime print is up */
 function rtbLanesOff () {
   const g = $('ln-rtb')
   if (g) g.remove()
-  for (const id of ['ln-grid', 'ln-rows', 'ln-over']) { const el = $(id); if (el) el.style.display = '' }
+  for (const id of ['ln-back', 'ln-clip', 'ln-edge', 'ln-grid', 'ln-rows', 'ln-over']) { const el = $(id); if (el) el.style.display = '' }
 }
 /* the tool row says what is under way, quietly (a picture of the screen stays clean) */
 function rtbTool (y) {

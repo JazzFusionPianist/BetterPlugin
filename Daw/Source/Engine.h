@@ -493,6 +493,13 @@ struct Track
     std::atomic<bool> stale { false };           // what it plays, or what plays it, has changed under keys that were down
     std::atomic<bool> hush { false };            // everything it sounds is to stop at once (a note that hangs: see Engine::hushAll)
     LiveOut* printLive = nullptr;                // a realtime print keeps its sound (before or after its fader) as the song plays — set under the lock
+    //── while a realtime print plays, the room draws what comes out of the track: its peak two hundred times a second, with
+    //   the place in the song it belongs to (the audio thread writes; the message thread reads them off — Engine::takeMeters)
+    static constexpr int kFine = 4096;
+    float fineBar[kFine] {}, finePk[kFine] {};
+    std::atomic<int> fineW { 0 };
+    int fineR = 0, fineN = 0;
+    float fineMax = 0.0f;
 
     template <typename F> void eachPlug (F&& f) { if (plug != nullptr) f (*plug); for (auto& i : inserts) f (*i); }
     void keysUp() { std::memset (heldSong, 0, sizeof (heldSong)); std::memset (heldLive, 0, sizeof (heldLive)); liveDown = 0; }
@@ -1045,6 +1052,19 @@ public:
         m.add (meterL.exchange (0.0f)); m.add (meterR.exchange (0.0f));
         if (++latencyTick % 20 == 0 && ! bouncing.load()) measureLatency();
         for (auto& tp : tracks) { t.add (tp->id); t.add (juce::roundToInt (tp->peak.exchange (0.0f) * 1000.0f) / 1000.0); }
+        if (fineOn.load())                                             // a realtime print: each track's peaks since the last call, two hundred a second, with their places (bars)
+        {
+            juce::Array<juce::var> f;
+            for (auto& tp : tracks)
+            {
+                const int w = tp->fineW.load (std::memory_order_acquire);
+                juce::Array<juce::var> one; one.add (tp->id);
+                for (int k = juce::jmax (tp->fineR, w - Track::kFine + 1); k < w; ++k) { one.add (juce::roundToInt (tp->fineBar[k % Track::kFine] * 10000.0f) / 10000.0); one.add (juce::roundToInt (tp->finePk[k % Track::kFine] * 1000.0f) / 1000.0); }
+                tp->fineR = w;
+                if (one.size() > 1) f.add (one);
+            }
+            o->setProperty ("f", f);
+        }
         o->setProperty ("m", m); o->setProperty ("i", inPeak.exchange (0.0f)); o->setProperty ("t", t);
         return juce::var (o);
     }
@@ -2634,6 +2654,8 @@ public:
         }
         liveOpts = opts; liveDir = dir; liveDone = std::move (done); liveFmt = fmt;
         liveLoopWas = loop.load(); loop.store (false);                       // (the range is played once, from its start to its end)
+        for (auto& tp : tracks) tp->fineR = tp->fineW.load();
+        fineOn.store (true);
         livePhase.store (1);
         play (juce::jmax (0.0, a0 - 0.25 * sr / barS));                      // a quarter of a second before it: what is already sounding there has begun
         logLine ("realtime print: " + kind + ", " + String ((int) lives.size()) + " files, bars " + String (a0 + 1.0) + " to " + String (a1 + 1.0));
@@ -3520,6 +3542,8 @@ private:
         float pl = pn0 <= 0.0f ? 1.0f : 1.0f - pn0, pr = pn0 >= 0.0f ? 1.0f : 1.0f + pn0;
         const float pls = ((pn1 <= 0.0f ? 1.0f : 1.0f - pn1) - pl) / (float) n, prs = ((pn1 >= 0.0f ? 1.0f : 1.0f + pn1) - pr) / (float) n;
         float g = t.gainSm, pk = 0.0f;
+        const bool fine = fineOn.load (std::memory_order_relaxed) && st.rolling;      // (a realtime print: what comes out, finely)
+        const int fineStep = juce::jmax (1, (int) (sr / 200.0));
         for (int i = 0; i < n; ++i)
         {
             g += gs; pl += pls; pr += prs;
@@ -3527,6 +3551,18 @@ private:
             L[i] = l; R[i] = r;
             const float a = std::abs (l) > std::abs (r) ? std::abs (l) : std::abs (r);
             if (a > pk) pk = a;
+            if (fine)
+            {
+                if (a > t.fineMax) t.fineMax = a;
+                if (++t.fineN >= fineStep)
+                {
+                    const int w = t.fineW.load (std::memory_order_relaxed);
+                    t.fineBar[w % Track::kFine] = (float) ((double) (st.pos + i + t.early.load (std::memory_order_relaxed)) / st.barS);
+                    t.finePk[w % Track::kFine] = t.fineMax;
+                    t.fineW.store (w + 1, std::memory_order_release);
+                    t.fineN = 0; t.fineMax = 0.0f;
+                }
+            }
         }
         t.gainSm = target; t.panSm = pn1;
         if (pk > t.peak.load()) t.peak.store (pk);
@@ -3997,6 +4033,7 @@ private:
             outs.swap (lives);
             livePhase.store (0);
         }
+        fineOn.store (false);
         playing.store (false);
         loop.store (liveLoopWas);
         auto done = std::move (liveDone); liveDone = nullptr;
@@ -4058,6 +4095,7 @@ private:
         });
     }
     std::atomic<bool> printCancel { false };                       // an offline print is asked to stop (esc)
+    std::atomic<bool> fineOn { false };                            // a realtime print is up: each track's peaks are kept finely (Track::fine…)
     std::vector<std::unique_ptr<LiveOut>> lives;                    // a realtime print's files (changed under the lock)
     LiveOut* liveMixOut = nullptr;                                 // … the one that is the mix (changed under the lock)
     std::atomic<int> livePhase { 0 };                              // 0 none, 1 waiting for its first sample, 2 writing, 3 done

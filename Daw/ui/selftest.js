@@ -216,7 +216,7 @@ async function runSelfTest (mode) {
       const res = {}, t0 = performance.now()
       const p = rtbRun({ kind: 'mix', a0: 16, a1: 18, modes: ['wet'], tracks: [], folder: 'realtime mix', name: 'rt mix', fmt: 'wav', rate: 0, bits: 24 })
       await sleep(2600)
-      res.during = { on: RTB.on, k: +RTB.k.toFixed(2), lanes: !!$('ln-rtb'), grid: $('ln-grid') ? $('ln-grid').style.display : null, playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, outs: RTB.out.size, points: [...RTB.out.values()].reduce((a, x) => a + x.length / 2, 0), playing: S.playing, at: +curPos().toFixed(2), x0: X0, ty: TY, vx: +VX.toFixed(2), toolRow: $('g-info').style.visibility, foot: $('g-cmd').style.visibility }
+      res.during = { on: RTB.on, k: +RTB.k.toFixed(2), lanes: !!$('ln-rtb'), grid: $('ln-grid') ? $('ln-grid').style.display : null, playhead: !!$('ph'), buttons: document.querySelectorAll('#g-head [data-a="mute"]').length, outs: RTB.out.size, points: [...RTB.out.values()].reduce((a, x) => a + x.length / 2, 0), playing: S.playing, at: +curPos().toFixed(2), x0: X0, ty: TY, vx: +VX.toFixed(2), toolRow: $('g-info').style.visibility, foot: $('g-cmd').style.visibility, fine: !!RTB.fine, perSecond: (() => { const a = [...RTB.out.values()][0] || []; return a.length > 3 ? Math.round((a.length / 2) / Math.max(.01, (a[a.length - 2] - a[0]) * SPB())) : 0 })(), drawn: document.querySelectorAll('#rtb-out path').length }
       await sleep(1500); res.later = { vx: +VX.toFixed(2), at: +curPos().toFixed(2) }
       await snap('selftest-realtime-room.png')
       const r = await p

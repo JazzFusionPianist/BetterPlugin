@@ -416,11 +416,11 @@ inline float fadeShape (int curve, double x)
 }
 
 /** A line drawn along the song for one thing on a track: bars against a value. Volumes and sends in dB, pan −1..1, the prints 0..1. */
-enum { kAutoVol = 0, kAutoPan, kAutoTape, kAutoSpace, kAutoDelay, kAutoSend0, kAutoCount = kAutoSend0 + 3, kAutoPlug = 100 };      // kAutoPlug: a line for one of a plug-in's own controls
+enum { kAutoVol = 0, kAutoPan, kAutoTape, kAutoSpace, kAutoDelay, kAutoSend0, kAutoCount = kAutoSend0 + 3, kAutoPlug = 100, kAutoPrint = 101 };      // kAutoPlug: a line for one of a plug-in's own controls; kAutoPrint: one for a hand of a print on the wall (a macro wired to it)
 /** A line along the song. One for a plug-in's control says which plug-in (uid) and which of its controls (index), and
     counts from 0 to 1 as the plug-in does; `told` is what the control was last set to, so that it is set only when the
     line has moved on. */
-struct Auto { int param = 0; std::vector<std::pair<double, float>> pts; int uid = 0, index = 0; float told = -1.0f; };
+struct Auto { int param = 0; std::vector<std::pair<double, float>> pts; int uid = 0, index = 0; float told = -1.0f; int node = -1, field = 0; std::vector<float> table; };      // a print's hand: node, which part of it (0 amount, 1 flavour, 2 decay, 3 division, 4 feedback, 10 + k aux k), and what the line's 0..1 is along it (table)
 
 inline float dbGain (float db) { return db <= -47.5f ? 0.0f : std::pow (10.0f, db * 0.05f); }
 
@@ -895,8 +895,9 @@ public:
                             Auto a;
                             a.param = (int) av["p"];
                             if (a.param == kAutoPlug) { a.uid = (int) av["uid"]; a.index = (int) av["i"]; }
+                            if (a.param == kAutoPrint) { a.node = (int) av["node"]; a.field = (int) av["field"]; if (auto* tb = av["table"].getArray()) for (auto& x : *tb) a.table.push_back ((float) (double) x); }
                             if (auto* pts = av["pts"].getArray()) for (auto& p : *pts) a.pts.push_back ({ (double) p[0], (float) (double) p[1] });
-                            if (((a.param >= 0 && a.param < kAutoCount) || (a.param == kAutoPlug && a.uid != 0 && a.index >= 0)) && ! a.pts.empty()) t.autos.push_back (std::move (a));
+                            if (((a.param >= 0 && a.param < kAutoCount) || (a.param == kAutoPlug && a.uid != 0 && a.index >= 0) || (a.param == kAutoPrint && a.node >= 0 && a.node < orbfx::kMaxNodes && a.table.size() >= 2)) && ! a.pts.empty()) t.autos.push_back (std::move (a));
                         }
                     /*  A track of notes: every note as [where it begins, where it ends, its key, how hard] and every
                         other thing played as [where, status, first byte, second byte] — both lists flat, places in bars
@@ -3312,6 +3313,23 @@ private:
                          : (src == 1 ? t.tape : src == 2 ? t.space : t.delay).load();
                 p.bpm = bpm; p.ppq = ppq; p.playing = rolling;
                 if (t.slotType[i] == orbfx::kMacro) macros[juce::jlimit (0, orbfx::kNumMacros - 1, p.aux[0])] = p.amount;      // a macro print's knob
+            }
+            for (auto& a : t.autos)                                            // a print's hand with a line (a macro of the track wired to it): where the line is, along the hand
+            {
+                if (a.param != kAutoPrint || a.node < 0 || a.node >= orbfx::kMaxNodes || a.table.size() < 2) continue;
+                const float x = juce::jlimit (0.0f, 1.0f, lineAt (a, bar)) * (float) (a.table.size() - 1);
+                const int i0 = juce::jmin ((int) x, (int) a.table.size() - 2);
+                const float v = a.table[(size_t) i0] + (a.table[(size_t) i0 + 1] - a.table[(size_t) i0]) * (x - (float) i0);
+                auto& p = t.prmNow[a.node];
+                switch (a.field)
+                {
+                    case 0:  p.amount = juce::jlimit (0.0f, 1.0f, v); break;
+                    case 1:  p.variant = juce::jlimit (0, 7, (int) std::lround (v)); break;
+                    case 2:  p.decay = juce::jlimit (0.0f, 1.0f, v); break;
+                    case 3:  p.delayDiv = juce::jlimit (0, 7, (int) std::lround (v)); break;
+                    case 4:  p.delayFb = juce::jlimit (0.0f, 1.0f, v); break;
+                    default: if (a.field >= 10 && a.field < 10 + orbfx::kAuxCount) p.aux[a.field - 10] = (int) std::lround (v); break;
+                }
             }
             if (t.chain != nullptr) t.mod.apply (t.prmNow, n, (float) sr, bpm, rolling, ppq, macros, *t.chain);
             t.barNow = bar;

@@ -53,10 +53,11 @@ export default () => chapter('patch', t('the patch', '패치'),
     table(null,
       [['{{+}} in the column’s head', '열 머리의 {{+}}'], ['a new macro, not wired yet', '새 매크로. 아직 연결 안 됨']],
       [['drag from the dot at its right to a plug-in on the wall', '오른쪽 점에서 패치 위 플러그인으로 드래그'], ['the plug-in’s controls, each with what it reads now. Type to find one by name; click it, or [[↑]] [[↓]] and [[⏎]]', '그 플러그인의 노브가 현재 값과 함께 나옵니다. 이름을 쳐서 찾고, 클릭하거나 [[↑]] [[↓]] 뒤 [[⏎]]']],
+      [['…or to a print', '…또는 프린트로'], ['the print’s own hands: its big one and those of its study, in its units. The macro carries the one picked across its range', '프린트의 손잡이: 큰 손잡이와 스터디의 손잡이가 단위와 함께 나옵니다. 매크로는 고른 손잡이를 그 범위 끝에서 끝까지 움직입니다']],
       [['drag the macro up or down', '매크로를 위아래로 드래그'], ['the plug-in’s knob moves with it; [[⇧]] is finer. With a line drawn, the whole line moves', '플러그인 노브가 같이 움직입니다. [[⇧]]는 미세하게. 라인이 있으면 라인 전체가 움직입니다']],
       [['double-click its name', '이름 더블 클릭'], ['name it by hand', '직접 이름 붙이기']],
       [['click it, then [[⌫]]', '클릭하고 [[⌫]]'], ['the macro goes, with its line', '매크로와 그 라인이 사라집니다']]) +
-    note('A macro turns one knob of one plug-in; wired again, it forgets the first. A plug-in taken off the wall leaves its macro not wired, its line kept. Macros are kept with the project and with a preset. The stereo out has none.', '매크로 하나는 플러그인 하나의 노브 하나를 돌립니다. 다시 연결하면 이전 연결은 풀립니다. 플러그인을 패치에서 지우면 매크로는 연결 안 됨으로 남고 라인은 그대로입니다. 매크로는 프로젝트와 프리셋에 함께 저장됩니다. 스테레오 아웃에는 매크로가 없습니다.') }),
+    note('A macro turns one knob of one plug-in or one hand of one print; wired again, it forgets the first. A plug-in taken off the wall leaves its macro not wired, its line kept. Macros are kept with the project and with a preset. The stereo out has none.', '매크로 하나는 플러그인 하나의 노브 하나, 또는 프린트 하나의 손잡이 하나를 돌립니다. 다시 연결하면 이전 연결은 풀립니다. 플러그인을 패치에서 지우면 매크로는 연결 안 됨으로 남고 라인은 그대로입니다. 매크로는 프로젝트와 프리셋에 함께 저장됩니다. 스테레오 아웃에는 매크로가 없습니다.') }),
 
   page(t('the meter', '미터'), { kind: 'text', cc: 2, txt:
     p('{{meter}} is in the wall’s list like a print. It changes nothing: the sound passes through it as it came, with no lateness, and it shows the sound at the place it is wired. After a print it shows what that print made; on the stereo out’s wall it is the meter of the whole song. Click it for its face, a window of its own that stays over the room.', '{{meter}}는 프린트처럼 목록에서 골라 패치에 올립니다. 소리는 그대로, 지연 없이 통과하고, 배선한 그 지점의 소리를 보여 줍니다. 프린트 뒤에 두면 그 프린트를 거친 소리가, 스테레오 아웃 패치에 두면 곡 전체가 보입니다. 클릭하면 자기 창이 열리고, 창은 화면 위에 떠 있습니다.') +

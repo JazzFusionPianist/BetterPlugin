@@ -23,7 +23,7 @@ const fxAuto = k => ({ p: 100, fx: true, name: 'control', f: v => clamp(v, 0, 1)
    moves nothing */
 const MAC_KEY = /^mac(\d+)$/
 const macroOf = (t, k) => { const m = MAC_KEY.exec(k); return m ? (t.macros || []).find(x => x.id === +m[1]) || null : null }
-const macroIns = (t, m) => m && m.to ? (t.inserts || []).find(x => x.n === m.to.n && !x.out) || null : null
+const macroIns = (t, m) => m && m.to && m.to.n != null ? (t.inserts || []).find(x => x.n === m.to.n && !x.out) || null : null      // (a macro wired to a print has no plug-in: macro.js macroNode)
 const macAuto = k => ({ p: 100, mac: true, name: 'macro', f: v => clamp(v, 0, 1), inv: f => Math.round(clamp(f, 0, 1) * 1000) / 1000, fmt: v => String(Math.round(v * 100)), eng: v => v, now: t => { const m = macroOf(t, k); return m ? m.v : .5 }, step: .01 })
 const AUTO = new Proxy(AUTO_OWN, { get: (own, k) => own[k] || (typeof k === 'string' && FX_KEY.test(k) ? (own[k] = fxAuto(k)) : typeof k === 'string' && MAC_KEY.test(k) ? (own[k] = macAuto(k)) : undefined) })
 /* the line a track shows: the one asked for, while what it is a line for is still there (a send, a plug-in); else its volume */
@@ -62,7 +62,7 @@ function autoAt (t, k, pos) {
 /* what a control reads now: its line where there is one, else where the hand left it */
 const shown = (t, k) => { const v = autoAt(t, k, curPos()); return v == null ? AUTO[k].now(t) : v }
 /* the lines as the app wants them */
-const autoMsg = t => Object.keys(t.autos || {}).filter(k => AUTO[k] && t.autos[k].length && (!FX_KEY.test(k) || (fxIns(t, k) || {}).uid) && (!MAC_KEY.test(k) || (macroIns(t, macroOf(t, k)) || {}).uid)).map(k => Object.assign({ p: AUTO[k].p, pts: autoBent(t.autos[k]).map(([b, v]) => [b, AUTO[k].eng(v)]) }, FX_KEY.test(k) ? { uid: fxIns(t, k).uid, i: fxIndex(k) } : MAC_KEY.test(k) ? { uid: macroIns(t, macroOf(t, k)).uid, i: macroOf(t, k).to.i } : {}))
+const autoMsg = t => Object.keys(t.autos || {}).filter(k => AUTO[k] && t.autos[k].length && (!FX_KEY.test(k) || (fxIns(t, k) || {}).uid) && (!MAC_KEY.test(k) || (macroIns(t, macroOf(t, k)) || {}).uid || (typeof macTable === 'function' && macTable(t, macroOf(t, k))))).map(k => Object.assign({ p: AUTO[k].p, pts: autoBent(t.autos[k]).map(([b, v]) => [b, AUTO[k].eng(v)]) }, FX_KEY.test(k) ? { uid: fxIns(t, k).uid, i: fxIndex(k) } : MAC_KEY.test(k) ? (macroIns(t, macroOf(t, k)) ? { uid: macroIns(t, macroOf(t, k)).uid, i: macroOf(t, k).to.i } : Object.assign({ p: 101, node: macroOf(t, k).to.node }, macTable(t, macroOf(t, k)))) : {}))      // (a macro wired to a print: its hand's line, as a table along the macro — Engine kAutoPrint)
 /* a fader moved by hand: with a line drawn, the whole line moves with it */
 function volSet (t, v) {
   const pts = autoPts(t, 'vol')

@@ -9,13 +9,66 @@
                                                                  the track (ins.n), i the control's place among its controls
    Wired again it forgets what it turned; a plug-in taken off leaves its macro not wired, its line kept. Twice on a macro's
    name: it is named by hand. Chosen, delete takes it away with its line. The macros are the track's: written with the
-   project and with a preset. The stereo out has none. This script is read after wall.js, preset.js and meternode.js. */
+   project and with a preset. The stereo out has none. This script is read after wall.js, preset.js and meternode.js.
+   A macro wires to a print of the wall as well (to: { node, hand, print }): its list is the print's big hand and the hands
+   of its study, and the macro carries the one picked along its range (a wide one along a log), a choice from its first word
+   to its last, a switch at the middle. A line drawn for it is told to the engine as a table of what each place along the
+   macro sets that hand to (Engine kAutoPrint). */
 const MAC = { sel: null, drag: null, list: null, top: 0, keys: false, last: 0, lastId: '', geo: null }
 const MAC_W = 96, MAC_ROW = 72
 if (typeof KEEP_T !== 'undefined' && !KEEP_T.includes('macros')) KEEP_T.push('macros')
 const macTrack = () => (WALL.out ? null : wallTrack())
 const macKey = m => 'mac' + m.id
 const macShown = (t, m) => shown(t, macKey(m))
+/* a macro wired to a print's hand: the print, while it stands on the wall as that print */
+const macroNode = (t, m) => { if (!m || !m.to || m.to.node == null || !t || !t.wall) return null; const node = wallNode(wallOf(t), m.to.node); return node && node.k === m.to.print ? node : null }
+const macroWired = (t, m) => !!(macroIns(t, m) || macroNode(t, m))
+/* the part of a print a hand writes (0 the amount, 1 the flavour, 2 its decay, 3 the division, 4 the feedback, 10 + k aux k) */
+const macField = h => h.h === 'variant' ? 1 : h.h === 'decay' ? 2 : h.h === 'div' ? 3 : h.h === 'fb' ? 4 : /^aux\d$/.test(h.h) ? 10 + +h.h.slice(3) : -1
+const MAC_PART = { 1: 'variant', 2: 'decay', 3: 'delayDiv', 4: 'delayFb' }
+/* a hand a macro can carry: one that writes its own part only (an lfo's shape, a tremolo's drawn cycle write more) */
+function macCarries (node, h) {
+  const f = macField(h)
+  if (f < 0) return false
+  const n0 = wallAsNode(node), one = h.c.kind === 'gauge' ? h.c.set(h.hi, n0) : h.c.kind === 'switch' ? h.c.set(!h.c.get(n0), n0) : h.c.set(Math.min(1, (h.opts || []).length - 1), n0)
+  return Object.keys(one || {}).every(k => k === (f >= 10 ? 'aux' : MAC_PART[f]))
+}
+/* the macro's 0..1 along a hand, and back */
+const macToHand = (h, v) => h.opts ? h.vals[Math.round(clamp(v, 0, 1) * (h.opts.length - 1))] : studyLog(h) ? h.lo * Math.pow(h.hi / h.lo, clamp(v, 0, 1)) : h.lo + clamp(v, 0, 1) * (h.hi - h.lo)
+const macOfHand = (h, x) => h.opts ? Math.max(0, h.vals.indexOf(x)) / Math.max(1, h.opts.length - 1) : clamp(studyFrac(h, x), 0, 1)
+/* what can be wired on a print: its big hand, then each hand of its study a macro can carry */
+function macHands (t, node) {
+  if (!node || node.k === 'plug' || node.k === 'meter' || node.k === 'side') return []
+  const rows = []
+  if (wallHasAmount(node) && !WALL_LEGACY[node.k]) rows.push({ k: 0, key: 'amount', name: wallMain(node.k), text: wallValue(t, Object.assign({}, node, { bare: true })).trim(), v: wallAmount(t, node) })
+  wallHands(node.k, node).forEach(h => { if (macCarries(node, h)) rows.push({ k: rows.length, key: h.c.key, name: h.label, text: wallHandText(node, h), v: macOfHand(h, wallHandNow(node, h)) }) })
+  return rows
+}
+const macHand = (node, key) => key === 'amount' ? null : wallHands(node.k, node).find(h => h.c.key === key) || null
+/* turned: the print's hand goes with it */
+function macPrintSet (t, m, v, live) {
+  const node = macroNode(t, m)
+  if (!node) return
+  if (m.to.hand === 'amount') { wallSetAmount(t, node, clamp(v, 0, 1), live); return }
+  const h = macHand(node, m.to.hand)
+  if (!h) return
+  wallHandSet(node, h, macToHand(h, v)); wallPush(t)
+}
+/* a line drawn for it: what each place along the macro sets the hand to, as the engine takes it (65 places) */
+function macTable (t, m) {
+  const node = macroNode(t, m)
+  if (!node) return null
+  if (m.to.hand === 'amount') return { field: 0, table: [0, 1] }
+  const h = macHand(node, m.to.hand), f = h ? macField(h) : -1
+  if (f < 0) return null
+  const table = []
+  for (let i = 0; i <= 64; i++) {
+    const c = JSON.parse(JSON.stringify(node)), hc = macHand(c, m.to.hand)
+    if (hc) wallHandSet(c, hc, macToHand(hc, i / 64))
+    table.push(f === 1 ? c.variant || 0 : f === 2 ? (c.decay || [.5, .5, .5])[clamp(c.variant || 0, 0, 2)] : f === 3 ? (c.div == null ? 2 : c.div) : f === 4 ? (c.fb == null ? .35 : c.fb) : (c.aux || [])[f - 10] || 0)
+  }
+  return { field: f, table }
+}
 function macroNew (t) {
   t.macros = t.macros || []
   const used = new Set(t.macros.map(m => m.name)), id = 1 + Math.max(0, ...t.macros.map(m => m.id))
@@ -38,6 +91,7 @@ function macroSet (t, m, v) {
   if (pts.length) { const d = v - macShown(t, m); if (!d) return; for (const q of pts) q.v = clamp(Math.round((q.v + d) * 1000) / 1000, 0, 1); resyncSoon() } else m.v = v
   const ins = macroIns(t, m), now = macShown(t, m)
   if (ins) { ins.pv = ins.pv || {}; ins.pv[m.to.i] = now; if (NAT && ins.uid) NAT.call('paramSet', { track: t.id, uid: ins.uid, index: m.to.i, v: now }) }
+  else if (macroNode(t, m)) { macPrintSet(t, m, now, true); if (pts.length) resyncSoon() }
   uiDirty('dock', 'lanes', 'head')
 }
 /* wired to one control of a plug-in on the wall: it takes the control's name and where the control stands now */
@@ -53,6 +107,14 @@ function macroWire (t, m, ins, row) {
   if (typeof fxScale === 'function') fxScale(t, ins, row.k).then(() => uiDirty('dock')).catch(() => {})
   MAC.sel = m.id; resyncSoon(); uiDirty('dock', 'head', 'lanes')
 }
+/* wired to a hand of a print on the wall: it takes the hand's name and where the hand stands now */
+function macroWirePrint (t, m, node, row) {
+  m.to = { node: node.id, hand: row.key, print: node.k }
+  m.name = row.name
+  if (!autoPts(t, macKey(m)).length) m.v = clamp(+row.v || 0, 0, 1)
+  else macPrintSet(t, m, macShown(t, m), false)                                             // (its line says where the hand is from now on)
+  MAC.sel = m.id; resyncSoon(); uiDirty('dock', 'head', 'lanes')
+}
 /* a plug-in's controls: [{ k, name, v, text }] (in a browser, with no app, whatever stands in for one) */
 async function macroControls (t, ins) {
   const rows = NAT && ins.uid ? await NAT.call('params', { track: t.id, uid: ins.uid }) : typeof window.MACRO_STAND_IN === 'function' ? window.MACRO_STAND_IN(ins) : []
@@ -60,7 +122,8 @@ async function macroControls (t, ins) {
 }
 /* what a macro reads: in the plug-in's own words when they are known, else in hundredths */
 function macroText (t, m) {
-  const v = macShown(t, m), ins = macroIns(t, m), sc = ins && ins.ps && ins.ps[m.to.i]
+  const v = macShown(t, m), ins = macroIns(t, m), sc = ins && ins.ps && ins.ps[m.to.i], node = macroNode(t, m)
+  if (node) { if (m.to.hand === 'amount') return wallValue(t, Object.assign({}, node, { bare: true })).trim(); const h = macHand(node, m.to.hand); return h ? wallHandText(node, h) : String(Math.round(v * 100)) }      // (a print says it in its own units)
   return sc && Array.isArray(sc.texts) && sc.texts.length > 1 ? String(sc.texts[Math.round(v * (sc.texts.length - 1))]).toLowerCase() : String(Math.round(v * 100))
 }
 
@@ -71,11 +134,11 @@ function macroPlugAt (t, p) {
   if (!g || !w) return null
   const v = wallView(w, g)
   let best = null, bd = 1e9
-  for (const node of w.nodes) { if (node.k !== 'plug' || !node.ins) continue; const s = macScreen(v, node), d = Math.hypot(s.x - p.x, s.y - p.y); if (d < 34 * v.z + 8 && d < bd) { bd = d; best = node } }
+  for (const node of w.nodes) { if (node.k === 'plug' ? !node.ins : !macHands(t, node).length) continue; const s = macScreen(v, node), d = Math.hypot(s.x - p.x, s.y - p.y); if (d < 34 * v.z + 8 && d < bd) { bd = d; best = node } }      // (a plug-in, or a print with a hand to turn)
   return best
 }
 function macroKnob (cx, cy, t, m, sel, turning) {
-  const r = 15, v = macShown(t, m), a0 = Math.PI * .75, a1 = a0 + Math.PI * 1.5 * v, wired = !!macroIns(t, m)
+  const r = 15, v = macShown(t, m), a0 = Math.PI * .75, a1 = a0 + Math.PI * 1.5 * v, wired = macroWired(t, m)
   const arc = (from, to, rr) => `M${n(cx + Math.cos(from) * rr)} ${n(cy + Math.sin(from) * rr)}A${rr} ${rr} 0 ${to - from > Math.PI ? 1 : 0} 1 ${n(cx + Math.cos(to) * rr)} ${n(cy + Math.sin(to) * rr)}`
   let s = Cc(cx, cy, r, { fill: K3, stroke: INK, sa: sel ? .7 : .3 }) + P(arc(a0, a0 + Math.PI * 1.5, r + 4), { stroke: INK, sa: .14, sw: 2, cap: 'round' })
   if (v > .005) s += P(arc(a0, a1, r + 4), { stroke: INK, sa: wired ? .9 : .4, sw: 2, cap: 'round' })
@@ -83,7 +146,7 @@ function macroKnob (cx, cy, t, m, sel, turning) {
   s += Cc(cx + r + 10, cy, 2.2, { fill: INK })
   s += T(cx, cy + r + 16, fit(asGiven(m.name), MAC_W - 10, 10, 500), { size: 10, w: 500, anchor: 'middle', a: wired ? 1 : .6 })
   s += turning ? T(cx, cy + r + 28, fit(asGiven(macroText(t, m)), MAC_W - 10, 9), { size: 9, a: .8, anchor: 'middle' })
-    : T(cx, cy + r + 28, wired ? fit(asGiven(m.to.plug), MAC_W - 10, 9) : 'not wired', { size: 9, a: .42, anchor: 'middle', it: !wired })
+    : T(cx, cy + r + 28, wired ? fit(asGiven(m.to.plug || m.to.print), MAC_W - 10, 9) : 'not wired', { size: 9, a: .42, anchor: 'middle', it: !wired })
   if (sel) s += R(cx - MAC_W / 2 + 6.5, cy - r - 8.5, MAC_W - 13, 2 * r + 46, { rx: 3, stroke: INK, sa: .5, dash: '2 3' })
   return s
 }
@@ -100,7 +163,7 @@ function macroColumn (y, h) {
   /* the dashed lines to what each turns, under the column and over the wall */
   let links = ''
   shownMs.forEach((m, k) => {
-    const ins = macroIns(t, m), node = ins && w.nodes.find(q => q.k === 'plug' && q.ins === ins)
+    const ins = macroIns(t, m), node = ins ? w.nodes.find(q => q.k === 'plug' && q.ins === ins) : macroNode(t, m)
     if (!node || (MAC.drag && MAC.drag.k === 'wire' && MAC.drag.id === m.id)) return
     const b0 = macScreen(v, node), a = { x: cx + 25, y: cyOf(k) }, b = { x: b0.x - 34 * v.z, y: b0.y - 18 * v.z }
     links += P(`M${n(a.x)} ${n(a.y)}C${n(a.x + 90)} ${n(a.y)} ${n(b.x - 90)} ${n(b.y)} ${n(b.x)} ${n(b.y)}`, { stroke: INK, sa: .22, dash: '3 4' }) + Cc(b.x, b.y, 2.2, { fill: INK, fa: .5 })
@@ -150,17 +213,22 @@ function macroList (t, w, v, g, y, H) {
   s += R(lx + 10.5, ly + 30.5, lw - 21, 21, { rx: 1.5, fill: K0, stroke: INK, sa: .22 }) + (L.q ? T(lx + 18, ly + 45, asGiven(L.q), { size: 10, a: .9 }) + P(`M${n(lx + 19 + tw(asGiven(L.q), 10))} ${ly + 35}V${ly + 48}`, { stroke: INK, sa: .7 }) : T(lx + 18, ly + 45, L.busy ? 'asking the plug-in' : 'find a control', { size: 10, a: .38, it: true }))
   if (!L.busy && !rows.length) s += T(lx + 12, ly + 60 + 14.5, L.rows.length ? 'none by that name' : 'it has no controls to turn', { size: 10, a: .42, it: true })
   for (let i = L.top; i < Math.min(rows.length, L.top + shownN); i++) {
-    const r = rows[i], yy = ly + 60 + (i - L.top) * rh, on = m.to && m.to.i === r.k && macroIns(t, m) === L.ins
+    const r = rows[i], yy = ly + 60 + (i - L.top) * rh, on = L.ins ? m.to && m.to.i === r.k && macroIns(t, m) === L.ins : m.to && m.to.node === L.node && m.to.hand === r.key
     if (i === L.hover) s += R(lx + 1, yy, lw - 2, rh, { fill: INK, fa: .06 })
     s += T(lx + 12, yy + 14.5, fit(asGiven(r.name), lw - 96, 10.5, on ? 500 : 400), { size: 10.5, w: on ? 500 : 400, a: i === L.hover || on ? 1 : .78 }) + T(lx + lw - 12, yy + 14.5, fit(asGiven(r.text.toLowerCase()), 70, 9.5), { size: 9.5, a: .46, anchor: 'end' })
     s += hit(lx + 1, yy, lw - 2, rh, 'macro', ` data-k="row" data-r="${i}"`)
   }
   if (rows.length > shownN) { const th = shownN * rh, bh = Math.max(14, th * shownN / rows.length); s += R(lx + lw - 5, ly + 60 + (th - bh) * L.top / (rows.length - shownN), 2, bh, { rx: 1, fill: INK, fa: .3 }) }
-  s += hline(lx + 1, lx + lw - 1, ly + 60 + shownN * rh + 4, .14) + T(lx + 12, ly + lh - 9, L.busy ? '' : `${L.rows.length} controls`, { size: 9, a: .42 })
+  s += hline(lx + 1, lx + lw - 1, ly + 60 + shownN * rh + 4, .14) + T(lx + 12, ly + lh - 9, L.busy ? '' : `${L.rows.length} ${L.ins ? 'controls' : 'hands'}`, { size: 9, a: .42 })
   MAC.list.geo = { lx, ly, lw, lh }
   return s
 }
 async function macroOpenList (t, m, node) {
+  if (node.k !== 'plug') {                                                              // a print: its hands, as they read now
+    const rows = macHands(t, node), now = m.to && m.to.node === node.id ? rows.findIndex(r => r.key === m.to.hand) : -1
+    MAC.list = { t: t.id, m: m.id, node: node.id, ins: null, plug: node.k, rows, q: '', hover: Math.max(0, now), top: 0, busy: false }
+    uiDirty('dock'); return
+  }
   MAC.list = { t: t.id, m: m.id, node: node.id, ins: node.ins, plug: String(node.ins.name || 'plug-in').toLowerCase(), rows: [], q: '', hover: 0, top: 0, busy: true }
   uiDirty('dock')
   const rows = await macroControls(t, node.ins)
@@ -172,6 +240,8 @@ async function macroOpenList (t, m, node) {
 }
 function macroPick (t, i) {
   const L = MAC.list, rows = L ? macroRows() : [], r = rows[i], m = L && (t.macros || []).find(x => x.id === L.m)
+  const node = L && !L.ins ? wallNode(wallOf(t), L.node) : null
+  if (node && r && m) { macroWirePrint(t, m, node, r); MAC.list = null; return }
   if (!r || !m || !t.inserts.includes(L.ins)) { MAC.list = null; uiDirty('dock'); return }
   macroWire(t, m, L.ins, r)
   MAC.list = null
@@ -235,7 +305,7 @@ function macroRename (t, m) {
     if (!d) return up0(e)
     MAC.drag = null
     const t = macTrack(), m = t && (t.macros || []).find(x => x.id === d.id)
-    if (t && m && d.k === 'wire') { const node = macroPlugAt(t, pt(e)); if (node && node.ins && !node.ins.out) macroOpenList(t, m, node) }
+    if (t && m && d.k === 'wire') { const node = macroPlugAt(t, pt(e)); if (node && (node.k !== 'plug' || (node.ins && !node.ins.out))) macroOpenList(t, m, node) }
     uiDirty('dock')
   }
   onWheel = function (e) {

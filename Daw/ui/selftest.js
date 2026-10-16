@@ -1967,6 +1967,33 @@ async function runSelfTest (mode) {
     res.ok = !!(res.late > 48 * 5 && !mine(res.notHeard).length && mine(res.heard).some(k => k.node === 0 && k.ms > 5) && res.heardLate === 0 && res.printIs && res.printIs.alike < .6 && mine(res.after).length === 1 && !mine(res.off).length && res.offLate === res.late)
     return res
   })
+  /* a macro of the track wired to a print's hand (ui/macro.js): a line drawn for it is played onto that hand by the engine
+     (Engine kAutoPrint) — the gain's amount held at nothing by the line is silence, at its rest the sound as it was */
+  await step('macroPrint', async () => {
+    const t = S.tracks.find(x => sounding(x) && /bass|keys|pad|piano|organ|string|synth|guitar|gtr|hum|vox/i.test(x.name)) || S.tracks.find(sounding)
+    if (!t) return { skipped: 'no track with sound on it' }
+    const a0 = firstBar(t), back = allHeard(), was = { wall: t.wall ? copy(wallSaved(t)) : null, patch: copy(t.patch), macros: copy(t.macros || []), autos: copy(t.autos || {}) }, res = { track: t.name }
+    const print = async name => { const b = await NAT.call('bounce', { kind: 'stems', a0, a1: a0 + 2, modes: ['wet'], tracks: [{ id: t.id, name }], folder: 'macro print', name, fmt: 'wav', rate: 0, bits: 24 }); await sleep(120); return b && b.ok ? `${b.dir}/${name}.wav` : null }
+    const level = async (dry, f) => { const r = await NAT.call('testRatio', { a: dry, b: f, windows: 8 }); const v = ((r && r.ratio) || []).filter(x => x >= 0); return v.length ? +(v.reduce((p, q) => p + q, 0) / v.length).toFixed(3) : null }      // (silence is 0: a window counts when the dry print sounds in it)
+    for (const k of PRINTS3) setPrint(t, k, 0)
+    const w = wallOf(t)
+    w.nodes = [Object.assign(wallNew('gain', 200, 0), { id: 0 })]; w.wires = [{ from: WALL_IN, to: 0, gain: 1, port: 0 }, { from: 0, to: WALL_OUT, gain: 1, port: 0 }]
+    t.macros = []; const m = macroNew(t); macroWirePrint(t, m, w.nodes[0], { key: 'amount', name: 'amount', v: .75 })
+    WALL.sent.delete(t.id); await wallPush(t); await natSession(); await sleep(200)
+    const dry = await print('as it was')
+    t.autos = Object.assign({}, was.autos, { ['mac' + m.id]: [{ id: ++PID, b: 0, v: 0 }, { id: ++PID, b: a0 + 4, v: 0 }] })
+    await natSession(); await sleep(200)
+    res.sent = (autoMsg(t).find(x => x.p === 101) || {}).field
+    res.nothing = await level(dry, await print('held at nothing'))
+    t.autos = Object.assign({}, was.autos, { ['mac' + m.id]: [{ id: ++PID, b: 0, v: .75 }, { id: ++PID, b: a0 + 4, v: .75 }] })
+    await natSession(); await sleep(200)
+    res.rest = await level(dry, await print('held at its rest'))
+    t.macros = was.macros; t.autos = was.autos
+    if (was.wall) t.wall = was.wall; else delete t.wall
+    t.patch = was.patch; WALL.sent.delete(t.id); pushTrack(t); wallPush(t); await natSession(); back(); await sleep(300)
+    res.ok = res.sent === 0 && res.nothing != null && res.nothing < .01 && res.rest != null && Math.abs(res.rest - 1) < .05
+    return res
+  })
   await step('wallWays', async () => {
     if (typeof wallOf !== 'function') return { skipped: 'this page has no wall' }
     const t = S.tracks.find(sounding)
